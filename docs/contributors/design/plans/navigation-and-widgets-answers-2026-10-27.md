@@ -2700,8 +2700,8 @@ Overnight, nothing to production; staging only. Then a round from code-debt.md, 
 
 1. D460's Status to built, its clauses read back against the code.
 2. Leaving the discovery logs no "signalling connection ended; dialling again" when no dial follows.
-3. A Synology rehearsal: the arm64 v0.3.3 image under emulation, from `deploy/synology`'s compose
-   file, with no Landlock as on DSM 7's kernel 4.4: setup code, enrolment, claim, a library, sign-in
+3. A Synology rehearsal: the arm64 v0.3.3 image under emulation, from `deploy/omv/compose.yaml`
+   (install.md gives Synology the same file), with no Landlock as on DSM 7's kernel 4.4: setup code, enrolment, claim, a library, sign-in
    at orpheum.dev, a film plays. What emulation cannot show (the DS218's kernel, the community
    Container Manager script) is left to the tester.
 4. install.md walked as a newcomer, OMV and Synology: invitation, account, server key, Discovery,
@@ -2728,3 +2728,23 @@ Instead, checked without it:
   although the kernel would also need upgrading for Landlock. Filed here, not changed.
 - Left to the tester: the real kernel, Container Manager from the community script, and the speed of
   software transcoding on the RTD1296's four Cortex-A53 cores (expect direct play to be the good case).
+
+**Items 2, 1 and 4, done (2026-11-09):** "fix(discovery): a Leave's own ending of the signalling
+connection is no warning"; "docs(decisions): D460 is built, its clauses read back against the code";
+"docs(users): install.md walked as a newcomer, from the invitation to watching away from home". The
+walk found the orpheum.cc account page sending people to System → Discovery, which the server heads
+Remote access: fixed in orpheum-connect, "fix(panel): the account page names the server's Remote
+access section, as the server heads it" (for the owner to apply and deploy to production's discovery).
+
+**For the owner, from item 4:**
+1. The Synology screen labels in install.md (Container Manager's wizard, the DSM firewall) are written
+   from DSM 7.2 as known, not seen on a device; the Synology tester is the first check.
+2. A `.env` file is the hardest step on a Synology (File Station makes no text file; a Mac will not
+   save a name beginning with a dot). The doc's way: save `env.txt`, upload, rename. A Synology
+   compose file needing no `.env` would remove the step: yours to call.
+3. A mistyped realm cannot be changed on orpheum.cc; the doc can only say to choose it with care.
+4. The server's setup page names only OpenMediaVault's log path for the code (`en-people.ts`), not
+   Synology's.
+5. From item 1's read-back: with `LIVE` committed, `TestSteps_KeepTheMigrationWindow` accepts any set
+   of steps; a fold or an edit of a committed step is now stopped by the checksum test and the
+   pre-edit hook alone, as designed.
