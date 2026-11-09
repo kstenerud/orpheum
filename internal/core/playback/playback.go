@@ -30,24 +30,7 @@ var (
 	// ErrCannotConvert is a file its device cannot play as it is that cannot start on its ladder
 	// either: it has no picture, or neither a known length nor keyframes to cut it by (D344 §5).
 	ErrCannotConvert = errors.New("this file cannot be converted for this device")
-	// ErrTooSlowToConvert is a file its device cannot play as it is, nor its picture copied, whose
-	// node encodes even the lowest quality slower than playback (D457): converted, it would stall
-	// over and over.
-	ErrTooSlowToConvert = errors.New("this file's node converts too slowly to play it on this device")
 )
-
-// notOnLadderTooSlow is why a playback is not on its ladder when its film's node encodes too slowly
-// for the only pictures its player could play (D457).
-const notOnLadderTooSlow = "tooSlowToEncode"
-
-// cannotConvertBecause is the refusal of a playback its device cannot play as it is that is not on
-// its ladder for why: ErrTooSlowToConvert when its node encodes too slowly, else ErrCannotConvert.
-func cannotConvertBecause(notOnLadderBecause string) error {
-	if notOnLadderBecause == notOnLadderTooSlow {
-		return ErrTooSlowToConvert
-	}
-	return ErrCannotConvert
-}
 
 // Settings are the settings playback reads.
 type Settings interface {
