@@ -107,23 +107,33 @@ newer version), then **Pull** and **Up**. To stop it, **Down**; its data stays i
 
 ### Synology
 
-On DSM 7.2 or newer with Container Manager:
+On DSM 7.2 or newer with Container Manager. The paths below are examples: a Synology names each
+folder after the volume it is on and the name you gave it, so read your own before you type them.
 
-1. Make a folder for the server's data, `/volume1/docker`, in **File Station**.
-2. **Container Manager → Project → Create**: name it `orpheum`, its path a folder of its own, and
-   paste [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) as the file.
-3. Give it a `.env` beside the file:
+1. **Your media folder's path.** In **File Station**, right-click the shared folder that holds your
+   films and series and choose **Properties**: **Location** is its path, such as `/volume1/video`
+   or `/volume2/Media`. Write it down exactly, capitals included.
+2. **A folder for the server's data.** In **File Station**, make a shared folder for apps if you have
+   none (`docker` is usual), and read its **Location** the same way, such as `/volume1/docker`.
+3. **Your user's number.** Turn on SSH in **Control Panel → Terminal & SNMP**, sign in with
+   `ssh <your user>@<the Synology's address>`, and run `id`. It prints `uid=1026(<your user>)
+   gid=100(users) …`: the number after `uid=` and the one after `gid=`. This user must be able to read
+   the media folder (**Control Panel → Shared Folder → Edit → Permissions**). Turn SSH off again
+   after if you like.
+4. **The project.** **Container Manager → Project → Create**: name it `orpheum`, give it a new folder
+   inside the data folder (`/volume1/docker/orpheum-project`), and paste
+   [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) as the file.
+5. **Its settings.** Beside that file, in the project's folder, put a file named `.env` holding your
+   own values from steps 1–3 (make it on your computer and upload it with **File Station**):
 
    ```
-   PATH_TO_APPDATA=/volume1/docker
-   ORPHEUM_MEDIA=/volume1/video
-   APPUSER_PUID=1026
-   APPUSER_PGID=100
+   PATH_TO_APPDATA=<the data folder from step 2>
+   ORPHEUM_MEDIA=<the media folder from step 1>
+   APPUSER_PUID=<the uid from step 3>
+   APPUSER_PGID=<the gid from step 3>
    ```
 
-   `APPUSER_PUID` is your user's number, which `id` prints over SSH (the first user is usually
-   1026); 100 is the `users` group.
-4. Build and start it, then follow [the first admin](#the-first-admin).
+6. Build and start it, then follow [the first admin](#the-first-admin).
 
 Synology's older kernels lack Landlock: the server runs, and the System page says which kernel
 brings it. The DS218 (not the DS218+) has no official Container Manager; a community script installs
