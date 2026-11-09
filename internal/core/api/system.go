@@ -627,7 +627,7 @@ func queueBodies(health []jobs.KindHealth) []QueueKindBody {
 	bodies := make([]QueueKindBody, 0, len(health))
 	for _, kind := range health {
 		body := QueueKindBody{
-			Kind: string(kind.Kind), QueuedCount: kind.QueuedCount, FailedLastDayCount: kind.FailedCount,
+			Kind: saidValue(string(kind.Kind)), QueuedCount: kind.QueuedCount, FailedLastDayCount: kind.FailedCount,
 		}
 		if !kind.OldestQueuedAt.IsZero() {
 			body.OldestQueuedAt = new(kind.OldestQueuedAt.UnixMilli())

@@ -319,8 +319,8 @@ func TestSystem_ListsEachNodesDevicesAndAnAdminSetsADevicesReaderLimit(t *testin
 	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
-// The System page shows how the queue is doing, by kind: queued, the oldest of them, and failed in
-// the last day (D233 §8).
+// The System page shows how the queue is doing, by kind, said in camelCase as a job's kind is: queued,
+// the oldest of them, and failed in the last day (D233 §8).
 func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -334,7 +334,7 @@ func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
 		}
 	}
 	system := harness.system(t, admin)
-	if len(system.Body.Queue) != 1 || system.Body.Queue[0].Kind != string(jobs.KindReadThrough) ||
+	if len(system.Body.Queue) != 1 || system.Body.Queue[0].Kind != "readThrough" ||
 		system.Body.Queue[0].QueuedCount != 2 || system.Body.Queue[0].OldestQueuedAt == nil ||
 		*system.Body.Queue[0].OldestQueuedAt != queuedAt.UnixMilli() {
 		t.Errorf("the queue's health = %+v; want two measurements queued since %v", system.Body.Queue, queuedAt)
@@ -361,7 +361,7 @@ func TestSystem_CountsFailedJobsBackAsFarAsTheSettingSays(t *testing.T) {
 	harness.clock.Advance(2 * time.Hour)
 	failedOf := func() int64 {
 		for _, kind := range harness.system(t, admin).Body.Queue {
-			if kind.Kind == string(jobs.KindReadThrough) {
+			if kind.Kind == "readThrough" {
 				return kind.FailedLastDayCount
 			}
 		}

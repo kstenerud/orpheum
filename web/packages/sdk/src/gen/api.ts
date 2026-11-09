@@ -4159,7 +4159,7 @@ export interface components {
              */
             episodeCount: number;
             isAwaitingFetch?: boolean;
-            /** @description What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate) */
+            /** @description What order it is: aired, or a TMDB group's type (dvd, absolute, digital, storyArc, production, tv, airedAlternate) */
             kind?: string;
             label?: string;
             /** Format: int64 */

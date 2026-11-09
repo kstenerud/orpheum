@@ -272,6 +272,20 @@ func (harness testHarness) wantSeriesOrderingsUnreached(t *testing.T, admin stri
 // Choosing an episode group no one has fetched yet keeps the choice and queues its fetch, and the
 // page says it waits for it, holding none of the series' episodes until then (episode-orderings.md
 // §3.4, §4; D170: a first fetch, on a person's act).
+// An ordering's kind is said in camelCase, as every value the API sends is (the owner, 2026-11-09),
+// though the database keeps a TMDB group's type as it was written (story_arc).
+func TestOrderings_AnOrderingsKindIsSaidInCamelCase(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE ordering SET kind = 'story_arc' WHERE id = 2")
+	if series := harness.do(t, http.MethodGet, "/items/20", user, nil); !strings.Contains(series.body,
+		`"name":"tmdb:dvd","kind":"storyArc"`) {
+		t.Errorf("the series = %s; want the ordering's kind said storyArc", series.body)
+	}
+}
+
 func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

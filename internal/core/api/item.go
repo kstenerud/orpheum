@@ -266,7 +266,8 @@ func (server *Server) seriesBody(
 	body.Orderings = make([]OrderingBody, 0, len(series.Orderings))
 	for _, ordering := range series.Orderings {
 		body.Orderings = append(body.Orderings, OrderingBody{
-			Name: ordering.Name, Kind: ordering.Kind, Label: ordering.Label, ListedCount: ordering.ListedCount,
+			Name: ordering.Name, Kind: saidValue(ordering.Kind), Label: ordering.Label,
+			ListedCount:  ordering.ListedCount,
 			EpisodeCount: ordering.EpisodeCount, IsAwaitingFetch: ordering.IsAwaitingFetch,
 		})
 	}
