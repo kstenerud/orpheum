@@ -228,6 +228,12 @@
 //     viewer header, no better than none: a token no one was given, one off a live one, a signed-out,
 //     lapsed or removed person's session, or a device secret.
 //     TestCredentials_EveryOperationAnswersAWrongCredentialNoBetterThanNone.
+//   - The session socket acts on no message whose v is not together.ProtocolVersion: it is
+//     answered rejected, versionMismatch (together.VersionRefusal), and a hello of another version
+//     attaches the device to nothing (cut-a §5.1). The core's version is the web client's.
+//     TestTogether_AHelloOfAnotherVersionIsRefusedAndAttachesNothing,
+//     TestTogether_AMessageOfAnotherVersionIsRefusedAndActedOnNot and
+//     TestTogether_TheCoreAndTheClientSpeakVersion3.
 //
 // # Read before changing
 //

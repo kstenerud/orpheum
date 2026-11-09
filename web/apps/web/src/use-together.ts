@@ -11,11 +11,13 @@ import {
   type TellsPlaybackAlone,
   type TellsStanding,
   type TogetherConnection,
+  type TogetherEndReason,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { ownScriptOf } from "./app-update.ts";
+import { forgetProtocolVersionReload, reloadsForProtocolVersion } from "./newer-client.ts";
 import { useServices } from "./services.tsx";
 
 /**
@@ -88,7 +90,31 @@ export function useTogether(device: TogetherDevice): {
     connection?.subscribe ?? subscribeToNothing,
     connection?.snapshot ?? noSnapshot,
   );
+  useReloadsForProtocolVersion(
+    snapshot?.status === "connected",
+    snapshot?.status === "ended" ? snapshot.endReason : undefined,
+  );
   return { connection, snapshot };
+}
+
+/**
+ * Reloads the page, once in the tab, as the core refuses a Watch Together connection's messages for
+ * their version (endReason versionMismatch), for the client that speaks the core's (cut-a §5.1);
+ * forgets that it did once a connection is welcomed (newer-client.ts reloadsForProtocolVersion).
+ * Refused again after that reload, the end goes where every other end goes, which says the page is
+ * older than the server.
+ */
+export function useReloadsForProtocolVersion(
+  isConnected: boolean,
+  endReason: TogetherEndReason | undefined,
+): void {
+  useEffect(() => {
+    if (isConnected) {
+      forgetProtocolVersionReload();
+    } else if (endReason === "versionMismatch") {
+      reloadsForProtocolVersion();
+    }
+  }, [isConnected, endReason]);
 }
 
 /**

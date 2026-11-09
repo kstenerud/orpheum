@@ -107,7 +107,7 @@ export function fakeTogetherServer(): FakeTogetherServer {
     drop: () => closeWith(last(), 1006),
     say: (message) =>
       served(() => {
-        device().onMessage(JSON.stringify({ v: 2, ...message }));
+        device().onMessage(JSON.stringify({ v: 3, ...message }));
       }),
   };
 }

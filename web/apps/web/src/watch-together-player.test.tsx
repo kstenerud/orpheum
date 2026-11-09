@@ -62,7 +62,7 @@ describe("the host's player in a session (D246 §5)", () => {
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     expect(server.heard).toContainEqual({
-      v: 2,
+      v: 3,
       type: "command",
       command: "changeItem",
       fileId: 5,

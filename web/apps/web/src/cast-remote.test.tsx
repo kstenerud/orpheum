@@ -246,9 +246,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     ]);
     await click(tracks[1]);
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
-      { v: 2, type: "sound", sound: { kind: "boost", isOn: true } },
-      { v: 2, type: "sound", sound: { kind: "levelling", isOn: false } },
-      { v: 2, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
+      { v: 3, type: "sound", sound: { kind: "boost", isOn: true } },
+      { v: 3, type: "sound", sound: { kind: "levelling", isOn: false } },
+      { v: 3, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
     ]);
 
     // The receiver says how it sounds after; a film with no boosted mix offers no boost.
@@ -281,8 +281,8 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(page.textContent).toContain("Sound there: in step with the picture");
     await click(buttonWithText(page, "Sound 50 ms later"));
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
-      { v: 2, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
-      { v: 2, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
+      { v: 3, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
+      { v: 3, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
     ]);
   });
 
@@ -321,7 +321,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(buttonNamed(page, "Sound on")).toBeDefined();
     await enter(slider(), "40");
     const channel = (level: number, isMuted: boolean): Record<string, unknown> => ({
-      v: 2,
+      v: 3,
       type: "sound",
       sound: { kind: "channel", channel: "film", level, isMuted },
     });

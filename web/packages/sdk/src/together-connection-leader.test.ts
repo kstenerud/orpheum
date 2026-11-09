@@ -55,7 +55,7 @@ function welcomed(roster: readonly unknown[]): {
   socket.listeners().onOpen();
   socket.listeners().onMessage(
     JSON.stringify({
-      v: 2,
+      v: 3,
       type: "welcome",
       seq: 4,
       memberId: 7,
@@ -137,7 +137,7 @@ describe("a session's leader, as its roster says (D371 §1)", () => {
     const { connection, socket } = welcomed([]);
     socket.listeners().onMessage(
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: "group",
         seq: 5,
         group: {
@@ -225,10 +225,10 @@ describe("a film's sound between a player and its remote", () => {
     connection.chooseSound({ kind: "audioTrack", streamId: 2 });
     connection.chooseSound({ kind: "channel", channel: "film", level: 0.3, isMuted: false });
     expect(socket.sent.filter((each) => each["type"] === "sound")).toEqual([
-      { v: 2, type: "sound", sound: { kind: "boost", isOn: true } },
-      { v: 2, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
+      { v: 3, type: "sound", sound: { kind: "boost", isOn: true } },
+      { v: 3, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
       {
-        v: 2,
+        v: 3,
         type: "sound",
         sound: { kind: "channel", channel: "film", level: 0.3, isMuted: false },
       },
@@ -237,7 +237,7 @@ describe("a film's sound between a player and its remote", () => {
     const hear = (sent: unknown): void => {
       socket
         .listeners()
-        .onMessage(JSON.stringify({ v: 2, type: "sound", fromDeviceId: 3, sound: sent }));
+        .onMessage(JSON.stringify({ v: 3, type: "sound", fromDeviceId: 3, sound: sent }));
     };
     hear({ kind: "levelling" });
     hear({ kind: "audioTrack", streamId: 5 });
@@ -278,7 +278,7 @@ describe("a film's sound between a player and its remote", () => {
     const said = (): unknown[] => socket.sent.filter((each) => each["type"] === "playback");
     expect(said()).toEqual([
       {
-        v: 2,
+        v: 3,
         type: "playback",
         playback: {
           delivery: "converted",
@@ -287,7 +287,7 @@ describe("a film's sound between a player and its remote", () => {
         },
       },
       {
-        v: 2,
+        v: 3,
         type: "playback",
         playback: {
           delivery: "converted",
@@ -366,15 +366,15 @@ describe("what a film shows, between a player and its remote", () => {
     connection.choosePicture({ kind: "subtitles", key: undefined });
     connection.choosePicture({ kind: "original" });
     expect(socket.sent.filter((each) => each["type"] === "picture")).toEqual([
-      { v: 2, type: "picture", picture: { kind: "subtitles", key: "s3" } },
-      { v: 2, type: "picture", picture: { kind: "subtitles" } },
-      { v: 2, type: "picture", picture: { kind: "original" } },
+      { v: 3, type: "picture", picture: { kind: "subtitles", key: "s3" } },
+      { v: 3, type: "picture", picture: { kind: "subtitles" } },
+      { v: 3, type: "picture", picture: { kind: "original" } },
     ]);
     const before = connection.snapshot();
     const hear = (sent: unknown): void => {
       socket
         .listeners()
-        .onMessage(JSON.stringify({ v: 2, type: "picture", fromDeviceId: 3, picture: sent }));
+        .onMessage(JSON.stringify({ v: 3, type: "picture", fromDeviceId: 3, picture: sent }));
     };
     hear({ kind: "subtitles", key: "f7" });
     hear({ kind: "subtitles" }); // the server omits the key of subtitles off

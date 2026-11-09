@@ -35,7 +35,7 @@ const monotonicMs = (): number => 1000;
 
 /** A welcome of member 7's device 9, its session paused. */
 const welcome = {
-  v: 2,
+  v: 3,
   type: "welcome",
   seq: 4,
   sessionId: 1,
@@ -75,6 +75,46 @@ describe("a device's hello and welcome (cut-a §5.1)", () => {
     );
     expect(connection.snapshot().rights).toEqual({ canPlayPause: true, canSeek: false });
   });
+
+  it("says version 3 in its hello, and ends, connecting no more, when the core refuses it for its version (cut-a §5.1)", () => {
+    vi.useFakeTimers();
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "membership",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(sockets.sent[0]).toMatchObject({ v: 3, type: "hello" });
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({ v: 3, type: "rejected", code: "versionMismatch" }),
+    );
+    sockets.opened[0]!.onClose(1008);
+    expect(connection.snapshot()).toMatchObject({ status: "ended", endReason: "versionMismatch" });
+    vi.advanceTimersByTime(reconnectWaitMs(5));
+    expect(sockets.opened).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it("goes on after a refusal of another code, connected (cut-a §5.2)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "membership",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({ v: 3, type: "rejected", basedOnSeq: 4, code: "invalidRequest" }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      status: "connected",
+      lastRejectionCode: "invalidRequest",
+    });
+  });
 });
 
 describe("what a device's page waits on (the owner's session, 2026-10-18)", () => {
@@ -111,7 +151,7 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
     expect(standings().at(-1)).toBe("");
     sockets.opened[1]!.onMessage(
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: "roster",
         roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video", status: "dancing" }] }],
       }),

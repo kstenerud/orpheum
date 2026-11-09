@@ -591,11 +591,13 @@ class SessionConnection
     this.#seq = seqOf(message) ?? this.#seq;
     const before = this.#snapshot;
     const nowMs = this.#now();
-    this.#change(afterMessage(before, message, nowMs));
+    const after = afterMessage(before, message, nowMs);
+    this.#change(after);
     this.#tellPlacing(message, before, nowMs);
     if (message.type === "welcome") {
       this.#welcomed();
-    } else if (message.type === "ended") {
+    } else if (after.status === "ended") {
+      // ended by the server, or refused for the protocol's version (versionMismatch)
       this.#stopTimers();
       this.#socket?.close();
     }
@@ -692,7 +694,7 @@ class SessionConnection
  * every change and every minute, relays voice signalling, and connects again with a growing wait
  * after a drop, or at once as its page is shown again on a socket that does not answer within
  * shownAnswerWithinMs, until the session ends for it or it is closed. A hello the server refuses before
- * any welcome ends it as "gone". Every number it sends is whole, as the server reads them.
+ * any welcome ends it as "gone"; a message refused for its version, "versionMismatch". Every number it sends is whole, as the server reads them.
  */
 export function createTogetherConnection(
   options: TogetherConnectionOptions,

@@ -4,8 +4,17 @@ import { apiPrefix } from "./client.ts";
 import type { PictureChoice, PlaybackPicture, SubtitleOption } from "./playback-picture.ts";
 import type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
 
-/** The version of the session WebSocket's messages, every message's v (cut-a §5.1). */
-export const togetherProtocolVersion = 2;
+/**
+ * The version of the session WebSocket's messages, every message's v (cut-a §5.1). The core refuses
+ * a message of another, rejected with versionMismatchCode, and acts on nothing in it.
+ */
+export const togetherProtocolVersion = 3;
+
+/**
+ * The code the core rejects a message of another version than its own with: this page is older or
+ * newer than the core, whose client a reload fetches. The connection ends on it ("versionMismatch").
+ */
+export const versionMismatchCode = "versionMismatch";
 
 /**
  * The group's play state (watch-together.md, Sync): Waiting is to play, standing where its leader is
@@ -171,7 +180,12 @@ export type TogetherEndReason =
   | "receiverGone"
   | "declined"
   | "unanswered"
-  | "sessionEnded";
+  | "sessionEnded"
+  /**
+   * Said by no server: the core refused this page's messages for their version (versionMismatchCode),
+   * so the page is older or newer than the core, and a reload fetches the client it speaks with.
+   */
+  | "versionMismatch";
 
 /** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
 export interface SyncTuning {

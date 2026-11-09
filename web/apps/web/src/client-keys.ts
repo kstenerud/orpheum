@@ -21,6 +21,8 @@ const clientKeys = new Set([
   "orpheum.together.viewer",
   // That the session a guest by link alone was in ended in this tab, for its page loaded again.
   "orpheum.together.endedHere",
+  // That the tab reloaded once as the core refused its Watch Together version (newer-client.ts).
+  "orpheum.together.reloadedForVersion",
   // A device being activated by a code (pairing.ts).
   "orpheum.pairing",
   // The tab's path choice (transport-choice.ts) and the script it last reloaded for (app-update.ts).

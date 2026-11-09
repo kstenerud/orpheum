@@ -47,7 +47,7 @@ function fakeSockets(): {
 
 /** A welcome of member 7's device 9, its session paused. */
 const welcome = {
-  v: 2,
+  v: 3,
   type: "welcome",
   seq: 4,
   sessionId: 1,
@@ -85,7 +85,7 @@ describe("a connection whose page is shown again (the owner's VQ105, 2026-10-29)
     page.hide(); // the phone locked, its socket dying unseen
     monotonicNowMs = 36_000;
     page.show();
-    expect(sockets.sent.at(-1)).toEqual({ v: 2, type: "ping", tMono: 36_000 });
+    expect(sockets.sent.at(-1)).toEqual({ v: 3, type: "ping", tMono: 36_000 });
     vi.advanceTimersByTime(shownAnswerWithinMs - 1);
     expect(connection.snapshot().status).toBe("connected");
     vi.advanceTimersByTime(1); // long before its pings would find it dead
@@ -119,7 +119,7 @@ describe("a connection whose page is shown again (the owner's VQ105, 2026-10-29)
     monotonicNowMs = 36_000;
     page.show();
     monotonicNowMs = 36_080;
-    sockets.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 36_000 }));
+    sockets.opened[0]!.onMessage(JSON.stringify({ v: 3, type: "pong", tMono: 36_000 }));
     vi.advanceTimersByTime(shownAnswerWithinMs * 2);
     expect(connection.snapshot().status).toBe("connected");
     expect(sockets.opened).toHaveLength(1);
@@ -227,7 +227,7 @@ describe("a connection told the way to the core is back", () => {
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
     monotonicNowMs = 20_000;
     path.isBack(); // a socket that never heard its connection close
-    expect(sockets.sent.at(-1)).toEqual({ v: 2, type: "ping", tMono: 20_000 });
+    expect(sockets.sent.at(-1)).toEqual({ v: 3, type: "ping", tMono: 20_000 });
     vi.advanceTimersByTime(shownAnswerWithinMs);
     expect(connection.snapshot().status).toBe("reconnecting");
     vi.advanceTimersByTime(reconnectWaitMs(0));

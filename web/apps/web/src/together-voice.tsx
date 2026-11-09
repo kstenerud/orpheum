@@ -36,7 +36,7 @@ import { useServices, useToken } from "./services.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
-import { monotonicMs } from "./use-together.ts";
+import { monotonicMs, useReloadsForProtocolVersion } from "./use-together.ts";
 import { VolumeRange } from "./volume-range.tsx";
 
 /** The relay's ICE servers for a membership (D243 §8), as the browser's RTCPeerConnection takes them. */
@@ -177,6 +177,8 @@ function HostVoiceOf(props: {
   readonly onVoice: (voice: VoiceInUse | undefined) => void;
 }): null {
   const inUse = useVoice(props.membership, useToken());
+  // The tab's one connection to the session on every page: refused for its version, it reloads.
+  useReloadsForProtocolVersion(inUse.snapshot.isConnected, inUse.snapshot.endReason);
   useHostLeavesAsTheSessionEnds(props.membership.sessionId, inUse.snapshot.endReason);
   const { voice, snapshot, tap } = inUse;
   const { isWaiting, play } = tap;
