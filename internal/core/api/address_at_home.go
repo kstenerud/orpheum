@@ -161,14 +161,14 @@ func (server *Server) setAddressAtHome(ctx context.Context, input *SetAddressAtH
 	}
 	address, err := netip.ParseAddr(input.Body.Address)
 	if err != nil {
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, home.ErrNotAtHome.Error())
+		return nil, invalidRequestAt(http.StatusBadRequest, "body.address", home.ErrNotAtHome.Error())
 	}
 	err = keeper.Set(ctx, address, principal.UserID)
 	switch {
 	case errors.Is(err, home.ErrConfigured):
 		return nil, newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, home.ErrNotAtHome):
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
+		return nil, invalidRequestAt(http.StatusBadRequest, "body.address", err.Error())
 	case err != nil:
 		return nil, server.logInternalError(ctx, "set the address at home", err)
 	}
