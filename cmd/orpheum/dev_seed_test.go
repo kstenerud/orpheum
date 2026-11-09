@@ -65,7 +65,7 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		t.Errorf("the seed did not turn shouldServeDebugPprof on through /config:\n%s", raw.body)
 	}
 	serverSecrets := requestAPI(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
-	const tmdbSet = `"name":"tmdb_api_key","description":"the TMDB API key metadata is fetched with","isSet":true`
+	const tmdbSet = `"name":"tmdbApiKey","description":"the TMDB API key metadata is fetched with","isSet":true`
 	const loginSet = `"description":"the password of that OpenSubtitles account","isSet":true`
 	if !strings.Contains(serverSecrets.body, tmdbSet) || !strings.Contains(serverSecrets.body, loginSet) {
 		t.Errorf("the seeded secrets are not set:\n%s", serverSecrets.body)
