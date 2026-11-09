@@ -197,8 +197,9 @@ removed once the first admin is made. It is also in the core's log, in a line th
 - Elsewhere: `docker logs orpheum-core 2>&1 | grep setupCode`.
 - Or ask for it: `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
 
-Then open `http://<the machine's address>:8440` in a browser **on your home network**, and give the
-code, a name and a password. That person is the admin. An admin can administer only from the home
+Then open `http://<the machine's address>:8440` (or the port `ORPHEUM_HTTP_PORT` names, which the
+file and the log line give) in a browser **on your home network**, and give the code, a name and a
+password. That person is the admin. An admin can administer only from the home
 network; the server learns the machine's address there from this first browser.
 
 If the server refuses admin because it does not count your browser as at home (a VPN, a second

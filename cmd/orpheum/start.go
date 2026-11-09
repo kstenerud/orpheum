@@ -81,7 +81,8 @@ func commandStart(ctx context.Context, call invocation) int {
 		return status
 	}
 	call.arguments = []string{"--instance", filepath.Join(deploymentMount, string(kindCore))}
-	return runCore(ctx, call, filepath.Join(deploymentMount, setupCodeFile))
+	shown := setupCodeShown{file: filepath.Join(deploymentMount, setupCodeFile), httpPort: options.httpPort}
+	return runCore(ctx, call, shown)
 }
 
 // parseStart reads start's flags. It is false once it has written to stderr what was wrong.

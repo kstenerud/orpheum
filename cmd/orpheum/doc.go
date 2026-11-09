@@ -46,7 +46,8 @@
 //     TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome and
 //     TestFirstStart_RefusesWithoutTheDeploymentsDirectory.
 //   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
-//     the deployment, mode 0600, and removes it with the first admin (D449 §3). Enforced by
+//     the deployment, mode 0600, naming the HTTP port start was given, the one the compose file
+//     publishes, and removes it with the first admin (D449 §3). Enforced by
 //     TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
