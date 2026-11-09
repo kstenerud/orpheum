@@ -11,8 +11,9 @@ import (
 )
 
 // homeReaders are the API's functions that may ask isFromHome without a principal of their own:
-// the question itself, and the log's label of how a request came (pathOf), which grants nothing.
-var homeReaders = map[string]bool{"isFromHome": true, "pathOf": true}
+// the question itself, the log's label of how a request came (pathOf), and the setup page's guess of
+// the address at home, shown only at home (setupAddressAtHome, D452 §4): each grants nothing.
+var homeReaders = map[string]bool{"isFromHome": true, "pathOf": true, "setupAddressAtHome": true}
 
 // findHomeAsCredential returns every function of the API that asks whether a request came from home
 // (isFromHome) with no signed-in person in hand: it neither takes an auth.Principal nor calls one of
