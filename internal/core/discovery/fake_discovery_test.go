@@ -286,7 +286,11 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 	fake.mutex.Unlock()
 	if isPaused {
 		close(held.arrived)
-		<-held.released
+		select {
+		case <-held.released:
+		case <-request.Context().Done():
+			return
+		}
 	}
 	fake.serveHTTP(writer, request)
 }
