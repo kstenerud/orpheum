@@ -48,7 +48,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		40
+schema_step		2
 sequence		200
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_item	3700 1 1

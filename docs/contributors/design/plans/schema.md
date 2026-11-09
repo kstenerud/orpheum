@@ -26,11 +26,12 @@
 
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
-> ([D198](../../decisions/working-notes.md)). The steps are a baseline, `0048_baseline.sql`, a new
-> line D303 started (D303 §2: the data before it was discarded), and any step after it, kept since
-> the checkpoint ([D272](../../decisions/working-notes.md) §5); the notes below that name a migration
-> (*migration 0011*, *0023: was …*, *step 0045*) record the step that added or renamed a column.
-> Steps 0001 to 0047 are folded into the baseline and survive only in the repository's history.
+> ([D198](../../decisions/working-notes.md)). The steps are a baseline, `0086_baseline.sql`, the
+> migration origin ([D460](../../decisions/working-notes.md): production's schema at version 86,
+> word for word), and every step after it; migrations are live from it, so no committed step, the
+> baseline included, is edited again. The notes below that name a migration (*migration 0011*,
+> *0023: was …*, *step 0072*) record the step that added or renamed a column. Steps 0001 to 0085
+> are folded into the baseline and survive only in the repository's history.
 
 ## Why this document exists
 
@@ -49,7 +50,7 @@ where that kind of hole is visible.
   through `live_*` views ([D173](../../decisions/working-notes.md)).
 - **Times** are integer milliseconds since the epoch, server clock, unless named `*_mono_ms`
   (a client's monotonic clock, [D165](../../decisions/working-notes.md)).
-- **Every table is `STRICT`** (D303, M5; the baseline at 0048), in both databases, so a value of
+- **Every table is `STRICT`** (D303, M5), in both databases, so a value of
   the wrong type is refused, not kept as another type that never compares equal. **A subtype row
   is tied to its supertype's kind**: `work`, `sequence` and `person` each carry a `kind`
   limited by a `CHECK` to their own, and a composite foreign key `(id, kind)` to `item(id, kind)`,
@@ -57,7 +58,7 @@ where that kind of hole is visible.
   D426 §2). **A rule a row obeys alone is a `CHECK`**: an id at a source only with its source
   (`followed_source_id` needs `followed_source`), a library's `check_every_hours` only for checking
   by interval. The DDL below shows the tables as the design reads them; the baseline,
-  `internal/store/migrations/0048_baseline.sql`, is the schema that runs.
+  `internal/store/migrations/0086_baseline.sql`, is the schema that runs.
 - **Closed vocabularies are `CHECK` constraints**, so a typo is an error rather than a new value.
   Widening one is a table rebuild (about a second, [D181](../../decisions/working-notes.md)).
 - **Two database files.** `persistent.db` holds everything below except the last section and is

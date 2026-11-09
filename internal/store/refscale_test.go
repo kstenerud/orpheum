@@ -78,41 +78,64 @@ var refWords = strings.Fields("harbour lantern quiet orchard copper winter paper
 	"salt violet granite ember tidal northern glass velvet iron amber river station letter garden " +
 	"silent autumn falcon island bridge shadow marble crimson canyon echo")
 
-// insertItem inserts an item and its text and sort key, and returns its id.
-func (filler *referenceScaleFiller) insertItem(kind string, libraryID int64, listing string) int64 {
+// insertItem inserts an item of kind filed in libraryID, and its text and, when listed, sort key,
+// and returns its id. A movie or an episode is a work too, of year, identified at TMDB as sourceID;
+// released in its year, a day unknown; a series is not identified yet. A movie's year of 0 is drawn
+// at random.
+func (filler *referenceScaleFiller) insertItem(kind string, libraryID int64, listed bool, sourceID string,
+	year int,
+) int64 {
 	filler.nextID++
 	id := filler.nextID
 	name := filler.words(1 + filler.random.IntN(4))
-	filler.exec("INSERT INTO item (id, kind, library_id, added_at) VALUES (?, ?, ?, ?)", id, kind, libraryID,
-		filler.now-filler.random.Int64N(365*24*3600*1000))
+	addedAt := filler.now - filler.random.Int64N(365*24*3600*1000)
+	overview, tagline := filler.words(60), filler.words(8)
+	if kind == "series" {
+		filler.exec(`INSERT INTO item (id, kind, filing_library_id, added_at, identification_state)
+			VALUES (?, ?, ?, ?, 'unidentified')`, id, kind, libraryID, addedAt)
+	} else {
+		runtimeMs := 2_700_000
+		if kind == "movie" {
+			year, runtimeMs = 1950+filler.random.IntN(76), 6_000_000
+		}
+		filler.exec(`INSERT INTO item (id, kind, filing_library_id, added_at, year, released_on, followed_source,
+			followed_source_id, identification_state) VALUES (?, ?, ?, ?, ?, ?, 'tmdb', ?, 'identified')`,
+			id, kind, libraryID, addedAt, year, year*10000, sourceID)
+		filler.exec(`INSERT INTO "work" (id, kind, runtime_ms) VALUES (?, ?, ?)`, id, kind, runtimeMs)
+	}
 	filler.exec("INSERT INTO item_text (item_id, language, is_original, name, overview, tagline) "+
-		"VALUES (?, 'und', 1, ?, ?, ?)",
-		id, name, filler.words(60), filler.words(8))
-	if listing != "" {
+		"VALUES (?, 'und', 1, ?, ?, ?)", id, name, overview, tagline)
+	if listed {
 		filler.exec("INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (?, 'en', ?, ?)",
-			id, listing,
-			append([]byte(name), 0, 1, 2, 3))
+			id, kind, append([]byte(name), 0, 1, 2, 3))
 	}
 	return id
 }
 
-// insertVideo inserts a title's version, and its file with a probe and four streams.
-func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path string) {
-	filler.exec("INSERT INTO version (title_id, created_at) VALUES (?, ?)", titleID, filler.now)
-	var versionID int64
-	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&versionID); err != nil {
+// lastID is the rowid the statement before it inserted.
+func (filler *referenceScaleFiller) lastID() int64 {
+	var id int64
+	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&id); err != nil {
 		filler.tb.Fatal(err)
 	}
+	return id
+}
+
+// insertVideo inserts a work's version, and its file, found at one place and filed in a library
+// of libraryKind, with a probe and four streams.
+func (filler *referenceScaleFiller) insertVideo(workID int64, libraryKind, path string) {
+	filler.exec("INSERT INTO version (work_id, created_at) VALUES (?, ?)", workID, filler.now)
+	versionID := filler.lastID()
 	filler.fileID++
 	probe := fmt.Sprintf(`{"format":{"format_name":"matroska,webm","duration":"%d.0","bit_rate":"%d","tags":%q},`+
 		`"streams":[{"codec_name":"hevc","width":3840,"height":2160},{"codec_name":"truehd","channels":8},`+
 		`{"codec_name":"eac3","channels":6},{"codec_name":"subrip"}],"chapters":%q}`,
 		5400+filler.random.IntN(3600), 20_000_000+filler.random.IntN(40_000_000), filler.words(40), filler.words(70))
-	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
-		payload_hash, payload_bytes, filing, version_id, first_seen_at, last_seen_at)
-		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?)`,
-		filler.fileID, libraryID, path, []byte(path), 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000,
-		versionID, filler.now, filler.now)
+	filler.exec(`INSERT INTO file (id, size_bytes, payload_hash, payload_bytes) VALUES (?, ?, ?, ?)`,
+		filler.fileID, 20_000_000_000, filler.bytes(32), 19_000_000_000)
+	filler.insertPlace(path, 0)
+	filler.exec(`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (?, ?, 'listed', ?)`,
+		filler.fileID, libraryKind, versionID)
 	filler.exec("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (?, ?, ?)", filler.fileID, probe,
 		5_400_000)
 	for index, stream := range []struct{ kind, codec, language string }{
@@ -126,27 +149,34 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 	}
 }
 
-// insertSidecar inserts an NFO beside the video inserted last, attached to it.
-func (filler *referenceScaleFiller) insertSidecar(libraryID int64, path string) {
-	videoID := filler.fileID
-	filler.fileID++
-	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
-		filing, sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
-		VALUES (?, ?, 1, ?, ?, 2000, ?, 'attached', 'nfo', ?, ?, ?)`,
-		filler.fileID, libraryID, path, []byte(path), filler.now, videoID, filler.now, filler.now)
+// insertPlace inserts the place the file inserted last is found at, of its id, attached to the
+// place attachedTo when that is not 0.
+func (filler *referenceScaleFiller) insertPlace(path string, attachedTo int64) {
+	var attached any
+	if attachedTo != 0 {
+		attached = attachedTo
+	}
+	filler.exec(`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing,
+		attached_to_place, first_seen_at, last_seen_at) VALUES (?, ?, 1, ?, ?, ?, 'read', ?, ?, ?)`,
+		filler.fileID, filler.fileID, path, []byte(path), filler.now, attached, filler.now, filler.now)
 }
 
-// insertFilm inserts one film: its title, one or two versions, artwork, ids and stored response.
+// insertSidecar inserts an NFO beside the video inserted last, attached to its place.
+func (filler *referenceScaleFiller) insertSidecar(path string) {
+	videoID := filler.fileID
+	filler.fileID++
+	filler.exec(`INSERT INTO file (id, size_bytes, sidecar_kind) VALUES (?, 2000, 'nfo')`, filler.fileID)
+	filler.insertPlace(path, videoID)
+}
+
+// insertFilm inserts one film: its work, one or two versions, artwork, ids and stored response.
 func (filler *referenceScaleFiller) insertFilm(index int) {
-	id := filler.insertItem("title", 1, "movie")
-	filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
-		identification_state) VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
-		id, 1950+filler.random.IntN(76), 6_000_000, fmt.Sprint(index))
+	id := filler.insertItem("movie", 1, true, fmt.Sprint(index), 0)
 	for version := range 1 + boolInt(index%10 == 0) {
 		path := fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version)
-		filler.insertVideo(id, 1, path)
+		filler.insertVideo(id, "movie", path)
 	}
-	filler.insertSidecar(1, fmt.Sprintf("/media/films/Film %d (%d)/Film %d - 0.nfo", index, index, index))
+	filler.insertSidecar(fmt.Sprintf("/media/films/Film %d (%d)/Film %d - 0.nfo", index, index, index))
 	filler.insertProviderData(id, "movie", index)
 }
 
@@ -165,31 +195,27 @@ func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string
 	}
 }
 
-// insertSeries inserts one series with its episodes, their places in the aired order and their stills.
+// insertSeries inserts one series with its episodes, their places in the aired order, in their
+// seasons, and their stills.
 func (filler *referenceScaleFiller) insertSeries(index int) {
-	id := filler.insertItem("collection", 2, "series")
-	filler.exec("INSERT INTO collection (id, kind, membership, created_by) "+
-		"VALUES (?, 'series', 'explicit', 'scanner')", id)
-	filler.exec("INSERT INTO ordering (collection_id, name, provider) VALUES (?, 'aired', 'tmdb')", id)
-	var orderingID int64
-	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&orderingID); err != nil {
-		filler.tb.Fatal(err)
-	}
+	id := filler.insertItem("series", 2, true, "", 0)
+	filler.exec(`INSERT INTO "sequence" (id, kind, created_by) VALUES (?, 'series', 'scanner')`, id)
+	filler.exec("INSERT INTO ordering (sequence_id, name, provider, kind) VALUES (?, 'aired', 'tmdb', 'aired')", id)
+	orderingID := filler.lastID()
 	filler.insertProviderData(id, "series", index)
+	seasons := map[int]int64{}
 	for episode := range refEpisodesPerShow {
 		season, number := 1+episode/10, 1+episode%10
-		episodeID := filler.insertItem("title", 2, "")
-		filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
-			identification_state) VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`,
-			episodeID, 2000+index%26, 2_700_000, fmt.Sprintf("%d-%d", index, episode))
-		filler.insertVideo(episodeID, 2, fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv", index,
-			season, index, season, number))
-		sort := float64(season*10000 + number)
-		filler.exec("INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+		if seasons[season] == 0 {
+			filler.exec("INSERT INTO grp (ordering_id, number) VALUES (?, ?)", orderingID, season)
+			seasons[season] = filler.lastID()
+		}
+		episodeID := filler.insertItem("episode", 2, false, fmt.Sprintf("%d-%d", index, episode), 2000+index%26)
+		filler.insertVideo(episodeID, "series", fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv",
+			index, season, index, season, number))
+		filler.exec("INSERT INTO position (ordering_id, work_id, grp_id, number_in_group, sort_order) "+
 			"VALUES (?, ?, ?, ?, ?)",
-			orderingID, episodeID, season, number, sort)
-		filler.exec("INSERT INTO collection_member (collection_id, member_title, position) VALUES (?, ?, ?)", id,
-			episodeID, sort)
+			orderingID, episodeID, seasons[season], number, float64(season*10000+number))
 		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256) "+
 			"VALUES (?, 'still', 'tmdb', ?, ?)",
 			episodeID, fmt.Sprintf("/still%d-%d.jpg", index, episode), filler.bytes(32))
@@ -217,7 +243,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	}
 	filler.exec("INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
 	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'shows', 'tmdb', 'watch', 0, 1)`)
+		VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'series', 'tmdb', 'watch', 0, 1)`)
 	filler.exec("INSERT INTO library_root (library_id, node_id, root_path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")
@@ -257,6 +283,14 @@ func fillReferenceScale(t *testing.T, database *Database) {
 			ON CONFLICT (user_id, file_id) DO UPDATE SET report_seq = excluded.report_seq`,
 			1+span%2, fileID, positionMs, span, start, deviceOfPerson(span))
 	}
+	// Each work a person played past its end, past 90% of its 5,400,000 ms, is watched (D370).
+	filler.exec(`INSERT INTO work_watched (user_id, work_id, watched_at)
+		SELECT play_position.user_id, version.work_id, max(play_position.updated_at)
+		FROM play_position
+		JOIN file_filing ON file_filing.file_id = play_position.file_id
+		JOIN version ON version.id = file_filing.version_id
+		WHERE play_position.position_ms * 10 > 5400000 * 9
+		GROUP BY play_position.user_id, version.work_id`)
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
