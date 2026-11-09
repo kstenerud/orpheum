@@ -311,6 +311,24 @@ func TestEncodesOnAGPU_IsTheHellosChosenEncoderOtherThanX264(t *testing.T) {
 	}
 }
 
+// A node's encode speed is its last hello's (D457): none before it says hello, and a later hello's
+// replaces an earlier's.
+func TestEncodeSpeedPercent_IsTheLastHellosMeasure(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	if got := harness.service.EncodeSpeedPercent(1); got != 0 {
+		t.Errorf("a node that has not said hello encodes at %d%%; want 0, unmeasured", got)
+	}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Hardware: nodeproto.Hardware{EncodeSpeedPercent: 60}})
+	if got := harness.service.EncodeSpeedPercent(reply.NodeID); got != 60 {
+		t.Errorf("a node whose hello measured 60%% encodes at %d%%", got)
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local", Hardware: nodeproto.Hardware{EncodeSpeedPercent: 450}})
+	if got := harness.service.EncodeSpeedPercent(reply.NodeID); got != 450 {
+		t.Errorf("a node whose last hello measured 450%% encodes at %d%%", got)
+	}
+}
+
 // A hello says where its node's byte socket is, as an absolute path, or it is refused: the core
 // reads every byte of the node's from there (D242 §7).
 func TestHello_RefusesOneThatDoesNotSayWhereItsByteSocketIs(t *testing.T) {
