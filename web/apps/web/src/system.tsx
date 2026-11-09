@@ -437,6 +437,25 @@ function NodeFacts(props: {
   );
 }
 
+/**
+ * How fast the chosen encoder made the lowest quality when the node started, and whether that is
+ * too slow to convert a film while it plays, so a device that needs one converted is refused (D457);
+ * nothing when the node measured none.
+ */
+function EncodeSpeed(props: { readonly hardware: Hardware }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { encodeSpeedPercent, isTooSlowToConvert } = props.hardware;
+  if (encodeSpeedPercent === undefined) {
+    return null;
+  }
+  return (
+    <>
+      <p>{t("system.encodeSpeed", { percent: encodeSpeedPercent })}</p>
+      {isTooSlowToConvert ? <p role="alert">{t("system.tooSlowToEncode")}</p> : null}
+    </>
+  );
+}
+
 /** Does it see the GPU, may it open it, what worked, and what it chose (D225 §3). */
 function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
   const { t } = useTranslation();
@@ -455,6 +474,7 @@ function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
     <section aria-label={t("system.hardware")}>
       <h3>{t("system.hardware")}</h3>
       <p role={!isOnGPU && gpus.length > 0 ? "alert" : undefined}>{verdict}</p>
+      <EncodeSpeed hardware={hardware} />
       <h4>{t("system.gpuDevices")}</h4>
       {gpus.length === 0 ? (
         <p>{t("system.seesNothing")}</p>

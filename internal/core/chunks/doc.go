@@ -26,6 +26,11 @@
 //     Enforced by TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate and
 //     TestOffered_TheLadderFollowsTheFilmsNodesEncoder.
 //
+//   - A film whose node encodes the lowest quality slower than chunk_run_slowest_speed_percent
+//     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode
+//     (D457). A node whose speed is not known offers its whole ladder. Enforced by
+//     TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied.
+//
 //   - A film whose loudness is not measured offers its sounds unlevelled, each a store of its own
 //     ("-raw"), so a levelled chunk never follows an unlevelled one; a playback goes on with the
 //     sounds its playlist named once the loudness is measured (D259 §2).

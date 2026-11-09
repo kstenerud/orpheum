@@ -138,6 +138,8 @@ export const en = {
     prepareFailed: "This could not be prepared for this device.",
     cannotConvert:
       "This file can't be converted for this device: it has no picture, or nothing to cut it into pieces by.",
+    tooSlowToConvert:
+      "This server can't convert this film fast enough to play it here. A device that plays the film as it is can.",
     noRoomToMake:
       "The server cannot make this quality as fast as it plays while it makes others for other viewers. Try again in a while.",
     migrating: "The server is starting up, or updating. It will answer in a moment.",

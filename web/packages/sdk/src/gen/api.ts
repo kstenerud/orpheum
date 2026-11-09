@@ -3359,7 +3359,10 @@ export interface components {
         HardwareBody: {
             /** @enum {string} */
             chosenEncoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi" | "x264";
+            /** Format: int64 */
+            encodeSpeedPercent?: number;
             gpus: components["schemas"]["GPUBody"][] | null;
+            isTooSlowToConvert: boolean;
             trials: components["schemas"]["EncoderTrialBody"][] | null;
         };
         HealthOutputBody: {
@@ -4430,7 +4433,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "setupRequired" | "forbidden" | "notFound" | "conflict" | "stale" | "nodeSilent" | "fileUnavailable" | "preparing" | "prepareFailed" | "cannotConvert" | "noRoomToMake" | "playbackGone" | "migrating" | "receivingACast" | "castingHere" | "internal";
+            code: "setupRequired" | "forbidden" | "notFound" | "conflict" | "stale" | "nodeSilent" | "fileUnavailable" | "preparing" | "prepareFailed" | "cannotConvert" | "tooSlowToConvert" | "noRoomToMake" | "playbackGone" | "migrating" | "receivingACast" | "castingHere" | "internal";
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}

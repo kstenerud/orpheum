@@ -105,6 +105,9 @@ type offer struct {
 	// copied are the tracks, by place, whose own sound the top, the film's own picture copied, plays
 	// copied (D368 §1); none where the top is not the picture copied.
 	copied []int
+	// isTooSlowToEncode is whether the film's node encodes even the lowest quality slower than
+	// playback, so the offer holds no picture it encodes (D457).
+	isTooSlowToEncode bool
 }
 
 // has is whether the offer has the stream. A sound made is had levelled or not, whichever the film's
@@ -129,7 +132,8 @@ func (offered offer) has(stream Stream) bool {
 // measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1),
 // but a track whose copy FFmpeg failed on twice at one chunk (hasGivenUp), which plays the sound the
 // server makes instead, as the lower qualities do, until the film is forgotten: a copy that cannot be
-// cut leaves the film playable (a film, staging, 2026-10-28).
+// cut leaves the film playable (a film, staging, 2026-10-28). A film whose node encodes too slowly
+// (IsTooSlowToEncode) offers no encoded picture: only its own copied, or none (D457).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
 	if err != nil {
@@ -156,6 +160,16 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 			Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: track,
 		}))
 	})
+	if offered.isTooSlowToEncode, err = service.IsTooSlowToEncode(ctx, film.file.NodeID); err != nil {
+		return offer{}, err
+	}
+	if offered.isTooSlowToEncode {
+		// Its node would make no picture as fast as it plays: only the film's own, copied, is offered.
+		offered.pictures = slices.DeleteFunc(offered.pictures, func(picture Stream) bool {
+			return picture.Kind == nodeproto.StreamQuality
+		})
+		return offered, nil
+	}
 	for _, quality := range all {
 		if (averageBps <= 0 || int64(quality.Kbps)*1000 < averageBps) && (height <= 0 || quality.Height < height) {
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
@@ -213,6 +227,25 @@ func (service *Service) ladderOf(ctx context.Context, film cutFilm) ([]qualities
 		return nil, fmt.Errorf("read %s: %w", key, err)
 	}
 	return all, nil
+}
+
+// IsTooSlowToEncode is whether the node encodes even the lowest quality slower than playback: its
+// trial at its start measured it below chunk_run_slowest_speed_percent of real time, the speed every
+// run is held to (D250 §6, D457). A node whose trial measured nothing, or that has not said hello, is
+// not judged so.
+func (service *Service) IsTooSlowToEncode(ctx context.Context, nodeID int64) (bool, error) {
+	if service.encoders == nil {
+		return false, nil
+	}
+	measured := service.encoders.EncodeSpeedPercent(nodeID)
+	if measured <= 0 {
+		return false, nil
+	}
+	slowestPercent, err := service.settings.Int(ctx, settings.ChunkRunSlowestSpeedPercent)
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", settings.ChunkRunSlowestSpeedPercent, err)
+	}
+	return int64(measured) < slowestPercent, nil
 }
 
 // onlyQuality is the one quality a film cut on time is offered when none is below its own picture,

@@ -85,8 +85,9 @@ type Parts struct {
 	Logger *slog.Logger
 	// Clock times each run's speed (D250 §6).
 	Clock clock.Clock
-	// Encoders say whether a film's node encodes on a GPU, which chooses its ladder (D323 §3); nil
-	// encodes every film in software.
+	// Encoders say whether a film's node encodes on a GPU, which chooses its ladder (D323 §3), and
+	// whether it encodes too slowly to offer any quality it encodes (D457); nil encodes every film in
+	// software, fast enough.
 	Encoders Encoders
 	// Absences are the places a read found a film's file not at, which a run reads from last (D363
 	// §8); nil knows of none.
@@ -99,9 +100,11 @@ type HoldBack interface {
 	HoldBackFor(ctx context.Context, nodeID int64, until time.Time) int
 }
 
-// Encoders say whether a node encodes on a GPU: nodes.Service.
+// Encoders say whether a node encodes on a GPU, and how fast it encodes the lowest quality, in
+// percent of real time, zero for unmeasured (D457): nodes.Service.
 type Encoders interface {
 	EncodesOnAGPU(nodeID int64) bool
+	EncodeSpeedPercent(nodeID int64) int
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the

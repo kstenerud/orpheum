@@ -299,6 +299,14 @@ func (nodes *fakeNodes) ConnectedNodeID(ctx context.Context) (int64, bool) {
 // EncodesOnAGPU is false: the fake node encodes on its processor.
 func (*fakeNodes) EncodesOnAGPU(int64) bool { return false }
 
+// EncodeSpeedPercent is node 1's, as the test set its hardware; zero, unmeasured, for any other.
+func (nodes *fakeNodes) EncodeSpeedPercent(nodeID int64) int {
+	if nodeID != 1 {
+		return 0
+	}
+	return nodes.hardware.EncodeSpeedPercent
+}
+
 // SelfUses are what the connected nodes said they use, as the test set them.
 func (nodes *fakeNodes) SelfUses(context.Context) []corenodes.NodeSelfUse { return nodes.selfUses }
 

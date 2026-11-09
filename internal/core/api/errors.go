@@ -35,6 +35,10 @@ const (
 	// chunks either: it has no picture, or neither a known length nor keyframes (D344 §5); or a chunk
 	// whose runs FFmpeg failed on the same way each time (chunks.ErrCannotBeMade).
 	CodeCannotConvert Code = "cannotConvert"
+	// CodeTooSlowToConvert is a play of a file its device cannot play as it is, nor its picture
+	// copied, whose machine encodes even the lowest quality slower than playback, so converted it
+	// would stall over and over (D457).
+	CodeTooSlowToConvert Code = "tooSlowToConvert"
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.
 	CodeNoRoomToMake Code = "noRoomToMake"
@@ -60,8 +64,9 @@ func codes() []Code {
 	return []Code{
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
-		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeNoRoomToMake, CodePlaybackGone,
-		CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeCastingHere, CodeInternal,
+		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeTooSlowToConvert,
+		CodeNoRoomToMake, CodePlaybackGone, CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeCastingHere,
+		CodeInternal,
 	}
 }
 

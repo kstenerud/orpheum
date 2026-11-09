@@ -12,7 +12,8 @@ import (
 // lowest when none is; it starts that picture's run and the starting sound's from the chunk at
 // positionMs, and returns the offer. Its player moves along the ladder by itself from there. A film
 // with no grid yet is ErrNoGrid, and is read through; one that offers no picture,
-// ErrNoQualityOffered.
+// ErrNoQualityOffered, or ErrTooSlowToEncode where it would offer one its node encodes too slowly
+// (D457).
 func (service *Service) StartOnLadder(
 	ctx context.Context, playback Playback, positionMs, linkKbps int64,
 ) (Offer, error) {
@@ -23,6 +24,9 @@ func (service *Service) StartOnLadder(
 	offered, err := service.offerOf(ctx, film, playback)
 	if err != nil {
 		return Offer{}, err
+	}
+	if len(offered.pictures) == 0 && offered.isTooSlowToEncode {
+		return Offer{}, ErrTooSlowToEncode
 	}
 	if len(offered.pictures) == 0 {
 		return Offer{}, ErrNoQualityOffered

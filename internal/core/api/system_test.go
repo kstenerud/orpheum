@@ -39,6 +39,8 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 			{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "Cannot load libcuda.so.1"},
 		},
 		ChosenEncoder: "h264_qsv",
+		// Slower than chunk_run_slowest_speed_percent's 110: too slow to convert a film (D457).
+		EncodeSpeedPercent: 60,
 	}
 	harness.nodes.build = harnessServerBuild
 	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, AvailableBytes: 1000}}
@@ -128,6 +130,11 @@ func checkHardware(t *testing.T, hardware *api.HardwareBody) {
 		hardware.GPUs[0].Driver != "i915" || len(hardware.Trials) != 2 ||
 		hardware.Trials[1].Failure != "Cannot load libcuda.so.1" {
 		t.Errorf("local's hardware is %+v; want its GPU, each trial and the encoder chosen (D225 §3)", hardware)
+	}
+	if hardware != nil && (hardware.EncodeSpeedPercent == nil || *hardware.EncodeSpeedPercent != 60 ||
+		!hardware.IsTooSlowToConvert) {
+		t.Errorf("local's encode speed is %v, too slow %v; want 60%%, too slow to convert (D457)",
+			hardware.EncodeSpeedPercent, hardware.IsTooSlowToConvert)
 	}
 }
 

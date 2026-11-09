@@ -354,6 +354,9 @@ export const enSystem = {
     noGPU: "No GPU was found, so video is encoded on the processor, with x264.",
     gpuUnused:
       "This machine has a GPU, but no hardware encoder works on it, so video is encoded on the processor, with x264. The trials below say why.",
+    encodeSpeed: "It converts video at {{percent}}% of the speed it plays.",
+    tooSlowToEncode:
+      "That is too slow to convert a film while it plays, so films on this machine play only on devices that play them as they are. Devices that need a film converted are told this server can't convert it fast enough.",
     gpuDevices: "What it sees",
     seesNothing: "No GPU device.",
     driver: "(driver {{driver}})",

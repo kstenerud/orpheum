@@ -68,6 +68,11 @@ type Offer struct {
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
 var ErrNoQualityOffered = errors.New("the film offers no quality below its own")
 
+// ErrTooSlowToEncode is a film that offers no picture its player plays, as its node encodes even the
+// lowest quality slower than playback, and its player cannot play the film's own picture copied
+// (D457).
+var ErrTooSlowToEncode = errors.New("the film's node encodes too slowly for playback")
+
 // Stalled answers a playback's stall at positionMs, on a link measured at linkKbps, zero when not
 // measured (D247 §2, §6, §7): it chooses the quality, the highest within linkShareForQuality of the
 // link, or the lowest when none is or the link is not measured; one below it whose chunks another

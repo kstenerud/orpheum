@@ -540,6 +540,10 @@ func playbackRefusal(err error) error {
 		return newError(http.StatusUnprocessableEntity, CodeCannotConvert,
 			"this device cannot play this file as it is, and it cannot be converted: it has no picture, or "+
 				"neither a known length nor keyframes to cut it by")
+	case errors.Is(err, playback.ErrTooSlowToConvert):
+		return newError(http.StatusUnprocessableEntity, CodeTooSlowToConvert,
+			"this device cannot play this file as it is, and the machine it is on converts even the lowest "+
+				"quality slower than it plays (D457)")
 	case errors.Is(err, playback.ErrNoToken):
 		return newError(http.StatusNotFound, CodePlaybackGone,
 			"no such playback: the server restarted since it began, or it ended; start it again")

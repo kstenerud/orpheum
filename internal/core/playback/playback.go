@@ -30,7 +30,24 @@ var (
 	// ErrCannotConvert is a file its device cannot play as it is that cannot start on its ladder
 	// either: it has no picture, or neither a known length nor keyframes to cut it by (D344 §5).
 	ErrCannotConvert = errors.New("this file cannot be converted for this device")
+	// ErrTooSlowToConvert is a file its device cannot play as it is, nor its picture copied, whose
+	// node encodes even the lowest quality slower than playback (D457): converted, it would stall
+	// over and over.
+	ErrTooSlowToConvert = errors.New("this file's node converts too slowly to play it on this device")
 )
+
+// notOnLadderTooSlow is why a playback is not on its ladder when its film's node encodes too slowly
+// for the only pictures its player could play (D457).
+const notOnLadderTooSlow = "tooSlowToEncode"
+
+// cannotConvertBecause is the refusal of a playback its device cannot play as it is that is not on
+// its ladder for why: ErrTooSlowToConvert when its node encodes too slowly, else ErrCannotConvert.
+func cannotConvertBecause(notOnLadderBecause string) error {
+	if notOnLadderBecause == notOnLadderTooSlow {
+		return ErrTooSlowToConvert
+	}
+	return ErrCannotConvert
+}
 
 // Settings are the settings playback reads.
 type Settings interface {
@@ -190,7 +207,8 @@ type Started struct {
 	// NotOnLadderBecause is why a playback does not start on its film's ladder, for the log:
 	// "noGridYet" (its keyframes not read within play_ladder_wait_ms, of a film its device plays as it
 	// is; one it cannot is cut on time, D344 §2), "cannotBeCut",
-	// "noQualityOffered" or "noLadder"; empty when it does. A film played as its decision says, with
+	// "noQualityOffered", "tooSlowToEncode" (its node encodes too slowly for any picture its player
+	// plays, D457) or "noLadder"; empty when it does. A film played as its decision says, with
 	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
 	NotOnLadderBecause string
 	// Steadiness is the steadiness level its player starts on the ladder at: the one its last
@@ -294,7 +312,8 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	}
 	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
-		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)
+		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause,
+			cannotConvertBecause(started.NotOnLadderBecause))
 	}
 	return service.issued(ctx, playback, probe, started, idle)
 }
@@ -452,6 +471,8 @@ func (service *Service) startOnLadder(
 		return nil, "cannotBeCut", nil
 	case errors.Is(startErr, chunks.ErrNoQualityOffered):
 		return nil, "noQualityOffered", nil
+	case errors.Is(startErr, chunks.ErrTooSlowToEncode):
+		return nil, notOnLadderTooSlow, nil
 	case startErr != nil:
 		return nil, "", startErr
 	}
