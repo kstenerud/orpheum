@@ -199,6 +199,7 @@ it("the System page says how fast a machine converts (D457)", async () => {
   const fast = await shown({
     ...connected,
     hardware: {
+      gpus: [],
       trials: [],
       chosenEncoder: "x264",
       encodeSpeedPercent: 450,
@@ -213,6 +214,7 @@ it("the System page warns when a machine is too slow to convert a film as it pla
   const slow = await shown({
     ...connected,
     hardware: {
+      gpus: [],
       trials: [],
       chosenEncoder: "x264",
       encodeSpeedPercent: 60,
