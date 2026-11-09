@@ -132,7 +132,7 @@ export function SystemView(props: {
           ))}
         </dl>
         <Disks disks={server.disks ?? []} />
-        {server.isMultipathTcpOn ? <p>{t("system.multipathTcpOn")}</p> : null}
+        <MultipathTcpNote isOn={server.isMultipathTcpOn} />
       </section>
       <Findings findings={props.report.findings ?? []} />
       <QueueHealth queue={props.report.queue ?? []} />
@@ -152,6 +152,12 @@ export function SystemView(props: {
       ))}
     </div>
   );
+}
+
+/** A note that the machine's kernel has MPTCP on, which the server's own sockets never use (D454 §4). */
+function MultipathTcpNote(props: { readonly isOn: boolean }): JSX.Element | null {
+  const { t } = useTranslation();
+  return props.isOn ? <p>{t("system.multipathTcpOn")}</p> : null;
 }
 
 /**

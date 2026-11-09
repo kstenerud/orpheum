@@ -27254,5 +27254,20 @@ over IPv6 lost by default); keeping the bridge network and asking an old Docker'
 file (the tinkering this removes); a privileged helper setting sysctls in the core's namespace
 (Docker mounts `/proc/sys` read-only, and it is more to trust).
 
-**Status:** decided (2026-11-09); not built yet. Built with D452 §3–5, ending in one Docker test of
-the pasted compose file with no address typed and no kernel feature assumed.
+**Status:** §2–5 built (2026-11-09), with D452 §5: the compose files ask no address and name no
+kernel feature, the household's core runs on the host's network, and a kernel without Landlock or
+seccomp runs the node unconfined under the release's `confinement_policy = "available"`. The Docker
+test of the pasted compose file with no address typed and no kernel feature assumed is not built yet.
+
+**Proven by:**
+- 1: `TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFailsIsLocked`,
+  `TestCompose_AHouseholdsFileAsksTheKernelForNothing`
+- 2: `TestCompose_AHouseholdsFileAsksTheKernelForNothing`
+- 3: `TestMechanismStates_AKernelWithoutAMechanismIsToldApartFromOneWhereItFails`,
+  `TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFailsIsLocked`,
+  web/apps/web/src/node-confinement.test.tsx
+- 4: `TestIsMultipathTCPOn_IsTheKernelsSwitch`, `TestSystem_NotesAMachineWhoseKernelHasMPTCPOn`,
+  web/apps/web/src/system.test.tsx
+- 5: `TestCompose_AHouseholdsCoreSharesThisMachinesNetwork`,
+  `TestWrite_ACoreWithNoTunnelTakesItsOwnPortsAndServesNoRelay`,
+  `TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome`

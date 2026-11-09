@@ -137,22 +137,6 @@ func TestParseWriteDeployment_TheDirectoryNamedReachesTheRuntime(t *testing.T) {
 	}
 }
 
-// A kernel with no MPTCP has no net.mptcp.enabled, and the deployment's compose file then names none,
-// which Docker would refuse a container for; one that has it turns it off (CVE-2026-98432).
-func TestParseWriteDeployment_SaysWhetherTheKernelLacksMPTCP(t *testing.T) {
-	t.Parallel()
-	present := filepath.Join(t.TempDir(), "enabled")
-	if err := os.WriteFile(present, []byte("1\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for path, wantLacks := range map[string]bool{present: false, filepath.Join(t.TempDir(), "absent"): true} {
-		_, runtime, isParsed := parseWriteDeploymentOn([]string{"--image", "orpheum:v0.1.0"}, io.Discard, path)
-		if lacks := runtime.KernelLacksMultipathTCP; !isParsed || lacks != wantLacks {
-			t.Errorf("with the setting at %s: lacks MPTCP %v; want %v", path, lacks, wantLacks)
-		}
-	}
-}
-
 // The configs a deployment is written with set every key, so a key added to the binary is added to
 // the deployment's templates too, rather than run on its starting value with a warning at each start.
 func TestWriteDeployment_TheConfigsItWritesSetEveryKey(t *testing.T) {

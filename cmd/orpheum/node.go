@@ -674,3 +674,17 @@ func confinementReport(states []confine.State) []nodeproto.Confinement {
 	}
 	return report
 }
+
+// The node's confinement policies (D273 §5, D450 §1, D454 §3).
+const (
+	// Under "require" a node that lacks any mechanism is locked until an admin lets it run unconfined.
+	policyRequire = "require"
+	// Under "available" a node runs without a mechanism its kernel lacks, and is locked when its kernel
+	// has a mechanism that cannot be put in force.
+	policyAvailable = "available"
+	// Under "report" a node runs with whatever mechanisms are in force.
+	policyReport = "report"
+)
+
+// confinementPolicies are the values node.confinement_policy may take.
+func confinementPolicies() []string { return []string{policyRequire, policyAvailable, policyReport} }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -99,9 +100,9 @@ func TestValues_TheTemplateAsBegunSaysWhatToFillInAndNothingElse(t *testing.T) {
 	for _, problem := range values.Problems() {
 		keys = append(keys, strings.Fields(problem)[0])
 	}
-	// A household with no VPS gives only its media (D314 §3) and its address at home, which the install
-	// script fills in where it can tell it (the Plex-chain review's L1).
-	want := []string{"media.roots:", "lan.address"}
+	// A household with no VPS gives only its media (D314 §3): its address at home is learned once the
+	// core runs (D452 §5).
+	want := []string{"media.roots:"}
 	if !slices.Equal(keys, want) {
 		t.Errorf("a begun values file needs %v; want %v: what the owner fills in, and nothing else", keys, want)
 	}
@@ -610,8 +611,8 @@ func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
 	if got := values.LANAddresses(); len(got) != 0 {
 		t.Errorf("with no address at home the LAN addresses are %v; want none", got)
 	}
-	if problems := values.Problems(); !strings.Contains(strings.Join(problems, " "), "lan.address") {
-		t.Errorf("no address at home is no problem: %v; want lan.address named (the Plex-chain review's L1)",
+	if problems := values.Problems(); len(problems) != 0 {
+		t.Errorf("no address at home is %v; want no problem, as it is learned once the core runs (D452 §5)",
 			problems)
 	}
 	for _, wrong := range []string{"11.22.44.146", "a-name"} {
@@ -622,8 +623,8 @@ func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
 	}
 }
 
-// With an address at home the core takes WebRTC on its published UDP port, the same inside, which it
-// offers devices in the house; with none it takes none (D300 §1).
+// The core takes WebRTC on its published UDP port, the same inside, which it offers devices in the
+// house (D300 §1), with an address at home or none, as one not named is learned (D452 §5).
 func TestWrite_TheCoreTakesWebRTCAtHomeOnItsPublishedPort(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
@@ -645,11 +646,11 @@ func TestWrite_TheCoreTakesWebRTCAtHomeOnItsPublishedPort(t *testing.T) {
 		t.Errorf("the environment does not name the WebRTC port:\n%s", environment)
 	}
 	values.LAN.Address = ""
-	if got := values.WebRTCUDPPort(); got != 0 {
-		t.Errorf("with no address at home the core's WebRTC port is %d; want 0", got)
+	if got := values.WebRTCUDPPort(); got != 8451 {
+		t.Errorf("with no address at home the core's WebRTC port is %d; want 8451", got)
 	}
-	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.address") {
-		t.Errorf("writing with no address at home = %v; want it refused, naming lan.address", err)
+	if err := Write(dir, values, runtime); err != nil {
+		t.Errorf("writing with no address at home = %v; want it written", err)
 	}
 	values.LAN.Address = "192.168.1.199"
 	values.LAN.WebRTCPort = 0
@@ -702,7 +703,9 @@ address = "192.168.1.20"
 	return values
 }
 
-func TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay(t *testing.T) {
+// A core with no tunnel shares this machine's network (D454 §5): it takes the values' ports itself,
+// HTTPS on lan.https_port rather than 443 behind a published port, and this machine's on its loopback.
+func TestWrite_ACoreWithNoTunnelTakesItsOwnPortsAndServesNoRelay(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Release)
 	values := directValues(t)
@@ -717,12 +720,19 @@ func TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay(t *testing.
 	if strings.Contains(compose, "orpheum-tunnel") || strings.Contains(compose, "wg0") {
 		t.Error("the compose file of a core with no tunnel names the tunnel")
 	}
-	for _, want := range []string{"${ORPHEUM_LAN_HTTPS_PORT:-8443}:443", "${ORPHEUM_HTTP_PORT:-8440}:8440", "/udp"} {
-		if !strings.Contains(compose, want) {
-			t.Errorf("the compose file of a core with no tunnel lacks %q: the core publishes its own ports", want)
-		}
+	if !strings.Contains(compose, "network_mode: host") || strings.Contains(compose, "ports:") {
+		t.Error("the compose file of a core with no tunnel publishes ports; want the core on this machine's network")
 	}
 	core := decodeTOML(t, filepath.Join(dir, coreConfig))
+	for _, want := range []struct{ table, key, listen string }{
+		{"server", "listen", ":" + strconv.Itoa(values.HTTP.Port)},
+		{"server", "this_machine_listen", "127.0.0.1:" + strconv.Itoa(values.HTTP.ThisMachinePort)},
+		{"https", "listen", ":" + strconv.Itoa(values.LAN.HTTPSPort)},
+	} {
+		if got := core[want.table][want.key]; got != want.listen {
+			t.Errorf("the core's %s.%s is %v; want %s", want.table, want.key, got, want.listen)
+		}
+	}
 	if address := core["turn"]["public_address"]; address != "" {
 		t.Errorf("turn.public_address is %v; want empty, no relay with no tunnel (D314 §4)", address)
 	}

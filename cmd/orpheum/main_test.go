@@ -54,7 +54,7 @@ func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 
 // Every subcommand that runs on an instance needs its directory, and has no default for it (D242
 // §2); default-config needs the directory to make one in, write-deployment the image its
-// deployment runs, and start this machine's address at home.
+// deployment runs, and start its deployment's directory, which the compose file mounts.
 func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 	t.Parallel()
 	for _, planned := range plannedSubcommands() {
@@ -70,10 +70,9 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		if planned.name == "write-deployment" {
 			want = "usage: orpheum write-deployment --image <image>"
 		}
-		// start's instance is its deployment's, at a fixed path; what it needs the first time is the
-		// address at home.
+		// start's instance is its deployment's, at a fixed path the compose file mounts.
 		if planned.name == "start" {
-			want = "--lan-address is needed: this machine's address"
+			want = "the deployment's directory is not there"
 		}
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
