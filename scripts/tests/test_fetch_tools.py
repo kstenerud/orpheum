@@ -16,6 +16,7 @@ from unittest import mock
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import fetch_ffmpeg  # noqa: E402
+import fetch_mkvtoolnix  # noqa: E402
 import fetch_tools  # noqa: E402
 
 
@@ -128,3 +129,39 @@ class Install(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InstallsRetry(unittest.TestCase):
+    """Each fetch script downloads through fetch_ffmpeg.download, so a server failing once does not
+    fail the release build (the v0.3.1 build's 504)."""
+
+    def setUp(self):
+        for patch in (mock.patch.object(fetch_ffmpeg, "sleep", lambda _: None),
+                      mock.patch("sys.stderr", io.StringIO()), mock.patch.dict(os.environ)):
+            patch.start()
+            self.addCleanup(patch.stop)
+        os.environ.pop(fetch_ffmpeg.TOOLS_DIR_ENV, None)
+        self.root = Path(tempfile.mkdtemp())
+
+    def test_a_tool_is_installed_after_a_server_failure(self):
+        data = archive_holding("sqlc", b"binary")
+        tool = replace(fetch_tools.TOOLS[1], sha256={"linux/amd64": hashlib.sha256(data).hexdigest()})
+        with answering(http_error(503), data):
+            binary = fetch_tools.install(tool, "linux/amd64", self.root)
+        self.assertEqual(binary.read_bytes(), b"binary")
+
+    def test_mkvtoolnix_is_downloaded_after_a_server_failure(self):
+        downloaded: list[bytes] = []
+
+        class Downloaded(Exception):
+            pass
+
+        def verify(path, expected):
+            downloaded.append(Path(path).read_bytes())
+            raise Downloaded
+
+        with answering(http_error(503), b"appimage"), mock.patch.object(fetch_mkvtoolnix, "verify", verify), \
+                self.assertRaises(Downloaded):
+            fetch_mkvtoolnix.install("linux/amd64", self.root)
+        self.assertEqual(downloaded, [b"appimage"])
+
