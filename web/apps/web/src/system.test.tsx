@@ -82,6 +82,7 @@ function report(node: SystemNode): SystemReport {
       goVersion: "go1.26.1",
       startedAt: 1_790_000_000_000,
       isMultipathTcpOn: false,
+      addressAtHome: { address: "", origin: "" },
       disks: [
         { path: "/var/lib/orpheum", totalBytes: 500_000_000_000, availableBytes: 250_000_000_000 },
       ],

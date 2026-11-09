@@ -18,6 +18,7 @@ import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
 import { NodeUnconfinedLeave } from "./node-unconfined.tsx";
 import { NowPlaying } from "./now-playing.tsx";
+import { SystemAddressAtHome } from "./system-address-at-home.tsx";
 import { SystemBackups } from "./system-backups.tsx";
 import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
 import { SystemResourceUse } from "./system-resource-use.tsx";
@@ -133,6 +134,7 @@ export function SystemView(props: {
         </dl>
         <Disks disks={server.disks ?? []} />
         <MultipathTcpNote isOn={server.isMultipathTcpOn} />
+        <SystemAddressAtHome addressAtHome={server.addressAtHome} onChanged={props.onChanged} />
       </section>
       <Findings findings={props.report.findings ?? []} />
       <QueueHealth queue={props.report.queue ?? []} />

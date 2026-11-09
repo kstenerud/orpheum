@@ -57,6 +57,7 @@ const report: SystemReport = {
     goVersion: "go1.26.1",
     startedAt: 1_790_000_000_000,
     isMultipathTcpOn: false,
+    addressAtHome: { address: "", origin: "" },
     disks: [],
     databases: [],
   },
