@@ -521,7 +521,7 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
       memberId: 1,
       deviceId: 7,
       isHost: true,
-      group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
+      group: { state: "paused", positionMs: 61_000, rate: 1, fileId: 4 },
       roster: [],
     });
     return { mounted, services, sockets };
@@ -589,7 +589,7 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
     expect(lines.map((line) => line.textContent)).toEqual([
       "Karl: device 7 (panel) · this device",
       "Karl: device 9 (video) · ▶ leading",
-      "Paused · leader device 9 (Karl) · why putOn · this device 7",
+      "paused · leader device 9 (Karl) · why putOn · this device 7",
     ]);
     // Folded, at the foot, under End (the owner, 2026-11-07).
     const fold = mounted.container.querySelector<HTMLDetailsElement>("details.together-debug-fold");

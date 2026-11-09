@@ -39,14 +39,14 @@ describe("a short runway while another player is still loading (D285 §2)", () =
       media,
       connectionWith(() => roster),
     );
-    loading.follow("Playing", true);
+    loading.follow("playing", true);
     expect(runways).toEqual([cooperativeRunwayS]);
-    loading.follow("Playing", true); // told once
+    loading.follow("playing", true); // told once
     roster = [memberWith(9, false), memberWith(14, false)];
-    loading.follow("Playing", true);
+    loading.follow("playing", true);
     expect(runways).toEqual([cooperativeRunwayS, undefined]);
     roster = [memberWith(9, true), memberWith(14, false)]; // only itself loading: no runway
-    loading.follow("Playing", false);
+    loading.follow("playing", false);
     expect(runways).toEqual([cooperativeRunwayS, undefined]);
   });
 });

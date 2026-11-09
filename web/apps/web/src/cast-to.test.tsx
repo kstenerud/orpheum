@@ -33,7 +33,7 @@ const castWelcome = {
   deviceId: 7,
   isHost: true,
   rights: { canPlayPause: true, canSeek: true },
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [],
 };
 
@@ -548,7 +548,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
       deviceId: 5,
       isHost: true,
       rights: { canPlayPause: true, canSeek: true },
-      group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 8 },
+      group: { state: "paused", positionMs: 61_000, rate: 1, fileId: 8 },
       roster: [],
     });
   }

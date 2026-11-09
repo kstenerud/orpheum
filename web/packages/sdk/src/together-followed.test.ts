@@ -36,7 +36,7 @@ describe("a player's word that it followed its group's change (the owner, 2026-1
   it("says it followed each change at once, once, and none for the group it found", () => {
     const media = new FakeMedia();
     media.paused = false;
-    const { connection, setGroup, notes } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, setGroup, notes } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     advance(1000);
     setGroup({ ...paused, event: "paused" }, monotonicNowMs);
@@ -70,7 +70,7 @@ describe("a player's word of a play its follower did not make while its group he
     media.currentTime = 1607.085;
     const { connection, notes } = fakeConnection({
       ...paused,
-      state: "Waiting",
+      state: "waiting",
       positionMs: 1_607_085,
     });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
@@ -84,11 +84,11 @@ describe("a player's word of a play its follower did not make while its group he
 
   it("says the page played it where the element does not autoplay, and says nothing of a play with its group", () => {
     const media = new FakeMedia();
-    const { connection, setGroup, notes } = fakeConnection({ ...paused, state: "Waiting" });
+    const { connection, setGroup, notes } = fakeConnection({ ...paused, state: "waiting" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     media.paused = false;
     media.fire("play");
-    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, monotonicNowMs);
+    setGroup({ ...paused, state: "playing", event: "leaderPlays" }, monotonicNowMs);
     media.fire("play");
     expect(notes.filter((note) => note.kind === "playedWhileHeld")).toEqual([
       { kind: "playedWhileHeld", positionMs: 60_000, why: "page" },

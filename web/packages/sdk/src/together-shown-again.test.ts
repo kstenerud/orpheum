@@ -51,7 +51,7 @@ function lockedAndShownAgain(): ReturnType<typeof fakeConnection> & { readonly m
   const media = new FakeMedia();
   const page = new FakePage();
   media.currentTime = 60;
-  const following = fakeConnection({ ...paused, state: "Playing" });
+  const following = fakeConnection({ ...paused, state: "playing" });
   followGroup(media, following.connection, { fileId: 5, leads: noRight, monotonicMs, page });
   expect(media.paused).toBe(false);
   page.hide();
@@ -99,7 +99,7 @@ describe("a follower whose page is shown again (the owner's VQ105, 2026-10-29)",
     };
     const page = new FakePage();
     media.currentTime = 60;
-    const { connection, notes } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, notes } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs, page });
     page.hide();
     media.pause();

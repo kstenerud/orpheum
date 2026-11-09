@@ -96,7 +96,7 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
       memberId: 4,
       deviceId: 9,
       isHost: false,
-      group: { state: "Playing", positionMs: 61_000, rate: 1, fileId: 7 },
+      group: { state: "playing", positionMs: 61_000, rate: 1, fileId: 7 },
       roster: [],
     });
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/playback");

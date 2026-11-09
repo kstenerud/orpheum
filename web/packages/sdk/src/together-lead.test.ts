@@ -43,12 +43,12 @@ describe("a leading player's person's moves", () => {
     media.paused = false;
     media.fire("play");
     expect(commands).toEqual([{ command: "play" }]);
-    setGroup({ ...paused, state: "Playing" }, 0);
+    setGroup({ ...paused, state: "playing" }, 0);
     media.paused = true;
     media.fire("pause");
     vi.advanceTimersByTime(browserPauseWindowMs);
     expect(commands.at(-1)).toEqual({ command: "pause" });
-    setGroup({ ...paused, state: "Paused" }, 0);
+    setGroup({ ...paused, state: "paused" }, 0);
     media.currentTime = 600;
     media.fire("seeking");
     vi.advanceTimersByTime(scrubPauseWindowMs);
@@ -67,7 +67,7 @@ describe("a leading player's person's moves", () => {
     pausingGuest.paused = false;
     pausingGuest.fire("play");
     expect(pausing.commands).toEqual([{ command: "play" }]);
-    pausing.setGroup({ ...paused, state: "Paused" }, 0);
+    pausing.setGroup({ ...paused, state: "paused" }, 0);
     pausingGuest.paused = true;
     pausingGuest.currentTime = 600;
     pausingGuest.fire("seeking");
@@ -99,7 +99,7 @@ describe("a leading player's person's moves", () => {
       ["webkitendfullscreen", "pause"],
     ] as const) {
       const media = new FakeMedia();
-      const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+      const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
       followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
       media.fire("seeked"); // the follower's own seek to the group's position
       vi.advanceTimersByTime(scrubPauseWindowMs);
@@ -120,7 +120,7 @@ describe("a leading player's person's moves", () => {
   it("plays nothing while its page is hidden, the film paused there, and follows the group once shown", () => {
     const media = new FakeMedia();
     const page = new FakePage();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs, page });
     media.fire("seeked"); // the follower's own seek to the group's position
     vi.advanceTimersByTime(scrubPauseWindowMs);
@@ -143,7 +143,7 @@ describe("a leading player's person's moves", () => {
     ] as const) {
       const media = new FakeMedia();
       const page = new FakePage();
-      const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+      const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
       followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs, page });
       media.fire("seeked"); // the follower's own seek to the group's position
       vi.advanceTimersByTime(scrubPauseWindowMs);
@@ -164,7 +164,7 @@ describe("a leading player's person's moves", () => {
   it("sends a pause its person makes on a page that stays shown", () => {
     const media = new FakeMedia();
     const page = new FakePage();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs, page });
     media.fire("seeked");
     vi.advanceTimersByTime(scrubPauseWindowMs);
@@ -176,7 +176,7 @@ describe("a leading player's person's moves", () => {
 
   it("takes the host's player stepping a fraction of a second over a gap for no seek", () => {
     const media = new FakeMedia();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: everyRight,
@@ -192,7 +192,7 @@ describe("a leading player's person's moves", () => {
 
   it("takes a seek its player says it made itself, a step over a gap however long, for no seek", () => {
     const media = new FakeMedia();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: everyRight,
@@ -209,7 +209,7 @@ describe("a leading player's person's moves", () => {
 
   it("sends the host's seek as its person makes it, before the place has loaded, once per drag", () => {
     const media = new FakeMedia();
-    const { connection, commands, reports } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands, reports } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: everyRight,
@@ -233,14 +233,14 @@ describe("a leading player's person's moves", () => {
 
   it("pauses the host's video while the group waits for a viewer, and sends no command", () => {
     const media = new FakeMedia();
-    const { connection, setGroup, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, setGroup, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: everyRight,
       monotonicMs,
     });
     expect(media.paused).toBe(false);
-    setGroup({ ...paused, state: "Waiting", event: "played", byMemberId: 2 }, 0);
+    setGroup({ ...paused, state: "waiting", event: "played", byMemberId: 2 }, 0);
     expect(media.paused).toBe(true);
     media.fire("pause");
     expect(commands).toEqual([]);
@@ -248,7 +248,7 @@ describe("a leading player's person's moves", () => {
 
   it("takes a pause the browser makes while its person drags the timeline for the seek it is", () => {
     const media = new FakeMedia();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: everyRight,
@@ -268,13 +268,13 @@ describe("a leading player's person's moves", () => {
 describe("a leading player held at a sync point", () => {
   it("does not take the hold's own pause for its person's, once the group plays on", () => {
     const media = new FakeMedia();
-    const { connection, setGroup, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, setGroup, commands } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     media.paused = false;
     // The host pressed play: the group waits at its sync point, then plays.
-    setGroup({ ...paused, state: "Waiting" }, 0);
+    setGroup({ ...paused, state: "waiting" }, 0);
     expect(media.paused).toBe(true);
-    setGroup({ ...paused, state: "Playing" }, 0);
+    setGroup({ ...paused, state: "playing" }, 0);
     media.fire("pause"); // the hold's pause, its event arriving once the group plays on
     vi.advanceTimersByTime(scrubPauseWindowMs * 2);
     expect(commands).toEqual([]);
@@ -286,17 +286,17 @@ describe("a leading player's own moves", () => {
     const media = new FakeMedia();
     const { connection, setGroup, commands, notes } = fakeConnection({
       ...paused,
-      state: "Playing",
+      state: "playing",
     });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     media.paused = false;
     // The host pressed play: the group waits, and the hold's pause fires no event.
-    setGroup({ ...paused, state: "Waiting" }, 0);
+    setGroup({ ...paused, state: "waiting" }, 0);
     expect(media.paused).toBe(true);
     monotonicNowMs = ownMarkLastsMs + 1;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(notes).toContainEqual({ kind: "ownMarkExpired", why: "pause" });
-    setGroup({ ...paused, state: "Playing" }, monotonicNowMs);
+    setGroup({ ...paused, state: "playing" }, monotonicNowMs);
     expect(media.paused).toBe(false);
     media.paused = true;
     media.fire("pause"); // its person's pause, a minute later
@@ -317,7 +317,7 @@ describe("a leading player awaiting the answer to its command", () => {
     expect(commands).toEqual([{ command: "play" }]);
     heardNoAnswer(); // a pong arrives before the server's answer
     expect(media.paused).toBe(false);
-    setGroup({ ...paused, state: "Waiting" }, 0); // the answer: it waits at its sync point
+    setGroup({ ...paused, state: "waiting" }, 0); // the answer: it waits at its sync point
     expect(media.paused).toBe(true);
   });
 });
@@ -325,7 +325,7 @@ describe("a leading player awaiting the answer to its command", () => {
 describe("a leading player's command", () => {
   it("is noted with the player's last events, its own marked, so the log says what made it", () => {
     const media = new FakeMedia();
-    const { connection, notes } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, notes } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     media.paused = false;
     monotonicNowMs = 500;

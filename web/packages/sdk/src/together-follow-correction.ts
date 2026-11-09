@@ -132,7 +132,7 @@ export class DriftCorrector {
   /** Plays, muted if refused, offered at a tap if shown again and still wanted (playOrPlayMuted). */
   startPlaying(): void {
     const isWanted = (): boolean =>
-      this.#connection.snapshot().group?.state === "Playing" && this.#phase.kind !== "waitingAhead";
+      this.#connection.snapshot().group?.state === "playing" && this.#phase.kind !== "waitingAhead";
     playOrPlayMuted(this.#media, this.#connection, this.#shownAgain.play(isWanted));
   }
 

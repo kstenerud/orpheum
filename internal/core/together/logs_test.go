@@ -312,7 +312,7 @@ func TestHub_LogsWhatHoldsAPlayerThatBeganBuffering(t *testing.T) {
 	}})
 	line := testutil.LineWith(t, stage.logs.String(), eventPlayerBuffering)
 	for _, want := range []string{
-		"level=INFO", "groupState=Idle", "why=waiting", "positionMs=320687", "readyState=2", "rate=0.9",
+		"level=INFO", "groupState=idle", "why=waiting", "positionMs=320687", "readyState=2", "rate=0.9",
 		"loadedAheadMs=11400", "sinceRateChangeMs=356",
 	} {
 		if !strings.Contains(line, want) {

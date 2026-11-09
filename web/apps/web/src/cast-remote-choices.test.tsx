@@ -44,7 +44,7 @@ const welcome = {
   deviceId: 5,
   isHost: true,
   rights: { canPlayPause: true, canSeek: true },
-  group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
+  group: { state: "paused", positionMs: 61_000, rate: 1, fileId: 4 },
   roster: [],
 };
 

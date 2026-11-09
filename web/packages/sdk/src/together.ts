@@ -11,7 +11,7 @@ export const togetherProtocolVersion = 2;
  * The group's play state (watch-together.md, Sync): Waiting is to play, standing where its leader is
  * until the leader plays (D371 §1).
  */
-export type GroupState = "Idle" | "Waiting" | "Paused" | "Playing";
+export type GroupState = "idle" | "waiting" | "paused" | "playing";
 
 /** What changed the group: the server's codes for its events (internal/core/together, EventKind). */
 export type GroupEvent =
@@ -304,7 +304,7 @@ function stringIn(record: Readonly<Record<string, unknown>>, key: string): strin
   return typeof value === "string" ? value : undefined;
 }
 
-const groupStates: readonly GroupState[] = ["Idle", "Waiting", "Paused", "Playing"];
+const groupStates: readonly GroupState[] = ["idle", "waiting", "paused", "playing"];
 
 /** The group in a message, or undefined when it has none a client can follow. */
 function parseGroup(value: unknown): GroupView | undefined {

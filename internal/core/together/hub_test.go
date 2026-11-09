@@ -164,7 +164,7 @@ func TestHub_LogsEachChangeOfTheGroupAndWhoLeadsIt(t *testing.T) {
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, guestDevice, true)
 	stage.command(t, host, CommandChangeItem, 7)
-	waiting := fmt.Sprintf("state=Waiting event=changedItem byMemberId=%d fileId=7", host.MemberID)
+	waiting := fmt.Sprintf("state=waiting event=changedItem byMemberId=%d fileId=7", host.MemberID)
 	leads := fmt.Sprintf("leaderDeviceId=%d", host.DeviceID)
 	for line := range strings.Lines(stage.logs.String()) {
 		if strings.Contains(line, `msg="watch together: the group changed"`) && strings.Contains(line, waiting) &&

@@ -22,7 +22,7 @@ const welcome = {
   sessionId: 1,
   memberId: 2,
   deviceId: 8,
-  group: { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 },
+  group: { state: "playing", positionMs: 70_000, rate: 1, fileId: 5 },
   roster: [
     { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video", isLeader: true }] },
     { id: 2, name: "Gran", devices: [{ id: 8, role: "video" }] },

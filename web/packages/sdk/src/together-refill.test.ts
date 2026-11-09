@@ -136,12 +136,12 @@ describe("holding its loading while its group waits (the owner's jumps, 2026-10-
     const { connection, setGroup, notes } = fakeConnection(paused);
     const stop = followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     expect(holds).toEqual([]); // paused, not waiting
-    setGroup({ ...paused, state: "Waiting" }, 0);
+    setGroup({ ...paused, state: "waiting" }, 0);
     expect(holds).toEqual([true]);
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     expect(holds).toEqual([true, false]);
-    setGroup({ ...paused, state: "Waiting" }, 1000);
+    setGroup({ ...paused, state: "waiting" }, 1000);
     stop();
     expect(holds).toEqual([true, false, true, false]);
     // Each told to the server's log too (the owner, 2026-10-12: "add the logging first").
@@ -185,14 +185,14 @@ describe("a group that seeks again while a player still loads (the owner's jumps
     const media = new FakeMedia();
     const { connection, setGroup, notes } = fakeConnection(paused);
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
-    setGroup({ ...paused, state: "Waiting", positionMs: 3_501_848 }, 0);
+    setGroup({ ...paused, state: "waiting", positionMs: 3_501_848 }, 0);
     media.seeking = true; // its chunk there is not made yet
-    setGroup({ ...paused, state: "Waiting", positionMs: 5_372_332 }, 0);
+    setGroup({ ...paused, state: "waiting", positionMs: 5_372_332 }, 0);
     const holds = notes.filter((note) => note.kind === "sought" && note.why === "hold");
     expect(holds.map((note) => (note.kind === "sought" ? note.toMs : 0))).toEqual([
       60_000, 3_501_848, 5_372_332,
     ]);
-    setGroup({ ...paused, state: "Waiting", positionMs: 5_373_000 }, 0); // still loading, as near
+    setGroup({ ...paused, state: "waiting", positionMs: 5_373_000 }, 0); // still loading, as near
     expect(notes.filter((note) => note.kind === "sought")).toHaveLength(3);
   });
 });
@@ -203,7 +203,7 @@ describe("a catch-up's seek, which is no jump (D250 §5, D284 §2)", () => {
     media.currentTime = 100;
     const { connection } = fakeConnection({
       ...paused,
-      state: "Playing",
+      state: "playing",
       positionMs: 100_000,
     });
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
@@ -225,14 +225,14 @@ describe("telling its player of the group's jumps (D286 §3)", () => {
     const jumps = (): number =>
       media.dispatched.filter((event) => event === groupJumpedEvent).length;
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
       0,
     );
     vi.advanceTimersByTime(3000);
     expect(jumps()).toBe(1);
-    setGroup({ ...paused, state: "Playing", event: "leaderPlays", positionMs: 900_000 }, 0);
+    setGroup({ ...paused, state: "playing", event: "leaderPlays", positionMs: 900_000 }, 0);
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 902_000, positionMs: 40_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 902_000, positionMs: 40_000 },
       0,
     );
     expect(jumps()).toBe(2);
@@ -244,7 +244,7 @@ describe("a player that may seek, joining a group already playing (the owner's t
     const media = new FakeMedia();
     const { connection, setGroup, commands } = fakeConnection({
       ...paused,
-      state: "Playing",
+      state: "playing",
       positionMs: 5_424_000,
     });
     media.readyState = 0; // nothing loaded yet: the follower moves nothing
@@ -254,7 +254,7 @@ describe("a player that may seek, joining a group already playing (the owner's t
     media.fire("seeking");
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands).toEqual([]);
-    setGroup({ ...paused, state: "Paused", positionMs: 5_416_678 }, 0); // held where it is: in step
+    setGroup({ ...paused, state: "paused", positionMs: 5_416_678 }, 0); // held where it is: in step
     media.fire("seeking"); // the browser tells of the follower's own seeks so far
     media.fire("seeked");
     media.currentTime = 5800;
@@ -277,7 +277,7 @@ describe("a hole in what a player held for its group's wait loaded (the owner's 
     tellNextChunkLoadMs(media, () => ({ loadMs: 2000, from: "confident" }));
     const { connection, reports } = fakeConnection({
       ...paused,
-      state: "Waiting",
+      state: "waiting",
       event: "seeked",
       positionMs: 1_549_673,
     });
@@ -316,7 +316,7 @@ describe("a hole in what a player held for its group's wait loaded (the owner's 
       [59, 60.5],
       [61, 80],
     ];
-    const waiting = { ...paused, state: "Waiting", event: "seeked" } as const;
+    const waiting = { ...paused, state: "waiting", event: "seeked" } as const;
     const { connection, setGroup, notes } = fakeConnection(waiting);
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     media.fire("seeking");

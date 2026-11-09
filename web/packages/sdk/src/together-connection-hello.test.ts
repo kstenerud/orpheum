@@ -41,7 +41,7 @@ const welcome = {
   sessionId: 1,
   memberId: 7,
   deviceId: 9,
-  group: { state: "Paused", positionMs: 1000, rate: 1, fileId: 3 },
+  group: { state: "paused", positionMs: 1000, rate: 1, fileId: 3 },
   roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video" }] }],
 };
 

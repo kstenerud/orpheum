@@ -53,7 +53,7 @@ const welcome = {
   sessionId: 1,
   memberId: 7,
   deviceId: 9,
-  group: { state: "Paused", positionMs: 1000, rate: 1, fileId: 3 },
+  group: { state: "paused", positionMs: 1000, rate: 1, fileId: 3 },
   roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video" }] }],
 };
 
@@ -120,7 +120,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
         v: 2,
         type: "group",
         seq: 6,
-        group: { ...welcome.group, state: "Playing" },
+        group: { ...welcome.group, state: "playing" },
       }),
     );
     expect(connection.command({ command: "changeItem", fileId: 5, positionMs: 61_000.7 })).toBe(

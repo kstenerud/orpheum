@@ -58,7 +58,7 @@ describe("the host's player in a session (D246 §5)", () => {
       seq: 1,
       memberId: 1,
       isHost: true,
-      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     expect(server.heard).toContainEqual({
@@ -107,7 +107,7 @@ describe("the host's player in a session (D246 §5)", () => {
       seq: 1,
       memberId: 1,
       isHost: true,
-      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     expect(mounted.container.querySelector(".together-panel .film-volume input")).not.toBeNull();
@@ -203,7 +203,7 @@ describe("the host's player in a session (D246 §5)", () => {
       seq: 1,
       memberId: 1,
       isHost: true,
-      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     await act(async () => {
@@ -213,7 +213,7 @@ describe("the host's player in a session (D246 §5)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Playing", positionMs: 61_000, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 61_000, rate: 1, fileId: 5 },
     });
     const commands = server.heard.filter((message) => message["type"] === "command");
     expect(commands.map((command) => command["command"])).toEqual(["changeItem"]);
@@ -262,7 +262,7 @@ describe("the host's player in a session (D246 §5)", () => {
       seq: 1,
       memberId: 1,
       isHost: true,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     const video = mounted.container.querySelector("video");

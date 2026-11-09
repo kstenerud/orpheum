@@ -55,7 +55,7 @@ const welcome = {
   sessionId: 1,
   memberId: 7,
   deviceId: 9,
-  group: { state: "Paused", positionMs: 1000, rate: 1, fileId: 3 },
+  group: { state: "paused", positionMs: 1000, rate: 1, fileId: 3 },
   roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video" }] }],
 };
 
@@ -96,7 +96,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       status: "connected",
       memberId: 7,
       isHost: false,
-      group: { state: "Paused", positionMs: 1000, fileId: 3 },
+      group: { state: "paused", positionMs: 1000, fileId: 3 },
       groupReceivedAtMs: 1000,
       roster: [{ id: 7, name: "Gran", isHost: false }],
     });
@@ -113,7 +113,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     const socket = sockets.opened[0]!;
     socket.onOpen();
     socket.onMessage(JSON.stringify(welcome));
-    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    const playing = { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 };
     monotonicNowMs = 2000;
     socket.onMessage(
       JSON.stringify({
@@ -144,7 +144,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
         v: 2,
         type: "group",
         seq: 4,
-        group: { ...playing, state: "Paused", positionMs: 14_000 },
+        group: { ...playing, state: "paused", positionMs: 14_000 },
       }),
     );
     expect(connection.snapshot()).toMatchObject({
@@ -164,7 +164,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     const socket = sockets.opened[0]!;
     socket.onOpen();
     socket.onMessage(JSON.stringify(welcome));
-    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    const playing = { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 };
     // Its group message waited 200 ms in a full queue on the way: it says 10 s at 10.2 s.
     monotonicNowMs = 2000;
     const pingsBefore = sockets.sent.filter((each) => each["type"] === "ping").length;
@@ -234,7 +234,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     const socket = sockets.opened[0]!;
     socket.onOpen();
     socket.onMessage(JSON.stringify(welcome));
-    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    const playing = { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 };
     monotonicNowMs = 2000;
     socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
     monotonicNowMs = 2040;
@@ -267,7 +267,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     // The device's clock at the server's time realMs: 100 ppm fast.
     const deviceMs = (realMs: number): number => 1000 + realMs * 1.0001;
     const playingAt = (positionMs: number): Record<string, unknown> => ({
-      state: "Playing",
+      state: "playing",
       positionMs,
       rate: 1,
       fileId: 3,
@@ -310,7 +310,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 }));
     const pings = (): number => sockets.sent.filter((each) => each["type"] === "ping").length;
     const before = pings();
-    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    const playing = { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 };
     socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
     expect(pings()).toBe(before + 1);
     // Unanswered, the next waits: a link slower than a second never counts it as unanswered.
@@ -335,7 +335,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     const socket = sockets.opened[0]!;
     socket.onOpen();
     socket.onMessage(JSON.stringify(welcome));
-    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    const playing = { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 };
     monotonicNowMs = 2000;
     socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
     monotonicNowMs = 2180;
@@ -457,12 +457,12 @@ describe("closing and opening again, as a screen does when it remounts", () => {
 
 describe("reading the server's messages", () => {
   it("reads a group whose zeros the server left out, and ignores what it does not know", () => {
-    expect(parseTogetherMessage('{"v":2,"type":"group","seq":3,"group":{"state":"Idle"}}')).toEqual(
+    expect(parseTogetherMessage('{"v":2,"type":"group","seq":3,"group":{"state":"idle"}}')).toEqual(
       {
         type: "group",
         seq: 3,
         group: {
-          state: "Idle",
+          state: "idle",
           positionMs: 0,
           rate: 1,
           fileId: 0,

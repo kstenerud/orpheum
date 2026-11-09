@@ -51,9 +51,9 @@ export class HoldingNotes {
   ): boolean {
     const wasHolding = this.#wasHolding;
     this.#wasHolding = why !== undefined;
-    if (why === undefined || snapshot.group?.state !== "Waiting") {
+    if (why === undefined || snapshot.group?.state !== "waiting") {
       this.#notedWait = undefined;
-      return why !== undefined && wasHolding === false && snapshot.group?.state === "Playing";
+      return why !== undefined && wasHolding === false && snapshot.group?.state === "playing";
     }
     const wait = `${String(snapshot.groupSeq)}:${why}`;
     const isNew = wait !== this.#notedWait;

@@ -454,7 +454,7 @@ class SessionConnection
     const after = this.#snapshot;
     // A voice device plays nothing, so places nothing: its placings filled the log beside its
     // player's (the acceptance's log, 2026-10-07).
-    if (after.group?.state !== "Playing" || this.#options.role === "panel") {
+    if (after.group?.state !== "playing" || this.#options.role === "panel") {
       return;
     }
     if (message.type !== "pong") {

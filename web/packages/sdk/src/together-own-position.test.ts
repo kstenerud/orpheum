@@ -75,7 +75,7 @@ describe("a player's own position (D377)", () => {
     });
     connection.reportState();
     expect(reports.at(-1)?.isPlaceRemembered).toBeUndefined(); // held where its paused group stands
-    setGroup({ ...paused, state: "Playing" }, 0);
+    setGroup({ ...paused, state: "playing" }, 0);
     connection.reportState();
     expect(media.paused).toBe(false);
     expect(reports.at(-1)?.isPlaceRemembered).toBe(true);
@@ -85,7 +85,7 @@ describe("a player's own position (D377)", () => {
     const media = new FakeMedia();
     media.currentTime = 60;
     const seen: Seen = { deviceId: 8, leaderId: 40 };
-    const { connection, setGroup, reports } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, setGroup, reports } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, asSeen(connection, seen), { fileId: 5, leads: noRight, monotonicMs });
     connection.reportState(); // plays along with the group device 40 leads
     media.currentTime = 75; // it played on from what it had loaded, its connection gone

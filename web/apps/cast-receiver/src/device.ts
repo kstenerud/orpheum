@@ -158,7 +158,7 @@ export function stepsToFollow(
     return player.fileId === 0 ? [] : [{ step: "stop" }];
   }
   const positionMs = Math.max(0, expectedMs ?? group.positionMs);
-  const isPlaying = group.state === "Playing";
+  const isPlaying = group.state === "playing";
   if (group.fileId !== player.fileId) {
     return [
       { step: "load", fileId: group.fileId, positionMs },

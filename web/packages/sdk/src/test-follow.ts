@@ -262,7 +262,7 @@ export function fakeConnection(
 }
 
 export const paused: GroupView = {
-  state: "Paused",
+  state: "paused",
   positionMs: 60_000,
   rate: 1,
   fileId: 5,

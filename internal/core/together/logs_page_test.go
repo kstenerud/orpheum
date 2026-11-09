@@ -311,7 +311,7 @@ func TestHub_LogsWhatPlayedAPlayerItsGroupHeld(t *testing.T) {
 	}
 	logged := stage.logs.String()
 	played := testutil.LineWith(t, logged, "playedWhileHeld")
-	for _, want := range []string{"level=INFO", "groupState=Waiting", "by=autoplay", "positionMs=1607085"} {
+	for _, want := range []string{"level=INFO", "groupState=waiting", "by=autoplay", "positionMs=1607085"} {
 		if !strings.Contains(played, want) {
 			t.Errorf("the log of a play the group held lacks %s:\n%s", want, played)
 		}

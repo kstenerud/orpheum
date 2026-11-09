@@ -32,7 +32,7 @@ function memoryStorage(): StringStorage & { readonly items: Map<string, string> 
 /** A group as the server tells it, playing fileId at positionMs. */
 function groupOf(fields: Partial<GroupView>): GroupView {
   return {
-    state: "Playing",
+    state: "playing",
     positionMs: 0,
     rate: 1,
     fileId: 7,
@@ -135,14 +135,14 @@ describe("a Chromecast following its cast's session (D434)", () => {
       { step: "load", fileId: 7, positionMs: 61_000 },
       { step: "play" },
     ]);
-    expect(stepsToFollow(groupOf({ state: "Paused", positionMs: 5000 }), 5000, stopped)).toEqual([
+    expect(stepsToFollow(groupOf({ state: "paused", positionMs: 5000 }), 5000, stopped)).toEqual([
       { step: "load", fileId: 7, positionMs: 5000 },
     ]);
   });
 
   it("plays, pauses and seeks as its remote has the group do", () => {
     const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
-    expect(stepsToFollow(groupOf({ state: "Paused" }), 30_000, playing)).toEqual([
+    expect(stepsToFollow(groupOf({ state: "paused" }), 30_000, playing)).toEqual([
       { step: "pause" },
     ]);
     expect(stepsToFollow(groupOf({}), 30_000, { ...playing, isPlaying: false })).toEqual([

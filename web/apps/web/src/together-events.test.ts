@@ -12,7 +12,7 @@ const roster = [{ id: 1, name: "Karl", isHost: true, devices: [] }];
 
 function group(event: GroupEvent | undefined, byMemberId?: number, seekedFromMs = 0): GroupView {
   return {
-    state: "Paused",
+    state: "paused",
     positionMs: 2_472_000,
     rate: 1,
     fileId: 5,
@@ -42,7 +42,7 @@ describe("the group's changes as named events (D188)", () => {
       JSON.stringify({
         type: "group",
         group: {
-          state: "Paused",
+          state: "paused",
           positionMs: 2_472_000,
           rate: 1,
           fileId: 7,
@@ -66,7 +66,7 @@ describe("the group's changes as named events (D188)", () => {
       JSON.stringify({
         type: "group",
         group: {
-          state: "Waiting",
+          state: "waiting",
           positionMs: 2_472_000,
           rate: 1,
           fileId: 7,
@@ -83,7 +83,7 @@ describe("the group's changes as named events (D188)", () => {
 
   it("says nothing of an event it does not know, or of none", () => {
     const unknown = parseTogetherMessage(
-      JSON.stringify({ type: "group", group: { state: "Paused", event: "danced", byMemberId: 1 } }),
+      JSON.stringify({ type: "group", group: { state: "paused", event: "danced", byMemberId: 1 } }),
     );
     const unknownGroup = unknown?.type === "group" ? unknown.group : undefined;
     expect(unknownGroup?.event).toBeUndefined();

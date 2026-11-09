@@ -40,7 +40,7 @@ describe("a following player the browser will not start with sound", () => {
       this.paused = false;
       return Promise.resolve();
     };
-    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     await vi.waitFor(() => {
       expect(media.paused).toBe(false);
@@ -66,7 +66,7 @@ describe("a following player that loses time whenever its rate goes back to its 
     const { connection, setGroup, notes } = fakeConnection(paused);
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     media.currentTime = 59.6; // 400 ms behind
     for (let second = 0; second < 60; second++) {
       monotonicNowMs += checkDriftEveryMs;
@@ -112,7 +112,7 @@ describe("a following player whose rate's returns cost it more than the drift le
     const { connection, setGroup, notes } = fakeConnection(paused);
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     positionS = 59.6; // 400 ms behind
     aimsPastMs.length = 0; // the hold's seek, before it played
     for (let second = 1; second <= 60; second++) {

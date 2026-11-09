@@ -24,7 +24,7 @@ const welcome = {
   sessionId: 1,
   memberId: 2,
   deviceId: 8,
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [
     { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video", isLeader: true }] },
     { id: 2, name: "Gran", devices: [{ id: 8, role: "video" }] },
@@ -62,7 +62,7 @@ describe("a signed-in guest's Play page of the group's film while their device c
     await sockets.live.accept();
     await sockets.session.acceptEach();
     await sockets.session.say(welcome);
-    const playing = { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 };
+    const playing = { state: "playing", positionMs: 70_000, rate: 1, fileId: 5 };
     await sockets.session.say({ type: "group", seq: 2, group: playing });
     expect(mounted.container.querySelector("video")).not.toBeNull();
     await sockets.live.say({
@@ -106,7 +106,7 @@ describe("a signed-in guest's Play page of the group's film while their device c
     await sockets.live.accept();
     await sockets.session.acceptEach();
     await sockets.session.say(welcome);
-    const playing = { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 };
+    const playing = { state: "playing", positionMs: 70_000, rate: 1, fileId: 5 };
     await sockets.session.say({ type: "group", seq: 2, group: playing });
     const panel = mounted.container.querySelector(".together-panel");
     expect(panel?.hasAttribute("hidden")).toBe(false);
@@ -179,7 +179,7 @@ describe("a cast from over a guest's Play page of the group's film (D371 §4, VQ
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 70_000, rate: 1, fileId: 5 },
     });
     await settleUntil(() => buttonWithText(mounted.container, "Fire TV") !== undefined);
     await click(buttonWithText(mounted.container, "Fire TV"));
@@ -221,7 +221,7 @@ describe("a signed-in guest's leader debug view (the owner, 2026-10-29)", () => 
           ? [
               "Karl: device 3 (video) · ▶ leading",
               "Gran: device 8 (video) · this device",
-              "Idle · leader device 3 (Karl) · why none · this device 8",
+              "idle · leader device 3 (Karl) · why none · this device 8",
             ]
           : [],
       );

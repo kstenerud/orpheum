@@ -1212,7 +1212,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays
   on, never left paused on its first frame; (2) the core's log has, for each, a `groupChanged` line
-  with `event=everyoneReady` and `state=Playing` after its `seeked`; (3) any `playerBuffering` line
+  with `event=everyoneReady` and `state=playing` after its `seeked`; (3) any `playerBuffering` line
   with `groupState=Waiting` says what held the wait (`why`, `readyState`, `loadedAheadMs`): note
   them in the item. Before the fix the cast's group waited for its receiver for good, the receiver
   held paused at 1549.673 s with 7 s loaded but a hole of 60 ms in its sound 1.5 s on, saying it
@@ -1223,7 +1223,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   times, with Watch Together off: (1) each starts with one play, never a play, a pause and a play,
   no frame or sound moving before the film plays on; (2) the core's log has no `playedWhileHeld`
   line for the cast's session, and its first `playerChanged` line with `playing=true` comes after
-  its `groupChanged` line with `state=Playing`; (3) the sound is on from the start, the log's
+  its `groupChanged` line with `state=playing`; (3) the sound is on from the start, the log's
   `playedWithSound` line coming as it plays, or, where Silk refused it, a `playedMuted` line and the
   "Press OK" line over the film. Then (4), with the cast's Fire TV unplugged from the network just
   after Use, the group plays once its wait's 20 s are up (a `groupChanged` line with
@@ -1644,7 +1644,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   line then `leaderCaughtUp … offGroupMs=… catchingUpMs=…`, keeps the lead, and the S23 never jumps
   back (no `followerCaughtUp` on the S23 with a negative `behindMs` near it, no stretch seen twice).
   (3) Lock the S23 (its page hidden, it contends no more) and stall the Mac's film as in (2), longer
-  than 3 s. Passes when the group waits for the Mac (`groupChanged state=Waiting event=waitingFor`),
+  than 3 s. Passes when the group waits for the Mac (`groupChanged state=waiting event=waitingFor`),
   the lead does not pass, and the film plays on from where it stalled once the Mac loads, nothing
   skipped. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`;
@@ -1717,9 +1717,9 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [x] **VQ134** — a Watch Together session left with no player keeps its playing state (D375), on
   staging. On the Mac, Chrome hosting a session and Firefox a guest, both playing the film; the S23
   in it too, then locked. (1) Turn the Mac's Wi-Fi off for about a minute, then on. Passes when the
-  core's log has `groupChanged state=Paused event=everyoneLeft … heldPlaying=true` as the last of
-  them went, and as the first came back `groupChanged state=Waiting event=resumedOnReturn` at the same
-  `positionMs`, then `state=Playing event=leaderPlays`; both browsers play the film on from about
+  core's log has `groupChanged state=paused event=everyoneLeft … heldPlaying=true` as the last of
+  them went, and as the first came back `groupChanged state=waiting event=resumedOnReturn` at the same
+  `positionMs`, then `state=playing event=leaderPlays`; both browsers play the film on from about
   where it held, no one pressing Play. (2) Again, with the host having paused first. Passes
   when the log says `heldPlaying=false`, and both come back to the film paused where it was, until
   someone presses Play. (`internal/core/together/leader.go`, `group.go`;
@@ -1775,7 +1775,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   again, a new `runStarted`; it is now behind Firefox in line. (3) With the S23 locked, turn the Mac's
   Wi-Fi off for about a minute, then on. Passes when the log has `groupChanged … event=everyoneLeft …
   heldPlaying=true`, then, as the first browser comes back, `leaderChanged … why=noneLed …
-  positionFrom=leader` with that browser's own `positionMs` and `groupChanged state=Waiting
+  positionFrom=leader` with that browser's own `positionMs` and `groupChanged state=waiting
   event=resumedOnReturn` at it: the browser plays on from where it stood, never sought back to where
   the group was held, and the other takes its position. (4) Reopen the host's page with everyone else
   gone: its `leaderChanged` says `positionFrom=core`, and it plays from where the group was held.

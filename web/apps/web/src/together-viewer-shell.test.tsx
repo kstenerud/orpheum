@@ -31,7 +31,7 @@ const welcome = {
   sessionId: 1,
   memberId: 2,
   deviceId: 8,
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [
     { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video" }] },
     { id: 2, name: "Gran", devices: [{ id: 8, role: "video" }] },
@@ -110,7 +110,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.say({
       type: "group",
       seq: 2,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     await settleUntil(() => services.navigation.route().screen === "play");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
@@ -137,7 +137,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     await settleUntil(() => services.navigation.route().screen === "play");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
@@ -166,7 +166,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(services.navigation.route()).toEqual({ screen: "about" });
     await click(buttonWithText(mounted.container, "Back to the film"));
@@ -189,7 +189,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(buttonWithText(mounted.container, "Back to the film")).toBeDefined();
     await click(buttonWithText(mounted.container, "Leave"));
@@ -226,7 +226,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     const { container } = mounted;
     await settleUntil(() => buttonWithText(container, "Tap to continue") !== undefined);
@@ -234,7 +234,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.acceptEach();
     await sockets.session.say({
       ...welcome,
-      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(container.querySelector('[aria-label="The film"], .together-viewer')).not.toBeNull();
     await sockets.session.say({ type: "ended", reason: "hostEnded" });

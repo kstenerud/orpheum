@@ -576,10 +576,10 @@ type GroupState string
 
 // The group states.
 const (
-	GroupIdle    GroupState = "Idle"
-	GroupWaiting GroupState = "Waiting"
-	GroupPaused  GroupState = "Paused"
-	GroupPlaying GroupState = "Playing"
+	GroupIdle    GroupState = "idle"
+	GroupWaiting GroupState = "waiting"
+	GroupPaused  GroupState = "paused"
+	GroupPlaying GroupState = "playing"
 )
 
 // GroupView is the group as a client is told it: its state, where it is, how fast, what plays, and

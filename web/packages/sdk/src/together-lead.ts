@@ -48,10 +48,10 @@ export function commandOfEvent(
   where: GroupNow,
 ): GroupCommand | undefined {
   const { state } = where.group;
-  if (event === "play" && state === "Paused") {
+  if (event === "play" && state === "paused") {
     return { command: "play" };
   }
-  if (state === "Playing" && (event === "ended" || (event === "pause" && !media.ended))) {
+  if (state === "playing" && (event === "ended" || (event === "pause" && !media.ended))) {
     return { command: "pause" };
   }
   // A jump is past the seek threshold: the browser's player moves itself a fraction of a second to

@@ -272,7 +272,7 @@ function receiverAtMarrowgate(
   isLeading: boolean,
 ): { media: FakeMedia } & ReturnType<typeof fakeConnection> {
   const media = marrowgateResumed();
-  const fake = fakeConnection({ ...paused, state: "Idle", fileId: 0 });
+  const fake = fakeConnection({ ...paused, state: "idle", fileId: 0 });
   const roster = [
     device(thisDevice, "video", isLeading),
     device(33, isLeading ? "panel" : "video", !isLeading),
@@ -288,7 +288,7 @@ function receiverAtMarrowgate(
 describe("a session's leader starts only with enough loaded ahead, and says so truthfully", () => {
   it("waits before its first play, saying it buffers and does not play until it plays", () => {
     const { media, setGroup, connection, reports, commands } = receiverAtMarrowgate(true);
-    setGroup({ ...paused, positionMs: 1_798_900, state: "Waiting", event: "changedItem" }, 0);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "waiting", event: "changedItem" }, 0);
     expect(media.paused).toBe(true);
     connection.reportState();
     expect(reports.at(-1)).toMatchObject({ isPlaying: false, isBuffering: true });
@@ -303,8 +303,8 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
 
   it("never plays a start its group paused while it waited", () => {
     const { media, setGroup } = receiverAtMarrowgate(true);
-    setGroup({ ...paused, positionMs: 1_798_900, state: "Waiting", event: "changedItem" }, 0);
-    setGroup({ ...paused, positionMs: 1_798_900, state: "Paused", event: "paused" }, 500);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "waiting", event: "changedItem" }, 0);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "paused", event: "paused" }, 500);
     media.loaded = [[1794.96, 1810.87]];
     vi.advanceTimersByTime(startCheckEveryMs);
     expect(media.paused).toBe(true);
@@ -313,7 +313,7 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
   it("sends no pause for everyone as it holds its own seek until enough is loaded", () => {
     const { media, setGroup, commands } = receiverAtMarrowgate(true);
     media.loaded = [[0, 7200]];
-    setGroup({ ...paused, positionMs: 1_798_900, state: "Playing", event: "played" }, 0);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "playing", event: "played" }, 0);
     media.fire("play");
     expect(media.paused).toBe(false);
     media.loaded = [[1790, 1800.47]];
@@ -344,7 +344,7 @@ describe("a cast's receiver asked to play before its session's welcome says it l
     const media = new FakeMedia();
     media.currentTime = 2727.77;
     media.readyState = 0;
-    const fake = fakeConnection({ ...paused, state: "Idle", fileId: 0 });
+    const fake = fakeConnection({ ...paused, state: "idle", fileId: 0 });
     let isWelcomed = false;
     const member: RosterMember = {
       id: 1,
@@ -369,7 +369,7 @@ describe("a cast's receiver asked to play before its session's welcome says it l
     startGateOf(media).play(play.how);
     expect(play.plays()).toBe(0);
     isWelcomed = true;
-    fake.setGroup({ ...paused, positionMs: 2_727_770, state: "Waiting", event: "changedItem" }, 0);
+    fake.setGroup({ ...paused, positionMs: 2_727_770, state: "waiting", event: "changedItem" }, 0);
     media.readyState = 3;
     media.loaded = [[2725.92, 2728.5]]; // a moment loaded: canplay, where the TV played
     media.fire("canplay");
@@ -402,13 +402,13 @@ describe("whether a paused element is asked to play, which makes its slow load a
       monotonicMs: () => 0,
     });
     expect(isAskedToPlay(media)).toBe(false);
-    setGroup({ ...paused, state: "Waiting" }, 0);
+    setGroup({ ...paused, state: "waiting" }, 0);
     expect(isAskedToPlay(media)).toBe(true);
-    setGroup({ ...paused, state: "Playing" }, 0);
+    setGroup({ ...paused, state: "playing" }, 0);
     expect(isAskedToPlay(media)).toBe(true);
     setGroup(paused, 0);
     expect(isAskedToPlay(media)).toBe(false);
-    setGroup({ ...paused, state: "Waiting" }, 0);
+    setGroup({ ...paused, state: "waiting" }, 0);
     unfollow();
     expect(isAskedToPlay(media)).toBe(false);
   });
