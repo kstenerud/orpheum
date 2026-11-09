@@ -432,6 +432,15 @@ linters:
             - pkg: "github.com/kstenerud/orpheum/internal/nodeproto"
               desc: "[platform] platform packages are leaves; they import nothing above them"
 
+        # The shared public packages (pkg/) are leaves: each is used by the module and by the public
+        # discovery packages, so it imports nothing of the module's.
+        pkg-is-a-leaf:
+          list-mode: lax
+          files: ["**/pkg/**", "!$test"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum"
+              desc: "[pkg] shared public packages are leaves; they import nothing of the module's"
+
         # D2/D103: the playback decision sees declared capabilities, never the request.
         decide-sees-capabilities:
           list-mode: lax
@@ -576,7 +585,7 @@ linters:
         # no NUL, nothing after the value, the limits, a key in its field's own case.
         - pattern: '^json\.(Unmarshal|NewDecoder)$'
           pkg: '^encoding/json$'
-          msg: "[strict-json] decode JSON through internal/platform/strictjson (D456)"
+          msg: "[strict-json] decode JSON through pkg/strictjson (D456)"
 
         # Ambient process state is read once, in cmd/orpheum, and passed down.
         - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname|TempDir)$'
@@ -678,7 +687,7 @@ linters:
       - web
     rules:
       # ---- forbidigo: each tag's sanctioned home
-      - path: (^internal/platform/strictjson/|^discovery/internal/strictjson/|_test\.go$)
+      - path: (^pkg/strictjson/|_test\.go$)
         linters: [forbidigo]
         text: '\[strict-json\]'
       # The files D456's Status names, until the owner decides them (TestArch_JSONIsDecodedStrictly).
@@ -727,14 +736,12 @@ linters:
         linters: [forbidigo]
         text: '\[delete\]'
       # A write, whole: it renames only its own temporary over the name it writes, and removes only
-      # that temporary, so it destroys nothing a plain write would not (internal/platform/atomics, and
-      # its twin in discovery/internal/atomics, which the public packages use, being unable to import
-      # it).
-      - path: ^(internal/platform/atomics/atomics(_test)?|discovery/internal/atomics/atomics)\.go$
+      # that temporary, so it destroys nothing a plain write would not (pkg/atomics).
+      - path: ^pkg/atomics/atomics(_test)?\.go$
         linters: [forbidigo]
         text: '\[(delete|media-root)\]'
       # The single-target discovery's record, which opens its own directory as a root to write
-      # through that twin; never a media root.
+      # through pkg/atomics; never a media root.
       - path: ^discovery/single/record\.go$
         linters: [forbidigo]
         text: '\[media-root\]'

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // The mechanisms, as the node's report names them (cut-a §7).

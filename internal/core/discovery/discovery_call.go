@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // signedCall makes a call with the session's token, renewing the session at once, and only once, when the

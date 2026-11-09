@@ -16,9 +16,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // maxHelloBytes bounds a hello: a few hundred bytes, and as many again for each device the node

@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // Token is the token the fake accepts.

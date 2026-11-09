@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // ReadAgain is what a scan reads again, changed on disk or not, so its probe is compared with the one

@@ -14,8 +14,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
+	"github.com/kstenerud/orpheum/pkg/atomics"
 )
 
 // archiveFolder is the folder a backup archive keeps the persistent directory's files under, so an

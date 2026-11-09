@@ -15,8 +15,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // ErrGridChanged is a run asked for on a store the film no longer has: its file changed, the

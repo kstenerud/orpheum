@@ -23,7 +23,7 @@ import (
 
 	"golang.org/x/crypto/acme"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // The states an order and its authorization pass through.

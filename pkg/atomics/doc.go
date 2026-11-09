@@ -16,8 +16,8 @@
 //   - A write destroys nothing a plain write would not: it renames only its own temporary over the
 //     name it writes, and removes only that temporary. Review; the lint rule that keeps renaming and
 //     removing to a few packages lets this one do both for that reason alone (.golangci.yml).
-//   - This package imports nothing from the module but other platform packages. Enforced by the
-//     depguard rule platform-is-a-leaf.
+//   - It is public, for the public discovery packages as for the module, and imports nothing of
+//     the module's. TestArch_PublicPackagesImportNothingInternal; the depguard rule pkg-is-a-leaf.
 //
 // # Read before changing
 //
@@ -26,6 +26,4 @@
 // # Where to change
 //
 //   - atomics.go.
-//     It is a twin of discovery/internal/atomics/atomics.go, byte for byte: a change to it is
-//     copied there in the same change.
 package atomics

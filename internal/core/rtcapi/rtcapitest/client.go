@@ -18,7 +18,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // waitLimit bounds every wait on the connection: loopback answers in milliseconds, so one that does

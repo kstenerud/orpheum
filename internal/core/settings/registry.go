@@ -15,7 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // Key names a setting. The set is closed: every key is declared in Registry.

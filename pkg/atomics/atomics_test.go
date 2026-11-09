@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/platform/atomics"
+	"github.com/kstenerud/orpheum/pkg/atomics"
 )
 
 func openRoot(t *testing.T) (*os.Root, string) {

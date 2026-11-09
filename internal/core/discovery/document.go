@@ -15,7 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // documentCheckEvery is how often the core looks at every place its discovery is served: its root

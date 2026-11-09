@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/pkg/atomics"
 )
 
 // reportsDirectoryName is the folder of the backups directory that holds the reports an admin asked

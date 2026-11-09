@@ -20,7 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // guided is one run of a guided command: when it is, where the owner's answers come from and where its

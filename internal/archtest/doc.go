@@ -34,11 +34,11 @@
 //     AUTOINCREMENT, or borrowed from the row it extends, so an id the API gave out never names
 //     another row (D243 §5).
 //   - TestArch_PublicPackagesImportNothingInternal: no package under discovery/, the public building
-//     blocks a closed service imports (D275 §1), depends on one under internal/, which Go would
-//     refuse it.
+//     blocks a closed service imports (D275 §1), or under pkg/, the public packages both it and the
+//     module use, depends on one under internal/, which Go would refuse it.
 //   - TestArch_NodeprotoHasNoLogic: internal/nodeproto imports nothing from the module except
 //     internal/platform, and declares no functions outside methods.
-//   - TestArch_EveryPackageHasDocGo: every package under internal/, cmd/ and discovery/ has a doc.go whose
+//   - TestArch_EveryPackageHasDocGo: every package under internal/, cmd/, discovery/ and pkg/ has a doc.go whose
 //     comment has the headings Invariants, Read before changing and Where to change. Generated
 //     packages (internal/store/sqlcgen, internal/store/cachegen) are exempt; their owner's doc.go
 //     covers them.

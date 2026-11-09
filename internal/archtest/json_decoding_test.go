@@ -11,12 +11,9 @@ import (
 	"testing"
 )
 
-// strictJSONPackages are the two copies of the strict decoder (D456), which alone call
-// encoding/json's decoding to do it.
-var strictJSONPackages = map[string]bool{
-	modulePath + "/internal/platform/strictjson": true,
-	publicPath + "/internal/strictjson":          true,
-}
+// strictJSONPackage is the strict decoder (D456), which alone calls encoding/json's decoding to do
+// it.
+const strictJSONPackage = sharedPath + "/strictjson"
 
 // laxJSONFiles are the files D456's Status names as still decoding with encoding/json, each with
 // why, until the owner decides them.
@@ -74,7 +71,7 @@ func findLaxJSONDecoding(files []goFile) []violation {
 			if receiver, isName := selector.X.(*ast.Ident); isName && names[receiver.Name] {
 				violations = append(violations, violation{
 					where:  fileSet.Position(selector.Pos()).String(),
-					detail: "decodes with encoding/json; use internal/platform/strictjson (D456)",
+					detail: "decodes with encoding/json; use pkg/strictjson (D456)",
 				})
 			}
 			return true
@@ -90,7 +87,7 @@ func TestArch_JSONIsDecodedStrictly(t *testing.T) {
 	t.Parallel()
 	var files []goFile
 	for _, listed := range loadModulePackages(t) {
-		if strictJSONPackages[listed.ImportPath] {
+		if listed.ImportPath == strictJSONPackage {
 			continue
 		}
 		for _, source := range readSourceFiles(t, []listedPackage{{Dir: listed.Dir, GoFiles: listed.GoFiles}}) {

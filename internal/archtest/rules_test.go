@@ -33,6 +33,10 @@ const (
 // building blocks, which the closed multi-core service assembles (D275 §1).
 const publicPath = modulePath + "/discovery"
 
+// sharedPath is the tree of public packages both the module and the public discovery packages use,
+// so each exists once (the owner, 2026-11-09: "use pkg/strictjson and move atomics too").
+const sharedPath = modulePath + "/pkg"
+
 // sqlPackages are database/sql and every SQLite driver; only the store may import them.
 var sqlPackages = []string{
 	"database/sql",
@@ -319,14 +323,16 @@ func requirePackagesUnder(t *testing.T, packages []listedPackage, root string) {
 	}
 }
 
-// TestArch_PublicPackagesImportNothingInternal checks that no public package depends on one under
-// internal/, which Go refuses to let a module outside Orpheum import: the closed discovery service
-// could not build on it (D275 §1). Their tests may.
+// TestArch_PublicPackagesImportNothingInternal checks that no public package, under discovery/ or
+// pkg/, depends on one under internal/, which Go refuses to let a module outside Orpheum import: the
+// closed discovery service could not build on it (D275 §1). Their tests may.
 func TestArch_PublicPackagesImportNothingInternal(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
-	requirePackagesUnder(t, packages, publicPath)
-	reportViolations(t, findTransitiveDependencies(packages, publicPath, internalPath))
+	for _, root := range []string{publicPath, sharedPath} {
+		requirePackagesUnder(t, packages, root)
+		reportViolations(t, findTransitiveDependencies(packages, root, internalPath))
+	}
 }
 
 func TestArch_CoreNeverImportsNode(t *testing.T) {

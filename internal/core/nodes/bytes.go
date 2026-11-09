@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // ErrNodeSilent is a node the core cannot reach: it has not said hello, or its byte socket does

@@ -29,7 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/backoff"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // StateFileName is where the core keeps which discovery it is enrolled with, in the persistent
