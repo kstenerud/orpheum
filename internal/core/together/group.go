@@ -10,7 +10,7 @@ import (
 )
 
 // StartingSnapSeeksBeyond is how far a seek must jump to be snapped to a keyframe (D285 §1) before a
-// device has brought the setting's, together_snap_seeks_beyond_seconds (Tuning): its starting value.
+// device has brought the setting's, togetherSnapSeeksBeyondSeconds (Tuning): its starting value.
 // This package keeps nothing past the process and reads no settings, so it is a copy, which
 // internal/core/api's TestTogether_TheStartingWaitsAreTheSettingsStarts holds equal.
 const StartingSnapSeeksBeyond = 30 * time.Second

@@ -298,8 +298,8 @@ func changedFactsReason(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 
 // withholdReason says why a scan's removals should wait for the admin, or "" when they should
 // not: the root's device or mount changed since its last complete scan, or it would lose all of
-// its files, or more than scan_withhold_removals_over_percent of them and more than
-// scan_withhold_removals_over_files (D208 §3) — unless the admin approved this root's removals.
+// its files, or more than scanWithholdRemovalsOverPercent of them and more than
+// scanWithholdRemovalsOverFiles (D208 §3) — unless the admin approved this root's removals.
 // A scan that removes nothing never waits: a root that moved to another device with every file
 // still in it is not an unmounted disk, and its new device is recorded (D276).
 func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
@@ -324,11 +324,11 @@ func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, r
 	}
 	overPercent, err := batch.ingester.settings.Int(ctx, settings.ScanWithholdRemovalsOverPercent)
 	if err != nil {
-		return "", fmt.Errorf("read scan_withhold_removals_over_percent: %w", err)
+		return "", fmt.Errorf("read scanWithholdRemovalsOverPercent: %w", err)
 	}
 	overFilesThreshold, err := batch.ingester.settings.Int(ctx, settings.ScanWithholdRemovalsOverFiles)
 	if err != nil {
-		return "", fmt.Errorf("read scan_withhold_removals_over_files: %w", err)
+		return "", fmt.Errorf("read scanWithholdRemovalsOverFiles: %w", err)
 	}
 	if int64(removing)*100 > overPercent*int64(total) && int64(removing) > overFilesThreshold {
 		return fmt.Sprintf("the scan would remove %d of the root's %d files", removing, total), nil

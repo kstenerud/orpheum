@@ -275,7 +275,7 @@ func TestExchange_ACancelUnderARequestThatOnlyReadsForgetsTheAttemptAsItMay(t *t
 	testutil.Receive(t, cancelled, "the kind told of the cancel")
 }
 
-// A job whose time ran out (assigned_job_limit_hours) tells its node to stop the work, and its
+// A job whose time ran out (assignedJobLimitHours) tells its node to stop the work, and its
 // attempt is forgotten: the queue ended the job, and nothing of its kind is told, as for a cancel
 // (G4, D244 §6).
 func TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop(t *testing.T) {

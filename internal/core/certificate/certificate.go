@@ -118,7 +118,7 @@ type Parts struct {
 	Queue Queue
 	Clock clock.Clock
 	// PropagationWait is how long the TXT record is given to reach the name's servers before the
-	// CA is asked to look: certificate_dns_wait_seconds, Cloudflare's own servers answering within
+	// CA is asked to look: certificateDnsWaitSeconds, Cloudflare's own servers answering within
 	// seconds; nil waits none, as a test's.
 	PropagationWait func(ctx context.Context) time.Duration
 	// Settings are the server's settings, read for how early a certificate is renewed; nil uses the
@@ -193,7 +193,7 @@ func (service *Service) ExpiresAt() (time.Time, bool) {
 }
 
 // QueueRenewal asks for the certificate when there is none, or when it expires within
-// certificate_renew_before_days,
+// certificateRenewBeforeDays,
 // and says how many it asked for. A sweep calls it.
 func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
 	if !service.IsDue(ctx) {
@@ -209,7 +209,7 @@ func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
 }
 
 // IsDue is whether there is no certificate, or the one there expires within
-// certificate_renew_before_days: a third of Let's Encrypt's ninety days to start, as it advises, so a
+// certificateRenewBeforeDays: a third of Let's Encrypt's ninety days to start, as it advises, so a
 // renewal that fails has a month of daily tries before it matters.
 func (service *Service) IsDue(ctx context.Context) bool {
 	expiresAt, isAny := service.ExpiresAt()

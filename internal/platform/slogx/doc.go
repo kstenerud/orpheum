@@ -23,7 +23,7 @@
 //   - Every line logged with a request's context carries its ID (WithRequestID) as requestId, through a
 //     logger's own attributes and groups; a line logged with none carries none (D347). Enforced by
 //     TestNew_ALineLoggedWithARequestsContextCarriesItsID.
-//   - A logger built at a *slog.LevelVar logs at the level it holds now, which the core's log_level
+//   - A logger built at a *slog.LevelVar logs at the level it holds now, which the core's logLevel
 //     setting changes while it runs (D347). Enforced by TestNew_ALevelVarChangesTheLevelWhileItRuns.
 //   - A loop's lasting failure is said as it begins, then once each FailingSaidEvery with how often
 //     it failed, then as it ends; each loop logs it with its own constant message. Enforced by

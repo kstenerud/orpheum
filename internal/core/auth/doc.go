@@ -25,7 +25,7 @@
 //   - A password is stored only as an argon2id PHC string, with RFC 9106's second parameters.
 //     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
 //
-//   - Every failed sign-in, whatever failed, is answered no sooner than signin_failure_answer_seconds
+//   - Every failed sign-in, whatever failed, is answered no sooner than signinFailureAnswerSeconds
 //     after it began, and a success at once (D312 §17). Enforced by
 //     TestSignIn_EveryFailureIsAnsweredAtOneTimeAndASuccessAtOnce.
 //
@@ -76,7 +76,7 @@
 //     TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced.
 //
 //   - An account is set up in full by the admin, or made from an invitation: 256 bits, for
-//     registration_invitation_life_days (seven to start), once, under a role and with the admin's
+//     registrationInvitationLifeDays (seven to start), once, under a role and with the admin's
 //     note, which the account keeps; its person fills in their own name and password, and a name
 //     already taken spends nothing. A withdrawn invitation, or one into a role since deleted,
 //     admits no one (D246 §2). Enforced by
@@ -94,8 +94,8 @@
 //     check code; only that person's "they match" activates the device, signed in as the person,
 //     resuming the device it was before when it is theirs; a wrong code counts against the person's
 //     failed sign-ins; pairings are kept in memory, a new one refused, never an old one dropped, past pairingsAtMost
-//     waiting, pairing_codes_per_network_most not yet entered from one network or
-//     pairing_codes_per_site_most from one site (D288). Enforced
+//     waiting, pairingCodesPerNetworkMost not yet entered from one network or
+//     pairingCodesPerSiteMost from one site (D288). Enforced
 //     by discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
 //     TestPairing_ADeviceKeepsItsCodeUntilEnteredAndThenShowsThePersonsCheckCode,
 //     TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce,
@@ -124,7 +124,7 @@
 //     TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePerson.
 //
 //   - A typed service code's check code is committed: the core claims with a fresh nonce of its own,
-//     waits at most device_code_reveal_wait_seconds for the device's, refuses one that breaks the
+//     waits at most deviceCodeRevealWaitSeconds for the device's, refuses one that breaks the
 //     device's commitment, and makes the check code of the key and both. A scanned one is claimed
 //     with no nonce, has no check code, and activates only the key its QR code's hash names (D321).
 //     Enforced by
@@ -167,7 +167,7 @@
 //     TestRemoveUser_LeavesNothingOfTheirsButANamelessRow, and the API's
 //     TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten.
 //
-//   - A credential that ended, revoked or expired, is deleted ended_credentials_kept_days after,
+//   - A credential that ended, revoked or expired, is deleted endedCredentialsKeptDays after,
 //     with what names it, by a daily sweep (D304 §6).
 //     TestPurgeEndedCredentials_DeletesThoseEndedPastTheirKeeping.
 //
@@ -193,7 +193,7 @@
 //     shown their own link again; it never rests as itself, and a link that no longer opens is
 //     shown as none. TestOwnLink_IsShownBackFromItsSealedSecretAndNeverKeptPlain. An invitation's
 //     live link is shown again to the admin the same way until it is used, withdrawn or ended,
-//     registration_invitation_life_days (seven to start); using or withdrawing it forgets its
+//     registrationInvitationLifeDays (seven to start); using or withdrawing it forgets its
 //     sealed secret in the same write (D267 §5, as the owner chose for invitations,
 //     2026-10-28). TestInvitation_ItsLiveLinkIsShownAgainUntilUsed and
 //     TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown.

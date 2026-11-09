@@ -143,8 +143,8 @@ loop to work:**
     D243 §8)
   - a core's `[discovery]`: the addresses it sends its discovery that the machine does not hold.
     The wait after a failed call to its discovery or a dropped signalling connection, doubling to
-    the most, jittered, is the settings `discovery_retry_first_seconds` (1) and
-    `discovery_retry_most_seconds` (300) since the constants sweep (2026-10-20); the development
+    the most, jittered, is the settings `discoveryRetryFirstSeconds` (1) and
+    `discoveryRetryMostSeconds` (300) since the constants sweep (2026-10-20); the development
     stack's seed sets the most to 1 (D292 §9)
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - a node's `[node]`: `name` (the core enrols it by it, D207), `core_socket`, `root_paths`,
@@ -156,8 +156,8 @@ loop to work:**
     `prepared_disk_min_free_mib`. And `probe_timeout_seconds`, `ended_work_kept_hours`,
     `read_header_timeout_seconds`. Three were node keys until the constants sweep
     (2026-10-21), and the core now says them: how often the node posts its status
-    (`status_interval_seconds`), a third of `node_silent_after_seconds`; how many errors a
-    listing may meet (`max_errors_per_root`), the setting `scan_root_error_limit`; and how often
+    (`status_interval_seconds`), a third of `nodeSilentAfterSeconds`; how many errors a
+    listing may meet (`max_errors_per_root`), the setting `scanRootErrorLimit`; and how often
     a prepare says its progress (`progress_every_seconds`), `prepare_progress_every_seconds`.
   - both's `[log]`: `level`, `format` (`text` or `json`), `destination` (`stderr` or a file)
 
@@ -166,7 +166,7 @@ loop to work:**
 
   This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
-  lesson 11). pprof and `/metrics` are the `should_serve_debug_pprof` and `should_serve_debug_metrics` settings, served on
+  lesson 11). pprof and `/metrics` are the `shouldServeDebugPprof` and `shouldServeDebugMetrics` settings, served on
   the listen address only when it is loopback; every opinionated value is a setting (D200).
 - **`orpheum dev seed --instance <dir> --seed <file>`, in `-tags dev` builds only** (M1 for the
   users and settings, M2 for the libraries). It applies [`deploy/dev/seed.toml`](../../../../deploy/dev/seed.toml):
@@ -286,7 +286,7 @@ longer match ([D100](../../decisions/working-notes.md)). A path is bytes, base64
 - `GET /bytes/v1/result/<attemptToken>`: a result held on the node (D234 §5).
 
 **Liveness.** A node is heard by its status, its progress and its polls. The core marks it
-*silent* after `node_silent_after_seconds` with no word, and an attempt whose progress stops moving
+*silent* after `nodeSilentAfterSeconds` with no word, and an attempt whose progress stops moving
 is stalled: the node says why, `neverMoved`, `stoodStill` or `pastDeadline`, with its
 condition (`waitingOnDisk` and the file it waits on, `spinning`, `stuck`; D244 §6). Restarting a
 node that hangs or exits is its service manager's, not the core's (D234 §4). A node that failed
@@ -454,7 +454,7 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   -map 0:v:0 -c:v copy | -c:v h264_qsv -b:v 8M -maxrate 10M -bufsize 16M -g <2 s>
   -map 0:a:<chosen> -c:a aac -ac 2 -b:a 192k                                  # standard
   -map 0:a:<chosen> -c:a aac -b:a 192k -af "pan=stereo|FL=<centre-boost matrix>|FR=<…>"
-  -f hls -hls_segment_type fmp4 -hls_time <hls_segment_length_seconds: 2> -hls_playlist_type event
+  -f hls -hls_segment_type fmp4 -hls_time <hlsSegmentLengthSeconds: 2> -hls_playlist_type event
   -master_pl_name master.m3u8 -var_stream_map "v:0,agroup:a a:0,agroup:a,default:yes a:1,agroup:a"
   <out_dir>/v%v/stream.m3u8
 ```

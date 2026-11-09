@@ -13,17 +13,17 @@
 //     rested on, in the store (link_memory), so a restart keeps it, by
 //     TestLinkSpeeds_OutliveTheCoreThatHeardThem; a start's offer hands it to the player as a prior
 //     counting as two of its own samples while under an hour old, fading to none at
-//     link_speed_fresh_hours (bandwidth-sampling-2026-10-29.md P2), by
+//     linkSpeedFreshHours (bandwidth-sampling-2026-10-29.md P2), by
 //     TestRememberedLink_CountsAsTwoSamplesFadingWithItsAge; and beside it the
 //     steadiness level its chunked player last reported, which every ladder offer hands back
-//     relaxed by one for each `link_steadiness_relaxes_seconds` since, an hour to start (D352 Q2), by
+//     relaxed by one for each `linkSteadinessRelaxesSeconds` since, an hour to start (D352 Q2), by
 //     TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime,
 //     TestLinkSteadiness_RelaxesAsOftenAsItsSettingSays and
 //     TestPlayback_ADeviceStartsAtTheSteadinessItsLastPlaybackOnTheNetworkReported
 //     (internal/core/api). A film cut into chunks starts on
 //     its ladder, at the top, or where its player's speed on its network calls for, and no prepared
 //     copy is made for it; its stalls start nothing (D260). A film not cut yet within
-//     play_ladder_wait_ms is cut on time where its device cannot play it as it is, keeping that grid,
+//     playLadderWaitMs is cut on time where its device cannot play it as it is, keeping that grid,
 //     and plays as it is where it can (D344 §2), by
 //     TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime.
 //     internal/core/clientnet's TestOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
@@ -37,7 +37,7 @@
 //     chunks its player asks for, and both by its player's word, a picture asked for where a seek took
 //     it, paused or not, and its start on its ladder (D355), with its stall's offer beside it; none
 //     moves the position its player reports, which it resumes from; and where its player stands: playing, lapsing
-//     after chunk_interest_lapses_after_seconds of silence; paused or gone from its page, wanting
+//     after chunkInterestLapsesAfterSeconds of silence; paused or gone from its page, wanting
 //     only what it keeps ahead; gone to another film, said so or by starting one, wanting nothing.
 //     TestInterestsIn_AreWhatEachPlayerLastAskedFor,
 //     TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth,
@@ -54,12 +54,12 @@
 //   - What a playback needs of the server's upload is the average rates of the picture and sound
 //     its player asked for within askedWithin, or, for one that asks for no chunks, what it was
 //     sent; every byte of a film the server sends is counted to its playback, and the need, the
-//     bytes sent and the films' share of server_upload_mbps are logged while anyone plays (D286 §5).
+//     bytes sent and the films' share of serverUploadMbps are logged while anyone plays (D286 §5).
 //     Enforced by TestUpload_IsEachPlaybacksRatesOrWhatItWasSent,
 //     TestWatchUpload_LogsTheNeedBesideTheFilmsShareWhileAnyonePlays and
 //     TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted (internal/core/api).
 //
-//   - While the need is over the films' share of server_upload_mbps, the playback needing most is
+//   - While the need is over the films' share of serverUploadMbps, the playback needing most is
 //     lowered a quality at a time, the newest of those needing the same, onto a quality another
 //     playback of its film loads where the next lower is made for no one; a lowered playback is
 //     raised a quality at a time once the need has had room for 30 s; every chunk's answer tells the
@@ -126,14 +126,14 @@
 //   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
 //     Enforced by TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile.
 //
-//   - A playback starts where the person left the file, unless that is before in_progress_after_percent
-//     or after finished_after_percent of a known length, or was watched before they last marked its
+//   - A playback starts where the person left the file, unless that is before inProgressAfterPercent
+//     or after finishedAfterPercent of a known length, or was watched before they last marked its
 //     title by hand (D370 §4); an unknown length is never read as finished. Enforced by
 //     TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength and
 //     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api).
 //
 //   - A title is watched per person (D370 §1): a report that plays one of its files past
-//     finished_after_percent of a known length, or to its end, makes every film, episode and other
+//     finishedAfterPercent of a known length, or to its end, makes every film, episode and other
 //     video the file is filed as watched, never an extra, and never a report of unattended watching or
 //     a far position in a file of unknown length; playing it again keeps it watched. A mark by hand
 //     marks titles watched, or unwatched, and answers with each one's mark before, which
@@ -143,7 +143,7 @@
 //     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api).
 //
 //   - A media token grants nothing alone: its bytes are served only to the person and session
-//     that started the playback, and only until it has been idle for media_token_idle_expiry_hours (D217
+//     that started the playback, and only until it has been idle for mediaTokenIdleExpiryHours (D217
 //     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
 //
 //   - A direct playback's bytes come from the file's node, named by root, path and payload

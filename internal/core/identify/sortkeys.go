@@ -12,7 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// RefreshSortAndSearchKeys makes every live name's sort key in the sort_locale setting's locale,
+// RefreshSortAndSearchKeys makes every live name's sort key in the sortLocale setting's locale,
 // and its fold for search, what this build derives from the name, now. Both are functions of a
 // stored name and the locale alone, so neither a change of locale nor a build that collates or
 // folds otherwise waits for a scan (D47, D48; agent-failures A4). It compares each stored key and

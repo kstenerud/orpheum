@@ -243,7 +243,7 @@ func usage() string {
 
 // releaseWiring is what a running server reaches outside itself: the providers' real addresses,
 // which a test replaces with its fakes.
-// A release's wiring for a run whose log is opened (releaseWiringFor): the log_level setting moves
+// A release's wiring for a run whose log is opened (releaseWiringFor): the logLevel setting moves
 // opened's level, which the log writes at (D347), and zone is the machine's time zone.
 func releaseWiringFor(opened processLog, zone localtime.Zone) wiring {
 	outside := releaseWiring()

@@ -81,7 +81,7 @@ func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
 }
 
 // Grid is the grid the file's film is cut on, from its main picture's timeline as a read-through
-// kept it, its keyframes merged into chunks by GridOf at hls_segment_length_seconds: a chunk may be
+// kept it, its keyframes merged into chunks by GridOf at hlsSegmentLengthSeconds: a chunk may be
 // shorter than that, down to the gap between two keyframes, where the first keyframe past one
 // multiple falls just before the next, as each start is its multiple's own (D259 §1). It reports
 // false, with no error, while the picture has no timeline: a sweep reads every film through, and a
@@ -150,7 +150,7 @@ func (service *Service) cut(ctx context.Context, fileID int64, kind GridKind) (c
 	film := cutFilm{file: file, probe: probe, picture: picture, kind: kind}
 	segment, err := service.settings.Duration(ctx, settings.HLSSegmentLengthSeconds)
 	if err != nil {
-		return film, false, fmt.Errorf("read hls_segment_length_seconds: %w", err)
+		return film, false, fmt.Errorf("read hlsSegmentLengthSeconds: %w", err)
 	}
 	if kind == OnTime {
 		starts, timeErr := TimeGridOf(probe.Format.DurationMs, segment.Milliseconds())

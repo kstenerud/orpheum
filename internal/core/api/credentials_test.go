@@ -139,7 +139,7 @@ func TestCredentials_EveryOperationAnswersAWrongCredentialNoBetterThanNone(t *te
 	if answer := harness.do(t, http.MethodGet, "/me", lapsing, nil); answer.status != http.StatusOK {
 		t.Fatalf("the session to lapse does not sign in yet: %d", answer.status)
 	}
-	harness.clock.Advance(2161 * time.Hour) // past session_idle_expiry_hours' starting 2160
+	harness.clock.Advance(2161 * time.Hour) // past sessionIdleExpiryHours' starting 2160
 	for _, operation := range operations {
 		none := ask(operation, carried{})
 		judge(operation, "a session that lapsed unused", none, ask(operation, carried{token: lapsing}))

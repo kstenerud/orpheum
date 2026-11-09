@@ -11,7 +11,7 @@ import (
 // its runs finish what it keeps ahead and stop, its other work keeping its priority; or Replaced by
 // another film (D258 §2), its runs stop at once, as no other player wants them, and its chunks and
 // its timeline's read-through fall to background at the next demotion, where they would have kept
-// play priority for play_priority_kept_seconds; a player still watching the film asks again and
+// play priority for playPriorityKeptSeconds; a player still watching the film asks again and
 // keeps them. The token stays until it idles out: the player's page takes over the film page's token, and
 // a player's last report may arrive after its leave. A token not the holder's, or gone, is
 // ErrNoToken.

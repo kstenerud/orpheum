@@ -35,7 +35,7 @@ type ScheduledScans interface {
 
 // ScanSchedule asks for the scans that libraries noticing changes by themselves are due: one
 // checked on an interval every check_every_hours, and a watched one every
-// watched_library_scan_every_hours beneath its watching, which can miss a change and never says so
+// watchedLibraryScanEveryHours beneath its watching, which can miss a change and never says so
 // (D27, D272 §1); and, when a watched library's node says something changed in a folder of its
 // root, the scan of that folder (D272 §9). A library that changes only when asked is never scanned
 // by it.
@@ -66,7 +66,7 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 	}
 	watchedEvery, err := schedule.settings.Duration(ctx, settings.WatchedLibraryScanEveryHours)
 	if err != nil {
-		return 0, fmt.Errorf("read watched_library_scan_every_hours: %w", err)
+		return 0, fmt.Errorf("read watchedLibraryScanEveryHours: %w", err)
 	}
 	running, err := schedule.scans.InProgress(ctx)
 	if err != nil {
@@ -92,7 +92,7 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 // RescanUnavailable asks each unavailable place of a library's root, a root or a disk mounted inside
 // one, of its node, and brings back those that answer; it asks for a scan of the root of one that
 // does not come back, unless its disk is not answering, a scan of the root is running, or its last
-// scan ended unavailable_root_rescan_seconds ago or less. It says how many it brought back or asked
+// scan ended unavailableRootRescanSeconds ago or less. It says how many it brought back or asked
 // for (D233 §10, D327 §3, D328). A stall asked for a scan at once, and nothing asked again once the
 // share came back, so its films stayed unavailable until a restart of the node happened to (staging,
 // 2026-10-21, the production NAS off).
@@ -103,7 +103,7 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 	}
 	every, err := schedule.settings.Duration(ctx, settings.UnavailableRootRescanSeconds)
 	if err != nil {
-		return 0, fmt.Errorf("read unavailable_root_rescan_seconds: %w", err)
+		return 0, fmt.Errorf("read unavailableRootRescanSeconds: %w", err)
 	}
 	running, err := schedule.scans.InProgress(ctx)
 	if err != nil {

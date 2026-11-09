@@ -22,7 +22,7 @@ export interface ChoiceLevel {
 /**
  * The share of a link's measured speed a quality may take with little loaded ahead, and when a
  * chunk is given up, where the playback's offer does not say: the core chooses a quality by the same
- * share, link_share_for_quality_percent, and its offer carries it (D247 §6). This is that setting's
+ * share, linkShareForQualityPercent, and its offer carries it (D247 §6). This is that setting's
  * starting value, which a test of the core's settings holds equal.
  */
 export const linkShareForQuality = 0.7;
@@ -57,7 +57,7 @@ export const asksAgainAfterAtMostMs = 16_000;
  * Whether a chunk on its way is to be asked for again, the asksAgain-th time in a row since a chunk
  * last loaded (from 0): answered, its head come, with nothing of it arriving for asksAgainAfterMs,
  * doubled for each time before, up to asksAgainAfterAtMostMs. One not yet answered is hls.js's to
- * time out, since the core may hold it while it is made (chunk_hold_ms).
+ * time out, since the core may hold it while it is made (chunkHoldMs).
  */
 export function isToAskAgain(
   chunk: { readonly isAnswered: boolean; readonly sinceArrivedMs: number },

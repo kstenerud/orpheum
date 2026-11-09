@@ -105,7 +105,7 @@ func TestRetryWait_AMostBelowTheFirstWaitsTheFirst(t *testing.T) {
 		}
 	}
 	if definition, _ := settings.Lookup(settings.DiscoveryRetryFirstSeconds); definition.Minimum != 1 {
-		t.Errorf("discovery_retry_first_seconds may be %d; want a wait of at least a second", definition.Minimum)
+		t.Errorf("discoveryRetryFirstSeconds may be %d; want a wait of at least a second", definition.Minimum)
 	}
 }
 

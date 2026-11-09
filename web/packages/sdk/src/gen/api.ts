@@ -477,7 +477,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324) */
+        /** Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interestSaidEverySeconds while it does (D324) */
         put: operations["sayPageInterest"];
         post?: never;
         /** Say this session left a film's or series' page, or a series' season's, which lets its work fall back (D324) */
@@ -495,7 +495,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324) */
+        /** Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interestSaidEverySeconds while it does (D362, D324) */
         put: operations["sayTilesInterest"];
         post?: never;
         /** Say this session shows no list's tiles, which lets their work fall back (D362, D324) */
@@ -4043,7 +4043,7 @@ export interface components {
             unavailable?: components["schemas"]["UnavailableBody"];
         };
         NodeBody: {
-            /** @description Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds */
+            /** @description Whether it is connected now: polling for its commands, or heard within nodeSilentAfterSeconds */
             isConnected: boolean;
             name: string;
             /** @description Its configured roots; empty while it is not connected */
@@ -4325,7 +4325,7 @@ export interface components {
              * @description Unix milliseconds; 0 before the first
              */
             checkedAt: number;
-            /** @description Whether the core is asking: should_map_ports on and a discovery publishing it */
+            /** @description Whether the core is asking: shouldMapPorts on and a discovery publishing it */
             isWanted: boolean;
             mappings: components["schemas"]["PortMappingItemBody"][] | null;
             problems: string[] | null;
@@ -4890,7 +4890,7 @@ export interface components {
         SecretBody: {
             description: string;
             isSet: boolean;
-            /** @description An API key's last characters, secret_last_chars_shown of them */
+            /** @description An API key's last characters, secretLastCharsShown of them */
             lastChars?: string;
             name: string;
             /** @description Sealed under a key this server no longer has */

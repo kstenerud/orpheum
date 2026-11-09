@@ -481,7 +481,7 @@ func TestNewRunner_AHandlerIsToldItsJobsPriority(t *testing.T) {
 	}
 }
 
-// A job that ended is forgotten once finished_jobs_kept_days have passed since; an open one, and one
+// A job that ended is forgotten once finishedJobsKeptDays have passed since; an open one, and one
 // that ended lately, are kept (D233 §8).
 func TestPruneFinished_ForgetsWhatEndedLongerAgoThanTheSettingKeeps(t *testing.T) {
 	t.Parallel()

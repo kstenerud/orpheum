@@ -22,7 +22,7 @@ import (
 
 // The sweeps that derive first matches, requested refreshes, rechecks, the identification passes,
 // the reconsidering of ambiguous matches and what should have been fetched (D335) run as
-// derived_work_sweep_every_seconds says, read afresh
+// derivedWorkSweepEverySeconds says, read afresh
 // (D231 §3); the reconsidering runs before the first matches, which queue what it returns to them.
 func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	t.Parallel()
@@ -134,7 +134,7 @@ func TestSweeps_TheScanScheduleIsASweepCheckedEveryQuarterHour(t *testing.T) {
 	t.Error("no sweep asks for the scans libraries are due (D272 §1)")
 }
 
-// An unavailable root is scanned again every unavailable_root_rescan_seconds, by a sweep of its own:
+// An unavailable root is scanned again every unavailableRootRescanSeconds, by a sweep of its own:
 // the scan schedule's quarter hour was too long for a NAS back in a minute, and a minute left a film
 // 45 s from resuming (staging, 2026-10-21).
 func TestSweeps_UnavailableRootsAreScannedAgainEveryRescanInterval(t *testing.T) {
@@ -178,7 +178,7 @@ func TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnE
 		}
 		settingstest.Set(t, config, settings.InvariantsCheckEveryHours, "6")
 		if every := sweep.Every(t.Context()); every != 6*time.Hour {
-			t.Errorf("with invariants_check_every_hours at 6, the invariants are checked every %s", every)
+			t.Errorf("with invariantsCheckEveryHours at 6, the invariants are checked every %s", every)
 		}
 		if _, err := sweep.Derive(t.Context()); err != nil {
 			t.Fatal(err)
@@ -229,7 +229,7 @@ func TestSweeps_EndedCredentialsArePurgedDaily(t *testing.T) {
 		}
 		settingstest.Set(t, config, settings.RetentionSweepEveryHours, "12")
 		if every := sweep.Every(t.Context()); every != 12*time.Hour {
-			t.Errorf("with retention_sweep_every_hours at 12, ended credentials are purged every %s", every)
+			t.Errorf("with retentionSweepEveryHours at 12, ended credentials are purged every %s", every)
 		}
 		if _, err := sweep.Derive(t.Context()); err != nil || purger.purges != 1 {
 			t.Errorf("the sweep purged %d times (%v); want once", purger.purges, err)
@@ -255,7 +255,7 @@ func (purger *countingFilePurger) PurgeRemovedFiles(
 }
 
 // The files removed past their keeping are purged by a sweep, at start and daily, of those removed
-// more than removed_files_kept_days ago, with what playback, preferences and subtitles hold of them
+// more than removedFilesKeptDays ago, with what playback, preferences and subtitles hold of them
 // dealt with first (D304 §6, D306 §8).
 func TestSweeps_RemovedFilesArePurgedDaily(t *testing.T) {
 	t.Parallel()

@@ -159,7 +159,7 @@ func TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime(t *testing.T
 	}
 }
 
-// How fast a remembered level relaxes between playbacks is link_steadiness_relaxes_seconds, an hour
+// How fast a remembered level relaxes between playbacks is linkSteadinessRelaxesSeconds, an hour
 // to start: set to half an hour, level 3 is 2 after 30 minutes and gone after 90 (D352 Q2).
 func TestLinkSteadiness_RelaxesAsOftenAsItsSettingSays(t *testing.T) {
 	t.Parallel()

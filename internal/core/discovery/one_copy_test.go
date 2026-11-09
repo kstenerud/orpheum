@@ -31,7 +31,7 @@ func (cut *cutOff) RoundTrip(request *http.Request) (*http.Response, error) {
 }
 
 // A core backing off after its network went down looks every reachProbeEvery whether the discovery
-// answers again, and asks at once when it does, rather than up to discovery_retry_most_seconds later:
+// answers again, and asks at once when it does, rather than up to discoveryRetryMostSeconds later:
 // the last holder of a realm must not miss its window (D437 §5).
 func TestRun_ACoreWhoseNetworkComesBackAsksAtOnce(t *testing.T) {
 	t.Parallel()

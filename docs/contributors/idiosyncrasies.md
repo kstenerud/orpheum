@@ -515,7 +515,7 @@ User-Agent (D263; the User-Agent is logged only).
 - **Symptom:** with voice on, the film was turned down and the volume buttons stopped changing its volume.
   Chrome on Android does this only for echo cancelling (see 3.1).
 - **Cause:** presumably the audio session switches to communication mode. Unverified for Firefox.
-- **What we do:** `should_together_voice_browser_level_microphone` (`shouldBrowserLevelMicrophone`) is off by default.
+- **What we do:** `shouldTogetherVoiceBrowserLevelMicrophone` (`shouldBrowserLevelMicrophone`) is off by default.
   `web/packages/sdk/src/together-voice-browser.ts:13-18`; `web/packages/sdk/src/together.ts:109,121`;
   `internal/core/settings/registry.go:296-301`; `internal/core/together/messages.go:262-267`.
 - **Evidence:** [owner] 2026-10-07, Firefox 157 on Android 16; VQ23.
@@ -654,14 +654,14 @@ User-Agent (D263; the User-Agent is logged only).
 - **Symptom:** each rate change may make the sound skip. Rate and seek land 100-500 ms off, against 2 frames or
   less in Chrome and Firefox (hls.js #7616, shaka #2823). Jellyfin turned SpeedToSync off ("failing on Safari").
 - **Cause:** inferred: WebKit swaps AVPlayerItem's pitch algorithm when the rate is not 1 [source].
-- **What we do:** the `should_together_nudge_keep_pitch` setting, small and infrequent nudges, and seek-only as
+- **What we do:** the `shouldTogetherNudgeKeepPitch` setting, small and infrequent nudges, and seek-only as
   the fallback. `internal/core/settings/registry.go:281-284`. Each player also learns what its rate going back
   to the group's costs it, and a nudge goes on past the group by that much, so it lands on it: on two iPhones
   each nudge's end cost about 220 ms, beyond the 150 ms allowance, and they were nudged some 40 times in two
   minutes, their sound stuttering at each (the owner's tests, 2026-10-08; `learnedLossMs` and
   `driftCorrection` in `web/packages/sdk/src/together-drift.ts`; each nudge's note logs `returnCostMs`).
   Once two returns have cost it more than the drift left alone, the player stops nudging and corrects
-  by seeks alone, beyond `together_seek_only_drift_left_alone_ms` (400 ms), each seek aimed past the
+  by seeks alone, beyond `togetherSeekOnlyDriftLeftAloneMs` (400 ms), each seek aimed past the
   group by what its seeks have learned to lose, as MediaSync does on Safari (D268 §2;
   `seekOnlyCorrection`; the log's `a player corrects by seeks alone`). VQ27 checks it on an iPhone.
 - **Evidence:** D250 §7, D62; VQ22 (open); `research/safari-versions.md` §3, §5; [web].
@@ -1115,7 +1115,7 @@ User-Agent (D263; the User-Agent is logged only).
 - **Left as it is:** a film playing a *prepared copy* with levelling off still takes the copy's
   carried gain back out through Web Audio, so on such a TV its sound comes out late by the context's
   latency. A prepared copy is played only when the ladder cannot start (no grid within
-  `play_ladder_wait_ms`, a film that cannot be cut, no quality offered), and an unlevelled copy
+  `playLadderWaitMs`, a film that cannot be cut, no quality offered), and an unlevelled copy
   would double the prepares and their disk; the owner chose to leave it (2026-10-25). The per-device
   offset can still move a ladder's sound, not a prepared copy's.
 - **Note:** on this TV a Web Audio context reported a base latency of 96 ms and an output latency of
@@ -1704,7 +1704,7 @@ User-Agent (D263; the User-Agent is logged only).
   refill of its own (the owner, 2026-10-28), so a wait made by pausing a playing video and playing it
   again would cost more than it saves.
 - **What we do:** a player that is not a follower plays only once what it loaded outlasts its next
-  chunk's expected load by `ready_ahead_of_next_chunk_percent`, waiting before its `play()`: the
+  chunk's expected load by `readyAheadOfNextChunkPercent`, waiting before its `play()`: the
   page's video has no autoplay attribute, and a seek of a playing video to where too little is loaded
   is paused as it seeks, before it can play there (`web/packages/sdk/src/start-gate.ts`,
   `ready-ahead.ts`; `web/packages/player/src/next-chunk.ts`). VQ110.
@@ -1958,7 +1958,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 - **Cause:** [source] the sample is `total − min(ttfb, ttfbEstimate)`, and the TTFB EWMA barely weighs one long
   wait (`abr-controller.ts:534-541`, `ewma-bandwidth-estimator.ts:62-68`).
-- **What we do:** a chunk that is not ready is answered at once with 425, never held (`chunk_hold_ms` defaults to
+- **What we do:** a chunk that is not ready is answered at once with 425, never held (`chunkHoldMs` defaults to
   0). `internal/core/api/chunks.go:35-39,196-201`.
 - **Evidence:** D250 §5; `research/playback-in-practice.md` §3; suspected on [staging] 2026-10-06.
   **[web]** no public report found (searched hls.js issues for TTFB and first-byte estimates, 2026-10-08). The

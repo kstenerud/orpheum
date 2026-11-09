@@ -158,15 +158,15 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 	}
 }
 
-// The level and the most a sound is raised are the admin's: loudness_target_lufs and
-// loudness_max_raise_db (D226 §3).
+// The level and the most a sound is raised are the admin's: loudnessTargetLufs and
+// loudnessMaxRaiseDb (D226 §3).
 func TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.setSetting(t, "loudness_target_lufs", "-16")
-	harness.setSetting(t, "loudness_max_raise_db", "10")
+	harness.setSetting(t, "loudnessTargetLufs", "-16")
+	harness.setSetting(t, "loudnessMaxRaiseDb", "10")
 	for _, check := range []struct {
 		what       string
 		integrated float64

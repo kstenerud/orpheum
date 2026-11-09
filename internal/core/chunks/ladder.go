@@ -8,7 +8,7 @@ import (
 
 // StartOnLadder starts a playback on its film's ladder (D260 §1, §2): every picture it is offered,
 // its own copied first where its player decodes it, then each quality below. It starts at the top,
-// or, with its link remembered at linkKbps, at the highest within link_share_for_quality_percent of it, or the
+// or, with its link remembered at linkKbps, at the highest within linkShareForQualityPercent of it, or the
 // lowest when none is; it starts that picture's run and the starting sound's from the chunk at
 // positionMs, and returns the offer. Its player moves along the ladder by itself from there. A film
 // with no grid yet is ErrNoGrid, and is read through; one that offers no picture,

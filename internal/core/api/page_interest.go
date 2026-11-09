@@ -55,7 +55,7 @@ func (server *Server) registerPageInterest() {
 		OperationID: "sayTilesInterest", Method: http.MethodPut, Path: pathTilesInterest,
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session shows the tiles of these films, series and videos in view, which raises the " +
-			"work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
+			"work of their pictures, again every interestSaidEverySeconds while it does (D362, D324)",
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.sayTilesInterest)
 	huma.Register(server.humaAPI, huma.Operation{
@@ -68,7 +68,7 @@ func (server *Server) registerPageInterest() {
 		OperationID: "sayPageInterest", Method: http.MethodPut, Path: pathPageInterest,
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session shows a film's or series' page, or a series' season's, which raises its " +
-			"work, again every interest_said_every_seconds while it does (D324)",
+			"work, again every interestSaidEverySeconds while it does (D324)",
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.sayPageInterest)
 	huma.Register(server.humaAPI, huma.Operation{

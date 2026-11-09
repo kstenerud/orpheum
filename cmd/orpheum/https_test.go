@@ -164,7 +164,7 @@ func TestRenewWhenTokenSet_SettingTheTokenAsksForTheCertificateAtOnce(t *testing
 	}
 }
 
-// A challenge's record is given as long as certificate_dns_wait_seconds says, read at each challenge;
+// A challenge's record is given as long as certificateDnsWaitSeconds says, read at each challenge;
 // a wiring that waits for none, a test's, waits none (the constants sweep, 2026-10-20).
 func TestPropagationWaitOf_IsTheSettingOrNoneForAFakeDNS(t *testing.T) {
 	t.Parallel()

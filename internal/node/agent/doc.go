@@ -136,7 +136,7 @@
 //   - Every attempt the node holds says where it is on the progress path, best effort and never
 //     sent again (D234 §5): running when it starts, waiting at once when its slot is taken, and
 //     each again at every status tick; a running run of chunks says how far it is as it makes each,
-//     and a read-through as FFmpeg moves on, at most every node_progress_every_seconds the core's
+//     and a read-through as FFmpeg moves on, at most every nodeProgressEverySeconds the core's
 //     tuning says, instead of at the tick.
 //     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
 //     TestAgent_ARunWaitingForASlotSaysSoAtOnceAndAtEachTick.

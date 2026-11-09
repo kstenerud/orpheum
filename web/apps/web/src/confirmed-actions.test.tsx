@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 const roles = {
-  capabilities: ["administer", "edit_metadata", "host_watch_together"],
+  capabilities: ["administer", "editMetadata", "hostWatchTogether"],
   roles: [
     {
       id: 1,
@@ -48,7 +48,7 @@ const roles = {
       id: 2,
       name: "user",
       isBuiltin: true,
-      capabilities: ["host_watch_together"],
+      capabilities: ["hostWatchTogether"],
       isEveryLibrary: false,
       libraries: [{ libraryId: 1 }, { libraryId: 2 }],
       holderCount: 1,

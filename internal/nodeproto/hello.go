@@ -192,16 +192,16 @@ type Tuning struct {
 	// StatusEverySeconds is how often the node posts its status: the core's nodes.StatusEveryFor.
 	StatusEverySeconds int `json:"statusEverySeconds"`
 	// ProgressEverySeconds is how often, at most, a running read-through tells the core how far it is
-	// (D234 §5): the core's node_progress_every_seconds.
+	// (D234 §5): the core's nodeProgressEverySeconds.
 	ProgressEverySeconds int `json:"progressEverySeconds"`
 }
 
 // StartingStatusEverySeconds is how often a node posts its status before a core has said: the
-// cadence node_silent_after_seconds' starting value gives, which a test of the core's nodes holds.
+// cadence nodeSilentAfterSeconds' starting value gives, which a test of the core's nodes holds.
 const StartingStatusEverySeconds = 10
 
 // StartingProgressEverySeconds is how often, at most, a running read-through tells the core how far it is
-// before a core has said: node_progress_every_seconds' starting value, defined once here for the
+// before a core has said: nodeProgressEverySeconds' starting value, defined once here for the
 // core's registry and the node.
 const StartingProgressEverySeconds = 2
 

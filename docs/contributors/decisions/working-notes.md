@@ -8424,13 +8424,13 @@ Starting set, closed, each with a decision already behind it:
 | Capability | Gates | From |
 | --- | --- | --- |
 | `administer` | library config, node enrolment, **user and role creation**, deletion policy, `/metrics` | [D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal), [D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on) |
-| `delete_media` | the two-phase delete, where a library permits it at all | [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) |
+| `deleteMedia` | the two-phase delete, where a library permits it at all | [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) |
 | `download` | offline renditions and their leases | [D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained) |
-| `host_watch_together` | **creating a session, which mints a link that admits strangers** | [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) |
-| `edit_metadata` | corrections, and sidecar writes where a path is granted | [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person) |
-| `remote_access` | reaching the server from outside the house | [D14](#d14--remote-access-for-non-technical-family-is-a-headline-feature), [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) |
+| `hostWatchTogether` | **creating a session, which mints a link that admits strangers** | [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) |
+| `editMetadata` | corrections, and sidecar writes where a path is granted | [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person) |
+| `remoteAccess` | reaching the server from outside the house | [D14](#d14--remote-access-for-non-technical-family-is-a-headline-feature), [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) |
 
-**`host_watch_together` is the one worth noticing.** D125 established that a Watch Together
+**`hostWatchTogether` is the one worth noticing.** D125 established that a Watch Together
 guest is authenticated by possession of a URL and nothing else — which is fine when an adult
 chose to share it, and is a child handing strangers a route into the household's library
 otherwise. The hole D125 accepted deliberately is only acceptable if **who may open it** is
@@ -15819,7 +15819,7 @@ to reason about."*
   says how to fix it: set that one through `/config`, or write every missing one with
   `orpheum seed-settings` or `POST /config/seed`, which only fill gaps.
 - **A question** — `update_check` (D184) — starts as JSON null and reads as unanswered.
-  *(Since 2026-09-29, the key is `should_check_for_updates` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
+  *(Since 2026-09-29, the key is `shouldCheckForUpdates` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **The raw view is `/config`** (admin): every setting with its value, its starting value and
   whether it differs, with `?modified=true` for only the changed ones; `PUT` changes any setting,
   and `POST /config/{key}/reset` writes the starting value back. `/settings` shows and changes only
@@ -15841,7 +15841,7 @@ to reason about."*
   *(Since 2026-09-29, `node.roots` is `node.root_paths` and `confinement` is `confinement_policy`
   ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column)). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **`[debug]` leaves the file** for the `debug_pprof` and `debug_metrics` settings. *(Since
-  2026-09-29, they are `should_serve_debug_pprof` and `should_serve_debug_metrics` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6).
+  2026-09-29, they are `shouldServeDebugPprof` and `shouldServeDebugMetrics` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6).
   Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 
 ### 3. What it amends
@@ -16017,7 +16017,7 @@ real one on.
 | Variable | Would steer | Instead |
 | --- | --- | --- |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | every outbound request through Go's default transport | `internal/platform/outbound.NewClient` takes no proxy; the defaults and `ProxyFromEnvironment` are banned. A proxy, if ever needed, becomes a config key. |
-| `TZ` | every formatted time, logs and doctor included | `cmd/orpheum` sets `time.Local` to UTC at start; clients format for their viewer. `time.Local` is banned elsewhere. ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback) §7: TZ, else `/etc/localtime`, is read once at start as the default of the server's `time_zone` setting, and passed down explicitly; a release build lets TZ alone through.) |
+| `TZ` | every formatted time, logs and doctor included | `cmd/orpheum` sets `time.Local` to UTC at start; clients format for their viewer. `time.Local` is banned elsewhere. ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback) §7: TZ, else `/etc/localtime`, is read once at start as the default of the server's `timeZone` setting, and passed down explicitly; a release build lets TZ alone through.) |
 | `TMPDIR` | `os.TempDir`, and SQLite's temporary files | `temp_store = MEMORY` on every connection; `os.TempDir` is banned. A temporary file goes in a directory the config names. |
 | the working directory | `filepath.Abs` | banned outside `cmd/orpheum`; config paths are absolute already |
 
@@ -16313,7 +16313,7 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
    logo within 400×155 and 800×310. None larger than its source. The two largest are made on
    request; the rest when the image is fetched. *(Noted 2026-09-30: a stored size is keyed by
    its source's SHA-256 alone, not by the encoder's settings, so a change of
-   `artwork_webp_quality` applies only to images made after it, and what is already stored is
+   `artworkWebpQuality` applies only to images made after it, and what is already stored is
    kept, as intended; evicting a size, or a base being lost, is what remakes it. The owner:
    "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 C).)*
 4. **The format is in the URL, and the client chooses it.** WebP always; JPEG is cut by the core
@@ -17041,7 +17041,7 @@ ones.
    and later changes have taken cache.db to version 18. Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
    *(Since 2026-09-30, a setting key spells out its unit too: standards/sql.md's allowance for a
    setting key's short `_s`, `_h` and `_d` is withdrawn (the owner: "keep spelled out names"), so
-   `job_first_retry_delay_s` is `job_first_retry_delay_seconds` and so on, `_ms` staying; step
+   `job_first_retry_delay_s` is `jobFirstRetryDelaySeconds` and so on, `_ms` staying; step
    0028 moves the stored rows, and [retired-names.md](../retired-names.md) lists the old keys.)*
 
 **Status:** Decided; built before M3's closing audit.
@@ -17275,7 +17275,7 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
    and another becomes the one queued follow-up.
 9. **Cancel stops a run, not the work.** The sweep may queue it again if the state still implies
    it; stopping for good is a change of state (retire, delete, a feature turned off).
-10. **Back-off and giving up.** ±10% jitter on every retry. `job_attempt_limit` counts only the
+10. **Back-off and giving up.** ±10% jitter on every retry. `jobAttemptLimit` counts only the
     item's own failures; a job that exhausts it is recorded as the item's failure (§4).
 11. **Nodes.** The node table says truthfully whether a node is connected, when it was last heard,
     and whether it is gone. A command to a node that is not connected parks its job instead of
@@ -17562,7 +17562,7 @@ benefit from updated info."*
    replace the polling later without changing what a screen shows.
 4. **The waits are settings the server gives the client** (the owner, the same day: *"As per usual,
    the 30s max poll interval should be configurable, passed by the server to the client."*):
-   `screen_refresh_first_wait_seconds` (2) and `screen_refresh_longest_wait_seconds` (30), read by
+   `screenRefreshFirstWaitSeconds` (2) and `screenRefreshLongestWaitSeconds` (30), read by
    every signed-in client from `GET /client-settings`; D237's waits until they are read.
 
 **Status:** Decided 2026-10-02; built the same day. Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): §1's poller is tested
@@ -17572,7 +17572,7 @@ each such screen does.
 **Amended** (2026-10-06), when a films list opened while the dev server rebuilt stayed failed and
 the home page took up to 30 s more to notice the server back: §1's "unchanged" is an answer, and a
 failed read is none, and does not back off. After each failed read a screen asks again after
-`screen_refresh_failed_wait_seconds`, a setting the server gives the client as §4's waits, starting
+`screenRefreshFailedWaitSeconds`, a setting the server gives the client as §4's waits, starting
 at 5 s (the owner: *"Make it every 5 seconds instead of 2"*), and a list whose first read, or whose
 page more, failed is read again from the start (polling.test.ts, use-pages.test.ts).
 
@@ -17953,10 +17953,10 @@ recommendations"*, *"Everything except A4 sounds good"*.
 3. **The contract names the audit flagged are renamed now**, while formats change freely:
    `examineCount` → `toExamineCount`, `isScanAgain` → `isAnotherScanQueued`, the API's three
    `since` → `gaveUpAt`, `unavailableAt`, `notAnsweringAt`; config `node.min_free_mib` →
-   `prepared_disk_min_free_mib`; settings `play_wanted_seconds` → `play_priority_kept_seconds`,
-   `node_work_window_extra` → `node_jobs_beyond_free_slots`, `device_readers_*` →
-   `*_reader_limit`, `scan_examine_batch_videos` → `scan_videos_per_examine_batch`,
-   `new_library_scan_every_hours` → `new_library_default_scan_every_hours`; package `datadir` →
+   `prepared_disk_min_free_mib`; settings `play_wanted_seconds` → `playPriorityKeptSeconds`,
+   `node_work_window_extra` → `nodeJobsBeyondFreeSlots`, `device_readers_*` →
+   `*_reader_limit`, `scan_examine_batch_videos` → `scanVideosPerExamineBatch`,
+   `new_library_scan_every_hours` → `newLibraryDefaultScanEveryHours`; package `datadir` →
    `instancedir`.
 4. **A request a click sends is safe to repeat** (the owner: *"we should have as many buttons
    debounced as is feasible. Idempotency is the ideal."*):
@@ -17968,7 +17968,7 @@ recommendations"*, *"Everything except A4 sounds good"*.
      unique index holds it as well: S90, one download per file and subtitle.
 5. **M3's last device checks** (VQ9, VQ14, VQ15) are carried into M4; none changes M4's design.
 6. **Phases 5 and 6's open deviations:** a stall on the prepared directory's disk is blamed on
-   that disk, not the media root, and a job failed by `assigned_job_limit_hours` tells its node
+   that disk, not the media root, and a job failed by `assignedJobLimitHours` tells its node
    to stop: both fixed before M4. A prepare on a node gone silent parks, and a repointed root's
    parked work is asked for again when needed: both accepted.
 
@@ -18189,7 +18189,7 @@ paused often; in the group it played a frame and froze, over and over.
    **Amended** (2026-10-06), by the owner, after a viewer on an airplane's Wi-Fi measured 0.6 Mb/s
    against a lowest quality that needed 0.9 Mb/s with its sound: a fifth quality, 0.4 Mbps at 360p,
    is added to the starting list, and the sound of a film cut into chunks is 96 kb/s, a setting
-   (`chunk_sound_kbps`), where it was 192 kb/s, a quarter of her link.
+   (`chunkSoundKbps`), where it was 192 kb/s, a quarter of her link.
 7. **A version is the film at a quality, shared by every viewer.** One another viewer's stall
    already started is used if it is within the viewer's measured speed and not far from what would
    have been chosen: the same quality, or the one below it. The owner: *"If a client stalls, and
@@ -18330,7 +18330,7 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): the drift left alone is 150 ms by default, not 500 (§1).
 
-> **§1 refined by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §2** (2026-10-08): a player whose rate's returns cost it more than the drift left alone corrects by seeks alone, beyond `together_seek_only_drift_left_alone_ms` (400 ms by default).
+> **§1 refined by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §2** (2026-10-08): a player whose rate's returns cost it more than the drift left alone corrects by seeks alone, beyond `togetherSeekOnlyDriftLeftAloneMs` (400 ms by default).
 
 **Decided** (2026-10-06), by the project owner, after a viewer on an iPhone at an airport found the
 film unwatchable on a link fast enough for her quality, and after the research of
@@ -18673,7 +18673,7 @@ encoding start already when you know where enough key frames are?"* **Revises** 
 which came only from reading the whole file through.
 
 1. **A local rule for the grid.** A chunk starts at the first keyframe at or after each multiple of
-   `hls_segment_length_seconds`, so each boundary depends only on the keyframes near it: a stretch
+   `hlsSegmentLengthSeconds`, so each boundary depends only on the keyframes near it: a stretch
    of the film cut alone agrees with the whole film's grid. A last chunk shorter than the length is
    merged into the one before it, as before.
 2. **The keyframes from the file's own index**: an MP4's sync-sample table, a Matroska file's cues,
@@ -18710,7 +18710,7 @@ link.
 
 1. **Every film that can be cut plays from its ladder** (D247 §10): the film cut into chunks, its
    own picture copied as the top quality where the player decodes it, the qualities of
-   `chunk_qualities` below it, one master playlist. The player moves between them by itself, down
+   `chunkQualities` below it, one master playlist. The player moves between them by itself, down
    when its link cannot fill its buffer and back up with care, from the first segment to the last.
    No prepared copy is made for it. A film not cut yet, its keyframes not known, plays as before (the
    original or a prepared copy, D253 at a stall) while its keyframes are read, and from its ladder
@@ -18757,7 +18757,7 @@ failed"*.
 
 1. **The drift a Watch Together player leaves alone is 150 ms by default**, so D243 §9's bound of
    200 ms apart 95% of the time holds. **Revises** D250 §1's 500 ms; it stays the setting
-   `together_drift_left_alone_ms`.
+   `togetherDriftLeftAloneMs`.
 2. **A short netem run, the home profile, is part of every branch check** (D252 §2): CI's container
    is allowed to shape its own network (`NET_ADMIN`).
 3. **A signed-in guest's watch history is deferred**, a nice-to-have for later (D246 §4). M4's
@@ -19052,7 +19052,7 @@ from the player's events with one-shot marks, where most of a week's bugs lived.
    to absorb. Still no clock is shared ([D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips)).
 2. **A player corrects its drift as its device measures it**, never by its User-Agent (D250 §7). A
    player that learns its rate going back to the group's costs it more than the drift left alone
-   corrects by seeks alone from then on: beyond `together_seek_only_drift_left_alone_ms` (400 ms by
+   corrects by seeks alone from then on: beyond `togetherSeekOnlyDriftLeftAloneMs` (400 ms by
    default), a small seek past the group by what its seeks have learned to lose, as MediaSync does
    on Safari. Every other player nudges as before. A pair with a player that corrects by seeks is
    held to 500 ms apart 95% of the time, its pair's bound in D263's bounds per client pair; D243
@@ -19095,7 +19095,7 @@ DivX in AVI, MPEG-2 in a TV recording's MPEG-TS), so waiting for their keyframes
 viewers nothing, and reading ahead of the player would have made a seek past what it read wait.
 
 1. **A file with no index of its keyframes is cut on time**: a chunk starts at each multiple of
-   `hls_segment_length_seconds`, a last chunk shorter than that merged into the one before. Its
+   `hlsSegmentLengthSeconds`, a last chunk shorter than that merged into the one before. Its
    playback is offered the encoded qualities and the sounds at once, from any point, and not the
    picture copied.
 2. **The node says a file has no index at once.** A read-through a player waits on asks for the
@@ -19131,7 +19131,7 @@ run) wait for the owner.
    uncuttable: the sweep stops reading it through every hour; a read through that succeeds later
    clears it. No one waits on a full read, so a person's play does not try it again.
 2. **Names that reach a setting key or the wire are renamed**, each old name retired:
-   - `should_together_voice_level_microphone` → `should_together_voice_browser_level_microphone`,
+   - `should_together_voice_level_microphone` → `shouldTogetherVoiceBrowserLevelMicrophone`,
      and the tuning's `shouldLevelMicrophone` → `shouldBrowserLevelMicrophone`: it governs only the
      browser's own gain control, Orpheum's levelling being on when it is off;
    - the note kind `led` → `leaderCommand`, and its `events` → `recentEvents`;
@@ -19976,7 +19976,7 @@ paid service's specification, which are brought in line before development start
     The owner: *"if these are different things then just go with best practices. I'd mistakenly
     thought that the magic link was for invites."* Invitations are separate and keep their own
     lives: a household member's registration link on the core, 7 days by its setting
-    (`registration_invitation_life_days`, D246 §2); a beta tester's invitation to the paid service,
+    (`registrationInvitationLifeDays`, D246 §2); a beta tester's invitation to the paid service,
     about 14 days, whose opening sends a fresh sign-in link then.
 17. **A Watch Together link finds its core while it lives** (B11; correctness C3): finding the core
     by a link grants nothing, so it works again and again, as long as the link is live on the core;
@@ -20723,7 +20723,7 @@ interest in one quality at a time."* It revises D247 §10, D250 §5 and §6, and
    hidden for good); **played another film**; and, unsaid, **silent** (a crash, a lost link). Paused
    and left both finish what is made ahead of where they stopped, then stop; another film stops the
    old film's runs at once; a quality switched from is not wanted again (§2). A paused player
-   replaces §4's minute: what is finished ahead is **`chunk_kept_ahead_seconds`**, 30 by default
+   replaces §4's minute: what is finished ahead is **`chunkKeptAheadSeconds`**, 30 by default
    (*"Is 1 minute of pre-generated data too much? Would 30 seconds be better? Should we make this a
    config value?"*, the agent's proposal: the player's own buffer already holds about 30 s; the owner:
    *"yes"*).
@@ -21242,8 +21242,8 @@ film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-vid
 2. **A picture given up mid-film is played again from where it stood**, the page asking for the
    playback afresh once its player has told the core, so the new ladder starts at the twin rather than
    at the quality below the original (D266 §2's fall, for the film's own picture alone).
-3. **The ladder follows the film's node's encoder**: `chunk_qualities` where it encodes in software,
-   and `chunk_qualities_hardware`, starting at 1080p, where it encodes on a GPU (Quick Sync, NVENC).
+3. **The ladder follows the film's node's encoder**: `chunkQualities` where it encodes in software,
+   and `chunkQualitiesHardware`, starting at 1080p, where it encodes on a GPU (Quick Sync, NVENC).
    Each quality is still offered only below the original in rate, or below the twin where it plays
    in the original's place (§1), and below the picture in height.
 4. **An encoder that cannot keep up steps its players down**, the twin included, as D286 §4 already
@@ -22042,7 +22042,7 @@ recording why it stays. The check is design/plans/retire-prepare.md §1: it can.
    standard and, with a centre, its boosted one, as chunks; the node's prepared directory keeps
    the stores of chunks within the same budget (D217 §5).
 2. **A film whose keyframes cannot be had in time is cut on time** (D269 §1): one whose
-   keyframes were not read within `play_ladder_wait_ms`, one FFmpeg could not read through, and
+   keyframes were not read within `playLadderWaitMs`, one FFmpeg could not read through, and
    one with no keyframe before its end. Its playback keeps that grid to its end (D269 §3); the
    next is cut on the keyframes once they are known. A run asked for on the time grid is made on
    it.
@@ -22092,8 +22092,8 @@ ended it or the server restarted.
    page sends by itself is not: its state reports and pings each second, its notes, what it waits
    on, a reconnect, and voice signalling, since a call set up again after a drop is the page's, not
    a person's. Two people only talking for six hours with nothing on are ended; they open a new one.
-4. **Both are settings, not constants:** `together_link_lifetime_seconds` (3600) and
-   `together_idle_session_end_hours` (6). They are a household's policy, the owner's numbers a
+4. **Both are settings, not constants:** `togetherLinkLifetimeSeconds` (3600) and
+   `togetherIdleSessionEndHours` (6). They are a household's policy, the owner's numbers a
    start: another household may send an invitation earlier in the day or want a long pause kept, and
    nothing in the code depends on their values. They are read each minute, the bound on how late an
    idle session is ended; a link is refused from the moment its hour is up whatever the look's time.
@@ -22112,7 +22112,7 @@ ended it or the server restarted.
 every API request gets an ID carried in its context, on every line it causes, and returned to the
 client.
 
-1. **A setting, log_level.** `debug`, `info`, `warn` or `error`, or `file`, its starting value,
+1. **A setting, logLevel.** `debug`, `info`, `warn` or `error`, or `file`, its starting value,
    which is the config file's `log.level`, so a deployment's own level holds until an admin chooses
    another. A change takes effect at once (the settings service's OnChange sets the logger's
    `slog.LevelVar`), and the change itself is logged. It is the core's alone; a node's level stays
@@ -22138,7 +22138,7 @@ config value."*
 1. **A config key, not a setting.** `[webrtc] max_connections` in the core's config file bounds the
    peer connections the core holds at once, of every network. It is the machine owner's, beside the
    UDP port and the STUN servers, not an admin's in the database: it sizes what the machine carries.
-   Each network's share under it stays the `webrtc_connections_per_network` setting.
+   Each network's share under it stays the `webrtcConnectionsPerNetwork` setting.
 2. **Its starting value is 64,** the constant it replaces (`rtcapi.DefaultMaxConnections`): a client
    opens up to four connections, so 64 holds 16 remote devices. A file without the key runs on 64
    and says so (D202); a value under 1 is refused at start.
@@ -22421,7 +22421,7 @@ steady its link has been.
 **Values:** every number above is a **constant** in the player (`web/packages/player/src`), beside
 D265's: they tune one algorithm against the others and no admin can judge them, and each is to be
 measured on the acceptance's emulated links (D252, D263) and the owner's devices before it is
-trusted. The share a quality may take stays the setting `link_share_for_quality_percent`
+trusted. The share a quality may take stays the setting `linkShareForQualityPercent`
 (D247 §6). No new setting.
 
 **Rejected:** BOLA or (Robust)MPC as the controller, a learned controller, a buffer-only
@@ -22437,13 +22437,13 @@ research, §5); keeping one hold for every link (the owner's report).
   request come from, which the player never learns, so the owner chose (2026-10-27) to keep it in
   the core. *As built (2026-10-27):* every play report carries the chunked player's level
   (`steadiness`), which the core keeps beside the speed, by the same player and network and for the
-  same `link_speed_fresh_hours`, in memory as the speed is; every offer (`LadderBody.steadiness`, at a
+  same `linkSpeedFreshHours`, in memory as the speed is; every offer (`LadderBody.steadiness`, at a
   start and for a stall's lower quality) hands it back, and the controller starts at it and relaxes
   from there as §3 says. Between playbacks the core relaxes it by one for each hour since it was
   reported, six times slower than §3's ten calm minutes while playing, since nothing is watched
   between them: a film started again within the hour starts as steady as the last ended, and a bad
   evening is forgotten by the next morning, well inside the day the speed is kept. The hour is the
-  setting `link_steadiness_relaxes_seconds` (3600 to start, 600 to 86400; the owner, 2026-10-27).
+  setting `linkSteadinessRelaxesSeconds` (3600 to start, 600 to 86400; the owner, 2026-10-27).
 - Q3. *§5's samples in the stall and seek reports?* Yes, always, not only at debug level. *As built
   (2026-10-27):* each stall's and seek's `linkSamples`, a field of its own beside the steps, which
   the core logs (`stallLinkSamples`, `linkSamples`).
@@ -22514,7 +22514,7 @@ steadiness levels and every other number stand. Six changes:
    are kept. A fall is followed once most of the five say it; a chunk given up and a stall still act
    at once.
 2. **The remembered link is a prior (P2).** It counts as 2 samples while under an hour old, fewer in
-   step with its age, none at `link_speed_fresh_hours`; it lends its spread until three samples are
+   step with its age, none at `linkSpeedFreshHours`; it lends its spread until three samples are
    kept; two of the playback's own samples more than 2 spreads from it on the same side and within 4
    of each other drop it, and the playback's own samples retire it once they leave the window. The
    speed reported, and remembered, is the estimate (the prior's centre), with its spread; the core
@@ -22557,7 +22557,7 @@ measured on no link of ours; the notes of 6 are to tune them.
 
 **Decided** (2026-10-27), by the project owner, replacing the fixed minute the fix for the owner's
 film (staging, 2026-10-26) gave D309 §2: a run was no longer a player's once the first chunk
-the player needed lay more than the look-ahead (`chunk_lookahead_seconds`, 60 s) past what the run
+the player needed lay more than the look-ahead (`chunkLookaheadSeconds`, 60 s) past what the run
 made next. A minute is a guess: a fast run gets there in seconds, and a slow one makes the player
 wait the whole minute of film. It amends D309 §2 (a place a player sought away from), and follows
 Jellyfin's rule for a run not yet measured (`segmentGapRequiringTranscodingChange = 24 /
@@ -22572,7 +22572,7 @@ state.SegmentLength`, Jellyfin.Api/Controllers/DynamicHlsController.cs).
    the player, starts nothing there.
 2. **Both are measured from what the core already sees,** on the sanctioned clock, with no change to
    the node. The speed is the run's own, from its progress over the last
-   `chunk_run_speed_window_seconds`, as soon as two chunks made span any time (the capacity watch,
+   `chunkRunSpeedWindowSeconds`, as soon as two chunks made span any time (the capacity watch,
    D250 §6, still waits for half the window): it is the run being judged that the player would wait
    for. The startup is its store's (one film's stream on one grid) most recent run's, from the core
    giving the run to its node to its first chunk made: a new run at the jump is of that same source,
@@ -23229,7 +23229,7 @@ with a source of its own, and
 4. **The tiles in view raise their pictures' work, as a page looked at raises its own.** Every grid of
    tiles, a library's, Films', Series', a folder's videos, says the items whose tiles are in view
    (`PUT /tiles/interest`) once they settle for half a second, again every
-   interest_said_every_seconds while the tab is visible, and that it shows none when it goes
+   interestSaidEverySeconds while the tab is visible, and that it shows none when it goes
    (`DELETE`), of the items its person reaches. The interest register keeps each session's tiles as a
    look of its own beside its page, since the list was first shown however far it scrolls, and the
    raiser raises it as it raises a page's: at a look's priority, the latest look first, its tiles
@@ -23750,7 +23750,7 @@ edge; it keeps the ring's room there too (VQ97).
 **Decided** (2026-10-27), by the project owner. A film played at home in Chrome on the Mac from the production NAS,
 at the top of its ladder (its own picture, copied), showed its sound as "AAC stereo, 96 kb/s
 (transcoded from AAC stereo)": every quality of a film cut into chunks shares one sound track made at
-`chunk_sound_kbps`
+`chunkSoundKbps`
 ([D247 §6](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)'s
 amendment, set for an airplane's 0.6 Mb/s link), so even a film's own picture plays with a re-encoded
 sound, and a 5.1 film is folded down to stereo. That breaks
@@ -23761,7 +23761,7 @@ sound, and a 5.1 film is folded down to stereo. That breaks
 1. **The top quality, the film's own picture, plays the film's own sound, copied**, every channel,
    wherever the device can play it as it is (D336 §1: its playable formats); a device that cannot
    gets the sound D336 §2 makes for it. The copy is cut at the chunks' boundaries as the picture is.
-2. **The lower qualities keep the light stereo track** at `chunk_sound_kbps`, as now: they are for a
+2. **The lower qualities keep the light stereo track** at `chunkSoundKbps`, as now: they are for a
    link that cannot carry more.
 3. **Each quality names its sound in the master playlist** (an HLS audio group per quality), so the
    player switches sound with picture when it changes quality. Whether that switch is heard (a
@@ -23896,7 +23896,7 @@ or showed watched: "finished" was read from the person's current position, so a 
 and stopped early counted as unfinished again, and a series' progress and Next Up stepped back.
 
 1. **Watched is kept per person, per title**: a video becomes watched when its person plays it to the
-   finished threshold (`finished_after_percent`, 90%) or to its end, on any copy of it (D363); and when
+   finished threshold (`finishedAfterPercent`, 90%) or to its end, on any copy of it (D363); and when
    marked so by hand. Unattended plays and files of unknown length never make it watched. It stays
    watched when played again: a rewatch shows the check and its progress bar.
 2. **The mark is a white check in the poster's tray of status cues** (D301 §4), the last of its icons,
@@ -23923,7 +23923,7 @@ and stopped early counted as unfinished again, and a series' progress and Next U
 **Status:** Decided 2026-10-27. Built 2026-10-27. The store keeps `title_watched` (step 0062,
 checkpoint 48 unmoved): a person's `watched_at`, NULL while not watched, and `marked_at`, their last
 mark by hand either way; the step keeps watched what was finished until then (a position past the
-household's `finished_after_percent` of a known length, a `completed` event, `purged_watching`'s
+household's `finishedAfterPercent` of a known length, a `completed` event, `purged_watching`'s
 completions). `internal/core/playback/watched.go` writes it: a report played to its finish
 (`keepWatchedByPlay`, from `report.go`), a report with an unattended span marking nothing; and
 `MarkWatched`/`RestoreWatched`, the mark by hand and its Undo, which puts back each title's mark as
@@ -24104,7 +24104,7 @@ an intent to end the old one."
 6. **To lead, a device must be on the session's page with the film playing.** A member elsewhere
    stays a member but cannot lead.
 7. **With everyone gone, the session pauses where it stands** and ends by its idle end
-   (`together_idle_session_end_hours`, D346), as before.
+   (`togetherIdleSessionEndHours`, D346), as before.
 8. **A person is in one session at most**, as host or as guest. Starting a new session ends the one
    the person hosts (the owner: it "signals an intent to end the old one"); its guests are told it
    ended. Joining another session as a guest asks first: "Leave ‹session› to join this one?".
@@ -24158,7 +24158,7 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - **Hidden** is said only by a handheld's page, where hiding pauses the film
   (`pageThatPausesWhenHidden`): a computer's hidden tab plays on, and may lead.
 - **"In step"** is the follower correction's own threshold for needing no correction,
-  `together_drift_left_alone_ms` (D250 §1), as the newest device brought it: ready, playing as the
+  `togetherDriftLeftAloneMs` (D250 §1), as the newest device brought it: ready, playing as the
   group plays (or held as it stands), within that of the group's position, its round trip allowed
   for. A host's player taking the lead back moves no one, and the group announces nothing.
 - **The host's player attaching while a guest's leads and nothing is on** leads at once: there is
@@ -24256,10 +24256,10 @@ exemption is one rule with any lone contender's (D374 §3).
 Resolved in the build, where the decision left it open (say if any should go otherwise):
 - **The grace** is a named constant, as D372's silence limit is, not a setting: 3 s, fixed by
   other values. A quality switch's or a short refill's stall waits on one chunk, 2 s of film
-  (`hls_segment_length_seconds`' starting value), which a link that carries the film loads in less
+  (`hlsSegmentLengthSeconds`' starting value), which a link that carries the film loads in less
   than 2 s; a stalled leader tells its state each second, so the core sees a stall up to 1 s late;
   3 s outlasts both. It is no longer than a follower's drift before it seeks rather than nudges
-  (`together_seek_drift_beyond_ms`' starting value, 3 s): a leader that plays again within the
+  (`togetherSeekDriftBeyondMs`' starting value, 3 s): a leader that plays again within the
   grace steps the group back to where it is, by at most that, which its followers nudge across.
 - **A leader's stall within the grace** leaves the group playing on, and the leader playing again
   places the group where it is, as each of its states does: the group steps back by the stall, its
@@ -24359,7 +24359,7 @@ play/pause)."
 2. **A leader's return carries on that state.** The first contender back leads (D372, D374) from that
    position: playing if the session was playing, paused if a person had paused it. Followers catch up as
    ever. No time limit (the lead's proposed 2-minute window was not taken).
-3. **The idle end still applies** (D372 §7, `together_idle_session_end_hours`, D346).
+3. **The idle end still applies** (D372 §7, `togetherIdleSessionEndHours`, D346).
 
 **Status:** Decided 2026-10-29; built 2026-10-29. §1: the last contender gone, a Watch Together group
 with a film on is held `Paused` where the core placed it then, its clock still, and keeps whether it
@@ -25932,7 +25932,7 @@ revamp (the owner, 2026-11-04).
    away, a name whose packets vanish costs 250 ms, not 3 s. The log line "a page chose its path to the
    core" says each name's time.
 5. **Smaller things the research found:** a give-up (D266) logs its device and its quality, so a false
-   one can be counted; the index read's time is logged; `hls_segment_length_seconds`' help says a film's
+   one can be counted; the index read's time is logged; `hlsSegmentLengthSeconds`' help says a film's
    keyframes decide its chunks, and its 2 s is a floor often not reached.
 
 **Proven by:**
@@ -26637,7 +26637,7 @@ answering, as it does for a deploy.
      another machine is another installation. The last holder's installation is accepted at once,
      which also lets a deploy's restart in without waiting out a ping.
    - **Any other installation waits a window of a few minutes**, longer than the core's longest wait
-     between asks (`discovery_retry_most_seconds`, 300 s by default), for the last holder to come
+     between asks (`discoveryRetryMostSeconds`, 300 s by default), for the last holder to come
      back; then the ping of §1 decides as now. A newcomer refused because the last holder came back
      stops asking (§3). A real failover waits the window: a deliberate step, so it costs little.
    - **A core asks at once when its network comes back**, not at its next backed-off try, so the last
@@ -27184,8 +27184,8 @@ the core's own /64 is trusted).
 
 **Status:** decided and built (2026-11-09). §5 was built with D454 §5, in "feat(deployment): the
 household's core runs on the host's network and asks no address or kernel feature".
-§3 and §4 are (2026-11-09): `home.AddressAtHome`, kept as the settings `address_at_home` and
-`address_at_home_learned_from` (no table of its own), learned in api's `markingHome`, shown in the
+§3 and §4 are (2026-11-09): `home.AddressAtHome`, kept as the settings `addressAtHome` and
+`addressAtHomeLearnedFrom` (no table of its own), learned in api's `markingHome`, shown in the
 System page's server section, where an admin sets it (`PUT /system/address-at-home`; the form is not
 offered while the config names the address), or at setup, and handed live to the rule,
 WebRTC's host candidate and the discovery's heartbeat. A core sharing the host's network (no tunnel,
@@ -27419,7 +27419,7 @@ that cannot run in real time: say so plainly.
    confinement, and keeps FFmpeg's own `speed=` as a percent of real time. A trial cut short by its
    one-minute bound keeps the speed it had reached; one that reported none is unmeasured (zero). The
    hello carries it (`Hardware.EncodeSpeedPercent`, protocol 62).
-2. **The line is `chunk_run_slowest_speed_percent`** (110 by default), the speed every run of
+2. **The line is `chunkRunSlowestSpeedPercent`** (110 by default), the speed every run of
    chunks is already held to (D250 §6): a node whose measure is below it is too slow to encode. A
    node unmeasured is not, so a trial that failed takes nothing away.
 3. **A film on a node too slow to encode offers no encoded picture.** Its ladder offers only its

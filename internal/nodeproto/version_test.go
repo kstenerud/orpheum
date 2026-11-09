@@ -71,7 +71,7 @@ var wireShapeByVersion = map[int]string{
 	// 34 adds the core's Tuning of the node, in the hello reply and each poll's answer: first how often
 	// the node posts its status, in place of its own config (the constants sweep, 2026-10-21).
 	34: "97484e9114c9f3556ae2bc64055042b31149b03b622ff057df198ed07b274a87",
-	// 35 has a listing say its error limit, the core's scan_root_error_limit, in place of the node's own
+	// 35 has a listing say its error limit, the core's scanRootErrorLimit, in place of the node's own
 	// config (the constants sweep, 2026-10-21).
 	35: "494b119bde4383d8dd578766fdcec651dc2759938fbb394eb745c1f0f0f9d36c",
 	// 36 adds how often a prepare's progress is said to the Tuning (the constants sweep, 2026-10-21).

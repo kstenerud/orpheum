@@ -115,8 +115,8 @@ func (gpu onAGPU) EncodesOnAGPU(int64) bool { return bool(gpu) }
 
 func (onAGPU) EncodeSpeedPercent(int64) int { return 0 }
 
-// A film whose node encodes on a GPU is cut at chunk_qualities_hardware's qualities, one encoding in
-// software at chunk_qualities' (D323 §3).
+// A film whose node encodes on a GPU is cut at chunkQualitiesHardware's qualities, one encoding in
+// software at chunkQualities' (D323 §3).
 func TestOffered_TheLadderFollowsTheFilmsNodesEncoder(t *testing.T) {
 	t.Parallel()
 	names := func(gpu onAGPU) []string {
@@ -138,11 +138,11 @@ func TestOffered_TheLadderFollowsTheFilmsNodesEncoder(t *testing.T) {
 		return named
 	}
 	if got := names(true); !slices.Equal(got, []string{"picture", "q2500k900p", "q400k360p"}) {
-		t.Errorf("on a GPU the film offers %v; want its picture and chunk_qualities_hardware's", got)
+		t.Errorf("on a GPU the film offers %v; want its picture and chunkQualitiesHardware's", got)
 	}
 	if got := names(false); !slices.Equal(got,
 		[]string{"picture", "q3000k720p", "q2000k540p", "q1200k480p", "q700k432p", "q400k360p"}) {
-		t.Errorf("in software the film offers %v; want its picture and chunk_qualities'", got)
+		t.Errorf("in software the film offers %v; want its picture and chunkQualities'", got)
 	}
 }
 
@@ -184,7 +184,7 @@ func (encodesAt) EncodesOnAGPU(int64) bool { return false }
 
 func (speed encodesAt) EncodeSpeedPercent(int64) int { return int(speed) }
 
-// A film whose node encodes the lowest quality slower than chunk_run_slowest_speed_percent offers
+// A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent offers
 // only its own picture, copied, so a player that decodes it plays it with no encode, and one that
 // cannot is refused as too slow (D457): converted, it would stall over and over. A node fast enough,
 // or one whose speed is not known, offers its whole ladder; the setting is the line.
@@ -230,6 +230,6 @@ func TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied(t *testing
 	}
 	settingstest.Set(t, seeded, settings.ChunkRunSlowestSpeedPercent, "100")
 	if got := offeredBy(lowered); len(got) != 6 {
-		t.Errorf("with chunk_run_slowest_speed_percent at 100, a node at 105%% offers %v; want every quality", got)
+		t.Errorf("with chunkRunSlowestSpeedPercent at 100, a node at 105%% offers %v; want every quality", got)
 	}
 }

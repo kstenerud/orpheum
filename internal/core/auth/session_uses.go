@@ -13,7 +13,7 @@ import (
 
 // sessionUses are the sessions used since their last use was written, in memory: a request that
 // only reads never waits for the database's writer to record that it was made (D303 §4, DL10).
-// FlushSessionUses writes them in one batch, every session_last_used_write_interval_seconds and
+// FlushSessionUses writes them in one batch, every sessionLastUsedWriteIntervalSeconds and
 // when the server stops; until then the idle check and a person's devices read the later of the
 // stored and the remembered time.
 type sessionUses struct {

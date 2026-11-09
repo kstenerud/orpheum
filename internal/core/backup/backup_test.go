@@ -82,7 +82,7 @@ func (server server) populate(t *testing.T) {
 	storetest.InsertUser(t, server.database, "owner", "admin")
 	now := clocktest.NewFake(testTime)
 	seeded := settingstest.Seeded(t, server.database)
-	err := seeded.Set(ctx, map[string]json.RawMessage{"should_check_for_updates": json.RawMessage("false")}, nil,
+	err := seeded.Set(ctx, map[string]json.RawMessage{"shouldCheckForUpdates": json.RawMessage("false")}, nil,
 		true)
 	if err != nil {
 		t.Fatal(err)
@@ -176,7 +176,7 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if entry.Definition.Key == "should_check_for_updates" && string(entry.Value) != "false" {
+		if entry.Definition.Key == "shouldCheckForUpdates" && string(entry.Value) != "false" {
 			t.Errorf("the restored database lost a setting: %+v", entry)
 		}
 	}

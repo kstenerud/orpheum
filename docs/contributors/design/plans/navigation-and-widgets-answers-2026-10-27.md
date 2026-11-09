@@ -159,7 +159,7 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   shows each with Copy (`share.tsx`, so a just-issued link and a Watch Together link have Copy too),
   and withdrawing, or using one link, forgets the others' sealed secrets in the same write
   (`RevokeInvitationLinks`). The used link stays sealed as its person's own link (K7), never shown on
-  the invitation. The 7 days were already `registration_invitation_life_days`' default. Tests
+  the invitation. The 7 days were already `registrationInvitationLifeDays`' default. Tests
   `TestInvitation_ItsLiveLinkIsShownAgainUntilUsed`,
   `TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown`,
   `TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed`, `people-invitations.test.tsx`; VQ201.
@@ -678,7 +678,7 @@ had leaned on.
   permanent, and never moved by a later pass", D172), but no API or page calls it. Owed: an
   "Identified correctly" beside "Identified incorrectly" under a guessed title's "…" (D379's menu),
   confirming the match through an endpoint, and the guessed mark gone once confirmed. **Built
-  2026-10-31**: `POST /items/{id}/confirm-match` (edit_metadata, reaching the item, as "Identified
+  2026-10-31**: `POST /items/{id}/confirm-match` (editMetadata, reaching the item, as "Identified
   incorrectly"'s own requests), `identify.Chooser.ConfirmGuess` (a film, an episode placed by its name
   or a series; `ConfirmSeriesMatch` beside `ConfirmTitleMatch`), and `identifiedCorrectlyAction` in
   `match-correction.tsx` on the title's and the series' "…" while `isGuessed`; tests
@@ -1725,7 +1725,7 @@ sleep.
   for now. I'll look later." Kept as written; the owner reviews them later.
 - **A dialog's choices:** D421, for every dialog this wave touches.
 - **Jobs' filters:** "Option A. We need to rethink this anyway because there are so many jobs that
-  it's hard to make any sense of them." The page filters the newest `job_view_max_jobs` jobs in the
+  it's hard to make any sense of them." The page filters the newest `jobViewMaxJobs` jobs in the
   browser; the server neither filters nor pages.
 
 **Next batch, for the owner to order:**
@@ -1798,7 +1798,7 @@ the production NAS or the development NAS takes it after that, at the owner's wo
 
 The owner's answers on API step C3 (2026-11-05): a season's episodes and search move to the `/items`
 cursor in this batch, with the same limits, search's carrying its rank and the id ("Unify now"); the
-Jobs list keeps its `job_view_max_jobs` cap ("Keep the cap"); backups, libraries, nodes, devices,
+Jobs list keeps its `jobViewMaxJobs` cap ("Keep the cap"); backups, libraries, nodes, devices,
 secrets, roles, now-playing, casts, together, needs-attention, candidates, waits, system, config,
 folders and letters stay unpaged, and the expansion audit checks each against music, photos and DVR.
 

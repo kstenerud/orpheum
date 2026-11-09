@@ -198,7 +198,7 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 
 // A scan asked for while one of the root runs starts none, however many ask; one more runs after
 // it (D236 §3).
-// A scan's listing stops at the errors scan_root_error_limit says, which the node is told with it
+// A scan's listing stops at the errors scanRootErrorLimit says, which the node is told with it
 // (D40; the constants sweep, 2026-10-21).
 func TestScans_AListingSaysTheErrorLimitTheSettingSays(t *testing.T) {
 	t.Parallel()

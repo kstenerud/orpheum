@@ -72,7 +72,7 @@ type JobsInput struct {
 }
 
 // JobsOutput is a page of the job view: the newest jobs first, the pages ending at the newest
-// job_view_max_jobs.
+// jobViewMaxJobs.
 type JobsOutput struct {
 	Body struct {
 		Jobs       []JobBody `json:"jobs"`
@@ -107,7 +107,7 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 		return nil, err
 	}
 	// The cursor is the count listed so far and the last job's id: the pages end at the newest
-	// job_view_max_jobs, as the view always did.
+	// jobViewMaxJobs, as the view always did.
 	key, beforeID, err := decodeCursor(input.Cursor)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 	}
 	maxJobs, err := dependencies.Settings.Int(ctx, settings.JobViewMaxJobs)
 	if err != nil {
-		return nil, server.settingsError(ctx, "read job_view_max_jobs", err)
+		return nil, server.settingsError(ctx, "read jobViewMaxJobs", err)
 	}
 	limit := min(input.Limit, maxJobs-listedBefore)
 	output := &JobsOutput{}

@@ -179,8 +179,8 @@ export function clientWaits(
 
 /**
  * The poller screens showing what the server changes in the background use: backgroundChangesPoller until
- * the server's client settings say the waits an admin set (screen_refresh_first_wait_seconds,
- * screen_refresh_longest_wait_seconds and screen_refresh_failed_wait_seconds).
+ * the server's client settings say the waits an admin set (screenRefreshFirstWaitSeconds,
+ * screenRefreshLongestWaitSeconds and screenRefreshFailedWaitSeconds).
  */
 export const BackgroundChangesContext = createContext<Poller>(backgroundChangesPoller);
 

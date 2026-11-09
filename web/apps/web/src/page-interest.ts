@@ -6,13 +6,13 @@ import { useServices } from "./services.tsx";
 
 /**
  * How often, in seconds, a shown film's or series' page says so: the server's
- * interest_said_every_seconds, its starting value until the client settings are read (D324 §1).
+ * interestSaidEverySeconds, its starting value until the client settings are read (D324 §1).
  */
 export const InterestSaidEveryContext = createContext(15);
 
 /**
  * Says the server's work for itemId comes first while its page is shown (D324 §1): at once, again
- * every interest_said_every_seconds while the tab is visible, and that it left when the page goes,
+ * every interestSaidEverySeconds while the tab is visible, and that it left when the page goes,
  * the tab hides or the page unloads, the request kept alive past the page. A series' page that
  * shows one season says which, whose episodes the server then raises (the owner, 2026-10-24).
  */

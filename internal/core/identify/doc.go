@@ -250,7 +250,7 @@
 //   - A provider's episode ids never find a film, nor its film ids an episode.
 //     Enforced by claimTitleByProviderID's kind filter; review.
 //
-//   - Every name the pass writes is folded for search and given a sort key in the sort_locale,
+//   - Every name the pass writes is folded for search and given a sort key in the sortLocale,
 //     through writeText alone (D47, D48). TestPass_NamesAreSortedAndFoundInEveryScript.
 //
 //   - A sort key is the name's without its leading article, or the NFO's sort title as written,
@@ -262,7 +262,7 @@
 //     so every name the pass writes is clean (principles §22, D211 §2). TestPass_ANameIsStoredClean,
 //     TestMatch_AProvidersTextIsCleanWhereItEnters, TestChooser_AnOverrideIsCleanWhereItEnters.
 //
-//   - A change of sort_locale re-keys every name from what is stored, with no scan (A4); so does a
+//   - A change of sortLocale re-keys every name from what is stored, with no scan (A4); so does a
 //     build that collates or folds a name otherwise, at its start, key by key and fold by fold
 //     (D47, D48). TestRefreshSortAndSearchKeys_ALocaleChangeTakesEffectWithoutAScan,
 //     TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange,

@@ -115,7 +115,7 @@
 //     after taking its listing starts again. TestScans_AScanTheCoreStoppedDuringStartsAgain.
 //
 //   - A root of a library checked on an interval is scanned once its check_every_hours has passed
-//     since its last scan, and a watched one's once watched_library_scan_every_hours has, beneath
+//     since its last scan, and a watched one's once watchedLibraryScanEveryHours has, beneath
 //     the watching, which can miss a change unseen (D27, D272 §1); a root checked only when asked
 //     never is. TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan,
 //     TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves.
@@ -305,7 +305,7 @@
 //   - A root, or a disk mounted inside one, is offline since the first scan in a row that found
 //     it missing, until one finds it. TestOffline_IsSinceTheFirstScanThatFoundARootOrDiskMissingUntilOneFindsIt.
 //
-//   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
+//   - Films and series are listed in the sortLocale's order (D47) or newest first, a page at a
 //     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
 //     TestBrowse_FilmsNewestFirst. Every list of the library that pages (a season's episodes, those
 //     an ordering leaves out, a grouped search's groups) pages by that one cursor (EncodeCursor),
@@ -445,7 +445,7 @@
 //     own; another ordering's groups, discs or parts, show none (D379 §1).
 //     TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone (internal/core/api).
 //
-//   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
+//   - A removed file is deleted removedFilesKeptDays after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).
 //     TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion (internal/core/playback).

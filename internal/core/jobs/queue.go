@@ -281,7 +281,7 @@ func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, err
 }
 
 // KeepWanted says a person still waits for kind's open job on target: it keeps its play priority
-// for play_priority_kept_seconds more (D234 §3). A play asks again each time it looks for the work.
+// for playPriorityKeptSeconds more (D234 §3). A play asks again each time it looks for the work.
 //
 // It writes nothing: a play asks each time it is served a chunk, several times a second, and the
 // wish is kept in memory until DemoteUnwanted writes it, every few seconds against a wait of
@@ -289,7 +289,7 @@ func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, err
 func (queue *Queue) KeepWanted(ctx context.Context, kind Kind, target Target) error {
 	wanted, err := queue.settings.Duration(ctx, settings.PlayPriorityKeptSeconds)
 	if err != nil {
-		return fmt.Errorf("read play_priority_kept_seconds: %w", err)
+		return fmt.Errorf("read playPriorityKeptSeconds: %w", err)
 	}
 	until := queue.clock.Now().Add(wanted)
 	queue.wantedMutex.Lock()
@@ -372,12 +372,12 @@ func (queue *Queue) DemoteUnwanted(ctx context.Context) ([]Demoted, error) {
 	return demoted, nil
 }
 
-// PruneFinished forgets the jobs that ended longer ago than finished_jobs_kept_days, and says how
+// PruneFinished forgets the jobs that ended longer ago than finishedJobsKeptDays, and says how
 // many (D233 §8).
 func (queue *Queue) PruneFinished(ctx context.Context) (int64, error) {
 	keptFor, err := queue.settings.Duration(ctx, settings.FinishedJobsKeptDays)
 	if err != nil {
-		return 0, fmt.Errorf("read finished_jobs_kept_days: %w", err)
+		return 0, fmt.Errorf("read finishedJobsKeptDays: %w", err)
 	}
 	return queue.queue.PruneFinished(ctx, keptFor)
 }
@@ -393,35 +393,35 @@ type settingsPolicy struct {
 	settings Settings
 }
 
-// AttemptLimit is job_attempt_limit.
+// AttemptLimit is jobAttemptLimit.
 func (policy settingsPolicy) AttemptLimit(ctx context.Context) (int64, error) {
 	attemptLimit, err := policy.settings.Int(ctx, settings.JobAttemptLimit)
 	if err != nil {
-		return 0, fmt.Errorf("read job_attempt_limit: %w", err)
+		return 0, fmt.Errorf("read jobAttemptLimit: %w", err)
 	}
 	return attemptLimit, nil
 }
 
-// FirstRetryDelay is job_first_retry_delay_seconds.
+// FirstRetryDelay is jobFirstRetryDelaySeconds.
 func (policy settingsPolicy) FirstRetryDelay(ctx context.Context) (time.Duration, error) {
 	firstRetryDelay, err := policy.settings.Duration(ctx, settings.JobFirstRetryDelaySeconds)
 	if err != nil {
-		return 0, fmt.Errorf("read job_first_retry_delay_seconds: %w", err)
+		return 0, fmt.Errorf("read jobFirstRetryDelaySeconds: %w", err)
 	}
 	return firstRetryDelay, nil
 }
 
-// LongestRetryDelay is job_longest_retry_delay_hours.
+// LongestRetryDelay is jobLongestRetryDelayHours.
 func (policy settingsPolicy) LongestRetryDelay(ctx context.Context) (time.Duration, error) {
 	longest, err := policy.settings.Duration(ctx, settings.JobLongestRetryDelayHours)
 	if err != nil {
-		return 0, fmt.Errorf("read job_longest_retry_delay_hours: %w", err)
+		return 0, fmt.Errorf("read jobLongestRetryDelayHours: %w", err)
 	}
 	return longest, nil
 }
 
 // MarkStalled marks a handler's error as a tool that stalled on the job, a hang that says nothing
-// of the target: the job is tried again after job_first_retry_delay_seconds at no cost of an
+// of the target: the job is tried again after jobFirstRetryDelaySeconds at no cost of an
 // attempt, and its next attempt knows the last one's tool failed (Job.PreviousAttemptToolFailed),
 // so its handler can make a second stall in a row the target's failure. D231's item facts
 // replace that.
@@ -437,20 +437,20 @@ func MarkPermanent(err error) error { return jobqueue.Permanent(err) }
 // IsMarkedPermanent is whether a handler's error was marked as one no retry can fix.
 func IsMarkedPermanent(err error) bool { return jobqueue.IsPermanent(err) }
 
-// FirstProbeDelay is destination_first_probe_delay_seconds.
+// FirstProbeDelay is destinationFirstProbeDelaySeconds.
 func (policy settingsPolicy) FirstProbeDelay(ctx context.Context) (time.Duration, error) {
 	delay, err := policy.settings.Duration(ctx, settings.DestinationFirstProbeDelaySeconds)
 	if err != nil {
-		return 0, fmt.Errorf("read destination_first_probe_delay_seconds: %w", err)
+		return 0, fmt.Errorf("read destinationFirstProbeDelaySeconds: %w", err)
 	}
 	return delay, nil
 }
 
-// LongestProbeDelay is destination_longest_probe_delay_seconds.
+// LongestProbeDelay is destinationLongestProbeDelaySeconds.
 func (policy settingsPolicy) LongestProbeDelay(ctx context.Context) (time.Duration, error) {
 	delay, err := policy.settings.Duration(ctx, settings.DestinationLongestProbeDelaySeconds)
 	if err != nil {
-		return 0, fmt.Errorf("read destination_longest_probe_delay_seconds: %w", err)
+		return 0, fmt.Errorf("read destinationLongestProbeDelaySeconds: %w", err)
 	}
 	return delay, nil
 }

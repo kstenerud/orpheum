@@ -199,7 +199,7 @@ func purgeEndedCredentials(purger credentialPurger) func(ctx context.Context) (i
 }
 
 // purgeRemovedFiles is the removed files' sweep: it queues no work, and deletes those removed more
-// than removed_files_kept_days ago, keeping what was watched of them on their versions and
+// than removedFilesKeptDays ago, keeping what was watched of them on their versions and
 // forgetting what each person chose in them and the subtitles fetched for them.
 func purgeRemovedFiles(
 	purger removedFilePurger, config *settings.Service, now clock.Clock,
@@ -207,7 +207,7 @@ func purgeRemovedFiles(
 	return func(ctx context.Context) (int, error) {
 		kept, err := config.Duration(ctx, settings.RemovedFilesKeptDays)
 		if err != nil {
-			return 0, fmt.Errorf("read removed_files_kept_days: %w", err)
+			return 0, fmt.Errorf("read removedFilesKeptDays: %w", err)
 		}
 		_, err = purger.PurgeRemovedFiles(ctx, now.Now().Add(-kept),
 			playback.FoldWatchingOfPurgedFiles, preferences.ForgetPreferencesOfPurgedFiles,
@@ -288,7 +288,7 @@ func (services *Services) AddSweeps(logger *slog.Logger) {
 // what the library's state implies of one kind's work, as its name says.
 func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 	// The sweeps that derive first matches, the refreshes people asked for, rechecks and the
-	// identification passes run as derived_work_sweep_every_seconds says, besides at start, after
+	// identification passes run as derivedWorkSweepEverySeconds says, besides at start, after
 	// each pass and when a destination comes back (D231 §3).
 	every := func(key settings.Key) func(ctx context.Context) time.Duration {
 		return func(ctx context.Context) time.Duration {

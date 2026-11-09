@@ -11,13 +11,13 @@ import (
 )
 
 // PurgeEndedCredentials deletes each credential that ended, revoked or expired, more than
-// ended_credentials_kept_days ago, with the locators and invitations that name it, and says how
+// endedCredentialsKeptDays ago, with the locators and invitations that name it, and says how
 // many it deleted (D304 §6): every sign-in ever made was kept. One a credential derived from it
 // still names goes once that one has. A sweep runs it daily.
 func (service *Service) PurgeEndedCredentials(ctx context.Context) (int, error) {
 	kept, err := service.settings.Duration(ctx, settings.EndedCredentialsKeptDays)
 	if err != nil {
-		return 0, fmt.Errorf("read ended_credentials_kept_days: %w", err)
+		return 0, fmt.Errorf("read endedCredentialsKeptDays: %w", err)
 	}
 	endedBefore := service.clock.Now().Add(-kept).UnixMilli()
 	var deleted int64

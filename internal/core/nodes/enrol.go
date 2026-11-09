@@ -26,7 +26,7 @@ import (
 const maxHelloBytes = 8 << 20
 
 // hello enrols a node it has not seen, by name (D207), and queues a scan of every root it names
-// when should_scan_on_node_hello says so.
+// when shouldScanOnNodeHello says so.
 func (service *Service) hello(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 	var hello nodeproto.Hello
@@ -48,7 +48,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	scanOnHello, err := service.settings.Bool(ctx, settings.ShouldScanOnNodeHello)
 	if err != nil {
-		service.fail(ctx, writer, "read should_scan_on_node_hello", err)
+		service.fail(ctx, writer, "read shouldScanOnNodeHello", err)
 		return
 	}
 	service.connect(node.ID, hello)

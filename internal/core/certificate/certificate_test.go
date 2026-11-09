@@ -166,7 +166,7 @@ func TestQueueRenewal_AsksWhenThereIsNoneOrItExpiresWithinAMonth(t *testing.T) {
 	}
 }
 
-// renewSettings answers certificate_renew_before_days with its days.
+// renewSettings answers certificateRenewBeforeDays with its days.
 type renewSettings struct{ days int }
 
 func (renew renewSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {

@@ -539,7 +539,7 @@ func (service *Service) TimeReadsBy(timings Timings) { service.timings = timings
 
 // timeRead tells the timings how long a full read of a file took, from when its node said it ran;
 // an index read says nothing of how fast the node reads, and is logged instead, for whether
-// play_ladder_wait_ms outlasts it (D414 §5).
+// playLadderWaitMs outlasts it (D414 §5).
 func (service *Service) timeRead(ctx context.Context, job jobs.Job, attempt nodes.Attempt) {
 	command := attempt.Work.ReadThrough
 	if command == nil || attempt.RunningSince.IsZero() {

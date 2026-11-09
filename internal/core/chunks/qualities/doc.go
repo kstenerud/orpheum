@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package qualities reads the setting chunk_qualities: the lower qualities a slow link is offered,
+// Package qualities reads the setting chunkQualities: the lower qualities a slow link is offered,
 // each a bit rate and a picture height, highest first (D247 §6). It is its own package so the
 // settings registry can check a value with the same function internal/core/chunks reads it with,
 // one function for both (AGENTS.md rule 11), where internal/core/chunks itself imports the settings.
@@ -12,7 +12,7 @@
 //     than the one before, and no taller, so none is there twice; anything else is refused whole. Enforced by
 //     TestParse_ReadsEachQualityHighestFirst and TestParse_RefusesAListNotOfThatShape.
 //
-//   - The settings registry checks chunk_qualities with Parse. Enforced by
+//   - The settings registry checks chunkQualities with Parse. Enforced by
 //     TestChunkQualities_IsCheckedByTheParserThatReadsIt (internal/core/settings).
 //
 // # Read before changing

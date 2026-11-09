@@ -97,7 +97,7 @@ func TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs(t *testing.T)
 	}
 }
 
-// A job a person asks for to play is wanted for play_priority_kept_seconds; one asked for in the
+// A job a person asks for to play is wanted for playPriorityKeptSeconds; one asked for in the
 // background never is. Past its time it falls to background priority, and one given to a node says
 // so, for its node to be told (D234 §3, S87).
 func TestDemoteUnwanted_APlaysJobFallsToTheShownInterestRungOnceNoOneWaits(t *testing.T) {

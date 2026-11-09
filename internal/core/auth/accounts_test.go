@@ -26,7 +26,7 @@ func TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays(t *testing.T) {
 		t.Fatal(err)
 	}
 	if life := invitation.ExpiresAt.Sub(fixture.clock.Now()); life != 30*24*time.Hour {
-		t.Errorf("with registration_invitation_life_days at 30, the invitation lasts %v, want 30 days", life)
+		t.Errorf("with registrationInvitationLifeDays at 30, the invitation lasts %v, want 30 days", life)
 	}
 }
 
@@ -332,7 +332,7 @@ func TestInvitation_ItsLiveLinkIsShownAgainUntilUsed(t *testing.T) {
 }
 
 // Withdrawing an invitation forgets its links' secrets at once, and a link that ended, after
-// registration_invitation_life_days (seven to start), is no longer shown (D267 §5; the owner,
+// registrationInvitationLifeDays (seven to start), is no longer shown (D267 §5; the owner,
 // 2026-10-28: "unused invitation links expire after 7 days").
 func TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown(t *testing.T) {
 	t.Parallel()

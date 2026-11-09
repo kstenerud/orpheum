@@ -373,7 +373,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Expected:** the films appear at once on local data (D170 §2). By morning they are matched,
   and TMDB was asked a handful of times, not a thousand.
 - **Today:**
-  - `outbound` failures are plain errors. Each job tries, waits up to `provider_timeout_seconds`
+  - `outbound` failures are plain errors. Each job tries, waits up to `providerTimeoutSeconds`
     (20 s) and spends an attempt, and fails after 5 attempts (about 7.5 minutes).
   - All 200 fail. `queueOwedFetches` checks `EverQueued` against job history, so **none is ever
     queued again**.
@@ -434,7 +434,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   `TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain`,
   `TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds`), and a node that started again is not sent
   the commands of the jobs its restart ended (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
-  A job failed by `assigned_job_limit_hours` tells its node to stop (2026-10-04, D244 §6:
+  A job failed by `assignedJobLimitHours` tells its node to stop (2026-10-04, D244 §6:
   `TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop`).
 
 ### S28 — A full disk on a node
@@ -675,7 +675,7 @@ the backup's size."* In practice: **could cache.db be deleted now at the cost of
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fetch_metadata`: **first match** (D170) | The pass after a scan: derived from `ListTitlesAwaitingMatch`/`ListSeriesAwaitingMatch`, **then gated by `EverQueued`** (an event read from job history) | Failed for good (an outage longer than 7.5 min, or the item's own 5xx), cancelled, or the title died before its job ran and was then revived (S10) | **Never**, except by an accidental cache.db discard | Yes, by Refresh on the identify page, but a failed match looks the same as one not tried yet | **`EverQueued`: "was a match ever attempted"**, a fact about the item held in job history | persistent.db already says "never answered" (`unidentified`, `followed_source` NULL). An item-caused failure becomes a fact there, with its reason (Q6) | **YES** |
 | `fetch_metadata`: season listing (D209 §3) | The pass, from `AwaitingListings` | Derived again | At the next pass | Yes, refresh the series | Nothing | Already in persistent.db | Sweep runs only after a scan (Q13) |
-| `fetch_metadata`: rolling refresh (D213 §3) | `Refresher.Sweep`: at start, then every `metadata_refresh_check_every_hours`, from response ages | Derived again | Yes | Yes | Nothing | Already in persistent.db | — |
+| `fetch_metadata`: rolling refresh (D213 §3) | `Refresher.Sweep`: at start, then every `metadataRefreshCheckEveryHours`, from response ages | Derived again | Yes | Yes | Nothing | Already in persistent.db | — |
 | `fetch_metadata`: **a person's refresh** (+ retry images) | The API, `Refresher.Request` | Lost on a discard or a failure for good; merged into an open rolling job, losing priority 20 and `shouldRetryImages` | No | Yes, by asking again, but they are never told the request died | **The request itself and its args** | persistent.db: `refresh_requested_at` (+ retry-images) on the item, cleared by a refresh that succeeds after it; a sweep derives the job (Q7) | **YES** (partly) |
 | `fetch_metadata`: **D213 §1 recheck** of a missing image | The artwork handler, on the first 404, `RunnableAt` = now + `RecheckAfter` | Lost on a discard; **dropped by `Enqueue` if a fetch job is already open for the item**; failed for good | **Never.** The image is recorded as refused, so it is "held" and not owed | Only by a person's refresh with images, and nobody knows to ask | **The recheck's due time** (the miss itself is in persistent.db, the artwork refusal row `DueRechecks` reads) | Derived from the artwork refusal row: miss count 1 and refused-at + `RecheckAfter` ≤ now | **YES** |
 | `make_artwork_sizes`: owed images (D212) | The pass's report → the artwork service's `Take` (through the server's wiring) | Derived again (not held means owed) | At the next pass, and a pass runs only after a scan (node hello or admin) | Yes, refresh with images | A snapshot of the args (the refs) | Derived; the args are a cache | Q13. **The node's refusal of an unreadable local image is recorded as permanent** (G9) |
@@ -866,7 +866,7 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
 | **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
 | **G3** | **Closed 2026-09-30** (the jobs rebuild's Phase 2): a down destination parks its work at no cost and is probed; the node table is truthful; the per-runner holds and the artwork breaker are gone. Was: down-class failures spent attempts; node jobs never checked the node; `IsConnected` meant "said hello since the core started"; blocked and `RetryAt` were per runner | S23, S25, S29, S70, S76 |
-| **G4** | **Closed 2026-10-03** (the jobs rebuild's Phases 4 and 6): an ended job's commands are withdrawn or cancelled, a node does not run an ended attempt again, and a node that started again is not sent the commands of the jobs its restart ended, and a job failed by `assigned_job_limit_hours` tells its node to stop (2026-10-04, D244 §6). Was: a reconnected node was sent the commands of jobs that had ended; a job that gave up on silence sent no cancel | S26, S27 |
+| **G4** | **Closed 2026-10-03** (the jobs rebuild's Phases 4 and 6): an ended job's commands are withdrawn or cancelled, a node does not run an ended attempt again, and a node that started again is not sent the commands of the jobs its restart ended, and a job failed by `assignedJobLimitHours` tells its node to stop (2026-10-04, D244 §6). Was: a reconnected node was sent the commands of jobs that had ended; a job that gave up on silence sent no cancel | S26, S27 |
 | **G5** | **Closed 2026-10-01** (the jobs rebuild's Phase 4): a hello from another start ends the jobs running on the node at no cost of an attempt. Was: they waited out `maxSilence` and spent an attempt | S26 |
 | **G6** | **Closed 2026-09-30:** a root or disk a scan found missing is a destination; its files' jobs park on it and the loudness sweep passes them over. Was: its files' jobs ran and refused, and the sweep queued them again every hour | S22 |
 | **G7** | **Closed 2026-09-30**, the weekly reminder a banner the admin dismisses for `offline_reminder_interval_days` (P39), since 2026-10-12 the status tray's warning sign (D280; `TestNeedsAttention_CountsTheFoldersAndDisksOffline`): a root, a node and a library each have a retire action that cancels their work, and the System page says since when storage is offline. Was: no retire action; no "offline since" or reminder | S22, S23, S24 |

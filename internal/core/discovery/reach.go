@@ -16,7 +16,7 @@ import (
 
 // reachProbeEvery is how often the step loop, waiting out a backoff after the discovery could not
 // be reached, looks whether it can be again: the last holder of the realm asks at once when its
-// network comes back, not up to discovery_retry_most_seconds later, and so does not miss its window
+// network comes back, not up to discoveryRetryMostSeconds later, and so does not miss its window
 // (D437 §5). A look is one small call the discovery answers without a session.
 const reachProbeEvery = 15 * time.Second
 

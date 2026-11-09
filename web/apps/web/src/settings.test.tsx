@@ -118,7 +118,7 @@ describe("settings", () => {
           onReset={ignore}
           settings={[
             {
-              key: "tmdb_refresh_after_days",
+              key: "tmdbRefreshAfterDays",
               kind: "integer",
               description: "days",
               value: 90,
@@ -131,7 +131,7 @@ describe("settings", () => {
               setAt: 1,
             },
             {
-              key: "should_check_for_updates",
+              key: "shouldCheckForUpdates",
               kind: "bool",
               description: "updates",
               value: true,
@@ -142,7 +142,7 @@ describe("settings", () => {
               setAt: 1,
             },
             {
-              key: "should_scan_on_node_hello",
+              key: "shouldScanOnNodeHello",
               kind: "bool",
               description: "scan on hello",
               value: true,
@@ -158,14 +158,12 @@ describe("settings", () => {
     );
     expect(markup).toContain('type="number"');
     expect(markup).toContain('value="90"');
-    expect(markup).toContain('aria-labelledby="setting-should_check_for_updates" checked=""');
-    expect(markup).toContain("Return should_check_for_updates to its starting value, unanswered");
-    expect(markup).toContain(
-      'aria-label="Return tmdb_refresh_after_days to its starting value, 180"',
-    );
+    expect(markup).toContain('aria-labelledby="setting-shouldCheckForUpdates" checked=""');
+    expect(markup).toContain("Return shouldCheckForUpdates to its starting value, unanswered");
+    expect(markup).toContain('aria-label="Return tmdbRefreshAfterDays to its starting value, 180"');
     // General before Metadata, the server's order; the setting that is not important waits for Advanced.
     expect(markup.indexOf(">General<")).toBeLessThan(markup.indexOf(">Metadata and artwork<"));
-    expect(markup).not.toContain("should_scan_on_node_hello");
+    expect(markup).not.toContain("shouldScanOnNodeHello");
     // The bin's tooltip names the starting value in words, or says the setting is already there.
     expect(markup).toContain('data-tip="Return to default value (180)"');
     expect(markup).toContain('data-tip="Return to default value (unanswered)"');
@@ -198,7 +196,7 @@ describe("settings", () => {
 
   it("says what a setting is for in the catalogue's words, the server's where it has none", async () => {
     const setting = {
-      key: "tmdb_refresh_after_days",
+      key: "tmdbRefreshAfterDays",
       kind: "integer" as const,
       description: "days, for developers",
       value: 90,
@@ -226,7 +224,7 @@ describe("settings", () => {
       await click(mounted.container.querySelector(`button[aria-label="What ${key} is for"]`));
       return mounted.container.querySelector("dialog p")?.textContent;
     };
-    expect(await shown("tmdb_refresh_after_days")).toBe(
+    expect(await shown("tmdbRefreshAfterDays")).toBe(
       "How long a title's TMDB data is kept before it is fetched again. 0 never fetches again.",
     );
     expect(await shown("a_setting_the_catalogue_lacks")).toBe("days, for developers");
@@ -242,19 +240,19 @@ describe("settings", () => {
   });
 
   it("finds a setting by every word searched for, in its key or its description", () => {
-    expect(isFound("drift together", "together_drift_left_alone_ms", "How far it may drift")).toBe(
+    expect(isFound("drift together", "togetherDriftLeftAloneMs", "How far it may drift")).toBe(
       true,
     );
-    expect(isFound("SEEK", "together_drift_left_alone_ms", "How far it may drift")).toBe(false);
+    expect(isFound("SEEK", "togetherDriftLeftAloneMs", "How far it may drift")).toBe(false);
     expect(isFound("  ", "any_key", "")).toBe(true);
   });
 
   it("says a Watch Together invitation is short-lived and an idle session ends (D346, D339)", async () => {
-    expect(await paragraphsFor("together_link_lifetime_seconds")).toEqual([
+    expect(await paragraphsFor("togetherLinkLifetimeSeconds")).toEqual([
       "How long a Watch Together link lets its person in.",
       "A Watch Together invitation is short-lived: a link not used within this long of being made lets no one in. Whoever already joined by it stays.",
     ]);
-    expect(await paragraphsFor("together_idle_session_end_hours")).toEqual([
+    expect(await paragraphsFor("togetherIdleSessionEndHours")).toEqual([
       "How long a Watch Together session with nothing playing and no one doing anything lasts before it ends.",
       "A host may forget to end their session. Once nothing has played in it and no one has done anything in it for this long, it ends as if the host had ended it, and its links stop working.",
     ]);
@@ -263,26 +261,26 @@ describe("settings", () => {
   it("says what the address at home is and where it came from, in the person's words (D452 §3)", async () => {
     const label = (): string | null | undefined =>
       mounted?.container.querySelector(".settings__label")?.textContent;
-    expect(await paragraphsFor("address_at_home")).toEqual([
+    expect(await paragraphsFor("addressAtHome")).toEqual([
       "The server's address in your home, which devices there reach it at directly. It is learned from a device at home that opens the server by its address, or set on the System page; empty until then.",
     ]);
     expect(label()).toBe("Address in the home");
-    expect(await paragraphsFor("address_at_home_learned_from")).toEqual([
+    expect(await paragraphsFor("addressAtHomeLearnedFrom")).toEqual([
       "The device the address in your home was learned from. Empty when an admin set it.",
     ]);
     expect(label()).toBe("Address in the home learned from");
   });
 
   it("says a film is converted, not prepared, now the whole-film prepare is retired (D344), its pieces' length a floor its keyframes decide (D414 §5)", async () => {
-    expect(await paragraphsFor("hls_segment_length_seconds")).toEqual([
+    expect(await paragraphsFor("hlsSegmentLengthSeconds")).toEqual([
       "The shortest piece a converted film is cut into; its keyframes decide where each piece ends. Changing it cuts films again when they are next played.",
       "A converted film is sent in short pieces. A piece can only start where the film has a keyframe, so this is the shortest a piece is made, not its length: most of a film usually plays from pieces of 6 to 7 seconds, and pieces of 10 seconds or more are common. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
     ]);
-    const playLadder = await paragraphsFor("play_ladder_wait_ms");
+    const playLadder = await paragraphsFor("playLadderWaitMs");
     expect(playLadder[1]).toBe(
       "A film is cut into pieces where its own keyframes fall once they are read. Until then, playback waits up to this long, then plays the original where the device can, or cuts the film at even times instead.",
     );
-    expect(await paragraphsFor("node_progress_every_seconds")).toEqual([
+    expect(await paragraphsFor("nodeProgressEverySeconds")).toEqual([
       "How often, at most, a media node reports how far a read-through in progress is.",
     ]);
   });
@@ -297,7 +295,7 @@ describe("settings", () => {
         {
           settings: [
             {
-              key: "log_level",
+              key: "logLevel",
               kind: "string",
               description: "log",
               value: "info",
@@ -315,7 +313,7 @@ describe("settings", () => {
         {
           settings: [
             {
-              key: "log_level",
+              key: "logLevel",
               kind: "string",
               description: "log",
               value: "debug",
@@ -333,13 +331,13 @@ describe("settings", () => {
     const { container } = mounted;
     // The heading's sentence leads to How to update, which no menu does.
     expect(container.querySelector('h1 + p a[href="/update"]')?.textContent).toBe("How to update");
-    const row = container.querySelector('form[aria-labelledby="setting-log_level"]');
+    const row = container.querySelector('form[aria-labelledby="setting-logLevel"]');
     if (row === null) {
-      throw new Error("no row for log_level");
+      throw new Error("no row for logLevel");
     }
     expect([...row.children].map((part) => [part.className, part.textContent])).toEqual([
       ["settings__label", "Log level"],
-      ["settings__key", "log_level"],
+      ["settings__key", "logLevel"],
       ["settings__field", ""],
     ]);
     const field = row.querySelector("input");
@@ -353,7 +351,7 @@ describe("settings", () => {
   });
 
   it("says the server's log level can be changed at once (D347)", async () => {
-    expect(await paragraphsFor("log_level")).toEqual([
+    expect(await paragraphsFor("logLevel")).toEqual([
       "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
     ]);
   });

@@ -36,7 +36,7 @@ func TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled(t *t
 			(job.State != "queued" || job.AttemptCount != 0 || !strings.HasPrefix(*job.LastFailure, "stalled: ")) {
 			t.Errorf("after a stall: %+v; want queued again, no attempt spent, the stall its last failure", job)
 		}
-		// A stall waits job_first_retry_delay_seconds, as the fixture sets it, however many there were.
+		// A stall waits jobFirstRetryDelaySeconds, as the fixture sets it, however many there were.
 		jobs.clock.Advance(10 * time.Second)
 	}
 	if want := []bool{false, true, true, false}; !slices.Equal(toldStalled, want) {

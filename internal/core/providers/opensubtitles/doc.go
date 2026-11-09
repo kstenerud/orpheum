@@ -48,8 +48,8 @@
 //     TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters.
 //   - Only this package reveals the login (D194). Enforced by the forbidigo rule tagged [reveal].
 //   - Every request asks OpenSubtitles' provider service (Service) first, which keeps to
-//     opensubtitles_requests_per_second and to the day's downloads it last said were left, and never
-//     lets background work spend the last opensubtitles_downloads_reserved_for_people_percent of the
+//     opensubtitlesRequestsPerSecond and to the day's downloads it last said were left, and never
+//     lets background work spend the last opensubtitlesDownloadsReservedForPeoplePercent of the
 //     day's allowance its login said (D231 §5); a
 //     spent quota is refused before it is asked.
 //     TestDownload_BackgroundNeverSpendsTheDownloadsHeldBackForPeopleAndAsksNothing.

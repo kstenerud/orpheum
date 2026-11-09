@@ -70,7 +70,7 @@ func (harness testHarness) undo(t *testing.T, token string, previous []api.Watch
 	}
 }
 
-// A film becomes watched when its person plays it past finished_after_percent of a known length, or to
+// A film becomes watched when its person plays it past finishedAfterPercent of a known length, or to
 // its end, and stays watched when they start it again, which shows the mark and resumes as before;
 // unattended watching, and a far position in a file of unknown length, make nothing watched (D370 §1).
 func TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt(t *testing.T) {

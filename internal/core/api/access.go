@@ -19,7 +19,7 @@ const (
 	// A session that may change its account's security, which a device a code activated may not
 	// (D292 §4): requireAccountManager.
 	capabilityAccountSecurity capability = "accountSecurity"
-	// A role with edit_metadata: requireMetadataEditor.
+	// A role with editMetadata: requireMetadataEditor.
 	capabilityEditMetadata capability = "editMetadata"
 	// A role that may host Watch Together: requireTogetherHost.
 	capabilityHostTogether capability = "hostTogether"

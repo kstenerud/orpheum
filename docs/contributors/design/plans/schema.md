@@ -209,8 +209,8 @@ CREATE TABLE unavailable_place (                           -- class O; migration
 **A root's removals can be withheld, and a disk can go missing without its files going**
 ([D208](../../decisions/working-notes.md)). `root_state` is how the last scan of each root
 ended: complete; unreadable, so nothing was removed; or withheld, because it would have
-removed more than `scan_withhold_removals_over_percent` of the root and more than
-`scan_withhold_removals_over_files` files, until an admin approves (`are_removals_approved`, the one
+removed more than `scanWithholdRemovalsOverPercent` of the root and more than
+`scanWithholdRemovalsOverFiles` files, until an admin approves (`are_removals_approved`, the one
 authored column here, cleared by the scan it lets remove).
 `root_mount` is each mount boundary a complete scan crossed: a boundary that comes back as an
 empty directory on the root's own device is a disk that is not there, and its files wait
@@ -580,13 +580,13 @@ CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original =
 -- Step 0059: what an other video's lists sort by besides its name (D349 section 4): when it was
 -- recorded, and where that came from (its container's tag, a date in its file's or a folder's name,
 -- the file's own time, or a person's correction, the override recorded_at), and its file's name with
--- that name's sort key in the sort_locale. The identification pass's.
+-- that name's sort key in the sortLocale. The identification pass's.
 CREATE TABLE other_video (                                 -- class C (D349)
   work_id      INTEGER PRIMARY KEY REFERENCES work(id) ON DELETE RESTRICT,
   recorded_at   INTEGER NOT NULL,          -- Unix milliseconds
   recorded_from TEXT NOT NULL CHECK (recorded_from IN ('tag','name','file','user')),
   file_name     TEXT NOT NULL,             -- its file's name, the last part of its path
-  file_name_key BLOB NOT NULL              -- file_name's CLDR sort key in the sort_locale, BINARY order
+  file_name_key BLOB NOT NULL              -- file_name's CLDR sort key in the sortLocale, BINARY order
 ) STRICT;
 CREATE INDEX other_video_recorded ON other_video(recorded_at, work_id);    -- newest recorded first
 CREATE INDEX other_video_file_name ON other_video(file_name_key, work_id); -- by file name
@@ -953,7 +953,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
   ciphertext      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
-  last_chars  TEXT,                      -- an API key's last characters, secret_last_chars_shown of them; NULL for a password
+  last_chars  TEXT,                      -- an API key's last characters, secretLastCharsShown of them; NULL for a password
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
@@ -1020,7 +1020,7 @@ CREATE INDEX purged_watching_version ON purged_watching(version_id);
 ```
 
 **What was watched outlives the file** (D306 §8). A removed file is deleted once
-`removed_files_kept_days` (90) have passed; before it goes, how often each person finished it and
+`removedFilesKeptDays` (90) have passed; before it goes, how often each person finished it and
 how long they watched are added to its version's row here, and its spans, events and position go
 with it. A version moves with its title when titles merge, so a new copy of a film, filed to the
 same title, finds what was watched of the old one. The position does not carry: it names a moment
@@ -1056,7 +1056,7 @@ CREATE TABLE work_watched (user_id INTEGER NOT NULL REFERENCES user(id) ON DELET
 -- What each player last said of its link on each network (D257 §1, D352 Q2, step 0063; in cache.db from step 0070 until step 0073, D427): its speed
 -- with its samples' spread, and its steadiness level, kept across restarts so the next playback
 -- starts its estimate on them (bandwidth-sampling-2026-10-29.md P2). A cache: losing a row costs one
--- start a measured link, and rows said nothing of within link_speed_fresh_hours are deleted.
+-- start a measured link, and rows said nothing of within linkSpeedFreshHours are deleted.
 CREATE TABLE link_memory (                                  -- class C (D257 §1)
   player TEXT NOT NULL, network TEXT NOT NULL,  -- "device 3" or "session <key>"; clientnet.Of
   speed_kbps INTEGER CHECK (speed_kbps > 0), speed_log_spread REAL CHECK (speed_log_spread >= 0),
@@ -1493,12 +1493,12 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removedFilesKeptDays` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
-| People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
+| People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `endedCredentialsKeptDays` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
-| Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `link_speed_fresh_hours` (24) is deleted at the next player's word (D257 §1) |
+| Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `linkSpeedFreshHours` (24) is deleted at the next player's word (D257 §1) |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 
 `cache.db` is bounded by its own rules ([below](#cachedb--never-backed-up)): a job that ended is

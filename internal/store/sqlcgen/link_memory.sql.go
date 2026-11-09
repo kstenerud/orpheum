@@ -13,7 +13,7 @@ const deleteLinkMemoriesSaidBefore = `-- name: DeleteLinkMemoriesSaidBefore :exe
 DELETE FROM link_memory WHERE said_at < ?
 `
 
-// Forgets every link said nothing of since a time: those no longer fresh (link_speed_fresh_hours).
+// Forgets every link said nothing of since a time: those no longer fresh (linkSpeedFreshHours).
 func (q *Queries) DeleteLinkMemoriesSaidBefore(ctx context.Context, saidAt int64) error {
 	_, err := q.db.ExecContext(ctx, deleteLinkMemoriesSaidBefore, saidAt)
 	return err

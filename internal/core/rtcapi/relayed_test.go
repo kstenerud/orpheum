@@ -267,7 +267,7 @@ func TestAnswer_TellsAConnectionPastItsNetworksShareWhy(t *testing.T) {
 	}
 }
 
-// A network's share is its setting's (webrtc_connections_per_network, the owner, 2026-10-25): raised,
+// A network's share is its setting's (webrtcConnectionsPerNetwork, the owner, 2026-10-25): raised,
 // a connection the old share turned away is held.
 func TestServer_ANetworksShareIsAsItIsSet(t *testing.T) {
 	t.Parallel()

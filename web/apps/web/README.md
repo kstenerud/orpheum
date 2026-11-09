@@ -38,7 +38,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
   an admin's destinations show to an admin only (the server refuses them to anyone else); Device
   tests, among the places for watching, shows to everyone while the server offers them
-  (`should_offer_device_tests`). The menu's Sign out asks first, in the shared modal dialog, Sign out
+  (`shouldOfferDeviceTests`). The menu's Sign out asks first, in the shared modal dialog, Sign out
   or Cancel, and only its Sign out signs out (the owner, 2026-10-30). `src/app-shell.test.tsx`,
   `src/app-shell.browser.test.tsx`, `src/lab.test.tsx`.
 - **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
@@ -605,7 +605,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
-  only while the server's `should_offer_device_tests` is on (the owner, 2026-10-25): off, every lab
+  only while the server's `shouldOfferDeviceTests` is on (the owner, 2026-10-25): off, every lab
   page says so in place of its probe, the test film excepted; a menu
   of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
   type and sends it to the core's log through the SDK, showing the name the log keeps it by (the

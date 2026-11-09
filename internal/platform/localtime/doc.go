@@ -2,7 +2,7 @@
 
 // Package localtime is the one place a moment becomes wall-clock time in a time zone, and back.
 // The server's times are UTC (D204); only a few things are about a wall clock, such as the hour a
-// scheduled backup is made (D246 §7), and they take a Zone, the server's own from the time_zone
+// scheduled backup is made (D246 §7), and they take a Zone, the server's own from the timeZone
 // setting, and read a Time, a type of its own that cannot be mistaken for a UTC time.Time.
 //
 // # Invariants

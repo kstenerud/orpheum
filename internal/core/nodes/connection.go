@@ -46,10 +46,10 @@ type Connection string
 // A node's connections.
 const (
 	// Connected is a node with a long-poll for its commands open, or heard within
-	// node_silent_after_seconds.
+	// nodeSilentAfterSeconds.
 	Connected Connection = "connected"
 	// Silent is a node that said hello since the core started and has not been heard since
-	// node_silent_after_seconds ago.
+	// nodeSilentAfterSeconds ago.
 	Silent Connection = "silent"
 	// AwaitingHello is a node enrolled that has not said hello since the core started.
 	AwaitingHello Connection = "awaitingHello"
@@ -84,7 +84,7 @@ func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Conne
 }
 
 // IsConnected is whether a node is connected now: a long-poll for its commands open, or heard
-// within node_silent_after_seconds. Work on its files can be sent to it.
+// within nodeSilentAfterSeconds. Work on its files can be sent to it.
 func (service *Service) IsConnected(ctx context.Context, nodeID int64) bool {
 	connection, _ := service.NodeConnection(ctx, nodeID)
 	return connection == Connected
@@ -128,13 +128,13 @@ func StatusEveryFor(silentAfter time.Duration) int {
 	return max(1, int(silentAfter/time.Second)/3)
 }
 
-// silentAfter is node_silent_after_seconds, or its starting value when it cannot be read, so a
+// silentAfter is nodeSilentAfterSeconds, or its starting value when it cannot be read, so a
 // node's connection is still judged when the settings cannot be read.
 func (service *Service) silentAfter(ctx context.Context) time.Duration {
 	silentAfter, err := service.settings.Duration(ctx, settings.NodeSilentAfterSeconds)
 	if err != nil {
 		silentAfter = settings.StartingDuration(settings.NodeSilentAfterSeconds)
-		service.logger.WarnContext(ctx, "could not read node_silent_after_seconds; taking its starting value",
+		service.logger.WarnContext(ctx, "could not read nodeSilentAfterSeconds; taking its starting value",
 			"startingValue", silentAfter.String(), "err", err)
 	}
 	return silentAfter

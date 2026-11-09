@@ -17,7 +17,7 @@ import (
 // testLifetime is how long a member's relay credentials last where no setting says: the setting's start.
 var testLifetime = settings.StartingDuration(settings.VoiceRelayCredentialHours)
 
-// lifetimeSettings answers voice_relay_credential_hours with its hours.
+// lifetimeSettings answers voiceRelayCredentialHours with its hours.
 type lifetimeSettings struct{ hours int }
 
 func (lifetime lifetimeSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {

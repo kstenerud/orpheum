@@ -24,7 +24,7 @@ import { routeHref, type LabPage } from "./router.ts";
  * which finds and keeps the device's sound offset, and a way to the UI
  * gallery, to see the toolkit's widgets on the device. Reached at /lab, a
  * few presses on a TV's remote, or by Device tests in the menu. Only while the server offers the
- * tests (should_offer_device_tests): off, every page says so in place of its probe, and nothing
+ * tests (shouldOfferDeviceTests): off, every page says so in place of its probe, and nothing
  * while the client settings are still read.
  */
 export function Lab(props: { readonly probe: LabPage | undefined }): JSX.Element | null {

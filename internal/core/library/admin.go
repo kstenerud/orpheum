@@ -291,7 +291,7 @@ func rootSummaries(ctx context.Context, queries *sqlcgen.Queries, libraryID int6
 }
 
 // Scan asks each root's node to scan it, and reports how many roots were asked. A root whose
-// node is not connected is skipped: it scans when the node says hello, where should_scan_on_node_hello
+// node is not connected is skipped: it scans when the node says hello, where shouldScanOnNodeHello
 // says so.
 func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)

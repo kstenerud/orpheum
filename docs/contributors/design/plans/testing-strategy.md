@@ -244,7 +244,7 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   child's account and not the others'**;
 - **a per-user exception can only narrow.** A deny entry removes an item; there is no per-user
   mechanism that grants one ([D130](../../decisions/working-notes.md));
-- **a role with `host_watch_together` off cannot mint a session link**, by any route including
+- **a role with `hostWatchTogether` off cannot mint a session link**, by any route including
   the API directly ([D130](../../decisions/working-notes.md)) — a child who can invite
   strangers defeats the visibility predicate entirely;
 - **`TV-14-S` and `TV-14-V` resolve to different descriptor vectors**, so a role blocking sex

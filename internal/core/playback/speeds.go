@@ -35,7 +35,7 @@ const highestSteadiness = 3
 // rememberedLinkSamples is how many of its own samples a remembered link counts as in a player's
 // estimate of its link while it is under rememberedLinkWholeFor old, and rememberedLinkWholeFor how
 // long it counts so much: from then it counts less, in step with its age, and nothing at
-// link_speed_fresh_hours (bandwidth-sampling-2026-10-29.md P2, the owner, 2026-10-29). Textbook
+// linkSpeedFreshHours (bandwidth-sampling-2026-10-29.md P2, the owner, 2026-10-29). Textbook
 // starting values, a Bayesian prior's weight and a Kalman filter's lesson that an old prior is
 // worth less, measured on no link of ours; the player's calibration log is to tune them. Constants,
 // not settings: they tune the player's estimator against its other constants (D352's Values).
@@ -139,7 +139,7 @@ func (speeds *linkSpeeds) remembered(ctx context.Context, key speedKey) (sqlcgen
 }
 
 // fresh is a player's speed on a network, and whether one was measured within freshFor of now:
-// link_speed_fresh_hours, a day to start (D257 §1).
+// linkSpeedFreshHours, a day to start (D257 §1).
 func (speeds *linkSpeeds) fresh(
 	ctx context.Context, key speedKey, now time.Time, freshFor time.Duration,
 ) (measuredSpeed, bool, error) {
@@ -158,7 +158,7 @@ func (speeds *linkSpeeds) fresh(
 
 // steadiness is the steadiness level a player's next playback on a network starts at (D352 Q2): the
 // one it last reported there within freshFor of now, as its speed is kept, relaxed by one for each
-// relaxEvery since (link_steadiness_relaxes_seconds, an hour to start: between playbacks nothing is
+// relaxEvery since (linkSteadinessRelaxesSeconds, an hour to start: between playbacks nothing is
 // watched, so a level relaxes six times slower than a playing player's ten calm minutes, D352 §3, and
 // a bad evening is forgotten by the next morning); 0 for none.
 func (speeds *linkSpeeds) steadiness(

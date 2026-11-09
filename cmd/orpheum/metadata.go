@@ -150,13 +150,13 @@ const uploadLogEvery = 20 * time.Second
 const uploadKeptEvery = 5 * time.Second
 
 // silenceCheckEvery is how often the work given to nodes is looked at for a silence past its limit:
-// a bound on how late a silence is noticed, against limits of minutes (node_silent_after_seconds,
+// a bound on how late a silence is noticed, against limits of minutes (nodeSilentAfterSeconds,
 // the slowest read); a look reads memory alone.
 const silenceCheckEvery = time.Second
 
 // demoteUnwantedEvery is how often the jobs no person waits for any more are looked for: a bound
 // on how late, past its "wanted until", play-driven work falls to background priority. It is half
-// play_priority_kept_seconds' shortest, so even at that a job is demoted at most half its keeping
+// playPriorityKeptSeconds' shortest, so even at that a job is demoted at most half its keeping
 // late; one cache.db query a tick, which finds nothing most of the time.
 const demoteUnwantedEvery = 5 * time.Second
 
@@ -197,10 +197,10 @@ func demoteUnwanted(
 }
 
 // pruneFinishedEvery is how often the jobs that ended long enough ago are forgotten: hours against a
-// month's keeping (finished_jobs_kept_days).
+// month's keeping (finishedJobsKeptDays).
 const pruneFinishedEvery = time.Hour
 
-// pruneFinished forgets, at each tick, the jobs that ended longer ago than finished_jobs_kept_days
+// pruneFinished forgets, at each tick, the jobs that ended longer ago than finishedJobsKeptDays
 // (D233 §8), until ctx ends.
 func pruneFinished(ctx context.Context, queue *jobs.Queue, tick <-chan time.Time, logger *slog.Logger) {
 	for {

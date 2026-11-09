@@ -39,7 +39,7 @@ const (
 )
 
 // Definition says what a secret is and whether it shows its last characters: the last
-// secret_last_chars_shown characters of an API key; a password or username shows none (D194 §3).
+// secretLastCharsShown characters of an API key; a password or username shows none (D194 §3).
 type Definition struct {
 	Name           Name
 	ShowsLastChars bool
@@ -102,7 +102,7 @@ type Status struct {
 	NeedsReentry bool
 }
 
-// Settings is where the store reads secret_last_chars_shown, how many last characters are shown (D200).
+// Settings is where the store reads secretLastCharsShown, how many last characters are shown (D200).
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }

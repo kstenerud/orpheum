@@ -52,10 +52,10 @@
 //   - D242 §5: a backup is a tarball of the persistent directory.
 //   - docs/contributors/design/plans/backup-restore.md.
 //   - A backup is a job, a person's or the schedule's: the schedule's is asked for once the newest
-//     backup is backup_every_hours old, skipped when nothing was committed since the last this server
-//     made, and never holds secret.key; the backups are thinned to the newest backups_kept_hourly,
-//     then the newest of each day back to backups_kept_daily days and of each week back to
-//     backups_kept_weekly, and the copies kept before a restore or a migration are never pruned
+//     backup is backupEveryHours old, skipped when nothing was committed since the last this server
+//     made, and never holds secret.key; the backups are thinned to the newest backupsKeptHourly,
+//     then the newest of each day back to backupsKeptDaily days and of each week back to
+//     backupsKeptWeekly, and the copies kept before a restore or a migration are never pruned
 //     (D305 §2, D243 §11). TestQueueScheduled_AsksOnceTheNewestIsAnHourOld,
 //     TestQueueScheduled_SkipsABackupWhenNothingChangedSinceTheLast,
 //     TestPrune_ThinsToTheNewestHourlyThenOneADayThenOneAWeek,

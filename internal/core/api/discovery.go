@@ -91,7 +91,7 @@ type HouseNetworkBody struct {
 // PortMappingBody is what the home router opened for the core while its discovery publishes it
 // (D273 §7): each opening, and why each way that failed failed.
 type PortMappingBody struct {
-	IsWanted  bool                  `doc:"Whether the core is asking: should_map_ports on and a discovery publishing it" json:"isWanted"` //nolint:lll // one struct tag
+	IsWanted  bool                  `doc:"Whether the core is asking: shouldMapPorts on and a discovery publishing it" json:"isWanted"` //nolint:lll // one struct tag
 	CheckedAt int64                 `doc:"Unix milliseconds; 0 before the first" json:"checkedAt"`
 	Mappings  []PortMappingItemBody `json:"mappings"`
 	Problems  []string              `json:"problems"`

@@ -258,7 +258,7 @@ func (scans *Scans) end(ctx context.Context, scan cachegen.Scan) error {
 func (scans *Scans) readRules(ctx context.Context) (ScanRules, int, error) {
 	perBatch, err := scans.settings.Int(ctx, settings.ScanVideosPerExamineBatch)
 	if err != nil {
-		return ScanRules{}, 0, fmt.Errorf("read scan_videos_per_examine_batch: %w", err)
+		return ScanRules{}, 0, fmt.Errorf("read scanVideosPerExamineBatch: %w", err)
 	}
 	return scanRules(), int(perBatch), nil
 }

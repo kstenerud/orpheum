@@ -20,7 +20,7 @@ const playsWithinMs = 8000;
 
 /**
  * Says a film plays on its ladder (D260): its tracks name the sound transcoded at the ladder's rate,
- * chunk_sound_kbps's 96 kb/s, where a prepared copy's is 192 and the original's names none (the
+ * chunkSoundKbps's 96 kb/s, where a prepared copy's is 192 and the original's names none (the
  * tracks the player names, the owner, 2026-10-20).
  */
 const onTheLadder = "AAC stereo, 96 kb/s (transcoded from";

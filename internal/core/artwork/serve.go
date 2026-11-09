@@ -120,7 +120,7 @@ func (service *Service) cutJPEG(ctx context.Context, art ArtFiles, sourceSha256H
 	}
 	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
-		return nil, fmt.Errorf("read artwork_max_source_pixels: %w", err)
+		return nil, fmt.Errorf("read artworkMaxSourcePixels: %w", err)
 	}
 	if int64(config.Width)*int64(config.Height) > maxSourcePixels {
 		return nil, fmt.Errorf("art %s %s is %d×%d, over the pixel limit", sourceSha256Hex, name, config.Width,
@@ -128,7 +128,7 @@ func (service *Service) cutJPEG(ctx context.Context, art ArtFiles, sourceSha256H
 	}
 	quality, err := service.parts.Settings.Int(ctx, settings.ArtworkJPEGQuality)
 	if err != nil {
-		return nil, fmt.Errorf("read artwork_jpeg_quality: %w", err)
+		return nil, fmt.Errorf("read artworkJpegQuality: %w", err)
 	}
 	decoded, err := webp.Decode(bytes.NewReader(source))
 	if err != nil {

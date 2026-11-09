@@ -9,7 +9,7 @@ import (
 
 // LogLevel is the level the core's log is written at while it runs (D347): an admin turns it to
 // debug to see more, and back, with no restart.
-const LogLevel Key = "log_level"
+const LogLevel Key = "logLevel"
 
 // LogLevelFromFile is LogLevel's value that leaves the level the config file's log.level names.
 const LogLevelFromFile = "file"

@@ -727,7 +727,7 @@ func (service *Service) failed(ctx context.Context, what string, err error) time
 }
 
 // retryWait is the wait after a failure that followed earlier ones in a row, as many as earlier
-// counts: discovery_retry_first_seconds doubled for each, to discovery_retry_most_seconds, jittered
+// counts: discoveryRetryFirstSeconds doubled for each, to discoveryRetryMostSeconds, jittered
 // from Random, so a discovery's restart is not met by every core at once. A most below the first
 // waits the first.
 func (service *Service) retryWait(ctx context.Context, earlier int64) time.Duration {

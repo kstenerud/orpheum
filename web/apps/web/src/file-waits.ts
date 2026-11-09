@@ -15,7 +15,7 @@ export type FileWait = components["schemas"]["WaitBody"];
 
 /**
  * The work a file's viewer waits on and about how long each will take, asked for while isWanted, at
- * once and again every interest_said_every_seconds; undefined before the server answers, and when it
+ * once and again every interestSaidEverySeconds; undefined before the server answers, and when it
  * does not.
  */
 export function useFileWaits(fileId: number | undefined, isWanted: boolean): FileWaits | undefined {

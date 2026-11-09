@@ -4,7 +4,7 @@ package settings
 
 // ReadyAheadOfNextChunkPercent is how much film a player waits to have loaded ahead before it plays:
 // this percent of the time its next chunk is expected to take to load (the owner, 2026-10-28).
-const ReadyAheadOfNextChunkPercent Key = "ready_ahead_of_next_chunk_percent"
+const ReadyAheadOfNextChunkPercent Key = "readyAheadOfNextChunkPercent"
 
 // startDefinitions are when a player starts, and plays on after a seek.
 func startDefinitions() []Definition {

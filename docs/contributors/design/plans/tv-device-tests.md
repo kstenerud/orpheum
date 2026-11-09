@@ -27,7 +27,7 @@ menu. The menu is a vertical list of large links: the browser's own D-pad naviga
 pointer reaches each.
 
 **Turning it on.** The lab is off on a new server. An admin turns it on in **Settings**, under
-*Show advanced settings*, in **Diagnostics and development**: *should_offer_device_tests* (the
+*Show advanced settings*, in **Diagnostics and development**: *shouldOfferDeviceTests* (the
 owner, 2026-10-25: for running device tests with beta participants). Then everyone signed in sees
 Device tests in the menu. While it is off, Device tests is not in the menu, every `/lab` page says
 *Device tests are turned off on this server*, and the core refuses a page's results as

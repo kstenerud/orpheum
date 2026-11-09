@@ -493,7 +493,7 @@ func TestReadRules_ReadTheOlderContainersByDefault(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	storetest.ExecRaw(t, database.Path(), `INSERT INTO setting (key, value_json, set_at, is_modified) VALUES `+
-		`('scan_video_extensions', '"mkv"', 0, 1), ('scan_subtitle_extensions', '"srt"', 0, 1)`)
+		`('scanVideoExtensions', '"mkv"', 0, 1), ('scanSubtitleExtensions', '"srt"', 0, 1)`)
 	scans := &Scans{settings: settingstest.Seeded(t, database)}
 	rules, _, err := scans.readRules(t.Context())
 	if err != nil {

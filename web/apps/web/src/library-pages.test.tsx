@@ -107,7 +107,7 @@ describe("the admin's Libraries pages (D361)", () => {
           {
             settings: [
               {
-                key: "new_library_default_scan_every_hours",
+                key: "newLibraryDefaultScanEveryHours",
                 kind: "integer",
                 value: 24,
                 startingValue: 24,

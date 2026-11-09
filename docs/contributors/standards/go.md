@@ -272,7 +272,7 @@ describe in a phrase, and give it that phrase as its name.
 - **Durations are `time.Duration`** in Go and converted at the boundary. **Enforced by:**
   durationcheck (no `Duration * Duration`), revive `time-naming`.
 - **Times are UTC; a wall clock is explicit.** The few things about a wall clock, such as the
-  hour a scheduled backup is made, take the server's `localtime.Zone` (the `time_zone` setting)
+  hour a scheduled backup is made, take the server's `localtime.Zone` (the `timeZone` setting)
   and read a `localtime.Time` with `zone.Of(moment)`, a type that cannot be passed where a UTC
   `time.Time` is meant; `.UTC()` turns it back. A setting in the server's zone says so in its key:
   `…_local_tz` (D246 §7). Until the admin chooses a zone it is the machine's own, which

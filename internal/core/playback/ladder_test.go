@@ -58,7 +58,7 @@ func (*cutAfterChunks) StopUnwanted(context.Context, int64) error { return nil }
 
 func (*cutAfterChunks) InterestsBy(chunks.Interests) {}
 
-// waitSettings are settings whose play_ladder_wait_ms is waitMs, server_upload_mbps unanswered.
+// waitSettings are settings whose playLadderWaitMs is waitMs, serverUploadMbps unanswered.
 type waitSettings struct{ waitMs int64 }
 
 func (wait waitSettings) Int(_ context.Context, key settings.Key) (int64, error) {
@@ -74,7 +74,7 @@ func (wait waitSettings) Int(_ context.Context, key settings.Key) (int64, error)
 func (waitSettings) Duration(context.Context, settings.Key) (time.Duration, error) { return 0, nil }
 
 // A playback of a film not cut yet waits for its keyframes, read from its file's index, and starts
-// on its ladder on them once they are kept within play_ladder_wait_ms; past it, a film its device
+// on its ladder on them once they are kept within playLadderWaitMs; past it, a film its device
 // cannot play as it is starts on its ladder cut on time, which needs none, and keeps that grid, and
 // one it can plays as it is (D260 §1, D344 §2).
 func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime(t *testing.T) {

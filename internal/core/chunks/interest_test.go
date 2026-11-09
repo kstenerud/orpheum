@@ -180,7 +180,7 @@ func TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops(t *testing.T) {
 	}
 }
 
-// A paused player wants only chunk_kept_ahead_seconds after it, 30 s: its run makes that and stops,
+// A paused player wants only chunkKeptAheadSeconds after it, 30 s: its run makes that and stops,
 // so a tab paused for an hour holds no encoder, and playing again starts at once (D309 §7). Once no
 // one wants a film at all, as when every interest lapsed, each step of a run stops it (§3).
 func TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade(t *testing.T) {

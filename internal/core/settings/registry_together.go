@@ -6,8 +6,8 @@ import "time"
 
 // How long Watch Together's invitations and an idle session last (D346).
 const (
-	TogetherLinkLifetimeSeconds Key = "together_link_lifetime_seconds"
-	TogetherIdleSessionEndHours Key = "together_idle_session_end_hours"
+	TogetherLinkLifetimeSeconds Key = "togetherLinkLifetimeSeconds"
+	TogetherIdleSessionEndHours Key = "togetherIdleSessionEndHours"
 )
 
 // togetherLifetimeDefinitions are how long a Watch Together link admits someone, and how long a session

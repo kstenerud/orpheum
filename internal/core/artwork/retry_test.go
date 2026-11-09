@@ -33,7 +33,7 @@ func TestRetrySchedule_IsTheWaitsTheSettingLists(t *testing.T) {
 	settingstest.Set(t, bench.settings, settings.ArtworkSecondsBeforeEachRetry, `"10,3600"`)
 	schedule, err = RetrySchedule(t.Context(), bench.settings)
 	if err != nil || !slices.Equal(schedule, []time.Duration{10 * time.Second, time.Hour}) {
-		t.Errorf("with artwork_seconds_before_each_retry at 10,3600: %v, %v; want ten seconds, then an hour",
+		t.Errorf("with artworkSecondsBeforeEachRetry at 10,3600: %v, %v; want ten seconds, then an hour",
 			schedule, err)
 	}
 }

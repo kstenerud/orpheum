@@ -137,7 +137,7 @@ type Viewer struct {
 }
 
 // ReadMembers are collectionID's members in its ordering as viewer stands in them, by
-// in_progress_after_percent and finished_after_percent: each with the files of it a library the viewer
+// inProgressAfterPercent and finishedAfterPercent: each with the files of it a library the viewer
 // reaches lists, and none it lists no file of (D363 §8).
 func ReadMembers(
 	ctx context.Context, queries *sqlcgen.Queries, config IntSettings, viewer Viewer, collectionID int64,

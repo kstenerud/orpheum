@@ -8,8 +8,8 @@
 //
 // # Invariants
 //
-//   - A gain levels a sound towards loudness_target_lufs (-23 to start) both ways, never lifting
-//     its true peak above -1 dBTP nor raising it more than loudness_max_raise_db (20 to start),
+//   - A gain levels a sound towards loudnessTargetLufs (-23 to start) both ways, never lifting
+//     its true peak above -1 dBTP nor raising it more than loudnessMaxRaiseDb (20 to start),
 //     silence left as it is; a file played as it is levels its main track, as it is past two
 //     channels, else as stereo; a film converted levels each mix as its track's stereo, and says the
 //     gain its making put in (D226 §3, §4; levels.go). Enforced by

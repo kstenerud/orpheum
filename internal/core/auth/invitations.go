@@ -50,7 +50,7 @@ type Invitation struct {
 }
 
 // Invite issues an invitation with its first link: single use, lasting
-// registration_invitation_life_days, for a person to make their own account under role, filling in
+// registrationInvitationLifeDays, for a person to make their own account under role, filling in
 // their own name and password (D246 §2). It returns the invitation's id and its link's secret.
 func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (int64, IssuedSecret, error) {
 	note := textindex.Line(invitation.AdminNote)
@@ -92,7 +92,7 @@ func (service *Service) issueInvitationLink(
 	}
 	life, err := service.settings.Duration(ctx, settings.RegistrationInvitationLifeDays)
 	if err != nil {
-		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
+		return IssuedSecret{}, fmt.Errorf("read registrationInvitationLifeDays: %w", err)
 	}
 	kept, err := service.keepOfLink(secret)
 	if err != nil {

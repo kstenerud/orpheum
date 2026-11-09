@@ -21,7 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// silentAfter is node_silent_after_seconds' starting value, which the tests' settings keep.
+// silentAfter is nodeSilentAfterSeconds' starting value, which the tests' settings keep.
 const silentAfter = 30 * time.Second
 
 func TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise(t *testing.T) {
@@ -40,7 +40,7 @@ func TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwis
 	harness.clock.Advance(silentAfter)
 	if connection, lastHeard := harness.service.NodeConnection(ctx, reply.NodeID); connection != Silent ||
 		!lastHeard.Equal(heardAt) || harness.service.IsConnected(ctx, reply.NodeID) {
-		t.Errorf("silent for node_silent_after_seconds: %s, last heard %v; want silent, heard at its hello",
+		t.Errorf("silent for nodeSilentAfterSeconds: %s, last heard %v; want silent, heard at its hello",
 			connection, lastHeard)
 	}
 	if _, found := harness.service.ConnectedNodeID(ctx); found {
@@ -66,7 +66,7 @@ func TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwis
 	testutil.Receive(t, polled, "the long-poll to end")
 	harness.clock.Advance(silentAfter)
 	if harness.service.IsConnected(ctx, reply.NodeID) {
-		t.Error("the node is still connected node_silent_after_seconds after its poll ended")
+		t.Error("the node is still connected nodeSilentAfterSeconds after its poll ended")
 	}
 }
 
@@ -346,7 +346,7 @@ func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T
 }
 
 // The reply to a hello and each answer to a poll say how often the node posts its status: three
-// times within node_silent_after_seconds as it is then, so the node's cadence follows the setting it
+// times within nodeSilentAfterSeconds as it is then, so the node's cadence follows the setting it
 // is judged silent by (cut-a §4; the constants sweep, 2026-10-21).
 func TestHelloAndCommands_SayTheStatusCadenceTheSilenceSettingGives(t *testing.T) {
 	t.Parallel()
@@ -387,7 +387,7 @@ func TestStatusEveryFor_ANodesCadenceBeforeACoreSaysIsTheSilenceSettingsStart(t 
 	t.Parallel()
 	if every := StatusEveryFor(settings.StartingDuration(settings.NodeSilentAfterSeconds)); every !=
 		nodeproto.StartingStatusEverySeconds {
-		t.Errorf("a node posts every %d s before a core says; node_silent_after_seconds' start gives %d s",
+		t.Errorf("a node posts every %d s before a core says; nodeSilentAfterSeconds' start gives %d s",
 			nodeproto.StartingStatusEverySeconds, every)
 	}
 }

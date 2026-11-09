@@ -59,7 +59,7 @@ const secret: components["schemas"]["SecretBody"] = {
 };
 
 const setting = {
-  key: "should_scan_on_node_hello",
+  key: "shouldScanOnNodeHello",
   kind: "bool",
   description: "scan on hello",
   value: true,
@@ -72,7 +72,7 @@ const setting = {
 
 /** The hours a new library checked on an interval starts at, which the create form reads. */
 const libraryCheck = {
-  key: "new_library_default_scan_every_hours",
+  key: "newLibraryDefaultScanEveryHours",
   kind: "integer",
   description: "hours between checks",
   value: 24,
@@ -154,7 +154,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "PUT /secrets/tmdbApiKey": refusal(409, "conflict"),
-      "POST /config/should_scan_on_node_hello/reset": refusal(404, "notFound"),
+      "POST /config/shouldScanOnNodeHello/reset": refusal(404, "notFound"),
     });
     mounted = await mount(withServices(<Settings />, services));
     const secretForm = 'form[aria-labelledby="secret-tmdbApiKey"]';
@@ -162,7 +162,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     await submit(mounted.container.querySelector(secretForm));
     expectSays(conflict);
     await click(
-      mounted.container.querySelector('button[aria-label^="Return should_scan_on_node_hello"]'),
+      mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
     );
     expectSays(notFound);
   });
@@ -183,7 +183,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
             detail: {
               problems: [
                 {
-                  location: "body.valuesByKey.new_library_default_scan_every_hours",
+                  location: "body.valuesByKey.newLibraryDefaultScanEveryHours",
                   message: "too big",
                 },
               ],
@@ -193,15 +193,15 @@ describe("a refused setting is named beside it, in the form's words", () => {
       ],
     });
     mounted = await mount(withServices(<Settings />, services));
-    const form = 'form[aria-labelledby="setting-new_library_default_scan_every_hours"]';
+    const form = 'form[aria-labelledby="setting-newLibraryDefaultScanEveryHours"]';
     await enter(mounted.container.querySelector(`${form} input`), "100000");
     await submit(mounted.container.querySelector(form));
     expect(mounted.container.querySelector(`${form} [role="alert"]`)?.textContent).toBe(
-      "The server did not accept what was entered in new_library_default_scan_every_hours. Correct what is there and try again.",
+      "The server did not accept what was entered in newLibraryDefaultScanEveryHours. Correct what is there and try again.",
     );
-    const other = 'form[aria-labelledby="setting-should_scan_on_node_hello"] [role="alert"]';
+    const other = 'form[aria-labelledby="setting-shouldScanOnNodeHello"] [role="alert"]';
     expect(mounted.container.querySelector(other)).toBeNull();
-    expectSays("new_library_default_scan_every_hours. Correct what is there");
+    expectSays("newLibraryDefaultScanEveryHours. Correct what is there");
   });
 });
 
@@ -247,11 +247,11 @@ describe("a request that never reaches the server says so, rather than nothing",
       "GET /secrets": [200, { secrets: [secret] }],
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
-      "POST /config/should_scan_on_node_hello/reset": unreachable,
+      "POST /config/shouldScanOnNodeHello/reset": unreachable,
     });
     mounted = await mount(withServices(<Settings />, services));
     await click(
-      mounted.container.querySelector('button[aria-label^="Return should_scan_on_node_hello"]'),
+      mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
     );
     expectSays(cannotReach);
   });

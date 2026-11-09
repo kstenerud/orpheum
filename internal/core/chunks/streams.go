@@ -27,7 +27,7 @@ type Stream struct {
 	AudioTrackIndex int
 	// IsBoosted is whether a StreamSound is the track's mix with the dialogue boost (D217 §3).
 	IsBoosted bool
-	// SoundKbps is a StreamSound's AAC bit rate: chunk_sound_kbps, part of its name so a change makes
+	// SoundKbps is a StreamSound's AAC bit rate: chunkSoundKbps, part of its name so a change makes
 	// a store of its own.
 	SoundKbps int
 	// IsUnlevelled is whether a StreamSound was offered before its film's loudness was measured, as a

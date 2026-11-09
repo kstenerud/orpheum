@@ -15,14 +15,14 @@
 //
 // # Invariants
 //
-//   - Background work keeps below its share of a host's rate (tmdb_background_rate_share_percent,
-//     starting at 80% of tmdb_requests_per_second's 40, D231 §5), so a person's request always
+//   - Background work keeps below its share of a host's rate (tmdbBackgroundRateSharePercent,
+//     starting at 80% of tmdbRequestsPerSecond's 40, D231 §5), so a person's request always
 //     finds room, and every caller keeps to the whole rate.
 //     TestAsk_BackgroundKeepsBelowItsShareOfTheRateAndAPersonFindsRoom.
 //   - A host's limits are the settings, read at each request, so an admin's change takes effect
 //     at the next. TestAsk_KeepsToTheLimitsTheSettingsSayAtEachRequest.
 //   - Background work never spends the last downloads held back for people
-//     (opensubtitles_downloads_reserved_for_people_percent of the day's allowance the host said,
+//     (opensubtitlesDownloadsReservedForPeoplePercent of the day's allowance the host said,
 //     starting at 25%, rounded up to whole downloads), and nobody spends past the quota the host
 //     said, until its reset.
 //     TestAsk_BackgroundNeverSpendsTheLastDownloadsHeldBackForPeople.

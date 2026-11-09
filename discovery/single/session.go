@@ -19,7 +19,7 @@ const instancePingWait = 10 * time.Second
 
 // HolderWindowDefault is how long an installation other than the one that last held the core's realm
 // waits for that one to come back while it is away: longer than the core's longest wait between asks,
-// discovery_retry_most_seconds, 300 s by default (D437 §5; the owner, 2026-11-06).
+// discoveryRetryMostSeconds, 300 s by default (D437 §5; the owner, 2026-11-06).
 const HolderWindowDefault = 6 * time.Minute
 
 // session is what a session's token stands for: the core, by its id and key, and the instance that

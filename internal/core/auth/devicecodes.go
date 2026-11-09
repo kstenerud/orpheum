@@ -30,7 +30,7 @@ type ServiceDeviceCodes interface {
 }
 
 // revealEvery is how often the core asks the service, while entering a typed code waits
-// device_code_reveal_wait_seconds for the device to reveal its nonce: the device asks how its code
+// deviceCodeRevealWaitSeconds for the device to reveal its nonce: the device asks how its code
 // stands every two seconds and reveals at once (D321).
 const revealEvery = 500 * time.Millisecond
 
@@ -166,7 +166,7 @@ func (service *Service) claimedServiceCode(code string) (pairing, bool) {
 
 // checkCodeOnceRevealed is a typed code's check code, made once the device reveals the nonce it
 // committed to: the core claims again, with the same nonce, until the service has it, at most
-// device_code_reveal_wait_seconds. A nonce that breaks the commitment is another device's, and ends the
+// deviceCodeRevealWaitSeconds. A nonce that breaks the commitment is another device's, and ends the
 // code (D321).
 func (service *Service) checkCodeOnceRevealed(
 	ctx context.Context, code, coreNonce string, waiting discoveryproto.DeviceCodeClaimResponse,

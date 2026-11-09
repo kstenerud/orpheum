@@ -19,7 +19,7 @@ func RailLetters() []string {
 }
 
 // Letters are the rail's letters a list by name or by file name has a title under, in the
-// sort_locale's order, so the rail offers only those that lead somewhere (D349 §9). It asks for the
+// sortLocale's order, so the rail offers only those that lead somewhere (D349 §9). It asks for the
 // first title from each letter that has one, never the list: a read for each letter with a title,
 // and one more.
 func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string, error) {

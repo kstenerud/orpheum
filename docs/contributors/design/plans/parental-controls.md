@@ -274,7 +274,7 @@ unacceptable. So: **define `Kids` once, assign three children to it.** Jellyfin 
 — `UserPolicy.cs` has 44 per-user fields and no grouping, and their forum records exactly this
 complaint.
 
-**And a kids role has `host_watch_together` off.** A Watch Together link admits anyone holding
+**And a kids role has `hostWatchTogether` off.** A Watch Together link admits anyone holding
 it ([D117](../../decisions/working-notes.md), [D125](../../decisions/working-notes.md)); that
 is a reasonable thing for an adult to choose and not a thing a nine-year-old should be able to
 mint. A parental-control design that gates *what a child watches* and not *whom a child can

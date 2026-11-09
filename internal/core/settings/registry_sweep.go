@@ -15,54 +15,53 @@ import (
 
 // The constants sweep's keys.
 const (
-	DiscoveryPendingCheckEverySeconds    Key = "discovery_pending_check_every_seconds"
-	DiscoveryAddressCheckEverySeconds    Key = "discovery_address_check_every_seconds"
-	DiscoveryEndedCheckEverySeconds      Key = "discovery_ended_check_every_seconds"
-	DiscoveryRetryFirstSeconds           Key = "discovery_retry_first_seconds"
-	DiscoveryRetryMostSeconds            Key = "discovery_retry_most_seconds"
-	SignInFailureLimitNetworkMultiple    Key = "signin_failure_limit_network_multiple"
-	SignInFailureLimitEverywhereMultiple Key = "signin_failure_limit_everywhere_multiple"
-	SignInEverywherePaceSeconds          Key = "signin_everywhere_pace_seconds"
-	PairingCodesPerNetworkMost           Key = "pairing_codes_per_network_most"
-	PairingCodesPerSiteMost              Key = "pairing_codes_per_site_most"
-	DeviceCodeRevealWaitSeconds          Key = "device_code_reveal_wait_seconds"
-	JobLongestRetryDelayHours            Key = "job_longest_retry_delay_hours"
-	UploadFilmsSharePercent              Key = "upload_films_share_percent"
-	UploadCrowdedSlowUnderPercent        Key = "upload_crowded_slow_under_percent"
-	UploadCrowdedSlowPlayersAtLeast      Key = "upload_crowded_slow_players_at_least"
-	UploadCrowdedKeepsPercent            Key = "upload_crowded_keeps_percent"
-	UploadCrowdedLowerEverySeconds       Key = "upload_crowded_lower_every_seconds"
-	UploadCrowdedFloorPercent            Key = "upload_crowded_floor_percent"
-	UploadUncrowdedForSeconds            Key = "upload_uncrowded_for_seconds"
-	UploadUncrowdedGrowsPercent          Key = "upload_uncrowded_grows_percent"
-	UploadUncrowdedRaiseEverySeconds     Key = "upload_uncrowded_raise_every_seconds"
-	UploadRaiseUnderPercent              Key = "upload_raise_under_percent"
-	UploadRaiseRoomSeconds               Key = "upload_raise_room_seconds"
-	UploadSendAwayAfterSeconds           Key = "upload_send_away_after_seconds"
-	ChunkInterestLapsesAfterSeconds      Key = "chunk_interest_lapses_after_seconds"
-	ChunkCPUCeilingKeptSeconds           Key = "chunk_cpu_ceiling_kept_seconds"
-	LinkSpeedFreshHours                  Key = "link_speed_fresh_hours"
-	LinkSteadinessRelaxesSeconds         Key = "link_steadiness_relaxes_seconds"
-	ChunkLookaheadSeconds                Key = "chunk_lookahead_seconds"
-	ChunkRunSpanSeconds                  Key = "chunk_run_span_seconds"
-	ChunkRunSpeedWindowSeconds           Key = "chunk_run_speed_window_seconds"
-	TogetherSnapSeeksBeyondSeconds       Key = "together_snap_seeks_beyond_seconds"
-	PortMappingLeaseSeconds              Key = "port_mapping_lease_seconds"
-	PortMappingRetrySeconds              Key = "port_mapping_retry_seconds"
-	PortMappingPermanentRenewSeconds     Key = "port_mapping_permanent_renew_seconds"
-	CertificateRenewBeforeDays           Key = "certificate_renew_before_days"
-	CertificateDNSWaitSeconds            Key = "certificate_dns_wait_seconds"
-	//nolint:gosec // G101: a setting's name, not a credential
-	VoiceRelayCredentialHours              Key = "voice_relay_credential_hours"
-	ArtworkCacheSweepToPercent             Key = "artwork_cache_sweep_to_percent"
-	ArtworkCacheRecommendedHeadroomPercent Key = "artwork_cache_recommended_headroom_percent"
-	ScanWithheldRemovalsNamed              Key = "scan_withheld_removals_named"
-	LinkShareForQualityPercent             Key = "link_share_for_quality_percent"
-	JobHealthWindowHours                   Key = "job_health_window_hours"
-	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
-	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
-	ScanRootErrorLimit                     Key = "scan_root_error_limit"
-	NodeProgressEverySeconds               Key = "node_progress_every_seconds"
+	DiscoveryPendingCheckEverySeconds      Key = "discoveryPendingCheckEverySeconds"
+	DiscoveryAddressCheckEverySeconds      Key = "discoveryAddressCheckEverySeconds"
+	DiscoveryEndedCheckEverySeconds        Key = "discoveryEndedCheckEverySeconds"
+	DiscoveryRetryFirstSeconds             Key = "discoveryRetryFirstSeconds"
+	DiscoveryRetryMostSeconds              Key = "discoveryRetryMostSeconds"
+	SignInFailureLimitNetworkMultiple      Key = "signinFailureLimitNetworkMultiple"
+	SignInFailureLimitEverywhereMultiple   Key = "signinFailureLimitEverywhereMultiple"
+	SignInEverywherePaceSeconds            Key = "signinEverywherePaceSeconds"
+	PairingCodesPerNetworkMost             Key = "pairingCodesPerNetworkMost"
+	PairingCodesPerSiteMost                Key = "pairingCodesPerSiteMost"
+	DeviceCodeRevealWaitSeconds            Key = "deviceCodeRevealWaitSeconds"
+	JobLongestRetryDelayHours              Key = "jobLongestRetryDelayHours"
+	UploadFilmsSharePercent                Key = "uploadFilmsSharePercent"
+	UploadCrowdedSlowUnderPercent          Key = "uploadCrowdedSlowUnderPercent"
+	UploadCrowdedSlowPlayersAtLeast        Key = "uploadCrowdedSlowPlayersAtLeast"
+	UploadCrowdedKeepsPercent              Key = "uploadCrowdedKeepsPercent"
+	UploadCrowdedLowerEverySeconds         Key = "uploadCrowdedLowerEverySeconds"
+	UploadCrowdedFloorPercent              Key = "uploadCrowdedFloorPercent"
+	UploadUncrowdedForSeconds              Key = "uploadUncrowdedForSeconds"
+	UploadUncrowdedGrowsPercent            Key = "uploadUncrowdedGrowsPercent"
+	UploadUncrowdedRaiseEverySeconds       Key = "uploadUncrowdedRaiseEverySeconds"
+	UploadRaiseUnderPercent                Key = "uploadRaiseUnderPercent"
+	UploadRaiseRoomSeconds                 Key = "uploadRaiseRoomSeconds"
+	UploadSendAwayAfterSeconds             Key = "uploadSendAwayAfterSeconds"
+	ChunkInterestLapsesAfterSeconds        Key = "chunkInterestLapsesAfterSeconds"
+	ChunkCPUCeilingKeptSeconds             Key = "chunkCpuCeilingKeptSeconds"
+	LinkSpeedFreshHours                    Key = "linkSpeedFreshHours"
+	LinkSteadinessRelaxesSeconds           Key = "linkSteadinessRelaxesSeconds"
+	ChunkLookaheadSeconds                  Key = "chunkLookaheadSeconds"
+	ChunkRunSpanSeconds                    Key = "chunkRunSpanSeconds"
+	ChunkRunSpeedWindowSeconds             Key = "chunkRunSpeedWindowSeconds"
+	TogetherSnapSeeksBeyondSeconds         Key = "togetherSnapSeeksBeyondSeconds"
+	PortMappingLeaseSeconds                Key = "portMappingLeaseSeconds"
+	PortMappingRetrySeconds                Key = "portMappingRetrySeconds"
+	PortMappingPermanentRenewSeconds       Key = "portMappingPermanentRenewSeconds"
+	CertificateRenewBeforeDays             Key = "certificateRenewBeforeDays"
+	CertificateDNSWaitSeconds              Key = "certificateDnsWaitSeconds"
+	VoiceRelayCredentialHours              Key = "voiceRelayCredentialHours"
+	ArtworkCacheSweepToPercent             Key = "artworkCacheSweepToPercent"
+	ArtworkCacheRecommendedHeadroomPercent Key = "artworkCacheRecommendedHeadroomPercent"
+	ScanWithheldRemovalsNamed              Key = "scanWithheldRemovalsNamed"
+	LinkShareForQualityPercent             Key = "linkShareForQualityPercent"
+	JobHealthWindowHours                   Key = "jobHealthWindowHours"
+	RetentionSweepEveryHours               Key = "retentionSweepEveryHours"
+	InvariantsCheckEveryHours              Key = "invariantsCheckEveryHours"
+	ScanRootErrorLimit                     Key = "scanRootErrorLimit"
+	NodeProgressEverySeconds               Key = "nodeProgressEverySeconds"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -71,8 +70,8 @@ func upkeepSweepDefinitions() []Definition {
 	return []Definition{
 		sourced(durationSetting(JobLongestRetryDelayHours, time.Hour, "24", 1, 168,
 			"the longest a failing job's retry waits: its doubling back-off stops there, and a job that "+
-				"keeps failing retries about this often until job_attempt_limit (D231 §10)"),
-			"D231: a day, as job_first_retry_delay_seconds' description says"),
+				"keeps failing retries about this often until jobAttemptLimit (D231 §10)"),
+			"D231: a day, as jobFirstRetryDelaySeconds' description says"),
 		sourced(durationSetting(JobHealthWindowHours, time.Hour, "24", 1, 720,
 			"hours back the System page's job health counts each kind's failed jobs (D233 §8)"),
 			"D233 §8: a day"),
@@ -106,11 +105,11 @@ func discoveryDefinitions() []Definition {
 		sourced(durationSetting(DiscoveryRetryFirstSeconds, time.Second, "1", 1, 60,
 			"seconds before calling the discovery again after a failed call, or dialling its signalling "+
 				"connection again after it dropped; each failure in a row doubles it, jittered, to "+
-				"discovery_retry_most_seconds (the protocol's §2; C7)"),
+				"discoveryRetryMostSeconds (the protocol's §2; C7)"),
 			"the config file's retry_first_milliseconds until the constants sweep, 2026-10-20"),
 		sourced(durationSetting(DiscoveryRetryMostSeconds, time.Second, "300", 1, 3600,
 			"the longest wait before calling the discovery again after failures in a row; below "+
-				"discovery_retry_first_seconds it waits that. The development stack keeps it a second "+
+				"discoveryRetryFirstSeconds it waits that. The development stack keeps it a second "+
 				"(D292 §9)"),
 			"the config file's retry_most_milliseconds until the constants sweep, 2026-10-20"),
 	}
@@ -121,17 +120,17 @@ func discoveryDefinitions() []Definition {
 func signInStretchDefinitions() []Definition {
 	return []Definition{
 		sourced(integerSetting(SignInFailureLimitNetworkMultiple, "4", 1, 100,
-			"how many times signin_failure_limit one network may fail to sign in within its window: a "+
+			"how many times signinFailureLimit one network may fail to sign in within its window: a "+
 				"household or a carrier's shared address is many people's failures (K2)"),
 			"the second audit's K2, 2026-10-13: four"),
 		sourced(integerSetting(SignInFailureLimitEverywhereMultiple, "10", 1, 1000,
-			"how many times signin_failure_limit a person may fail to sign in from every network at once "+
-				"within its window before each of their sign-ins waits signin_everywhere_pace_seconds; a "+
+			"how many times signinFailureLimit a person may fail to sign in from every network at once "+
+				"within its window before each of their sign-ins waits signinEverywherePaceSeconds; a "+
 				"device that signed in before is not held to it (A13)"),
 			"the second audit's K2, 2026-10-13: ten"),
 		sourced(durationSetting(SignInEverywherePaceSeconds, time.Second, "10", 1, 300,
 			"seconds each sign-in of a person waits once they have failed past "+
-				"signin_failure_limit_everywhere_multiple: a guesser on many networks makes a few guesses a "+
+				"signinFailureLimitEverywhereMultiple: a guesser on many networks makes a few guesses a "+
 				"minute, and the person, who signs in once, waits seconds (A13)"),
 			"the third audit's A13: ten seconds"),
 	}
@@ -156,14 +155,14 @@ func pairingDefinitions() []Definition {
 	}
 }
 
-// uploadDefinitions are how the server keeps its films within its upload, server_upload_mbps: their
+// uploadDefinitions are how the server keeps its films within its upload, serverUploadMbps: their
 // share of it, how players tell the house's upload is crowded by other traffic and how far the share
 // then falls and grows back, when a lowered player is raised, and when the last resort sends a Watch
 // Together member away (D286 §4, §5; plans/upload-budget.md §4c). One controller: tune them together.
 func uploadDefinitions() []Definition {
 	return []Definition{
 		sourced(integerSetting(UploadFilmsSharePercent, "85", 10, 100,
-			"percent of server_upload_mbps the films may use: the rest is for voice, playlists, pictures and "+
+			"percent of serverUploadMbps the films may use: the rest is for voice, playlists, pictures and "+
 				"the bursts a player loading ahead sends above its quality's average (D286 §5)"),
 			"D286 §5: 85%"),
 		sourced(integerSetting(UploadCrowdedSlowUnderPercent, "150", 100, 500,
@@ -193,7 +192,7 @@ func uploadDefinitions() []Definition {
 			"seconds between the films' share's steps back once the upload is no longer crowded"),
 			"upload-budget.md §4c: best guess"),
 		sourced(integerSetting(UploadRaiseUnderPercent, "75", 10, 99,
-			"percent of the films' share the need must stay under, for upload_raise_room_seconds, before a "+
+			"percent of the films' share the need must stay under, for uploadRaiseRoomSeconds, before a "+
 				"lowered playback is raised a quality: room enough that raising one does not lower it again "+
 				"at once (D286 §4)"),
 			"D286 §4: three quarters"),
@@ -242,7 +241,7 @@ func chunkTimingDefinitions() []Definition {
 				"for a chunk no run is making (D247 §10)"),
 			"D247 §10: a minute, Kyoo's look-ahead (slow-links.md §4)"),
 		sourced(durationSetting(ChunkRunSpanSeconds, time.Second, "300", 30, 3600,
-			"the most seconds of film one run of FFmpeg makes, and at least chunk_lookahead_seconds: a seek "+
+			"the most seconds of film one run of FFmpeg makes, and at least chunkLookaheadSeconds: a seek "+
 				"starts encoding where the player is rather than waiting for a long run elsewhere (D247 §10)"),
 			"D247 §10: five minutes, as Kyoo's runs"),
 		sourced(durationSetting(ChunkRunSpeedWindowSeconds, time.Second, "20", 5, 300,
@@ -301,7 +300,7 @@ func certificateDefinitions() []Definition {
 func artworkCacheDefinitions() []Definition {
 	return []Definition{
 		sourced(integerSetting(ArtworkCacheSweepToPercent, "90", 50, 99,
-			"percent of artwork_cache_ceiling_gib a sweep evicts the artwork cache down to, so it does not "+
+			"percent of artworkCacheCeilingGib a sweep evicts the artwork cache down to, so it does not "+
 				"run again at the next write (D212 §6)"),
 			"D212 §6: 90%"),
 		sourced(integerSetting(ArtworkCacheRecommendedHeadroomPercent, "115", 100, 300,
@@ -334,7 +333,7 @@ func nodeTuningDefinitions() []Definition {
 		sourced(durationSetting(NodeProgressEverySeconds, time.Second,
 			strconv.Itoa(nodeproto.StartingProgressEverySeconds), 1, 60,
 			"seconds, at least, between a running read-through's words to the core on how far it is (D234 §5); "+
-				"was prepare_progress_every_seconds"),
+				"was prepareProgressEverySeconds"),
 			"D234 §5: throttled; two seconds"),
 	}
 }

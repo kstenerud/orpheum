@@ -68,7 +68,7 @@ const gatherAfterReflexive = 300 * time.Millisecond
 //     the core's slots with offers that never connect;
 //   - perSourceLimit: the connections one network holds at once (an IPv4 address, or an IPv6 /56, a
 //     household's usual delegation), a few households' clients behind one address, until the core
-//     reads its setting, webrtc_connections_per_network (SetConnectionsPerNetwork), which replaces it;
+//     reads its setting, webrtcConnectionsPerNetwork (SetConnectionsPerNetwork), which replaces it;
 //   - channelLimit: the requests in flight on one connection, each a channel, its body bounded by
 //     MaxRequestBodyBytes;
 //   - requestDeadline: how long a request's head and body may take to arrive whole;
@@ -367,7 +367,7 @@ func settings(paced *pacer) webrtc.SettingEngine {
 }
 
 // SetConnectionsPerNetwork sets how many connections one network may hold at once, its share
-// (webrtc_connections_per_network): a connection past it is turned away. One already held is kept.
+// (webrtcConnectionsPerNetwork): a connection past it is turned away. One already held is kept.
 func (server *Server) SetConnectionsPerNetwork(limit int) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()

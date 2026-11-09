@@ -356,9 +356,9 @@ func TestSignIn_HealsAMissingSettingWithItsStartingValue(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'signin_failure_limit'")
+	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'signinFailureLimit'")
 	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1", laptop); err != nil {
-		t.Fatalf("signing in with signin_failure_limit removed: %v, want the row healed and the sign-in to work", err)
+		t.Fatalf("signing in with signinFailureLimit removed: %v, want the row healed and the sign-in to work", err)
 	}
 	if limit, err := fixture.settings.Int(t.Context(), settings.SignInFailureLimit); err != nil || limit != 5 {
 		t.Errorf("the removed setting = %d, %v; want its starting value back in the database", limit, err)

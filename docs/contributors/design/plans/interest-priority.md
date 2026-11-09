@@ -28,13 +28,13 @@ and a read-through is one file).
   film or series page it shows, with when each was last said. It is lost with a restart, which
   every page and player says again within seconds.
 - **A page says it is shown.** A film's or series' page sends `PUT /interest` with its item while it
-  is shown and visible, again every `interest_said_every_seconds` (15), and `DELETE /interest` when
+  is shown and visible, again every `interestSaidEverySeconds` (15), and `DELETE /interest` when
   it is left or hidden (`pagehide`, a request kept alive). A page in a background tab says nothing.
 - **A playback is shown by its reports.** The playback service already hears a playing player every
   ten seconds (`POST /playback/{id}/report`); its playback is interest while it is heard, and its
   page's interest gives way to it.
-- **Interest lapses** `interest_lapses_after_seconds` (45) after it was last said: a page closed
-  without a word, a player that crashed. `play_priority_kept_seconds` (D234 §3's "wanted until")
+- **Interest lapses** `interestLapsesAfterSeconds` (45) after it was last said: a page closed
+  without a word, a player that crashed. `playPriorityKeptSeconds` (D234 §3's "wanted until")
   stays for a play's own work, its prepare and chunks, which a playback asks for as it plays and
   interest does not find by its film or files; folding the two waits for I4.
 
@@ -53,7 +53,7 @@ and a read-through is one file).
 - **A series' work** (D324 §3; the owner, 2026-10-25: *a series' page is its next episode's*): the
   same as that episode's own page raises, for its person's **Next Up** alone, the D160 query over
   the series' ordering (the aired one until a person chooses theirs, D159): the episode they are
-  partway through (in progress by `in_progress_after_percent` and `finished_after_percent`), the
+  partway through (in progress by `inProgressAfterPercent` and `finishedAfterPercent`), the
   latest played when several are; else the episode after the last one they finished, the latest
   finished; else the first; none once the last is finished. Its artwork and metadata are the
   series'. When that episode's files are not read yet, the look asks for their read before what
@@ -64,7 +64,7 @@ and a read-through is one file).
 - **A season's work** (D324 §3; the owner, 2026-10-24: interest follows the drill-down, a series'
   page to the series, a season's to the season, an episode's to the episode): a series' page that
   shows one season says which (`PUT /interest/{id}?season=<n>`, 0 for the specials), and its look
-  raises the series' own work and `series_episodes_ahead` of that season's episodes, from the
+  raises the series' own work and `seriesEpisodesAhead` of that season's episodes, from the
   person's place among them by the same rules; else, when they have watched none of it or finished
   its last, from its first. And it quick-scans the season (the owner, 2026-10-25): as the look
   begins it asks for the read of every unread file of the season's episodes, in episode order, once
@@ -93,9 +93,9 @@ and a read-through is one file).
   free: other work runs beside it, within its devices' reader limits (§4).
 - **A film encoded in software** keeps its node's CPU: no other encode (prepare, chunks) is given
   to that node while it plays, and lighter work (read-throughs, artwork, subtitles) is given while
-  the playing run stays above `chunk_run_slowest_speed_percent` of playback speed (D250 §6's
+  the playing run stays above `chunkRunSlowestSpeedPercent` of playback speed (D250 §6's
   measure). Below it, the node's other work is stopped (§4) until the run is back above it for
-  `chunk_run_speed_window_seconds`.
+  `chunkRunSpeedWindowSeconds`.
 
 ## 6. How long
 
@@ -113,11 +113,11 @@ and a read-through is one file).
 
 | Setting | Start | Bounds | Why |
 | --- | --- | --- | --- |
-| `interest_said_every_seconds` | 15 | 5–120 | how often a shown page says so; sent in `/client-settings` |
-| `interest_lapses_after_seconds` | 45 | 15–600 | three missed words, as a node's silence (cut-a §4) |
-| `series_episodes_ahead` | 3 | 1–20 | the owner, 2026-10-21; a season's page's since 2026-10-25, a series' own raising its next episode alone |
+| `interestSaidEverySeconds` | 15 | 5–120 | how often a shown page says so; sent in `/client-settings` |
+| `interestLapsesAfterSeconds` | 45 | 15–600 | three missed words, as a node's silence (cut-a §4) |
+| `seriesEpisodesAhead` | 3 | 1–20 | the owner, 2026-10-21; a season's page's since 2026-10-25, a series' own raising its next episode alone |
 
-`play_priority_kept_seconds` stays for now (§2).
+`playPriorityKeptSeconds` stays for now (§2).
 
 ## 8. Steps
 
@@ -136,7 +136,7 @@ and a read-through is one file).
    node holds, a quality's run or a prepare a person waits on; a run that falls behind holds its
    node back (nodes.Exchanges.HoldBackFor), and eviction among runs waits a window for it. Between
    two runs of one playback no encode is held, so a queued encode may start in that gap; the hold
-   stops it if the next run falls behind. `play_priority_kept_seconds` is not folded: it keeps a
+   stops it if the next run falls behind. `playPriorityKeptSeconds` is not folded: it keeps a
    playback's own prepare and runs wanted, which interest finds by neither film nor file.
 5. **I5 — how long.** Each device's read speed and each prepare's speed; the API's waiting work and
    seconds; the film page's note and the player's wait. *Built 2026-10-21* (`internal/core/waits`,

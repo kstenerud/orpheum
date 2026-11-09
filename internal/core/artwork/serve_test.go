@@ -49,7 +49,7 @@ func TestServe_AJPEGIsCutAtTheQualityTheSettingSays(t *testing.T) {
 		return len(served.Bytes)
 	}
 	if low, high := cutAt("5"), cutAt("100"); low >= high {
-		t.Errorf("cut at artwork_jpeg_quality 5: %d bytes; at 100: %d; want the lower quality smaller", low, high)
+		t.Errorf("cut at artworkJpegQuality 5: %d bytes; at 100: %d; want the lower quality smaller", low, high)
 	}
 }
 

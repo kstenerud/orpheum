@@ -12,7 +12,7 @@ import (
 // owedPasses are the libraries a match or a refresh left owing a pass, each marked once however
 // many asked: a burst of series fetches is followed by one pass of their library, not one each
 // (D303, DL14). The marks live in memory: a stop loses them, and the passes every library gets
-// at start, and on derived_work_sweep_every_seconds after, are their backstop.
+// at start, and on derivedWorkSweepEverySeconds after, are their backstop.
 type owedPasses struct {
 	mutex     sync.Mutex
 	libraries map[int64]bool // guarded by mutex

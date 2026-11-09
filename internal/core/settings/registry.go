@@ -24,103 +24,102 @@ type Key string
 // The settings. Every opinionated value the server acts on is one of these, so each choice is a
 // row that can be read and changed, not a default in code (D200). Units are in the name.
 const (
-	ShouldCheckForUpdates                          Key = "should_check_for_updates"
-	SignInFailureLimit                             Key = "signin_failure_limit"
-	SignInFailureWindowSeconds                     Key = "signin_failure_window_seconds"
-	SignInFailureAnswerSeconds                     Key = "signin_failure_answer_seconds"
-	SessionIdleExpiryHours                         Key = "session_idle_expiry_hours"
-	SessionLastUsedWriteIntervalSeconds            Key = "session_last_used_write_interval_seconds"
-	Argon2MemoryKiB                                Key = "argon2_memory_kib"
-	Argon2Iterations                               Key = "argon2_iterations"
-	Argon2Parallelism                              Key = "argon2_parallelism"
-	SecretLastCharsShown                           Key = "secret_last_chars_shown"
-	BackupAgeWarningHours                          Key = "backup_age_warning_hours"
-	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
-	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
-	ShouldShowDeveloperPages                       Key = "should_show_developer_pages"
-	ShouldOfferDeviceTests                         Key = "should_offer_device_tests"
-	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
-	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
-	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
-	ShouldMapPorts                                 Key = "should_map_ports"
-	ReaderLimitSpinningDisk                        Key = "reader_limit_spinning_disk"
-	ReaderLimitSSD                                 Key = "reader_limit_ssd"
-	ReaderLimitNetworkShare                        Key = "reader_limit_network_share"
-	ReaderLimitUnknownDisk                         Key = "reader_limit_unknown_disk"
-	NodeJobsBeyondFreeSlots                        Key = "node_jobs_beyond_free_slots"
-	PlayPriorityKeptSeconds                        Key = "play_priority_kept_seconds"
-	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
-	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
-	ScanVideosPerExamineBatch                      Key = "scan_videos_per_examine_batch"
-	JobAttemptLimit                                Key = "job_attempt_limit"
-	FinishedJobsKeptDays                           Key = "finished_jobs_kept_days"
-	JobFirstRetryDelaySeconds                      Key = "job_first_retry_delay_seconds"
-	ProviderTimeoutSeconds                         Key = "provider_timeout_seconds"
-	DestinationFirstProbeDelaySeconds              Key = "destination_first_probe_delay_seconds"
-	DestinationLongestProbeDelaySeconds            Key = "destination_longest_probe_delay_seconds"
-	TMDBRequestsPerSecond                          Key = "tmdb_requests_per_second"
-	TMDBBackgroundRateSharePercent                 Key = "tmdb_background_rate_share_percent"
-	OpenSubtitlesRequestsPerSecond                 Key = "opensubtitles_requests_per_second"
-	OpenSubtitlesDownloadsReservedForPeoplePercent Key = "opensubtitles_downloads_reserved_for_people_percent"
-	SortLocale                                     Key = "sort_locale"
-	ArtworkMaxSourcePixels                         Key = "artwork_max_source_pixels"
-	ArtworkWebPQuality                             Key = "artwork_webp_quality"
-	TMDBRefreshAfterDays                           Key = "tmdb_refresh_after_days"
-	MetadataRefreshCheckEveryHours                 Key = "metadata_refresh_check_every_hours"
-	ArtworkCacheCeilingGiB                         Key = "artwork_cache_ceiling_gib"
-	RemovedItemArtworkKeptDays                     Key = "removed_item_artwork_kept_days"
-	MediaTokenIdleExpiryHours                      Key = "media_token_idle_expiry_hours"
-	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
-	ChunkQualities                                 Key = "chunk_qualities"
-	ChunkQualitiesHardware                         Key = "chunk_qualities_hardware"
-	InProgressAfterPercent                         Key = "in_progress_after_percent"
-	FinishedAfterPercent                           Key = "finished_after_percent"
-	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
-	//nolint:gosec // G101: a setting's name, not a credential
-	EndedCredentialsKeptDays                  Key = "ended_credentials_kept_days"
-	RemovedFilesKeptDays                      Key = "removed_files_kept_days"
-	NewLibraryDefaultScanEveryHours           Key = "new_library_default_scan_every_hours"
-	WatchedLibraryScanEveryHours              Key = "watched_library_scan_every_hours"
-	UnavailableRootRescanSeconds              Key = "unavailable_root_rescan_seconds"
-	LoudnessTargetLUFS                        Key = "loudness_target_lufs"
-	LoudnessMaxRaiseDB                        Key = "loudness_max_raise_db"
-	ReadThroughSweepEveryHours                Key = "read_through_sweep_every_hours"
-	DerivedWorkSweepEverySeconds              Key = "derived_work_sweep_every_seconds"
-	BackupEveryHours                          Key = "backup_every_hours"
-	TimeZone                                  Key = "time_zone"
-	BackupsKeptHourly                         Key = "backups_kept_hourly"
-	BackupsKeptDaily                          Key = "backups_kept_daily"
-	BackupsKeptWeekly                         Key = "backups_kept_weekly"
-	ArtworkJPEGQuality                        Key = "artwork_jpeg_quality"
-	ArtworkSecondsBeforeEachRetry             Key = "artwork_seconds_before_each_retry"
-	ArtworkCacheSweepEveryHours               Key = "artwork_cache_sweep_every_hours"
-	ArtworkServedAtFlushEverySeconds          Key = "artwork_served_at_flush_every_seconds"
-	ContinueWatchingMaxWorks                  Key = "continue_watching_max_works"
-	JobViewMaxJobs                            Key = "job_view_max_jobs"
-	ScreenRefreshFirstWaitSeconds             Key = "screen_refresh_first_wait_seconds"
-	ScreenRefreshLongestWaitSeconds           Key = "screen_refresh_longest_wait_seconds"
-	ScreenRefreshFailedWaitSeconds            Key = "screen_refresh_failed_wait_seconds"
-	TogetherDriftLeftAloneMs                  Key = "together_drift_left_alone_ms"
-	TogetherNudgeMostPercent                  Key = "together_nudge_most_percent"
-	TogetherSeekDriftBeyondMs                 Key = "together_seek_drift_beyond_ms"
-	TogetherSeekOnlyDriftLeftAloneMs          Key = "together_seek_only_drift_left_alone_ms"
-	ChunkSoundKbps                            Key = "chunk_sound_kbps"
-	ServerUploadMbps                          Key = "server_upload_mbps"
-	WebRTCConnectionsPerNetwork               Key = "webrtc_connections_per_network"
-	TogetherCatchUpBufferPercent              Key = "together_catch_up_buffer_percent"
-	TogetherSettleAfterChangeMs               Key = "together_settle_after_change_ms"
-	ShouldTogetherNudgeKeepPitch              Key = "should_together_nudge_keep_pitch"
-	ShouldTogetherVoiceCancelEcho             Key = "should_together_voice_cancel_echo"
-	ShouldTogetherVoiceBrowserLevelMicrophone Key = "should_together_voice_browser_level_microphone"
-	ChunkHoldMs                               Key = "chunk_hold_ms"
-	ChunkRunSlowestSpeedPercent               Key = "chunk_run_slowest_speed_percent"
-	ChunkKeptAheadSeconds                     Key = "chunk_kept_ahead_seconds"
-	ChunkKeptLikelySeconds                    Key = "chunk_kept_likely_seconds"
-	ChunkKeptLeftSeconds                      Key = "chunk_kept_left_seconds"
-	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
-	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
-	AddressAtHome                             Key = "address_at_home"
-	AddressAtHomeLearnedFrom                  Key = "address_at_home_learned_from"
+	ShouldCheckForUpdates                          Key = "shouldCheckForUpdates"
+	SignInFailureLimit                             Key = "signinFailureLimit"
+	SignInFailureWindowSeconds                     Key = "signinFailureWindowSeconds"
+	SignInFailureAnswerSeconds                     Key = "signinFailureAnswerSeconds"
+	SessionIdleExpiryHours                         Key = "sessionIdleExpiryHours"
+	SessionLastUsedWriteIntervalSeconds            Key = "sessionLastUsedWriteIntervalSeconds"
+	Argon2MemoryKiB                                Key = "argon2MemoryKib"
+	Argon2Iterations                               Key = "argon2Iterations"
+	Argon2Parallelism                              Key = "argon2Parallelism"
+	SecretLastCharsShown                           Key = "secretLastCharsShown"
+	BackupAgeWarningHours                          Key = "backupAgeWarningHours"
+	ShouldServeDebugPProf                          Key = "shouldServeDebugPprof"
+	ShouldServeDebugMetrics                        Key = "shouldServeDebugMetrics"
+	ShouldShowDeveloperPages                       Key = "shouldShowDeveloperPages"
+	ShouldOfferDeviceTests                         Key = "shouldOfferDeviceTests"
+	NodeSilentAfterSeconds                         Key = "nodeSilentAfterSeconds"
+	AssignedJobLimitHours                          Key = "assignedJobLimitHours"
+	ShouldScanOnNodeHello                          Key = "shouldScanOnNodeHello"
+	ShouldMapPorts                                 Key = "shouldMapPorts"
+	ReaderLimitSpinningDisk                        Key = "readerLimitSpinningDisk"
+	ReaderLimitSSD                                 Key = "readerLimitSsd"
+	ReaderLimitNetworkShare                        Key = "readerLimitNetworkShare"
+	ReaderLimitUnknownDisk                         Key = "readerLimitUnknownDisk"
+	NodeJobsBeyondFreeSlots                        Key = "nodeJobsBeyondFreeSlots"
+	PlayPriorityKeptSeconds                        Key = "playPriorityKeptSeconds"
+	ScanWithholdRemovalsOverPercent                Key = "scanWithholdRemovalsOverPercent"
+	ScanWithholdRemovalsOverFiles                  Key = "scanWithholdRemovalsOverFiles"
+	ScanVideosPerExamineBatch                      Key = "scanVideosPerExamineBatch"
+	JobAttemptLimit                                Key = "jobAttemptLimit"
+	FinishedJobsKeptDays                           Key = "finishedJobsKeptDays"
+	JobFirstRetryDelaySeconds                      Key = "jobFirstRetryDelaySeconds"
+	ProviderTimeoutSeconds                         Key = "providerTimeoutSeconds"
+	DestinationFirstProbeDelaySeconds              Key = "destinationFirstProbeDelaySeconds"
+	DestinationLongestProbeDelaySeconds            Key = "destinationLongestProbeDelaySeconds"
+	TMDBRequestsPerSecond                          Key = "tmdbRequestsPerSecond"
+	TMDBBackgroundRateSharePercent                 Key = "tmdbBackgroundRateSharePercent"
+	OpenSubtitlesRequestsPerSecond                 Key = "opensubtitlesRequestsPerSecond"
+	OpenSubtitlesDownloadsReservedForPeoplePercent Key = "opensubtitlesDownloadsReservedForPeoplePercent"
+	SortLocale                                     Key = "sortLocale"
+	ArtworkMaxSourcePixels                         Key = "artworkMaxSourcePixels"
+	ArtworkWebPQuality                             Key = "artworkWebpQuality"
+	TMDBRefreshAfterDays                           Key = "tmdbRefreshAfterDays"
+	MetadataRefreshCheckEveryHours                 Key = "metadataRefreshCheckEveryHours"
+	ArtworkCacheCeilingGiB                         Key = "artworkCacheCeilingGib"
+	RemovedItemArtworkKeptDays                     Key = "removedItemArtworkKeptDays"
+	MediaTokenIdleExpiryHours                      Key = "mediaTokenIdleExpiryHours"
+	HLSSegmentLengthSeconds                        Key = "hlsSegmentLengthSeconds"
+	ChunkQualities                                 Key = "chunkQualities"
+	ChunkQualitiesHardware                         Key = "chunkQualitiesHardware"
+	InProgressAfterPercent                         Key = "inProgressAfterPercent"
+	FinishedAfterPercent                           Key = "finishedAfterPercent"
+	RegistrationInvitationLifeDays                 Key = "registrationInvitationLifeDays"
+	EndedCredentialsKeptDays                       Key = "endedCredentialsKeptDays"
+	RemovedFilesKeptDays                           Key = "removedFilesKeptDays"
+	NewLibraryDefaultScanEveryHours                Key = "newLibraryDefaultScanEveryHours"
+	WatchedLibraryScanEveryHours                   Key = "watchedLibraryScanEveryHours"
+	UnavailableRootRescanSeconds                   Key = "unavailableRootRescanSeconds"
+	LoudnessTargetLUFS                             Key = "loudnessTargetLufs"
+	LoudnessMaxRaiseDB                             Key = "loudnessMaxRaiseDb"
+	ReadThroughSweepEveryHours                     Key = "readThroughSweepEveryHours"
+	DerivedWorkSweepEverySeconds                   Key = "derivedWorkSweepEverySeconds"
+	BackupEveryHours                               Key = "backupEveryHours"
+	TimeZone                                       Key = "timeZone"
+	BackupsKeptHourly                              Key = "backupsKeptHourly"
+	BackupsKeptDaily                               Key = "backupsKeptDaily"
+	BackupsKeptWeekly                              Key = "backupsKeptWeekly"
+	ArtworkJPEGQuality                             Key = "artworkJpegQuality"
+	ArtworkSecondsBeforeEachRetry                  Key = "artworkSecondsBeforeEachRetry"
+	ArtworkCacheSweepEveryHours                    Key = "artworkCacheSweepEveryHours"
+	ArtworkServedAtFlushEverySeconds               Key = "artworkServedAtFlushEverySeconds"
+	ContinueWatchingMaxWorks                       Key = "continueWatchingMaxWorks"
+	JobViewMaxJobs                                 Key = "jobViewMaxJobs"
+	ScreenRefreshFirstWaitSeconds                  Key = "screenRefreshFirstWaitSeconds"
+	ScreenRefreshLongestWaitSeconds                Key = "screenRefreshLongestWaitSeconds"
+	ScreenRefreshFailedWaitSeconds                 Key = "screenRefreshFailedWaitSeconds"
+	TogetherDriftLeftAloneMs                       Key = "togetherDriftLeftAloneMs"
+	TogetherNudgeMostPercent                       Key = "togetherNudgeMostPercent"
+	TogetherSeekDriftBeyondMs                      Key = "togetherSeekDriftBeyondMs"
+	TogetherSeekOnlyDriftLeftAloneMs               Key = "togetherSeekOnlyDriftLeftAloneMs"
+	ChunkSoundKbps                                 Key = "chunkSoundKbps"
+	ServerUploadMbps                               Key = "serverUploadMbps"
+	WebRTCConnectionsPerNetwork                    Key = "webrtcConnectionsPerNetwork"
+	TogetherCatchUpBufferPercent                   Key = "togetherCatchUpBufferPercent"
+	TogetherSettleAfterChangeMs                    Key = "togetherSettleAfterChangeMs"
+	ShouldTogetherNudgeKeepPitch                   Key = "shouldTogetherNudgeKeepPitch"
+	ShouldTogetherVoiceCancelEcho                  Key = "shouldTogetherVoiceCancelEcho"
+	ShouldTogetherVoiceBrowserLevelMicrophone      Key = "shouldTogetherVoiceBrowserLevelMicrophone"
+	ChunkHoldMs                                    Key = "chunkHoldMs"
+	ChunkRunSlowestSpeedPercent                    Key = "chunkRunSlowestSpeedPercent"
+	ChunkKeptAheadSeconds                          Key = "chunkKeptAheadSeconds"
+	ChunkKeptLikelySeconds                         Key = "chunkKeptLikelySeconds"
+	ChunkKeptLeftSeconds                           Key = "chunkKeptLeftSeconds"
+	ChunkKeptMaybeSeconds                          Key = "chunkKeptMaybeSeconds"
+	PlayLadderWaitMs                               Key = "playLadderWaitMs"
+	AddressAtHome                                  Key = "addressAtHome"
+	AddressAtHomeLearnedFrom                       Key = "addressAtHomeLearnedFrom"
 )
 
 // Kind is a setting value's JSON type.
@@ -147,7 +146,7 @@ type Definition struct {
 	// IsValid, for a string, is what a value must also pass that no pattern can say; nil takes any.
 	IsValid func(text string) bool
 	// Unit, for an integer that is a length of time, is what one of it is: the unit its key's
-	// suffix spells out (_seconds, _hours, _days). Duration reads such a setting; zero is not a length of time.
+	// suffix spells out (Seconds, Hours, Days). Duration reads such a setting; zero is not a length of time.
 	Unit     time.Duration
 	Question string
 	// IsImportant puts the setting in the settings page's normal view, the few most households set;
@@ -385,7 +384,7 @@ func scanDefinitions() []Definition {
 		sourced(durationSetting(WatchedLibraryScanEveryHours, time.Hour, "24", 1, 8760,
 			"hours between full scans of a watched library's folders, beneath the watching, which can miss "+
 				"a change and never says so (D27, D272 §1)"),
-			"best guess: daily, as new_library_default_scan_every_hours; scanner.md: periodic full scans "+
+			"best guess: daily, as newLibraryDefaultScanEveryHours; scanner.md: periodic full scans "+
 				"are mandatory even with a perfect watcher"),
 		sourced(durationSetting(UnavailableRootRescanSeconds, time.Second, "10", 5, 3600,
 			"seconds between scans of a library folder that is unavailable, its disk or its share not "+
@@ -436,14 +435,14 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"D233 §8, the owner's: a month of what ended"),
 		sourced(durationSetting(JobFirstRetryDelaySeconds, time.Second, "30", 1, 86400,
 			"seconds before a failed job's first retry; each later retry waits twice as long, up to "+
-				"job_longest_retry_delay_hours"),
+				"jobLongestRetryDelayHours"),
 			"best guess (M2): doubling from 30 s reaches the day cap in about a dozen tries"),
 		sourced(durationSetting(ProviderTimeoutSeconds, time.Second, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
 			"best guess (M2): well past a slow answer from TMDB, short of a person giving up"),
 		sourced(durationSetting(DestinationFirstProbeDelaySeconds, time.Second, "30", 1, 3600,
 			"seconds after an outside host is found down before it is looked at again; each later look waits "+
-				"twice as long, up to destination_longest_probe_delay_seconds (D231 §6)"),
+				"twice as long, up to destinationLongestProbeDelaySeconds (D231 §6)"),
 			"D231 §6: the owner's decision, 2026-09-30"),
 		sourced(durationSetting(DestinationLongestProbeDelaySeconds, time.Second, "3600", 1, 24*3600,
 			"the longest, in seconds, an outside host that stays down waits between looks: an hour (D231 §6)"),
@@ -453,7 +452,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"TMDB's developer documentation: upper limits \"somewhere in the 40 requests per second range\" "+
 				"(developer.themoviedb.org/docs/rate-limiting, read 2026-09-25); its CDN's 50 is the bound"),
 		sourced(integerSetting(TMDBBackgroundRateSharePercent, "80", 1, 100,
-			"percent of tmdb_requests_per_second the server's own work may use, so a person's request always "+
+			"percent of tmdbRequestsPerSecond the server's own work may use, so a person's request always "+
 				"finds room (D231 §5)"),
 			"the owner's choice, 2026-09-30"),
 		sourced(integerSetting(OpenSubtitlesRequestsPerSecond, "5", 1, 5,
@@ -470,7 +469,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			Question: "How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of " +
 				"it as you want Orpheum to use.",
 			Description: "how fast the server can send, in Mbit/s, of which its films may use " +
-				"upload_films_share_percent: past that it lowers its players' qualities, and last removes a " +
+				"uploadFilmsSharePercent: past that it lowers its players' qualities, and last removes a " +
 				"Watch Together group's newest member (D286 §5); unanswered, it lowers nothing",
 			StartSource: "the owner, 2026-10-12: a setting the owner gives, a button to measure it later (D286 §5)",
 		},
@@ -558,8 +557,8 @@ func chunkDefinitions() []Definition {
 			StartJSON: json.RawMessage(`"6000k@1080p,3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p"`),
 			IsValid:   qualities.IsValid,
 			Description: "the lower qualities a film is cut into chunks at where its node encodes on a GPU (Quick " +
-				"Sync, NVENC), highest first, as chunk_qualities, which a node encoding in software uses (D323 §3)",
-		}, "D323 §3: chunk_qualities with Apple's HLS authoring spec's 1080p rung above it, which a GPU "+
+				"Sync, NVENC), highest first, as chunkQualities, which a node encoding in software uses (D323 §3)",
+		}, "D323 §3: chunkQualities with Apple's HLS authoring spec's 1080p rung above it, which a GPU "+
 			"encodes as fast as it plays"),
 		sourced(integerSetting(ChunkRunSlowestSpeedPercent, "110", 100, 1000,
 			"percent of playback speed every run of chunks on a node must keep: when one of two or more is "+
@@ -643,7 +642,7 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(durationSetting(NewLibraryDefaultScanEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for changes that a new library checked on an interval starts with; each "+
 				"library keeps its own once made"),
-			"best guess: daily, as metadata_refresh_check_every_hours; the web form had it as its own default"),
+			"best guess: daily, as metadataRefreshCheckEveryHours; the web form had it as its own default"),
 		sourced(integerSetting(LoudnessTargetLUFS, "-23", -40, -5,
 			"LUFS a measured sound is raised or lowered towards (D226 §3)"),
 			"D226 §3: EBU R128's target, chosen from the owner's films (-18.8 to -30.0 LUFS measured "+
@@ -716,7 +715,7 @@ func sourced(definition Definition, startSource string) Definition {
 	return definition
 }
 
-// day is the unit of a setting whose key ends _days.
+// day is the unit of a setting whose key ends Days.
 const day = 24 * time.Hour
 
 func durationSetting(

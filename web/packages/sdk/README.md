@@ -85,7 +85,7 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
   given up and noted (D268 §4). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`.
 - **After a stall a following player is ready again only with `refillAheadMs` loaded ahead, and after
-  a seek once what it loaded outlasts its next chunk's expected load by `ready_ahead_of_next_chunk_percent`**
+  a seek once what it loaded outlasts its next chunk's expected load by `readyAheadOfNextChunkPercent`**
   (`readyAheadOf`, `src/ready-ahead.ts`: the one rule every player starts by, its player telling the
   next chunk's load, `refillAheadMs` where it cannot; the owner, 2026-10-28), the film's end, or all
   the browser will load, read on across a hole no wider than

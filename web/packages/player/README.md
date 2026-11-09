@@ -172,7 +172,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   2026-10-31). `own-tracks.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
   plays on after a seek, only once what it loaded ahead, picture and sound both, outlasts its next
-  chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,
+  chunk's expected load by `readyAheadOfNextChunkPercent` (150 to start)** (the owner,
   2026-10-28): a chunked playback tells the SDK how long its next chunk is expected to take, the
   chunk after what is loaded on the quality hls.js loads, its byte range's size, else its length at
   that quality's average rate, over its controller's next-chunk bound, e^(centre − z × spread ×

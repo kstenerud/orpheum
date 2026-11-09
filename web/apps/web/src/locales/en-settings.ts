@@ -57,13 +57,13 @@ export const enSettingsCatalogue = {
     chunkKeptLikelySeconds:
       "Chunks made for a slow link take disk space. Those of a player paused or unheard for less than this are likely to be played again, and are removed last when the disk needs room.",
     chunkKeptMaybeSeconds:
-      "Past chunk_kept_likely_seconds and up to this, a paused or unheard player's chunks are kept as maybe played again. After it, they're the first removed when the disk needs room.",
+      "Past chunkKeptLikelySeconds and up to this, a paused or unheard player's chunks are kept as maybe played again. After it, they're the first removed when the disk needs room.",
     chunkLookaheadSeconds:
       "An encoding for a slow link makes this much film ahead of what its player asked for, then waits for the player to come closer.",
     chunkQualities:
       "When a player's link can't carry a film as it is, the server encodes it into smaller copies, cut in pieces as they're played. Each quality is written as its average bit rate and picture height, such as 2000k@540p. A player moves between them as its link allows.",
     chunkQualitiesHardware:
-      "A media node that encodes on its graphics card (Intel Quick Sync, NVIDIA NVENC, or AMD through VAAPI) can make a higher quality fast enough to play, so it offers more. Written as chunk_qualities.",
+      "A media node that encodes on its graphics card (Intel Quick Sync, NVIDIA NVENC, or AMD through VAAPI) can make a higher quality fast enough to play, so it offers more. Written as chunkQualities.",
     chunkRunSlowestSpeedPercent:
       "Encoding for slow links has to keep ahead of the people watching. When two or more encodings on one media node run slower than this share of playback speed, one is stopped so the others keep up: the oldest that nobody plays from, or else the newest. Its viewers are told why.",
     chunkRunSpanSeconds:
@@ -73,7 +73,7 @@ export const enSettingsCatalogue = {
     discoveryPendingCheckEverySeconds:
       "A new server is linked to your account at the discovery service by a claim code. Until you enter it there, the server asks this often whether it has been claimed.",
     discoveryRetryFirstSeconds:
-      "When the discovery service can't be reached, the server tries again after this long, then waits twice as long after each failure, up to discovery_retry_most_seconds.",
+      "When the discovery service can't be reached, the server tries again after this long, then waits twice as long after each failure, up to discoveryRetryMostSeconds.",
     dnsProviderToken:
       "To be reached from outside the home over HTTPS, the server needs a certificate for its name. It proves the name is its own by putting a record in the name's DNS for a moment, which needs an API token from your DNS provider, such as Cloudflare, allowed to edit that zone's records.",
     finishedAfterPercent:
@@ -121,11 +121,11 @@ export const enSettingsCatalogue = {
     readerLimitUnknownDisk:
       "When a media node can't tell what a disk is, the server treats it as the most careful kind.",
     retentionSweepEveryHours:
-      "Ended sign-ins and files gone from their disks are remembered for a time (ended_credentials_kept_days, removed_files_kept_days). This is how often those past their time are deleted.",
+      "Ended sign-ins and files gone from their disks are remembered for a time (endedCredentialsKeptDays, removedFilesKeptDays). This is how often those past their time are deleted.",
     scanVideosPerExamineBatch:
       "A media node reads new videos in groups, each with the files beside it, such as subtitles and posters. A group lost to a restart is read again, so a smaller group repeats less.",
     scanWithholdRemovalsOverPercent:
-      "When a disk is unplugged or a network share is down, a scan can find everything gone. A scan that would remove more than this share of a folder's files, and more than scan_withhold_removals_over_files, waits for you to confirm rather than forgetting what was watched.",
+      "When a disk is unplugged or a network share is down, a scan can find everything gone. A scan that would remove more than this share of a folder's files, and more than scanWithholdRemovalsOverFiles, waits for you to confirm rather than forgetting what was watched.",
     serverUploadMbps:
       "Everything people watch from outside the home is sent over your connection's upload, which is usually much slower than its download. The server keeps the films within this speed: past it, it moves players to lower qualities, and as a last resort removes the newest Watch Together member. Use your connection's upload speed, or less to keep some for other things. Unset, the server never lowers anything for the upload.",
     sessionIdleExpiryHours:
@@ -137,9 +137,9 @@ export const enSettingsCatalogue = {
     shouldTogetherVoiceCancelEcho:
       "Echo cancellation stops your film's sound, coming out of your speakers, from going back through your microphone to the others. With headphones there is none to cancel. On Android, turning it on makes the phone treat Watch Together as a call, which turns the film down and takes over its volume buttons.",
     signinFailureLimit:
-      "After this many wrong passwords, sign-in for that account, or from that address, is refused until signin_failure_window_seconds have passed. It slows down anyone guessing passwords.",
+      "After this many wrong passwords, sign-in for that account, or from that address, is refused until signinFailureWindowSeconds have passed. It slows down anyone guessing passwords.",
     signinFailureLimitEverywhereMultiple:
-      "Someone guessing one person's password from many networks at once escapes the per-network limit. Past this many times the limit in all, each sign-in for that person waits signin_everywhere_pace_seconds first. A device that signed in before is not slowed.",
+      "Someone guessing one person's password from many networks at once escapes the per-network limit. Past this many times the limit in all, each sign-in for that person waits signinEverywherePaceSeconds first. A device that signed in before is not slowed.",
     signinFailureLimitNetworkMultiple:
       "Many people can share one internet address, such as a household or a mobile carrier. One network may fail this many times the per-account limit before it is refused.",
     sortLocale:
@@ -165,9 +165,9 @@ export const enSettingsCatalogue = {
     uploadCrowdedSlowUnderPercent:
       "Something else in the house may be using the upload, such as a backup to the cloud. The server notices when several players at once receive less than they need. A player counts as slow when it gets less than this share of what its quality needs.",
     uploadFilmsSharePercent:
-      "Of server_upload_mbps, the films take this share. The rest is kept for Watch Together's voices, artwork, and the bursts a player sends ahead of what it plays.",
+      "Of serverUploadMbps, the films take this share. The rest is kept for Watch Together's voices, artwork, and the bursts a player sends ahead of what it plays.",
     uploadRaiseUnderPercent:
-      "After a playback was lowered for the upload, it is raised again only when the films' need has stayed under this share of their share for upload_raise_room_seconds, so raising one doesn't push the upload straight back over.",
+      "After a playback was lowered for the upload, it is raised again only when the films' need has stayed under this share of their share for uploadRaiseRoomSeconds, so raising one doesn't push the upload straight back over.",
     uploadSendAwayAfterSeconds:
       "When the upload stays overfull with every player at its lowest quality, nothing else can give. After this long, the newest Watch Together member is sent away, with a message saying why.",
     watchedLibraryScanEveryHours:
@@ -234,7 +234,7 @@ export const enSettingsCatalogue = {
     chunkQualities:
       "The lower qualities a film is cut into for a slow link, highest first, each as <kbps>k@<height>p.",
     chunkQualitiesHardware:
-      "The lower qualities a film is cut into for a slow link where its media node encodes on its graphics card, as chunk_qualities.",
+      "The lower qualities a film is cut into for a slow link where its media node encodes on its graphics card, as chunkQualities.",
     chunkRunSlowestSpeedPercent:
       "How fast each encoding for a slow link must run, compared to playback speed, before one is stopped to save the others.",
     chunkRunSpanSeconds: "The most film one encoding for a slow link makes before stopping.",
@@ -331,7 +331,7 @@ export const enSettingsCatalogue = {
     scanVideosPerExamineBatch: "How many videos of one folder a media node reads in one go.",
     scanWithheldRemovalsNamed: "How many files a held-back scan names when it asks you to confirm.",
     scanWithholdRemovalsOverFiles:
-      "A scan that would remove more than this many files, and more than scan_withhold_removals_over_percent of a folder's, waits for you to confirm first. One that would remove every file always waits.",
+      "A scan that would remove more than this many files, and more than scanWithholdRemovalsOverPercent of a folder's, waits for you to confirm first. One that would remove every file always waits.",
     scanWithholdRemovalsOverPercent:
       "A scan that would remove more than this share of a folder's files waits for you to confirm first.",
     screenRefreshFailedWaitSeconds:
@@ -367,7 +367,7 @@ export const enSettingsCatalogue = {
     shouldTogetherVoiceCancelEcho:
       "Whether the browser cancels echo on the microphone. Not needed with headphones; on Android it turns the film down.",
     signinEverywherePaceSeconds:
-      "How long each sign-in waits once a person has failed past signin_failure_limit_everywhere_multiple.",
+      "How long each sign-in waits once a person has failed past signinFailureLimitEverywhereMultiple.",
     signinFailureAnswerSeconds:
       "How long a failed sign-in waits before it is answered, so its timing gives nothing away.",
     signinFailureLimit:
@@ -418,7 +418,7 @@ export const enSettingsCatalogue = {
     uploadFilmsSharePercent:
       "The share of the server's upload the films may use. The rest is for voice, pictures and bursts.",
     uploadRaiseRoomSeconds:
-      "How long the need must stay under upload_raise_under_percent before each raise of a lowered playback.",
+      "How long the need must stay under uploadRaiseUnderPercent before each raise of a lowered playback.",
     uploadRaiseUnderPercent:
       "How far under the films' share the need must stay before a lowered playback is raised again.",
     uploadSendAwayAfterSeconds:

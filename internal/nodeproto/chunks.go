@@ -42,7 +42,7 @@ type ChunkStream struct {
 	Sound *SoundTrack `json:"sound,omitempty"`
 	// IsBoosted is whether a sound is the dialogue boost's mix.
 	IsBoosted bool `json:"isBoosted,omitempty"`
-	// SoundKbps is a sound's AAC bit rate, chunk_sound_kbps when the run was asked for.
+	// SoundKbps is a sound's AAC bit rate, chunkSoundKbps when the run was asked for.
 	SoundKbps int `json:"soundKbps,omitempty"`
 }
 

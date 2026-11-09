@@ -43,7 +43,7 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		toMs    int64
 		isKnown bool
 		wantMs  int64
-		// snapMs is together_snap_seeks_beyond_seconds as the device brought it; zero brings none.
+		// snapMs is togetherSnapSeeksBeyondSeconds as the device brought it; zero brings none.
 		snapMs int64
 	}{
 		{"a long jump", 1_461_502, true, 1_459_541, 0},

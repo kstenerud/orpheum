@@ -45,11 +45,11 @@ func ParseRole(name string) (Role, error) {
 const capabilityAdminister = "administer"
 
 // capabilityHostWatchTogether lets a role start a Watch Together session (D125).
-const capabilityHostWatchTogether = "host_watch_together"
+const capabilityHostWatchTogether = "hostWatchTogether"
 
 // capabilityEditMetadata lets a role fix identification and metadata (the role table's
 // capabilities; the built-in admin role carries it).
-const capabilityEditMetadata = "edit_metadata"
+const capabilityEditMetadata = "editMetadata"
 
 // Grant kinds and scopes this package mints (schema.md, grant; D154 §3).
 const (
@@ -62,7 +62,7 @@ const (
 	grantScopeDevice = "device"
 	// A device secret is an issued secret that proves a client was a device: what a sign-in resumes
 	// the device by (the third audit's A8).
-	grantScopeDeviceSecret = "device_secret"
+	grantScopeDeviceSecret = "deviceSecret"
 )
 
 // tokenBytes is a session token's length: 256 random bits, which no one guesses. A format, not an
@@ -286,7 +286,7 @@ type NewDevice struct {
 // limit counts by clientAddress, the client's network address. A hash made under older
 // parameters is re-hashed.
 //
-// Every failure, whatever failed, is answered no sooner than signin_failure_answer_seconds after the
+// Every failure, whatever failed, is answered no sooner than signinFailureAnswerSeconds after the
 // sign-in began, and a success as soon as it is done (D312 §17): an unknown name already costs a
 // hash, and the floor hides what the hash slots' wait and the limits would still tell.
 func (service *Service) SignIn(
