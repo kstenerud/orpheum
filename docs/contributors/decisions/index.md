@@ -455,10 +455,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D447](working-notes.md#d447--a-server-is-installed-from-one-compose-file-its-first-start-writing-the-deployment-from-its-command-line) A server is installed from one compose file, its first start writing the deployment from its command line — *revisited by D448, D449*
 - [D448](working-notes.md#d448--a-server-installs-and-finds-its-parts-with-as-little-skill-as-possible-the-deployment-audits-proposals-adopted) A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted — *revisited by D449, D452*
 - [D449](working-notes.md#d449--the-compose-files-server-settings-at-every-start-its-machines-port-the-setup-codes-file-media-folders-and-catalogues) The compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
-- [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced
+- [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced — *revisited by D454*
 - [D451](working-notes.md#d451--reserved-remote-access-approved-from-the-account) Reserved: remote access approved from the account
 - [D452](working-notes.md#d452--home-is-any-private-network-but-the-servers-own-the-address-at-home-is-learned-not-typed) Home is any private network but the server's own; the address at home is learned, not typed
 - [D453](working-notes.md#d453--orpheum-is-the-name-no-longer-provisional) "Orpheum" is the name, no longer provisional
+- [D454](working-notes.md#d454--a-missing-kernel-feature-degrades-and-is-named-it-never-stops-a-server-that-can-play) A missing kernel feature degrades and is named; it never stops a server that can play
 
 ## Archived
 

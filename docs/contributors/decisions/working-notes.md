@@ -27206,3 +27206,53 @@ with the name Orpheum."* Amends [D195](#d195--orpheum-is-the-provisional-name).
   provisional: the places D195 lists keep it, and nothing waits on a rename.
 - **D195's trademark clearance stays due** before any store listing or the paid relay. It is now a
   check on a name already in public use, not the step that makes the name final.
+
+## D454 — A missing kernel feature degrades and is named; it never stops a server that can play
+
+**Decided** (2026-11-09), by the project owner: *"if landlock is simply not available on that kernel
+version, we shouldn't block it at all, but rather note that this feature would require a newer
+kernel version. We're going to have many customers on older hardware that doesn't support features
+that make things better, but aren't strictly required for them to be able to play videos."* The
+proposal below was agreed as given (*"Agreed on all of that. Go with your recommendations."*). Found
+fitting the compose file to a Synology DS218 (DSM 7, kernel 4.4, Docker 24). Amends D450 §1, D273
+§5, D112, D447 and D449's compose file, and the security week's MPTCP proposal
+(design/research/security-week-2026-10-30.md §2.1).
+
+1. **Needed, or an improvement.** What a server needs to play a film is needed: its containers start,
+   the core opens its database and serves, the node reads the media and runs FFmpeg. Everything else
+   the kernel or Docker may lack is an improvement: Landlock, MPTCP turned off, IPv6, a GPU, the
+   router's port mapping. A missing improvement stops nothing. The System page names it as not
+   available and what would bring it (*"Landlock needs Linux 5.13 or newer"*), as a note, not an
+   alarm.
+2. **A compose file names no kernel feature.** A file cannot test the kernel, and Docker refuses to
+   create a container whose sysctl or option the kernel lacks, before Orpheum runs and can say why.
+   So a household's compose file carries no sysctl and no option a supported kernel may lack; the
+   program checks at run time and degrades (§1). A test renders each file and fails on one.
+3. **Landlock or seccomp missing from the kernel: the node runs unconfined, unasked.** It reads and
+   transcodes as with them, and the System page says which is missing and the kernel that brings it.
+   The node's container still has no network, a read-only root and media, no capabilities and
+   `no-new-privileges`, and Docker's default seccomp profile. A kernel that **has** the mechanism but
+   where applying it fails is a fault, not old hardware: the node stays locked there, and D450 §1's
+   **Run without confinement…** still lets an admin accept it. `confinement_policy = "require"`
+   keeps the old refusal for an operator who wants it.
+4. **No `net.mptcp.enabled` line.** Our binaries open no MPTCP socket (`godebug multipathtcp=0`,
+   `TestSockets_UseNoMultipathTCP`); the node and the folders container have no network; Docker's
+   embedded DNS listens on the container's own loopback; a kernel without MPTCP has nothing to
+   reach. The System page notes a host whose MPTCP is on, from `/proc/sys/net/mptcp/enabled`.
+5. **The household's core runs on the host's network** (`network_mode: host`) in the pasted compose
+   file (deploy/omv, the catalogue's) and the install script's direct deployment (compose-direct). It
+   has the machine's own addresses in both families, so there is no IPv6 network for an old Docker
+   to refuse, no docker-proxy handing it the internet's requests (the Plex-chain review's L1), and
+   D452's address at home is on its own interface. It listens on high ports alone, so no sysctl lets
+   it bind 443: HTTPS on the published HTTPS port (8444), the this-machine port on 127.0.0.1 alone,
+   which the core binds itself now that Docker no longer publishes it on loopback. The node keeps
+   `network_mode: none`. The deployment with a tunnel (compose.yaml, which our own servers run) keeps
+   its bridge network and its port sysctl; it drops the MPTCP lines (§4).
+
+**Rejected:** IPv6 off by default with an opt-in for Docker 27 (a household's connections from away
+over IPv6 lost by default); keeping the bridge network and asking an old Docker's owner to edit the
+file (the tinkering this removes); a privileged helper setting sysctls in the core's namespace
+(Docker mounts `/proc/sys` read-only, and it is more to trust).
+
+**Status:** decided (2026-11-09); not built yet. Built with D452 §3–5, ending in one Docker test of
+the pasted compose file with no address typed and no kernel feature assumed.
