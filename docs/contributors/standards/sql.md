@@ -131,9 +131,10 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   baseline stays at it, frozen, and a schema change appends a step; when the owner says
   production has migrated, they move the checkpoint and the steps up to it fold into the
   baseline. **Enforced by:** `TestSteps_KeepTheMigrationWindow`; the pre-edit hook; the
-  checkpoint is a gate file. The owner commits `internal/store/migrations/LIVE` to end both.
+  checkpoint is a gate file. The owner commits `internal/store/migrations/LIVE` to end both,
+  and did, at the baseline 0086 ([D460](../decisions/working-notes.md)): migrations are live.
 - **Append only, forward only.** A merged step is never edited, renamed or deleted; a mistake is
-  a new step. Until migrations are live, the baseline is the exception, rewritten by each fold.
+  a new step, and the baseline is a committed step like any other (D460).
   There are no down migrations: the `VACUUM INTO` snapshot taken before migrating is the way
   back. **Enforced by:** the pre-edit hook blocks edits to existing steps; a test compares each
   step with a committed checksum list, so an edit fails even outside the agent

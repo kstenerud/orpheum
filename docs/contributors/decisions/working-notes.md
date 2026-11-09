@@ -27552,5 +27552,39 @@ astonishment)."* To the proposal that every name be camelCase, the owner: *"agre
   `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
 - 3: `TestItem_SaysAnExtrasTypeInCamelCase`, `TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain`
   (a secret's stored name, sent in camelCase)
-- 4: `TestMigrate_Step0086ReadsBackEveryKeptNameInCamelCase`
+- 4: `TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase` (step 0086, folded into the baseline by D460)
 - 5: `TestArch_JSONNamesAreCamelCase`, `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
+
+## D460 — Migrations are live from a baseline at 0086, production's schema
+
+**Decided** (2026-11-09), by the project owner: *"Once we migrate prod to the latest (we should do
+this on nas.lan and on ainas.lan so that they're in sync, then run off ainas again), we can drop
+the legacy migration code before that point. This will now become our true migration origin point,
+kept like it would be on a live system because we'll have outside users for the first time."* To
+"Shall I go ahead with the fold?", the owner: *"go ahead"*.
+
+1. **The baseline is `0086_baseline.sql`, the migration origin.** It folds steps 0049 to 0086,
+   which production ran (on ainas, and nas.lan in step with it, at version 86, 2026-11-09); its
+   `orpheum:baseline folds` line names step 0086's checksum, so a database at 86 carries on. Each
+   object is the text SQLite holds for it in a database migrated through the steps, so a new
+   database and production's hold the same schema, word for word; the fold checked the baseline's
+   golden against the one the steps built, which differed only in the compatible version (86 for
+   a new database, 80 for production's) and the empty sequences the steps left.
+2. **`CHECKPOINT` moves to 86 and `migrations/LIVE` is committed** (D228's and D272 §5's windows
+   end): from here every schema change is a new step, append-only, and no committed step, the
+   baseline included, is edited, renamed, deleted or folded again. A release of v0.3.3 or later
+   is the first an installation outside production runs, and it builds its database from here.
+3. **The folded steps' row tests go with their steps** (as D228's folds always did); what of them
+   was a rule of the schema itself stays as a test on the baseline:
+   `TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary` (step 0084's, D435) and
+   `TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase` (step 0086's, D459 §4). The
+   reference scale fills at 0086's tables, its statistics unchanged but for the steps recorded.
+
+**Status:** decided (2026-11-09).
+
+**Proven by:**
+- 1: `TestMigrate_FreshSchemaEqualsTheGolden`, `TestMigrate_ADatabaseMigratedThroughTheFoldedStepsCarriesOn`,
+  `TestMigrate_ABaselineBuildsANewDatabaseAtItsVersion`
+- 2: `TestSteps_KeepTheMigrationWindow`, `TestSteps_MatchTheCommittedChecksums`
+- 3: `TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary`,
+  `TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase`, `TestReferenceScale`

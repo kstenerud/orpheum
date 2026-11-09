@@ -1,12 +1,6 @@
 -- application_id 1447646258
 -- user_version 86
--- compatible_version 80
--- sqlite_sequence file 0
--- sqlite_sequence grp 0
--- sqlite_sequence invitation 0
--- sqlite_sequence library 0
--- sqlite_sequence ordering 0
--- sqlite_sequence place 0
+-- compatible_version 86
 -- sqlite_sequence role 2
 
 -- index artwork_chosen

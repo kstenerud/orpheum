@@ -21,7 +21,7 @@
 //   - The system library, which holds the server's own videos, is in no list of libraries or
 //     anything drawn from them, and its name is outside the libraries' name space; the server finds
 //     it by its kind alone (D435 §1–3). Enforced by TestArch_TheSystemLibraryIsInNoListing and
-//     TestMigrate_Step0084LeavesTheSystemLibraryOutOfVersionLibrary.
+//     TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary.
 //   - Rows are closed and their errors checked. Enforced by sqlclosecheck and rowserrcheck.
 //   - Generated code in sqlcgen is never edited by hand. Enforced by make check-generated and the
 //     pre-edit hook.
@@ -103,8 +103,8 @@
 //     copy refused or cut short, is removed through the caller's RemoveSnapshotFile: the store
 //     removes no file itself (D144). Enforced by TestMigrate_RemovesASnapshotFoundDamagedBeforeTrustingIt,
 //     TestMigrate_RemovesASnapshotItsCheckRefused.
-//   - A committed step is never edited, renamed or deleted; until migrations are live, the
-//     baseline is the exception, rewritten by each fold (D228). Enforced by the pre-edit hook and
+//   - A committed step, the baseline included, is never edited, renamed or deleted: migrations are
+//     live from the baseline at 0086 (migrations/LIVE, D460). Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
 //   - Until migrations are live (no migrations/LIVE), the steps are a baseline and at most one
 //     step after it (D228); once production runs (migrations/CHECKPOINT), the baseline is the
@@ -131,41 +131,10 @@
 //     TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne,
 //     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
 //     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
-//   - Every step has a test on its rows, until a fold takes it into the baseline (D228): step 0049
-//     in TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus; step 0060 (D363), which carries a
-//     production database's files to places and coverage and refuses a mixed library loudly, in
-//     TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage and
-//     TestMigrate_Step0060RefusesAMixedLibrary; step 0061 (D366), which dates each title and series
-//     by its year alone until a pass reads its day, in
-//     TestMigrate_Step0061DatesEachTitleAndSeriesByItsYear; step 0062 (D370), which keeps watched what
-//     was finished until it, in TestMigrate_Step0062KeepsWatchedWhatWasFinished; step 0068 (D416 §5) in
-//     TestMigrate_Step0068MakesEveryLibraryKindSingular; step 0069 (D426 §7), which renames as the
-//     API names, in TestMigrate_Step0069KeepsEveryRowUnderItsNewName; step 0070 (D426 §9), which
-//     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache; step 0071
-//     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow;
-//     step 0072 (D426 §2), which puts an item's kind and the columns every kind shares on the item, in
-//     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem; step 0073 (D427), which brings
-//     link_memory back to persistent.db, in TestMigrate_Step0073BringsThePlayersLinkBackToPersistent;
-//     step 0074 (D426 §3), which renames title to work and collection to sequence, in
-//     TestMigrate_Step0074KeepsEveryRowUnderWorkAndSequence; step 0075 (D426 §10, sql.md M1), which
-//     stores six small tables by their key and gives edited rows a revision, in
-//     TestMigrate_Step0075KeepsEveryRowWithoutTheRowidAndAtRevisionZero; step 0076 (D428), which
-//     moves a preference on a film or a series to the scope 'item', in
-//     TestMigrate_Step0076MovesEveryWorkPreferenceToTheScopeItem; step 0077 (D426 §4), which keeps
-//     one view of which library covers a place, in
-//     TestMigrate_Step0077KeepsOneCoverageViewThatSaysWhatTheThreeSaid; step 0078 (D426 §4), which
-//     splits a file from its places, every id kept and each copy a place, in
-//     TestMigrate_Step0078KeepsEveryIDAndMakesEachCopyAPlace; step 0079 (D426 §5), which makes a
-//     group a row that its positions, names and season posters reference, in
-//     TestMigrate_Step0079MakesEachGroupARowAndKeepsEveryPlace; step 0080 (D426 §6), which makes a
-//     series' members its aired order's places, every member kept, in
-//     TestMigrate_Step0080KeepsEveryMemberAsAPlaceInItsAiredOrder; step 0081 (D432 §6), which adds
-//     a place's mark that a repoint left it unconfirmed, every place confirmed, in
-//     TestMigrate_Step0081LeavesEveryPlaceConfirmedWithItsModifiedTime; step 0082 (D432 §6), which
-//     makes a live node's name unique, the earliest of a name keeping it and the rest renamed, in
-//     TestMigrate_Step0082KeepsTheEarliestLiveNodeOfANameAndRenamesTheRest; step 0083 (D432 §6),
-//     which finds a file's places by place.file_id, in
-//     TestMigrate_Step0083FindsAFileAtAPlaceWhoseIDIsNotItsOwn.
+//   - Every step after the baseline has a test on its rows (D228); the baseline, 0086, folded
+//     steps 0049 to 0086, whose tests went with them (D460). A database built from it holds
+//     production's schema word for word, as the fold found against the golden the steps built.
+//     Enforced by TestMigrate_FreshSchemaEqualsTheGolden from then on, and review.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
@@ -197,6 +166,7 @@
 //   - D31: SQLite, pure-Go driver, WAL, pragmas read back (as refined by D193).
 //   - D181: the migration policy and our small runner.
 //   - D228: until migrations are live, a baseline and one step, and a change folds the last step.
+//   - D460: migrations are live from the baseline at 0086, production's schema.
 //   - D185: the schema as SQL that runs.
 //   - D303: the data-layer principles (standards/sql.md §13).
 //   - D173: tombstones, not deletes; live_* views.
@@ -210,10 +180,9 @@
 //   - open.go is a twin of orpheum-connect's (look-alike-watch-list.md, Twins): a change to it is
 //     copied there in the same batch, and checked to work there; ours.go is Orpheum's own.
 //   - migrations/: numbered SQL files, each with its line in migrations/SHA256SUMS (sha256sum's
-//     format). Until migrations are live (D228), a schema change folds the last step into the
-//     baseline (NNNN_baseline.sql at that step's version, its "orpheum:baseline folds" line naming
-//     the folded step's checksum) and adds the change as the next step; from then on steps are
-//     append-only. The goldens are regenerated with go test ./internal/store -run Golden -update.
+//     format). Migrations are live (D460): a schema change is the next step, append-only, and
+//     the baseline, 0086_baseline.sql, is never folded again. The goldens are regenerated with
+//     go test ./internal/store -run Golden -update.
 //   - queries/: one .sql file per concern; run make generate.
 //   - cache/schema.sql and cache/queries/: cache.db. Raise the version line on any schema change.
 //   - cache.go: OpenCache, and cache.db's Read and Write. jobs.go: the job queue's storage on

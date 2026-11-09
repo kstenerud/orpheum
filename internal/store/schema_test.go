@@ -153,3 +153,57 @@ func TestSchema_EveryTableIsStrict(t *testing.T) {
 		}
 	}
 }
+
+// The system library (D435 §1–3) is one row at most, by the kind 'system', naming a library that
+// version_library, and so every list of titles, leaves out; a library that is not it is listed.
+func TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	execRaw(t, database,
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) VALUES
+		 (1, 'Clips', 'other', 'nfo', 'manual', 0, 1), (2, 'System', 'other', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media'), (2, 1, '/own')`,
+		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (20, 'other', 'identified', 1)",
+		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (21, 'other', 'identified', 1)",
+		"INSERT INTO work (id, kind) VALUES (20, 'other'), (21, 'other')",
+		"INSERT INTO version (id, work_id, created_at) VALUES (30, 20, 1), (31, 21, 1)",
+		"INSERT INTO file (id) VALUES (10), (11)",
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) VALUES
+		 (10, 10, 1, '/media/a.mkv', CAST('/media/a.mkv' AS BLOB), 'read', 1, 1),
+		 (11, 11, 1, '/own/b.mp4', CAST('/own/b.mp4' AS BLOB), 'read', 1, 1)`,
+		`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES
+		 (10, 'other', 'listed', 30), (11, 'other', 'listed', 31)`)
+	listed := func() string {
+		return fmt.Sprint(queryRows(t, database, "SELECT version_id, library_id FROM version_library ORDER BY 1", 2))
+	}
+	if got := listed(); got != "[[30 1] [31 2]]" {
+		t.Errorf("with no system library, version_library = %s; want both libraries' videos", got)
+	}
+	execRaw(t, database, "INSERT INTO system_library (kind, library_id) VALUES ('system', 2)")
+	if got := listed(); got != "[[30 1]]" {
+		t.Errorf("with library 2 the system library, version_library = %s; want only library 1's video", got)
+	}
+	insert := "INSERT INTO system_library (kind, library_id) VALUES (?, 1)"
+	_, err := database.writer.ExecContext(t.Context(), insert, "system")
+	if err == nil || !strings.Contains(err.Error(), "UNIQUE") {
+		t.Errorf("a second system library = %v; want it refused, one per server", err)
+	}
+	_, err = database.writer.ExecContext(t.Context(), insert, "films")
+	if err == nil || !strings.Contains(err.Error(), "CHECK") {
+		t.Errorf("a library of another kind = %v; want it refused by the kind's check", err)
+	}
+}
+
+// A new database's two built-in roles name their capabilities as the API does, in camelCase
+// (D459 §4): what step 0086 renamed, the baseline that folded it holds (D460).
+func TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	got := fmt.Sprint(queryRows(t, database, "SELECT name, is_builtin, capabilities FROM role ORDER BY id", 3))
+	const want = "[[admin 1 administer,deleteMedia,download,editMetadata,hostWatchTogether,remoteAccess] " +
+		"[user 1 hostWatchTogether,remoteAccess]]"
+	if got != want {
+		t.Errorf("the built-in roles = %s; want %s", got, want)
+	}
+}

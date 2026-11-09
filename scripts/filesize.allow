@@ -1,0 +1,2 @@
+# Files over check_source.py's line limit that must stay whole: `path  # reason` per line.
+internal/store/migrations/0086_baseline.sql  # a baseline is one migration step, the whole schema in one file, and committed steps are never edited or split (D460)

@@ -1,6 +1,6 @@
 > **ABOUTME:** Where the schema's migration steps live: numbered SQL files that the store's own
-> runner applies in order and that sqlc reads as the schema — until migrations are live, a
-> baseline and the one step after it, or, once production runs, every step since its checkpoint.
+> runner applies in order and that sqlc reads as the schema: the baseline, 0086, production's
+> schema at the migration origin (D460), and every step after it. Migrations are live.
 
 # Migrations
 
@@ -22,9 +22,10 @@ The rules are in
   step since it last ran. When the owner says production has migrated, they move the checkpoint,
   and the steps up to it fold into a new baseline at that version.
 - **Live, append only.** The owner declares migrations live by committing a file named `LIVE`
-  here. From then on a step that has been merged is never edited, renamed or deleted; a mistake
-  is corrected by a new step. The pre-edit hook blocks edits to committed steps, and to the
-  baseline too once `LIVE` exists.
+  here, which they did at the baseline 0086 (D460, 2026-11-09): the two rules above are history.
+  From then on a step that has been merged is never edited, renamed or deleted; a mistake is
+  corrected by a new step. The pre-edit hook blocks edits to committed steps, and to the baseline
+  too once `LIVE` exists.
 - **Forward only.** There are no down migrations; the snapshot taken before migrating is the way
   back ([migrations.md](../../../docs/contributors/design/plans/migrations.md)).
 - **DDL and data statements only.** The runner owns `PRAGMA user_version`, `application_id` and

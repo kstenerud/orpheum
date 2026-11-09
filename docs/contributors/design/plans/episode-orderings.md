@@ -162,7 +162,7 @@ tables.
 
 ## 3. Mapping onto the schema
 
-The tables (`internal/store/testdata/golden/schema-v0056.sql`) already hold most of this: an
+The tables (as step 0056 left them) already held most of this: an
 `ordering` per `(sequence_id, name)` with a `provider`, a `position` per
 `(ordering_id, work_id)` with `group_number`, `number_in_group` and a total `sort_order`, and a
 `group_text` for a group's name. What is missing is small and listed in §3.5.
