@@ -27435,14 +27435,19 @@ the cost of decoding the source, and a test pattern may encode faster than a fil
 the node's at its start, alone, not under the load of other runs. A machine near the line may pass
 the trial and still stall on a heavy film; the stall's own handling (D247) then applies as before.
 
-**Status:** decided (2026-11-09); the device check is VQ293.
+**Status:** built (2026-11-09) in `internal/node/encode` (`MeasureSpeed`), `cmd/orpheum`
+(`detectCapabilities`), `internal/core/nodes` (`EncodeSpeedPercent`), `internal/core/chunks`
+(`IsTooSlowToEncode`, `offerOf`), `internal/core/playback`, `internal/core/api` (`tooSlowToConvert`, the
+System body's `encodeSpeedPercent` and `isTooSlowToConvert`) and the web client's System page; the
+device check is VQ293.
 
 **Proven by:**
 - 1: `TestMeasureSpeed_IsFFmpegsLastSpeedEncodingTheLowestQuality`,
   `TestMeasureSpeed_ATrialCutShortGivesTheSpeedItReachedAndOneThatSaidNoneFails`,
   `TestHardwareReport_IsTheDevicesEachTrialTheEncoderChosenAndItsSpeed`,
   `TestEncodeSpeedPercent_IsTheLastHellosMeasure`
-- 2, 3: `TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied`,
+- 2: `TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied`
+- 3: `TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied`,
   `TestStartPlayback_AFilmOnAMachineTooSlowToConvertItIsRefusedAndStartsOnlyItsKeyframesRead`, and
   in the web client "a play on a server too slow to convert it (D457)" (`problem.test.ts`)
 - 4: `TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings`, and in the web client "the System
