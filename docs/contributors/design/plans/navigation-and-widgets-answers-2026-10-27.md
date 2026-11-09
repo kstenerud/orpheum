@@ -2780,3 +2780,18 @@ server heads it", with production's discovery deployed after it.
    `TestServe_AnswersTheClientsAddressesAtTheRoot` fails, finding a client where a test binary has
    none. Passed alone afterwards. A fix: build the embed in its own tree, or have the build take the
    test lock while the copy is in place.
+
+**The owner's answers (2026-11-09):**
+1. Up next in the corner with the whole overlay up too: "yes". Done: "fix(player): Up next stays in
+   the film's top-right corner with the whole overlay shown", in place of D407 §1's row 0's end. Up
+   and Down still reach the card, the overlay's parts being walked in their order, not by where
+   they are drawn; the browser test checks the corner through the whole overlay.
+2. A Synology compose file needing no `.env`: "yes". Done: "feat(deploy): a Synology compose file
+   that needs no .env, its three values in the file", `deploy/synology/compose.yaml`, the OMV file
+   with the media folder, user and time zone as anchors under `# Yours` and its data in the
+   project's `data/`; `TestSynologyCompose_IsTheOMVOnesWithItsValuesInTheFile` keeps it in step.
+   Run here in Docker with v0.3.3: the folders were made and owned, the setup code written, the node
+   said hello. install.md's Synology steps drop the data folder and the `.env`. Unseen on a device:
+   that Container Manager's project runs relative paths from its Path, and its **YAML
+   Configurations** tab, which install.md names for a later change.
+3. The Synology screen labels: the owner asks the tester, who can probably try on 2026-11-10.
