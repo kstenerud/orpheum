@@ -260,6 +260,15 @@ describe("settings", () => {
     ]);
   });
 
+  it("says what the address at home is and where it came from, in the person's words (D452 §3)", async () => {
+    expect(await paragraphsFor("address_at_home")).toEqual([
+      "The server's address in your home, which devices there reach it at directly. It is learned from a device at home that opens the server by its address, or set on the System page; empty until then.",
+    ]);
+    expect(await paragraphsFor("address_at_home_learned_from")).toEqual([
+      "The device the address in your home was learned from. Empty when an admin set it.",
+    ]);
+  });
+
   it("says a film is converted, not prepared, now the whole-film prepare is retired (D344), its pieces' length a floor its keyframes decide (D414 §5)", async () => {
     expect(await paragraphsFor("hls_segment_length_seconds")).toEqual([
       "The shortest piece a converted film is cut into; its keyframes decide where each piece ends. Changing it cuts films again when they are next played.",
