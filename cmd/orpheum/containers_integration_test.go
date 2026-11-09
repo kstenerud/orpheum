@@ -36,7 +36,7 @@ type containerFilm struct {
 // realMedia's films: RealVideo with its keyframes two seconds apart, as RealVideo's are sparse, and
 // RealAudio 1.0 (14.4K), the RealMedia codecs the pinned FFmpeg can write (the owner, 2026-10-27).
 func realMediaFilms() []containerFilm {
-	everyAxis := []string{"container", "video_codec", "audio_codec"}
+	everyAxis := []string{"container", "videoCodec", "audioCodec"}
 	return []containerFilm{
 		{
 			extension: "rm", picture: "320x240", sound: "8000", probedCodec: "rv20", profile: "h264",
@@ -56,8 +56,8 @@ func realMediaFilms() []containerFilm {
 // and Matroska relatives' and the older and rarer ones'. A picture with no audio is an IVF's or a
 // Y4M's, which hold none.
 func sweptFilms() []containerFilm {
-	everyAxis := []string{"container", "video_codec", "audio_codec"}
-	containerAndPicture := []string{"container", "video_codec"}
+	everyAxis := []string{"container", "videoCodec", "audioCodec"}
+	containerAndPicture := []string{"container", "videoCodec"}
 	container := []string{"container"}
 	mpeg2With := func(extension, audio, muxer string) containerFilm {
 		return sweptFilm(extension, "mpeg2video", "h264", everyAxis,
