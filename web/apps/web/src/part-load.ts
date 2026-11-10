@@ -53,7 +53,7 @@ export async function loadPart<Loaded>(
   load: () => Promise<Loaded>,
   parts: PartLoadParts,
 ): Promise<Loaded> {
-  return await loadMarked(reloadedForPartKey, part, load, parts);
+  return await loadMarked({ mark: reloadedForPartKey, part }, load, parts);
 }
 
 /**
@@ -66,13 +66,12 @@ export async function loadRole<Loaded>(
   load: () => Promise<Loaded>,
   parts: PartLoadParts,
 ): Promise<Loaded> {
-  return await loadMarked(reloadedForRoleKey, role, load, parts);
+  return await loadMarked({ mark: reloadedForRoleKey, part: role }, load, parts);
 }
 
 /** Loads part by load as loadPart says, the tab's reload for it marked at mark. */
 async function loadMarked<Loaded>(
-  mark: string,
-  part: string,
+  { mark, part }: { readonly mark: string; readonly part: string },
   load: () => Promise<Loaded>,
   parts: PartLoadParts,
 ): Promise<Loaded> {
