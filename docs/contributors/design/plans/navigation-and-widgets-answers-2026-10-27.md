@@ -2810,4 +2810,7 @@ Found by the lead:
 - **The release record expires after 30 days** (`recordLasts`, the audit's F9): v0.4.0's, issued
   2026-11-10, expires 2026-12-10. Without a release before then the owner re-signs it, and nothing yet
   reminds anyone (principles §17): a check or a reminder that names the date is wanted.
+- **A core's start did not read the record.** Once the signed record was on orpheum.cc, a fresh
+  v0.4.0 core (OMV file, not enrolled) still answered `checkedAt` 0 some 50 seconds after its start;
+  Check now read it at once. `checkRelease` is said to run at the core's start: find what holds it back.
 - **The Fire TV upstairs feels very sluggish** using the app (the owner, 2026-11-10).
