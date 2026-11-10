@@ -173,7 +173,7 @@ describe("a pinned version", () => {
     mounted?.unmount();
     const synology = await mountView({ ...latest, installRoute: "synology", pinnedTag: "v0.3.2" });
     expect(synology.textContent).toContain(
-      "put latest back in place of v0.3.2 on the file's image lines",
+      "put latest back in place of v0.3.2 wherever the file has it, its image lines and the line after --image-tag",
     );
     mounted?.unmount();
     expect((await mountView(latest)).textContent).not.toContain("pins version");

@@ -55,7 +55,7 @@ export const enUpdate = {
     pinnedTag:
       "Your compose file pins version {{tag}} in place of latest, so pulling takes nothing newer. To follow each release again, set ORPHEUM_TAG to latest, then update.",
     pinnedTagSynology:
-      "Your compose file pins version {{tag}} in place of latest, so Build takes nothing newer. To follow each release again, put latest back in place of {{tag}} on the file's image lines, then update.",
+      "Your compose file pins version {{tag}} in place of latest, so Build takes nothing newer. To follow each release again, put latest back in place of {{tag}} wherever the file has it, its image lines and the line after --image-tag, then update.",
     checkNow: "Check now",
     checkedAt: "Checked {{at}}.",
     checkedJustNow: "It was checked under a minute ago. Try again in a minute.",
