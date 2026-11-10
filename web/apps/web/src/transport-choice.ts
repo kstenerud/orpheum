@@ -14,32 +14,9 @@ import {
   type SwitchableFetch,
 } from "@orpheum/sdk";
 
-import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import type { Session } from "./session.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
-
-/** The address parameter that asks for the WebRTC path: `?transport=webrtc`. */
-export const transportParameter = "transport";
-
-/** What the WebRTC path is called where the console says requests moved to it. */
-export const pathName = "WebRTC";
-
-/** Where the choice is kept for the rest of the tab's life, as the address loses it on navigating. */
-const transportStorageKey = "orpheum.transport";
-
-/**
- * Whether this tab sends its requests over WebRTC data channels (D273 §8). Until the discovery
- * signals for a core HTTPS cannot reach (plans/webrtc-transport.md W4), the path is asked for by
- * `?transport=webrtc`, which tests and the owner use to exercise it; the tab keeps the choice.
- */
-export function wantsWebrtc(search: string, tabStorage: StringStorage | undefined): boolean {
-  const storage = storageThatNeverThrows(tabStorage);
-  const asked = new URLSearchParams(search).get(transportParameter);
-  if (asked !== null) {
-    storage.setItem(transportStorageKey, asked);
-  }
-  return storage.getItem(transportStorageKey) === "webrtc";
-}
+import { pathName } from "./transport-wanted.ts";
 
 /**
  * The signaller of the direct mode: posts each offer to the core's own offer endpoint. A post that

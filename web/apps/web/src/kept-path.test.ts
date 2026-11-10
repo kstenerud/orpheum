@@ -9,7 +9,7 @@ import { betterPathFirstMs, betterPathMostMs, keepPath } from "./kept-path.ts";
 import { loaderOver, type AtClientOrigin } from "./loader-at-client-origin.tsx";
 import { pairsSettleMs, type PathChoice } from "./path-choice.ts";
 import { createSession } from "./session.ts";
-import { pathName } from "./transport-choice.ts";
+import { pathName } from "./transport-wanted.ts";
 
 afterEach(() => {
   vi.useRealTimers();

@@ -118,6 +118,17 @@ describe("what the shell's entry and the update's check load (the architecture a
   });
 });
 
+describe("what the client loads before it draws (the architecture audit of 2026-11-10, Startup 6)", () => {
+  it("is no WebRTC path: a tab that asked for it loads it in the asking's branch", () => {
+    const loadedBy = loadedAtStart();
+    expect(loadedBy.has("./transport-wanted.ts")).toBe(true);
+    expect(
+      loadedBy.has("./transport-choice.ts") ? chainTo(loadedBy, "./transport-choice.ts") : "",
+    ).toBe("");
+    expect(sources["./client-main.tsx"]).toContain('import("./transport-choice.ts")');
+  });
+});
+
 // The test-regime audit of 2026-10-31 (R4): test-dom.tsx imported later-screens.tsx for its reset,
 // which made every test that mounts anything "related" to every screen, half the suite rerun by
 // revert-red for one changed screen. A helper reaches a screen's code only as the test itself does
