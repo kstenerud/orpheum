@@ -4,13 +4,8 @@
 import { describe, expect, it } from "vitest";
 
 import { SoundShift, soundEarlierMsOf } from "./audio-shift.ts";
-import {
-  canSetVolume,
-  gainAfterVolume,
-  soundOffset,
-  soundRouteOf,
-  type GainAudio,
-} from "./gain.ts";
+import { gainAfterVolume, soundOffset, soundRouteOf, type GainAudio } from "./gain.ts";
+import { canSetVolume } from "./heard-volume.ts";
 import { settled } from "./test-timing.ts";
 
 /** A gain node, as the fake makes it. */

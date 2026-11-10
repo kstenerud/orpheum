@@ -124,3 +124,63 @@ describe("what the tests' shared helpers load", () => {
     expect(reached).toEqual([]);
   });
 });
+
+// The web client's architecture audit of 2026-11-10, Playback 2: a film's page and a series' page
+// imported the player's entry for what they read of the sound, and Up next's and the play state's
+// code for a type and a list, so each waited on hls.js, 584 KB, before it drew. They read the sound
+// from the player's heard-volume.ts, which the build keeps a chunk of its own, and the player loads
+// as Play nears (warm-play.ts, watching.ts).
+const heardVolume: Record<string, string> = import.meta.glob(
+  "../../../packages/player/src/heard-volume.ts",
+  { query: "?raw", import: "default", eager: true },
+);
+
+/** The names a source imports at load from the player's entry, types left out. */
+function playerNamesOf(source: string): string[] {
+  const imports = source.matchAll(/^import\s+\{([^}]*)\}\s+from\s+"@orpheum\/player";/gmsu);
+  return [...imports].flatMap((each) =>
+    (each[1] ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter((name) => name !== "" && !name.startsWith("type ")),
+  );
+}
+
+describe("what a film's and a series' page load before they draw", () => {
+  const heardVolumeSource = Object.values(heardVolume)[0] ?? "";
+
+  it("is of the player only what its heard-volume.ts holds, which imports nothing", () => {
+    expect(heardVolumeSource).toContain("export function isWebAudioLate(");
+    expect(heardVolumeSource).not.toMatch(/^import\s/mu);
+    for (const entry of ["./title.tsx", "./series.tsx"]) {
+      const loadedBy = loadedAtStart(entry);
+      expect(loadedBy.has("./watching.ts")).toBe(true);
+      const outside = [...loadedBy.keys()]
+        .filter((path) => path.startsWith("./"))
+        .flatMap((path) =>
+          playerNamesOf(sources[path] ?? "")
+            .filter((name) => !heardVolumeSource.includes(`export function ${name}(`))
+            .map((name) => `${name}: ${chainTo(loadedBy, path)}`),
+        );
+      expect(outside).toEqual([]);
+      const playing = ["./up-next.tsx", "./play-state-video-events.ts", "./moving-down.ts"];
+      expect(
+        playing.filter((path) => loadedBy.has(path)).map((path) => chainTo(loadedBy, path)),
+      ).toEqual([]);
+    }
+  });
+
+  it("finds the player's heard-volume.ts a chunk of its own in the build", async () => {
+    const { default: config } = await import("../vite.config.ts");
+    const resolved = await Promise.resolve(
+      config({ command: "build", mode: "production", isSsrBuild: false, isPreview: false }),
+    );
+    const output = resolved.build?.rolldownOptions?.output;
+    const splitting = Array.isArray(output) ? undefined : output?.codeSplitting;
+    const groups = typeof splitting === "object" ? (splitting.groups ?? []) : [];
+    const path = "/repo/web/packages/player/src/heard-volume.ts";
+    expect(
+      groups.filter((group) => group.test instanceof RegExp && group.test.test(path)),
+    ).toHaveLength(1);
+  });
+});

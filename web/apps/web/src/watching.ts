@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { diagnosisOf, isWebAudioLate, playChunked } from "@orpheum/player";
+import { isWebAudioLate, type ChunkedPlayback } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
-import { startOn, type LadderOffer } from "./moving-down.ts";
-import { noteDecisionTimes } from "./play-state-video-events.ts";
+import { noteDecisionTimes } from "./decision-times.ts";
+import type { LadderOffer } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
@@ -138,7 +138,11 @@ export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
 /**
  * A Preload in a muted video the page never shows: hls.js loads the first buffer from the offered
  * quality and steps down by itself if the link cannot fill it, and the chunks it loads are kept by
- * the browser for the Play page's player. One that fails is the Play page's to try again.
+ * the browser for the Play page's player. One that fails is the Play page's to try again. The player
+ * and its start (moving-down.ts, which reads the player) are imported as the preload starts, not
+ * with the film's page: imported with it, the title and series
+ * pages drew only once hls.js had loaded and compiled (the web client's architecture audit of
+ * 2026-11-10, Playback 2). The Play page's code, hls.js with it, is warmed apart (warm-play.ts).
  */
 export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
   const video = document.createElement("video");
@@ -146,18 +150,32 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
   video.hidden = true;
   video.playsInline = true;
   document.body.append(video);
-  const playback = playChunked(video, offer.url, {
-    onFailed: () => undefined,
-    // A playback's own start, as the Play page's player starts it (D381).
-    ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
-    monotonicMs,
-    loadsAheadAtMostS: preloadAheadS,
-  });
+  let playback: ChunkedPlayback | undefined = undefined;
+  let stepsOf: (() => string | undefined) | undefined = undefined;
+  let isStopped = false;
+  Promise.all([import("@orpheum/player"), import("./moving-down.ts")]).then(
+    ([{ diagnosisOf, playChunked }, { startOn }]) => {
+      if (isStopped) {
+        return;
+      }
+      playback = playChunked(video, offer.url, {
+        onFailed: () => undefined,
+        // A playback's own start, as the Play page's player starts it (D381).
+        ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
+        monotonicMs,
+        loadsAheadAtMostS: preloadAheadS,
+      });
+      stepsOf = () => diagnosisOf(video)?.steps;
+    },
+    // A player that did not load preloads nothing: the Play page loads it again as it shows.
+    () => undefined,
+  );
   return {
-    settledAtBps: () => playback.settledAtBps(),
-    steps: () => diagnosisOf(video)?.steps,
+    settledAtBps: () => playback?.settledAtBps(),
+    steps: () => stepsOf?.(),
     stop: () => {
-      playback.destroy();
+      isStopped = true;
+      playback?.destroy();
       video.remove();
     },
   };

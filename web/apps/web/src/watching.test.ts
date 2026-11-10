@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { decisionTimesOf } from "./play-state-video-events.ts";
+import { decisionTimesOf } from "./decision-times.ts";
 import {
   bodyField,
   failOnUnexpectedRequests,

@@ -16,19 +16,22 @@ export { steadinessNoter, steadinessOf } from "./steadiness.ts";
 export { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
 export type { PlaybackDiagnosis } from "./diagnosis.ts";
 export {
-  canSetVolume,
   gainAfterVolume,
   ownFileGainAfterVolume,
+  newAudioContext,
+  soundOffset,
+  soundRouteOf,
+} from "./gain.ts";
+export type { Gain, SoundOffset, SoundRoute } from "./gain.ts";
+export {
+  canSetVolume,
   heardVolumeOf,
   isWebAudioLate,
   longestSoundOffsetMs,
-  newAudioContext,
   setHeardVolume,
-  soundOffset,
-  soundRouteOf,
   webAudioLateAboveMs,
-} from "./gain.ts";
-export type { Gain, SoundLatencyMemory, SoundOffset, SoundRoute } from "./gain.ts";
+} from "./heard-volume.ts";
+export type { SoundLatencyMemory } from "./heard-volume.ts";
 export { canMoveSoundEarlier, moveSoundEarlier, soundEarlierMsOf } from "./audio-shift.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type {

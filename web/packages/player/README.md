@@ -266,7 +266,7 @@ for how far ahead it loads;
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`; the volume the person set and what else of the sound is read without loading hls.js: `src/heard-volume.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it

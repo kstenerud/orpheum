@@ -12,6 +12,7 @@ import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
 import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
+import type { Previous, UpNext } from "./around-file.ts";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import {
@@ -21,8 +22,6 @@ import {
   UpNextOffer,
   useSequenceCommands,
   useUpNextOffered,
-  type Previous,
-  type UpNext,
   type UpNextOffered,
 } from "./up-next.tsx";
 

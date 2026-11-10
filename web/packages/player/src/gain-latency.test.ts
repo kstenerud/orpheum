@@ -5,7 +5,8 @@ import { playerMovedSoundEvent, type SoundMoved } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import { SoundShift } from "./audio-shift.ts";
-import { gainAfterVolume, soundLatencyChangeIgnoredMs, type GainAudio } from "./gain.ts";
+import { gainAfterVolume, type GainAudio } from "./gain.ts";
+import { soundLatencyChangeIgnoredMs } from "./heard-volume.ts";
 import { settled } from "./test-timing.ts";
 
 /**
