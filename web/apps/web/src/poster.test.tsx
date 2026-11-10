@@ -7,8 +7,10 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
+import { PosterCard } from "./poster-card.tsx";
 import { Poster, posterTileSizes, Still, WideArt } from "./poster.tsx";
-import { mount, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
 
 describe("a film or series with no poster but a still (the owner, 2026-10-27; D362 §2)", () => {
   let mounted: Mounted | undefined;
@@ -175,6 +177,20 @@ describe("a poster tile's image, at the size it is drawn (web architecture audit
     expect(image?.getAttribute("sizes")).toBe(posterTileSizes);
     expect(image?.getAttribute("src")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
     expect(image?.getAttribute("decoding")).toBe("async");
+  });
+
+  it("is a card's: a poster card's tile is drawn at a tile's size", async () => {
+    mounted = await mount(
+      withServices(
+        <ul>
+          <PosterCard to={{ screen: "home" }} posterSha256="ab12" name="A film" />
+        </ul>,
+        servedBy({}, []),
+      ),
+    );
+    expect(mounted.container.querySelector("img.poster")?.getAttribute("sizes")).toBe(
+      posterTileSizes,
+    );
   });
 
   it("offers a title page's poster in the middle size alone", async () => {

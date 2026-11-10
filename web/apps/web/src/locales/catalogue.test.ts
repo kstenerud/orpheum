@@ -154,6 +154,23 @@ describe("the English catalogue", () => {
     expect(missing).toEqual([]);
   });
 
+  // A key need not be asked for as t("a.b"): a list of labels, a Trans's i18nKey or a key built at
+  // the call names it as a quoted "a.b" too, and shows as itself where its words never arrived.
+  it("finds every file naming a key of words that load later importing what adds them", () => {
+    const missing = Object.entries(sources).flatMap(([path, source]) =>
+      Object.entries(laterWords).flatMap(([words, catalogue]) => {
+        const names = Object.keys(catalogue).join("|");
+        const naming = new RegExp(`["'\`](?:${names})\\.[A-Za-z]`, "u");
+        return path.endsWith(words.slice(1)) ||
+          !naming.test(source) ||
+          source.includes(`import "${words}";`)
+          ? []
+          : [`${path} names ${naming.exec(source)?.[0] ?? ""}… without importing ${words}`];
+      }),
+    );
+    expect(missing).toEqual([]);
+  });
+
   it("names every section of the settings page, listed in the order the API document declares them", () => {
     const schemas = field(field(JSON.parse(apiDocuments[0] ?? ""), "components"), "schemas");
     const section = field(field(field(schemas, "SettingBody"), "properties"), "section");
