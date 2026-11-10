@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
 import { Link } from "./link.tsx";
-import { composeUpdateCommand, isSnoozed, snooze, useUpdate, type Update } from "./update.ts";
+import { composeUpdateCommand, isSnoozed, snooze, useUpdate, type Update } from "./update.tsx";
 
 /**
  * The banner above every page while the server's version has a security fix pending, for its admins

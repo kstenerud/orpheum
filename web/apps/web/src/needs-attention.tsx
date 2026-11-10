@@ -13,7 +13,7 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
-import { useUpdate, type Update } from "./update.ts";
+import { useUpdate, type Update } from "./update.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
 
 /**

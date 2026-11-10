@@ -58,6 +58,8 @@ export const en = {
     settings: "Settings",
     jobs: "Jobs",
     system: "System",
+    update: "Update",
+    updateKnown: "! Update",
     users: "Users",
     thisDevice: "This device",
     account: "Your account",

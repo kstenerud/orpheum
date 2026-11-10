@@ -18,7 +18,7 @@ import {
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { HowToUpdateView, UpdateSettings, UpdateSystem } from "./update-page.tsx";
-import { securityUpdateSnoozeKey, snoozeLastsMs, type Update } from "./update.ts";
+import { securityUpdateSnoozeKey, snoozeLastsMs, type Update } from "./update.tsx";
 
 let mounted: Mounted | undefined;
 

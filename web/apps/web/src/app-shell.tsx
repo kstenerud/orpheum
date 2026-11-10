@@ -34,6 +34,7 @@ import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
+import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 /** The laurel alone, which the page's favicon is, served beside the client (index.html). */
@@ -116,6 +117,7 @@ interface Destination {
     | "settings"
     | "jobs"
     | "system"
+    | "update"
     | "thisDevice"
     | "account"
     | "about"
@@ -184,6 +186,8 @@ const destinations: readonly Destination[] = [
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },
+  // Always there, marked while an update is known (D462 §8).
+  { route: { screen: "update" }, labelKey: "update", audience: "admin", group: "manage" },
   {
     route: { screen: "ui-gallery" },
     labelKey: "uiGallery",
@@ -251,34 +255,39 @@ export function AppShell(props: {
     inGroup(group).some((destination) => isAt(destination, props.currentScreen));
   const bannerRef = useBannerHeight();
   return (
-    <div className="app-shell">
-      <header
-        ref={bannerRef}
-        className="app-shell__banner"
-        data-focus-container=""
-        data-focus-covers-top=""
-      >
-        <nav className="app-shell__nav" aria-label={t("nav.label")}>
-          <WatchingPlaces isHome={props.currentScreen === "home"}>
-            {links("watching")}
-          </WatchingPlaces>
-          <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}>
-            <MenuSection
-              heading={t("nav.manage")}
-              places={managePlaces(props.administersFromHomeAt, links("manage"))}
-            />
-            <MenuSection heading={t("nav.develop")} places={links("develop")} />
-            {links("own")}
-          </BannerEnd>
-        </nav>
-      </header>
-      <ShellMain isAdmin={props.isAdmin}>
-        {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
-        <CanStartTogetherContext value={props.canHostWatchTogether}>
-          {props.children}
-        </CanStartTogetherContext>
-      </ShellMain>
-    </div>
+    <UpdateProvider isAdmin={props.isAdmin}>
+      <div className="app-shell">
+        <header
+          ref={bannerRef}
+          className="app-shell__banner"
+          data-focus-container=""
+          data-focus-covers-top=""
+        >
+          <nav className="app-shell__nav" aria-label={t("nav.label")}>
+            <WatchingPlaces isHome={props.currentScreen === "home"}>
+              {links("watching")}
+            </WatchingPlaces>
+            <BannerEnd
+              shell={props}
+              isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}
+            >
+              <MenuSection
+                heading={t("nav.manage")}
+                places={managePlaces(props.administersFromHomeAt, links("manage"))}
+              />
+              <MenuSection heading={t("nav.develop")} places={links("develop")} />
+              {links("own")}
+            </BannerEnd>
+          </nav>
+        </header>
+        <ShellMain isAdmin={props.isAdmin}>
+          {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
+          <CanStartTogetherContext value={props.canHostWatchTogether}>
+            {props.children}
+          </CanStartTogetherContext>
+        </ShellMain>
+      </div>
+    </UpdateProvider>
   );
 }
 
@@ -446,9 +455,21 @@ function MenuPlace(props: {
   const { t } = useTranslation();
   return (
     <ListOption to={props.destination.route} isCurrent={props.isCurrent}>
-      {t(`nav.${props.destination.labelKey}`)}
+      {props.destination.labelKey === "update" ? (
+        <UpdateName />
+      ) : (
+        t(`nav.${props.destination.labelKey}`)
+      )}
     </ListOption>
   );
+}
+
+/** Update's name in the menu: "! Update" while an update is known, else "Update" (D462 §8). */
+function UpdateName(): JSX.Element {
+  const { t } = useTranslation();
+  const update = useUpdate(true);
+  const isKnown = isUpdateKnown(update.state === "loaded" ? update.value : undefined);
+  return <>{isKnown ? t("nav.updateKnown") : t("nav.update")}</>;
 }
 
 /** A place as a link to its route, by its icon where it has one, else its name. */
