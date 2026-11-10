@@ -17,6 +17,7 @@ import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { PosterRow } from "./poster-row.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { placeCode, type OrderingPlace } from "./episode-place.ts";
 
 /** One row of Continue Watching, as the server sends it. */
@@ -147,6 +148,10 @@ export function ContinueWatchingView(props: {
   const { t } = useTranslation();
   const { rows } = props;
   const { sectionRef, undoRef, hide } = useFocusAfterHide(rows, props.onHide);
+  // A tile's press warms its film up as it goes to play it (warm-on-press.ts).
+  const warmsUp = useWarmsUpOnPress((fileId) =>
+    rows.some((row) => row.unavailable === undefined && row.fileId === fileId),
+  );
   if (rows.length === 0 && props.hiddenName === undefined) {
     return null;
   }
@@ -164,6 +169,7 @@ export function ContinueWatchingView(props: {
       ref={sectionRef}
       className="continue-watching"
       aria-labelledby="continue-watching-heading"
+      onClickCapture={warmsUp}
     >
       <h2 id="continue-watching-heading">{t("continueWatching.heading")}</h2>
       {props.hiddenName === undefined ? null : (
