@@ -12,10 +12,10 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { idempotent } from "./idempotent.ts";
+import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
