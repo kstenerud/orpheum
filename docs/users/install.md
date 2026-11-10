@@ -286,12 +286,13 @@ Go back to the version before, which your data still works with:
    folder and the user the server runs as:
 
    ```sh
-   docker run --rm --user 1000:100 -v /srv/appdata/orpheum:/var/lib/orpheum ghcr.io/kstenerud/orpheum:v0.3.3 \
+   docker run --rm --user 1000:100 -v /srv/appdata/orpheum:/var/lib/orpheum \
+     -v /srv/appdata/orpheum/run:/run/orpheum ghcr.io/kstenerud/orpheum:v0.3.3 \
      restore --instance /var/lib/orpheum/core --from /var/lib/orpheum/core/backups/pre-migrate-v<n>.sqlite
    ```
 
-   On a Synology the folder is the project's `data` folder, `/volume1/docker/orpheum/data`, and
-   `sudo` goes before `docker`.
+   On a Synology the folder is the project's `data` folder, `/volume1/docker/orpheum/data` (and
+   `/volume1/docker/orpheum/data/run` for the second), and `sudo` goes before `docker`.
    It says what it would do; run it again with `--yes` to restore. Then start the server as in
    step 2.
 
