@@ -117,6 +117,28 @@ func TestRelease_ACoreAsksAtItsStartAndHourlyAboutItsOwnVersion(t *testing.T) {
 	}
 }
 
+// A core with no discovery reads the record from its publisher's own places at its start and hourly
+// (D462 §8): a beta install that never enrolled once read it only at an admin's Check now.
+func TestRelease_ACoreWithNoDiscoveryReadsTheRecordAtItsStart(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	built.publisherLocations = []string{built.issuer}
+	built.service = built.restart(t)
+	built.setRelease(aSecurityRelease())
+	ctx := t.Context()
+	built.service.step(ctx)
+	if asked, known := built.releaseAsked(), built.service.Release(); len(asked) != 1 ||
+		known.Latest != "v0.2.1" || !known.CheckedAt.Equal(built.clock.Now()) {
+		t.Fatalf("unenrolled, at its start: read %d times and knows %+v; want read once and the latest known",
+			len(asked), known)
+	}
+	built.clock.Advance(releaseCheckEvery)
+	built.service.step(ctx)
+	if asked := built.releaseAsked(); len(asked) != 2 {
+		t.Errorf("unenrolled, an hour on: read %d times; want twice", len(asked))
+	}
+}
+
 // An admin's Check now reads the record at once, at most once a minute, and the hourly check counts
 // on from it (D462 §8).
 func TestRelease_AnAdminChecksNowAtMostOnceAMinute(t *testing.T) {

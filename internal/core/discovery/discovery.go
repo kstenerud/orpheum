@@ -506,11 +506,14 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	}
 	defer service.stepping.Unlock()
 	status := service.Status()
-	if status.BaseURL == "" {
-		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
-	}
 	if !status.StoodAsideAt.IsZero() {
 		return standingAsideWait
+	}
+	// The release record is the publisher's, served from its own places too: a core with no
+	// discovery, or one it cannot reach, reads it at its start and hourly all the same (D462 §8).
+	service.checkRelease(ctx, status)
+	if status.BaseURL == "" {
+		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
 	}
 	_, err := service.session(ctx)
 	var refused *refusal
@@ -521,7 +524,6 @@ func (service *Service) step(ctx context.Context) time.Duration {
 		return service.failed(ctx, "open a session", err)
 	}
 	service.checkDocument(ctx)
-	service.checkRelease(ctx, status)
 	switch status.State {
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
 		wait := service.heartbeat(ctx, status)
