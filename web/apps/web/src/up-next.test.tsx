@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import type { CastToReceive } from "@orpheum/sdk";
-import { act, createRef, type JSX } from "react";
+import { act, createRef, Profiler, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OfferPlace } from "./convenience-area.tsx";
@@ -299,6 +299,33 @@ describe("the Up next offer over the film", () => {
     expect(mounted.container.querySelector("[data-at-ms]")?.getAttribute("data-at-ms")).toBe(
       "1185000",
     );
+    expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
+  });
+
+  it("draws nothing again while the film plays far from its end (the web client's architecture audit of 2026-11-10, Playback 8)", async () => {
+    let renders = 0;
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <Profiler
+          id="offer"
+          onRender={() => {
+            renders += 1;
+          }}
+        >
+          <UpNextOffer upNext={bag} isAutoplayOn videoRef={videoRef} onPlay={() => undefined} />
+        </Profiler>,
+      ),
+    );
+    video.stand(1);
+    const before = renders;
+    for (let atS = 2; atS < 600; atS += 1) {
+      video.stand(atS);
+    }
+    expect(renders).toBe(before);
+    video.stand(1185);
+    expect(renders).toBeGreaterThan(before);
     expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
   });
 
