@@ -35,22 +35,28 @@ anywhere, the whole way is:
 
 ## One compose file
 
-The file is [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml). It reads these variables;
-the first two are needed, and compose refuses to start without them.
+Each way has its own copy of one compose file, attached to the latest release, so the file you
+install is the one the running version was tested with (D462 §5):
+
+- on OpenMediaVault, [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml);
+- on a Synology, [`orpheum-synology.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml);
+- on any other machine with Docker, [`orpheum-docker.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml).
+
+Each link downloads the file; open it in a text editor to copy it. They differ only in the one line
+that tells the server which way it was installed, so its **Update** page shows that way's steps
+alone, and on a Synology in the values written in it. The file reads these variables; the first two
+are needed, and compose refuses to start without them.
 
 | Variable | What it is | Unless set |
 | --- | --- | --- |
 | `PATH_TO_APPDATA` | the folder that holds each app's data; Orpheum keeps its own in `orpheum/` there | needed |
 | `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it: one that does not exist stops the start, naming it | needed |
-| `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`: not needed, as the server learns it from the first browser at home, and the setup page asks if it cannot tell; keep it fixed with a reservation in your router | optional |
 | `ORPHEUM_MEDIA_2`, `ORPHEUM_MEDIA_3`, `ORPHEUM_MEDIA_4` | more folders of films and series, as the machine names them | none |
 | `ORPHEUM_TAG` | the version to run, such as `v0.3.3` | `latest`: each new release, when you pull it |
 | `APPUSER_PUID`, `APPUSER_PGID` | the user and group the server runs as, which own its data and must be able to read the media | 1000, 100 |
 | `TIME_ZONE_VALUE` | the server's time zone, `Europe/Berlin` | UTC |
 | `ORPHEUM_HTTP_PORT` | the port a browser at home opens it on: `http://<address>:8440` | 8440 |
-| `ORPHEUM_HTTPS_PORT` | the port devices at home reach it on over HTTPS, and over WebRTC (UDP) | 8444 |
 | `ORPHEUM_THIS_MACHINE_PORT` | the port a browser on the machine itself opens it on, `http://127.0.0.1:8441`, as from home ([admin refused](#the-first-admin)) | 8441 |
-| `ORPHEUM_ROUTER` | your router's address, `192.168.1.1`, which the server asks to forward the HTTPS port so devices away from home reach it | none |
 | `ORPHEUM_NAME` | the name the media node goes by in the server's pages | orpheum |
 | `RENDER_GID` | the render group's number, for a GPU ([hardware encoding](#hardware-encoding)) | — |
 
@@ -58,16 +64,24 @@ Each media folder keeps the machine's own name inside the containers: with
 `ORPHEUM_MEDIA=/srv/media`, a library's folder is `/srv/media/Films`. A folder not set is none, and
 the server does not show it.
 
-At every start the core writes its settings into `PATH_TO_APPDATA/orpheum` from these values, so to
+At every start the core writes its deployment into `PATH_TO_APPDATA/orpheum` from these values, so to
 change one, change the variable and start it again (D449): its database, people, libraries and keys
 are kept. `values.toml` there is written from the variables each time, so an edit to it is lost.
 
-To get the file: open [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) on GitHub and press
-**Copy raw file** (two overlapping squares, at the top right of the file); it is then ready to paste.
+Every other setting is the server's own, kept in its database and changed on its pages (D462 §2).
+The house's network is on the **System** page, under **The house's network**: the HTTPS port
+devices at home reach it on (8444), the WebRTC port (UDP, 8444 too) and your router's address,
+which the server asks to forward the HTTPS port so devices away from home reach it. A change there
+takes effect when the server starts again, which the page offers. A port that will not open at the
+start falls back to 8444, and the page says so, so no setting there can lock you out; the HTTP port
+stays in the file for the same reason. The machine's address at home is not set anywhere: the
+server learns it from the first browser at home, and the setup page asks if it cannot tell. Keep it
+fixed with a reservation in your router.
 
 ### On any machine with Docker
 
-1. Make a folder for it, and put `compose.yaml` in it.
+1. Make a folder for it, and put [`orpheum-docker.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml)
+   in it as `compose.yaml`.
 2. Beside it, a file named `.env`:
 
    ```sh
@@ -81,6 +95,9 @@ To get the file: open [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml)
    `id -u` and `id -g` print your own user's numbers.
 3. `docker compose up -d` in that folder.
 4. Make the [first admin](#the-first-admin).
+
+To update, follow the server's **Update** page: in that folder, `docker compose pull && docker
+compose up -d`.
 
 ### OpenMediaVault
 
@@ -112,10 +129,12 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
    *Read-only* or *Read/Write* for that user, **Save**.
 3. **The port.** OpenMediaVault's own web interface takes port 80, and 443 when its HTTPS is on;
    omv-extras' guide moves it to 8443 to free them. Orpheum takes none of these: its plain page is
-   on 8440 and its HTTPS on 8444. If something else has either, set `ORPHEUM_HTTP_PORT` or
-   `ORPHEUM_HTTPS_PORT` to a free one.
+   on 8440 and its HTTPS on 8444. If something else has 8440, set `ORPHEUM_HTTP_PORT` to a free
+   one in step 4's **Environment**; the HTTPS port is changed later on the server's **System**
+   page.
 4. **The file.** In **Services > Compose > Files**, **+ Add > Add**: name it `orpheum`, paste the
-   whole of `compose.yaml` into **File**, and into **Environment** (this file's own variables):
+   whole of [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
+   into **File**, and into **Environment** (this file's own variables):
 
    ```sh
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
@@ -130,9 +149,10 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
    Compose > Containers**, select `orpheum-core`, then **Logs**. (The code's file in `appdata` is
    readable by the app user alone, so the log is the easier way here.)
 
-To update, change `ORPHEUM_TAG` in the file's **Environment** (or leave it and take the file's
-newer version), then **Pull** and **Up**. To stop it, **Down**; its data stays in
-`appdata/orpheum`.
+To update, follow the server's **Update** page, in the admin's menu: select the `orpheum` file,
+press **Pull**, then **Up**. When the update brings a newer compose file, the same page hands it
+over with your values in it: keep a copy of your old file, then edit the `orpheum` file, paste the
+new one over it, **Save**, and **Up**. To stop it, **Down**; its data stays in `appdata/orpheum`.
 
 ### Synology
 
@@ -213,25 +233,70 @@ the sandbox still holds.
    Container**, `orpheum-folders` has stopped (that is right: it only prepares the data folder), and
    `orpheum-core` and `orpheum-node` are running. To change a value later, **Project**, select
    `orpheum`, **Action → Stop**, then **YAML Configurations**, change the line, **Save**, and
-   **Action → Start**.
+   **Action → Start**. Keep a copy of the whole file somewhere of your own: the server's **Update**
+   page hands you a newer one when an update brings it, and keeps only the lines under `# Yours`.
 5. Make the [first admin](#the-first-admin). The setup code is in the log: **Container Manager →
    Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is also in
    `SETUP-CODE.txt` in the `data` folder (`/volume1/docker/orpheum/data`), which File Station can
    download for you to open.
 
+#### Updating on a Synology
+
+Follow the server's **Update** page, in the admin's menu:
+
+1. **Container Manager → Project**, select `orpheum`, press **Stop**, then **Build**.
+2. If the Update page still says the server runs the old version, Container Manager kept the image
+   it had: under **Image**, select the `orpheum` image, press **Update**, then **Build** the project
+   again.
+3. When the update brings a newer compose file, the Update page hands it over with your values from
+   `# Yours` filled in. Keep a copy of your old file, then **Project**, stop `orpheum`, open its
+   **YAML Configurations**, paste the new file over it, **Save**, and **Build**.
+
 #### The Synology compose file
 
-The file is [`deploy/synology/compose.yaml`](../../deploy/synology/compose.yaml): the
-[one compose file](#one-compose-file) with the three values a Synology needs written in it, so it
-needs no `.env` file, and its data in the project's own folder. Open it on GitHub and press **Copy
-raw file**, as for the other. Every other setting in the table above keeps its default; to change
-one, a `.env` file in the project's folder may still set it.
+The file is [`orpheum-synology.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml):
+the [one compose file](#one-compose-file) with the values a Synology needs written under `# Yours`,
+so it needs no `.env` file, and its data in the project's own folder. Open the downloaded file in a
+text editor to copy it. The ports are under `# Yours` too; every other setting in the table above
+keeps its default.
 
-If DSM's firewall is on (**Control Panel → Security → Firewall**), allow ports 8440 and 8444 (TCP,
-and 8444 UDP too), or the server's page does not open from your other devices.
+If DSM's firewall is on (**Control Panel → Security → Firewall**), allow port 8440 (TCP) and the
+HTTPS port, 8444 unless you changed it on the **System** page (TCP and UDP), or the server's page
+does not open from your other devices.
 
 Other Synology models whose DSM runs an older Linux than 5.13 lack Landlock too, and the System page
 says so the same way.
+
+### If an update broke it
+
+Go back to the version before, which your data still works with:
+
+1. **Pin the version before.** The Update page, or the release list on GitHub, names it, such as
+   `v0.3.3`. On OpenMediaVault, add `ORPHEUM_TAG=v0.3.3` to the file's **Environment**; on any
+   other machine with Docker, to the `.env` file. On a Synology, in the project's **YAML
+   Configurations**, write `v0.3.3` in place of
+   each `${ORPHEUM_TAG:-latest}`: the `image:` lines and the line after `--image-tag`.
+2. **Start it again**: **Pull** and **Up** on OpenMediaVault, **Stop** then **Build** on a
+   Synology, `docker compose pull && docker compose up -d` elsewhere.
+3. **If it will not start** and the core's log says its database needs a newer release, the update
+   had already moved the database on. Before it did, the server kept a copy of it,
+   `pre-migrate-v<n>.sqlite`, in `orpheum/core/backups/` in the app data folder (`data/core/backups/`
+   in the project's folder on a Synology). With the server stopped (**Down**, or **Stop**), restore
+   it from a terminal on the machine, as an administrator, with the version before, your app data
+   folder and the user the server runs as:
+
+   ```sh
+   docker run --rm --user 1000:100 -v /srv/appdata/orpheum:/var/lib/orpheum ghcr.io/kstenerud/orpheum:v0.3.3 \
+     restore --instance /var/lib/orpheum/core --from /var/lib/orpheum/core/backups/pre-migrate-v<n>.sqlite
+   ```
+
+   On a Synology the folder is the project's `data` folder, `/volume1/docker/orpheum/data`, and
+   `sudo` goes before `docker`.
+   It says what it would do; run it again with `--yes` to restore. Then start the server as in
+   step 2.
+
+The Update page then says your compose file pins a version; set it back to `latest` once a newer
+release fixes what broke.
 
 ### Hardware encoding
 
@@ -295,8 +360,8 @@ learned, as above.
 At home, devices reach the server directly. To reach it from away, the server is paired with your
 Orpheum account at orpheum.cc, from the **Remote access** section of the server's **System** page,
 as an admin at home. Devices away from home then sign in at orpheum.cc with your realm, and
-reach the server over WebRTC, with no port to open. Setting `ORPHEUM_ROUTER` lets the server ask
-the router to forward its HTTPS port, which helps where the router allows it. There is no relay:
+reach the server over WebRTC, with no port to open. Your router's address, on the **System** page under
+**The house's network**, lets the server ask the router to forward its HTTPS port, which helps where the router allows it. There is no relay:
 a device that can meet the server only through one does not connect, and the System page counts
 each time.
 
