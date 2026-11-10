@@ -51,6 +51,29 @@ export function HowToUpdateView(props: {
         <RouteSteps command={update.command} installRoute={update.installRoute} />
       )}
       {update.digest === undefined ? null : <p>{t("update.digest", { digest: update.digest })}</p>}
+      {update.composeFile === undefined ? null : <NewerComposeFile file={update.composeFile} />}
+    </>
+  );
+}
+
+/**
+ * A newer compose file than the one that started the server, and what it brings (D461 §3): shown
+ * whether or not a newer release is, since pulling the images leaves the file as it was.
+ */
+function NewerComposeFile(props: {
+  readonly file: NonNullable<Update["composeFile"]>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { file } = props;
+  return (
+    <>
+      <p>{t("update.composeFileNewer", { version: file.version, newest: file.newest })}</p>
+      <ul>
+        {file.brings.map((brings) => (
+          <li key={brings}>{brings}</li>
+        ))}
+      </ul>
+      <p>{t("update.composeFileTake")}</p>
     </>
   );
 }

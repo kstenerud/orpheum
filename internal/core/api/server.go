@@ -109,6 +109,9 @@ type Dependencies struct {
 	// InstallRoute is how the server was installed, "script" or "compose", as its deployment wrote
 	// in its config; empty when unknown (D450 §2).
 	InstallRoute string
+	// ComposeFile is the version of the compose file that started the server and the newest, from
+	// its config and this build (D461 §3).
+	ComposeFile ComposeFile
 	// PortMapping says what the home router opened for the discovery's addresses (D273 §7).
 	PortMapping *portmap.Service
 	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).

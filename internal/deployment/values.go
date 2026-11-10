@@ -121,6 +121,26 @@ const (
 	ByComposeFile InstallRoute = "compose"
 )
 
+// Installation is how a deployment was installed, which its core's config names: the route, and for
+// a compose file the version it says it is (D461 §3), 0 for the install script's.
+type Installation struct {
+	Route          InstallRoute
+	ComposeVersion int
+}
+
+// ComposeFileVersion is the version of the compose files this release sends households to paste
+// (deploy/omv/compose.yaml, deploy/synology/compose.yaml), which each passes start as
+// --compose-version; a file passing none is version 1 (D461 §3). It goes up only with a change a
+// household takes by pasting the new file, which ComposeFileChanges says, and a file passes the flag
+// only once a release takes it (TestReleasedCompose_APublishedFilePassesOnlyFlagsTheNewestReleaseTakes).
+const ComposeFileVersion = 1
+
+// ComposeFileChanges says what each compose file version after the first brings, by its version, for
+// the System page to tell a household whose file is older, in a sentence each.
+func ComposeFileChanges() map[int]string {
+	return map[int]string{}
+}
+
 // thisMachinePortDefault is the port a browser on this machine reaches the core on, as home, unless the
 // values file names another (D334 §4).
 const thisMachinePortDefault = 8441

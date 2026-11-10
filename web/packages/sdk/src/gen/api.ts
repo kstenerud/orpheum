@@ -2775,6 +2775,20 @@ export interface components {
             shouldOfferDeviceTests: boolean;
             shouldShowDeveloperPages: boolean;
         };
+        ComposeFileBody: {
+            /** @description What each version after the server's brings, oldest first, a sentence each for the admin */
+            brings: string[];
+            /**
+             * Format: int64
+             * @description The newest compose file's version
+             */
+            newest: number;
+            /**
+             * Format: int64
+             * @description The version of the compose file that started the server
+             */
+            version: number;
+        };
         ConfigFileKey: {
             description: string;
             /** @description False when the file lacks it: it runs on its starting value */
@@ -5660,6 +5674,7 @@ export interface components {
             checkedAt: number;
             /** @description What installs the update, run on the server's machine as the user who installed it (D314); empty with no update */
             command?: string;
+            composeFile?: components["schemas"]["ComposeFileBody"];
             /** @description The newest release's image digest, sha256:..., for the admin to check */
             digest?: string;
             /**

@@ -113,3 +113,45 @@ func TestUpdate_SaysHowTheServerWasInstalled(t *testing.T) {
 		t.Errorf("knowing a newer release: installRoute %q; want compose", told.InstallRoute)
 	}
 }
+
+// A server a compose file started is told of a newer compose file and what each version after its
+// own brings, oldest first; one started from the newest, or by no compose file, is told of none
+// (D461 §3).
+func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	dependencies, err := harness.server.ReadyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() api.UpdateBody {
+		t.Helper()
+		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
+		var body api.UpdateBody
+		if err := json.Unmarshal([]byte(got.body), &body); err != nil || got.status != http.StatusOK {
+			t.Fatalf("GET /system/update = %d %s", got.status, got.body)
+		}
+		return body
+	}
+	changes := map[int]string{2: "Hardware transcoding on Intel.", 3: "Subtitles from the media folders."}
+	dependencies.InstallRoute = "compose"
+	dependencies.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes}
+	want := &api.ComposeFileBody{
+		Version: 1, Newest: 3, Brings: []string{"Hardware transcoding on Intel.", "Subtitles from the media folders."},
+	}
+	if told := read(); !reflect.DeepEqual(told.ComposeFile, want) {
+		t.Errorf("started from version 1 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
+	}
+	dependencies.ComposeFile.Running = 2
+	want = &api.ComposeFileBody{Version: 2, Newest: 3, Brings: []string{"Subtitles from the media folders."}}
+	if told := read(); !reflect.DeepEqual(told.ComposeFile, want) {
+		t.Errorf("started from version 2 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
+	}
+	for _, running := range []int{3, 0} {
+		dependencies.ComposeFile.Running = running
+		if told := read(); told.ComposeFile != nil {
+			t.Errorf("started from compose file version %d of 3: composeFile %+v; want none", running, told.ComposeFile)
+		}
+	}
+}

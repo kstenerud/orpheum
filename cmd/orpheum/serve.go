@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
+	"github.com/kstenerud/orpheum/internal/deployment"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
@@ -310,6 +311,10 @@ func wireCore(
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
 	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
+	dependencies.ComposeFile = api.ComposeFile{
+		Running: config.Server.ComposeVersion, Newest: deployment.ComposeFileVersion,
+		Changes: deployment.ComposeFileChanges(),
+	}
 	dependencies.Reachability, dependencies.Relay = opened.reachability, newICEIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(),

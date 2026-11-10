@@ -34,6 +34,9 @@ address_at_home_from_default_route = {{not .Values.HasTunnel}}
 # How this server was installed, the install script or a compose file: the System page shows only that
 # way's steps to update (D450 §2).
 install_route = {{toml .InstallRoute}}
+# The version of the compose file that started it, 0 for the install script: the System page says when
+# a newer one brings something (D461 §3).
+compose_version = {{.ComposeVersion}}
 
 [https]
 domain = {{toml .Values.Domain}}

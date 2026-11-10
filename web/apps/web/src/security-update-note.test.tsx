@@ -217,6 +217,30 @@ describe("How to update", () => {
     expect(byScript.textContent).not.toContain("press Pull, then Up.");
   });
 
+  it("says what a newer compose file brings, even while the server runs the latest (D461 §3)", async () => {
+    const latest: Update = { version: "v0.3.3", checkedAt: 1_793_000_000_000 };
+    mounted = await mount(
+      withServices(
+        <HowToUpdateView
+          update={{
+            ...latest,
+            installRoute: "compose",
+            composeFile: { version: 1, newest: 2, brings: ["Hardware transcoding on Intel."] },
+          }}
+        />,
+      ),
+    );
+    const text = mounted.container.textContent;
+    expect(text).toContain("started from version 1 of its compose file. Version 2 is out");
+    expect([...mounted.container.querySelectorAll("li")].map((each) => each.textContent)).toEqual([
+      "Hardware transcoding on Intel.",
+    ]);
+    expect(text).toContain("paste the new compose file over the old one");
+    mounted.unmount();
+    mounted = await mount(withServices(<HowToUpdateView update={latest} />));
+    expect(mounted.container.textContent).not.toContain("compose file");
+  });
+
   it("says the server runs the latest, with no command", async () => {
     mounted = await mount(
       withServices(

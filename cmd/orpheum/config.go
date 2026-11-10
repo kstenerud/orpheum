@@ -96,6 +96,9 @@ type ServerConfig struct {
 	// the deployment writes it, or empty when unknown (a config written by hand). The System page
 	// shows only that route's steps to update, and both when unknown (D450 §2).
 	InstallRoute string `toml:"install_route"`
+	// ComposeVersion is the compose file's version, which start writes, 0 for any other install: the
+	// System page says when a newer one brings something (D461 §3).
+	ComposeVersion int `toml:"compose_version"`
 }
 
 // thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
@@ -295,6 +298,7 @@ func serverConfigKeys() []configKey {
 				"which the deployment writes: the System page shows only that way's steps to update; empty " +
 				"shows both (D450 §2)",
 		},
+		{tableServer, "compose_version", "0", "the version of the compose file that started the server (D461 §3)"},
 		{
 			tableServer, "home_networks", "[]",
 			"networks home besides the private ranges, a VPN's say. Home is always every private address " +
@@ -573,6 +577,9 @@ func (server ServerConfig) check() error {
 	default:
 		problems = append(problems, fmt.Errorf("server.install_route %q: want %q, %q or empty",
 			server.InstallRoute, deployment.ByInstallScript, deployment.ByComposeFile))
+	}
+	if server.ComposeVersion < 0 {
+		problems = append(problems, fmt.Errorf("server.compose_version %d: want 0 or more", server.ComposeVersion))
 	}
 	if server.ThisMachineListen != "" && server.thisMachinePort() == 0 {
 		problems = append(problems, fmt.Errorf("server.this_machine_listen %q: want host:port, or empty",

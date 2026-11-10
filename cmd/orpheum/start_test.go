@@ -145,6 +145,36 @@ func TestStart_AnEmptyMediaFolderIsNoneAndEachIsCleaned(t *testing.T) {
 	}
 }
 
+// The core's config names the version of the compose file that started it, 1 for a file that names
+// none, as every file released before the flag did, so the System page can say when a newer one
+// brings something; a version below 1 is no compose file's, and start refuses it (D461 §3).
+func TestStart_TheCoreSaysTheComposeFilesVersion(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		arguments []string
+		want      int64
+	}{
+		{[]string{"--lan-address", "192.168.1.20"}, 1},
+		{[]string{"--lan-address", "192.168.1.20", "--compose-version", "2"}, 2},
+	} {
+		dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
+		if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, test.arguments...)); err != nil {
+			t.Fatal(err)
+		}
+		coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+		if got := coreConfig["server"]["compose_version"]; got != test.want {
+			t.Errorf("started with %q, the core's server.compose_version is %v; want %d",
+				test.arguments, got, test.want)
+		}
+	}
+	var stderr bytes.Buffer
+	if _, isParsed := parseStart([]string{"--compose-version", "0"}, &stderr); isParsed ||
+		!strings.Contains(stderr.String(), "--compose-version 0") {
+		t.Errorf("start --compose-version 0 parsed %v, saying %q; want it refused, naming the flag",
+			isParsed, stderr.String())
+	}
+}
+
 func TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")

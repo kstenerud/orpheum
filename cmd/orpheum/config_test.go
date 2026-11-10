@@ -160,6 +160,10 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 			kindCore, strings.Replace(core, `install_route = ""`, `install_route = "helm"`, 1),
 			"server.install_route",
 		},
+		"a compose file's version below none's": {
+			kindCore, strings.Replace(core, "compose_version = 0", "compose_version = -1", 1),
+			"server.compose_version",
+		},
 		"not TOML at all":  {kindCore, "server = [", "config"},
 		"a wrong key type": {kindCore, "[server]\nlisten = 8432\n", "listen"},
 	}
@@ -183,6 +187,7 @@ not_home_networks = []
 address_at_home_from_default_route = false
 this_machine_listen = ""
 install_route = ""
+compose_version = 0
 
 [https]
 domain = ""

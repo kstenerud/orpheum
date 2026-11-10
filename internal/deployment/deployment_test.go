@@ -574,7 +574,8 @@ func TestWrite_TheCoreAsksTheRouterTheValuesName(t *testing.T) {
 
 // The core's config says how the deployment was installed: the install script's Write says script,
 // and a compose file's start names compose to WriteConfigs, so the System page shows only that way's
-// steps to update (D450 §2).
+// steps to update (D450 §2); with the compose file's version, which the System page compares with
+// the newest (D461 §3), and none for the script.
 func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
@@ -582,14 +583,18 @@ func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
 	if err := Write(dir, values, runtime); err != nil {
 		t.Fatal(err)
 	}
-	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["install_route"]; got != "script" {
-		t.Errorf("written by the install script's Write, the core's server.install_route is %v; want script", got)
+	server := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
+	if server["install_route"] != "script" || server["compose_version"] != int64(0) {
+		t.Errorf("written by the install script's Write, the core's server.install_route is %v and "+
+			"compose_version %v; want script and 0", server["install_route"], server["compose_version"])
 	}
-	if err := WriteConfigs(dir, values, ByComposeFile); err != nil {
+	if err := WriteConfigs(dir, values, Installation{Route: ByComposeFile, ComposeVersion: 2}); err != nil {
 		t.Fatal(err)
 	}
-	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["install_route"]; got != "compose" {
-		t.Errorf("written for a compose file's start, the core's server.install_route is %v; want compose", got)
+	server = decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
+	if server["install_route"] != "compose" || server["compose_version"] != int64(2) {
+		t.Errorf("written for a version 2 compose file's start, the core's server.install_route is %v and "+
+			"compose_version %v; want compose and 2", server["install_route"], server["compose_version"])
 	}
 }
 
