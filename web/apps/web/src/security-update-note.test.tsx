@@ -225,7 +225,12 @@ describe("How to update", () => {
           update={{
             ...latest,
             installRoute: "omv",
-            composeFile: { version: 1, newest: 2, brings: ["Hardware transcoding on Intel."] },
+            composeFile: {
+              version: 1,
+              newest: 2,
+              brings: ["Hardware transcoding on Intel."],
+              file: "",
+            },
           }}
         />,
       ),
