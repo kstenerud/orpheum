@@ -21,7 +21,16 @@ import { createNavigation } from "./navigation.ts";
 import { PlayTrail } from "./play-up.tsx";
 import { Series, type SeriesDetail } from "./series.tsx";
 import { useRoute } from "./services.tsx";
-import { click, mount, servedBy, settleUntil, type Answers, type Mounted } from "./test-dom.tsx";
+import {
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Answers,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 
 const series: SeriesDetail = {
@@ -154,5 +163,37 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
     expect(episodeReachedOf(6)).toBeDefined();
     shown = await mount(withServices(<p>{"next test"}</p>));
     expect(episodeReachedOf(6)).toBeUndefined();
+  });
+});
+
+describe("a series' next episode pressed", () => {
+  it("warms its next episode up as its Play is pressed, not once the Play page draws (the web client's architecture audit of 2026-11-10, Playback 1)", async () => {
+    const heard: Heard[] = [];
+    const place = fakePlace("/series/6");
+    const navigation = createNavigation(place, false);
+    const withNext: SeriesDetail = {
+      ...series,
+      nextUp: {
+        itemId: 41,
+        name: "Episode 41",
+        groupNumber: 1,
+        numberInGroup: 1,
+        fileId: 7,
+        isPartway: false,
+      },
+    };
+    const served = servedBy(
+      { ...answers, "GET /items/6": [200, withNext], "POST /playback": [200, directDecision()] },
+      heard,
+    );
+    shown = await mount(withServices(<Series id={6} />, { ...served, navigation }));
+    const { container } = shown;
+    await settleUntil(() => container.querySelector(".title__play") !== null);
+    expect(heard.some((each) => each.methodAndPath === "POST /playback")).toBe(false);
+    await click(container.querySelector(".title__play"));
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    // No Play page is drawn here: the press itself asked how the episode plays.
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
+    expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);
   });
 });

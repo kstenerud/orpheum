@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { Home } from "./home.tsx";
-import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import { click, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
@@ -85,6 +86,37 @@ describe("home (the owner, 2026-10-25)", () => {
     const { container } = mounted;
     await settleUntil(() => container.querySelector(".home__empty") !== null);
     expect(heard.filter((each) => each.methodAndPath === "GET /libraries")).toHaveLength(1);
+  });
+
+  it("warms a Continue watching tile's film up as it is pressed, not once the Play page draws (the web client's architecture audit of 2026-11-10, Playback 1)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /home": [
+          200,
+          {
+            continueWatching: [
+              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+            ],
+          },
+        ],
+        "GET /items": [200, { items: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
+        "POST /playback": [200, directDecision()],
+      },
+      heard,
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, services));
+    const { container } = mounted;
+    const tile = container.querySelector('.continue-watching a[href="/play/70"]');
+    expect(tile).not.toBeNull();
+    expect(heard.some((each) => each.methodAndPath === "POST /playback")).toBe(false);
+    await click(tile);
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 70 });
+    // No Play page is drawn here: the press itself asked how the film plays.
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
+    expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);
   });
 
   it("asks its newest rows of the libraries the person keeps on Home (D366 §5)", async () => {

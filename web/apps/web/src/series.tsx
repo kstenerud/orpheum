@@ -3,7 +3,7 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { use, useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { use, useCallback, useEffect, useRef, useState, type JSX, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -39,6 +39,7 @@ import { useItemsInView } from "./items-in-view.ts";
 import { groupName, orderingAired, placeCode } from "./episode-place.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { useRequest } from "./use-request.ts";
+import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { MarkWatched, WatchedRowMark } from "./watched-mark.tsx";
 
 /** A series with its seasons, as the server sends it; each season's episodes are read apart. */
@@ -82,15 +83,10 @@ export function SeriesView(props: {
   const seasons = series.seasons ?? [];
   const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
   const shown = shownSeasonOf(series, props.season);
-  const { nextUp } = series;
-  const nextUpPlay =
-    nextUp === undefined ? null : (
-      <NextUpPlay nextUp={nextUp} ordering={series.ordering} isOnlyGroup={seasons.length === 1} />
-    );
   // One that cannot be played now is said among the notes; one that can, the actions row's first.
-  const isNextUpPlayable = nextUp !== undefined && nextUp.unavailable === undefined;
+  const { nextUpPlay, isNextUpPlayable, warmsUp } = useNextUpPlay(series, seasons.length === 1);
   return (
-    <article className="series">
+    <article className="series" onClickCapture={warmsUp}>
       <TitleHead
         backdropSha256={series.art.backdropSha256}
         art={<Poster sourceSha256={series.art.posterSha256} />}
@@ -315,6 +311,28 @@ function SeriesSeasons(props: {
       ) : null}
     </>
   );
+}
+
+/**
+ * A series' next episode's Play (NextUpPlay), where it has one; whether it can be played now; and
+ * what warms the episode up as that Play is pressed, for the page to hear (warm-on-press.ts).
+ */
+function useNextUpPlay(
+  series: SeriesDetail,
+  isOnlyGroup: boolean,
+): {
+  readonly nextUpPlay: JSX.Element | null;
+  readonly isNextUpPlayable: boolean;
+  readonly warmsUp: (event: MouseEvent<HTMLElement>) => void;
+} {
+  const { nextUp } = series;
+  const isNextUpPlayable = nextUp !== undefined && nextUp.unavailable === undefined;
+  const warmsUp = useWarmsUpOnPress((fileId) => isNextUpPlayable && nextUp.fileId === fileId);
+  const nextUpPlay =
+    nextUp === undefined ? null : (
+      <NextUpPlay nextUp={nextUp} ordering={series.ordering} isOnlyGroup={isOnlyGroup} />
+    );
+  return { nextUpPlay, isNextUpPlayable, warmsUp };
 }
 
 /**
