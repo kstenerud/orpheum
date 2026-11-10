@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+} from "react";
 
 import { useItemsInView } from "./items-in-view.ts";
 import { InterestSaidEveryContext } from "./page-interest.ts";
@@ -19,16 +28,19 @@ type WatchAt = (index: number) => (element: Element | null) => void;
  * Watches a grid's tiles and says those in view (useTilesInterest), so the work their pictures need
  * comes first while they are seen (the owner, 2026-10-27: "viewing a library signals interest in
  * what's needed to display the tiles with images"; D362 §4). It returns a ref for each place, which
- * also hands the element to the list's own watcher, when it has one (useItemsInView, for its pages).
+ * also hands the element to the list's own watcher, when it has one (useItemsInView, for its pages),
+ * and the interest, an element drawing nothing that the grid draws beside its tiles to say them.
  */
-export function useTilesInView(ids: readonly number[], listWatchAt?: WatchAt): WatchAt {
-  const [range, setRange] = useState<{ readonly first: number; readonly last: number }>();
-  const showRange = useCallback((first: number, last: number): void => {
-    setRange((shown) => (shown?.first === first && shown.last === last ? shown : { first, last }));
-  }, []);
-  const tileWatchAt = useItemsInView(showRange);
-  useTilesInterest(range === undefined ? [] : ids.slice(range.first, range.last + 1));
-  return useMemo(() => {
+export function useTilesInView(
+  ids: readonly number[],
+  listWatchAt?: WatchAt,
+): { readonly watchAt: WatchAt; readonly interest: ReactElement } {
+  // The range in view is kept outside the grid, and only TilesInterest, drawing nothing, is drawn
+  // again as it changes: as state of the grid's own, each row scrolled drew the whole grid again
+  // (web architecture audit, 2026-11-10).
+  const [range] = useState(rangeInView);
+  const tileWatchAt = useItemsInView(range.show);
+  const watchAt = useMemo(() => {
     if (listWatchAt === undefined) {
       return tileWatchAt;
     }
@@ -48,6 +60,54 @@ export function useTilesInView(ids: readonly number[], listWatchAt?: WatchAt): W
       return ref;
     };
   }, [listWatchAt, tileWatchAt]);
+  return { watchAt, interest: createElement(TilesInterest, { ids, range }) };
+}
+
+/** The first and last places in view. */
+interface Range {
+  readonly first: number;
+  readonly last: number;
+}
+
+/** The range in view, kept for TilesInterest to read and be told of as it changes. */
+interface RangeInView {
+  readonly show: (first: number, last: number) => void;
+  readonly shown: () => Range | undefined;
+  readonly subscribe: (changed: () => void) => () => void;
+}
+
+/** A range in view, none yet. */
+function rangeInView(): RangeInView {
+  let shown: Range | undefined;
+  const listeners = new Set<() => void>();
+  return {
+    show: (first, last) => {
+      if (shown?.first === first && shown.last === last) {
+        return;
+      }
+      shown = { first, last };
+      for (const changed of listeners) {
+        changed();
+      }
+    },
+    shown: () => shown,
+    subscribe: (changed) => {
+      listeners.add(changed);
+      return () => {
+        listeners.delete(changed);
+      };
+    },
+  };
+}
+
+/** Says the tiles of ids in range's places, drawn again alone as the range changes. */
+function TilesInterest(props: {
+  readonly ids: readonly number[];
+  readonly range: RangeInView;
+}): null {
+  const range = useSyncExternalStore(props.range.subscribe, props.range.shown, props.range.shown);
+  useTilesInterest(range === undefined ? [] : props.ids.slice(range.first, range.last + 1));
+  return null;
 }
 
 /**

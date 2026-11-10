@@ -101,3 +101,32 @@ describe("a grid's tiles in view (D362 §4)", () => {
     await settleUntil(() => tilesSaid(heard).at(-1) === "DELETE /interest/tiles");
   });
 });
+
+describe("a grid as the tiles in view change (web architecture audit, 2026-11-10)", () => {
+  it("is not drawn again, only what says them", async () => {
+    vi.stubGlobal("IntersectionObserver", HandObserver);
+    const services = servedBy({ "PUT /interest/tiles": [204, null] }, []);
+    // The grid draws its tiles by mapping its entries: each draw of the grid maps them once more.
+    const entries = [...films];
+    let draws = 0;
+    Object.defineProperty(entries, "map", {
+      value: (...args: Parameters<Entry[]["map"]>) => {
+        draws += 1;
+        return films.map(...args);
+      },
+    });
+    const grid = await mount(withServices(<PosterGrid entries={entries} />, services));
+    const drawn = draws;
+    const observer = HandObserver.all.find((each) => each.watched.size === films.length);
+    const tiles = [...grid.container.querySelectorAll(".poster-card")];
+    act(() => {
+      observer?.tell(tiles.slice(0, 2).map((target) => ({ target, isIntersecting: true })));
+    });
+    act(() => {
+      observer?.tell(tiles.slice(1, 4).map((target) => ({ target, isIntersecting: true })));
+    });
+    expect(observer).toBeDefined();
+    expect(draws).toBe(drawn);
+    grid.unmount();
+  });
+});

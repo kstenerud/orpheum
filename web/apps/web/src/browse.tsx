@@ -73,16 +73,19 @@ export function PosterGrid(props: {
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
   // The tiles in view say so, which raises the work their pictures need (D362 §4).
-  const watchAt = useTilesInView(
+  const tiles = useTilesInView(
     useMemo(() => props.entries.map(entryId), [props.entries]),
     props.watchItemAt,
   );
   return (
-    <ul className="poster-grid" data-focus-container="" {...arrivalMark}>
-      {props.entries.map((entry, index) => (
-        <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={watchAt(index)} />
-      ))}
-    </ul>
+    <>
+      {tiles.interest}
+      <ul className="poster-grid" data-focus-container="" {...arrivalMark}>
+        {props.entries.map((entry, index) => (
+          <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={tiles.watchAt(index)} />
+        ))}
+      </ul>
+    </>
   );
 }
 
