@@ -27673,6 +27673,14 @@ file's command line, §2 and §4 kept) and D461 §1 and §4; D461 §2 and §3 st
    System page's Updates section and the security banner keep a line and link there, so the steps
    are written once.
 
+9. **Each published compose file names itself to start** (the owner, 2026-11-10: *"yes"*, asked
+   whether to add it): `--compose-file omv`, `synology`, `portainer` or `casaos`, fixed in each
+   file beside its version (D461 §3). `server.install_route` (D450 §2) then says which: `omv`,
+   `synology`, `portainer`, `casaos`, `docker` for a compose file that names none (one a household
+   wrote itself, given `docker compose pull && docker compose up -d`), or `script`. The Update page
+   shows that route's steps alone, and 4 hands over that route's file. An unknown name is refused
+   at start, so a typo cannot pass for a route.
+
 Not taken: the app updating itself (Watchtower, or Docker's socket in the container): the socket is
 root on the NAS, and 3 makes the NAS's button enough.
 
