@@ -30,6 +30,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Before anything is built: the tag's compose files are frozen in it as the test fixtures every
+  # later release is held to, so a household's pasted file keeps starting (D461 §1). A release
+  # tagged without them stops here, before the owner is asked to approve its publish.
+  frozen-compose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: The tag's compose files are frozen in cmd/orpheum/testdata/released/
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/check_released_compose.py --tag "$TAG"
+
   # Each architecture is built on a runner of its own kind, natively (no emulation): the image for
   # an arm64 board (a Raspberry Pi running OpenMediaVault) and the one for a PC. Each is pushed under
   # its own tag, <tag>-<arch>; the job after joins them under <tag> and :latest, which a pull on
@@ -45,6 +59,7 @@ jobs:
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
+    needs: frozen-compose
     runs-on: ${{ matrix.runner }}
     # A publish waits for the owner's approval: the environment "release" names the owner as its
     # required reviewer, set in the repository's settings (the week's security report §3, the owner
