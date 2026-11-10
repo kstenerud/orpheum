@@ -9,6 +9,7 @@ import {
   elementOfNote,
   noteOf,
   restoreWhenDrawn,
+  watchWhileDrawn,
 } from "./focus-memory.ts";
 
 /** A row of two links and two buttons both named Hide, marked as a focus container. */
@@ -33,6 +34,7 @@ function row(): HTMLElement {
 /** Lets a MutationObserver's records be delivered. */
 async function observed(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
 describe("focus memory", () => {
@@ -108,5 +110,25 @@ describe("focus memory", () => {
     row();
     await observed();
     expect(focused).toEqual([]);
+  });
+
+  // A page's tiles come in many changes a frame, and each look reads every control's box: on a TV's
+  // slow CPU a look at each change filled the frames as the page drew.
+  it("looks once a frame however many changes the page's tree took in it", async () => {
+    let looks = 0;
+    const stop = watchWhileDrawn(document.body, () => {
+      looks += 1;
+      return false;
+    });
+    try {
+      for (let tile = 0; tile < 20; tile += 1) {
+        document.body.append(document.createElement("a"));
+        await Promise.resolve();
+      }
+      await observed();
+      expect(looks).toBe(2);
+    } finally {
+      stop();
+    }
   });
 });
