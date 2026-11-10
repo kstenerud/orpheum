@@ -48,7 +48,7 @@ import {
   watchForSignOut,
 } from "./signed-out-watch.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
-import { moveToWebrtcWhenSignedIn, wantsWebrtc } from "./transport-choice.ts";
+import { wantsWebrtc } from "./transport-wanted.ts";
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -169,17 +169,27 @@ function mountOnOwnOrigin(): void {
       storageIfAllowed(() => window.sessionStorage),
     )
   ) {
-    moveToWebrtcWhenSignedIn(
-      {
-        session,
-        api,
-        routed,
-        switchTogetherSocket: (open) => {
-          openTogetherSocket = open;
-        },
-        pathMoves,
+    // The path's code, the WebRTC SDK with it, loads only for a tab that asked for it (D273 §8; the
+    // architecture audit of 2026-11-10, Startup 6). It moves once signed in, so a sign-in while it
+    // loads is moved as it comes.
+    import("./transport-choice.ts").then(
+      ({ moveToWebrtcWhenSignedIn }) => {
+        moveToWebrtcWhenSignedIn(
+          {
+            session,
+            api,
+            routed,
+            switchTogetherSocket: (open) => {
+              openTogetherSocket = open;
+            },
+            pathMoves,
+          },
+          reportFailure,
+        );
       },
-      reportFailure,
+      (problem: unknown) => {
+        reportFailure(problem);
+      },
     );
   }
 }

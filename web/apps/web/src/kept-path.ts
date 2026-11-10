@@ -28,7 +28,7 @@ import {
 
 import type { Reached, Reaching } from "./discovery-start.ts";
 import { reportPathChoice, type PathChoice } from "./path-choice.ts";
-import { pathName } from "./transport-choice.ts";
+import { pathName } from "./transport-wanted.ts";
 
 /** What a page keeps of the paths to its core. */
 export interface KeptPath {

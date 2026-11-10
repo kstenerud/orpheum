@@ -25,7 +25,7 @@ const clientKeys = new Set([
   "orpheum.together.reloadedForVersion",
   // A device being activated by a code (pairing.ts).
   "orpheum.pairing",
-  // The tab's path choice (transport-choice.ts) and the script it last reloaded for (app-update.ts).
+  // The tab's path choice (transport-wanted.ts) and the script it last reloaded for (app-update.ts).
   "orpheum.transport",
   "orpheum.reloadedForClient",
   // The build the tab reloaded from for a screen's code no longer served (newer-client.ts), and why
