@@ -58,7 +58,7 @@ function NoteCommand(props: { readonly update: Update }): JSX.Element | null {
   if (update.command === undefined) {
     return null;
   }
-  const isCompose = update.installRoute === "compose";
+  const isCompose = update.installRoute !== undefined && update.installRoute !== "script";
   return (
     <span className="app-shell__note-command">
       {t(isCompose ? "update.composeDocker" : "update.runOnServer")}{" "}

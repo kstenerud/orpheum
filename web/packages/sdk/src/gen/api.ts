@@ -5678,10 +5678,10 @@ export interface components {
             /** @description The newest release's image digest, sha256:..., for the admin to check */
             digest?: string;
             /**
-             * @description How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply
+             * @description How the server was installed: script (the install script) or the route of the compose file it runs; absent when unknown, when every route's steps apply
              * @enum {string}
              */
-            installRoute?: "script" | "compose";
+            installRoute?: "script" | "omv" | "synology" | "portainer" | "casaos" | "docker";
             /** @description The newest release, when it is newer than this server's; empty when it runs the latest or knows of none */
             latest?: string;
             /** @description What the last reading of the release record found wrong, for the admin */

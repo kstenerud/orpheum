@@ -9195,10 +9195,14 @@
             "type": "string"
           },
           "installRoute": {
-            "description": "How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply",
+            "description": "How the server was installed: script (the install script) or the route of the compose file it runs; absent when unknown, when every route's steps apply",
             "enum": [
               "script",
-              "compose"
+              "omv",
+              "synology",
+              "portainer",
+              "casaos",
+              "docker"
             ],
             "type": "string"
           },
