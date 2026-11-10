@@ -8,7 +8,7 @@
 import { readMediaCarrierFrom, type OpenTogetherSocket } from "@orpheum/sdk";
 
 import { builtScriptOf } from "./app-update.ts";
-import { discoveryClientApiOf } from "./discovery-start.ts";
+import { discoveryClientApiOf } from "./discovery-page.ts";
 import { loaderConfigOf } from "./loader-config.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
 import { pathMovesHeardFrom, type PathMoves, type ThroughDiscovery } from "./services.tsx";

@@ -6,7 +6,7 @@
  * since the loader reads no environment (D204).
  */
 
-import { discoveryClientApiOf, discoveryHasRealms } from "./discovery-start.ts";
+import { discoveryClientApiOf, discoveryHasRealms } from "./discovery-page.ts";
 
 /** The meta element a discovery names its client origins by: "https://{core}.client.example". */
 const clientOriginsMetaName = "orpheum-client-origins";

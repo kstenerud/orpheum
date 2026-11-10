@@ -105,6 +105,19 @@ describe("what the first page loads before it draws (the efficiency audit of 202
   });
 });
 
+describe("what the shell's entry and the update's check load (the architecture audit of 2026-11-10, Startup 5)", () => {
+  it("is no discovery's start and no SDK: a discovery's page's meta is read by discovery-page.ts alone", () => {
+    const reached = ["./main.tsx", "./app-update.ts", "./client-reaches.ts"].flatMap((entry) => {
+      const loadedBy = loadedAtStart(entry);
+      return ["./discovery-start.ts", ...(entry === "./client-reaches.ts" ? [] : ["@orpheum/sdk"])]
+        .filter((path) => loadedBy.has(path))
+        .map((path) => chainTo(loadedBy, path));
+    });
+    expect(loadedAtStart("./main.tsx").has("./discovery-page.ts")).toBe(true);
+    expect(reached).toEqual([]);
+  });
+});
+
 // The test-regime audit of 2026-10-31 (R4): test-dom.tsx imported later-screens.tsx for its reset,
 // which made every test that mounts anything "related" to every screen, half the suite rerun by
 // revert-red for one changed screen. A helper reaches a screen's code only as the test itself does

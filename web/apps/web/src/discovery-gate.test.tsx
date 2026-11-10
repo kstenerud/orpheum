@@ -21,14 +21,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
-import {
-  discoveryClientApiOf,
-  discoveryHasRealms,
-  handOffFragment,
-  heldWith,
-  readHandOffFragment,
-  type Start,
-} from "./discovery-start.ts";
+import { discoveryClientApiOf, discoveryHasRealms } from "./discovery-page.ts";
+import { handOffFragment, heldWith, readHandOffFragment, type Start } from "./discovery-start.ts";
 import { startAtClient } from "./loader-at-client-origin.tsx";
 import type { StringStorage } from "./browser-storage.ts";
 import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
