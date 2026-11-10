@@ -356,6 +356,16 @@ class Generated(unittest.TestCase):
         self.assertIn("+generated", found[0][1])
 
 
+    def test_each_routes_compose_file_is_generated_code_to_both_gates(self):
+        """make compose-files writes them from one template (D462 §10.2): a hand edit is refused and caught."""
+        routes = ("deploy/omv/compose.yaml", "deploy/synology/compose.yaml", "deploy/portainer/compose.yaml",
+                  "deploy/docker/compose.yaml", "deploy/catalogue/casaos/docker-compose.yml")
+        for rel in routes:
+            self.assertTrue(gate_paths.is_generated(rel), rel)
+            self.assertIn(rel, cg.GENERATED)
+        self.assertFalse(gate_paths.is_generated("deploy/omv/README.md"))
+
+
 class CommitLint(unittest.TestCase):
     def lint(self, subject: str, body: str = "") -> list[str]:
         return [p.rule for p in lc.lint([lc.Commit("0" * 40, subject, body)])]

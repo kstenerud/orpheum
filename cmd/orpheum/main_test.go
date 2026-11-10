@@ -4,6 +4,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -159,5 +161,22 @@ func TestReleaseWiring_ReachesTheProvidersRealAddresses(t *testing.T) {
 	if outside.tmdbBaseURL != tmdb.BaseURL || outside.tmdbImagesBaseURL != tmdb.ImageBaseURL ||
 		outside.openSubtitlesBaseURL != opensubtitles.BaseURL {
 		t.Errorf("a release is wired to %+v; want TMDB's and OpenSubtitles' real addresses", outside)
+	}
+}
+
+// make generate runs `orpheum compose-files .` to write each route's published compose file
+// (D462 §10.2); the subcommand writes them under the repository it is named.
+func TestDispatch_ComposeFilesWritesEachRoutesFile(t *testing.T) {
+	t.Parallel()
+	repository := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	status := dispatch(t.Context(), []string{"compose-files", repository}, noEnvironment, nil, &stdout, &stderr)
+	if status != exitSuccess {
+		t.Fatalf("compose-files: status %d, stderr %q", status, stderr.String())
+	}
+	for _, route := range []string{"deploy/omv/compose.yaml", "deploy/catalogue/casaos/docker-compose.yml"} {
+		if _, err := os.Stat(filepath.Join(repository, route)); err != nil {
+			t.Errorf("compose-files wrote no %s: %v", route, err)
+		}
 	}
 }
