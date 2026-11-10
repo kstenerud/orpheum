@@ -452,7 +452,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D444](working-notes.md#d444--the-cast-controls-page-is-the-full-screen-overlays-set-and-layout-and-how-it-plays-is-a-read-only-entry-of-its-settings-menu) The cast controls page is the full-screen overlay's set and layout, and How it plays is a read-only entry of its settings menu
 - [D445](working-notes.md#d445--no-press-on-a-receiver-ends-a-cast-leaving-full-screen-only-leaves-full-screen) No press on a receiver ends a cast; leaving full screen only leaves full screen
 - [D446](working-notes.md#d446--a-receiver-is-passive-and-ends-a-cast-only-by-its-own-stop-casting-here-the-sender-takes-on-the-state-it-left) A receiver is passive and ends a cast only by its own Stop casting here; the sender takes on the state it left
-- [D447](working-notes.md#d447--a-server-is-installed-from-one-compose-file-its-first-start-writing-the-deployment-from-its-command-line) A server is installed from one compose file, its first start writing the deployment from its command line — *revisited by D448, D449*
+- [D447](working-notes.md#d447--a-server-is-installed-from-one-compose-file-its-first-start-writing-the-deployment-from-its-command-line) A server is installed from one compose file, its first start writing the deployment from its command line — *revisited by D448, D449, D462*
 - [D448](working-notes.md#d448--a-server-installs-and-finds-its-parts-with-as-little-skill-as-possible-the-deployment-audits-proposals-adopted) A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted — *revisited by D449, D452*
 - [D449](working-notes.md#d449--the-compose-files-server-settings-at-every-start-its-machines-port-the-setup-codes-file-media-folders-and-catalogues) The compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
 - [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced — *revisited by D454*
@@ -466,7 +466,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D458](working-notes.md#d458--json-strictness-follows-who-controls-the-sender) JSON strictness follows who controls the sender
 - [D459](working-notes.md#d459--every-name-orpheum-puts-in-json-is-camelcase) Every name Orpheum puts in JSON is camelCase
 - [D460](working-notes.md#d460--migrations-are-live-from-a-baseline-at-0086-productions-schema) Migrations are live from a baseline at 0086, production's schema
-- [D461](working-notes.md#d461--a-pasted-compose-file-keeps-working-released-files-frozen-and-tested-changes-additive-a-version-on-the-file) A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file
+- [D461](working-notes.md#d461--a-pasted-compose-file-keeps-working-released-files-frozen-and-tested-changes-additive-a-version-on-the-file) A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file — *revisited by D462*
+- [D462](working-notes.md#d462--a-thin-compose-file-dockers-part-alone-the-settings-in-the-app-the-file-handed-over-filled-in) A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in
 
 ## Archived
 
