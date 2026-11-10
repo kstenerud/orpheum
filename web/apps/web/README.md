@@ -76,7 +76,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A security fix the server's version lacks is a banner above every page, an admin's alone**
   (security-updates.md Part B; `src/security-update-note.tsx`): what it fixes, the command that
   installs it and the way to How to update (`/update`). It is never dismissed while pending; Snooze
-  for a day hides that fix's banner in this browser for a day (`update.ts`, its storage wrapped so a
+  for a day hides that fix's banner in this browser for a day (`update.tsx`, its storage wrapped so a
   browser that refuses it keeps the snooze for the page's life), and a new fix shows at once.
   Nobody else is shown it, nor is the server asked for them. A newer release with no security fix
   is no banner, only the settings page's Updates row. `src/security-update-note.test.tsx`.

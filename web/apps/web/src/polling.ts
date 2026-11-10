@@ -93,6 +93,56 @@ export const backgroundChangeWaits: PollWaits = {
 export const backgroundChangesPoller: Poller = backingOffPoller(backgroundChangeWaits);
 
 /**
+ * A poller that asks each time the page is shown again (its tab comes back, or its window takes the
+ * focus) and every everyMs while it shows: for what changes out of the server's sight, as a release
+ * (D462 §10.9), where backing off has nothing to follow. One ask at a time: one still out when the
+ * next is due is that one, and one with no answer within answersWithinMs is given up and aborted.
+ */
+export function shownAndEveryPoller(
+  everyMs: number,
+  answersWithinMs: number = askAnswersWithinMs,
+): Poller {
+  return {
+    start: (ask) => {
+      let asking:
+        | { readonly aborter: AbortController; readonly giveUp: ReturnType<typeof setTimeout> }
+        | undefined;
+      const askNow = (): void => {
+        if (asking !== undefined || document.visibilityState !== "visible") {
+          return;
+        }
+        const aborter = new AbortController();
+        const done = (): void => {
+          if (asking?.aborter === aborter) {
+            clearTimeout(asking.giveUp);
+            asking = undefined;
+          }
+        };
+        const giveUp = setTimeout(() => {
+          done();
+          aborter.abort(new Error("an update read had no answer and was given up"));
+        }, answersWithinMs);
+        asking = { aborter, giveUp };
+        ask(done, aborter.signal);
+      };
+      const timer = setInterval(askNow, everyMs);
+      document.addEventListener("visibilitychange", askNow);
+      window.addEventListener("focus", askNow);
+      return () => {
+        clearInterval(timer);
+        document.removeEventListener("visibilitychange", askNow);
+        window.removeEventListener("focus", askNow);
+        if (asking !== undefined) {
+          clearTimeout(asking.giveUp);
+          asking.aborter.abort(new Error("the page stopped reading the update"));
+          asking = undefined;
+        }
+      };
+    },
+  };
+}
+
+/**
  * The wait before the next ask, after lastWaitMs and what the last ask came to. Only an unchanged
  * answer backs off: a failure is no answer, and a screen open while the server restarts asks again
  * after the failed wait each time, so it shows the server's answer soon after it is up (D237).
