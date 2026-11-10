@@ -295,6 +295,36 @@ export const enSystem = {
       leaveConsequence: "Clients outside the house will no longer find this server through it.",
       leaveConfirm: "Leave",
     },
+    network: {
+      heading: "The house's network",
+      what: "The ports devices at home reach the server on, and the router asked to forward the HTTPS port. The server takes a change when it starts again.",
+      httpsPort: "HTTPS port",
+      webrtcPort: "WebRTC port (UDP)",
+      router: "Router's address in the house (empty asks none)",
+      save: "Save",
+      saved: "Saved.",
+      running: "The server runs on HTTPS port {{httpsPort}} and WebRTC port {{webrtcPort}}.",
+      routerRunning: "It asks the router at {{router}} to forward the HTTPS port.",
+      noRouter: "It asks no router to forward a port.",
+      fellBackHttpsPort:
+        "The HTTPS port {{kept}} was taken by something else when the server started, so it runs on {{running}}. Choose a free port, or free that one, then restart.",
+      fellBackWebrtcPort:
+        "The WebRTC port {{kept}} was taken by something else when the server started, so it runs on {{running}}. Choose a free port, or free that one, then restart.",
+      pendingRestart: "The saved settings take effect when the server restarts.",
+      pendingScript:
+        "The saved settings take effect when the install script runs next, which restarts the server.",
+      restart: "Restart the server",
+      restartConsequence:
+        "Playback stops for everyone for a moment, and this page reconnects once the server is up.",
+      restartConfirm: "Restart",
+      restarting: "The server is restarting.",
+      refusedHttpsPort:
+        "The server cannot take that HTTPS port: give one from 1 to 65535 that nothing else on the machine uses.",
+      refusedWebrtcPort:
+        "The server cannot take that WebRTC port: give one from 1 to 65535 that nothing else on the machine uses.",
+      refusedRouter:
+        "That is not a router address the server can use: give its address in the house, such as 192.168.1.1, or leave it empty.",
+    },
     reachability: {
       heading: "Reached from outside",
       what: "Checks the way a browser outside the house reaches the server: its public name, through the VPS and the tunnel, and the voice relay's port.",

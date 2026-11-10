@@ -12,6 +12,12 @@ import { withServices } from "./test-services.tsx";
 /** The backups section's answer when there are none (D242 §5). */
 const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
 const noResourceUse = [200, { summaries: [], hours: [] }] as const;
+
+/** A server that keeps no network settings, as most of these tests' do not ask after (D462 §2). */
+const noNetworkSettings = [
+  409,
+  { error: { code: "conflict", message: "no network settings" } },
+] as const;
 const noDiscovery = [
   200,
   {
@@ -120,6 +126,7 @@ async function shown(
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
         "GET /system/update": [200, update],
+        "GET /system/network": noNetworkSettings,
         "GET /now-playing": [200, { playbacks: [] }],
       }),
     ),
@@ -359,6 +366,7 @@ it("the System page says what is not answering, and each outside service's limit
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
         "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+        "GET /system/network": noNetworkSettings,
         "GET /now-playing": [200, { playbacks: [] }],
         "GET /system": [
           200,
@@ -420,6 +428,7 @@ it("the System page says when the public name's certificate expires, or that the
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": noDiscovery,
           "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+          "GET /system/network": noNetworkSettings,
           "GET /now-playing": [200, { playbacks: [] }],
         }),
       ),
@@ -448,6 +457,7 @@ it("the System page notes a machine whose kernel has MPTCP on, and says nothing 
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": noDiscovery,
           "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+          "GET /system/network": noNetworkSettings,
           "GET /now-playing": [200, { playbacks: [] }],
         }),
       ),
