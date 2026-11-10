@@ -45,6 +45,7 @@ import {
   UiGallery,
   UserPage,
   Users,
+  usePreloadsPlay,
   usePreloadsSignIn,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
@@ -283,6 +284,8 @@ function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | un
 /** The screen a route names. */
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
+  // A film's and a series' pages lead to Play: its code loads ahead there (later-screens.tsx).
+  usePreloadsPlay(props.route.screen === "title" || props.route.screen === "series-page");
   return (
     <LaterScreen resetKey={JSON.stringify(props.route)}>
       {viewerScreen(props.route) ?? nonLibraryScreen(props.route) ?? adminScreen(props.route) ?? (
