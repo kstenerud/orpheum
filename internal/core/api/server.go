@@ -112,6 +112,9 @@ type Dependencies struct {
 	// ComposeFile is the version of the compose file that started the server and the newest, from
 	// its config and this build (D461 §3).
 	ComposeFile ComposeFile
+	// ImageTag is the image tag the compose file runs, a pinned one said on the Update page (D462
+	// §10.7); empty when no compose file started it.
+	ImageTag string
 	// Network keeps the house's network settings the System page sets (D462 §2); nil when the config
 	// file alone sets them.
 	Network NetworkSettings

@@ -140,6 +140,7 @@ this_machine_listen = ""
 install_route = ""
 compose_version = 0
 image_tag = ""
+compose_media = []
 
 [https]
 domain = ""

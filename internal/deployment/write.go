@@ -212,7 +212,10 @@ func WriteConfigs(dir string, values Values, installation Installation) error {
 	}
 	data := renderData{
 		Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(installation.Route),
-		ComposeVersion: installation.ComposeVersion, ImageTag: installation.ImageTag,
+		ComposeVersion: installation.ComposeVersion, ImageTag: installation.ImageTag, ComposeMedia: []string{},
+	}
+	if installation.Route.IsCompose() {
+		data.ComposeMedia = values.Media.Roots
 	}
 	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
 	if values.HasTunnel() {
@@ -271,6 +274,8 @@ type renderData struct {
 	ComposeVersion int
 	// ImageTag is the tag the compose file runs, empty for the install script's (D462 §10.7).
 	ImageTag string
+	// ComposeMedia are the media folders a compose file names, none for the install script's (D462 §4).
+	ComposeMedia []string
 }
 
 // render renders the named template; a value it names that data lacks is an error, not a blank.

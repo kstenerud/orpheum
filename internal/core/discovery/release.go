@@ -4,6 +4,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -15,8 +16,15 @@ import (
 )
 
 // releaseCheckEvery is how often the core reads the release record about its version: at its start,
-// and daily (security-updates.md Part A).
-const releaseCheckEvery = 24 * time.Hour
+// and hourly, so the Update page's mark comes within the hour of a release (D462 §8).
+const releaseCheckEvery = time.Hour
+
+// ReleaseCheckNowEvery is how often an admin's Check now may have the core read the release record
+// (D462 §8): at most once a minute, whoever asks.
+const ReleaseCheckNowEvery = time.Minute
+
+// ErrCheckedJustNow is CheckReleaseNow's when an admin had the record read under a minute ago.
+var ErrCheckedJustNow = errors.New("the release record was read at an admin's asking under a minute ago")
 
 // releaseRetryAfter is how long after a reading that found no record that holds the core reads again.
 const releaseRetryAfter = time.Hour
@@ -122,13 +130,30 @@ func (service *Service) loadPublisher() error {
 	return nil
 }
 
-// checkRelease reads the signed release record at the core's start and daily, an hour after a reading
+// CheckReleaseNow reads the release record at once, at an admin's asking, at most once a minute
+// (D462 §8), and is what the core knows after; the hourly check counts on from it.
+func (service *Service) CheckReleaseNow(ctx context.Context) (Release, error) {
+	now := service.parts.Clock.Now()
+	service.mutex.Lock()
+	if !service.releaseNowAt.IsZero() && now.Sub(service.releaseNowAt) < ReleaseCheckNowEvery {
+		service.mutex.Unlock()
+		return service.Release(), ErrCheckedJustNow
+	}
+	service.releaseNowAt, service.releaseAskedAt = now, time.Time{}
+	service.mutex.Unlock()
+	service.checkRelease(ctx, Status{})
+	return service.Release(), nil
+}
+
+// checkRelease reads the signed release record at the core's start and hourly, an hour after a reading
 // that found none that holds (§3.5): it follows the publisher's chain, then takes the newest record
 // that holds under it, above the floor, from the record's places, this build's and the discovery's
 // (every discovery serves it); refuses one naming another digest for a version it has seen, and two
 // of one sequence; and keeps what the record says of its own version. A development build reads
 // nothing, and a failure is never the step's problem.
 func (service *Service) checkRelease(ctx context.Context, _ Status) {
+	service.releaseChecking.Lock()
+	defer service.releaseChecking.Unlock()
 	now := service.parts.Clock.Now()
 	service.mutex.Lock()
 	isDue := service.releaseAskedAt.IsZero() || now.Sub(service.releaseAskedAt) >= service.releaseWait

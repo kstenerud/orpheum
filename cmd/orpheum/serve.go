@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"strconv"
 	"sync"
 
@@ -38,13 +39,29 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// composeFileOf is the compose file that started the server, as its config names it, beside the
-// newest this build publishes and what each version brings, for the System page (D461 §3).
-func composeFileOf(server ServerConfig) api.ComposeFile {
-	return api.ComposeFile{
+// composeFileOf is the compose file the System page is told of: the version that started the server,
+// the newest and what each brings, and on a compose route the newest file with the household's own
+// values filled in (D462 §4): the media folders its config names, runsAs, the uid:gid the server
+// runs as, zone, its time zone, and the ports it was started on.
+func composeFileOf(server ServerConfig, runsAs, zone string) (api.ComposeFile, error) {
+	file := api.ComposeFile{
 		Running: server.ComposeVersion, Newest: deployment.ComposeFileVersion,
 		Changes: deployment.ComposeFileChanges(),
 	}
+	route := deployment.InstallRoute(server.InstallRoute)
+	if !route.IsCompose() {
+		return file, nil
+	}
+	yours := deployment.Yours{
+		Media: server.ComposeMedia, User: runsAs, TimeZone: zone,
+		HTTPPort: portOf(server.Listen), ThisMachinePort: server.thisMachinePort(),
+	}
+	filled, err := deployment.FilledComposeFile(route, yours)
+	if err != nil {
+		return file, fmt.Errorf("fill in the newest compose file: %w", err)
+	}
+	file.Filled = string(filled)
+	return file, nil
 }
 
 // eventReady and eventCouldNotStart are slogx.EventKey's values for serve's two lines a test most
@@ -320,7 +337,12 @@ func wireCore(
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
 	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
-	dependencies.ComposeFile = composeFileOf(config.Server)
+	dependencies.ImageTag = config.Server.ImageTag
+	runsAs := strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid())
+	if dependencies.ComposeFile, err = composeFileOf(config.Server, runsAs, outside.machineZone.Name()); err != nil {
+		// The Update page then hands over no file; everything else of it stands.
+		logger.WarnContext(ctx, "serve: the Update page has no compose file to hand over", "err", err)
+	}
 	network, err := newNetworkSettings(config, opened.directories.PersistentDirectory(), portBinds)
 	if err != nil {
 		return opened, api.Dependencies{}, err

@@ -763,6 +763,10 @@
             },
             "type": "array"
           },
+          "file": {
+            "description": "The newest compose file for the way the server was installed, the household's values filled in, to paste over its own; empty when the server has none",
+            "type": "string"
+          },
           "newest": {
             "description": "The newest compose file's version",
             "format": "int64",
@@ -777,7 +781,8 @@
         "required": [
           "version",
           "newest",
-          "brings"
+          "brings",
+          "file"
         ],
         "type": "object"
       },
@@ -9282,6 +9287,10 @@
             "description": "The newest release, when it is newer than this server's; empty when it runs the latest or knows of none",
             "type": "string"
           },
+          "pinnedTag": {
+            "description": "The image tag the compose file pins in place of latest, which its update button keeps pulling until it is changed; absent with latest",
+            "type": "string"
+          },
           "problem": {
             "description": "What the last reading of the release record found wrong, for the admin",
             "type": "string"
@@ -17467,6 +17476,43 @@
           }
         ],
         "summary": "What the server knows of an update: a security fix its version lacks, or a newer release",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/update/check": {
+      "post": {
+        "operationId": "checkSystemUpdate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Read the release record at once, at most once a minute, and say what the server knows after (D462 §8)",
         "tags": [
           "Running it"
         ],

@@ -114,6 +114,10 @@
 //     §10.11). TestNetwork_AnAdminKeepsTheSettingsForTheNextStartAndIsToldWhatIsWrong,
 //     TestNetwork_APortThatWouldNotBindAtTheStartIsSaidToHaveFallenBack,
 //     TestNetwork_AnAdminRestartsAServerItsComposeFileStarted.
+//   - Only an admin's Check now has the server read the release record at once, one under a minute
+//     after the last refused as too soon; a compose file pinning a version is said (D462 §8, §10.7).
+//     TestUpdate_AnAdminChecksNowAndIsToldWhatTheServerFound,
+//     TestUpdate_SaysWhenTheComposeFilePinsAVersion.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
 //     node's, with the encoder trials each node made (D225).
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a

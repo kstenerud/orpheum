@@ -92,12 +92,14 @@
 //   - A discovery's deprecation date is kept for the admin to see.
 //     TestCall_KeepsTheDeprecationTheDiscoveryNames.
 //   - A release build reads the release record the publisher root signed, at the publisher's places
-//     and its discovery's, at its start and daily, an hour after a failure, and keeps what it says of
+//     and its discovery's, at its start and hourly, an hour after a failure, and keeps what it says of
 //     its own version for its admins; a development build reads nothing; with none served it knows
 //     nothing, and a failure is never the core's problem (security-updates.md Part A).
-//     TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion,
+//     TestRelease_ACoreAsksAtItsStartAndHourlyAboutItsOwnVersion,
 //     TestRelease_ADevelopmentBuildAsksNothing,
 //     TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour.
+//   - An admin's Check now reads the record at once, at most once a minute, and the hourly check
+//     counts on from it (D462 §8). TestRelease_AnAdminChecksNowAtMostOnceAMinute.
 //   - A record no key of the publisher root signed, a discovery's no more than a stranger's, is never
 //     believed (D393 §2).
 //     TestRelease_ARecordNoRootKeySignedIsNotBelieved.

@@ -40,6 +40,9 @@ compose_version = {{.ComposeVersion}}
 # The image tag the compose file runs, latest unless it pins a version, which the Update page says to
 # change; empty for the install script (D462 §10.7).
 image_tag = {{toml .ImageTag}}
+# The media folders the compose file names, which the Update page fills into a newer one (D462 §4);
+# none for the install script.
+compose_media = {{toml .ComposeMedia}}
 
 [https]
 domain = {{toml .Values.Domain}}

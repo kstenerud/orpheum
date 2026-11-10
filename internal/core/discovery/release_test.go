@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -81,9 +82,9 @@ func TestRelease_ARecordNoRootKeySignedIsNotBelieved(t *testing.T) {
 	}
 }
 
-// A core reads the record at its start and then daily, pending as claimed, and keeps what it says for
+// A core reads the record at its start and then hourly (D462 §8), pending as claimed, and keeps what it says for
 // its admins; a later record with nothing pending clears it.
-func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
+func TestRelease_ACoreAsksAtItsStartAndHourlyAboutItsOwnVersion(t *testing.T) {
 	t.Parallel()
 	built := connected(t)
 	ctx := t.Context()
@@ -101,7 +102,7 @@ func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
 	built.clock.Advance(releaseCheckEvery - time.Minute)
 	built.service.step(ctx)
 	if asked := built.releaseAsked(); len(asked) != 1 {
-		t.Errorf("read %d times within the day; want once", len(asked))
+		t.Errorf("read %d times within the hour; want once", len(asked))
 	}
 	plain := aSecurityRelease()
 	plain.Sequence, plain.Latest = 2, "v0.1.0"
@@ -112,7 +113,39 @@ func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
 	built.service.step(ctx)
 	if asked, known := built.releaseAsked(), built.service.Release(); len(asked) != 2 || known.Security != nil ||
 		known.Latest != "" {
-		t.Errorf("a day on, read %d times and knows %+v; want read again and nothing pending", len(asked), known)
+		t.Errorf("an hour on, read %d times and knows %+v; want read again and nothing pending", len(asked), known)
+	}
+}
+
+// An admin's Check now reads the record at once, at most once a minute, and the hourly check counts
+// on from it (D462 §8).
+func TestRelease_AnAdminChecksNowAtMostOnceAMinute(t *testing.T) {
+	t.Parallel()
+	built := connected(t)
+	ctx := t.Context()
+	built.service.step(ctx)
+	before := len(built.releaseAsked())
+	built.setRelease(aSecurityRelease())
+	built.clock.Advance(time.Minute)
+	known, err := built.service.CheckReleaseNow(ctx)
+	if err != nil || len(built.releaseAsked()) != before+1 || known.Latest != "v0.2.1" {
+		t.Fatalf("Check now read %d times, knows %+v (%v); want read again and the latest known",
+			len(built.releaseAsked()), known, err)
+	}
+	built.clock.Advance(ReleaseCheckNowEvery - time.Second)
+	if _, err = built.service.CheckReleaseNow(ctx); !errors.Is(err, ErrCheckedJustNow) ||
+		len(built.releaseAsked()) != before+1 {
+		t.Errorf("Check now again within the minute = %v, read %d times; want refused, unread",
+			err, len(built.releaseAsked()))
+	}
+	built.clock.Advance(time.Second)
+	if _, err = built.service.CheckReleaseNow(ctx); err != nil || len(built.releaseAsked()) != before+2 {
+		t.Errorf("Check now a minute on = %v, read %d times; want read", err, len(built.releaseAsked()))
+	}
+	built.clock.Advance(releaseCheckEvery - time.Minute)
+	built.service.step(ctx)
+	if asked := built.releaseAsked(); len(asked) != before+2 {
+		t.Errorf("under an hour after Check now, the loop read %d times; want none more", len(asked))
 	}
 }
 

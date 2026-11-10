@@ -101,6 +101,9 @@ type ServerConfig struct {
 	ComposeVersion int `toml:"compose_version"`
 	// ImageTag is the compose file's image tag, a pinned one said on the Update page (D462 §10.7).
 	ImageTag string `toml:"image_tag"`
+	// ComposeMedia are the media folders the compose file names, which the Update page fills into a
+	// Synology's newer file (D462 §4); empty for any other install.
+	ComposeMedia []string `toml:"compose_media"`
 }
 
 // thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
@@ -302,6 +305,7 @@ func serverConfigKeys() []configKey {
 		},
 		{tableServer, "compose_version", "0", "the version of the compose file that started the server (D461 §3)"},
 		{tableServer, "image_tag", `""`, "the image tag the compose file runs, a pinned one said (D462 §10.7)"},
+		{tableServer, "compose_media", "[]", "the compose file's media folders, filled into a newer one (D462 §4)"},
 		{
 			tableServer, "home_networks", "[]",
 			"networks home besides the private ranges, a VPN's say. Home is always every private address " +

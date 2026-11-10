@@ -2158,6 +2158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/update/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the release record at once, at most once a minute, and say what the server knows after (D462 §8) */
+        post: operations["checkSystemUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/videos": {
         parameters: {
             query?: never;
@@ -2813,6 +2830,8 @@ export interface components {
         ComposeFileBody: {
             /** @description What each version after the server's brings, oldest first, a sentence each for the admin */
             brings: string[];
+            /** @description The newest compose file for the way the server was installed, the household's values filled in, to paste over its own; empty when the server has none */
+            file: string;
             /**
              * Format: int64
              * @description The newest compose file's version
@@ -5748,6 +5767,8 @@ export interface components {
             installRoute?: "script" | "omv" | "synology" | "portainer" | "casaos" | "docker";
             /** @description The newest release, when it is newer than this server's; empty when it runs the latest or knows of none */
             latest?: string;
+            /** @description The image tag the compose file pins in place of latest, which its update button keeps pulling until it is changed; absent with latest */
+            pinnedTag?: string;
             /** @description What the last reading of the release record found wrong, for the admin */
             problem?: string;
             security?: components["schemas"]["SecurityFixBody"];
@@ -10711,6 +10732,35 @@ export interface operations {
         };
     };
     getSystemUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkSystemUpdate: {
         parameters: {
             query?: never;
             header?: never;
