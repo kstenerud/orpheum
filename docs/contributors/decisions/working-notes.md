@@ -27613,3 +27613,62 @@ Where a break cannot be avoided, the release's notes give the step (D455), and 3
 household to take it.
 
 **Status:** decided; 1 and 3 to build before the next release.
+
+## D462 — A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in
+
+**Proposed** (2026-11-10), by the lead, on the owner's ask for *"a robust upgrade path that requires
+the least amount of manual labor as possible"*, with the app offering *"just overwrite with this
+version I've already combined for you"*, and the owner's *"I don't care about backwards compatibility
+at this point because nobody has actually used our system yet"*. Amends D447, D449 (the compose
+file's command line, §2 and §4 kept) and D461 §1 and §4; D461 §2 and §3 stand.
+
+1. **The compose file holds only what Docker must know before Orpheum runs:** the image, the user,
+   the data folder, the media folders mounted in (D449 §4, still given to start as `--media`, as a
+   mount is the file's to make anyway), host networking, the healthcheck, and the two ports needed
+   before the app can be reached: `ORPHEUM_HTTP_PORT` (the first browser's way in) and
+   `ORPHEUM_THIS_MACHINE_PORT` (the healthcheck's, and the way in when admin is refused, D449 §2).
+   Both keep their defaults and are optional.
+2. **Every other setting is the app's:** the address at home, the HTTPS and WebRTC port and the
+   router leave start's command line. They are set on the setup and System pages, kept in the data
+   folder, and written into the core's config at each start with the rest (D449 §1). A setting that
+   needs a restart says so, and the page restarts the server (`restart: unless-stopped` brings it
+   back). A setting a later release adds is a page's, never the file's. The address at home is
+   already learned from the first browser or asked (D449); this makes the page its only source.
+3. **An update is the NAS's own button.** With 1 and 2, a release changes the file rarely, so the
+   update is OpenMediaVault's **Pull** then **Up**, or Container Manager's **Update** on Synology:
+   nothing pasted, nothing edited.
+4. **When the file does change, the app hands it over filled in.** The System page's notice that a
+   newer file exists (D461 §3) gives the whole new file with a **Copy** button and the one step:
+   paste it over your file, then Up (OpenMediaVault) or Build (Synology). The image carries the
+   published files; the core fills in what it knows of this server: on Synology the `# Yours`
+   block (media folder, user, time zone), on OpenMediaVault nothing, as its values are in OMV's own
+   `.env` and `global.env`. The `# Yours` block keeps its shape (D461 §4) so the core can fill it.
+5. **People install from the latest release, never from main.** The release workflow attaches the
+   two compose files to each GitHub release, and install.md links
+   `releases/latest/download/<file>`, so a file on main ahead of its release reaches no one, and
+   the file installed is the one the running image was tested against.
+6. **The frozen files are kept per compose-file version, not per tag** (amends D461 §1):
+   `cmd/orpheum/testdata/released/compose-v<n>/`, written by `make freeze-compose`. The gate fails a
+   change to a published file that leaves the version where it was (bump
+   `deployment.ComposeFileVersion`, say what it brings, freeze). The release workflow checks that
+   the published files are the current version's frozen copy and that the tagged `start` takes every
+   flag they pass. A release that does not change the file needs nothing done; `start-flags.txt`
+   and the per-tag folders go.
+7. **The reset is free once.** No household has installed (D455's first beta install has not
+   happened), so the file's new shape is version 1, the v0.3.3 folder is replaced by `compose-v1`,
+   and the flags 2 removes are removed, not kept. D461 §2 (changes additive) holds from the first
+   install on.
+
+8. **Update is an entry in the admin menu** (the owner, 2026-11-10: *"an "Update" section in the main
+   menu (admin area) that tells them if there's an update available, and how to do the update"*).
+   It opens the How to update page (`/update`, today reached only from links), which becomes the one
+   place for updating: the version running, whether a newer one exists and what it brings, the
+   steps for the way this server was installed (D450 §2), and, when the compose file changed, the
+   filled-in file of 4 with its Copy button. The entry is marked while an update is available. The
+   System page's Updates section and the security banner keep a line and link there, so the steps are
+   written once.
+
+Not taken: the app updating itself (Watchtower, or Docker's socket in the container): the socket is
+root on the NAS, and 3 makes the NAS's button enough.
+
+**Status:** proposed, for the owner.
