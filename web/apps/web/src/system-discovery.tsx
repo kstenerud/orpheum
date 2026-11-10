@@ -13,7 +13,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { ApiProblem, dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
@@ -443,13 +443,6 @@ function useClaim(reload: () => void): Claiming {
     });
   };
   return { isBusy: claiming.isBusy, problem: claiming.problem, onClaim: claim };
-}
-
-/** Whether the server refused what was entered at location ("body.password"). */
-function isRefusedAt(cause: unknown, location: string): boolean {
-  const problems =
-    cause instanceof ApiProblem ? (cause.withCode("invalidRequest")?.detail?.problems ?? []) : [];
-  return problems.some((problem) => problem.location === location);
 }
 
 /** Claiming by the account's key: whether a claim is under way, why the last failed, and making one. */

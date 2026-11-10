@@ -195,6 +195,7 @@ it("the System page says since when each folder and disk is offline, and retires
       "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /system/discovery": noDiscovery,
       "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+      "GET /system/network": [409, { error: { code: "conflict", message: "no network settings" } }],
       "GET /now-playing": [200, { playbacks: [] }],
       "GET /filing-reports": [200, { reports: [] }],
       "GET /system": [

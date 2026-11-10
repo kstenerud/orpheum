@@ -10,6 +10,13 @@ import { i18n } from "./i18n.ts";
 // A refusal and its reading are the SDK's (cut-a §5.2); the app puts it in the viewer's words.
 export { ApiProblem, dataOrThrow, throwIfRefused } from "@orpheum/sdk";
 
+/** Whether the server refused what was entered at location ("body.password"). */
+export function isRefusedAt(cause: unknown, location: string): boolean {
+  const problems =
+    cause instanceof ApiProblem ? (cause.withCode("invalidRequest")?.detail?.problems ?? []) : [];
+  return problems.some((problem) => problem.location === location);
+}
+
 /**
  * What to tell a person about a failure, in their language, with what they can do about it: by
  * the server's code, and for a session that ended, why; a screen that knows more about one code

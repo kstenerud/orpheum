@@ -80,6 +80,10 @@ describe("the server's own videos on the System page (D435 §7)", () => {
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": [500, { title: "down" }],
           "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+          "GET /system/network": [
+            409,
+            { error: { code: "conflict", message: "no network settings" } },
+          ],
           "GET /now-playing": [200, { playbacks: [] }],
           "GET /system/reachability": [500, { title: "down" }],
           "GET /system/videos": [200, made],
