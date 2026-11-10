@@ -2795,3 +2795,19 @@ server heads it", with production's discovery deployed after it.
    that Container Manager's project runs relative paths from its Path, and its **YAML
    Configurations** tab, which install.md names for a later change.
 3. The Synology screen labels: the owner asks the tester, who can probably try on 2026-11-10.
+
+## From releasing v0.4.0 (2026-11-10), next batch
+
+v0.4.0 published, and a core installed from its OMV file reported v0.4.0, but no signed release record
+had ever been put on orpheum.cc: the workflow's record steps were skipped because the repository's
+`PUBLISHER_PLACE` was unset (VQ231). The lead made the unsigned record by hand for the owner to sign.
+Found by the lead:
+
+- **The Update page's data says nothing when no record holds.** With orpheum.cc answering 404 for
+  `/.well-known/orpheum/release`, `GET /system/update` and Check now both answered
+  `{"version":"v0.4.0","checkedAt":0,"installRoute":"omv"}`, with no `problem`, so an admin cannot tell
+  "no record reached" from "never checked". It should say what the reading found.
+- **The release record expires after 30 days** (`recordLasts`, the audit's F9): v0.4.0's, issued
+  2026-11-10, expires 2026-12-10. Without a release before then the owner re-signs it, and nothing yet
+  reminds anyone (principles §17): a check or a reminder that names the date is wanted.
+- **The Fire TV upstairs feels very sluggish** using the app (the owner, 2026-11-10).
