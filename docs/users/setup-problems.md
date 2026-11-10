@@ -218,18 +218,14 @@ path (OpenMediaVault: **Storage > Shared Folders**, the **Absolute Path** column
 Station**, right-click the folder, **Properties**, **Location**), set `ORPHEUM_MEDIA` to it exactly
 (on a Synology, the line after `&media ` under `# Yours`), and start it again.
 
-### The core's log names `lan.address`
-
-`ORPHEUM_LAN_ADDRESS` is set, but not to an address on the home network: give the machine's
-(`192.168.1.20`, not `127.0.0.1` nor a public address), or leave it empty for the server to learn,
-then **Up** again.
-
 ### Up says a port "is already allocated", or the page opens OpenMediaVault instead
 
 Another service has the port: OpenMediaVault's own web interface takes 80 (and 443), or 8443 once
-moved as omv-extras' guide moves it; another app may have 8440 or 8444. Set `ORPHEUM_HTTP_PORT` or
-`ORPHEUM_HTTPS_PORT` to a free port, then **Up** again: every start takes the new value (D449). If
-`127.0.0.1:8441` is the one taken, set `ORPHEUM_THIS_MACHINE_PORT`.
+moved as omv-extras' guide moves it; another app may have 8440 or 8444. If it is 8440, set `ORPHEUM_HTTP_PORT` to a free
+port, then **Up** again: every start takes the new value (D449). If `127.0.0.1:8441` is the one
+taken, set `ORPHEUM_THIS_MACHINE_PORT`. The HTTPS and WebRTC ports are set on the **System** page,
+under **The house's network**: one that will not open at the start falls back to 8444, and the page
+says so (D462 §10.11).
 
 ### `orpheum-folders` exited with an error, or the core's log says "permission denied" under /var/lib/orpheum
 
