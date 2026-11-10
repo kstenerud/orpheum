@@ -127,11 +127,17 @@ function nearestBy<T>(
 
 /**
  * A focus engine: given the focused element, an arrow and the region it moves within, the element
- * focus moves to, or undefined to leave it where it is.
+ * focus moves to, or undefined to leave it where it is. searched, inside region, is a scope already
+ * searched from from that way and found empty, which an engine may leave out.
  */
 export interface FocusEngine {
   readonly name: string;
-  readonly next: (from: Element, direction: Direction, region: Element) => HTMLElement | undefined;
+  readonly next: (
+    from: Element,
+    direction: Direction,
+    region: Element,
+    searched?: Element,
+  ) => HTMLElement | undefined;
 }
 
 /**
@@ -197,8 +203,13 @@ export const coversTopAttribute = "data-focus-covers-top";
  * Watching, scrolled out above, for the banner over it).
  */
 export function searchBoxOf(element: Element): Box {
+  return searchBoxIn(element, element.closest(`[${coversTopAttribute}]`) !== null);
+}
+
+/** searchBoxOf, told whether element is in the banner over the page's top. */
+function searchBoxIn(element: Element, isCoveringTop: boolean): Box {
   const box = element.getBoundingClientRect();
-  if (element.closest(`[${coversTopAttribute}]`) === null) {
+  if (!isCoveringTop) {
     return box;
   }
   const scrolled = window.scrollY;
@@ -211,28 +222,69 @@ export function searchBoxOf(element: Element): Box {
 }
 
 /**
- * Our geometric engine over the region's elements that can take focus, but from and those in it: the
- * nearest in line (nearestInDirection); where none is, and from is in no focus container in the
- * region, the nearest off the line (nearestOffTheLine). A row's or a grid's control keeps to its
- * line, so Right at the end of a grid's short last row stays (Q3) and at a row's end goes nowhere;
- * a page's loose controls, as a form's fields set in no grid, reach each other.
+ * Our geometric engine over the region's elements that can take focus, but from and those in it, and
+ * those in searched (the scope an arrow already searched in vain, nextInContainers): the nearest in
+ * line (nearestInDirection); where none is, and from is in no focus container in the region, the
+ * nearest off the line (nearestOffTheLine). A row's or a grid's control keeps to its line, so Right
+ * at the end of a grid's short last row stays (Q3) and at a row's end goes nowhere; a page's loose
+ * controls, as a form's fields set in no grid, reach each other.
+ *
+ * An arrow press runs it over every control in a grid, a thousand once a long library is scrolled, on
+ * a TV's slow CPU, so the boxes alone are read for each: whether a control can take focus now
+ * (isFocusTarget, several walks up the tree and a style check) is asked only of the one that would
+ * win, and one that cannot is set aside and the search run again. The nearest is the least score,
+ * the first of equals, each control's score its own: the choice is the one a search of the
+ * focusable controls alone makes. Those in searched are left out for the same reason: none was in
+ * line, and none off it where that was searched, so none can be here.
  */
 export const geometricFocus: FocusEngine = {
   name: "geometric",
-  next: (from, direction, region) => {
+  next: (from, direction, region, searched) => {
+    const skipped = new Set<Element>(searched?.querySelectorAll(focusableSelector) ?? []);
+    const coveringTop = new Set<Element>();
+    for (const cover of region.ownerDocument.querySelectorAll(`[${coversTopAttribute}]`)) {
+      for (const element of cover.querySelectorAll(focusableSelector)) {
+        coveringTop.add(element);
+      }
+    }
     const candidates: Placed<HTMLElement>[] = [];
-    for (const element of focusTargetsIn(region)) {
-      if (element !== from && !from.contains(element)) {
-        candidates.push({ item: element, box: searchBoxOf(element) });
+    for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
+      if (
+        element !== from &&
+        element.tabIndex >= 0 &&
+        !skipped.has(element) &&
+        !from.contains(element)
+      ) {
+        candidates.push({ item: element, box: searchBoxIn(element, coveringTop.has(element)) });
       }
     }
     const box = searchBoxOf(from);
-    const inLine = nearestInDirection(box, candidates, direction);
+    const inLine = nearestThatCanTakeFocus(candidates, (pool) =>
+      nearestInDirection(box, pool, direction),
+    );
     return inLine !== undefined || isInAContainer(from, region)
       ? inLine
-      : nearestOffTheLine(box, candidates, direction);
+      : nearestThatCanTakeFocus(candidates, (pool) => nearestOffTheLine(box, pool, direction));
   },
 };
+
+/**
+ * The element nearestOf chooses among candidates that can take focus now (isFocusTarget), asking it
+ * only of each choice in turn: one that cannot is set aside and the choice made again without it.
+ */
+function nearestThatCanTakeFocus(
+  candidates: readonly Placed<HTMLElement>[],
+  nearestOf: (pool: readonly Placed<HTMLElement>[]) => HTMLElement | undefined,
+): HTMLElement | undefined {
+  let pool = candidates;
+  for (;;) {
+    const nearest = nearestOf(pool);
+    if (nearest === undefined || isFocusTarget(nearest)) {
+      return nearest;
+    }
+    pool = pool.filter((candidate) => candidate.item !== nearest);
+  }
+}
 
 /** Whether element is inside a focus container in region, region itself counting. */
 function isInAContainer(element: Element, region: Element): boolean {
@@ -284,11 +336,13 @@ export function nextInContainers(
   { root, engine }: { readonly root: Element; readonly engine: FocusEngine },
 ): HTMLElement | undefined {
   let scope = containerAround(from, root);
+  let searched: Element | undefined;
   for (;;) {
-    const next = engine.next(from, direction, scope);
+    const next = engine.next(from, direction, scope, searched);
     if (next !== undefined || scope === root) {
       return next;
     }
+    searched = scope;
     scope = containerAround(scope, root);
   }
 }
