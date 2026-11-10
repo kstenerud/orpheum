@@ -10,7 +10,7 @@ import {
   bodyField,
   buttonWithText,
   click,
-  fire,
+  enter,
   mount,
   servedBy,
   settleUntil,
@@ -45,15 +45,12 @@ async function mountNetwork(
 
 /** Types value into the field labelled label, as a person does. */
 async function typeInto(shown: Mounted, label: string, value: string): Promise<void> {
-  const input = [...shown.container.querySelectorAll("label")]
-    .find((each) => each.textContent.startsWith(label))
-    ?.querySelector("input");
-  if (input === null || input === undefined) {
-    throw new Error(`no field ${label}`);
-  }
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  setValue?.call(input, value);
-  await fire(input, new Event("input", { bubbles: true }));
+  await enter(
+    [...shown.container.querySelectorAll("label")]
+      .find((each) => each.textContent.startsWith(label))
+      ?.querySelector("input"),
+    value,
+  );
 }
 
 const saveButton = (shown: Mounted): HTMLButtonElement | undefined =>

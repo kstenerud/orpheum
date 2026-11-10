@@ -33,17 +33,16 @@ export function HowToUpdate(): JSX.Element {
       <Loaded
         resource={update}
         render={(value) => {
-          if (value === undefined) {
-            return <></>;
-          }
-          const shown = checked?.over === value ? checked.answer : value;
+          const shown = checked !== undefined && checked.over === value ? checked.answer : value;
           return (
             <>
               <HowToUpdateView update={shown} />
               <CheckNow
                 update={shown}
                 onChecked={(answer) => {
-                  setChecked({ over: value, answer });
+                  if (value !== undefined) {
+                    setChecked({ over: value, answer });
+                  }
                 }}
               />
             </>
@@ -60,7 +59,7 @@ export function HowToUpdate(): JSX.Element {
  * update is asked again, so the menu's mark follows.
  */
 function CheckNow(props: {
-  readonly update: Update;
+  readonly update: Update | undefined;
   readonly onChecked: (answer: Update) => void;
 }): JSX.Element | null {
   const { t, i18n } = useTranslation();
@@ -71,13 +70,13 @@ function CheckNow(props: {
     if (cause instanceof ApiProblem && cause.withCode("rateLimited") !== undefined) {
       return t("update.checkedJustNow");
     }
-    if (cause instanceof ApiProblem && cause.withCode("conflict") !== undefined) {
+    if (cause instanceof ApiProblem && cause.code === "conflict") {
       return t("update.nothingToCheck");
     }
     return problemText(t, cause);
   });
   const { update, onChecked } = props;
-  if (update.version === "dev") {
+  if (update === undefined || update.version === "dev") {
     return null;
   }
   return (
@@ -214,14 +213,12 @@ function NewerComposeFile(props: {
 function pasteStepOf(
   installRoute: InstallRoute,
 ): "update.composeFilePasteOMV" | "update.composeFilePasteSynology" | "update.composeFilePaste" {
-  switch (installRoute) {
-    case "omv":
-      return "update.composeFilePasteOMV";
-    case "synology":
-      return "update.composeFilePasteSynology";
-    default:
-      return "update.composeFilePaste";
+  if (installRoute === "omv") {
+    return "update.composeFilePasteOMV";
   }
+  return installRoute === "synology"
+    ? "update.composeFilePasteSynology"
+    : "update.composeFilePaste";
 }
 
 /** Copy, for text to paste, saying when the browser refused it, the text still there to select. */
