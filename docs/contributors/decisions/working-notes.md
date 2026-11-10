@@ -27616,7 +27616,7 @@ household to take it.
 
 ## D462 — A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in
 
-**Proposed** (2026-11-10), by the lead, on the owner's ask for *"a robust upgrade path that requires
+**Decided** (2026-11-10), by the owner (*"OK"*, then *"agreed"* to §8 as it stands), on the lead's proposal answering the owner's ask for *"a robust upgrade path that requires
 the least amount of manual labor as possible"*, with the app offering *"just overwrite with this
 version I've already combined for you"*, and the owner's *"I don't care about backwards compatibility
 at this point because nobody has actually used our system yet"*. Amends D447, D449 (the compose
@@ -27659,16 +27659,21 @@ file's command line, §2 and §4 kept) and D461 §1 and §4; D461 §2 and §3 st
    and the flags 2 removes are removed, not kept. D461 §2 (changes additive) holds from the first
    install on.
 
-8. **Update is an entry in the admin menu** (the owner, 2026-11-10: *"an "Update" section in the main
-   menu (admin area) that tells them if there's an update available, and how to do the update"*).
-   It opens the How to update page (`/update`, today reached only from links), which becomes the one
-   place for updating: the version running, whether a newer one exists and what it brings, the
-   steps for the way this server was installed (D450 §2), and, when the compose file changed, the
-   filled-in file of 4 with its Copy button. The entry is marked while an update is available. The
-   System page's Updates section and the security banner keep a line and link there, so the steps are
-   written once.
+8. **Update is an entry in the admin menu, always there** (the owner, 2026-11-10: *"an "Update"
+   section in the main menu (admin area) that tells them if there's an update available, and how to
+   do the update"*; then *"keep the update page visible always with a "check now" button, and then
+   maybe in the menu put an ! icon in front of the word when there's a known update available"*,
+   with the lead's hourly check, *"agreed"*). It opens the How to update page (`/update`, today
+   reached only from links), which becomes the one place for updating: the version running, whether
+   a newer one exists and what it brings, the steps for the way this server was installed (D450 §2),
+   and, when the compose file changed, the filled-in file of 4 with its Copy button. The entry reads
+   **! Update** while an update is known. **Check now** has the core fetch the release record at
+   once, at most once a minute, and the page shows what it found. The core's own check runs hourly,
+   not daily, so the mark comes within the hour of a release with no one pressing anything. The
+   System page's Updates section and the security banner keep a line and link there, so the steps
+   are written once.
 
 Not taken: the app updating itself (Watchtower, or Docker's socket in the container): the socket is
 root on the NAS, and 3 makes the NAS's button enough.
 
-**Status:** proposed, for the owner.
+**Status:** decided; to build before the first beta install.
