@@ -5,12 +5,9 @@ import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
-import { About } from "./about.tsx";
-import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
-import { CreditedPerson } from "./credits.tsx";
 import { Home } from "./home.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
@@ -19,8 +16,12 @@ import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { castSignOverTheFilm } from "./status-tray.tsx";
 import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
 import {
+  About,
+  Account,
+  CastingLeft,
   CastReady,
   CreateLibraryPage,
+  CreditedPerson,
   Files,
   HowToUpdate,
   Identify,
@@ -28,21 +29,26 @@ import {
   Lab,
   LabExtendPlayer,
   Libraries,
+  LibraryBrowse,
   LibraryPage,
   NeedsAttention,
   Play,
+  Register,
   Series,
   Settings,
+  SignIn,
   System,
+  ThisDevice,
   Title,
+  TogetherLeft,
   TogetherViewer,
   UiGallery,
   UserPage,
   Users,
+  usePreloadsSignIn,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { DebugToolsContext, type DebugToolsChoice } from "./debug-tools.tsx";
-import { LibraryBrowse } from "./library-browse.tsx";
 import { chipsOf } from "./list-filters.ts";
 import {
   BackgroundChangesContext,
@@ -52,14 +58,10 @@ import {
   type Poller,
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
-import { CastingLeft, TogetherLeft } from "./old-addresses.tsx";
-import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
 import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
-import { SignIn } from "./sign-in.tsx";
-import { ThisDevice } from "./this-device.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
@@ -88,8 +90,13 @@ export function App(): JSX.Element {
 function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.Element {
   const token = useToken();
   const isLeavingForTheDiscovery = useIsLeavingForTheDiscovery(token);
+  usePreloadsSignIn(token === undefined);
   if (props.route.screen === "register") {
-    return <Register />;
+    return (
+      <LaterScreen resetKey={props.route.screen}>
+        <Register />
+      </LaterScreen>
+    );
   }
   if (props.route.screen === "together" && token === undefined) {
     // A guest by link alone sees none of the app (D246 §3): a page of its own, no debug tools. A
@@ -113,7 +120,13 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
   if (token !== undefined) {
     return <SignedIn />;
   }
-  return isLeavingForTheDiscovery ? <LeavingForSignIn /> : <SignIn />;
+  return isLeavingForTheDiscovery ? (
+    <LeavingForSignIn />
+  ) : (
+    <LaterScreen resetKey={props.route.screen}>
+      <SignIn />
+    </LaterScreen>
+  );
 }
 
 /**

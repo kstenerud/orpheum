@@ -99,7 +99,7 @@ function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort
 }
 
 /** What the page shows, read from its route (app.tsx), with what changed when a person chooses. */
-interface BrowseState {
+export interface BrowseState {
   readonly library: number | "all" | undefined;
   readonly view: "folders" | undefined;
   readonly folder: string | undefined;
