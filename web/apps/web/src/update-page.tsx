@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { copyToClipboard } from "./clipboard.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { idempotent } from "./idempotent.ts";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
@@ -87,8 +88,10 @@ function CheckNow(props: {
           disabled={isBusy}
           onClick={() => {
             setIsChecked(false);
-            runRequest(async () => {
-              onChecked(dataOrThrow(await api.POST("/system/update/check")));
+            runRequest(async (idempotencyKey) => {
+              onChecked(
+                dataOrThrow(await api.POST("/system/update/check", idempotent(idempotencyKey))),
+              );
               setIsChecked(true);
               readAgain();
             });

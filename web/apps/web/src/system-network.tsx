@@ -5,6 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
+import { idempotent } from "./idempotent.ts";
 import { ApiProblem, dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
@@ -91,8 +92,8 @@ function Takes(props: { readonly appliedBy: NetworkState["appliedBy"] }): JSX.El
         consequence={t("system.network.restartConsequence")}
         confirmLabel={t("system.network.restartConfirm")}
         onConfirm={() => {
-          runRequest(async () => {
-            throwIfRefused(await api.POST("/system/restart"));
+          runRequest(async (idempotencyKey) => {
+            throwIfRefused(await api.POST("/system/restart", idempotent(idempotencyKey)));
             setIsRestarting(true);
           });
         }}
