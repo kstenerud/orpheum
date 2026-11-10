@@ -199,17 +199,8 @@ const destinations: readonly Destination[] = [
   { route: { screen: "about" }, labelKey: "about", audience: "everyone", group: "own" },
 ];
 
-/**
- * The frame every screen renders in: a banner with the product's name and the menu, and one
- * main landmark holding the screen. The places for watching are always in view; everything else is
- * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
- * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
- * destinations under Manage, shown to an admin only, the person's own places, Device tests among them
- * while the admin offers them, and Sign out. Watch Together and Cast are no places here:
- * their signs in the status tray are their entry points (D364 §12). The server refuses a destination
- * to anyone else whatever the menu shows.
- */
-export function AppShell(props: {
+/** What the shell is drawn for. */
+export interface AppShellProps {
   readonly isAdmin: boolean;
   /** Whether the person's role may host Watch Together, which shows them its sign while it is off. */
   readonly canHostWatchTogether: boolean;
@@ -237,7 +228,19 @@ export function AppShell(props: {
    */
   readonly administersFromHomeAt?: string | undefined;
   readonly children: ReactNode;
-}): JSX.Element {
+}
+
+/**
+ * The frame every screen renders in: a banner with the product's name and the menu, and one
+ * main landmark holding the screen. The places for watching are always in view; everything else is
+ * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
+ * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
+ * destinations under Manage, shown to an admin only, the person's own places, Device tests among them
+ * while the admin offers them, and Sign out. Watch Together and Cast are no places here:
+ * their signs in the status tray are their entry points (D364 §12). The server refuses a destination
+ * to anyone else whatever the menu shows.
+ */
+export function AppShell(props: AppShellProps): JSX.Element {
   const { t } = useTranslation();
   const shown = destinations.filter((destination) => isShownTo(destination.audience, props));
   const inGroup = (group: Destination["group"]): readonly Destination[] =>
@@ -292,10 +295,7 @@ export function AppShell(props: {
 }
 
 /** Whether the shell shows a destination for audience to the person it is drawn for. */
-function isShownTo(
-  audience: Destination["audience"],
-  shell: Parameters<typeof AppShell>[0],
-): boolean {
+function isShownTo(audience: Destination["audience"], shell: AppShellProps): boolean {
   switch (audience) {
     case "everyone":
       return true;
@@ -339,7 +339,7 @@ function ShellMain(props: {
  * had fallen into the row of places for watching).
  */
 function BannerEnd(props: {
-  readonly shell: Parameters<typeof AppShell>[0];
+  readonly shell: AppShellProps;
   readonly isMenuCurrent: boolean;
   readonly children: ReactNode;
 }): JSX.Element {

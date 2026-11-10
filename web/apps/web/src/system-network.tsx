@@ -28,7 +28,7 @@ export function SystemNetwork(): JSX.Element | null {
       return dataOrThrow(await api.GET("/system/network", { signal: signal ?? null }));
     } catch (cause) {
       // A server that keeps no network settings says so with a conflict: show it no section.
-      if (cause instanceof ApiProblem && cause.withCode("conflict") !== undefined) {
+      if (cause instanceof ApiProblem && cause.code === "conflict") {
         return undefined;
       }
       throw cause;
@@ -120,21 +120,16 @@ function NetworkForm(props: {
     const setting = refusedSetting(cause);
     return setting === undefined ? problemText(t, cause) : t(refusalKey[setting]);
   });
-  const field = (setting: Setting, isPort: boolean): JSX.Element => (
-    <p>
-      <label>
-        {t(`system.network.${setting}`)}{" "}
-        <input
-          type="text"
-          inputMode={isPort ? "numeric" : "decimal"}
-          value={entered[setting]}
-          onChange={(event) => {
-            setIsSaved(false);
-            setEntered({ ...entered, [setting]: event.target.value });
-          }}
-        />
-      </label>
-    </p>
+  const field = (setting: Setting): JSX.Element => (
+    <NetworkField
+      label={t(`system.network.${setting}`)}
+      isPort={setting !== "router"}
+      value={entered[setting]}
+      onChange={(value) => {
+        setIsSaved(false);
+        setEntered({ ...entered, [setting]: value });
+      }}
+    />
   );
   return (
     <form
@@ -156,9 +151,9 @@ function NetworkForm(props: {
         });
       }}
     >
-      {field("httpsPort", true)}
-      {field("webrtcPort", true)}
-      {field("router", false)}
+      {field("httpsPort")}
+      {field("webrtcPort")}
+      {field("router")}
       <p>
         <button type="submit" disabled={isBusy}>
           {t("system.network.save")}
@@ -167,6 +162,30 @@ function NetworkForm(props: {
       </p>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </form>
+  );
+}
+
+/** One setting's field: a port, or the router's address. */
+function NetworkField(props: {
+  readonly label: string;
+  readonly isPort: boolean;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}): JSX.Element {
+  return (
+    <p>
+      <label>
+        {props.label}{" "}
+        <input
+          type="text"
+          inputMode={props.isPort ? "numeric" : "decimal"}
+          value={props.value}
+          onChange={(event) => {
+            props.onChange(event.target.value);
+          }}
+        />
+      </label>
+    </p>
   );
 }
 

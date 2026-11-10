@@ -60,7 +60,7 @@ export function UpdateProvider(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const { api } = useServices();
-  const lastRead = useRef<Update>(undefined);
+  const lastReadRef = useRef<Update>(undefined);
   const { isAdmin } = props;
   const [update, readAgain] = useResource(
     isAdmin ? "system-update" : "system-update-not-admin",
@@ -69,14 +69,16 @@ export function UpdateProvider(props: {
         return undefined;
       }
       try {
-        lastRead.current = dataOrThrow(await api.GET("/system/update", { signal: signal ?? null }));
+        lastReadRef.current = dataOrThrow(
+          await api.GET("/system/update", { signal: signal ?? null }),
+        );
       } catch (cause) {
-        if (lastRead.current === undefined) {
+        if (lastReadRef.current === undefined) {
           throw cause;
         }
         reportFailure(cause);
       }
-      return lastRead.current;
+      return lastReadRef.current;
     },
     isAdmin ? updatePoller : undefined,
   );

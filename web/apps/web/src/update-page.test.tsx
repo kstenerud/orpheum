@@ -24,6 +24,7 @@ afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const command = "docker run --rm ghcr.io/kstenerud/orpheum:v0.3.4 install-script | sh";
@@ -198,15 +199,9 @@ describe("a newer compose file", () => {
   it("is handed over filled in, to copy, with the step and the copy of the old one to keep", async () => {
     const writes: string[] = [];
     vi.stubGlobal("isSecureContext", true);
-    vi.stubGlobal("navigator", {
-      ...navigator,
-      clipboard: {
-        writeText: async (text: string) => {
-          writes.push(text);
-          await Promise.resolve();
-        },
-      },
-    });
+    vi.spyOn(globalThis.navigator.clipboard, "writeText").mockImplementation((text: string) =>
+      Promise.resolve(void writes.push(text)),
+    );
     const container = await mountView(withFile("synology"));
     expect(codes(container)).toEqual([filled]);
     expect(container.textContent).toContain("Keep a copy of your old compose file first");
