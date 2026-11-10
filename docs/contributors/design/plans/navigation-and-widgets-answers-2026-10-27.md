@@ -2789,7 +2789,7 @@ server heads it", with production's discovery deployed after it.
 2. A Synology compose file needing no `.env`: "yes". Done: "feat(deploy): a Synology compose file
    that needs no .env, its three values in the file", `deploy/synology/compose.yaml`, the OMV file
    with the media folder, user and time zone as anchors under `# Yours` and its data in the
-   project's `data/`; `TestSynologyCompose_IsTheOMVOnesWithItsValuesInTheFile` keeps it in step.
+   project's `data/`; both are now rendered from one template, held by `TestHouseholdComposeFiles_AreTheTemplatesRenderingAtEachRoutesPath` (D462 §10.2).
    Run here in Docker with v0.3.3: the folders were made and owned, the setup code written, the node
    said hello. install.md's Synology steps drop the data folder and the `.env`. Unseen on a device:
    that Container Manager's project runs relative paths from its Path, and its **YAML
