@@ -27588,3 +27588,28 @@ kept like it would be on a live system because we'll have outside users for the 
 - 2: `TestSteps_KeepTheMigrationWindow`, `TestSteps_MatchTheCommittedChecksums`
 - 3: `TestSchema_TheSystemLibraryIsLeftOutOfVersionLibrary`,
   `TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase`, `TestReferenceScale`
+
+## D461 — A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file
+
+**Decided** (2026-11-10), by the project owner, on the lead's proposal for keeping D455's promise to
+the compose files testers paste (deploy/omv/compose.yaml, deploy/synology/compose.yaml): *"yes,
+agreed on all."*
+
+1. **Each released compose file is frozen as a test fixture.** At each tag, the OMV and Synology
+   files as released are kept in the tests under that version. A test checks that the current
+   `orpheum start` accepts every frozen file's command line, and that the image runs with only the
+   mounts those files give, so a release that would stop a pasted file fails the gate, not a
+   tester's server.
+2. **Changes to a compose file's contract are additive.** No flag is removed: an old one stays
+   accepted, ignored or mapped onto its successor. A new setting takes its default in the image,
+   not the file. A new mount or device the image wants, it runs without, and says what is missing.
+3. **A compose file says its version:** `--compose-version <n>` on start's command line, a file
+   without it being version 1. The server knows which file it was started from, and the System page
+   says when a newer one exists and what it brings.
+4. **The Synology file's `# Yours` block keeps its shape,** so its update stays "keep your three
+   lines, paste the rest". A change to it is a step in the release's notes.
+
+Where a break cannot be avoided, the release's notes give the step (D455), and 3 tells the
+household to take it.
+
+**Status:** decided; 1 and 3 to build before the next release.
