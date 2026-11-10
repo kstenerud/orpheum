@@ -32,25 +32,6 @@ import {
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import type { Membership } from "./together-storage.ts";
 
-/** The meta element a discovery's page names its client API by; the core's own page has none. */
-const clientApiMetaName = "orpheum-discovery-client-api";
-
-/**
- * The client API of the discovery whose page this is, as the page names it, or "" on the core's own
- * origin: the server tells the client, which reads no environment (D204).
- */
-export function discoveryClientApiOf(page: Pick<Document, "querySelector">): string {
-  return page.querySelector(`meta[name="${clientApiMetaName}"]`)?.getAttribute("content") ?? "";
-}
-
-/** The meta element a paid discovery's page says it has realms by (D298 §1). */
-const realmsMetaName = "orpheum-discovery-realms";
-
-/** Whether the discovery whose page this is has realms, so a person signs in by one there. */
-export function discoveryHasRealms(page: Pick<Document, "querySelector">): boolean {
-  return page.querySelector(`meta[name="${realmsMetaName}"]`)?.getAttribute("content") === "true";
-}
-
 /**
  * How a page at a discovery's origin starts. With nothing, keyRefusedBy names the core whose client
  * origin sent the page here because that core refused the key this device remembered for it, which

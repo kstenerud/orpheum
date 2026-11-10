@@ -3,7 +3,7 @@
 import type { Api } from "@orpheum/sdk";
 
 import { tabStorage, type StringStorage } from "./browser-storage.ts";
-import { discoveryClientApiOf } from "./discovery-start.ts";
+import { discoveryClientApiOf } from "./discovery-page.ts";
 
 /** A watcher of every request and answer the API makes. */
 type Middleware = Parameters<Api["use"]>[0];
