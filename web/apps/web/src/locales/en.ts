@@ -3,13 +3,10 @@
 import { enCast } from "./en-cast.ts";
 import { enDevices } from "./en-devices.ts";
 import { enDiscovery } from "./en-discovery.ts";
-import { enLibraries } from "./en-libraries.ts";
-import { enPeople } from "./en-people.ts";
 import { enPlay } from "./en-play.ts";
 import { enSettingLabels } from "./en-setting-labels.ts";
 import { enSettingsCatalogue } from "./en-settings.ts";
 import { enStatus } from "./en-status.ts";
-import { enSystem } from "./en-system.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
 import { enWatched } from "./en-watched.ts";
@@ -30,14 +27,11 @@ export const en = {
   ...enDevices,
   ...enCast,
   ...enDiscovery,
-  ...enLibraries,
-  ...enPeople,
   ...enStatus,
   ...enWarning,
   ...enWatched,
   ...enOrderings,
   ...enNavigation,
-  ...enSystem,
   ...enUpdate,
   ...enCredits,
   ...enFind,

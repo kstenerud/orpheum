@@ -97,6 +97,9 @@ describe("what the first page loads before it draws (the efficiency audit of 202
       "./files.tsx",
       "./settings.tsx",
       "./locales/en-lab.ts",
+      "./locales/en-system.ts",
+      "./locales/en-libraries.ts",
+      "./locales/en-people.ts",
       "./locales/en-gallery.ts",
       // The architecture audit of 2026-11-10, Startup 3: no start draws these first.
       "./about.tsx",

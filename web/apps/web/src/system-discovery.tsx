@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./system-words.ts";
+
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useRef, useState, type JSX } from "react";

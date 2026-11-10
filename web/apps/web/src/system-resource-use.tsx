@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./system-words.ts";
+
 import "./system.css";
 import "./system-resource-use.css";
 
