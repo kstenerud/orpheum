@@ -23,15 +23,14 @@ import (
 // Origin is where the address at home came from.
 type Origin string
 
-// The origins of the address at home: none yet, the config's (ORPHEUM_LAN_ADDRESS, which wins, D452
-// §5), learned from a request from home (§3), set by an admin (§4), or guessed from the default
+// The origins of the address at home: none yet, learned from a request from home (D452 §3), set by
+// an admin or taken once from the deployment's values (§4, D462 §10.6), or guessed from the default
 // route's interface by a core sharing the host's network, until one is learned or set.
 const (
-	OriginNone       Origin = ""
-	OriginConfigured Origin = "configured"
-	OriginLearned    Origin = "learned"
-	OriginSet        Origin = "set"
-	OriginGuessed    Origin = "guessed"
+	OriginNone    Origin = ""
+	OriginLearned Origin = "learned"
+	OriginSet     Origin = "set"
+	OriginGuessed Origin = "guessed"
 )
 
 // EventAddressLearned is the log line's slogx.EventKey when the address at home changes.
@@ -39,9 +38,6 @@ const EventAddressLearned = "homeAddressLearned"
 
 // resolveWithin is how long a name's lookup may take (D452 §4).
 const resolveWithin = 2 * time.Second
-
-// ErrConfigured is a set refused because the config names the address at home, which wins (D452 §5).
-var ErrConfigured = errors.New("the address at home is configured (ORPHEUM_LAN_ADDRESS), which wins over one set here")
 
 // ErrNotAtHome is a set refused because the address is no private IPv4 address.
 var ErrNotAtHome = errors.New("the address at home is a private IPv4 address, \"192.168.1.20\"")
@@ -71,9 +67,10 @@ type AddressParts struct {
 	// Database names the admin who set the address.
 	Database *store.Database
 	Logger   *slog.Logger
-	// Configured is the address the config names (discovery.lan_addresses, from ORPHEUM_LAN_ADDRESS);
-	// invalid for none. Set, it wins and nothing is learned (D452 §5).
-	Configured netip.Addr
+	// Seed is the address the config names (discovery.address_at_home_seed, from the install script's
+	// values), kept as set when none is learned or set yet, so the System page is its one source from
+	// then on (D462 §2, §10.6); invalid for none.
+	Seed netip.Addr
 	// Resolve looks a name up: net.DefaultResolver's, or a test's (D452 §4).
 	Resolve func(ctx context.Context, name string) ([]netip.Addr, error)
 	// Interfaces are the machine's interfaces, for Guess: cmd/orpheum's systemInterfaces, or a test's.
@@ -88,14 +85,14 @@ type AddressParts struct {
 	// Interfaces holds, as its own address in the house must be. The Host a request names is the
 	// device's to write, so without it any device at home could point the server's host candidates and
 	// heartbeat at another address. A core in a container's own network holds none of the house's
-	// addresses and cannot check this; there the address is configured.
+	// addresses and cannot check this; there a request never replaces an address set.
 	LearnsOnlyHeld bool
 }
 
-// AddressAtHome is the server's address at home (D452 §3, §4): the configured one, else the one last
-// learned from a request from home or set by an admin, kept as a setting, and handed live to the rule
-// and to whatever OnChange names (the discovery's lan_addresses, WebRTC's host candidates). A change
-// on the settings page, a reset too, reaches them the same way.
+// AddressAtHome is the server's address at home (D452 §3, §4): the one last learned from a request
+// from home or set by an admin, kept as a setting, and handed live to the rule and to whatever
+// OnChange names (the discovery's heartbeat, WebRTC's host candidates). A change on the settings
+// page, a reset too, reaches them the same way.
 type AddressAtHome struct {
 	parts AddressParts
 	known atomic.Pointer[Known]
@@ -108,16 +105,11 @@ type AddressAtHome struct {
 	looked    map[string]bool
 }
 
-// NewAddressAtHome is the address at home, configured or as the settings keep it, applied to the rule.
+// NewAddressAtHome is the address at home as the settings keep it, the seed kept first when they
+// keep none, applied to the rule.
 func NewAddressAtHome(ctx context.Context, parts AddressParts) (*AddressAtHome, error) {
 	keeper := &AddressAtHome{parts: parts, looked: map[string]bool{}}
 	keeper.known.Store(&Known{})
-	if parts.Configured.IsValid() {
-		known := Known{Address: parts.Configured.Unmap(), Origin: OriginConfigured}
-		keeper.known.Store(&known)
-		parts.Rule.SetAddressAtHome(known.Address)
-		return keeper, nil
-	}
 	if parts.DefaultRoute != nil {
 		if guess := parts.DefaultRoute(); IsAtHome(guess) {
 			keeper.guess = guess.Unmap()
@@ -126,8 +118,23 @@ func NewAddressAtHome(ctx context.Context, parts AddressParts) (*AddressAtHome, 
 	if err := keeper.reload(ctx); err != nil {
 		return nil, err
 	}
+	if err := keeper.seed(ctx); err != nil {
+		return nil, err
+	}
 	parts.Settings.OnChange(settings.AddressAtHome, keeper.reload)
 	return keeper, nil
+}
+
+// seed keeps the seed as set when no address is learned or set yet (D462 §10.6).
+func (keeper *AddressAtHome) seed(ctx context.Context) error {
+	seed := keeper.parts.Seed.Unmap()
+	if !IsAtHome(seed) || !keeper.IsLearning() {
+		return nil
+	}
+	if err := keeper.write(ctx, seed, "", nil); err != nil {
+		return fmt.Errorf("keep the deployment's address at home: %w", err)
+	}
+	return keeper.reload(ctx)
 }
 
 // reload reads the address at home from the settings and, when it changed, applies it, tells every
@@ -221,15 +228,17 @@ func IsAtHome(address netip.Addr) bool {
 }
 
 // Learn takes address, which a request from home named the server by, as the address at home, taught
-// by device (its user agent), unless the config names one or it is the one known: a request that
-// teaches nothing new reads one pointer and writes nothing (D452 §3).
+// by device (its user agent), unless it is the one known, or a core that cannot check the address
+// is its own has one set: a request that teaches nothing new reads one pointer and writes nothing
+// (D452 §3).
 func (keeper *AddressAtHome) Learn(ctx context.Context, address netip.Addr, device string) {
 	address = address.Unmap()
 	if keeper == nil || !IsAtHome(address) {
 		return
 	}
 	known := keeper.known.Load()
-	if known.Origin == OriginConfigured || known.Address == address && known.Origin != OriginGuessed {
+	if known.Address == address && known.Origin != OriginGuessed ||
+		!keeper.parts.LearnsOnlyHeld && known.Origin == OriginSet {
 		return
 	}
 	if keeper.parts.LearnsOnlyHeld && !keeper.holds(address) {
@@ -296,11 +305,7 @@ func (keeper *AddressAtHome) LearnName(ctx context.Context, name, device string)
 
 // Set is an admin's setting of the address at home (D452 §4), kept as a learned one is, naming them.
 func (keeper *AddressAtHome) Set(ctx context.Context, address netip.Addr, byUserID int64) error {
-	address = address.Unmap()
-	switch {
-	case keeper.known.Load().Origin == OriginConfigured:
-		return ErrConfigured
-	case !IsAtHome(address):
+	if address = address.Unmap(); !IsAtHome(address) {
 		return ErrNotAtHome
 	}
 	return keeper.write(ctx, address, "", &byUserID)

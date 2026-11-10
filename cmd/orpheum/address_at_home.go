@@ -20,9 +20,9 @@ const (
 	httpsDefaultPort     = 443
 )
 
-// keepAddressAtHome is the server's address at home (D452 §3, §4): the config's first LAN address,
-// which wins, else the one the settings keep, else, for a core sharing the machine's network, the
-// default route's interface's. The API learns it from the requests at home that name the server on
+// keepAddressAtHome is the server's address at home (D452 §3, §4): the one the settings keep, the
+// config's seed kept first when they keep none (D462 §10.6), else, for a core sharing the machine's
+// network, the default route's interface's. The API learns it from the requests at home that name the server on
 // its plain or HTTPS port, and WebRTC offers it as the host candidate of its port at home from the
 // next offer after each change.
 func keepAddressAtHome(
@@ -30,10 +30,7 @@ func keepAddressAtHome(
 ) (*home.AddressAtHome, error) {
 	parts := home.AddressParts{
 		Rule: server.Home(), Settings: opened.settings, Database: opened.database, Logger: logger,
-		Resolve: systemResolve, Interfaces: systemInterfaces,
-	}
-	if configured := config.Discovery.lanIPs(); len(configured) > 0 {
-		parts.Configured = configured[0]
+		Resolve: systemResolve, Interfaces: systemInterfaces, Seed: config.Discovery.addressAtHomeSeed(),
 	}
 	if config.Server.AddressAtHomeFromDefaultRoute {
 		parts.DefaultRoute, parts.LearnsOnlyHeld = defaultRouteAddress, true
@@ -43,7 +40,7 @@ func keepAddressAtHome(
 		return nil, err
 	}
 	server.SetAddressAtHome(keeper, teachingPorts(config)...)
-	if rtc := server.RTC(); rtc != nil && !parts.Configured.IsValid() {
+	if rtc := server.RTC(); rtc != nil {
 		keeper.OnChange(func(address netip.Addr) {
 			if err := rtc.SetLANAddresses(addressesOf(address)); err != nil {
 				logger.ErrorContext(ctx, "WebRTC at home goes on offering the old address at home", "err", err)

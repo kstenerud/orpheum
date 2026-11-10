@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
@@ -23,11 +23,10 @@ type DiscoveryConfig struct {
 	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
 	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
 	ConfiguredAddresses []string `toml:"configured_addresses"`
-	// LANAddresses are the house's addresses that reach the core which the machine's interfaces do
-	// not show it, "address:port": in a container, the machine's own address on the house's network
-	// and the port HTTPS is published on there, which the discovery names for devices at home, so they
-	// reach the core in the house over HTTPS, not out through the VPS and back (the owner, 2026-10-14).
-	LANAddresses []string `toml:"lan_addresses"`
+	// AddressAtHomeSeed is the machine's address on the house's network the install script's values
+	// name, "192.168.1.20", kept as the address at home once when none is learned or set; the System
+	// page is its one source from then on (D462 §2, §10.6). Empty for none.
+	AddressAtHomeSeed string `toml:"address_at_home_seed"`
 	// SendInterfaceAddresses is whether the core sends the addresses of the interfaces it sees: true
 	// for a core run on its machine, false in a container, whose interfaces are its own network's and
 	// its tunnel's, which nothing at home reaches; there the deployment names its addresses (the owner,
@@ -54,10 +53,9 @@ func discoveryConfigKeys() []configKey {
 				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
 		},
 		{
-			tableDiscovery, "lan_addresses", "[]",
-			"the house's addresses that reach the core which its interfaces do not show it, \"address:port\": " +
-				"in a container, the machine's address at home and its published HTTPS port; the discovery " +
-				"names them for devices at home",
+			tableDiscovery, "address_at_home_seed", `""`,
+			"the machine's address on the house's network, \"192.168.1.20\", kept as the address at home once " +
+				"when none is learned or set; the System page sets it from then on",
 		},
 		{
 			tableDiscovery, "send_interface_addresses", "true",
@@ -115,11 +113,10 @@ func (discovery DiscoveryConfig) houseNetworks() []netip.Prefix {
 }
 
 // configuredCandidates are the configured addresses, public and the house's, as the discovery is
-// sent them.
+// sent them; the address at home goes as heartbeatCandidates reads it.
 func (discovery DiscoveryConfig) configuredCandidates() []discoveryproto.Candidate {
-	named := append(slices.Clone(discovery.ConfiguredAddresses), discovery.LANAddresses...)
-	candidates := make([]discoveryproto.Candidate, 0, len(named))
-	for _, configured := range named {
+	candidates := make([]discoveryproto.Candidate, 0, len(discovery.ConfiguredAddresses))
+	for _, configured := range discovery.ConfiguredAddresses {
 		if endpoint, err := netip.ParseAddrPort(configured); err == nil {
 			candidates = append(candidates, discoveryproto.Candidate{
 				Address: endpoint.Addr().Unmap().String(), Port: int(endpoint.Port()),
@@ -162,30 +159,29 @@ func (discovery DiscoveryConfig) searchAddress() string {
 	return portmap.SSDPAddress
 }
 
-// forwardTo is where port mapping asks the router to forward, in a container: the first IPv4 LAN
-// address, the machine's address at home and its published HTTPS port; none outside a container,
-// where the router forwards to the machine's own address.
-func (discovery DiscoveryConfig) forwardTo() netip.AddrPort {
-	if discovery.SendInterfaceAddresses {
+// forwardTo is where port mapping asks the router to forward, in a container: the machine's address
+// at home as it is now, atHome's, on its published HTTPS port; none outside a container, where the
+// router forwards to the machine's own address.
+func (discovery DiscoveryConfig) forwardTo(atHome func() netip.Addr, port int) func() netip.AddrPort {
+	if discovery.SendInterfaceAddresses || port <= 0 || port > 0xFFFF {
+		return nil
+	}
+	published := uint16(port)
+	return func() netip.AddrPort {
+		if address := atHome(); address.Unmap().Is4() {
+			return netip.AddrPortFrom(address.Unmap(), published)
+		}
 		return netip.AddrPort{}
 	}
-	for _, named := range discovery.LANAddresses {
-		if endpoint, err := netip.ParseAddrPort(named); err == nil && endpoint.Addr().Unmap().Is4() {
-			return netip.AddrPortFrom(endpoint.Addr().Unmap(), endpoint.Port())
-		}
-	}
-	return netip.AddrPort{}
 }
 
-// lanIPs are the house's addresses the LAN addresses name, which the core's WebRTC offers too.
-func (discovery DiscoveryConfig) lanIPs() []netip.Addr {
-	addresses := make([]netip.Addr, 0, len(discovery.LANAddresses))
-	for _, named := range discovery.LANAddresses {
-		if endpoint, err := netip.ParseAddrPort(named); err == nil {
-			addresses = append(addresses, endpoint.Addr().Unmap())
-		}
+// addressAtHomeSeed is the seed's address; invalid for none, as check refused one not at home.
+func (discovery DiscoveryConfig) addressAtHomeSeed() netip.Addr {
+	address, err := netip.ParseAddr(discovery.AddressAtHomeSeed)
+	if err != nil {
+		return netip.Addr{}
 	}
-	return addresses
+	return address.Unmap()
 }
 
 // WebRTCConfig is where the core takes WebRTC from devices at home: the UDP port its connections'
@@ -231,12 +227,9 @@ func (discovery DiscoveryConfig) check() error {
 				`"<IPv4>:443" or "[<IPv6>]:443"`, configured)
 		}
 	}
-	for _, named := range discovery.LANAddresses {
-		endpoint, err := netip.ParseAddrPort(named)
-		if err != nil || endpoint.Port() == 0 || !endpoint.Addr().Unmap().IsPrivate() {
-			return fmt.Errorf("discovery.lan_addresses %q: want an address on the house's network and its "+
-				`port, "192.168.1.20:8443"`, named)
-		}
+	if seed := discovery.AddressAtHomeSeed; seed != "" && !home.IsAtHome(discovery.addressAtHomeSeed()) {
+		return fmt.Errorf(`discovery.address_at_home_seed %q: want a private IPv4 address, "192.168.1.20", or ""`,
+			seed)
 	}
 	for _, named := range discovery.HouseIPv6Networks {
 		if network, err := netip.ParsePrefix(named); err != nil || !discoveryproto.IsHouseNetwork(network) {

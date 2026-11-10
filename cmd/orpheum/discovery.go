@@ -106,8 +106,7 @@ func heartbeatCandidates(
 		var candidates []discoveryproto.Candidate
 		if config.Discovery.SendInterfaceAddresses {
 			candidates = publicOrAtHome(interfaceCandidates(httpsPort(config)), atHome())
-		} else if address := atHome(); len(config.Discovery.LANAddresses) == 0 && address.IsValid() &&
-			httpsPort(config) != 0 {
+		} else if address := atHome(); address.IsValid() && httpsPort(config) != 0 {
 			candidates = append(candidates, discoveryproto.Candidate{
 				Address: address.String(), Port: httpsPort(config), Source: discoveryproto.SourceConfigured,
 				Scope: discoveryproto.ScopeLAN,
@@ -289,7 +288,8 @@ func portMappingParts(
 			}
 			return isOn
 		},
-		Gateway: config.Discovery.portMappingGateway(), ForwardTo: config.Discovery.forwardTo(),
+		Gateway:       config.Discovery.portMappingGateway(),
+		ForwardTo:     config.Discovery.forwardTo(opened.addressAtHome.Address, httpsPort(config)),
 		IPv6Addresses: portmap.GlobalIPv6Addresses,
 		GatewayPort:   portmap.GatewayPort, SearchAddress: config.Discovery.searchAddress(),
 	}

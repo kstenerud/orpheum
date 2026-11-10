@@ -33,7 +33,8 @@ func TestHairpinFinding_WarnsThatDevicesAtHomeReachTheServerThroughTheProvider(t
 	}
 	hairpin.UDPPort, hairpin.LANAddresses = 0, nil
 	unset := api.HairpinFinding(hairpin, true)
-	if unset.Verdict != api.VerdictWarning || !strings.Contains(unset.Action, "webrtc.udp_port") {
+	if unset.Verdict != api.VerdictWarning ||
+		!strings.Contains(unset.Action, "WebRTC port and the address at home on the System page") {
 		t.Errorf("with a hairpin standing and no LAN port: %+v; want a warning naming the setting", unset)
 	}
 }

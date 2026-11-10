@@ -204,7 +204,7 @@ relay_port_max = 49199
 
 [discovery]
 configured_addresses = []
-lan_addresses = []
+address_at_home_seed = ""
 send_interface_addresses = true
 house_ipv6_networks = []
 router = ""
@@ -317,25 +317,25 @@ func TestConfinementPolicy_StartsAtReport(t *testing.T) {
 	t.Error("the node has no confinement_policy key")
 }
 
-// A house's address is a private address with its port, the machine's at home and its published HTTPS
-// port, sent beside the configured public ones so the discovery names it for devices at home; a public
-// or loopback address is refused there (the owner, 2026-10-14).
-func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing.T) {
+// The seed of the address at home is a private IPv4 address or none, and is no configured candidate:
+// the heartbeat sends the address at home as the keeper holds it (D462 §10.6); a public, loopback,
+// IPv6 or ported one is refused.
+func TestDiscoveryConfig_TheAddressAtHomeSeedIsAPrivateIPv4Address(t *testing.T) {
 	t.Parallel()
-	discovery := DiscoveryConfig{
-		ConfiguredAddresses: []string{"11.22.44.146:443"}, LANAddresses: []string{"192.168.1.199:8443"},
-	}
+	discovery := DiscoveryConfig{ConfiguredAddresses: []string{"11.22.44.146:443"}, AddressAtHomeSeed: "192.168.1.199"}
 	if err := discovery.check(); err != nil {
 		t.Fatal(err)
 	}
-	got := discovery.configuredCandidates()
-	if len(got) != 2 || got[1].Address != "192.168.1.199" || got[1].Port != 8443 {
-		t.Errorf("the configured candidates are %+v; want the public one and the house's", got)
+	if got := discovery.addressAtHomeSeed(); got != netip.MustParseAddr("192.168.1.199") {
+		t.Errorf("the seed is %v; want 192.168.1.199", got)
 	}
-	for _, refused := range []string{"11.22.44.146:8443", "127.0.0.1:8443", "192.168.1.20", "[fe80::1]:8443"} {
-		discovery.LANAddresses = []string{refused}
+	if got := discovery.configuredCandidates(); len(got) != 1 || got[0].Address != "11.22.44.146" {
+		t.Errorf("the configured candidates are %+v; want the public one alone", got)
+	}
+	for _, refused := range []string{"11.22.44.146", "127.0.0.1", "192.168.1.20:8443", "fd00::1"} {
+		discovery.AddressAtHomeSeed = refused
 		if discovery.check() == nil {
-			t.Errorf("house address %q was taken", refused)
+			t.Errorf("seed %q was taken", refused)
 		}
 	}
 }

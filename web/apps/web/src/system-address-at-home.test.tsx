@@ -43,7 +43,6 @@ async function shown(
 it("shows the address at home and how the server knew it (D452 §3)", async () => {
   const expectations: readonly [AddressAtHome, string][] = [
     [{ address: "", origin: "" }, "does not know its address in your home yet"],
-    [{ address: "192.168.1.5", origin: "configured" }, "configuration names it"],
     [
       { address: "192.168.1.20", origin: "learned", learnedFrom: "Firefox on Linux", at: 1 },
       "Learned from Firefox on Linux",
@@ -58,8 +57,8 @@ it("shows the address at home and how the server knew it (D452 §3)", async () =
     if (addressAtHome.address !== "") {
       expect(container.textContent).toContain(`reach the server at ${addressAtHome.address}.`);
     }
-    // A configured address wins, so the form that would only be refused is not offered.
-    expect(container.querySelector("form") === null).toBe(addressAtHome.origin === "configured");
+    // The System page is the address's one source, so the form is always offered (D462 §2).
+    expect(container.querySelector("form")).not.toBeNull();
     mounted?.unmount();
     mounted = undefined;
   }
@@ -88,7 +87,7 @@ it("sets the address an admin types, and says in plain words why the server refu
   await enter(container.querySelector("input"), " 192.168.1.20 ");
   await submit(form);
   expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-    "configuration names its address (ORPHEUM_LAN_ADDRESS)",
+    "keeps no address at home",
   );
   await submit(form);
   expect(container.querySelector('[role="alert"]')?.textContent).toContain(

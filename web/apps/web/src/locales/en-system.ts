@@ -30,8 +30,6 @@ export const enSystem = {
       heading: "Address in your home",
       none: "The server does not know its address in your home yet. Open it from a device at home by its address, or set it here.",
       address: "Devices at home reach the server at {{address}}.",
-      configured:
-        "The server's configuration names it (ORPHEUM_LAN_ADDRESS), so it cannot be changed here.",
       learned: "Learned from {{device}}, {{at}}.",
       set: "Set by {{name}}, {{at}}.",
       setByRemoved: "Set by an admin, {{at}}.",
@@ -39,8 +37,7 @@ export const enSystem = {
         "Guessed from the machine's own network until a device at home opens the server by its address.",
       field: "Address",
       save: "Set address",
-      refusedConfigured:
-        "The server's configuration names its address (ORPHEUM_LAN_ADDRESS). Change it there, or remove it to set one here.",
+      refusedNotKept: "This server keeps no address at home, so none can be set here.",
       refusedNotPrivate:
         "That is not an address in a home network. Give the server's IPv4 address in your home, such as 192.168.1.20.",
     },

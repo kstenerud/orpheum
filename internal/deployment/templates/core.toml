@@ -60,9 +60,9 @@ relay_port_max = 49199
 # The VPS's public addresses, which it forwards to this core: sent to a discovery to publish; none
 # with no tunnel.
 configured_addresses = {{toml .Values.ConfiguredAddresses}}
-# This machine's address at home and its published HTTPS port, which the core's container cannot see:
-# sent to a discovery to name for devices at home.
-lan_addresses = {{toml .Values.LANAddresses}}
+# This machine's address at home, which the core's container cannot see, kept once as the address at
+# home when the core holds none; the System page sets it from then on.
+address_at_home_seed = {{toml .Values.AddressAtHomeSeed}}
 # Behind a tunnel the core's container sees only its own network and the tunnel, which nothing at home
 # reaches: it sends none of them, only the addresses above. With no tunnel it shares this machine's
 # network, and sends the machine's own addresses.

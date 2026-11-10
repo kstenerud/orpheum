@@ -601,14 +601,9 @@ func mountDebug(
 }
 
 // homeRuleOf is the rule of the house's addresses the config makes, with the networks of the core's
-// own interfaces as they are at start, and the first address the discovery names at home as the
-// address at home, which keeps its interface network home for a core on the host's network (D452 §1).
+// own interfaces as they are at start; the address at home reaches it from keepAddressAtHome (D452 §1).
 func homeRuleOf(config Config) *home.Rule {
-	rule := home.NewRule(config.Server.homeNetworksOf(home.InterfaceNetworks()))
-	if atHome := config.Discovery.lanIPs(); len(atHome) > 0 {
-		rule.SetAddressAtHome(atHome[0])
-	}
-	return rule
+	return home.NewRule(config.Server.homeNetworksOf(home.InterfaceNetworks()))
 }
 
 // newAPIServer is the API's server, an admin administering from the addresses the config's home rule
@@ -681,13 +676,12 @@ func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Confi
 	if config.WebRTC.UDPPort == 0 {
 		return
 	}
-	lanIPs := config.Discovery.lanIPs()
-	if err := rtc.ListenLAN(config.WebRTC.UDPPort, lanIPs); err != nil {
+	if err := rtc.ListenLAN(config.WebRTC.UDPPort, nil); err != nil {
 		logger.ErrorContext(ctx, "WebRTC is not taken at home", "err", err)
 		return
 	}
 	logger.InfoContext(ctx, "taking WebRTC at home", slogx.EventKey, "webRTCAtHomeTaken",
-		"udpPort", config.WebRTC.UDPPort, "addresses", lanIPs)
+		"udpPort", config.WebRTC.UDPPort)
 }
 
 // newWebRTC is the WebRTC server over the API's handler, as this build serves it, holding as many

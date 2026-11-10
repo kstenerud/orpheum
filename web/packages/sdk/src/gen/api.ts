@@ -2542,12 +2542,12 @@ export interface components {
             address: string;
             /**
              * Format: int64
-             * @description Unix milliseconds; absent when configured, guessed or none
+             * @description Unix milliseconds; absent when guessed or none
              */
             at?: number;
             learnedFrom?: string;
             /** @enum {string} */
-            origin: "configured" | "learned" | "set" | "guessed" | "";
+            origin: "learned" | "set" | "guessed" | "";
             setByName?: string;
         };
         AdminAwayInputBody: {

@@ -27209,15 +27209,15 @@ home, and `server.home_networks` only adds networks, under the same exceptions; 
   `TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule`, `TestMarkingHome_ThisMachinesPortIsHome`
 - 2: `TestRule_TheCoresOwnIPv6NetworkIsHome`, `TestMarkingHome_ADirectRequestIsHomeByTheSharedRule`
 - 3: `TestHomeAddress_ARequestFromHomeTeachesItAndARestartKeepsIt`, `TestHomeAddress_LearnsOnlyOnChange`,
-  `TestHomeAddress_OnlyAPrivateIPv4AddressTeaches`, `TestHomeAddress_AConfiguredAddressWinsAndNothingIsLearned`,
+  `TestHomeAddress_OnlyAPrivateIPv4AddressTeaches`, `TestHomeAddress_TheSeedIsKeptOnceAsSetAndTheSettingsWinFromThen` (was the configured address winning, retired by D462 §10.6),
   `TestHomeAddress_TheSettingsPageChangesItLive`,
   `TestHomeAddress_ACoreOnTheHostsNetworkGuessesTheDefaultRoutesAddressUntilOneIsLearned`,
   `TestHomeAddress_ACoreInAContainersNetworkGuessesNothing`,
   `TestHomeAddress_ACoreOnTheHostsNetworkLearnsOnlyAnAddressItHolds`,
   `TestDefaultRouteAddress_IsTheDefaultRoutesInterfacesPrivateIPv4AddressButNoContainers`,
   `TestMarkingHome_ARequestFromHomeNamingTheServersAddressTeachesIt`,
-  `TestKeepAddressAtHome_TheConfiguredAddressWinsElseTheLearnedOneReachesTheRule`,
-  `TestTeachingPorts_AreThePlainAndHTTPSPorts`, `TestHeartbeatCandidates_SendTheAddressAtHomeWhenNoneIsConfigured`,
+  `TestKeepAddressAtHome_TheSeedElseTheLearnedOneReachesTheRule`,
+  `TestTeachingPorts_AreThePlainAndHTTPSPorts`, `TestHeartbeatCandidates_SendTheAddressAtHomeAsTheKeeperHoldsIt`,
   `TestWrite_OnlyACoreWithNoTunnelGuessesItsAddressAtHomeFromTheDefaultRoute`,
   `TestListenLAN_ANewAddressAtHomeIsOfferedFromTheNextOffer`
 - 4: `TestHomeAddress_ANameIsLookedUpForItsPrivateIPv4Answer`, `TestHomeAddress_AnAdminsSetIsKeptWithTheirName`,

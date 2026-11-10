@@ -13,26 +13,28 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// The core keeps its address at home over its settings and hands it to the home rule: a configured LAN
-// address wins, and with none, one learned reaches the rule at once and is there after a restart
-// (D452 §3, §5).
-func TestKeepAddressAtHome_TheConfiguredAddressWinsElseTheLearnedOneReachesTheRule(t *testing.T) {
+// The core keeps its address at home over its settings and hands it to the home rule: the config's
+// seed reaches the rule as set, and once the settings keep one, one learned reaches the rule at once
+// (D452 §3, D462 §10.6).
+func TestKeepAddressAtHome_TheSeedElseTheLearnedOneReachesTheRule(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	opened := openedServices{database: database, settings: settingstest.Seeded(t, database)}
 	var config Config
-	config.Discovery.LANAddresses = []string{"192.168.1.5:8443"}
+	config.Discovery.AddressAtHomeSeed = "192.168.1.5"
 	server, rule := newAPIServer(config, slog.New(slog.DiscardHandler))
 	keeper, err := keepAddressAtHome(t.Context(), config, server, opened, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
-	keeper.Learn(t.Context(), netip.MustParseAddr("192.168.1.20"), "device")
 	got := keeper.Known()
-	if got.Origin != home.OriginConfigured || rule.AddressAtHome() != netip.MustParseAddr("192.168.1.5") {
-		t.Errorf("with a LAN address configured, the address at home is %+v; want the configured one", got)
+	if got.Origin != home.OriginSet || rule.AddressAtHome() != netip.MustParseAddr("192.168.1.5") {
+		t.Errorf("with a seed, the address at home is %+v, the rule's %v; want the seed, set", got,
+			rule.AddressAtHome())
 	}
-	config.Discovery.LANAddresses = nil
+	fresh := storetest.OpenMigrated(t)
+	opened = openedServices{database: fresh, settings: settingstest.Seeded(t, fresh)}
+	config.Discovery.AddressAtHomeSeed = ""
 	server, rule = newAPIServer(config, slog.New(slog.DiscardHandler))
 	if keeper, err = keepAddressAtHome(t.Context(), config, server, opened, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)

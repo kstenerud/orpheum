@@ -113,20 +113,36 @@ func TestHomeAddress_OnlyAPrivateIPv4AddressTeaches(t *testing.T) {
 	}
 }
 
-// A configured address wins: nothing is learned, and an admin's set is refused (D452 §5).
-func TestHomeAddress_AConfiguredAddressWinsAndNothingIsLearned(t *testing.T) {
+// The deployment's address is kept once as set when none is learned or set, so the core started
+// again with another seed keeps the one kept, and an admin may change it (D462 §2, §10.6).
+func TestHomeAddress_TheSeedIsKeptOnceAsSetAndTheSettingsWinFromThen(t *testing.T) {
 	t.Parallel()
-	configured := netip.MustParseAddr("192.168.1.5")
+	database := storetest.OpenMigrated(t)
+	seed := netip.MustParseAddr("192.168.1.5")
 	rule := home.NewRule(home.Networks{})
-	running := keeperOver(t, storetest.OpenMigrated(t), home.AddressParts{Rule: rule, Configured: configured})
-	running.Learn(t.Context(), netip.MustParseAddr("192.168.1.20"), "device")
-	if got := running.Known(); got.Address != configured || got.Origin != home.OriginConfigured ||
-		rule.AddressAtHome() != configured {
-		t.Errorf("the address at home is %+v, the rule's %v; want the configured %v", got, rule.AddressAtHome(),
-			configured)
+	running := keeperOver(t, database, home.AddressParts{Rule: rule, Seed: seed})
+	if got := running.Known(); got.Address != seed || got.Origin != home.OriginSet || rule.AddressAtHome() != seed {
+		t.Errorf("the address at home is %+v, the rule's %v; want the seed %v, set", got, rule.AddressAtHome(), seed)
 	}
-	if err := running.Set(t.Context(), netip.MustParseAddr("192.168.1.30"), 1); !errors.Is(err, home.ErrConfigured) {
-		t.Errorf("an admin's set = %v; want ErrConfigured", err)
+	set := netip.MustParseAddr("192.168.1.30")
+	if err := running.Set(t.Context(), set, storetest.InsertUser(t, database, "owner", "admin")); err != nil {
+		t.Fatalf("an admin's set = %v; want it kept", err)
+	}
+	again := keeperOver(t, database, home.AddressParts{Seed: seed})
+	if got := again.Known(); got.Address != set {
+		t.Errorf("started again with the seed, the address at home is %v; want the admin's %v", got.Address, set)
+	}
+}
+
+// A core in a container's own network cannot check that an address is its own, so a request never
+// replaces one set, the seed included; one on the host's network learns one it holds (D452 §3).
+func TestHomeAddress_ACoreThatCannotCheckAnAddressKeepsOneSet(t *testing.T) {
+	t.Parallel()
+	seed := netip.MustParseAddr("192.168.1.5")
+	running := keeperOver(t, storetest.OpenMigrated(t), home.AddressParts{Seed: seed})
+	running.Learn(t.Context(), netip.MustParseAddr("192.168.1.20"), "device")
+	if got := running.Known(); got.Address != seed {
+		t.Errorf("a request taught a core in a container %v over the address set; want %v kept", got.Address, seed)
 	}
 }
 

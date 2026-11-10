@@ -100,7 +100,7 @@
             "type": "string"
           },
           "at": {
-            "description": "Unix milliseconds; absent when configured, guessed or none",
+            "description": "Unix milliseconds; absent when guessed or none",
             "format": "int64",
             "type": "integer"
           },
@@ -109,7 +109,6 @@
           },
           "origin": {
             "enum": [
-              "configured",
               "learned",
               "set",
               "guessed",

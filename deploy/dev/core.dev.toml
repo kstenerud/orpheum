@@ -46,7 +46,7 @@ relay_port_max = 49199
 
 [discovery]
 configured_addresses = []
-lan_addresses = []
+address_at_home_seed = ""
 send_interface_addresses = true
 house_ipv6_networks = []
 router = ""

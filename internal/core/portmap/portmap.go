@@ -58,10 +58,11 @@ type Parts struct {
 	// Gateway is the router asked: the one the deployment names, or the default route's (GatewayOf
 	// Linux's routing table).
 	Gateway func() (netip.Addr, error)
-	// ForwardTo, when valid, is where the router forwards to instead of this machine's own address on
-	// Port: in a container on a bridge network, the machine's address at home and the port HTTPS is
-	// published on there, which the container's own address and port are not.
-	ForwardTo netip.AddrPort
+	// ForwardTo, when set and its answer valid, is where the router forwards to instead of this
+	// machine's own address on Port, read at each step: in a container on a bridge network, the
+	// machine's address at home as it is now and the port HTTPS is published on there, which the
+	// container's own address and port are not.
+	ForwardTo func() netip.AddrPort
 	// IPv6Addresses are the machine's addresses the router's firewall is asked to open: GlobalIPv6Addresses.
 	IPv6Addresses func() []netip.Addr
 	// GatewayPort and SearchAddress are GatewayPort and SSDPAddress; a test's fake router's otherwise.
@@ -183,8 +184,8 @@ func (service *Service) step(ctx context.Context) {
 	retryAfter := service.wait(ctx, settings.PortMappingRetrySeconds)
 	routerAddress, gatewayErr := service.parts.Gateway()
 	local, localErr := service.localAddress(ctx, routerAddress, gatewayErr)
-	if service.parts.ForwardTo.IsValid() {
-		local, localErr = service.parts.ForwardTo.Addr(), nil
+	if forwardTo := service.forwardTo(); forwardTo.IsValid() {
+		local, localErr = forwardTo.Addr(), nil
 	}
 	ipv6 := service.parts.IPv6Addresses()
 	shape := fmt.Sprint(routerAddress, local, ipv6)
@@ -272,13 +273,21 @@ func (service *Service) refresh(
 	return kept
 }
 
+// forwardTo is where the router forwards to instead of this machine's own address; invalid for there.
+func (service *Service) forwardTo() netip.AddrPort {
+	if service.parts.ForwardTo == nil {
+		return netip.AddrPort{}
+	}
+	return service.parts.ForwardTo()
+}
+
 // mapIPv4 asks the router to forward its public port to local, by PCP, then NAT-PMP, then UPnP.
 func (service *Service) mapIPv4(
 	ctx context.Context, routerAddress, local netip.Addr, findUPnP func() (router, error), report *Report,
 ) (held, bool) {
 	port := uint16(service.parts.Port) //nolint:gosec // a port
-	if service.parts.ForwardTo.IsValid() {
-		port = service.parts.ForwardTo.Port()
+	if forwardTo := service.forwardTo(); forwardTo.IsValid() {
+		port = forwardTo.Port()
 	}
 	internal := netip.AddrPortFrom(local, port)
 	lifetime := service.wait(ctx, settings.PortMappingLeaseSeconds)

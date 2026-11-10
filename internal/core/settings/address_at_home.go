@@ -21,8 +21,8 @@ func addressAtHomeDefinitions() []Definition {
 			Key: AddressAtHome, Kind: KindString, StartJSON: json.RawMessage(`""`),
 			IsValid: isEmptyOrPrivateIPv4,
 			Description: "the server's IPv4 address in the house, which devices at home reach it at directly: " +
-				"learned from a request at home that names it, or set by an admin; a configured address " +
-				"(ORPHEUM_LAN_ADDRESS) wins over it, and empty is none known yet (D452 §3)",
+				"learned from a request at home that names it, or set by an admin or once from the install " +
+				"script's values; empty is none known yet (D452 §3, D462 §10.6)",
 			StartSource: "D452 §3: none until a request at home names the server by its address",
 		},
 		{
