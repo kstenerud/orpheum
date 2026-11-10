@@ -189,16 +189,18 @@ func TestRelease_ADevelopmentBuildAsksNothing(t *testing.T) {
 	}
 }
 
-// A discovery that serves no record knows nothing, which is no failure; a failed reading is no
-// problem for the core's standing, keeps what was known, and is read again an hour on.
+// A discovery that serves no record knows nothing, which is no failure of the core's standing but
+// is said on the Update page (an admin cannot otherwise tell it from a reading never made); a failed
+// reading is no problem for the core's standing, keeps what was known, and is read again an hour on.
 func TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour(t *testing.T) {
 	t.Parallel()
 	built := connected(t)
 	ctx := t.Context()
 	built.service.step(ctx)
-	if known := built.service.Release(); known.Latest != "" || built.service.Status().Problem != "" {
-		t.Fatalf("no record: knows %+v, problem %q; want nothing known and no problem",
-			known, built.service.Status().Problem)
+	if known := built.service.Release(); known.Latest != "" || built.service.Status().Problem != "" ||
+		!strings.Contains(known.Problem, "no release record is served at "+built.issuer) {
+		t.Fatalf("no record: knows %+v, problem %q; want nothing known, no problem for the discovery and "+
+			"the reading's said for the Update page", known, built.service.Status().Problem)
 	}
 	built.setRelease(aSecurityRelease())
 	built.clock.Advance(releaseRetryAfter)
