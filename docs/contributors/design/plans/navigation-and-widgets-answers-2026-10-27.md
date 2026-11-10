@@ -2824,3 +2824,10 @@ approve). The expiry reminder is a scheduled workflow, a gate: drafted for the o
 `/yoloai/files/release-record-expiry/release-record-expiry.yml` (daily, fails from 7 days before
 the served record's expiry, so GitHub mails the owner), to add with a `Gate-Changed:` trailer. The Fire
 TV's sluggishness goes into the web app's architecture audit the owner ordered the same night.
+
+- **Next batch (found 2026-11-10, a make check run under load):**
+  `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (internal/core/discovery) waited its 60 s for
+  the signalling connection to close after the Leave and failed. The log ended at "discovery: left",
+  with no `signallingClosedForLeave`. It passed 200 times in a row alone, and the next make check
+  passed. The Leave does not end `holdSignalling` itself; the loop ends only when the discovery closes
+  the connection, so a missed close leaves it reading. Find the race; don't widen the wait.

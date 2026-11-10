@@ -39,12 +39,12 @@ otherwise the finding is open.
    - **Why it's the owner's:** it changes how far a held key goes. Finding 1 may make it unneeded.
 3. **Done** ("perf(web): the watch for focus as a page draws looks once a frame"). The watch that
    gives focus as a page draws used to look at each change to the tree, for up to 10 s.
-4. **Posters are fetched about three times too large.**
+4. **Done** ("perf(web): a poster tile asks for the size it is drawn at"), but for the stills' width and height, which would change their look (the owner's). **Posters were fetched about three times too large.**
    - **Now:** `poster.tsx` asks for `portrait-m` (480 × 720) for 136 px tiles, and has no
      `decoding="async"`. Episode stills are `landscape-s` and give no size.
    - **Proposal:** a `srcSet` of `portrait-s 240w, portrait-m 480w` with a `sizes` that fits the
      tile, `decoding="async"`, and a width and height on stills.
-5. **The whole grid re-renders when the range in view changes.** `tile-interest.ts`'s range is
+5. **Done** ("perf(web): the tiles in view change without drawing the grid again"). **The whole grid re-rendered when the range in view changed.** `tile-interest.ts`'s range is
    state in `PosterGrid` (`browse.tsx:76`). Move it into a child.
 6. **Episode lists are laid out whole.**
    - **Proposal:** give them `content-visibility: auto`, as the grid has.
@@ -55,26 +55,26 @@ otherwise the finding is open.
    - A mask over the title page's backdrop.
    - The tray icon's endless pulse on idle pages (D364 §12).
 8. **Small items.**
-   - `poster-row.tsx` measures its ends for arrows that show only with a mouse.
+   - **Done** ("perf(web): a poster row measures its ends only where its arrows can show"): `poster-row.tsx` measured its ends for arrows that show only with a mouse.
    - Polls do not pause in a hidden tab.
 
 ## Startup
 
-1. **All English strings load on every start.** That is about 130 KB minified. `settings`, `system`,
+1. **Partly done** ("perf(web): the System, Libraries and Users pages' words load with their pages"); `settings` (nested in `en`, read by the catalogue test) and the parts of `play` and `together` that first pages use remain. **All English strings load on every start.** That is about 130 KB minified. `settings`, `system`,
    `libraries`, `people` and most of `play` and `together` could arrive with their screens through
    `addWords` (`i18n.ts`), about 90 KB. Add a test that eager modules use only eager namespaces.
-2. **The loader statically imports both of its roles** (`loader-main.tsx:14-15`). A TV at a client
+2. **Done** ("perf(web): the loader loads only the role of the origin it is at": 583 → 520 kB at a client's origin). **The loader statically imported both of its roles** (`loader-main.tsx:14-15`). A TV at a client
    origin parses the loader-origin role's ~178 KB of source, which it never runs.
-3. **Screens static in `app.tsx` that could be lazy** (`lazyScreen`):
+3. **Done** ("perf(web): screens no start draws first load with their screens"). **Screens static in `app.tsx` that could be lazy** (`lazyScreen`):
    - About, Account, CreditedPerson, LibraryBrowse, CastingLeft, TogetherLeft, Register, SignIn
      (preload it when signed out), and ThisDevice;
    - with them the QR code and its library. That is about 200 KB of source.
-4. **The host's voice loads for everyone** (`together-voice.tsx`). Only a host renders
+4. **Open:** built and measured at about 1 kB, since the build keeps the voice SDK in a chunk the start needs anyway; taking it off needs the SDK chunked apart. **The host's voice loads for everyone** (`together-voice.tsx`). Only a host renders
    `HostVoiceOf`. Load it lazily and keep the provider static (D281 §5).
-5. **The shell entry pulls in the discovery and WebRTC SDK** (`main.tsx` → `part-load.ts` →
+5. **Done** ("perf(web): a discovery's page's meta is read without the discovery's start": the shell entry 54 → 7 kB). **The shell entry pulled in the discovery and WebRTC SDK** (`main.tsx` → `part-load.ts` →
    `loader-config.ts` → `discovery-start.ts`). `app-update.ts` and `client-reaches.ts` import it for
    a one-line meta read. Under the loader the shell is parsed twice.
-6. **The opt-in WebRTC path loads eagerly** (`client-main.tsx:53`). Import it inside the
+6. **Done** ("perf(web): the opt-in WebRTC path loads only for a tab that asked for it"). **The opt-in WebRTC path loaded eagerly** (`client-main.tsx:53`). Import it inside the
    `wantsWebrtc` branch (D273 §8).
 7. **The loader checks the client in sequence** (`loader-run-client.ts:174`). It fetches the
    manifest, then the refused versions, then the page. The three fetches could start together, with
@@ -92,13 +92,13 @@ The October audit's fixes are all in place. While a film plays, nothing large co
    - **Now:** only the title page warms a film. The other three ways in send `POST /playback` only
      after the route, the Play chunk and its first render.
    - **Proposal:** warm on the press, not on focus (D258 §2).
-2. **The title page waits for hls.js.**
+2. **Done** ("perf(web): a film's and a series' page load no hls.js before they draw": the film page's static closure 1533 → 778 KiB). **The title page waited for hls.js.**
    - **Why:** `watching.ts` statically imports `@orpheum/player`, so the title and series pages and
      four small helpers' users depend on the 584 KB chunk. The page draws only once hls.js has
      loaded and compiled.
    - **Proposal:** import the player dynamically, and split hls.js from the player's light helpers.
      Keep the preload before Play (`warm-play.ts`, 2026-10-28).
-3. **Play is a `lazyScreen`, which always suspends once**, and outside the loader nothing warms it.
+3. **Done** ("perf(web): Play's code loads ahead on a film's and a series' page"); Title is not yet preloadable. **Play was a `lazyScreen`, which always suspends once**, and outside the loader nothing warms it.
    Make it a `preloadableScreen`, preloaded from the title and series pages.
 4. **hls.js transmuxes on the main thread.** No `workerPath` is set (the October audit's finding 6).
    It needs the worker served by hash under the loader (D308).
@@ -113,3 +113,5 @@ The October audit's fixes are all in place. While a film plays, nothing large co
 8. **Up next re-renders every second for the whole episode** (`up-next.tsx:602`).
 
 Memory: no leaks were found.
+
+Together, a client's start went from about 766 kB of script before its first screen to about 651 kB, by the static closure of a production build.
