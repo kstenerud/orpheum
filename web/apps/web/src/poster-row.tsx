@@ -2,7 +2,15 @@
 
 import "./poster-row.css";
 
-import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
@@ -106,14 +114,52 @@ function RowArrowIcon(props: { readonly direction: RowDirection }): JSX.Element 
 }
 
 /**
+ * The devices the arrows show on, as poster-row.css's own media query: one whose pointer hovers and
+ * is fine, a mouse's. A justified constant, as phoneWidthQuery is: a stylesheet's query.
+ */
+const mousePointerQuery = "(hover: hover) and (pointer: fine)";
+
+/** No row's ends, where the arrows show on no device: neither is drawn. */
+const noEnds: RowEnds = { hasMoreBack: false, hasMoreOn: false };
+
+/**
+ * Whether the device's pointer is a mouse's (mousePointerQuery), kept as it changes: a tablet's
+ * keyboard and trackpad attached; false where the page cannot ask.
+ */
+function useIsMousePointer(): boolean {
+  return useSyncExternalStore(watchMousePointer, isMousePointerNow, () => false);
+}
+
+/** Tells changed as the device's pointer becomes a mouse's or stops being one. */
+function watchMousePointer(changed: () => void): () => void {
+  if (typeof globalThis.matchMedia !== "function") {
+    return () => undefined;
+  }
+  const query = globalThis.matchMedia(mousePointerQuery);
+  query.addEventListener("change", changed);
+  return () => {
+    query.removeEventListener("change", changed);
+  };
+}
+
+/** Whether the device's pointer is a mouse's now. */
+function isMousePointerNow(): boolean {
+  return (
+    typeof globalThis.matchMedia === "function" && globalThis.matchMedia(mousePointerQuery).matches
+  );
+}
+
+/**
  * Whether the list has more out of view either way, kept as it scrolls, as its box changes size and
- * as its posters come and go.
+ * as its posters come and go; measured only on a device the arrows show on (useIsMousePointer), so a
+ * phone's or a television's scroll measures nothing (web architecture audit, 2026-11-10).
  */
 function useRowEnds(listRef: RefObject<HTMLUListElement | null>): RowEnds {
-  const [ends, setEnds] = useState<RowEnds>({ hasMoreBack: false, hasMoreOn: false });
+  const isMousePointer = useIsMousePointer();
+  const [ends, setEnds] = useState<RowEnds>(noEnds);
   useEffect(() => {
     const list = listRef.current;
-    if (list === null) {
+    if (list === null || !isMousePointer) {
       return undefined;
     }
     const measure = (): void => {
@@ -136,8 +182,8 @@ function useRowEnds(listRef: RefObject<HTMLUListElement | null>): RowEnds {
       resizes?.disconnect();
       changes?.disconnect();
     };
-  }, [listRef]);
-  return ends;
+  }, [listRef, isMousePointer]);
+  return isMousePointer ? ends : noEnds;
 }
 
 /** Whether a list has more out of view before its scroll position, and after what it shows. */

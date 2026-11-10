@@ -11,7 +11,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { EntryPoster, type Entry } from "./browse.tsx";
@@ -147,3 +147,57 @@ describe("a poster row's arrows, for a mouse", () => {
     await expect.poll(arrowsShown).toEqual(["Scroll left"]);
   });
 });
+
+describe("a poster row on a device with no mouse (web architecture audit, 2026-11-10)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.unstubAllGlobals();
+  });
+
+  it("measures its ends for no arrow, and does once a mouse is its pointer", async () => {
+    const mouse = handMouseQuery();
+    mounted = await rowOf(20);
+    // Given the row its time to measure, as a mouse's row is.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.querySelector('button[aria-label="Scroll right"]')).toBeNull();
+    mouse.attach();
+    await expect
+      .poll(() => document.querySelector('button[aria-label="Scroll right"]'))
+      .not.toBeNull();
+  });
+});
+
+/**
+ * The page's answer to a mouse's media query, (hover: hover) and (pointer: fine), no until the test
+ * attaches one; every other query the browser's own.
+ */
+function handMouseQuery(): { readonly attach: () => void } {
+  const ownMatchMedia = window.matchMedia.bind(window);
+  const listeners = new Set<() => void>();
+  let matches = false;
+  const query = {
+    get matches() {
+      return matches;
+    },
+    addEventListener: (_type: string, listener: () => void) => {
+      listeners.add(listener);
+    },
+    removeEventListener: (_type: string, listener: () => void) => {
+      listeners.delete(listener);
+    },
+  };
+  vi.stubGlobal("matchMedia", (text: string) =>
+    text === "(hover: hover) and (pointer: fine)" ? query : ownMatchMedia(text),
+  );
+  return {
+    attach: () => {
+      matches = true;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+  };
+}
