@@ -21,7 +21,12 @@ import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { sortedLibraries, useLibrariesReached } from "./libraries-reached.ts";
+import {
+  LibrariesReachedContext,
+  sortedLibraries,
+  useLibrariesRead,
+  useLibrariesReached,
+} from "./libraries-reached.ts";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
@@ -259,39 +264,51 @@ export function AppShell(props: AppShellProps): JSX.Element {
   const bannerRef = useBannerHeight();
   return (
     <UpdateProvider isAdmin={props.isAdmin}>
-      <div className="app-shell">
-        <header
-          ref={bannerRef}
-          className="app-shell__banner"
-          data-focus-container=""
-          data-focus-covers-top=""
-        >
-          <nav className="app-shell__nav" aria-label={t("nav.label")}>
-            <WatchingPlaces isHome={props.currentScreen === "home"}>
-              {links("watching")}
-            </WatchingPlaces>
-            <BannerEnd
-              shell={props}
-              isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}
-            >
-              <MenuSection
-                heading={t("nav.manage")}
-                places={managePlaces(props.administersFromHomeAt, links("manage"))}
-              />
-              <MenuSection heading={t("nav.develop")} places={links("develop")} />
-              {links("own")}
-            </BannerEnd>
-          </nav>
-        </header>
-        <ShellMain isAdmin={props.isAdmin}>
-          {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
-          <CanStartTogetherContext value={props.canHostWatchTogether}>
-            {props.children}
-          </CanStartTogetherContext>
-        </ShellMain>
-      </div>
+      <SharesLibrariesReached>
+        <div className="app-shell">
+          <header
+            ref={bannerRef}
+            className="app-shell__banner"
+            data-focus-container=""
+            data-focus-covers-top=""
+          >
+            <nav className="app-shell__nav" aria-label={t("nav.label")}>
+              <WatchingPlaces isHome={props.currentScreen === "home"}>
+                {links("watching")}
+              </WatchingPlaces>
+              <BannerEnd
+                shell={props}
+                isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}
+              >
+                <MenuSection
+                  heading={t("nav.manage")}
+                  places={managePlaces(props.administersFromHomeAt, links("manage"))}
+                />
+                <MenuSection heading={t("nav.develop")} places={links("develop")} />
+                {links("own")}
+              </BannerEnd>
+            </nav>
+          </header>
+          <ShellMain isAdmin={props.isAdmin}>
+            {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
+            <CanStartTogetherContext value={props.canHostWatchTogether}>
+              {props.children}
+            </CanStartTogetherContext>
+          </ShellMain>
+        </div>
+      </SharesLibrariesReached>
     </UpdateProvider>
   );
+}
+
+/**
+ * The libraries the person reaches, read once for the banner's Libraries menu and every screen
+ * under the shell (LibrariesReachedContext); its own component, so a new answer draws its readers
+ * again, not the whole shell.
+ */
+function SharesLibrariesReached(props: { readonly children: ReactNode }): JSX.Element {
+  const libraries = useLibrariesRead();
+  return <LibrariesReachedContext value={libraries}>{props.children}</LibrariesReachedContext>;
 }
 
 /** Whether the shell shows a destination for audience to the person it is drawn for. */
