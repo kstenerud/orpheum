@@ -13,12 +13,12 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// coreNetwork is where in a deployment's directory the network settings the System page keeps are:
-// the core's own persistent folder, which it may write (D462 §2).
-const coreNetwork = "core/persistent/network.toml"
+// NetworkFile is the network settings the System page keeps, in the core's own persistent folder,
+// which it may write (D462 §2).
+const NetworkFile = "network.toml"
 
 // NetworkPath is the network settings' file in the deployment's directory dir.
-func NetworkPath(dir string) string { return filepath.Join(dir, coreNetwork) }
+func NetworkPath(dir string) string { return filepath.Join(dir, "core", "persistent", NetworkFile) }
 
 // Network are the settings of the house's network a deployment is written with that are the app's,
 // not the compose file's (D462 §2): the System page sets them, and every start, and the install

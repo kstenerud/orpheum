@@ -321,6 +321,13 @@ func wireCore(
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
 	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
 	dependencies.ComposeFile = composeFileOf(config.Server)
+	network, err := newNetworkSettings(config, opened.directories.PersistentDirectory(), portBinds)
+	if err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	if network != nil {
+		dependencies.Network, dependencies.Restart = network, restartBySignal
+	}
 	dependencies.Reachability, dependencies.Relay = opened.reachability, newICEIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(),

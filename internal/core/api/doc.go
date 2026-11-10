@@ -108,6 +108,12 @@
 //     in its scope read again first (D392 §1, §6). TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain.
 //   - Only an admin sees doctor's findings; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
+//   - Only an admin reads and keeps the house's network settings, a wrong one refused naming its
+//     setting, kept ones pending until the next start, and a port that would not bind at the start
+//     said to have fallen back; only an admin restarts a server a compose file started (D462 §2,
+//     §10.11). TestNetwork_AnAdminKeepsTheSettingsForTheNextStartAndIsToldWhatIsWrong,
+//     TestNetwork_APortThatWouldNotBindAtTheStartIsSaidToHaveFallenBack,
+//     TestNetwork_AnAdminRestartsAServerItsComposeFileStarted.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
 //     node's, with the encoder trials each node made (D225).
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a

@@ -112,6 +112,12 @@ type Dependencies struct {
 	// ComposeFile is the version of the compose file that started the server and the newest, from
 	// its config and this build (D461 §3).
 	ComposeFile ComposeFile
+	// Network keeps the house's network settings the System page sets (D462 §2); nil when the config
+	// file alone sets them.
+	Network NetworkSettings
+	// Restart stops the server so its container's restart policy starts it again, once the request
+	// asking is answered; nil when nothing would start it again.
+	Restart func()
 	// PortMapping says what the home router opened for the discovery's addresses (D273 §7).
 	PortMapping *portmap.Service
 	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).
