@@ -113,8 +113,8 @@
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and passes what it read down.
 //   - instance.go: an instance directory's top-level config, its kind and its directories, and
-//     making one (default-config, D242). config.go: its full config (cut-a §2a), the keys of its
-//     kind, each with a starting value or none (D200, D201). configfill.go: running a missing key
+//     making one (default-config, D242). config.go: its full config (cut-a §2a); config_keys.go:
+//     the keys of its kind, each with a starting value or none (D200, D201). configfill.go: running a missing key
 //     on its starting value (D202). serve.go: orpheum core, which seeds the settings at start.
 //     operations.go: default-config, migrate, backup, restore, setup-code and openapi.
 //     reset_admin.go: reset-admin, the operator's way back in (D294), terminal_linux.go its
