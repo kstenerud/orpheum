@@ -190,14 +190,20 @@ export function offerState(
   choice: OfferChoice,
   isAutoplayOn: boolean,
 ): { readonly isNearTheEnd: boolean; readonly isShown: boolean; readonly isCounting: boolean } {
-  const isNearTheEnd =
-    ending.hasEnded || (ending.durationMs > 0 && ending.durationMs - ending.atMs <= upNextLeadMs);
+  const isNearTheEnd = isNearItsEnd(ending);
   const isShown = isNearTheEnd && !choice.isDismissed;
   return {
     isNearTheEnd,
     isShown,
     isCounting: isShown && ending.hasEnded && isAutoplayOn && !choice.isCancelled,
   };
+}
+
+/** Whether the film is within upNextLeadMs of its end, or has ended: where the offer shows. */
+function isNearItsEnd(ending: Ending): boolean {
+  return (
+    ending.hasEnded || (ending.durationMs > 0 && ending.durationMs - ending.atMs <= upNextLeadMs)
+  );
 }
 
 /**
@@ -550,8 +556,15 @@ function useEnding(videoRef: RefObject<HTMLVideoElement | null>): Ending {
   return useVideoStanding(videoRef, endingEvents, endingTaking);
 }
 
-/** Whether two readings mean the same to the offer: within a second, the same end. */
+/**
+ * Whether two readings mean the same to the offer: both far from the end, where it shows nothing
+ * whatever the second (the web client's architecture audit of 2026-11-10,
+ * Playback 8); or within a second, the same end.
+ */
 function isSameEnding(one: Ending, other: Ending): boolean {
+  if (!isNearItsEnd(one) && !isNearItsEnd(other)) {
+    return true;
+  }
   return (
     Math.floor(one.atMs / 1000) === Math.floor(other.atMs / 1000) &&
     one.durationMs === other.durationMs &&
