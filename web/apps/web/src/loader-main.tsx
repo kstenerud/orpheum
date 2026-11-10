@@ -54,6 +54,29 @@ const roleLoadParts: PartLoadParts = {
   wait: waitMs,
 };
 
+/** Clears this origin's cookies: no page the loader serves sets one, so any here was set by another core's page (D308 §7). */
+function clearOtherCoresCookies(): void {
+  clearCookies(
+    {
+      read: () => document.cookie,
+      write: (cookie) => {
+        document.cookie = cookie;
+      },
+    },
+    window.location.hostname,
+  );
+}
+
+/** Unregisters the whole client's own worker, from before the loader, no longer this origin's. */
+function unregisterTheWholeClientsWorker(): void {
+  void navigator.serviceWorker
+    .getRegistrations()
+    .then(async (registrations) => {
+      await Promise.all(registrations.map(async (registration) => await registration.unregister()));
+    })
+    .catch(() => undefined);
+}
+
 /**
  * The loader's page, at whichever origin it is served. Each origin's role is loaded as it is
  * needed, so a page parses only the one it runs (web architecture audit, 2026-11-10: a television
@@ -65,28 +88,11 @@ async function loaderPage(): Promise<JSX.Element | undefined> {
   if (config === undefined) {
     return <p>{i18n.t("loader.notConfigured")}</p>;
   }
-  // No page the loader serves sets a cookie: any here was set by another core's page (D308 §7).
-  clearCookies(
-    {
-      read: () => document.cookie,
-      write: (cookie) => {
-        document.cookie = cookie;
-      },
-    },
-    window.location.hostname,
-  );
+  clearOtherCoresCookies();
   const coreId = coreIdOfOrigin(window.location.origin, config.clientOrigins);
   if (coreId === undefined) {
     removeUnownedKeys(localStore, (key) => ownedAtLoaderOrigin.has(key));
-    // The whole client's own worker, from before the loader, is no longer this origin's.
-    void navigator.serviceWorker
-      .getRegistrations()
-      .then(async (registrations) => {
-        await Promise.all(
-          registrations.map(async (registration) => await registration.unregister()),
-        );
-      })
-      .catch(() => undefined);
+    unregisterTheWholeClientsWorker();
     const { startAtLoaderOrigin } = await loadRole(
       "loader's role at its own origin",
       async () => await import("./loader-at-loader-origin.tsx"),

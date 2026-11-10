@@ -177,11 +177,8 @@ describe("a poster row on a device with no mouse (web architecture audit, 2026-1
 function handMouseQuery(): { readonly attach: () => void } {
   const ownMatchMedia = window.matchMedia.bind(window);
   const listeners = new Set<() => void>();
-  let matches = false;
+  let isAttached = false;
   const query = {
-    get matches() {
-      return matches;
-    },
     addEventListener: (_type: string, listener: () => void) => {
       listeners.add(listener);
     },
@@ -189,12 +186,14 @@ function handMouseQuery(): { readonly attach: () => void } {
       listeners.delete(listener);
     },
   };
+  // MediaQueryList's own name, which the code under test reads.
+  Object.defineProperty(query, "matches", { get: () => isAttached });
   vi.stubGlobal("matchMedia", (text: string) =>
     text === "(hover: hover) and (pointer: fine)" ? query : ownMatchMedia(text),
   );
   return {
     attach: () => {
-      matches = true;
+      isAttached = true;
       for (const listener of listeners) {
         listener();
       }

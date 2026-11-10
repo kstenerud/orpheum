@@ -126,17 +126,24 @@ function nearestBy<T>(
 }
 
 /**
- * A focus engine: given the focused element, an arrow and the region it moves within, the element
- * focus moves to, or undefined to leave it where it is. searched, inside region, is a scope already
- * searched from from that way and found empty, which an engine may leave out.
+ * Where an arrow searches: the region it moves within, and searched, inside region, a scope already
+ * searched from the focused element that way and found empty, which an engine may leave out.
+ */
+export interface FocusSearch {
+  readonly region: Element;
+  readonly searched?: Element | undefined;
+}
+
+/**
+ * A focus engine: given the focused element, an arrow and where it searches, the element focus moves
+ * to, or undefined to leave it where it is.
  */
 export interface FocusEngine {
   readonly name: string;
   readonly next: (
     from: Element,
     direction: Direction,
-    region: Element,
-    searched?: Element,
+    search: FocusSearch,
   ) => HTMLElement | undefined;
 }
 
@@ -239,25 +246,8 @@ function searchBoxIn(element: Element, isCoveringTop: boolean): Box {
  */
 export const geometricFocus: FocusEngine = {
   name: "geometric",
-  next: (from, direction, region, searched) => {
-    const skipped = new Set<Element>(searched?.querySelectorAll(focusableSelector) ?? []);
-    const coveringTop = new Set<Element>();
-    for (const cover of region.ownerDocument.querySelectorAll(`[${coversTopAttribute}]`)) {
-      for (const element of cover.querySelectorAll(focusableSelector)) {
-        coveringTop.add(element);
-      }
-    }
-    const candidates: Placed<HTMLElement>[] = [];
-    for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
-      if (
-        element !== from &&
-        element.tabIndex >= 0 &&
-        !skipped.has(element) &&
-        !from.contains(element)
-      ) {
-        candidates.push({ item: element, box: searchBoxIn(element, coveringTop.has(element)) });
-      }
-    }
+  next: (from, direction, { region, searched }) => {
+    const candidates = candidatesFor(from, region, searched);
     const box = searchBoxOf(from);
     const inLine = nearestThatCanTakeFocus(candidates, (pool) =>
       nearestInDirection(box, pool, direction),
@@ -267,6 +257,43 @@ export const geometricFocus: FocusEngine = {
       : nearestThatCanTakeFocus(candidates, (pool) => nearestOffTheLine(box, pool, direction));
   },
 };
+
+/**
+ * The controls in region an arrow from from may reach, each with the box it is searched by: those in
+ * the tab order, but from, those inside it and those in searched; whether each can take focus now is
+ * not asked (geometricFocus).
+ */
+function candidatesFor(
+  from: Element,
+  region: Element,
+  searched: Element | undefined,
+): Placed<HTMLElement>[] {
+  const skipped = new Set<Element>(searched?.querySelectorAll(focusableSelector) ?? []);
+  const coveringTop = coveringTopIn(region.ownerDocument);
+  const candidates: Placed<HTMLElement>[] = [];
+  for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
+    if (
+      element !== from &&
+      element.tabIndex >= 0 &&
+      !skipped.has(element) &&
+      !from.contains(element)
+    ) {
+      candidates.push({ item: element, box: searchBoxIn(element, coveringTop.has(element)) });
+    }
+  }
+  return candidates;
+}
+
+/** The controls inside what covers the page's top (coversTopAttribute). */
+function coveringTopIn(document: Document): Set<Element> {
+  const coveringTop = new Set<Element>();
+  for (const cover of document.querySelectorAll(`[${coversTopAttribute}]`)) {
+    for (const element of cover.querySelectorAll(focusableSelector)) {
+      coveringTop.add(element);
+    }
+  }
+  return coveringTop;
+}
 
 /**
  * The element nearestOf chooses among candidates that can take focus now (isFocusTarget), asking it
@@ -338,7 +365,7 @@ export function nextInContainers(
   let scope = containerAround(from, root);
   let searched: Element | undefined;
   for (;;) {
-    const next = engine.next(from, direction, scope, searched);
+    const next = engine.next(from, direction, { region: scope, searched });
     if (next !== undefined || scope === root) {
       return next;
     }

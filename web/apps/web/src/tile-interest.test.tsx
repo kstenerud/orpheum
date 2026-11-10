@@ -110,9 +110,9 @@ describe("a grid as the tiles in view change (web architecture audit, 2026-11-10
     const entries = [...films];
     let draws = 0;
     Object.defineProperty(entries, "map", {
-      value: (...args: Parameters<Entry[]["map"]>) => {
+      value: (...mapping: Parameters<Entry[]["map"]>) => {
         draws += 1;
-        return films.map(...args);
+        return films.map(...mapping);
       },
     });
     const grid = await mount(withServices(<PosterGrid entries={entries} />, services));

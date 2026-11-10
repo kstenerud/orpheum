@@ -10,7 +10,7 @@ import "./tokens.css";
 import "./base.css";
 
 import type { CSSProperties } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mount, type Mounted } from "./test-dom.tsx";
@@ -177,24 +177,15 @@ const largeGridPage = (
 
 /** How many times each of an element's costly readings ran while act did. */
 async function readingsDuring(act: () => Promise<void>): Promise<{ boxes: number; drawn: number }> {
-  const counted = { boxes: 0, drawn: 0 };
-  const box = Element.prototype.getBoundingClientRect;
-  const rects = Element.prototype.getClientRects;
-  Element.prototype.getBoundingClientRect = function countedBox(this: Element) {
-    counted.boxes += 1;
-    return box.call(this);
-  };
-  Element.prototype.getClientRects = function countedRects(this: Element) {
-    counted.drawn += 1;
-    return rects.call(this);
-  };
+  const boxes = vi.spyOn(Element.prototype, "getBoundingClientRect");
+  const drawn = vi.spyOn(Element.prototype, "getClientRects");
   try {
     await act();
+    return { boxes: boxes.mock.calls.length, drawn: drawn.mock.calls.length };
   } finally {
-    Element.prototype.getBoundingClientRect = box;
-    Element.prototype.getClientRects = rects;
+    boxes.mockRestore();
+    drawn.mockRestore();
   }
-  return counted;
 }
 
 describe("an arrow over a large grid", () => {
