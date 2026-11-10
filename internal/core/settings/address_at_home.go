@@ -12,7 +12,8 @@ import (
 const MaxLearnedFromLength = 200
 
 // addressAtHomeDefinitions are the server's address in the house, which internal/core/home learns
-// from the requests that name it or an admin sets, and the device it was learned from (D452 §3, §4).
+// from the requests that name it or an admin sets, or the install script's values set once (D462
+// §10.6), and the device it was learned from (D452 §3, §4).
 // A learned value is written as any change is, and marked modified; reset forgets it, and the server
 // learns it again from the next request that names it.
 func addressAtHomeDefinitions() []Definition {
