@@ -233,3 +233,30 @@ describe("what the loader loads before it draws (web architecture audit, 2026-11
     expect(sources["./loader-main.tsx"]).toContain('import("./loader-at-client-origin.tsx")');
   });
 });
+
+// The audit's Startup 5 and 6 moved what the shell and every tab read out of the discovery's start
+// and the WebRTC path, which load later; one left defined there too would be a second way to read
+// the same thing (AGENTS.md rule 11), and the next change would mend one of them.
+describe("what the shell reads of the page and the address, moved out of what loads later", () => {
+  it("is defined in one module each", () => {
+    const moved: Record<string, string> = {
+      discoveryClientApiOf: "./discovery-page.ts",
+      discoveryHasRealms: "./discovery-page.ts",
+      transportParameter: "./transport-wanted.ts",
+      pathName: "./transport-wanted.ts",
+      wantsWebrtc: "./transport-wanted.ts",
+    };
+    const definedIn = Object.keys(moved).map((name) => {
+      const defining = new RegExp(`^export (?:async )?(?:function|const) ${name}\\b`, "mu");
+      return [
+        name,
+        Object.entries(sources)
+          .filter(([path, source]) => path.startsWith("./") && defining.test(source))
+          .map(([path]) => path),
+      ];
+    });
+    expect(Object.fromEntries(definedIn)).toEqual(
+      Object.fromEntries(Object.entries(moved).map(([name, path]) => [name, [path]])),
+    );
+  });
+});
