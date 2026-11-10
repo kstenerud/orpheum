@@ -2814,3 +2814,13 @@ Found by the lead:
   v0.4.0 core (OMV file, not enrolled) still answered `checkedAt` 0 some 50 seconds after its start;
   Check now read it at once. `checkRelease` is said to run at the core's start: find what holds it back.
 - **The Fire TV upstairs feels very sluggish** using the app (the owner, 2026-11-10).
+
+Done, 2026-11-10 (the owner: "ok go ahead"): a core with no discovery now reads the record at its start
+("fix(discovery): a core with no discovery reads the release record at its start": the step read it
+only once enrolled, after a session opened), and a reading that finds no record says which places
+served none ("fix(discovery): a reading that finds no release record says so"; the Update page shows it
+as "The last check for updates failed: no release record is served at …", wording for the owner to
+approve). The expiry reminder is a scheduled workflow, a gate: drafted for the owner in
+`/yoloai/files/release-record-expiry/release-record-expiry.yml` (daily, fails from 7 days before
+the served record's expiry, so GitHub mails the owner), to add with a `Gate-Changed:` trailer. The Fire
+TV's sluggishness goes into the web app's architecture audit the owner ordered the same night.
