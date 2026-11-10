@@ -91,8 +91,9 @@ class Wiring(unittest.TestCase):
 
     def test_check_pr_runs_it_and_the_release_runs_it_on_its_tag_before_building(self):
         makefile = (self.ROOT / "Makefile").read_text()
-        self.assertRegex(makefile, r"(?m)^PR_FAST_STEPS := .*\bcheck-released-compose\b")
-        self.assertRegex(makefile, r"(?m)^check-released-compose:.*\n\t.*scripts/check_released_compose\.py$")
+        # check-source runs in make check and in check-pr's quick tier.
+        self.assertRegex(makefile, r"(?m)^PR_FAST_STEPS := .*\bcheck-source\b")
+        self.assertRegex(makefile, r"(?m)^check-source:.*\n\t.*scripts/check_released_compose\.py$")
         workflow = (self.ROOT / ".github/workflows/release-image.yml").read_text()
         self.assertIn('scripts/check_released_compose.py --tag "$TAG"', workflow)
         self.assertRegex(workflow, r"(?m)^  image:\n(?:    .*\n)*?    needs: frozen-compose$")

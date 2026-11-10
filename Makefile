@@ -147,13 +147,8 @@ check-scripts-run:
 	  if [ -n "$$files" ]; then shellcheck $$files; fi
 
 .PHONY: check-source
-check-source: ## SPDX licence headers match their directory; files stay under 800 lines
-	@$(PYTHON) scripts/check_source.py
-
-# The release workflow runs it with --tag on the tag's checkout before it publishes anything.
-.PHONY: check-released-compose
-check-released-compose: ## Each release tag has its compose files frozen in cmd/orpheum/testdata/released/ (D461 §1)
-	@$(PYTHON) scripts/check_released_compose.py
+check-source: ## SPDX headers match their directory; files stay under 800 lines; each tag's compose files are frozen (D461 §1)
+	@$(PYTHON) scripts/check_source.py && $(PYTHON) scripts/check_released_compose.py
 
 .PHONY: check-deps
 check-deps: ## Every dependency is on the owner's allowlist with a reason
@@ -290,7 +285,7 @@ RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 # check-pr-failed, still stops at a failed tier. Each
 # step runs through pr-step-<step>, which records whether it passed and on what commit
 # (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
-PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits check-source check-released-compose
+PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits check-source
 PR_MEDIUM_STEPS := test-integration web-lint-full
 PR_SLOW_STEPS := test-browser
 PR_STEPS := $(PR_FAST_STEPS) $(PR_MEDIUM_STEPS) $(PR_SLOW_STEPS)

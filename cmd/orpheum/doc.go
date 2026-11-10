@@ -59,7 +59,8 @@
 //     A release is tagged only with its folder, committed before the tag: deploy/omv/compose.yaml as
 //     omv.yaml, deploy/synology/compose.yaml as synology.yaml, and start-flags.txt naming every flag
 //     start takes, one a line. scripts/check_released_compose.py refuses the tag without it, in the
-//     release workflow before anything is built, and in check-pr for every tag from v0.3.3 on.
+//     release workflow before anything is built, and in check-source, in make check and check-pr,
+//     for every tag from v0.3.3 on.
 //   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
 //     the deployment, mode 0600, naming the HTTP port start was given, the one the compose file
 //     publishes, and removes it with the first admin (D449 §3). Enforced by
