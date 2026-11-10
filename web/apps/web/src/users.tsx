@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./people-words.ts";
+
 import "./users.css";
 
 import type { components } from "@orpheum/sdk";

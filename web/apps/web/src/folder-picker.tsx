@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./libraries-words.ts";
+
 import "./folder-picker.css";
 
 import { allPages, type Api, type components } from "@orpheum/sdk";

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./people-words.ts";
+
 import type { Api, components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 

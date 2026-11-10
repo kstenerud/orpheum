@@ -7,6 +7,9 @@ import { sectionOrder } from "../server-settings.tsx";
 import { en } from "./en.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enLab } from "./en-lab.ts";
+import { enLibraries } from "./en-libraries.ts";
+import { enPeople } from "./en-people.ts";
+import { enSystem } from "./en-system.ts";
 
 /** Every source file of the app, as text, tests left out. */
 // Untyped at the call: vitest keeps no cached transform of a file holding "import.meta.glob(", whose
@@ -32,6 +35,9 @@ function keysAskedFor(source: string): string[] {
 const laterWords: Record<string, object> = {
   "./lab-words.ts": enLab,
   "./gallery-words.ts": enGallery,
+  "./system-words.ts": enSystem,
+  "./libraries-words.ts": enLibraries,
+  "./people-words.ts": enPeople,
 };
 
 /** The catalogue a source file's keys are read from: the first page's, and the words it brings. */

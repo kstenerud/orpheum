@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./libraries-words.ts";
+
 import "./libraries.css";
 
 import type { Api, components } from "@orpheum/sdk";

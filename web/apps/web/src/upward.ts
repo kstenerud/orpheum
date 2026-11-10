@@ -8,6 +8,8 @@
  * name (§3).
  */
 
+import "./libraries-words.ts";
+
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
