@@ -95,6 +95,9 @@ type world struct {
 	// is made again; noPublisher has the build hold no publisher root.
 	suggested   Suggestion
 	noPublisher bool
+	// publisherLocations are the places the build's publisher root names, none unless a test names
+	// them before the service is made again.
+	publisherLocations []string
 }
 
 // publisherRoot is the publisher root the core is built with: the fake's, unless it holds none.
@@ -102,7 +105,7 @@ func (built *world) publisherRoot() PublisherRoot {
 	if built.noPublisher {
 		return PublisherRoot{}
 	}
-	return PublisherRoot{Genesis: built.fake.publisher.Statements[0]}
+	return PublisherRoot{Genesis: built.fake.publisher.Statements[0], Locations: built.publisherLocations}
 }
 
 func newWorld(t *testing.T) *world {
