@@ -24,7 +24,13 @@ var composeVariable = regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)(:\?|:-|\})`)
 // omvCompose is the compose file's lines, its comments left out.
 func omvCompose(t *testing.T) string {
 	t.Helper()
-	text, err := os.ReadFile(omvComposeFile)
+	return composeLines(t, omvComposeFile)
+}
+
+// composeLines is the compose file at path's lines, its comments left out.
+func composeLines(t *testing.T, path string) string {
+	t.Helper()
+	text, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +44,8 @@ func omvCompose(t *testing.T) string {
 }
 
 // The pasted compose file keeps the node's root unwritable, as the compose files a deployment is
-// written from do, and its core is the first start, given the address at home, which may be empty
-// (D452 §5), and the media where the node finds them.
+// written from do, and its core is start, told which file it is (D462 §9) and the media where the node
+// finds them; it names no address at home, which the server learns (D452 §5, D462 §2).
 func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *testing.T) {
 	t.Parallel()
 	text := omvCompose(t)
@@ -54,7 +60,8 @@ func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *test
 			omvComposeFile, node.isReadOnly, node.tmpfs)
 	}
 	for _, want := range []string{
-		"      - --lan-address\n      - ${ORPHEUM_LAN_ADDRESS:-}\n",
+		"      - --compose-file\n      - omv\n",
+		"      - --image-tag\n      - ${ORPHEUM_TAG:-latest}\n",
 		"      - --http-port\n      - ${ORPHEUM_HTTP_PORT:-8440}\n",
 		`command: ["node", "--instance", "/var/lib/orpheum/node"]`,
 		"        source: ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}\n" +
@@ -63,6 +70,11 @@ func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *test
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%s does not say %q", omvComposeFile, want)
+		}
+	}
+	for _, moved := range []string{"--lan-address", "--lan-https-port", "--lan-webrtc-port", "--router"} {
+		if strings.Contains(text, moved) {
+			t.Errorf("%s passes %s, which the System page sets (D462 §2)", omvComposeFile, moved)
 		}
 	}
 }
@@ -97,7 +109,7 @@ func TestOMVCompose_TheInstallPageNamesEveryVariableItReads(t *testing.T) {
 func TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnUnsetOneIsNone(t *testing.T) {
 	t.Parallel()
 	text := omvCompose(t)
-	if !strings.Contains(text, "      - --media\n      - ${ORPHEUM_MEDIA:?") {
+	if !strings.Contains(text, "      - --media\n      - ${ORPHEUM_MEDIA}\n") {
 		t.Errorf("%s does not pass ORPHEUM_MEDIA to start as a --media", omvComposeFile)
 	}
 	if !strings.Contains(text, "mkdir -p /appdata/node /appdata/run /appdata/empty ") {
@@ -107,7 +119,7 @@ func TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnUnsetOneIsNone(t *t
 		suffix := name[len(name)-1:]
 		for _, want := range []string{
 			"      - --media\n      - ${" + name + ":-}\n",
-			"      - ${" + name + ":-${PATH_TO_APPDATA}/orpheum/empty}:${" + name + ":-/unset/" + suffix + "}:ro\n",
+			"      - ${" + name + ":-${PATH_TO_APPDATA:?}/orpheum/empty}:${" + name + ":-/unset/" + suffix + "}:ro\n",
 		} {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s does not say %q: %s mounted at its own path, or the empty folder where nothing "+
@@ -124,7 +136,8 @@ func TestOMVCompose_ThisMachinesPortIsOnTheLoopbackAndToldToStart(t *testing.T) 
 	t.Parallel()
 	text := omvCompose(t)
 	for _, want := range []string{
-		"exec 3<>/dev/tcp/127.0.0.1/${ORPHEUM_THIS_MACHINE_PORT:-8441} && ",
+		"exec 3<>/dev/tcp/127.0.0.1/$$0 && ",
+		`grep -q ' 200 ' <&3", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]`,
 		"      - --this-machine-port\n      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}\n",
 	} {
 		if !strings.Contains(text, want) {

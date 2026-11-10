@@ -14,15 +14,11 @@ import (
 	"testing"
 )
 
-// releasedComposeDir holds each release's compose files as they were released, under the release's
-// tag, and the flags that release's start took (start-flags.txt): a household keeps the file it
-// pasted, and every later release must start from it (D455, D461 §1). A file is added at each tag and
-// never changed. The Synology file was published after v0.3.3 was tagged, for v0.3.3's image, so it is
-// frozen with that release.
+// releasedComposeDir holds each version of the compose files households are given, as it was frozen,
+// under compose-v<n> (D462 §6): a household keeps the file it pasted, and every later release must
+// start from it (D455). A version is added by make freeze-compose and never changed
+// (scripts/check_released_compose.py).
 const releasedComposeDir = "testdata/released"
-
-// publishedComposeFiles are the compose files a household is sent to paste now (docs/users/install.md).
-var publishedComposeFiles = []string{"../../deploy/omv/compose.yaml", "../../deploy/synology/compose.yaml"}
 
 // composeEnvironments are what a household's .env may say, each the variables a compose file reads
 // filled in: the least it can start with, and every one set. The Synology file reads none it needs.
@@ -30,14 +26,13 @@ var composeEnvironments = []map[string]string{
 	{"PATH_TO_APPDATA": "/srv/appdata", "ORPHEUM_MEDIA": "/srv/films"},
 	{
 		"PATH_TO_APPDATA": "/srv/appdata", "ORPHEUM_MEDIA": "/srv/films", "ORPHEUM_MEDIA_2": "/srv/series",
-		"ORPHEUM_MEDIA_3": "/srv/kids", "ORPHEUM_MEDIA_4": "/srv/concerts", "ORPHEUM_LAN_ADDRESS": "192.168.1.20",
-		"ORPHEUM_TAG": "v0.3.3", "APPUSER_PUID": "1001", "APPUSER_PGID": "100", "TIME_ZONE_VALUE": "Europe/Berlin",
-		"ORPHEUM_HTTP_PORT": "9440", "ORPHEUM_HTTPS_PORT": "9444", "ORPHEUM_THIS_MACHINE_PORT": "9441",
-		"ORPHEUM_ROUTER": "192.168.1.1", "ORPHEUM_NAME": "nas",
+		"ORPHEUM_MEDIA_3": "/srv/kids", "ORPHEUM_MEDIA_4": "/srv/concerts", "ORPHEUM_TAG": "v0.4.0",
+		"APPUSER_PUID": "1001", "APPUSER_PGID": "100", "TIME_ZONE_VALUE": "Europe/Berlin",
+		"ORPHEUM_HTTP_PORT": "9440", "ORPHEUM_THIS_MACHINE_PORT": "9441", "ORPHEUM_NAME": "nas",
 	},
 }
 
-// releasedVersions are the releases frozen in releasedComposeDir, oldest first.
+// releasedVersions are the compose-file versions frozen in releasedComposeDir, oldest first.
 func releasedVersions(t *testing.T) []string {
 	t.Helper()
 	entries, err := os.ReadDir(releasedComposeDir)
@@ -57,20 +52,16 @@ func releasedVersions(t *testing.T) []string {
 	return versions
 }
 
-// compareVersions orders two tags, v0.3.3 before v0.3.10.
+// compareVersions orders two frozen folders, compose-v2 before compose-v10.
 func compareVersions(first, second string) int {
-	numbers := func(tag string) []int {
-		var parts []int
-		for part := range strings.SplitSeq(strings.TrimPrefix(tag, "v"), ".") {
-			number, err := strconv.Atoi(part)
-			if err != nil {
-				number = -1 // not a release's number: before every release
-			}
-			parts = append(parts, number)
+	number := func(folder string) int {
+		version, err := strconv.Atoi(strings.TrimPrefix(folder, "compose-v"))
+		if err != nil {
+			return -1 // not a version's folder: before every version
 		}
-		return parts
+		return version
 	}
-	return slices.Compare(numbers(first), numbers(second))
+	return number(first) - number(second)
 }
 
 // releasedComposeFiles are the compose files frozen for version, by their paths.
@@ -84,7 +75,7 @@ func releasedComposeFiles(t *testing.T, version string) []string {
 }
 
 // composeAnchor is a value under the Synology file's "Yours" named for its services to use: an anchor.
-var composeAnchor = regexp.MustCompile(`(?m)^\s+[a-z-]+: &([a-z]+) (.*)$`)
+var composeAnchor = regexp.MustCompile(`(?m)^\s+[a-z0-9-]+: &([a-z0-9]+) (.*)$`)
 
 // composeSubstitution is one of compose's ${NAME}, ${NAME:-default} or ${NAME:?message} with no other
 // inside it: an inner one is filled in first.
@@ -266,7 +257,13 @@ func checkReleasedCompose(t *testing.T, services map[string]*releasedService) {
 		t.Errorf("the node's health check %q; want it to look for its socket, %s", node.healthCheck, nodeSocket)
 	}
 	thisMachine := "/dev/tcp/127.0.0.1/" + strconv.Itoa(options.thisMachinePort)
-	if !strings.Contains(core.healthCheck, thisMachine) || !strings.Contains(core.healthCheck, "/api/v1/health") {
+	healthCheck := core.healthCheck
+	if strings.Contains(healthCheck, "/$0 ") {
+		// The port is passed as the script's $0, its last argument, so no variable is inside its text.
+		items := strings.Split(strings.TrimSuffix(strings.TrimSpace(healthCheck), "]"), ", ")
+		healthCheck = strings.Replace(healthCheck, "/$0 ", "/"+strings.Trim(items[len(items)-1], `"`)+" ", 1)
+	}
+	if !strings.Contains(healthCheck, thisMachine) || !strings.Contains(healthCheck, "/api/v1/health") {
 		t.Errorf("the core's health check %q; want /api/v1/health asked at %s, the port start takes",
 			core.healthCheck, thisMachine)
 	}
@@ -282,7 +279,7 @@ func checkReleasedStart(t *testing.T, core *releasedService) startOptions {
 		t.Fatalf("start refuses the core's command line %q: %s", core.command[1:], stderr.String())
 	}
 	dir := t.TempDir()
-	if err := startDeployment(dir, filepath.Join(dir, "run"), "nas", options); err != nil {
+	if err := startIn(dir, filepath.Join(dir, "run"), "nas", options); err != nil {
 		t.Fatalf("start cannot write the deployment from %q: %v", core.command[1:], err)
 	}
 	return options
@@ -322,45 +319,20 @@ func checkReleasedMounts(t *testing.T, folders, core, node *releasedService, opt
 	}
 }
 
-// startFlagsOf are the flags version's start took, as released.
-func startFlagsOf(t *testing.T, version string) []string {
-	t.Helper()
-	text, err := os.ReadFile(filepath.Join(releasedComposeDir, version, "start-flags.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return strings.Fields(string(text))
-}
-
-// No flag start took in a release is removed (D461 §2): a pasted file passes it as it did.
-func TestReleasedCompose_StartTakesEveryFlagAReleaseTook(t *testing.T) {
+// A frozen file passes start only flags this release takes, so start skips none of them: an older
+// release skips a newer file's flag it does not know (D462 §10.10), but this one must know them all.
+func TestReleasedCompose_StartTakesEveryFlagAFrozenFilePasses(t *testing.T) {
 	t.Parallel()
 	for _, version := range releasedVersions(t) {
-		for _, name := range startFlagsOf(t, version) {
-			var stderr bytes.Buffer
-			if _, isParsed := parseStart([]string{"--" + name, "8440"}, &stderr); !isParsed {
-				t.Errorf("start refuses --%s, which %s's start took: %s", name, version, stderr.String())
+		for _, name := range releasedComposeFiles(t, version) {
+			core := releasedServices(composeResolved(t, name, composeEnvironments[1]))["orpheum-core"]
+			if core == nil || len(core.command) == 0 {
+				t.Fatalf("%s has no orpheum-core with a command", name)
 			}
-		}
-	}
-}
-
-// A compose file households are sent to paste now passes start only flags the newest release takes:
-// one pasted with that release's image, latest, would otherwise stop at start (D461 §3), so a file
-// names a new flag only once a release has it.
-func TestReleasedCompose_APublishedFilePassesOnlyFlagsTheNewestReleaseTakes(t *testing.T) {
-	t.Parallel()
-	versions := releasedVersions(t)
-	newest := versions[len(versions)-1]
-	released := startFlagsOf(t, newest)
-	for _, name := range publishedComposeFiles {
-		core := releasedServices(composeResolved(t, name, composeEnvironments[1]))["orpheum-core"]
-		if core == nil {
-			t.Fatalf("%s has no orpheum-core", name)
-		}
-		for _, argument := range core.command {
-			if flag, isFlag := strings.CutPrefix(argument, "--"); isFlag && !slices.Contains(released, flag) {
-				t.Errorf("%s passes start --%s, which %s, the newest release, does not take", name, flag, newest)
+			var stderr bytes.Buffer
+			if _, isParsed := parseStart(core.command[1:], &stderr); !isParsed || stderr.Len() != 0 {
+				t.Errorf("start says, of %s's command line %q: %s; want every flag taken", name, core.command[1:],
+					stderr.String())
 			}
 		}
 	}

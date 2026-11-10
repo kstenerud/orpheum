@@ -37,7 +37,7 @@ type UpdateBody struct {
 	Problem   string           `doc:"What the last reading of the release record found wrong, for the admin" json:"problem,omitempty"`                                                         //nolint:lll // one struct tag
 	// InstallRoute is how the server was installed, so the page shows only that way's steps to update
 	// (D450 §2).
-	InstallRoute string `doc:"How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply" enum:"script,compose" json:"installRoute,omitempty"` //nolint:lll // one struct tag
+	InstallRoute string `doc:"How the server was installed: script (the install script) or the route of the compose file it runs; absent when unknown, when every route's steps apply" enum:"script,omv,synology,portainer,casaos,docker" json:"installRoute,omitempty"` //nolint:lll // one struct tag
 	// ComposeFile is a newer compose file than the one that started the server, which the household
 	// takes by pasting it (D461 §3); absent when it runs the newest or no compose file started it.
 	ComposeFile *ComposeFileBody `json:"composeFile,omitempty"`

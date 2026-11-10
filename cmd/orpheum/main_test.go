@@ -70,6 +70,9 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		if planned.name == "write-deployment" {
 			want = "usage: orpheum write-deployment --image <image>"
 		}
+		if planned.name == "compose-files" {
+			want = composeFilesUsage
+		}
 		// start's instance is its deployment's, at a fixed path the compose file mounts.
 		if planned.name == "start" {
 			want = "the deployment's directory is not there"

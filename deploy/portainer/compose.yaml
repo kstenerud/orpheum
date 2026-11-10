@@ -1,36 +1,30 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Orpheum from one compose file (D447): paste it into OpenMediaVault's Services > Compose > Files, or
-# put it in a folder of its own beside a .env file on any machine with Docker, and start it. The core
-# writes the deployment into ${PATH_TO_APPDATA}/orpheum at every start from the variables below, which
-# compose fills into its command line (a release reads no environment but TZ, D204): change one here
-# and start it again (D449). docs/users/install.md says how, step by step. Until the first admin is
-# made, the setup code is in SETUP-CODE.txt in that folder, and in orpheum-core's log.
+# Orpheum as a Portainer stack, from the app template's form, which sets the variables below.
+#
+# Generated from internal/deployment/templates/household.yaml (make generate); edit that. The server
+# writes its deployment at every start from what this file tells it; every other setting, its
+# address at home, its HTTPS port and your router among them, is on its System page. Until the first
+# admin is made, the setup code is in SETUP-CODE.txt in the data folder, and in orpheum-core's log.
+# docs/users/install.md says how, step by step. To update, see the server's Update page.
+#
+# It asks the kernel for nothing (D454 §2): no setting, no network of its own beside this machine's.
 #
 # Needed:
-#   PATH_TO_APPDATA       the folder that holds each app's data: OpenMediaVault's global.env sets it
+#   PATH_TO_APPDATA       the folder that holds each app's data
 #   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it; the
 #                         server shows it by that name
 # Optional:
-#   ORPHEUM_LAN_ADDRESS   this machine's address on your home network, 192.168.1.20: learned from the
-#                         first browser at home when not set, and the setup page asks if it cannot tell
-#   ORPHEUM_TAG           the release to run: latest, the default, follows each release, which
-#                         Pull then Up takes (D450 §2); a version such as v0.3.0 stays on it
 #   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
 #                         one not set is none
-#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data: global.env sets them
-#   TIME_ZONE_VALUE       the time zone, Europe/Berlin: global.env sets it
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data
+#   TIME_ZONE_VALUE       the time zone, Europe/Berlin
+#   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version
+#                         such as v0.4.0 stays on it
 #   ORPHEUM_HTTP_PORT     the port a browser at home opens it on, http://<address>:8440
-#   ORPHEUM_HTTPS_PORT    the port devices at home reach it on over HTTPS, and over WebRTC (UDP), by the
-#                         name its discovery gives this machine; 8444, as OpenMediaVault's own web UI
-#                         may take 8443
 #   ORPHEUM_THIS_MACHINE_PORT  the port a browser on this machine alone opens it on, as at home,
 #                         http://127.0.0.1:8441: the way in when admin is refused elsewhere (D334 §4)
-#   ORPHEUM_ROUTER        your router's address, 192.168.1.1, which the server asks to forward the HTTPS
-#                         port so devices away from home reach it; left empty, nothing is mapped
 #   ORPHEUM_NAME          the name the media node goes by in the server's pages
 #   RENDER_GID            the render group's number, with the GPU lines below uncommented
-#
-# It asks the kernel for nothing (D454 §2): no setting, no network of its own beside this machine's.
 
 services:
   # Makes the data's folders and gives them to the user the server runs as, once, before it starts:
@@ -61,22 +55,20 @@ services:
     hostname: ${ORPHEUM_NAME:-orpheum}
     command:
       - start
-      # Learned from the first browser at home when not set (D452 §5).
-      - --lan-address
-      - ${ORPHEUM_LAN_ADDRESS:-}
+      # Which file this is, so the Update page shows its own steps (D461 §3, D462 §9).
+      - --compose-version
+      - "1"
+      - --compose-file
+      - portainer
+      - --image-tag
+      - ${ORPHEUM_TAG:-latest}
       - --http-port
       - ${ORPHEUM_HTTP_PORT:-8440}
-      - --lan-https-port
-      - ${ORPHEUM_HTTPS_PORT:-8444}
-      - --lan-webrtc-port
-      - ${ORPHEUM_HTTPS_PORT:-8444}
       - --this-machine-port
       - ${ORPHEUM_THIS_MACHINE_PORT:-8441}
-      - --router
-      - ${ORPHEUM_ROUTER:-}
-      # Each media folder by the path the node mounts it at, its own; one not set comes empty, no folder.
+      # Each media folder by the path the node mounts it at, its own; one not set is no folder.
       - --media
-      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}
+      - ${ORPHEUM_MEDIA}
       - --media
       - ${ORPHEUM_MEDIA_2:-}
       - --media
@@ -98,7 +90,7 @@ services:
     healthcheck:
       # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
       # Asked on this machine's loopback, where the core takes the port a browser here opens.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${ORPHEUM_THIS_MACHINE_PORT:-8441} && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/$$0 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]
       interval: 10s
       start_period: 60s
 
@@ -119,19 +111,21 @@ services:
     volumes:
       - ${PATH_TO_APPDATA:?}/orpheum/node:/var/lib/orpheum/node
       - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
-      # Each media folder at its own path, so the server shows the name this machine gives it. One not
-      # set mounts the empty folder where nothing looks; the core's command skips it (D449 §4). The
+      # Each media folder at its own path, so the server shows the name this machine gives it. The
       # first, if it does not exist, stops the start naming its path, rather than Docker making it
-      # empty. The others cannot: compose makes every container before orpheum-folders makes empty/.
+      # empty.
+      # Another one not set mounts the empty folder where nothing looks; the core's command skips it
+      # (D449 §4). It cannot stop the start: compose makes every container before orpheum-folders
+      # makes empty/.
       - type: bind
         source: ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}
         target: ${ORPHEUM_MEDIA}
         read_only: true
         bind:
           create_host_path: false
-      - ${ORPHEUM_MEDIA_2:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
-      - ${ORPHEUM_MEDIA_3:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
-      - ${ORPHEUM_MEDIA_4:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro
+      - ${ORPHEUM_MEDIA_2:-${PATH_TO_APPDATA:?}/orpheum/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
+      - ${ORPHEUM_MEDIA_3:-${PATH_TO_APPDATA:?}/orpheum/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
+      - ${ORPHEUM_MEDIA_4:-${PATH_TO_APPDATA:?}/orpheum/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro
     # A GPU for hardware encoding (Intel Quick Sync, AMD): uncomment both, with RENDER_GID the render
     # group's number on this machine (ls -n /dev/dri/renderD128 shows it, often 105 or 106).
     # devices:

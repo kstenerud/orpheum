@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/deployment"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -302,6 +303,21 @@ func commandOpenAPI(_ context.Context, call invocation) int {
 		return call.fail(err)
 	}
 	return write(call.stdout, string(document)+"\n", exitSuccess)
+}
+
+// composeFilesUsage says how `make generate` writes the compose files households paste.
+const composeFilesUsage = "usage: orpheum compose-files <repository>\n"
+
+// commandComposeFiles writes every route's published compose file under the repository it is given,
+// from the one template (D462 §10.2), touching only a file that differs.
+func commandComposeFiles(_ context.Context, call invocation) int {
+	if len(call.arguments) != 1 || call.arguments[0] == "" {
+		return write(call.stderr, composeFilesUsage, exitUsageError)
+	}
+	if err := deployment.WriteHouseholdComposeFiles(call.arguments[0]); err != nil {
+		return call.fail(err)
+	}
+	return exitSuccess
 }
 
 // commandDefaultConfig makes an instance in the directory it is given, a core's or with --node a

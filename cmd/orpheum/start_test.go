@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +18,15 @@ import (
 	"github.com/kstenerud/orpheum/internal/deployment"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
+
+// everyPortBinds is a machine that lets the core take every port.
+func everyPortBinds(Ports) error { return nil }
+
+// startIn starts the deployment in dir with options on a machine that lets it take every port.
+func startIn(dir, runDir, hostName string, options startOptions) error {
+	_, err := startDeployment(dir, runDir, hostName, options, everyPortBinds)
+	return err
+}
 
 // startOptionsFrom are the options start's flags give, as the compose file passes them.
 func startOptionsFrom(t *testing.T, arguments ...string) startOptions {
@@ -32,9 +42,8 @@ func startOptionsFrom(t *testing.T, arguments ...string) startOptions {
 func TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	options := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--lan-https-port", "8444",
-		"--lan-webrtc-port", "8444", "--router", "192.168.1.1")
-	if err := startDeployment(dir, runDir, "openmediavault", options); err != nil {
+	options := startOptionsFrom(t, "--compose-file", "omv", "--image-tag", "v0.4.0")
+	if err := startIn(dir, runDir, "openmediavault", options); err != nil {
 		t.Fatalf("a first start in an empty directory = %v; want the deployment written", err)
 	}
 	text, err := os.ReadFile(filepath.Join(dir, deployment.ValuesFile))
@@ -45,26 +54,37 @@ func TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if values.Deployment != deployment.Release || values.LAN.Address != "192.168.1.20" ||
-		values.LAN.HTTPSPort != 8444 || values.LAN.WebRTCPort != 8444 || values.LAN.Router != "192.168.1.1" ||
+	if values.Deployment != deployment.Release || values.LAN.Address != "" ||
+		values.LAN.HTTPSPort != startHTTPSPort || values.LAN.WebRTCPort != startHTTPSPort || values.LAN.Router != "" ||
 		!slices.Equal(values.Media.Roots, []string{startMedia}) {
-		t.Errorf("the values file written = %+v; want a release with the flags' address, ports and router, "+
-			"and the media at %s, where the compose file mounts them", values, startMedia)
+		t.Errorf("the values file written = %+v; want a release with no address at home, which is learned, start's "+
+			"HTTPS and WebRTC port and no router until the System page sets them, and the media at %s", values,
+			startMedia)
 	}
-	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
-	lan := coreConfig["discovery"]["lan_addresses"]
-	if !slices.Equal(anyStrings(t, lan), []string{"192.168.1.20:8444"}) {
-		t.Errorf("the core's lan_addresses = %v; want the flags' address and HTTPS port", lan)
-	}
-	if route := coreConfig["server"]["install_route"]; route != "compose" {
-		t.Errorf("the core config says it was installed by %v; want a compose file's route, compose, so the "+
-			"System page shows only its steps to update (D450 §2)", route)
-	}
+	checkFirstStartCore(t, dir)
 	nodeConfig, node := writtenConfig(t, filepath.Join(dir, "node"), kindNode)
 	if nodeConfig["node"]["name"] != "openmediavault" || node.RunDir != filepath.Join(runDir, "node") ||
 		!slices.Equal(anyStrings(t, nodeConfig["node"]["root_paths"]), []string{startMedia}) {
 		t.Errorf("the node's instance runs in %s with %v; want it in run/node, named by the machine, serving %s",
 			node.RunDir, nodeConfig["node"], startMedia)
+	}
+}
+
+// checkFirstStartCore checks the core's config and network settings after a first start from the omv
+// file at image tag v0.4.0.
+func checkFirstStartCore(t *testing.T, dir string) {
+	t.Helper()
+	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+	if route := coreConfig["server"]["install_route"]; route != "omv" {
+		t.Errorf("the core config says it was installed by %v; want the compose file's route, omv, so the "+
+			"Update page shows only its steps (D462 §9)", route)
+	}
+	if tag := coreConfig["server"]["image_tag"]; tag != "v0.4.0" {
+		t.Errorf("the core config says it runs image tag %v; want the file's, v0.4.0 (D462 §10.7)", tag)
+	}
+	kept, err := deployment.ReadNetwork(deployment.NetworkPath(dir))
+	if err != nil || kept != (deployment.Network{HTTPSPort: startHTTPSPort, WebRTCPort: startHTTPSPort}) {
+		t.Errorf("the network settings kept after a first start = %+v, %v; want start's ports and no router", kept, err)
 	}
 }
 
@@ -88,7 +108,7 @@ func writtenConfig(t *testing.T, dir string, kind instanceKind) (map[string]map[
 func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.20")); err != nil {
+	if err := startIn(dir, runDir, "nas", startOptionsFrom(t)); err != nil {
 		t.Fatal(err)
 	}
 	kept := filepath.Join(dir, "core", "persistent", "persistent.db")
@@ -99,15 +119,14 @@ func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 	if err := os.WriteFile(coreConfigPath, []byte("# edited by hand\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.30",
-		"--lan-https-port", "9444", "--media", "/srv/films", "--this-machine-port", "8451"))
+	err := startIn(dir, runDir, "nas", startOptionsFrom(t, "--http-port", "8450", "--media", "/srv/films",
+		"--this-machine-port", "8451"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
-	lan := coreConfig["discovery"]["lan_addresses"]
-	if !slices.Equal(anyStrings(t, lan), []string{"192.168.1.30:9444"}) {
-		t.Errorf("the core's lan_addresses after a start with new flags = %v; want the new address and port", lan)
+	if listen := coreConfig["server"]["listen"]; listen != ":8450" {
+		t.Errorf("the core's server.listen = %v; want the new port", listen)
 	}
 	if listen := coreConfig["server"]["this_machine_listen"]; listen != "127.0.0.1:8451" {
 		t.Errorf("the core's this_machine_listen = %v; want the new port on this machine's loopback", listen)
@@ -121,8 +140,8 @@ func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	if values, parseErr := deployment.ParseValues(string(text), "nas"); parseErr != nil ||
-		values.LAN.Address != "192.168.1.30" || !strings.Contains(string(text), "compose file") {
-		t.Errorf("the values file after the second start = %v, %q; want the new address, and a header that sends "+
+		values.HTTP.Port != 8450 || !strings.Contains(string(text), "compose file") {
+		t.Errorf("the values file after the second start = %v, %q; want the new port, and a header that sends "+
 			"a change to the compose file", parseErr, text)
 	}
 	if held, readErr := os.ReadFile(kept); readErr != nil || string(held) != "the household's library" {
@@ -130,19 +149,45 @@ func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 	}
 }
 
-// A compose file passes each optional media folder, set or not; one not set comes empty and is no
-// folder, and a folder is named as the path the node mounts it at, cleaned (D449 §4).
-func TestStart_AnEmptyMediaFolderIsNoneAndEachIsCleaned(t *testing.T) {
+// A compose file passes each optional media folder, set or not; one not set comes empty, or under
+// /unset/ from a Synology's file, and is no folder, and a folder is named as the path the node mounts
+// it at, cleaned (D449 §4, D462 §10.5).
+func TestStart_AnEmptyOrUnsetMediaFolderIsNoneAndEachIsCleaned(t *testing.T) {
 	t.Parallel()
-	options := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--media", "/srv/films/",
-		"--media", "", "--media", " /srv/shows ", "--media", "")
+	options := startOptionsFrom(t, "--media", "/srv/films/", "--media", "", "--media", " /srv/shows ",
+		"--media", deployment.Unset+"4")
 	if !slices.Equal(options.media, []string{"/srv/films", "/srv/shows"}) {
-		t.Errorf("the media from the compose file's folders = %q; want the two set, cleaned, and no empty one",
+		t.Errorf("the media from the compose file's folders = %q; want the two set, cleaned, and none empty or unset",
 			options.media)
 	}
-	if none := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--media", ""); !slices.Equal(
+	if none := startOptionsFrom(t, "--media", "", "--media", deployment.Unset+"2"); !slices.Equal(
 		none.media, []string{startMedia}) {
-		t.Errorf("the media with every folder empty = %q; want %s", none.media, startMedia)
+		t.Errorf("the media with every folder empty or unset = %q; want %s", none.media, startMedia)
+	}
+}
+
+// A flag this release does not take is logged and skipped with its value, so a newer compose file, or
+// v0.3.3's with the flags D462 §2 moved to the System page, still starts (D462 §10.10); a route it does
+// not know is taken as docker's, said.
+func TestStart_SkipsAFlagItDoesNotTakeAndTakesAnUnknownRouteAsDockers(t *testing.T) {
+	t.Parallel()
+	var stderr bytes.Buffer
+	options, isParsed := parseStart([]string{
+		"--lan-address", "", "--http-port", "8450", "--router", "192.168.1.1",
+		"--lan-https-port=8444", "--webrtc-later", "--compose-file", "truenas", "--media", "/srv/films",
+	}, &stderr)
+	if !isParsed || options.httpPort != 8450 || !slices.Equal(options.media, []string{"/srv/films"}) ||
+		options.composeFile != deployment.ByDocker {
+		t.Fatalf("start with flags it does not take = %+v, %v, saying %q; want the ones it takes, the route docker",
+			options, isParsed, stderr.String())
+	}
+	for _, said := range []string{"--lan-address", "--router", "--lan-https-port=8444", "--webrtc-later", `"truenas"`} {
+		if !strings.Contains(stderr.String(), said) {
+			t.Errorf("start says %q; want it to name %s", stderr.String(), said)
+		}
+	}
+	if strings.Contains(stderr.String(), "192.168.1.1") {
+		t.Errorf("start says %q; want a skipped flag's value skipped with it, not named as a flag", stderr.String())
 	}
 }
 
@@ -155,11 +200,11 @@ func TestStart_TheCoreSaysTheComposeFilesVersion(t *testing.T) {
 		arguments []string
 		want      int64
 	}{
-		{[]string{"--lan-address", "192.168.1.20"}, 1},
-		{[]string{"--lan-address", "192.168.1.20", "--compose-version", "2"}, 2},
+		{nil, 1},
+		{[]string{"--compose-version", "2"}, 2},
 	} {
 		dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-		if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, test.arguments...)); err != nil {
+		if err := startIn(dir, runDir, "nas", startOptionsFrom(t, test.arguments...)); err != nil {
 			t.Fatal(err)
 		}
 		coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
@@ -189,7 +234,7 @@ func TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances(t *testing.T
 	if err := makeMissingInstances(dir, runDir); err != nil {
 		t.Fatal(err)
 	}
-	if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.30")); err != nil {
+	if err := startIn(dir, runDir, "nas", startOptionsFrom(t)); err != nil {
 		t.Errorf("a start with the instances made but no values file = %v; want the configs written again "+
 			"over the instances kept", err)
 	}
@@ -216,15 +261,24 @@ func anyStrings(t *testing.T, value any) []string {
 	return texts
 }
 
-// The address at home is learned once the core runs when the compose file names none (D452 §5), so
-// a first start writes the deployment without it, with WebRTC's port all the same; the core takes the
-// flags' ports on this machine's network, and this machine's on its loopback (D454 §5).
-func TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome(t *testing.T) {
+// The address at home is learned once the core runs, or set on the System page (D452 §5, D462 §2), so
+// a start writes the deployment without it; the core takes every port on every address of this
+// machine's network, the address at home never alone, as it moves (D454 §5, D462 §10.11), and this
+// machine's on its loopback.
+func TestStart_WritesTheDeploymentWithoutTheAddressAtHomeOnEveryAddress(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	options := startOptionsFrom(t, "--lan-address", "", "--http-port", "8450", "--lan-https-port", "8444",
-		"--lan-webrtc-port", "8444", "--this-machine-port", "8451")
-	if err := startDeployment(dir, runDir, "nas", options); err != nil {
+	if err := makeMissingInstances(dir, runDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := deployment.WriteNetwork(deployment.NetworkPath(dir), deployment.Network{
+		HTTPSPort:  9444,
+		WebRTCPort: 9445,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	options := startOptionsFrom(t, "--http-port", "8450", "--this-machine-port", "8451")
+	if err := startIn(dir, runDir, "nas", options); err != nil {
 		t.Fatalf("a first start without an address at home = %v; want the deployment written", err)
 	}
 	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
@@ -234,8 +288,8 @@ func TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome(t *testing.T) {
 	}{
 		{"server", "listen", ":8450"},
 		{"server", "this_machine_listen", "127.0.0.1:8451"},
-		{"https", "listen", ":8444"},
-		{"webrtc", "udp_port", int64(8444)},
+		{"https", "listen", ":9444"},
+		{"webrtc", "udp_port", int64(9445)},
 	} {
 		if got := coreConfig[want.table][want.key]; got != want.value {
 			t.Errorf("the core's %s.%s = %#v; want %#v", want.table, want.key, got, want.value)
@@ -246,12 +300,115 @@ func TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome(t *testing.T) {
 	}
 }
 
+// The network settings are the System page's: a start keeps the ones there, and the first takes them
+// once from the values file an earlier release's start wrote, so an update keeps a household's ports
+// and router (D462 §10.6).
+func TestStart_TakesTheNetworkSettingsOnceFromTheValuesFileThenKeepsThem(t *testing.T) {
+	t.Parallel()
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
+	if err := makeMissingInstances(dir, runDir); err != nil {
+		t.Fatal(err)
+	}
+	earlier := deployment.StartingValues(deployment.Release)
+	earlier.LAN.HTTPSPort, earlier.LAN.WebRTCPort, earlier.LAN.Router = 9444, 9445, "192.168.1.1"
+	earlier.Media.Roots = []string{startMedia}
+	if err := deployment.WriteStartValues(dir, earlier); err != nil {
+		t.Fatal(err)
+	}
+	if err := startIn(dir, runDir, "nas", startOptionsFrom(t)); err != nil {
+		t.Fatal(err)
+	}
+	want := deployment.Network{HTTPSPort: 9444, WebRTCPort: 9445, Router: "192.168.1.1"}
+	if kept, err := deployment.ReadNetwork(deployment.NetworkPath(dir)); err != nil || kept != want {
+		t.Errorf("the network settings after an update's first start = %+v, %v; want the values file's, %+v",
+			kept, err, want)
+	}
+	set := deployment.Network{HTTPSPort: 9544, WebRTCPort: 9545}
+	if err := deployment.WriteNetwork(deployment.NetworkPath(dir), set); err != nil {
+		t.Fatal(err)
+	}
+	if err := startIn(dir, runDir, "nas", startOptionsFrom(t)); err != nil {
+		t.Fatal(err)
+	}
+	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+	if listen, router := coreConfig["https"]["listen"], coreConfig["discovery"]["router"]; listen != ":9544" ||
+		router != "" {
+		t.Errorf("the core's HTTPS listen and router after the System page set them = %v, %q; want :9544 and none, "+
+			"not the values file's", listen, router)
+	}
+}
+
+// A kept port this machine will not let the core take falls back to start's default, said, so the
+// server still starts and the System page shows the one it took is not the one kept (D462 §10.11).
+func TestStart_APortThatWillNotBindFallsBackToItsDefault(t *testing.T) {
+	t.Parallel()
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
+	kept := deployment.Network{HTTPSPort: 9444, WebRTCPort: 9445}
+	if err := makeMissingInstances(dir, runDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := deployment.WriteNetwork(deployment.NetworkPath(dir), kept); err != nil {
+		t.Fatal(err)
+	}
+	held := func(ports Ports) error {
+		if ports.HTTPS == 9444 {
+			return errWontBind
+		}
+		return nil
+	}
+	said, err := startDeployment(dir, runDir, "nas", startOptionsFrom(t), held)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(said) != 1 || !strings.Contains(said[0], "8444") {
+		t.Errorf("start says %q; want one line naming the HTTPS port it took instead, %d", said, startHTTPSPort)
+	}
+	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+	if listen, udp := coreConfig["https"]["listen"], coreConfig["webrtc"]["udp_port"]; listen != ":8444" ||
+		udp != int64(9445) {
+		t.Errorf("the core's HTTPS listen and WebRTC port = %v, %v; want the default for the one held, :8444, "+
+			"and the kept 9445", listen, udp)
+	}
+	if after, readErr := deployment.ReadNetwork(deployment.NetworkPath(dir)); readErr != nil || after != kept {
+		t.Errorf("the network settings after a fallback = %+v, %v; want the kept ones, %+v", after, readErr, kept)
+	}
+}
+
+// portBinds tries each port on every address and holds none after; one another program holds will
+// not bind.
+func TestPortBinds_RefusesAPortHeldAndHoldsNoneItTried(t *testing.T) {
+	t.Parallel()
+	var config net.ListenConfig
+	listener, err := config.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() }) //nolint:errcheck // closed again after the check
+	address, isTCP := listener.Addr().(*net.TCPAddr)
+	if !isTCP {
+		t.Fatalf("the listener's address %v is not TCP", listener.Addr())
+	}
+	port := address.Port
+	if err = portBinds(Ports{HTTPS: port}); !errors.Is(err, errWontBind) {
+		t.Errorf("portBinds of a held port = %v; want it refused", err)
+	}
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = portBinds(Ports{HTTPS: port, WebRTC: port}); err != nil {
+		t.Errorf("portBinds of a free port = %v; want it taken", err)
+	}
+	if err = portBinds(Ports{HTTPS: port}); err != nil {
+		t.Errorf("portBinds of the port it tried = %v; want it free again", err)
+	}
+}
+
 // A start makes nothing outside the deployment's directory, which the compose file mounts: with none
 // there, it refuses.
 func TestFirstStart_RefusesWithoutTheDeploymentsDirectory(t *testing.T) {
 	t.Parallel()
 	missing := filepath.Join(t.TempDir(), "not-mounted")
-	err := startDeployment(missing, filepath.Join(testutil.SocketDirectory(t), "run"), "nas", startOptionsFrom(t))
+	err := startIn(missing, filepath.Join(testutil.SocketDirectory(t), "run"), "nas", startOptionsFrom(t))
 	if !errors.Is(err, errNoDeployment) {
 		t.Errorf("a start with no deployment directory = %v; want it refused", err)
 	}

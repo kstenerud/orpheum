@@ -17,7 +17,8 @@ var composeVersionArgument = regexp.MustCompile(`(?m)^\s+- --compose-version\n\s
 // file is older (D461 §3).
 func TestComposeFileVersion_IsThePublishedFilesAndEachLaterOneSaysWhatItBrings(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{omvComposeFile, synologyCompose} {
+	for _, route := range ComposeRoutes() {
+		name := "../../" + route.PublishedPath()
 		version := 1
 		matches := composeVersionArgument.FindAllStringSubmatch(householdCompose(t, name), -1)
 		if len(matches) > 1 {

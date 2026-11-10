@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Tests for check_released_compose.py: a release tagged without its compose files
-# ABOUTME: frozen, or frozen unlike the tag's, fails, at the release and in check-pr (D461 §1).
+# ABOUTME: Tests for check_released_compose.py: a published compose file changed without a new
+# ABOUTME: compose-file version, or a frozen version changed, fails (D462 §6).
 import contextlib
 import io
 import os
@@ -14,17 +14,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_released_compose as crc  # noqa: E402
 from gitrepo import GIT_ENV, Repo  # noqa: E402
 
-OMV = "services:\n  orpheum-core:\n    command: [start]\n"
-START = ('\tflags.StringVar(&options.lanAddress, "lan-address", "", "x")\n'
-         '\tflags.Func("media", "a media folder", func(folder string) error {\n')
-FLAGS = "lan-address\nmedia\n"
-FROZEN = "cmd/orpheum/testdata/released/v0.3.4/"
+FILE = "# the header\nservices:\n  orpheum-core:\n    command: [start]\n"
+FROZEN = "cmd/orpheum/testdata/released/compose-v1/"
+VALUES = "package deployment\n\nconst ComposeFileVersion = {}\n"
 
 
-def released(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """A tree whose v0.3.4 is frozen as it publishes it."""
-    return {"deploy/omv/compose.yaml": OMV, "cmd/orpheum/start.go": START,
-            FROZEN + "omv.yaml": OMV, FROZEN + "start-flags.txt": FLAGS, **(extra or {})}
+def tree(number: int = 1, frozen: str = FILE, published: str = FILE) -> dict[str, str]:
+    """A tree at compose-file version number, its published files published, version 1 frozen."""
+    files = {"internal/deployment/values.go": VALUES.format(number)}
+    for path, name in crc.PUBLISHED.items():
+        files[path] = published
+        files[FROZEN + name] = frozen
+    return files
 
 
 def problems(root: Path, *argv: str) -> tuple[int, str]:
@@ -37,53 +38,65 @@ def tag(repo: Repo, name: str) -> None:
     subprocess.run(["git", "tag", name], cwd=repo.root, check=True, env={**os.environ, **GIT_ENV})
 
 
-class AtTheRelease(unittest.TestCase):
-    def test_a_tag_frozen_as_it_publishes_passes(self):
-        self.assertEqual(problems(Repo(released()).root, "--tag", "v0.3.4"), (0, ""))
+class TheTree(unittest.TestCase):
+    def test_published_files_frozen_as_their_version_pass_at_the_release_too(self):
+        self.assertEqual(problems(Repo(tree()).root), (0, ""))
+        self.assertEqual(problems(Repo(tree()).root, "--tag", "v0.4.0"), (0, ""))
 
-    def test_a_tag_without_its_folder_fails_naming_it(self):
-        code, said = problems(Repo(released()).root, "--tag", "v0.3.5")
-        self.assertEqual(code, 1)
-        self.assertIn("released/v0.3.5/ is missing", said)
+    def test_a_comments_wording_needs_no_new_version(self):
+        self.assertEqual(problems(Repo(tree(published=FILE.replace("the header", "a header"))).root), (0, ""))
 
-    def test_a_frozen_file_unlike_the_published_one_fails(self):
-        repo = Repo(released({"deploy/omv/compose.yaml": OMV + "    restart: always\n"}))
-        code, said = problems(repo.root, "--tag", "v0.3.4")
+    def test_a_change_without_a_bump_fails_naming_the_steps(self):
+        code, said = problems(Repo(tree(published=FILE + "    restart: always\n")).root)
         self.assertEqual(code, 1)
-        self.assertIn("omv.yaml is not deploy/omv/compose.yaml", said)
+        self.assertIn("deploy/omv/compose.yaml is not", said)
+        self.assertIn("bump deployment.ComposeFileVersion", said)
 
-    def test_start_flags_must_name_every_flag_start_takes(self):
-        start = START + '\tflags.IntVar(&options.composeVersion, "compose-version", 1, "x")\n'
-        code, said = problems(Repo(released({"cmd/orpheum/start.go": start})).root, "--tag", "v0.3.4")
+    def test_a_bumped_version_not_frozen_fails_and_every_earlier_one_must_stay(self):
+        code, said = problems(Repo(tree(number=2)).root)
         self.assertEqual(code, 1)
-        self.assertIn("start-flags.txt names", said)
-        self.assertIn("compose-version", said)
+        self.assertIn("compose-v2/ is missing: run make freeze-compose", said)
+        files = tree(number=3)
+        code, said = problems(Repo(files).root)
+        self.assertIn("compose-v2/ is missing: every version", said)
 
     def test_a_name_that_is_no_release_tag_is_refused(self):
-        self.assertEqual(problems(Repo(released()).root, "--tag", "main")[0], 2)
+        self.assertEqual(problems(Repo(tree()).root, "--tag", "main")[0], 2)
 
 
-class InCheckPR(unittest.TestCase):
-    def test_every_tag_from_the_first_frozen_needs_its_folder(self):
-        repo = Repo(released())
-        repo.commit("v0.3.4")
-        tag(repo, "v0.3.4")
+class Freezing(unittest.TestCase):
+    def test_freeze_writes_the_current_version_and_never_changes_a_frozen_one(self):
+        changed = FILE + "    restart: always\n"
+        repo = Repo(tree(number=2, published=changed))
+        self.assertEqual(problems(repo.root, "--freeze"), (0, ""))
+        self.assertEqual((repo.root / "cmd/orpheum/testdata/released/compose-v2/omv.yaml").read_text(), changed)
         self.assertEqual(problems(repo.root), (0, ""))
-        tag(repo, "v0.3.5")
-        tag(repo, "v0.3.2")
-        code, said = problems(repo.root)
+        repo = Repo(tree(published=changed))
+        code, said = problems(repo.root, "--freeze")
         self.assertEqual(code, 1)
-        self.assertIn("released/v0.3.5/ is missing", said)
-        self.assertNotIn("v0.3.2", said, "a tag before FIRST_FROZEN was before any household pasted a file")
+        self.assertIn("compose-v1 is frozen already", said)
+        self.assertEqual((repo.root / FROZEN / "omv.yaml").read_text(), FILE)
 
-    def test_a_frozen_file_must_be_the_tags_own(self):
-        repo = Repo(released())
-        repo.commit("v0.3.4")
-        tag(repo, "v0.3.4")
-        repo.commit("edit the frozen file", {FROZEN + "omv.yaml": OMV + "# edited\n"})
+
+class TheTags(unittest.TestCase):
+    def test_a_frozen_version_a_tag_published_is_never_changed(self):
+        repo = Repo(tree())
+        repo.commit("v0.4.0")
+        tag(repo, "v0.4.0")
+        self.assertEqual(problems(repo.root), (0, ""))
+        edited = FILE + "    restart: always\n"
+        repo.commit("edit the frozen file and the published one", {FROZEN + "omv.yaml": edited,
+                                                                  "deploy/omv/compose.yaml": edited})
         code, said = problems(repo.root)
         self.assertEqual(code, 1)
-        self.assertIn("is not deploy/omv/compose.yaml as v0.3.4 published it", said)
+        self.assertIn("is not deploy/omv/compose.yaml as v0.4.0 published it", said)
+
+    def test_a_tag_before_the_frozen_versions_is_not_checked(self):
+        repo = Repo({"deploy/omv/compose.yaml": "old\n", "internal/deployment/values.go": VALUES.format(0)})
+        repo.commit("v0.3.2")
+        tag(repo, "v0.3.2")
+        repo.commit("v1", tree())
+        self.assertEqual(problems(repo.root), (0, ""))
 
 
 class Wiring(unittest.TestCase):
@@ -91,23 +104,20 @@ class Wiring(unittest.TestCase):
 
     def test_check_pr_runs_it_and_the_release_runs_it_on_its_tag_before_building(self):
         makefile = (self.ROOT / "Makefile").read_text()
-        # check-source runs in make check and in check-pr's quick tier.
         self.assertRegex(makefile, r"(?m)^PR_FAST_STEPS := .*\bcheck-source\b")
         self.assertRegex(makefile, r"(?m)^check-source:.*\n\t.*scripts/check_released_compose\.py$")
+        self.assertRegex(makefile, r"(?m)^freeze-compose:.*\n\t.*scripts/check_released_compose\.py --freeze$")
         workflow = (self.ROOT / ".github/workflows/release-image.yml").read_text()
         self.assertIn('scripts/check_released_compose.py --tag "$TAG"', workflow)
         self.assertRegex(workflow, r"(?m)^  image:\n(?:    .*\n)*?    needs: frozen-compose$")
 
-
-class Versions(unittest.TestCase):
-    def test_tags_are_kept_from_the_first_frozen_on_in_release_order(self):
-        tags = ["v0.3.10", "v0.3.2", "v0.3.3", "v0.4.0-rc1", "v0.3.9", "nightly"]
-        self.assertEqual(crc.frozen_tags(tags), ["v0.3.3", "v0.3.9", "v0.3.10"])
-
-    def test_the_real_start_names_media_among_its_flags(self):
-        source = (Path(__file__).resolve().parents[2] / crc.START_SOURCE).read_text()
-        self.assertIn("media", crc.start_flags(source))
-        self.assertIn("lan-address", crc.start_flags(source))
+    def test_it_reads_the_real_version_and_names_every_published_route(self):
+        source = (self.ROOT / crc.VERSION_SOURCE).read_text()
+        self.assertGreaterEqual(crc.compose_version(source), 1)
+        household = (self.ROOT / "internal/deployment/household.go").read_text()
+        for route in ("omv", "synology", "portainer", "casaos", "docker"):
+            self.assertIn(f'"{route}"', household)
+        self.assertEqual(len(crc.PUBLISHED), 5)
 
 
 if __name__ == "__main__":

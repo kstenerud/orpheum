@@ -30,16 +30,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Before anything is built: the tag's compose files are frozen in it as the test fixtures every
-  # later release is held to, so a household's pasted file keeps starting (D461 §1). A release
-  # tagged without them stops here, before the owner is asked to approve its publish.
+  # Before anything is built: the published compose files are their version's frozen copy, the test
+  # fixtures every later release is held to, so a household's pasted file keeps starting (D462 §6).
+  # A release whose files are not stops here, before the owner is asked to approve its publish.
   frozen-compose:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: The tag's compose files are frozen in cmd/orpheum/testdata/released/
+      - name: The published compose files are their version's frozen copy
         env:
           TAG: ${{ github.ref_name }}
         run: python3 scripts/check_released_compose.py --tag "$TAG"
@@ -156,3 +156,44 @@ jobs:
           name: release-record
           path: release
           if-no-files-found: error
+
+  # Once the image is published, never before it (D462 §10.4): the tag's compose files are attached to
+  # its GitHub release, which install.md links as releases/latest/download/<file>, so a household
+  # installs the file the running image was tested against, never main's (D462 §5); and the branch
+  # "release" is moved to the tag, which CasaOS's catalogue entry takes its file from (D462 §10.3).
+  # The files are the tag's frozen copy: the first job held them to it.
+  release-files:
+    needs: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Attach each route's compose file to the release and move the release branch to the tag
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          mkdir files
+          cp deploy/omv/compose.yaml files/orpheum-omv.yaml
+          cp deploy/synology/compose.yaml files/orpheum-synology.yaml
+          cp deploy/portainer/compose.yaml files/orpheum-portainer.yaml
+          cp deploy/catalogue/casaos/docker-compose.yml files/orpheum-casaos.yaml
+          cp deploy/docker/compose.yaml files/orpheum-docker.yaml
+          # A run started again for the same tag finds its release made and replaces the files.
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" files/* --repo "$REPOSITORY" --clobber
+          else
+            gh release create "$TAG" files/* --repo "$REPOSITORY" --verify-tag --title "$TAG" --generate-notes
+          fi
+          # Through the API, so no credential is kept in the checkout: moved, or made the first time.
+          if gh api "repos/$REPOSITORY/git/ref/heads/release" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$REPOSITORY/git/refs/heads/release" -f sha="$SHA" -F force=true >/dev/null
+          else
+            gh api -X POST "repos/$REPOSITORY/git/refs" -f ref=refs/heads/release -f sha="$SHA" >/dev/null
+          fi

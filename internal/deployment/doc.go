@@ -6,9 +6,10 @@
 // the tunnel's config and the core's and the node's full configs. `orpheum write-deployment` runs
 // it inside the runtime image, so installing needs the image and Docker alone; staging and release
 // are written the same way, so the one path stays tested. A server installed from one compose file
-// (deploy/omv/compose.yaml, D447, or a Synology's deploy/synology/compose.yaml, the same with its
-// values in the file) has each start, `orpheum start`, write the values file and the instances'
-// configs alone from its command line (D449 §1), by WriteStartValues and WriteConfigs, which Write
+// (one per route, each rendered from templates/household.yaml by `orpheum compose-files`, D447,
+// D462 §10.2; a Synology's carries its values in the file) has each start, `orpheum start`, write
+// the values file and the instances' configs alone from its command line (D449 §1), by
+// WriteStartValues and WriteConfigs, which Write
 // writes them with too.
 //
 // # Invariants
@@ -20,12 +21,12 @@
 //     saying the compose file is where a change goes (D449 §1).
 //     TestWriteStartValues_IsWrittenEachTimeSayingTheComposeFileRules.
 //   - The core's config names how the deployment was installed, the install script (Write) or a
-//     compose file's start (WriteConfigs given ByComposeFile), so the System page shows only that
-//     way's steps to update (D450 §2), and the compose file's version, 0 for the script's (D461 §3).
+//     compose file's start (WriteConfigs given the route the file names, ComposeRoutes), so the Update
+//     page shows only that way's steps (D450 §2, D462 §9), and the compose file's version, 0 for the
+//     script's (D461 §3).
 //     TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled.
-//   - The compose files a household is sent to paste are ComposeFileVersion, a file passing no
-//     --compose-version being version 1, and each version after the first says in
-//     ComposeFileChanges what it brings (D461 §3).
+//   - The compose files a household is sent to paste are ComposeFileVersion, and each version after
+//     the first says in ComposeFileChanges what it brings (D461 §3).
 //     TestComposeFileVersion_IsThePublishedFilesAndEachLaterOneSaysWhatItBrings.
 //   - Nothing is written while the values file lacks a value or holds a wrong one, and each problem
 //     names its key. TestValues_ProblemsNameEachKeyThatLacksAValue.
@@ -67,6 +68,17 @@
 //     the install page names every variable it reads.
 //     TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine,
 //     TestOMVCompose_TheInstallPageNamesEveryVariableItReads.
+//   - Every route's published compose file is the one template's rendering, names its route and
+//     image tag to start, and a Synology's needs no .env file and keeps its values under "Yours" when
+//     the Update page fills it in (D462 §4, §9, §10.2, §10.5).
+//     TestHouseholdComposeFiles_AreTheTemplatesRenderingAtEachRoutesPath,
+//     TestHouseholdComposeFiles_EachNamesItsOwnRouteToStart,
+//     TestFilledComposeFile_KeepsASynologysValuesUnderYours,
+//     TestSynologyCompose_NeedsNoEnvFileAndSaysToKeepACopy.
+//   - The house's network settings are taken once from the values file and kept in the core's
+//     network.toml from then on, never one with a problem (D462 §2, §10.6).
+//     TestWrite_TakesTheNetworkSettingsOnceFromTheValuesFileThenKeepsThem,
+//     TestWriteNetwork_RefusesSettingsWithAProblem.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //

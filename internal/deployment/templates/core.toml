@@ -31,12 +31,15 @@ not_home_networks = {{toml .Values.NotHomeNetworks}}
 # interface carrying the default route as its address at home until a browser at home teaches it or
 # an admin sets it; behind a tunnel its default route is its container's bridge, so it guesses none.
 address_at_home_from_default_route = {{not .Values.HasTunnel}}
-# How this server was installed, the install script or a compose file: the System page shows only that
-# way's steps to update (D450 §2).
+# How this server was installed, the install script or the compose file of one route (omv, synology,
+# portainer, casaos, docker): the Update page shows only its steps (D450 §2, D462 §9).
 install_route = {{toml .InstallRoute}}
 # The version of the compose file that started it, 0 for the install script: the System page says when
 # a newer one brings something (D461 §3).
 compose_version = {{.ComposeVersion}}
+# The image tag the compose file runs, latest unless it pins a version, which the Update page says to
+# change; empty for the install script (D462 §10.7).
+image_tag = {{toml .ImageTag}}
 
 [https]
 domain = {{toml .Values.Domain}}

@@ -140,17 +140,18 @@ check-scripts: ## The gate scripts' own tests, and shellcheck on every shell scr
 # area_stamp.py; the test audit, 2026-10-08).
 SCRIPTS_READ = . ':(exclude,glob)**/*.go' ':(exclude,glob)**/*.ts' ':(exclude,glob)**/*.tsx' ':(exclude)docs'
 
-.PHONY: check-scripts-run
+.PHONY: check-scripts-run check-source freeze-compose check-deps
 check-scripts-run:
 	@$(HERMETIC) $(PYTHON) scripts/py_tests.py
 	@files="$$(git ls-files --cached --others --exclude-standard | grep -E '(\.sh$$|^\.githooks/)' || true)"; \
 	  if [ -n "$$files" ]; then shellcheck $$files; fi
 
-.PHONY: check-source
-check-source: ## SPDX headers match their directory; files stay under 800 lines; each tag's compose files are frozen (D461 §1)
+check-source: ## SPDX headers match their directory; files stay under 800 lines; the published compose files are their version's frozen copy (D462 §6)
 	@$(PYTHON) scripts/check_source.py && $(PYTHON) scripts/check_released_compose.py
 
-.PHONY: check-deps
+freeze-compose: ## Freeze the published compose files as cmd/orpheum/testdata/released/compose-v<n>, deployment.ComposeFileVersion's (D462 §6)
+	@$(PYTHON) scripts/check_released_compose.py --freeze
+
 check-deps: ## Every dependency is on the owner's allowlist with a reason
 	@$(PYTHON) scripts/check_deps.py
 
@@ -633,16 +634,15 @@ deploy-published: ## Install the published image TAG to DIR as a household does:
 	docker run --rm ghcr.io/kstenerud/orpheum:$(TAG) install-script | sh -s -- --dir "$(DIR)" $(foreach folder,$(MEDIA),--media "$(folder)")
 
 .PHONY: generate
-generate: web-deps ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, and the SDK's TS types)
+generate: web-deps ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, the SDK's TS types, the compose files)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
 	  $(PYTHON) scripts/fetch_tools.py; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
-	@# Made in the system's temporary directory and removed however the run ends: made beside
-	@# api/openapi.json, a make check stopped mid-step left api/openapi.json.XXXXXX in the tree
-	@# (2026-10-08). Copied over only when it differs, so an unchanged document is not touched.
+	@# Made in the system's temporary directory, removed however the run ends (one made beside it was left by a
+	@# stopped make check, 2026-10-08), and copied over only when it differs. Then each route's compose file (D462 §10.2).
 	@openapi_next=$$(mktemp "$${TMPDIR:-/tmp}/openapi.json.XXXXXX") && trap 'rm -f "$$openapi_next"' EXIT INT TERM && \
-	  go run ./cmd/orpheum openapi > "$$openapi_next" && \
+	  go run ./cmd/orpheum openapi > "$$openapi_next" && go run ./cmd/orpheum compose-files . && \
 	  { cmp -s "$$openapi_next" api/openapi.json || cp "$$openapi_next" api/openapi.json; }
 	@npm --prefix web exec --workspace @orpheum/sdk -- openapi-typescript ../../../api/openapi.json \
 	  --output src/gen/api.ts --alphabetize --empty-objects-unknown >/dev/null
