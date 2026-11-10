@@ -175,9 +175,9 @@ export function restoreWhenDrawn(
 }
 
 /**
- * Gives focus by give to what look finds as root draws: look is called now and at each change to
- * root's tree, given give, until it answers that it is done, restoreWaitsMs pass, or focus goes
- * anywhere not by give, the person having moved on. The one watch both a page returned to
+ * Gives focus by give to what look finds as root draws: look is called now and in the frame after
+ * changes to root's tree, once however many came, given give, until it answers that it is done,
+ * restoreWaitsMs pass, or focus goes anywhere not by give, the person having moved on. The one watch both a page returned to
  * (restoreWhenDrawn) and a page opened (focus-navigation.ts arriveWhenDrawn) use. Returns the
  * stopping.
  */
@@ -197,10 +197,16 @@ export function watchWhileDrawn(
   if (look(give)) {
     return () => undefined;
   }
+  // A page drawing changes its tree many times a frame, as its tiles come, and look reads every
+  // control's box: it looks once a frame, before the frame is drawn, not at each change.
+  let frame: number | undefined;
   const observer = new MutationObserver(() => {
-    if (look(give)) {
-      stop();
-    }
+    frame ??= requestAnimationFrame(() => {
+      frame = undefined;
+      if (look(give)) {
+        stop();
+      }
+    });
   });
   const timer = setTimeout(() => {
     stop();
@@ -212,6 +218,10 @@ export function watchWhileDrawn(
   };
   function stop(): void {
     observer.disconnect();
+    if (frame !== undefined) {
+      cancelAnimationFrame(frame);
+      frame = undefined;
+    }
     clearTimeout(timer);
     document.removeEventListener("focusin", movedOn);
   }
