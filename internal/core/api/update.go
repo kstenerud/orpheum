@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -15,6 +16,9 @@ import (
 // asks its discovery's release record (security-updates.md Part A).
 type Releases interface {
 	Release() discovery.Release
+	// CheckReleaseNow reads the release record at once, at most once a minute, refusing with
+	// discovery.ErrCheckedJustNow sooner (D462 §8), and is what the server knows after.
+	CheckReleaseNow(ctx context.Context) (discovery.Release, error)
 }
 
 // SecurityFixBody is a security fix the server's version lacks.
@@ -41,6 +45,9 @@ type UpdateBody struct {
 	// ComposeFile is a newer compose file than the one that started the server, which the household
 	// takes by pasting it (D461 §3); absent when it runs the newest or no compose file started it.
 	ComposeFile *ComposeFileBody `json:"composeFile,omitempty"`
+	// PinnedTag is the version the compose file pins in place of latest, so the NAS's own update
+	// button pulls the same one until the household changes it (D462 §10.7); absent with latest.
+	PinnedTag string `doc:"The image tag the compose file pins in place of latest, which its update button keeps pulling until it is changed; absent with latest" json:"pinnedTag,omitempty"` //nolint:lll // one struct tag
 }
 
 // ComposeFile is the version of the compose file that started the server, 0 when none did, and what
@@ -49,13 +56,17 @@ type ComposeFile struct {
 	Running int
 	Newest  int
 	Changes map[int]string
+	// Filled is the newest file for the server's route, with what the server knows of the household's
+	// own values filled in (D462 §4); empty when it has none.
+	Filled string
 }
 
 // ComposeFileBody is a newer compose file than the one that started the server, and what it brings.
 type ComposeFileBody struct {
 	Version int      `doc:"The version of the compose file that started the server" json:"version"`
 	Newest  int      `doc:"The newest compose file's version" json:"newest"`
-	Brings  []string `doc:"What each version after the server's brings, oldest first, a sentence each for the admin" json:"brings" nullable:"false"` //nolint:lll // one struct tag
+	Brings  []string `doc:"What each version after the server's brings, oldest first, a sentence each for the admin" json:"brings" nullable:"false"`                                           //nolint:lll // one struct tag
+	File    string   `doc:"The newest compose file for the way the server was installed, the household's values filled in, to paste over its own; empty when the server has none" json:"file"` //nolint:lll // one struct tag
 }
 
 // newerComposeFile is the newer compose file there is than the one that started the server; nil when
@@ -64,7 +75,7 @@ func newerComposeFile(file ComposeFile) *ComposeFileBody {
 	if file.Running < 1 || file.Running >= file.Newest {
 		return nil
 	}
-	body := &ComposeFileBody{Version: file.Running, Newest: file.Newest, Brings: []string{}}
+	body := &ComposeFileBody{Version: file.Running, Newest: file.Newest, Brings: []string{}, File: file.Filled}
 	for version := file.Running + 1; version <= file.Newest; version++ {
 		if brings := file.Changes[version]; brings != "" {
 			body.Brings = append(body.Brings, brings)
@@ -85,6 +96,13 @@ func (server *Server) registerUpdate() {
 		Summary:    "What the server knows of an update: a security fix its version lacks, or a newer release",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.getSystemUpdate)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "checkSystemUpdate", Method: http.MethodPost, Path: "/system/update/check",
+		Tags: []string{tagRunningIt},
+		Summary: "Read the release record at once, at most once a minute, and say what the server knows " +
+			"after (D462 §8)",
+		Extensions: callableBy(capabilityAdmin),
+	}, server.checkSystemUpdate)
 }
 
 func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationHeader) (*UpdateOutput, error) {
@@ -92,14 +110,50 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 	if err != nil {
 		return nil, err
 	}
-	body := UpdateBody{Version: dependencies.Version}
+	known := discovery.Release{Version: dependencies.Version}
 	if dependencies.Releases != nil {
-		body = updateBody(dependencies.Releases.Release(), dependencies.PublishedImage)
+		known = dependencies.Releases.Release()
+	}
+	return updateOutput(dependencies, known), nil
+}
+
+// errNoReleaseCheck is Check now's refusal on a server that reads no release record.
+var errNoReleaseCheck = newError(http.StatusConflict, CodeConflict, "this server reads no release record")
+
+func (server *Server) checkSystemUpdate(ctx context.Context, input *AuthorizationHeader) (*UpdateOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if dependencies.Releases == nil {
+		return nil, errNoReleaseCheck
+	}
+	known, err := dependencies.Releases.CheckReleaseNow(ctx)
+	if errors.Is(err, discovery.ErrCheckedJustNow) {
+		return nil, newError(http.StatusTooManyRequests, CodeRateLimited, err.Error())
+	}
+	if err != nil {
+		return nil, server.logInternalError(ctx, "check for an update", err)
+	}
+	return updateOutput(dependencies, known), nil
+}
+
+// updateOutput is what the server knows of an update, known among it, as GET /system/update says it.
+func updateOutput(dependencies *Dependencies, known discovery.Release) *UpdateOutput {
+	body := UpdateBody{Version: known.Version}
+	if dependencies.Releases != nil {
+		body = updateBody(known, dependencies.PublishedImage)
 	}
 	body.InstallRoute = dependencies.InstallRoute
 	body.ComposeFile = newerComposeFile(dependencies.ComposeFile)
-	return &UpdateOutput{Body: body}, nil
+	if tag := dependencies.ImageTag; tag != "" && tag != latestTag {
+		body.PinnedTag = tag
+	}
+	return &UpdateOutput{Body: body}
 }
+
+// latestTag is the image tag a compose file runs unless it pins a version.
+const latestTag = "latest"
 
 // updateBody is known as the API sends it, its command the install script of the release to go to
 // from image, the repository each version is published in: the latest, which has every fix.

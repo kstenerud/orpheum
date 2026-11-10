@@ -28,6 +28,7 @@ install_route = ""
 # Nor by a compose file, so it has no compose file's version to compare (D461 §3).
 compose_version = 0
 image_tag = ""
+compose_media = []
 
 # No public name in the dev loop: it serves plain HTTP on loopback (D243 §6 is the deployment's).
 [https]

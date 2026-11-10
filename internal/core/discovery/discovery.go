@@ -220,6 +220,10 @@ type Service struct {
 	release        Release
 	releaseAskedAt time.Time
 	releaseWait    time.Duration
+	// releaseNowAt is when an admin last had the record read at once (CheckReleaseNow), and
+	// releaseChecking is held through each reading, so the loop's and an admin's never interleave.
+	releaseNowAt    time.Time
+	releaseChecking sync.Mutex
 
 	// keeping is held through each write of the state file, so two never interleave.
 	keeping sync.Mutex

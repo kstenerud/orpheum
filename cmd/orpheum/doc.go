@@ -61,6 +61,10 @@
 //     keeps none (D462 §2, §10.11). Enforced by
 //     TestNetworkSettings_KeepsGoodSettingsOnceEachChangedPortBinds and
 //     TestNetworkSettings_ACoreNoDeploymentStartedKeepsNone.
+//   - The Update page hands a Synology household the newest file with its own values under "Yours"
+//     (media from server.compose_media, the uid:gid and time zone the server runs with, its ports),
+//     any other compose route the published file, and the install script's none (D462 §4).
+//     Enforced by TestComposeFileOf_ASynologyFileIsHandedOverWithTheHouseholdsValues.
 //   - A compose file households were given keeps starting every later release (D455, D462 §6): each
 //     version is frozen in testdata/released/compose-v<n>/ by make freeze-compose; start takes every
 //     frozen file's command line, skipping none of its flags, and the core and the node find each

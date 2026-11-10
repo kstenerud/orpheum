@@ -82,6 +82,10 @@ func checkFirstStartCore(t *testing.T, dir string) {
 	if tag := coreConfig["server"]["image_tag"]; tag != "v0.4.0" {
 		t.Errorf("the core config says it runs image tag %v; want the file's, v0.4.0 (D462 §10.7)", tag)
 	}
+	if media := anyStrings(t, coreConfig["server"]["compose_media"]); !slices.Equal(media, []string{startMedia}) {
+		t.Errorf("the core config says the compose file names the media %v; want %s, for the Update page to "+
+			"fill into a newer file (D462 §4)", media, startMedia)
+	}
 	kept, err := deployment.ReadNetwork(deployment.NetworkPath(dir))
 	if err != nil || kept != (deployment.Network{HTTPSPort: startHTTPSPort, WebRTCPort: startHTTPSPort}) {
 		t.Errorf("the network settings kept after a first start = %+v, %v; want start's ports and no router", kept, err)
@@ -213,8 +217,8 @@ func TestStart_TheCoreSaysTheComposeFilesVersion(t *testing.T) {
 				test.arguments, got, test.want)
 		}
 	}
-	told := composeFileOf(ServerConfig{ComposeVersion: 1})
-	if told.Running != 1 || told.Newest != deployment.ComposeFileVersion ||
+	told, err := composeFileOf(ServerConfig{ComposeVersion: 1}, "1000:100", "UTC")
+	if err != nil || told.Running != 1 || told.Newest != deployment.ComposeFileVersion ||
 		!reflect.DeepEqual(told.Changes, deployment.ComposeFileChanges()) {
 		t.Errorf("the System page is told of compose file %+v; want version 1, the newest %d and its changes",
 			told, deployment.ComposeFileVersion)
@@ -224,6 +228,43 @@ func TestStart_TheCoreSaysTheComposeFilesVersion(t *testing.T) {
 		!strings.Contains(stderr.String(), "--compose-version 0") {
 		t.Errorf("start --compose-version 0 parsed %v, saying %q; want it refused, naming the flag",
 			isParsed, stderr.String())
+	}
+}
+
+// The Update page hands a Synology household the newest file with its own values under "Yours": its
+// media folders, the user and time zone the server runs with and the ports it was started on; any
+// other compose route the published file, its values being its variables; and a server no compose
+// file started none (D462 §4).
+func TestComposeFileOf_ASynologyFileIsHandedOverWithTheHouseholdsValues(t *testing.T) {
+	t.Parallel()
+	synology := ServerConfig{
+		InstallRoute: "synology", ComposeVersion: 1, Listen: ":8450", ThisMachineListen: "127.0.0.1:8451",
+		ComposeMedia: []string{"/volume2/films", "/volume1/tv"},
+	}
+	told, err := composeFileOf(synology, "1030:100", "America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		"media: &media /volume2/films", "media-2: &media2 /volume1/tv", "media-3: &media3 /unset/3",
+		`user: &user "1030:100"`, "time-zone: &timezone America/New_York", `http-port: &httpport "8450"`,
+		`this-machine-port: &thismachineport "8451"`,
+	} {
+		if !strings.Contains(told.Filled, line) {
+			t.Errorf("the Synology file handed over lacks %q:\n%s", line, told.Filled)
+		}
+	}
+	omv := synology
+	omv.InstallRoute = "omv"
+	published, err := deployment.HouseholdComposeFile(deployment.ByOMV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if told, err = composeFileOf(omv, "1030:100", "America/New_York"); err != nil || told.Filled != string(published) {
+		t.Errorf("an OpenMediaVault server is handed another file than the published one (%v)", err)
+	}
+	if told, err = composeFileOf(ServerConfig{InstallRoute: "script"}, "0:0", "UTC"); err != nil || told.Filled != "" {
+		t.Errorf("the install script's server is handed a compose file (%v): %q", err, told.Filled)
 	}
 }
 

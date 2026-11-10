@@ -3,6 +3,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"reflect"
@@ -16,13 +17,26 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 )
 
-// knownRelease is a server's discovery's answer, as discovery.Service keeps it.
+// knownRelease is a server's discovery's answer, as discovery.Service keeps it; Check now reads
+// latest into it, refused with refusal when one is set.
 type knownRelease struct {
-	known discovery.Release
+	known   discovery.Release
+	latest  string
+	refusal error
+	checks  int
 }
 
-func (known knownRelease) Release() discovery.Release {
+func (known *knownRelease) Release() discovery.Release {
 	return known.known
+}
+
+func (known *knownRelease) CheckReleaseNow(_ context.Context) (discovery.Release, error) {
+	if known.refusal != nil {
+		return known.known, known.refusal
+	}
+	known.checks++
+	known.known.Latest = known.latest
+	return known.known, nil
 }
 
 // An admin is told the security fix the server's version lacks, the latest and the command that
@@ -136,15 +150,19 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 	}
 	changes := map[int]string{2: "Hardware transcoding on Intel.", 3: "Subtitles from the media folders."}
 	dependencies.InstallRoute = "omv"
-	dependencies.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes}
+	filled := "# the newest file, the household's values in it\n"
+	dependencies.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes, Filled: filled}
 	want := &api.ComposeFileBody{
 		Version: 1, Newest: 3, Brings: []string{"Hardware transcoding on Intel.", "Subtitles from the media folders."},
+		File: filled,
 	}
 	if told := read(); !reflect.DeepEqual(told.ComposeFile, want) {
 		t.Errorf("started from version 1 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
 	}
 	dependencies.ComposeFile.Running = 2
-	want = &api.ComposeFileBody{Version: 2, Newest: 3, Brings: []string{"Subtitles from the media folders."}}
+	want = &api.ComposeFileBody{
+		Version: 2, Newest: 3, Brings: []string{"Subtitles from the media folders."}, File: filled,
+	}
 	if told := read(); !reflect.DeepEqual(told.ComposeFile, want) {
 		t.Errorf("started from version 2 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
 	}
@@ -152,6 +170,55 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 		dependencies.ComposeFile.Running = running
 		if told := read(); told.ComposeFile != nil {
 			t.Errorf("started from compose file version %d of 3: composeFile %+v; want none", running, told.ComposeFile)
+		}
+	}
+}
+
+// An admin's Check now has the server read the release record at once and says what it knows after;
+// one sooner than a minute after the last is refused as too soon, and a server reading no record has
+// nothing to check (D462 §8).
+func TestUpdate_AnAdminChecksNowAndIsToldWhatTheServerFound(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	dependencies, err := harness.server.ReadyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/system/update/check", admin, nil),
+		http.StatusConflict, api.CodeConflict)
+	releases := &knownRelease{known: discovery.Release{Version: "v0.3.1"}, latest: "v0.3.3"}
+	dependencies.Releases = releases
+	got := harness.do(t, http.MethodPost, "/system/update/check", admin, nil)
+	var body api.UpdateBody
+	if err := json.Unmarshal([]byte(got.body), &body); err != nil || got.status != http.StatusOK ||
+		body.Latest != "v0.3.3" || releases.checks != 1 {
+		t.Errorf("Check now = %d %s, %d checks; want v0.3.3 found, checked once", got.status, got.body, releases.checks)
+	}
+	releases.refusal = discovery.ErrCheckedJustNow
+	wantError(t, harness.do(t, http.MethodPost, "/system/update/check", admin, nil),
+		http.StatusTooManyRequests, api.CodeRateLimited)
+	if got := harness.do(t, http.MethodPost, "/system/update/check", "", nil); got.status != http.StatusUnauthorized {
+		t.Errorf("Check now signed out = %d; want 401", got.status)
+	}
+}
+
+// A compose file that pins a version in place of latest is said, as the NAS's update button keeps
+// pulling it until the household changes it; latest, or no compose file, says nothing (D462 §10.7).
+func TestUpdate_SaysWhenTheComposeFilePinsAVersion(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	dependencies, err := harness.server.ReadyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ tag, want string }{{"v0.3.3", "v0.3.3"}, {"latest", ""}, {"", ""}} {
+		dependencies.ImageTag = test.tag
+		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
+		var body api.UpdateBody
+		if err := json.Unmarshal([]byte(got.body), &body); err != nil || body.PinnedTag != test.want {
+			t.Errorf("image tag %q: pinnedTag %q (%v); want %q", test.tag, body.PinnedTag, err, test.want)
 		}
 	}
 }
