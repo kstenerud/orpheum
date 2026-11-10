@@ -214,6 +214,7 @@ func (service *Service) newestRecord(
 ) (*openedRecord, []string) {
 	var newest *openedRecord
 	var problems []string
+	isAnyServed := false
 	for _, place := range places {
 		signed, isFound, err := service.fetchSigned(ctx, place+release.RecordPath)
 		if err != nil {
@@ -222,6 +223,7 @@ func (service *Service) newestRecord(
 		if err != nil || !isFound {
 			continue
 		}
+		isAnyServed = true
 		record, err := release.Open(signed, held.chain)
 		if err != nil {
 			problems = append(problems, place+": "+err.Error())
@@ -244,7 +246,19 @@ func (service *Service) newestRecord(
 			newest = &openedRecord{signed: signed, record: record}
 		}
 	}
+	if !isAnyServed && len(problems) == 0 {
+		problems = append(problems, noRecordServed(places))
+	}
 	return newest, problems
+}
+
+// noRecordServed says that none of places served a release record, so that an admin can tell a
+// reading that found none from one never made.
+func noRecordServed(places []string) string {
+	if len(places) == 0 {
+		return "no place to read the release record from is known"
+	}
+	return "no release record is served at " + strings.Join(places, ", ")
 }
 
 // adoptRecord holds the publisher's state the reading reached, keeps it, and tells what changed.
