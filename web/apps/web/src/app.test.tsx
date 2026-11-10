@@ -23,6 +23,7 @@ import {
   type Answers,
   type Heard,
 } from "./test-dom.tsx";
+import { isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
@@ -101,20 +102,22 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
  * admin's screen, among others, loads its code as it is first shown (later-screens.tsx), "Loading…"
  * in a first render's place.
  */
-async function markupAt(path: string): Promise<string> {
-  const { prelude } = await prerender(withServices(<App />, testServices("token", path)));
+async function markupAt(path: string, isSignedIn = true): Promise<string> {
+  const services = testServices(isSignedIn ? "token" : undefined, path);
+  const { prelude } = await prerender(withServices(<App />, services));
   return await new Response(prelude).text();
 }
 
 describe("App", () => {
-  it("asks to sign in until there is a session", () => {
-    const markup = renderToStaticMarkup(withServices(<App />, testServices()));
+  it("asks to sign in until there is a session", async () => {
+    // Sign in's code loads as it is first shown (later-screens.tsx): its markup once it has.
+    const markup = await markupAt("/films", false);
     expect(markup).toContain('<main class="credentials-form">');
     expect(markup).not.toContain("app-shell");
   });
 
-  it("shows the shell and the route's screen once signed in", () => {
-    const markup = renderToStaticMarkup(withServices(<App />, testServices("token", "/about")));
+  it("shows the shell and the route's screen once signed in", async () => {
+    const markup = await markupAt("/about");
     expect(markup).toContain('class="app-shell"');
     expect(markup).toContain("not endorsed or certified by TMDB");
   });
@@ -519,6 +522,15 @@ describe("the signed-in page's start", () => {
     expect(rows.length).toBe(3);
     // Each row is asked for once, not again when the poller takes the server's waits.
     expect(new Set(rows).size).toBe(rows.length);
+    mounted.unmount();
+  });
+});
+
+describe("the code loaded ahead of its screen (the architecture audit of 2026-11-10)", () => {
+  it("loads Sign in's code on a signed-out page that shows something else first (Startup 3)", async () => {
+    // Register never draws Sign in: only its code asked for ahead loads it.
+    const mounted = await mount(withServices(<App />, testServices(undefined, "/register")));
+    await settleUntil(isSignInLoaded);
     mounted.unmount();
   });
 });

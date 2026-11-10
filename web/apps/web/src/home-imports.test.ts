@@ -98,6 +98,15 @@ describe("what the first page loads before it draws (the efficiency audit of 202
       "./settings.tsx",
       "./locales/en-lab.ts",
       "./locales/en-gallery.ts",
+      // The architecture audit of 2026-11-10, Startup 3: no start draws these first.
+      "./about.tsx",
+      "./account.tsx",
+      "./credits.tsx",
+      "./library-browse.tsx",
+      "./old-addresses.tsx",
+      "./register.tsx",
+      "./sign-in.tsx",
+      "./this-device.tsx",
     ];
     expect(
       later.filter((path) => loadedBy.has(path)).map((path) => chainTo(loadedBy, path)),

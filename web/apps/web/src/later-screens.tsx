@@ -20,8 +20,21 @@ import type { Libraries as LibrariesComponent } from "./libraries.tsx";
 import type { LibraryPage as LibraryPageComponent } from "./library-manage.tsx";
 import type { CreateLibraryPage as CreateLibraryPageComponent } from "./create-library.tsx";
 import type { Files as FilesComponent } from "./files.tsx";
+import type { About as AboutComponent } from "./about.tsx";
+import type { Account as AccountComponent } from "./account.tsx";
+import type { CreditedPerson as CreditedPersonComponent } from "./credits.tsx";
+import type { LibraryBrowse as LibraryBrowseComponent } from "./library-browse.tsx";
+import type {
+  CastingLeft as CastingLeftComponent,
+  TogetherLeft as TogetherLeftComponent,
+} from "./old-addresses.tsx";
+import type { Register as RegisterComponent } from "./register.tsx";
+import type { SignIn as SignInComponent } from "./sign-in.tsx";
+import type { ThisDevice as ThisDeviceComponent } from "./this-device.tsx";
 
-import { lazyScreen, resetOnEachTestMount } from "./screen-load.tsx";
+import { useEffect } from "react";
+
+import { lazyScreen, preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
 
 /** Each screen's own loader, named so resetLazyScreensForTests can give it a fresh lazy() too. */
 const loadTitle = async (): Promise<{ default: typeof TitleComponent }> => ({
@@ -86,6 +99,33 @@ const loadCreateLibraryPage = async (): Promise<{
 const loadFiles = async (): Promise<{ default: typeof FilesComponent }> => ({
   default: (await import("./files.tsx")).Files,
 });
+const loadAbout = async (): Promise<{ default: typeof AboutComponent }> => ({
+  default: (await import("./about.tsx")).About,
+});
+const loadAccount = async (): Promise<{ default: typeof AccountComponent }> => ({
+  default: (await import("./account.tsx")).Account,
+});
+const loadCreditedPerson = async (): Promise<{ default: typeof CreditedPersonComponent }> => ({
+  default: (await import("./credits.tsx")).CreditedPerson,
+});
+const loadLibraryBrowse = async (): Promise<{ default: typeof LibraryBrowseComponent }> => ({
+  default: (await import("./library-browse.tsx")).LibraryBrowse,
+});
+const loadCastingLeft = async (): Promise<{ default: typeof CastingLeftComponent }> => ({
+  default: (await import("./old-addresses.tsx")).CastingLeft,
+});
+const loadTogetherLeft = async (): Promise<{ default: typeof TogetherLeftComponent }> => ({
+  default: (await import("./old-addresses.tsx")).TogetherLeft,
+});
+const loadRegister = async (): Promise<{ default: typeof RegisterComponent }> => ({
+  default: (await import("./register.tsx")).Register,
+});
+const loadSignIn = async (): Promise<{ default: typeof SignInComponent }> => ({
+  default: (await import("./sign-in.tsx")).SignIn,
+});
+const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }> => ({
+  default: (await import("./this-device.tsx")).ThisDevice,
+});
 
 /**
  * The screens whose code loads only when one is first shown, each with what only it needs: a
@@ -98,7 +138,10 @@ const loadFiles = async (): Promise<{ default: typeof FilesComponent }> => ({
  * slowly (the audit of 2026-10-25, W1); app.tsx shows each in a LaterScreen: Loading… meanwhile,
  * and a page that says so, with Reload, when its code does not load (screen-load.tsx). A screen
  * here is one the app reaches as a route, never one a home page draws; the status tray's dialogs load
- * so too, as it opens them (tray-dialog-code.tsx).
+ * so too, as it opens them (tray-dialog-code.tsx). So do About, Your account, This device, a credited
+ * person's page, a library's own browsing, the old addresses that send a person on, Register and Sign
+ * in (the web client's architecture audit of 2026-11-10, Startup 3): a signed-in start draws none of
+ * them, and a signed-out one asks for Sign in's code as soon as it knows (usePreloadsSignIn).
  *
  * Each is `let`, not `const`: resetLazyScreensForTests (below) reassigns it to a fresh, unresolved
  * React.lazy wrapper (lazyScreen). Runtime code never calls that; production makes each only once, here, at
@@ -124,6 +167,33 @@ export let Libraries = lazyScreen("libraries", loadLibraries);
 export let LibraryPage = lazyScreen("library", loadLibraryPage);
 export let CreateLibraryPage = lazyScreen("new-library", loadCreateLibraryPage);
 export let Files = lazyScreen("files", loadFiles);
+export let About = lazyScreen("about", loadAbout);
+export let Account = lazyScreen("account", loadAccount);
+export let CreditedPerson = lazyScreen("person", loadCreditedPerson);
+export let LibraryBrowse = lazyScreen("browse", loadLibraryBrowse);
+export let CastingLeft = lazyScreen("casting", loadCastingLeft);
+export let TogetherLeft = lazyScreen("watch-together", loadTogetherLeft);
+export let Register = lazyScreen("register", loadRegister);
+let signIn = preloadableScreen("sign-in", loadSignIn);
+export let SignIn = signIn.component;
+export let ThisDevice = lazyScreen("this-device", loadThisDevice);
+
+/**
+ * Loads Sign in's code while isSignedOut, so a signed-out page that shows something else first (Register,
+ * a guest's Watch Together page) draws Sign in at once when the person goes there.
+ */
+export function usePreloadsSignIn(isSignedOut: boolean): void {
+  useEffect(() => {
+    if (isSignedOut) {
+      void signIn.preload();
+    }
+  }, [isSignedOut]);
+}
+
+/** Whether Sign in's code has loaded, ahead or as it was shown. */
+export function isSignInLoaded(): boolean {
+  return signIn.isLoaded();
+}
 
 /**
  * Test-only: gives every screen here a fresh, unresolved React.lazy wrapper, so a mount through
@@ -154,5 +224,15 @@ export function resetLazyScreensForTests(): void {
   LibraryPage = lazyScreen("library", loadLibraryPage);
   CreateLibraryPage = lazyScreen("new-library", loadCreateLibraryPage);
   Files = lazyScreen("files", loadFiles);
+  About = lazyScreen("about", loadAbout);
+  Account = lazyScreen("account", loadAccount);
+  CreditedPerson = lazyScreen("person", loadCreditedPerson);
+  LibraryBrowse = lazyScreen("browse", loadLibraryBrowse);
+  CastingLeft = lazyScreen("casting", loadCastingLeft);
+  TogetherLeft = lazyScreen("watch-together", loadTogetherLeft);
+  Register = lazyScreen("register", loadRegister);
+  signIn = preloadableScreen("sign-in", loadSignIn);
+  SignIn = signIn.component;
+  ThisDevice = lazyScreen("this-device", loadThisDevice);
 }
 resetOnEachTestMount(resetLazyScreensForTests);
