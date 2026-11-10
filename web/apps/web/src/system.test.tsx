@@ -309,7 +309,7 @@ it("the System page says a newer release is available and how to take it (D450 Â
     version: "v0.3.1",
     latest: "v0.3.3",
     command: "docker run --rm ghcr.io/kstenerud/orpheum:v0.3.3 install-script | sh",
-    installRoute: "compose",
+    installRoute: "omv",
     checkedAt: 1_793_000_000_000,
   });
   const shownPage = mounted;

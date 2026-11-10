@@ -79,7 +79,7 @@ describe("SecurityUpdateNote", () => {
   });
 
   it("gives a server run from its compose file the compose file's command (D450 §2)", async () => {
-    mounted = await mountNote(true, { ...pending, installRoute: "compose" });
+    mounted = await mountNote(true, { ...pending, installRoute: "omv" });
     const text = mounted.container.textContent;
     expect(text).toContain(banner);
     expect(mounted.container.querySelector("code")?.textContent).toBe(
@@ -193,7 +193,7 @@ describe("How to update", () => {
 
   it("gives only the way the server was installed, when it knows it (D450 §2)", async () => {
     mounted = await mount(
-      withServices(<HowToUpdateView update={{ ...pending, installRoute: "compose" }} />),
+      withServices(<HowToUpdateView update={{ ...pending, installRoute: "omv" }} />),
     );
     const byCompose = mounted.container;
     expect([...byCompose.querySelectorAll("pre code")].map((each) => each.textContent)).toEqual([
@@ -224,7 +224,7 @@ describe("How to update", () => {
         <HowToUpdateView
           update={{
             ...latest,
-            installRoute: "compose",
+            installRoute: "omv",
             composeFile: { version: 1, newest: 2, brings: ["Hardware transcoding on Intel."] },
           }}
         />,

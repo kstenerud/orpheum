@@ -92,7 +92,7 @@ function RouteSteps(props: {
   return (
     <>
       {isRouteUnknown ? <p>{t("update.scriptIf")}</p> : null}
-      {installRoute === "compose" ? null : (
+      {installRoute !== undefined && installRoute !== "script" ? null : (
         <ol>
           <li>{t("update.step1")}</li>
           <li>
