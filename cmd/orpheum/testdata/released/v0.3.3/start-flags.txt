@@ -1,0 +1,7 @@
+lan-address
+media
+http-port
+lan-https-port
+lan-webrtc-port
+this-machine-port
+router

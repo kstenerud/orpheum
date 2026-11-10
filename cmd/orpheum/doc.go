@@ -45,6 +45,14 @@
 //     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart,
 //     TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome and
 //     TestFirstStart_RefusesWithoutTheDeploymentsDirectory.
+//   - A compose file a release sent households to paste keeps starting every later release (D455,
+//     D461): each is frozen at its tag in testdata/released/<tag>/, with the flags that release's
+//     start took; start takes every frozen file's command line and every flag a release took, the
+//     core and the node find each folder and socket where the frozen file mounts it, and a file
+//     published now passes only flags the newest release takes. Enforced by
+//     TestReleasedCompose_EveryReleasedFileStillStartsThisServer,
+//     TestReleasedCompose_StartTakesEveryFlagAReleaseTook and
+//     TestReleasedCompose_APublishedFilePassesOnlyFlagsTheNewestReleaseTakes.
 //   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
 //     the deployment, mode 0600, naming the HTTP port start was given, the one the compose file
 //     publishes, and removes it with the first admin (D449 §3). Enforced by
