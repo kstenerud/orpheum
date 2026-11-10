@@ -114,6 +114,7 @@ function report(node: SystemNode): SystemReport {
 async function shown(
   node: SystemNode,
   update: object = { version: "dev", checkedAt: 0 },
+  network: readonly [number, object] = noNetworkSettings,
 ): Promise<string> {
   mounted = await mount(
     withServices(
@@ -126,7 +127,7 @@ async function shown(
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
         "GET /system/update": [200, update],
-        "GET /system/network": noNetworkSettings,
+        "GET /system/network": network,
         "GET /now-playing": [200, { playbacks: [] }],
       }),
     ),
@@ -141,6 +142,18 @@ it("the System page has a section of what the server and each node used of their
   );
   expect(headings).toContain("Resource use");
   expect(text).toContain("Nothing is measured yet");
+});
+
+it("the System page has the house's network, on a server that keeps its settings (D462 §2)", async () => {
+  const home = { httpsPort: 8444, webrtcPort: 8444, router: "" };
+  await shown(connected, undefined, [
+    200,
+    { kept: home, running: home, fellBack: [], pending: false, appliedBy: "restart" },
+  ]);
+  const headings = (): string[] =>
+    [...(mounted?.container.querySelectorAll("h2") ?? [])].map((each) => each.textContent);
+  await settleUntil(() => headings().includes("The house's network"));
+  expect(headings()).toContain("The house's network");
 });
 
 it("the System page says whether each machine runs FFmpeg in its sandbox (D112)", async () => {
