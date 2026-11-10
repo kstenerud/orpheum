@@ -183,8 +183,8 @@ func hairpinFinding(hairpin rtcapi.Hairpin, isStanding bool) FindingBody {
 	if hairpin.UDPPort == 0 || len(hairpin.LANAddresses) == 0 {
 		finding.Detail = "devices at home may reach this server through your provider, not your network: " +
 			"it takes WebRTC on no port at the house's address. " + seen
-		finding.Action = "set webrtc.udp_port and discovery.lan_addresses, publish that UDP port at the " +
-			"house's address, and restart the server"
+		finding.Action = "set the WebRTC port and the address at home on the System page, publish that " +
+			"UDP port at the house's address, and restart the server"
 		return finding
 	}
 	addresses := make([]string, 0, len(hairpin.LANAddresses))

@@ -108,15 +108,15 @@ func (*Server) isLoopback(remote string) bool {
 type AddressAtHomeBody struct {
 	// Address is the address; empty when none is known yet.
 	Address string `json:"address"`
-	// Origin is where it came from: configured (ORPHEUM_LAN_ADDRESS, which wins), learned from a
-	// request at home, set by an admin, guessed from the default route's interface until one is, or
+	// Origin is where it came from: learned from a request at home, set by an admin or taken from the
+	// deployment's values (D462 §10.6), guessed from the default route's interface until one is, or
 	// empty for none.
-	Origin string `enum:"configured,learned,set,guessed," json:"origin"`
+	Origin string `enum:"learned,set,guessed," json:"origin"`
 	// LearnedFrom is the device it was learned from, its browser's user agent.
 	LearnedFrom string `json:"learnedFrom,omitempty"`
 	// SetByName is the name of the admin who set it; empty once they are removed.
 	SetByName string `json:"setByName,omitempty"`
-	At        int64  `doc:"Unix milliseconds; absent when configured, guessed or none" json:"at,omitempty"`
+	At        int64  `doc:"Unix milliseconds; absent when guessed or none" json:"at,omitempty"`
 }
 
 // addressAtHomeBody is the address at home as the System page shows it.
@@ -165,8 +165,6 @@ func (server *Server) setAddressAtHome(ctx context.Context, input *SetAddressAtH
 	}
 	err = keeper.Set(ctx, address, principal.UserID)
 	switch {
-	case errors.Is(err, home.ErrConfigured):
-		return nil, newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, home.ErrNotAtHome):
 		return nil, invalidRequestAt(http.StatusBadRequest, "body.address", err.Error())
 	case err != nil:

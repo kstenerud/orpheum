@@ -28,9 +28,7 @@ export function SystemAddressAtHome(props: {
     <section aria-labelledby="system-address-at-home">
       <h3 id="system-address-at-home">{t("system.addressAtHome.heading")}</h3>
       <AddressFacts addressAtHome={props.addressAtHome} />
-      {props.addressAtHome.origin === "configured" ? null : (
-        <AddressForm onChanged={props.onChanged} />
-      )}
+      <AddressForm onChanged={props.onChanged} />
     </section>
   );
 }
@@ -50,12 +48,10 @@ function AddressFacts(props: { readonly addressAtHome: AddressAtHome }): JSX.Ele
   );
 }
 
-/** How the address was known, in words: configured, learned from a device, set by an admin, guessed. */
+/** How the address was known, in words: learned from a device, set by an admin, guessed. */
 function originText(t: TFunction, known: AddressAtHome, language: string): string {
   const at = known.at === undefined ? "" : dateTimeText(known.at, language);
   switch (known.origin) {
-    case "configured":
-      return t("system.addressAtHome.configured");
     case "learned":
       return t("system.addressAtHome.learned", { device: known.learnedFrom ?? "", at });
     case "set":
@@ -81,7 +77,7 @@ function AddressForm(props: { readonly onChanged?: (() => void) | undefined }): 
   const [address, setAddress] = useState("");
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     problemText(t, cause, {
-      conflict: t("system.addressAtHome.refusedConfigured"),
+      conflict: t("system.addressAtHome.refusedNotKept"),
       invalidRequest: t("system.addressAtHome.refusedNotPrivate"),
     }),
   );

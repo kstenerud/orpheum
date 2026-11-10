@@ -318,7 +318,8 @@ func TestStep_AskedToForwardElsewhereMapsTheMachinesAddressAndPublishedPort(t *t
 	clock := clocktest.NewFake(time.Date(2026, 11, 3, 18, 0, 0, 0, time.UTC))
 	isWanted := true
 	parts := router.parts(clock, &isWanted)
-	parts.ForwardTo = netip.MustParseAddrPort("192.168.1.20:8443")
+	forwardTo := netip.MustParseAddrPort("192.168.1.20:8443")
+	parts.ForwardTo = func() netip.AddrPort { return forwardTo }
 	service, err := New(parts)
 	if err != nil {
 		t.Fatal(err)
@@ -327,11 +328,11 @@ func TestStep_AskedToForwardElsewhereMapsTheMachinesAddressAndPublishedPort(t *t
 	router.mutex.Lock()
 	internals := slices.Clone(router.internals)
 	router.mutex.Unlock()
-	if len(internals) != 1 || internals[0] != parts.ForwardTo {
-		t.Errorf("PCP was asked to forward to %v; want only %s", internals, parts.ForwardTo)
+	if len(internals) != 1 || internals[0] != forwardTo {
+		t.Errorf("PCP was asked to forward to %v; want only %s", internals, forwardTo)
 	}
-	if report := service.Report(); len(report.Mappings) != 1 || report.Mappings[0].Internal != parts.ForwardTo {
-		t.Errorf("report = %+v; want one mapping to %s", report, parts.ForwardTo)
+	if report := service.Report(); len(report.Mappings) != 1 || report.Mappings[0].Internal != forwardTo {
+		t.Errorf("report = %+v; want one mapping to %s", report, forwardTo)
 	}
 }
 

@@ -238,16 +238,20 @@ func TestPortMappingParts_TheLeaseIsTheServersSetting(t *testing.T) {
 func TestPortMappingParts_InAContainerAskTheNamedRouterForTheMachinesAddress(t *testing.T) {
 	t.Parallel()
 	var config Config
-	config.Discovery.LANAddresses = []string{"192.168.1.20:8443"}
-	config.Discovery.Router = "192.168.1.1"
+	config.Discovery.Router, config.HTTPS.Listen = "192.168.1.1", ":8443"
 	parts := portMappingParts(config, openedServices{}, func() discovery.Status { return discovery.Status{} },
 		slog.New(slog.DiscardHandler))
 	router, err := parts.Gateway()
 	if err != nil || router != netip.MustParseAddr("192.168.1.1") {
 		t.Errorf("the router asked is %s, %v; want the one named, 192.168.1.1", router, err)
 	}
-	if want := netip.MustParseAddrPort("192.168.1.20:8443"); parts.ForwardTo != want {
-		t.Errorf("the router is asked to forward to %s; want the machine's address at home, %s", parts.ForwardTo, want)
+	if parts.ForwardTo == nil || parts.ForwardTo().IsValid() {
+		t.Error("with no address at home known, the router is asked to forward somewhere; want nowhere yet")
+	}
+	atHome := netip.MustParseAddr("192.168.1.20")
+	forwardTo := config.Discovery.forwardTo(func() netip.Addr { return atHome }, httpsPort(config))
+	if want := netip.MustParseAddrPort("192.168.1.20:8443"); forwardTo() != want {
+		t.Errorf("the router is asked to forward to %s; want the machine's address at home, %s", forwardTo(), want)
 	}
 	if parts.SearchAddress != "192.168.1.1:1900" {
 		t.Errorf("UPnP's search goes to %s; want the router itself, 192.168.1.1:1900", parts.SearchAddress)
@@ -319,10 +323,9 @@ func TestDiscoveryParts_AHandOffsCodeProvesOffersForItsPerson(t *testing.T) {
 // noAddress is an address at home not known.
 func noAddress() netip.Addr { return netip.Addr{} }
 
-// A core in a container told no LAN address sends the address at home it learned or was set, at its
-// HTTPS port, read afresh at each heartbeat, so devices at home reach it in the house (D452 §3); one
-// told a LAN address sends that alone.
-func TestHeartbeatCandidates_SendTheAddressAtHomeWhenNoneIsConfigured(t *testing.T) {
+// A core in a container sends the address at home it learned or was set, at its HTTPS port, read
+// afresh at each heartbeat, so devices at home reach it in the house (D452 §3, D462 §10.6).
+func TestHeartbeatCandidates_SendTheAddressAtHomeAsTheKeeperHoldsIt(t *testing.T) {
 	t.Parallel()
 	var config Config
 	config.HTTPS.Listen = ":8443"
@@ -338,9 +341,5 @@ func TestHeartbeatCandidates_SendTheAddressAtHomeWhenNoneIsConfigured(t *testing
 	}
 	if got := candidates(); !slices.Equal(got, []discoveryproto.Candidate{want}) {
 		t.Errorf("once learned, the heartbeat sends %+v; want the address at home at the HTTPS port", got)
-	}
-	config.Discovery.LANAddresses = []string{"192.168.1.5:8443"}
-	if got := heartbeatCandidates(config, none, func() netip.Addr { return atHome })(); slices.Contains(got, want) {
-		t.Errorf("with a LAN address configured, the heartbeat sends %+v; want the configured one alone", got)
 	}
 }

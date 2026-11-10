@@ -295,8 +295,8 @@ func TestStart_WritesTheDeploymentWithoutTheAddressAtHomeOnEveryAddress(t *testi
 			t.Errorf("the core's %s.%s = %#v; want %#v", want.table, want.key, got, want.value)
 		}
 	}
-	if lan := anyStrings(t, coreConfig["discovery"]["lan_addresses"]); len(lan) != 0 {
-		t.Errorf("the core's lan_addresses = %v; want none until the address is learned", lan)
+	if seed := coreConfig["discovery"]["address_at_home_seed"]; seed != "" {
+		t.Errorf("the core's address_at_home_seed = %v; want none until the address is learned", seed)
 	}
 }
 

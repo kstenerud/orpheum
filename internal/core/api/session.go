@@ -302,7 +302,7 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 	}
 	server.logger.InfoContext(ctx, "first admin created", "userId", id)
 	if keeper := server.keeper(); keeper != nil && addressAtHome.IsValid() {
-		if err := keeper.Set(ctx, addressAtHome, id); err != nil && !errors.Is(err, home.ErrConfigured) {
+		if err := keeper.Set(ctx, addressAtHome, id); err != nil {
 			server.logger.ErrorContext(ctx, "the address at home given at setup was not kept", "err", err)
 		}
 	}

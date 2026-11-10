@@ -598,11 +598,10 @@ func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
 	}
 }
 
-// The machine's address at home, which the core's container cannot see, goes to the core with the
-// port HTTPS is published on there, for its discovery to name for devices at home; none is sent when
-// the values file names none, and an address that is not the house's is a problem the values name
-// (the owner, 2026-10-14).
-func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
+// The machine's address at home, which the core's container cannot see, goes to the core as the seed
+// it keeps once (D462 §10.6); none is sent when the values file names none, and an address that is
+// not the house's is a problem the values name (the owner, 2026-10-14).
+func TestWrite_TheCoreIsSeededWithTheMachinesAddressAtHome(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
 	values := filledValues(t, Staging)
@@ -614,16 +613,16 @@ func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	discovery := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]
-	if got := fmt.Sprint(discovery["lan_addresses"]); got != "[192.168.1.199:8443]" {
-		t.Errorf("the core's discovery.lan_addresses are %s; want the machine's address on the HTTPS port", got)
+	if got := fmt.Sprint(discovery["address_at_home_seed"]); got != "192.168.1.199" {
+		t.Errorf("the core's discovery.address_at_home_seed is %s; want the machine's address at home", got)
 	}
 	if compose := readFile(t, filepath.Join(dir, composeFile)); !strings.Contains(compose,
 		"${ORPHEUM_LAN_HTTPS_PORT:-8443}:443") {
 		t.Error("the compose file does not publish HTTPS at home")
 	}
 	values.LAN.Address = ""
-	if got := values.LANAddresses(); len(got) != 0 {
-		t.Errorf("with no address at home the LAN addresses are %v; want none", got)
+	if got := values.AddressAtHomeSeed(); got != "" {
+		t.Errorf("with no address at home the seed is %q; want none", got)
 	}
 	if problems := values.Problems(); len(problems) != 0 {
 		t.Errorf("no address at home is %v; want no problem, as it is learned once the core runs (D452 §5)",

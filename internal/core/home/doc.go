@@ -23,11 +23,11 @@
 // No config makes a listed network win outright any more (the owner, 2026-11-09); Listed, which does,
 // is for tests alone.
 //
-// The address at home is, first, the configured one (discovery.lan_addresses); else the last a
-// direct request from home taught by naming the server by a private IPv4 address on the plain or
-// HTTPS port, or by a name that resolves to one, or an admin set; kept in the database across a
-// restart. Each change is told to the rule and to every reaction (rtcapi's host candidates, the
-// discovery's addresses) and logged as homeAddressLearned.
+// The address at home is the last a direct request from home taught by naming the server by a
+// private IPv4 address on the plain or HTTPS port, or by a name that resolves to one, or an admin
+// set, the deployment's seed (discovery.address_at_home_seed) kept as set once when none is; kept
+// in the database across a restart. Each change is told to the rule and to every reaction
+// (rtcapi's host candidates, the discovery's heartbeat) and logged as homeAddressLearned.
 //
 // # Invariants
 //
@@ -49,8 +49,10 @@
 //     the device and when; nothing else teaches, and only a change writes.
 //     TestHomeAddress_ARequestFromHomeTeachesItAndARestartKeepsIt, TestHomeAddress_LearnsOnlyOnChange,
 //     TestHomeAddress_OnlyAPrivateIPv4AddressTeaches.
-//   - A configured address wins over a learned or set one.
-//     TestHomeAddress_AConfiguredAddressWinsAndNothingIsLearned.
+//   - The seed is kept once, as set, when none is learned or set; the settings win from then.
+//     TestHomeAddress_TheSeedIsKeptOnceAsSetAndTheSettingsWinFromThen.
+//   - A core in a container's own network never lets a request replace an address set.
+//     TestHomeAddress_ACoreThatCannotCheckAnAddressKeepsOneSet.
 //   - A name is resolved, once, only while no address is known.
 //     TestHomeAddress_ANameIsLookedUpForItsPrivateIPv4Answer.
 //   - An admin's set is kept naming them; their removal forgets the name, not the address.

@@ -219,14 +219,9 @@ func (values Values) ConfiguredAddresses() []string {
 	return addresses
 }
 
-// LANAddresses are this machine's address at home on the published HTTPS port, which the core sends
-// its discovery to name for devices at home; none when the values file names no address.
-func (values Values) LANAddresses() []string {
-	if values.LAN.Address == "" {
-		return []string{}
-	}
-	return []string{net.JoinHostPort(values.LAN.Address, strconv.Itoa(values.LAN.HTTPSPort))}
-}
+// AddressAtHomeSeed is this machine's address at home as the values file names it, which the core keeps
+// once as its address at home when it holds none; the System page sets it from then on (D462 §10.6).
+func (values Values) AddressAtHomeSeed() string { return values.LAN.Address }
 
 // WebRTCUDPPort is the UDP port the core takes WebRTC on, the same at the house's address (D300 §1):
 // always the port, as an address at home not named is learned once the core runs (D452 §5).
