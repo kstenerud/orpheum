@@ -7,7 +7,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
-import { Poster, Still, WideArt } from "./poster.tsx";
+import { Poster, posterTileSizes, Still, WideArt } from "./poster.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
 describe("a film or series with no poster but a still (the owner, 2026-10-27; D362 §2)", () => {
@@ -155,6 +155,66 @@ describe("a poster's or a still's image that does not load (the owner, Fire TV, 
     mounted.unmount();
     mounted = undefined;
     expect(poll.stopped()).toBe(1);
+  });
+});
+
+describe("a poster tile's image, at the size it is drawn (web architecture audit, 2026-11-10)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.unstubAllGlobals();
+  });
+
+  it("offers the small and the middle size for the tile's width, decoded off the main thread", async () => {
+    mounted = await mount(<Poster sourceSha256="ab12" isTile />);
+    const image = mounted.container.querySelector("img.poster");
+    expect(image?.getAttribute("srcset")).toBe(
+      "/api/v1/bytes/art/ab12/portrait-s.webp 240w, /api/v1/bytes/art/ab12/portrait-m.webp 480w",
+    );
+    expect(image?.getAttribute("sizes")).toBe(posterTileSizes);
+    expect(image?.getAttribute("src")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
+    expect(image?.getAttribute("decoding")).toBe("async");
+  });
+
+  it("offers a title page's poster in the middle size alone", async () => {
+    mounted = await mount(<Poster sourceSha256="ab12" />);
+    expect(mounted.container.querySelector("img.poster")?.hasAttribute("srcset")).toBe(false);
+  });
+
+  it("asks for each size again, by a new address, once a tile's image that did not load is made", async () => {
+    const probes = stubImages();
+    const poll = handPoller();
+    mounted = await mount(
+      <BackgroundChangesContext value={poll.poller}>
+        <Poster sourceSha256="ef56" isTile />
+      </BackgroundChangesContext>,
+    );
+    act(() => {
+      mounted?.container.querySelector("img")?.dispatchEvent(new Event("error"));
+    });
+    act(() => {
+      poll.ask(() => undefined);
+    });
+    await act(async () => {
+      probes.at(-1)?.answer(true);
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector("img")?.getAttribute("srcset")).toBe(
+      "/api/v1/bytes/art/ef56/portrait-s.webp?again=1 240w, " +
+        "/api/v1/bytes/art/ef56/portrait-m.webp?again=1 480w",
+    );
+  });
+
+  it("decodes a still and wide art off the main thread", async () => {
+    mounted = await mount(
+      <>
+        <Still sourceSha256="ab90" className="series__still" />
+        <WideArt sourceSha256="aa11" size="landscape-l" className="title__backdrop" />
+      </>,
+    );
+    const images = [...mounted.container.querySelectorAll("img")];
+    expect(images.map((image) => image.getAttribute("decoding"))).toEqual(["async", "async"]);
   });
 });
 
