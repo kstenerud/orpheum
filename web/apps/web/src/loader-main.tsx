@@ -8,15 +8,14 @@ import { noteForTheLog } from "@orpheum/sdk";
 import { StrictMode, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 
-import { storageIfAllowed } from "./browser-storage.ts";
+import { storageIfAllowed, tabStorage } from "./browser-storage.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import { i18n } from "./i18n.ts";
-import { AtClientOriginPage } from "./loader-at-client-origin.tsx";
-import { startAtLoaderOrigin } from "./loader-at-loader-origin.tsx";
 import { guardFormsOk } from "./form-ok.ts";
 import { coreIdOfOrigin, loaderConfigOf } from "./loader-config.ts";
 import { removeUnownedKeys } from "./browser-storage.ts";
 import { clearCookies } from "./loader-sweep.ts";
+import { loadRole, waitMs, type PartLoadParts } from "./part-load.ts";
 
 /** The keys the loader owns at its own origin: the household list, and the remembered realm. */
 const ownedAtLoaderOrigin = new Set(["orpheum.loader.households", "orpheum.discovery.realm"]);
@@ -46,8 +45,22 @@ async function tellWorker(message: ClientFilesMessage): Promise<void> {
   await kept;
 }
 
-/** The loader's page, at whichever origin it is served. */
-function loaderPage(): JSX.Element | undefined {
+/** What the loader's role is loaded with: as main.tsx loads the loader (part-load.ts). */
+const roleLoadParts: PartLoadParts = {
+  tab: tabStorage(),
+  reload: () => {
+    window.location.reload();
+  },
+  wait: waitMs,
+};
+
+/**
+ * The loader's page, at whichever origin it is served. Each origin's role is loaded as it is
+ * needed, so a page parses only the one it runs (web architecture audit, 2026-11-10: a television
+ * at a client's origin parsed the loader origin's too); the service worker keeps a role's file as it
+ * keeps the loader's (sw.ts keptLoaderFile, D308 §7).
+ */
+async function loaderPage(): Promise<JSX.Element | undefined> {
   const config = loaderConfigOf(document);
   if (config === undefined) {
     return <p>{i18n.t("loader.notConfigured")}</p>;
@@ -74,6 +87,11 @@ function loaderPage(): JSX.Element | undefined {
         );
       })
       .catch(() => undefined);
+    const { startAtLoaderOrigin } = await loadRole(
+      "loader's role at its own origin",
+      async () => await import("./loader-at-loader-origin.tsx"),
+      roleLoadParts,
+    );
     return startAtLoaderOrigin({
       config,
       storage: localStore,
@@ -82,6 +100,11 @@ function loaderPage(): JSX.Element | undefined {
       now: () => Date.now(),
     });
   }
+  const { AtClientOriginPage } = await loadRole(
+    "loader's role at a client's origin",
+    async () => await import("./loader-at-client-origin.tsx"),
+    roleLoadParts,
+  );
   return (
     <AtClientOriginPage
       at={{
@@ -109,7 +132,8 @@ function loaderPage(): JSX.Element | undefined {
 // The loader's pages run no input layer: OK on its sign-in's "remember my realm" submitted the form
 // on the owner's Fire TV (2026-10-30). The client it runs later keeps its own guard as well.
 guardFormsOk({ target: window, focused: () => document.activeElement }, noteForTheLog);
-const page = loaderPage();
-if (page !== undefined) {
-  root.render(<StrictMode>{page}</StrictMode>);
-}
+void loaderPage().then((page) => {
+  if (page !== undefined) {
+    root.render(<StrictMode>{page}</StrictMode>);
+  }
+});

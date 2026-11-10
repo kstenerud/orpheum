@@ -34,6 +34,8 @@ const clientKeys = new Set([
   "orpheum.screenCode.reloadNote",
   // That the tab reloaded once for its part's code that did not load (part-load.ts).
   "orpheum.main.reloadedForPart",
+  // That the tab reloaded once for its loader's role's code that did not load (part-load.ts).
+  "orpheum.main.reloadedForRole",
   // A debugging aid that starts each film on its own picture, with no preload (watching.ts).
   "orpheum.debug.startOnFilmsPicture",
   // The tab's debug cap on its download rate (link-debug.ts, D380).
