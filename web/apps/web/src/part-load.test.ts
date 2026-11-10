@@ -4,7 +4,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
-import { loadOwnPart, loadPart, partRetryMs, type PartLoadParts } from "./part-load.ts";
+import { loadOwnPart, loadPart, loadRole, partRetryMs, type PartLoadParts } from "./part-load.ts";
 import { takeReloadNote } from "./reload-note.ts";
 
 function tabOf(kept: Map<string, string>): StringStorage {
@@ -101,6 +101,33 @@ describe("loadPart", () => {
     await settled();
 
     expect(later.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("loadRole (web architecture audit, 2026-11-10)", () => {
+  it("hands back the role's code, asked again once after a pause", async () => {
+    const page = pageOf(tabOf(new Map()));
+    const role = { startAtLoaderOrigin: "the role" };
+    const load = vi.fn<() => Promise<typeof role>>().mockRejectedValueOnce(preloadFailed);
+    load.mockResolvedValue(role);
+
+    await expect(loadRole("loader's role", load, page)).resolves.toBe(role);
+    expect(page.waited).toEqual([partRetryMs]);
+  });
+
+  it("throws, reloading no more, in the page reloaded for it, though the loader's part loaded", async () => {
+    const tab = tabOf(new Map());
+    const failing = vi.fn<() => Promise<unknown>>().mockRejectedValue(preloadFailed);
+    const first = pageOf(tab);
+    void loadRole("loader's role", failing, first);
+    await settled();
+    expect(first.reload).toHaveBeenCalledTimes(1);
+
+    // The page reloaded for it: the loader's part loads, then its role fails again.
+    const reloaded = pageOf(tab);
+    await loadPart("loader", async () => await Promise.resolve({}), reloaded);
+    await expect(loadRole("loader's role", failing, reloaded)).rejects.toBe(preloadFailed);
+    expect(reloaded.reload).not.toHaveBeenCalled();
   });
 });
 

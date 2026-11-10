@@ -184,3 +184,16 @@ describe("what a film's and a series' page load before they draw", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("what the loader loads before it draws (web architecture audit, 2026-11-10, startup 2)", () => {
+  it("is neither origin's role: each is loaded when the page is found to be at its origin", () => {
+    const loadedBy = loadedAtStart("./loader-main.tsx");
+    expect(loadedBy.has("./part-load.ts")).toBe(true);
+    const roles = ["./loader-at-loader-origin.tsx", "./loader-at-client-origin.tsx"];
+    expect(
+      roles.filter((path) => loadedBy.has(path)).map((path) => chainTo(loadedBy, path)),
+    ).toEqual([]);
+    expect(sources["./loader-main.tsx"]).toContain('import("./loader-at-loader-origin.tsx")');
+    expect(sources["./loader-main.tsx"]).toContain('import("./loader-at-client-origin.tsx")');
+  });
+});

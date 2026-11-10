@@ -25,6 +25,9 @@ export const partRetryMs = 1000;
 /** The tab's key for the reload a page made because its part's code did not load. */
 const reloadedForPartKey = "orpheum.main.reloadedForPart";
 
+/** The tab's key for the reload a loader's page made because its role's code did not load. */
+const reloadedForRoleKey = "orpheum.main.reloadedForRole";
+
 /** What loadPart needs of the page. */
 export interface PartLoadParts {
   /** This tab's storage, which says whether it reloaded for this before. */
@@ -45,33 +48,57 @@ export async function waitMs(ms: number): Promise<void> {
  * Loads part, named for the note, by load: asked again once after partRetryMs when it fails, then
  * reloading the page once in the tab, else throwing why. A page that reloads never settles.
  */
-export async function loadPart(
+export async function loadPart<Loaded>(
   part: string,
-  load: () => Promise<unknown>,
+  load: () => Promise<Loaded>,
   parts: PartLoadParts,
-): Promise<void> {
+): Promise<Loaded> {
+  return await loadMarked(reloadedForPartKey, part, load, parts);
+}
+
+/**
+ * Loads the loader's role, the code of the origin it is served at, as loadPart loads a part, after
+ * it (loader-main.tsx): its own mark in the tab, as the part's loading clears the part's, and a role
+ * failing in the page reloaded for it would reload it again, each time.
+ */
+export async function loadRole<Loaded>(
+  role: string,
+  load: () => Promise<Loaded>,
+  parts: PartLoadParts,
+): Promise<Loaded> {
+  return await loadMarked(reloadedForRoleKey, role, load, parts);
+}
+
+/** Loads part by load as loadPart says, the tab's reload for it marked at mark. */
+async function loadMarked<Loaded>(
+  mark: string,
+  part: string,
+  load: () => Promise<Loaded>,
+  parts: PartLoadParts,
+): Promise<Loaded> {
   try {
-    await load();
-    parts.tab.removeItem(reloadedForPartKey);
-    return;
+    const loaded = await load();
+    parts.tab.removeItem(mark);
+    return loaded;
   } catch {
     await parts.wait(partRetryMs);
   }
   try {
-    await load();
-    parts.tab.removeItem(reloadedForPartKey);
+    const loaded = await load();
+    parts.tab.removeItem(mark);
+    return loaded;
   } catch (cause: unknown) {
-    if (parts.tab.getItem(reloadedForPartKey) !== null) {
+    if (parts.tab.getItem(mark) !== null) {
       throw cause;
     }
     const reason = cause instanceof Error ? cause.message : String(cause);
-    parts.tab.setItem(reloadedForPartKey, "1");
+    parts.tab.setItem(mark, "1");
     leaveReloadNote(
       parts.tab,
       `the page reloaded, once: the code of its ${part} did not load, asked twice (${reason})`,
     );
     parts.reload();
-    await new Promise<never>(() => undefined);
+    return await new Promise<never>(() => undefined);
   }
 }
 
