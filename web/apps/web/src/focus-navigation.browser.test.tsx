@@ -153,3 +153,70 @@ describe("Up from a page's content with nothing in it straight above", () => {
     expect(document.activeElement?.textContent).toBe("home");
   });
 });
+
+/**
+ * A grid of three hundred tiles, ten to a row, one hidden tile in the row below the first, and a
+ * button at the right of the grid's first row, outside it.
+ */
+const largeGridPage = (
+  <main style={{ position: "relative", height: "3200px" }}>
+    <ul data-focus-container="">
+      {Array.from({ length: 300 }, (_, index) => (
+        <li key={index} style={placedAt((index % 10) * 70, Math.floor(index / 10) * 60, 60)}>
+          <a href={`#tile-${String(index)}`} style={index === 10 ? { visibility: "hidden" } : {}}>
+            {`tile ${String(index)}`}
+          </a>
+        </li>
+      ))}
+    </ul>
+    <button type="button" style={placedAt(800, 0)}>
+      beside
+    </button>
+  </main>
+);
+
+/** How many times each of an element's costly readings ran while act did. */
+async function readingsDuring(act: () => Promise<void>): Promise<{ boxes: number; drawn: number }> {
+  const counted = { boxes: 0, drawn: 0 };
+  const box = Element.prototype.getBoundingClientRect;
+  const rects = Element.prototype.getClientRects;
+  Element.prototype.getBoundingClientRect = function countedBox(this: Element) {
+    counted.boxes += 1;
+    return box.call(this);
+  };
+  Element.prototype.getClientRects = function countedRects(this: Element) {
+    counted.drawn += 1;
+    return rects.call(this);
+  };
+  try {
+    await act();
+  } finally {
+    Element.prototype.getBoundingClientRect = box;
+    Element.prototype.getClientRects = rects;
+  }
+  return counted;
+}
+
+describe("an arrow over a large grid", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  // A press on a TV reads every tile's box, a thousand once a library is scrolled: whether a tile can
+  // take focus is asked of the winner alone, and the grid is not read again when the search widens.
+  it("asks whether a tile can take focus only of the nearest, and reads the grid once as it widens", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(largeGridPage));
+    document.querySelector<HTMLElement>('a[href="#tile-0"]')?.focus();
+    const down = await readingsDuring(() => userEvent.keyboard("{ArrowDown}"));
+    // The hidden tile straight below is passed over for the next drawn one.
+    expect(document.activeElement?.textContent).toBe("tile 20");
+    expect(down.drawn).toBeLessThan(20);
+    document.querySelector<HTMLElement>('a[href="#tile-9"]')?.focus();
+    const right = await readingsDuring(() => userEvent.keyboard("{ArrowRight}"));
+    expect(document.activeElement?.textContent).toBe("beside");
+    expect(right.boxes).toBeLessThan(400);
+  });
+});
