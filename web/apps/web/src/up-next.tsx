@@ -2,7 +2,6 @@
 
 import "./up-next.css";
 
-import type { components } from "@orpheum/sdk";
 import {
   createContext,
   use,
@@ -15,6 +14,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import { moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import type { OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
@@ -33,9 +33,7 @@ import {
   useAnyPressForgetsAutoplays,
   useIsAskingStillWatching,
 } from "./still-watching.tsx";
-import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 
 /**
@@ -51,52 +49,6 @@ export const upNextLeadMs = 30_000;
  * end, so a fixed lead never cuts the programme's last seconds (D139; plans/up-next.md §3).
  */
 export const upNextCountdownMs = 10_000;
-
-/** What plays after a file, as the server offers it (GET /files/{id}/up-next). */
-export type UpNext = components["schemas"]["UpNextBody"];
-
-/** What plays before a file, its previous in the sequence (GET /files/{id}/up-next, D407 §2). */
-export type Previous = components["schemas"]["NextUpBody"];
-
-/** What plays after fileId and before it, each undefined where nothing does. */
-interface AroundFile {
-  readonly upNext: UpNext | undefined;
-  readonly previous: Previous | undefined;
-}
-
-/**
- * What plays after fileId and before it, undefined while unknown; asked for once isAsked, nothing
- * before.
- */
-function useAroundFile(fileId: number, isAsked: boolean): AroundFile | undefined {
-  const { api } = useServices();
-  const [around] = useResource(
-    `up-next/${String(fileId)}${isAsked ? "" : "/not-yet"}`,
-    async (): Promise<AroundFile | undefined> => {
-      if (!isAsked) {
-        return undefined;
-      }
-      const answer = dataOrThrow(
-        await api.GET("/files/{id}/up-next", { params: { path: { id: fileId } } }),
-      );
-      return { upNext: answer.upNext ?? undefined, previous: answer.previous ?? undefined };
-    },
-  );
-  return around.state === "loaded" ? around.value : undefined;
-}
-
-/**
- * What plays after fileId, undefined while unknown and where nothing does; asked for once isAsked,
- * nothing before.
- */
-export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
-  return useAroundFile(fileId, isAsked)?.upNext;
-}
-
-/** What plays before fileId, undefined while unknown and where nothing does. */
-export function usePrevious(fileId: number): Previous | undefined {
-  return useAroundFile(fileId, true)?.previous;
-}
 
 /**
  * Whether video has played fileId: true from its first playing, or a timeupdate while it plays,

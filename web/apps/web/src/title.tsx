@@ -25,7 +25,7 @@ import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
 import { TitleHead } from "./title-head.tsx";
 import { clockText } from "./timeline.tsx";
-import { useUpNext } from "./up-next.tsx";
+import { useUpNext } from "./around-file.ts";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { noteEpisodeReached } from "./episode-reached.ts";

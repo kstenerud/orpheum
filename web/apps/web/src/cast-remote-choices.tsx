@@ -30,7 +30,7 @@ import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 import { soundOffsetStepMs, TimingRow } from "./sound-delay.tsx";
 import { SessionTalk } from "./together-voice.tsx";
-import { usePrevious } from "./up-next.tsx";
+import { usePrevious } from "./around-file.ts";
 
 /** What the remote's menus send the receiver: its sound's choices and its picture's (D434). */
 export type ReceiverChoices = CarriesSoundChoices & CarriesPictureChoices;

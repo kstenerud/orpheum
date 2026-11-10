@@ -26,7 +26,8 @@ import { useServices, useToken } from "./services.tsx";
 import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
-import { offerState, useUpNext } from "./up-next.tsx";
+import { useUpNext } from "./around-file.ts";
+import { offerState } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 

@@ -3,17 +3,14 @@
 
 import { describe, expect, it } from "vitest";
 
+import { gainAfterVolume, ownFileGainAfterVolume, soundRouteOf, type GainAudio } from "./gain.ts";
 import {
-  gainAfterVolume,
   heardVolumeOf,
-  ownFileGainAfterVolume,
   isWebAudioLate,
   setHeardVolume,
-  soundRouteOf,
   webAudioLateAboveMs,
-  type GainAudio,
   type SoundLatencyMemory,
-} from "./gain.ts";
+} from "./heard-volume.ts";
 import { soundEarlierMsOf } from "./audio-shift.ts";
 import { settled } from "./test-timing.ts";
 

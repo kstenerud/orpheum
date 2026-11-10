@@ -12,6 +12,7 @@ import {
 } from "@orpheum/player";
 import { playerMovedItselfEvent, startGateOf, type components } from "@orpheum/sdk";
 
+import { decisionTimesOf, forgetDecisionTimes } from "./decision-times.ts";
 import { seekAskedEvent, soughtByOf } from "./seek-ahead.ts";
 import { startGateFieldsOf, timeSeeks } from "./seek-timing.ts";
 import { soundOf } from "./startup-sound.ts";
@@ -32,47 +33,6 @@ export function hasMedia(video: HTMLVideoElement): boolean {
 }
 
 /**
- * When a playback's player asked how its file plays, and was answered, on the page's clock; and the
- * last steps of the film page's preload that loaded its first buffer, where one did (D260 §3).
- */
-export interface DecisionTimes {
-  readonly askedMs: number;
-  readonly decidedMs: number;
-  readonly preloadSteps?: string | undefined;
-}
-
-/** How many playbacks' decision times a tab keeps, the newest: more than a person starts at once. */
-export const decisionTimesKept = 8;
-
-/**
- * Each playback's decision times, by media token, until its reporting takes them, the newest
- * decisionTimesKept.
- */
-const decisionTimesByToken = new Map<string, DecisionTimes>();
-
-/**
- * Keeps when a playback's player asked how its file plays and was answered, askedMs and decidedMs
- * from performance.now(), so its reports can say how long it took to start playing; and what the
- * film page's preload did before it, where one did.
- */
-export function noteDecisionTimes(mediaToken: string, times: DecisionTimes): void {
-  decisionTimesByToken.set(mediaToken, times);
-  // A film page's warm-up that is never played is never told: the oldest are let go of, so the
-  // tab keeps a few at most (the M4 closing audit, 2026-10-08).
-  for (const oldest of decisionTimesByToken.keys()) {
-    if (decisionTimesByToken.size <= decisionTimesKept) {
-      break;
-    }
-    decisionTimesByToken.delete(oldest);
-  }
-}
-
-/** When the playback mediaToken names was asked for and decided, until its start is told. */
-export function decisionTimesOf(mediaToken: string): DecisionTimes | undefined {
-  return decisionTimesByToken.get(mediaToken);
-}
-
-/**
  * Tells the reporter, at the video's first playing, how long the playback mediaToken names took to
  * start: from asking how the file plays to the answer, to the first frame's data, and to playing.
  * Its decision times are forgotten once told, so a player made again for it, as a move to a lower
@@ -84,7 +44,7 @@ function startupListeners(
   reporter: PlayReporter,
   mediaToken: string,
 ): Record<string, () => void> {
-  const times = decisionTimesByToken.get(mediaToken);
+  const times = decisionTimesOf(mediaToken);
   if (times === undefined) {
     return {};
   }
@@ -100,7 +60,7 @@ function startupListeners(
         return;
       }
       isTold = true;
-      decisionTimesByToken.delete(mediaToken);
+      forgetDecisionTimes(mediaToken);
       const playingAtMs = performance.now();
       // Typed, as a spread's fields are not checked against the body they are spread into.
       const preload: Pick<components["schemas"]["StartupBody"], "preloadSteps"> =

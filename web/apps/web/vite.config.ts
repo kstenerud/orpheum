@@ -70,6 +70,17 @@ export default defineConfig(({ command, mode }) => {
     envDir: false,
     build: {
       target: "es2023",
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            // What a film's page reads of the sound before it plays (the player's heard-volume.ts)
+            // is a chunk of its own. Left to Rolldown it joins the chunk of the player the page
+            // imports only as Play nears, and the page would wait on hls.js for it (the web
+            // client's architecture audit of 2026-11-10, Playback 2).
+            groups: [{ name: "heard-volume", test: /packages\/player\/src\/heard-volume\.ts$/ }],
+          },
+        },
+      },
     },
     server: {
       // `make dev DEV_LISTEN=0.0.0.0:8432` opens Vite to the LAN; a name to reach it by goes in
