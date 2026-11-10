@@ -4290,6 +4290,79 @@
         ],
         "type": "object"
       },
+      "NetworkBody": {
+        "additionalProperties": false,
+        "properties": {
+          "httpsPort": {
+            "description": "The HTTPS port devices at home reach the server on by its name at home",
+            "format": "int64",
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "router": {
+            "description": "The house's router, whose port mapping is asked to forward the HTTPS port; empty asks none",
+            "maxLength": 15,
+            "type": "string"
+          },
+          "webrtcPort": {
+            "description": "The UDP port WebRTC is taken on at home",
+            "format": "int64",
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "httpsPort",
+          "webrtcPort",
+          "router"
+        ],
+        "type": "object"
+      },
+      "NetworkStateBody": {
+        "properties": {
+          "appliedBy": {
+            "description": "What takes the settings kept: restart (this page's) or script (the install script's next run)",
+            "enum": [
+              "restart",
+              "script"
+            ],
+            "type": "string"
+          },
+          "fellBack": {
+            "description": "The settings kept at the start whose port would not bind, so the server took the default",
+            "items": {
+              "enum": [
+                "httpsPort",
+                "webrtcPort"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kept": {
+            "$ref": "#/components/schemas/NetworkBody",
+            "description": "The settings kept, which the server's next start takes"
+          },
+          "pending": {
+            "description": "Whether settings were kept since the server started, which its next start takes",
+            "type": "boolean"
+          },
+          "running": {
+            "$ref": "#/components/schemas/NetworkBody",
+            "description": "The settings the server runs with now"
+          }
+        },
+        "required": [
+          "kept",
+          "running",
+          "fellBack",
+          "pending",
+          "appliedBy"
+        ],
+        "type": "object"
+      },
       "NewDeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -17177,6 +17250,88 @@
         "x-orpheum-capability": "admin"
       }
     },
+    "/system/network": {
+      "get": {
+        "operationId": "getSystemNetwork",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStateBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The house's network settings the System page keeps, and the ones the server runs with (D462 §2)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      },
+      "put": {
+        "operationId": "setSystemNetwork",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStateBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Keep the house's network settings for the server's next start, once each is good and each port changed binds (D462 §2, §10.11)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
     "/system/reachability": {
       "post": {
         "operationId": "checkReachability",
@@ -17245,6 +17400,36 @@
           }
         ],
         "summary": "What the core and each node used of their machines, each minute, beside the plays and the work running",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/restart": {
+      "post": {
+        "operationId": "restartServer",
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Stop the server so its container's restart policy starts it again, with the network settings kept (D462 §2)",
         "tags": [
           "Running it"
         ],

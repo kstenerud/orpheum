@@ -2072,6 +2072,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/network": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The house's network settings the System page keeps, and the ones the server runs with (D462 §2) */
+        get: operations["getSystemNetwork"];
+        /** Keep the house's network settings for the server's next start, once each is good and each port changed binds (D462 §2, §10.11) */
+        put: operations["setSystemNetwork"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/reachability": {
         parameters: {
             query?: never;
@@ -2100,6 +2118,23 @@ export interface paths {
         get: operations["getResourceUse"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop the server so its container's restart policy starts it again, with the network settings kept (D462 §2) */
+        post: operations["restartServer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4011,6 +4046,35 @@ export interface components {
             unreadCount: number;
             /** Format: int64 */
             waitingRootCount: number;
+        };
+        NetworkBody: {
+            /**
+             * Format: int64
+             * @description The HTTPS port devices at home reach the server on by its name at home
+             */
+            httpsPort: number;
+            /** @description The house's router, whose port mapping is asked to forward the HTTPS port; empty asks none */
+            router: string;
+            /**
+             * Format: int64
+             * @description The UDP port WebRTC is taken on at home
+             */
+            webrtcPort: number;
+        };
+        NetworkStateBody: {
+            /**
+             * @description What takes the settings kept: restart (this page's) or script (the install script's next run)
+             * @enum {string}
+             */
+            appliedBy: "restart" | "script";
+            /** @description The settings kept at the start whose port would not bind, so the server took the default */
+            fellBack: ("httpsPort" | "webrtcPort")[];
+            /** @description The settings kept, which the server's next start takes */
+            kept: components["schemas"]["NetworkBody"];
+            /** @description Whether settings were kept since the server started, which its next start takes */
+            pending: boolean;
+            /** @description The settings the server runs with now */
+            running: components["schemas"]["NetworkBody"];
         };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
@@ -10499,6 +10563,68 @@ export interface operations {
             };
         };
     };
+    getSystemNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkStateBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setSystemNetwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkStateBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     checkReachability: {
         parameters: {
             query?: never;
@@ -10545,6 +10671,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ResourceUseOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restartServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

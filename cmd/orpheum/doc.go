@@ -56,6 +56,11 @@
 //     file's --compose-version, 1 when it passes none, for the System page to say when a newer file
 //     brings something (D461 §3). Enforced by TestStart_TheCoreSaysTheComposeFilesVersion and
 //     TestUpdate_SaysWhatANewerComposeFileBrings.
+//   - The System page's network settings are kept in the core's network.toml once each is good and
+//     each port changed binds, a port the server holds not tried; a core no deployment started
+//     keeps none (D462 §2, §10.11). Enforced by
+//     TestNetworkSettings_KeepsGoodSettingsOnceEachChangedPortBinds and
+//     TestNetworkSettings_ACoreNoDeploymentStartedKeepsNone.
 //   - A compose file households were given keeps starting every later release (D455, D462 §6): each
 //     version is frozen in testdata/released/compose-v<n>/ by make freeze-compose; start takes every
 //     frozen file's command line, skipping none of its flags, and the core and the node find each

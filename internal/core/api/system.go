@@ -348,6 +348,7 @@ func (server *Server) registerSystem() {
 		Extensions: callableBy(capabilityAdmin),
 	}, server.getSystem)
 	server.registerAddressAtHome()
+	server.registerNetwork()
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setReaderLimit", Method: http.MethodPut, Path: "/nodes/{name}/reader-limit",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
