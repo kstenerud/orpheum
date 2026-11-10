@@ -5,8 +5,9 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { AppShell } from "./app-shell.tsx";
 import { Home } from "./home.tsx";
-import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
@@ -54,6 +55,36 @@ describe("home (the owner, 2026-10-25)", () => {
     // A film partway shows how far in, in every list, as the server says it.
     expect(cards[0]?.querySelector("progress")?.getAttribute("value")).toBe("25");
     expect(cards[1]?.querySelector("progress")).toBeNull();
+  });
+
+  it("asks the server for the libraries once, the banner's and Home's reading shared (the web client's architecture audit of 2026-11-10, Startup 10)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [] }],
+      },
+      heard,
+      "token",
+    );
+    mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="home"
+          onSignOut={() => undefined}
+          signedInAs={undefined}
+        >
+          <Home />
+        </AppShell>,
+        services,
+      ),
+    );
+    const { container } = mounted;
+    await settleUntil(() => container.querySelector(".home__empty") !== null);
+    expect(heard.filter((each) => each.methodAndPath === "GET /libraries")).toHaveLength(1);
   });
 
   it("asks its newest rows of the libraries the person keeps on Home (D366 §5)", async () => {
