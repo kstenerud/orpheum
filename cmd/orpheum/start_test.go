@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -166,6 +167,12 @@ func TestStart_TheCoreSaysTheComposeFilesVersion(t *testing.T) {
 			t.Errorf("started with %q, the core's server.compose_version is %v; want %d",
 				test.arguments, got, test.want)
 		}
+	}
+	told := composeFileOf(ServerConfig{ComposeVersion: 1})
+	if told.Running != 1 || told.Newest != deployment.ComposeFileVersion ||
+		!reflect.DeepEqual(told.Changes, deployment.ComposeFileChanges()) {
+		t.Errorf("the System page is told of compose file %+v; want version 1, the newest %d and its changes",
+			told, deployment.ComposeFileVersion)
 	}
 	var stderr bytes.Buffer
 	if _, isParsed := parseStart([]string{"--compose-version", "0"}, &stderr); isParsed ||
