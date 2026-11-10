@@ -13,9 +13,9 @@ part of the release, not a step to remember (principles §17):
 * **With `--tag <tag>`**, run by the release workflow on the tag's own checkout before anything is
   published: the folder must be there, each published compose file must be frozen in it as it is in
   the tree, and its `start-flags.txt` must name exactly the flags this tree's `start` takes.
-* **Without it**, run by check-pr: every tag from the first frozen one on that this clone has must
-  have its folder, each published file frozen as the tag has it. A sandbox fetches no tags, so it
-  checks the ones it has.
+* **Without it**, run by check-source in make check and check-pr: every tag from the first frozen
+  one on that this clone has must have its folder, each published file frozen as the tag has it.
+  A sandbox fetches no tags, so it checks the ones it has.
 
 Tags before `FIRST_FROZEN` came before the first beta install, when no household had pasted a file
 and releases were free to break them (D455).
