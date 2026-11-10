@@ -76,6 +76,7 @@ export function PosterCard(props: {
               sourceSha256={posterSha256}
               stillSha256={noPosterStillSha256}
               isStillEnough={props.isStillEnough === true}
+              isTile
             />
           )}
           {progress === undefined ? null : (

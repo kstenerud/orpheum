@@ -27,6 +27,11 @@ export function Poster(props: {
    * still is a picture of the season itself, and the caption is for a card with nothing (D379 §1).
    */
   readonly isStillEnough?: boolean;
+  /**
+   * Whether it is drawn at a poster tile's width (posterTileSizes), so the browser picks the smallest
+   * size that fills it; a title page's larger poster, not one, asks for portrait-m alone.
+   */
+  readonly isTile?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const shown = useArtShown(props.sourceSha256, "portrait-m");
@@ -49,8 +54,12 @@ export function Poster(props: {
     <img
       className="poster"
       src={shown.url}
+      {...(props.isTile === true
+        ? { srcSet: shown.srcSetOf(tileSizes), sizes: posterTileSizes }
+        : {})}
       alt={""}
       loading="lazy"
+      decoding="async"
       width={240}
       height={360}
       onError={shown.onError}
@@ -76,6 +85,7 @@ export function Still(props: {
       src={shown.url}
       alt={""}
       loading="lazy"
+      decoding="async"
       onError={shown.onError}
     />
   );
@@ -95,12 +105,40 @@ export function WideArt(props: {
   if (shown.url === undefined) {
     return null;
   }
-  return <img className={props.className} src={shown.url} alt={""} onError={shown.onError} />;
+  return (
+    <img
+      className={props.className}
+      src={shown.url}
+      alt={""}
+      decoding="async"
+      onError={shown.onError}
+    />
+  );
 }
+
+/**
+ * The widths a poster tile is drawn at: --size-poster-min at each of tokens.css's breakpoints, the
+ * wider of it and browse.css's. A row's poster is that wide, a grid's a little wider at most (its
+ * columns share out what is left of the row). A justified constant, as phoneWidthQuery is: a
+ * stylesheet's lengths, which an img's sizes cannot read.
+ */
+export const posterTileSizes = "(min-width: 1200px) 10.5rem, (min-width: 600px) 8.5rem, 6.75rem";
+
+/** A poster tile's sizes to choose from, by their widths in pixels (D212; nodeproto/artwork.go). */
+const tileSizes: readonly (readonly [ArtSize, number])[] = [
+  ["portrait-s", 240],
+  ["portrait-m", 480],
+];
 
 /** The address an image is shown by, undefined for its blank, and what its img does when it fails. */
 interface ArtShown {
   readonly url: string | undefined;
+  /**
+   * An img's srcSet of the image in each of sizes, by its width, asked for again as url is. The
+   * server answers a size not yet made with the nearest one it holds, and no size while it holds
+   * none (D212 §3), so each loads or fails as url does, and the same ask brings them back.
+   */
+  readonly srcSetOf: (sizes: readonly (readonly [ArtSize, number])[]) => string;
   readonly onError: () => void;
 }
 
@@ -144,10 +182,14 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
     };
   }, [isFailed, poller, sourceSha256, size]);
   if (sourceSha256 === undefined || isFailed) {
-    return { url: undefined, onError: () => undefined };
+    return { url: undefined, srcSetOf: () => "", onError: () => undefined };
   }
   return {
     url: againUrl(sourceSha256, size, current.again),
+    srcSetOf: (sizes) =>
+      sizes
+        .map(([each, width]) => `${againUrl(sourceSha256, each, current.again)} ${String(width)}w`)
+        .join(", "),
     onError: () => {
       setState({ sha256: sourceSha256, isFailed: true, again: current.again });
       suspectWorker(); // a bypassed worker 404s every image, and the page says so (A51)
