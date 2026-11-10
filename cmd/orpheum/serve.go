@@ -38,6 +38,15 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
+// composeFileOf is the compose file that started the server, as its config names it, beside the
+// newest this build publishes and what each version brings, for the System page (D461 §3).
+func composeFileOf(server ServerConfig) api.ComposeFile {
+	return api.ComposeFile{
+		Running: server.ComposeVersion, Newest: deployment.ComposeFileVersion,
+		Changes: deployment.ComposeFileChanges(),
+	}
+}
+
 // eventReady and eventCouldNotStart are slogx.EventKey's values for serve's two lines a test most
 // commonly waits for: that it finished starting, and that it could not.
 const (
@@ -311,10 +320,7 @@ func wireCore(
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
 	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
-	dependencies.ComposeFile = api.ComposeFile{
-		Running: config.Server.ComposeVersion, Newest: deployment.ComposeFileVersion,
-		Changes: deployment.ComposeFileChanges(),
-	}
+	dependencies.ComposeFile = composeFileOf(config.Server)
 	dependencies.Reachability, dependencies.Relay = opened.reachability, newICEIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(),
