@@ -35,6 +35,7 @@ import type { ThisDevice as ThisDeviceComponent } from "./this-device.tsx";
 import { useEffect } from "react";
 
 import { lazyScreen, preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
+import { whenIdle } from "./when-idle.ts";
 
 /** Each screen's own loader, named so resetLazyScreensForTests can give it a fresh lazy() too. */
 const loadTitle = async (): Promise<{ default: typeof TitleComponent }> => ({
@@ -149,7 +150,8 @@ const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }
  */
 export let Title = lazyScreen("title", loadTitle);
 export let Series = lazyScreen("series", loadSeries);
-export let Play = lazyScreen("play", loadPlay);
+let play = preloadableScreen("play", loadPlay);
+export let Play = play.component;
 export let TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
 export let CastReady = lazyScreen("cast-ready", loadCastReady);
 export let Lab = lazyScreen("lab", loadLab);
@@ -179,6 +181,45 @@ export let SignIn = signIn.component;
 export let ThisDevice = lazyScreen("this-device", loadThisDevice);
 
 /**
+ * How long a film's or a series' page shows before the Play page's code is asked for, in ms: past the
+ * page's own code and first requests, which it never delays, and well before a person reaches Play.
+ * A justified constant, as the tray's dialogs' (tray-dialog-code.tsx).
+ */
+export const playAheadAfterMs = 1000;
+
+/** How long the browser's idle is waited for once playAheadAfterMs has passed, at most, in ms. */
+const playAheadIdleWithinMs = 2000;
+
+/**
+ * Loads the Play page's code ahead while shouldLoad (a film's or a series' page is shown), once it has
+ * shown for playAheadAfterMs and the browser is idle, so Play then draws at once, never "Loading…" in
+ * its place: a lazy screen suspends once even when its module is in (the web client's architecture
+ * audit of 2026-11-10, Playback 3). A page left before then loads nothing.
+ */
+export function usePreloadsPlay(shouldLoad: boolean): void {
+  useEffect(() => {
+    if (!shouldLoad || play.isLoaded()) {
+      return undefined;
+    }
+    let stopIdle: (() => void) | undefined = undefined;
+    const timer = setTimeout(() => {
+      stopIdle = whenIdle(() => {
+        void play.preload();
+      }, playAheadIdleWithinMs);
+    }, playAheadAfterMs);
+    return () => {
+      clearTimeout(timer);
+      stopIdle?.();
+    };
+  }, [shouldLoad]);
+}
+
+/** Whether the Play page's code has loaded, ahead or as it was shown. */
+export function isPlayLoaded(): boolean {
+  return play.isLoaded();
+}
+
+/**
  * Loads Sign in's code while isSignedOut, so a signed-out page that shows something else first (Register,
  * a guest's Watch Together page) draws Sign in at once when the person goes there.
  */
@@ -206,7 +247,8 @@ export function isSignInLoaded(): boolean {
 export function resetLazyScreensForTests(): void {
   Title = lazyScreen("title", loadTitle);
   Series = lazyScreen("series", loadSeries);
-  Play = lazyScreen("play", loadPlay);
+  play = preloadableScreen("play", loadPlay);
+  Play = play.component;
   TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
   CastReady = lazyScreen("cast-ready", loadCastReady);
   Lab = lazyScreen("lab", loadLab);

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { act } from "react";
 
-import { App } from "./app.tsx";
+import { App, Screen } from "./app.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import {
   buttonWithText,
@@ -23,7 +23,7 @@ import {
   type Answers,
   type Heard,
 } from "./test-dom.tsx";
-import { isSignInLoaded } from "./later-screens.tsx";
+import { isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
@@ -527,6 +527,27 @@ describe("the signed-in page's start", () => {
 });
 
 describe("the code loaded ahead of its screen (the architecture audit of 2026-11-10)", () => {
+  it("loads Play's code on a film's page, so Play draws at once (Playback 3)", async () => {
+    const mounted = await mount(
+      withServices(<Screen route={{ screen: "title", itemId: 1 }} />, testServices("token")),
+    );
+    expect(isPlayLoaded()).toBe(false);
+    await settleUntil(isPlayLoaded);
+    mounted.unmount();
+  });
+
+  it("loads Play's code on a series' page too", async () => {
+    const mounted = await mount(
+      withServices(
+        <Screen route={{ screen: "series-page", collectionId: 1 }} />,
+        testServices("token"),
+      ),
+    );
+    expect(isPlayLoaded()).toBe(false);
+    await settleUntil(isPlayLoaded);
+    mounted.unmount();
+  });
+
   it("loads Sign in's code on a signed-out page that shows something else first (Startup 3)", async () => {
     // Register never draws Sign in: only its code asked for ahead loads it.
     const mounted = await mount(withServices(<App />, testServices(undefined, "/register")));
