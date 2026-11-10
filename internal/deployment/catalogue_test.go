@@ -17,8 +17,8 @@ import (
 const (
 	portainerTemplates = "../../deploy/catalogue/portainer/templates.json"
 	casaOSCompose      = "../../deploy/catalogue/casaos/docker-compose.yml"
-	// The compose file as a catalogue names it, from the repository's root.
-	omvComposePath = "deploy/omv/compose.yaml"
+	// Portainer's compose file as its template names it, from the repository's root.
+	portainerComposePath = "deploy/portainer/compose.yaml"
 )
 
 // composeDefault is a variable the compose file gives a default, and the default.
@@ -59,11 +59,11 @@ func TestCatalogue_ThePortainerTemplateAsksForEveryVariableTheComposeFileReads(t
 	}
 	template := file.Templates[0]
 	if template.Type != 3 || template.Repository.URL != "https://github.com/kstenerud/orpheum" ||
-		template.Repository.Stackfile != omvComposePath {
+		template.Repository.Stackfile != portainerComposePath {
 		t.Errorf("%s: type %d from %+v; want a Compose stack (3) of %s in the repository", portainerTemplates,
-			template.Type, template.Repository, omvComposePath)
+			template.Type, template.Repository, portainerComposePath)
 	}
-	read, defaults := composeVariables(t)
+	read, defaults := composeVariables(t, "../../"+portainerComposePath)
 	asked := map[string]bool{}
 	for _, variable := range template.Env {
 		asked[variable.Name] = true
@@ -71,7 +71,7 @@ func TestCatalogue_ThePortainerTemplateAsksForEveryVariableTheComposeFileReads(t
 			t.Errorf("%s: %s has no label", portainerTemplates, variable.Name)
 		}
 		if isNeeded, isRead := read[variable.Name]; !isRead {
-			t.Errorf("%s asks for %s, which %s does not read", portainerTemplates, variable.Name, omvComposeFile)
+			t.Errorf("%s asks for %s, which %s does not read", portainerTemplates, variable.Name, portainerComposePath)
 		} else if want := defaults[variable.Name]; !isNeeded && variable.Default != want {
 			t.Errorf("%s: %s defaults to %q; want the compose file's %q", portainerTemplates, variable.Name,
 				variable.Default, want)
@@ -79,15 +79,15 @@ func TestCatalogue_ThePortainerTemplateAsksForEveryVariableTheComposeFileReads(t
 	}
 	missing := slices.DeleteFunc(slices.Sorted(maps.Keys(read)), func(name string) bool { return asked[name] })
 	if len(missing) > 0 {
-		t.Errorf("%s does not ask for %v, which %s reads", portainerTemplates, missing, omvComposeFile)
+		t.Errorf("%s does not ask for %v, which %s reads", portainerTemplates, missing, portainerComposePath)
 	}
 }
 
 // composeVariables is each variable the compose file reads, whether it needs it, and the default it
 // gives one: the first, which its first use reads (a media folder not set is empty there).
-func composeVariables(t *testing.T) (isNeeded map[string]bool, defaults map[string]string) {
+func composeVariables(t *testing.T, path string) (isNeeded map[string]bool, defaults map[string]string) {
 	t.Helper()
-	compose := omvCompose(t)
+	compose := composeLines(t, path)
 	isNeeded, defaults = map[string]bool{}, map[string]string{}
 	for _, match := range composeVariable.FindAllStringSubmatch(compose, -1) {
 		isNeeded[match[1]] = isNeeded[match[1]] || match[2] == ":?"
@@ -100,80 +100,33 @@ func composeVariables(t *testing.T) (isNeeded map[string]bool, defaults map[stri
 	return isNeeded, defaults
 }
 
-// casaOSRenamed is the compose file's services as CasaOS's entry says them: the same, but CasaOS's
-// folders, and the names of the user and time zone its app store gives every app, in place of
-// OpenMediaVault's.
-func casaOSRenamed(text string) string {
-	for _, rename := range []struct{ pattern, replacement string }{
-		{`\$\{PATH_TO_APPDATA(:\?[^}]*)?\}`, "/DATA/AppData"},
-		{`\$\{APPUSER_PUID:-`, "${PUID:-"},
-		{`\$\{APPUSER_PGID:-`, "${PGID:-"},
-		{`\$\{TIME_ZONE_VALUE:-`, "${TZ:-"},
-		{`\$\{ORPHEUM_MEDIA(:\?[^}]*)?\}`, "${ORPHEUM_MEDIA:-/DATA/Media}"},
-	} {
-		text = regexp.MustCompile(rename.pattern).ReplaceAllLiteralString(text, rename.replacement)
-	}
-	return text
-}
-
-// servicesOf is a compose file's services and networks, its comments left out: from "services:" to
-// the first top-level key after its networks, or the end.
-func servicesOf(t *testing.T, path string) string {
-	t.Helper()
-	text, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var kept []string
-	isIn := false
-	for line := range strings.SplitSeq(string(text), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if !strings.HasPrefix(line, " ") {
-			isIn = line == "services:" || line == "networks:"
-		}
-		if isIn {
-			kept = append(kept, line)
-		}
-	}
-	return strings.Join(kept, "\n")
-}
-
-// CasaOS's entry is OpenMediaVault's compose file with CasaOS's folders and names, and nothing else
-// changed, so a change to one that is not made to the other fails here; and it carries the store's
-// metadata, naming the core as the app's page.
-func TestCatalogue_TheCasaOSComposeIsTheOMVOnesWithCasaOSsFolders(t *testing.T) {
+// CasaOS's entry reads only the folders, user and time zone its store gives every app, so it installs
+// with no value typed, and carries the store's metadata, naming the core as the app's page; its file,
+// like every route's, is the one template's (D462 §10.2).
+func TestCatalogue_TheCasaOSComposeReadsOnlyCasaOSsValuesAndCarriesItsMetadata(t *testing.T) {
 	t.Parallel()
-	want, got := casaOSRenamed(servicesOf(t, omvComposeFile)), servicesOf(t, casaOSCompose)
-	if got != want {
-		wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
-		for index := range max(len(wantLines), len(gotLines)) {
-			wantLine, gotLine := lineAt(wantLines, index), lineAt(gotLines, index)
-			if wantLine != gotLine {
-				t.Fatalf("%s differs from %s with CasaOS's folders at its service line %d:\n got %q\nwant %q",
-					casaOSCompose, omvComposeFile, index+1, gotLine, wantLine)
-			}
-		}
-	}
 	text, err := os.ReadFile(casaOSCompose)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"\nx-casaos:\n", "\n  main: orpheum-core\n", "\n  port_map: \"8440\"\n", "SETUP-CODE.txt",
+		"\nname: orpheum\n", "\nx-casaos:\n", "\n  main: orpheum-core\n", "\n  port_map: \"8440\"\n",
+		"SETUP-CODE.txt", "/DATA/AppData/orpheum:/appdata", "${ORPHEUM_MEDIA:-/DATA/Media}",
 	} {
 		if !strings.Contains(string(text), want) {
 			t.Errorf("%s does not say %q", casaOSCompose, want)
 		}
 	}
-}
-
-// lineAt is lines[index], or "" past its end.
-func lineAt(lines []string, index int) string {
-	if index < len(lines) {
-		return lines[index]
+	needed, _ := composeVariables(t, casaOSCompose)
+	for name, isNeeded := range needed {
+		if isNeeded {
+			t.Errorf("%s needs %s; want every value defaulted, as the store installs with none typed", casaOSCompose,
+				name)
+		}
 	}
-	return ""
+	for _, foreign := range []string{"PATH_TO_APPDATA", "APPUSER_", "TIME_ZONE_VALUE"} {
+		if strings.Contains(composeLines(t, casaOSCompose), foreign) {
+			t.Errorf("%s reads %s, which CasaOS does not set", casaOSCompose, foreign)
+		}
+	}
 }

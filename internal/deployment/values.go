@@ -107,32 +107,29 @@ type Values struct {
 	} `toml:"lan"`
 }
 
-// InstallRoute is how a deployment was installed, which its core's config names so that the System
-// page shows only that route's steps to update (D450 §2, amended 2026-11-08).
+// InstallRoute is how a deployment was installed, which its core's config names so that the Update
+// page shows only that route's steps (D450 §2, D462 §9): the install script, or one of the compose
+// files, ComposeRoutes.
 type InstallRoute string
 
-// The routes a deployment is installed by.
-const (
-	// ByInstallScript is the install script, `orpheum write-deployment` (D272, D314): it updates by
-	// running the new release's install script.
-	ByInstallScript InstallRoute = "script"
-	// ByComposeFile is a compose file whose every start is `orpheum start` (D447, D449): it updates by
-	// pulling the images it follows and starting again.
-	ByComposeFile InstallRoute = "compose"
-)
+// ByInstallScript is the install script, `orpheum write-deployment` (D272, D314): it updates by
+// running the new release's install script.
+const ByInstallScript InstallRoute = "script"
 
 // Installation is how a deployment was installed, which its core's config names: the route, and for
-// a compose file the version it says it is (D461 §3), 0 for the install script's.
+// a compose file the version it says it is (D461 §3), 0 for the install script's, and the image tag
+// it runs (D462 §10.7), empty for the install script's.
 type Installation struct {
 	Route          InstallRoute
 	ComposeVersion int
+	ImageTag       string
 }
 
 // ComposeFileVersion is the version of the compose files this release sends households to paste
-// (deploy/omv/compose.yaml, deploy/synology/compose.yaml), which each passes start as
-// --compose-version; a file passing none is version 1 (D461 §3). It goes up only with a change a
-// household takes by pasting the new file, which ComposeFileChanges says, and a file passes the flag
-// only once a release takes it (TestReleasedCompose_APublishedFilePassesOnlyFlagsTheNewestReleaseTakes).
+// (each route's PublishedPath), which each passes start as --compose-version (D461 §3). It goes up
+// with any change to a published file but its comments, which ComposeFileChanges says, and each
+// version is frozen in cmd/orpheum/testdata/released/compose-v<n>/ (`make freeze-compose`), where
+// TestReleasedCompose_EveryReleasedFileStillStartsThisServer holds every later start to it (D462 §6).
 const ComposeFileVersion = 1
 
 // ComposeFileChanges says what each compose file version after the first brings, by its version, for

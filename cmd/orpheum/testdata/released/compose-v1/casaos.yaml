@@ -1,0 +1,166 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Orpheum for CasaOS and ZimaOS's app store (D449 §5): CasaOS's folders and user (/DATA/AppData,
+# /DATA/Media, $PUID, $PGID, $TZ), and the store's x-casaos block at the end.
+#
+# Generated from internal/deployment/templates/household.yaml (make generate); edit that. The server
+# writes its deployment at every start from what this file tells it; every other setting, its
+# address at home, its HTTPS port and your router among them, is on its System page. Until the first
+# admin is made, the setup code is in SETUP-CODE.txt in the data folder, and in orpheum-core's log.
+# docs/users/install.md says how, step by step. To update, see the server's Update page.
+#
+# It asks the kernel for nothing (D454 §2): no setting, no network of its own beside this machine's.
+#
+# Optional:
+#   ORPHEUM_MEDIA         the folder that holds your films and series, /DATA/Media unless set
+#   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
+#                         one not set is none
+#   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version
+#                         such as v0.4.0 stays on it
+#   ORPHEUM_HTTP_PORT     the port a browser at home opens it on, http://<address>:8440
+#   ORPHEUM_THIS_MACHINE_PORT  the port a browser on this machine alone opens it on, as at home,
+#                         http://127.0.0.1:8441: the way in when admin is refused elsewhere (D334 §4)
+#   ORPHEUM_NAME          the name the media node goes by in the server's pages
+#   RENDER_GID            the render group's number, with the GPU lines below uncommented
+name: orpheum
+
+services:
+  # Makes the data's folders and gives them to the user the server runs as, once, before it starts:
+  # Docker makes a missing folder as root, which the server, never root, could not write.
+  orpheum-folders:
+    container_name: orpheum-folders
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    # empty/ stands in for a media folder not set (ORPHEUM_MEDIA_2 to _4): a bind needs a source.
+    command: ["mkdir -p /appdata/node /appdata/run /appdata/empty && chown ${PUID:-1000}:${PGID:-100} /appdata /appdata/node /appdata/run"]
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - /DATA/AppData/orpheum:/appdata
+    restart: "no"
+
+  # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. It writes the
+  # deployment at every start, its own instance and the node's the first time. It shares this
+  # machine's network (D454 §5), so it sees the house's addresses and takes its ports itself: plain
+  # HTTP, HTTPS and WebRTC (UDP) at home, and this machine's port on its loopback alone.
+  orpheum-core:
+    container_name: orpheum-core
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
+    user: "${PUID:-1000}:${PGID:-100}"
+    hostname: ${ORPHEUM_NAME:-orpheum}
+    command:
+      - start
+      # Which file this is, so the Update page shows its own steps (D461 §3, D462 §9).
+      - --compose-version
+      - "1"
+      - --compose-file
+      - casaos
+      - --image-tag
+      - ${ORPHEUM_TAG:-latest}
+      - --http-port
+      - ${ORPHEUM_HTTP_PORT:-8440}
+      - --this-machine-port
+      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}
+      # Each media folder by the path the node mounts it at, its own; one not set is no folder.
+      - --media
+      - ${ORPHEUM_MEDIA:-/DATA/Media}
+      - --media
+      - ${ORPHEUM_MEDIA_2:-}
+      - --media
+      - ${ORPHEUM_MEDIA_3:-}
+      - --media
+      - ${ORPHEUM_MEDIA_4:-}
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: host
+    volumes:
+      - /DATA/AppData/orpheum:/var/lib/orpheum
+      - /DATA/AppData/orpheum/run:/run/orpheum
+    depends_on:
+      orpheum-folders:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
+      # Asked on this machine's loopback, where the core takes the port a browser here opens.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/$$0 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]
+      interval: 10s
+      start_period: 60s
+
+  # The media node (D233 §2): every file read and FFmpeg run, confined (D193 §7). It sees the media,
+  # read-only, its own instance, which the core's first start wrote, and the sockets in run/ it reaches
+  # the core by; it has no network. Its root is read-only and /tmp a tmpfs nothing runs from (noexec).
+  orpheum-node:
+    container_name: orpheum-node
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
+    user: "${PUID:-1000}:${PGID:-100}"
+    command: ["node", "--instance", "/var/lib/orpheum/node"]
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - /DATA/AppData/orpheum/node:/var/lib/orpheum/node
+      - /DATA/AppData/orpheum/run:/run/orpheum
+      # Each media folder at its own path, so the server shows the name this machine gives it. The
+      # first, if it does not exist, stops the start naming its path, rather than Docker making it
+      # empty.
+      # Another one not set mounts the empty folder where nothing looks; the core's command skips it
+      # (D449 §4). It cannot stop the start: compose makes every container before orpheum-folders
+      # makes empty/.
+      - type: bind
+        source: ${ORPHEUM_MEDIA:-/DATA/Media}
+        target: ${ORPHEUM_MEDIA:-/DATA/Media}
+        read_only: true
+        bind:
+          create_host_path: false
+      - ${ORPHEUM_MEDIA_2:-/DATA/AppData/orpheum/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
+      - ${ORPHEUM_MEDIA_3:-/DATA/AppData/orpheum/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
+      - ${ORPHEUM_MEDIA_4:-/DATA/AppData/orpheum/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro
+    # A GPU for hardware encoding (Intel Quick Sync, AMD): uncomment both, with RENDER_GID the render
+    # group's number on this machine (ls -n /dev/dri/renderD128 shows it, often 105 or 106).
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${RENDER_GID}"
+    depends_on:
+      orpheum-core:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/orpheum/node/node.sock"]
+      interval: 10s
+      start_period: 30s
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: orpheum-core
+  author: Karl Stenerud
+  developer: Karl Stenerud
+  category: Media
+  icon: https://raw.githubusercontent.com/kstenerud/orpheum/release/web/apps/web/public/icon-512.png
+  tagline:
+    en_US: Your films and series, at home and away
+  description:
+    en_US: |
+      Orpheum is a self-hosted video media server: a server and a confined media node that reads your
+      films and series, read-only, and plays them in any browser and on TVs, at home and away.
+  title:
+    en_US: Orpheum
+  index: /
+  port_map: "8440"
+  tips:
+    before_install:
+      en_US: |
+        Set ORPHEUM_MEDIA to the folder of your films and series if it is not /DATA/Media. Once
+        started, open the server at http://<this machine's address>:8440 from home and enter the
+        one-time setup code: it is in
+        /DATA/AppData/orpheum/SETUP-CODE.txt, and in the orpheum-core container's log.

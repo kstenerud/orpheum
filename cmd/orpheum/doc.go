@@ -40,27 +40,31 @@
 //     depguard rule node-role-boundary.
 //   - start writes the deployment's configs and values file from its flags at every start, the
 //     values file last, making the instances only where missing, and nothing outside the
-//     deployment's directory; an empty --lan-address is learned once the core runs (D447, D449 §1,
-//     D452 §5). Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
+//     deployment's directory (D447, D449 §1). The house's network settings are the app's, not the
+//     file's: kept in the core's network.toml, taken once from an older values file, every address
+//     bound and the address at home learned once the core runs (D462 §2, §10.6); a port that will
+//     not bind falls back to its default (D462 §10.11). A flag it does not take is skipped and said,
+//     and an unknown route is docker's, so a newer file starts an older release (D462 §10.10).
+//     Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
 //     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart,
-//     TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome and
+//     TestStart_WritesTheDeploymentWithoutTheAddressAtHomeOnEveryAddress,
+//     TestStart_TakesTheNetworkSettingsOnceFromTheValuesFileThenKeepsThem,
+//     TestStart_APortThatWillNotBindFallsBackToItsDefault,
+//     TestPortBinds_RefusesAPortHeldAndHoldsNoneItTried,
+//     TestStart_SkipsAFlagItDoesNotTakeAndTakesAnUnknownRouteAsDockers and
 //     TestFirstStart_RefusesWithoutTheDeploymentsDirectory. The core's config names the compose
 //     file's --compose-version, 1 when it passes none, for the System page to say when a newer file
 //     brings something (D461 §3). Enforced by TestStart_TheCoreSaysTheComposeFilesVersion and
 //     TestUpdate_SaysWhatANewerComposeFileBrings.
-//   - A compose file a release sent households to paste keeps starting every later release (D455,
-//     D461): each is frozen at its tag in testdata/released/<tag>/, with the flags that release's
-//     start took; start takes every frozen file's command line and every flag a release took, the
-//     core and the node find each folder and socket where the frozen file mounts it, and a file
-//     published now passes only flags the newest release takes. Enforced by
-//     TestReleasedCompose_EveryReleasedFileStillStartsThisServer,
-//     TestReleasedCompose_StartTakesEveryFlagAReleaseTook and
-//     TestReleasedCompose_APublishedFilePassesOnlyFlagsTheNewestReleaseTakes.
-//     A release is tagged only with its folder, committed before the tag: deploy/omv/compose.yaml as
-//     omv.yaml, deploy/synology/compose.yaml as synology.yaml, and start-flags.txt naming every flag
-//     start takes, one a line. scripts/check_released_compose.py refuses the tag without it, in the
-//     release workflow before anything is built, and in check-source, in make check and check-pr,
-//     for every tag from v0.3.3 on.
+//   - A compose file households were given keeps starting every later release (D455, D462 §6): each
+//     version is frozen in testdata/released/compose-v<n>/ by make freeze-compose; start takes every
+//     frozen file's command line, skipping none of its flags, and the core and the node find each
+//     folder and socket where the frozen file mounts it. Enforced by
+//     TestReleasedCompose_EveryReleasedFileStillStartsThisServer and
+//     TestReleasedCompose_StartTakesEveryFlagAFrozenFilePasses. scripts/check_released_compose.py,
+//     in check-source and in the release workflow before anything is built, fails a published file
+//     that is not its version's frozen copy, comments aside, and a frozen version a tag published
+//     that has since changed.
 //   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
 //     the deployment, mode 0600, naming the HTTP port start was given, the one the compose file
 //     publishes, and removes it with the first admin (D449 §3). Enforced by

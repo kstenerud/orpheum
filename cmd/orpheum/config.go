@@ -92,13 +92,15 @@ type ServerConfig struct {
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
 	// hands it the core from its gateway (D334 §4). Empty serves none.
 	ThisMachineListen string `toml:"this_machine_listen"`
-	// InstallRoute is how the server was installed: deployment.ByInstallScript or ByComposeFile, as
-	// the deployment writes it, or empty when unknown (a config written by hand). The System page
-	// shows only that route's steps to update, and both when unknown (D450 §2).
+	// InstallRoute is how the server was installed: deployment.ByInstallScript or a compose file's
+	// route, as the deployment writes it, or empty when unknown (a config written by hand). The Update
+	// page shows only that route's steps, and every one when unknown (D450 §2, D462 §9).
 	InstallRoute string `toml:"install_route"`
-	// ComposeVersion is the compose file's version, which start writes, 0 for any other install: the
-	// System page says when a newer one brings something (D461 §3).
+	// ComposeVersion is the compose file's version, 0 for any other install: the Update page says
+	// when a newer one brings something (D461 §3).
 	ComposeVersion int `toml:"compose_version"`
+	// ImageTag is the compose file's image tag, a pinned one said on the Update page (D462 §10.7).
+	ImageTag string `toml:"image_tag"`
 }
 
 // thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
@@ -294,11 +296,12 @@ func serverConfigKeys() []configKey {
 		},
 		{
 			tableServer, "install_route", `""`,
-			"how the server was installed, \"script\" (the install script) or \"compose\" (a compose file), " +
-				"which the deployment writes: the System page shows only that way's steps to update; empty " +
-				"shows both (D450 §2)",
+			"how the server was installed, \"script\" (the install script) or a compose file's route (omv, " +
+				"synology, portainer, casaos, docker), which the deployment writes: the Update page shows only " +
+				"its steps; empty shows every one (D450 §2, D462 §9)",
 		},
 		{tableServer, "compose_version", "0", "the version of the compose file that started the server (D461 §3)"},
+		{tableServer, "image_tag", `""`, "the image tag the compose file runs, a pinned one said (D462 §10.7)"},
 		{
 			tableServer, "home_networks", "[]",
 			"networks home besides the private ranges, a VPN's say. Home is always every private address " +
@@ -572,11 +575,10 @@ func (server ServerConfig) check() error {
 	if _, _, err := net.SplitHostPort(server.Listen); err != nil {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", server.Listen))
 	}
-	switch deployment.InstallRoute(server.InstallRoute) {
-	case "", deployment.ByInstallScript, deployment.ByComposeFile:
-	default:
-		problems = append(problems, fmt.Errorf("server.install_route %q: want %q, %q or empty",
-			server.InstallRoute, deployment.ByInstallScript, deployment.ByComposeFile))
+	if route := deployment.InstallRoute(server.InstallRoute); route != "" && route != deployment.ByInstallScript &&
+		!route.IsCompose() {
+		problems = append(problems, fmt.Errorf("server.install_route %q: want %q, one of %v or empty",
+			server.InstallRoute, deployment.ByInstallScript, deployment.ComposeRoutes()))
 	}
 	if server.ComposeVersion < 0 {
 		problems = append(problems, fmt.Errorf("server.compose_version %d: want 0 or more", server.ComposeVersion))

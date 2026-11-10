@@ -588,13 +588,13 @@ func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
 		t.Errorf("written by the install script's Write, the core's server.install_route is %v and "+
 			"compose_version %v; want script and 0", server["install_route"], server["compose_version"])
 	}
-	if err := WriteConfigs(dir, values, Installation{Route: ByComposeFile, ComposeVersion: 2}); err != nil {
+	if err := WriteConfigs(dir, values, Installation{Route: BySynology, ComposeVersion: 2}); err != nil {
 		t.Fatal(err)
 	}
 	server = decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
-	if server["install_route"] != "compose" || server["compose_version"] != int64(2) {
-		t.Errorf("written for a version 2 compose file's start, the core's server.install_route is %v and "+
-			"compose_version %v; want compose and 2", server["install_route"], server["compose_version"])
+	if server["install_route"] != "synology" || server["compose_version"] != int64(2) {
+		t.Errorf("written for a version 2 Synology compose file's start, the core's server.install_route is %v "+
+			"and compose_version %v; want synology and 2", server["install_route"], server["compose_version"])
 	}
 }
 

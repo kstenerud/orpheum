@@ -6,13 +6,13 @@
       "type": 3,
       "title": "Orpheum",
       "description": "A self-hosted video media server: your films and series in any browser and on TVs, at home and away",
-      "note": "Set the data folder and the media folder. Once it is up, open http://&lt;this machine's address&gt;:8440 from home and enter the one-time setup code: it is in SETUP-CODE.txt in the data folder's orpheum folder, and in the orpheum-core container's log. <a href=\"https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\">The install guide</a> says more.",
+      "note": "Set the data folder and the media folder. Once it is up, open http://&lt;this machine's address&gt;:8440 from home and enter the one-time setup code: it is in SETUP-CODE.txt in the data folder's orpheum folder, and in the orpheum-core container's log. <a href=\"https://github.com/kstenerud/orpheum/blob/release/docs/users/install.md\">The install guide</a> says more.",
       "categories": ["multimedia"],
       "platform": "linux",
-      "logo": "https://raw.githubusercontent.com/kstenerud/orpheum/main/web/apps/web/public/icon-192.png",
+      "logo": "https://raw.githubusercontent.com/kstenerud/orpheum/release/web/apps/web/public/icon-192.png",
       "repository": {
         "url": "https://github.com/kstenerud/orpheum",
-        "stackfile": "deploy/omv/compose.yaml"
+        "stackfile": "deploy/portainer/compose.yaml"
       },
       "env": [
         {
@@ -24,11 +24,6 @@
           "name": "ORPHEUM_MEDIA",
           "label": "Media folder",
           "description": "The folder that holds your films and series, as this machine names it"
-        },
-        {
-          "name": "ORPHEUM_LAN_ADDRESS",
-          "label": "Address at home",
-          "description": "Optional: this machine's address on your home network, 192.168.1.20; learned from the first browser at home when not set"
         },
         {
           "name": "ORPHEUM_MEDIA_2",
@@ -48,7 +43,7 @@
         {
           "name": "ORPHEUM_TAG",
           "label": "Version",
-          "description": "The version to run",
+          "description": "The version to run: latest follows each release; a version such as v0.4.0 stays on it",
           "default": "latest"
         },
         {
@@ -76,21 +71,10 @@
           "default": "8440"
         },
         {
-          "name": "ORPHEUM_HTTPS_PORT",
-          "label": "HTTPS and WebRTC port",
-          "description": "The port devices at home reach it on over HTTPS, and over WebRTC (UDP)",
-          "default": "8444"
-        },
-        {
           "name": "ORPHEUM_THIS_MACHINE_PORT",
           "label": "This machine's port",
           "description": "The port a browser on this machine alone opens it on, as at home: the way in when admin is refused elsewhere",
           "default": "8441"
-        },
-        {
-          "name": "ORPHEUM_ROUTER",
-          "label": "Router",
-          "description": "Optional: your router's address, 192.168.1.1, which the server asks to forward the HTTPS port"
         },
         {
           "name": "ORPHEUM_NAME",

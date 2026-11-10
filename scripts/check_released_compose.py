@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Release gate for D461 §1: every released compose file is frozen at its tag in
-# ABOUTME: cmd/orpheum/testdata/released/<tag>/, so a test holds every later start to it.
-"""Check that each release's compose files are frozen as the test fixtures D461 §1 names.
+# ABOUTME: Release gate for D462 §6: each compose-file version is frozen in
+# ABOUTME: cmd/orpheum/testdata/released/compose-v<n>/, so a test holds every later start to it.
+"""Check that the published compose files are their version's frozen copy (D462 §6, amends D461 §1).
 
 A household pastes a compose file once and keeps it; every later release must still start from it
-(D455, D461). `TestReleasedCompose_EveryReleasedFileStillStartsThisServer` holds `orpheum start` to
-each file frozen under `cmd/orpheum/testdata/released/<tag>/`, but only to the files someone froze:
-a tag released without its folder leaves its households unguarded, silently. This makes the folder
-part of the release, not a step to remember (principles §17):
+(D455). `TestReleasedCompose_EveryReleasedFileStillStartsThisServer` holds `orpheum start` to each
+file frozen under `cmd/orpheum/testdata/released/compose-v<n>/`, one folder for each version of the
+files, `deployment.ComposeFileVersion`. Files are compared without their comment lines, so a
+comment's wording needs no new version (D462 §10.8).
 
-* **With `--tag <tag>`**, run by the release workflow on the tag's own checkout before anything is
-  published: the folder must be there, each published compose file must be frozen in it as it is in
-  the tree, and its `start-flags.txt` must name exactly the flags this tree's `start` takes.
-* **Without it**, run by check-source in make check and check-pr: every tag from the first frozen
-  one on that this clone has must have its folder, each published file frozen as the tag has it.
-  A sandbox fetches no tags, so it checks the ones it has.
-
-Tags before `FIRST_FROZEN` came before the first beta install, when no household had pasted a file
-and releases were free to break them (D455).
+* **Run by check-source** in make check and check-pr, and by the release workflow with `--tag` on the
+  tag's checkout before anything is published: the current version must be frozen, and each published
+  file must be its frozen copy. A file changed without a bump fails here, naming the steps.
+* **Without `--tag`** it also checks every release tag this clone has that carried a compose-v folder:
+  the version it published must be frozen as it published it, so a frozen folder is never changed.
+* **`--freeze`**, run by `make freeze-compose`, writes the current version's folder, and refuses to
+  overwrite one frozen with other contents: households may have that version, so change it by bumping.
 """
 
 from __future__ import annotations
@@ -30,18 +28,22 @@ import sys
 from pathlib import Path
 
 RELEASED = Path("cmd/orpheum/testdata/released")
-START_SOURCE = Path("cmd/orpheum/start.go")
-START_FLAGS = "start-flags.txt"
-FIRST_FROZEN = "v0.3.3"
+VERSION_SOURCE = Path("internal/deployment/values.go")
 
-# Each compose file a household is sent to paste, and its name in the frozen folder.
+# Each compose file a household is sent to paste, by its route (internal/deployment/household.go),
+# and its name in the frozen folder.
 PUBLISHED = {
     "deploy/omv/compose.yaml": "omv.yaml",
     "deploy/synology/compose.yaml": "synology.yaml",
+    "deploy/portainer/compose.yaml": "portainer.yaml",
+    "deploy/catalogue/casaos/docker-compose.yml": "casaos.yaml",
+    "deploy/docker/compose.yaml": "docker.yaml",
 }
 
 _TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
-_FLAG = re.compile(r'flags\.\w+\((?:&options\.\w+, )?"([a-z][a-z-]*)"')
+_VERSION = re.compile(r"(?m)^const ComposeFileVersion = (\d+)$")
+_BUMP = ("bump deployment.ComposeFileVersion, say on the System page what the new file brings, run "
+         "make generate and make freeze-compose (D462 §6)")
 
 
 def version(tag: str) -> tuple[int, int, int] | None:
@@ -52,39 +54,38 @@ def version(tag: str) -> tuple[int, int, int] | None:
     return int(match[1]), int(match[2]), int(match[3])
 
 
-def frozen_tags(tags: list[str]) -> list[str]:
-    """The release tags from FIRST_FROZEN on, oldest first."""
-    first = version(FIRST_FROZEN)
-    kept = [tag for tag in tags if (number := version(tag)) is not None and first is not None
-            and number >= first]
-    return sorted(kept, key=lambda tag: version(tag) or (0, 0, 0))
+def compose_version(source: str) -> int:
+    """The compose-file version values.go names."""
+    match = _VERSION.search(source)
+    if match is None:
+        raise ValueError(f"{VERSION_SOURCE} names no `const ComposeFileVersion = <n>`")
+    return int(match[1])
 
 
-def start_flags(source: str) -> list[str]:
-    """The flags start.go's parseStart defines."""
-    return _FLAG.findall(source)
+def without_comments(text: str) -> str:
+    """A compose file's text with its comment lines left out, as the gate compares it."""
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
-def check_tree(root: Path, tag: str) -> list[str]:
-    """Problems with the tag's frozen folder, checked against the tree checked out at the tag."""
-    folder = root / RELEASED / tag
-    if not folder.is_dir():
-        return [f"{RELEASED / tag}/ is missing: freeze the release's compose files there before "
-                f"tagging (D461 §1; cmd/orpheum/doc.go)"]
-    problems = []
+def frozen_folder(number: int) -> Path:
+    return RELEASED / f"compose-v{number}"
+
+
+def check_tree(root: Path) -> list[str]:
+    """Problems with the tree's published files against the current version's frozen folder."""
+    number = compose_version((root / VERSION_SOURCE).read_text())
+    problems = [f"{frozen_folder(earlier)}/ is missing: every version households were given stays frozen"
+                for earlier in range(1, number) if not (root / frozen_folder(earlier)).is_dir()]
+    folder = frozen_folder(number)
+    if not (root / folder).is_dir():
+        return [*problems, f"{folder}/ is missing: run make freeze-compose (D462 §6)"]
     for published, frozen in PUBLISHED.items():
-        source = root / published
+        source, target = root / published, root / folder / frozen
         if not source.is_file():
-            continue
-        target = folder / frozen
-        if not target.is_file() or target.read_text() != source.read_text():
-            problems.append(f"{RELEASED / tag / frozen} is not {published} as {tag} publishes it")
-    flags_file = folder / START_FLAGS
-    takes = sorted(start_flags((root / START_SOURCE).read_text()))
-    named = sorted(flags_file.read_text().split()) if flags_file.is_file() else []
-    if named != takes:
-        problems.append(f"{RELEASED / tag / START_FLAGS} names {named}; {tag}'s start takes {takes}, "
-                        "one a line")
+            problems.append(f"{published} is missing; make generate writes it")
+        elif not target.is_file() or without_comments(target.read_text()) != without_comments(source.read_text()):
+            problems.append(f"{published} is not {folder / frozen}, compose-file version {number} as it was "
+                            f"frozen: {_BUMP}")
     return problems
 
 
@@ -93,35 +94,60 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def check_tags(root: Path) -> list[str]:
-    """Problems with the frozen folder of each release tag this clone has, from FIRST_FROZEN on."""
-    tags = _git(root, "tag", "--list", "v*").stdout.split()
+    """Problems with the frozen folder of each version a release tag this clone has published."""
     problems = []
-    for tag in frozen_tags(tags):
-        folder = root / RELEASED / tag
-        if not folder.is_dir():
-            problems.append(f"{RELEASED / tag}/ is missing: {tag} was released without its compose "
-                            "files frozen (D461 §1); freeze them from the tag")
+    for tag in sorted((t for t in _git(root, "tag", "--list", "v*").stdout.split() if version(t)),
+                      key=lambda t: version(t) or (0, 0, 0)):
+        source = _git(root, "show", f"{tag}:{VERSION_SOURCE}")
+        carried = _git(root, "ls-tree", "-d", "--name-only", f"{tag}:{RELEASED}").stdout.split()
+        if source.returncode != 0 or not any(name.startswith("compose-v") for name in carried):
+            continue  # before D462 §6: no household had pasted a file (D455)
+        try:
+            number = compose_version(source.stdout)
+        except ValueError:
             continue
+        folder = frozen_folder(number)
         for published, frozen in PUBLISHED.items():
             shown = _git(root, "show", f"{tag}:{published}")
             if shown.returncode != 0:
                 continue
-            target = folder / frozen
-            if not target.is_file() or target.read_text() != shown.stdout:
-                problems.append(f"{RELEASED / tag / frozen} is not {published} as {tag} published it")
+            target = root / folder / frozen
+            if not target.is_file() or without_comments(target.read_text()) != without_comments(shown.stdout):
+                problems.append(f"{folder / frozen} is not {published} as {tag} published it: a frozen "
+                                "version is never changed; " + _BUMP)
     return problems
+
+
+def freeze(root: Path) -> list[str]:
+    """Write the current version's frozen folder, refusing to change one already frozen."""
+    number = compose_version((root / VERSION_SOURCE).read_text())
+    folder = root / frozen_folder(number)
+    changed = [frozen for published, frozen in PUBLISHED.items() if (folder / frozen).is_file()
+               and without_comments((folder / frozen).read_text()) != without_comments((root / published).read_text())]
+    if changed:
+        return [f"{frozen_folder(number)} is frozen already with other files ({', '.join(changed)}); households "
+                f"may have them: {_BUMP}"]
+    folder.mkdir(parents=True, exist_ok=True)
+    for published, frozen in PUBLISHED.items():
+        (folder / frozen).write_text((root / published).read_text())
+    return []
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--tag", help="the release being published, checked in this tree")
+    parser.add_argument("--freeze", action="store_true", help="freeze the current version's files")
     parser.add_argument("--root", type=Path, default=Path("."), help=argparse.SUPPRESS)
     arguments = parser.parse_args(argv)
     if arguments.tag is not None and version(arguments.tag) is None:
         print(f"check_released_compose: {arguments.tag} is not a release tag, vX.Y.Z", file=sys.stderr)
         return 2
-    problems = (check_tree(arguments.root, arguments.tag) if arguments.tag is not None
-                else check_tags(arguments.root))
+    if arguments.freeze:
+        problems = freeze(arguments.root)
+    else:
+        problems = check_tree(arguments.root)
+        if arguments.tag is None:
+            problems += check_tags(arguments.root)
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

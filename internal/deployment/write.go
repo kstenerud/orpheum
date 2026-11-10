@@ -163,10 +163,19 @@ func WriteStartValues(dir string, values Values) error {
 // Write writes a deployment's files into dir from its values and its runtime: the compose file,
 // the .env file it reads, the override giving the node the media and the GPU, the tunnel's config,
 // and the core's and the node's full configs, whose instances must already exist. It overwrites
-// each, so they always follow the values file and this binary's templates (D272 §7).
+// each, so they always follow the values file and this binary's templates (D272 §7). The network
+// settings are the System page's, taken from the values file only the first time (D462 §10.6).
 func Write(dir string, values Values, runtime Runtime) error {
-	if err := WriteConfigs(dir, values, Installation{Route: ByInstallScript}); err != nil {
+	if err := values.Check(); err != nil {
 		return err
+	}
+	network, err := KeptNetwork(dir, NetworkOf(values))
+	if err != nil {
+		return err
+	}
+	values = network.Applied(values)
+	if writeErr := WriteConfigs(dir, values, Installation{Route: ByInstallScript}); writeErr != nil {
+		return writeErr
 	}
 	composeTemplate := directComposeTemplate
 	if values.HasTunnel() {
@@ -203,7 +212,7 @@ func WriteConfigs(dir string, values Values, installation Installation) error {
 	}
 	data := renderData{
 		Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(installation.Route),
-		ComposeVersion: installation.ComposeVersion,
+		ComposeVersion: installation.ComposeVersion, ImageTag: installation.ImageTag,
 	}
 	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
 	if values.HasTunnel() {
@@ -260,6 +269,8 @@ type renderData struct {
 	// ComposeVersion is the version of the compose file that started it, 0 for the install script's
 	// (D461 §3).
 	ComposeVersion int
+	// ImageTag is the tag the compose file runs, empty for the install script's (D462 §10.7).
+	ImageTag string
 }
 
 // render renders the named template; a value it names that data lacks is an error, not a blank.

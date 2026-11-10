@@ -113,6 +113,11 @@ func plannedSubcommands() []subcommand {
 			implementation: commandPair,
 		},
 		{name: "openapi", summary: "print the API's OpenAPI document", implementation: commandOpenAPI},
+		{
+			name: "compose-files", summary: "write each route's published compose file under the repository " +
+				"named (make generate, D462 §10.2)",
+			implementation: commandComposeFiles,
+		},
 	}
 	if isDevBuild {
 		planned = append(planned, subcommand{

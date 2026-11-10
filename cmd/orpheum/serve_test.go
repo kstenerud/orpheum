@@ -139,6 +139,7 @@ address_at_home_from_default_route = false
 this_machine_listen = ""
 install_route = ""
 compose_version = 0
+image_tag = ""
 
 [https]
 domain = ""

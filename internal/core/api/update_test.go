@@ -104,13 +104,13 @@ func TestUpdate_SaysHowTheServerWasInstalled(t *testing.T) {
 	if unknown := read(); unknown.InstallRoute != "" {
 		t.Errorf("a server that does not know its route: installRoute %q; want none", unknown.InstallRoute)
 	}
-	dependencies.InstallRoute = "compose"
-	if told := read(); told.InstallRoute != "compose" {
-		t.Errorf("knowing no release: installRoute %q; want compose", told.InstallRoute)
+	dependencies.InstallRoute = "omv"
+	if told := read(); told.InstallRoute != "omv" {
+		t.Errorf("knowing no release: installRoute %q; want omv", told.InstallRoute)
 	}
 	dependencies.Releases = &knownRelease{known: discovery.Release{Version: "v0.3.1", Latest: "v0.3.3"}}
-	if told := read(); told.InstallRoute != "compose" {
-		t.Errorf("knowing a newer release: installRoute %q; want compose", told.InstallRoute)
+	if told := read(); told.InstallRoute != "omv" {
+		t.Errorf("knowing a newer release: installRoute %q; want omv", told.InstallRoute)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 		return body
 	}
 	changes := map[int]string{2: "Hardware transcoding on Intel.", 3: "Subtitles from the media folders."}
-	dependencies.InstallRoute = "compose"
+	dependencies.InstallRoute = "omv"
 	dependencies.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes}
 	want := &api.ComposeFileBody{
 		Version: 1, Newest: 3, Brings: []string{"Hardware transcoding on Intel.", "Subtitles from the media folders."},

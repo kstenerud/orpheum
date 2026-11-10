@@ -1,25 +1,36 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Orpheum on a Synology, from Container Manager with no .env file (D447): deploy/omv/compose.yaml with
-# your three values written here, under "Yours", in place of its variables, and its data in the
-# project's own folder, data/. Paste it into Container Manager's Project > Create > Create
-# docker-compose.yml, change the three lines under "Yours" to your own, and start it.
-# docs/users/install.md says how, step by step. Keep it in step with that file:
-# TestSynologyCompose_IsTheOMVOnesWithItsValuesInTheFile fails on any other difference.
+# Orpheum on a Synology, from Container Manager with no .env file: paste it into Project > Create >
+# Create docker-compose.yml, change the lines under "Yours" to your own, and start it. Its data is in
+# the project's own folder, data/.
 #
-# The core writes the deployment into data/ at every start from the values here (D449): change one
-# and start the project again. Until the first admin is made, the setup code is in SETUP-CODE.txt in
-# data/, and in orpheum-core's log. Every other setting keeps the default deploy/omv/compose.yaml's
-# header names; a .env file in the project's folder may still set any of them.
+# Generated from internal/deployment/templates/household.yaml (make generate); edit that. The server
+# writes its deployment at every start from what this file tells it; every other setting, its
+# address at home, its HTTPS port and your router among them, is on its System page. Until the first
+# admin is made, the setup code is in SETUP-CODE.txt in the data folder, and in orpheum-core's log.
+# docs/users/install.md says how, step by step. To update, see the server's Update page.
+#
+# It asks the kernel for nothing (D454 §2): no setting, no network of its own beside this machine's.
+#
+# Keep a copy of this file. A newer one, which the Update page hands you with your values filled in,
+# keeps only what is under "Yours": a change anywhere else is lost when you paste it.
 
-# Yours: change these three to your own (install.md, Synology, steps 1 and 3).
+# Yours: change these to your own (install.md, Synology, steps 1 and 3).
 x-yours:
   # The folder that holds your films and series: File Station, its Properties, Location.
   media: &media /volume1/video
+  # Up to three more media folders; /unset/2 and the like are none.
+  media-2: &media2 /unset/2
+  media-3: &media3 /unset/3
+  media-4: &media4 /unset/4
   # The user the server runs as, which owns its data and must be able to read the media: the uid
   # and gid `id` shows, the uid first.
   user: &user "1026:100"
   # Your time zone.
   time-zone: &timezone Europe/Berlin
+  # The port a browser at home opens it on, http://<address>:8440, and the one a browser on this
+  # machine alone opens it on, http://127.0.0.1:8441.
+  http-port: &httpport "8440"
+  this-machine-port: &thismachineport "8441"
 
 services:
   # Makes the data's folders and gives them to the user the server runs as, once, before it starts:
@@ -29,8 +40,7 @@ services:
     image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
-    # empty/ stands in for a media folder not set (ORPHEUM_MEDIA_2 to _4): a bind needs a source.
-    command: ["mkdir -p /appdata/node /appdata/run /appdata/empty && chown $$OWNER /appdata /appdata/node /appdata/run"]
+    command: ["mkdir -p /appdata/node /appdata/run && chown $$OWNER /appdata /appdata/node /appdata/run"]
     environment:
       OWNER: *user
     network_mode: none
@@ -52,28 +62,26 @@ services:
     hostname: ${ORPHEUM_NAME:-orpheum}
     command:
       - start
-      # Learned from the first browser at home when not set (D452 §5).
-      - --lan-address
-      - ${ORPHEUM_LAN_ADDRESS:-}
+      # Which file this is, so the Update page shows its own steps (D461 §3, D462 §9).
+      - --compose-version
+      - "1"
+      - --compose-file
+      - synology
+      - --image-tag
+      - ${ORPHEUM_TAG:-latest}
       - --http-port
-      - ${ORPHEUM_HTTP_PORT:-8440}
-      - --lan-https-port
-      - ${ORPHEUM_HTTPS_PORT:-8444}
-      - --lan-webrtc-port
-      - ${ORPHEUM_HTTPS_PORT:-8444}
+      - *httpport
       - --this-machine-port
-      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}
-      - --router
-      - ${ORPHEUM_ROUTER:-}
-      # Each media folder by the path the node mounts it at, its own; one not set comes empty, no folder.
+      - *thismachineport
+      # Each media folder by the path the node mounts it at, its own; one not set is no folder.
       - --media
       - *media
       - --media
-      - ${ORPHEUM_MEDIA_2:-}
+      - *media2
       - --media
-      - ${ORPHEUM_MEDIA_3:-}
+      - *media3
       - --media
-      - ${ORPHEUM_MEDIA_4:-}
+      - *media4
     environment:
       TZ: *timezone
     cap_drop: [ALL]
@@ -89,7 +97,7 @@ services:
     healthcheck:
       # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
       # Asked on this machine's loopback, where the core takes the port a browser here opens.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${ORPHEUM_THIS_MACHINE_PORT:-8441} && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/$$0 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3", *thismachineport]
       interval: 10s
       start_period: 60s
 
@@ -110,19 +118,35 @@ services:
     volumes:
       - ./data/node:/var/lib/orpheum/node
       - ./data/run:/run/orpheum
-      # Each media folder at its own path, so the server shows the name this machine gives it. One not
-      # set mounts the empty folder where nothing looks; the core's command skips it (D449 §4). The
+      # Each media folder at its own path, so the server shows the name this machine gives it. The
       # first, if it does not exist, stops the start naming its path, rather than Docker making it
-      # empty. The others cannot: compose makes every container before orpheum-folders makes empty/.
+      # empty.
+      # Another one not set is made empty at its /unset/ path, where nothing looks; the core's command
+      # skips it (D449 §4).
       - type: bind
         source: *media
         target: *media
         read_only: true
         bind:
           create_host_path: false
-      - ${ORPHEUM_MEDIA_2:-./data/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
-      - ${ORPHEUM_MEDIA_3:-./data/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
-      - ${ORPHEUM_MEDIA_4:-./data/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro
+      - type: bind
+        source: *media2
+        target: *media2
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: *media3
+        target: *media3
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: *media4
+        target: *media4
+        read_only: true
+        bind:
+          create_host_path: true
     # A GPU for hardware encoding (Intel Quick Sync, AMD): uncomment both, with RENDER_GID the render
     # group's number on this machine (ls -n /dev/dri/renderD128 shows it, often 105 or 106).
     # devices:

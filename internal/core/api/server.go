@@ -106,7 +106,7 @@ type Dependencies struct {
 	Releases       Releases
 	Version        string
 	PublishedImage string
-	// InstallRoute is how the server was installed, "script" or "compose", as its deployment wrote
+	// InstallRoute is how the server was installed, "script" or a compose file's route, as its deployment wrote
 	// in its config; empty when unknown (D450 §2).
 	InstallRoute string
 	// ComposeFile is the version of the compose file that started the server and the newest, from

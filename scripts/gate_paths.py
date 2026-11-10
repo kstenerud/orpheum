@@ -47,6 +47,9 @@ GENERATED_PATTERNS = (
     r"^internal/store/cachegen/",
     r"^web/packages/sdk/src/gen/",
     r"^api/openapi\.json$",
+    # Each route's compose file, from internal/deployment/templates/household.yaml (D462 §10.2).
+    r"^deploy/(omv|synology|portainer|docker)/compose\.yaml$",
+    r"^deploy/catalogue/casaos/docker-compose\.yml$",
     r"(^|/)package-lock\.json$",
 )
 MIGRATIONS_DIR = "internal/store/migrations/"
