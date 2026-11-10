@@ -82,13 +82,13 @@ otherwise the finding is open.
 8. **The service worker re-fetches every hashed `/assets/` file in the background on each start**
    (`sw.ts:451`). Those names never change content.
 9. **The core's page could preload `client-main`'s chunks** (`modulepreload`), saving a round trip.
-10. **`/libraries` is fetched and polled twice** (`app-shell.tsx:511`, `home.tsx:57`).
+10. **Done** ("perf(web): the shell reads the libraries once for the banner and Home"). **`/libraries` was fetched and polled twice** (`app-shell.tsx:511`, `home.tsx:57`).
 
 ## Playback
 
 The October audit's fixes are all in place. While a film plays, nothing large costs per frame.
 
-1. **Play from Continue Watching, a series page or Up next decides late.**
+1. **Done** for Continue Watching and a series' next episode ("perf(web): Continue watching and a series' next episode warm their film on the press"); Up next's autoplay is left, as warming the next episode may release the playing film's tokens (`watching.ts`), and the warm-up still reports itself as a film page's (`cause: "filmPage"`). **Play from Continue Watching, a series page or Up next decided late.**
    - **Now:** only the title page warms a film. The other three ways in send `POST /playback` only
      after the route, the Play chunk and its first render.
    - **Proposal:** warm on the press, not on focus (D258 §2).
@@ -110,7 +110,7 @@ The October audit's fixes are all in place. While a film plays, nothing large co
 7. **Owner: subtitles on a TV.**
    - A `<track>` is added that a TV never shows (D418 §1).
    - JASSUB is used for plain tracks (D217 §4, D254).
-8. **Up next re-renders every second for the whole episode** (`up-next.tsx:602`).
+8. **Done** ("perf(web): Up next draws again only when what it shows can change"). **Up next re-rendered every second for the whole episode** (`up-next.tsx:602`).
 
 Memory: no leaks were found.
 
