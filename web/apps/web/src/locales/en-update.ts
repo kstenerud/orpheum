@@ -31,6 +31,10 @@ export const enUpdate = {
       "In OpenMediaVault, under Services, Compose, Files: select the server's file, press Pull, then Up.",
     composeDocker: "With Docker, in the compose file's folder, run:",
     digest: "The new version's image is {{digest}}.",
+    composeFileNewer:
+      "The server was started from version {{version}} of its compose file. Version {{newest}} is out, and pulling does not change the file. It brings:",
+    composeFileTake:
+      "To take it, paste the new compose file over the old one, keeping the values in your own part, and start the server again.",
     settingsHeading: "Updates",
     howTo: "How to update",
   },

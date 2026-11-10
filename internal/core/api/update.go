@@ -38,6 +38,39 @@ type UpdateBody struct {
 	// InstallRoute is how the server was installed, so the page shows only that way's steps to update
 	// (D450 §2).
 	InstallRoute string `doc:"How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply" enum:"script,compose" json:"installRoute,omitempty"` //nolint:lll // one struct tag
+	// ComposeFile is a newer compose file than the one that started the server, which the household
+	// takes by pasting it (D461 §3); absent when it runs the newest or no compose file started it.
+	ComposeFile *ComposeFileBody `json:"composeFile,omitempty"`
+}
+
+// ComposeFile is the version of the compose file that started the server, 0 when none did, and what
+// this build knows of the newest: its version and what each version after the first brings (D461 §3).
+type ComposeFile struct {
+	Running int
+	Newest  int
+	Changes map[int]string
+}
+
+// ComposeFileBody is a newer compose file than the one that started the server, and what it brings.
+type ComposeFileBody struct {
+	Version int      `doc:"The version of the compose file that started the server" json:"version"`
+	Newest  int      `doc:"The newest compose file's version" json:"newest"`
+	Brings  []string `doc:"What each version after the server's brings, oldest first, a sentence each for the admin" json:"brings" nullable:"false"` //nolint:lll // one struct tag
+}
+
+// newerComposeFile is the newer compose file there is than the one that started the server; nil when
+// none started it or it is the newest.
+func newerComposeFile(file ComposeFile) *ComposeFileBody {
+	if file.Running < 1 || file.Running >= file.Newest {
+		return nil
+	}
+	body := &ComposeFileBody{Version: file.Running, Newest: file.Newest, Brings: []string{}}
+	for version := file.Running + 1; version <= file.Newest; version++ {
+		if brings := file.Changes[version]; brings != "" {
+			body.Brings = append(body.Brings, brings)
+		}
+	}
+	return body
 }
 
 // UpdateOutput is GET /system/update's answer.
@@ -64,6 +97,7 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 		body = updateBody(dependencies.Releases.Release(), dependencies.PublishedImage)
 	}
 	body.InstallRoute = dependencies.InstallRoute
+	body.ComposeFile = newerComposeFile(dependencies.ComposeFile)
 	return &UpdateOutput{Body: body}, nil
 }
 

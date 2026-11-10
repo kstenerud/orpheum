@@ -21,7 +21,12 @@
 //     TestWriteStartValues_IsWrittenEachTimeSayingTheComposeFileRules.
 //   - The core's config names how the deployment was installed, the install script (Write) or a
 //     compose file's start (WriteConfigs given ByComposeFile), so the System page shows only that
-//     way's steps to update (D450 §2). TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled.
+//     way's steps to update (D450 §2), and the compose file's version, 0 for the script's (D461 §3).
+//     TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled.
+//   - The compose files a household is sent to paste are ComposeFileVersion, a file passing no
+//     --compose-version being version 1, and each version after the first says in
+//     ComposeFileChanges what it brings (D461 §3).
+//     TestComposeFileVersion_IsThePublishedFilesAndEachLaterOneSaysWhatItBrings.
 //   - Nothing is written while the values file lacks a value or holds a wrong one, and each problem
 //     names its key. TestValues_ProblemsNameEachKeyThatLacksAValue.
 //   - A value reaches a TOML config quoted, and a template naming a value it was not given is an

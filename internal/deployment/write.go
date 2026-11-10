@@ -165,7 +165,7 @@ func WriteStartValues(dir string, values Values) error {
 // and the core's and the node's full configs, whose instances must already exist. It overwrites
 // each, so they always follow the values file and this binary's templates (D272 §7).
 func Write(dir string, values Values, runtime Runtime) error {
-	if err := WriteConfigs(dir, values, ByInstallScript); err != nil {
+	if err := WriteConfigs(dir, values, Installation{Route: ByInstallScript}); err != nil {
 		return err
 	}
 	composeTemplate := directComposeTemplate
@@ -195,12 +195,16 @@ func Write(dir string, values Values, runtime Runtime) error {
 // WriteConfigs writes the configs of a deployment's instances into dir from its values: the core's
 // and the node's, and the tunnel's when it has one. The instances must already exist. Write writes
 // them so, beside the compose files; a first start (D447), whose compose file is the household's own,
-// writes them alone. The core's names route, how the deployment was installed (D450 §2).
-func WriteConfigs(dir string, values Values, route InstallRoute) error {
+// writes them alone. The core's names how the deployment was installed: its route (D450 §2) and its
+// compose file's version (D461 §3).
+func WriteConfigs(dir string, values Values, installation Installation) error {
 	if err := values.Check(); err != nil {
 		return err
 	}
-	data := renderData{Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(route)}
+	data := renderData{
+		Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(installation.Route),
+		ComposeVersion: installation.ComposeVersion,
+	}
 	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
 	if values.HasTunnel() {
 		privateKey, err := tunnelPrivateKey(dir)
@@ -253,6 +257,9 @@ type renderData struct {
 	PrivateKey string
 	// InstallRoute is how the deployment was installed, for the core's config (D450 §2).
 	InstallRoute string
+	// ComposeVersion is the version of the compose file that started it, 0 for the install script's
+	// (D461 §3).
+	ComposeVersion int
 }
 
 // render renders the named template; a value it names that data lacks is an error, not a blank.

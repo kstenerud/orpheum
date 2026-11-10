@@ -27,7 +27,7 @@ const setupCodeFile = "SETUP-CODE.txt"
 // startUsage says how a compose file runs the core of a deployment it starts on its own (D447, D449).
 const startUsage = `usage: orpheum start [--lan-address <address>] [--media <folder>]... [--http-port <port>]
                      [--lan-https-port <port>] [--lan-webrtc-port <port>] [--this-machine-port <port>]
-                     [--router <address>]
+                     [--router <address>] [--compose-version <n>]
 
 Runs the core of a deployment whose directory is mounted at ` + deploymentMount + ` and its run/ at
 ` + deploymentRun + `, as one compose file starts it (deploy/omv/compose.yaml). At every start it writes the
@@ -46,6 +46,8 @@ flag in the compose file and start again. While no admin exists, the setup code 
   --this-machine-port  the port it takes on this machine's loopback alone, a browser on which is at home
                        (8441 unless named)
   --router             the house's router, which port mapping asks to forward the HTTPS port; empty maps nothing
+  --compose-version    the version of the compose file starting it, 1 unless named: the System page says
+                       when a newer one brings something (D461 §3)
 `
 
 // startOptions are what a start writes a deployment from: what values.toml's [media], [http] and
@@ -58,6 +60,8 @@ type startOptions struct {
 	webrtcPort      int
 	thisMachinePort int
 	router          string
+	// composeVersion is the version the compose file says it is, 1 for one that says none (D461 §3).
+	composeVersion int
 }
 
 // commandStart runs a deployment's core, writing the deployment from its flags at every start (D447,
@@ -106,7 +110,13 @@ func parseStart(arguments []string, stderr io.Writer) (startOptions, bool) {
 	flags.IntVar(&options.thisMachinePort, "this-machine-port", defaults.HTTP.ThisMachinePort,
 		"the port published on this machine's loopback alone")
 	flags.StringVar(&options.router, "router", "", "the house's router")
+	flags.IntVar(&options.composeVersion, "compose-version", 1, "the version of the compose file starting it")
 	if err := flags.Parse(arguments); err != nil {
+		return startOptions{}, false
+	}
+	if options.composeVersion < 1 {
+		write(stderr, fmt.Sprintf("orpheum start: --compose-version %d: want 1 or more\n", options.composeVersion),
+			exitUsageError)
 		return startOptions{}, false
 	}
 	if flags.NArg() != 0 {
@@ -151,7 +161,8 @@ func startDeployment(dir, runDir, hostName string, options startOptions) error {
 	}
 	written := values
 	written.Node.Name = hostName
-	if err := deployment.WriteConfigs(dir, written, deployment.ByComposeFile); err != nil {
+	installation := deployment.Installation{Route: deployment.ByComposeFile, ComposeVersion: options.composeVersion}
+	if err := deployment.WriteConfigs(dir, written, installation); err != nil {
 		return err
 	}
 	return deployment.WriteStartValues(dir, values)

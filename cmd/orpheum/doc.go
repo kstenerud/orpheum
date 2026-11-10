@@ -44,7 +44,10 @@
 //     D452 §5). Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
 //     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart,
 //     TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome and
-//     TestFirstStart_RefusesWithoutTheDeploymentsDirectory.
+//     TestFirstStart_RefusesWithoutTheDeploymentsDirectory. The core's config names the compose
+//     file's --compose-version, 1 when it passes none, for the System page to say when a newer file
+//     brings something (D461 §3). Enforced by TestStart_TheCoreSaysTheComposeFilesVersion and
+//     TestUpdate_SaysWhatANewerComposeFileBrings.
 //   - A compose file a release sent households to paste keeps starting every later release (D455,
 //     D461): each is frozen at its tag in testdata/released/<tag>/, with the flags that release's
 //     start took; start takes every frozen file's command line and every flag a release took, the
