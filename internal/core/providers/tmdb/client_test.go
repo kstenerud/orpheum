@@ -87,23 +87,23 @@ func newImageFetcherOn(t *testing.T, httpClient *http.Client, base string, fakeC
 func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 	t.Parallel()
 	server, seen := fakeTMDB(t, map[string]string{"/search/movie": `{"page":1,"results":[
-		{"id":4801,"title":"The Gold Rush","original_title":"The Gold Rush","release_date":"1999-03-31",
+		{"id":962,"title":"The Gold Rush","original_title":"The Gold Rush","release_date":"1925-06-26",
 		 "poster_path":"/m.jpg","vote_count":26000},
 		{"id":1,"title":"Gold Rush Reloaded","original_title":"x","release_date":""}]}`})
-	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1999}
+	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1925}
 	candidates, err := newClient(t, server.URL, "v3key").Search(t.Context(), query)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := identify.Candidate{
-		ID: "4801", Name: "The Gold Rush", OriginalName: "The Gold Rush", Year: 1999, ProviderPosterPath: "/m.jpg",
+		ID: "962", Name: "The Gold Rush", OriginalName: "The Gold Rush", Year: 1925, ProviderPosterPath: "/m.jpg",
 		Votes: 26000, // what settles two of one name in one year (D301)
 	}
 	if len(candidates) != 2 || candidates[0] != want || candidates[1].Year != 0 {
 		t.Errorf("candidates = %+v", candidates)
 	}
 	asked := (*seen)[0].URL.Query()
-	if asked.Get("query") != "The Gold Rush" || asked.Get("year") != "1999" || asked.Get("api_key") != "v3key" {
+	if asked.Get("query") != "The Gold Rush" || asked.Get("year") != "1925" || asked.Get("api_key") != "v3key" {
 		t.Errorf("the search asked %v", asked)
 	}
 }
@@ -127,13 +127,14 @@ func TestGet_SendsAReadAccessTokenAsABearerToken(t *testing.T) {
 
 func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	t.Parallel()
-	server, seen := fakeTMDB(t, map[string]string{"/movie/9019": `{"id":9019,"title":"Metropolis","original_title":"Metropolis",
-		"original_language":"en","overview":"Obsessive...","tagline":"A Los Angeles crime saga",
-		"release_date":"1995-12-15",
-		"runtime":170,"imdb_id":"tt0234567","poster_path":"/metropolis.jpg","backdrop_path":"/heat-wide.jpg",
-		"credits":{"cast":[{"name":"Ansel Vardo"}]}}`})
+	server, seen := fakeTMDB(t, map[string]string{"/movie/19": `{"id":19,"title":"Metropolis",
+		"original_title":"Metropolis","original_language":"de","overview":"A city above, a city below...",
+		"tagline":"A city of the future",
+		"release_date":"1927-01-10",
+		"runtime":153,"imdb_id":"tt0017136","poster_path":"/metropolis.jpg","backdrop_path":"/metropolis-wide.jpg",
+		"credits":{"cast":[{"name":"Oren Talisk"}]}}`})
 	client := newClient(t, server.URL, "k")
-	body, err := client.Fetch(t.Context(), "movie", "949")
+	body, err := client.Fetch(t.Context(), "movie", "19")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,12 +145,12 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if film.ID != "9019" || film.Name != "Metropolis" || film.Year != 1995 || film.ReleaseDate != "1995-12-15" ||
-		film.RuntimeMs != 170*60_000 ||
-		film.OriginalLang != "en" || film.Tagline == "" ||
-		!maps.Equal(film.IDs, map[string]string{"tmdb": "9019", "imdb": "tt0234567"}) ||
+	if film.ID != "19" || film.Name != "Metropolis" || film.Year != 1927 || film.ReleaseDate != "1927-01-10" ||
+		film.RuntimeMs != 153*60_000 ||
+		film.OriginalLang != "de" || film.Tagline == "" ||
+		!maps.Equal(film.IDs, map[string]string{"tmdb": "19", "imdb": "tt0017136"}) ||
 		!slices.Equal(film.Artwork, []identify.ImageRef{
-			{Kind: library.ArtPoster, Ref: "/metropolis.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-wide.jpg"},
+			{Kind: library.ArtPoster, Ref: "/metropolis.jpg"}, {Kind: library.ArtBackdrop, Ref: "/metropolis-wide.jpg"},
 		}) {
 		t.Errorf("parsed %+v", film)
 	}
@@ -158,12 +159,12 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 func TestFind_TurnsAnIMDbIDIntoTMDBs(t *testing.T) {
 	t.Parallel()
 	server, seen := fakeTMDB(t, map[string]string{
-		"/find/tt0234567": `{"movie_results":[{"id":9019}]}`,
+		"/find/tt0017136": `{"movie_results":[{"id":19}]}`,
 		"/find/tt0000000": `{"movie_results":[]}`,
 	})
 	client := newClient(t, server.URL, "k")
-	id, err := client.Find(t.Context(), "movie", "imdb", "tt0234567")
-	if err != nil || id != "949" {
+	id, err := client.Find(t.Context(), "movie", "imdb", "tt0017136")
+	if err != nil || id != "19" {
 		t.Errorf("Find = %q, %v", id, err)
 	}
 	if got := (*seen)[0].URL.Query().Get("external_source"); got != "imdb_id" {
@@ -233,16 +234,16 @@ func TestGet_AFailedConnectionDoesNotPrintTheKey(t *testing.T) {
 func orbitoramaAtTMDB(t *testing.T) (*Client, *[]*http.Request) {
 	t.Helper()
 	server, seen := fakeTMDB(t, map[string]string{
-		"/search/tv": `{"results":[{"id":7615,"name":"Orbitorama","original_name":"Orbitorama",
-			"first_air_date":"1999-03-28","poster_path":"/f.jpg"}]}`,
-		"/find/73871": `{"movie_results":[],"tv_results":[{"id":7615}]}`,
-		"/tv/7615": `{"id":7615,"name":"Orbitorama","original_name":"Orbitorama","original_language":"en",
-			"overview":"The adventures of a delivery boy.","first_air_date":"1999-03-28","episode_run_time":[22],
+		"/search/tv": `{"results":[{"id":8615,"name":"Orbitorama","original_name":"Orbitorama",
+			"first_air_date":"1999-04-11","poster_path":"/f.jpg"}]}`,
+		"/find/78871": `{"movie_results":[],"tv_results":[{"id":8615}]}`,
+		"/tv/8615": `{"id":8615,"name":"Orbitorama","original_name":"Orbitorama","original_language":"en",
+			"overview":"The adventures of a comet courier.","first_air_date":"1999-04-11","episode_run_time":[22],
 			"external_ids":{"imdb_id":"tt0900460","tvdb_id":78871},
 			"seasons":[{"season_number":0},{"season_number":1},{"season_number":2}]}`,
-		"/tv/7615/season/2": `{"season_number":2,"episodes":[
+		"/tv/8615/season/2": `{"season_number":2,"episodes":[
 			{"id":1101,"season_number":2,"episode_number":10,"name":"A Comet of My Own",
-			 "overview":"The Professor names his successor.","air_date":"2000-04-09","runtime":22,
+			 "overview":"The Captain names a successor.","air_date":"2000-04-23","runtime":22,
 			 "still_path":"/clone.jpg"}]}`,
 	})
 	return newClient(t, server.URL, "k"), seen
@@ -259,7 +260,7 @@ func TestSeries_SearchAndFind(t *testing.T) {
 	if got := (*seen)[0].URL.Query().Get("first_air_date_year"); got != "1999" {
 		t.Errorf("a series search asked first_air_date_year=%q", got)
 	}
-	if id, err := client.Find(t.Context(), identify.KindSeries, "tvdb", "78871"); err != nil || id != "615" {
+	if id, err := client.Find(t.Context(), identify.KindSeries, "tvdb", "78871"); err != nil || id != "8615" {
 		t.Errorf("Find by TVDB id = %q, %v", id, err)
 	}
 }
@@ -267,24 +268,24 @@ func TestSeries_SearchAndFind(t *testing.T) {
 func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	t.Parallel()
 	client, _ := orbitoramaAtTMDB(t)
-	body, err := client.Fetch(t.Context(), identify.KindSeries, "615")
+	body, err := client.Fetch(t.Context(), identify.KindSeries, "8615")
 	if err != nil {
 		t.Fatal(err)
 	}
 	series, err := client.Parse(identify.KindSeries, body)
-	wantIDs := map[string]string{"tmdb": "7615", "imdb": "tt0900460", "tvdb": "78871"}
-	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.ReleaseDate != "1999-03-28" ||
+	wantIDs := map[string]string{"tmdb": "8615", "imdb": "tt0900460", "tvdb": "78871"}
+	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.ReleaseDate != "1999-04-11" ||
 		series.RuntimeMs != 0 ||
 		!maps.Equal(series.IDs, wantIDs) || !slices.Equal(series.SeasonNumbers, []int{0, 1, 2}) {
 		t.Errorf("Parse = %+v, %v", series, err)
 	}
-	listing, err := client.FetchSeason(t.Context(), "615", 2)
+	listing, err := client.FetchSeason(t.Context(), "8615", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	episodes, err := client.ParseSeason(listing)
 	want := identify.Episode{
-		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
+		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Captain names a successor.",
 		Year: 2000, RuntimeMs: 22 * 60_000, StillRef: "/clone.jpg",
 	}
 	if err != nil || len(episodes) != 1 || episodes[0] != want {
@@ -294,7 +295,7 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 
 func TestParse_ASeriesNamesEachSeasonsPosterByItsSeason(t *testing.T) {
 	t.Parallel()
-	body := []byte(`{"id":7615,"name":"Orbitorama","first_air_date":"1999-03-28","poster_path":"/f.jpg",
+	body := []byte(`{"id":8615,"name":"Orbitorama","first_air_date":"1999-04-11","poster_path":"/f.jpg",
 		"seasons":[{"season_number":0,"poster_path":"/s0.jpg"},{"season_number":1,"poster_path":"/s1.jpg"},
 		{"season_number":2,"poster_path":null}]}`)
 	series, err := (&Client{}).Parse(identify.KindSeries, body)
@@ -324,14 +325,14 @@ func TestParse_ASeriesNamesEachSeasonsPosterByItsSeason(t *testing.T) {
 // directors and writers from the crew, the rest of the crew left out, each person once in a role.
 func TestParse_AWorksGenresCastAndCrew(t *testing.T) {
 	t.Parallel()
-	body := []byte(`{"id":9019,"title":"Metropolis","genres":[{"id":28,"name":"Action"},{"id":80,"name":"Crime"}],
+	body := []byte(`{"id":19,"title":"Metropolis","genres":[{"id":28,"name":"Action"},{"id":80,"name":"Crime"}],
 		"credits":{"cast":[
-			{"id":5101,"name":"Ansel Vardo","character":"Mira Holloway-Pent","order":1,"profile_path":"/al.jpg"},
-			{"id":5104,"name":"Ada Wexcombe","character":"Tamsin Vell","order":0,"profile_path":null}],
+			{"id":5101,"name":"Oren Talisk","character":"Mira Holloway-Pent","order":1,"profile_path":"/oren.jpg"},
+			{"id":5104,"name":"Tomas Vrell","character":"Bram Okonedo-Lisk","order":0,"profile_path":null}],
 		"crew":[
-			{"id":5102,"name":"Oren Talisk","job":"Director"},
-			{"id":5102,"name":"Oren Talisk","job":"Writer"},
-			{"id":5102,"name":"Oren Talisk","job":"Screenplay"},
+			{"id":5102,"name":"Ada Wexcombe","job":"Director"},
+			{"id":5102,"name":"Ada Wexcombe","job":"Writer"},
+			{"id":5102,"name":"Ada Wexcombe","job":"Screenplay"},
 			{"id":9,"name":"Pim Arlecott","job":"Producer"},
 			{"id":10,"name":"Lio Varnesse","job":"Director of Photography"}]}}`)
 	film, err := (&Client{}).Parse("movie", body)
@@ -342,13 +343,13 @@ func TestParse_AWorksGenresCastAndCrew(t *testing.T) {
 		t.Errorf("genres %v", film.Genres)
 	}
 	want := []identify.Credit{
-		{Role: identify.RoleCast, Name: "Ada Wexcombe", PersonID: "380", Character: "Tamsin Vell"},
+		{Role: identify.RoleCast, Name: "Tomas Vrell", PersonID: "5104", Character: "Bram Okonedo-Lisk"},
 		{
-			Role: identify.RoleCast, Name: "Ansel Vardo", PersonID: "1158", Character: "Mira Holloway-Pent",
-			PictureRef: "/al.jpg",
+			Role: identify.RoleCast, Name: "Oren Talisk", PersonID: "5101", Character: "Mira Holloway-Pent",
+			PictureRef: "/oren.jpg",
 		},
-		{Role: identify.RoleDirector, Name: "Oren Talisk", PersonID: "638"},
-		{Role: identify.RoleWriter, Name: "Oren Talisk", PersonID: "638"},
+		{Role: identify.RoleDirector, Name: "Ada Wexcombe", PersonID: "5102"},
+		{Role: identify.RoleWriter, Name: "Ada Wexcombe", PersonID: "5102"},
 	}
 	if !slices.Equal(film.Credits, want) {
 		t.Errorf("credits %+v,\nwant %+v", film.Credits, want)

@@ -16,8 +16,8 @@ import (
 func TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue(t *testing.T) {
 	t.Parallel()
 	server, _ := fakeTMDB(t, map[string]string{"/search/movie": `{"page":1,"results":[
-		{"id":4801,"title":"The Gold Rush","title":"Something Else","release_date":"1999-03-31"}]}`})
-	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1999}
+		{"id":962,"title":"The Gold Rush","title":"Something Else","release_date":"1925-06-26"}]}`})
+	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1925}
 	candidates, err := newClient(t, server.URL, "v3key").Search(t.Context(), query)
 	if err != nil {
 		t.Fatalf("a reply with a duplicate key: %v; want it read", err)
@@ -32,7 +32,7 @@ func TestSearch_AReplyNestedPastTheLimitIsRefused(t *testing.T) {
 	t.Parallel()
 	deep := strings.Repeat("[", strictjson.MaxDepth+1)
 	server, _ := fakeTMDB(t, map[string]string{"/search/movie": `{"page":1,"results":` + deep})
-	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1999}
+	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1925}
 	_, err := newClient(t, server.URL, "v3key").Search(t.Context(), query)
 	if !errors.Is(err, strictjson.ErrRefused) {
 		t.Errorf("a reply nested past the limit: %v; want strictjson.ErrRefused", err)
