@@ -110,7 +110,10 @@ test(
     const late = await browser.newContext();
     const latePage = await late.newPage();
     await latePage.goto(link);
-    await expect(latePage.getByRole("alert")).toContainText("This link does not work");
+    // Told as the page opens, not for something the person did: a polite status, not an alert.
+    await expect(
+      latePage.getByRole("status").filter({ hasText: "This link does not work" }),
+    ).toBeVisible();
     await expect(latePage.getByRole("button", { name: "Join" })).toHaveCount(0);
     await late.close();
 
