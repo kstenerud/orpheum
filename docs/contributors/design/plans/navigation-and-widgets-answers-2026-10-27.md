@@ -2887,8 +2887,10 @@ The owner's answers:
    - A blank poster with a faded clock or spinner in it, not animating.
    - The text parts are shown at once: "since it's cheap to fetch. Screen readers should be reading the
      text portion anyway, since the poster itself wouldn't add any useful information beyond that."
-   - To confirm with the owner: this reads as the list's names and years coming for the whole list up
-     front, with only the posters' images following as they near the view.
+   - Confirmed (the owner, 2026-11-11): "yes, I mean the up-front fetch of the whole library's text. Even
+     at 1000 titles it should still be pretty light overall. If we get issues with larger libraries, we
+     could split up fetching to 1/2 or 1/3 of the library later." The whole list's names and years
+     come at once; only the posters' images follow as they near the view.
 4. **Edge fades on poster rows that scroll:** "Let's try it and see. If it hurts performance too much
    then we find a different way." The fades never dim the focused card (D189). Measure on the stick.
 5. **One Tab stop per poster grid and row** (roving tabindex, `role="grid"`): "yes, do it now."
