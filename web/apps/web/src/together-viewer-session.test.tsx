@@ -304,7 +304,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const mounted = await mount(
       withServices(<TogetherViewer />, { ...services, canFollowAGroup: () => false }),
     );
-    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+    // Polite, not an alert: it shows as the page opens, no answer to anything pressed.
+    expect(mounted.container.querySelector("output")?.textContent).toContain(
       "update to iOS 17.1 or later",
     );
     expect(mounted.container.querySelector("input")).toBeNull();
