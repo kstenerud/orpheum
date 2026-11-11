@@ -9,6 +9,7 @@
  */
 
 import {
+  howFrozen,
   isPageHidden,
   longTasksOf,
   reportFailure,
@@ -71,7 +72,7 @@ export function reportPageFreezes(doing: PageDoing, watch: PageFreezeWatch = {})
     lastReportMs = nowMs();
     const longest = Math.max(...freezes.map((freeze) => freeze.durationMs));
     report(
-      `the page froze ${seconds(first.durationMs)} (${first.how}) on screen=${doing.screen()}` +
+      `the page froze ${seconds(first.durationMs)} (${howFrozen(first)}) on screen=${doing.screen()}` +
         ` filmPlaying=${String(doing.isFilmPlaying())} hidden=${String(first.isHidden)}` +
         (more.length === 0
           ? ""

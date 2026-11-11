@@ -18,7 +18,7 @@
  * series' season row, staging, 2026-10-30, explained by nothing).
  */
 
-import { isPageHidden, watchFreezes, type Freeze, type LongTasks } from "@orpheum/sdk";
+import { howFrozen, isPageHidden, watchFreezes, type Freeze, type LongTasks } from "@orpheum/sdk";
 import Hls, { type BufferFlushingData, type ErrorData } from "hls.js";
 
 export { longTasksOf, type LongTasks } from "@orpheum/sdk";
@@ -70,7 +70,8 @@ export function watchMainThread(
     recent.push({ atMs: nowMs(), text });
     recent.splice(0, recent.length - playerEventsRecalled);
   };
-  const stalled = ({ startMs, durationMs, how }: Freeze): void => {
+  const stalled = (freeze: Freeze): void => {
+    const { startMs, durationMs } = freeze;
     if (noted >= mainThreadStallNotesAtMost) {
       return;
     }
@@ -79,7 +80,7 @@ export function watchMainThread(
       .filter((event) => event.atMs <= startMs + durationMs)
       .map((event) => `${event.text} ${seconds(event.atMs - startMs)}`);
     options.note(
-      `main thread stalled ${(durationMs / 1000).toFixed(1)} s (${how})` +
+      `main thread stalled ${(durationMs / 1000).toFixed(1)} s (${howFrozen(freeze)})` +
         ` at ${video.currentTime.toFixed(1)} s; before: ${before.length === 0 ? "nothing" : before.join(", ")}`,
     );
   };

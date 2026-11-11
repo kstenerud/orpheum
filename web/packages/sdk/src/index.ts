@@ -327,6 +327,8 @@ export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */
 export const sdkPackageName = "@orpheum/sdk";
 export {
+  causeOfFrame,
+  howFrozen,
   isPageHidden,
   longTasksOf,
   mainThreadSampleMs,
@@ -334,8 +336,10 @@ export {
   watchFreezes,
 } from "./main-thread-freezes.ts";
 export type {
+  FrameScript,
   Freeze,
   FreezeWatch,
+  LongTaskEntry,
   LongTaskObserverClass,
   LongTaskScope,
   LongTasks,

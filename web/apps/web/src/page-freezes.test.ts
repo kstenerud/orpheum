@@ -21,13 +21,13 @@ afterEach(() => {
 /** A page watched for freezes on screen, its long tasks told by the test, its reports kept. */
 function watched(screen = "series-page"): {
   readonly reports: string[];
-  readonly task: (startMs: number, durationMs: number) => void;
+  readonly task: (startMs: number, durationMs: number, cause?: string) => void;
   readonly page: { isHidden: boolean; isFilmPlaying: boolean };
   readonly stop: () => void;
 } {
   const reports: string[] = [];
   const page = { isHidden: false, isFilmPlaying: false };
-  let told: ((startMs: number, durationMs: number) => void) | undefined;
+  let told: ((startMs: number, durationMs: number, cause?: string) => void) | undefined;
   const stop = reportPageFreezes(
     { screen: () => screen, isFilmPlaying: () => page.isFilmPlaying },
     {
@@ -44,7 +44,7 @@ function watched(screen = "series-page"): {
   );
   return {
     reports,
-    task: (startMs, durationMs) => told?.(startMs, durationMs),
+    task: (startMs, durationMs, cause) => told?.(startMs, durationMs, cause),
     page,
     stop,
   };
@@ -69,6 +69,20 @@ describe("a page's freezes, told to the core's log on every screen (the Fire TV'
     stop();
     task(0, 5000);
     expect(reports).toHaveLength(2);
+  });
+
+  it("tells a long animation frame's freeze with what took its time (the web guidance, 2026-11-11)", () => {
+    const { reports, task, stop } = watched("home");
+    task(
+      0,
+      4400,
+      "longest script event-listener keydown (index.js:120) 4300 ms, forced layout 4100 ms",
+    );
+    stop();
+    expect(reports).toEqual([
+      "the page froze 4.4 s (long animation frame: longest script event-listener keydown" +
+        " (index.js:120) 4300 ms, forced layout 4100 ms) on screen=home filmPlaying=false hidden=false",
+    ]);
   });
 
   it("writes a freeze to the console as a freeze, not as a request that failed (the owner, 2026-11-01)", () => {

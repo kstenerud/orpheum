@@ -218,7 +218,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   `watchFreezes`): a long task of `mainThreadStallAtLeastMs` (1 s) or more where the browser
   reports them, else a timer's lateness on a page shown as it was set and as it ran. The player's
   notes of a playback and the web app's reports of every page's freezes both go through it; it is
-  here so the app's home page watches without loading the player. `apps/web/src/page-freezes.test.ts`,
+  here so the app's home page watches without loading the player. Where the browser has long
+  animation frames (Chromium 123 on, Silk 138) they are read in place of long tasks, and a freeze's
+  report says what took its time: the frame's longest script, by what ran it, its function, file and
+  place, the layout it forced, and the rendering (`longTasksOf`, `causeOfFrame`).
+  `src/main-thread-freezes.test.ts`, `apps/web/src/page-freezes.test.ts`,
   `packages/player/src/main-thread.test.ts`.
 - **An offer the core refuses as unproven is sent once more under what the device holds now, and
   then no more**: the discovery's signaller sends it again under its `fallback` (else its own key,
