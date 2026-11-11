@@ -35,7 +35,8 @@
    * Two colours with one meaning each (D278 §4, the owner's choices from samples): yellow, signal
    * yellow, for something wrong that needs fixing or could not be done, which never reads as the
    * coral accent; and red for what cannot be undone, deep to fill its button under white words,
-   * bright for its words and outlines. Looked at on staging, in a browser and on a phone (VQ28).
+   * bright for its words and outlines, and for the edge of a field left wrong (the owner, 2026-11-11).
+   * Looked at on staging, in a browser and on a phone (VQ28).
    */
   --color-warning: #ffcc00;
   --color-on-warning: #111111;
