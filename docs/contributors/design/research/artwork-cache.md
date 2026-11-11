@@ -190,9 +190,8 @@ Local copies of what I fetched: `/yoloai/cache/http/*.summary.md` (WebFetch summ
 ### Per image [measured]
 
 Source: `image.tmdb.org`, the same image fetched as JPEG (default) and as WebP (`Accept:
-image/webp`; TMDB's CDN negotiates). Sample: posters and backdrops of 6 films (TMDB ids 4801,
-550, 27205, 157336, 238, 680), and 16 episode stills (Brass Arena S1, Flatmates of Ferris Row S3). The sample
-is small, so read these as ±30%. The WebP files come from TMDB's encoder at unknown quality,
+image/webp`; TMDB's CDN negotiates). Sample: posters and backdrops of 6 films and 16
+episode stills from a season each of two series. The sample is small, so read these as ±30%. The WebP files come from TMDB's encoder at unknown quality,
 but they are real deliverable bytes.
 
 | Kind | Size (px) | JPEG median / mean | WebP median / mean | WebP/JPEG (median) |
