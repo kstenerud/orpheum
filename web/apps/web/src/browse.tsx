@@ -15,6 +15,7 @@ import {
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
+import { growsAttribute } from "./focus-engine.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { dateText } from "./date-time-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -72,6 +73,8 @@ export function PosterGrid(props: {
   readonly entries: readonly Entry[];
   /** Watches each poster, by its place, for the list to know which are in view (usePages). */
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
+  /** Whether the list's next page is loading: Down from the last row then stays in the grid. */
+  readonly isLoadingMore?: boolean;
 }): JSX.Element {
   // The tiles in view say so, which raises the work their pictures need (D362 §4).
   const tiles = useTilesInView(
@@ -81,7 +84,12 @@ export function PosterGrid(props: {
   return (
     <>
       {tiles.interest}
-      <ul className="poster-grid" data-focus-container="" {...arrivalMark}>
+      <ul
+        className="poster-grid"
+        data-focus-container=""
+        {...(props.isLoadingMore === true ? { [growsAttribute]: "down" } : {})}
+        {...arrivalMark}
+      >
         {props.entries.map((entry, index) => (
           <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={tiles.watchAt(index)} />
         ))}
@@ -390,7 +398,12 @@ export function BrowseView(props: {
           <EmptyList search={props.search ?? ""} isNarrowed={props.isNarrowed === true} />
         ) : (
           <>
-            <PosterGrid kind={props.kind} entries={page.items} watchItemAt={props.watchItemAt} />
+            <PosterGrid
+              kind={props.kind}
+              entries={page.items}
+              watchItemAt={props.watchItemAt}
+              isLoadingMore={props.isLoadingMore}
+            />
             {page.nextCursor === "" ? null : (
               <EndOfList onMore={props.onLoadMore} isLoadingMore={props.isLoadingMore} />
             )}

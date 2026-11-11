@@ -287,7 +287,8 @@ function destinationOf(
 /**
  * Moves real DOM focus one step in direction within the region a person can reach now; while nothing
  * there has focus, to where the first arrow starts. Whether it moved: false where nothing lies that
- * way, so the browser does with the arrow what it would, as scrolling a page past its last control.
+ * way, so the browser does with the arrow what it would, as scrolling a page past its last control;
+ * true, focus shown where it is, where a container still growing that way holds it.
  */
 export function moveFocus(
   direction: Direction,

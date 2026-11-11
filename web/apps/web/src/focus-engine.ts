@@ -378,9 +378,19 @@ export function containerAround(element: Element, root: Element): Element {
 }
 
 /**
+ * The attribute that marks a focus container still growing one way, its value the direction: a
+ * list's grid while its next page loads, "down". An arrow that way from its end stays where it is,
+ * rather than leaving for what lies beyond the container, which would take focus out of the list
+ * just before its next tiles come (the owner, 2026-11-11, after a held Down on the Fire TV outran the
+ * next page and reached the alphabet rail's last letter).
+ */
+export const growsAttribute = "data-focus-grows";
+
+/**
  * The element an arrow in direction moves focus to from from, by engine, within root: the nearest
  * that way inside from's container, else inside the container around that, then the page's content,
- * out to root; undefined where none lies that way in root.
+ * out to root; undefined where none lies that way in root. from itself where a container it searched
+ * empty is still growing that way (growsAttribute): focus stays.
  */
 export function nextInContainers(
   from: HTMLElement,
@@ -393,6 +403,9 @@ export function nextInContainers(
     const next = engine.next(from, direction, { region: scope, searched });
     if (next !== undefined || scope === root) {
       return next;
+    }
+    if (scope.getAttribute(growsAttribute) === direction) {
+      return from;
     }
     searched = scope;
     scope = containerAround(scope, root);

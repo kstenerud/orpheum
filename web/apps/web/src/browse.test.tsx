@@ -14,13 +14,13 @@ import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
 
-function renderBrowseView(loadedEntries: Resource<Page<Entry>>): string {
+function renderBrowseView(loadedEntries: Resource<Page<Entry>>, isLoadingMore = false): string {
   return renderToStaticMarkup(
     withServices(
       <BrowseView
         kind="film"
         loadedEntries={loadedEntries}
-        isLoadingMore={false}
+        isLoadingMore={isLoadingMore}
         onLoadMore={ignore}
       />,
     ),
@@ -111,6 +111,20 @@ describe("browse", () => {
     expect(tray.indexOf("This may be identified incorrectly")).toBeGreaterThan(
       tray.indexOf("This cannot be played now"),
     );
+  });
+
+  it("marks its grid as growing down while its next page loads, so Down stays in it", () => {
+    const loaded: Resource<Page<Entry>> = {
+      state: "loaded",
+      value: {
+        nextCursor: "cursor",
+        items: [
+          { id: 10, name: "Metropolis", kind: "film", identificationState: "identified", addedAt: 1 },
+        ],
+      },
+    };
+    expect(renderBrowseView(loaded, true)).toContain('data-focus-grows="down"');
+    expect(renderBrowseView(loaded)).not.toContain("data-focus-grows");
   });
 
   it("says what an empty list means, and a failure's cause", () => {
