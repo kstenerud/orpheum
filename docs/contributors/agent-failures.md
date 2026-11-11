@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A66 — Said a scroll redraws every poster in view, when the browser moves what it has already drawn (2026-11-11)
+
+- **What happened:** asked how much of the screen a focus move redraws, the lead told the owner
+  that a move which scrolls makes everything in view move and be redrawn, every poster's blurred
+  shadow with it, and called that likely the most expensive thing a press does on a weak GPU.
+  Chromium, which the Fire TV's Silk is, scrolls a composited scroller by moving the tiles it has
+  already rasterized and rasterizes only what comes into view. Nothing in the app's CSS (no
+  `backdrop-filter`, no filter over the scroller) was checked to defeat that before the claim. The
+  belief came from describing a cost in its worst case, and as the usual one, without a trace.
+- **Caught by:** the owner: *"I'm just surprised that entire posters need to be redrawn when the
+  browser's DOM handler should be handling scrolling movement automatically."*
+- **Gate:** none can check a claim about a cost. Measure first: a trace's paint areas and layers
+  say what a scroll repaints. Until one is taken, say what is unmeasured.
+
 ### A65 — Said production's machines were out of the sandbox's reach, when the machines notes give a key to each (2026-11-09)
 
 - **What happened:** planning production's migration to v0.3.3's schema, the lead told the owner
