@@ -128,6 +128,8 @@ describe("a poster row's arrows, for a mouse", () => {
     const posterWidth = drawnAt(".poster-row > li").getBoundingClientRect().width;
     await userEvent.click(shownArrow("Scroll right") ?? list);
     await expect.poll(arrowsShown).toEqual(["Scroll left", "Scroll right"]);
+    // Under way first: at its start the row is on a poster's edge too, the first's.
+    await expect.poll(() => list.scrollLeft).toBeGreaterThan(list.clientWidth / 2);
     await expect.poll(() => offsetFromAPosterEdge(list)).toBeLessThan(2);
     // About a row's width less one poster: past half the row, short of the whole of it.
     expect(list.scrollLeft).toBeGreaterThan(list.clientWidth / 2);
