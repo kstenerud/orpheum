@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A70 — Named a film of the owner's in the repo, in a VQ item and a plan (2026-11-11)
+
+- **What happened:** given the episode where the owner's Fire TV stood still, to test VQ298 on, the
+  lead wrote its series and episode beside its film id into the verification queue and the plan
+  file. Earlier sessions had done the same in quotes, comments and test names. What the owner
+  watches is personal material, and the repository is public.
+- **Caught by:** the owner: *"Don't record video names in the repo"*.
+- **Gate:** none yet. A film is named by its id (film 1504) or as "the owner's film"; a title the
+  library holds could be checked for by a gate built from its folder names, which is the owner's to
+  add.
+
 ### A69 — Reported a test's bound as unmeetable and asked for a ruling, when the failure showed the design measured the wrong thing (2026-11-11)
 
 - **What happened:** VQ294 bounded the chunks around a heavy stretch at 5 MiB, the sized grid's
