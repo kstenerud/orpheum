@@ -625,7 +625,7 @@ func editMediaStart(trak []byte) int64 {
 // film from a few pictures after its first keyframe, which it flags discarded), and none is at or
 // before the start, the film's start is one, since its first pictures are decoded from that
 // keyframe and a copy run from the start holds it. Without it the film's grid starts at its next
-// keyframe, up to ten seconds in, and those seconds never play (A Woman of Paris, staging,
+// keyframe, up to ten seconds in, and those seconds never play (the owner's film, staging,
 // 2026-11-04). The copied picture of the first chunk is then late by the pictures before the start,
 // a few frames, which the owner accepted (2026-11-04). The read-through of a film and the read of
 // its index count them alike (internal/node/readthrough).
