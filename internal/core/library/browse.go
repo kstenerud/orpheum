@@ -118,6 +118,10 @@ type Entry struct {
 	// IsWatched is whether its person watched it: a film or other video by playing or by hand, a series
 	// once every episode it counts is (D370 §1, §3).
 	IsWatched bool
+	// Letter is the alphabet rail's letter it is under, in a list by name or by file name: # or A to
+	// Z, by its sort key, its article and its sort title as the list's order reads them (D402); ""
+	// in a list in any other order.
+	Letter string
 }
 
 // OtherFacts are an other video's: when it was recorded, where that came from (tag, name, file or
@@ -242,6 +246,9 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		return Page{Entries: []Entry{}}, err
 	}
 	keyed, err := browser.listKeyed(ctx, query)
+	if err == nil && isByName(query.Sort) {
+		err = browser.withLetters(ctx, keyed)
+	}
 	if err != nil {
 		return Page{}, err
 	}

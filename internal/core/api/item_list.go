@@ -46,6 +46,8 @@ type ItemEntryCommon struct {
 	IsWatched   bool             `doc:"Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 	// Identification is where its match stands, in a list by identification alone (D425 §7).
 	Identification *IdentificationBody `doc:"Where its match stands; present in a list by identification alone" json:"identification,omitempty"` //nolint:lll // one struct tag
+	// Letter is the alphabet rail's letter it is under, in a list by name or by file name.
+	Letter string `doc:"The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name" json:"letter,omitempty"` //nolint:lll // one struct tag
 	// Credit is the person's credit on it, in a list by person alone (D425 §7).
 	Credit *ItemCreditBody `doc:"The person's credit on it; present in a list by person alone" json:"credit,omitempty"`
 }
@@ -127,6 +129,7 @@ func itemEntryBody(entry library.Entry, nodeName func(nodeID int64) string) Item
 			AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256,
 			NoPosterStillSha256: entry.NoPosterStillSha256,
 			Unavailable:         unavailableBody(entry.Unreadable, nodeName), IsWatched: entry.IsWatched,
+			Letter: entry.Letter,
 		},
 		TitleEntryFields: TitleEntryFields{
 			LandscapeSha256: entry.LandscapeSha256, Recorded: recordedBody(entry.Other),
