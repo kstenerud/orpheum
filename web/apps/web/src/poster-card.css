@@ -48,6 +48,7 @@
 }
 
 .poster-card__art > .poster,
+.poster-card__art > .poster-waiting,
 .poster-card__art > .poster-card__tile,
 .poster-card__art > progress {
   grid-area: 1 / 1;

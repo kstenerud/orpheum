@@ -32,6 +32,28 @@
   opacity: 0.45;
 }
 
+/* A poster still to come: a faded clock, still, on the card's ground (the owner, 2026-11-11). */
+.poster__clock {
+  width: 30%;
+  height: auto;
+  opacity: 0.3;
+}
+
+/* Behind a tile's image, seen until the image is drawn over it; the image's own ground is none. */
+.poster-waiting {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-muted);
+}
+
+.poster-waiting + img.poster {
+  background: none;
+}
+
 /* No poster but a still (D362): the still fills the top half, the blank's mark below it. */
 .poster--with-still {
   position: relative;

@@ -152,6 +152,35 @@ describe("browse", () => {
   });
 });
 
+// The owner, 2026-11-11: a poster still to come is a faded clock that does not move.
+describe("a poster still to come", () => {
+  const heat: Entry = {
+    id: 10,
+    name: "Metropolis",
+    kind: "film",
+    identificationState: "identified",
+    addedAt: 1,
+    posterSha256: "ab12",
+  };
+
+  it("is a clock behind a tile's image, which is drawn over it", () => {
+    const markup = renderBrowseView({ state: "loaded", value: { items: [heat], nextCursor: "" } });
+    expect(markup).toMatch(
+      /<span class="poster-waiting" aria-hidden="true"><svg class="icon poster__clock"[^]*?<\/svg><\/span><img class="poster"/u,
+    );
+  });
+
+  it("is a clock on a blank whose entry has not been read", () => {
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: { items: [heat], nextCursor: "c1", total: 2 },
+    });
+    expect(markup).toMatch(
+      /class="poster-card poster-card--to-come"[^]*?<span class="poster"><svg class="icon poster__clock"/u,
+    );
+  });
+});
+
 describe("a title that cannot be played now (D241 §3)", () => {
   it("stays in the list, marked", () => {
     const markup = renderBrowseView({
