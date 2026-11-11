@@ -3,7 +3,16 @@
 import "./browse.css";
 
 import type { components } from "@orpheum/sdk";
-import { memo, useCallback, useMemo, useRef, type JSX, type RefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type JSX,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -15,7 +24,7 @@ import {
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
-import { growsAttribute } from "./focus-engine.ts";
+import { focusableSelector, growsAttribute } from "./focus-engine.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { dateText } from "./date-time-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -24,7 +33,7 @@ import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
-import { EndOfList } from "./end-of-list.tsx";
+import { EndOfList, useAskedWhenNear } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { orderOf, orderQuery, type SortChoice } from "./sort-choices.ts";
 import {
@@ -44,7 +53,7 @@ import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
-import { usePages, type Page } from "./use-pages.ts";
+import { itemsToCome, usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
@@ -67,6 +76,11 @@ const entriesPerPage = 60;
  * A grid of films, series or other videos, each a poster or a 16:9 tile with its name and year or
  * date under it. kind, given, is every entry's (Films, Series, a home page row); left out, each
  * entry's own says it, for a list a library's kind does not fix (the Libraries page, D349 §9.1).
+ *
+ * toCome blank posters after them stand for the entries whose pages have not come, so the list has
+ * its room and Down from the last row moves on into it at once (the owner, 2026-11-11); the first
+ * asks for the next page through onNearEnd as it nears the view, as EndOfList asks, and one focused
+ * as its entry comes hands focus to the entry in its place.
  */
 export function PosterGrid(props: {
   readonly kind?: BrowseKind | undefined;
@@ -75,16 +89,31 @@ export function PosterGrid(props: {
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
   /** Whether the list's next page is loading: Down from the last row then stays in the grid. */
   readonly isLoadingMore?: boolean;
+  /** How many entries are still to come, each a blank poster until it does; none by default. */
+  readonly toCome?: number;
+  /** Asks for the next page, as the first blank poster nears the view. */
+  readonly onNearEnd?: (() => void) | undefined;
 }): JSX.Element {
+  const { t } = useTranslation();
   // The tiles in view say so, which raises the work their pictures need (D362 §4).
   const tiles = useTilesInView(
     useMemo(() => props.entries.map(entryId), [props.entries]),
     props.watchItemAt,
   );
+  const gridRef = useRef<HTMLUListElement>(null);
+  useFocusedToComeKept(gridRef, props.entries);
+  const loaded = props.entries.length;
+  const firstToCome = useCallback(
+    () => gridRef.current?.querySelector(`[${toComePlaceAttribute}="${String(loaded)}"]`) ?? null,
+    [loaded],
+  );
+  useAskedWhenNear(firstToCome, props.onNearEnd ?? doNothing, props.isLoadingMore === true);
+  const label = t("common.loading");
   return (
     <>
       {tiles.interest}
       <ul
+        ref={gridRef}
         className="poster-grid"
         data-focus-container=""
         {...(props.isLoadingMore === true ? { [growsAttribute]: "down" } : {})}
@@ -93,10 +122,92 @@ export function PosterGrid(props: {
         {props.entries.map((entry, index) => (
           <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={tiles.watchAt(index)} />
         ))}
+        {Array.from({ length: props.toCome ?? 0 }, (_, offset) => (
+          <PosterToCome
+            key={`to-come-${String(loaded + offset)}`}
+            place={loaded + offset}
+            label={label}
+          />
+        ))}
       </ul>
     </>
   );
 }
+
+function doNothing(): void {
+  // No list to ask: a grid with no more to come.
+}
+
+/** The attribute giving a blank poster its place in the grid: the place its entry comes to. */
+const toComePlaceAttribute = "data-to-come";
+
+/**
+ * Keeps focus on the grid's place a blank poster held as its entry comes and the blank goes, which
+ * would otherwise leave it on the page's body.
+ */
+function useFocusedToComeKept(
+  gridRef: RefObject<HTMLUListElement | null>,
+  entries: readonly Entry[],
+): void {
+  const focusedPlaceRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (grid === null) {
+      return;
+    }
+    const noteFocused = (event: Event): void => {
+      const target = event.target instanceof Element ? event.target : undefined;
+      const place = target
+        ?.closest(`[${toComePlaceAttribute}]`)
+        ?.getAttribute(toComePlaceAttribute);
+      focusedPlaceRef.current = place === undefined || place === null ? undefined : Number(place);
+    };
+    grid.addEventListener("focusin", noteFocused);
+    return () => {
+      grid.removeEventListener("focusin", noteFocused);
+    };
+  }, [gridRef]);
+  useLayoutEffect(() => {
+    const place = focusedPlaceRef.current;
+    const grid = gridRef.current;
+    if (place === undefined || grid === null) {
+      return;
+    }
+    const active = grid.ownerDocument.activeElement;
+    if (active !== null && active !== grid.ownerDocument.body) {
+      return;
+    }
+    focusedPlaceRef.current = undefined;
+    const item = grid.children[Math.min(place, grid.children.length - 1)];
+    item?.querySelector<HTMLElement>(focusableSelector)?.focus({ preventScroll: true });
+  }, [gridRef, entries]);
+}
+
+/**
+ * A blank poster where an entry not yet come will be: the room its card takes, a button so an arrow
+ * moves on into it, which does nothing pressed.
+ */
+const PosterToCome = memo(function PosterToCome(props: {
+  readonly place: number;
+  readonly label: string;
+}): JSX.Element {
+  return (
+    <li className="poster-card poster-card--to-come" {...{ [toComePlaceAttribute]: props.place }}>
+      <button
+        type="button"
+        className="poster-card__link"
+        aria-disabled="true"
+        aria-label={props.label}
+      >
+        <span className="poster-card__art">
+          <span className="poster" />
+        </span>
+        <span className="poster-card__name">{"\u00a0"}</span>
+        <span className="poster-card__detail">{"\u00a0"}</span>
+      </button>
+    </li>
+  );
+});
 
 /**
  * One poster with its name, year and cues. A poll that changes one entry draws that one again, as
@@ -343,8 +454,8 @@ function BrowsePages(props: {
         ...filtersQuery({ genre, decade, isUnwatchedOnly }),
         ...(cursor === "" ? {} : { cursor }),
       };
-      const titlesPage = dataOrThrow(await api.GET("/items", { params: { query } }));
-      return { items: titlesPage.items ?? [], nextCursor: titlesPage.nextCursor ?? "" };
+      const got = dataOrThrow(await api.GET("/items", { params: { query } }));
+      return { items: got.items ?? [], nextCursor: got.nextCursor ?? "", total: got.total };
     },
     [api, kind, sort, order, search, genre, decade, isUnwatchedOnly],
   );
@@ -403,8 +514,10 @@ export function BrowseView(props: {
               entries={page.items}
               watchItemAt={props.watchItemAt}
               isLoadingMore={props.isLoadingMore}
+              toCome={itemsToCome(page)}
+              onNearEnd={props.onLoadMore}
             />
-            {page.nextCursor === "" ? null : (
+            {page.nextCursor === "" || itemsToCome(page) > 0 ? null : (
               <EndOfList onMore={props.onLoadMore} isLoadingMore={props.isLoadingMore} />
             )}
           </>

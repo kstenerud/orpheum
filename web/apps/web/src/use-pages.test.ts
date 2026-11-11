@@ -6,7 +6,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { mount } from "./test-dom.tsx";
-import { appendPage, loadAgain, merged, usePages, type Page, type Pages } from "./use-pages.ts";
+import {
+  appendPage,
+  itemsToCome,
+  loadAgain,
+  merged,
+  usePages,
+  type Page,
+  type Pages,
+} from "./use-pages.ts";
 
 /**
  * A poller a test runs by hand: each ask a hook starts is kept, and the test runs it and reads what
@@ -298,5 +306,22 @@ describe("appendPage", () => {
       items: [1, 2, 3],
       nextCursor: "",
     });
+  });
+});
+
+describe("itemsToCome", () => {
+  it("is the list's total less those come, none once the last page has, or with no total", () => {
+    expect(itemsToCome({ items: [1, 2], nextCursor: "2", total: 5 })).toBe(3);
+    expect(itemsToCome({ items: [1, 2], nextCursor: "", total: 5 })).toBe(0);
+    expect(itemsToCome({ items: [1, 2], nextCursor: "2" })).toBe(0);
+    expect(itemsToCome({ items: [1, 2, 3], nextCursor: "3", total: 2 })).toBe(0);
+  });
+
+  it("takes the total the first page read says, which a later page does not", () => {
+    const pages = [
+      { cursor: "", items: [1, 2], nextCursor: "2", total: 5 },
+      { cursor: "2", items: [3, 4], nextCursor: "4" },
+    ];
+    expect(itemsToCome(merged(pages))).toBe(1);
   });
 });

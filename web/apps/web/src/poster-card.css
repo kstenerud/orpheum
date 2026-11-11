@@ -142,3 +142,16 @@
   background: var(--color-art-shade);
   line-height: 0;
 }
+
+/* A card whose entry has not come yet (PosterGrid's to come): the room it takes, blank. */
+.poster-card--to-come .poster-card__link {
+  cursor: default;
+}
+
+.poster-card--to-come button.poster-card__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+}

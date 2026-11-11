@@ -11,6 +11,22 @@ import type { Resource } from "./use-resource.ts";
 export interface Page<T> {
   readonly items: readonly T[];
   readonly nextCursor: string;
+  /**
+   * How many items the whole list holds, as its first page says it, where its server counts them:
+   * a view sizes the list by it before the other pages come (the owner, 2026-11-11).
+   */
+  readonly total?: number | undefined;
+}
+
+/**
+ * How many items of a list have not come yet, as its total says: none once its last page has come,
+ * and none where it says no total, or fewer than have come (a hint, as its pages may change).
+ */
+export function itemsToCome<T>(page: Page<T>): number {
+  if (page.nextCursor === "" || page.total === undefined) {
+    return 0;
+  }
+  return Math.max(0, page.total - page.items.length);
 }
 
 /**
@@ -32,7 +48,11 @@ export interface Pages<T> {
 
 /** The pages so far with the next one added. */
 export function appendPage<T>(loadedSoFar: Page<T>, page: Page<T>): Page<T> {
-  return { items: [...loadedSoFar.items, ...page.items], nextCursor: page.nextCursor };
+  return {
+    items: [...loadedSoFar.items, ...page.items],
+    nextCursor: page.nextCursor,
+    total: loadedSoFar.total,
+  };
 }
 
 /**
@@ -74,7 +94,7 @@ export function merged<T>(pages: readonly ReadPage<T>[], idOf?: (item: T) => unk
       items.push(item);
     }
   }
-  return { items, nextCursor: pages.at(-1)?.nextCursor ?? "" };
+  return { items, nextCursor: pages.at(-1)?.nextCursor ?? "", total: pages[0]?.total };
 }
 
 /**
@@ -184,7 +204,8 @@ function keepUnchanged<T>(before: ReadPage<T>, now: ReadPage<T>): ReadPage<T> {
   const isSame =
     items.length === before.items.length &&
     items.every((item, index) => item === before.items[index]) &&
-    now.nextCursor === before.nextCursor;
+    now.nextCursor === before.nextCursor &&
+    now.total === before.total;
   return isSame ? before : { ...now, items };
 }
 
