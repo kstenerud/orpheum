@@ -9,6 +9,7 @@ import { filtersKey, filtersQuery, kindsQuery, type ListedKind } from "./list-fi
 import { useBackgroundChangesPoller } from "./polling.ts";
 import type { ListFilters } from "./router.ts";
 import { dataOrThrow } from "./problem.ts";
+import { useRovingTabStop } from "./roving-tab-stop.ts";
 import { useServices } from "./services.tsx";
 import type { Pages } from "./use-pages.ts";
 import { useResource } from "./use-resource.ts";
@@ -31,6 +32,8 @@ export const railLetters = [
  * a mark, a focus container of its own. Given letters (D349 §9.1), only those shown: the ones some
  * title in the list begins with, as the server names them (GET /items/letters); every letter,
  * undefined, for a list that has not asked. A list Z to A lists its letters Z to A, # last (D366 §4).
+ * It is one Tab stop, as a poster grid is (useRovingTabStop; the owner, 2026-11-11): Tab enters it at
+ * the letter last focused and leaves it with the next, the arrows moving from letter to letter.
  */
 export function AlphabetRail(props: {
   readonly onLetter: (letter: string) => void;
@@ -43,8 +46,15 @@ export function AlphabetRail(props: {
       ? railLetters
       : railLetters.filter((letter) => props.letters?.includes(letter) === true);
   const shown = props.isZToA === true ? [...given].reverse() : given;
+  const railRef = useRef<HTMLOListElement>(null);
+  useRovingTabStop(railRef);
   return (
-    <ol className="alphabet-rail" aria-label={t("browse.alphabet")} data-focus-container="">
+    <ol
+      ref={railRef}
+      className="alphabet-rail"
+      aria-label={t("browse.alphabet")}
+      data-focus-container=""
+    >
       {shown.map((letter) => (
         <li key={letter}>
           <button
