@@ -278,10 +278,35 @@ function candidatesFor(
       !skipped.has(element) &&
       !from.contains(element)
     ) {
-      candidates.push({ item: element, box: searchBoxIn(element, coveringTop.has(element)) });
+      candidates.push({
+        item: element,
+        box: searchBoxIn(laidOutAround(element), coveringTop.has(element)),
+      });
     }
   }
   return candidates;
+}
+
+/**
+ * element, or where the browser skips laying out what holds it (content-visibility: auto, the grid's
+ * items off screen), the nearest around it that is laid out: its box is read with no layout forced.
+ * Read inside a skipped item, a box makes the browser lay the whole page out for that item alone, a
+ * tile's few objects among the page's 750: about 5 ms each on the Fire TV, 66 of them (350 ms) on
+ * the press after a page of 60 films came, and 6 on every other press down a grid (the stick's
+ * trace, 2026-11-11). What is skipped lies past the screen by the browser's margin, never the nearest
+ * to a control on it, so the choice stands; where one wins, isFocusTarget then lays it out alone. A
+ * browser that cannot say what it skips (checkVisibility's contentVisibilityAuto, Chromium 121) reads
+ * element itself, as before.
+ */
+function laidOutAround(element: Element): Element {
+  if (typeof element.checkVisibility !== "function") {
+    return element;
+  }
+  let at: Element | null = element;
+  while (at !== null && !at.checkVisibility({ contentVisibilityAuto: true })) {
+    at = at.parentElement;
+  }
+  return at ?? element;
 }
 
 /** The controls inside what covers the page's top (coversTopAttribute). */
