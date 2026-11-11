@@ -9,9 +9,11 @@ import { useTranslation } from "react-i18next";
 
 import {
   AlphabetRail,
+  RailStandContext,
   useAlphabetRailLetters,
   useLetterJump,
   useLetterJumpState,
+  useRailStand,
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
@@ -312,34 +314,38 @@ function LibraryBrowseLayout(props: {
   useResetJumpOnChange(`${String(state.library)}/${criteriaKey(criteria.listed)}`, clearJump);
   const showsRail =
     (state.query !== "" || listedResolved.view === "all") && isByName(listedResolved.sort);
+  const rail = useRailStand();
   return (
-    <section className="browse browse__layout" aria-labelledby="browse-heading">
-      <div ref={listRef}>
-        <LibraryBrowseBar
-          state={state}
-          libraryOptions={props.libraryOptions}
-          resolved={listedResolved}
-          criteria={criteria}
-        />
-        <LibraryBrowseBody
-          state={state}
-          resolved={listedResolved}
-          jump={showsRail ? jump : undefined}
-          listRef={listRef}
-        />
-      </div>
-      {showsRail ? (
-        <LibraryLetters
-          kind={listedResolved.kind}
-          search={state.query}
-          filters={criteria.listed.filters}
-          library={listedResolved.libraryId}
-          sort={listedResolved.sort === "fileName" ? "fileName" : "name"}
-          isZToA={listedResolved.order === "descending"}
-          onLetter={onLetter}
-        />
-      ) : null}
-    </section>
+    <RailStandContext value={rail.standAt}>
+      <section className="browse browse__layout" aria-labelledby="browse-heading">
+        <div ref={listRef}>
+          <LibraryBrowseBar
+            state={state}
+            libraryOptions={props.libraryOptions}
+            resolved={listedResolved}
+            criteria={criteria}
+          />
+          <LibraryBrowseBody
+            state={state}
+            resolved={listedResolved}
+            jump={showsRail ? jump : undefined}
+            listRef={listRef}
+          />
+        </div>
+        {showsRail ? (
+          <LibraryLetters
+            kind={listedResolved.kind}
+            search={state.query}
+            filters={criteria.listed.filters}
+            library={listedResolved.libraryId}
+            sort={listedResolved.sort === "fileName" ? "fileName" : "name"}
+            isZToA={listedResolved.order === "descending"}
+            onLetter={onLetter}
+            railRef={rail.railRef}
+          />
+        ) : null}
+      </section>
+    </RailStandContext>
   );
 }
 
@@ -449,9 +455,17 @@ function LibraryLetters(props: {
   readonly sort: "name" | "fileName";
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
+  readonly railRef: RefObject<HTMLOListElement | null>;
 }): JSX.Element {
   const letters = useAlphabetRailLetters(props);
-  return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
+  return (
+    <AlphabetRail
+      onLetter={props.onLetter}
+      letters={letters}
+      isZToA={props.isZToA}
+      railRef={props.railRef}
+    />
+  );
 }
 
 /** An entry's id, by which a list shows an entry read twice once. */

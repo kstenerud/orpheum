@@ -2,7 +2,38 @@
 
 import { useEffect, type RefObject } from "react";
 
-import { focusableSelector, rovingAttribute } from "./focus-engine.ts";
+import { entryAttribute, focusableSelector, rovingAttribute } from "./focus-engine.ts";
+
+/** The roving controls in container: those its tab stop took out of Tab's order, and its stop. */
+function rovingIn(container: Element): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>(`[${rovingAttribute}]`)];
+}
+
+/** container's tab stop: its roving control still in Tab's order, if it has one. */
+function stopIn(container: Element): HTMLElement | undefined {
+  return rovingIn(container).find((control) => control.tabIndex >= 0);
+}
+
+/** Makes control container's one tab stop, every other roving control in it out of Tab's order. */
+function moveStopTo(container: Element, control: HTMLElement): void {
+  for (const each of rovingIn(container)) {
+    each.tabIndex = each === control ? 0 : -1;
+    each.removeAttribute(entryAttribute);
+  }
+}
+
+/**
+ * Makes control, one of a roving tab stop's container's, the stop, and where an arrow coming into
+ * the container from outside goes (entryAttribute), until focus moves in the container: the
+ * alphabet rail's letter of the poster focused beside it (the owner, 2026-11-11).
+ */
+export function standTabStopAt(container: Element, control: HTMLElement): void {
+  if (!control.hasAttribute(rovingAttribute) || control.contains(document.activeElement)) {
+    return;
+  }
+  moveStopTo(container, control);
+  control.setAttribute(entryAttribute, "");
+}
 
 /**
  * Makes the controls in the list containerRef holds one Tab stop (a roving tab stop): Tab enters the
@@ -21,9 +52,9 @@ export function useRovingTabStop(containerRef: RefObject<HTMLElement | null>): v
     if (container === null) {
       return undefined;
     }
-    let stop: HTMLElement | undefined;
     // The controls root holds, and root itself where it is one, out of Tab's order.
     const takeIn = (root: HTMLElement): void => {
+      const stop = stopIn(container);
       for (const control of [root, ...root.querySelectorAll<HTMLElement>(focusableSelector)]) {
         if (control !== stop && control.tabIndex >= 0 && control.matches(focusableSelector)) {
           control.tabIndex = -1;
@@ -31,18 +62,10 @@ export function useRovingTabStop(containerRef: RefObject<HTMLElement | null>): v
         }
       }
     };
-    const moveStopTo = (control: HTMLElement | undefined): void => {
-      if (stop !== undefined && stop !== control) {
-        stop.tabIndex = -1;
-      }
-      stop = control;
-      if (stop !== undefined) {
-        stop.tabIndex = 0;
-      }
-    };
     const keepAStop = (): void => {
-      if (stop === undefined || !container.contains(stop)) {
-        moveStopTo(container.querySelector<HTMLElement>(`[${rovingAttribute}]`) ?? undefined);
+      const first = rovingIn(container)[0];
+      if (stopIn(container) === undefined && first !== undefined) {
+        moveStopTo(container, first);
       }
     };
     takeIn(container);
@@ -61,7 +84,7 @@ export function useRovingTabStop(containerRef: RefObject<HTMLElement | null>): v
     const focused = (event: FocusEvent): void => {
       const target = event.target;
       if (target instanceof HTMLElement && target.hasAttribute(rovingAttribute)) {
-        moveStopTo(target);
+        moveStopTo(container, target);
       }
     };
     container.addEventListener("focusin", focused);

@@ -10,6 +10,7 @@
 import {
   caretOf,
   coversTopAttribute,
+  entryAttribute,
   firstFocusTargetIn,
   geometricFocus,
   isFocusTarget,
@@ -265,7 +266,8 @@ export interface FocusMoving {
 
 /**
  * Where an arrow in direction goes from from within region: the engine's choice, unless that enters
- * a container from outside it which remembers what last had focus in it, which is then where it goes.
+ * a container from outside it which marks its entry (entryAttribute) or remembers what last had focus
+ * in it, which is then where it goes, the entry first.
  */
 function destinationOf(
   from: HTMLElement,
@@ -283,7 +285,15 @@ function destinationOf(
   const entered = rememberingAround(next, region)
     .filter((around) => !around.contains(from))
     .at(-1);
-  return (entered === undefined ? undefined : moving.memory.rememberedIn(entered)) ?? next;
+  if (entered === undefined) {
+    return next;
+  }
+  const entry = entered.querySelector<HTMLElement>(`[${entryAttribute}]`);
+  return (
+    (entry !== null && isFocusTarget(entry) ? entry : undefined) ??
+    moving.memory.rememberedIn(entered) ??
+    next
+  );
 }
 
 /**
