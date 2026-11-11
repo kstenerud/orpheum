@@ -1,0 +1,599 @@
+# The films, series and media files the repository may name (scripts/check_media_names.py).
+#
+# What the owner watches is personal, and the repository is public (the owner, 2026-11-11;
+# agent-failures A70). A test that needs a title takes one listed here. A new one is a name no film
+# of the owner's has, never a line copied from a file listing: invented, or an old film out of
+# copyright (before 1929). Adding one is a gate change: the owner's `Gate-Changed:` trailer.
+#
+# An entry is `<name> | <why it is needed>`. Names are matched with case, dots, underscores and
+# edge punctuation set aside ("Velvet.Static" is "velvet static").
+
+[names]
+# A stand-in that names no film: a letter, a word, a placeholder.
+a | a test's stand-in file name, naming no film
+b | a test's stand-in file name, naming no film
+c | a test's stand-in file name, naming no film
+d | a test's stand-in file name, naming no film
+e | a test's stand-in file name, naming no film
+f | a test's stand-in file name, naming no film
+h | a test's stand-in file name, naming no film
+i | a test's stand-in file name, naming no film
+m | a test's stand-in file name, naming no film
+n | a test's stand-in file name, naming no film
+o | a test's stand-in file name, naming no film
+s | a test's stand-in file name, naming no film
+t | a test's stand-in file name, naming no film
+u | a test's stand-in file name, naming no film
+v | a test's stand-in file name, naming no film
+x | a test's stand-in file name, naming no film
+z | a test's stand-in file name, naming no film
+a b | a test's stand-in file name, naming no film
+a2 | a test's stand-in file name, naming no film
+a9 | a test's stand-in file name, naming no film
+f1 | a test's stand-in file name, naming no film
+f2 | a test's stand-in file name, naming no film
+h1 | a test's stand-in file name, naming no film
+h2 | a test's stand-in file name, naming no film
+h3 | a test's stand-in file name, naming no film
+m2 | a test's stand-in file name, naming no film
+film | a test's stand-in file name, naming no film
+film 0 | a test's stand-in file name, naming no film
+film00 | a test's stand-in file name, naming no film
+film01 | a test's stand-in file name, naming no film
+film29 | a test's stand-in file name, naming no film
+film nnn | a placeholder for a film's numbered file
+nnnnn | a placeholder for a numbered file
+movie | a test's stand-in file name, naming no film
+movie name | a placeholder for a film's name
+the movie | a placeholder for a film's name
+show | a test's stand-in file name, naming no film
+show name | a placeholder for a series' name
+series title | a placeholder for a series' name
+anime title | a placeholder for a series' name
+title | a placeholder for a title
+episode | a placeholder for an episode's file
+ep | a placeholder for an episode's file
+video | a test's stand-in file name, naming no film
+vid | a test's stand-in file name, naming no film
+media | a test's stand-in file name, naming no film
+clip | a test's stand-in file name, naming no film
+sample | a sample file, which the scan skips
+x sample | a sample file, which the scan skips
+x-sample | a sample file, which the scan skips
+or x-sample | a sample file, which the scan skips
+issamplefile is sample | a sample file, which the scan skips
+subtitle | a test's stand-in subtitle file
+subtitle text | a test's stand-in subtitle file
+subtitle_text | a test's stand-in subtitle file
+no-such-subtitle | a subtitle file a test says is missing
+orpheum-dev-subtitle | a test's subtitle file
+test | a test's stand-in file name, naming no film
+test show | a placeholder for a series' name
+test-invalid-frame | a test's broken file
+synthetic film | a test's generated file
+remux film | a test's stand-in file name, naming no film
+hevc film | a test's stand-in file name, naming no film
+truehd film | a test's stand-in file name, naming no film
+direct play film | a test's stand-in file name, naming no film
+play film | a test's stand-in file name, naming no film
+two versions film | a test's stand-in file name, naming no film
+two versions film trailer | a test's stand-in extra
+old film | a test's stand-in file name, naming no film
+another name | a test's stand-in file name, naming no film
+something else | a test's stand-in file name, naming no film
+something else entirely | a test's stand-in file name, naming no film
+something else-trailer | a test's stand-in extra
+other | a test's stand-in file name, naming no film
+old | a test's stand-in file name, naming no film
+first | a test's stand-in file name, naming no film
+second | a test's stand-in file name, naming no film
+twelve | a test's stand-in file name, naming no film
+alpha | a test's stand-in file name, naming no film
+beta | a test's stand-in file name, naming no film
+secret | a test's stand-in file name, naming no film
+broken | a test's broken file
+gone | a file a test removes
+removed | a file a test removes
+renamed-away | a file a test renames
+kept | a file a test keeps
+excluded | a file a test excludes
+locked | a file a test locks
+loose | a file outside a folder, in a test
+dangling | a link with no target, in a test
+hashed | a test's stand-in file name, naming no film
+indexed | a test's stand-in file name, naming no film
+joined | a test's stand-in file name, naming no film
+fixed | a test's stand-in file name, naming no film
+unknown | a test's stand-in file name, naming no film
+nothing | a test's stand-in file name, naming no film
+empty | a test's empty file
+whole | a test's stand-in file name, naming no film
+cut | a test's stand-in file name, naming no film
+big | a test's large file
+bigfile | a test's large file
+large | a test's large file
+small | a test's small file
+heavy | a test's heavy file
+loud | a test's sound file
+plain | a test's stand-in file name, naming no film
+black | a test's black-picture file
+two spaces | a file name with two spaces, in a test
+source | a test's stand-in file name, naming no film
+media files | a test's stand-in folder
+not a video | a file that is no video, in a test
+not-a-root | a folder that is no library root, in a test
+truncated-container | a test's broken file
+film-moov-at-end | a test's file whose index is at its end
+appledouble-sidecar | the hidden file a Mac writes beside a file
+downloading | a file still being written, in a test
+init | an HLS stream's init segment
+tvshow | Kodi's series sidecar, tvshow.nfo
+pipe | a test's stand-in file name, naming no film
+url | a test's stand-in file name, naming no film
+link | a test's stand-in file name, naming no film
+img | a test's stand-in file name, naming no film
+id | a test's stand-in file name, naming no film
+setup | a test's stand-in file name, naming no film
+flow | a test's stand-in file name, naming no film
+lead-in | a test's stand-in file name, naming no film
+timing | a sound-timing test's file
+soundtiming | a sound-timing test's file
+sound-timing | a sound-timing test's file
+soundtiming vp9-opus | a sound-timing test's file
+a tone at three seconds | a sound-timing test's file
+no replaygain | a loudness test's file
+zero replaygain | a loudness test's file
+mixed-lyrics | a lyrics test's file
+02d | a format verb in a file name's pattern
+03d | a format verb in a file name's pattern
+05d | a format verb in a file name's pattern
+xff | an escaped byte in a test's file name
+xfe | an escaped byte in a test's file name
+xe9 | an escaped byte in a test's file name
+xe9 nights | an escaped byte in a test's file name
+xe9lie | an escaped byte in a test's file name
+xffbyte | an escaped byte in a test's file name
+nbreak | a line break in a test's file name
+byte | a test's stand-in file name, naming no film
+ijfi38js | a random name in a test
+ajifajjj eppj | a random name in a test
+xxxxx xxxxx | a placeholder name of letters x
+cd1 | a disc part in a file's name
+cd2 | a disc part in a file's name
+vts 01 | a DVD's title file
+video ts | a DVD's folder
+season 2 | a season folder
+folge | an episode word (German) in a parser test
+a-copy | a test's stand-in file name, naming no film
+break | a test's stand-in file name, naming no film
+breakdance | a test's stand-in file name, naming no film
+brisk | a test's stand-in file name, naming no film
+candidate | a test's stand-in file name, naming no film
+concat | a test's stand-in file name, naming no film
+d - its name | a test's stand-in file name, naming no film
+02d - its name | a test's stand-in file name, naming no film
+d) | a test's stand-in file name, naming no film
+dark | a test's stand-in file name, naming no film
+etc shadow | a test's stand-in file name, naming no film
+error etc shadow | a test's stand-in file name, naming no film
+skip etc shadow | a test's stand-in file name, naming no film
+into another root | a test's stand-in file name, naming no film
+listed into another root | a test's stand-in file name, naming no film
+observed into another root | a test's stand-in file name, naming no film
+out of the roots | a test's stand-in file name, naming no film
+skip out of the roots | a test's stand-in file name, naming no film
+hostile | a test's stand-in file name, naming no film
+lie | a test's stand-in file name, naming no film
+remuxed | a test's stand-in file name, naming no film
+untitled rip | a test's stand-in file name, naming no film
+untitled rip final v2 | a test's stand-in file name, naming no film
+vkm | a test's stand-in file name, naming no film
+vs | a test's stand-in file name, naming no film
+vts | a test's stand-in file name, naming no film
+the | a test's stand-in file name, naming no film
+01 invisible edit version | a test's stand-in file name, naming no film
+# What an extra is called: the scan files it beside its film.
+trailer | an extra's kind, in a test
+teaser | an extra's kind, in a test
+featurette | an extra's kind, in a test
+interview | an extra's kind, in a test
+making of | an extra's kind, in a test
+the making of | an extra's kind, in a test
+gag reel | an extra's kind, in a test
+bloopers | an extra's kind, in a test
+out-takes | an extra's kind, in a test
+on location | an extra's kind, in a test
+on set day | an extra's kind, in a test
+alternate ending | an extra's kind, in a test
+the director talks | an extra's kind, in a test
+cast interview | an extra's kind, in a test
+special features - deleted scenes | an extra's folder, in a test
+pilot | an episode's name, in a test
+1 pilot | an episode's name, in a test
+01 pilot | an episode's name, in a test
+second pilot | an episode's name, in a test
+third pilot | an episode's name, in a test
+fourth pilot | an episode's name, in a test
+unaired pilot | an episode's name, in a test
+season 2 recap | an episode's name, in a test
+# Invented for the tests: no film or series of these names is known to the authors.
+arkon | invented for the tests
+arkons | invented for the tests
+arkon horizon | invented for the tests
+velvet static | invented for the tests
+velvet static 2 | invented for the tests
+velvet static 3d | invented for the tests
+moss and bramble | invented for the tests
+moss-and-bramble | invented for the tests
+moss & thistle | invented for the tests
+salt harbour | invented for the tests
+quiet harbour | invented for the tests
+harbour winter | invented for the tests
+harbour lantern | invented for the tests
+harbour lights | invented for the tests
+harbor lights | invented for the tests
+harbor lights 14 | invented for the tests
+a harbor tale | invented for the tests
+moonlit ferry | invented for the tests
+moonlit ferry - a harbor tale | invented for the tests
+moonlit ferry: a harbor tale | invented for the tests
+kestrel | invented for the tests
+kestrel! | invented for the tests
+kestrel point | invented for the tests
+kestrel point ii | invented for the tests
+kestrel point iv | invented for the tests
+kestrel point part vi | invented for the tests
+kestrel point iii - the return | invented for the tests
+kestrel point - the other shore | invented for the tests
+24 hours in kestrel | invented for the tests
+thistle | invented for the tests
+the glass cartographer | invented for the tests
+kitsune relay | invented for the tests
+orchard road | invented for the tests
+orchard road the movie | invented for the tests
+hollow violet | invented for the tests
+orbitorama | invented for the tests
+emberwing | invented for the tests
+copperfield station | invented for the tests
+copperfield station, the | invented for the tests
+copperfield | invented for the tests
+théo | invented for the tests (an accented name)
+theo | invented for the tests
+lanternfall | invented for the tests
+lanternfall part | invented for the tests
+lantern | invented for the tests
+lanterns | invented for the tests
+lantern 13 | invented for the tests
+lantern 1999 | invented for the tests
+lantern night | invented for the tests
+the lantern keeper | invented for the tests
+the director's lantern | invented for the tests
+the 12 lanterns | invented for the tests
+the 39 lanterns | invented for the tests
+route 66 lanterns | invented for the tests
+station | invented for the tests
+station 9 | invented for the tests
+station 9 - 04 - relief | invented for the tests
+glass tide | invented for the tests
+harrow | invented for the tests
+pale harrow bbc | invented for the tests
+hoshi no mori | invented for the tests
+kumo no michi | invented for the tests
+michi | invented for the tests
+the otter king | invented for the tests
+eleven harbors | invented for the tests
+seven ferries | invented for the tests
+seven seas ferry | invented for the tests
+snowbound ferry | invented for the tests
+the ferry christmas | invented for the tests
+making the ferry | invented for the tests
+ferry-trailer park | invented for the tests
+grimwell | invented for the tests
+on grimwell | invented for the tests
+greywolf | invented for the tests
+nightjar ii | invented for the tests
+24 hours of nightjar | invented for the tests
+night berths | invented for the tests
+nova trail night berths | invented for the tests
+the 100 steps | invented for the tests
+the 300 rooms | invented for the tests
+the 300 rooms - 1x05 - room | invented for the tests
+room | invented for the tests
+room 1080 | invented for the tests
+the 3x3 club | invented for the tests
+the girl in the attic | invented for the tests
+the wanderer | invented for the tests
+theatrical embers | invented for the tests
+static prelude | invented for the tests
+making the static | invented for the tests
+six seasons and a finale | invented for the tests
+grace and folly | invented for the tests
+gravel choir | invented for the tests
+harlow girls | invented for the tests
+copper winter | invented for the tests
+ember tide | invented for the tests
+far orbit seven | invented for the tests
+grey comet | invented for the tests
+the hollow garden | invented for the tests
+quiet ravens | invented for the tests
+solitary wren | invented for the tests
+relay 7 | invented for the tests
+route 9 diner | invented for the tests
+vanished | invented for the tests
+elsewhere | invented for the tests
+nowhere show | invented for the tests
+unsearched show | invented for the tests
+winter | invented for the tests
+nights | invented for the tests
+mirage | invented for the tests
+ceremony | invented for the tests
+beach | invented for the tests
+beach day | invented for the tests
+picnic | invented for the tests
+plage | invented for the tests
+trip | invented for the tests
+mission | invented for the tests
+escape | invented for the tests
+inside | invented for the tests
+king | invented for the tests
+hest | invented for the tests
+ulme | invented for the tests
+fennel | invented for the tests
+ashwood | invented for the tests
+deadbolt | invented for the tests
+marrow | invented for the tests
+greywolf - 1x4 - born to be king | invented for the tests
+music video - deep water | invented for the tests
+music video - do the dance | invented for the tests
+02 invisible | invented for the tests
+01 invisible | invented for the tests
+foo special | invented for the tests
+market cut | invented for the tests
+élan vital | invented for the tests (an accented name)
+ça ira | invented for the tests (an accented name)
+café | invented for the tests (an accented name)
+le cœur des phares | invented for the tests (a ligature)
+les phares du nord | invented for the tests (an accented name)
+phares | invented for the tests
+ölfeld | invented for the tests (an accented name)
+ödet | invented for the tests (an accented name)
+żurawie nad wisłą | invented for the tests (Polish letters)
+wisłą | invented for the tests (Polish letters)
+ψαράδεσ | invented for the tests (Greek letters)
+ψαράδεσ τησ αυγήσ | invented for the tests (Greek letters)
+ведьмин лес | invented for the tests (Cyrillic letters)
+маяк | invented for the tests (Cyrillic letters)
+смотритель маяка | invented for the tests (Cyrillic letters)
+منارة الشمال | invented for the tests (Arabic letters)
+भ | a Devanagari letter, in a test
+灯台の町 | invented for the tests (Japanese letters)
+灯台の町 夏の夜 | invented for the tests (Japanese letters)
+灯台守 | invented for the tests (Japanese letters)
+등대 마을 | invented for the tests (Korean letters)
+등대지기 | invented for the tests (Korean letters)
+ｎｉｇｈｔｊａｒ | invented for the tests (full-width letters)
+ｖｅｌｖｅｔ ｓｔａｔｉｃ | invented for the tests (full-width letters)
+# Open films, free to name.
+sintel | the Blender Foundation's open film (CC BY), its subtitles
+sintel cn | the Blender Foundation's open film (CC BY), a subtitle's name
+sintel fi ep | the Blender Foundation's open film (CC BY), a subtitle's name
+sintel mk | the Blender Foundation's open film (CC BY), a subtitle's name
+sintel nl | the Blender Foundation's open film (CC BY), a subtitle's name
+sintel no | the Blender Foundation's open film (CC BY), a subtitle's name
+sintel-m+e-st | the Blender Foundation's open film (CC BY), a subtitle's name
+tos-en | the Blender Foundation's open film Tears of Steel (CC BY), a subtitle's name
+tos-pt-br | the Blender Foundation's open film Tears of Steel (CC BY), a subtitle's name
+# Out of copyright: films made before 1929, the stand-ins for a real film's name.
+metropolis | out of copyright (1927)
+the phantom of the opera | out of copyright (1925)
+the cameraman | out of copyright (1928)
+the unknown | out of copyright (1927)
+7th heaven | out of copyright (1927)
+a woman of paris | out of copyright (1923)
+a fool there was | out of copyright (1915)
+intolerance | out of copyright (1916)
+destiny | out of copyright (1921)
+greed | out of copyright (1924)
+the freshman | out of copyright (1925)
+der golem | out of copyright (1920)
+der letzte mann | out of copyright (1924)
+faust | out of copyright (1926)
+the thief of bagdad | out of copyright (1924)
+nanook of the north | out of copyright (1922)
+the big parade | out of copyright (1925)
+the navigator | out of copyright (1924)
+wings | out of copyright (1927)
+sparrows | out of copyright (1926)
+variety | out of copyright (1925)
+the lodger | out of copyright (1927)
+the crowd | out of copyright (1928)
+fièvre | out of copyright (1921)
+броненосец потёмкин | out of copyright (1925)
+аэлита | out of copyright (1924)
+狂った一頁 | out of copyright (1926)
+十字路 | out of copyright (1928)
+아리랑 | out of copyright (1926)
+arirang | out of copyright (1926)
+häxan | out of copyright (1922)
+nosferatu | out of copyright (1922)
+the general | out of copyright (1926)
+sherlock jr | out of copyright (1924)
+the kid | out of copyright (1921)
+sunrise | out of copyright (1927)
+the gold rush | out of copyright (1925)
+# Invented in place of a real series' name (2026-11-11).
+apa | invented for the tests
+tango | invented for the tests
+alcazar | invented for the tests
+ira | invented for the tests
+gus doyle | invented for the tests
+long run | invented for the tests
+kestrel 2x4 | invented for the tests
+the other shore | invented for the tests
+the return | invented for the tests
+part two | invented for the tests
+lanternfall part 2 | invented for the tests
+lanternfall - part two | invented for the tests
+lanternfall - pt | invented for the tests
+lanternfall 4of6 | invented for the tests
+lanternfall part two | invented for the tests
+lanternfall pt ii | invented for the tests
+kitsune relay - 08 | invented for the tests
+orchard road - 13 | invented for the tests
+orchard road - the lost reel | invented for the tests
+orchard road 03 the ferry | invented for the tests
+théo: the guardian | invented for the tests
+far orbit seven a bold beginning | invented for the tests
+loose ends | invented for the tests
+velvet static - deleted scene | invented for the tests
+velvet static: chapter 3 | invented for the tests
+velvet static extended edition | invented for the tests
+moth-lantern | invented for the tests
+metropols | invented for the tests
+copper kettle | invented for the tests
+puddlejump | invented for the tests
+tin comet | invented for the tests
+brass arena | invented for the tests
+the ledger room | invented for the tests
+umi no tobira | invented for the tests
+lantern's agents of f.l.a.r.e | invented for the tests
+quillwick | invented for the tests
+cidade das gaivotas | invented for the tests
+brindlewood | invented for the tests
+doctor wren | invented for the tests
+flatmates of ferris row | invented for the tests
+kaito kumo | invented for the tests
+wed at first light au | invented for the tests
+fennimore | invented for the tests
+the nightly lantern | invented for the tests
+the pumbletons | invented for the tests
+the loom of hours | invented for the tests
+lzbp101 | invented for the tests
+clarabel | invented for the tests
+lockfast | invented for the tests
+ned wicket | invented for the tests
+mister 517 | invented for the tests
+learning to row | invented for the tests
+lamplight hour | invented for the tests
+balloon heist | invented for the tests
+lanternless | invented for the tests
+mabel | invented for the tests
+sølvi live | invented for the tests
+glass runner 2061 | invented for the tests
+station 2061 | invented for the tests
+harbor's nine | invented for the tests
+orbitorama | invented for the tests
+comet pilot | invented for the tests
+piper on the pier | invented for the tests
+4-2-7 dispatch | invented for the tests
+6-1-6 lullaby | invented for the tests
+iron-heron | invented for the tests
+belle starling tv | invented for the tests
+wing | invented for the tests
+# Not media: sites, tools, products and standards a name before a year or a file names.
+orpheum | this project
+the app and account on orpheum cc, the api unmoved, staging on orpheum dev, the website on orpheum | this project's sites
+orpheum cc, orpheum dev and orpheum | this project's sites
+www orpheum | this project's site
+ffmpeg | a tool
+mkvmerge | a tool
+docker | a tool
+plex | a media server, compared
+spotify | a service, compared
+youtube family | a service, compared
+hbo max | a service, compared
+netflix party | a service, compared
+amazon | a service, compared
+apple up next | a service, compared
+swiftui | a framework
+flexbox | a CSS layout
+from css2 | a CSS standard
+design tokens | a design method
+cldr 23 | a Unicode release
+itu-t g 114 | a telephony standard
+mac os 8 5 | an operating system
+tizen 10 | an operating system
+fire tv stick hd | a device
+fire tv stick 4k select | a device
+stick hd | a device
+stick 4k | a device
+4k plus | a device
+4k select | a device
+vega: the stick 4k select | a device
+nvenc | a GPU encoder
+cuda | a GPU toolkit
+gpg | a tool
+dolby vision | a picture format
+riedl and müller-putz | a study's authors
+bailenson | a study's author
+sa-26:13 on 2026-09-18 cve-2024-10441 | a security advisory
+summer of 1969 | a year in a test's sentence
+ases | a network's kind, before a year
+cast and hls | a study's subject, before a year
+continue watching and watchlist | a feature compared, before a year
+
+[words]
+# Not titles: what "the owner's …", "playing …" and "cast …" are said of in the docs.
+fire tv | a device
+fire tvs | a device
+tcl | a device's maker
+mac | a device
+macbook | a device
+macbook air | a device
+apple-silicon macbook air | a device
+thinkpad | a device
+samsung | a device's maker
+chromecast | a device
+android | an operating system
+chrome | a browser
+firefox | a browser
+yubikeys | a device
+tvs | devices
+watch | a device
+intel | a chip maker
+cloudflare | a service
+github | a service
+youtube | a service
+signal | a service
+jellyfin | a media server, compared
+plex | a media server, compared
+matroska | a file format
+truehd | a sound format
+dolby vision | a picture format
+ffmpeg | a tool
+ds-lite | a network kind
+gate-changed | a commit trailer
+watch together | this project's feature
+continue watching | this project's feature
+next up | this project's feature
+orpheum | this project
+listfilmswithoutsound | a function's name
+fileid | a field's name
+film | a word, not a title
+films | a word, not a title
+episode | a word, not a title
+cast | a word, not a title
+collection | a word, not a title
+ordering | a word, not a title
+nfo | a sidecar file's kind
+tmdb | the metadata provider
+english | a language
+german | a language
+forward | a word, not a title
+stop | a word, not a title
+blind | a word, not a title
+pilot | an episode's name, in a test
+emberwing | invented for the tests
+arkons | invented for the tests
+
+certificate transparency | a security standard
+oses | operating systems
+
+[episode-files]
+# Where an episode's marker is the subject: the parser, its tests and the research behind them.
+internal/core/identify/* | the filename parser and its tests
+internal/testutil/* | the test fixtures' file trees
+scripts/check_media_names.py | this gate's own patterns
+scripts/tests/test_check_media_names.py | this gate's tests
+docs/contributors/design/research/library-scanner-practice-2026-10-16.md | the naming conventions' research
+docs/contributors/design/plans/episode-orderings.md | the episode orderings' design
