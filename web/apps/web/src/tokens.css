@@ -171,6 +171,14 @@
   box-shadow: 0 0 0 calc(var(--focus-ring-width) * 2) var(--focus-ring-outer-color);
 }
 
+/* Forced colours draw no shadow, so there the ring is its outline alone, in the colour the person's
+   system marks what is chosen with (focus-ring-contrast.test.ts). */
+@media (forced-colors: active) {
+  :root {
+    --focus-ring-inner-color: Highlight;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
