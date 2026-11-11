@@ -59,6 +59,7 @@ import { tellNextChunkLoad } from "./next-chunk.ts";
 import { skipChunksNotMade } from "./skip-unmade.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
+import { stepOverHoles } from "./holes.ts";
 import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
@@ -448,6 +449,7 @@ function followAheadGroupSoundAndStalls(
     tellStalls(video, by.abr.choosing),
     tellMainThreadStalls(hls, video, longTasksOf(globalThis)),
     endAtTheLastFrame(hls, video),
+    stepOverHoles(video, linkNoter(video)),
   ];
 }
 

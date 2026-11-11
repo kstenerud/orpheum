@@ -225,6 +225,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   VQ121). How a freeze is found is the SDK's `watchFreezes`, the one way for the whole page: the
   web app reports every page's freezes through it too (its `page-freezes.ts`). `main-thread.test.ts`,
   `chunked.test.ts`.
+- **A video asked to play that stands still for a second in a hole of at most `widestHoleS` (1 s)
+  in what it has loaded is stepped over it**, in both hls.js players, as its own move
+  (`playerMovedItselfEvent`, "hole"), and noted with its linkNotes (`stepOverHoles`,
+  `src/holes.ts`): hls.js steps a hole only within a piece it still tracks, and after the browser's
+  bufferFullError and its flush a Fire TV stood 0.12 s short of its next picture for good (the
+  owner's, 2026-11-11; VQ298). A paused or seeking video is left to its own. `holes.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
   with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
   `chunked.test.ts`.
