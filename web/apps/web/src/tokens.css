@@ -35,8 +35,7 @@
    * Two colours with one meaning each (D278 §4, the owner's choices from samples): yellow, signal
    * yellow, for something wrong that needs fixing or could not be done, which never reads as the
    * coral accent; and red for what cannot be undone, deep to fill its button under white words,
-   * bright for its words and outlines, and for the edge of a field left wrong (the owner, 2026-11-11).
-   * Looked at on staging, in a browser and on a phone (VQ28).
+   * bright for its words and outlines. Looked at on staging, in a browser and on a phone (VQ28).
    */
   --color-warning: #ffcc00;
   --color-on-warning: #111111;
@@ -48,6 +47,11 @@
   --color-irreversible: #b91c1c;
   --color-on-irreversible: #ffffff;
   --color-irreversible-text: #ff4d4d;
+  /*
+   * The edge of a field left wrong: a red, the same as the irreversible words' today only by chance,
+   * and free to change apart from them (the owner, 2026-11-11).
+   */
+  --color-invalid: #ff4d4d;
   /* What is on, shown in the status tray (D280): a light blue, apart from the accent and both. */
   --color-status: #7cc8ff;
   /* Words and icons on the status blue (D281 §7's Talk button, on). */

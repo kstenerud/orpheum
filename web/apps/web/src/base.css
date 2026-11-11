@@ -135,18 +135,17 @@ textarea {
   padding-block: var(--space-2);
 }
 
-/* A field the person has left wrong shows it at its edge, in the red of what cannot be undone (the
-   owner, 2026-11-11), from when they leave it or send the form, never while they first type; one the
+/* A field the person has left wrong shows it at its edge, in red (the owner, 2026-11-11), from when they leave it or send the form, never while they first type; one the
    server's answer marked wrong (aria-invalid) the same. Two rules, so a browser that does not know
    :user-invalid, which drops a whole rule it cannot read, still draws the second. */
 input:user-invalid,
 select:user-invalid,
 textarea:user-invalid {
-  border-color: var(--color-irreversible-text);
+  border-color: var(--color-invalid);
 }
 
 [aria-invalid="true"]:is(input, select, textarea) {
-  border-color: var(--color-irreversible-text);
+  border-color: var(--color-invalid);
 }
 
 input::placeholder,

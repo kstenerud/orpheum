@@ -41,14 +41,19 @@ describe("a heading", () => {
 
 describe("a field left wrong", () => {
   const edges = declarationsOf(sourceHere("base.css"))
-    .filter((declaration) => declaration.text === "border-color: var(--color-irreversible-text)")
+    .filter((declaration) => declaration.text === "border-color: var(--color-invalid)")
     .map((declaration) => declaration.selector);
 
-  it("has the red edge of what cannot be undone, once the person has left it (:user-invalid)", () => {
+  it("has its own red edge, once the person has left it (:user-invalid)", () => {
     expect(edges).toContain("input:user-invalid, select:user-invalid, textarea:user-invalid");
   });
 
   it("has it too where the server marked it, in a rule of its own a browser without :user-invalid keeps", () => {
     expect(edges).toContain('[aria-invalid="true"]:is(input, select, textarea)');
+  });
+
+  it("is a colour of its own, not the irreversible red's, so either can change alone", () => {
+    const tokens = declarationsOf(sourceHere("tokens.css")).map((declaration) => declaration.text);
+    expect(tokens.filter((text) => text.startsWith("--color-invalid:"))).toHaveLength(1);
   });
 });
