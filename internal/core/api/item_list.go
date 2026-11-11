@@ -160,6 +160,7 @@ type ListItemsOutput struct {
 	Body struct {
 		Items      []ItemEntryBody `json:"items"`
 		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
+		Total      int64           `doc:"How many items the whole list holds, so a client can size it before its other pages come; on the first page alone, asked with no cursor and no from, and absent for an empty list and a list by identification" json:"total,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -215,6 +216,7 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 		output.Body.Items = append(output.Body.Items, itemEntryBody(entry, nodeName))
 	}
 	output.Body.NextCursor = page.NextCursor
+	output.Body.Total = page.Total
 	if input.Person != 0 {
 		if err := server.addCredits(ctx, dependencies, input.Person, output.Body.Items); err != nil {
 			return nil, err

@@ -3995,6 +3995,11 @@
           "nextCursor": {
             "description": "The next page's cursor; absent on the last",
             "type": "string"
+          },
+          "total": {
+            "description": "How many items the whole list holds, so a client can size it before its other pages come; on the first page alone, asked with no cursor and no from, and absent for an empty list and a list by identification",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
