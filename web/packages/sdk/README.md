@@ -111,7 +111,8 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   leader, which plays a start or a seek's hold once enough is loaded, pauses a playing element as it
   seeks to where too little is (`isOwnPause`, so no pause is told or sent for it), plays at once
   where the browser loads no more while paused, gives its wait up to a person's own play and to a
-  group's pause, and stands aside while its element follows a group, which it does only once its
+  group's pause, never to a play already paused again as it is heard (the web app's press kept for
+  its start), and stands aside while its element follows a group, which it does only once its
   session's welcome says so: before it, a play waits as a leader's does (a Fire TV's cast played at
   once, with nothing loaded, and then led). A leader says it buffers, and does not play, while its
   start waits. A paused element is asked to play (`isAskedToPlay`) while its gate's play waits or

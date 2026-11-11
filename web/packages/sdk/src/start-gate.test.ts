@@ -183,6 +183,22 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     expect(play.plays()).toBe(0);
     expect(gate.isWaiting()).toBe(false);
   });
+
+  it("keeps its wait through a play paused again before it is heard, and plays once enough is (2026-11-11)", () => {
+    const media = marrowgateResumed();
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    // The web app's press kept for the start: played and paused at once, its events heard after.
+    void media.play();
+    media.pause();
+    media.fire("play");
+    media.fire("pause");
+    expect(gate.isWaiting()).toBe(true);
+    media.loaded = [[1794.96, 1810.87]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(play.plays()).toBe(1);
+  });
 });
 
 describe("a player alone plays on after a seek only once what it loaded outlasts its next chunk's load", () => {
