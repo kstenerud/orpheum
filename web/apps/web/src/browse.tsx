@@ -59,6 +59,7 @@ import { useTilesInView } from "./tile-interest.ts";
 import { itemsToCome, usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
+import { usePostersFilledAhead, type ArtAhead } from "./posters-filled-ahead.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
 export type Entry =
@@ -114,6 +115,10 @@ export function PosterGrid(props: {
   useFocusedToComeKept(gridRef, props.entries);
   useRovingTabStop(gridRef);
   useRailFollowsFocus(gridRef, props.entries);
+  usePostersFilledAhead(
+    gridRef,
+    useMemo(() => props.entries.map(artAheadOf), [props.entries]),
+  );
   const loaded = props.entries.length;
   const firstToCome = useCallback(
     () => gridRef.current?.querySelector(`[${toComePlaceAttribute}="${String(loaded)}"]`) ?? null,
@@ -170,6 +175,21 @@ function useRailFollowsFocus(
       grid.removeEventListener("focusin", focused);
     };
   }, [gridRef, entries, standRailAt]);
+}
+
+/** The art an entry's card shows, as its poster or still, to fill in ahead (EntryPoster, PosterCard). */
+function artAheadOf(entry: Entry): ArtAhead | undefined {
+  if (entry.kind === "other") {
+    return entry.landscapeSha256 === undefined
+      ? undefined
+      : { sourceSha256: entry.landscapeSha256, kind: "still" };
+  }
+  if (entry.posterSha256 !== undefined) {
+    return { sourceSha256: entry.posterSha256, kind: "poster" };
+  }
+  return entry.noPosterStillSha256 === undefined
+    ? undefined
+    : { sourceSha256: entry.noPosterStillSha256, kind: "still" };
 }
 
 function doNothing(): void {
