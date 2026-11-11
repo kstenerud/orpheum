@@ -384,6 +384,49 @@ function listenToPadHolds(offer: Offer): () => void {
 }
 
 /**
+ * Whether the last move of focus an arrow made is drawn yet: from the move to the end of the frame
+ * after it, its animation frame's callbacks run and the frame's work with them.
+ */
+interface MoveDrawing {
+  readonly isDrawing: () => boolean;
+  /** Says an arrow moved focus now: drawing until the next frame is done. */
+  readonly moved: () => void;
+}
+
+/** No move drawing yet. */
+function createMoveDrawing(): MoveDrawing {
+  let drawingMove = 0;
+  let lastMove = 0;
+  return {
+    isDrawing: () => drawingMove !== 0,
+    moved: () => {
+      lastMove += 1;
+      const move = lastMove;
+      drawingMove = move;
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (drawingMove === move) {
+            drawingMove = 0;
+          }
+        }, 0);
+      });
+    },
+  };
+}
+
+/**
+ * Whether a held arrow's repeat is skipped: one the layer would move focus by while its last move is
+ * not drawn yet. On a slow TV a held arrow's repeats queued faster than moves drew, and focus went on
+ * moving after the key was let go; skipped, a held arrow moves once a drawn frame and stops at its
+ * release (the owner, 2026-11-11: "keys queueing up is a bad thing, but I don't want a fix that
+ * prevents fast scrolling through a movie"). A first press is never skipped, and an arrow something
+ * answers, as the player's held seek, whose travel is the time held (seek-ahead.ts), is never asked.
+ */
+function isRepeatSkipped(detail: CommandDetail, drawing: MoveDrawing): boolean {
+  return isDirection(detail.command) && detail.hold === "continue" && drawing.isDrawing();
+}
+
+/**
  * Starts the input layer: keys, controllers and each focus noted in its container's memory. A key the
  * layer acted on has the browser's own handling prevented, so on a TV's browser our navigation alone
  * moves focus (Silk's spatial mode stops its own move then, idiosyncrasies.md); one it did nothing
@@ -391,6 +434,7 @@ function listenToPadHolds(offer: Offer): () => void {
  */
 export function startInput(ways: InputWays): Input {
   const memory = createContainerMemory(isFocusTarget);
+  const drawing = createMoveDrawing();
   let lastSource: CommandSource | undefined;
   const offer = (detail: CommandDetail): boolean => {
     lastSource = detail.source;
@@ -400,7 +444,18 @@ export function startInput(ways: InputWays): Input {
       detail,
     });
     commandTarget().dispatchEvent(event);
-    return event.defaultPrevented || actByDefault(event.detail, ways, memory);
+    if (event.defaultPrevented) {
+      return true;
+    }
+    // Skipped, it is still the layer's: the browser does not move focus by it either.
+    if (isRepeatSkipped(detail, drawing)) {
+      return true;
+    }
+    const isActed = actByDefault(detail, ways, memory);
+    if (isActed && isDirection(detail.command)) {
+      drawing.moved();
+    }
+    return isActed;
   };
   const dispatch = (command: Command, source: CommandSource): boolean => offer({ command, source });
   const focused = (event: FocusEvent): void => {
