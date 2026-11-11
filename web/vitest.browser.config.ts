@@ -2,6 +2,7 @@
 
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
+import { searchForWorkspaceRoot } from "vite";
 import { defineConfig } from "vitest/config";
 
 import { chromiumArguments, firefoxUserPrefs } from "./e2e/browsers.ts";
@@ -13,13 +14,23 @@ import { VitestTimings } from "./e2e/vitest-timings.ts";
  * module alone (the owner, 2026-10-18). The browser tier keeps what needs the server, the loader or
  * two clients. `make test-web-browser` runs them; vitest.config.ts runs every other test.
  */
+/** Where a failure's screenshot goes, beside the browser tier's results and ignored by git. */
+const attachmentsDir = "../.dev/browser-mode-results";
+
 export default defineConfig({
   plugins: [react()],
   // Vite's own deny list but for its "**/.git/**": revert-red's worktrees and check-pr's tree live
   // under .git/, where it refused every test file, so each browser-mode probe there failed before a
   // test ran and passed as red (2026-10-26). The repository's own .git keeps its objects and its
   // top-level files (config, index, HEAD) refused.
-  server: { fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/objects/**", "**/.git/*"] } },
+  // A failure's screenshot is written through the server too, and its folder is outside web/, the
+  // workspace root Vite serves alone by default: every one was refused, on CI as here (2026-11-11).
+  server: {
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), attachmentsDir],
+      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/objects/**", "**/.git/*"],
+    },
+  },
   test: {
     include: ["{packages,apps}/*/src/**/*.browser.test.{ts,tsx}"],
     allowOnly: false,
@@ -33,8 +44,7 @@ export default defineConfig({
     fsModuleCache: true,
     // The list as it runs, and every test's and file's timings kept (e2e/vitest-timings.ts).
     reporters: ["default", new VitestTimings({ suite: "vitest-browser" })],
-    // A failure's screenshot, beside the browser tier's results and ignored by git.
-    attachmentsDir: "../.dev/browser-mode-results",
+    attachmentsDir,
     browser: {
       enabled: true,
       headless: true,
