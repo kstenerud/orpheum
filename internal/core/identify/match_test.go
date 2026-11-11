@@ -23,8 +23,8 @@ import (
 
 var (
 	theo = identify.Metadata{
-		ID: "101", Name: "Théo: The Guardian", OriginalName: "Théo", Year: 1994,
-		RuntimeMs: 110 * 60_000, Overview: "A cameraman follows a story.", IDs: map[string]string{"imdb": "tt0345678"},
+		ID: "101", Name: "Théo: The Guardian", OriginalName: "Théo", Year: 1996,
+		RuntimeMs: 112 * 60_000, Overview: "A cameraman follows a story.", IDs: map[string]string{"imdb": "tt0345678"},
 	}
 	metropolis = identify.Metadata{
 		ID: "9019", Name: "Metropolis", OriginalName: "Metropolis", Year: 1927, RuntimeMs: 170 * 60_000,
@@ -48,10 +48,10 @@ func (lib *testLibrary) matchFileTitle(rel string) identify.Outcome {
 func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{
+	lib.provider.Searches[identifytest.SearchKey("Théo", 1996)] = []identify.Candidate{
 		lib.provider.Add(theo), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
 	}
-	const rel = "Théo (1994)/Théo (1994).mkv"
+	const rel = "Théo (1996)/Théo (1996).mkv"
 	report := lib.scan(videoRecord(rel))
 	if len(report.AwaitingMatch) != 1 || lib.titlesByPath()[rel].Filing != identify.FilingUnidentified {
 		t.Fatalf("before matching: %+v, file %+v; want it awaiting its match", report, lib.titlesByPath()[rel])
@@ -65,7 +65,7 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 		if titleName(file) != theo.Name ||
 			ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationIdentified ||
 			file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
-			file.Filing != identify.FilingListed || file.Year == nil || *file.Year != 1994 {
+			file.Filing != identify.FilingListed || file.Year == nil || *file.Year != 1996 {
 			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, titleName(file))
 		}
 	}
@@ -84,11 +84,11 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 func TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Theo", 1994)] = []identify.Candidate{
+	lib.provider.Searches[identifytest.SearchKey("Theo", 1996)] = []identify.Candidate{
 		lib.provider.Add(theo), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
 	}
-	lib.scan(videoRecord("Theo (1994).mkv"))
-	if outcome := lib.matchFileTitle("Theo (1994).mkv"); outcome != identify.OutcomeMatched {
+	lib.scan(videoRecord("Theo (1996).mkv"))
+	if outcome := lib.matchFileTitle("Theo (1996).mkv"); outcome != identify.OutcomeMatched {
 		t.Errorf("outcome %s, want matched: Theo is Théo's original name without its accent", outcome)
 	}
 }
@@ -241,14 +241,14 @@ func TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne(t *testing.T) {
 		oldest,
 		{ID: "13", Name: "The Marten King", Year: 0},
 	}
-	disneys := lib.provider.Add(identify.Metadata{ID: "21", Name: "Alcazar", Year: 1992})
-	disneys.Votes = 11000
-	lib.provider.Searches[identifytest.SearchKey("Alcazar", 1992)] = []identify.Candidate{
-		{ID: "22", Name: "Alcazar", Year: 1992, Votes: 40}, disneys,
+	voted := lib.provider.Add(identify.Metadata{ID: "21", Name: "Alcazar", Year: 1993})
+	voted.Votes = 11000
+	lib.provider.Searches[identifytest.SearchKey("Alcazar", 1993)] = []identify.Candidate{
+		{ID: "22", Name: "Alcazar", Year: 1993, Votes: 40}, voted,
 	}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 0)] = []identify.Candidate{lib.provider.Add(metropolis)}
-	files := map[string]string{"The Marten King.mkv": "11", "Alcazar (1992).mkv": "21", "Metropolis.mkv": "9019"}
-	lib.scan(videoRecord("The Marten King.mkv"), videoRecord("Alcazar (1992).mkv"), videoRecord("Metropolis.mkv"))
+	files := map[string]string{"The Marten King.mkv": "11", "Alcazar (1993).mkv": "21", "Metropolis.mkv": "9019"}
+	lib.scan(videoRecord("The Marten King.mkv"), videoRecord("Alcazar (1993).mkv"), videoRecord("Metropolis.mkv"))
 	for rel, want := range files {
 		if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 			t.Errorf("%s: outcome %s, want matched by a guess", rel, outcome)
