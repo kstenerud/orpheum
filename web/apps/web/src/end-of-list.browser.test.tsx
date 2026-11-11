@@ -17,23 +17,22 @@ import { page } from "vitest/browser";
 import { EndOfList } from "./end-of-list.tsx";
 import { mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
-/** The end of a list below a gap of above pixels, counting each ask; a page loads until finished. */
+/** The end of a list below a gap of above pixels, telling each ask; a page loads until finished. */
 function List(props: {
   readonly above: number;
-  readonly asked: { count: number; finish?: () => void };
+  readonly onAsked: (finish: () => void) => void;
 }): JSX.Element {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const { asked } = props;
+  const { onAsked } = props;
   return (
     <div>
       <div style={{ height: `${String(props.above)}px` }} />
       <EndOfList
         isLoadingMore={isLoadingMore}
         onMore={() => {
-          asked.count += 1;
-          asked.finish = () => {
+          onAsked(() => {
             setIsLoadingMore(false);
-          };
+          });
           setIsLoadingMore(true);
         }}
       />
@@ -60,6 +59,29 @@ async function observedOnce(target: Element | null): Promise<void> {
   });
 }
 
+/** The asks of a list: how many came, and the way to finish the last one's page. */
+interface Asks {
+  readonly count: () => number;
+  readonly finish: () => void;
+  readonly onAsked: (finish: () => void) => void;
+}
+
+/** No ask yet. */
+function asks(): Asks {
+  let count = 0;
+  let finishLast = (): void => undefined;
+  return {
+    count: () => count,
+    finish: () => {
+      finishLast();
+    },
+    onAsked: (finish) => {
+      count += 1;
+      finishLast = finish;
+    },
+  };
+}
+
 let mounted: Mounted | undefined;
 
 afterEach(() => {
@@ -70,27 +92,29 @@ afterEach(() => {
 describe("the end of a list (the Fire TV's trace, 2026-11-11)", () => {
   it("asks for more while it is still a screen and a half below the view", async () => {
     await page.viewport(960, 480);
-    const asked: { count: number; finish?: () => void } = { count: 0 };
-    mounted = await mount(<List above={480 * 2.5} asked={asked} />);
-    await settleUntil(() => asked.count === 1);
-    expect(asked.count).toBe(1);
+    const asked = asks();
+    mounted = await mount(<List above={480 * 2.5} onAsked={asked.onAsked} />);
+    await settleUntil(() => asked.count() === 1);
+    expect(asked.count()).toBe(1);
   });
 
   it("does not ask while it is further than two screens below the view", async () => {
     await page.viewport(960, 480);
-    const asked: { count: number; finish?: () => void } = { count: 0 };
-    mounted = await mount(<List above={480 * 4} asked={asked} />);
+    const asked = asks();
+    mounted = await mount(<List above={480 * 4} onAsked={asked.onAsked} />);
     await observedOnce(mounted.container.querySelector(".end-of-list"));
-    expect(asked.count).toBe(0);
+    expect(asked.count()).toBe(0);
   });
 
   it("asks again when a page has come and it is still that near", async () => {
     await page.viewport(960, 480);
-    const asked: { count: number; finish?: () => void } = { count: 0 };
-    mounted = await mount(<List above={480} asked={asked} />);
-    await settleUntil(() => asked.count === 1);
-    asked.finish?.();
-    await settleUntil(() => asked.count === 2);
-    expect(asked.count).toBe(2);
+    const asked = asks();
+    mounted = await mount(<List above={480} onAsked={asked.onAsked} />);
+    await settleUntil(() => asked.count() === 1);
+    act(() => {
+      asked.finish();
+    });
+    await settleUntil(() => asked.count() === 2);
+    expect(asked.count()).toBe(2);
   });
 });

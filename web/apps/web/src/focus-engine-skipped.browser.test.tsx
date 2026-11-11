@@ -57,16 +57,11 @@ describe("an arrow's search over items the browser skips (content-visibility: au
       throw new Error("no tile");
     }
     from.focus();
-    const read: Element[] = [];
-    const original = Element.prototype.getBoundingClientRect;
-    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
-      this: Element,
-    ) {
-      read.push(this);
-      return original.call(this);
-    });
+    const boxRead = vi.spyOn(Element.prototype, "getBoundingClientRect");
     const next = nextInContainers(from, "down", { root: document.body, engine: geometricFocus });
     expect(next?.textContent).toBe("Tile 5");
-    expect(read.filter((element) => skipped.some((link) => link === element))).toEqual([]);
+    expect(
+      boxRead.mock.contexts.filter((element) => skipped.some((link) => link === element)),
+    ).toEqual([]);
   });
 });
