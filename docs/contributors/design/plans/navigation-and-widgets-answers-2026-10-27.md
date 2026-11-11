@@ -2894,6 +2894,14 @@ The owner's answers:
 4. **Edge fades on poster rows that scroll:** "Let's try it and see. If it hurts performance too much
    then we find a different way." The fades never dim the focused card (D189). Measure on the stick.
 5. **One Tab stop per poster grid and row** (roving tabindex, `role="grid"`): "yes, do it now."
+   - Built: roving tabindex on each poster grid and row, and on the alphabet rail ("When tab takes
+     you to the alphabet bar, it shouldn't then go into the individual letters").
+   - `role="grid"`: closed, not built (the owner, 2026-11-11: "good UX over some particular rule",
+     then "Agreed" to the recommendation). Rows and grids stay lists. A grid role would add little
+     over the roving stop, and it would cost a screen reader's browse mode the plain reading of a
+     list.
+   - The rail is entered at the letter of the poster just left, by an arrow or by Tab (the owner,
+     2026-11-11). Each entry in a list by name now carries its rail letter from the server.
 6. **Every other recommendation in the report is taken**:
    - Long Animation Frame attribution in the freeze reports.
    - Download priorities: `fetchpriority` on the first row's posters, `priority: "low"` on background
