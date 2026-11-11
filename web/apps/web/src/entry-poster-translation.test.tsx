@@ -19,7 +19,7 @@ vi.mock("react-i18next", async (original) => {
   return { ...actual, useTranslation: vi.fn(actual.useTranslation) };
 });
 
-const heat: Entry = {
+const metropolis: Entry = {
   id: 10,
   name: "Metropolis",
   kind: "film",
@@ -33,7 +33,9 @@ describe("a poster card's translations", () => {
     const translations = vi.mocked(reactI18next.useTranslation);
     translations.mockClear();
     const markup = renderToStaticMarkup(
-      withServices(<EntryPoster entry={{ ...heat, posterSha256: "ab12", watchedPercent: 40 }} />),
+      withServices(
+        <EntryPoster entry={{ ...metropolis, posterSha256: "ab12", watchedPercent: 40 }} />,
+      ),
     );
     expect(markup).toContain("1995");
     expect(translations).toHaveBeenCalledTimes(1);
@@ -42,7 +44,7 @@ describe("a poster card's translations", () => {
   it("adds one, for its caption, to a card with no poster", () => {
     const translations = vi.mocked(reactI18next.useTranslation);
     translations.mockClear();
-    const markup = renderToStaticMarkup(withServices(<EntryPoster entry={heat} />));
+    const markup = renderToStaticMarkup(withServices(<EntryPoster entry={metropolis} />));
     expect(markup).toContain("No poster");
     expect(translations).toHaveBeenCalledTimes(2);
   });

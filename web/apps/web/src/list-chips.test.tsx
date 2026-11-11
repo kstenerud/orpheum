@@ -35,14 +35,14 @@ function RoutedFilms(): JSX.Element {
 /** A poller that never asks: the list is read only as the test's steps ask. */
 const neverAsks: Poller = { start: () => () => undefined };
 
-const heat: Entry = {
+const metropolis: Entry = {
   id: 4,
   name: "Metropolis",
   kind: "film",
   identificationState: "identified",
   addedAt: 1,
 };
-const titles: Answer = [200, { items: [heat] }];
+const titles: Answer = [200, { items: [metropolis] }];
 
 /** The query of each GET /items heard, in order. */
 function titlesAsked(heard: readonly Heard[]): URLSearchParams[] {
@@ -76,7 +76,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
       },
       heard,
     );
-    services.navigation.replace({ screen: "films", query: "heat" });
+    services.navigation.replace({ screen: "films", query: "metro" });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
         {withServices(<RoutedFilms />, services)}
@@ -108,7 +108,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
 
     expect(services.navigation.route()).toEqual({
       screen: "films",
-      query: "heat",
+      query: "metro",
       genre: 80,
       decade: 1990,
       isUnwatchedOnly: true,
@@ -119,7 +119,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
       last?.get("genre"),
       last?.get("decade"),
       last?.get("unwatched"),
-    ]).toEqual(["heat", "80", "1990", "true"]);
+    ]).toEqual(["metro", "80", "1990", "true"]);
   });
 
   it("show the chips the address names, the genre by its name, as Back returns to them", async () => {

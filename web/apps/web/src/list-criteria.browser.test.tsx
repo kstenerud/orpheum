@@ -120,7 +120,7 @@ describe("a list's Sort and filter, on a phone's 360 px screen", () => {
     walking = await mountApp(walkServices(filmsList, "/films"));
     const button = await openedByEnter();
     const field = document.querySelector<HTMLInputElement>("input.list-criteria__name");
-    await userEvent.keyboard("heat");
+    await userEvent.keyboard("wing");
     expect(field?.selectionStart).toBe(4);
     await userEvent.keyboard("{ArrowLeft}");
     expect(field?.selectionStart).toBe(3);
@@ -154,10 +154,10 @@ describe("a list's Sort and filter, on a phone's 360 px screen", () => {
     navigation.go({ screen: "films" });
     walking = await mountApp({ ...walkServices(filmsList), navigation });
     const button = await openedByEnter();
-    await userEvent.keyboard("heat");
+    await userEvent.keyboard("wing");
     place.history.back();
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     await expect.poll(() => document.activeElement).toBe(button);
-    await expect.poll(() => navigation.route()).toEqual({ screen: "films", query: "heat" });
+    await expect.poll(() => navigation.route()).toEqual({ screen: "films", query: "wing" });
   });
 });

@@ -398,7 +398,7 @@ function useNotesWhereItPlays(
 /**
  * Where a player moving to a lower quality goes on from: where its video is, once it has loaded
  * enough to say; before that, where it was asked to start. A video not loaded reads 0, and a host
- * resuming Bram at 51:22 was moved to its first minute, whose chunks no one had made (the owner,
+ * resuming a film at 51:22 was moved to its first minute, whose chunks no one had made (the owner,
  * 2026-10-08).
  */
 export function positionToMoveFrom(

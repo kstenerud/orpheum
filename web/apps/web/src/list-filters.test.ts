@@ -23,7 +23,7 @@ const byName: ListCriteria = {
 
 /** Every criterion set at once: the text, a sort run against its own way, and each chip. */
 const everything: ListCriteria = {
-  query: "  heat ",
+  query: "  metro ",
   choice: { sort: "added", order: "ascending" },
   filters: { genre: 3, decade: 1990, isUnwatchedOnly: true },
 };
@@ -38,13 +38,13 @@ describe("a list's Sort and filter's summary (D417 §1)", () => {
 
   it("names a sort run the other way by its way, then the text, the genre, the decade and Unwatched", () => {
     expect(criteriaSummary(t, everything, "Drama")).toBe(
-      "Oldest added · “heat” · Drama · 1990s · Unwatched",
+      "Oldest added · “metro” · Drama · 1990s · Unwatched",
     );
   });
 
   it("leaves the genre out until its name is read", () => {
     expect(criteriaSummary(t, everything, undefined)).toBe(
-      "Oldest added · “heat” · 1990s · Unwatched",
+      "Oldest added · “metro” · 1990s · Unwatched",
     );
   });
 });
@@ -74,7 +74,7 @@ describe("a list's criteria's key", () => {
   it("is another for each criterion changed, and the same for text differing only by spaces", () => {
     const changed: ListCriteria[] = [
       byName,
-      { ...byName, query: "heat" },
+      { ...byName, query: "metro" },
       { ...byName, choice: { sort: "name", order: "descending" } },
       { ...byName, filters: { genre: 3 } },
       { ...byName, filters: { decade: 1990 } },
@@ -82,8 +82,8 @@ describe("a list's criteria's key", () => {
     ];
     const keys = changed.map((each) => criteriaKey(each));
     expect(new Set(keys).size).toBe(keys.length);
-    expect(criteriaKey({ ...byName, query: " heat  " })).toBe(
-      criteriaKey({ ...byName, query: "heat" }),
+    expect(criteriaKey({ ...byName, query: " metro  " })).toBe(
+      criteriaKey({ ...byName, query: "metro" }),
     );
   });
 });
@@ -94,7 +94,7 @@ describe("a list's criteria in the address (listStateOf)", () => {
     expect(listStateOf(everything)).toEqual({
       sort: "added",
       order: "ascending",
-      query: "heat",
+      query: "metro",
       genre: 3,
       decade: 1990,
       isUnwatchedOnly: true,

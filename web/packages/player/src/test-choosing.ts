@@ -20,7 +20,7 @@ import {
 import type { FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 
-/** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
+/** A film's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
 export const levels = [
   { bitrate: 696_000, averageBitrate: 496_000 },
   { bitrate: 1_896_000, averageBitrate: 1_296_000 },

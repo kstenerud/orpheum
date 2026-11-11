@@ -463,9 +463,9 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
 
 describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384 §2)", () => {
   /**
-   * The session page of the host of session sessionId, whose film 4, Metropolis, plays for the group; a
-   * session of its own for each test, whose details no earlier one has read, so the live connection
-   * opens first.
+   * The session page of the host of session sessionId, whose film 4, Metropolis, plays for the
+   * group; a session of its own for each test, whose details no earlier one has read, so the live
+   * connection opens first.
    */
   async function sessionPage(
     heard: Heard[],
@@ -549,7 +549,9 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
 
   it("offers neither the way back nor Stop on the film's own Play page, its pause right there (the owner, 2026-11-07)", async () => {
     const { mounted } = await sessionPage([], 36, { isOnTheFilmsPage: true });
-    expect(mounted.container.querySelector("#together-plays-heading")?.textContent).toBe("Metropolis");
+    expect(mounted.container.querySelector("#together-plays-heading")?.textContent).toBe(
+      "Metropolis",
+    );
     expect(mounted.container.querySelector('a[href="/play/4"]')).toBeNull();
     expect(buttonWithText(mounted.container, "Stop the film for everyone")).toBeUndefined();
     mounted.unmount();

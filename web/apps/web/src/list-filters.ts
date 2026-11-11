@@ -107,7 +107,7 @@ export function clearedCriteria(criteria: ListCriteria): ListCriteria {
 /**
  * The criteria in a few words on one line, the pop-up's button's: the sort, named by its field alone
  * where it runs its own way ("Name"), then the text in quotes, the genre, the decade and Unwatched,
- * each only when chosen: "Name · “heat” · Drama · 1990s · Unwatched". genreName is the chosen genre's,
+ * each only when chosen: "Name · “metro” · Drama · 1990s · Unwatched". genreName is the chosen genre's,
  * undefined until its name is read, the genre left out until then.
  */
 export function criteriaSummary(

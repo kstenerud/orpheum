@@ -53,12 +53,12 @@ describe("the input layer in the app", () => {
   it("gives focus back to the link a page was left by when Back returns to it", async () => {
     const services = testServices("token", "/films");
     mounted = await mount(withServices(<TwoScreens />, services));
-    const ronin = [...mounted.container.querySelectorAll("a")].find(
+    const nosferatu = [...mounted.container.querySelectorAll("a")].find(
       (link) => link.textContent === "Nosferatu",
     );
     act(() => {
-      ronin?.focus();
-      ronin?.click();
+      nosferatu?.focus();
+      nosferatu?.click();
     });
     expect(mounted.container.textContent).toContain("film 2");
     expect(press("Escape", 27).defaultPrevented).toBe(true);
@@ -72,12 +72,12 @@ describe("the input layer in the app", () => {
     const scrolledTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     const services = testServices("token", "/films");
     mounted = await mount(withServices(<TwoScreens />, services));
-    const ronin = [...mounted.container.querySelectorAll("a")].find(
+    const nosferatu = [...mounted.container.querySelectorAll("a")].find(
       (link) => link.textContent === "Nosferatu",
     );
     act(() => {
-      ronin?.focus();
-      ronin?.click();
+      nosferatu?.focus();
+      nosferatu?.click();
     });
     expect(mounted.container.textContent).toContain("film 2");
     expect(scrolledTo).toHaveBeenCalledTimes(1);
