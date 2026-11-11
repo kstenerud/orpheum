@@ -113,9 +113,11 @@
 
 /* The status cues, a tray down from the poster's top-right corner, each on a dark patch so it reads
    on any art: the warning sign of a title that cannot be played now (D278; looked at, VQ28), then
-   an uncertain match's (D301 §4; the owner, 2026-10-15). */
+   an uncertain match's (D301 §4; the owner, 2026-10-15). They only show: a click on them is the
+   card's, which opens its page (the owner, 2026-11-11). */
 .poster-card__cues {
   position: absolute;
+  pointer-events: none;
   inset-block-start: calc(var(--space-1) + var(--poster-card-inset, 0px));
   inset-inline-end: calc(var(--space-1) + var(--poster-card-inset, 0px));
   display: flex;
