@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
+import { DebugToolsContext } from "./debug-tools.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
 import { createNavigation } from "./navigation.ts";
@@ -318,6 +319,30 @@ describe("AppShell", () => {
     expect(markup).not.toContain('href="/lab"');
     expect(markup).not.toContain("Device tests");
     expect(markup).not.toContain("For testers");
+  });
+
+  // The owner, 2026-11-11: an Experimental entry, right after Your account, takes anyone showing
+  // debug tools to the lab; no one else sees it.
+  it("offers Experimental, the lab, right after Your account only to someone showing debug tools", async () => {
+    const markupWith = async (isShown: boolean): Promise<string> =>
+      await drawnWithMenuOpen(
+        <DebugToolsContext value={{ isShown, onChanged: ignore }}>
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={undefined}
+          >
+            <p>screen</p>
+          </AppShell>
+        </DebugToolsContext>,
+      );
+    expect(await markupWith(true)).toMatch(
+      /href="\/account"[^>]*>Your account<\/a><\/li><li class="list-box__entry"><a href="\/lab"[^>]*>Experimental<\/a>/u,
+    );
+    expect(await markupWith(false)).not.toContain("Experimental");
+    expect(await markupWith(false)).not.toContain('href="/lab"');
   });
 
   it("offers to switch household only while a discovery's loader runs the page (D308 §8)", async () => {

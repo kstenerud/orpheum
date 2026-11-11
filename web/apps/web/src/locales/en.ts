@@ -57,6 +57,7 @@ export const en = {
     users: "Users",
     thisDevice: "This device",
     account: "Your account",
+    experimental: "Experimental",
     about: "About",
     signOut: "Sign out",
     signOutAsked: "Sign out of this device?",

@@ -3040,11 +3040,11 @@ VQ286 and VQ287 can run.
    says "Device tests are turned off on this server." So two gates would meet: the server's setting
    and the account's Show debug tools. Corrected 2026-11-11: the lead first told the owner the lab
    had no link at all.
-   **The gates (the owner, 2026-11-11: "c"):** the Cast lab, and whatever else is an experiment,
-   moves under Show debug tools, on the Experimental page; the device tests (device, input, sound
-   timing, remote, extend, throughput) stay the lab's, behind Offer Device tests, which is there for
-   beta testers to run them. Asked of the owner and filed for the next batch: whether the remote and
-   extend probes, spikes whose VQ56 and VQ57 were never run, are retired.
+   **Superseded the same day (the owner, 2026-11-11):** "We'll leave the existing lab things alone.
+   I'm fine with just having 'Experimental' take you to the /lab page and leaving everything else
+   as-is. I'm the only one using these tools right now anyway." So the entry links `/lab`, the lab
+   keeps its own gate (Offer Device tests) and every probe, and nothing moves or is retired (this
+   replaces the owner's earlier "c", and the question of retiring the remote and extend probes).
    **Its entry (the owner, 2026-11-11):** "Put it as an entry right after 'Your account', visible
    only when show debug tools is on." Who sees it follows from the gate: any account with Show debug
    tools on.

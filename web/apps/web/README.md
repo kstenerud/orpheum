@@ -610,7 +610,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
   only while the server's `shouldOfferDeviceTests` is on (the owner, 2026-10-25): off, every lab
-  page says so in place of its probe, the test film excepted; a menu
+  page says so in place of its probe, the test film excepted; the menu's Experimental, right after
+  Your account, leads to it for anyone showing debug tools, and for no one else (the owner,
+  2026-11-11; `src/app-shell.test.tsx`); a menu
   of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
   type and sends it to the core's log through the SDK, showing the name the log keeps it by (the
   button test as it goes, below); the
