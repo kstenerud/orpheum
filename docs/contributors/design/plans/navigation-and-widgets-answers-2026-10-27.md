@@ -2893,6 +2893,10 @@ The owner's answers:
      come at once; only the posters' images follow as they near the view.
 4. **Edge fades on poster rows that scroll:** "Let's try it and see. If it hurts performance too much
    then we find a different way." The fades never dim the focused card (D189). Measure on the stick.
+   Built: a 2rem mask fade at each end with more beyond it. On the stick, a press costs nothing
+   measurable (Home, Right along a row: median 105 ms from press to screen, against 110 ms before).
+   The owner: "Fade looks good." Rows snap only on a touch screen, because elsewhere the snap
+   pulled a poster focus had just brought in back under the fade.
 5. **One Tab stop per poster grid and row** (roving tabindex, `role="grid"`): "yes, do it now."
    - Built: roving tabindex on each poster grid and row, and on the alphabet rail ("When tab takes
      you to the alphabet bar, it shouldn't then go into the individual letters").
@@ -2920,6 +2924,10 @@ The owner's answers:
    cursor is, in the up/down direction they last scrolled." The posters off screen are fetched at a low
    priority, outward from the focused poster, in the direction of the last scroll first. Measured
    on the stick for memory and for the cost to a press.
+   - A window, to bound memory (the owner, 2026-11-11): "make sure that, say, the 100 items before and
+     100 items after are filled (giving a good buffer of scroll room). Every time the user scrolls,
+     that fill window changes, so if they're not scrolling faster than it can fill, it looks
+     infinite." Posters outside the window may be let go.
 
 ### From the 11-22 batch, next batch (the owner agreed 2026-11-11)
 
