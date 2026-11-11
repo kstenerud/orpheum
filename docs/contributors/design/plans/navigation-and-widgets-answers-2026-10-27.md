@@ -2856,3 +2856,28 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   layout and paint frames follow as tiles enter view. Find what forces each layout and read the
   row's boxes once. Also seen, not diagnosed: in a held Down at the last loaded rows, focus jumped to
   the alphabet rail's bottom letter and stuck ~370 ms, and 3 of 20 spaced presses there only scrolled.
+
+- **Next batch (measured on the Fire TV Stick 4K, Silk 138, 2026-11-11):**
+  - **What the numbers show:**
+    - A press takes about 110 ms to reach the screen on Home and about 160 ms in the grid.
+    - The app's own main-thread work is about 35–40 ms of a Home press.
+    - The rest is GPU raster, the draw, and Android's display path (about 30–55 ms of it after the
+      swap).
+  - **What changed nothing:** removing every shadow, or asking for the 240 px poster, moved the
+    press-to-screen time no more than run-to-run noise.
+  - **The worst press:** the grid's widened search. One Down near the last laid-out rows took about
+    400 ms (48 forced layouts), twice in two runs. In a held Down the same spot sent focus to the
+    alphabet rail's "Y", the oddity above, now seen on the device.
+  - **Order of work:** fix the widened search first, then the per-row forced layouts, then the
+    approved held-key skip.
+  - **Report:** `/yoloai/files/focus-trace/fire-tv.md`.
+
+- **Next batch, the owner's request (2026-11-11, "Can we pre-cache the beginning of the next episode
+  when the 'up next' thing pops up?"):**
+  - When Up next appears, warm the next episode so that its start is already fetched.
+  - Today only a press on Continue watching or on a series' next episode warms a film. Up next's
+    autoplay was left out because warming the next episode might release the playing film's
+    tokens (`watching.ts`).
+  - Find whether it does. If it does, warm without releasing them.
+  - Also open: whether to fetch the first segments themselves or only the decision and the
+    playlist.
