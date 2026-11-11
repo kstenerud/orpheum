@@ -20,7 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// ambiguousTitle adds title 10, a film whose search found two Solarises.
+// ambiguousTitle adds title 10, a film whose search found two films named The General.
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
@@ -321,12 +321,12 @@ func TestIdentification_APersonMatchesATitleByAPastedLink(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	for _, refused := range []string{"The General", "https://www.themoviedb.org/tv/2-solaris"} {
+	for _, refused := range []string{"The General", "https://www.themoviedb.org/tv/2-the-general"} {
 		wantInvalidAt(t, harness.do(t, http.MethodPost, "/items/10/match-by-link", admin,
 			map[string]string{"link": refused}), http.StatusUnprocessableEntity, "body.link")
 	}
 	chosen := harness.do(t, http.MethodPost, "/items/10/match-by-link", admin,
-		map[string]string{"link": "https://www.themoviedb.org/movie/2-solaris"})
+		map[string]string{"link": "https://www.themoviedb.org/movie/2-the-general"})
 	if chosen.status != http.StatusNoContent {
 		t.Fatalf("POST /items/10/match-by-link = %d %s", chosen.status, chosen.body)
 	}

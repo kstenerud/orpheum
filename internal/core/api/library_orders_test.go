@@ -15,8 +15,8 @@ import (
 )
 
 // shelveDatedFilms adds, after shelve's Metropolis (10, 1995-12-15), four films to library 1: Arkon (11,
-// 1979-05-25), Greed (12, 1985, its year alone), and The Freshman (13) and Faust (14), with no date; and
-// dates Brass Arena (20) 2008-01-20, beside a series of no date, Tweedcoat (30), with one episode.
+// 1979-05-25), Beta (12, 1985, its year alone), and Ceremony (13) and Destiny (14), with no date; and
+// dates Brass Arena (20) 2008-01-20, beside a series of no date, Copper Kettle (30), with one episode.
 func (harness testHarness) shelveDatedFilms(t *testing.T) {
 	t.Helper()
 	sorter, err := textindex.NewSorter("en")
@@ -24,7 +24,7 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
-	for index, name := range []string{"Arkon", "Greed", "The Freshman", "Faust"} {
+	for index, name := range []string{"Arkon", "Beta", "Ceremony", "Destiny"} {
 		id := int64(11 + index)
 		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Year: 1980, AddedAt: 3})
 		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 3})
@@ -44,7 +44,7 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 31, Library: 1, Kind: "episode", AddedAt: 3})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 31, TitleID: 31, CreatedAt: 3})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 31, LibraryID: 1, NodeID: 1, Path: "/m/Tweedcoat/S01E01.mkv", SizeBytes: 10, PayloadHash: []byte{31},
+		ID: 31, LibraryID: 1, NodeID: 1, Path: "/m/Copper Kettle/S01E01.mkv", SizeBytes: 10, PayloadHash: []byte{31},
 		Filing: "listed", VersionID: 31,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
@@ -55,9 +55,9 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 		"INSERT INTO sequence (id, kind, created_by) VALUES (30, 'series', 'scanner')",
 		storetest.Members(30, "(31, 10001)"),
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates)
-		 VALUES (30, 'und', 1, 'Tweedcoat', 'tweedcoat'), (31, 'und', 1, 'Pilot', 'pilot')`,
+		 VALUES (30, 'und', 1, 'Copper Kettle', 'copper kettle'), (31, 'und', 1, 'Pilot', 'pilot')`,
 		fmt.Sprintf("INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (30, 'en', 'series', %s)",
-			key("Tweedcoat")))
+			key("Copper Kettle")))
 }
 
 // pagedNames are a list's names read a page of two at a time to its end, ten pages at most.
@@ -84,19 +84,19 @@ func TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for path, want := range map[string]string{
-		"/items?kind=film&sort=released":                   "[Metropolis Greed Arkon The Freshman Faust]",
-		"/items?kind=film&sort=released&order=descending":  "[Metropolis Greed Arkon The Freshman Faust]",
-		"/items?kind=film&sort=released&order=ascending":   "[Arkon Greed Metropolis The Freshman Faust]",
-		"/items?kind=series&sort=released":                 "[Brass Arena Tweedcoat]",
-		"/items?kind=series&sort=released&order=ascending": "[Brass Arena Tweedcoat]",
-		"/items?kind=film&sort=name":                       "[Arkon Greed The Freshman Faust Metropolis]",
-		"/items?kind=film&sort=name&order=descending":      "[Metropolis Faust The Freshman Greed Arkon]",
-		"/items?kind=series&sort=name&order=descending":    "[Tweedcoat Brass Arena]",
-		"/items?kind=film&sort=added":                      "[Faust The Freshman Greed Arkon Metropolis]",
-		"/items?kind=film&sort=added&order=ascending":      "[Metropolis Arkon Greed The Freshman Faust]",
-		"/items?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
-		"/items?kind=film,series,other&sort=name&order=descending": "[Metropolis Faust Tweedcoat The Freshman Brass Arena " +
-			"Greed Arkon]",
+		"/items?kind=film&sort=released":                   "[Metropolis Beta Arkon Ceremony Destiny]",
+		"/items?kind=film&sort=released&order=descending":  "[Metropolis Beta Arkon Ceremony Destiny]",
+		"/items?kind=film&sort=released&order=ascending":   "[Arkon Beta Metropolis Ceremony Destiny]",
+		"/items?kind=series&sort=released":                 "[Brass Arena Copper Kettle]",
+		"/items?kind=series&sort=released&order=ascending": "[Brass Arena Copper Kettle]",
+		"/items?kind=film&sort=name":                       "[Arkon Beta Ceremony Destiny Metropolis]",
+		"/items?kind=film&sort=name&order=descending":      "[Metropolis Destiny Ceremony Beta Arkon]",
+		"/items?kind=series&sort=name&order=descending":    "[Copper Kettle Brass Arena]",
+		"/items?kind=film&sort=added":                      "[Destiny Ceremony Beta Arkon Metropolis]",
+		"/items?kind=film&sort=added&order=ascending":      "[Metropolis Arkon Beta Ceremony Destiny]",
+		"/items?kind=series&sort=added&order=ascending":    "[Brass Arena Copper Kettle]",
+		"/items?kind=film,series,other&sort=name&order=descending": "[Metropolis Destiny Copper Kettle Ceremony " +
+			"Brass Arena Beta Arkon]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
@@ -131,24 +131,24 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 	})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 43, TitleID: 43, CreatedAt: 4})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 43, LibraryID: 2, NodeID: 1, Path: "/h/Trip/sparrows.mp4", SizeBytes: 10, PayloadHash: []byte{0x43},
+		ID: 43, LibraryID: 2, NodeID: 1, Path: "/h/Trip/alpha.mp4", SizeBytes: 10, PayloadHash: []byte{0x43},
 		Filing: "listed", VersionID: 43, FirstSeenAt: 50, ModifiedAt: 5,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
-			"VALUES (43, 'und', 1, 'arrival', 'arrival')",
+			"VALUES (43, 'und', 1, 'alpha', 'alpha')",
 		"INSERT INTO other_video (work_id, recorded_at, recorded_from, file_name, file_name_key) "+
-			"VALUES (43, -86400000, 'file', 'sparrows.mp4', X'01')")
+			"VALUES (43, -86400000, 'file', 'alpha.mp4', X'01')")
 	// Recorded in 1969, before every other, whichever way the list runs.
 	for path, want := range map[string]string{
-		"/items?kind=other&sort=recorded":                 "[clip Beach day Wedding arrival]",
-		"/items?kind=other&sort=recorded&order=ascending": "[arrival Wedding Beach day clip]",
+		"/items?kind=other&sort=recorded":                 "[clip Beach day Wedding alpha]",
+		"/items?kind=other&sort=recorded&order=ascending": "[alpha Wedding Beach day clip]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
 		}
 	}
-	for order, want := range map[string]string{"": "[arrival clip]", "&order=descending": "[clip arrival]"} {
+	for order, want := range map[string]string{"": "[alpha clip]", "&order=descending": "[clip alpha]"} {
 		var trip struct {
 			Titles []struct {
 				Name string `json:"name"`
@@ -173,7 +173,7 @@ func TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
-	for from, want := range map[string]string{"E": "[Faust The Freshman]", "D": "[The Freshman Greed]", "A": "[]"} {
+	for from, want := range map[string]string{"E": "[Destiny Ceremony]", "D": "[Ceremony Beta]", "A": "[]"} {
 		path := "/items?kind=film&sort=name&order=descending&limit=2&from=" + from
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("Z to A from %s = %v; want %s", from, names, want)

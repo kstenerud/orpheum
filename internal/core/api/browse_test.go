@@ -42,7 +42,7 @@ func (harness testHarness) shelve(t *testing.T) {
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 1, TitleID: 10})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 2, TitleID: 21, CreatedAt: 2})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995).mkv", SizeBytes: 1000, PayloadHash: []byte{0x01},
+		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1927).mkv", SizeBytes: 1000, PayloadHash: []byte{0x01},
 		Filing: "listed", VersionID: 1,
 	})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
@@ -57,7 +57,8 @@ func (harness testHarness) shelve(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO sequence (id, kind, created_by) VALUES (20, 'series', 'scanner')",
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates) VALUES
-		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'heat'), (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
+		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'metropolis'),
+		 (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
 		 (21, 'und', 1, 'Pilot', NULL, 'pilot')`,
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key)
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
@@ -80,16 +81,16 @@ func (harness testHarness) shelve(t *testing.T) {
 func checkDetailsPaths(t *testing.T, harness testHarness, user, admin string) {
 	t.Helper()
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1995).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
+		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1927).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
 	})
 	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
 	if !strings.Contains(detail.body, `"codec":"truehd","language":"en","channelCount":8`) ||
 		!strings.Contains(detail.body, `"streams":[{"id":`) ||
-		strings.Contains(detail.body, "Metropolis (1995).mkv") || strings.Contains(detail.body, "otherPaths") {
+		strings.Contains(detail.body, "Metropolis (1927).mkv") || strings.Contains(detail.body, "otherPaths") {
 		t.Errorf("a user's detail = %d %s; want the streams and no path", detail.status, detail.body)
 	}
 	if adminDetail := harness.do(t, http.MethodGet, "/items/10", admin, nil); !strings.Contains(adminDetail.body,
-		`"path":"/m/Metropolis (1995).mkv","otherPaths":["/m/Copy/Metropolis (1995).mkv"]`) {
+		`"path":"/m/Metropolis (1927).mkv","otherPaths":["/m/Copy/Metropolis (1927).mkv"]`) {
 		t.Errorf("an admin's detail = %s; want the path and the copy's (D363 §8)", adminDetail.body)
 	}
 }
@@ -106,7 +107,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	user := harness.signIn(t, "partner", "partner-password")
 
 	films := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&limit=10", user, nil)
-	if !strings.Contains(films.body, `"name":"Metropolis","year":1995`) || strings.Contains(films.body, "Breaking") {
+	if !strings.Contains(films.body, `"name":"Metropolis","year":1995`) || strings.Contains(films.body, "Brass") {
 		t.Errorf("films = %d %s", films.status, films.body)
 	}
 	// The first page says the whole list's total, so a client sizes it before the rest comes (the
@@ -124,7 +125,8 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	checkDetailsPaths(t, harness, user, admin)
 	// From away, where the admin does not administer, no path (the Plex-chain review's T2).
 	harness.server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
-	if away := harness.do(t, http.MethodGet, "/items/10", admin, nil); strings.Contains(away.body, "Metropolis (1995).mkv") {
+	away := harness.do(t, http.MethodGet, "/items/10", admin, nil)
+	if strings.Contains(away.body, "Metropolis (1927).mkv") {
 		t.Errorf("an admin's detail from away = %s; want no path", away.body)
 	}
 	harness.server.SetHome(home.Listed([]netip.Prefix{
@@ -155,7 +157,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		t.Errorf("a season = %d %s", season.status, season.body)
 	}
 
-	found := harness.do(t, http.MethodGet, "/search?query=breaking&limit=5", user, nil)
+	found := harness.do(t, http.MethodGet, "/search?query=brass&limit=5", user, nil)
 	if !strings.Contains(found.body, `{"id":20,"kind":"series","name":"Brass Arena"`) {
 		t.Errorf("search = %d %s", found.status, found.body)
 	}
@@ -172,9 +174,9 @@ func TestBrowse_AListByNameFromALetterStartsAtItsFirstTitle(t *testing.T) {
 		nil); !strings.Contains(fromH.body, `"name":"Metropolis"`) {
 		t.Errorf("films from H = %d %s", fromH.status, fromH.body)
 	}
-	if fromI := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=I&limit=10", admin,
-		nil); fromI.status != http.StatusOK || strings.Contains(fromI.body, "Metropolis") {
-		t.Errorf("films from I = %d %s; want none, Metropolis before it", fromI.status, fromI.body)
+	if fromN := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=N&limit=10", admin,
+		nil); fromN.status != http.StatusOK || strings.Contains(fromN.body, "Metropolis") {
+		t.Errorf("films from N = %d %s; want none, Metropolis before it", fromN.status, fromN.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=added&from=H&limit=10", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
@@ -432,24 +434,24 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 	if got := next(t); got == nil || *got != (nextUp{
 		TitleID: 21, Name: "Pilot", GroupNumber: 1, NumberInGroup: 1, FileID: 2,
 	}) {
-		t.Errorf("nothing watched: next %+v; want the first, S1E1, to play from its start", got)
+		t.Errorf("nothing watched: next %+v; want the first, season 1's episode 1, to play from its start", got)
 	}
 	harness.setPositionReadAt(t, 3, 500, 9)
 	if got := next(t); got == nil || *got != (nextUp{
 		TitleID: 22, Name: "Cat", GroupNumber: 1, NumberInGroup: 2, FileID: 3, IsPartway: true, PositionMs: 500,
 	}) {
-		t.Errorf("partway: next %+v; want S1E2, partway at 500 ms", got)
+		t.Errorf("partway: next %+v; want season 1's episode 2, partway at 500 ms", got)
 	}
 	harness.setPositionReadAt(t, 3, 1000, 10)
 	if got := next(t); got == nil || *got != (nextUp{
 		TitleID: 23, Name: "Bag", GroupNumber: 1, NumberInGroup: 3, FileID: 4,
 	}) {
-		t.Errorf("finished: next %+v; want S1E3, the one after", got)
+		t.Errorf("finished: next %+v; want season 1's episode 3, the one after", got)
 	}
 	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET payload_hash = NULL WHERE id = 4")
 	if got := next(t); got == nil || got.TitleID != 23 || got.Unavailable == nil ||
 		got.Unavailable.Reason != string(library.StillReading) {
-		t.Errorf("still being read: next %+v; want S1E3, still reading", got)
+		t.Errorf("still being read: next %+v; want season 1's episode 3, still reading", got)
 	}
 	harness.setPositionReadAt(t, 4, 1000, 11)
 	if got := next(t); got != nil {
@@ -540,7 +542,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	harness.shelveDVDOrder(t)
 	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 1, DurationMs: 1000000})
 	harness.setPositionReadAt(t, 1, 300_000, 5) // Metropolis, 30% in
-	harness.setPositionReadAt(t, 3, 1000, 6)    // 22, aired S1E2 and in no DVD disc, finished
+	harness.setPositionReadAt(t, 3, 1000, 6)    // 22, aired season 1's episode 2 and in no DVD disc, finished
 	harness.setPositionReadAt(t, 4, 1000, 7)    // 23, finished
 	harness.setPositionReadAt(t, 5, 500, 8)     // 24, halfway
 	for _, path := range []string{"/items?kind=film&sort=name&limit=10", "/items?kind=film&sort=added&limit=10"} {

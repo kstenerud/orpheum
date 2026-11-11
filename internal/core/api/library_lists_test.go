@@ -151,8 +151,8 @@ func TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items/letters?kind=film,series,other&sort=name": "[B C H W]",
-		"/items/letters?kind=film&sort=name":              "[H]",
+		"/items/letters?kind=film,series,other&sort=name": "[B C M W]",
+		"/items/letters?kind=film&sort=name":              "[M]",
 		"/items/letters?kind=other&sort=fileName":         "[# C]",
 		"/items/letters?kind=series&sort=name&library=2":  "[]",
 		"/items/letters?kind=other&sort=name&library=2":   "[B C W]",
@@ -256,15 +256,15 @@ func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items?kind=film,series,other&sort=name&limit=10&query=beach":          "[Beach day]",
-		"/items?kind=film,series,other&sort=name&limit=10&query=b":              "[Beach day Brass Arena]",
-		"/items?kind=film&sort=name&limit=10&query=beach":                       "[]",
-		"/items?kind=other&sort=name&limit=10&query=beach&library=1":            "[]",
-		"/items?kind=other&sort=recorded&limit=10&query=beach":                  "[Beach day]",
-		"/items?kind=series&sort=added&limit=10&query=breaking":                 "[Brass Arena]",
-		"/items?kind=series&sort=name&limit=10&query=pilot":                     "[]", // its episode's name
-		"/items?kind=film,series,other&sort=name&limit=10&query=%20":            "[]",
-		"/items?kind=film,series,other&sort=name&limit=10&home=true&query=heat": "[Metropolis]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=beach":                "[Beach day]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=b":                    "[Beach day Brass Arena]",
+		"/items?kind=film&sort=name&limit=10&query=beach":                             "[]",
+		"/items?kind=other&sort=name&limit=10&query=beach&library=1":                  "[]",
+		"/items?kind=other&sort=recorded&limit=10&query=beach":                        "[Beach day]",
+		"/items?kind=series&sort=added&limit=10&query=brass":                          "[Brass Arena]",
+		"/items?kind=series&sort=name&limit=10&query=pilot":                           "[]", // its episode's name
+		"/items?kind=film,series,other&sort=name&limit=10&query=%20":                  "[]",
+		"/items?kind=film,series,other&sort=name&limit=10&home=true&query=metropolis": "[Metropolis]",
 	} {
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s = %v; want %s", path, names, want)

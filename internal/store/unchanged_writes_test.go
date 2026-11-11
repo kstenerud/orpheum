@@ -27,7 +27,8 @@ func TestTextWrites_LeaveAnUnchangedTextAlone(t *testing.T) {
 	execRaw(t, database,
 		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (7, 'movie', 1, 'identified')")
 	text := sqlcgen.UpsertOriginalTextParams{
-		ItemID: 7, Language: "und", Name: "The General", Overview: new("A planet."), SearchAlternates: new("solaris"),
+		ItemID: 7, Language: "und", Name: "The General", Overview: new("A locomotive."),
+		SearchAlternates: new("the general"),
 	}
 	write := func(change func(*sqlcgen.Queries) error) int {
 		t.Helper()
@@ -41,7 +42,7 @@ func TestTextWrites_LeaveAnUnchangedTextAlone(t *testing.T) {
 	first, again := write(upsert), write(upsert)
 	fold := write(func(queries *sqlcgen.Queries) error {
 		return queries.SetSearchAlternates(ctx, sqlcgen.SetSearchAlternatesParams{
-			ItemID: 7, SearchAlternates: new("solaris"),
+			ItemID: 7, SearchAlternates: new("the general"),
 		})
 	})
 	if first == 0 || again != 0 || fold != 0 {
