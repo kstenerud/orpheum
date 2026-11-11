@@ -202,7 +202,7 @@ describe("a page more (the Fire TV's trace, 2026-11-11)", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(mounted.container.textContent).toBe("ArkonGreed");
-    expect(mounted.container.querySelector("ul")?.dataset.loadingMore).toBe("true");
+    expect(mounted.container.querySelector("ul")?.getAttribute("data-loading-more")).toBe("true");
     mounted.unmount();
   });
 });
