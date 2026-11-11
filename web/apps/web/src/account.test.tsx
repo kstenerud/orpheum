@@ -8,11 +8,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Account } from "./account.tsx";
 import {
   click,
+  enter,
   mount,
   refusal,
   servedBy,
   settleUntil,
+  submit,
   type Answer,
+  type Answers,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -30,6 +33,7 @@ afterEach(() => {
 async function accountOf(
   canManageAccount: boolean,
   ownLink: Answer = refusal(404, "notFound"),
+  more: Answers = {},
 ): Promise<HTMLElement> {
   mounted = await mount(
     withServices(
@@ -43,6 +47,7 @@ async function accountOf(
           { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
         ],
         "GET /libraries": [200, { libraries: [] }],
+        ...more,
       }),
     ),
   );
@@ -135,6 +140,25 @@ describe("your account", () => {
       expect(full.textContent).toContain(offered);
     }
     expect(full.textContent).not.toContain("not change your password");
+  });
+
+  it("marks the current password invalid while a wrong one shows, described by what it says, until it is typed again", async () => {
+    const page = await accountOf(true, refusal(404, "notFound"), {
+      "PUT /me/password": refusal(403, "forbidden"),
+    });
+    const current = page.querySelector('input[autocomplete="current-password"]');
+    const form = current?.closest("form");
+    const fresh = form?.querySelector('input[autocomplete="new-password"]');
+    await enter(current, "old");
+    await enter(fresh, "new-secret");
+    await submit(form);
+    await settleUntil(() => form?.querySelector("output") !== null);
+    const said = form?.querySelector("output");
+    expect(current?.getAttribute("aria-invalid")).toBe("true");
+    expect(current?.getAttribute("aria-describedby")).toBe(said?.id);
+    expect(fresh?.hasAttribute("aria-invalid")).toBe(false);
+    await enter(current, "older");
+    expect(current?.hasAttribute("aria-invalid")).toBe(false);
   });
 
   it("offers the person's own autoplay to any session of theirs (plans/up-next.md)", async () => {

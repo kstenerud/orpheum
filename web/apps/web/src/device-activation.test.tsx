@@ -157,6 +157,17 @@ describe("activating a device by the code it shows (D288)", () => {
     expect(mounted.container.querySelector(".device-activation__check")).toBeNull();
   });
 
+  it("marks the code invalid while no device shows it, described by the line, until it is typed again", async () => {
+    mounted = await accountWithCodeEntered({ "POST /pairings/code": refusal(404, "notFound") }, []);
+    const code = mounted.container.querySelector(".device-activation__code-field");
+    const line = mounted.container.querySelector('.device-activation [role="alert"]');
+    expect(code?.getAttribute("aria-invalid")).toBe("true");
+    expect(code?.getAttribute("aria-describedby")).toBe(line?.id);
+    expect(mounted.container.querySelectorAll(".device-activation [aria-invalid]")).toHaveLength(1);
+    await enter(code, "ABCD EFGJ");
+    expect(code?.hasAttribute("aria-invalid")).toBe(false);
+  });
+
   it("activates a device for the person an admin is looking at (D288 §2)", async () => {
     const heard: Heard[] = [];
     mounted = await mount(

@@ -9,7 +9,8 @@ import type { TFunction } from "i18next";
 import { activateDevice, answerActivation, type Activation } from "./accounts.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
-import { fieldProblemText } from "./problem.ts";
+import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
@@ -41,12 +42,10 @@ export function ActivateDevice(props: {
   const { t } = useTranslation();
   const { api } = useServices();
   const [step, setStep] = useState<Step>({ kind: "entering" });
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: { "body.code": t("activate.code"), "body.deviceName": t("activate.deviceName") },
-      overrides: { notFound: t("activate.noSuchCode"), rateLimited: t("activate.tooManyCodes") },
-    }),
+  const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, activateWords(t)),
   );
+  const marks = useFieldMarks(failure, failedFields(failure, activateWords(t)));
   const enter = (code: string, deviceName: string): void => {
     runRequest(async (idempotencyKey) => {
       const activation = await activateDevice(
@@ -81,12 +80,28 @@ export function ActivateDevice(props: {
       ) : (
         <>
           {step.kind === "done" ? <Done step={step} /> : null}
-          <EnterCode isBusy={isBusy} onEnter={enter} />
+          <EnterCode isBusy={isBusy} onEnter={enter} marks={marks} />
         </>
       )}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : (
+        <p role="alert" id={marks.problemId}>
+          {problem}
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * How a refused activation is told: its fields, and a code no device shows (notFound: wrong, or
+ * expired) about the code's.
+ */
+function activateWords(t: TFunction): FormWords {
+  return {
+    fields: { "body.code": t("activate.code"), "body.deviceName": t("activate.deviceName") },
+    overrides: { notFound: t("activate.noSuchCode"), rateLimited: t("activate.tooManyCodes") },
+    codeFields: { notFound: ["body.code"] },
+  };
 }
 
 /** What came of the last code entered. */
@@ -110,9 +125,12 @@ function Done(props: { readonly step: Extract<Step, { kind: "done" }> }): JSX.El
 function EnterCode(props: {
   readonly isBusy: boolean;
   readonly onEnter: (code: string, deviceName: string) => void;
+  /** The marks on the fields the failure shown is about. */
+  readonly marks: FieldMarks;
 }): JSX.Element {
   const { t } = useTranslation();
   const { navigation, codeAddress } = useServices();
+  const { marks } = props;
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   return (
@@ -138,8 +156,9 @@ function EnterCode(props: {
             maxLength={12}
             placeholder={t("activate.codeExample")}
             value={code}
+            {...marks.markOf("body.code")}
             onChange={(event) => {
-              setCode(event.target.value);
+              marks.editing("body.code", setCode)(event.target.value);
             }}
           />
         </label>
@@ -149,8 +168,9 @@ function EnterCode(props: {
             maxLength={100}
             placeholder={t("activate.deviceNameExample")}
             value={name}
+            {...marks.markOf("body.deviceName")}
             onChange={(event) => {
-              setName(event.target.value);
+              marks.editing("body.deviceName", setName)(event.target.value);
             }}
           />
         </label>

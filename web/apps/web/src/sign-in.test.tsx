@@ -27,13 +27,16 @@ const ignore = (): void => undefined;
 /** A server with its admin already made, as most sign-ins meet. */
 const setUpAlready: Answers[string] = [200, { isRequired: false }];
 
-/** What the sign-in screen says after the server answers a sign-in with answer. */
+/**
+ * What the sign-in screen says after the server answers a sign-in with answer: its alert, or the
+ * setup it opened on instead, whose explanation is a polite output.
+ */
 async function problemShownFor(answer: Answers[string]): Promise<string | undefined> {
   const mounted = await mount(
     withServices(<SignIn />, servedBy({ "GET /setup": setUpAlready, "POST /session": answer })),
   );
   await submit(mounted.container.querySelector("form"));
-  const shown = mounted.container.querySelector('[role="alert"]')?.textContent ?? undefined;
+  const shown = mounted.container.querySelector('[role="alert"], output')?.textContent ?? undefined;
   mounted.unmount();
   return shown;
 }
@@ -94,6 +97,49 @@ describe("sign-in", () => {
     expect(markup).toContain(">Name<");
     expect(markup).toContain(">Password<");
     expect(markup).not.toContain('role="alert"');
+  });
+
+  it("marks the name and password invalid while a wrong one shows, described by the line, until each is edited", async () => {
+    const mounted = await mount(
+      withServices(
+        <SignIn />,
+        servedBy({
+          "GET /setup": setUpAlready,
+          "POST /session": [refusal(401, "authRequired"), refusal(503, "migrating")],
+        }),
+      ),
+    );
+    const [name, password] = mounted.container.querySelectorAll("input");
+    await submit(mounted.container.querySelector("form"));
+    const line = mounted.container.querySelector('[role="alert"]');
+    expect(name?.getAttribute("aria-invalid")).toBe("true");
+    expect(password?.getAttribute("aria-invalid")).toBe("true");
+    expect(name?.getAttribute("aria-describedby")).toBe(line?.id);
+    expect(password?.getAttribute("aria-describedby")).toBe(line?.id);
+    await enter(name, "owner");
+    expect(name?.hasAttribute("aria-invalid")).toBe(false);
+    expect(name?.hasAttribute("aria-describedby")).toBe(false);
+    expect(password?.getAttribute("aria-invalid")).toBe("true");
+    mounted.unmount();
+  });
+
+  it("marks nothing for a server busy, which is not about what was typed, and takes a wrong one's marks away", async () => {
+    const mounted = await mount(
+      withServices(
+        <SignIn />,
+        servedBy({
+          "GET /setup": setUpAlready,
+          "POST /session": [refusal(401, "authRequired"), refusal(503, "migrating")],
+        }),
+      ),
+    );
+    await submit(mounted.container.querySelector("form"));
+    expect(mounted.container.querySelector('[role="alert"]')?.id).not.toBe("");
+    expect(mounted.container.querySelectorAll("[aria-invalid]")).toHaveLength(2);
+    await submit(mounted.container.querySelector("form"));
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain("starting up");
+    expect(mounted.container.querySelectorAll("[aria-invalid]")).toHaveLength(0);
+    mounted.unmount();
   });
 
   it("keeps the session a sign-in answers with, on the device it names, with the device's secret apart from the token", async () => {
@@ -208,6 +254,26 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     expect(mounted.container.textContent).toContain("That setup code is wrong");
     await click(buttonWithText(mounted.container, "Back"));
     expect(mounted.container.textContent).toContain("Get a code");
+    mounted.unmount();
+  });
+
+  it("marks the setup code invalid while a wrong one shows, and says where it is politely, as no one did anything", async () => {
+    const services = servedBy({
+      "GET /setup": [200, { isRequired: true }],
+      "POST /setup": refusal(403, "forbidden"),
+    });
+    const mounted = await mount(withServices(<SignIn />, services));
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+    expect(mounted.container.querySelector("output")?.textContent).toContain("SETUP-CODE.txt");
+    await submit(mounted.container.querySelector("form"));
+    const code = mounted.container.querySelector('input[name="setupCode"]');
+    const line = mounted.container.querySelector('[role="alert"]');
+    expect(line?.textContent).toContain("That setup code is wrong");
+    expect(code?.getAttribute("aria-invalid")).toBe("true");
+    expect(code?.getAttribute("aria-describedby")).toBe(line?.id);
+    expect(mounted.container.querySelectorAll("[aria-invalid]")).toHaveLength(1);
+    await enter(code, "ABCD");
+    expect(code?.hasAttribute("aria-invalid")).toBe(false);
     mounted.unmount();
   });
 });

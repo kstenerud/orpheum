@@ -84,6 +84,12 @@ export interface FormWords {
    */
   readonly fields: Readonly<Record<string, string>>;
   readonly overrides?: Readonly<Partial<Record<string, string>>>;
+  /**
+   * The fields a refusal with a code is about, by where they are, keyed by the code in camelCase
+   * ("authRequired" at sign-in is about the name and the password): marked as failing
+   * (failedFields), as the fields an invalid_request names are.
+   */
+  readonly codeFields?: Readonly<Partial<Record<string, readonly string[]>>>;
 }
 
 /**
@@ -93,25 +99,50 @@ export interface FormWords {
  */
 export function fieldProblemText(t: TFunction, cause: unknown, words: FormWords): string {
   if (cause instanceof ApiProblem) {
-    const problems = cause.withCode("invalidRequest")?.detail?.problems ?? [];
-    const labels = problems.map((problem) => fieldLabel(words.fields, problem.location));
-    if (labels.length > 0 && labels.every((label): label is string => label !== undefined)) {
-      return t("problem.invalidFields", { fields: [...new Set(labels)] });
+    const named = namedFields(cause, words.fields);
+    if (named.length > 0) {
+      return t("problem.invalidFields", {
+        fields: [...new Set(named.map((field) => words.fields[field]))],
+      });
     }
   }
   return problemText(t, cause, words.overrides);
 }
 
-/** The label of the field a problem's location is in, or undefined where the form has none. */
-function fieldLabel(
-  fields: Readonly<Record<string, string>>,
-  location: string,
-): string | undefined {
-  const found = Object.entries(fields).find(
-    ([path]) =>
+/**
+ * The fields of a form a failure is about, by where they are ("body.name"): those an
+ * invalid_request names, when fieldProblemText names them, and those words.codeFields gives for
+ * the refusal's code. None for a failure that is not about what was typed: the network, a server
+ * busy, a refusal of the request as a whole.
+ */
+export function failedFields(cause: unknown, words: FormWords): readonly string[] {
+  if (!(cause instanceof ApiProblem)) {
+    return [];
+  }
+  return [
+    ...new Set([...namedFields(cause, words.fields), ...(words.codeFields?.[cause.code] ?? [])]),
+  ];
+}
+
+/**
+ * The fields an invalid_request names, each by where the form has it ("body.rootPaths" for
+ * "body.rootPaths[0]"); none unless the form has a field for every problem, as only then do
+ * fieldProblemText's words name them.
+ */
+function namedFields(cause: ApiProblem, fields: Readonly<Record<string, string>>): string[] {
+  const problems = cause.withCode("invalidRequest")?.detail?.problems ?? [];
+  const found = problems.map((problem) => fieldAt(fields, problem.location));
+  return found.length > 0 && found.every((field): field is string => field !== undefined)
+    ? found
+    : [];
+}
+
+/** Where the form has the field a problem's location is in, or undefined where it has none. */
+function fieldAt(fields: Readonly<Record<string, string>>, location: string): string | undefined {
+  return Object.keys(fields).find(
+    (path) =>
       location === path || location.startsWith(`${path}[`) || location.startsWith(`${path}.`),
   );
-  return found?.[1];
 }
 
 /**

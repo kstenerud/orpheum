@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +14,8 @@ import {
   CredentialsProblem,
   PasswordField,
 } from "./credentials-form.tsx";
-import { fieldProblemText, signedOutText } from "./problem.ts";
+import { useFieldMarks } from "./field-marks.ts";
+import { failedFields, fieldProblemText, signedOutText, type FormWords } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { SetUp } from "./set-up.tsx";
 import { useRequest } from "./use-request.ts";
@@ -30,6 +32,22 @@ export function SessionEndedNotice(props: {
   return <CredentialsProblem isAlert={false}>{signedOutText(t, props.reason)}</CredentialsProblem>;
 }
 
+/**
+ * How a refused sign-in is told: its fields, its codes in its own words, and a wrong name or
+ * password marking both, since the server does not say which.
+ */
+function signInWords(t: TFunction): FormWords {
+  return {
+    fields: { "body.name": t("signIn.name"), "body.password": t("signIn.password") },
+    overrides: {
+      authRequired: t("signIn.wrongNameOrPassword"),
+      rateLimited: t("signIn.tooManyAttempts"),
+      setupRequired: t("signIn.noAdminYet"),
+    },
+    codeFields: { authRequired: ["body.name", "body.password"] },
+  };
+}
+
 /** The sign-in form, as it shows: what was typed, whether it is sending, and what went wrong. */
 export function SignInForm(props: {
   readonly name: string;
@@ -37,6 +55,8 @@ export function SignInForm(props: {
   readonly isSending: boolean;
   /** What went wrong with the last attempt, in the person's words. */
   readonly problem: string | undefined;
+  /** What the last attempt failed with, which marks the fields it is about. */
+  readonly failure?: unknown;
   /** Why the last session ended, when the server ended it: said first, so the person knows. */
   readonly lastEndReason?: string | undefined;
   readonly onNameChange: (name: string) => void;
@@ -45,6 +65,7 @@ export function SignInForm(props: {
   readonly onUseCode: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const marks = useFieldMarks(props.failure, failedFields(props.failure, signInWords(t)));
   return (
     <CredentialsForm heading={t("signIn.heading")} onSubmit={props.onSubmit}>
       <SessionEndedNotice reason={props.lastEndReason} />
@@ -54,19 +75,23 @@ export function SignInForm(props: {
           autoComplete="username"
           required
           value={props.name}
+          {...marks.markOf("body.name")}
           onChange={(event) => {
-            props.onNameChange(event.target.value);
+            marks.editing("body.name", props.onNameChange)(event.target.value);
           }}
         />
       </CredentialsField>
       <PasswordField
         label={t("signIn.password")}
         value={props.password}
-        onChange={props.onPasswordChange}
+        onChange={marks.editing("body.password", props.onPasswordChange)}
         autoComplete="current-password"
+        mark={marks.markOf("body.password")}
       />
       {props.problem === undefined ? null : (
-        <CredentialsProblem isAlert>{props.problem}</CredentialsProblem>
+        <CredentialsProblem isAlert id={marks.problemId}>
+          {props.problem}
+        </CredentialsProblem>
       )}
       <button type="submit" disabled={props.isSending}>
         {t("signIn.submit")}
@@ -124,17 +149,9 @@ function SignInScreen(props: {
   const {
     isBusy: isSending,
     problem,
+    failure,
     runRequest,
-  } = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: { "body.name": t("signIn.name"), "body.password": t("signIn.password") },
-      overrides: {
-        authRequired: t("signIn.wrongNameOrPassword"),
-        rateLimited: t("signIn.tooManyAttempts"),
-        setupRequired: t("signIn.noAdminYet"),
-      },
-    }),
-  );
+  } = useRequest((cause) => fieldProblemText(t, cause, signInWords(t)));
   const [isUsingCode, setIsUsingCode] = useState(false);
   // A server no one can sign in to yet is set up here, rather than by a request typed by hand (A31).
   const [isSettingUp, setIsSettingUp] = useState(props.showsSetUpFirst);
@@ -164,6 +181,7 @@ function SignInScreen(props: {
       password={password}
       isSending={isSending}
       problem={problem}
+      failure={failure}
       onNameChange={setName}
       onPasswordChange={setPassword}
       onSubmit={submit}

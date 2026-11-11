@@ -41,6 +41,43 @@ describe("joining by a link", () => {
     );
     expect(mounted.container.textContent).toContain("Ask the person who sent it for a new one.");
     expect(buttonWithText(mounted.container, "Join")).toBeDefined();
+    // The link is what failed, not the name typed: the name is not marked.
+    expect(mounted.container.querySelector("input")?.hasAttribute("aria-invalid")).toBe(false);
+    mounted.unmount();
+  });
+
+  it("marks the name invalid while the server's refusal of it shows, described by the line", async () => {
+    const services = servedBy(
+      {
+        "POST /together/join/check": [204, undefined],
+        "POST /together/join": [
+          400,
+          {
+            error: {
+              code: "invalidRequest",
+              message: "the name; too long",
+              detail: { problems: [{ location: "body.name", message: "too long" }] },
+            },
+          },
+        ],
+      },
+      [],
+    );
+    const mounted = await mount(
+      withServices(
+        <JoinForm secret="a-secret" onSubmitted={() => undefined} onJoined={() => undefined} />,
+        services,
+      ),
+    );
+    const name = mounted.container.querySelector("input");
+    await enter(name, "Gran");
+    await submit(mounted.container.querySelector("form"));
+    const line = mounted.container.querySelector('[role="alert"]');
+    expect(line?.textContent).toContain("Your name");
+    expect(name?.getAttribute("aria-invalid")).toBe("true");
+    expect(name?.getAttribute("aria-describedby")).toBe(line?.id);
+    await enter(name, "Granny");
+    expect(name?.hasAttribute("aria-invalid")).toBe(false);
     mounted.unmount();
   });
 });
@@ -59,7 +96,8 @@ describe("a link refused before its form (VQ172(3))", () => {
     );
     expect(mounted.container.querySelector("form")).toBeNull();
     expect(mounted.container.querySelector("input")).toBeNull();
-    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+    // Told as the page opens, not for something the person did: polite, not an alert.
+    expect(mounted.container.querySelector("output")?.textContent).toContain(
       "invitations are short-lived, and this one has expired, was used already",
     );
     expect(heard).toEqual([

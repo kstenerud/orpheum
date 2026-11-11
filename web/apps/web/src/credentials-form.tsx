@@ -5,6 +5,7 @@ import "./credentials-form.css";
 import type { JSX, ReactNode } from "react";
 
 import logo from "./assets/orpheum-logo.svg";
+import type { FieldMark } from "./field-marks.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { submitWith } from "./form-row.tsx";
 import { productName } from "./product-name.ts";
@@ -72,18 +73,22 @@ export function CredentialsNotice(props: {
 
 /**
  * What went wrong, where the person is looking: an alert for what they just did, or a quiet
- * notice for what happened before they arrived (a session the server ended).
+ * notice for what happened before they arrived (a session the server ended). id, where given, is
+ * the one the fields it is about are described by (useFieldMarks).
  */
 export function CredentialsProblem(props: {
   readonly isAlert: boolean;
+  readonly id?: string;
   readonly children: ReactNode;
 }): JSX.Element {
   return props.isAlert ? (
-    <p className="credentials-form__problem" role="alert">
+    <p className="credentials-form__problem" role="alert" id={props.id}>
       {props.children}
     </p>
   ) : (
-    <output className="credentials-form__problem">{props.children}</output>
+    <output className="credentials-form__problem" id={props.id}>
+      {props.children}
+    </output>
   );
 }
 
@@ -93,10 +98,13 @@ export function PasswordField(props: {
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly autoComplete?: "new-password" | "current-password";
+  /** Its mark while the failure shown is about it (useFieldMarks); none by default. */
+  readonly mark?: FieldMark;
 }): JSX.Element {
   return (
     <CredentialsField label={props.label}>
       <input
+        {...props.mark}
         type="password"
         autoComplete={props.autoComplete ?? "new-password"}
         required

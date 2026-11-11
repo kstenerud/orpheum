@@ -16,6 +16,7 @@ export function personWords(t: TFunction): FormWords {
       "body.password": t("people.password"),
     },
     overrides: { conflict: t("people.nameTaken") },
+    codeFields: { conflict: ["body.name"] },
   };
 }
 
