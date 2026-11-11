@@ -306,8 +306,8 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 				"page", note.Page)...)
 	case NotePlayedWhileHeld:
 		// What played a player its group held, and the group's state then: a Fire TV's cast started
-		// with a play, a pause and a play, and its log said only that it played (the owner's Marrowgate
-		// Family, staging, 2026-10-28).
+		// with a play, a pause and a play, and its log said only that it played (the owner's film,
+		// staging, 2026-10-28).
 		current.logger.InfoContext(ctx, "watch together: a player played while its group held it; it is paused",
 			append(attributes, slogx.EventKey, eventPlayedWhileHeld, "groupState", string(current.group.state),
 				"by", note.Why, positionMsAttribute, note.PositionMs)...)

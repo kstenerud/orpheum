@@ -63,7 +63,7 @@ describe("a player's word that it followed its group's change (the owner, 2026-1
   });
 });
 
-describe("a player's word of a play its follower did not make while its group held it (the owner's Marrowgate Family, 2026-10-28)", () => {
+describe("a player's word of a play its follower did not make while its group held it (the owner's film, 2026-10-28)", () => {
   it("says the element's autoplay played it while its group waited, at where it stood, and pauses it", () => {
     const media = new FakeMedia();
     media.autoplay = true;

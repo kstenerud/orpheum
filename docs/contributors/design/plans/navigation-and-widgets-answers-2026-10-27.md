@@ -3081,7 +3081,7 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    (e) **Make it a cast target passes at home** (the owner, 2026-11-11: "#1 passed"; the core
    logged Attic TV activated by a code, its session begun direct from home, its live connection).
    **A cast to it is taken but never played** (the owner: "it said on the tv 'cast 1 from Chrome on
-   MAc: Labyrinth', but it didn't stop playing marrowgate family"). The core logged the cast (file 1504),
+   MAc: [the film]', but it didn't stop playing [the one already playing]"). The core logged the cast (file 1504),
    the receiver's Use and its joining the cast's session as its video, then nothing: no `/playback`
    from the Chromecast. The cause, in web/apps/cast-receiver/src/device.ts: `CastDevice.receive` only
    joins the session and follows its group (`stepsToFollow`), but in a cast the receiver leads the

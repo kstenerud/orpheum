@@ -251,7 +251,7 @@ const (
 	// group did not play and no command came of it, so its follower paused it again; Why what began it:
 	// "autoplay", the element's own autoplay as it loaded, or "page", a play on the page, a press or a
 	// media key. A Fire TV's cast started with a play, a pause and a play, and nothing said what played
-	// it first (the owner's Marrowgate Family, staging, 2026-10-28).
+	// it first (the owner's film, staging, 2026-10-28).
 	NotePlayedWhileHeld NoteKind = "playedWhileHeld"
 	// NoteShownAgain is a device's page shown again, its socket answering the ping it sent then, Why
 	// "alive", after RoundTripMs; one that did not answer in time is a NoteReconnected whose Why is

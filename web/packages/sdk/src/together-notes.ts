@@ -116,7 +116,7 @@ export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>>
  *   and no command came of it, so its follower paused it again; why what began it: "autoplay", the
  *   element's own autoplay as it loaded, or "page", a play on the page, a press or a media key: a
  *   Fire TV's cast started with a play, a pause and a play, and nothing said what played it first
- *   (the owner's Marrowgate Family, staging, 2026-10-28);
+ *   (the owner's film, staging, 2026-10-28);
  * - playedWithSound: a cast's receiver's film started with its sound on at positionMs, page the
  *   page's activation then (D358 §2);
  * - takenBack: a cast's receiver took its control back, by "back", "select" (OK twice), "tap" (twice)

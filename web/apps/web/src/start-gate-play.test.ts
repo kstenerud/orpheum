@@ -38,7 +38,7 @@ async function fire(video: HTMLVideoElement, event: string): Promise<void> {
 }
 
 /**
- * The Play page's video as a Fire TV's was (the owner's Marrowgate Family, staging, 2026-10-28): resumed
+ * The Play page's video as a Fire TV's was (the owner's film, staging, 2026-10-28): resumed
  * at 1798.9 s, its first chunk loaded from 1794.96 s to 1800.47 s, able to play; its next chunk, 10.4
  * s of film, expected to take 2.3 s. Its plays are counted, and what it loaded is the test's.
  */

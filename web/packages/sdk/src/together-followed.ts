@@ -40,8 +40,8 @@ export function heldByOf(
  * while its group, where it is, does not play; any other event, and any of a leader's, it leaves. The follower plays its
  * player only with its group (followGroup), and pauses it again, so the note says what played it:
  * the element's own autoplay as it loaded, or the page, a press or a media key. A Fire TV's cast
- * played, paused and played as it started, and nothing said what played it first (the owner's Marrowgate
- * Family, staging, 2026-10-28).
+ * played, paused and played as it started, and nothing said what played it first (the owner's film,
+ * staging, 2026-10-28).
  */
 export function notePlayedWhileHeld(played: {
   readonly connection: Pick<TogetherConnection, "note">;

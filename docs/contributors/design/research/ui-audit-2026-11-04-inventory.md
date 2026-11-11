@@ -97,7 +97,7 @@
 - **Sort** (`films-sort-desktop1920.png`): a list box of six orders; focus on the current one.
 - **Focus on load:** body. **Back into the list** (desktop): focus returns to the poster opened.
 - **Fire TV walk** (`films-tv-1.png`): the first Down lands on **Search** at the top right; the next
-  Down goes to the grid's **last column** (The Marrowgate Family 2019), not the first poster. Reaching
+  Down goes to the grid's **last column**, not the first poster. Reaching
   the first poster takes five Lefts. Right from any poster in the last column goes into the A–Z
   rail and further Right stays there. Up from Search goes into the bar (Watch Together).
 - **Observed:** the grid has no heading of its own; the page title says "All Films" while the
