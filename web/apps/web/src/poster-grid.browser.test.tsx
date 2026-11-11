@@ -67,6 +67,25 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(focusedTile()).toBe("Film 6");
   });
 
+  it("is one Tab stop: Tab enters at the card last focused, and the next leaves (the owner, 2026-11-11)", async () => {
+    await page.viewport(1440, 900);
+    walking = await mountApp(walkServices(filmsOnly));
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    const grid = document.querySelector(".poster-grid");
+    document.querySelector<HTMLElement>(".poster-grid .poster-card__link")?.focus();
+    // The arrows still move from card to card, all but one out of Tab's order.
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    expect(focusedTile()).toBe("Film 3");
+    await userEvent.keyboard("{Tab}");
+    expect(grid?.contains(document.activeElement)).toBe(false);
+    await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(focusedTile()).toBe("Film 3");
+    const inTabsOrder = [...(grid?.querySelectorAll<HTMLElement>("a, button") ?? [])].filter(
+      (control) => control.tabIndex >= 0,
+    );
+    expect(inTabsOrder).toHaveLength(1);
+  });
+
   it("keeps the page's own margin left of the posters, the rail centred and whole in its gutter right of them", async () => {
     for (const [width, height] of [
       [960, 480],

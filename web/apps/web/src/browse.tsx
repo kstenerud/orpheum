@@ -55,6 +55,7 @@ import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
 import { itemsToCome, usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
+import { useRovingTabStop } from "./roving-tab-stop.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
 export type Entry =
@@ -108,6 +109,7 @@ export function PosterGrid(props: {
   );
   const gridRef = useRef<HTMLUListElement>(null);
   useFocusedToComeKept(gridRef, props.entries);
+  useRovingTabStop(gridRef);
   const loaded = props.entries.length;
   const firstToCome = useCallback(
     () => gridRef.current?.querySelector(`[${toComePlaceAttribute}="${String(loaded)}"]`) ?? null,

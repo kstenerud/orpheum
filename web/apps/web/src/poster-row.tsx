@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { arrivalMark } from "./focus-navigation.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { useRovingTabStop } from "./roving-tab-stop.ts";
 
 /** Which way an arrow scrolls a row: back to its start, or on to its end. */
 type RowDirection = "back" | "on";
@@ -31,9 +32,9 @@ const slackPixels = 1;
 
 /**
  * A row of posters that scrolls sideways (Home's rows, a series' seasons), the one way to draw one:
- * the list a remote moves along by Left and Right (data-focus-container) and Tab walks, scrolling it;
- * and, for a mouse with no sideways wheel, an arrow at each end where there is more that way (the
- * owner, 2026-11-04). The arrows show only on a device whose pointer hovers and is fine, while the
+ * the list a remote moves along by Left and Right (data-focus-container), scrolling it, and Tab
+ * enters and leaves in one step (useRovingTabStop); and, for a mouse with no sideways wheel, an
+ * arrow at each end where there is more that way (the owner, 2026-11-04). The arrows show only on a device whose pointer hovers and is fine, while the
  * pointer is over the row or focus is in it (poster-row.css); they are out of Tab's order and a
  * remote's (IconButton's isPointerOnly), so a phone and a television are as they were. listRef,
  * given, is the list's, for a row that scrolls itself to a poster (SeasonRow).
@@ -52,6 +53,7 @@ export function PosterRow(props: {
   const ownRef = useRef<HTMLUListElement>(null);
   const listRef = props.listRef ?? ownRef;
   const ends = useRowEnds(listRef);
+  useRovingTabStop(listRef);
   const scroll = (direction: RowDirection): void => {
     const list = listRef.current;
     if (list !== null) {

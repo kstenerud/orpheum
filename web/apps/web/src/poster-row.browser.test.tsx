@@ -200,3 +200,23 @@ function handMouseQuery(): { readonly attach: () => void } {
     },
   };
 }
+
+describe("a poster row's Tab stop (the owner, 2026-11-11: one Tab stop per poster grid and row)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("is one: Tab leaves the row, and comes back to the poster last focused", async () => {
+    mounted = await rowOf(8);
+    const list = drawnAt(".poster-row");
+    const links = [...list.querySelectorAll<HTMLElement>(".poster-card__link")];
+    links[1]?.focus();
+    await userEvent.keyboard("{Tab}");
+    expect(list.contains(document.activeElement)).toBe(false);
+    await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(document.activeElement).toBe(links[1]);
+    expect(links.filter((link) => link.tabIndex >= 0)).toHaveLength(1);
+  });
+});

@@ -183,9 +183,23 @@ function isDrawn(element: HTMLElement): boolean {
   );
 }
 
-/** Whether element can take focus by an arrow now: in the tab order, drawn, and not inert. */
+/**
+ * The attribute on a control a roving tab stop took out of Tab's order (roving-tab-stop.ts): one of
+ * a poster grid's or row's cards, which Tab passes over but an arrow still moves to.
+ */
+export const rovingAttribute = "data-focus-roving";
+
+/**
+ * Whether an arrow may move focus to element by the tab order: it is in it, or out of it only by a
+ * roving tab stop. One out of it any other way, a pointer's alone (IconButton), is not.
+ */
+export function isInArrowsOrder(element: HTMLElement): boolean {
+  return element.tabIndex >= 0 || element.hasAttribute(rovingAttribute);
+}
+
+/** Whether element can take focus by an arrow now: in the arrows' order, drawn, and not inert. */
 export function isFocusTarget(element: HTMLElement): boolean {
-  return element.tabIndex >= 0 && element.closest("[inert]") === null && isDrawn(element);
+  return isInArrowsOrder(element) && element.closest("[inert]") === null && isDrawn(element);
 }
 
 /** The elements in region an arrow can move focus to, in the document's order. */
@@ -278,8 +292,8 @@ export const geometricFocus: FocusEngine = {
 
 /**
  * The controls in region an arrow from from may reach, each with the box it is searched by: those in
- * the tab order, but from, those inside it and those in searched; whether each can take focus now is
- * not asked (geometricFocus).
+ * the arrows' order (isInArrowsOrder), but from, those inside it and those in searched; whether each
+ * can take focus now is not asked (geometricFocus).
  */
 function candidatesFor(
   from: Element,
@@ -292,7 +306,7 @@ function candidatesFor(
   for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
     if (
       element !== from &&
-      element.tabIndex >= 0 &&
+      isInArrowsOrder(element) &&
       !skipped.has(element) &&
       !from.contains(element)
     ) {
