@@ -31,7 +31,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
-import { Still } from "./poster.tsx";
+import { PosterClock, Still } from "./poster.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
 import { EndOfList, useAskedWhenNear } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -206,7 +206,9 @@ const PosterToCome = memo(function PosterToCome(props: {
         aria-label={props.label}
       >
         <span className="poster-card__art">
-          <span className="poster" />
+          <span className="poster">
+            <PosterClock />
+          </span>
         </span>
         <span className="poster-card__name">{"\u00a0"}</span>
         <span className="poster-card__detail">{"\u00a0"}</span>

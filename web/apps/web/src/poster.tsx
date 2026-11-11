@@ -47,7 +47,7 @@ export function Poster(props: {
       </span>
     );
   }
-  return (
+  const image = (
     <img
       className="poster"
       src={shown.url}
@@ -61,6 +61,18 @@ export function Poster(props: {
       height={360}
       onError={shown.onError}
     />
+  );
+  // A tile's image is drawn over a clock, seen until the image is: a list read whole lays out
+  // every card at once, and the images arrive after.
+  return props.isTile === true ? (
+    <>
+      <span className="poster-waiting" aria-hidden="true">
+        <PosterClock />
+      </span>
+      {image}
+    </>
+  ) : (
+    image
   );
 }
 
@@ -230,6 +242,30 @@ function imageLoads(url: string, signal?: AbortSignal): Promise<boolean> {
     );
     image.src = url;
   });
+}
+
+/**
+ * A clock, faded and still, where a poster is still to come: behind a tile's image until it is
+ * drawn, and on a blank whose entry has not been read (the owner, 2026-11-11: "a faded,
+ * non-animating clock").
+ */
+export function PosterClock(): JSX.Element {
+  return (
+    <Icon className="poster__clock">
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="9" />
+        {/* The hands meet a little left of and below the middle, so their weight, up and to the
+            right, looks centred (the owner, 2026-11-11). */}
+        <path d="M11.5 6.6v5.9l3.5 2.7" />
+      </g>
+    </Icon>
+  );
 }
 
 /**
