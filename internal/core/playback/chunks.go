@@ -41,6 +41,7 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 		// is one whose player gave the film's own picture up on an earlier playback (D266).
 		IsSourcePictureDecodable: playback.decision.Profile != decide.H264 && !playback.isOwnPictureUnplayable,
 		IsOnTime:                 playback.isOnTime,
+		IsOnKeyframesAlone:       playback.isOnKeyframesAlone,
 		IsSoundUnlevelled:        playback.isSoundUnlevelled,
 		IsSoundUnmeasured:        playback.isSoundUnmeasured,
 		OwnSoundTracks:           playback.ownSoundTracks,

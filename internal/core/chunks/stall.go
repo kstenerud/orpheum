@@ -63,6 +63,9 @@ type Offer struct {
 	// IsOnTime is whether the film was cut on time for it, which its playback keeps to its end (D269
 	// §3): its file has no index, or its keyframes could not be had in time or at all (D344 §2).
 	IsOnTime bool
+	// IsOnKeyframesAlone is whether the film was cut on its keyframes alone for it, its picture's
+	// bytes in each second not read yet, which its playback keeps to its end (OnKeyframesSized).
+	IsOnKeyframesAlone bool
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -165,16 +168,17 @@ func (service *Service) startAt(
 	}
 	soundKbps := film.soundKbpsWith(offered, playback, picture)
 	offer := Offer{
-		Quality:          film.qualityOf(picture),
-		StartAtBps:       film.variantOf(picture, soundKbps).bandwidthBps,
-		IsBelowTheLowest: chosen.isBelowTheLowest,
-		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
-		StreamName:       picture.Name(),
-		AverageKbps:      film.averageWithSoundKbps(picture, soundKbps),
-		IsHeldByUpload:   chosen.isHeldByUpload,
-		FromMs:           film.grid.StartsMs[chunk],
-		LinkSharePercent: chosen.sharePercent,
-		IsOnTime:         film.kind == OnTime,
+		Quality:            film.qualityOf(picture),
+		StartAtBps:         film.variantOf(picture, soundKbps).bandwidthBps,
+		IsBelowTheLowest:   chosen.isBelowTheLowest,
+		FilmPictureKbps:    max(0, film.pictureAverageBps()/1000),
+		StreamName:         picture.Name(),
+		AverageKbps:        film.averageWithSoundKbps(picture, soundKbps),
+		IsHeldByUpload:     chosen.isHeldByUpload,
+		FromMs:             film.grid.StartsMs[chunk],
+		LinkSharePercent:   chosen.sharePercent,
+		IsOnTime:           film.kind == OnTime,
+		IsOnKeyframesAlone: film.kind == OnKeyframes,
 	}
 	if playback.HasStartingAudio {
 		sound := offered.playingSoundOf(playback, picture)

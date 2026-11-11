@@ -31,6 +31,10 @@ const (
 	// OnKeyframes is cut at its picture's keyframes, from its timeline: its picture copied can be
 	// offered, as each chunk of it begins on a keyframe.
 	OnKeyframes GridKind = "keyframes"
+	// OnKeyframesSized is cut on its picture's keyframes as OnKeyframes is, and at more of them
+	// where a chunk would hold more than largestChunkBytes of the picture, by its bytes in each
+	// second (SizedGridOf): a film whose read-through has found them.
+	OnKeyframesSized GridKind = "keyframes-sized"
 	// OnTime is cut at each multiple of the segment length: a film whose file has no index of its
 	// keyframes, played encoded at once, without its picture copied (D269 §1).
 	OnTime GridKind = "time"
@@ -56,6 +60,34 @@ type Grid struct {
 // before it. It fails with ErrCannotBeCut for a
 // picture with no keyframe before the film's end, and for a segmentMs that is not positive.
 func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
+	return gridOf(keyframesMs, durationMs, segmentMs, nil)
+}
+
+// largestChunkBytes is the most of a picture's bytes SizedGridOf puts in a chunk where its keyframes
+// allow: a sixth of the least a browser holds of a picture, Chromium's 30 MiB on a device of 1 GB, so
+// that the chunk playing, two ahead and the room behind them fit. A 1080p film's 10 s chunk of 21 MB
+// was refused there, and its playback stood still (the owner's Fire TV, 2026-11-11). Every device
+// plays the one grid; a device with more room holds more chunks ahead (the owner, 2026-11-11).
+const largestChunkBytes = 5 << 20
+
+// SizedGridOf is GridOf's grid with a chunk ended early, at the keyframe before the one that would
+// take it past largestChunkBytes of the picture, by its bytesInEachSecond (entry n is second n's),
+// so a stretch of a high rate is played at its full quality in chunks a small buffer holds (the
+// owner, 2026-11-11). A chunk begun at a multiple of segmentMs still begins there, so each start
+// depends only on the keyframes and the bytes near it, and a stretch of the film cut alone agrees with
+// the whole film's grid. The stretch from one keyframe to the next is never split: one larger than
+// largestChunkBytes is a chunk of its own. A last chunk is merged into the one before it only where
+// the two stay within largestChunkBytes. With no bytes it is GridOf's grid.
+func SizedGridOf(keyframesMs, bytesInEachSecond []int64, durationMs, segmentMs int64) ([]int64, error) {
+	if len(bytesInEachSecond) == 0 {
+		return GridOf(keyframesMs, durationMs, segmentMs)
+	}
+	return gridOf(keyframesMs, durationMs, segmentMs, bytesBeforeOf(bytesInEachSecond))
+}
+
+// gridOf is GridOf's grid, and SizedGridOf's where bytesBefore, the picture's bytes before each time
+// of the film, is given.
+func gridOf(keyframesMs []int64, durationMs, segmentMs int64, bytesBefore func(ms int64) int64) ([]int64, error) {
 	if segmentMs <= 0 {
 		return nil, fmt.Errorf("%w: chunks of %d ms", ErrCannotBeCut, segmentMs)
 	}
@@ -63,21 +95,52 @@ func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
 		return nil, fmt.Errorf("%w: no keyframe before the film's end at %d ms", ErrCannotBeCut, durationMs)
 	}
 	nextMultipleAfter := func(ms int64) int64 { return (ms/segmentMs + 1) * segmentMs }
+	// isTooLarge is whether a chunk from its start to toMs would hold more than largestChunkBytes.
+	isTooLarge := func(fromMs, toMs int64) bool {
+		return bytesBefore != nil && bytesBefore(toMs)-bytesBefore(fromMs) > largestChunkBytes
+	}
 	starts := []int64{keyframesMs[0]}
 	next := nextMultipleAfter(keyframesMs[0])
+	// before is the keyframe before the one at hand: where a chunk grown too large ends.
+	before := keyframesMs[0]
 	for _, keyframe := range keyframesMs[1:] {
 		if keyframe >= durationMs {
 			break
+		}
+		if start := starts[len(starts)-1]; before != start && isTooLarge(start, keyframe) {
+			starts = append(starts, before)
 		}
 		if keyframe >= next {
 			starts = append(starts, keyframe)
 			next = nextMultipleAfter(keyframe)
 		}
+		before = keyframe
 	}
-	if len(starts) > 1 && durationMs-starts[len(starts)-1] < segmentMs {
+	if start := starts[len(starts)-1]; before != start && isTooLarge(start, durationMs) {
+		starts = append(starts, before)
+	}
+	if len(starts) > 1 && durationMs-starts[len(starts)-1] < segmentMs &&
+		!isTooLarge(starts[len(starts)-2], durationMs) {
 		starts = starts[:len(starts)-1]
 	}
 	return starts, nil
+}
+
+// bytesBeforeOf is the bytes before each time of a film whose picture has bytesInEachSecond, each
+// second's spread evenly over it.
+func bytesBeforeOf(bytesInEachSecond []int64) func(ms int64) int64 {
+	before := make([]int64, len(bytesInEachSecond)+1)
+	for second, bytes := range bytesInEachSecond {
+		before[second+1] = before[second] + bytes
+	}
+	return func(ms int64) int64 {
+		ms = max(ms, 0)
+		second := ms / 1000
+		if second >= int64(len(bytesInEachSecond)) {
+			return before[len(bytesInEachSecond)]
+		}
+		return before[second] + bytesInEachSecond[second]*(ms%1000)/1000
+	}
 }
 
 // Grid is the grid the file's film is cut on, from its main picture's timeline as a read-through
@@ -183,12 +246,29 @@ func (service *Service) cut(ctx context.Context, fileID int64, kind GridKind) (c
 	if durationMs <= 0 {
 		durationMs = int64(len(film.bytesInEachSecond)) * time.Second.Milliseconds()
 	}
-	starts, err := GridOf(film.keyframesMs, durationMs, segment.Milliseconds())
-	if err != nil {
+	if film, err = cutOnKeyframes(film, durationMs, segment.Milliseconds()); err != nil {
 		return film, false, fmt.Errorf("file %d: %w", fileID, err)
 	}
-	film.grid = Grid{StartsMs: starts, FilmDurationMs: durationMs}
 	return film, true, nil
+}
+
+// cutOnKeyframes is the film with its grid from its keyframes, sized by its bytes in each second for
+// OnKeyframesSized; a film whose bytes are not read yet is cut on its keyframes alone, as a
+// playback begun on it then stays.
+func cutOnKeyframes(film cutFilm, durationMs, segmentMs int64) (cutFilm, error) {
+	if film.kind == OnKeyframesSized && len(film.bytesInEachSecond) == 0 {
+		film.kind = OnKeyframes
+	}
+	var bytesInEachSecond []int64
+	if film.kind == OnKeyframesSized {
+		bytesInEachSecond = film.bytesInEachSecond
+	}
+	starts, err := SizedGridOf(film.keyframesMs, bytesInEachSecond, durationMs, segmentMs)
+	if err != nil {
+		return film, err
+	}
+	film.grid = Grid{StartsMs: starts, FilmDurationMs: durationMs}
+	return film, nil
 }
 
 // lastChunk is the number of the grid's last chunk.

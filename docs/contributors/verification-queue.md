@@ -2888,3 +2888,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   whose picture the browser plays but whose container it does not (an MKV of H.264) plays with its
   picture copied. (`internal/node/encode/speed.go`, `internal/core/chunks/offer.go`,
   `web/apps/web/src/system.tsx`)
+- [ ] **VQ294** — A heavy stretch plays at full quality on a Fire TV with little memory (the owner,
+  2026-11-11: "I just want to make sure we're not locking away full quality unnecessarily"; the
+  11-22 batch's item 9). On staging, with the owner's Fire TV at .197, start /play/1504 afresh (a new
+  playback, after the read-through has read its bytes in each second) and seek to about 3:15: passes
+  when it plays past 3:25 at its 1080p rung without a stall, no bufferFullError in Silk's console,
+  and the rung not stepped down; the chunks the player fetched around 200 s are each 5 MiB or less.
+  (`internal/core/chunks/grid.go`, `internal/core/chunks/offer.go`)
