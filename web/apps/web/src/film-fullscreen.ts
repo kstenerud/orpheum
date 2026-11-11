@@ -39,10 +39,38 @@ const keptFillingAttribute = "data-fills-window-kept";
 export function keepFillingTheWindow(stage: Element): () => void {
   stage.setAttribute(keptFillingAttribute, "");
   setFillsWindow(stage, true);
+  const stopCovering = coverTheWholeScreen(stage.ownerDocument);
   return () => {
+    stopCovering();
     stage.removeAttribute(keptFillingAttribute);
     setFillsWindow(stage, false);
   };
+}
+
+/**
+ * Has page drawn over the whole screen, a notch's sides and a rounded corner's room too, until the
+ * returned stopping puts its viewport back as written: Chrome on an iPhone, turned sideways, drew
+ * the Play page in 808 by 275 of a screen 896 by 414 across, the rest its own grey, as iOS does for
+ * a page that does not say it covers the screen (the owner, 2026-11-11). The stage keeps its film
+ * and its controls out of that room (player-overlay.css), only its black reaching into it.
+ */
+function coverTheWholeScreen(page: Document): () => void {
+  const viewport = page.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  if (viewport === null) {
+    return doNothing;
+  }
+  const asWritten = viewport.content;
+  viewport.content = `${asWritten}, ${coversTheScreen}`;
+  return () => {
+    viewport.content = asWritten;
+  };
+}
+
+/** What a viewport's content says to have the page drawn over the whole screen. */
+export const coversTheScreen = "viewport-fit=cover";
+
+function doNothing(): void {
+  // A page with no viewport of its own to change.
 }
 
 /** Follows a stage's filling the window or no longer (setFillsWindow); returns the stopping. */
