@@ -96,6 +96,10 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       walkServices({ ...filmsOnly, "GET /items": { items: lettered, nextCursor: "" } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    // The rail's letters come from their own request: a letter not yet drawn cannot be stood at.
+    await expect
+      .poll(() => document.querySelectorAll(".alphabet-rail__letter").length)
+      .toBeGreaterThan(0);
     const links = document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link");
     links[5]?.focus();
     await userEvent.keyboard("{ArrowRight}");

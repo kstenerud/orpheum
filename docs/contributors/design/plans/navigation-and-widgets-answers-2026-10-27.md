@@ -2928,6 +2928,9 @@ The owner's answers:
      100 items after are filled (giving a good buffer of scroll room). Every time the user scrolls,
      that fill window changes, so if they're not scrolling faster than it can fill, it looks
      infinite." Posters outside the window may be let go.
+   - The order (the owner, 2026-11-11): "Fill the next 100 posters in each direction, filling first
+     in the vertical direction they last moved, or if they haven't moved, alternate 1 row down, 1
+     row up, until we fill both windows."
 
 ### From the 11-22 batch, next batch (the owner agreed 2026-11-11)
 
