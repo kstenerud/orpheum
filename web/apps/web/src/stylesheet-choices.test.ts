@@ -38,3 +38,17 @@ describe("a heading", () => {
     expect(headings.map((declaration) => declaration.text)).toContain("text-wrap: balance");
   });
 });
+
+describe("a field left wrong", () => {
+  const edges = declarationsOf(sourceHere("base.css"))
+    .filter((declaration) => declaration.text === "border-color: var(--color-irreversible-text)")
+    .map((declaration) => declaration.selector);
+
+  it("has the red edge of what cannot be undone, once the person has left it (:user-invalid)", () => {
+    expect(edges).toContain("input:user-invalid, select:user-invalid, textarea:user-invalid");
+  });
+
+  it("has it too where the server marked it, in a rule of its own a browser without :user-invalid keeps", () => {
+    expect(edges).toContain('[aria-invalid="true"]:is(input, select, textarea)');
+  });
+});
