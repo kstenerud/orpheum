@@ -2848,3 +2848,11 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   drawn and stops at the release, and a held seek travels as far for the same time held. The
   measurement of what a move and a scroll redraw (2026-11-11, `/yoloai/files/focus-trace/`) is
   read before it is built.
+
+- **Next batch (measured 2026-11-11, `/yoloai/files/focus-trace/report.md`):** in a library's grid
+  each ArrowDown costs ~78 ms of main thread at 6x throttling, against ~14 ms for a move on Home. The
+  keydown handler forces 10 layouts in a row, one per tile of the next row (~15 ms), likely the focus
+  search measuring tiles `content-visibility: auto` skipped; a whole-document paint and ~10 more
+  layout and paint frames follow as tiles enter view. Find what forces each layout and read the
+  row's boxes once. Also seen, not diagnosed: in a held Down at the last loaded rows, focus jumped to
+  the alphabet rail's bottom letter and stuck ~370 ms, and 3 of 20 spaced presses there only scrolled.
