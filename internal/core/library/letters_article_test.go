@@ -3,6 +3,7 @@
 package library
 
 import (
+	"maps"
 	"slices"
 	"testing"
 
@@ -26,5 +27,32 @@ func TestLetters_ATitleIsUnderItsFirstWordThatIsNoArticle(t *testing.T) {
 	})
 	if err != nil || !slices.Equal(letters, []string{"B", "M", "T"}) {
 		t.Errorf("the letters of The Gold Rush, A Woman of Paris and The = %v, %v; want B, M and T", letters, err)
+	}
+}
+
+// A list by name says each entry's letter as the rail names it, by the same key: The Gold Rush under M,
+// so the rail can stand at the letter of the poster beside it (the owner, 2026-11-11).
+func TestList_SaysEachEntrysRailLetter(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("m.mkv", "m"), observedRecord("n.mkv", "n"), observedRecord("b.mkv", "b"),
+	}, true)
+	world.fileAsFilm("The Gold Rush", "m.mkv")
+	world.fileAsFilm("The Freshman", "n.mkv")
+	world.fileAsFilm("A Woman of Paris", "b.mkv")
+	page, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	said := map[string]string{}
+	for _, entry := range page.Entries {
+		said[entry.Name] = entry.Letter
+	}
+	want := map[string]string{"The Gold Rush": "M", "The Freshman": "#", "A Woman of Paris": "B"}
+	if !maps.Equal(said, want) {
+		t.Errorf("the letters said = %v; want %v", said, want)
 	}
 }

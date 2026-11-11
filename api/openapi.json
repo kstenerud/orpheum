@@ -7257,6 +7257,10 @@
               "series"
             ]
           },
+          "letter": {
+            "description": "The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name",
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -8806,6 +8810,10 @@
           },
           "landscapeSha256": {
             "description": "An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          },
+          "letter": {
+            "description": "The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name",
             "type": "string"
           },
           "name": {

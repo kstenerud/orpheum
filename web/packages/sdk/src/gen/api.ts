@@ -5113,6 +5113,8 @@ export interface components {
              * @enum {string}
              */
             kind: "series";
+            /** @description The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name */
+            letter?: string;
             name: string;
             /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             noPosterStillSha256?: string;
@@ -5616,6 +5618,8 @@ export interface components {
             kind: "episode" | "extra" | "film" | "other";
             /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             landscapeSha256?: string;
+            /** @description The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name */
+            letter?: string;
             name: string;
             /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             noPosterStillSha256?: string;
