@@ -753,7 +753,6 @@ export function LadderNotes(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { offer, cannotKeepUp } = props;
-  const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
   return (
     <>
@@ -762,11 +761,13 @@ export function LadderNotes(props: {
           <QualityLine {...props} />
         </ForTesters>
       )}
-      {isBeyondTheLink ? (
-        <p role="alert">
-          {cannotKeepUp?.linkKbps === undefined
-            ? t("play.cannotKeepUpUnmeasured", { lowest })
-            : t("play.cannotKeepUp", { link: rateText(cannotKeepUp.linkKbps), lowest })}
+      {cannotKeepUp !== undefined || offer.isBelowTheLowest ? (
+        <p className="needs-fixing">
+          <output>
+            {cannotKeepUp?.linkKbps === undefined
+              ? t("play.cannotKeepUpUnmeasured", { lowest })
+              : t("play.cannotKeepUp", { link: rateText(cannotKeepUp.linkKbps), lowest })}
+          </output>
         </p>
       ) : null}
     </>

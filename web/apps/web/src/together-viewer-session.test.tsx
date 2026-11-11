@@ -13,6 +13,7 @@ import {
   click,
   enter,
   mount,
+  politeNotices,
   servedBy,
   submit,
   type Answers,
@@ -304,10 +305,9 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const mounted = await mount(
       withServices(<TogetherViewer />, { ...services, canFollowAGroup: () => false }),
     );
-    // Polite, not an alert: it shows as the page opens, no answer to anything pressed.
-    expect(mounted.container.querySelector("output")?.textContent).toContain(
-      "update to iOS 17.1 or later",
-    );
+    // Told as the page opens, not the failure of anything done: politely, in the yellow.
+    expect(politeNotices(mounted.container).join(" ")).toContain("update to iOS 17.1 or later");
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
     expect(mounted.container.querySelector("input")).toBeNull();
     expect(mounted.container.querySelector("button")).toBeNull();
     expect(heard).toEqual([]);

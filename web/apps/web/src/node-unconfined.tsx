@@ -42,11 +42,13 @@ export function NodeUnconfinedLeave(props: {
   const leave = node.unconfinedLeave;
   if (leave !== undefined) {
     return (
-      <p role="alert">
-        {t("system.unconfined.given", {
-          by: leave.acceptedBy,
-          at: dateTimeText(leave.acceptedAt, i18n.language),
-        })}
+      <p className="needs-fixing">
+        <output>
+          {t("system.unconfined.given", {
+            by: leave.acceptedBy,
+            at: dateTimeText(leave.acceptedAt, i18n.language),
+          })}
+        </output>
       </p>
     );
   }
@@ -73,7 +75,9 @@ function LockedNode(props: {
   const { t } = useTranslation();
   return (
     <div>
-      <p role="alert">{t("system.unconfined.locked")}</p>
+      <p className="needs-fixing">
+        <output>{t("system.unconfined.locked")}</output>
+      </p>
       <NodeConfinementView node={props.node} />
       <p>{t("system.unconfined.risk")}</p>
       <ConfirmButton

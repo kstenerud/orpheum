@@ -142,7 +142,7 @@ describe("The house's network", () => {
       ],
     });
     await settleUntil(() => saveButton(shown) !== undefined);
-    expect(shown.container.querySelector("output")?.textContent).toBe(
+    expect(shown.container.querySelector(".needs-fixing output")?.textContent).toBe(
       "The HTTPS port 443 was taken by something else when the server started, so it runs on 8443. Choose a free port, or free that one, then restart.",
     );
     expect(buttonWithText(shown.container, "Restart the server")).toBeDefined();

@@ -82,7 +82,11 @@ function ProviderStatus(props: { readonly provider: Provider }): JSX.Element {
       {waitUntil === undefined
         ? null
         : ` ${t("system.waitUntil", { at: dateTimeText(waitUntil, i18n.language) })}`}
-      {down === undefined ? null : <p role="alert">{waitingText(t, down, i18n.language)}</p>}
+      {down === undefined ? null : (
+        <p className="needs-fixing">
+          <output>{waitingText(t, down, i18n.language)}</output>
+        </p>
+      )}
     </>
   );
 }

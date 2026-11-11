@@ -198,8 +198,11 @@ hr {
   border-block-start: 1px solid var(--color-border);
 }
 
-/* What could not be done is said in the warning yellow (D278 §4; looked at, VQ28). */
-[role="alert"] {
+/* What could not be done is said in the warning yellow (D278 §4; looked at, VQ28), and so is what
+   needs fixing that is told politely, a notice of how things stand rather than the answer to what the
+   person just did (needs-fixing). */
+[role="alert"],
+.needs-fixing {
   color: var(--color-warning);
 }
 

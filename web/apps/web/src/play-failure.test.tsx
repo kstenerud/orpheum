@@ -19,6 +19,7 @@ import {
   fire,
   mount,
   playbackCauses,
+  politeNotices,
   servedBy,
   settleUntil,
   type Heard,
@@ -32,6 +33,45 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+});
+
+describe("a connection too slow for the lowest quality", () => {
+  it("is said politely, in the yellow: how the link stands, not a failure of anything done", async () => {
+    const services = servedBy({
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
+      "GET /files/2/availability": [200, {}],
+      "POST /playback/t/report": [200, {}],
+      "DELETE /playback/t": [204, null],
+    });
+    const belowTheLowest = {
+      url: "/api/v1/bytes/media/chunks/t/master.m3u8",
+      startAtBps: 1_896_000,
+      qualityKbps: 1200,
+      height: 480,
+      isBelowTheLowest: true,
+      soundCarriedGainDb: 0,
+      isReady: true,
+      filmPictureKbps: 4000,
+      linkSharePercent: 70,
+      steadiness: 0,
+    };
+    mounted = await mount(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={directDecision({ onLadder: belowTheLowest })}
+          onDecideAgain={() => undefined}
+        />,
+        services,
+      ),
+    );
+    expect(politeNotices(mounted.container).join(" ")).toContain(
+      "is too much for this connection: it will keep pausing.",
+    );
+    const alerts = [...mounted.container.querySelectorAll('[role="alert"]')];
+    expect(alerts.map((each) => each.textContent).join(" ")).not.toContain("keep pausing");
+  });
 });
 
 describe("a playback that fails (D241 §7)", () => {

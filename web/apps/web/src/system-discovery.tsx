@@ -331,7 +331,9 @@ function StandingView(props: {
       <WebRTCPaths paths={standing.webrtcPaths ?? []} />
       <HouseNetworks networks={standing.houseNetworks ?? []} />
       {standing.deprecatedUntil === undefined ? null : (
-        <p role="alert">{t("system.discovery.deprecated", { date: standing.deprecatedUntil })}</p>
+        <p className="needs-fixing">
+          <output>{t("system.discovery.deprecated", { date: standing.deprecatedUntil })}</output>
+        </p>
       )}
       <ConfirmButton
         label={t("system.discovery.leave")}
@@ -358,19 +360,23 @@ function OneCopy(props: {
   return (
     <>
       {standing.copyRefusedAt > 0 ? (
-        <p role="alert">
-          {t("system.discovery.copyRefused", {
-            from: standing.copyRefusedFrom ?? "",
-            at: dateTimeText(standing.copyRefusedAt, i18n.language),
-          })}
+        <p className="needs-fixing">
+          <output>
+            {t("system.discovery.copyRefused", {
+              from: standing.copyRefusedFrom ?? "",
+              at: dateTimeText(standing.copyRefusedAt, i18n.language),
+            })}
+          </output>
         </p>
       ) : null}
       {standing.stoodAsideAt > 0 ? (
         <>
-          <p role="alert">
-            {t("system.discovery.stoodAside", {
-              at: dateTimeText(standing.stoodAsideAt, i18n.language),
-            })}
+          <p className="needs-fixing">
+            <output>
+              {t("system.discovery.stoodAside", {
+                at: dateTimeText(standing.stoodAsideAt, i18n.language),
+              })}
+            </output>
           </p>
           <button type="button" disabled={props.isBusy} onClick={props.onAskAgain}>
             {t("system.discovery.askAgain")}
@@ -395,10 +401,12 @@ function Enrolment(props: {
     <>
       {/* A server older than removedAt sends none: missing is not removed. */}
       {standing.removedAt > 0 ? (
-        <p role="alert">
-          {t("system.discovery.removed", {
-            at: dateTimeText(standing.removedAt, i18n.language),
-          })}
+        <p className="needs-fixing">
+          <output>
+            {t("system.discovery.removed", {
+              at: dateTimeText(standing.removedAt, i18n.language),
+            })}
+          </output>
         </p>
       ) : null}
       {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
@@ -515,7 +523,9 @@ function Reach(props: { readonly standing: Standing }): JSX.Element {
         <p>{t("system.discovery.published", { names: published.join(", ") })}</p>
       )}
       {deadEndsLastWeek === 0 ? null : (
-        <p role="alert">{t("system.discovery.deadEnds", { count: deadEndsLastWeek })}</p>
+        <p className="needs-fixing">
+          <output>{t("system.discovery.deadEnds", { count: deadEndsLastWeek })}</output>
+        </p>
       )}
       <DeadEndCauses causes={props.standing.deadEndCauses ?? []} />
       <HomeAddressOf standing={props.standing} />
@@ -620,14 +630,18 @@ function Trusted(props: { readonly standing: Standing }): JSX.Element {
         </p>
       )}
       {documentStaleAt === undefined ? null : (
-        <p role="alert">
-          {t("system.discovery.documentStale", {
-            at: dateTimeText(documentStaleAt, i18n.language),
-          })}
+        <p className="needs-fixing">
+          <output>
+            {t("system.discovery.documentStale", {
+              at: dateTimeText(documentStaleAt, i18n.language),
+            })}
+          </output>
         </p>
       )}
       {documentProblem === undefined ? null : (
-        <p role="alert">{t("system.discovery.documentProblem")}</p>
+        <p className="needs-fixing">
+          <output>{t("system.discovery.documentProblem")}</output>
+        </p>
       )}
     </>
   );

@@ -57,3 +57,13 @@ describe("a field left wrong", () => {
     expect(tokens.filter((text) => text.startsWith("--color-invalid:"))).toHaveLength(1);
   });
 });
+
+describe("a notice of what needs fixing", () => {
+  it("is the warning yellow whether told as an alert or politely (D278 §4)", () => {
+    const yellow = declarationsOf(sourceHere("base.css"))
+      .filter((declaration) => declaration.text === "color: var(--color-warning)")
+      .map((declaration) => declaration.selector);
+    // An alert for what the person just did; needs-fixing for a notice of how things stand.
+    expect(yellow).toContain('[role="alert"], .needs-fixing');
+  });
+});

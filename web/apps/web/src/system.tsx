@@ -210,7 +210,7 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
   return (
     <>
       {node.isServersBuild ? null : (
-        <p>
+        <p className="needs-fixing">
           <output>{t("system.otherBuild")}</output>
         </p>
       )}
@@ -460,7 +460,7 @@ function EncodeSpeed(props: { readonly hardware: Hardware }): JSX.Element | null
     <>
       <p>{t("system.encodeSpeed", { percent: encodeSpeedPercent })}</p>
       {isTooSlowToConvert ? (
-        <p>
+        <p className="needs-fixing">
           <output>{t("system.tooSlowToEncode")}</output>
         </p>
       ) : null}

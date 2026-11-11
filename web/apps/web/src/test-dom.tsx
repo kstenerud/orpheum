@@ -363,6 +363,17 @@ export function buttonContaining(
 }
 
 /**
+ * The text of each notice of what needs fixing told politely in container: an `<output>`, a polite
+ * status, drawn in the warning yellow (needs-fixing, base.css), not an alert that breaks into what a
+ * screen reader is reading.
+ */
+export function politeNotices(container: Element): string[] {
+  return [...container.querySelectorAll(".needs-fixing output, output.needs-fixing")].map(
+    (each) => each.textContent,
+  );
+}
+
+/**
  * How long settleUntil and settleAnswers wait for real time before failing: a passing test never
  * reaches this, so it is set to the scale of Go's `testutil.ReceiveLimit` (a minute), not to a
  * guess at how long the work under test takes. A shorter bound that looked generous alone failed

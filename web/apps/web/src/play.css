@@ -17,7 +17,8 @@
   padding: var(--space-page);
 }
 
-.play:has(.film-player__stage--fills-window) [role="alert"]:not(.film-player__stage *) {
+.play:has(.film-player__stage--fills-window)
+  :is([role="alert"], .needs-fixing):not(.film-player__stage *) {
   position: relative;
   z-index: 51;
   margin: 0 0 var(--space-2);

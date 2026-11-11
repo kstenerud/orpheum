@@ -7,7 +7,15 @@ import type { components } from "@orpheum/sdk";
 import { afterEach, expect, it } from "vitest";
 
 import { NodeUnconfinedLeave } from "./node-unconfined.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  politeNotices,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -50,6 +58,9 @@ it("shows a locked machine's risk, and an admin's explicit leave to run it uncon
   const container = mounted.container;
   expect(container.textContent).toContain("This machine is locked");
   expect(container.textContent).toContain("A film made to attack FFmpeg could");
+  // How the machine stands, not a failure of anything done: told politely, in the yellow.
+  expect(politeNotices(container).join(" ")).toContain("This machine is locked");
+  expect(container.querySelector('[role="alert"]')).toBeNull();
   await click(buttonWithText(container, "Run without confinement…"));
   expect(heard).toEqual([]);
   await click(buttonWithText(container, "Accept the risk and run it"));
@@ -71,9 +82,10 @@ it("says who let a machine run unconfined and when (D450 §1)", async () => {
       servedBy({}),
     ),
   );
-  expect(mounted.container.textContent).toContain(
+  expect(politeNotices(mounted.container).join(" ")).toContain(
     "Runs without confinement: karl accepted the risk on",
   );
+  expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
 });
 
 it("shows nothing for a machine that is neither locked nor let run unconfined", async () => {

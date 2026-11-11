@@ -11,6 +11,7 @@ import {
   click,
   enter,
   mount,
+  politeNotices,
   refusal,
   servedBy,
   type Heard,
@@ -227,6 +228,13 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("the server keeps the last ones it trusted");
   // An expired document: the addresses may be stale, and the page says since when (the audit's F9).
   expect(text).toContain("this server cannot confirm they are current");
+  // Notices of how the server stands, not failures of anything done: told politely, in the yellow.
+  const told = politeNotices(mounted.container).join(" ");
+  expect(told).toContain("Times in the last week a device found no way to reach this server: 3.");
+  expect(told).toContain("stops speaking this server's protocol on 2027-03-01");
+  expect(told).toContain("the server keeps the last ones it trusted");
+  expect(told).toContain("this server cannot confirm they are current");
+  expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
   expect(text).toContain("Connected to Home, at https://discovery.example.com.");
   expect(text).toContain(
     "fingerprint is k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
@@ -450,6 +458,9 @@ it("tells a server removed from its account that another took its place (D312 §
   const text = mounted.container.textContent;
   expect(text).toContain("Another server was enrolled with this server's account at");
   expect(text).toContain("Clients no longer find this one through the discovery.");
+  expect(politeNotices(mounted.container).join(" ")).toContain(
+    "Another server was enrolled with this server's account at",
+  );
   expect(mounted.container.querySelector("form")).toBeNull();
 });
 
@@ -508,6 +519,7 @@ it("tells a refused copy that another serves, and asks again only while it stand
   expect(container.textContent).toContain(
     "Another copy of this server serves. This one stopped asking at",
   );
+  expect(politeNotices(container).join(" ")).toContain("Another copy of this server serves.");
   await click(buttonWithText(container, "Ask again"));
   expect(heard.map((each) => each.methodAndPath)).toEqual([
     "GET /system/discovery",
@@ -533,6 +545,9 @@ it("tells the serving copy that a copy of it tried to start, from where, and was
   });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   expect(mounted.container.textContent).toContain(
+    "A copy of this server tried to start from 203.0.113.9 at",
+  );
+  expect(politeNotices(mounted.container).join(" ")).toContain(
     "A copy of this server tried to start from 203.0.113.9 at",
   );
   expect(buttonWithText(mounted.container, "Ask again")).toBeUndefined();

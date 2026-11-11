@@ -96,8 +96,8 @@ describe("a link refused before its form (VQ172(3))", () => {
     );
     expect(mounted.container.querySelector("form")).toBeNull();
     expect(mounted.container.querySelector("input")).toBeNull();
-    // Told as the page opens, not for something the person did: polite, not an alert.
-    expect(mounted.container.querySelector("output")?.textContent).toContain(
+    // Told as the page opens, not for something the person did: polite, not an alert, in the yellow.
+    expect(mounted.container.querySelector(".needs-fixing output")?.textContent).toContain(
       "invitations are short-lived, and this one has expired, was used already",
     );
     expect(heard).toEqual([

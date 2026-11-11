@@ -47,8 +47,12 @@ describe("each machine's sandbox, said out loud (D112)", () => {
       ],
     });
     expect(blocked).toContain("boxed: FFmpeg runs without part of its sandbox");
-    expect(`${local}${devnas}${blocked}`.match(/role="alert"/gu)).toHaveLength(1);
-    expect(blocked).toContain('role="alert"');
+    // How the machine stands, not a failure of anything done: told politely, in the yellow.
+    expect(`${local}${devnas}${blocked}`.match(/class="needs-fixing"/gu)).toHaveLength(1);
+    expect(blocked).toContain(
+      '<div class="needs-fixing"><p><output>boxed: FFmpeg runs without part of its sandbox',
+    );
+    expect(blocked).not.toContain('role="alert"');
   });
 
   it("notes calmly a part the machine's kernel lacks, naming the kernel that brings it (D454 §3)", () => {
@@ -63,7 +67,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
       "ds218: FFmpeg runs without part of its sandbox, which this machine&#x27;s kernel",
     );
     expect(old).toContain("Landlock (which files FFmpeg may open) needs Linux 5.13 or newer.");
-    expect(old).not.toContain('role="alert"');
+    expect(old).not.toContain("needs-fixing");
     const failing = markupOf({
       name: "ds218",
       confinement: [
@@ -71,10 +75,10 @@ describe("each machine's sandbox, said out loud (D112)", () => {
         { mechanism: "seccomp", isInForce: false, causeCode: "unexplained" },
       ],
     });
-    expect(failing).toContain('role="alert"');
+    expect(failing).toContain('class="needs-fixing"');
   });
 
   it("warns about a machine that reported no sandbox at all", () => {
-    expect(markupOf({ name: "attic", confinement: [] })).toContain('role="alert"');
+    expect(markupOf({ name: "attic", confinement: [] })).toContain('class="needs-fixing"');
   });
 });

@@ -65,7 +65,10 @@ export function NodeWorkView(props: { readonly work: NodeWork | undefined }): JS
         ? null
         : ` ${t("system.work.lastMoved", { at: dateTimeText(work.lastMovedAt, i18n.language) })}`}
       {work.brokenInvariantCount === 0 ? null : (
-        <output> {t("system.work.broken", { count: work.brokenInvariantCount })}</output>
+        <output className="needs-fixing">
+          {" "}
+          {t("system.work.broken", { count: work.brokenInvariantCount })}
+        </output>
       )}
     </p>
   );

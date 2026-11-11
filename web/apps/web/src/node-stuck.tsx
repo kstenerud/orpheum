@@ -23,8 +23,10 @@ export function NodeStuckView(props: { readonly stuck: readonly Stuck[] }): JSX.
     return null;
   }
   return (
-    <div role="alert">
-      <p>{t("system.stuck")}</p>
+    <div className="needs-fixing">
+      <p>
+        <output>{t("system.stuck")}</output>
+      </p>
       <ul className="system__stuck">
         {props.stuck.map((stuck) => (
           <li key={`${stuck.program}:${String(stuck.gaveUpAt)}:${stuck.paths?.join(":") ?? ""}`}>

@@ -13,7 +13,7 @@ function markupOf(stuck: readonly Stuck[]): string {
 }
 
 describe("a machine's work waiting on a disk that does not answer (D233 §10)", () => {
-  it("names each program and the folder it was reading, as an alert", () => {
+  it("names each program and the folder it was reading, told politely in the yellow", () => {
     const shown = markupOf([
       { program: "ffmpeg", paths: ["/media/films/Arkon.mkv"], gaveUpAt: 1_790_000_000_000 },
       { program: "node", paths: ["/media/shows"], gaveUpAt: 1_790_000_060_000 },
@@ -21,7 +21,10 @@ describe("a machine's work waiting on a disk that does not answer (D233 §10)", 
     expect(shown).toContain("Waiting on a disk that does not answer");
     expect(shown).toContain("FFmpeg, reading /media/films/Arkon.mkv, since");
     expect(shown).toContain("The scan, reading /media/shows, since");
-    expect(shown).toContain('role="alert"');
+    expect(shown).toContain(
+      '<div class="needs-fixing"><p><output>Waiting on a disk that does not answer',
+    );
+    expect(shown).not.toContain('role="alert"');
   });
 
   it("says nothing when nothing waits", () => {
