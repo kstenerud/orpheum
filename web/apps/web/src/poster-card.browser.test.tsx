@@ -12,6 +12,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LibraryBrowse } from "./library-browse.tsx";
+import { PosterCard } from "./poster-card.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import { mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -73,5 +74,40 @@ describe("an other video's tile, laid out by a real browser", () => {
     // Wider than tall, as a poster, built for a portrait shape, never is.
     expect(box.width / box.height).toBeGreaterThan(1.5);
     expect(mounted.container.querySelector(".poster")).toBeNull();
+  });
+});
+
+describe("a poster card's status cues, over its poster (the owner, 2026-11-11)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("let a click on them through to the card's link, so no part of the poster is dead", async () => {
+    mounted = await mount(
+      withServices(
+        <ul style={{ width: "12rem" }}>
+          <PosterCard
+            to={{ screen: "home" }}
+            posterSha256={undefined}
+            name="Metropolis"
+            cues={
+              <span className="poster-card__cues">
+                <span className="poster-cue">!</span>
+              </span>
+            }
+          />
+        </ul>,
+        servedBy({}),
+      ),
+    );
+    const cue = mounted.container.querySelector(".poster-cue")?.getBoundingClientRect();
+    expect(cue?.width).toBeGreaterThan(0);
+    const under = document.elementFromPoint(
+      (cue?.left ?? 0) + (cue?.width ?? 0) / 2,
+      (cue?.top ?? 0) + (cue?.height ?? 0) / 2,
+    );
+    expect(under?.closest("a.poster-card__link")).not.toBeNull();
   });
 });
