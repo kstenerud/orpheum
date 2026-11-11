@@ -20,9 +20,10 @@ func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(
-		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", `<movie><title>Metropolis</title><year>1995</year></movie>`),
-		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
-		videoRecord("Metropolis (1995)/Metropolis (1995)-trailer.mkv"),
+		nfoRecord("Metropolis (1927)/Metropolis (1927).nfo",
+			`<movie><title>Metropolis</title><year>1927</year></movie>`),
+		videoRecord("Metropolis (1927)/Metropolis (1927).mkv"),
+		videoRecord("Metropolis (1927)/Metropolis (1927)-trailer.mkv"),
 		videoRecord("Arkon (1979)/Arkon (1979).mkv"),
 		nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`),
 		videoRecord("Test Show/Season 01/Test Show - S01E01.mkv"),
@@ -133,7 +134,7 @@ func TestPass_AgainOverAnUnchangedLibraryWithAnEpisodePlacedByItsNameWritesNothi
 func TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
-	const making = "Metropolis (1995)/Featurettes/Making Metropolis.mkv"
+	const making = "Metropolis (1927)/Featurettes/Making Metropolis.mkv"
 	lib.scan(videoRecord(making))
 	title := lib.titlesByPath()[making].WorkID
 	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
@@ -141,7 +142,7 @@ func TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord(making))
+	lib.scan(videoRecord("Metropolis (1927)/Metropolis (1927).mkv"), videoRecord(making))
 	kind := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf("SELECT kind FROM work WHERE id = %d", title))
 	if !slices.Equal(kind, []string{"extra"}) {
 		t.Errorf("the title filed as an extra is of kind %v; want extra", kind)

@@ -16,12 +16,13 @@ import (
 func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	film := heat
+	film := metropolis
 	film.Artwork = []identify.ImageRef{
-		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
+		{Kind: library.ArtPoster, Ref: "/metropolis-poster.jpg"},
+		{Kind: library.ArtBackdrop, Ref: "/metropolis-back.jpg"},
 	}
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
-	const rel = "Metropolis (1995).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{lib.provider.Add(film)}
+	const rel = "Metropolis (1927).mkv"
 	if report := lib.scan(videoRecord(rel)); len(report.NamedImages) != 0 {
 		t.Fatalf("before its match: named %+v; want nothing, it has no source yet", report.NamedImages)
 	}
@@ -48,15 +49,16 @@ func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	film := heat
+	film := metropolis
 	film.Artwork = []identify.ImageRef{
-		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
+		{Kind: library.ArtPoster, Ref: "/metropolis-poster.jpg"},
+		{Kind: library.ArtBackdrop, Ref: "/metropolis-back.jpg"},
 	}
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{lib.provider.Add(film)}
 	other := theo
 	other.Artwork = []identify.ImageRef{{Kind: library.ArtPoster, Ref: "/theo-poster.jpg"}}
 	lib.provider.Add(other)
-	const rel = "Metropolis (1995).mkv"
+	const rel = "Metropolis (1927).mkv"
 	lib.scan(videoRecord(rel))
 	var rematched []identify.NamedImages
 	lib.pass.AfterPass(func(_ context.Context, report identify.Report) {
@@ -83,11 +85,11 @@ func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T)
 	t.Parallel()
 	lib := newTestLibrary(t, "series", "tmdb")
 	series := identify.Metadata{ID: "4807", Name: "Emberwing", Year: 2002, Artwork: []identify.ImageRef{
-		{Kind: library.ArtPoster, Ref: "/emberwing.jpg"},
+		{Kind: library.ArtPoster, Ref: "/tin-comet.jpg"},
 		{Kind: library.ArtPoster, GroupNumber: new(int64(1)), Ref: "/season-1.jpg"},
 	}}
 	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(series)}
-	lib.provider.Seasons["1437/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Stillness"}}
+	lib.provider.Seasons["4807/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Stillness"}}
 	const rel = "Emberwing/Season 01/Emberwing - S01E01.mkv"
 	lib.scanAll(rel)
 	seriesID := lib.onlySeries().ID
@@ -108,7 +110,7 @@ func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T)
 			named = append(named, fmt.Sprintf("%d %s %s", item.ItemID, season, ref.Ref))
 		}
 	}
-	want := []string{fmt.Sprintf("%d own /emberwing.jpg", seriesID), fmt.Sprintf("%d 1 /season-1.jpg", seriesID)}
+	want := []string{fmt.Sprintf("%d own /tin-comet.jpg", seriesID), fmt.Sprintf("%d 1 /season-1.jpg", seriesID)}
 	if !slices.Equal(named, want) {
 		t.Errorf("a pass named %q; want the series' poster and season 1's, by its season", named)
 	}

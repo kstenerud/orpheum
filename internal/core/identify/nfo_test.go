@@ -15,11 +15,11 @@ func TestParseNFO_AKodiMovieWithItsCorrectionsLocked(t *testing.T) {
 <movie>
   <title>Metropolis</title>
   <originaltitle>Metropolis</originaltitle>
-  <plot>A group of professional bank robbers...</plot>
+  <plot>A city of towers and machines...</plot>
   <runtime>170</runtime>
-  <premiered>1995-12-15</premiered>
+  <premiered>1927-01-10</premiered>
   <uniqueid type="imdb">tt0234567</uniqueid>
-  <uniqueid type="tmdb" default="true">949</uniqueid>
+  <uniqueid type="tmdb" default="true">9019</uniqueid>
   <playcount>3</playcount>
   <lockedfields>Name|Overview|Genres</lockedfields>
 </movie>
@@ -28,7 +28,7 @@ https://www.themoviedb.org/movie/9019`
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nfo.Kind != "movie" || nfo.Title != "Metropolis" || nfo.Year != 1995 || nfo.RuntimeMs != 170*60_000 ||
+	if nfo.Kind != "movie" || nfo.Title != "Metropolis" || nfo.Year != 1927 || nfo.RuntimeMs != 170*60_000 ||
 		nfo.Plot == "" {
 		t.Errorf("nfo = %+v", nfo)
 	}
@@ -46,12 +46,12 @@ func TestParseNFO_GenresActorsDirectorsAndWriters(t *testing.T) {
 	t.Parallel()
 	body := `<movie><title>Metropolis</title>
   <genre>Action / Crime</genre><genre>crime</genre><genre>Drama</genre>
-  <actor><name>Ansel Vardo</name><role>Mira Holloway-Pent</role><order>1</order><thumb>http://x/al.jpg</thumb></actor>
+  <actor><name>Oren Talisk</name><role>Jory Callant</role><order>1</order><thumb>http://x/oren.jpg</thumb></actor>
   <actor><name>Jon Voight</name><role>Nate</role></actor>
   <actor><name>Ada Wexcombe</name><role>Tamsin Vell</role><order>0</order></actor>
   <actor><name>  </name><role>Nobody</role></actor>
-  <director>Oren Talisk</director>
-  <credits>Oren Talisk</credits><writer>oren talisk</writer><writer>Someone Else</writer>
+  <director>Mira Holloway-Pent</director>
+  <credits>Mira Holloway-Pent</credits><writer>mira holloway-pent</writer><writer>Someone Else</writer>
 </movie>`
 	nfo, err := ParseNFO([]byte(body))
 	if err != nil {
@@ -62,10 +62,10 @@ func TestParseNFO_GenresActorsDirectorsAndWriters(t *testing.T) {
 	}
 	want := []Credit{
 		{Role: RoleCast, Name: "Ada Wexcombe", Character: "Tamsin Vell"},
-		{Role: RoleCast, Name: "Ansel Vardo", Character: "Mira Holloway-Pent", PictureRef: "http://x/al.jpg"},
+		{Role: RoleCast, Name: "Oren Talisk", Character: "Jory Callant", PictureRef: "http://x/oren.jpg"},
 		{Role: RoleCast, Name: "Jon Voight", Character: "Nate"},
-		{Role: RoleDirector, Name: "Oren Talisk"},
-		{Role: RoleWriter, Name: "Oren Talisk"},
+		{Role: RoleDirector, Name: "Mira Holloway-Pent"},
+		{Role: RoleWriter, Name: "Mira Holloway-Pent"},
 		{Role: RoleWriter, Name: "Someone Else"},
 	}
 	if !slices.Equal(nfo.Credits, want) {

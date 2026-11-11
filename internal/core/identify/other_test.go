@@ -178,7 +178,7 @@ func TestOtherName_IsTheFilesNameWithoutItsDate(t *testing.T) {
 func TestRefreshSortAndSearchKeys_KeysAnOtherVideosFileNameInTheNewLocale(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "other", "nfo")
-	lib.scan(videoRecord("Ödet.mp4"), videoRecord("Destiny.mp4"))
+	lib.scan(videoRecord("Ödet.mp4"), videoRecord("Wing.mp4"))
 	settingstest.Set(t, lib.settings, settings.SortLocale, `"sv"`)
 	if written, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || written == 0 {
 		t.Fatalf("RefreshSortAndSearchKeys = %d, %v; want what Swedish keys otherwise keyed again", written, err)

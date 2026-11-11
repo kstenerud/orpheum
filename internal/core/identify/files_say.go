@@ -13,7 +13,7 @@ import (
 
 // filesQuery is what a film's or a series' own files and NFOs say it is, its match set aside: the
 // name and year a rescan searches for, and the provider ids they give (D357 §2). After a match the
-// stored name is the provider's ("The Crowd" for the file "Crowd (2022).mkv"), so a match
+// stored name is the provider's ("The Crowd" for the file "Crowd (1928).mkv"), so a match
 // made again from the stored name would only find the old answer again.
 type filesQuery struct {
 	name string

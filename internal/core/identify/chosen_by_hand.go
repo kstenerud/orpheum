@@ -11,7 +11,7 @@ import (
 )
 
 // A person's own ways to a film's or series' match when the search found none of it (the owner's
-// staging, 2026-10-21, where TMDB has "Harbour Lights" and the folder said "Harbor Lights"): searching
+// staging, 2026-10-21, where TMDB spells a series the British way and its folder the American): searching
 // for another name, and pasting the work's address or id at TMDB or IMDb.
 
 // ErrBadLink is a pasted link or id that names no work of the item's kind at a provider this
@@ -45,7 +45,7 @@ func (chooser *Chooser) SearchAs(ctx context.Context, itemID int64, name string,
 }
 
 // ChooseByLink matches the item to the work a pasted link or id names, as Choose: a TMDB address
-// ("https://www.themoviedb.org/tv/4808-civilisation") or id ("9285"), or an IMDb address or id
+// ("https://www.themoviedb.org/tv/4808-harbour-lights") or id ("4808"), or an IMDb address or id
 // ("tt0456789"), which the provider finds its own work for. A TMDB address of the other kind, a film's
 // for a series, is refused.
 func (chooser *Chooser) ChooseByLink(ctx context.Context, itemID int64, link string) error {

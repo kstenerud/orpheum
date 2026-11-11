@@ -22,7 +22,7 @@ const (
 
 // A film's file may be a longer cut of the film than the runtime the provider gives (D412 §4): up
 // to this much longer, in percent of the runtime, or longerCutNamedPercent where its name says it
-// is a longer cut ("Extended", "Director's Cut", "Special Edition", "Unrated"). Cameron's Wings is
+// is a longer cut ("Extended", "Director's Cut", "Special Edition", "Unrated"). A film the owner has is
 // 137 minutes at TMDB and its Special Edition 154, 12% longer; the longest extended cuts of the
 // LOTR films run about 31% longer, and Kingdom of Heaven's director's cut 35%.
 const (
@@ -266,7 +266,7 @@ func voteTiers(found []Candidate) []int {
 }
 
 // isNamedInTranslationOnly is whether a candidate is named as the query only by its translated
-// name, its original name another (D412 §1): Blind & Ugly, named in English, is Blind & Hässlich.
+// name, its original name another (D412 §1): Pale & Kind, named in English, is Blass & Freundlich.
 // A candidate whose original name is not known is not.
 func isNamedInTranslationOnly(query Query, candidate Candidate) bool {
 	return candidate.OriginalName != "" && workName(candidate.OriginalName) != workName(query.Name)

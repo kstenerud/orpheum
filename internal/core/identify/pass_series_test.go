@@ -44,14 +44,15 @@ func (lib *testLibrary) seriesOfEach() map[int64]string {
 func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "series", "nfo")
-	prisoner := "The Wanderer (1967)/The Wanderer - 01 - The Bells of Saint Quill.mkv"
-	featurette := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv"
+	wanderer := "The Wanderer (1967)/The Wanderer - 01 - The Bells of Saint Quill.mkv"
+	featurette := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/" +
+		"Featurettes/Six Seasons and A Finale.mkv"
 	episode := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Brindlewood.S05E01.mkv"
 	film := "Grey Comet/The Promised Land 2020/Grey Comet The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv"
 	wing1 := "Arkon Horizon/Arkon.Horizon.S01E01.1080p.x265-LANTERN/Arkon.Horizon.S01E01.1080p.x265-LANTERN.mkv"
 	wing2 := "Arkon Horizon/Arkon.Horizon.S01E02.1080p.x265-LANTERN/Arkon.Horizon.S01E02.1080p.x265-LANTERN.mkv"
 	var records []nodeproto.ScanRecord
-	for _, path := range []string{prisoner, featurette, episode, film, wing1, wing2} {
+	for _, path := range []string{wanderer, featurette, episode, film, wing1, wing2} {
 		records = append(records, videoRecord(path))
 	}
 	lib.scan(records...)
@@ -63,7 +64,7 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 		}
 	}
 	want := map[string]string{
-		prisoner: "The Wanderer", featurette: "Brindlewood", episode: "Brindlewood", film: "Grey Comet",
+		wanderer: "The Wanderer", featurette: "Brindlewood", episode: "Brindlewood", film: "Grey Comet",
 		wing1: "Arkon Horizon", wing2: "Arkon Horizon",
 	}
 	for path, series := range want {

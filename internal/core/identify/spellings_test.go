@@ -20,7 +20,7 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 		name string
 		want []string
 	}{
-		{"Harbor Lights", []string{"Harbour Lights", "The Harbor Lights"}},
+		{"Colonization", []string{"Colonisation", "The Colonization"}},
 		{"The Colour of Magic", []string{"The Color of Magic", "Colour of Magic"}},
 		{"Rocky II", []string{"The Rocky II", "Rocky 2"}},
 		{"Ocean's 11", []string{"The Ocean's 11", "Ocean's XI"}},
@@ -30,7 +30,7 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 		{"I Prize the Size", []string{"The I Prize the Size"}},
 		{"Paradise", []string{"The Paradise"}},
 		// "and" and "&" are each other's spelling, a word "and" alone: "Band" keeps its "and".
-		{"Pale and Kind", []string{"Blind & Ugly", "The Pale and Kind"}},
+		{"Pale and Kind", []string{"Pale & Kind", "The Pale and Kind"}},
 		{"Show & Tell", []string{"Show and Tell", "The Show & Tell"}},
 		{"Band of Brothers", []string{"The Band of Brothers"}},
 		// A name every way changes is searched every way.
@@ -46,18 +46,18 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 }
 
 // A search that finds no work of the name searches its other spellings, and settles on what one of
-// them finds: TMDB has Edric Pellow's series as "Harbour Lights", and a search for "Harbor Lights"
-// finds only works with the word in their names (the owner's staging, 2026-10-21).
+// them finds: TMDB spells a series the British way, and a search of the American spelling finds
+// only works with the words in their names (the owner's staging, 2026-10-21, the owner's series).
 func TestMatch_ASeriesSpelledTheOtherWayIsFoundByItsOtherSpelling(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "series", "tmdb")
-	civilisation := identify.Metadata{ID: "4808", Name: "Harbour Lights", Year: 1969}
+	harbour := identify.Metadata{ID: "4808", Name: "Harbour Lights", Year: 1969}
 	lib.provider.Searches[identifytest.SearchKey("Harbor Lights", 0)] = []identify.Candidate{
-		{ID: "70027", Name: "The Greeks: Crucible of Harbor Lights", Year: 2000},
+		{ID: "70027", Name: "The Ferries: Crucible of Harbor Lights", Year: 2000},
 		{ID: "202999", Name: "Lost Harbor Lights", Year: 2019},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Harbour Lights", 0)] = []identify.Candidate{
-		lib.provider.Add(civilisation),
+		lib.provider.Add(harbour),
 	}
 	lib.scanAll("Harbor Lights/Season 01/Harbor Lights - S01E01.mkv")
 	series := lib.onlySeries()
@@ -65,29 +65,29 @@ func TestMatch_ASeriesSpelledTheOtherWayIsFoundByItsOtherSpelling(t *testing.T) 
 	if err != nil || outcome != identify.OutcomeMatched {
 		t.Fatalf("Match = %s, %v; want matched by its other spelling", outcome, err)
 	}
-	if matched := lib.onlySeries(); matched.FollowedSourceID == nil || *matched.FollowedSourceID != "9285" {
-		t.Errorf("the series follows %v; want TMDB's Harbour Lights, 9285", matched.FollowedSourceID)
+	if matched := lib.onlySeries(); matched.FollowedSourceID == nil || *matched.FollowedSourceID != "4808" {
+		t.Errorf("the series follows %v; want TMDB's Harbour Lights, 4808", matched.FollowedSourceID)
 	}
 }
 
-// A release that writes its work's "&" as "and" finds it by the "&": TMDB's search for "Blind and
-// Ugly" finds nothing, and for "Blind & Ugly" the German film of 2017 the release is (the owner,
-// 2026-11-02, IMDb tt0567890).
+// A release that writes its work's "&" as "and" finds it by the "&": TMDB's search for "Pale and
+// Kind" finds nothing, and for "Pale & Kind" the German film of 2017 the release is (the owner's
+// film, 2026-11-02).
 func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
 	film := lib.provider.Add(identify.Metadata{
-		ID: "480500", Name: "Blind & Ugly", OriginalName: "Blind & Hässlich", Year: 2017,
+		ID: "480500", Name: "Pale & Kind", OriginalName: "Blass & Freundlich", Year: 2017,
 	})
-	lib.provider.Searches[identifytest.SearchKey("Blind & Ugly", 2017)] = []identify.Candidate{film}
+	lib.provider.Searches[identifytest.SearchKey("Pale & Kind", 2017)] = []identify.Candidate{film}
 	const release = "Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY"
 	const rel = release + "/" + release + ".mp4"
 	lib.scan(videoRecord(rel))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s; want matched by the name's ampersand", outcome)
 	}
-	if id, _ := lib.followed(rel); id != "379138" {
-		t.Errorf("the file follows %q; want TMDB's Blind & Ugly, 379138", id)
+	if id, _ := lib.followed(rel); id != "480500" {
+		t.Errorf("the file follows %q; want TMDB's Pale & Kind, 480500", id)
 	}
 }
 
@@ -97,29 +97,29 @@ func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 func TestMatch_ANameALetterOffIsGuessedOnlyWhereItCannotBeAnotherWork(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	potter := identify.Metadata{ID: "4803", Name: "The Thief of Bagdad", Year: 2001}
-	const misspelt = "The Theif of Bagdad"
-	lib.provider.Searches[identifytest.SearchKey(misspelt, 2001)] = []identify.Candidate{
-		lib.provider.Add(potter), {ID: "673", Name: "The Thief of Bagdad: Behind the Magic", Year: 2001},
+	metropolis := identify.Metadata{ID: "4803", Name: "Metropolis", Year: 1927}
+	const misspelt = "Metropols"
+	lib.provider.Searches[identifytest.SearchKey(misspelt, 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis), {ID: "673", Name: "Making Metropolis", Year: 1927},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Hest", 1995)] = []identify.Candidate{
-		{ID: "9019", Name: "Metropolis", Year: 1995}, {ID: "950", Name: "Hesta", Year: 1995},
+		{ID: "948", Name: "Hust", Year: 1995}, {ID: "950", Name: "Hesta", Year: 1995},
 	}
-	lib.provider.Searches[identifytest.SearchKey("Brindlewood", 2000)] = []identify.Candidate{
-		{ID: "98", Name: "Arenaman", Year: 2000},
-		{ID: "99", Name: "Arenaman Games", Year: 2010},
-		{ID: "97", Name: "Arenaman Days", Year: 2000},
+	lib.provider.Searches[identifytest.SearchKey("Lanterns", 2000)] = []identify.Candidate{
+		{ID: "98", Name: "Lantern", Year: 2000},
+		{ID: "99", Name: "Lantern Games", Year: 2010},
+		{ID: "97", Name: "Lantern Days", Year: 2000},
 	}
-	lib.provider.Searches[identifytest.SearchKey("Nanuk of the North", 2015)] = []identify.Candidate{
-		{ID: "480400", Name: "Nanook of the North", Year: 2014},
-		{ID: "1", Name: "Nanook of the North Revisited", Year: 2016},
-		{ID: "2", Name: "Nanook of the North Days", Year: 2017},
+	lib.provider.Searches[identifytest.SearchKey("Nanuk of the North", 1923)] = []identify.Candidate{
+		{ID: "480400", Name: "Nanook of the North", Year: 1922},
+		{ID: "1", Name: "Nanook of the North Revisited", Year: 1924},
+		{ID: "2", Name: "Nanook of the North Days", Year: 1925},
 	}
 	files := map[string]identify.Outcome{
-		"The Theif of Bagdad (2001).mkv": identify.OutcomeMatched,
-		"Hest (1995).mkv":        identify.OutcomeAmbiguous,
-		"Brindlewood (2000).mkv":  identify.OutcomeAmbiguous,
-		"Nanuk of the North (2015).mkv": identify.OutcomeAmbiguous,
+		"Metropols (1927).mkv":          identify.OutcomeMatched,
+		"Hest (1995).mkv":               identify.OutcomeAmbiguous,
+		"Lanterns (2000).mkv":           identify.OutcomeAmbiguous,
+		"Nanuk of the North (1923).mkv": identify.OutcomeAmbiguous,
 	}
 	var records []nodeproto.ScanRecord
 	for path := range files {
@@ -131,7 +131,7 @@ func TestMatch_ANameALetterOffIsGuessedOnlyWhereItCannotBeAnotherWork(t *testing
 			t.Errorf("%s: outcome %s; want %s", path, outcome, want)
 		}
 	}
-	if potterID := lib.titlesByPath()[misspelt+" (2001).mkv"].WorkID; !lib.isGuessed(potterID) {
-		t.Error("the misspelt The Thief of Bagdad is matched but not marked a guess")
+	if metropolisID := lib.titlesByPath()[misspelt+" (1927).mkv"].WorkID; !lib.isGuessed(metropolisID) {
+		t.Error("the misspelt Metropolis is matched but not marked a guess")
 	}
 }

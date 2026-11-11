@@ -42,7 +42,7 @@ func (lib *testLibrary) filings() []string {
 		 ORDER BY place.path, file_filing.library_kind`)
 }
 
-const metropolisNFO = `<movie><title>Metropolis</title><year>1995</year></movie>`
+const metropolisNFO = `<movie><title>Metropolis</title><year>1927</year></movie>`
 
 // D363 §5: a file two libraries of the same kind cover is filed once, by the library whose folder is
 // outermost, and both list that one title; a library of another kind over it files it as its own
@@ -50,9 +50,10 @@ const metropolisNFO = `<movie><title>Metropolis</title><year>1995</year></movie>
 func TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
-	inner := lib.alsoOver("Metropolis alone", "movie", libraryRoot+"/Metropolis (1995)")
+	inner := lib.alsoOver("Metropolis alone", "movie", libraryRoot+"/Metropolis (1927)")
 	other := lib.alsoOver("Everything", "other", libraryRoot)
-	lib.scan(nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", metropolisNFO), videoRecord("Metropolis (1995)/Metropolis (1995).mkv"))
+	lib.scan(nfoRecord("Metropolis (1927)/Metropolis (1927).nfo", metropolisNFO),
+		videoRecord("Metropolis (1927)/Metropolis (1927).mkv"))
 	lib.passOf(inner)
 	lib.passOf(other)
 	want := []string{"movie|listed|movie|Metropolis", "other|listed|other|Metropolis"}
@@ -77,12 +78,12 @@ func TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem(t *tes
 func TestPass_TheNFOBesideTheFirstPlaceSpeaksForAFileAtTwo(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
-	first, copied := "A/Metropolis (1995).mkv", "Z/Metropolis (1995).mkv" // the copy read after, by path too
-	lib.scan(nfoRecord("A/Metropolis (1995).nfo", metropolisNFO), videoRecord(first))
+	first, copied := "A/Metropolis (1927).mkv", "Z/Metropolis (1927).mkv" // the copy read after, by path too
+	lib.scan(nfoRecord("A/Metropolis (1927).nfo", metropolisNFO), videoRecord(first))
 	lib.clock.Advance(time.Minute)
 	all := librarytest.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, []nodeproto.ScanRecord{
-		nfoRecord("A/Metropolis (1995).nfo", metropolisNFO), videoRecord(first),
-		nfoRecord("Z/Metropolis (1995).nfo", `<movie><title>Metropolis Wave</title><year>1995</year></movie>`),
+		nfoRecord("A/Metropolis (1927).nfo", metropolisNFO), videoRecord(first),
+		nfoRecord("Z/Metropolis (1927).nfo", `<movie><title>Metropolis Wave</title><year>1927</year></movie>`),
 		videoMoved(first, copied),
 	}, true)
 	if err := lib.ingester.IngestScan(t.Context(), lib.nodeID, lib.rootPath, all); err != nil {

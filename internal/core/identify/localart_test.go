@@ -116,17 +116,17 @@ func TestPass_AnOtherVideoShowsEveryImageBesideIt(t *testing.T) {
 func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
-	film := heat
+	film := metropolis
 	film.Artwork = []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/p.jpg"}, {Kind: library.ArtBackdrop, Ref: "/b.jpg"},
 	}
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
-	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
-	lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{lib.provider.Add(film)}
+	const rel = "Metropolis (1927)/Metropolis (1927).mkv"
+	lib.scan(videoRecord(rel), imageRecord("Metropolis (1927)/poster.jpg"))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
+	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1927)/poster.jpg"))
 	titleID := lib.titlesByPath()[rel].WorkID
 	// Which of them is owed, the library's preference says, and the artwork service decides for a
 	// pass and a match alike (TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed).
@@ -142,8 +142,8 @@ func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *test
 func TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
-	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
-	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
+	const rel = "Metropolis (1927)/Metropolis (1927).mkv"
+	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1927)/poster.jpg"))
 	titleID := lib.titlesByPath()[rel].WorkID
 	if got := localKinds(report)[titleID]; !slices.Equal(got, []string{library.ArtPoster}) {
 		t.Fatalf("with poster.jpg beside the film: found %v, want the poster", got)
