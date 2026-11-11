@@ -2916,7 +2916,10 @@ The owner's answers:
    - `dvh`, `text-wrap: balance` and `<search>`.
 7. **High contrast, because the browser says when it is wanted:** the focus ring and the three
    `outline: none` sites keep a full indicator under `forced-colors: active` and
-   `prefers-contrast: more`.
+   `prefers-contrast: more`. Built: the three take the ring away only inside
+   `@media (forced-colors: none) and (prefers-contrast: no-preference)`, so with more contrast the
+   whole ring shows on the dialog, the scrub bar and the mute, and under forced colours, which drop
+   the ring's white shadow, its outline is `Highlight` (`focus-ring-contrast.test.ts`).
 
 8. **Posters fill in off screen as well** (the owner, 2026-11-11): "Can we make the browser continue
    filling out posters for offscreen items so that it's not fetching on navigation? Even if it's on a

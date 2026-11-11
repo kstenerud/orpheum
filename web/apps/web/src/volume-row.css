@@ -72,9 +72,12 @@
 }
 
 /* The browser's focus stays on the film's mute (volume-row.tsx): its ring shows while the film's
-   slider is the one Up and Down move, and a person's ring while theirs is. */
-.volume-row__film:not([data-focused]) .player-controls__mute button:focus-visible {
-  outline: none;
+   slider is the one Up and Down move, and a person's ring while theirs is. Where the browser asks
+   for more contrast, the mute's ring shows always (focus-ring-contrast.test.ts). */
+@media (forced-colors: none) and (prefers-contrast: no-preference) {
+  .volume-row__film:not([data-focused]) .player-controls__mute button:focus-visible {
+    outline: none;
+  }
 }
 
 .volume-row__person[data-focused] {

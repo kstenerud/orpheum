@@ -783,6 +783,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Every colour is a token** (D138 §4), what is drawn over a film too (`--color-on-video`,
   `--color-video-scrim`, `--color-video-card`, `--color-video-control`, D369 §1): a stylesheet writes
   none out but `src/tokens.css` and the gallery's made-up posters. `src/colour-tokens.test.ts`.
+- **The focus ring is whole where the browser asks for more contrast** (`forced-colors: active`,
+  `prefers-contrast: more`): a stylesheet takes it away (`outline: none`: the dialog itself, the
+  overlay's scrub bar, the film's mute while a person's slider is the one moved) only inside
+  `@media (forced-colors: none) and (prefers-contrast: no-preference)`, and under forced colours,
+  which draw no shadow, the ring's outline is the system's `Highlight`.
+  `src/focus-ring-contrast.test.ts`.
 - **A layout primitive's gap is a step of the space scale, by name** (the 2026-10-05 architecture
   research's R2; plans/toolkit.md step 5): `Stack`, its children in a column, and `Cluster`, in a
   row that wraps, lined up across it (`src/layout.tsx`), take `space` as `"1"` to `"7"`, tokens.css's

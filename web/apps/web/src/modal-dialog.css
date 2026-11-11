@@ -49,8 +49,11 @@
 }
 
 /* Focus resting on the dialog itself, every choice it offers dangerous (D421 §2), shows no ring:
-   nothing is chosen until the person moves onto a choice. */
-.modal-dialog:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-card-hover);
+   nothing is chosen until the person moves onto a choice. Where the browser asks for more contrast,
+   the dialog has the ring as well (focus-ring-contrast.test.ts). */
+@media (forced-colors: none) and (prefers-contrast: no-preference) {
+  .modal-dialog:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-card-hover);
+  }
 }

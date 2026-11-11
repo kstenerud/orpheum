@@ -43,14 +43,17 @@
 
 /* The scrub bar focused looks as it always does, no ring; a key's focus on another of the overlay's
    controls fades it a little, enough to say focus left it (the owner, 2026-11-03; D410). A mouse's
-   focus is not :focus-visible, so a pointer never fades it. */
+   focus is not :focus-visible, so a pointer never fades it. Where the browser asks for more contrast,
+   the focused scrub bar has the ring as well (focus-ring-contrast.test.ts). */
 .player-overlay .timeline__range {
   transition: opacity 150ms ease-out;
 }
 
-.player-overlay .timeline__range:focus-visible {
-  outline: none;
-  box-shadow: none;
+@media (forced-colors: none) and (prefers-contrast: no-preference) {
+  .player-overlay .timeline__range:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
 }
 
 .player-overlay:has(:focus-visible) .timeline__range:not(:focus-visible) {
