@@ -67,7 +67,7 @@ export const noRoomToMakeStatus = 429;
 /**
  * HTTP's 422: on a chunk's path, the core's word that FFmpeg failed on the film at this chunk each
  * time it was made (cannotConvert), which asking again does not change. Taken for a load that only
- * stopped, it was asked for every two seconds, the film standing black with no word (The Gold Rush,
+ * stopped, it was asked for every two seconds, the film standing black with no word (a film,
  * staging, 2026-11-03; toolkit.md item 12).
  */
 export const cannotMakeStatus = 422;

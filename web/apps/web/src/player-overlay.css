@@ -242,7 +242,7 @@
    refused full screen (film-fullscreen.ts): the film fills it, black around it. Both classes, so it
    outranks film-player.css's `position: relative` for the stage, which loads after this sheet: with
    one, the stage stayed in the page, and a 4:3 film as wide as the window ran off its top and bottom
-   (the owner, 2026-11-03: The Navigator, The Pumbletons). Its one row and column
+   (the owner, 2026-11-03, on a film and a series of theirs). Its one row and column
    are its own size, in full screen too: a row left to its content grew to the film's own height in
    one browser, a 4:3 film as tall as the screen's width made it. */
 .film-player__stage.film-player__stage--fills-window {

@@ -17,7 +17,7 @@ const film: TitleDetail = {
   id: 10,
   kind: "film",
   name: "Metropolis",
-  year: 1995,
+  year: 1927,
   runtimeMs: 170 * 60_000,
   tagline: "A Los Angeles crime saga",
   overview: "A crime saga.",
@@ -27,7 +27,11 @@ const film: TitleDetail = {
     {
       id: 1,
       files: [
-        { id: 1, path: "/m/Metropolis (1995).mkv", streams: [{ id: 1, kind: "video", codec: "h264" }] },
+        {
+          id: 1,
+          path: "/m/Metropolis (1927).mkv",
+          streams: [{ id: 1, kind: "video", codec: "h264" }],
+        },
       ],
     },
   ],

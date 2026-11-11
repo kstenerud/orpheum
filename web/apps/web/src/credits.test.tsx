@@ -20,12 +20,12 @@ import { TitleView, type TitleDetail } from "./title.tsx";
 
 const credits: Credits = {
   cast: [
-    { personId: 41, name: "Ansel Vardo", character: "Mira Holloway-Pent" },
-    { personId: 42, name: "Ada Wexcombe", character: "Tamsin Vell" },
+    { personId: 41, name: "Ada Wexcombe", character: "Teodor Vane" },
+    { personId: 42, name: "Oren de Talisk", character: "Silas Marrow" },
     { personId: 43, name: "Ivo Brannick" },
   ],
-  directors: [{ personId: 50, name: "Oren Talisk", pictureRef: "/mann.jpg" }],
-  writers: [{ personId: 50, name: "Oren Talisk" }],
+  directors: [{ personId: 50, name: "Mira Holloway-Pent", pictureRef: "/holloway.jpg" }],
+  writers: [{ personId: 50, name: "Mira Holloway-Pent" }],
 };
 
 const uncredited: TitleDetail = {
@@ -72,17 +72,17 @@ describe("a title's people", () => {
   it("shows a film's cast in billing order, each part under the name, then its directors and writers, each leading to their page", () => {
     const page = parsed(renderToStaticMarkup(withServices(<TitleView title={heat} />)));
     expect(creditsIn(page)).toEqual([
-      "Ansel Vardo|Mira Holloway-Pent|/people/41",
-      "Ada Wexcombe|Tamsin Vell|/people/42",
+      "Ada Wexcombe|Teodor Vane|/people/41",
+      "Oren de Talisk|Silas Marrow|/people/42",
       "Ivo Brannick||/people/43",
-      "Oren Talisk||/people/50",
-      "Oren Talisk||/people/50",
+      "Mira Holloway-Pent||/people/50",
+      "Mira Holloway-Pent||/people/50",
     ]);
     expect([...page.querySelectorAll(".credits h2")].map((heading) => heading.textContent)).toEqual(
       ["Cast", "Directed by", "Written by"],
     );
     // No picture is served yet: initials hold the face's place, and no image is asked for.
-    expect(page.querySelector(".credit .person-face")?.textContent).toBe("AP");
+    expect(page.querySelector(".credit .person-face")?.textContent).toBe("AW");
     expect(page.querySelector(".credits img")).toBeNull();
   });
 
@@ -100,7 +100,7 @@ describe("a title's people", () => {
   });
 
   it("makes initials of a name's first and last words", () => {
-    expect(initialsOf("Ada Wexcombe")).toBe("RN");
+    expect(initialsOf("Oren de Talisk")).toBe("OT");
     expect(initialsOf("Cher")).toBe("C");
     expect(initialsOf("  ")).toBe("");
   });
@@ -118,7 +118,7 @@ describe("a credited person's page", () => {
       withServices(
         <CreditedPerson id={50} />,
         servedBy({
-          "GET /people/50": [200, { id: 50, name: "Oren Talisk" }],
+          "GET /people/50": [200, { id: 50, name: "Mira Holloway-Pent" }],
           "GET /items": [
             200,
             {
@@ -126,7 +126,7 @@ describe("a credited person's page", () => {
                 {
                   id: 7,
                   kind: "series",
-                  name: "Crime Ledger",
+                  name: "Brass Arena",
                   year: 2020,
                   libraryId: 1,
                   identificationState: "identified",
@@ -136,7 +136,7 @@ describe("a credited person's page", () => {
                   id: 10,
                   kind: "film",
                   name: "Metropolis",
-                  year: 1995,
+                  year: 1927,
                   libraryId: 1,
                   identificationState: "identified",
                   credit: { jobs: ["director", "cast"], character: "A guard" },
@@ -148,11 +148,11 @@ describe("a credited person's page", () => {
       ),
     );
     const { container } = mounted;
-    expect(container.querySelector("h1")?.textContent).toBe("Oren Talisk");
+    expect(container.querySelector("h1")?.textContent).toBe("Mira Holloway-Pent");
     expect(
       [...container.querySelectorAll(".credited-person__title")].map(
         (link) => `${link.getAttribute("href") ?? ""} ${link.textContent}`,
       ),
-    ).toEqual(["/series/7 Crime Ledger2020Writer", "/titles/10 Metropolis1995Director, as A guard"]);
+    ).toEqual(["/series/7 Brass Arena2020Writer", "/titles/10 Metropolis1927Director, as A guard"]);
   });
 });

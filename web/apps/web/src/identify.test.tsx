@@ -15,7 +15,7 @@ const ignore = (): void => undefined;
 const waiting = {
   id: 7,
   kind: "film",
-  name: "Harbor Lights",
+  name: "Hearthstead",
   identificationState: "unidentified",
   libraryId: 1,
 } as const;

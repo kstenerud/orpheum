@@ -38,7 +38,7 @@ describe("endAtTheLastFrame", () => {
     vi.useRealTimers();
   });
 
-  // The Fire TV, 2026-11-02: The Pumbletons' S33E8 stood at 1299.967 of 1300.056, all of it loaded
+  // The Fire TV, 2026-11-02: an episode stood at 1299.967 of 1300.056, all of it loaded
   // past a two-frame hole at 1280.8, its media source never ended, and no next episode came.
   it("ends the stream of a video standing still at the end of a whole film loaded past a hole", () => {
     const hls = playlistHls(1300.054);

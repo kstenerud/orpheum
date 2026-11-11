@@ -28,7 +28,7 @@ const heat: TitleDetail = {
   id: 10,
   kind: "film",
   name: "Metropolis",
-  year: 1995,
+  year: 1927,
   runtimeMs: 170 * 60_000,
   tagline: "A Los Angeles crime saga",
   overview: "A crime saga.",
@@ -40,7 +40,7 @@ const heat: TitleDetail = {
       files: [
         {
           id: 1,
-          path: "/m/Metropolis (1995).mkv",
+          path: "/m/Metropolis (1927).mkv",
           streams: [
             { id: 1, kind: "video", codec: "h264" },
             { id: 2, kind: "audio", codec: "truehd", language: "en", channelCount: 8 },
@@ -68,7 +68,7 @@ describe("TitleView", () => {
     expect(markup).toContain('href="/titles/30"');
     expect(markup).toContain("Trailer");
     expect(markup).toContain("Behind the scenes");
-    expect(markup).toContain("/m/Metropolis (1995).mkv");
+    expect(markup).toContain("/m/Metropolis (1927).mkv");
   });
 
   it("names its sound's channels as the player does: mono, not 1 channels (the demo library, 2026-11-08)", () => {
@@ -144,7 +144,7 @@ describe("TitleView", () => {
       /<details class="title__details"><summary>File details<\/summary>(.*?)<\/details>/u.exec(
         markup,
       )?.[1];
-    expect(details).toContain("/m/Metropolis (1995).mkv");
+    expect(details).toContain("/m/Metropolis (1927).mkv");
     expect(details).toContain("Sound: truehd English 8 channels");
     expect(details).not.toContain("Play");
     // Play is the actions row's first, above the synopsis, not a file's below the cast (R8).
@@ -481,8 +481,8 @@ describe("a film whose match is a guess (D301)", () => {
           {
             provider: "tmdb",
             candidates: [
-              { providerId: "949", name: "Metropolis", year: 1995 },
-              { providerId: "50", name: "Metropolis", year: 1986 },
+              { providerId: "949", name: "Metropolis", year: 1927 },
+              { providerId: "50", name: "Metropolis", year: 1919 },
             ],
           },
         ],
@@ -527,7 +527,7 @@ describe("a film whose match is a guess (D301)", () => {
       page.querySelector("dialog .modal-dialog__close button")?.getAttribute("aria-label"),
     ).toBe("Close");
     await click(buttonWithText(page, "Enter manually"));
-    await settleUntil(() => page.textContent.includes("1986"));
+    await settleUntil(() => page.textContent.includes("1919"));
     const picks = [...page.querySelectorAll("li button")];
     await click(picks[1] ?? null);
     await settleUntil(() =>
@@ -713,7 +713,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   it("says its facts on one line: year, length and the sound its Play plays", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
     expect(markup).toContain(
-      '<p class="title-head__facts"><span>1995</span><span>170 min</span><span>TRUEHD · 7.1</span></p>',
+      '<p class="title-head__facts"><span>1927</span><span>170 min</span><span>TRUEHD · 7.1</span></p>',
     );
   });
 
@@ -722,7 +722,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       ...heat,
       versions: [
         ...(heat.versions ?? []),
-        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1995) 4K.mkv", streams: [] }] },
+        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1927) 4K.mkv", streams: [] }] },
       ],
     };
     const mounted = await mount(withServices(<TitleView title={twoVersions} />));
@@ -757,7 +757,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       ...heat,
       versions: [
         ...(heat.versions ?? []),
-        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1995) 4K.mkv", streams: [] }] },
+        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1927) 4K.mkv", streams: [] }] },
       ],
     };
     const mounted = await mount(withServices(<TitleView title={twoVersions} />));

@@ -20,8 +20,8 @@ const tallPoster =
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="400"/>');
 
 describe("the player's stage, laid out by a real browser", () => {
-  // The owner, 2026-11-03: in a browser already full screen, which refuses the player's own, The
-  // Navigator (4:3) lost its top and bottom: the stage meant to fill the window
+  // The owner, 2026-11-03: in a browser already full screen, which refuses the player's own, a
+  // 4:3 film of theirs lost its top and bottom: the stage meant to fill the window
   // stayed in the page, and the film was as tall as its width made it. A film taller than the
   // window's shape stands for it here, whatever the window's size.
   it("fills the window with a stage where full screen was refused, the whole film inside it", async () => {
