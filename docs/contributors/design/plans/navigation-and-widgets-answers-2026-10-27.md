@@ -2921,9 +2921,10 @@ The owner's answers:
      (`--color-warning` is the yellow of a notice). Asked: which colour, or the field's edge in the
      problem line's own colour? The owner, 2026-11-11: "a red color, like we do for destructive
      operations." Built: a field left wrong (`:user-invalid`), or marked wrong by the server's answer
-     (`aria-invalid`), has its edge in `--color-irreversible-text`, in two rules so a browser without
-     `:user-invalid` keeps the second (base.css, stylesheet-choices.test.ts). It widens D278 §4's
-     red, one meaning until now, to the edge of a wrong field too.
+     (`aria-invalid`), has its edge in `--color-invalid`, in two rules so a browser without
+     `:user-invalid` keeps the second (base.css, stylesheet-choices.test.ts). Its own token: the
+     owner, 2026-11-11, "they are only incidentally the same, and I may change my mind later as to
+     their hue", so D278 §4's red keeps its one meaning.
    - `aria-invalid` and `:user-invalid` on failing fields; the `role="alert"`s reviewed for polite
      status.
    - The Trusted Types CSP, report-only first. Built: the client's pages, the core's and Connect's,
