@@ -20,7 +20,7 @@
     var(--popover-widest),
     100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right)
   );
-  max-height: calc(100vh - var(--screen-edge-room-top) - var(--screen-edge-room-bottom));
+  max-height: calc(100dvh - var(--screen-edge-room-top) - var(--screen-edge-room-bottom));
   margin: 0;
   padding: 0;
   overflow: hidden;

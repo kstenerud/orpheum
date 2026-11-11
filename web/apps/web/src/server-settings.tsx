@@ -400,7 +400,10 @@ const SettingRow = memo(function SettingRow(props: {
   );
 });
 
-/** The search, and Advanced, which shows every setting rather than the important ones. */
+/**
+ * The search, and Advanced, which shows every setting rather than the important ones: a search
+ * landmark (`<search>`), which a screen reader goes to by its list of landmarks.
+ */
 export function SettingsFilters(props: {
   readonly isAdvanced: boolean;
   readonly onAdvanced: (isAdvanced: boolean) => void;
@@ -409,7 +412,7 @@ export function SettingsFilters(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="settings__filters">
+    <search className="settings__filters">
       <label>
         {t("settings.search")}{" "}
         <input
@@ -431,7 +434,7 @@ export function SettingsFilters(props: {
         />{" "}
         {t("settings.advanced")}
       </label>
-    </div>
+    </search>
   );
 }
 

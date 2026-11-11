@@ -25,12 +25,15 @@ body {
   text-size-adjust: 100%;
 }
 
+/* A heading's lines are balanced: a long title breaks into lines of like length, not a full line
+   and a word left alone (stylesheet-choices.test.ts). */
 h1,
 h2,
 h3 {
   margin-block: var(--space-5) var(--space-3);
   line-height: var(--line-height-heading);
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 h1 {

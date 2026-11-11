@@ -789,6 +789,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `@media (forced-colors: none) and (prefers-contrast: no-preference)`, and under forced colours,
   which draw no shadow, the ring's outline is the system's `Highlight`.
   `src/focus-ring-contrast.test.ts`.
+- **A height against the screen is what it shows** (`100dvh`, never `100vh`, which on a phone is
+  its height with the toolbars gone), and **a heading balances its lines** (`text-wrap: balance`
+  on `h1`–`h3`). `src/stylesheet-choices.test.ts`.
 - **A layout primitive's gap is a step of the space scale, by name** (the 2026-10-05 architecture
   research's R2; plans/toolkit.md step 5): `Stack`, its children in a column, and `Cluster`, in a
   row that wraps, lined up across it (`src/layout.tsx`), take `space` as `"1"` to `"7"`, tokens.css's

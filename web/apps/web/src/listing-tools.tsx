@@ -251,7 +251,10 @@ export function ListCriteriaButton(props: {
   );
 }
 
-/** What a list's Sort and filter's pop-up holds, one column (ListCriteriaButton). */
+/**
+ * What a list's Sort and filter's pop-up holds, one column (ListCriteriaButton): a search landmark
+ * (`<search>`), which a screen reader goes to by its list of landmarks.
+ */
 function CriteriaControls(props: {
   readonly criteria: ShownCriteria;
   readonly sorts: readonly LibrarySort[];
@@ -260,7 +263,7 @@ function CriteriaControls(props: {
   const { shown, change, chipsKind, genres } = props.criteria;
   const fieldRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
+    <search className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
       {/* A text field, not a search one: Escape in a search field with text clears it, in
           Chromium and Firefox, and does not close the pop-up (idiosyncrasies.md). */}
       <input
@@ -304,7 +307,7 @@ function CriteriaControls(props: {
           {t("criteria.clear")}
         </button>
       ) : null}
-    </div>
+    </search>
   );
 }
 

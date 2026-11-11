@@ -2913,7 +2913,10 @@ The owner's answers:
    - `aria-invalid` and `:user-invalid` on failing fields; the `role="alert"`s reviewed for polite
      status.
    - The Trusted Types CSP, report-only first.
-   - `dvh`, `text-wrap: balance` and `<search>`.
+   - `dvh`, `text-wrap: balance` and `<search>`. Built: the four `100vh` are `100dvh` (the shell,
+     the sign-in page, the Watch Together viewer and a pop-up's tallest), `h1`–`h3` balance their
+     lines (`stylesheet-choices.test.ts`), and a list's Sort and filter and the server settings'
+     search are `<search>` landmarks.
 7. **High contrast, because the browser says when it is wanted:** the focus ring and the three
    `outline: none` sites keep a full indicator under `forced-colors: active` and
    `prefers-contrast: more`. Built: the three take the ring away only inside

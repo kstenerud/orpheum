@@ -84,6 +84,12 @@ describe("a list's Sort and filter, on a phone's 360 px screen", () => {
     expect(outside.map((each) => each.outerHTML)).toEqual([]);
   });
 
+  it("is a search landmark, which a screen reader goes to by its landmarks", async () => {
+    walking = await mountApp(walkServices(filmsList, "/films"));
+    await openedByEnter();
+    expect(document.querySelector(".list-criteria")?.localName).toBe("search");
+  });
+
   // browse.css: Unwatched is a toggle drawn as the choosers beside it are, strong while on.
   it("draws its Unwatched toggle as a chooser, its edge and words strong while on", async () => {
     await page.viewport(360, 640);

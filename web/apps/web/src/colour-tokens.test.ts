@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/** This directory, web/apps/web/src/, whose stylesheets are read. */
-const here = new URL("./", import.meta.url);
+import { sourcesHere } from "./test-sources.ts";
 
 /**
  * The stylesheets that may write a colour out: the tokens, where every colour is named, and the
@@ -23,9 +21,7 @@ function rawColours(sheets: readonly (readonly [string, string])[]): string[] {
 
 describe("every colour is a token (D138 §4, D369)", () => {
   it("is written out in tokens.css alone, what is drawn over a film too", () => {
-    const sheets = readdirSync(here)
-      .filter((name) => name.endsWith(".css") && !writesColours.has(name))
-      .map((name) => [name, readFileSync(new URL(name, here), "utf8")] as const);
+    const sheets = sourcesHere(".css").filter(([name]) => !writesColours.has(name));
     expect(sheets.map(([name]) => name)).toContain("player-overlay.css");
     expect(rawColours(sheets)).toEqual([]);
   });
