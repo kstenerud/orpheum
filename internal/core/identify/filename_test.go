@@ -17,12 +17,14 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		want ParsedPath
 	}{
 		// Films, as people name them.
-		{"The Gold Rush (1999)/The Gold Rush (1999).mkv", ParsedPath{Kind: "movie", Name: "The Gold Rush", Year: 1999}},
-		{"The.Gold.Rush.1999.1080p.BluRay.x264-GROUP.mkv", ParsedPath{Kind: "movie", Name: "The Gold Rush", Year: 1999}},
-		{"Metropolis (1995)/movie.mkv", ParsedPath{Kind: "movie", Name: "Metropolis", Year: 1995}},
-		{"Metropolis (1995)/Metropolis (1995) - 720p.mkv", ParsedPath{Kind: "movie", Name: "Metropolis", Year: 1995}},
+		{"The Gold Rush (1925)/The Gold Rush (1925).mkv", ParsedPath{Kind: "movie", Name: "The Gold Rush", Year: 1925}},
+		{"The.Gold.Rush.1925.1080p.BluRay.x264-GROUP.mkv", ParsedPath{
+			Kind: "movie", Name: "The Gold Rush", Year: 1925,
+		}},
+		{"Metropolis (1927)/movie.mkv", ParsedPath{Kind: "movie", Name: "Metropolis", Year: 1927}},
+		{"Metropolis (1927)/Metropolis (1927) - 720p.mkv", ParsedPath{Kind: "movie", Name: "Metropolis", Year: 1927}},
 		{"1917 (2019)/1917 (2019).mkv", ParsedPath{Kind: "movie", Name: "1917", Year: 2019}},
-		{"7th Heaven (1968).mkv", ParsedPath{Kind: "movie", Name: "7th Heaven", Year: 1968}},
+		{"7th Heaven (1927).mkv", ParsedPath{Kind: "movie", Name: "7th Heaven", Year: 1927}},
 		{"Glass Runner 2061 (2017).mkv", ParsedPath{Kind: "movie", Name: "Glass Runner 2061", Year: 2017}},
 		{"untitled rip final v2.mkv", ParsedPath{Kind: "movie", Name: "untitled rip final v2"}},
 		// The competitors' corpora (design/research/library-scanner-practice-2026-10-16.md §5.3): a
@@ -34,28 +36,32 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 			Kind: "movie", Name: "Metropolis", ProviderIDs: map[string]string{"imdb": "tt0234567"},
 		}},
 		// A season and an episode said as separate words, which fell to season 1 silently.
-		{"the office s2 ep3 FINAL.mp4", ParsedPath{Kind: "episode", Name: "the office", Season: 2, Episode: 3}},
+		{"the ledger room s2 ep3 FINAL.mp4", ParsedPath{
+			Kind: "episode", Name: "the ledger room", Season: 2, Episode: 3,
+		}},
 		{"Show S03 EP05 Name.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 3, Episode: 5}},
-		{"Lockfast (1989) SE7 - EP5.mkv", ParsedPath{Kind: "episode", Name: "Lockfast", Year: 1989, Season: 7, Episode: 5}},
+		{"Lockfast (1989) SE7 - EP5.mkv", ParsedPath{
+			Kind: "episode", Name: "Lockfast", Year: 1989, Season: 7, Episode: 5,
+		}},
 		{"Show Season 2 Episode 5.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 2, Episode: 5}},
 		// Not Latin: D49's cases, which ASCII character classes fail silently.
-		{"Fièvre (2001)/Fièvre (2001).mkv", ParsedPath{Kind: "movie", Name: "Fièvre", Year: 2001}},
-		{"狂った一頁 (2015).mkv", ParsedPath{Kind: "movie", Name: "狂った一頁", Year: 2015}},
-		{"아리랑 (2019).mkv", ParsedPath{Kind: "movie", Name: "아리랑", Year: 2019}},
-		{"Броненосец Потёмкин.1999.mkv", ParsedPath{Kind: "movie", Name: "Броненосец Потёмкин", Year: 1999}},
+		{"Fièvre (1921)/Fièvre (1921).mkv", ParsedPath{Kind: "movie", Name: "Fièvre", Year: 1921}},
+		{"狂った一頁 (1926).mkv", ParsedPath{Kind: "movie", Name: "狂った一頁", Year: 1926}},
+		{"아리랑 (1926).mkv", ParsedPath{Kind: "movie", Name: "아리랑", Year: 1926}},
+		{"Броненосец Потёмкин.1925.mkv", ParsedPath{Kind: "movie", Name: "Броненосец Потёмкин", Year: 1925}},
 		// Provider ids in the name skip the search (D172).
-		{"The Gold Rush (1999) {tmdb-4801}/The Gold Rush (1999).mkv", ParsedPath{
-			Kind: "movie", Name: "The Gold Rush", Year: 1999, ProviderIDs: map[string]string{"tmdb": "4801"},
+		{"The Gold Rush (1925) {tmdb-4801}/The Gold Rush (1925).mkv", ParsedPath{
+			Kind: "movie", Name: "The Gold Rush", Year: 1925, ProviderIDs: map[string]string{"tmdb": "4801"},
 		}},
 		{"Metropolis [imdbid-tt0234567].mkv", ParsedPath{
 			Kind: "movie", Name: "Metropolis", ProviderIDs: map[string]string{"imdb": "tt0234567"},
 		}},
 		// Extras are typed by a suffix; containment makes them extras (D162).
-		{"Metropolis (1995)/Metropolis (1995)-trailer.mkv", ParsedPath{
-			Kind: "movie", Name: "Metropolis", Year: 1995, ExtraSuffix: "trailer",
+		{"Metropolis (1927)/Metropolis (1927)-trailer.mkv", ParsedPath{
+			Kind: "movie", Name: "Metropolis", Year: 1927, ExtraSuffix: "trailer",
 		}},
 		// An extra's own name; which film it belongs to is containment, decided above the parser.
-		{"Metropolis (1995)/trailers/Metropolis teaser.mkv", ParsedPath{Kind: "movie", Name: "Metropolis teaser"}},
+		{"Metropolis (1927)/trailers/Metropolis teaser.mkv", ParsedPath{Kind: "movie", Name: "Metropolis teaser"}},
 		// Episodes.
 		{"Test Show/Season 01/Test Show - S01E01.mkv", ParsedPath{
 			Kind: "episode", Name: "Test Show", Season: 1, Episode: 1,
@@ -80,7 +86,7 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		{"Gus Doyle/Gus.Doyle.S02.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Gus.Doyle.S02E01.720p.mkv", ParsedPath{
 			Kind: "episode", Name: "Gus Doyle", Season: 2, Episode: 1,
 		}},
-		{"Gus Doyle/copper-kettle-s04/Gus.Doyle.S04E01.1080p.HEVC.x265-WICKER[PORCH.ex].mkv", ParsedPath{
+		{"Gus Doyle/gus-doyle-s04/Gus.Doyle.S04E01.1080p.HEVC.x265-WICKER[PORCH.ex].mkv", ParsedPath{
 			Kind: "episode", Name: "Gus Doyle", Season: 4, Episode: 1,
 		}},
 		{"Harlow Girls/Harlow Girls Season 1 Complete 720p HDTV x264 [i_c]/Harlow Girls S01E01.mp4", ParsedPath{
@@ -210,7 +216,9 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 		}},
 		{
 			"Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv",
-			ParsedPath{Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true},
+			ParsedPath{
+				Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true,
+			},
 		},
 		{"Nova Trail Far Orbit Seven/Season 1/Nova Trail Far Orbit Seven - Season 1 - DVD Extras/" +
 			"Far Orbit Seven A Bold Beginning.mkv", ParsedPath{
@@ -221,9 +229,9 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 			Kind: "episode", Name: "The Lab Crowd", EpisodeName: "Out-takes", IsUnnumbered: true,
 		}},
 		{"Some.Fathers.Dont.Arf.Try.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(BINGOWINGZ-UKB-RG)/" +
-			"Christmas SPECIALS/Learning to Row.mp4", ParsedPath{
+			"Christmas SPECIALS/Learning To Row.mp4", ParsedPath{
 			Kind: "episode", Name: "Some Fathers Dont Arf Try",
-			EpisodeName: "Learning to Row", IsUnnumbered: true,
+			EpisodeName: "Learning To Row", IsUnnumbered: true,
 		}},
 		{
 			"Grey Comet/The Promised Land 2020/Grey Comet The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv",
@@ -252,8 +260,8 @@ func TestParsePath_AYearEndingASeriesFolderIsPartOfItsNameWhereANameBeneathCarri
 	t.Parallel()
 	const (
 		show = "Iron Ledger 1992/"
-		pack = "Iron Ledger 1992 - The Iron Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) - [Musafirboy]/"
-		file = "Iron.Ledger.1992.The.Iron.Ledger.Story.S01E01.WEBRip.1080p.HEVC.10bit-[Musafirboy].mkv"
+		pack = "Iron Ledger 1992 - The Iron Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) - [Wayfarerboy]/"
+		file = "Iron.Ledger.1992.The.Iron.Ledger.Story.S01E01.WEBRip.1080p.HEVC.10bit-[Wayfarerboy].mkv"
 	)
 	episode := func(name string, year int) ParsedPath {
 		return ParsedPath{Kind: "episode", Name: name, Year: year, Season: 1, Episode: 1}

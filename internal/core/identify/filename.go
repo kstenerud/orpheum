@@ -159,7 +159,7 @@ func ParsePath(relative string) ParsedPath {
 	parsed.Kind = KindMovie
 	parsed.Name, parsed.Year = cleanTitle(stem)
 	if parsed.Year == 0 || parsed.Name == "" {
-		// "Metropolis (1995)/movie.mkv", "Metropolis (1995)/metropolis-1080p.mkv": the folder names the work.
+		// "Metropolis (1927)/movie.mkv", "Metropolis (1927)/metropolis-1080p.mkv": the folder names the work.
 		if name, year := cleanTitle(path.Base(strings.TrimSuffix(folder, "/"))); year != 0 {
 			parsed.Name, parsed.Year = name, year
 		}
@@ -612,7 +612,7 @@ func cleanTitleWithYearInName(stem string, partOfName int) (name string, year in
 	})
 	if len(matches) > 0 {
 		// The last year-looking number is the year; an earlier one is part of the name, as in
-		// "7th Heaven (1968)" or "Station 2061 (2022)".
+		// "7th Heaven (1927)" or "Station 2061 (2022)".
 		last := matches[len(matches)-1]
 		// A number that is the whole name is the name: "1917".
 		if last[0] > 0 {
