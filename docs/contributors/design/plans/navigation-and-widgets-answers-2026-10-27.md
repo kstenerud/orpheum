@@ -2931,6 +2931,40 @@ The owner's answers:
    - The order (the owner, 2026-11-11): "Fill the next 100 posters in each direction, filling first
      in the vertical direction they last moved, or if they haven't moved, alternate 1 row down, 1
      row up, until we fill both windows."
+   - Built. On the stick, the window costs about 7 MB more memory, and a press costs the same as
+     before.
+9. **Heavy stretches are cut into shorter pieces, so a device's buffer holds them at full quality**
+   (the owner, 2026-11-11, "Agreed with option 1", after: "I just want to make sure we're not
+   locking away full quality unnecessarily"). Found on the owner's second Fire TV (AFTSSS, 922 MB),
+   on /play/1504 at about 200 s:
+   - At the 1080p rung (average 10.7 Mb/s, peak 41.5 Mb/s), the 10 s pieces are up to 21.4 MB.
+   - Silk on a 1 GB device holds 30 MiB of picture, which can't take the playing piece and the
+     next. It refuses with bufferFullError, the player flushes and fetches again, and the picture
+     runs out: a 2 s hitch, or a stop that never recovered (item 10).
+   - Stepping down a rung is only the safety net, for a piece that can't fit even cut at every
+     keyframe.
+   - The design question the owner asked (2026-11-11): "Are we able to pre-emptively get the bitrate
+     at each point of the video in a quick scan? Then the device could tell us its buffer size and we
+     could intelligently feed it appropriately sized pieces." Proposed, awaiting the owner:
+     - The grid's local rule gains a cap on a piece's bytes. A piece whose bytes would pass the cap
+       ends at the next keyframe, so each boundary still depends only on what is near it.
+     - The bytes come from what the node already reads: an MP4's sample table, a Matroska file's
+       cues, and the read-through's bytes in each second.
+     - One grid serves every device, sized for the smallest buffer (Silk's 30 MiB). The device's
+       limit decides how many pieces it keeps ahead, not how they are cut. A grid per device would
+       multiply every film's stores and re-cuts.
+     - A changed grid is a new store, so films with heavy stretches are cut again once.
+10. **The player recovers after the buffer is full, and says so when it can't** (found 2026-11-11 on
+    the same Fire TV; each seriously hurts playing, so they are folded in):
+    - (a) After bufferFullError and its flush, a 0.12 s hole was left at the play position
+      (position 200.66 s, the next picture at 200.78 s), and playback stood still for good. The
+      player steps over a hole it is stopped at.
+    - (b) The page's WebRTC to the core closed at 12:42:51 UTC and the page neither reconnected nor
+      said anything.
+    - (c) When Silk restored the page after Fire OS had killed it, the browser refused to start
+      playback on its own (NotAllowedError). The page showed a paused picture with no prompt, so it
+      looked stuck. Proposed: the page says playback is paused and puts focus on Play. The wording
+      and look are the owner's to approve.
 
 ### From the 11-22 batch, next batch (the owner agreed 2026-11-11)
 
