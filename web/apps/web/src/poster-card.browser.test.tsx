@@ -102,12 +102,10 @@ describe("a poster card's status cues, over its poster (the owner, 2026-11-11)",
         servedBy({}),
       ),
     );
-    const cue = mounted.container.querySelector(".poster-cue")?.getBoundingClientRect();
-    expect(cue?.width).toBeGreaterThan(0);
-    const under = document.elementFromPoint(
-      (cue?.left ?? 0) + (cue?.width ?? 0) / 2,
-      (cue?.top ?? 0) + (cue?.height ?? 0) / 2,
-    );
+    const cue =
+      mounted.container.querySelector(".poster-cue")?.getBoundingClientRect() ?? new DOMRect();
+    expect(cue.width).toBeGreaterThan(0);
+    const under = document.elementFromPoint(cue.left + cue.width / 2, cue.top + cue.height / 2);
     expect(under?.closest("a.poster-card__link")).not.toBeNull();
   });
 });
