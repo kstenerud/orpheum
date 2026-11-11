@@ -310,7 +310,7 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
  * How the Play page composes its player: the player's own controls on every device, never the
  * browser's (D369 §2), and playing at once unless it waits. A cast's receiver autoplays too: with
  * autoplay off (837747a5) a Fire TV's cast started worse, jumping back and stalling, and flashed black
- * (the owner, 2026-10-28: "It's much worse now. It jittered a bunch, and on the kid it
+ * (the owner, 2026-10-28: "It's much worse now. It jittered a bunch, and on [a film] it
  * started flashing black when I first played"), so it was put back until the start is understood.
  */
 function pageComposition(
