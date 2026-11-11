@@ -2905,3 +2905,11 @@ The owner's answers:
 7. **High contrast, because the browser says when it is wanted:** the focus ring and the three
    `outline: none` sites keep a full indicator under `forced-colors: active` and
    `prefers-contrast: more`.
+
+### From the 11-22 batch, next batch (the owner agreed 2026-11-11)
+
+- **One icon library.** The 55 icon drawings sit in 25 files, most beside the one screen that uses
+  them, so a second screen can draw a near copy with other line widths. Every icon outside the
+  player moves into one `icons.tsx`; the player's set stays in `player-icons.tsx`. Each drawing is
+  kept as it is: a refactor with no visible change. The UI gallery shows them all side by side. One
+  file costs the page nothing: the client is one bundle, and the build drops an icon nothing uses.
