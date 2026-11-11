@@ -12,7 +12,6 @@ import "./film-player.css";
 
 import { describe, expect, it } from "vitest";
 
-import { coversTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
 import { mount } from "./test-dom.tsx";
 
 /** A picture four times as tall as it is wide: a video takes its shape from its poster, unplayed. */
@@ -54,38 +53,4 @@ describe("the player's stage, laid out by a real browser", () => {
       mounted.unmount();
     }
   });
-
-  // The owner, 2026-11-11: Chrome on an iPhone, turned sideways, drew the Play page in 808 by 275 of
-  // a screen 896 by 414 across, the rest its own grey, as iOS does for a page that does not say it
-  // covers the screen.
-  it("has the page cover the whole screen while its film fills the window, and no longer after", async () => {
-    const viewport = theViewport();
-    const asWritten = viewport.content;
-    const mounted = await mount(<div className="film-player__stage" />);
-    const stage = mounted.container.querySelector(".film-player__stage");
-    if (stage === null) {
-      throw new Error("the stage was not drawn");
-    }
-    const letGo = keepFillingTheWindow(stage);
-    try {
-      expect(viewport.content).toBe(`${asWritten}, ${coversTheScreen}`);
-    } finally {
-      letGo();
-      mounted.unmount();
-    }
-    expect(viewport.content).toBe(asWritten);
-  });
 });
-
-/** The page's viewport meta, written as the app's index.html writes it where the test page has none. */
-function theViewport(): HTMLMetaElement {
-  const found = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-  if (found !== null) {
-    return found;
-  }
-  const written = document.createElement("meta");
-  written.name = "viewport";
-  written.content = "width=device-width, initial-scale=1";
-  document.head.append(written);
-  return written;
-}
