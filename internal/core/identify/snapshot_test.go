@@ -114,17 +114,17 @@ func nfoScenario() []func(lib *testLibrary) {
 }
 
 func tmdbFilmsScenario() []func(lib *testLibrary) {
-	films := []nodeproto.ScanRecord{videoRecord("Metropolis (1927).mkv"), videoRecord("Théo (1994)/Théo (1994).mkv")}
+	films := []nodeproto.ScanRecord{videoRecord("Metropolis (1927).mkv"), videoRecord("Théo (1996)/Théo (1996).mkv")}
 	return []func(lib *testLibrary){
 		func(lib *testLibrary) {
 			lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
 				lib.provider.Add(metropolis),
 			}
-			lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{lib.provider.Add(theo)}
+			lib.provider.Searches[identifytest.SearchKey("Théo", 1996)] = []identify.Candidate{lib.provider.Add(theo)}
 			lib.scan(films...)
 		},
 		func(lib *testLibrary) {
-			for _, rel := range []string{"Metropolis (1927).mkv", "Théo (1994)/Théo (1994).mkv"} {
+			for _, rel := range []string{"Metropolis (1927).mkv", "Théo (1996)/Théo (1996).mkv"} {
 				if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 					lib.t.Fatalf("%s: %s, want matched", rel, outcome)
 				}
@@ -139,7 +139,7 @@ func tmdbFilmsScenario() []func(lib *testLibrary) {
 			}
 		},
 		func(lib *testLibrary) {
-			lib.scan(videoRecord("Metropolis (1927).mkv"), videoMoved("Théo (1994)/Théo (1994).mkv", "Théo (1994).mkv"))
+			lib.scan(videoRecord("Metropolis (1927).mkv"), videoMoved("Théo (1996)/Théo (1996).mkv", "Théo (1996).mkv"))
 		},
 	}
 }

@@ -50,8 +50,8 @@ func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 func TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{lib.provider.Add(theo)}
-	const rel = "Théo (1994)/Théo (1994).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Théo", 1996)] = []identify.Candidate{lib.provider.Add(theo)}
+	const rel = "Théo (1996)/Théo (1996).mkv"
 	lib.scan(videoRecord(rel))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s, want matched", outcome)

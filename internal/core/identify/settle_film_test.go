@@ -214,14 +214,14 @@ func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 
 // D365 §3 with D301 §1 and D412 §3, §4: with no year in the name and votes near each other's, as
 // the real films' are, the oldest is taken where the runtimes do not
-// separate them (Disney's Alcazar over a later one), and the fit comes first where they do.
+// separate them (the first Alcazar over a later one), and the fit comes first where they do.
 func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	disneys := lib.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992, RuntimeMs: 90 * minuteMs})
-	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019, RuntimeMs: 128 * minuteMs})
-	disneys.Votes, remake.Votes = 9000, 15000
-	lib.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
+	first := lib.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1993, RuntimeMs: 90 * minuteMs})
+	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2018, RuntimeMs: 128 * minuteMs})
+	first.Votes, remake.Votes = 9000, 15000
+	lib.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, first}
 	older := lib.provider.Add(identify.Metadata{ID: "30", Name: "Clarabel", Year: 1954, RuntimeMs: 113 * minuteMs})
 	newer := lib.provider.Add(identify.Metadata{ID: "31", Name: "Clarabel", Year: 1995, RuntimeMs: 127 * minuteMs})
 	lib.provider.Searches[identifytest.SearchKey("Clarabel", 0)] = []identify.Candidate{older, newer}
@@ -229,7 +229,7 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	lib.scan(videoLasting(clarabel, 127*minuteMs), videoLasting(unprobed, 0))
 	for _, each := range []struct{ rel, want, why string }{
 		{clarabel, "31", "the newer, whose runtime fits the file's, the older's only as a longer cut"},
-		{unprobed, "812", "the oldest, no length to fit to"},
+		{unprobed, "4812", "the oldest, no length to fit to"},
 	} {
 		lib.matchFileTitle(each.rel)
 		if id, _ := lib.followed(each.rel); id != each.want {
@@ -237,14 +237,14 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 		}
 	}
 	both := newTestLibrary(t, "movie", "tmdb")
-	disneys = both.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992})
-	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019})
-	disneys.Votes, remake.Votes = 9000, 15000
-	both.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
+	first = both.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1993})
+	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2018})
+	first.Votes, remake.Votes = 9000, 15000
+	both.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, first}
 	both.scan(videoLasting(unprobed, 100*minuteMs))
 	both.matchFileTitle(unprobed)
-	if id, _ := both.followed(unprobed); id != "812" {
-		t.Errorf("%s follows %s; want 812, the oldest, neither runtime known", unprobed, id)
+	if id, _ := both.followed(unprobed); id != "4812" {
+		t.Errorf("%s follows %s; want 4812, the oldest, neither runtime known", unprobed, id)
 	}
 }
 
