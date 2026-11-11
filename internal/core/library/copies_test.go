@@ -38,8 +38,8 @@ type copiesBench struct {
 }
 
 const (
-	firstPlace  = root + "/Metropolis (1995)/Metropolis (1995).mkv"
-	secondPlace = root + "/Backup/Metropolis (1995).mkv"
+	firstPlace  = root + "/Metropolis (1927)/Metropolis (1927).mkv"
+	secondPlace = root + "/Backup/Metropolis (1927).mkv"
 )
 
 func newCopiesBench(t *testing.T) *copiesBench {
@@ -62,7 +62,7 @@ func newCopiesBench(t *testing.T) *copiesBench {
 		PayloadHash: payload, VersionID: 2, FirstSeenAt: 2,
 	})
 	bench.subtitle = librarytest.File(t, database, librarytest.FileSpec{
-		NodeID: bench.nodeID, Path: root + "/Backup/Metropolis (1995).en.srt", SidecarKind: "subtitle",
+		NodeID: bench.nodeID, Path: root + "/Backup/Metropolis (1927).en.srt", SidecarKind: "subtitle",
 		AttachedToFile: bench.second, FirstSeenAt: 2,
 	})
 	for _, fileID := range []int64{bench.first, bench.second} {

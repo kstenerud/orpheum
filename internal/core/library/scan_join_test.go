@@ -186,7 +186,7 @@ func TestScans_TwoLibrariesOverOneRootPathMakeOneListingAndReadEachFileOnce(t *t
 			t.Fatal(err)
 		}
 	}
-	bench.list(listedFile("Metropolis.mkv", int64(len("heat")), 1))
+	bench.list(listedFile("Metropolis.mkv", int64(len("metropolis")), 1))
 	job, files := bench.examine()
 	if len(files) != 1 || bench.listingsSent() != 1 {
 		t.Fatalf("two libraries' asks made %d listings, the batch reads %d files; want one listing reading one",
@@ -194,7 +194,7 @@ func TestScans_TwoLibrariesOverOneRootPathMakeOneListingAndReadEachFileOnce(t *t
 	}
 	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
 		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
-			observedRecord("Metropolis.mkv", "heat"),
+			observedRecord("Metropolis.mkv", "metropolis"),
 		}}})
 	if err != nil {
 		t.Fatal(err)

@@ -70,7 +70,7 @@ func TestMembersAhead_StartAtThePersonsPlaceInTheOrdering(t *testing.T) {
 // alone, the same way; else, when its last is finished, from its first (the owner, 2026-10-24).
 // A series' specials are optional: one nobody has started begins at season 1, a finished special
 // does not move the person's place, and one they are partway through is still theirs to finish (the
-// owner, 2026-11-01: The Freshman said "Play S0E0").
+// owner, 2026-11-01: the owner's series offered to play season 0's episode 0).
 func TestMembersAhead_TheSpecialsAreOptional(t *testing.T) {
 	t.Parallel()
 	ids := func(members []Member) []int64 {

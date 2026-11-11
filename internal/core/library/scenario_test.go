@@ -141,21 +141,23 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Metropolis.mkv", "heat"), observedRecord("Arkon.mkv", "arkon"),
-		observedRecord("Nosferatu.mkv", "ronin"),
+		observedRecord("Metropolis.mkv", "metropolis"), observedRecord("Arkon.mkv", "arkon"),
+		observedRecord("Nosferatu.mkv", "nosferatu"),
 	}, true)
-	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	metropolis := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 
-	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon"), observedRecord("Nosferatu.mkv", "ronin")}, true)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Nosferatu.mkv", "nosferatu"),
+	}, true)
 	if _, live := world.liveFilesByPath()[root+"/Metropolis.mkv"]; live {
 		t.Fatal("the deleted film is still live; the test proves nothing")
 	}
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon.mkv", "arkon"), observedRecord("Restored/Metropolis (1995).mkv", "heat"),
-		observedRecord("Nosferatu.mkv", "ronin"),
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Restored/Metropolis (1927).mkv", "metropolis"),
+		observedRecord("Nosferatu.mkv", "nosferatu"),
 	}, true)
-	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
-		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, heat)
+	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1927).mkv"]; back.ID != metropolis {
+		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, metropolis)
 	}
 }
 
@@ -164,15 +166,17 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 func TestScenario_AFilmPutBackElsewhereWhileItsOldPathIsTakenRevivesItsTombstone(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat"), observedRecord("Arkon.mkv", "arkon")}, true)
-	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("Metropolis.mkv", "metropolis"), observedRecord("Arkon.mkv", "arkon"),
+	}, true)
+	metropolis := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	world.scan([]nodeproto.ScanRecord{
 		observedRecord("Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "another"),
-		observedRecord("Restored/Metropolis (1995).mkv", "heat"),
+		observedRecord("Restored/Metropolis (1927).mkv", "metropolis"),
 	}, true)
-	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
-		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, heat)
+	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1927).mkv"]; back.ID != metropolis {
+		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, metropolis)
 	}
 }
 

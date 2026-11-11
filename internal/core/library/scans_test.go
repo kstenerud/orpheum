@@ -247,19 +247,19 @@ func TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt(t *testing.T) {
 func TestScans_ABatchGivenUpRemovesNoneOfItsFiles(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "metropolis")}, true)
 	ctx := t.Context()
 	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
 		t.Fatal(err)
 	}
-	bench.list(listedFile("Metropolis.mkv", int64(len("heat")), 2))
+	bench.list(listedFile("Metropolis.mkv", int64(len("metropolis")), 2))
 	job, _ := bench.examine()
 	if err := bench.scans.RecordExamineFailure(ctx, job, "its machine did not say how it ended"); err != nil {
 		t.Fatal(err)
 	}
-	heat, isLive := bench.liveFilesByPath()[root+"/Metropolis.mkv"]
-	if !isLive || heat.Filing != FilingErrored {
-		t.Errorf("Metropolis.mkv, which could not be read, is %+v (live %v), want live and errored", heat, isLive)
+	metropolis, isLive := bench.liveFilesByPath()[root+"/Metropolis.mkv"]
+	if !isLive || metropolis.Filing != FilingErrored {
+		t.Errorf("Metropolis.mkv, which could not be read, is %+v (live %v), want live and errored", metropolis, isLive)
 	}
 	if bench.isScanning() {
 		t.Error("the scan did not complete after its last batch was given up")
@@ -683,8 +683,8 @@ func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
 	}
 	bench.list(listedDirectory("Arkon"), listedFile("Arkon/Arkon.mkv", 5, 1),
 		listedDirectory("Metropolis"), listedFile("Metropolis/Metropolis.mkv", 5, 1))
-	heat := bench.liveFilesByPath()[root+"/Metropolis/Metropolis.mkv"]
-	if err := bench.scans.ReadNow(ctx, bench.nodeID, heat.ReportedPathRaw); err != nil {
+	metropolis := bench.liveFilesByPath()[root+"/Metropolis/Metropolis.mkv"]
+	if err := bench.scans.ReadNow(ctx, bench.nodeID, metropolis.ReportedPathRaw); err != nil {
 		t.Fatal(err)
 	}
 	raised := bench.jobs.last(t, jobs.KindExamine)
@@ -692,7 +692,8 @@ func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if raised.Priority != jobs.PriorityPersonsRequest || !strings.Contains(batch.FilesJSON, "Metropolis/Metropolis.mkv") {
+	if raised.Priority != jobs.PriorityPersonsRequest ||
+		!strings.Contains(batch.FilesJSON, "Metropolis/Metropolis.mkv") {
 		t.Errorf("raised a batch of %s at priority %d; want Metropolis's batch at a person's", batch.FilesJSON,
 			raised.Priority)
 	}

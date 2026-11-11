@@ -181,30 +181,30 @@ func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "heat"), observedRecord("Gone.mkv", "gone"),
-		observedRecord("Nosferatu.mkv", "ronin"),
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "metropolis"),
+		observedRecord("Gone.mkv", "gone"), observedRecord("Nosferatu.mkv", "nosferatu"),
 	}, true)
 	before := world.liveFilesByPath()
 
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon.mkv", "arkon"),                     // same path, same payload: the same file
-		observedRecord("Crime/Metropolis (1995).mkv", "heat"),          // a new path, a payload not seen yet: moved
-		observedRecord("Nosferatu.mkv", "ronin, the director's cut"), // same path, a new payload: replaced
-		observedRecord("Zarvo.mkv", "zulu"),                       // new
+		observedRecord("Arkon.mkv", "arkon"),                             // same path, same payload: the same file
+		observedRecord("Crime/Metropolis (1927).mkv", "metropolis"),      // a new path, a payload not seen yet: moved
+		observedRecord("Nosferatu.mkv", "nosferatu, the director's cut"), // same path, a new payload: replaced
+		observedRecord("Wings.mkv", "wings"),                             // new
 	}, true)
 	after := world.liveFilesByPath()
 
 	if after[root+"/Arkon.mkv"].ID != before[root+"/Arkon.mkv"].ID {
 		t.Error("a file seen again at its path got a new row")
 	}
-	if moved := after[root+"/Crime/Metropolis (1995).mkv"]; moved.ID != before[root+"/Metropolis.mkv"].ID {
+	if moved := after[root+"/Crime/Metropolis (1927).mkv"]; moved.ID != before[root+"/Metropolis.mkv"].ID {
 		t.Errorf("the moved file has id %d, want %d: its history follows it (D179)",
 			moved.ID, before[root+"/Metropolis.mkv"].ID)
 	}
 	if replaced := after[root+"/Nosferatu.mkv"]; replaced.ID == before[root+"/Nosferatu.mkv"].ID {
 		t.Error("a different payload at the same path kept the old row; D173 says a new file, the old tombstoned")
 	}
-	want := []string{"Arkon.mkv", "Crime/Metropolis (1995).mkv", "Nosferatu.mkv", "Zarvo.mkv"}
+	want := []string{"Arkon.mkv", "Crime/Metropolis (1927).mkv", "Nosferatu.mkv", "Wings.mkv"}
 	if got := world.paths(); !slices.Equal(got, want) {
 		t.Errorf("live files %q, want %q: Gone.mkv tombstoned, Metropolis.mkv moved", got, want)
 	}
@@ -264,7 +264,7 @@ func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 func TestIngest_APathIsStoredInNFCBesideItsBytes(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	decomposed := "Fièvre.mkv" // as macOS writes it
+	decomposed := "Fie\u0300vre" + ".mkv" // as macOS writes it
 	world.scan([]nodeproto.ScanRecord{observedRecord(decomposed, "fievre")}, true)
 	row, found := world.liveFilesByPath()[root+"/Fièvre.mkv"]
 	if !found || string(row.ReportedPathRaw) != root+"/"+decomposed {
@@ -327,12 +327,13 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
 		// Sidecars before their videos, as byte order often sends them.
-		sidecarRecord("Metropolis (1995)/Metropolis (1995) - 720p.en.srt", nodeproto.SidecarSubtitle, "1\n"),
-		sidecarRecord("Metropolis (1995)/Metropolis (1995).nfo", nodeproto.SidecarNFO, "<movie><title>Metropolis</title></movie>"),
-		observedRecord("Metropolis (1995)/Metropolis (1995) - 720p.mkv", "heat 720"),
-		observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat 1080"),
-		observedRecord("Nosferatu (1998)/nosferatu.mkv", "ronin"),
-		sidecarRecord("Nosferatu (1998)/movie.nfo", nodeproto.SidecarNFO, "<movie/>"),
+		sidecarRecord("Metropolis (1927)/Metropolis (1927) - 720p.en.srt", nodeproto.SidecarSubtitle, "1\n"),
+		sidecarRecord("Metropolis (1927)/Metropolis (1927).nfo", nodeproto.SidecarNFO,
+			"<movie><title>Metropolis</title></movie>"),
+		observedRecord("Metropolis (1927)/Metropolis (1927) - 720p.mkv", "metropolis 720"),
+		observedRecord("Metropolis (1927)/Metropolis (1927).mkv", "metropolis 1080"),
+		observedRecord("Nosferatu (1922)/nosferatu.mkv", "nosferatu"),
+		sidecarRecord("Nosferatu (1922)/movie.nfo", nodeproto.SidecarNFO, "<movie/>"),
 		sidecarRecord("Show/tvshow.nfo", nodeproto.SidecarNFO, "<tvshow/>"),
 	}, true)
 	after, before := PathRange(root)
@@ -359,12 +360,12 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		return "?"
 	}
 	want := map[string]string{
-		"Metropolis (1995)/Metropolis (1995) - 720p.en.srt": "Metropolis (1995)/Metropolis (1995) - 720p.mkv",
-		"Metropolis (1995)/Metropolis (1995).nfo":           "Metropolis (1995)/Metropolis (1995).mkv",
-		"Nosferatu (1998)/movie.nfo":                "Nosferatu (1998)/nosferatu.mkv",
-		"Show/tvshow.nfo":                       "",
+		"Metropolis (1927)/Metropolis (1927) - 720p.en.srt": "Metropolis (1927)/Metropolis (1927) - 720p.mkv",
+		"Metropolis (1927)/Metropolis (1927).nfo":           "Metropolis (1927)/Metropolis (1927).mkv",
+		"Nosferatu (1922)/movie.nfo":                        "Nosferatu (1922)/nosferatu.mkv",
+		"Show/tvshow.nfo":                                   "",
 	}
-	body, err := world.database.Read().GetNFOBody(t.Context(), byPath["Metropolis (1995)/Metropolis (1995).nfo"].ID)
+	body, err := world.database.Read().GetNFOBody(t.Context(), byPath["Metropolis (1927)/Metropolis (1927).nfo"].ID)
 	if err != nil || string(body) != "<movie><title>Metropolis</title></movie>" {
 		t.Errorf("the NFO's stored bytes are %q, %v; identification reads them (D182)", body, err)
 	}

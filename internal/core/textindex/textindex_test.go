@@ -19,7 +19,7 @@ func TestFold_OneNormaliserForEveryScript(t *testing.T) {
 		"Straße":     "strasse",
 		"Æon Flux":   "aeon flux",
 		"Łódź":       "lodz",
-		"十字路":   "十字路",
+		"十字路":        "十字路",
 		"狂った一頁":      "狂った一頁",
 		"Ｆｕｌｌ ｗｉｄｔｈ": "full width",
 	} {
@@ -32,12 +32,12 @@ func TestFold_OneNormaliserForEveryScript(t *testing.T) {
 func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreOne(t *testing.T) {
 	t.Parallel()
 	for _, same := range [][]string{
-		{"Lantern's Agents of L.A.N.T.E.R.N.", "Lanterns Agents of SHIELD", "MARVEL’S AGENTS OF LANTERN"},
+		{"Lantern's Agents of F.L.A.R.E.", "Lanterns Agents of FLARE", "LANTERN’S AGENTS OF FLARE"},
 		{"Moth-Lantern: Homecoming", "Moth Lantern Homecoming", "moth.lantern.homecoming"},
-		{"Fièvre", "FIEVRE", "Ame\u0301lie"},
+		{"Fièvre", "FIEVRE", "Fie\u0300vre"},
 		{"Sølvi", "Solvi"},
 		{"Ｆｕｌｌ ｗｉｄｔｈ", "Full Width"},
-		{"十字路", "千と千尋の 神隠し"},
+		{"十字路", "十字 路"},
 		{"नमस्ते", "नमस्ते!"},
 		{"Grace & Folly", "Grace.And.Folly", "grace and folly"},
 	} {
@@ -51,7 +51,7 @@ func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreO
 			t.Errorf("SameWork(%q) is empty; every script's letters are kept", same[0])
 		}
 	}
-	for _, different := range [][2]string{{"Metropolis", "Metropolis 2"}, {"Arkon", "Arkons"}, {"十字", "千と千"}} {
+	for _, different := range [][2]string{{"Metropolis", "Metropolis 2"}, {"Arkon", "Arkons"}, {"十字路", "十字"}} {
 		if SameWork(different[0]) == SameWork(different[1]) {
 			t.Errorf("%q and %q fold alike; want two works", different[0], different[1])
 		}
@@ -94,12 +94,13 @@ func TestPlanQuery_RoutesByLengthAndScript(t *testing.T) {
 		"up":    {Route: RouteSubstring, IndexQuery: "up"},
 		"5%":    {Route: RouteSubstring, IndexQuery: "5%"},
 		"Sølvi": {Route: RouteWords, IndexQuery: `("solvi" OR "solvi"*)`},
-		"heat NEAR 95": {
-			Route: RouteWords, IndexQuery: `("heat" OR "heat"*) AND ("near" OR "near"*) AND ("95" OR "95"*)`,
+		"metropolis NEAR 95": {
+			Route:      RouteWords,
+			IndexQuery: `("metropolis" OR "metropolis"*) AND ("near" OR "near"*) AND ("95" OR "95"*)`,
 		},
 		`the "quote"`: {Route: RouteWords, IndexQuery: `("the" OR "the"*) AND ("quote" OR "quote"*)`},
-		"十字":        {Route: RouteTrigram, IndexQuery: `"十字"`},
-		"千尋":          {Route: RouteSubstring, IndexQuery: "千尋"},
+		"灯台の町":        {Route: RouteTrigram, IndexQuery: `"灯台の町"`},
+		"灯台":          {Route: RouteSubstring, IndexQuery: "灯台"},
 	} {
 		if got := PlanQuery(query); got != want {
 			t.Errorf("PlanQuery(%q) = %+v, want %+v", query, got, want)
@@ -137,11 +138,11 @@ func TestClean_NothingShownCanLieOrSpill(t *testing.T) {
 func TestPath_MarksWhatWasHiddenAndChangesNothingElse(t *testing.T) {
 	t.Parallel()
 	for input, want := range map[string]string{
-		"/media/Films/Metropolis (1995)/Metropolis.mkv": "/media/Films/Metropolis (1995)/Metropolis.mkv",
-		"/media/two  spaces.mkv":            "/media/two  spaces.mkv",
-		"/media/evil\u202Evkm.exe":          "/media/evil�vkm.exe",
-		"/media/line\nbreak.mkv":            "/media/line�break.mkv",
-		"/media/bad\xffbyte.mkv":            "/media/bad�byte.mkv",
+		"/media/Films/Metropolis (1927)/Metropolis.mkv": "/media/Films/Metropolis (1927)/Metropolis.mkv",
+		"/media/two  spaces.mkv":                        "/media/two  spaces.mkv",
+		"/media/evil\u202Evkm.exe":                      "/media/evil�vkm.exe",
+		"/media/line\nbreak.mkv":                        "/media/line�break.mkv",
+		"/media/bad\xffbyte.mkv":                        "/media/bad�byte.mkv",
 	} {
 		if got := Path(input); got != want {
 			t.Errorf("Path(%q) = %q, want %q", input, got, want)

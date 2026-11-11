@@ -18,15 +18,15 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	t.Parallel()
 	world := newShelf(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
+		observedRecord("metropolis.mkv", "metropolis"), observedRecord("trailer.mkv", "trailer"),
 		observedRecord("pilot.mkv", "pilot"),
 	}, true)
-	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
+	metropolis := world.fileAsFilm("Metropolis", "metropolis.mkv")
 	trailer := world.fileAsFilm("Metropolis trailer", "trailer.mkv")
 	pilot := world.fileAsFilm("Pilot", "pilot.mkv")
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertScannerExtraRelation(t.Context(), sqlcgen.UpsertScannerExtraRelationParams{
-			OwnerWork: heat, ExtraWork: trailer, ExtraType: "trailer",
+			OwnerWork: metropolis, ExtraWork: trailer, ExtraType: "trailer",
 		})
 	})
 	if err != nil {
@@ -45,8 +45,8 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	if len(extra.Libraries) != 1 || extra.Libraries[0].ID != 1 || extra.Libraries[0].Name == "" {
 		t.Errorf("the extra's libraries = %v; want library 1, the one its file is in, named", extra.Libraries)
 	}
-	if extra.FilmOfExtra == nil || *extra.FilmOfExtra != (FilmOfExtra{ID: heat, Name: "Metropolis"}) {
-		t.Errorf("the extra's film = %+v; want Metropolis (%d)", extra.FilmOfExtra, heat)
+	if extra.FilmOfExtra == nil || *extra.FilmOfExtra != (FilmOfExtra{ID: metropolis, Name: "Metropolis"}) {
+		t.Errorf("the extra's film = %+v; want Metropolis (%d)", extra.FilmOfExtra, metropolis)
 	}
 	ofSeries, err := world.browser.Whereabouts(t.Context(), auth.EveryLibrary(), series, false)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	if !slices.Equal(ids(ofSeries.Libraries), []int64{1}) || ofSeries.FilmOfExtra != nil {
 		t.Errorf("the series' whereabouts = %+v; want library 1, its episode's, and no film", ofSeries)
 	}
-	unreached, err := world.browser.Whereabouts(t.Context(), auth.LibrariesOnly(2), heat, false)
+	unreached, err := world.browser.Whereabouts(t.Context(), auth.LibrariesOnly(2), metropolis, false)
 	if err != nil {
 		t.Fatal(err)
 	}

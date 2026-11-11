@@ -59,7 +59,7 @@ func TestScans_AnAskForAnInnerFolderIsItsScopeWithinTheOuter(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
 	showsInside(t, bench.harness)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Films/Metropolis.mkv", "heat")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Films/Metropolis.mkv", "metropolis")}, true)
 	err := bench.scans.RequestUnder(t.Context(), bench.nodeID, root+"/Shows", "Dag", jobs.PriorityBackground)
 	if err != nil {
 		t.Fatal(err)

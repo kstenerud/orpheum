@@ -38,7 +38,8 @@ func TestBatchesOf_CutsEachFolderIntoBatchesOfVideosWithTheFilesNamedForThem(t *
 		got = append(got, strings.Join(paths, ", "))
 	}
 	want := []string{
-		"Films/Arkon.mkv, Films/Arkon.en.srt, Films/Arkon.nfo, Films/Metropolis - 720p.mkv, Films/Metropolis - 720p.de.srt",
+		"Films/Arkon.mkv, Films/Arkon.en.srt, Films/Arkon.nfo, Films/Metropolis - 720p.mkv, " +
+			"Films/Metropolis - 720p.de.srt",
 		"Films/Metropolis.mkv, Films/Nosferatu.mkv",
 		"Films/movie.nfo",
 		"Shows/Dark/S01E01.mkv, Shows/Dark/tvshow.nfo",

@@ -37,7 +37,7 @@ func NewSorter(locale string) (*Sorter, error) {
 func (sorter *Sorter) Locale() string { return sorter.locale }
 
 // Key is a name's sort key: the key of the name without its leading article in the sorter's
-// language, so "The Gold Rush" sorts among the M (D402, refining D47). The name shown is unchanged. It
+// language, so "The Gold Rush" sorts among the G (D402, refining D47). The name shown is unchanged. It
 // is a fresh slice the caller may keep.
 func (sorter *Sorter) Key(name string) []byte {
 	return sorter.KeyExact(sorter.withoutArticle(name))
@@ -98,7 +98,7 @@ func (sorter *Sorter) withoutArticle(name string) string {
 	return name
 }
 
-// isWord is whether text is letters alone: "A." in "A. I." is no article.
+// isWord is whether text is letters alone: "A." in "A. B." is no article.
 func isWord(text string) bool {
 	return strings.IndexFunc(text, func(character rune) bool { return !unicode.IsLetter(character) }) < 0
 }
