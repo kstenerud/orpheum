@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A69 — Reported a test's bound as unmeetable and asked for a ruling, when the failure showed the design measured the wrong thing (2026-11-11)
+
+- **What happened:** VQ294 bounded the chunks around a heavy stretch at 5 MiB, the sized grid's
+  `largestChunkBytes`. The run found chunks of 13 to 23 MB, one keyframe's run each, and the lead
+  wrote the clause up as "cannot be met by cutting at keyframes. Owed: the owner's call on that
+  clause", then proposed rewording it to "where the keyframes allow" and ticking the item. The
+  failure had shown the grid's premise false: a copied picture cannot always be cut small, and what
+  a small device must hold is a chunk and its neighbour together, so a 21 MB chunk would still stall
+  it. The belief came from treating the item's clause as the goal rather than the playback it stood
+  for.
+- **Caught by:** the owner: *"how can we handle a situation where a heavy stretch makes a 21mb
+  chunk? I'm not interested in just making VQs pass for the sake of passing them. I want a good user
+  experience."*
+- **Gate:** none can judge a premise. Principles §29 asks the three questions of every failure; the
+  design that followed is the plan file's 11-23 item 4.
+
 ### A68 — Twice named the cause of an iPhone's grey band from a guess the measurements did not test (2026-11-11)
 
 - **What happened:** Chrome on the owner's iPhone, turned sideways, drew the Play page short of the

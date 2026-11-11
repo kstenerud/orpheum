@@ -15,6 +15,7 @@ work they bear on, and one that bears on two kinds of work is listed under both.
 
 - [§17](17-a-rule-nothing-runs.md) — A rule that nothing runs is a hope
 - [§18](18-a-check-never-seen-failing.md) — A check you have never seen fail proves nothing
+- [§29](29-a-failed-test-questions-its-premise.md) — A failed test questions its premise before it names a defect
 - [§20](20-a-gate-changes-on-purpose.md) — A gate changes on purpose, never to land a change
 - [§21](21-an-owners-correction.md) — An owner's correction is a specimen, and it is written down
 - [§23](23-proportionate-test-runs.md) — A test run is proportionate to the change
@@ -68,4 +69,5 @@ work they bear on, and one that bears on two kinds of work is listed under both.
 ## Debugging
 
 - [§19](19-a-defect-is-a-sample.md) — A defect is a sample: look for its siblings before fixing it
+- [§29](29-a-failed-test-questions-its-premise.md) — A failed test questions its premise before it names a defect
 - [§21](21-an-owners-correction.md) — An owner's correction is a specimen, and it is written down

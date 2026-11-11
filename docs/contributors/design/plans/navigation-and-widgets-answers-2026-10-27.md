@@ -3101,3 +3101,27 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    is unchanged. Owed with it: whether a Chromecast and a core behind each kind of router open the
    link without a relay. Built after the 11-22 batch, with 3(e).
 
+4. **A heavy stretch plays at full quality wherever it fits, and steps down only for the chunks that
+   do not** (the owner, 2026-11-11, on VQ294's run: "how can we handle a situation where a heavy
+   stretch makes a 21mb chunk? I'm not interested in just making VQs pass for the sake of passing
+   them. I want a good user experience."; then, of the lead's way 1, "OK, that sounds good"). Built
+   after items 1 to 3. What the run showed: the film's own picture is copied, so a chunk starts only
+   at the source's keyframes, 10.4 s apart in /play/1504's heavy stretch (and in many downloaded
+   films), and a run between two keyframes cannot be cut or partly evicted, every frame of it
+   depending on its first. At a chunk's end the browser must hold the whole chunk playing and the
+   next one's start: the bound is a pair of neighbours against the device's picture buffer (about
+   30 MiB in Silk on a 1 GB Fire TV), not any one chunk's size; 23 MB chunks beside small ones
+   played without a stall. The sized grid's 5 MiB (`largestChunkBytes`) is therefore the wrong
+   measure where keyframes are far apart. The way agreed: where the chunk playing and the next
+   would not fit together in the device's buffer, the player takes that one chunk from the encoded
+   rung just below the film's own picture, at its height (the rungs' keyframes are the copied
+   picture's, slow-links.md §10), then goes back up; a device with room never steps down. Owed in
+   the design: how the player knows its buffer (the device's memory, or its first bufferFullError)
+   and each chunk's bytes at each rung (the copied picture's from the read-through; an encoded
+   rung's bounded by its peak rate). The ways not taken: re-encoding the heavy stretches for every
+   device, spliced into the copy (H.264 8-bit only, so not for HEVC or HDR films, and a decoder
+   restart at each splice); and handing a heavy chunk to the browser in pieces of about a second
+   (best on paper, but it rests on how Silk and hls.js evict mid-chunk, hls.js's support for it is
+   experimental, and a single run over about 28 MB still cannot fit). VQ294 is rewritten with it:
+   the heavy stretch plays at 1080p without a stall, stepping down only for the chunks that cannot
+   fit.
