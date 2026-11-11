@@ -3045,8 +3045,8 @@ VQ286 and VQ287 can run.
    timing, remote, extend, throughput) stay the lab's, behind Offer Device tests, which is there for
    beta testers to run them. Asked of the owner and filed for the next batch: whether the remote and
    extend probes, spikes whose VQ56 and VQ57 were never run, are retired.
-   Open, asked of the owner: whether the Experimental page is the lab's menu given an entry, or a new
-   page of links that includes the lab's; where its entry sits (the rail's manage group, the account
-   page, beside the other debug tools); whether it is for anyone with Show debug tools or admins alone.
+   **Its entry (the owner, 2026-11-11):** "Put it as an entry right after 'Your account', visible
+   only when show debug tools is on." Who sees it follows from the gate: any account with Show debug
+   tools on.
 2. **Noted (the owner, 2026-11-11):** YouTube's Android app casts to the owner's Fire TVs.
 
