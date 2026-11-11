@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The signed release record lasts 30 days (discovery/release recordLasts, the audit's F9). Without a
+# release before it expires, the owner signs it again (`discovery-sign sign-release`) and copies it
+# to the publisher's place. Nothing else reminds anyone (principles §17): this reads the record the
+# publisher serves, daily, and fails from 7 days before its expiry, so GitHub mails the owner a
+# failed scheduled run with the date. It does nothing while PUBLISHER_PLACE is unset.
+name: release-record-expiry
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  expiry:
+    if: vars.PUBLISHER_PLACE != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - name: The served release record is not within 7 days of its expiry
+        env:
+          PLACE: ${{ vars.PUBLISHER_PLACE }}
+        run: |
+          set -euo pipefail
+          record="$(curl --fail --silent --show-error --max-time 30 "${PLACE%/}/.well-known/orpheum/release")"
+          expires="$(printf '%s\n' "$record" | awk '$1 == "expires" { print $2 }')"
+          if [ -z "$expires" ]; then
+            echo "::error::the record at ${PLACE} names no expiry"; exit 1
+          fi
+          left=$(( ( $(date -u -d "$expires" +%s) - $(date -u +%s) ) / 86400 ))
+          echo "The release record at ${PLACE} expires ${expires}: ${left} day(s) from now."
+          if [ "$left" -lt 7 ]; then
+            echo "::error::the release record expires ${expires} (${left} day(s)): sign it again with discovery-sign sign-release, or release"
+            exit 1
+          fi
