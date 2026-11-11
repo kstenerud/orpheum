@@ -43,10 +43,7 @@ describe("the candidate chooser, when the work is not among the candidates", () 
           {
             "GET /items/7/candidates": [
               [200, { provider: "tmdb", candidates: [] }],
-              [
-                200,
-                { provider: "tmdb", candidates: [{ providerId: "9285", name: "Hearthstead" }] },
-              ],
+              [200, { provider: "tmdb", candidates: [{ providerId: "1", name: "Hearthstead" }] }],
             ],
           },
           heard,
@@ -102,10 +99,10 @@ describe("the candidate chooser, when the work is not among the candidates", () 
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "That is not a TMDB or IMDb page or id",
     );
-    await enter(form?.querySelector("input"), "https://www.imdb.com/title/tt0456789/");
+    await enter(form?.querySelector("input"), "https://www.imdb.com/title/tt0000001/");
     await submit(form);
     expect(bodyField(heard.at(-1) ?? { methodAndPath: "", body: undefined }, "link")).toBe(
-      "https://www.imdb.com/title/tt0456789/",
+      "https://www.imdb.com/title/tt0000001/",
     );
     expect(chosen).toBe(1);
   });
