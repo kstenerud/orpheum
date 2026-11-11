@@ -450,8 +450,8 @@ func TestParsePath_OurCorpusOfFilms(t *testing.T) {
 		{"प्रकाशस्तंभ (2012).mkv", ParsedPath{Kind: "movie", Name: "प्रकाशस्तंभ", Year: 2012}},
 		{"ＶＥＬＶＥＴ ＳＴＡＴＩＣ (2016).mkv", ParsedPath{Kind: "movie", Name: "ＶＥＬＶＥＴ ＳＴＡＴＩＣ", Year: 2016}},
 		{
-			"Fièvre à la Plage (2001)/Fièvre à la Plage (2001) - 1080p.mkv",
-			ParsedPath{Kind: "movie", Name: "Fièvre à la Plage", Year: 2001},
+			"Fièvre à la Plage (1921)/Fièvre à la Plage (1921) - 1080p.mkv",
+			ParsedPath{Kind: "movie", Name: "Fièvre à la Plage", Year: 1921},
 		},
 	})
 }

@@ -143,7 +143,7 @@ func TestParsePath_OurCorpusOfEpisodes(t *testing.T) {
 		{"Twelve/Season 1/Twelve - S01E12.mkv", episode("Twelve", 0, 1, 12, 0)},
 		{"1983 (2018)/Season 1/1983 - S01E01.mkv", episode("1983", 2018, 1, 1, 0)},
 		{"1983/Season 1/1983 - S01E02.mkv", episode("1983", 0, 1, 2, 0)},
-		{"2049.S01E02.mkv", episode("2049", 0, 1, 2, 0)},
+		{"2061.S01E02.mkv", episode("2061", 0, 1, 2, 0)},
 		{"Station 2061 (2022)/Season 1/Station 2061 - S01E03.mkv", episode("Station 2061", 2022, 1, 3, 0)},
 		{"Station.2061.2022.S01E04.mkv", episode("Station 2061", 2022, 1, 4, 0)},
 		{"Nightjar II/Season 1/Nightjar II - S01E01.mkv", episode("Nightjar II", 0, 1, 1, 0)},
