@@ -160,6 +160,30 @@ func TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK(t *testing.T) {
 	}
 }
 
+// The client's pages report, not refuse, every string reaching a script sink without a Trusted
+// Types policy (the 11-22 batch's item 6); the cast pages, whose Google SDK is not the client's,
+// are sent no such policy.
+func TestHandler_TheClientsPagesReportWhatTrustedTypesWouldRefuse(t *testing.T) {
+	t.Parallel()
+	files := builtClientFS()
+	files["cast/index.html"] = &fstest.MapFile{Data: []byte("<!doctype html><title>Receiver</title>")}
+	handler := webclient.Handler(files, "/api/v1")
+	for _, target := range []string{"/", "/films", "/assets/app-1a2b.js"} {
+		headers := get(t, handler, target).Header()
+		if got := headers.Get("Content-Security-Policy-Report-Only"); got != "require-trusted-types-for 'script'" {
+			t.Errorf("%s: the report-only policy %q, want require-trusted-types-for 'script'", target, got)
+		}
+		if enforced := headers.Get("Content-Security-Policy"); strings.Contains(enforced, "trusted-types") {
+			t.Errorf("%s: the enforced policy %q holds Trusted Types, still to be reported on first", target, enforced)
+		}
+	}
+	for _, target := range []string{"/cast/", "/lab/cast"} {
+		if got := get(t, handler, target).Header().Get("Content-Security-Policy-Report-Only"); got != "" {
+			t.Errorf("%s: the report-only policy %q, want none", target, got)
+		}
+	}
+}
+
 // The cast receiver, where it is built in, answers its own addresses under /cast/ with its own page,
 // never the web client's; where it is not, they are the client's as any other address is.
 func TestHandler_ServesTheCastReceiverUnderCast(t *testing.T) {

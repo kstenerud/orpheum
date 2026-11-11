@@ -23,6 +23,11 @@
 //     nothing from elsewhere and forbids framing, and `Referrer-Policy: no-referrer`; one over HTTPS
 //     carries `Strict-Transport-Security`. Enforced by TestHandler_ServesFilesAndFallsBackToIndex
 //     and TestHandler_EveryAnswerCarriesTheSecurityHeaders.
+//   - The client's pages, not the cast pages, report every string reaching a script sink without a
+//     Trusted Types policy (`Content-Security-Policy-Report-Only: require-trusted-types-for
+//     'script'`), which the page notes to the core's log (web/apps/web/src/policy-violations.ts);
+//     the enforced policy holds no Trusted Types yet. Enforced by
+//     TestHandler_TheClientsPagesReportWhatTrustedTypesWouldRefuse.
 //   - Only the cast pages load from elsewhere, and only Google's Cast SDK (www.gstatic.com): the lab's
 //     cast probe at /lab/cast its sender's, the receiver under /cast/ CAF's and the Cast platform's
 //     socket on the device (ws://localhost:8008); every other page keeps the policy above
