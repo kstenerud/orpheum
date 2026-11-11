@@ -167,8 +167,8 @@ func idKeys(ids map[string]string) []string {
 }
 
 // videoNamedBefore is the video at a root whose name, before its extension, begins a file's own,
-// the longest such: "Metropolis (1995).nfo", "Metropolis (1995).en.srt" and "Metropolis (1995)-poster.jpg" are
-// Metropolis (1995).mkv's. The file's name is cut back at each separator in turn, so a root of thousands
+// the longest such: "Metropolis (1927).nfo", "Metropolis (1927).en.srt" and "Metropolis (1927)-poster.jpg" are
+// Metropolis (1927).mkv's. The file's name is cut back at each separator in turn, so a root of thousands
 // of films is not searched whole for each file beside them.
 func videoNamedBefore(filePath string, videoByStem map[string]int) (int, bool) {
 	stem := strings.ToLower(strings.TrimSuffix(filePath, path.Ext(filePath)))

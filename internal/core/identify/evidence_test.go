@@ -18,10 +18,10 @@ import (
 func TestPass_AStoredAnswerThatExpandsPastItsBoundIsRefused(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Add(heat)
+	lib.provider.Add(metropolis)
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"))
 	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
-	huge := heat
+	huge := metropolis
 	huge.Overview = strings.Repeat("x", 8<<20)
 	body, err := json.Marshal(huge) //nolint:musttag // as the fake provider stores it
 	if err != nil {
@@ -37,7 +37,7 @@ func TestPass_AStoredAnswerThatExpandsPastItsBoundIsRefused(t *testing.T) {
 	if !errors.Is(err, bounded.ErrTooLarge) {
 		t.Errorf("a pass over a stored answer of %d bytes: %v; want it refused as too large", len(body), err)
 	}
-	if file := lib.titlesByPath()["Metropolis {tmdb-9019}.mkv"]; titleName(file) != heat.Name {
+	if file := lib.titlesByPath()["Metropolis {tmdb-9019}.mkv"]; titleName(file) != metropolis.Name {
 		t.Errorf("the title is %q, want what the pass before stored left as it was", titleName(file))
 	}
 }

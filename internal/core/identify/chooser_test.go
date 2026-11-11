@@ -15,13 +15,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// ambiguousTheGeneral is a library holding one film its search could not settle.
-func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
+// ambiguousGeneral is a library holding one film its search could not settle.
+func ambiguousGeneral(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	theGeneral72 := lib.provider.Add(identify.Metadata{ID: "1", Name: "The General", Year: 1972})
-	theGeneral02 := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
-	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{theGeneral72, theGeneral02}
+	general26 := lib.provider.Add(identify.Metadata{ID: "1", Name: "The General", Year: 1926})
+	general02 := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "A remake."})
+	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{general26, general02}
 	lib.scan(videoRecord("The General (2004).mkv"))
 	if outcome := lib.matchFileTitle("The General (2004).mkv"); outcome != identify.OutcomeAmbiguous {
 		t.Fatalf("outcome %s, want ambiguous", outcome)
@@ -31,7 +31,7 @@ func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
+	lib, titleID := ambiguousGeneral(t)
 	page, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous, "", 100)
 	titles := page.Items
 	if err != nil || len(titles) != 1 || titles[0].ID != titleID || titles[0].Name != "The General" {
@@ -45,7 +45,7 @@ func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 
 func TestChooser_SearchesAgainWhenTheCacheLostTheCandidates(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
+	lib, titleID := ambiguousGeneral(t)
 	err := lib.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.DeleteMatchCandidates(t.Context(), titleID)
 	})
@@ -64,7 +64,7 @@ func TestChooser_SearchesAgainWhenTheCacheLostTheCandidates(t *testing.T) {
 
 func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
+	lib, titleID := ambiguousGeneral(t)
 	if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", "2"); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 	if err := lib.chooser.ConfirmGuess(t.Context(), titleID); err != nil {
 		t.Errorf("confirming again = %v; want nothing to change", err)
 	}
-	ambiguous, ambiguousID := ambiguousTheGeneral(t)
+	ambiguous, ambiguousID := ambiguousGeneral(t)
 	if err := ambiguous.chooser.ConfirmGuess(t.Context(), ambiguousID); !errors.Is(err, identify.ErrNotGuessed) {
 		t.Errorf("confirming an ambiguous film = %v, want %v", err, identify.ErrNotGuessed)
 	}
@@ -129,19 +129,21 @@ func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
-	lib.provider.Add(heat)
+	lib.provider.Add(metropolis)
 	lib.provider.Add(theo)
-	lib.scan(videoRecord("Metropolis (1995).mkv"),
-		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
-	for _, id := range []string{heat.ID, theo.ID} {
+	lib.scan(videoRecord("Metropolis (1927).mkv"),
+		nfoRecord("Metropolis (1927).nfo",
+			"<movie><title>Metropolis</title><year>1927</year><tmdbid>9019</tmdbid></movie>"))
+	titleID := lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
+	for _, id := range []string{metropolis.ID, theo.ID} {
 		if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", id); err != nil {
 			t.Fatal(err)
 		}
 	}
-	lib.scan(videoRecord("Metropolis (1995).mkv"),
-		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	lib.scan(videoRecord("Metropolis (1927).mkv"),
+		nfoRecord("Metropolis (1927).nfo",
+			"<movie><title>Metropolis</title><year>1927</year><tmdbid>9019</tmdbid></movie>"))
+	file := lib.titlesByPath()["Metropolis (1927).mkv"]
 	if titleName(file) != theo.Name || ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationConfirmed {
 		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, titleName(file))
 	}
@@ -162,17 +164,17 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 
 func TestChooser_AnOverrideHoldsUntilItIsRemoved(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
+	lib, titleID := ambiguousGeneral(t)
 	if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", "2"); err != nil {
 		t.Fatal(err)
 	}
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
-	err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldName, "The General (Soderbergh)", person)
+	err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldName, "The General (remake)", person)
 	if err != nil {
 		t.Fatal(err)
 	}
 	lib.scan(videoRecord("The General (2004).mkv"))
-	if got := titleName(lib.titlesByPath()["The General (2004).mkv"]); got != "The General (Soderbergh)" {
+	if got := titleName(lib.titlesByPath()["The General (2004).mkv"]); got != "The General (remake)" {
 		t.Errorf("with the override, after another pass: %q", got)
 	}
 	if err := lib.chooser.ClearOverride(t.Context(), titleID, identify.FieldName); err != nil {
@@ -185,7 +187,7 @@ func TestChooser_AnOverrideHoldsUntilItIsRemoved(t *testing.T) {
 
 func TestChooser_RefusesWhatItCannotDo(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
+	lib, titleID := ambiguousGeneral(t)
 	ctx := t.Context()
 	for _, check := range []struct {
 		what string
@@ -210,15 +212,17 @@ func TestChooser_RefusesWhatItCannotDo(t *testing.T) {
 
 func TestChooser_CorrectingAnAmbiguousTitlesNameSearchesItsCandidatesAgain(t *testing.T) {
 	t.Parallel()
-	lib, titleID := ambiguousTheGeneral(t)
-	theGeneral72 := identify.Metadata{ID: "1", Name: "The General", Year: 1972}
-	lib.provider.Searches[identifytest.SearchKey("The General", 1972)] = []identify.Candidate{lib.provider.Add(theGeneral72)}
+	lib, titleID := ambiguousGeneral(t)
+	general26 := identify.Metadata{ID: "1", Name: "The General", Year: 1926}
+	lib.provider.Searches[identifytest.SearchKey("The General", 1926)] = []identify.Candidate{
+		lib.provider.Add(general26),
+	}
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
-	if err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldYear, "1972", person); err != nil {
+	if err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldYear, "1926", person); err != nil {
 		t.Fatal(err)
 	}
 	candidates, _, err := lib.chooser.Candidates(t.Context(), titleID)
-	if err != nil || len(candidates) != 1 || candidates[0].Year != 1972 {
+	if err != nil || len(candidates) != 1 || candidates[0].Year != 1926 {
 		t.Errorf("Candidates after the year is corrected = %+v, %v; want the new search's (D223 §7)", candidates, err)
 	}
 }

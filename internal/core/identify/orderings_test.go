@@ -30,11 +30,11 @@ func emberwingLibrary(t *testing.T) *testLibrary {
 	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(emberwing)}
 	for number := 1; number <= 4; number++ {
-		lib.provider.Seasons["1437/1"] = append(lib.provider.Seasons["1437/1"], identify.Episode{
+		lib.provider.Seasons["4807/1"] = append(lib.provider.Seasons["4807/1"], identify.Episode{
 			ID: fmt.Sprintf("e%d", number), Season: 1, Number: number, Name: fmt.Sprintf("Episode %d", number),
 		})
 	}
-	lib.provider.EpisodeGroupLists["1437"] = []identify.EpisodeGroup{
+	lib.provider.EpisodeGroupLists["4807"] = []identify.EpisodeGroup{
 		{ID: "dvd", Name: "DVD Order", Kind: "dvd", EpisodeCount: 4},
 		{ID: "intended", Name: "Intended Order", Kind: "absolute", EpisodeCount: 3},
 	}
@@ -112,7 +112,7 @@ func TestOrderings_AChosenEpisodeGroupPlacesTheSeriesEpisodesAsTheGroupDoes(t *t
 	lib := emberwingLibrary(t)
 	// S01E02 comes later.
 	seriesID := lib.matchEmberwing(emberwingFiles[0], emberwingFiles[2], emberwingFiles[3])
-	if want := []string{"search Emberwing|0", "fetch 1437", "season 1437/1"}; !slices.Equal(lib.provider.Calls, want) {
+	if want := []string{"search Emberwing|0", "fetch 4807", "season 4807/1"}; !slices.Equal(lib.provider.Calls, want) {
 		t.Errorf("calls %v; want %v, the groups listed by the series' own record", lib.provider.Calls, want)
 	}
 	want := []string{"aired|aired||0", "tmdb:dvd|dvd|DVD Order|4", "tmdb:intended|absolute|Intended Order|3"}
@@ -161,7 +161,7 @@ func TestOrderings_AChosenEpisodeGroupPlacesTheSeriesEpisodesAsTheGroupDoes(t *t
 func TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep(t *testing.T) {
 	t.Parallel()
 	lib := emberwingLibrary(t)
-	lib.provider.RecordsWithoutGroups["1437"] = true
+	lib.provider.RecordsWithoutGroups["4807"] = true
 	lib.provider.SetFailure(identify.ErrKeyRefused) // matched, as before this was built, but no list fetched
 	lib.scanAll(emberwingFiles...)
 	seriesID := lib.onlySeries().ID
@@ -182,7 +182,7 @@ func TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep(t 
 	if _, err := lib.matcher.Match(t.Context(), seriesID); err != nil {
 		t.Fatal(err)
 	}
-	if got := lib.provider.Calls[calls:]; !slices.Equal(got, []string{"episode_groups 1437"}) {
+	if got := lib.provider.Calls[calls:]; !slices.Equal(got, []string{"episode_groups 4807"}) {
 		t.Errorf("calls %v; want the list alone, nothing stored fetched again", got)
 	}
 	if got := lib.orderingsOf(seriesID); len(got) != 3 {
@@ -207,7 +207,7 @@ func TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep(t 
 func TestOrderings_AGroupsNamesAreCleanWhereTheyEnter(t *testing.T) {
 	t.Parallel()
 	lib := emberwingLibrary(t)
-	lib.provider.EpisodeGroupLists["1437"][0].Name = "DVD\u202EOrder"
+	lib.provider.EpisodeGroupLists["4807"][0].Name = "DVD\u202EOrder"
 	lib.provider.EpisodeGroups["dvd"] = []identify.EpisodeGroupPart{
 		{Order: 1, Name: "Disc\u200B 1", Episodes: []identify.EpisodeGroupEntry{{EpisodeID: "e1", Order: 0}}},
 	}
@@ -242,7 +242,7 @@ func TestOrderings_ARefreshFetchesEachGroupItKeepsAgain(t *testing.T) {
 	calls := len(lib.provider.Calls)
 	lib.refresh(seriesID)
 	lib.runOwedPasses()
-	want := []string{"fetch 1437", "episode_group intended", "season 1437/1"}
+	want := []string{"fetch 4807", "episode_group intended", "season 4807/1"}
 	if got := lib.provider.Calls[calls:]; !slices.Equal(got, want) {
 		t.Errorf("calls %v; want %v", got, want)
 	}

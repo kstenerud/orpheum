@@ -77,17 +77,17 @@ func (lib *testLibrary) isLive(itemID int64) bool {
 func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
-	const body = `<movie><title>The Kid</title><year>2014</year><uniqueid type="tmdb">480600</uniqueid></movie>`
-	const film, nfo = "The Kid (2014)/The Kid (2014).mkv", "The Kid (2014)/The Kid (2014).nfo"
+	const body = `<movie><title>The Kid</title><year>1921</year><uniqueid type="tmdb">480600</uniqueid></movie>`
+	const film, nfo = "The Kid (1921)/The Kid (1921).mkv", "The Kid (1921)/The Kid (1921).nfo"
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
-	the kid := lib.titlesByPath()[film].WorkID
+	theKid := lib.titlesByPath()[film].WorkID
 	lib.deleteAndStartAnother("movie", "nfo")
-	if !lib.isLive(the kid) {
+	if !lib.isLive(theKid) {
 		t.Fatal("the deleted library's title is a tombstone; deleting a library deletes no item (D363 §10)")
 	}
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
-	if got := lib.titlesByPath()[film].WorkID; got != the kid || !lib.isLive(the kid) {
-		t.Errorf("The Kid in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), the kid)
+	if got := lib.titlesByPath()[film].WorkID; got != theKid || !lib.isLive(theKid) {
+		t.Errorf("The Kid in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), theKid)
 	}
 }
 
@@ -96,8 +96,10 @@ func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *te
 func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
-	const film = "Metropolis (1995).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis),
+	}
+	const film = "Metropolis (1927).mkv"
 	lib.scan(videoRecord(film))
 	lib.matchFileTitle(film)
 	metropolisTitle := lib.titlesByPath()[film].WorkID

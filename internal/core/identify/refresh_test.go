@@ -70,12 +70,14 @@ func (lib *testLibrary) lastAskedAt(itemID int64) int64 {
 func matchedMetropolis(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
-	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis),
+	}
+	lib.scan(videoRecord("Metropolis (1927).mkv"))
+	if outcome := lib.matchFileTitle("Metropolis (1927).mkv"); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	return lib, lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
+	return lib, lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
 }
 
 func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T) {
@@ -86,16 +88,17 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed := heat
+	changed := metropolis
 	changed.Overview, changed.Name = "A thief and a detective.", "Metropolis, renamed at TMDB"
-	lib.provider.Films[heat.ID] = changed
+	lib.provider.Films[metropolis.ID] = changed
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
 	detail, err := lib.database.Read().GetWorkDetail(t.Context(), titleID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ptr.ValueOrZero(detail.Overview) != changed.Overview || ptr.ValueOrZero(detail.Name) != "Metropolis (Director's Cut)" {
+	if ptr.ValueOrZero(detail.Overview) != changed.Overview ||
+		ptr.ValueOrZero(detail.Name) != "Metropolis (Director's Cut)" {
 		t.Errorf("after the refresh: %q, %q; want TMDB's new overview and the person's name",
 			ptr.ValueOrZero(detail.Name), ptr.ValueOrZero(detail.Overview))
 	}
@@ -108,7 +111,7 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
 	fetchedAt := lib.fetchedAt(titleID)
-	delete(lib.provider.Films, heat.ID)
+	delete(lib.provider.Films, metropolis.ID)
 	lib.clock.Advance(time.Hour)
 	passes := 0
 	lib.pass.AfterPass(func(context.Context, identify.Report) { passes++ })
@@ -119,7 +122,7 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	if ran, err := lib.pass.IdentifyOwed(t.Context()); err != nil || ran != 1 {
 		t.Errorf("the owed passes ran %d, %v; want the film's library's", ran, err)
 	}
-	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	file := lib.titlesByPath()["Metropolis (1927).mkv"]
 	if titleName(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
 		file.Filing != identify.FilingListed {
 		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, titleName(file))
@@ -196,7 +199,8 @@ func TestRefresher_TheRollingRefreshPassesOverAnItemWithAFailureOfItsOwn(t *test
 	}
 	lib.clock.Advance(365 * 24 * time.Hour)
 	if count, err := refresher.Sweep(t.Context()); err != nil || count != 0 {
-		t.Errorf("a year on: queued %d (%v); want Metropolis left for a person to try again (D231 section 4)", count, err)
+		t.Errorf("a year on: queued %d (%v); want Metropolis left for a person to try again "+
+			"(D231 section 4)", count, err)
 	}
 }
 
@@ -256,10 +260,13 @@ func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainDerivedBySweep(t *
 func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsLost(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis),
+	}
 	lib.provider.Searches[identifytest.SearchKey("Nothing", 2001)] = []identify.Candidate{}
-	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nothing (2001).mkv"))
-	metropolisID, nothingID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID, lib.titlesByPath()["Nothing (2001).mkv"].WorkID
+	lib.scan(videoRecord("Metropolis (1927).mkv"), videoRecord("Nothing (2001).mkv"))
+	metropolisID := lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
+	nothingID := lib.titlesByPath()["Nothing (2001).mkv"].WorkID
 	owed := func(when string, want ...int64) {
 		t.Helper()
 		queue := &jobstest.Queue{}
@@ -278,7 +285,7 @@ func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsL
 	// Queued twice: each sweep derives the work again, whatever became of the first job.
 	owed("before any match", metropolisID, nothingID)
 	owed("with the first jobs lost", metropolisID, nothingID)
-	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
+	if outcome := lib.matchFileTitle("Metropolis (1927).mkv"); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
 	if outcome := lib.matchFileTitle("Nothing (2001).mkv"); outcome != identify.OutcomeNoMatch {
@@ -301,8 +308,8 @@ func (lib *testLibrary) onlyUnidentified() identify.ItemSummary {
 func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	metropolisID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
+	lib.scan(videoRecord("Metropolis (1927).mkv"))
+	metropolisID := lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: metropolisID}}
 	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
 		t.Fatal(err)

@@ -18,7 +18,7 @@ const spellingVariantsAtMost = 4
 
 // spellingVariants are other ways a name may be written that the provider's search, which matches
 // words as they are spelled, would not find from it (the owner's staging, 2026-10-21, where TMDB has
-// Edric Pellow's series as "Harbour Lights" and a search for "Harbor Lights" never finds it): the
+// the owner's series in its British spelling and a search in the American never finds it): the
 // other side of the Atlantic's spelling, its "and" as "&" or its "&" as "and", the name with its
 // leading article or without one, and its numbers as Roman or Arabic numerals. Each is the whole
 // name changed one way; none is the name.

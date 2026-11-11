@@ -136,29 +136,29 @@ func (lib *testLibrary) followed(rel string) (id, name string) {
 	return ptr.ValueOrZero(title.FollowedSourceID), titleName(file)
 }
 
-// crowdAsBeforeTheFix is a library whose "Crowd (2022).mkv" was matched to TMDB's "The
-// Crowd" of 2022 by a search that found only it, as the matcher matched staging's before the
+// crowdAsBeforeTheFix is a library whose "Crowd (1928).mkv" was matched to TMDB's "The
+// Crowd" of 1928 by a search that found only it, as the matcher matched staging's before the
 // exact name won (ab718755); the search now finds the film named exactly too.
 func crowdAsBeforeTheFix(t *testing.T) *testLibrary {
 	t.Helper()
 	lib := newTestLibrary(t, "movie", "tmdb")
 	withArticle := lib.provider.Add(identify.Metadata{
-		ID: "32", Name: "The Crowd", OriginalName: "The Crowd", Year: 2022,
+		ID: "32", Name: "The Crowd", OriginalName: "The Crowd", Year: 1928,
 	})
-	plain := lib.provider.Add(identify.Metadata{ID: "31", Name: "Crowd", OriginalName: "Crowd", Year: 2022})
-	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{withArticle}
+	plain := lib.provider.Add(identify.Metadata{ID: "31", Name: "Crowd", OriginalName: "Crowd", Year: 1928})
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 1928)] = []identify.Candidate{withArticle}
 	lib.scan(videoRecord(crowdFile))
 	lib.matchFileTitle(crowdFile)
 	if id, name := lib.followed(crowdFile); id != "32" || name != "The Crowd" {
 		t.Fatalf("before the rescan: %s %q; want The Crowd (32)", id, name)
 	}
-	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{withArticle, plain}
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 1928)] = []identify.Candidate{withArticle, plain}
 	// Searched by the name its match stored, the film named so is all TMDB finds.
-	lib.provider.Searches[identifytest.SearchKey("The Crowd", 2022)] = []identify.Candidate{withArticle}
+	lib.provider.Searches[identifytest.SearchKey("The Crowd", 1928)] = []identify.Candidate{withArticle}
 	return lib
 }
 
-const crowdFile = "Crowd (2022)/Crowd (2022).mkv"
+const crowdFile = "Crowd (1928)/Crowd (1928).mkv"
 
 // D357 §2: a rescan scans its library first, matches nothing while the scan runs, and then matches
 // each film again from the name and year its file gives, not the name its old match stored: the
@@ -179,7 +179,7 @@ func TestRescan_ScansThenRematchesFromTheFilesNameAndYear(t *testing.T) {
 	}
 	rescan.scans.scanning[lib.libraryID] = false
 	rescan.run()
-	if !slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Crowd", 2022)) {
+	if !slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Crowd", 1928)) {
 		t.Errorf("searched %v; want the file's name and year", lib.provider.Calls[calls:])
 	}
 	if id, name := lib.followed(crowdFile); id != "31" || name != "Crowd" {
@@ -192,8 +192,10 @@ func TestRescan_ScansThenRematchesFromTheFilesNameAndYear(t *testing.T) {
 func TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone(t *testing.T) {
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
-	const chosenFile = "Metropolis (1995).mkv"
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	const chosenFile = "Metropolis (1927).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis),
+	}
 	lib.provider.Add(identify.Metadata{ID: "950", Name: "Metropolis", Year: 1986})
 	lib.scan(videoRecord(crowdFile), videoRecord(chosenFile))
 	chosen := lib.titlesByPath()[chosenFile].WorkID
@@ -209,7 +211,7 @@ func TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone(t *testing.T) {
 	rescan := lib.rescanning()
 	rescan.library()
 	rescan.run()
-	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1995)) {
+	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1927)) {
 		t.Errorf("searched for the film a person chose: %v", lib.provider.Calls[calls:])
 	}
 	if id, _ := lib.followed(chosenFile); id != "950" {
@@ -272,10 +274,10 @@ func TestRescan_ADifferentMatchReplacesTheOld(t *testing.T) {
 		t.Error("marked a guess; the film named exactly is a clear match")
 	}
 	// Two of the name in its year, now: the most voted is guessed, and marked so.
-	other := lib.provider.Add(identify.Metadata{ID: "33", Name: "Crowd", OriginalName: "Crowd", Year: 2022})
+	other := lib.provider.Add(identify.Metadata{ID: "33", Name: "Crowd", OriginalName: "Crowd", Year: 1928})
 	other.Votes = 900
-	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = append(
-		lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)], other)
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 1928)] = append(
+		lib.provider.Searches[identifytest.SearchKey("Crowd", 1928)], other)
 	rescan.library()
 	rescan.run()
 	if id, _ := lib.followed(crowdFile); id != "33" || !lib.isGuessed(titleID) {
@@ -341,8 +343,10 @@ func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
 func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
-	const otherFile = "Metropolis (1995).mkv"
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	const otherFile = "Metropolis (1927).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+		lib.provider.Add(metropolis),
+	}
 	lib.scan(videoRecord(crowdFile), videoRecord(otherFile))
 	lib.matchFileTitle(otherFile)
 	titleID := lib.titlesByPath()[crowdFile].WorkID
@@ -360,7 +364,7 @@ func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	if id, _ := lib.followed(crowdFile); id != "31" {
 		t.Errorf("the film follows %s; want 31", id)
 	}
-	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1995)) {
+	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1927)) {
 		t.Errorf("searched for the other film too: %v", lib.provider.Calls[calls:])
 	}
 	seriesLib := orbitoramaLibrary(t)
@@ -479,8 +483,8 @@ func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
 	titleID := lib.titlesByPath()[crowdFile].WorkID
-	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = nil
-	lib.provider.Searches[identifytest.SearchKey("The Crowd", 2022)] = nil
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 1928)] = nil
+	lib.provider.Searches[identifytest.SearchKey("The Crowd", 1928)] = nil
 	rescan := lib.rescanning()
 	rescan.library()
 	rescan.run()
@@ -543,7 +547,7 @@ func (asked *imagesAskedAgain) MarkImagesOwedAgain(_ context.Context, itemIDs ..
 	return nil
 }
 
-// fullRescanning is the rescans of a library holding "Crowd (2022).mkv", logging to its buffer,
+// fullRescanning is the rescans of a library holding "Crowd (1928).mkv", logging to its buffer,
 // with what asks again for its films' images.
 func fullRescanning(t *testing.T) (*rescanning, *imagesAskedAgain, *bytes.Buffer) {
 	t.Helper()
@@ -636,7 +640,7 @@ func TestRescan_AFetchReadsNoRematchWhileNoRescanRuns(t *testing.T) {
 			return fmt.Errorf("plant a rescan: %w", err)
 		}
 		_, err = queries.InsertRematch(t.Context(), cachegen.InsertRematchParams{
-			ItemID: titleID, RescanID: rescanID, Name: "Crowd", Year: 2022, IdsJSON: "{}",
+			ItemID: titleID, RescanID: rescanID, Name: "Crowd", Year: 1928, IdsJSON: "{}",
 		})
 		if err != nil {
 			return fmt.Errorf("plant its rematch: %w", err)

@@ -15,7 +15,7 @@ import (
 func TestWaitingForAPerson_IsOneCountingStatement(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
-	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord("Arkon (1979)/Arkon (1979).mkv"))
+	lib.scan(videoRecord("Metropolis (1927)/Metropolis (1927).mkv"), videoRecord("Arkon (1979)/Arkon (1979).mkv"))
 	ctx, tally := querytally.New(t.Context())
 	if _, err := lib.chooser.WaitingForAPerson(ctx); err != nil {
 		t.Fatal(err)

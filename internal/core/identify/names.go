@@ -58,7 +58,7 @@ func wordsOf(name string) []string {
 }
 
 // nearlyNamed is the one candidate whose name is the query's but for a letter or two, in its year
-// when the query has one: a file's misspelling, "Harry Poter" for "The Thief of Bagdad" (the owner,
+// when the query has one: a file's misspelling, a letter of a long name dropped (the owner,
 // 2026-10-21). It is always a guess, marked as one for a person to confirm (D301), and with several
 // so named, none: a person's choice.
 func nearlyNamed(query Query, candidates []Candidate) (Candidate, bool) {
@@ -85,7 +85,7 @@ func nearlyNamed(query Query, candidates []Candidate) (Candidate, bool) {
 }
 
 // lettersOffAtMost is how many letters a name may be off by and still be nearly the name: none for a
-// short one, where a letter makes another word ("Metropolis", "Seat"; "Shows", "Show"), one from eight
+// short one, where a letter makes another word ("Wing", "Wine"; "Shows", "Show"), one from eight
 // letters, two from fourteen.
 func lettersOffAtMost(name string) int {
 	switch length := len([]rune(name)); {

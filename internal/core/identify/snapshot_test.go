@@ -64,15 +64,15 @@ func TestPass_FromTheSnapshotWritesWhatAPassReadingAsItGoesWrites(t *testing.T) 
 }
 
 func nfoScenario() []func(lib *testLibrary) {
-	metropolisNFO := `<movie><title>Metropolis</title><year>1995</year><plot>A heist.</plot>` +
+	metropolisNFO := `<movie><title>Metropolis</title><year>1927</year><plot>A city.</plot>` +
 		`<uniqueid type="tmdb">9019</uniqueid><lockdata>true</lockdata></movie>`
 	first := []nodeproto.ScanRecord{
-		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", metropolisNFO),
-		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
-		videoRecord("Metropolis (1995)/Metropolis (1995)-trailer.mkv"),
-		videoRecord("Metropolis (1995)/Featurettes/Making Metropolis.mkv"),
+		nfoRecord("Metropolis (1927)/Metropolis (1927).nfo", metropolisNFO),
+		videoRecord("Metropolis (1927)/Metropolis (1927).mkv"),
+		videoRecord("Metropolis (1927)/Metropolis (1927)-trailer.mkv"),
+		videoRecord("Metropolis (1927)/Featurettes/Making Metropolis.mkv"),
 		videoRecord("Arkon (1979)/Arkon (1979).mkv"),
-		videoRecord("Greed (1985).mkv"),
+		videoRecord("Greed (1924).mkv"),
 		nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`),
 		videoRecord("Test Show/Season 01/Test Show - S01E01.mkv"),
 		videoRecord("Test Show/Season 01/Test Show - S01E02.mkv"),
@@ -86,8 +86,9 @@ func nfoScenario() []func(lib *testLibrary) {
 			// Arkon's folder renamed, Greed gone, a new episode, Metropolis's NFO retitled, and an episode's
 			// NFO numbering it otherwise.
 			changed := slices.Clone(first)
-			changed[0] = nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
-				`<movie><title>Metropolis (1995 cut)</title><year>1995</year><uniqueid type="tmdb">9019</uniqueid></movie>`)
+			changed[0] = nfoRecord("Metropolis (1927)/Metropolis (1927).nfo",
+				`<movie><title>Metropolis (1927 cut)</title><year>1927</year>`+
+					`<uniqueid type="tmdb">9019</uniqueid></movie>`)
 			changed[4] = videoMoved("Arkon (1979)/Arkon (1979).mkv", "Arkon (1979) {edition-Director}/Arkon (1979).mkv")
 			changed[9] = nfoRecord("Test Show/Season 01/Test Show - S01E02.nfo",
 				`<episodedetails><title>The Second</title><season>1</season><episode>4</episode></episodedetails>`)
@@ -113,15 +114,17 @@ func nfoScenario() []func(lib *testLibrary) {
 }
 
 func tmdbFilmsScenario() []func(lib *testLibrary) {
-	films := []nodeproto.ScanRecord{videoRecord("Metropolis (1995).mkv"), videoRecord("Théo (1994)/Théo (1994).mkv")}
+	films := []nodeproto.ScanRecord{videoRecord("Metropolis (1927).mkv"), videoRecord("Théo (1994)/Théo (1994).mkv")}
 	return []func(lib *testLibrary){
 		func(lib *testLibrary) {
-			lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+			lib.provider.Searches[identifytest.SearchKey("Metropolis", 1927)] = []identify.Candidate{
+				lib.provider.Add(metropolis),
+			}
 			lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{lib.provider.Add(theo)}
 			lib.scan(films...)
 		},
 		func(lib *testLibrary) {
-			for _, rel := range []string{"Metropolis (1995).mkv", "Théo (1994)/Théo (1994).mkv"} {
+			for _, rel := range []string{"Metropolis (1927).mkv", "Théo (1994)/Théo (1994).mkv"} {
 				if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 					lib.t.Fatalf("%s: %s, want matched", rel, outcome)
 				}
@@ -130,13 +133,13 @@ func tmdbFilmsScenario() []func(lib *testLibrary) {
 		func(lib *testLibrary) { lib.scan(films...) },
 		func(lib *testLibrary) {
 			person := storetest.InsertUser(lib.t, lib.database, "alice", "admin")
-			title := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
-			if err := lib.chooser.SetOverride(lib.t.Context(), title, identify.FieldYear, "1996", person); err != nil {
+			title := lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
+			if err := lib.chooser.SetOverride(lib.t.Context(), title, identify.FieldYear, "1928", person); err != nil {
 				lib.t.Fatal(err)
 			}
 		},
 		func(lib *testLibrary) {
-			lib.scan(videoRecord("Metropolis (1995).mkv"), videoMoved("Théo (1994)/Théo (1994).mkv", "Théo (1994).mkv"))
+			lib.scan(videoRecord("Metropolis (1927).mkv"), videoMoved("Théo (1994)/Théo (1994).mkv", "Théo (1994).mkv"))
 		},
 	}
 }
