@@ -39,10 +39,51 @@ const keptFillingAttribute = "data-fills-window-kept";
 export function keepFillingTheWindow(stage: Element): () => void {
   stage.setAttribute(keptFillingAttribute, "");
   setFillsWindow(stage, true);
+  const stopRedrawing = redrawAtFullSizeAsTheWindowTurns(stage.ownerDocument);
   return () => {
+    stopRedrawing();
     stage.removeAttribute(keptFillingAttribute);
     setFillsWindow(stage, false);
   };
+}
+
+/** How long a turned window's zoom is held at 1, for the browser to draw the page at it. */
+export const zoomHeldAfterTurnMs = 500;
+
+/**
+ * Holds page's zoom at 1 for a moment each time its window turns between upright and sideways, then
+ * lets pinching zoom again: Chrome on an iPhone, turned, drew the Play page at about 0.8 with grey
+ * below it, and after a pinch and another turn far larger than the screen (the owner, 2026-11-11;
+ * Safari on the same phone was right). The page cannot scroll while its film fills the window, so
+ * the nudge that has WebKit redraw a page after a turn never comes. Setting the viewport's own scale
+ * limits has it lay the page out at 1 again. Returns the stopping, which puts the viewport back.
+ */
+function redrawAtFullSizeAsTheWindowTurns(page: Document): () => void {
+  const viewport = page.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  const view = page.defaultView;
+  if (viewport === null || view === null) {
+    return doNothing;
+  }
+  const asWritten = viewport.content;
+  const upright = view.matchMedia("(orientation: portrait)");
+  let lettingGo: ReturnType<typeof setTimeout> | undefined;
+  const turned = (): void => {
+    viewport.content = `${asWritten}, minimum-scale=1, maximum-scale=1`;
+    clearTimeout(lettingGo);
+    lettingGo = setTimeout(() => {
+      viewport.content = asWritten;
+    }, zoomHeldAfterTurnMs);
+  };
+  upright.addEventListener("change", turned);
+  return () => {
+    upright.removeEventListener("change", turned);
+    clearTimeout(lettingGo);
+    viewport.content = asWritten;
+  };
+}
+
+function doNothing(): void {
+  // A page with no viewport of its own to hold.
 }
 
 /** Follows a stage's filling the window or no longer (setFillsWindow); returns the stopping. */
