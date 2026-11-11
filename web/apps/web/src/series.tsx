@@ -526,7 +526,7 @@ function SeasonEpisodes(props: {
     },
     [api, seriesId, season],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), episodeId);
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), { idOf: episodeId });
   const watchItemAt = useItemsInView(pages.showRange);
   return (
     <SeasonView
@@ -558,7 +558,7 @@ function NotInOrderEpisodes(props: { readonly seriesId: number }): JSX.Element {
     },
     [api, seriesId],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), episodeId);
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), { idOf: episodeId });
   const watchItemAt = useItemsInView(pages.showRange);
   return (
     <SeasonView
