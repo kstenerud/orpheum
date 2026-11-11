@@ -559,8 +559,8 @@ describe("the Libraries page (D349)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await narrowByName(mounted.container, "heat");
-    expect(services.navigation.route()).toEqual({ screen: "browse", library: 1, query: "heat" });
+    await narrowByName(mounted.container, "metro");
+    expect(services.navigation.route()).toEqual({ screen: "browse", library: 1, query: "metro" });
     // A search is a view of the list: it takes the entry's place, adding no step (D367 §9).
     expect(services.navigation.behind()).toEqual([]);
     // So is a sort.
@@ -594,7 +594,7 @@ describe("the Libraries page (D349)", () => {
     expect(queriesAsked()).toEqual([null]);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-      for (const typed of ["h", "he", "hea", "heat"]) {
+      for (const typed of ["m", "me", "met", "metro"]) {
         await act(async () => {
           Reflect.set(HTMLInputElement.prototype, "value", typed, field);
           field?.dispatchEvent(new Event("input", { bubbles: true }));
@@ -606,7 +606,7 @@ describe("the Libraries page (D349)", () => {
         });
       }
       // Shown at once in the button's summary, though not yet asked for.
-      expect(criteriaButton(mounted.container)?.getAttribute("title")).toBe("Name · “heat”");
+      expect(criteriaButton(mounted.container)?.getAttribute("title")).toBe("Name · “metro”");
       await act(async () => {
         vi.advanceTimersByTime(1);
         await Promise.resolve();
@@ -614,8 +614,8 @@ describe("the Libraries page (D349)", () => {
     } finally {
       vi.useRealTimers();
     }
-    await settleUntil(() => queriesAsked().includes("heat"));
-    expect(queriesAsked()).toEqual([null, "heat"]);
+    await settleUntil(() => queriesAsked().includes("metro"));
+    expect(queriesAsked()).toEqual([null, "metro"]);
   });
 
   // The 11-08 batch: a list asked again after its pop-up closed replaced the list an arrow pressed
@@ -641,7 +641,7 @@ describe("the Libraries page (D349)", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       await act(async () => {
-        Reflect.set(HTMLInputElement.prototype, "value", "heat", field);
+        Reflect.set(HTMLInputElement.prototype, "value", "metro", field);
         field?.dispatchEvent(new Event("input", { bubbles: true }));
         await Promise.resolve();
       });
@@ -651,7 +651,7 @@ describe("the Libraries page (D349)", () => {
         vi.advanceTimersByTime(0);
         await Promise.resolve();
       });
-      expect(queriesAsked()).toEqual([null, "heat"]);
+      expect(queriesAsked()).toEqual([null, "metro"]);
     } finally {
       vi.useRealTimers();
     }
@@ -676,7 +676,7 @@ describe("the Libraries page (D349)", () => {
             view={undefined}
             folder={undefined}
             sort={undefined}
-            query="heat"
+            query="metro"
           />,
           services,
         )}
@@ -701,7 +701,7 @@ describe("the Libraries page (D349)", () => {
   it("lists the library chosen, as sorted, filtered by its search (GET /items' query)", async () => {
     const heard: Heard[] = [];
     mounted = await mountBrowse(
-      { library: 1, query: "heat" },
+      { library: 1, query: "metro" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
@@ -715,18 +715,18 @@ describe("the Libraries page (D349)", () => {
     );
     expect([titles.get("library"), titles.get("query"), titles.get("sort")]).toEqual([
       "1",
-      "heat",
+      "metro",
       "name",
     ]);
     // The rail's letters are the search's too.
     const letters = new URLSearchParams(
       heard.find((each) => each.methodAndPath === "GET /items/letters")?.query,
     );
-    expect(letters.get("query")).toBe("heat");
+    expect(letters.get("query")).toBe("metro");
     // The query the address names is in the field its Sort and filter opens (as the retired Search
     // page's was).
     const popUp = await openCriteria(mounted.container);
-    expect(popUp.querySelector<HTMLInputElement>("input.list-criteria__name")?.value).toBe("heat");
+    expect(popUp.querySelector<HTMLInputElement>("input.list-criteria__name")?.value).toBe("metro");
   });
 
   it("says when nothing matches its search", async () => {

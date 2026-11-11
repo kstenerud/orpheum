@@ -240,7 +240,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
   });
 
   it("§3.18: a film two libraries list goes up to the one came through, else the first by name", () => {
-    const heat: TitleDetail = {
+    const metropolis: TitleDetail = {
       id: 10,
       kind: "film",
       name: "Metropolis",
@@ -251,7 +251,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
       libraries: [films, kids],
     };
     const filmUpward = (navigation: Navigation): Upward =>
-      titleUpward(heat, { t: i18n.t, behind: navigation.behind() });
+      titleUpward(metropolis, { t: i18n.t, behind: navigation.behind() });
     const throughKids = walked({ screen: "browse", library: 4 }, filmPage, playing);
     up(throughKids.navigation, playingUpward(playsFilm));
     up(throughKids.navigation, filmUpward);

@@ -31,10 +31,10 @@ describe("a page this tab showed before", () => {
   it("shows its last value at once while it loads again, and loading the first time", async () => {
     const remembered = new Remembered<string>();
     expect(await shownFor({ state: "loading" }, remembered)).toEqual({ state: "loading" });
-    await shownFor({ state: "loaded", value: "Bram" }, remembered);
+    await shownFor({ state: "loaded", value: "Sunrise" }, remembered);
     expect(await shownFor({ state: "loading" }, remembered)).toEqual({
       state: "loaded",
-      value: "Bram",
+      value: "Sunrise",
     });
   });
 

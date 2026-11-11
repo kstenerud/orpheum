@@ -119,7 +119,13 @@ describe("browse", () => {
       value: {
         nextCursor: "cursor",
         items: [
-          { id: 10, name: "Metropolis", kind: "film", identificationState: "identified", addedAt: 1 },
+          {
+            id: 10,
+            name: "Metropolis",
+            kind: "film",
+            identificationState: "identified",
+            addedAt: 1,
+          },
         ],
       },
     };
@@ -154,7 +160,7 @@ describe("browse", () => {
 
 // The owner, 2026-11-11: a poster still to come is a faded clock that does not move.
 describe("a poster still to come", () => {
-  const heat: Entry = {
+  const metropolis: Entry = {
     id: 10,
     name: "Metropolis",
     kind: "film",
@@ -164,7 +170,10 @@ describe("a poster still to come", () => {
   };
 
   it("is a clock behind a tile's image, which is drawn over it", () => {
-    const markup = renderBrowseView({ state: "loaded", value: { items: [heat], nextCursor: "" } });
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: { items: [metropolis], nextCursor: "" },
+    });
     expect(markup).toMatch(
       /<span class="poster-waiting" aria-hidden="true"><svg class="icon poster__clock"[^]*?<\/svg><\/span><img class="poster"/u,
     );
@@ -173,7 +182,7 @@ describe("a poster still to come", () => {
   it("is a clock on a blank whose entry has not been read", () => {
     const markup = renderBrowseView({
       state: "loaded",
-      value: { items: [heat], nextCursor: "c1", total: 2 },
+      value: { items: [metropolis], nextCursor: "c1", total: 2 },
     });
     expect(markup).toMatch(
       /class="poster-card poster-card--to-come"[^]*?<span class="poster"><svg class="icon poster__clock"/u,

@@ -56,14 +56,14 @@ describe("identify", () => {
           onPick={ignore}
           candidates={[
             { providerId: "101", name: "Théo: The Guardian", originalName: "Théo", year: 1994 },
-            { providerId: "7", name: "Léon Morin, Priest" },
+            { providerId: "7", name: "Fièvre" },
           ]}
         />,
       ),
     );
     expect(markup).toContain("Théo: The Cameraman (1994)");
     expect(markup).toContain("Originally “Théo”");
-    expect(markup).toContain("Léon Morin, Priest (?)");
+    expect(markup).toContain("Fièvre (?)");
     expect(markup.match(/This one/gu)).toHaveLength(2);
   });
 

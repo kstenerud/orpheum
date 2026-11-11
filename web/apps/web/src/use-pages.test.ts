@@ -215,7 +215,7 @@ describe("a page more (the Fire TV's trace, 2026-11-11)", () => {
   });
 
   it("is read page after page, with no view asking, for a list read whole", async () => {
-    const titles = ["Arkon", "Greed", "Valdora", "Zardoz", "Zarvo"];
+    const titles = ["Arkon", "Greed", "Valdora", "Zelkaro", "Zorvane"];
     let pages: Pages<string> | undefined;
     let isReadWhole = true;
     const load = pagedBy2(() => titles);

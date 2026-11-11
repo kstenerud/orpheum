@@ -22,7 +22,7 @@ afterEach(failOnUnexpectedRequests);
 
 const nothing = (): void => undefined;
 
-const heat: ContinueWatchingRow = {
+const metropolis: ContinueWatchingRow = {
   id: 10,
   name: "Metropolis",
   fileId: 3,
@@ -36,7 +36,7 @@ describe("Continue Watching", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
-          rows={[{ ...heat, unavailable: { reason: "nodeAway", nodeName: "devnas" } }]}
+          rows={[{ ...metropolis, unavailable: { reason: "nodeAway", nodeName: "devnas" } }]}
           hiddenName={undefined}
           onHide={nothing}
           onUndo={nothing}
@@ -44,7 +44,7 @@ describe("Continue Watching", () => {
       ),
     );
     expect(markup).not.toContain('href="/play/3"');
-    expect(markup).toContain(`href="/titles/${String(heat.id)}"`);
+    expect(markup).toContain(`href="/titles/${String(metropolis.id)}"`);
     expect(markup).toContain("Cannot be played now");
   });
 
@@ -52,7 +52,7 @@ describe("Continue Watching", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
-          rows={[heat]}
+          rows={[metropolis]}
           hiddenName={undefined}
           onHide={nothing}
           onUndo={nothing}
@@ -89,7 +89,7 @@ describe("Continue Watching", () => {
   it("names an episode by its series and place, and a film by its name", () => {
     const formatEpisodeName = (place: EpisodeNaming): string =>
       `${place.seriesName} ${String(place.seasonNumber)}x${String(place.episodeNumber)} ${place.episodeName}`;
-    expect(rowName(heat, formatEpisodeName)).toBe("Metropolis");
+    expect(rowName(metropolis, formatEpisodeName)).toBe("Metropolis");
     expect(
       rowName(
         {

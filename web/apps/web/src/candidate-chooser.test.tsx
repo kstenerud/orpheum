@@ -45,7 +45,7 @@ describe("the candidate chooser, when the work is not among the candidates", () 
               [200, { provider: "tmdb", candidates: [] }],
               [
                 200,
-                { provider: "tmdb", candidates: [{ providerId: "9285", name: "Harbour Lights" }] },
+                { provider: "tmdb", candidates: [{ providerId: "9285", name: "Hearthstead" }] },
               ],
             ],
           },
@@ -56,12 +56,12 @@ describe("the candidate chooser, when the work is not among the candidates", () 
     expect(mounted.container.textContent).toContain("The search found nothing.");
     const form = formOf("Search");
     const [name, year] = [...(form?.querySelectorAll("input") ?? [])];
-    await enter(name, "Harbour Lights");
+    await enter(name, "Hearthstead");
     await enter(year, "1969");
     await submit(form);
-    expect(heard.at(-1)?.query).toBe("?name=Harbour Lights&year=1969");
+    expect(heard.at(-1)?.query).toBe("?name=Hearthstead&year=1969");
     expect(buttonWithText(mounted.container, "This one")).toBeDefined();
-    expect(mounted.container.textContent).toContain("Harbour Lights");
+    expect(mounted.container.textContent).toContain("Hearthstead");
   });
 
   it("matches the work a pasted page names, and says so beside it when it names none", async () => {
@@ -97,7 +97,7 @@ describe("the candidate chooser, when the work is not among the candidates", () 
       ),
     );
     const form = formOf("Use this match");
-    await enter(form?.querySelector("input"), "Harbour Lights");
+    await enter(form?.querySelector("input"), "Hearthstead");
     await submit(form);
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "That is not a TMDB or IMDb page or id",

@@ -24,7 +24,7 @@ import { Loaded, Title, TitleView, type TitleDetail } from "./title.tsx";
 import { createPathMoves } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
 
-const heat: TitleDetail = {
+const metropolis: TitleDetail = {
   id: 10,
   kind: "film",
   name: "Metropolis",
@@ -58,7 +58,7 @@ const heat: TitleDetail = {
 
 describe("TitleView", () => {
   it("shows a film's art, facts, streams and extras", () => {
-    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const markup = renderToStaticMarkup(withServices(<TitleView title={metropolis} />));
     expect(markup).toContain('src="/api/v1/bytes/art/b1/landscape-l.webp"');
     expect(markup).toContain('src="/api/v1/bytes/art/p1/portrait-m.webp"');
     expect(markup).toContain("<h1>Metropolis</h1>");
@@ -75,7 +75,7 @@ describe("TitleView", () => {
     // The title's facts said "AAC · 1 channels" for a mono file: it counted channels itself,
     // rather than through the player's sound line, which names mono, stereo, 5.1 and 7.1.
     const withSound = (channelCount: number): TitleDetail => ({
-      ...heat,
+      ...metropolis,
       versions: [
         {
           id: 1,
@@ -101,7 +101,7 @@ describe("TitleView", () => {
     // The title page drew its backdrop and an episode's still as plain images, so art not made
     // yet, or never made, showed as a broken image across the top of the page (staging answered
     // 404 for 12 Patient Sailors's landscape-l).
-    const page = await mount(withServices(<TitleView title={heat} />));
+    const page = await mount(withServices(<TitleView title={metropolis} />));
     const backdrop = (): Element | null => page.container.querySelector("img.title-head__backdrop");
     expect(backdrop()?.getAttribute("src")).toBe("/api/v1/bytes/art/b1/landscape-l.webp");
     act(() => {
@@ -113,7 +113,7 @@ describe("TitleView", () => {
     page.unmount();
 
     const episode: TitleDetail = {
-      ...heat,
+      ...metropolis,
       kind: "episode",
       name: "Pilot",
       art: { stillSha256: "s1" },
@@ -133,13 +133,13 @@ describe("TitleView", () => {
   });
 
   it("offers no cast of its own: a cast is a session started from the status tray (D364 §1, §12)", () => {
-    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const markup = renderToStaticMarkup(withServices(<TitleView title={metropolis} />));
     expect(markup).not.toContain("cast-to");
     expect(markup).not.toContain("Cast to another device");
   });
 
   it("keeps a file's path and streams in a closed File details, with Play outside it, first in the actions row", () => {
-    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const markup = renderToStaticMarkup(withServices(<TitleView title={metropolis} />));
     const details =
       /<details class="title__details"><summary>File details<\/summary>(.*?)<\/details>/u.exec(
         markup,
@@ -164,7 +164,7 @@ describe("TitleView", () => {
       withServices(
         <IsAdminContext value={true}>
           <TitleView
-            title={heat}
+            title={metropolis}
             onMatchCorrected={() => undefined}
             onWatchedChanged={() => undefined}
           />
@@ -182,12 +182,12 @@ describe("TitleView", () => {
   });
 
   it("says why a title cannot be played now, and offers no play (D241 §3)", () => {
-    const playable = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const playable = renderToStaticMarkup(withServices(<TitleView title={metropolis} />));
     const missing = renderToStaticMarkup(
       withServices(
         <TitleView
           title={{
-            ...heat,
+            ...metropolis,
             unavailable: { reason: "rootMissing", nodeName: "devnas", path: "/media/films" },
           }}
         />,
@@ -202,13 +202,16 @@ describe("TitleView", () => {
   });
 
   it("offers an admin to retire a file that cannot be read now, and no one else (D241 §5)", () => {
-    const missing = { ...heat, unavailable: { reason: "nodeAway" as const, nodeName: "devnas" } };
+    const missing = {
+      ...metropolis,
+      unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
+    };
     const retire = (): void => undefined;
     const forAdmin = renderToStaticMarkup(
       withServices(<TitleView title={missing} onRetireFile={retire} />),
     );
     const readable = renderToStaticMarkup(
-      withServices(<TitleView title={heat} onRetireFile={retire} />),
+      withServices(<TitleView title={metropolis} onRetireFile={retire} />),
     );
     const forUser = renderToStaticMarkup(
       withServices(
@@ -225,7 +228,7 @@ describe("TitleView", () => {
 
   it("places an episode in its series and its season, each a link, with its still", () => {
     const episode: TitleDetail = {
-      ...heat,
+      ...metropolis,
       kind: "episode",
       name: "Pilot",
       art: { stillSha256: "s1" },
@@ -268,10 +271,14 @@ describe("Title", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items/10": [200, heat],
+        "GET /items/10": [200, metropolis],
         "GET /items/11": [
           200,
-          { ...heat, id: 11, unavailable: { reason: "nodeAway" as const, nodeName: "devnas" } },
+          {
+            ...metropolis,
+            id: 11,
+            unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
+          },
         ],
         "POST /playback": [
           200,
@@ -317,7 +324,7 @@ describe("Title", () => {
       const heard: Heard[] = [];
       const services = servedBy(
         {
-          "GET /items/10": [200, heat],
+          "GET /items/10": [200, metropolis],
           "POST /playback": [
             200,
             { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a", onLadder },
@@ -355,7 +362,7 @@ describe("Title", () => {
             "GET /items/11": [
               200,
               {
-                ...heat,
+                ...metropolis,
                 id: 11,
                 unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
               },
@@ -392,7 +399,7 @@ describe("Title", () => {
       { id: 14, reason: "nodeAway" as const },
     ];
     for (const { id, reason } of cases) {
-      const title = { ...heat, id };
+      const title = { ...metropolis, id };
       const heard: Heard[] = [];
       const services = servedBy(
         {
@@ -430,7 +437,7 @@ describe("Title", () => {
     // ask up, aborting it, and asks again.
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const soon = backingOffPoller({ firstMs: 50, longestMs: 50, failedMs: 50 }, 100);
-    const title = { ...heat, id: 15 };
+    const title = { ...metropolis, id: 15 };
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -468,7 +475,7 @@ describe("Title", () => {
 
 describe("a film whose match is a guess (D301)", () => {
   it("is marked over its poster, and an admin alone corrects it from the works its search found", async () => {
-    const guessed = { ...heat, id: 12, isGuessed: true };
+    const guessed = { ...metropolis, id: 12, isGuessed: true };
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -544,7 +551,7 @@ describe("a film whose match is a guess (D301)", () => {
   });
 
   it("is confirmed by an admin as it stands, and its mark and the entry go (D301 §4)", async () => {
-    const guessed = { ...heat, id: 13, isGuessed: true };
+    const guessed = { ...metropolis, id: 13, isGuessed: true };
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -586,7 +593,7 @@ describe("a film whose match is a guess (D301)", () => {
 
   it("offers no Identified correctly where the match is no guess", async () => {
     const services = servedBy({
-      "GET /items/14": [200, { ...heat, id: 14 }],
+      "GET /items/14": [200, { ...metropolis, id: 14 }],
       "POST /playback": [
         200,
         { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
@@ -619,7 +626,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
 
   it("names its Play Resume with the point its warm-up was told, and offers Start over beside it", async () => {
     const services = servedBy({
-      "GET /items/10": [200, heat],
+      "GET /items/10": [200, metropolis],
       "POST /playback": played(754_000),
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
@@ -639,7 +646,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
 
   it("names its Play Play, and offers no Start over, where nothing was watched", async () => {
     const services = servedBy({
-      "GET /items/10": [200, heat],
+      "GET /items/10": [200, metropolis],
       "POST /playback": played(0),
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
@@ -654,7 +661,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
 
   it("offers an episode's Next episode in its actions row, from what the player's Up next asks", async () => {
     const pilot: TitleDetail = {
-      ...heat,
+      ...metropolis,
       id: 40,
       kind: "episode",
       name: "Pilot",
@@ -696,7 +703,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items/10": [200, heat],
+        "GET /items/10": [200, metropolis],
         "POST /playback": played(0),
         "PUT /interest/page": [204, null],
         "DELETE /interest/page": [204, null],
@@ -711,7 +718,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   });
 
   it("says its facts on one line: year, length and the sound its Play plays", () => {
-    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const markup = renderToStaticMarkup(withServices(<TitleView title={metropolis} />));
     expect(markup).toContain(
       '<p class="title-head__facts"><span>1927</span><span>170 min</span><span>TRUEHD · 7.1</span></p>',
     );
@@ -719,9 +726,9 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
 
   it("plays its first version, and keeps the choice of the others under its …", async () => {
     const twoVersions: TitleDetail = {
-      ...heat,
+      ...metropolis,
       versions: [
-        ...(heat.versions ?? []),
+        ...(metropolis.versions ?? []),
         { id: 2, files: [{ id: 5, path: "/m/Metropolis (1927) 4K.mkv", streams: [] }] },
       ],
     };
@@ -743,7 +750,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   });
 
   it("offers no choice of version where there is one", async () => {
-    const mounted = await mount(withServices(<TitleView title={heat} />));
+    const mounted = await mount(withServices(<TitleView title={metropolis} />));
     const page = mounted.container;
     // Nothing else is under a person's "…" there, so there is none.
     expect(buttonNamed(page, "More actions")).toBeUndefined();
@@ -754,9 +761,9 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   // D418 §5: a title's technical detail lives in one place, the section below its cast.
   it("keeps its File details below its cast alone, none under its …", async () => {
     const twoVersions: TitleDetail = {
-      ...heat,
+      ...metropolis,
       versions: [
-        ...(heat.versions ?? []),
+        ...(metropolis.versions ?? []),
         { id: 2, files: [{ id: 5, path: "/m/Metropolis (1927) 4K.mkv", streams: [] }] },
       ],
     };

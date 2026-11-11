@@ -556,7 +556,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
               {
                 id: 102,
                 kind: "film",
-                name: "Metropolis Wave",
+                name: "Metropols",
                 year: 2001,
                 identificationState: "identified",
                 addedAt: 2,
@@ -564,7 +564,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             ],
             nextCursor: "",
           },
-          "GET /items/102": filmDetail(102, "Metropolis Wave"),
+          "GET /items/102": filmDetail(102, "Metropols"),
           "GET /genres": { genres: [] },
         },
         "/browse?library=1",
@@ -585,20 +585,20 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await press("{Enter}");
     await drawn("dialog input.list-criteria__name");
     expect(document.activeElement?.classList.contains("list-criteria__name")).toBe(true);
-    await press("heat");
+    await press("metro");
     // Closed, what was typed goes to the address (useListCriteria), the list narrowed by it.
     await press("{Escape}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(button);
     await expect
       .poll(() => walking?.services.navigation.route())
-      .toMatchObject({ screen: "browse", library: 1, query: "heat" });
+      .toMatchObject({ screen: "browse", library: 1, query: "metro" });
     // The list asks for the text once typing rests (listing-tools.tsx typingRestMs), drawn anew; the
     // first, unnarrowed, also has 102, and under load replaced it under focus (2026-11-05).
     await expect.poll(() => first?.isConnected).toBe(false);
     await drawn('main a[href="/titles/102"]');
     // Down from the button lands on the poster nearest below it, which its summary's width decides
-    // ("Name · “heat”" once the address has the text): either result, then Right along the row.
+    // ("Name · “metro”" once the address has the text): either result, then Right along the row.
     const isOnResult = (): boolean =>
       (document.activeElement?.closest(".poster-grid .poster-card__link") ?? null) !== null;
     expect(await pressUntil("{ArrowDown}", isOnResult)).toBe(true);

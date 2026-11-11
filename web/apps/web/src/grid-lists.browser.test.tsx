@@ -93,7 +93,7 @@ describe("a title's cast, directors and writers", () => {
     cast: [
       { personId: 1, name: "Al", character: "Vin" },
       { personId: 2, name: "Bernadette Featherstonehaugh", character: "The Long Part" },
-      { personId: 3, name: "Cy Young" },
+      { personId: 3, name: "Cy Yarby" },
     ],
     directors: [],
     writers: [],
@@ -129,13 +129,19 @@ describe("needs a match", () => {
         waitingFilter="ambiguous"
         onChanged={ignore}
         items={[
-          { id: 1, kind: "film", name: "It", identificationState: "ambiguous", year: 1990 },
+          { id: 1, kind: "film", name: "Ira", identificationState: "ambiguous", year: 1990 },
           { id: 2, kind: "series", name: longName, identificationState: "ambiguous", year: 2011 },
-          { id: 3, kind: "film", name: "Metropolis Two", identificationState: "ambiguous", year: 1995 },
+          {
+            id: 3,
+            kind: "film",
+            name: "Nosferatu 2",
+            identificationState: "ambiguous",
+            year: 1995,
+          },
         ]}
       />,
     );
-    expectUnlike(["It", longName, "Metropolis Two"]);
+    expectUnlike(["Ira", longName, "Nosferatu 2"]);
     expectAligned(["1990", "2011", "1995"].map((year) => leftsOf(year, 1)[0] ?? Number.NaN));
     expectAligned(leftsOf("Choose its match", 3));
     expectAligned(leftsOf("Look again", 3));

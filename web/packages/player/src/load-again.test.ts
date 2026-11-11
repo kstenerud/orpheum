@@ -26,7 +26,7 @@ afterEach(() => {
 const carrierOf = (url: string): string => `WebRTC connection 3 for ${url}`;
 
 /**
- * A chunked playback's hls.js with its own bitrate controller, its video playing at 42 s or as given, Bram's
+ * A chunked playback's hls.js with its own bitrate controller, its video playing at 42 s or as given, a film's
  * four qualities as hls.js holds them, loading again after a load that failed (loadOnAfterFailures),
  * and failing as failOnFatal tells; page is the window whose online event it hears.
  */

@@ -38,7 +38,7 @@ const uncredited: TitleDetail = {
   extras: null,
 };
 
-const heat: TitleDetail = { ...uncredited, credits };
+const metropolis: TitleDetail = { ...uncredited, credits };
 
 const longRun: SeriesDetail = {
   id: 6,
@@ -70,7 +70,7 @@ function parsed(markup: string): ParentNode {
 
 describe("a title's people", () => {
   it("shows a film's cast in billing order, each part under the name, then its directors and writers, each leading to their page", () => {
-    const page = parsed(renderToStaticMarkup(withServices(<TitleView title={heat} />)));
+    const page = parsed(renderToStaticMarkup(withServices(<TitleView title={metropolis} />)));
     expect(creditsIn(page)).toEqual([
       "Ada Wexcombe|Teodor Vane|/people/41",
       "Oren de Talisk|Silas Marrow|/people/42",
@@ -101,7 +101,7 @@ describe("a title's people", () => {
 
   it("makes initials of a name's first and last words", () => {
     expect(initialsOf("Oren de Talisk")).toBe("OT");
-    expect(initialsOf("Cher")).toBe("C");
+    expect(initialsOf("Corvanne")).toBe("C");
     expect(initialsOf("  ")).toBe("");
   });
 });

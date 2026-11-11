@@ -31,7 +31,14 @@ describe("home (the owner, 2026-10-25)", () => {
           200,
           {
             continueWatching: [
-              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+              {
+                id: 7,
+                name: "Metropolis",
+                libraryId: 1,
+                fileId: 70,
+                positionMs: 250,
+                durationMs: 1000,
+              },
             ],
           },
         ],
@@ -96,7 +103,14 @@ describe("home (the owner, 2026-10-25)", () => {
           200,
           {
             continueWatching: [
-              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+              {
+                id: 7,
+                name: "Metropolis",
+                libraryId: 1,
+                fileId: 70,
+                positionMs: 250,
+                durationMs: 1000,
+              },
             ],
           },
         ],
@@ -145,7 +159,14 @@ describe("home (the owner, 2026-10-25)", () => {
           200,
           {
             continueWatching: [
-              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+              {
+                id: 7,
+                name: "Metropolis",
+                libraryId: 1,
+                fileId: 70,
+                positionMs: 250,
+                durationMs: 1000,
+              },
             ],
           },
         ],

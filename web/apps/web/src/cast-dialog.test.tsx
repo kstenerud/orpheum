@@ -89,7 +89,9 @@ describe("Cast's dialog (D384 §2)", () => {
     await live.say({ type: "sending", sending });
     await live.say({ type: "sending", sending: { ...sending, fileId: 5 } });
     expect(onClose).not.toHaveBeenCalled();
-    expect(document.querySelector("dialog")?.textContent).toContain("Playing Metropolis on Fire TV");
+    expect(document.querySelector("dialog")?.textContent).toContain(
+      "Playing Metropolis on Fire TV",
+    );
   });
 
   /** The dialog opened over a cast on, the end request answered as given; what it was told of closing. */
