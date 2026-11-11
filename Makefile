@@ -140,7 +140,7 @@ check-scripts: ## The gate scripts' own tests, and shellcheck on every shell scr
 # area_stamp.py; the test audit, 2026-10-08).
 SCRIPTS_READ = . ':(exclude,glob)**/*.go' ':(exclude,glob)**/*.ts' ':(exclude,glob)**/*.tsx' ':(exclude)docs'
 
-.PHONY: check-scripts-run check-source freeze-compose check-deps
+.PHONY: check-scripts-run check-source freeze-compose check-deps check-vulns check-claims check-media-names check-architecture
 check-scripts-run:
 	@$(HERMETIC) $(PYTHON) scripts/py_tests.py
 	@files="$$(git ls-files --cached --others --exclude-standard | grep -E '(\.sh$$|^\.githooks/)' || true)"; \
@@ -155,19 +155,15 @@ freeze-compose: ## Freeze the published compose files as cmd/orpheum/testdata/re
 check-deps: ## Every dependency is on the owner's allowlist with a reason
 	@$(PYTHON) scripts/check_deps.py
 
-.PHONY: check-vulns
 check-vulns: ## Known vulnerabilities in the pinned dependencies (govulncheck, npm audit): a prompt to upgrade, never a failure; first in check-pr and the nightly run
 	@$(PYTHON) scripts/check_vulns.py
 
-.PHONY: check-claims
 check-claims: ## TestArch_ citations, decision IDs in code, and ORPHEUM_TEST_ variables resolve
 	@$(PYTHON) scripts/check_claims.py
 
-.PHONY: check-media-names
 check-media-names: ## No film, series or episode the registry (scripts/media_names.allow) does not list: the owner's library is never named (AGENTS.md rule 12)
 	@$(PYTHON) scripts/check_media_names.py
 
-.PHONY: check-architecture
 check-architecture: ## Every package has a row in the architecture map; schema.md's owners table lists every table
 	@$(PYTHON) scripts/check_architecture_map.py
 
