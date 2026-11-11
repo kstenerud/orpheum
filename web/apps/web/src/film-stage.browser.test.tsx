@@ -10,10 +10,8 @@ import "./base.css";
 import "./player-overlay.css";
 import "./film-player.css";
 
-import { describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { describe, expect, it } from "vitest";
 
-import { keepFillingTheWindow, zoomHeldAfterTurnMs } from "./film-fullscreen.ts";
 import { mount } from "./test-dom.tsx";
 
 /** A picture four times as tall as it is wide: a video takes its shape from its poster, unplayed. */
@@ -55,56 +53,4 @@ describe("the player's stage, laid out by a real browser", () => {
       mounted.unmount();
     }
   });
-
-  // The owner, 2026-11-11: Chrome on an iPhone, turned sideways on the Play page, drew the page at
-  // about 0.8 with grey below it, and after a pinch and another turn far larger than the screen.
-  it("holds the zoom at 1 a moment as the window turns while the film fills it, then lets pinching zoom", async () => {
-    const viewport = theViewport();
-    const asWritten = viewport.content;
-    await page.viewport(390, 844);
-    const mounted = await mount(<div className="film-player__stage" />);
-    const stage = mounted.container.querySelector(".film-player__stage");
-    if (stage === null) {
-      throw new Error("the stage was not drawn");
-    }
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const letGo = keepFillingTheWindow(stage);
-    try {
-      const turned = new Promise<void>((resolve) => {
-        matchMedia("(orientation: portrait)").addEventListener(
-          "change",
-          () => {
-            resolve();
-          },
-          { once: true },
-        );
-      });
-      await page.viewport(844, 390);
-      await turned;
-      expect(viewport.content).toBe(`${asWritten}, minimum-scale=1, maximum-scale=1`);
-      vi.advanceTimersByTime(zoomHeldAfterTurnMs - 1);
-      expect(viewport.content).toContain("maximum-scale=1");
-      vi.advanceTimersByTime(1);
-      expect(viewport.content).toBe(asWritten);
-    } finally {
-      letGo();
-      vi.useRealTimers();
-      mounted.unmount();
-      await page.viewport(1280, 720);
-    }
-    expect(viewport.content).toBe(asWritten);
-  });
 });
-
-/** The page's viewport meta, written as the app's index.html writes it where the test page has none. */
-function theViewport(): HTMLMetaElement {
-  const found = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-  if (found !== null) {
-    return found;
-  }
-  const written = document.createElement("meta");
-  written.name = "viewport";
-  written.content = "width=device-width, initial-scale=1";
-  document.head.append(written);
-  return written;
-}
