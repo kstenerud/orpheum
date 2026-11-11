@@ -127,18 +127,23 @@ export function HowToUpdateView(props: {
       <UpdateStanding update={update} />
       <CheckProblem update={update} />
       {update.security === undefined ? null : (
-        <p role="alert">
-          {t("update.securityFix", {
-            version: update.security.fixedIn,
-            summary: update.security.summary.replace(/\.$/u, ""),
-          })}
+        <p className="needs-fixing">
+          <output>
+            {t("update.securityFix", {
+              version: update.security.fixedIn,
+              summary: update.security.summary.replace(/\.$/u, ""),
+            })}
+          </output>
         </p>
       )}
       {update.pinnedTag === undefined ? null : (
-        <p role="alert">
-          {t(update.installRoute === "synology" ? "update.pinnedTagSynology" : "update.pinnedTag", {
-            tag: update.pinnedTag,
-          })}
+        <p className="needs-fixing">
+          <output>
+            {t(
+              update.installRoute === "synology" ? "update.pinnedTagSynology" : "update.pinnedTag",
+              { tag: update.pinnedTag },
+            )}
+          </output>
         </p>
       )}
       {update.command === undefined ? null : (

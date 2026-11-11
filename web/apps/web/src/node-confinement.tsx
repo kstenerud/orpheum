@@ -54,8 +54,10 @@ export function NodeConfinementView(props: { readonly node: NodeConfinement }): 
     );
   }
   return (
-    <div role="alert">
-      <p>{t("nodes.unconfined", { node: node.name })}</p>
+    <div className="needs-fixing">
+      <p>
+        <output>{t("nodes.unconfined", { node: node.name })}</output>
+      </p>
       {causes}
     </div>
   );

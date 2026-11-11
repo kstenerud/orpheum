@@ -61,7 +61,7 @@ export function SystemNetworkView(props: {
           : t("system.network.routerRunning", { router: state.running.router })}
       </p>
       {state.fellBack.map((setting) => (
-        <p key={setting}>
+        <p className="needs-fixing" key={setting}>
           <output>
             {t(
               setting === "httpsPort"

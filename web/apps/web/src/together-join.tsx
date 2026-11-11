@@ -68,9 +68,8 @@ export function JoinForm(props: {
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { canFollowAGroup } = useServices();
+  const canFollow = useServices().canFollowAGroup();
   const [name, setTypedName] = useJoinName();
-  const canFollow = canFollowAGroup();
   const linkState = useLinkState(props.secret, canFollow);
   const join = useJoin(props);
   const marks = useFieldMarks(join.failure, failedFields(join.failure, joinWords(t)));
@@ -78,7 +77,9 @@ export function JoinForm(props: {
     // Told before joining, so no one waits for a device that could never keep up (D250 §7).
     return (
       <CredentialsNotice heading={t("together.joinHeading")}>
-        <output>{t("together.cannotFollow")}</output>
+        <p className="needs-fixing">
+          <output>{t("together.cannotFollow")}</output>
+        </p>
       </CredentialsNotice>
     );
   }
@@ -86,7 +87,9 @@ export function JoinForm(props: {
     return (
       <CredentialsNotice heading={t("together.joinHeading")}>
         {linkState === "refused" ? (
-          <output>{t("together.badLink")}</output>
+          <p className="needs-fixing">
+            <output>{t("together.badLink")}</output>
+          </p>
         ) : (
           <p>{t("together.checkingLink")}</p>
         )}

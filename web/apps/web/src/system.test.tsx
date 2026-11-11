@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { System, type SystemNode, type SystemReport } from "./system.tsx";
-import { click, mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
+import { click, mount, politeNotices, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
@@ -244,7 +244,7 @@ it("the System page warns when a machine is too slow to convert a film as it pla
   expect(slow).toContain("It converts video at 60% of the speed it plays.");
   expect(slow).toContain("That is too slow to convert a film while it plays");
   expect(slow).toContain("told this server can't convert it fast enough");
-  expect(mounted?.container.querySelectorAll("output").length).toBe(1);
+  expect(mounted?.container.querySelectorAll(".needs-fixing output").length).toBe(1);
 });
 
 it("the System page shows each machine's build and system, and warns when it is not the server's (D225)", async () => {
@@ -267,7 +267,7 @@ it("the System page shows each machine's build and system, and warns when it is 
   });
   expect(other).toContain("This machine runs a different Orpheum build from the server's.");
   // A standing notice of how the machine is, not a failure of anything done: told politely.
-  expect(mounted?.container.querySelector("output")?.textContent).toContain(
+  expect(mounted?.container.querySelector(".needs-fixing output")?.textContent).toContain(
     "a different Orpheum build",
   );
   expect(other).toContain("(built with uncommitted changes)");
@@ -425,6 +425,12 @@ it("the System page says what is not answering, and each outside service's limit
   );
   expect(text).toContain("no key or login is set: an admin can set it in Settings.");
   expect(text).toContain("12 of 20 left today.");
+  // A service not answering is how things stand, told on each refresh: politely, in the yellow.
+  const outside = mounted.container.querySelector('[aria-labelledby="system-outside"]');
+  expect(outside === null ? [] : politeNotices(outside)).toEqual([
+    expect.stringMatching(/^Waiting for TMDB: unreachable since .+, next check/u),
+  ]);
+  expect(outside?.querySelector('[role="alert"]')).toBeNull();
 });
 
 it("the System page says when the public name's certificate expires, or that there is none yet (D243 §6)", async () => {

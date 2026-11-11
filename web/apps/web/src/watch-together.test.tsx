@@ -13,6 +13,7 @@ import {
   click,
   enter,
   mount,
+  politeNotices,
   refusal,
   servedBy,
   submit,
@@ -452,9 +453,9 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
   it("tells a browser that cannot keep in step that it cannot host, offering no start (D250 §7)", async () => {
     const services = { ...servedBy({}, [], "token"), canFollowAGroup: () => false };
     const mounted = await mount(withServices(<WatchTogether />, services));
-    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
-      "update to iOS 17.1 or later",
-    );
+    // Told as the page opens, not the failure of anything done: politely, in the yellow.
+    expect(politeNotices(mounted.container).join(" ")).toContain("update to iOS 17.1 or later");
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
     expect(buttonWithText(mounted.container, "Start a session")).toBeUndefined();
     mounted.unmount();
   });

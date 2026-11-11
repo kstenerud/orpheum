@@ -45,4 +45,27 @@ describe("the Play page while its film fills the window", () => {
     const onTop = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     expect(onTop === alert || alert.contains(onTop)).toBe(true);
   });
+
+  it("shows a notice told politely over the picture too, as it shows a failure", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(
+      <div className="play">
+        <h1 className="play__title">A film</h1>
+        <p className="needs-fixing">
+          <output>Where you are in the film was not kept.</output>
+        </p>
+        <div className="film-player__stage film-player__stage--fills-window">
+          <div className="film-player__video" />
+        </div>
+      </div>,
+    );
+    const notice = mounted.container.querySelector<HTMLElement>(".needs-fixing");
+    if (notice === null) {
+      throw new Error("the page was not drawn");
+    }
+    expect(getComputedStyle(notice).visibility).toBe("visible");
+    const box = notice.getBoundingClientRect();
+    const onTop = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    expect(onTop === notice || notice.contains(onTop)).toBe(true);
+  });
 });

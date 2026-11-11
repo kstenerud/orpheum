@@ -9,6 +9,7 @@ import {
   buttonWithText,
   click,
   mount,
+  politeNotices,
   servedBy,
   settleUntil,
   type Heard,
@@ -171,6 +172,9 @@ describe("a pinned version", () => {
     expect(omv.textContent).toContain(
       "Your compose file pins version v0.3.2 in place of latest, so pulling takes nothing newer. To follow each release again, set ORPHEUM_TAG to latest, then update.",
     );
+    // How the install stands as the page opens, not a failure of anything done: told politely.
+    expect(politeNotices(omv).join(" ")).toContain("Your compose file pins version v0.3.2");
+    expect(omv.querySelector('[role="alert"]')).toBeNull();
     mounted?.unmount();
     const synology = await mountView({ ...latest, installRoute: "synology", pinnedTag: "v0.3.2" });
     expect(synology.textContent).toContain(
@@ -178,6 +182,21 @@ describe("a pinned version", () => {
     );
     mounted?.unmount();
     expect((await mountView(latest)).textContent).not.toContain("pins version");
+  });
+});
+
+// security-updates.md: a version lacking a security fix is said with the version that has it, as
+// how the server stands when the page opens, told politely rather than as an alert.
+describe("a security fix the version lacks", () => {
+  it("is said politely, with the version that has it", async () => {
+    const shown = await mountView({
+      ...latest,
+      security: { fixedIn: "v0.3.4", summary: "A file name could reach the shell." },
+    });
+    expect(politeNotices(shown)).toEqual([
+      "Your version lacks a security fix, which v0.3.4 has: A file name could reach the shell.",
+    ]);
+    expect(shown.querySelector('[role="alert"]')).toBeNull();
   });
 });
 

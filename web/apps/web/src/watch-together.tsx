@@ -103,7 +103,11 @@ function StartSession(props: {
   );
   if (!canFollowAGroup()) {
     // The host's player is a member's too (D250 §2), and must keep in step (D250 §7).
-    return <p role="alert">{t("watchTogether.cannotHost")}</p>;
+    return (
+      <p className="needs-fixing">
+        <output>{t("watchTogether.cannotHost")}</output>
+      </p>
+    );
   }
   return (
     <>
