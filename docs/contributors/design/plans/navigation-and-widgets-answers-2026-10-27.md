@@ -2914,6 +2914,13 @@ The owner's answers:
    `outline: none` sites keep a full indicator under `forced-colors: active` and
    `prefers-contrast: more`.
 
+8. **Posters fill in off screen as well** (the owner, 2026-11-11): "Can we make the browser continue
+   filling out posters for offscreen items so that it's not fetching on navigation? Even if it's on a
+   lower priority, it's still nicer than having to scroll and wait. Ideally we'd fetch from where the
+   cursor is, in the up/down direction they last scrolled." The posters off screen are fetched at a low
+   priority, outward from the focused poster, in the direction of the last scroll first. Measured
+   on the stick for memory and for the cost to a press.
+
 ### From the 11-22 batch, next batch (the owner agreed 2026-11-11)
 
 - **One icon library.** The 55 icon drawings sit in 25 files, most beside the one screen that uses
@@ -2921,3 +2928,7 @@ The owner's answers:
   player moves into one `icons.tsx`; the player's set stays in `player-icons.tsx`. Each drawing is
   kept as it is: a refactor with no visible change. The UI gallery shows them all side by side. One
   file costs the page nothing: the client is one bundle, and the build drops an icon nothing uses.
+- **"Wings" matches the wrong film** (the owner, 2026-11-11): "'Wings' is still being matched to
+  the 2014 Korean film whose name translates to Wings rather than the 1986 film." Find why the
+  identification prefers a film whose translated title matches over the far better-known 1986 film,
+  and fix the ranking.
