@@ -163,6 +163,10 @@ check-vulns: ## Known vulnerabilities in the pinned dependencies (govulncheck, n
 check-claims: ## TestArch_ citations, decision IDs in code, and ORPHEUM_TEST_ variables resolve
 	@$(PYTHON) scripts/check_claims.py
 
+.PHONY: check-media-names
+check-media-names: ## No film, series or episode the registry (scripts/media_names.allow) does not list: the owner's library is never named (AGENTS.md rule 12)
+	@$(PYTHON) scripts/check_media_names.py
+
 .PHONY: check-architecture
 check-architecture: ## Every package has a row in the architecture map; schema.md's owners table lists every table
 	@$(PYTHON) scripts/check_architecture_map.py

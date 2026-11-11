@@ -129,9 +129,17 @@ why they are banned.
   section should survive being read alone.
 - Write for the reader's task: direct, specific, no marketing words, no emoji. The owner is "the
   owner", referred to as they/them.
+- **The owner's library is never named** (agent-failures A70). What someone watches is personal
+  and the repository is public. A film, a series or an episode is its id ("film 1504") or "the
+  owner's film", "the owner's series", "an episode". Quoting the owner, a title in their words
+  becomes "[the film]", with the id beside it when it is known: *"it froze in [the episode] at
+  3:30"* (film 1504). An example that needs a name takes one `scripts/media_names.allow` lists.
 - **Do not run a Markdown formatter.** Prose intent does not survive one.
 
-**Enforced by:** **review-only**. `.editorconfig` keeps trailing whitespace in Markdown, where it
+**Enforced by:** **review-only**, except the owner's library: `make check-media-names` refuses a
+media file's name, a "Title (Year)", an episode marker and a title after "the owner's", "playing"
+and their like that the registry does not list; a bare title in prose is the audit's (the audit
+checklist's "At every commit"). `.editorconfig` keeps trailing whitespace in Markdown, where it
 can be a line break.
 
 ## 8. Filenames and placement

@@ -25,8 +25,11 @@ as at every milestone (AGENTS.md rule 17), so that a lapse is caught in the comm
 not after it has spread: *"Since you're non-deterministic with prose rules, we need mechanical
 checks to catch things you miss."* Before committing, check the diff against items 7, 8, 10 and
 11 below, against item 19 when the commit claims to finish a decision, and against item 23 when it
-touches a query, a write, a table or an index (D303). A finding is fixed in the same commit; one that reaches a migration, the API or a
-setting key goes to the owner first.
+touches a query, a write, a table or an index (D303). Read every diff, its commit message too,
+for a film, a series or an episode the owner has, named anywhere, a quote of the owner's
+included: `make check-media-names` sees file names, years, episode markers and a few phrases,
+not a bare title in prose (AGENTS.md rule 12; agent-failures A70). A finding is fixed in the same
+commit; one that reaches a migration, the API or a setting key goes to the owner first.
 
 ## The milestone
 
