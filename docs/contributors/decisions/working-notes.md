@@ -2261,7 +2261,7 @@ not a learned model anyone has to reason about.
 | --- | --- | --- |
 | **`state`** | Small, stable, coarse enum: `idle`, `scanning`, `transcoding`, `error` | API contract; UI headline |
 | **`task`** | **Bounded enum** within a state: `enumerating`, `probing`, `hashing`, `extracting` | **The core's cadence baseline**; UI subtitle |
-| **`detail`** | Free text: `films/the-unknown.mkv` | Humans only. **Never** keyed on. |
+| **`detail`** | Free text: `films/metropolis.mkv` | Humans only. **Never** keyed on. |
 
 The important constraint, or [D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)
 breaks silently: **`task` must be a bounded enum, and the core baselines on the `(state, task)`
@@ -11880,10 +11880,11 @@ getting wrong.**
 
 ### Why D96 survives, and what that shows
 
-An episode carrying `(aired, S01E05)` **and** `(dvd, S01E03)` looks like the correspondence
+An episode carrying `(aired, season 1, episode 5)` **and** `(dvd, season 1, episode 3)` looks like
+the correspondence
 [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
-forbids. It is not. Those are **two labels on one entity**, not a claim that a *moment* in one
-file maps to a moment in another — and under
+forbids. It is not. Those are **two labels on one entity**, not a claim that a *moment* in one file
+maps to a moment in another — and under
 [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does) the
 position lives on the File, so **switching ordering moves nothing**: Next Up is a query, not a
 stored value.
@@ -11976,7 +11977,7 @@ Two things fall out for free:
 
 ### 4. And the thing not to build, in the same spirit
 
-**Do not infer which ordering someone is watching in.** Watching S01E05 then S01E03 might be
+**Do not infer which ordering someone is watching in.** Watching episode 5 then episode 3 might be
 DVD order, or might be somebody skipping about. Offering to switch their ordering on the
 strength of it is the *"making assumptions and trying to fix"* shape
 [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
@@ -12011,9 +12012,9 @@ ordered Collection from a six-film-saga curiosity into the ordinary case.** From
 owner:
 
 > *"It feels like we should have some kind of 'series'-like ordering for movies as well, and
-> not just for the same movie series (Friday the 13th 1,2,3,4,5…) but also a mix (think wings
-> and unknown franchise) … And even for tv series, someone might want to lump together
-> Three's a Houseful and Three's a Crowd. Or [a series] with Lockfast."*
+> not just for the same movie series (Friday the 13th 1,2,3,4,5…) but also a mix (think [two
+> franchises that meet]) … And even for tv series, someone might want to lump together
+> Three's Company and Three's a Crowd. Or [a series] with [its sequel]."*
 
 Right, and it is wider still: **the distinction between "a series" and "an ordered collection"
 does not survive contact with those examples, and removing it deletes code rather than adding
@@ -12026,7 +12027,7 @@ any.**
 | *Friday the 13th* 1–5… | Titles | an ordered sequence of films |
 | *A film* + *another film* + the crossovers | Titles from **several franchises** | a sequence whose membership no provider will supply |
 | *Three's Company* → *Three's a Crowd* | **two series** | a Collection **containing Collections** |
-| *A series* → *Lockfast* | two series | the same |
+| *A series* → *its sequel* | two series | the same |
 
 The third and fourth are the load-bearing ones. *"Lump together Three's Company and Three's a
 Crowd"* is not a list of episodes — it is **one thing made of two series**, and it has to stay
@@ -16153,9 +16154,10 @@ are the authentication ([D107](#d107--the-node-channel-is-mutually-authenticated
 haven't done user story scenarios yet to test our model."*
 
 1. **A renamed or moved file is re-identified from its new path, unless a person confirmed its
-   match** (Q1; S1, S14). An automatic identification is derived from the path, so it is
-   re-derived when the path changes, and fixing `Metropolis (1959)` to `Metropolis (1995)` lands the file on
-   the right film. A confirmed match never moves ([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)).
+   match** (Q1; S1, S14). An automatic identification is derived from the path, so it is re-derived
+   when the path changes, and fixing `Metropolis (1972)` to `Metropolis (1927)` lands the file on
+   the right film. A confirmed match never moves
+   ([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)).
 2. **A Title follows its files between libraries** (Q2; S6, S19). When a newly identified Title
    has the provider id of a Title in another library that has no live files left, that Title —
    with its history — moves to the new library instead of a second one being made. Two libraries
@@ -17321,7 +17323,7 @@ rule that identity uses one normalised form.
    grown: the matcher's own fold (NFC, lower case, punctuation dropped), the search fold (D48),
    `strings.ToLower` for the keys that file a film and a series, and SQLite's `NOCASE`. They
    disagreed: "Marvel's X" and "Marvels X" matched one TMDB work, yet were filed as two series,
-   and a file named "Variety (1994)" did not match "Variety".
+   and a file named "Fievre" did not match "Fièvre".
 2. **One fold.** `textindex.SameWork` is the identity fold, and every comparison of a work's
    name goes through it: a provider's candidate against the file's name, a film's name with its
    year, a series' folder against the series already filed, and an extra's name against its
@@ -20591,12 +20593,12 @@ scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
    some series that had different names depending on the country they were destined for. [A series]
    in Japan was released under a different name in America. Many Japanese titles had similar
    treatment. One series, known by its Japanese name, was later released internationally under its
-   English name."* When no candidate's name matches: with a year in the
-   name, the one candidate of that year is the guess; with none, a search that found one or two
-   candidates takes the oldest, as D301 §1 does. A search that found more found the words, not the
-   work under another name (staging, 2026-10-16: "Harbor Lights" found eight works with the word in
-   them), and is a person's choice. Each such guess is marked and corrected as D301's are. The
-   bound of two is the agent's, from the owner's examples, and the owner's to move.
+   English name."* When no candidate's name matches: with a year in the name, the one candidate of
+   that year is the guess; with none, a search that found one or two candidates takes the oldest, as
+   D301 §1 does. A search that found more found the words, not the work under another name (staging,
+   2026-10-16: a film's one-word name found eight works with the word in them), and is a person's
+   choice. Each such guess is marked and corrected as D301's are. The bound of two is the agent's,
+   from the owner's examples, and the owner's to move.
 2. **An unnumbered episode is placed by its name across every season** (D306 §2), the owner to
    "Should I build the guessed episode placement next, including fetching every season of an
    affected series?": *"Yes"*. A series with episodes that have no number outside a specials or
@@ -22852,10 +22854,11 @@ page are done here, and the paid service's side in orpheum-connect; not yet on s
 ## D357 — A rescan re-runs the matcher on everything a person did not set: per item, per library, and for all of them
 
 **Decided** (2026-10-27), by the project owner, after the matcher's fix for a film named exactly as
-the file and another with an article ("Crowd", 2022, matched to "The Crowd" of the same
-year, the owner's staging) reached only titles matched after it: "we're likely to encounter other
-unhandled cases that misidentify things during beta and even after release, requiring us to ship
-fixes." A fix to the matcher reaches the library only when it re-runs; this is how it re-runs.
+the file and another with an article (film 5056, of 2022, matched to its name with "The" before it,
+of the same year, the owner's staging) reached only titles matched after it: "we're likely to
+encounter other unhandled cases that misidentify things during beta and even after release,
+requiring us to ship fixes." A fix to the matcher reaches the library only when it re-runs; this is
+how it re-runs.
 
 1. **Three buttons, for an admin.** "Rescan everything" on the Libraries page, over every library
    whose kind is films or series (not mixed or other); "Rescan" on each such library; and "Rescan
@@ -22881,9 +22884,9 @@ fixes." A fix to the matcher reaches the library only when it re-runs; this is h
    the matcher's tiers, or a guess), and each run's totals (items re-matched, changed, left alone,
    unsettled), so a report of a wrong match after a rescan is explained from the log alone.
 
-**Verification owed:** staging's "Crowd" (2022), matched to "The Crowd" before the fix
+**Verification owed:** staging's film 5056 (2022), matched to its name with "The" before the fix
 , is left as it is, so that this decision's first build is checked on it: after "Rescan
-this" it is the film named "Crowd".
+this" it is the film named as its file is.
 
 **Proven by:**
 - 1: TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther, TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_IsForAnAdminOnly, TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow, web/apps/web/src/libraries.test.tsx and web/apps/web/src/rescan.test.tsx (the buttons)
@@ -23488,10 +23491,10 @@ Resolved in the build, where the decision left it open (say if any should go oth
 
 **Decided** (2026-10-27), by the project owner: "I'm fine with preferring the candidate whose runtime
 fits best. We could also look at the popularity of a film as a heuristic." The case: staging's
-*Crowd.2022.1080p.WEBRip* (92.1 minutes) was matched to TMDB 1120937, an obscure 2022
-*Crowd* of 88 minutes, by
+film 5056's file (92.1 minutes) was matched to an obscure 2022 film of its name of 88 minutes,
+by
 [D301 §1](#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page)'s
-"most votes among those of that year"; the film it is, TMDB 1020910 (92 minutes), TMDB dates 2023,
+"most votes among those of that year"; the film it is (92 minutes), TMDB dates 2023,
 its festival premiere 2022. A rule only passing over a candidate the file's length contradicts could
 not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's length by as much.
 **Revises** D301 §1 for films; series keep it, an episode's length saying little of its series.
@@ -25513,7 +25516,7 @@ bug that seriously hurts using the app is folded into the current batch"*), for 
 It amends [D350](#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy)
 §3, which served the title's runs joined as the image has them; the rest of D350 stands.
 
-1. **What was wrong.** VQ73's DVD (*Der Golem, 10th Anniversary Concert*) plays 2 h 28 min
+1. **What was wrong.** VQ73's DVD (the owner's concert film) plays 2 h 28 min
    from one title whose cells' clock starts again at 0 at 1 h 28 min 39 s. Joined as the image has them, its program stream had two clocks, and FFmpeg, which
    seeks a program stream by searching its timestamps, landed in the wrong half for a time under
    59 min, and at the stream's end for any later time: every seek past 59 min failed (the node's
@@ -25559,7 +25562,7 @@ amends [D404](#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-rest
    each image's title.
 4. **Not done (next batch):** the sound at a join. FFmpeg drops an AC-3 frame that repeats or is cut
    short there; the restamp keeps it, so a join may click. *Measured 2026-11-03 on the one DVD image
-   in the library (VQ73's Der Golem, title 1):* at both its clock shifts, the cell before ends on
+   in the library (VQ73's concert, title 1):* at both its clock shifts, the cell before ends on
    a whole AC-3 frame and the cell after starts one frame (2880 ticks) after it, restamped; FFmpeg's
    `mpeg` demuxer and AC-3 decoder read both joins without an error. No repeated or partial frame to
    drop on this disc. *Then (the owner, 2026-11-03, "yes go ahead with that check"):* the drop waits
@@ -25615,7 +25618,7 @@ The 5 s hide that decided whether Right moved focus or seeked (plan item 17) goe
 
    ```
    ┌──────────────────────────────────────────────────────────────┐
-   │ [‹]                   Brass Arena · S1E2          [Convenience] │
+   │ [‹]                   Tin Comet · S1E2         [Convenience] │
    │                                                              │
    │ ━━━━━━━━━━━━━━━━━━━━━━━●────────────────────── 21:41 / 44:58 │
    │ [⏮] [⏪] [▶] [⏩] [⏭]           [🔈] [💬] [🎧] [⁝] [⤢] │
@@ -25625,7 +25628,7 @@ The 5 s hide that decided whether Right moved focus or seeked (plan item 17) goe
    ‹ back to the info page; ⏮ ⏭ previous and next in the sequence (the set of videos being shown:
    for now a series' episodes in their order, extras left out, and its specials a set of their own
    (the owner, 2026-11-03: "Specials should be their own set of videos, separate from the
-   episodes"); later sets such as everything of Metropolis); ⏪ ⏩ 10 s back and forward; ▶
+   episodes"); later sets such as everything of a film series); ⏪ ⏩ 10 s back and forward; ▶
    play and pause; 🔈 volume; 💬 subtitles; 🎧 audio tracks; ⁝ a menu of the rest; ⤢ full screen.
 2. **A control is shown only where it does something:** ⏮ and ⏭ only within a sequence; 🔈 not on a
    TV or a touch screen; 🎧 only with more than one audio track; 💬 always, since searching for
@@ -25736,8 +25739,9 @@ now covers dialogs alone.
 
 ## D409 — A mouse-shown overlay is held only by focus a key put in it
 
-**Decided** (2026-11-03), by the project owner, after Umi no Tobira on staging: "The overlay isn't
-disappearing when I leave it idle." **Amends** D407 §6's "unless focus is in its controls".
+**Decided** (2026-11-03), by the project owner, after a series of the owner's on staging: "The
+overlay isn't disappearing when I leave it idle." **Amends** D407 §6's "unless focus is in its
+controls".
 
 1. **The hold is the keyboard's.** An overlay shown by a mouse or a tap is held, while the film plays,
    only by focus a key put in its controls: the browser's `:focus-visible`. Focus a click or a tap
@@ -25799,8 +25803,8 @@ focus in the overlay, D409, and D410 §1's Up or Down with focus outside the ove
 ## D412 — With no year, a film's well-known candidate is the likely one: votes by a wide margin, a close fit over a longer cut's, its original name, then the oldest
 
 **Decided** (2026-11-02), by the project owner, agreeing to the lead's proposal after the owner's
-`movies/Wings.mp4` (no year, no NFO, 148.8 minutes) followed TMDB 3955, a Korean *Wings* of
-2014 with no runtime and one vote, over Cameron's of 1986 (TMDB 3927, 137 minutes, 11,339 votes)
+film, its file named with no year and no NFO (148.8 minutes), followed a Korean film of its name of
+2014 with no runtime and one vote, over the well-known one of 1986 (137 minutes, 11,339 votes)
 (navigation-and-widgets plan, the owner's comments of 2026-11-02, item 5). Built by an agent while
 the owner slept, the choices the proposal left open taken conservatively and listed in §6 for the
 owner to confirm. **Amends**
@@ -25830,13 +25834,13 @@ unknown runtime with a contradicted one only with no year.
    the 1995's 127-minute file as a longer cut. With a year, a longer cut's fit ranks with the rest,
    as D365 had it.
 5. **Then one whose original name is the file's** before one named so only in translation (its
-   original name known and another); it never knocks a candidate out, as the owner's *Blind & Ugly*
-   is named in English, the film German (*Blind & Hässlich*). **Then the oldest** (D301 §1), then the
+   original name known and another); it never knocks a candidate out, as a film of the owner's
+   is named in English, the film German. **Then the oldest** (D301 §1), then the
    most voted.
 6. **Where the proposal was silent, the agent chose** (for the owner to confirm):
    - *The original name's place.* The proposal listed it first, as winning a tie. Ranked before the
-     votes, it would take Arirang (1982, original English, about a hundred votes) over Park Sun-wol's
-     (2019, original Korean, tens of thousands) for `Arirang.mkv`; ranked before the fit, Oldboy
+     votes, it would take a 1982 film of one name (original English, about a hundred votes) over the
+     well-known one (2019, original Korean, tens of thousands) for a file of that name; ranked before the fit, Oldboy
      (2013, original English, 104 minutes) over Park Chan-wook's (2003, Korean, 120) for a 120-minute
      file. So it settles only what the votes and the fit leave tied.
    - *A count too small to decide.* Below 10 votes a count is counted as 10, so a handful of votes over
@@ -25849,7 +25853,7 @@ unknown runtime with a contradicted one only with no year.
      at the provider, episode names, no re-rank on drifting votes, a close call flagged) are left for
      their own change.
 7. **The tests' stand-ins.** Fixtures that gave the older of two same-named films no votes, standing
-   for Disney's The Thief of Bagdad and The Kid against their remakes, now give each votes near the
+   for two of Disney's animated films against their remakes, now give each votes near the
    other's, as the real films' are, so the oldest still wins (the owner's words with the proposal).
 
 **Proven by:**
@@ -25863,11 +25867,10 @@ unknown runtime with a contradicted one only with no year.
 longer cut's fit `edition`.
 
 ## D413 — Firefox on a Mac is offered no HEVC, up to the last release seen to start it only at an IDR
-
-**Decided** (2026-11-04), by the project owner: *"OK, we take your recommendation, and also we should
-check from time to time to see if this issue has been fixed in firefox"*, on The Pumbletons S33E01 (an
-x265 HEVC whose keyframes after its first are CRA) losing its picture a few seconds in on Firefox 157
-on a Mac (navigation-and-widgets plan, the 11-06 batch, item 3). **Amends**
+**Decided** (2026-11-04), by the project owner: *"OK, we take your recommendation, and also we
+should check from time to time to see if this issue has been fixed in firefox"*, on an episode of
+the owner's (an x265 HEVC whose keyframes after its first are CRA) losing its picture a few seconds
+in on Firefox 157 on a Mac (navigation-and-widgets plan, the 11-06 batch, item 3). **Amends**
 [D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)'s
 "branching on the browser's name is not done".
 
@@ -25954,7 +25957,7 @@ text is in `registry.go` and `en-settings.ts`, with the comments of `preloadAhea
 
 ## D415 — In full screen a finger's tap on the picture shows or hides the overlay, and a double tap on a side seeks 10 s
 
-**Decided** (2026-11-04), by the project owner, on the lead's proposal after the owner, playing Nosferatu
+**Decided** (2026-11-04), by the project owner, on the lead's proposal after the owner, playing a film
 on staging, found that a tap on Pause left the overlay up over the paused frame: "For the tap thing:
 agreed". The owner added one requirement: if playback is paused and the viewer taps the overlay away
 and then taps it back, it must again stay up as paused playback always does. **Amends** D407 §4 and §6

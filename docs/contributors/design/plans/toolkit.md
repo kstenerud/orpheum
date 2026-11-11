@@ -59,7 +59,7 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
 
 12. **A chunk FFmpeg cannot cut stops the film for good, and the viewer is not told** (found
     2026-11-03 by the Preact spike's runs on the Fire TV).
-    The Gold Rush (file 241, the picture ladder an earlier commit…`) stops at 42:13 on staging, every time.
+    The owner's film (file 241, the picture ladder an earlier commit…`) stops at 42:13 on staging, every time.
     Chunk 349's run fails: the node's check finds FFmpeg's raw `00349.mp4` holding 12.4 s (31531 to
     43960 ms of the run) where the chunk should be 2.3 s (31281 to 33575 ms), "FFmpeg cut it
     elsewhere or was stopped in it"; a run started at the chunk itself fails the same way (0 to
@@ -89,7 +89,7 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
 
 ## The owner's look at the batch on staging (2026-11-03)
 
-- **The Gold Rush plays through 42:13** "without any visual or audible problems": item 12's cut holds.
+- **File 241 plays through 42:13** "without any visual or audible problems": item 12's cut holds.
 - **The UI gallery from the device lab** ("it's a pain to type in on that device"): built, "feat(web): the device lab's menu leads to the UI gallery, a few presses away on a TV",
   on staging.
 - **A pop-up per widget type showing it in its states**: "For each UI widget type, we should have a
@@ -118,11 +118,11 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   qualities never got hls.js's fatal error, only a step down at each refusal; the quality is now kept
   and the chunk stepped over at its first refusal (the owner, 2026-11-03: "It should only step down
   when playback problems are due to bandwidth or processor issues that warrant it").
-- **Play from The Gold Rush's page opened the player without playing**: "I had to manually start it."
+- **Play from a film's page opened the player without playing**: "I had to manually start it."
   Firefox on a Mac, the film's first play. Its own picture was given up three seconds in, before the
   first frame (`bufferAppendNoProgress`), and the twin opened paused, the video having read as
   paused while waiting to start. **Fixed** ("fix(web): a film given up on its own picture before its first frame opens again playing"): the twin opens paused only where the person
-  paused it. Why Firefox on a Mac cannot append The Gold Rush's own picture is still open.
+  paused it. Why Firefox on a Mac cannot append file 241's own picture is still open.
 - **Idea: the scrub bar's time under the pointer**: "When moving the mouse over the scrub bar, show
   a tooltip with the offset there. Eventually we'll be showing the preview thumbnail as well (much
   like how Youtube does it)." Moved to the next batch (the owner, 2026-11-03: "item 6: next
@@ -171,7 +171,7 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   the margin for now; the information comes from the one full scan of a file, with the other tasks
   that run on it). A film whose B-frames carry no display times has its keyframes listed at their
   decode times, but its copy, re-timed by dts2pts, shows each keyframe 83 to 250 ms later than that
-  (The Gold Rush), differently at each, and the segment muxer times its cuts by display time from the
+  (file 241), differently at each, and the segment muxer times its cuts by display time from the
   run's first keyframe; item 12 cuts 400 ms early to cover the difference. The read-through already
   copies the picture's packets, undecoded, into its timeline (`internal/node/readthrough`, D247 §10);
   with dts2pts on that copy for a film marked `NeedsPictureRetiming`, it can record each keyframe's

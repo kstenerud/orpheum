@@ -257,7 +257,7 @@ home naming or folder layout.
 
 ### 3.5 Home naming is a different population
 
-The owner's point: *"the office s2 ep3 FINAL.mp4"* is not a release name. The sources differ in
+The owner's point: *"the ledger room s2 ep3 FINAL.mp4"* is not a release name. The sources differ in
 what they cover:
 
 | Population | Example | Who covers it |
@@ -265,7 +265,7 @@ what they cover:
 | Scene/P2P release names | `Show.S02E03.720p.WEB-DL.x264-GRP.mkv` | Sonarr, Radarr, PTT, PTN, predb: thousands |
 | Fansub anime | `[Group] Title - 05 [1080p][ABCD1234].mkv` | anitomy, Sonarr absolute, guessit |
 | Library layouts (folders) | `Show (2005)/Season 1/…`, `Movie (1999)/Featurettes/…` | Jellyfin, guessit's paths, tinyMediaManager, our own corpus |
-| Home naming | `the office s2 ep3 FINAL.mp4`, `Flatmates of Ferris Row season 1 episode 3.mp4`, `Fennimore - 3.04 - The Pen.mkv`, `Metropolis (1995) (1).mkv`, `IMG_1234.MOV` | almost no one: a few in tvnamer and tinyMediaManager; the Internet Archive's uploads come closest |
+| Home naming | `the ledger room s2 ep3 FINAL.mp4`, `Flatmates of Ferris Row season 1 episode 3.mp4`, `Fennimore - 3.04 - The Spoon.mkv`, `Metropolis (1927) (1).mkv`, `IMG_1234.MOV` | almost no one: a few in tvnamer and tinyMediaManager; the Internet Archive's uploads come closest |
 | Disc rips | `Movie/VIDEO_TS/VTS_01_1.VOB`, `BDMV/STREAM/00001.m2ts`, `.iso` | Jellyfin's resolver tests, tinyMediaManager's two cases |
 
 **The beta's own reports are the only large source of home naming**, which is the case for
@@ -378,7 +378,7 @@ it does not overstate the categories.
 | Count | Category | Examples (our result) |
 | --- | --- | --- |
 | 163 | **Absolute numbering and fansub layout**: `Title - 05`, `Title 05 [hash]`, `[Group] Title - 1085` | `One Piece/One Piece - 1001.mkv` → special; `[SubsPlease] One Piece - 1085 (1080p)` → special; `Attack on Titan/Season 3/[HorribleSubs] Shingeki no Kyojin S3 - 50` → special |
-| 95 | **Season and episode as separate words** | `the office s2 ep3 FINAL.mp4` → **S1E3**; `Lockfast (1989) SE7 - EP5 …` → **S1E5**; `Show S03 EP05 Name` → **S1E5**; `Series Title S02 01` → special; `Staffel 2 Folge 5` → special |
+| 95 | **Season and episode as separate words** | `the ledger room s2 ep3 FINAL.mp4` → **S1E3**; `Lockfast (1989) SE7 - EP5 …` → **S1E5**; `Show S03 EP05 Name` → **S1E5**; `Series Title S02 01` → special; `Staffel 2 Folge 5` → special |
 | 94 | **Season and episode packed into digits** | `Show - 203 - Name` in `Season 02` → **S2E203**; `Series.Title.103.720p` → special; `lzbp101.avi` → special |
 | 66 | **Multi-episode beyond `S01E01-E02`** | `S01E01-03` → end 0; `S01E01E02E03` → E1–E2; `1x01-1x02`, `S01E01.S01E02`, `1x01_1x02` → single episode |
 | 65 | **A bare episode number, leading or trailing** | `Season 1/01 Pilot.mkv`, `Season 1/1. Pilot.mkv`, `Season 2/02.avi` → special; `Show/Show - 02.avi` → special (`dashNumberPattern` wants a dash *after* the number too) |
@@ -418,20 +418,20 @@ These are bugs in code that exists, each shown by a name a competitor tests:
    `BDMV/STREAM/00001.m2ts` a film named "00001", with a Blu-ray's dozens of clips each a title.
    `vob` and `m2ts` are in the default extensions. `.iso` is not, so an ISO library is all
    "skipped: extension" — visible, at least.
-7. **Multi-part films become versions**: `The Big Parade (2003) - cd1.avi` and `- cd2.avi` parse alike,
-   so they are filed as two versions of one film; a person picking one plays half. D79's model
-   has room for parts ("the multi-part-plus-multi-version case has somewhere to go"); the parser
-   and pass do not use it.
+7. **Multi-part films become versions**: `The Big Parade (1925) - cd1.avi` and `- cd2.avi` parse
+   alike, so they are filed as two versions of one film; a person picking one plays half. D79's
+   model has room for parts ("the multi-part-plus-multi-version case has somewhere to go"); the
+   parser and pass do not use it.
 8. **Site prefixes miss common TLDs**: `www.Tamilblasters.party - The Loom of Hours (2021)`,
    `www.5MovieRulz.tc - …` keep the site in the name (`sitePrefixPattern` lists 14 TLDs).
 9. **A bare IMDb id**, `[tt1234567]`, is not read as a provider id (only `[imdbid-tt…]` and
    `{imdb-tt…}` are).
 
-What we get right that others test for: S01E02 forms with any separator, `S01E03-E04`, season
-packs and per-episode folders (the owner's NAS cases), unicode names (D49), provider ids in
-`{tmdb-…}`/`[imdbid-…]`, `Season N`/`Staffel`/`Saison`/`Temporada` folders, specials folders,
-D162's extras folders and suffixes, `sample` files and folders, `7th Heaven (2004)` staying a film in a
-film library, and a series library never making a film.
+What we get right that others test for: S01E02 forms with any separator, `S01E03-E04`, season packs
+and per-episode folders (the owner's NAS cases), unicode names (D49), provider ids in
+`{tmdb-…}`/`[imdbid-…]`, `Season N`/`Staffel`/`Saison`/`Temporada` folders, specials folders, D162's
+extras folders and suffixes, `sample` files and folders, a film named like an episode's marker (a
+number, an x, a number) staying a film in a film library, and a series library never making a film.
 
 ---
 

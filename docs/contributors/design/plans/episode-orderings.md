@@ -278,7 +278,7 @@ each is an appended step (D272 §5, standards sql.md), cut by the owner.
   ordering, listing only the orderings it has: aired first, then each provider ordering by its
   label with its kind and how many of the series' episodes it holds, then the household's own.
   Choosing one not yet fetched fetches it (§3.4) and says so while it does.
-- **A composed collection** (*a series → Lockfast*) follows each inner series' ordering
+- **A composed collection** (*a series → its sequel*) follows each inner series' ordering
   for the person (D160 §1). That needs nothing here beyond the resolver being per series.
 
 ## 5. Every place that assumes aired today

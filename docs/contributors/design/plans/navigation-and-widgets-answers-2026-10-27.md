@@ -171,11 +171,11 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   - "Adding a device should be a role privilege." (To settle when taken up: which act it means, signing
     a new device in by a code or a link, and the default for each role.)
   - Translated titles: "We need a way to solve the problem of translated titles. For example [a film]
-    (tt0567890) and I Just Never Did (tt0678901)." A file named by an English translation of a
+    and [another]." A file named by an English translation of a
     foreign film's title finds no match by its original title: search TMDB's alternative and translated
     titles too, or the English title.
-  - "Leaving KT (tt0890123) is an interesting problem because the scan's extracted title puts a space
-    between the D and C." A dotted name's initials ("Leaving K.T.") come out spaced; a run of single
+  - "[A film] is an interesting problem because the scan's extracted title puts a space
+    between the D and C." A dotted name's initials ("Name.D.C.") come out spaced; a run of single
     letters should join back ("D C" → "DC", as "S.H.I.E.L.D." would).
   - "For the name scanner, we should as a last resort allow them to manually enter in an ID, for example
     tt0789012. The system brings up the quick data for verification and the user confirms." Entering an
@@ -1076,14 +1076,14 @@ refused.
 - **orpheum-ops' README §6a names an old core ID**: the production NAS's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
 - **`sw.browser.test.ts` hangs under load** (make check, 2026-11-01): "carries the load of a page of the release before" timed out at its 5 s `hungAfterMs` with the machine's load average at about 24 (two agents building). Alone it passes in 0.7 s. Look at why a loaded machine stretches one relayed load past 5 s before widening anything (rule 5).
-- **A seek's playback stops again 1 s after it starts** (the owner, Chrome on staging, Nosferatu at 29:04, 2026-11-01 14:29 UTC). After the timeline seek, the film started at 1744.0 s once one chunk was loaded (1742.1–1748.9 s), played 1.2 s, then waited 2.1 s with 3.7 s still loaded ahead. The seek's steps show "video flushed from 0.00; audio flushed from 0.00" and "ceiling 0 to 1: stepped up" at the same moment. Likely cause, not yet confirmed: the step up after the seek switched at once, flushing everything, including the chunk that had just started playing. The fix to check: a step up never flushes what is playing.
+- **A seek's playback stops again 1 s after it starts** (the owner, Chrome on staging, a film at 29:04, 2026-11-01 14:29 UTC). After the timeline seek, the film started at 1744.0 s once one chunk was loaded (1742.1–1748.9 s), played 1.2 s, then waited 2.1 s with 3.7 s still loaded ahead. The seek's steps show "video flushed from 0.00; audio flushed from 0.00" and "ceiling 0 to 1: stepped up" at the same moment. Likely cause, not yet confirmed: the step up after the seek switched at once, flushing everything, including the chunk that had just started playing. The fix to check: a step up never flushes what is playing.
 - **A track switch's cut has a gap a second after the choice** (the owner, same session, at 56:01, 14:31:17 UTC). The 232 ms wait at the choice itself is fine, the owner says, but not a second gap about 1 s later, at the point where the old track hands over to the new one (VQ204's "old language plays on for 1–3 s"). The log shows no stall at the cut, so the gap is in the sound itself at the seam. Options for the owner: cut at once (the gap comes at the choice, which they accept), or keep the delay and make the seam clean.
 - **The Stop hook's `make check` keeps no record of how long it ran** (the owner, 2026-11-01: "why is make check taking so long? … we've been waiting over 30 mins this turn"). Only the last log stays, and the hook keeps no start time or length per run, so a slow turn can't be explained after the fact. In that turn, staging was transcoding and the background revert-red probe kept restarting after each of about eight commits (load average 13–24). The proposal: record each run's start, length and load, and say at the start of a run when an FFmpeg job is running ("staging is transcoding; the gate will be slower"), since the owner wants to know so they can stop it. Both are gate changes, the owner's to order.
 - **Does the boost's switch have the same gap at its seam as the chosen track had?** (the glitch agent, 2026-11-01, after D400). The boost still switches with `nextAudioTrack`; check by ear on the next device test.
 - **A rescan that keeps reading its library as changing says nothing of why** (the stuck rescan, fixed in "fix(identify): an episode its name placed is marked a guess once, not every pass", 2026-11-01: one `MarkGuessedMatch` upsert per pass kept library 2's rescan waiting for hours, logging only "a rescan waits for its library to stop changing"). `filesSayOf` could keep the refused write's error from inside its closure and attach it to `errLibraryKeptChanging`, so the log names the statement and title. No fixture library keeps writing now, so its test needs a seam. *Built (11-05 batch):* the log's `cause` names the refused write (`TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt`).
 - **A confirmed by-name episode placement is marked a guess again** (the same agent, a question under D307 §2). Confirming one clears its `guessed_match` row, but the next pass places the episode by its name again and marks it a guess again. The owner to say whether a confirmation should stick. **The owner, 2026-11-01: "Agreed on D307"** to the lead's proposal: a confirmation sticks; a pass that places the episode at the place confirmed leaves it unmarked, and only a new place is a new guess (as D172 keeps a confirmed film). Next batch, recorded as a decision amending D307 §2.
 - **Titles beginning with "The" are filed under T** (the owner, 2026-11-01: "feels weird"; research the same day, from forum and SDK sources). Plex, Jellyfin and Emby skip leading articles in sorting by default, and Kodi has an option. All keep the full title on screen, and each has a per-title sort name. Their article lists are global, mostly English (Plex adds das, der, el, la). Here the sort key is the raw name (`internal/core/identify/text.go:34`, `internal/core/textindex/sortkey.go`), and the letter rail follows the key (`internal/core/library/letters.go`). The NFO's `<sorttitle>` is parsed (`nfo.go`) but never used. `names.go`'s `isArticle`/`withoutArticle` serve only matching. `data-timeliness.md:458` already plans a rail that skips articles, but no decision records it. Proposal for a decision refining D47: key the name without its leading article, from a list per sort locale (en the/a/an; de der/die/das/ein/eine; fr le/la/les/l'/un/une; es el/la/los/las/un/una); an NFO `<sorttitle>` wins; the shown title is unchanged; a name that is only an article stays whole; every `sort_key` row is rebuilt through `rekeyName`. **The owner, 2026-11-01: "Agreed on sorting"**: build it next batch, recorded as a decision refining D47.
-- **An episode in Continue Watching had no poster** (the owner, Dimmerhold's first episode on the production NAS, 2026-11-01). Fixed in "fix(library): an episode in Continue Watching shows its series' poster": its series' poster. To deploy with the next batch.
+- **An episode in Continue Watching had no poster** (the owner, a series' first episode on the production NAS, 2026-11-01). Fixed in "fix(library): an episode in Continue Watching shows its series' poster": its series' poster. To deploy with the next batch.
 
 ## The 11-02 batch (the owner agreed 2026-11-01): networking, and the beta made solid
 
@@ -1155,7 +1155,7 @@ use of the edge waits until then (the owner: "We'll hold off on the production N
 The lead's proposal from the next-batch list above (the owner, 2026-11-01: "Go with your
 recommendations"). The owner holds off on the testing plan's sound steps until this batch changes them.
 
-1. **A seek's playback stops again 1 s after it starts** (Nosferatu at 29:04). Found 2026-11-01 to be in
+1. **A seek's playback stops again 1 s after it starts** (a film at 29:04). Found 2026-11-01 in
    the 11-02 batch already: "fix(player): a seek's report says where each flush ends and how old each choice is" showed the step up came 501 s before the seek and the flushes were
    hls.js trimming the back buffer, so neither caused the wait. The cause is still unknown (the sound
    running out, or hls.js's 2 s wait before nudging over a hole); VQ236's next report, with every
@@ -1189,12 +1189,13 @@ overnight", with VQ201 passed and these comments. No the production NAS release 
 2. **A role opens in a dialog, not a page, the same dialog creating and editing it** (the owner: "On
    second thought, the role info should be a popup rather than a page. It should be the same dialog
    for creating and editing a role"). Amends D399's role page.
-3. **A series nobody has started plays season 1 first; its specials are optional** (the owner: 12
-   Monkeys "shows 'Play S0E0'. It should always start at season 1, leaving the specials optional").
-   Built in "fix(library): a series nobody has started plays season 1 first, its specials optional": a special is Next Up only while its person is partway through it, and finishing
-   one does not move their place.
-4. **Quillwick S2E4's sound is out of sync, on staging and on the production NAS** (the owner, 2026-11-01).
-   Folded in as seriously hurting use. The file is `Quillwick/Quillwick - 2x4 - Money.avi`: XviD
+3. **A series nobody has started plays season 1 first; its specials are optional** (the owner, of a
+   series: it "shows 'Play S0E0'. It should always start at season 1, leaving the specials
+   optional"). Built in "fix(library): a series nobody has started plays season 1 first, its
+   specials optional": a special is Next Up only while its person is partway through it, and
+   finishing one does not move their place.
+4. **An episode's sound is out of sync, on staging and on the production NAS** (the owner, 2026-11-01).
+   Folded in as seriously hurting use. The file is an episode's AVI: XviD
    with packed B-frames (most video packets carry no pts) and CBR MP3 in AVI, both starting at 0 and
    both lasting 1797 s by their own counts. Not yet known: the offset's size, whether it grows, and
    whether the source is off in other players.
@@ -1209,12 +1210,12 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    last page loaded, the page ended too soon below it to scroll it up, and it stayed low (Mad Max 2
    at 693 px of 1080); the jump now loads the next page and shows it at the top again. A title near
    the list's very end still stops where the end allows.
-2. **Mister 517 has no sound** (the owner: "I think the file is damaged ... it would be great if
-   orpheum could compensate for that"). The file, `Mister 517 (1950) [720p].mp4`, holds no sound at
+2. **A film has no sound** (the owner: "I think the file is damaged ... it would be great if
+   orpheum could compensate for that"). The file, a 720p MP4, holds no sound at
    all: a fragmented MP4 whose one track is H.264 video, its 1022 fragments all video (579 MB at
    about 860 kb/s), as a video-only DASH download whose sound part was never merged in. Nothing is
    there to recover. It is the only file without sound in the sandbox's copy of the library.
-   **Next batch (the owner, 2026-11-02: "We don't need to fold the mister 517 sound thing into this
+   **Next batch (the owner, 2026-11-02: "We don't need to fold the [film's] sound thing into this
    batch, but I do agree that videos without sound should be included in the list of problem
    films"):** a video with no sound track is listed among the problem films. The note on the film's
    page and its player, proposed beside it, was not taken up.
@@ -1222,18 +1223,19 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    rail starts to scroll as well. It should never scroll"). Built in "fix(web): the alphabet rail never scrolls, at the list's end too" and "fix(web): the shell's notes over a list keep clear of its fixed alphabet rail", quick
    fixes on staging: the rail is fixed to the window rather than sticky in the layout, and the
    shell's notes over the list stop short of its gutter.
-4. **Pale and Kind is found** (the owner: "Pale and Kind" does not match tt0567890). Built in
-   "fix(identify): a name's 'and' is also searched as '&', and its '&' as 'and'": TMDB's search finds "Blind & Ugly" and not "Pale and Kind", and no spelling tried after
+4. **A film whose name has an 'and' is found** (the owner: its name does not match its IMDb id). Built in
+   "fix(identify): a name's 'and' is also searched as '&', and its '&' as 'and'": TMDB's search finds its name with '&' and not with 'and', and no spelling tried after
    a failed search swapped the two; one now does, both ways.
-5. **Wings.mp4 is Cameron's, not a Korean Wings of 2014** (the owner, 2026-11-02). The file, a
-   148.8-minute cut against TMDB's 137, contradicted Cameron's runtime, and TMDB knows no runtime of
-   the 2014 film, so the unknown ranked over the contradicted. An interim fix in "fix(identify): with no year, an unknown runtime does not lift a film's candidate over the oldest": with no
-   year, an unknown runtime ranks with the contradicted. **Next batch (the owner agreed,
-   2026-11-02), a decision amending D365:** a name with no year was enough for whoever named it, so
-   the well-known title is the likely one. With no year, in order:
+5. **A film of the owner's is the well-known one of its name, not a Korean film of 2014** (the
+   owner, 2026-11-02). The file, a 148.8-minute cut against TMDB's 137, contradicted the well-known
+   film's runtime, and TMDB knows no runtime of the 2014 film, so the unknown ranked over the
+   contradicted. An interim fix in "fix(identify): with no year, an unknown runtime does not lift a
+   film's candidate over the oldest": with no year, an unknown runtime ranks with the contradicted.
+   **Next batch (the owner agreed, 2026-11-02), a decision amending D365:** a name with no year was
+   enough for whoever named it, so the well-known title is the likely one. With no year, in order:
    1. A candidate whose original title matches the name wins a tie over one matched only by a
-      translated title; it never knocks a candidate out (Blind & Ugly is named in English, its
-      original German).
+      translated title; it never knocks a candidate out (a film of the owner's is named in English,
+      the original German).
    2. An unknown runtime counts as a contradicting one, with a year too.
    3. TMDB's vote count (not its daily popularity score) decides, but only by a wide margin (10×).
    4. Runtime fit, in tiers: a close fit (a few minutes) over an edition's fit (the file up to about
@@ -1246,13 +1248,13 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    not count against it); where the files carry episode names, names wildly unlike the provider's
    count strongly against it. A match is not re-ranked when only the vote counts drift, and a close
    call between the top two is flagged for checking. The test with no year, Alcazar (a stand-in for
-   The Thief of Bagdad: Disney's 1992 against the 2019 remake), gives the remake 15,000 votes and Disney's none;
+   a Disney film: 1992's against the 2019 remake), gives the remake 15,000 votes and Disney's none;
    its votes become near each other's, as the real films' are, so the oldest still wins.
    **Built (D412), the films' rules:** the original name settles only what the votes and the fit
    leave tied (D412 §6 says why), and the series' rules wait for their own change.
 6. **A DVD image fails to seek past 59 minutes** (found by the agent running VQ73, 2026-11-02;
-   folded into this batch as a bug that seriously hurts using the app). The Der Golem concert
-   DVD's title starts its clock again at 0 at 1:28:39, and FFmpeg, seeking a program stream by its
+   folded into this batch as a bug that seriously hurts using the app). The owner's concert film's
+   DVD title starts its clock again at 0 at 1:28:39, and FFmpeg, seeking a program stream by its
    timestamps, landed in the wrong half or at the stream's end. Built: the node finds where a DVD
    title's clock starts again from its navigation packs and serves the title restamped onto one clock
    (D404, amending D350 §3). Checked on the real disc: seeks to 3000, 4432, 5330 and 8000 s land
@@ -1294,11 +1296,11 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
 14. **This batch, fixed (found running VQ69):** an episode stood a frame short of its end for good,
     never ended, and no next episode came: hls.js's end check misreads a hole behind the playhead
     (idiosyncrasies.md, "hls.js never ends a stream with a hole behind the playhead"); the player now
-    ends the stream itself ("fix(player): an episode with a hole behind the playhead reaches its end", "fix(player): a video stalled at its end while seeking is ended too"). **Next batch:** the hole was ours. The Pumbletons'
-    S33E8 (file 5674) chunk 230, listed from 1280.785 s where 229 ends, loaded from 1280.826 s with
+    ends the stream itself ("fix(player): an episode with a hole behind the playhead reaches its end", "fix(player): a video stalled at its end while seeking is ended too"). **Next batch:** the hole was ours. An
+    episode's (file 5674) chunk 230, listed from 1280.785 s where 229 ends, loaded from 1280.826 s with
     video from 1280.868 s, and later chunks sat 42–83 ms off the playlist: a chunk that starts a frame
     or two late. Find why in the node's chunking (the segment muxer's stop, dts2pts) and close the
-    hole at the join. **11-05 batch, fixed:** not a late start: S33E8 is HEVC with open GOPs, and
+    hole at the join. **11-05 batch, fixed:** not a late start: file 5674 is HEVC, open GOPs, and
     FFmpeg's copy begun at a keyframe crushed the times of the pictures shown before it
     (idiosyncrasies.md, "A copy begun at an open GOP's keyframe…"); a copied picture's run is now
     led in from the chunk before, as a sound's is (`MakeChunks.LeadInMs`, protocol 58).
@@ -1384,7 +1386,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     select to bring it to full screen. Now when I press fastforward or rewind, they do nothing. Maybe
     because of where the focus is?" To check: which element holds focus once the full-screen button
     is pressed, and whether the remote's media keys reach the page's key handler then.
-    **Not reproduced (the lead, 2026-11-02, on staging, Silk 138, The Gold Rush):** the owner's session
+    **Not reproduced (the lead, 2026-11-02, on staging, Silk 138, file 241):** the owner's session
     was on prod (file 309, 15:29), whose build has the same key handling, full screen and controls as
     staging's. The lead repeated the owner's steps over adb: Silk reopened on the paused play page, the
     D-pad to Play, Select, to Full screen, Select; then fast forward and rewind (keycodes 90 and 89),
@@ -1417,20 +1419,21 @@ with the owner.
 
 ## The scanner reads a year out of a series' name (the owner, 2026-11-03), next batch
 
-"Iron Ledger 1992: The Iron Ledger Story" (IMDb tt09012345) is taken for a series named "Iron Ledger" from
+"Iron Ledger 1992: The Iron Ledger Story" (an invented name) is taken for a series named "Iron
+Ledger" from
 1992: the scanner reads the number in its name as the year. The owner: "the scanner likely reads
-1992 as the year of a series 'Iron Ledger', but it's actually 'Iron Ledger 1992: The Iron Ledger Story'". To
+1992 as the year of a series '[name]', but it's actually '[name] 1992: [the rest]'". To
 look at: when a number like a year is part of the title (with the name before and after it, or with
 no match for the shortened name, or a year far from the files' own dates), the whole name is
 searched too. Not yet seen on staging; the folder's exact name is to be found first.
 
-**Built (2026-11-03), the parse only:** the owner's paths are `Iron Ledger 1992/Iron Ledger 1992 - The Harshad
-Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) - [Musafirboy]/Iron.Ledger.1992.The.Iron.Ledger.
-Story.S01E01….mkv`. A year ending a series' folder's name, not in brackets, is now part of the name
-where a season pack's folder or an episode's file beneath it carries on past it with more of the
-name; that name is the series', with its own later year (2020) if it gives one
-(`seriesName`, `filename.go`). The fallbacks for a name nothing beneath carries on (no match for the
-shortened name, a year far from the files' dates) are not built.
+**Built (2026-11-03), the parse only:** the owner's paths are shaped `Iron Ledger 1992/Iron Ledger
+1992 - The Iron Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) -
+[Musafirboy]/Iron.Ledger.1992.The.Iron. Ledger.Story.S01E01….mkv`. A year ending a series' folder's
+name, not in brackets, is now part of the name where a season pack's folder or an episode's file
+beneath it carries on past it with more of the name; that name is the series', with its own later
+year (2020) if it gives one (`seriesName`, `filename.go`). The fallbacks for a name nothing beneath
+carries on (no match for the shortened name, a year far from the files' dates) are not built.
 
 ## A reload keeps the older client after a deploy (the owner, 2026-11-03), next batch
 
@@ -1510,8 +1513,8 @@ Connect deploy; then fixed, with a test failing on revert.
    reconnecting.
 3. **Core and node record their own CPU and memory use** (toolkit.md's next batch), shown on the
    Diagnostics page beside what was running.
-4. **The hole at a chunk's join** (item 14): a chunk starting a frame or two late, The Pumbletons'
-   S33E8; found in the node's chunking and closed.
+4. **The hole at a chunk's join** (item 14): a chunk starting a frame or two late, file
+   5674; found in the node's chunking and closed.
 5. **A loudness measured while the film plays is taken up** without playing it again, and the wait
    says the right time (item 8).
 6. **A DVD's sound at a join** (D405 §4, item 10): the repeated or cut-short AC-3 frame dropped.
@@ -1575,7 +1578,7 @@ research run in this batch … The actual UI revamp will be done next batch."*
    to the film's start. *Built 2026-11-04 ("fix(node): a film's keyframe before its start counts at its start, so its first seconds play", VQ259):* the 14 MP4s' keyframe flagged
    discarded, about 83 ms before the start, counts at the start, and chunk 0's picture runs those
    few frames late; the owner, 2026-11-04: *"That's an acceptable compromise. The very beginning of
-   a video is rarely interesting anyway."* The 3 Hearthstead MKVs are another shape (no picture
+   a video is rarely interesting anyway."* The 3 MKVs of a series are another shape (no picture
    before 2 s; their sound is led in already) and stay as they are. Their stored keyframe lists are
    read again only once forgotten: on staging the 17 rows were deleted by hand (2026-11-04); on
    the production NAS, the only deployed system, they are deleted by hand at its deploy (the owner, 2026-11-04:
@@ -1585,10 +1588,10 @@ research run in this batch … The actual UI revamp will be done next batch."*
    ("fix(chunks): a chunk listed ending past its bound by more than a few frames is refused"):* a chunk listed ending more than 250 ms past its bound is refused, the run's last
    too; the start keeps its 500 ms. Measured first: 270 chunks of 30 of staging's films ended
    within 85 ms of their bounds.
-3. **Why Firefox on a Mac cannot append The Gold Rush's own picture** (toolkit.md; the symptom fixed
+3. **Why Firefox on a Mac cannot append file 241's own picture** (toolkit.md; the symptom fixed
    by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox. *Tried
-   2026-11-04* (the owner, Firefox 157.0.1 on an aarch64 Mac, staging): The Gold Rush's own picture
-   plays from its start. File 5667 (The Pumbletons S33E01, MKV, HEVC Main `hvc1`, open GOP: CRA
+   2026-11-04* (the owner, Firefox 157.0.1 on an aarch64 Mac, staging): file 241's own picture
+   plays from its start. File 5667 (an episode, MKV, HEVC Main `hvc1`, open GOP: CRA
    keyframes, RASL pictures after some) played its own picture 36 s, then Firefox held no picture at
    all (`videoBuffered=""`, four chunks appended and not held, `bufferAppendNoProgress`) and the
    player stepped to 720p, the owner's "hiccup". Its chunks read whole with the pinned FFprobe: each
@@ -1597,7 +1600,7 @@ research run in this batch … The actual UI revamp will be done next batch."*
    source): on macOS Firefox counts an HEVC picture a keyframe only when it is an IDR, never a CRA
    (`MP4Demuxer.cpp`'s `GetNextSample`, under `MOZ_APPLEMEDIA`, because VideoToolbox can fail
    starting at a CRA), and MSE reads appended chunks through that same demuxer. An open-GOP x265
-   film (5667: one IDR, then CRAs; The Gold Rush the same) then has one random access point, its
+   film (5667: one IDR, then CRAs; file 241 the same) then has one random access point, its
    first picture. hls.js's removal of the played 0–4.96 s removed the whole picture buffer
    (0.08–96.77 s: the MSE removal runs to the next random access point, and there is none), and
    every chunk appended after, each starting at a CRA, was skipped whole ("skipping sample",
@@ -1837,7 +1840,7 @@ Not started; the owner orders them after D416. Check each against
 [ui-audit-2026-11-04-research.md](../research/ui-audit-2026-11-04-research.md) and
 [ui-competitors.md](../research/ui-competitors.md) before designing.
 
-1. **A title's cast list (seen on *The Big Parade*'s page; `credits.tsx`, `title.tsx`)** is messy and
+1. **A title's cast list (seen on a film's page; `credits.tsx`, `title.tsx`)** is messy and
    follows none of the research's guidelines:
    - the grid's entries are not vertically aligned;
    - too many columns;
@@ -1860,19 +1863,19 @@ Not started; the owner orders them after D416. Check each against
    full screen. Likely the Play page remounting its player (a new route, a new element) drops the
    document's full-screen element; keep the stage mounted across the episode change, or re-enter.
 
-## Quillwick starts grey (the owner, 2026-11-05), after the API batch
+## A series of the owner's starts grey (the owner, 2026-11-05), after the API batch
 
-The owner: "When playing any episode of Quillwick from the start, it looks like the initial keyframe
+The owner: "When playing any episode of [the series] from the start, it looks like the initial keyframe
 is missing - the screen starts off grey and only the dynamic changes in the video are shown." Seen on
 the production NAS, the day after the 11-05 batch's deploy. A grey picture that fills in only where things move is
 a decoder starting without its keyframe: the first chunk begins on a non-key frame. Look first at the
 11-06 batch's "a film's first seconds" work and the 37 keyframe rows cleared at that deploy (first
-keyframe ≥ 500 ms): whether Quillwick's files start on a late keyframe or open GOP, and whether chunk
+keyframe ≥ 500 ms): whether the series' files start on a late keyframe or open GOP, and whether chunk
 0 is cut from 0 s rather than from the first keyframe. Not started.
 
-The owner, later the same day: "Note that Quillwick used to play perfectly, so it's a recent change
-that broke it." A regression, then: bisect over the 11-05 batch's playback commits (the first-seconds
-work) and the cleared keyframe rows before reasoning about the files themselves.
+The owner, later the same day: "Note that [the series] used to play perfectly, so it's a recent
+change that broke it." A regression, then: bisect over the 11-05 batch's playback commits (the
+first-seconds work) and the cleared keyframe rows before reasoning about the files themselves.
 
 ## The expansion audit of the API and database (the owner, 2026-11-05), after the API and schema rounds
 
@@ -1947,7 +1950,7 @@ prefix rewrite cannot reach, for the expansion audit (D429 §4): cache.db `job.d
 
 After the API batch, tagged `batch-2026-11-05-api`. Built on main while the production NAS waits for that tag.
 
-1. **Quillwick starts grey** (above): a regression on the production NAS. Bisect over the 11-05 batch's
+1. **The series starting grey** (above): a regression on the production NAS. Bisect over the 11-05 batch's
    first-seconds work and the cleared keyframe rows first.
 2. **Watch Together over the film opens the tray's dialog** (D433): End, Leave and what it tells,
    with the session's panel under them.
@@ -2130,7 +2133,7 @@ passed), the sound timing test and the cast and Watch Together timing controls, 
 ("feat(library): repoint any folder, checked by a dry run first (D429 §2)"), the paused start ("fix(web): a television's film keeps the press for its start before going full screen", VQ270) and the resume with Level loudness on that it broke
 ("fix(web): the pause that keeps a television's press is not told to the server as the person's", VQ271; both passed on the TV), and the device report's HDR and surround codecs
 ("feat(web): the device report asks of DTS, TrueHD, AC-4 and Dolby Vision, and of the screen's HDR"). The owner's checks on the TV: Home and back resumes; 24p pans are smooth; the picture is
-clear at 1080p (no 4K film to judge); Wings's silent start is the film's own (its first 30 s
+clear at 1080p (no 4K film to judge); a film's silent start is its own (its first 30 s
 below −50 dBFS). The remote's buttons as the page hears them: the digits (`0`–`9`), the colours
 (`ColorF0Red`, `ColorF1Green`, `ColorF2Yellow`, `ColorF3Blue`, keyCode 0) and `ChannelUp` and
 `ChannelDown` (keyCode 33 and 34); TV Bro keeps select, the arrows and Back for its pointer, and the
@@ -2710,7 +2713,7 @@ Overnight, nothing to production; staging only. Then a round from code-debt.md, 
    claim; whatever stops a newcomer is fixed.
 5. **Up next sits in the film's top-right corner** (the owner, 2026-11-09): "The up-next tile when a
    show is nearing the end is right in the middle of the screen and covers where the action is (some
-   shows like Brindlewood have little skits at the end, and half of the middle of the screen is
+   shows like [a series] have little skits at the end, and half of the middle of the screen is
    covered). It should be in the top-right corner, where it's unlikely to cover anything important."
    up-next.css and D407 §1 already place the offer at the end of the overlay's top row, so what the
    owner sees is a fault to find, not a new place; a browser test checks the card's box sits in the
@@ -3014,10 +3017,10 @@ The owner's answers:
   player moves into one `icons.tsx`; the player's set stays in `player-icons.tsx`. Each drawing is
   kept as it is: a refactor with no visible change. The UI gallery shows them all side by side. One
   file costs the page nothing: the client is one bundle, and the build drops an icon nothing uses.
-- **"Wings" matches the wrong film** (the owner, 2026-11-11): "'Wings' is still being matched to
-  the 2014 Korean film whose name translates to Wings rather than the 1986 film." Find why the
-  identification prefers a film whose translated title matches over the far better-known 1986 film,
-  and fix the ranking.
+- **A film of the owner's matches the wrong film** (the owner, 2026-11-11): "'[The film]' is still
+  being matched to the 2014 Korean film whose name translates to [its name] rather than the 1986
+  film." Find why the identification prefers a film whose translated title matches over the far
+  better-known 1986 film, and fix the ranking.
 - **A Firefox walk failed once under load** (the gate, 2026-11-11 15:50 UTC, load 5.6 to 8.9):
   `input-walk.browser.test.tsx`'s "keeps the focused film in view as it moves down a long list"
   found focus out of view (`isFocusInView` false) after a press; alone it passes 12 of 12. Focus

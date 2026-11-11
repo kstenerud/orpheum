@@ -42,7 +42,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 ### S1 — Fixing a typo in a filename
 
-- **Story:** the owner renames `Metropolis (1959).mkv` to `Metropolis (1995).mkv` in the same folder.
+- **Story:** the owner renames `Metropolis (1972).mkv` to `Metropolis (1927).mkv` in the same
+  folder.
 - **Expected:** the same film, not a new one: its row, play state and any correction follow it.
 - **Design:** a new path with a payload last seen under this root is a move (D179).
 - **Status:** **holds**: the file's row follows it
@@ -60,7 +61,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 ### S3 — Replacing a film with a better copy at the same path
 
-- **Story:** the owner overwrites `Metropolis (1995).mkv` with a 4K remux of the same name.
+- **Story:** the owner overwrites `Metropolis (1927).mkv` with a 4K remux of the same name.
 - **Expected:** the film is still watched; the old file's resume position does not carry to the
   new file, because two files' timelines are never related.
 - **Design:** a different payload at a path is a new file and the old row is tombstoned (D173);
@@ -69,7 +70,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 ### S4 — Keeping the 1080p beside a new 4K
 
-- **Story:** the owner adds `Metropolis (1995) 2160p.mkv` next to the 1080p file.
+- **Story:** the owner adds `Metropolis (1927) 2160p.mkv` next to the 1080p file.
 - **Expected:** one film with two playable entries, told apart by resolution and filename; not a
   quality menu, and no "Unknown Edition".
 - **Design:** two Versions under the Title, edition unknown (D155).

@@ -115,7 +115,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
   subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
   (`internal/core/providers/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
-  *Run by the lead on staging, 2026-11-02, Linux Chrome 156, The Gold Rush (file 241).* Passes but for
+  *Run by the lead on staging, 2026-11-02, Linux Chrome 156, file 241.* Passes but for
   one part unseen. A refused login (staging was first given the account's email address, which
   OpenSubtitles answers 400) now says OpenSubtitles refused it ("fix(opensubtitles): a login answered 400 is a refused login"). With the username: "20 of 20
   downloads left today", the note that none is checked, 11 German results; the download played on with
@@ -515,7 +515,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   as it starts; the plan's item 8 of 2026-11-02, next batch). The series part cannot be checked as
   written: the job view shows no priority since D329 put tiers in place of numbers, and staging has no
   read-through left queued; it needs restating. The Firefox part needs a Firefox that cannot decode
-  HEVC (the Mac's or Windows'): Linux Firefox 155 plays The Gold Rush's HEVC as it is, unprepared.
+  HEVC (the Mac's or Windows'): Linux Firefox 155 plays a film's HEVC as it is, unprepared.
   *Fixed 2026-11-03, to run again:* the 55 minutes was asked before the interest raiser's tick
   raised the playing film's read-through ("fix(waits): a film played now waits as the raise will rank its read-through"), and the player now takes up a level measured as
   the film plays from its waits, so the switch should say "Raised" or "Lowered" within 15 s of the
@@ -630,7 +630,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   *Run 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb, as lead-tests; not ticked):*
   every place named was walked, and every control was reached by the arrows with its ring whole and
   clear of the banner, one focus move a press; OK pressed each; Back returned to the page before
-  with focus where it was left (Nanook of the North in Films). Two faults, fixed and checked on the stick:
+  with focus where it was left (a film in Films). Two faults, fixed and checked on the stick:
   a series opened from far down the Series list opened scrolled 239 px down, its name hidden
   ("fix(web): a series opens at its top, its row of seasons scrolled sideways alone"); and on the video OK opened the hidden overlay with nothing focused, so a second OK
   paused nothing and no arrow reached its controls ("fix(web): OK on a television's hidden player overlay puts focus on play"). Since the fix OK opens it on Play,
@@ -772,7 +772,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   there with picture and sound in step. An encrypted image is instead listed as a file that could
   not be read, its message saying it is encrypted. (`internal/node/disc`,
   `internal/node/execx/disc.go`) *2026-11-02, by the agent in Chrome, with the musicals library's
-  Der Golem concert DVD:* it reads with the main feature's 2:27:45 and its English AC-3 track,
+  concert DVD:* it reads with the main feature's 2:27:45 and its English AC-3 track,
   and plays from the start; it is not identified, its file name (LES_MIS_NTSC_V2) naming no film.
   A seek to the middle failed: the title's clock starts again at 1:28:39 (D404). Re-run the seek,
   to before and after 1:28:39, once D404 is on staging.
@@ -854,9 +854,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   folder is scanned within it`), each library's page lists its own kind, *All libraries* and Home show
   each film and series once, and adding to the films library a folder beneath its own is refused as
   already covered. (`internal/core/library/scans.go`, `scanroots.go`, `libraryfolders.go`)
-  Passed 2026-10-27 (the lead, on staging, as the owner asked): a films library over Crowd's
+  Passed 2026-10-27 (the lead, on staging, as the owner asked): a films library over film 5056's
   folder inside Films' was made and scanned within it (`a folder inside another library folder is
-  scanned within it`, scope the folder); both list Crowd as item 5056, All films lists 325 films
+  scanned within it`, scope the folder); both list it as item 5056, All films lists 325 films
   and no item twice; adding that folder to Films was refused (`the library already covers that
   path`); an other library over the same folder gave the file an other video of its own (5421).
 - [ ] **VQ81** — On staging, D363's copies: copy a film byte for byte to a second folder that a second
@@ -1008,7 +1008,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   admin):** the menu opened by OK at its top, and each Down moved the focus one place, the list
   scrolling within itself with the focus ring whole, down to Sign out; OK there and on the question
   signed out to the discovery's sign-in (`orpheum.dev/?signedout=…`), which stayed, once "fix(web): a sign-out with its question open leaves for the discovery's sign-in"
-  had fixed the leaving (VQ200). Signed in again and playing The Gold Rush, the TV removed under *Your
+  had fixed the leaving (VQ200). Signed in again and playing a film, the TV removed under *Your
   devices* from Chrome on the desktop as lead-tests left its film within about a second, by a link
   straight to that sign-in, with nothing pressed (the page's own events: only the app's home, then
   the sign-in's address).
@@ -1098,7 +1098,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/navigation.ts`, `upward.ts`, `up-trail.tsx`, `series.tsx`, `play-up.tsx`,
   `tv-controls.tsx`, `library-configure.tsx`, `title.css`, `route-chooser.tsx`)
   **The lead's check 2026-10-28 (headless Chromium, desktop and a 390×844 phone size):** (1), (2)
-  (staging's test series has seasons 2–4: S2E12 into S3E1), (3) (one Back still leaves the page, though
+  (staging's test series has seasons 2–4: season 2's last episode into season 3's first), (3) (one Back still leaves the page, though
   the first choice adds a history entry), (5) by click, and (6) on the desktop and the phone size all
   hold. Left for the owner: (4), the remote's OK and Back, the iPhone's swipe, real phones.
   **The owner's findings on the Fire TV (Silk, remote only), 2026-10-29,** fixed and to check again
@@ -2168,8 +2168,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   *Run by the lead on staging, 2026-11-02: does not pass, and the item's premise is in doubt.* The
   full rescan of Shows (10:20, 10,568 files read again in 1,448 batches, 8 minutes) ended with
   `comparedCount=4925 correctedCount=0 thrownOutCount=0`; no line for file 5667, and its stored picture
-  still lacks `needsRetiming`. File 5667 on staging, as in the old staging's database, is
-  `The.Pumbletons.S33E01.iNTERNAL.720p.x265-ARBOR.mkv`: a Matroska file, not the MP4 (`hev1`) the item
+  still lacks `needsRetiming`. File 5667 on staging, as in the old staging's database, an
+  x265 720p release in Matroska: a Matroska file, not the MP4 (`hev1`) the item
   and the plan describe. The node's ffprobe gives its HEVC packets reordered display times (29 of the
   first 40 with pts unlike dts; the first two without a dts), so the probe's rule rightly does not mark
   it. The pts-equals-dts packets and the `hev1` tag were probably read from Orpheum's own MP4 copy, which
@@ -2243,7 +2243,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `web/packages/sdk/src/rtc-connect.ts`)
   **Passed 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb, as lead-tests):** three runs
   over WebRTC: the app's requests 26.1, 36.1 and 33.6 Mb/s, a film's pieces 22.5, 33.3 and 28.6,
-  above 15–18 before (figures in D397 §7); The Gold Rush then played over WebRTC, 2 frames dropped in
+  above 15–18 before (figures in D397 §7); a film then played over WebRTC, 2 frames dropped in
   10 s; the core logged its `rtc connection ended` lines for user 4's device. Three earlier runs
   were made while the stick was signed in as admin, by mistake (A50).
 - [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer and identity (D391 §3,
@@ -2300,7 +2300,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   today's words if it does not. (`web/apps/web/src/dead-end-reason.ts`,
   `web/apps/web/src/discovery-gate.tsx`, `discovery/single/client.go`)
 - [ ] **VQ236** — a timeline seek plays on without a second stop, on staging, on the Mac's Chrome
-  (the owner's Nosferatu at 29:04, 2026-11-01: the film started at 1744.0 s, played 1.2 s and waited
+  (the owner's film at 29:04, 2026-11-01: the film started at 1744.0 s, played 1.2 s and waited
   2.1 s with 3.7 s loaded ahead). Play a film a minute or more at its top quality, then click the
   timeline far ahead, three times at different places. Passes when each seek starts and plays on
   with no second wait (no `kind=started … startedAfter=waiting` line soon after the seek's
@@ -2343,7 +2343,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   fixed); `/roles/3` is "There is nothing at this address". Not seen: the section going when its
   only row goes (the owner's invitation "o" stayed). The Mac's Chrome is the owner's to tick it on.
 
-- [ ] **VQ239** — *Quillwick II*, "Money" plays in step from its very start, on staging (the owner,
+- [ ] **VQ239** — an episode in XviD AVI plays in step from its very start, on staging (the owner,
   2026-11-01: its audio was out of sync; measured, the sound half a second early for its first five
   minutes). After the deploy, play the episode from the start, the sound transcoded: its first run of
   sound chunks, made before the fix, is stored, so evict it or play it under a new sound ladder. Watch
@@ -2512,7 +2512,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   screen too, and the last ends the playback saying so under the film. Then the owner looks at the
   sign's and the pop-up's words and places. (`web/packages/player/src/skip-unmade.ts`,
   `web/apps/web/src/skipped-parts.tsx`, `page-controls.tsx`)
-  **The lead's run (2026-11-03, Sparrows, Chrome against staging as lead-tests):** passed after two
+  **The lead's run (2026-11-03, a film, Chrome against staging as lead-tests):** passed after two
   fixes it found (a ladder's 422 is never fatal; a stretch's chunks each stood the film 2 s). One
   chunk: 56.4 s to 67.0 s, still at most 0.25 s. Eight (56.96 to 130.8 s): one move, still 0.86 s,
   the pop-up "0:56–2:10", in full screen too. Every chunk on: moved to 174.3 s, then "The film cannot
@@ -2560,8 +2560,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   batch's item 1; the owner, 2026-11-04, accepting the first chunk's picture a few frames late). The
   keyframe readers and the chunks of a film cut so are tested with the pinned FFmpeg; a real film's
   first chunk in a real player is seen only on a device. On staging, once its keyframes are read again
-  (the step that forgets the 17 films' lists, or a re-read): *A Woman of Paris* (file 211) and
-  *The Gold Rush* from their starts, on a computer. Passes when each shows its first seconds (the studio's
+  (the step that forgets the 17 films' lists, or a re-read): file 211 and
+  file 241 from their starts, on a computer. Passes when each shows its first seconds (the studio's
   logo) instead of beginning about 10 s in, with its sound in step by the second chunk, and the join
   at the first chunk's end shows no jump or freeze. (`internal/node/container/keyframes.go`'s
   `StartingKeyframes`, `internal/node/readthrough/timeline.go`)
@@ -2569,7 +2569,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [x] **VQ260** — Firefox on a Mac starts an HEVC film at its twin, with no hiccup (the 11-06 batch's item 3,
   D413). The formats listed are tested; what the core makes of them in Firefox on a Mac is seen only on the
   Mac. On staging, in Firefox 157 on the Mac, with no other tab of it open and the core restarted (so no
-  earlier give-up is remembered): The Pumbletons S33E01 (file 5667) from its start, played past 0:20, then a
+  earlier give-up is remembered): file 5667, an episode, from its start, played past 0:20, then a
   seek to about 10:00. Passes when it plays throughout with no freeze, the core's log of the playback naming
   no HEVC own picture, and Safari on the same Mac still takes the film's own picture.
   (`web/packages/sdk/src/playable-formats.ts`'s `startsHevcOnlyAtIdr`)
@@ -2697,10 +2697,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: (1) and (2) passed, levelling on and
     off. (3), the Fire TV's Silk, is not yet run.
   - Run 2026-11-06, the lead, the Fire TV Stick (AFTSSS) in Silk 138, staging, lead-tests: (3)
-    passed. Wings from its page's Play went full screen and played (`playingAfterMs=3507`), with
+    passed. A film from its page's Play went full screen and played (`playingAfterMs=3507`), with
     no stall and no refused start in the core's log.
 - [x] **VQ271** — a film resumed partway on the TCL TV, with Level loudness on, starts (the owner,
-  2026-11-06: The Big Parade, resumed at about 28 minutes, never started with levelling on; with it
+  2026-11-06: a film, resumed at about 28 minutes, never started with levelling on; with it
   off it played). VQ270's pause, which unlocks the video, was told to the server as the person's,
   paused at 0 before the resume moved the player, and a paused player is made only the half minute
   after where it paused: the levelled sound at 28 minutes was never made (`stopped at 0 ms` in the
@@ -2709,7 +2709,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (one not played with levelling on before). Passes when the film starts by itself with sound within
   a few seconds, and the core's log shows no "planned no run of chunks: no player wants one" for its
   sound stream. (`web/apps/web/src/interest.ts`, `web/apps/web/src/start-refused.ts`)
-  - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: The Big Parade resumed partway and
+  - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: the film resumed partway and
     started, Level loudness on and off.
 - [ ] **VQ272** — a film the browser refuses to start says so in the core's log, with the page's press
   and full screen at that moment. Only a device whose browser refuses shows it: no test browser here
@@ -2910,14 +2910,14 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [x] **VQ296** — A film the browser will not start shows its controls, Play focused, and says why
   (the owner, 2026-11-11: "In Chrome it went black again"; the core's log: NotAllowedError,
   lastPress=581 ms ago) (passed 2026-11-11 on staging at "fix(web): an iPhone's Play page plays in
-  the video its press readied", by its last clause: "It started automatically this time"). On the owner's iPhone in Chrome, on staging: open The Navigator S1E1's page and
+  the video its press readied", by its last clause: "It started automatically this time"). On the owner's iPhone in Chrome, on staging: open an episode's page and
   press Play. Passes when, should the film not start, the picture shows with the controls over it and
   the line "Paused — press Play to start.", and one press of Play starts it with its sound; where the
   film starts by itself, it passes too, and the line never shows. (`web/apps/web/src/player-overlay.tsx`)
 - [x] **VQ297** — Chrome on an iPhone starts a film from its page's Play (the owner, 2026-11-11: "In
   Chrome it went black again") (passed 2026-11-11 on staging at "fix(web): an iPhone's Play page plays
   in the video its press readied": "It starts by itself on both browsers on iphone when I press play
-  from the info page. With sound."). On the owner's iPhone in Chrome, on staging: open The Navigator S1E1's page
+  from the info page. With sound."). On the owner's iPhone in Chrome, on staging: open an episode's page
   and press Play. Passes when the film starts by itself, with its sound, and the line "Paused — press
   Play to start." does not show; then in Safari, the same. (`web/apps/web/src/video-pressed-for-play.ts`)
 - [ ] **VQ298** — A Fire TV stepped over a hole in what it loaded plays on (the owner's Fire TV,

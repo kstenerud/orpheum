@@ -269,7 +269,7 @@
   their experience, users will be able to toggle the video and audio on or off"* from the first day.
   Commercial. The transferable part is only that anything that moves on its own ships with its
   switch.
-- **Max (2023) back to HBO Max (2025)** [1P]
+- **Max, in 2023, back to HBO Max in 2025** [1P]
   ([WBD, 2025-05-14](https://press.wbd.com/us/media-release/warner-bros-discovery-announces-max-become-hbo-max-summer);
   [The Verge](https://www.theverge.com/news/666707/hbo-max-returning-rebrand-warner-bros-discovery)):
   Casey Bloys, in WBD's own release: *"we believe HBO Max far better represents our current consumer

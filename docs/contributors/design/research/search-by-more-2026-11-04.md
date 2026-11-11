@@ -63,11 +63,11 @@ filters narrow a list: two places.
 ```
 Phone                             TV
 +-----------------------------+    Search: h e_
-| (search) heli_          [x] |    A B C D E F G H I J K L M ...
+| (search) win_           [x] |    A B C D E F G H I J K L M ...
 +-----------------------------+    ------------------------------
 | Titles                      |    [Action] [Comedy] [Drama] ...
-|  Balloon Heist (2019)    |    [1980s] [1990s] [Unwatched]
-|  Sparrows (2013)                |    ------------------------------
+|  Wings (1927)               |    [1980s] [1990s] [Unwatched]
+|  Wing (1919)                |    ------------------------------
 | People                      |    Titles: [poster][poster][poster]
 |  Winifred Ash               |    People: [face][face]
 | Recent: noir  Nolan  1980s  |

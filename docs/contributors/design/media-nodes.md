@@ -410,7 +410,7 @@ three tiers ([D38](../decisions/working-notes.md)):
 | --- | --- | --- |
 | `state` | Small stable enum: `idle`, `scanning`, `transcoding`, `error` | API contract; UI headline |
 | `task` | **Bounded enum** within a state: `enumerating`, `probing`, `hashing`, `extracting` | **the cadence baseline**; UI subtitle |
-| `detail` | Free text: `films/the-unknown.mkv` | humans only; never keyed on |
+| `detail` | Free text: `films/metropolis.mkv` | humans only; never keyed on |
 
 **The core baselines on the `(state, task)` pair**, and `task` must be a bounded enum for that
 to work. Putting the fine-grained information in free text would reintroduce the bimodal
@@ -455,7 +455,7 @@ Illustrative, not a specification:
     "current": 3121,
     "end": 48000,
     "unit": "entries",
-    "detail": "films/the-unknown.mkv"
+    "detail": "films/metropolis.mkv"
   },
 
   "roots": [

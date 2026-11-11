@@ -135,12 +135,12 @@
   that names an internal concept; the backdrop takes the space Play needs; Mark as watched is
   outside the panel it relates to.
 
-## Title page, an episode (`/titles/3666`, Copper Kettle S2E1)
+## Title page, an episode (`/titles/3666`, an episode)
 
-- **Outline** (`title-episode-desktop1920.png`): breadcrumb (Shows › Copper Kettle › …); no backdrop;
-  h1 the episode's name; a line "Copper Kettle · season 2" (two links); synopsis; Versions with Play
+- **Outline** (`title-episode-desktop1920.png`): breadcrumb (Shows › ‹series› › …); no backdrop;
+  h1 the episode's name; a line "‹series› · season 2" (two links); synopsis; Versions with Play
   (y 397); Mark as watched (y 502). 1080 px tall: Play above the fold at every size.
-- **Focus on load:** body. **Fire TV:** Down → "‹ Copper Kettle" → Play: two presses. The "Copper Kettle"
+- **Focus on load:** body. **Fire TV:** Down → "‹ ‹series›" → Play: two presses. The "‹series›"
   and "season 2" links in the line under the title are skipped by Down and reached only by Tab.
 - **Back into the page** from the series page (desktop): body, not the link used.
 - **Observed:** the episode page and the film page share a template but not a layout: one has a
