@@ -9,10 +9,11 @@
 import "./tokens.css";
 import "./base.css";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { growsAttribute } from "./focus-engine.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -209,5 +210,51 @@ describe("an arrow over a large grid", () => {
     const right = await readingsDuring(() => userEvent.keyboard("{ArrowRight}"));
     expect(document.activeElement?.textContent).toBe("beside");
     expect(right.boxes).toBeLessThan(400);
+  });
+});
+
+/**
+ * A list's grid of two rows of three, still growing down or not, and a column of letters at its
+ * right reaching below it, as the alphabet rail beside Films and Series.
+ */
+function growingGridPage(isGrowing: boolean): JSX.Element {
+  return (
+    <main style={{ position: "relative", height: "460px" }}>
+      <ul data-focus-container="" {...(isGrowing ? { [growsAttribute]: "down" } : {})}>
+        {Array.from({ length: 6 }, (_, index) => (
+          <li key={index} style={placedAt((index % 3) * 140, Math.floor(index / 3) * 60)}>
+            <a href={`#tile-${String(index)}`}>{`tile ${String(index)}`}</a>
+          </li>
+        ))}
+      </ul>
+      <ol data-focus-container="">
+        {["A", "Y"].map((letter, index) => (
+          <li key={letter} style={placedAt(700, index * 300, 40)}>
+            <a href={`#letter-${letter}`}>{letter}</a>
+          </li>
+        ))}
+      </ol>
+    </main>
+  );
+}
+
+describe("Down from a grid's last row while its next page loads (the owner, 2026-11-11)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("stays on the tile while the grid grows, and leaves for the letters once it does not", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(growingGridPage(true)));
+    document.querySelector<HTMLElement>('a[href="#tile-4"]')?.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement?.textContent).toBe("tile 4");
+    mounted.unmount();
+    mounted = await mount(withServices(growingGridPage(false)));
+    document.querySelector<HTMLElement>('a[href="#tile-4"]')?.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement?.textContent).toBe("Y");
   });
 });
