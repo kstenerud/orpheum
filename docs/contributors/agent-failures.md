@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A67 — Reported a list's blank posters working, measured on a held Down alone, when they held Films' opening 4.4 s (2026-11-11)
+
+- **What happened:** the lead added a blank card for every item still to come (332 on Films) and
+  reported them working on the Fire TV from a trace of a held Down through the grid. Opening the
+  page was never traced. Finding the page's arrival asked every card whether it was drawn, and each
+  card off the screen was laid out alone for the asking, so the screen stayed blank about 4.4 s
+  after Films was chosen. The belief came from measuring the path the change was for, and not the
+  paths the change made longer: a change that multiplies the page's elements costs everything that
+  walks them.
+- **Caught by:** the owner: *"When I switch from shows to films, there's a 3-4 second delay before
+  anything shows up in the poster area. I worry that our fixes are trading one issue for another."*
+- **Gate:** the arrival's search now stops at the first control drawn, pinned by
+  `focus-engine-skipped.browser.test.tsx`'s arrival test. Nothing general: a change that adds
+  elements is traced opening its page too, not only on the press it was for.
+
 ### A66 — Said a scroll redraws every poster in view, when the browser moves what it has already drawn (2026-11-11)
 
 - **What happened:** asked how much of the screen a focus move redraws, the lead told the owner
