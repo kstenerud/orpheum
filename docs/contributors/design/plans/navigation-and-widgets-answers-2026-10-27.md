@@ -2966,7 +2966,16 @@ The owner's answers:
       tracks, which the flush had taken; the player now steps one of at most 1 s after a second
       standing in it (`holes.ts`, VQ298).
     - (b) The page's WebRTC to the core closed at 12:42:51 UTC and the page neither reconnected nor
-      said anything.
+      said anything. **Found: the page itself left then, and nothing is to be built.** The core logged
+      the end as "the browser closed it", which it says only when the browser ends the SCTP
+      association cleanly (`endWithItsSCTP`, rtcapi/ended.go): the page's own close at `pagehide`
+      (`transportsUsed`, kept-path.ts) or its document torn down. A renderer killed outright closes
+      nothing, and its end reads "ice failed" some 30 s later. A connection lost while the page lives
+      is replaced, and the time without one is told once one is back (rtc-reopen.ts, W2d); the page
+      Silk restored afterwards connected and told its refused start (c). Left for the owner: whether
+      a leaving page should tell the core's log that it left (`pagehide`, persisted or not), so a
+      close like this one reads as the page's going and not as a lost connection. Its message has to
+      go before the close, which may drop what is still queued, so it is not certain to arrive.
     - (c) When Silk restored the page after Fire OS had killed it, the browser refused to start
       playback on its own (NotAllowedError). The page showed a paused picture with no prompt, so it
       looked stuck. Proposed: the page says playback is paused and puts focus on Play. The wording
