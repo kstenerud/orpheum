@@ -5,6 +5,7 @@ import "./browse.css";
 import type { components } from "@orpheum/sdk";
 import { memo, useCallback, useMemo, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import {
   AlphabetRail,
@@ -112,7 +113,9 @@ export function EntryPoster(props: {
   readonly entry: Entry;
   readonly watch?: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
+  // The card's one translation: each a poster card mounts builds react-i18next a copy of the i18n
+  // object, and a page of 60 cards made them about a third of its render on the Fire TV (2026-11-11).
+  const { t, i18n } = useTranslation();
   const { entry } = props;
   const kind = props.kind ?? entry.kind;
   const percent = watchedPercentOf(entry);
@@ -127,7 +130,7 @@ export function EntryPoster(props: {
         ) : undefined
       }
       name={entry.name}
-      details={<EntryDetails entry={entry} />}
+      details={entryDetails(entry, t, i18n.language)}
       isDimmed={entry.unavailable !== undefined}
       cues={<StatusTray subject={entry} />}
       progress={
@@ -161,16 +164,14 @@ export function watchedPercentOf(entry: Entry): number | undefined {
  * The lines under a title's name: a film's or series' year, an other video's recorded date (D349
  * §9.1), and that it cannot play now.
  */
-export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const { entry } = props;
+function entryDetails(entry: Entry, t: TFunction, language: string): JSX.Element {
   return (
     <>
       {entry.year === undefined ? null : (
         <PosterDetail>{t("browse.year", { year: entry.year })}</PosterDetail>
       )}
       {entry.kind === "series" || entry.recorded === undefined ? null : (
-        <PosterDetail>{dateText(entry.recorded.recordedAt, i18n.language)}</PosterDetail>
+        <PosterDetail>{dateText(entry.recorded.recordedAt, language)}</PosterDetail>
       )}
       {entry.unavailable === undefined ? null : (
         <PosterDetail title={unavailableText(t, entry.unavailable)}>

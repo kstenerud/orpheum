@@ -33,7 +33,6 @@ export function Poster(props: {
    */
   readonly isTile?: boolean;
 }): JSX.Element {
-  const { t } = useTranslation();
   const shown = useArtShown(props.sourceSha256, "portrait-m");
   if (shown.url === undefined) {
     const hasStill = props.stillSha256 !== undefined;
@@ -44,9 +43,7 @@ export function Poster(props: {
       >
         {hasStill ? <Still sourceSha256={props.stillSha256} className="poster__still" /> : null}
         <Clapperboard />
-        {hasStill && props.isStillEnough === true ? null : (
-          <span className="poster__caption">{t("common.noPoster")}</span>
-        )}
+        {hasStill && props.isStillEnough === true ? null : <NoPosterCaption />}
       </span>
     );
   }
@@ -65,6 +62,16 @@ export function Poster(props: {
       onError={shown.onError}
     />
   );
+}
+
+/**
+ * "No poster", under a blank poster. Its own, so a poster that has one mounts no translation: each
+ * builds react-i18next a copy of the i18n object, a third of a page of cards' render on the Fire TV
+ * (2026-11-11).
+ */
+function NoPosterCaption(): JSX.Element {
+  const { t } = useTranslation();
+  return <span className="poster__caption">{t("common.noPoster")}</span>;
 }
 
 /**
