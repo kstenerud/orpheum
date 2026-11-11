@@ -5,8 +5,10 @@
  * target them by a stable name (docs/contributors/standards/typescript.md, "Styling").
  */
 
+/* As tall as the screen shows, its toolbars' room taken: a phone's 100vh is its height with them
+   gone, and a short page scrolled behind them (stylesheet-choices.test.ts). */
 .app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   color: var(--color-text);
   background: var(--color-background);

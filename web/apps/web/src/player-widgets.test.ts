@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/** This directory, web/apps/web/src/, whose sources are read. */
-const here = new URL("./", import.meta.url);
+import { sourcesHere } from "./test-sources.ts";
 
 /** Each component source in this directory, tests left out, its text by its name. */
 function components(): readonly (readonly [string, string])[] {
-  return readdirSync(here)
-    .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
-    .map((name) => [name, readFileSync(new URL(name, here), "utf8")] as const);
+  return sourcesHere(".tsx");
 }
 
 /** The sources that may draw a slider: a film's timeline, and a volume's. */

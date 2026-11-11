@@ -11,6 +11,7 @@ import {
   AboutButton,
   isFound,
   parseSettingText,
+  SettingsFilters,
   SettingsView,
   settingText,
   startText,
@@ -237,6 +238,13 @@ describe("settings", () => {
     expect(startText(t, "")).toBe("nothing");
     expect(startText(t, null)).toBe("unanswered");
     expect(startText(t, 90)).toBe("90");
+  });
+
+  it("draws its search and Advanced as a search landmark, which a screen reader goes to", () => {
+    const markup = renderToStaticMarkup(
+      <SettingsFilters isAdvanced={false} onAdvanced={ignore} search="" onSearch={ignore} />,
+    );
+    expect(markup).toMatch(/^<search class="settings__filters">/u);
   });
 
   it("finds a setting by every word searched for, in its key or its description", () => {
