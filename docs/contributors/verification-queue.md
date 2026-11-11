@@ -2921,8 +2921,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   open a film's Play page, and once it plays, remove 0.12 s of the picture's buffer from 2 s ahead of
   the position. Passes when, reaching it, the film plays on within about 2 s, and the core's log of
   the playback notes "stepped over a 0.12 s hole". (`web/packages/player/src/holes.ts`)
-- [ ] **VQ299** — What the client's report-only Trusted Types policy would refuse reaches the core's
-  log (the 11-22 batch's item 6). On staging, in Chromium or Silk, signed in as `lead-tests`: open
+- [x] **VQ299** — What the client's report-only Trusted Types policy would refuse reaches the core's
+  log (the 11-22 batch's item 6) (passed 2026-11-11 on staging at "feat(web): the client's pages
+  report what Trusted Types would refuse, to the core's log", in headless Chromium as `lead-tests`: run
+  three times, the core logged "a page noted … the policy would refuse (require-trusted-types-for):
+  Element innerHTML|<b>x</b>" once, page=/films). On staging, in Chromium or Silk, signed in as `lead-tests`: open
   /films, and in the console run `document.createElement("div").innerHTML = "<b>x</b>"`. Passes when
   the core's log carries "the policy would refuse (require-trusted-types-for): Element innerHTML|<b>x</b>"
   from the page, once however often it is run, and the page goes on working. The lines it logged
