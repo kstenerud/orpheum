@@ -2981,3 +2981,8 @@ The owner's answers:
   the 2014 Korean film whose name translates to Wings rather than the 1986 film." Find why the
   identification prefers a film whose translated title matches over the far better-known 1986 film,
   and fix the ranking.
+- **A Firefox walk failed once under load** (the gate, 2026-11-11 15:50 UTC, load 5.6 to 8.9):
+  `input-walk.browser.test.tsx`'s "keeps the focused film in view as it moves down a long list"
+  found focus out of view (`isFocusInView` false) after a press; alone it passes 12 of 12. Focus
+  scrolls by `scrollIntoViewGently` (`focus-navigation.ts`), at the press: find what moves the list
+  after the scroll under load (more posters drawn, the banner), as the rail's flake was found.
