@@ -166,7 +166,7 @@ export function tileArtAhead(
   image.onerror = done;
   if (kind === "poster") {
     image.sizes = posterTileSizes;
-    image.srcset = srcSetOf(sourceSha256, tileSizes, 0);
+    image.srcset = sourceSetOf(sourceSha256, tileSizes, 0);
     image.src = againUrl(sourceSha256, "portrait-m", 0);
   } else {
     image.src = againUrl(sourceSha256, "landscape-s", 0);
@@ -251,7 +251,7 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
   }
   return {
     url: againUrl(sourceSha256, size, current.again),
-    srcSetOf: (sizes) => srcSetOf(sourceSha256, sizes, current.again),
+    srcSetOf: (sizes) => sourceSetOf(sourceSha256, sizes, current.again),
     onError: () => {
       setState({ sha256: sourceSha256, isFailed: true, isDrawn: false, again: current.again });
       suspectWorker(); // a bypassed worker 404s every image, and the page says so (A51)
@@ -270,7 +270,7 @@ function againUrl(sourceSha256: string, size: ArtSize, again: number): string {
 }
 
 /** An img's srcset of an image in each of sizes, by its width, asked for the again-th time. */
-function srcSetOf(
+function sourceSetOf(
   sourceSha256: string,
   sizes: readonly (readonly [ArtSize, number])[],
   again: number,
