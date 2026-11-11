@@ -62,7 +62,7 @@ describe("what a player says it wants (D309)", () => {
     video.currentTime = 1668;
     video.fire("pause");
     stop();
-    // The Big Parade on the owner's TCL TV said it paused at 0, and its resume's sound was never made.
+    // A film on the owner's TCL TV said it paused at 0, and its resume's sound was never made.
     expect(said).toEqual([{ positionMs: 1_668_000, isPaused: true }]);
   });
 

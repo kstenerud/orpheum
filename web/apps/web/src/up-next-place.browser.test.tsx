@@ -117,7 +117,7 @@ describe("Up next over a television's film", () => {
   }
 
   // In row 0, its place in the full overlay, the card stood a third of the way up the film, over
-  // the action, as Brindlewood's closing skits are (the owner, 2026-11-09).
+  // the action, as a series of the owner's has its closing skits (the owner, 2026-11-09).
   it("sits in the film's top-right corner, there through a seek's scrub bar and the whole overlay, and OK still plays it", async () => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
     vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));

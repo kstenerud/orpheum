@@ -138,7 +138,7 @@ interface Reporting {
  * device cannot play (D266), for the page to ask for the playback again from there, at the twin
  * (D323 §2), paused only where the person paused it: a video yet to show its first frame reads as
  * paused, and opened again paused it never started (the owner's test, 2026-11-03: Play on
- * The Gold Rush's page opened the player and did not play). Returns the stopping.
+ * a film's page opened the player and did not play). Returns the stopping.
  */
 export function whenOwnPictureGivenUp(
   video: HTMLVideoElement,

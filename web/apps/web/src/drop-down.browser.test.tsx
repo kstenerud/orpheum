@@ -350,7 +350,7 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     expect(document.querySelector("dialog")).toBeNull();
   });
 
-  // The owner, 2026-11-03, on Umi no Tobira's two audio tracks over the film in full screen, the list
+  // The owner, 2026-11-03, on a series' two audio tracks over the film in full screen, the list
   // cut to two thirds, its second place half hidden: "It should open big enough that it shows the
   // selected item plus one item above and below (when present)."
   it("moves up where the cut, keeping over half, would hide the place after its choice", async () => {

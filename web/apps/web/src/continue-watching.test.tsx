@@ -28,7 +28,7 @@ const heat: ContinueWatchingRow = {
   fileId: 3,
   positionMs: 500_000,
   durationMs: 1_000_000,
-  fileName: "Metropolis (1995) - 720p.mkv",
+  fileName: "Metropolis (1927) - 720p.mkv",
 };
 
 describe("Continue Watching", () => {
@@ -60,7 +60,7 @@ describe("Continue Watching", () => {
       ),
     );
     expect(markup).toContain('href="/play/3"');
-    expect(markup).toContain("Metropolis (1995) - 720p.mkv");
+    expect(markup).toContain("Metropolis (1927) - 720p.mkv");
     expect(markup).toContain('value="50"');
     expect(markup).toContain('aria-label="More for Metropolis"');
   });
@@ -68,7 +68,12 @@ describe("Continue Watching", () => {
   it("offers to undo a hide, and shows nothing when there is nothing", () => {
     const hidden = renderToStaticMarkup(
       withServices(
-        <ContinueWatchingView rows={[]} hiddenName="Metropolis" onHide={nothing} onUndo={nothing} />,
+        <ContinueWatchingView
+          rows={[]}
+          hiddenName="Metropolis"
+          onHide={nothing}
+          onUndo={nothing}
+        />,
       ),
     );
     expect(hidden).toContain("Metropolis is hidden until you watch it again.");

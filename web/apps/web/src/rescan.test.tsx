@@ -84,7 +84,13 @@ it("rescans one film or series from its page, for an admin alone (D357 §1)", as
     },
     heard,
   );
-  const series: SeriesDetail = { id: 12, kind: "series", name: "The Ledger Room", art: {}, seasons: [] };
+  const series: SeriesDetail = {
+    id: 12,
+    kind: "series",
+    name: "The Ledger Room",
+    art: {},
+    seasons: [],
+  };
   const corrected = (): void => undefined;
   mounted = await mount(
     withServices(<SeriesView series={series} onMatchCorrected={corrected} />, services),
@@ -143,7 +149,13 @@ it("offers a full rescan beside each rescan, everything's, a library's and a fil
   await click(buttonWithText(mounted.container, "Full rescan"));
   expect(mounted.container.textContent).toContain("A rescan of it is already running.");
   mounted.unmount();
-  const series: SeriesDetail = { id: 12, kind: "series", name: "The Ledger Room", art: {}, seasons: [] };
+  const series: SeriesDetail = {
+    id: 12,
+    kind: "series",
+    name: "The Ledger Room",
+    art: {},
+    seasons: [],
+  };
   mounted = await mount(
     withServices(
       <IsAdminContext value={true}>

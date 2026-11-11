@@ -51,7 +51,7 @@ class FilmVideo extends EventTarget implements SkippingVideo {
   }
 }
 
-/** The Gold Rush's chunk sn, 2.3 s long, in the quality level, as hls.js holds it. */
+/** A film's chunk sn, 2.3 s long, in the quality level, as hls.js holds it. */
 function chunk(sn: number, level = 0): Fragment {
   const frag = new Fragment(PlaylistLevelType.MAIN, "");
   frag.level = level;

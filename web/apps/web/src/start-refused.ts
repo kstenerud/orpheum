@@ -108,7 +108,7 @@ const pressKeepersPauses = new WeakSet<HTMLVideoElement>();
  * Whether the video's pause, as its event comes, is keepThePressForTheStart's, which says nothing of
  * the person: it is taken, and the video's next pause is the person's. Told to the server as the
  * person's, it said the player paused at 0 before the resume moved it, and a paused player is made
- * only the half minute after where it paused: The Big Parade, resumed at 28 minutes with Level
+ * only the half minute after where it paused: a film, resumed at 28 minutes with Level
  * loudness on, waited for a levelled sound never made (the owner's TCL TV, staging, 2026-11-06).
  */
 export function isPressKeepersPause(video: HTMLVideoElement): boolean {
