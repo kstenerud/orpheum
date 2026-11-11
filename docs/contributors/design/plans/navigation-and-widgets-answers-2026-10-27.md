@@ -3033,8 +3033,13 @@ VQ286 and VQ287 can run.
    initially is a way to navigate to the chromecast pages of ours. So first step in the next batch
    will be to make an 'Experimental' page that's gated off the 'show debug tools' account setting.
    This will be where we put all of the links to things we're experimenting with."). Today the lab
-   (`/lab`, lab.tsx: its probes, the Cast lab, the UI gallery) has no link anywhere in the app, by
-   test (app-shell's and app's `not.toContain('href="/lab"')`): it is reached by typing its address.
+   (`/lab`, lab.tsx: its probes, the Cast lab, the UI gallery) has no link in the rail, by test
+   (app-shell's and app's `not.toContain('href="/lab"')`), but This device's "For testers" section
+   links it (Device tests, and the Sound timing test) while the server's admin setting Offer Device
+   tests (`shouldOfferDeviceTests`, off by default, the owner, 2026-10-25) is on; off, every lab page
+   says "Device tests are turned off on this server." So two gates would meet: the server's setting
+   and the account's Show debug tools. Corrected 2026-11-11: the lead first told the owner the lab
+   had no link at all.
    Open, asked of the owner: whether the Experimental page is the lab's menu given an entry, or a new
    page of links that includes the lab's; where its entry sits (the rail's manage group, the account
    page, beside the other debug tools); whether it is for anyone with Show debug tools or admins alone.
