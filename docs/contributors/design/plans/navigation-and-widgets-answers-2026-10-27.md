@@ -2909,7 +2909,16 @@ The owner's answers:
 6. **Every other recommendation in the report is taken**:
    - Long Animation Frame attribution in the freeze reports.
    - Download priorities: `fetchpriority` on the first row's posters, `priority: "low"` on background
-     fetches.
+     fetches. Found before building (2026-11-11), for the owner: on the public path, where the
+     owner's devices are, a poster, a chunk and an API call never reach the browser's own fetch
+     queue. The service worker takes each load and has the page fetch it over its WebRTC data
+     channel (rtc-media.ts, W2b), and `fetchpriority` and `priority` order only the browser's HTTP
+     requests. They would act on a LAN address alone, where the stick already loads quickly. The
+     order that matters on the data channel is the page's own: item 8's poster window already
+     loads outward from the focus. Asked: build it for the LAN path anyway, or drop it?
+   - `:user-invalid` needs a colour for a field marked wrong, which tokens.css does not have
+     (`--color-warning` is the yellow of a notice). Asked: which colour, or the field's edge in the
+     problem line's own colour?
    - `aria-invalid` and `:user-invalid` on failing fields; the `role="alert"`s reviewed for polite
      status.
    - The Trusted Types CSP, report-only first. Built: the client's pages, the core's and Connect's,
