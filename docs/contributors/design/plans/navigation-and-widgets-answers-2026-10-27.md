@@ -2839,38 +2839,27 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   passed three runs in a row alone, both browsers. Find why focus-visible is sometimes missed after a
   pad move; don't add a retry.
 
-- **Next batch, approved (the owner, 2026-11-11: "ok sounds good"; "keys queueing up is a bad thing,
-  but I don't want a fix that prevents fast scrolling through a movie"):** a held arrow's repeat
-  that moves focus is skipped while the last move is not yet drawn, so a held key moves once a
-  drawn frame and stops at its release; a first press is never skipped. The player's held seek is
-  left alone: its travel comes from the time held (`seek-ahead.ts`, `heldTravelMs`), not the count of
-  repeats. A test pins both: under a slow draw a held arrow moves no more often than frames are
-  drawn and stops at the release, and a held seek travels as far for the same time held. The
-  measurement of what a move and a scroll redraw (2026-11-11, `/yoloai/files/focus-trace/`) is
-  read before it is built.
-
-- **Next batch (measured 2026-11-11, `/yoloai/files/focus-trace/report.md`):** in a library's grid
-  each ArrowDown costs ~78 ms of main thread at 6x throttling, against ~14 ms for a move on Home. The
-  keydown handler forces 10 layouts in a row, one per tile of the next row (~15 ms), likely the focus
-  search measuring tiles `content-visibility: auto` skipped; a whole-document paint and ~10 more
-  layout and paint frames follow as tiles enter view. Find what forces each layout and read the
-  row's boxes once. Also seen, not diagnosed: in a held Down at the last loaded rows, focus jumped to
-  the alphabet rail's bottom letter and stuck ~370 ms, and 3 of 20 spaced presses there only scrolled.
-
-- **Next batch (measured on the Fire TV Stick 4K, Silk 138, 2026-11-11):**
-  - **What the numbers show:**
-    - A press takes about 110 ms to reach the screen on Home and about 160 ms in the grid.
-    - The app's own main-thread work is about 35–40 ms of a Home press.
-    - The rest is GPU raster, the draw, and Android's display path (about 30–55 ms of it after the
-      swap).
-  - **What changed nothing:** removing every shadow, or asking for the 240 px poster, moved the
-    press-to-screen time no more than run-to-run noise.
-  - **The worst press:** the grid's widened search. One Down near the last laid-out rows took about
-    400 ms (48 forced layouts), twice in two runs. In a held Down the same spot sent focus to the
-    alphabet rail's "Y", the oddity above, now seen on the device.
-  - **Order of work:** fix the widened search first, then the per-row forced layouts, then the
-    approved held-key skip.
-  - **Report:** `/yoloai/files/focus-trace/fire-tv.md`.
+- **Done (2026-11-11): the Fire TV's slow and runaway presses.** The measurement is
+  `/yoloai/files/focus-trace/fire-tv.md`. All built in the order the owner approved ("ok go ahead"),
+  with the two additions they approved later ("yes to both"):
+  - "fix(web): a list asks for its next page two screens ahead, so Down from its last row stays in it"
+  - "perf(web): an arrow reads no box inside a grid item the browser skips": the widened search's
+    48 forced layouts and the per-row ones are now 0.
+  - "perf(web): a page more of a list renders as a transition, so a key press runs between its tiles"
+  - "perf(web): a poster card mounts one translation, not three"
+  - "feat(web): Down from a list's last row stays in its grid while the next page loads"
+  - "feat(web): a held arrow moves focus once a drawn frame, and stops at its release" (the
+    approved held-key skip): a first press is never skipped. An arrow something answers, the
+    player's held seek among them, hears every repeat, so its travel, from the time held
+    (`seek-ahead.ts`), is unchanged; the test pins that the answerer hears each one.
+  - **On the stick:**
+    - In held Down, the key handler's max went from 270–840 ms to 29–47 ms.
+    - Focus no longer leaves the grid.
+    - Nothing moves after the release.
+    - Stepped Down's press to screen went from 168 (632) to 156 (184) ms, median (max).
+  - **Left, for the owner to choose:** at the grid's last row, focus waits about 0.8–1.1 s for a
+    page. The page's answer comes in about 0.1 s; the rest is the transition committing while
+    keys keep coming.
 
 - **Next batch, the owner's request (2026-11-11, "Can we pre-cache the beginning of the next episode
   when the 'up next' thing pops up?"):**
