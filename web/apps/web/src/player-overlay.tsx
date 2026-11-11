@@ -48,6 +48,7 @@ import {
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
+import { StartRefusedShown, useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
@@ -94,7 +95,8 @@ export function PlayerOverlay(
     convenienceRef,
   };
   const told = { hasOffer, isMenuOpen };
-  const { state, source, isTv, isVolumeShown, seekFeedback } = useOverlay(refs, told);
+  const overlay = useOverlay(refs, told);
+  const { state, source, isTv } = overlay;
   const convenience = {
     film,
     offer,
@@ -105,11 +107,7 @@ export function PlayerOverlay(
   };
   return (
     <>
-      <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
-        <PauseIcon />
-      </span>
-      <SeekFeedbackShown feedback={seekFeedback} />
-      <VolumeShown sound={source.sound} isShown={isVolumeShown} />
+      <OverThePicture state={state} source={source} {...overlay.signs} />
       <div
         ref={overlayRef}
         className="player-overlay"
@@ -145,8 +143,7 @@ function useOverlay(
   readonly state: OverlayState;
   readonly source: PlayerSource;
   readonly isTv: boolean;
-  readonly isVolumeShown: boolean;
-  readonly seekFeedback: SeekFeedback | undefined;
+  readonly signs: PictureSigns;
 } {
   const { hasOffer, isMenuOpen } = told;
   const isTv = isTelevision(navigator.userAgent);
@@ -177,7 +174,39 @@ function useOverlay(
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
   useOverlayPresses({ ...presses, notePress, ...refs });
   usePlayersControls(refs.overlayRef, refs.videoRef);
-  return { state, source, isTv, isVolumeShown: volume.isShown, seekFeedback: feedback };
+  const isStartRefused = useStartRefused(refs, () => {
+    setState({ shown: "full", shownBy: isTv ? "remote" : "pointer" });
+  });
+  const signs = { isVolumeShown: volume.isShown, seekFeedback: feedback, isStartRefused };
+  return { state, source, isTv, signs };
+}
+
+/** The signs over the picture besides the pause sign (OverThePicture), as the overlay has them. */
+interface PictureSigns {
+  readonly isVolumeShown: boolean;
+  readonly seekFeedback: SeekFeedback | undefined;
+  /** Whether the browser refused the film's start and it has not played since (useStartRefused). */
+  readonly isStartRefused: boolean;
+}
+
+/**
+ * What shows over the picture, outside the overlay's rows: the pause sign after OK paused, the line
+ * over a film the browser would not start, a double tap's seek and the volume a moment.
+ */
+function OverThePicture(
+  props: PictureSigns & { readonly state: OverlayState; readonly source: PlayerSource },
+): JSX.Element {
+  const { state, source } = props;
+  return (
+    <>
+      <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
+        <PauseIcon />
+      </span>
+      <StartRefusedShown isShown={props.isStartRefused && source.isPaused} />
+      <SeekFeedbackShown feedback={props.seekFeedback} />
+      <VolumeShown sound={source.sound} isShown={props.isVolumeShown} />
+    </>
+  );
 }
 
 /**

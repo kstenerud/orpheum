@@ -44,6 +44,7 @@ export const enPlay = {
     fullScreen: "Full screen",
     leaveFullScreen: "Leave full screen",
     settings: "Settings",
+    pressPlayToStart: "Paused — press Play to start.",
   },
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
