@@ -3124,4 +3124,5 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    (best on paper, but it rests on how Silk and hls.js evict mid-chunk, hls.js's support for it is
    experimental, and a single run over about 28 MB still cannot fit). VQ294 is rewritten with it:
    the heavy stretch plays at 1080p without a stall, stepping down only for the chunks that cannot
-   fit.
+   fit. VQ298 (a hole a buffer-full flush cut) waits on it too, and is run on film 1504 around 3:30,
+   where the owner's Fire TV stood still (the owner, 2026-11-11).

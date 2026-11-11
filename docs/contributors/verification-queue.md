@@ -2935,8 +2935,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   of 0.42 s and 0.33 s: each time the film played across without standing still, its frames there
   already read by Chrome's pipeline, so no "stepped over" note. One stall 3 s later, inside loaded
   picture, hls.js nudged (`skippedBy=nudge`), playing again 1.2 s on. A hole the pipeline has not
-  read yet (10 s or more ahead) never coincided with a cut in the 14 s loaded ahead. Owed: a way to
-  make the hole the flush made, or the owner's call to take it on the next stall it meets.
+  read yet (10 s or more ahead) never coincided with a cut in the 14 s loaded ahead: a cut by hand is
+  not how the flush made its hole. **Open until the 11-23 batch's item 4 is built** (the owner,
+  2026-11-11: "leave VQ298 open for now and see how item 4 does"); then, on the test Fire TV stick,
+  play film 1504, where the owner's stood still, through its stretch around 3:30.
+  Passes when it plays on there: with no buffer-full flush at all, item 4's aim, or, where one still
+  cuts a hole, holes.ts stepping over it within about 2 s with its "stepped over" note in the log.
 - [x] **VQ299** — What the client's report-only Trusted Types policy would refuse reaches the core's
   log (the 11-22 batch's item 6) (passed 2026-11-11 on staging at "feat(web): the client's pages
   report what Trusted Types would refuse, to the core's log", in headless Chromium as `lead-tests`: run
