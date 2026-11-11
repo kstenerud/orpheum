@@ -209,7 +209,11 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
   const { node } = props;
   return (
     <>
-      {node.isServersBuild ? null : <p role="alert">{t("system.otherBuild")}</p>}
+      {node.isServersBuild ? null : (
+        <p>
+          <output>{t("system.otherBuild")}</output>
+        </p>
+      )}
       <dl>
         {node.build === undefined ? null : <BuildFacts build={node.build} />}
         {node.host === undefined ? null : <HostFacts host={node.host} />}
@@ -455,7 +459,11 @@ function EncodeSpeed(props: { readonly hardware: Hardware }): JSX.Element | null
   return (
     <>
       <p>{t("system.encodeSpeed", { percent: encodeSpeedPercent })}</p>
-      {isTooSlowToConvert ? <p role="alert">{t("system.tooSlowToEncode")}</p> : null}
+      {isTooSlowToConvert ? (
+        <p>
+          <output>{t("system.tooSlowToEncode")}</output>
+        </p>
+      ) : null}
     </>
   );
 }
