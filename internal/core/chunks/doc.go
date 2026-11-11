@@ -45,6 +45,30 @@
 //     TestGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
 //     TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut.
 //
+//   - A film whose picture's bytes in each second are read is cut at more of its keyframes where a
+//     chunk would hold more than largestChunkBytes, the smallest picture buffer's share, so a heavy
+//     stretch plays at full quality on a device with little memory; the cut is at the keyframe
+//     before the one that would pass it, so a stretch cut alone still agrees with the whole film's
+//     grid, and a short last chunk is merged only within it. A playback begun before the bytes were
+//     read stays on its keyframes alone to its end, as its chunks would otherwise move under it.
+//     Enforced by TestSizedGridOf_EndsAChunkAtTheKeyframeBeforeItWouldHoldMoreThanTheLargest,
+//     TestSizedGridOf_NeverSplitsTheStretchBetweenTwoKeyframes,
+//     TestSizedGridOf_MergesAShortLastChunkOnlyWithinTheLargest, TestSizedGridOf_WithNoBytesIsGridOf,
+//     TestSizedGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
+//     TestMasterPlaylist_APlaybackBegunBeforeThePicturesBytesAreReadStaysOnItsKeyframesAlone.
+//
+//   - A film whose picture's bytes in each second are read is cut at more of its keyframes where a
+//     chunk would hold more than largestChunkBytes, the smallest picture buffer's share, so a heavy
+//     stretch plays at full quality on a device with little memory; the cut is at the keyframe
+//     before the one that would pass it, so a stretch cut alone still agrees with the whole film's
+//     grid, and a short last chunk is merged only within it. A playback begun before the bytes were
+//     read stays on its keyframes alone to its end, as its chunks would otherwise move under it.
+//     Enforced by TestSizedGridOf_EndsAChunkAtTheKeyframeBeforeItWouldHoldMoreThanTheLargest,
+//     TestSizedGridOf_NeverSplitsTheStretchBetweenTwoKeyframes,
+//     TestSizedGridOf_MergesAShortLastChunkOnlyWithinTheLargest, TestSizedGridOf_WithNoBytesIsGridOf,
+//     TestSizedGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
+//     TestMasterPlaylist_APlaybackBegunBeforeThePicturesBytesAreReadStaysOnItsKeyframesAlone.
+//
 //   - A copied picture's run past the film's first chunk is led in from the chunk before, so FFmpeg
 //     times an open GOP's pictures shown before the run's first keyframe as the film does; it seeks
 //     past its first keyframe (its lead-in's), midway to the next, so FFmpeg lands on it; an MPEG-TS

@@ -2945,15 +2945,19 @@ The owner's answers:
      keyframe.
    - The design question the owner asked (2026-11-11): "Are we able to pre-emptively get the bitrate
      at each point of the video in a quick scan? Then the device could tell us its buffer size and we
-     could intelligently feed it appropriately sized pieces." Proposed, awaiting the owner:
+     could intelligently feed it appropriately sized pieces." Agreed (the owner, 2026-11-11, "agreed with
+     your plan"):
      - The grid's local rule gains a cap on a piece's bytes. A piece whose bytes would pass the cap
        ends at the next keyframe, so each boundary still depends only on what is near it.
-     - The bytes come from what the node already reads: an MP4's sample table, a Matroska file's
-       cues, and the read-through's bytes in each second.
+     - The bytes are the read-through's bytes in each second, which the core already stores, so
+       neither the node nor the schema changes. The cap is 5 MiB, a sixth of Silk's 30 MiB, so the
+       playing piece, two ahead and the room behind fit.
      - One grid serves every device, sized for the smallest buffer (Silk's 30 MiB). The device's
        limit decides how many pieces it keeps ahead, not how they are cut. A grid per device would
        multiply every film's stores and re-cuts.
      - A changed grid is a new store, so films with heavy stretches are cut again once.
+     - The grid must not move under a playback: one begun before the read-through found the bytes
+       stays cut on its keyframes alone to its end, as one begun on time stays on time.
 10. **The player recovers after the buffer is full, and says so when it can't** (found 2026-11-11 on
     the same Fire TV; each seriously hurts playing, so they are folded in):
     - (a) After bufferFullError and its flush, a 0.12 s hole was left at the play position

@@ -107,14 +107,20 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	})
 }
 
-// cutForRun is the run's film as it is cut on the grid the run was asked on: on its keyframes, or,
-// when that is not the run's grid or its keyframes cannot cut it, on time (D269 §3, D344 §2);
-// reporting false when the film has neither.
+// cutForRun is the run's film as it is cut on the grid the run was asked on: on its keyframes sized,
+// on them alone, or, when neither is the run's grid or its keyframes cannot cut it, on time (D269 §3,
+// D344 §2); reporting false when the film has none.
 func (service *Service) cutForRun(ctx context.Context, run storedRun) (cutFilm, bool, error) {
-	film, isCut, err := service.cut(ctx, run.fileID, OnKeyframes)
+	film, isCut, err := service.cut(ctx, run.fileID, OnKeyframesSized)
 	hasUncutPicture := errors.Is(err, ErrCannotBeCut) && film.picture.Codec != ""
 	if (err != nil && !hasUncutPicture) || (isCut && film.storeKey(run.stream) == run.storeKey) {
 		return film, isCut, err
+	}
+	if isCut && film.kind == OnKeyframesSized {
+		alone, isAlone, aloneErr := service.cut(ctx, run.fileID, OnKeyframes)
+		if aloneErr == nil && isAlone && alone.storeKey(run.stream) == run.storeKey {
+			return alone, true, nil
+		}
 	}
 	timed, isTimed, timeErr := service.cut(ctx, run.fileID, OnTime)
 	if timeErr == nil && isTimed && timed.storeKey(run.stream) == run.storeKey {

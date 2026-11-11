@@ -204,6 +204,7 @@ func (service *Service) keepStart(playback *tokenPlayback, onLadder *chunks.Offe
 	playback.isOnLadder = onLadder != nil
 	if onLadder != nil {
 		playback.isOnTime = onLadder.IsOnTime
+		playback.isOnKeyframesAlone = onLadder.IsOnKeyframesAlone
 		playback.interest = playerInterest{
 			picture: onLadder.StreamName, sound: onLadder.SoundStreamName,
 			picturePositionMs: onLadder.FromMs, soundPositionMs: onLadder.FromMs,

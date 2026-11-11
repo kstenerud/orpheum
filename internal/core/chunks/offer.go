@@ -43,6 +43,10 @@ type Playback struct {
 	// IsOnTime is whether it began on its film cut on time, its file having no index of its
 	// keyframes: it stays so to its end, though a read-through finds them meanwhile (D269 §3).
 	IsOnTime bool
+	// IsOnKeyframesAlone is whether it began on its film cut on its keyframes alone, its picture's
+	// bytes in each second not read yet: it stays so to its end, though a read-through finds them
+	// meanwhile, as its chunks would otherwise move (OnKeyframesSized).
+	IsOnKeyframesAlone bool
 	// IsSoundUnlevelled is whether its first master playlist named its film's sounds unlevelled, the
 	// film's loudness not measured yet: they stay so to its end, though the loudness is measured
 	// meanwhile, so a stall's offer starts and waits on the sound its player plays.
@@ -61,28 +65,33 @@ type Playback struct {
 }
 
 // Kept is what a playback keeps, to its end, of the first master playlist it was offered, though
-// its film changes meanwhile: whether the film was cut on time, whether its sounds were named
-// unlevelled, and whether before the film's loudness was measured.
+// its film changes meanwhile: whether the film was cut on time or on its keyframes alone, whether its
+// sounds were named unlevelled, and whether before the film's loudness was measured.
 type Kept struct {
-	IsOnTime          bool
-	IsSoundUnlevelled bool
-	IsSoundUnmeasured bool
+	IsOnTime           bool
+	IsOnKeyframesAlone bool
+	IsSoundUnlevelled  bool
+	IsSoundUnmeasured  bool
 }
 
 // Kept is what the playback keeps already.
 func (playback Playback) Kept() Kept {
 	return Kept{
-		IsOnTime: playback.IsOnTime, IsSoundUnlevelled: playback.IsSoundUnlevelled,
-		IsSoundUnmeasured: playback.IsSoundUnmeasured,
+		IsOnTime: playback.IsOnTime, IsOnKeyframesAlone: playback.IsOnKeyframesAlone,
+		IsSoundUnlevelled: playback.IsSoundUnlevelled, IsSoundUnmeasured: playback.IsSoundUnmeasured,
 	}
 }
 
-// gridKind is what the playback's film is cut at: on time, once it began so, else on keyframes.
+// gridKind is what the playback's film is cut at: on time, or on its keyframes alone, once it began
+// so, else on its keyframes sized.
 func (playback Playback) gridKind() GridKind {
-	if playback.IsOnTime {
+	switch {
+	case playback.IsOnTime:
 		return OnTime
+	case playback.IsOnKeyframesAlone:
+		return OnKeyframes
 	}
-	return OnKeyframes
+	return OnKeyframesSized
 }
 
 // qualityPeakPerAverage is how far over its average a quality's bit rate may rise: the node caps
@@ -192,7 +201,7 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 // more into a bit (D323 §1, the owner, 2026-10-20); else none, below its own picture's rate.
 func topOf(film cutFilm, playback Playback) ([]Stream, int64) {
 	switch {
-	case playback.IsSourcePictureDecodable && film.kind == OnKeyframes:
+	case playback.IsSourcePictureDecodable && film.kind != OnTime:
 		return []Stream{{Kind: nodeproto.StreamPicture}}, film.pictureAverageBps()
 	case film.picture.Video.Height >= qualities.MinHeight:
 		twin := twinOf(film)
@@ -327,7 +336,7 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 		if isRetried {
 			return film, fmt.Errorf("file %d: %w", fileID, ErrNoGrid)
 		}
-		if film.kind == OnKeyframes {
+		if film.kind != OnTime {
 			film, _, err = service.cut(ctx, fileID, OnTime)
 			return film, err
 		}
@@ -379,7 +388,8 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 		variants = append(variants, shown)
 	}
 	kept := Kept{
-		IsOnTime: film.kind == OnTime, IsSoundUnlevelled: offered.isUnlevelled, IsSoundUnmeasured: !offered.isMeasured,
+		IsOnTime: film.kind == OnTime, IsOnKeyframesAlone: film.kind == OnKeyframes,
+		IsSoundUnlevelled: offered.isUnlevelled, IsSoundUnmeasured: !offered.isMeasured,
 	}
 	return masterPlaylist(groups, variants), kept, nil
 }
