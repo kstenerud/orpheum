@@ -27750,7 +27750,8 @@ neither.
    the frozen, tested copies (D461) like its own.
 5. **Each platform is tested in a VM** on one of the owner's spare machines, not on the owner's own
    Proxmox hosts (the owner: *"it might be better to spin up the various platforms in VMs on one of
-   the many available machines for testing"*).
+   the many available machines for testing"*). The machine is the owner's GPU build box, which has
+   the processors and the disk and may sleep between runs, woken when wanted (the owner, 2026-11-11).
 6. **Not in the closed beta's way:** both testers' platforms are covered already. A Docker Hub
    mirror of the image changes the release workflow, a gate, so it waits for the owner.
 
