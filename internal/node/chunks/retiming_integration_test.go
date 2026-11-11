@@ -211,11 +211,11 @@ func checkEncodeIsEveryPicture(t *testing.T, codec string, times, pictures []flo
 }
 
 // A re-timed copy is cut at a keyframe shown sooner after its decode time than the run's first
-// keyframe is: an open-GOP HEVC film, as The Gold Rush's x265 is, shows each keyframe after the pictures
+// keyframe is: an open-GOP HEVC film, as the owner's film's x265 is, shows each keyframe after the pictures
 // decoded after it that it leads, and dts2pts times it so, here 292 ms late at 2.042 s, 208 ms at
 // 4.375 s and 125 ms at 6.042 s. The muxer, timing its cuts from the run's first keyframe as shown,
 // took the one at 4.375 s for 84 ms early, and a cut 50 ms early missed it: the run held chunks 1 and
-// 2 in one raw file, as The Gold Rush's held 349 and 350, which could never be made (staging,
+// 2 in one raw file, as the owner's film's held 349 and 350, which could never be made (staging,
 // 2026-11-03; toolkit.md item 12).
 func TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst(t *testing.T) {
 	t.Parallel()

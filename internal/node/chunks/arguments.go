@@ -20,7 +20,7 @@ const cutEarlyMs = 50
 // retimedCutEarlyMs is how much before a chunk's start the muxer is told to cut a re-timed copy
 // (isRetimed). The muxer times its cuts from its first packet's display time, and dts2pts shows each
 // keyframe after its decode time by as many pictures as are reordered before it, which differs from
-// keyframe to keyframe: an HEVC keyframe of The Gold Rush is shown 83 to 250 ms after it is decoded, so
+// keyframe to keyframe: an HEVC keyframe of the owner's film is shown 83 to 250 ms after it is decoded, so
 // a run whose first keyframe is shown 250 ms late takes a later one shown 125 ms late for 125 ms
 // early, and a cut 50 ms early missed it: chunk 349 could never be made (staging, 2026-11-03;
 // toolkit.md item 12). Cut this early, a keyframe is missed only if its film's delays differ by about
@@ -98,7 +98,7 @@ func seekMs(command nodeproto.MakeChunks) int64 {
 // unsought. FFmpeg moves a seek into a film with B-frames 3/23 s earlier, before the start, and an
 // AVI seeking there lands past its first keyframe, losing the film's first packets: the
 // first 21 frames of a sound interleaved ahead of its picture, which put a sound, timed by its
-// samples, half a second early for all its run (Quillwick, staging, 2026-11-01), and the picture's
+// samples, half a second early for all its run (the owner's series, staging, 2026-11-01), and the picture's
 // first keyframe; and RealMedia loses its first super-block, as any seek loses the one it lands in
 // (idiosyncrasies.md).
 func isSeeking(command nodeproto.MakeChunks) bool {

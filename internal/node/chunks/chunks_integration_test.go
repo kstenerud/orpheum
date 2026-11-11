@@ -514,8 +514,8 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 // A film whose first keyframe its edit shows before its start, flagged discarded, is cut from its
 // start: its index counts that keyframe at 0, before the next keyframes a read-through counts, and
 // its copied picture's chunks from that grid, made in two runs, hold every picture of the film once,
-// the first chunk's from its start; cut from its next keyframe, its first seconds never played (A
-// Perfect World, staging, 2026-11-04).
+// the first chunk's from its start; cut from its next keyframe, its first seconds never played (the
+// owner's film, staging, 2026-11-04).
 func TestMake_AFilmWhoseFirstKeyframeIsBeforeItsStartIsCutFromItsStart(t *testing.T) {
 	t.Parallel()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))

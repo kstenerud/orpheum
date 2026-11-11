@@ -27,8 +27,8 @@ const toneAtMs = 3_000
 
 // aviWithSoundAheadOfItsPicture makes a twelve-second AVI as XviD and VirtualDub made them: an MPEG-4
 // Part 2 picture with B-frames at 25 a second, and stereo MP3 at 48 kHz interleaved half a second
-// ahead of it, its first half second before the picture's first packet in the file (Quillwick
-// II, "Money", staging, 2026-11-01). The sound is silent until a tone at toneAtMs.
+// ahead of it, its first half second before the picture's first packet in the file (an episode of the
+// owner's series, staging, 2026-11-01). The sound is silent until a tone at toneAtMs.
 func aviWithSoundAheadOfItsPicture(t *testing.T) string {
 	t.Helper()
 	sound := filepath.Join(t.TempDir(), "a tone at three seconds.mp3")

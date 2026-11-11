@@ -92,7 +92,7 @@ func checkTimeline(t *testing.T, timeline *nodeproto.VideoTimeline) {
 
 // A film copied from 0.1 s in, as rips cut by copying are, has its first keyframe before its start,
 // flagged discarded by the MP4's edit, and its next 1.9 s in: its read-through counts the first at
-// its start, so its grid starts there and its first seconds play (A Woman of Paris, staging,
+// its start, so its grid starts there and its first seconds play (the owner's film, staging,
 // 2026-11-04).
 func TestRead_AFilmsKeyframeBeforeItsStartIsCountedAtItsStart(t *testing.T) {
 	t.Parallel()

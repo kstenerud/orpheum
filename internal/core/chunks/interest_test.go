@@ -293,7 +293,7 @@ func TestWant_APausedPlayersAskStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
 // A player that seeks forward inside a run, more than a minute of film past what it makes, stops it,
 // playing or paused there, and its ask starts a run where it landed: left, the run was wanted for
 // covering the jump's chunk, the jump's ask started none, and the player waited for the run from near
-// the film's start to get there until it gave up (the owner's The Unknown on staging, 2026-10-26).
+// the film's start to get there until it gave up (the owner's film on staging, 2026-10-26).
 func TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn(t *testing.T) {
 	t.Parallel()
 	for _, isPaused := range []bool{false, true} {
@@ -329,7 +329,7 @@ func TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn(t *testi
 // wants the stream, starts no run there: the jump's chunk, asked for beside it, starts the run from
 // where the player is, which makes the init too, and is the run said to make it. Left, the init's run,
 // from where the player had been before it jumped, covered the jump's chunk and kept it waiting, and
-// the init's wait said no run covered it (the owner's The Unknown, 2026-10-26).
+// the init's wait said no run covered it (the owner's film, 2026-10-26).
 func TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
@@ -356,7 +356,7 @@ func TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere(t *testing
 
 // A run stopped as no player wants it says what the players of its stream want, and an ask that
 // planned no run says so with them: a paused player's run stopped read in the log as a playing
-// player's cut, and an init answered "ask again" as one no run would make (the owner's The Unknown,
+// player's cut, and an init answered "ask again" as one no run would make (the owner's film,
 // 2026-10-26).
 func TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant(t *testing.T) {
 	t.Parallel()

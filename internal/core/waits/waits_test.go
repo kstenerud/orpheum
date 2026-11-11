@@ -207,7 +207,7 @@ func TestNewEstimator_RefusesPartsThatLeaveOneOut(t *testing.T) {
 
 // A running read-through that says how far it is goes at its own pace, where its node's speed said
 // it was done: a share slower than the node's slowest read left "less than a minute" for minutes
-// (the owner's The General on staging, 2026-10-21; D324 §6).
+// (the owner's film on staging, 2026-10-21; D324 §6).
 func TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)

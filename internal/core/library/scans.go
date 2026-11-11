@@ -81,7 +81,7 @@ type Scans struct {
 // OnEnded sets what is told each time a scan has ended, its root no longer scanning. The pass that
 // follows a scan runs inside its completion, while the scan is still in progress, so a rescan waiting
 // for its library's scan to be over saw it scanning and, asked again by nothing, waited for the next
-// hourly sweep (staging's "Rescan this" of Crowd, 2026-10-27).
+// hourly sweep (staging's "Rescan this" of the owner's film, 2026-10-27).
 func (scans *Scans) OnEnded(tell func()) { scans.onEnded = tell }
 
 // RequestOnHello asks for the scan a node's hello brings of a root a library covers: in the

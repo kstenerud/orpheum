@@ -57,7 +57,7 @@
 //     core says: it seeks past that chunk's keyframe, cuts at the run's first chunk too and drops
 //     the lead-in's raw file uncounted, so FFmpeg times an open GOP's pictures shown before the run's
 //     first keyframe and decoded after it as the film does; begun at that keyframe, it crushes their
-//     times together and leaves a hole at the join (idiosyncrasies.md; The Pumbletons S33E8). Enforced
+//     times together and leaves a hole at the join (idiosyncrasies.md; an episode of the owner's series). Enforced
 //     by TestArguments_ACopiedPictureIsLedInFromTheChunkBefore, TestMake_DropsACopiedPicturesLeadIn,
 //     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg and an open GOP's HEVC,
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes.
