@@ -3021,3 +3021,22 @@ The owner's answers:
   found focus out of view (`isFocusInView` false) after a press; alone it passes 12 of 12. Focus
   scrolls by `scrollIntoViewGently` (`focus-navigation.ts`), at the press: find what moves the list
   after the scroll under load (more posters drawn, the banner), as the rail's flake was found.
+
+## The 11-23 batch: Chromecast (the owner, 2026-11-11)
+
+Before the 11-22 batch's next-batch list (the owner, 2026-11-11: "before we start on those, I want
+to do some work on chromecast as the next batch"). The owner has set up the Chromecast in Google's
+Cast Developer Console (the steps under "Chromecast test steps for the owner (2026-11-08)"), so
+VQ286 and VQ287 can run.
+
+1. **An Experimental page, gated by Show debug tools** (the owner, 2026-11-11: "What I want
+   initially is a way to navigate to the chromecast pages of ours. So first step in the next batch
+   will be to make an 'Experimental' page that's gated off the 'show debug tools' account setting.
+   This will be where we put all of the links to things we're experimenting with."). Today the lab
+   (`/lab`, lab.tsx: its probes, the Cast lab, the UI gallery) has no link anywhere in the app, by
+   test (app-shell's and app's `not.toContain('href="/lab"')`): it is reached by typing its address.
+   Open, asked of the owner: whether the Experimental page is the lab's menu given an entry, or a new
+   page of links that includes the lab's; where its entry sits (the rail's manage group, the account
+   page, beside the other debug tools); whether it is for anyone with Show debug tools or admins alone.
+2. **Noted (the owner, 2026-11-11):** YouTube's Android app casts to the owner's Fire TVs.
+
