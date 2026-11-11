@@ -7,7 +7,7 @@ import { expect, it } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
 import { Register } from "./register.tsx";
-import { enter, mount, servedBy, submit, type Heard } from "./test-dom.tsx";
+import { enter, mount, refusal, servedBy, submit, type Heard, type Mounted } from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 
 it("with no link in the address, says so and offers nothing to fill in", async () => {
@@ -80,4 +80,49 @@ it("asks an invitation's person for their own name, and sends it with the passwo
     methodAndPath: "POST /registration",
     body: { secret: "invited", name: "Gran", password: "secret" },
   });
+});
+
+/** The registration page for an invitation whose name is taken, with its three fields. */
+async function registeringATakenName(): Promise<
+  readonly [Mounted, ...(HTMLInputElement | undefined)[]]
+> {
+  const services = {
+    ...servedBy({
+      "POST /registration/link": [200, { isInvitation: true }],
+      "POST /registration": refusal(409, "conflict"),
+    }),
+    navigation: createNavigation(fakePlace("/register#invited")),
+  };
+  const mounted = await mount(withServices(<Register />, services));
+  return [mounted, ...mounted.container.querySelectorAll("input")];
+}
+
+it("marks the password typed again invalid while it does not match, until it is typed again", async () => {
+  const [mounted, name, password, again] = await registeringATakenName();
+  await enter(name, "Gran");
+  await enter(password, "secret");
+  await enter(again, "secrets");
+  await submit(mounted.container.querySelector("form"));
+  expect(again?.getAttribute("aria-invalid")).toBe("true");
+  expect(again?.getAttribute("aria-describedby")).toBe(
+    mounted.container.querySelector('[role="alert"]')?.id,
+  );
+  expect(name?.hasAttribute("aria-invalid")).toBe(false);
+  await enter(again, "secret");
+  expect(again?.hasAttribute("aria-invalid")).toBe(false);
+  mounted.unmount();
+});
+
+it("marks the name invalid while a name taken shows, described by the line", async () => {
+  const [mounted, name, password, again] = await registeringATakenName();
+  await enter(name, "Gran");
+  await enter(password, "secret");
+  await enter(again, "secret");
+  await submit(mounted.container.querySelector("form"));
+  const line = mounted.container.querySelector('[role="alert"]');
+  expect(line?.textContent).toContain("already has that name");
+  expect(name?.getAttribute("aria-invalid")).toBe("true");
+  expect(name?.getAttribute("aria-describedby")).toBe(line?.id);
+  expect(again?.hasAttribute("aria-invalid")).toBe(false);
+  mounted.unmount();
 });

@@ -9,8 +9,15 @@ import {
   CredentialsNotice,
   CredentialsProblem,
 } from "./credentials-form.tsx";
+import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { ApiProblem, dataOrThrow, fieldProblemText } from "./problem.ts";
+import {
+  ApiProblem,
+  dataOrThrow,
+  failedFields,
+  fieldProblemText,
+  type FormWords,
+} from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
@@ -24,6 +31,14 @@ export function NoLink(): JSX.Element {
       <p>{t("together.noLink")}</p>
     </CredentialsNotice>
   );
+}
+
+/** How a refused join is told: its name field, and a link no session has (notFound). */
+function joinWords(t: (key: string) => string): FormWords {
+  return {
+    fields: { "body.name": t("together.name") },
+    overrides: { notFound: t("together.badLink") },
+  };
 }
 
 /** The session a person joining is in already: whose, and whether their own (D372 §8). */
@@ -58,11 +73,12 @@ export function JoinForm(props: {
   const canFollow = canFollowAGroup();
   const linkState = useLinkState(props.secret, canFollow);
   const join = useJoin(props);
+  const marks = useFieldMarks(join.failure, failedFields(join.failure, joinWords(t)));
   if (!canFollow) {
     // Told before joining, so no one waits for a device that could never keep up (D250 §7).
     return (
       <CredentialsNotice heading={t("together.joinHeading")}>
-        <p role="alert">{t("together.cannotFollow")}</p>
+        <output>{t("together.cannotFollow")}</output>
       </CredentialsNotice>
     );
   }
@@ -70,7 +86,7 @@ export function JoinForm(props: {
     return (
       <CredentialsNotice heading={t("together.joinHeading")}>
         {linkState === "refused" ? (
-          <p role="alert">{t("together.badLink")}</p>
+          <output>{t("together.badLink")}</output>
         ) : (
           <p>{t("together.checkingLink")}</p>
         )}
@@ -87,8 +103,12 @@ export function JoinForm(props: {
       }}
     >
       <p>{t("together.joinExplain")}</p>
-      <JoinNameField name={name} setTypedName={setTypedName} />
-      {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
+      <JoinNameField name={name} setTypedName={setTypedName} marks={marks} />
+      {problem === undefined ? null : (
+        <CredentialsProblem isAlert id={marks.problemId}>
+          {problem}
+        </CredentialsProblem>
+      )}
       {other === undefined ? (
         <button type="submit" disabled={isBusy}>
           {t("together.join")}
@@ -113,17 +133,16 @@ function useJoin(props: {
   readonly other: OtherSession | undefined;
   readonly isBusy: boolean;
   readonly problem: string | undefined;
+  /** What the last join failed with, which marks the name when it is about it. */
+  readonly failure: unknown;
   readonly send: (name: string) => void;
   readonly stay: () => void;
 } {
   const { t } = useTranslation();
   const { api } = useServices();
   const [other, setOther] = useState<OtherSession | undefined>(undefined);
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: { "body.name": t("together.name") },
-      overrides: { notFound: t("together.badLink") },
-    }),
+  const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, joinWords(t)),
   );
   const { secret, heldCredential, onJoined } = props;
   const send = (name: string): void => {
@@ -153,6 +172,7 @@ function useJoin(props: {
     other,
     isBusy,
     problem,
+    failure,
     send,
     stay: () => {
       setOther(undefined);
@@ -193,9 +213,11 @@ function LeaveOtherToJoin(props: {
 function JoinNameField(props: {
   readonly name: string;
   readonly setTypedName: Dispatch<SetStateAction<string | undefined>>;
+  /** The marks on the fields the failure shown is about. */
+  readonly marks: FieldMarks;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { name, setTypedName } = props;
+  const { name, setTypedName, marks } = props;
   return (
     <CredentialsField label={t("together.name")}>
       <input
@@ -203,13 +225,14 @@ function JoinNameField(props: {
         maxLength={100}
         autoComplete="nickname"
         value={name}
+        {...marks.markOf("body.name")}
         onFocus={() => {
           // What it shows as its person starts on it is theirs: a name loaded later replaces nothing,
           // where it went in before what they typed ("viewer-firefoxAnna", check-pr 2026-10-15).
           setTypedName((typed) => typed ?? name);
         }}
         onChange={(event) => {
-          setTypedName(event.target.value);
+          marks.editing("body.name", setTypedName)(event.target.value);
         }}
       />
     </CredentialsField>

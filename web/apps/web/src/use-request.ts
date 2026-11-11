@@ -17,6 +17,11 @@ export interface RequestState {
   readonly isBusy: boolean;
   /** Why the last request failed, in the person's words; undefined while one runs or it worked. */
   readonly problem: string | undefined;
+  /**
+   * What the last request failed with, as problem is told from it; undefined while one runs or it
+   * worked. A form marks the fields it is about (useFieldMarks).
+   */
+  readonly failure: unknown;
   /** Whether the running request has taken longer than slowAfterMs: a host slow, or our own pacing. */
   readonly isSlow: boolean;
   /**
@@ -100,6 +105,7 @@ function countDown(endsAt: number, ticking: Ticking, again: () => void): void {
 export function useRequest(describeFailure: (cause: unknown) => string): RequestState {
   const [isBusy, setIsBusy] = useState(false);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const [failure, setFailure] = useState<unknown>(undefined);
   const [isSlow, setIsSlow] = useState(false);
   const [retryInSeconds, setRetryInSeconds] = useState<number | undefined>(undefined);
   const [isChecking, setIsChecking] = useState(false);
@@ -112,6 +118,7 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
       clear();
       setIsBusy(true);
       setProblem(undefined);
+      setFailure(undefined);
       setRetryInSeconds(undefined);
       setIsChecking(wasNotAnswering.current);
       after(slowAfterMs, () => {
@@ -138,6 +145,7 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
             return;
           }
           setProblem(describe.current(cause));
+          setFailure(cause);
         },
       );
     },
@@ -149,5 +157,5 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
     },
     [run],
   );
-  return { isBusy, problem, isSlow, retryInSeconds, isChecking, runRequest };
+  return { isBusy, problem, failure, isSlow, retryInSeconds, isChecking, runRequest };
 }

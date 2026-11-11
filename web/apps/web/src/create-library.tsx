@@ -5,12 +5,14 @@ import "./libraries-words.ts";
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { FolderBrowser } from "./folder-picker.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, fieldProblemText } from "./problem.ts";
+import { useFieldMarks, type FieldMark } from "./field-marks.ts";
+import { dataOrThrow, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
@@ -127,6 +129,7 @@ function WhereItIs(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
   readonly setAnswer: SetAnswer;
+  readonly markOf: MarkOf;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft, nodes, setAnswer } = props;
@@ -141,6 +144,7 @@ function WhereItIs(props: {
         {t("libraries.node")}
         <select
           value={draft.nodeName}
+          {...props.markOf("body.nodeName")}
           onChange={(event) => {
             props.setAnswer("nodeName", event.target.value);
             props.setAnswer("rootPaths", []);
@@ -162,6 +166,7 @@ function WhereItIs(props: {
         <FolderTicks
           offered={foldersOffered(chosenNode?.rootPaths ?? [], roots)}
           chosen={roots}
+          mark={props.markOf("body.rootPaths")}
           onChange={(chosen) => {
             setAnswer("rootPaths", chosen);
           }}
@@ -184,6 +189,8 @@ function WhereItIs(props: {
 function FolderTicks(props: {
   readonly offered: readonly string[];
   readonly chosen: readonly string[];
+  /** The roots' mark while a refusal of them shows, on each, as a group cannot carry one. */
+  readonly mark: FieldMark;
   readonly onChange: (chosen: string[]) => void;
 }): JSX.Element {
   return (
@@ -191,6 +198,7 @@ function FolderTicks(props: {
       {props.offered.map((folder) => (
         <label key={folder}>
           <input
+            {...props.mark}
             type="checkbox"
             checked={props.chosen.includes(folder)}
             onChange={(event) => {
@@ -275,10 +283,14 @@ function Question<T extends string>(props: {
 /** Changes one answer of a draft. */
 type SetAnswer = <K extends keyof NewLibrary>(key: K, value: NewLibrary[K]) => void;
 
+/** The mark of a field by where the server locates it ("body.name"), while a refusal of it shows. */
+type MarkOf = (field: string) => FieldMark;
+
 /** The library's name and what it holds. */
 function WhatItHolds(props: {
   readonly draft: NewLibrary;
   readonly setAnswer: SetAnswer;
+  readonly markOf: MarkOf;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft, setAnswer } = props;
@@ -289,6 +301,7 @@ function WhatItHolds(props: {
         <input
           required
           value={draft.name}
+          {...props.markOf("body.name")}
           onChange={(event) => {
             setAnswer("name", event.target.value);
           }}
@@ -343,6 +356,7 @@ function ScanningQuestions(props: {
   readonly checkEveryHoursToStart: number;
   readonly setAnswer: SetAnswer;
   readonly onDraftChange: (draft: NewLibrary) => void;
+  readonly markOf: MarkOf;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft } = props;
@@ -369,6 +383,7 @@ function ScanningQuestions(props: {
             min={1}
             required
             value={draft.checkEveryHours ?? props.checkEveryHoursToStart}
+            {...props.markOf("body.checkEveryHours")}
             onChange={(event) => {
               props.setAnswer("checkEveryHours", Number(event.target.value));
             }}
@@ -427,6 +442,8 @@ export function CreateLibraryForm(props: {
   /** The server's newLibraryDefaultScanEveryHours, which an interval starts at. */
   readonly checkEveryHoursToStart: number;
   readonly problem: string;
+  /** What the last creating failed with, which marks the fields it is about. */
+  readonly failure?: unknown;
   /** Whether the library is being created, which its button waits for. */
   readonly isCreating?: boolean | undefined;
   readonly onDraftChange: (draft: NewLibrary) => void;
@@ -434,17 +451,19 @@ export function CreateLibraryForm(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const draft = onAConnectedNode(props.draft, props.nodes);
+  const marks = useFieldMarks(props.failure, failedFields(props.failure, libraryWords(t)));
+  // An answer changed takes its field's mark away.
   const setAnswer: SetAnswer = (key, value) => {
-    props.onDraftChange({ ...draft, [key]: value });
+    marks.editing(`body.${key}`, props.onDraftChange)({ ...draft, [key]: value });
   };
   return (
     <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
       <h1 id="create-library-heading">{t("libraries.createHeading")}</h1>
       <FormGroup id="create-library-what" heading={t("libraries.groupWhat")}>
-        <WhatItHolds draft={draft} setAnswer={setAnswer} />
+        <WhatItHolds draft={draft} setAnswer={setAnswer} markOf={marks.markOf} />
       </FormGroup>
       <FormGroup id="create-library-source" heading={t("libraries.groupSource")}>
-        <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
+        <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} markOf={marks.markOf} />
         <MetadataQuestion draft={draft} setAnswer={setAnswer} />
         <WritableChoice draft={draft} setAnswer={setAnswer} />
       </FormGroup>
@@ -454,9 +473,14 @@ export function CreateLibraryForm(props: {
           checkEveryHoursToStart={props.checkEveryHoursToStart}
           setAnswer={setAnswer}
           onDraftChange={props.onDraftChange}
+          markOf={marks.markOf}
         />
       </FormGroup>
-      {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
+      {props.problem === "" ? null : (
+        <p role="alert" id={marks.problemId}>
+          {props.problem}
+        </p>
+      )}
       <button type="submit" disabled={!hasARoot(draft) || props.isCreating === true}>
         {t("libraries.create")}
       </button>
@@ -484,6 +508,18 @@ export function CreateLibraryPage(): JSX.Element {
   );
 }
 
+/** How a refused library is told: by the fields the server names. */
+function libraryWords(t: TFunction): FormWords {
+  return {
+    fields: {
+      "body.name": t("libraries.name"),
+      "body.nodeName": t("libraries.node"),
+      "body.rootPaths": t("libraries.roots"),
+      "body.checkEveryHours": t("libraries.checkEvery"),
+    },
+  };
+}
+
 /** The create-library form, sent to the server; a created library is scanned at once. */
 export function CreateLibrary(props: {
   /** Told the new library's id once the server made it. */
@@ -492,16 +528,7 @@ export function CreateLibrary(props: {
   const { t } = useTranslation();
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
-  const creating = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: {
-        "body.name": t("libraries.name"),
-        "body.nodeName": t("libraries.node"),
-        "body.rootPaths": t("libraries.roots"),
-        "body.checkEveryHours": t("libraries.checkEvery"),
-      },
-    }),
-  );
+  const creating = useRequest((cause) => fieldProblemText(t, cause, libraryWords(t)));
   const [choices] = useResource("create-library", async () => {
     const [nodesAnswer, configAnswer] = await Promise.all([api.GET("/nodes"), api.GET("/config")]);
     return {
@@ -529,6 +556,7 @@ export function CreateLibrary(props: {
           nodes={value.nodes}
           checkEveryHoursToStart={value.checkEveryHoursToStart}
           problem={creating.problem ?? ""}
+          failure={creating.failure}
           isCreating={creating.isBusy}
           onDraftChange={setDraft}
           onSubmit={submit}

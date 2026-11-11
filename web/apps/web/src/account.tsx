@@ -16,7 +16,8 @@ import { DebugToolsSetting } from "./debug-tools.tsx";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { HomeAddress } from "./home-address.tsx";
-import { dataOrThrow, fieldProblemText } from "./problem.ts";
+import { useFieldMarks } from "./field-marks.ts";
+import { dataOrThrow, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
@@ -190,7 +191,18 @@ function ChangePassword(): JSX.Element {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [outcome, setOutcome] = useState<string | undefined>(undefined);
+  const [failure, setFailure] = useState<unknown>(undefined);
+  const words: FormWords = {
+    fields: {
+      "body.currentPassword": t("account.currentPassword"),
+      "body.newPassword": t("account.newPassword"),
+    },
+    overrides: { forbidden: t("account.wrongPassword") },
+    codeFields: { forbidden: ["body.currentPassword"] },
+  };
+  const marks = useFieldMarks(failure, failedFields(failure, words));
   const submit = (): void => {
+    setFailure(undefined);
     changePassword(api, currentPassword, newPassword).then(
       () => {
         setCurrentPassword("");
@@ -198,15 +210,8 @@ function ChangePassword(): JSX.Element {
         setOutcome(t("account.passwordChanged"));
       },
       (cause: unknown) => {
-        setOutcome(
-          fieldProblemText(t, cause, {
-            fields: {
-              "body.currentPassword": t("account.currentPassword"),
-              "body.newPassword": t("account.newPassword"),
-            },
-            overrides: { forbidden: t("account.wrongPassword") },
-          }),
-        );
+        setOutcome(fieldProblemText(t, cause, words));
+        setFailure(cause);
       },
     );
   };
@@ -216,16 +221,18 @@ function ChangePassword(): JSX.Element {
       <PasswordField
         label={t("account.currentPassword")}
         value={currentPassword}
-        onChange={setCurrentPassword}
+        onChange={marks.editing("body.currentPassword", setCurrentPassword)}
         autoComplete="current-password"
+        mark={marks.markOf("body.currentPassword")}
       />
       <PasswordField
         label={t("account.newPassword")}
         value={newPassword}
-        onChange={setNewPassword}
+        onChange={marks.editing("body.newPassword", setNewPassword)}
+        mark={marks.markOf("body.newPassword")}
       />
       <button type="submit">{t("account.changePassword")}</button>
-      {outcome === undefined ? null : <output>{outcome}</output>}
+      {outcome === undefined ? null : <output id={marks.problemId}>{outcome}</output>}
     </FormRow>
   );
 }

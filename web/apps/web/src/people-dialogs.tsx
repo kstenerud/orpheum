@@ -11,7 +11,8 @@ import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { personWords } from "./person-words.ts";
-import { fieldProblemText } from "./problem.ts";
+import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { failedFields, fieldProblemText } from "./problem.ts";
 import { roleLabel, type Role } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
@@ -68,9 +69,10 @@ export function InviteDialog(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
+  const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
+  const marks = useFieldMarks(failure, failedFields(failure, personWords(t)));
   const [role, setRole] = useState("user");
   const [adminNote, setAdminNote] = useState("");
   return (
@@ -93,8 +95,9 @@ export function InviteDialog(props: {
               maxLength={200}
               placeholder={t("people.adminNoteExample")}
               value={adminNote}
+              {...marks.markOf("body.adminNote")}
               onChange={(event) => {
-                setAdminNote(event.target.value);
+                marks.editing("body.adminNote", setAdminNote)(event.target.value);
               }}
             />
           </label>
@@ -102,7 +105,11 @@ export function InviteDialog(props: {
           <button type="submit">{t("people.makeLink")}</button>
         </FormRow>
       </BusyGroup>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : (
+        <p role="alert" id={marks.problemId}>
+          {problem}
+        </p>
+      )}
     </ModalDialog>
   );
 }
@@ -112,9 +119,11 @@ function AccountFields(props: {
   readonly choices: RoleChoices;
   readonly account: NewAccount;
   readonly set: (change: Partial<NewAccount>) => void;
+  /** The marks on the fields the failure shown is about. */
+  readonly marks: FieldMarks;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { account, set } = props;
+  const { account, set, marks } = props;
   return (
     <>
       <label>
@@ -123,8 +132,9 @@ function AccountFields(props: {
           required
           maxLength={100}
           value={account.name}
+          {...marks.markOf("body.name")}
           onChange={(event) => {
-            set({ name: event.target.value });
+            marks.editing("body.name", set)({ name: event.target.value });
           }}
         />
       </label>
@@ -135,8 +145,9 @@ function AccountFields(props: {
           type="password"
           autoComplete="new-password"
           value={account.password}
+          {...marks.markOf("body.password")}
           onChange={(event) => {
-            set({ password: event.target.value });
+            marks.editing("body.password", set)({ password: event.target.value });
           }}
         />
       </label>
@@ -152,8 +163,9 @@ function AccountFields(props: {
         <input
           maxLength={200}
           value={account.adminNote}
+          {...marks.markOf("body.adminNote")}
           onChange={(event) => {
-            set({ adminNote: event.target.value });
+            marks.editing("body.adminNote", set)({ adminNote: event.target.value });
           }}
         />
       </label>
@@ -172,9 +184,10 @@ export function CreateAccountDialog(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
+  const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
+  const marks = useFieldMarks(failure, failedFields(failure, personWords(t)));
   const [account, setAccount] = useState<NewAccount>({
     name: "",
     password: "",
@@ -196,11 +209,15 @@ export function CreateAccountDialog(props: {
           }}
         >
           <h2>{t("people.setUp")}</h2>
-          <AccountFields choices={props.choices} account={account} set={set} />
+          <AccountFields choices={props.choices} account={account} set={set} marks={marks} />
           <button type="submit">{t("people.create")}</button>
         </FormRow>
       </BusyGroup>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : (
+        <p role="alert" id={marks.problemId}>
+          {problem}
+        </p>
+      )}
     </ModalDialog>
   );
 }

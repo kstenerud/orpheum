@@ -139,4 +139,52 @@ describe("the admin's Libraries pages (D361)", () => {
     services.navigation.back();
     expect(services.navigation.route()).toEqual({ screen: "libraries" });
   });
+
+  it("marks the folders invalid while the server's refusal of one shows, until the folders change", async () => {
+    const services = servedBy({
+      "GET /nodes": [200, { nodes: [{ name: "nas", isConnected: true, rootPaths: ["/tank"] }] }],
+      "GET /config": [
+        200,
+        {
+          settings: [
+            {
+              key: "newLibraryDefaultScanEveryHours",
+              kind: "integer",
+              value: 24,
+              startingValue: 24,
+              isModified: false,
+              isImportant: false,
+              section: "libraries",
+              description: "",
+              setAt: 1,
+            },
+          ],
+        },
+      ],
+      "POST /libraries": [
+        400,
+        {
+          error: {
+            code: "invalidRequest",
+            message: "the roots; not a folder",
+            detail: { problems: [{ location: "body.rootPaths[0]", message: "not a folder" }] },
+          },
+        },
+      ],
+    });
+    mounted = await mount(withServices(<CreateLibraryPage />, services));
+    const page = mounted.container;
+    await settleAnswers();
+    await enter(page.querySelector("input:not([type])"), "Films");
+    const root = page.querySelector('input[type="checkbox"]');
+    await click(root);
+    await submit(page.querySelector("form"));
+    const line = page.querySelector('[role="alert"]');
+    expect(line?.textContent).toContain("Folders");
+    expect(root?.getAttribute("aria-invalid")).toBe("true");
+    expect(root?.getAttribute("aria-describedby")).toBe(line?.id);
+    expect(page.querySelector("input:not([type])")?.hasAttribute("aria-invalid")).toBe(false);
+    await click(root);
+    expect(root?.hasAttribute("aria-invalid")).toBe(false);
+  });
 });
