@@ -155,6 +155,24 @@ describe("where the browser reports no long tasks, a timer's lateness while the 
   });
 });
 
+describe("a long animation frame's stall is noted with what took its time", () => {
+  it("names the frame's longest script beside the stall (the web guidance, 2026-11-11)", () => {
+    let task: ((startMs: number, durationMs: number, cause?: string) => void) | undefined;
+    const { notes, stop } = watched((report) => {
+      task = report;
+      return () => {
+        task = undefined;
+      };
+    });
+    task?.(0, 2000, "longest script user-callback appendBuffer 1900 ms");
+    stop();
+    expect(notes).toEqual([
+      "main thread stalled 2.0 s (long animation frame: longest script user-callback appendBuffer" +
+        " 1900 ms) at 0.0 s; before: nothing",
+    ]);
+  });
+});
+
 describe("the browser's long tasks", () => {
   it("are read through a PerformanceObserver where it supports them, and not where it does not", () => {
     const observed: string[] = [];

@@ -19,17 +19,40 @@ export const mainThreadStallAtLeastMs = 1000;
  */
 export const mainThreadSampleMs = 1000;
 
-/** Each long task as the browser tells it, its start and length in ms on nowMs's clock; returns the stopping. */
-export type LongTasks = (task: (startMs: number, durationMs: number) => void) => () => void;
+/**
+ * Each long task as the browser tells it, its start and length in ms on nowMs's clock, and, where the
+ * browser tells it as a long animation frame, what took its time (causeOfFrame); returns the stopping.
+ */
+export type LongTasks = (
+  task: (startMs: number, durationMs: number, cause?: string) => void,
+) => () => void;
+
+/** One script a long animation frame ran, as the browser tells it (PerformanceScriptTiming). */
+export interface FrameScript {
+  readonly duration: number;
+  readonly invoker?: string;
+  readonly invokerType?: string;
+  readonly sourceURL?: string;
+  readonly sourceFunctionName?: string;
+  readonly sourceCharPosition?: number;
+  readonly forcedStyleAndLayoutDuration?: number;
+}
+
+/** A long task's entry, or a long animation frame's, which also says its scripts and its rendering. */
+export interface LongTaskEntry {
+  readonly startTime: number;
+  readonly duration: number;
+  readonly renderStart?: number;
+  readonly scripts?: readonly FrameScript[];
+}
 
 /** A PerformanceObserver as reading long tasks needs it; supportedEntryTypes is missing in older browsers. */
 export interface LongTaskObserverClass {
   readonly supportedEntryTypes?: readonly string[];
-  new (
-    callback: (list: {
-      getEntries(): readonly { readonly startTime: number; readonly duration: number }[];
-    }) => void,
-  ): { observe(options: { readonly type: string }): void; disconnect(): void };
+  new (callback: (list: { getEntries(): readonly LongTaskEntry[] }) => void): {
+    observe(options: { readonly type: string }): void;
+    disconnect(): void;
+  };
 }
 
 /** What reading long tasks needs of the browser: its PerformanceObserver, where it has one. */
@@ -38,23 +61,66 @@ export interface LongTaskScope {
   readonly PerformanceObserver?: LongTaskObserverClass | undefined;
 }
 
-/** The long tasks this browser reports, through its PerformanceObserver; undefined where it reports none. */
+/**
+ * The long tasks this browser reports, through its PerformanceObserver: as long animation frames
+ * where it has them (Chromium 123 on, Silk 138), each told with what took its time, else as long
+ * tasks; undefined where it reports neither. A long animation frame is told for each long task too,
+ * a frame drawn or not, over the task and the rendering it held up. A Fire TV's freeze said only that
+ * the page was busy, where its cause was a 4.4 s walk of getClientRects that only a profile found
+ * (2026-11-11, the web guidance's recommendation 2).
+ */
 export function longTasksOf(scope: LongTaskScope): LongTasks | undefined {
   const observer = scope.PerformanceObserver;
-  if (observer?.supportedEntryTypes?.includes("longtask") !== true) {
+  const types = observer?.supportedEntryTypes ?? [];
+  const type = ["long-animation-frame", "longtask"].find((each) => types.includes(each));
+  if (observer === undefined || type === undefined) {
     return undefined;
   }
   return (task) => {
     const observing = new observer((list) => {
       for (const entry of list.getEntries()) {
-        task(entry.startTime, entry.duration);
+        if (type === "long-animation-frame") {
+          task(entry.startTime, entry.duration, causeOfFrame(entry));
+        } else {
+          task(entry.startTime, entry.duration);
+        }
       }
     });
-    observing.observe({ type: "longtask" });
+    observing.observe({ type });
     return () => {
       observing.disconnect();
     };
   };
+}
+
+/**
+ * What took a long animation frame's time, for a report: its longest script, by what ran it, its
+ * function and its file and place, its length and the layout it forced, and the frame's rendering;
+ * "no script" for a frame that ran none. A file is named by its last part alone, no address.
+ */
+export function causeOfFrame(frame: LongTaskEntry): string {
+  const longest = [...(frame.scripts ?? [])].sort((a, b) => b.duration - a.duration)[0];
+  const rendering =
+    frame.renderStart !== undefined && frame.renderStart > 0
+      ? `; rendering ${ms(frame.startTime + frame.duration - frame.renderStart)}`
+      : "";
+  return `${longest === undefined ? "no script" : `longest script ${scriptOf(longest)}`}${rendering}`;
+}
+
+/** A frame's script, for a report: what ran it, its function, file and place, length and forced layout. */
+function scriptOf(script: FrameScript): string {
+  const file = (script.sourceURL ?? "").split(/[?#]/)[0]?.split("/").pop() ?? "";
+  const where = file === "" ? "" : ` (${file}:${String(script.sourceCharPosition ?? -1)})`;
+  const forced = script.forcedStyleAndLayoutDuration ?? 0;
+  const named = [script.invokerType, script.invoker, script.sourceFunctionName]
+    .filter((part) => part !== undefined && part !== "")
+    .join(" ");
+  return `${named}${where} ${ms(script.duration)}${forced > 0 ? `, forced layout ${ms(forced)}` : ""}`;
+}
+
+/** Milliseconds, rounded, for a report: "4400 ms". */
+function ms(duration: number): string {
+  return `${String(Math.round(duration))} ms`;
 }
 
 /** Whether the page this runs on is hidden; false where there is no page. */
@@ -66,8 +132,13 @@ export function isPageHidden(): boolean {
 export interface Freeze {
   readonly startMs: number;
   readonly durationMs: number;
-  /** A long task the browser reported, or a timer's lateness standing in where it reports none. */
-  readonly how: "long task" | "timer late";
+  /**
+   * A long task the browser reported, as a long animation frame where it can, or a timer's lateness
+   * standing in where it reports none.
+   */
+  readonly how: "long animation frame" | "long task" | "timer late";
+  /** What took a long animation frame's time (causeOfFrame); undefined for the others. */
+  readonly cause?: string;
   /** Whether the page was hidden as it was told: a long task of a hidden page froze nothing seen. */
   readonly isHidden: boolean;
 }
@@ -96,9 +167,14 @@ export interface FreezeWatch {
  */
 export function watchFreezes(by: FreezeWatch, frozen: (freeze: Freeze) => void): () => void {
   if (by.longTasks !== undefined) {
-    return by.longTasks((startMs, durationMs) => {
+    return by.longTasks((startMs, durationMs, cause) => {
       if (durationMs >= mainThreadStallAtLeastMs) {
-        frozen({ startMs, durationMs, how: "long task", isHidden: by.isHidden() });
+        const isHidden = by.isHidden();
+        frozen(
+          cause === undefined
+            ? { startMs, durationMs, how: "long task", isHidden }
+            : { startMs, durationMs, how: "long animation frame", cause, isHidden },
+        );
       }
     });
   }
@@ -133,4 +209,9 @@ export function watchFreezes(by: FreezeWatch, frozen: (freeze: Freeze) => void):
     stop();
     stopHearing();
   };
+}
+
+/** How a freeze was seen, for a report: "long task", or a long animation frame with its cause. */
+export function howFrozen(freeze: Pick<Freeze, "how" | "cause">): string {
+  return freeze.cause === undefined ? freeze.how : `${freeze.how}: ${freeze.cause}`;
 }
