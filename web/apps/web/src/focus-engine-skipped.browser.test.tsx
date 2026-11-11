@@ -4,13 +4,15 @@
  * An arrow's search over a grid whose items off screen the browser skips laying out
  * (content-visibility: auto), as a real browser skips them: it reads no box inside a skipped item,
  * each such read laying the page out again (the Fire TV's trace, 2026-11-11), and still moves to
- * the tile below.
+ * the tile below; and a page's arrival in such a grid is found asking only its first tile whether it
+ * is drawn, not every one (332 asked held Films' screen 4.4 s on the stick, 2026-11-11).
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { focusContainerAttribute, geometricFocus, nextInContainers } from "./focus-engine.ts";
+import { arrivalMark, startIn } from "./focus-navigation.ts";
 
 /** A grid of rows of four links, each in an item the browser skips while it is off screen. */
 function gridOf(rows: number): HTMLElement {
@@ -63,5 +65,21 @@ describe("an arrow's search over items the browser skips (content-visibility: au
     expect(
       boxRead.mock.contexts.filter((element) => skipped.some((link) => link === element)),
     ).toEqual([]);
+  });
+
+  it("finds a grid's arrival asking no tile past the first whether it is drawn", async () => {
+    await page.viewport(960, 480);
+    const main = document.createElement("main");
+    const grid = gridOf(30);
+    for (const [name, value] of Object.entries(arrivalMark)) {
+      grid.setAttribute(name, value);
+    }
+    main.append(grid);
+    document.body.append(main);
+    await framesPassed();
+    const links = [...grid.querySelectorAll("a")];
+    const rectsRead = vi.spyOn(Element.prototype, "getClientRects");
+    expect(startIn(document.body)).toBe(links[0]);
+    expect(rectsRead.mock.contexts.filter((element) => element !== links[0])).toEqual([]);
   });
 });
