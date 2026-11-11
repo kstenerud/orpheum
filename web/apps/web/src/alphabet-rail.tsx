@@ -116,9 +116,9 @@ export function useAlphabetRailLetters(list: {
 }
 
 /**
- * Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner; whether the
- * page's end stopped it short, below the top, as it does where too little of the list is drawn
- * after the poster to scroll that far.
+ * Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner, and kept there
+ * while the list around it settles (keepAtTop); whether the page's end stopped it short, below the
+ * top, as it does where too little of the list is drawn after the poster to scroll that far.
  */
 export function showAtTop(poster: HTMLElement): boolean {
   // A test's DOM may have no scrolling at all.
@@ -127,6 +127,7 @@ export function showAtTop(poster: HTMLElement): boolean {
   }
   // Focused as a key would, a remote's press being one; scrolled on, gently, clear of the banner.
   focusAndShow(poster, true);
+  keepAtTop(poster);
   const isScrolledToTheEnd =
     window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1;
   return isScrolledToTheEnd && poster.getBoundingClientRect().top > clearOfTheBannerPx() + 1;
@@ -146,6 +147,56 @@ interface JumpedTo {
  * keeping what is on screen in place as the list grows) is none of these.
  */
 const goingOnEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+/**
+ * How long a poster jumped to is kept at the top while the list around it settles, in milliseconds:
+ * the few frames its newly drawn cards take to be laid out at their own heights, with room for a
+ * slow device's frames. A justified constant, a bound on a wait, not a measure of the list.
+ */
+const settlingMs = 1000;
+
+/** Ends the keeping of the poster last jumped to at the top, if it is still kept. */
+let stopKeeping: (() => void) | undefined;
+
+/**
+ * Keeps poster at the top, clear of the banner, while the list around it settles: its cards are laid
+ * out only near the view (content-visibility), so those drawn by the jump take their own heights a
+ * frame after it, and Firefox keeps some other card in place as they do, carrying the poster down
+ * the page (the owner, Firefox, 2026-11-11: the ring started at the page's top and moved down onto
+ * the poster). Each time the list changes size, before it is drawn, the poster goes back to the top;
+ * it stops once the person goes on, focus leaves the poster, or the list has had time to settle.
+ */
+function keepAtTop(poster: HTMLElement): void {
+  stopKeeping?.();
+  const list = poster.closest("ul, ol");
+  if (list === null || typeof ResizeObserver === "undefined") {
+    return;
+  }
+  const resizes = new ResizeObserver(() => {
+    if (document.activeElement !== poster) {
+      stop();
+      return;
+    }
+    const off = poster.getBoundingClientRect().top - clearOfTheBannerPx();
+    if (Math.abs(off) > 1) {
+      window.scrollBy({ top: off });
+    }
+  });
+  const timer = window.setTimeout(stop, settlingMs);
+  function stop(): void {
+    resizes.disconnect();
+    window.clearTimeout(timer);
+    for (const event of goingOnEvents) {
+      window.removeEventListener(event, stop, { capture: true });
+    }
+    stopKeeping = undefined;
+  }
+  for (const event of goingOnEvents) {
+    window.addEventListener(event, stop, { capture: true, passive: true });
+  }
+  resizes.observe(list);
+  stopKeeping = stop;
+}
 
 /**
  * Shows the poster jumpedTo names in list at the top, if it is drawn; what is left to do: jumpedTo
