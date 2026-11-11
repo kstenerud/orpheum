@@ -2838,3 +2838,13 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   `:focus-visible` did not match the focused tile (line 278, expected false to be true). The file
   passed three runs in a row alone, both browsers. Find why focus-visible is sometimes missed after a
   pad move; don't add a retry.
+
+- **Next batch, approved (the owner, 2026-11-11: "ok sounds good"; "keys queueing up is a bad thing,
+  but I don't want a fix that prevents fast scrolling through a movie"):** a held arrow's repeat
+  that moves focus is skipped while the last move is not yet drawn, so a held key moves once a
+  drawn frame and stops at its release; a first press is never skipped. The player's held seek is
+  left alone: its travel comes from the time held (`seek-ahead.ts`, `heldTravelMs`), not the count of
+  repeats. A test pins both: under a slow draw a held arrow moves no more often than frames are
+  drawn and stops at the release, and a held seek travels as far for the same time held. The
+  measurement of what a move and a scroll redraw (2026-11-11, `/yoloai/files/focus-trace/`) is
+  read before it is built.
