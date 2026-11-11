@@ -235,7 +235,7 @@ today's player changes.)
 heap 7.5 and 5.8 MB.
 
 **A server bug found by the runs, not Preact's.** Both early Preact procedures stopped at the play
-step: The Gold Rush stalls for good at 42:13 on staging, whichever client, because FFmpeg cannot cut
+step: file 241 stalls for good at 42:13 on staging, whichever client, because FFmpeg cannot cut
 its chunk 349 (filed in [toolkit.md](../plans/toolkit.md)'s next batch). The runs resume where the
 last stopped, so only the later runs reached it. Moving the resume point back let Preact 3 run.
 

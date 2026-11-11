@@ -23,7 +23,7 @@ Inputs read:
   report"), and the
   [independent data-layer audit](data-layer-independent-audit-2026-10-15.md) for form;
 - D166, D237, D273, D303 and D304 in working-notes;
-- the owner's saved page `/yoloai/files/Orpheum-quillwick.html`;
+- the owner's saved page `/yoloai/files/Orpheum-<series>.html`;
 - the client: `series.tsx`, `browse.tsx`, `use-resource.ts`, `use-pages.ts`, `polling.ts`,
   `remembered.ts`, `app.tsx`, `title.tsx`, `poster.tsx`, `end-of-list.tsx`, `identify.tsx`,
   `search.tsx`, `continue-watching.tsx`, `link.tsx`, `services.tsx`, `status-cues.tsx`,
@@ -572,7 +572,7 @@ windowing library).**
   [performance-targets.md](../plans/performance-targets.md); decisions D166, D237, D258, D262,
   D273, D303 and D304 in [working-notes.md](../../decisions/working-notes.md).
 - Commits earlier commits (the filing bug and its invariant).
-- The owner's saved page, `/yoloai/files/Orpheum-quillwick.html` (5,296,449 bytes).
+- The owner's saved page, `/yoloai/files/Orpheum-<series>.html` (5,296,449 bytes).
 
 **Measurements (scratch scripts, not committed)**
 - `bySeason` as written and with `push`, plus `JSON.stringify` and `JSON.parse` of a synthetic

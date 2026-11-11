@@ -4,7 +4,7 @@
 
 # DVD playback: clock restarts and other pitfalls (2026-11-02)
 
-Gathered 2026-11-02 at the owner's request, after VQ73's DVD (the Der Golem concert) was
+Gathered 2026-11-02 at the owner's request, after VQ73's DVD (the owner's concert film) was
 found to start its clock again at 1:28:39 and D404 restamped it. **(V)** marks a claim read in
 source cloned to `/yoloai/cache/research-dvd/` (FFmpeg, HandBrake, Jellyfin, libdvdnav,
 libdvdread, libbluray); **(F)** one from a forum, mailing list or issue tracker. Kodi, mpv and

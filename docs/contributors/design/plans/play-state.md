@@ -143,7 +143,7 @@ care.
 **The word is "member", not "episode", and that is the whole generalisation**
 ([D160](../../decisions/working-notes.md)). A sequence is what *any* Collection produces, so
 the same query drives a season, an eleven-film franchise run, and a composed
-*series → Lockfast*. Every incumbent has two systems here — a series with Next Up and
+*series → its sequel*. Every incumbent has two systems here — a series with Next Up and
 continue-watching, and a collection that is a static grid of posters — which is why nobody can
 binge a franchise. We have one.
 
@@ -155,7 +155,7 @@ Two consequences:
   `episode_boundary` segment ([media-segments.md](media-segments.md)), so the prompt fires
   mid-file where every incumbent shows one episode and stops.
 
-**And the ordering is never inferred from behaviour.** Watching S01E05 then S01E03 might be
+**And the ordering is never inferred from behaviour.** Watching episode 5 then episode 3 might be
 DVD order or might be somebody skipping about; offering to switch on the strength of it is the
 shape [D158](../../decisions/working-notes.md) removed. It is one visible setting.
 

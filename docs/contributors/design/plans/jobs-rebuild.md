@@ -536,10 +536,10 @@ What the earlier 4d and 4e found still holds:
   orpheum does not mean it should scan it. Only when a path is added to a library and its type
   (film, show, home video, etc) is defined should it be scanned."*
 - *Seen in 4b's branch gates (2026-10-02), once in sixteen runs:*
-  `TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath` filed two specials
-  (`S00E01`) differently in the replayed scan than in the live one, under the load of the gates'
-  parallel steps: where a record landed in the ingest's batches decided a special's filing. Filing
-  from what the core holds, once the answers are in (4e.3), ends it.
+  `TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath` filed two specials (each
+  season 0's episode 1) differently in the replayed scan than in the live one, under the load of the
+  gates' parallel steps: where a record landed in the ingest's batches decided a special's filing.
+  Filing from what the core holds, once the answers are in (4e.3), ends it.
 
 #### 4d — the node's devices, their limits, and the core's scheduling
 

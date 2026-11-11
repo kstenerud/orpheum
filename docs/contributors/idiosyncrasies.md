@@ -403,8 +403,8 @@ User-Agent (D263; the User-Agent is logged only).
   split init segments, SourceBuffer modes, and relabelling the CRA as IDR_N_LP or BLA_N_LP all failed. Their
   shipped workaround re-encodes to H.264 in the browser. Re-check this entry when Firefox updates; once the fix
   ships, the original picture plays mid-film again and D266 stops firing for it on its own.
-- **It fails from the start too** (the owner's profile, Firefox 157.0.1 on a Mac, 2026-11-04, The Pumbletons
-  S33E01, one IDR then CRAs): Gecko's `MP4Demuxer::GetNextSample` under `MOZ_APPLEMEDIA` marks an HEVC
+- **It fails from the start too** (the owner's profile, Firefox 157.0.1 on a Mac, 2026-11-04, an
+  episode, one IDR then CRAs): Gecko's `MP4Demuxer::GetNextSample` under `MOZ_APPLEMEDIA` marks an HEVC
   sample a keyframe only when it is an IDR (`H265::IsKeyFrame`), and MSE's `TrackBuffersManager` demuxes
   through it. The film's picture then has one random access point, its first; hls.js's removal of the
   played 0–4.96 s runs, as MSE's coded frame removal does, to the next random access point, there is none,
@@ -1826,7 +1826,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 - **Symptom:** a film with a quality ladder whose chunk the core answers 422 in every quality stood
   still at that chunk for good, hls.js asking for it every 1 to 2 s, with no error the page could act
-  on (Sparrows on staging, VQ255, 2026-11-03; item 12's The Gold Rush symptom).
+  on (a film on staging, VQ255, 2026-11-03; item 12's symptom, on file 241).
 - **Cause:** a 4xx is not retried (`shouldRetry`), so `getLevelSwitchAction` sends hls.js to another
   quality; with `errorPenaltyExpireMs: 0` (the default) a refused quality's penalty has expired at
   once, so a candidate is always found and the error is never made fatal. Only a film with a single
@@ -2043,10 +2043,11 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 ### iPhone Safari keeps a sliver of a well-formed copied chunk
 
-- **Symptom:** an iPhone in a Watch Together group, playing a series' S2E2's own picture copied as it
-  is, buffered 0.08–0.34 s of the first chunk and nothing more of it, the next chunks whole from 10.22 s;
-  hls.js stepped over the hole, found the playhead still, and gave the playback up as fatal
-  (`bufferSeekOverHole (fatal): Playhead still not moving after seeking over hole`). S2E1 played.
+- **Symptom:** an iPhone in a Watch Together group, playing an episode's own picture copied as it
+  is, buffered 0.08–0.34 s of the first chunk and nothing more of it, the next chunks whole from
+  10.22 s; hls.js stepped over the hole, found the playhead still, and gave the playback up as fatal
+  (`bufferSeekOverHole (fatal): Playhead still not moving after seeking over hole`). The one before
+  it played.
 - **Cause:** not known. The chunk is well formed: one fragment, 242 H.264 frames over 10 s, its
   decode time right, its sample sizes filling its `mdat` exactly, presentation times continuous;
   `ffprobe` reads it whole. Safari (ManagedMediaSource, iOS 18.5) held 6 of its frames. Not checked on a
@@ -2308,7 +2309,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 ### hls.js never ends a stream with a hole behind the playhead
 
-- **Symptom:** The Pumbletons' S33E8 (file 5674) stood at 1299.967 of 1300.056 s, playing, `ended` false, with
+- **Symptom:** an episode (file 5674) stood at 1299.967 of 1300.056 s, playing, `ended` false, with
   all of it loaded; the media source stayed `open`, Up next showed no count and no next episode came (the
   Fire TV, VQ69, 2026-11-02).
 - **Cause:** `base-stream-controller.ts` `_streamEnded` (1.7.3, and master at 1.7.4): with `maxBufferHole` set
@@ -2645,7 +2646,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second
 
-- **Symptom:** *Quillwick II*, "Money" (XviD with B-frames, MP3 at 48 kHz, AVI) played its sound
+- **Symptom:** an episode of the owner's (XviD with B-frames, MP3 at 48 kHz, AVI) played its sound
   out of sync, on staging and production (the owner, 2026-11-01): measured, half a second ahead of
   its picture for its first run of chunks, up to five minutes, and in step after. Its first sound
   run had 9.5 s of sound for its 10 s.
@@ -2675,7 +2676,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 ### A copy begun at an open GOP's keyframe gets the times of the pictures shown before it wrong
 
 - **Symptom:** a two-frame hole at a picture chunk's join, the picture stopping for 84 ms every
-  ten seconds where a run began (*The Pumbletons* S33E8, HEVC in Matroska, staging, 2026-11-03).
+  ten seconds where a run began (file 5674, an episode, HEVC in Matroska, staging, 2026-11-03).
 - **Cause:** HEVC's open GOP: a CRA keyframe is followed, in decode order, by leading (RASL)
   pictures shown before it. A copy whose input seek lands on that keyframe has no decode-time
   history; FFmpeg's CLI guesses the keyframe's decode time too late, logs "Non-monotonic DTS …
@@ -2685,14 +2686,14 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** a copied picture's run past the film's first chunk is led in from the chunk before,
   its raw file dropped (`nodeproto.MakeChunks.LeadInMs`; `internal/core/chunks/job.go`,
   `internal/node/chunks/maker.go`). An encoded quality decodes and is not affected.
-- **Evidence:** **[measured]** S33E8's chunks 229 and 230, the first two of a run, showed leading
-  pictures at 1280.274 and 1280.274063 s where the film has 1280.743 and 1280.701; chunks 226–228,
-  mid-run, were right. A 12 s libx265 `open-gop=1` film reproduces it with FFmpeg 8.1.3, and
-  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` fails on it without the lead-in.
-  **[web]** no report of this exact case found; the RASL pictures' dependence on the GOP before
-  is known ([Avidemux forum](https://avidemux.org/smif/index.php?msg=92303)), and FFmpeg's
-  rewriting of non-monotonic DTS breaking times is [ticket 3553](https://trac.ffmpeg.org/ticket/3553)
-  (searched 2026-11-03).
+- **Evidence:** **[measured]** File 5674's chunks 229 and 230, the first two of a run, showed
+  leading pictures at 1280.274 and 1280.274063 s where the film has 1280.743 and 1280.701; chunks
+  226–228, mid-run, were right. A 12 s libx265 `open-gop=1` film reproduces it with FFmpeg 8.1.3,
+  and `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` fails on it without the lead-in.
+  **[web]** no report of this exact case found; the RASL pictures' dependence on the GOP before is
+  known ([Avidemux forum](https://avidemux.org/smif/index.php?msg=92303)), and FFmpeg's rewriting of
+  non-monotonic DTS breaking times is [ticket 3553](https://trac.ffmpeg.org/ticket/3553) (searched
+  2026-11-03).
 
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
@@ -3058,7 +3059,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 ### A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong
 
 - **Technology:** DVD-Video (MPEG-2 program stream) read by FFmpeg's `mpegps` demuxer (8.1.3).
-- **Symptom:** the Der Golem concert DVD (VQ73) played from its start, but a jump to its middle
+- **Symptom:** the owner's concert DVD (VQ73) played from its start, but a jump to its middle
   made runs that held 0.27 s and stopped ("FFmpeg cut it elsewhere"), and after two the film "cannot
   be converted". Its one 2 h 28 min title's SCR and PTS start again at 0 at 1:28:39 (a cell join), so
   the stream has two clocks; FFmpeg seeks a program stream by searching its timestamps, and lands in

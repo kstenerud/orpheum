@@ -1,6 +1,6 @@
 # A tap on a full-screen player, and Pause's effect on its overlay (2026-11-04)
 
-> The owner, playing Nosferatu on staging: a tap in full screen brings up the overlay, which is fine,
+> The owner, playing a film on staging: a tap in full screen brings up the overlay, which is fine,
 > but a tap on Pause then leaves the overlay up. Asked: what do competitors do when someone taps
 > the screen in full screen? Desk research by a subagent (about 22 searches); the repo fact checked
 > by the lead.

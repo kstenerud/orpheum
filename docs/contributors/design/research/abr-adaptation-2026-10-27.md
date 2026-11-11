@@ -24,8 +24,8 @@
 
 ### 1.1 What the log shows
 
-From `/yoloai/files/bug-the unknown-low-quality-2026-10-26.log` (staging core, 19:14–19:17 UTC)
-and the same film's earlier play at 19:07 (`bug-the unknown-audio-seek-2026-10-26.log`):
+From `/yoloai/files/bug-<film>-low-quality-2026-10-26.log` (staging core, 19:14–19:17 UTC)
+and the same film's earlier play at 19:07 (`bug-<film>-audio-seek-2026-10-26.log`):
 
 | When | What | Says |
 | --- | --- | --- |

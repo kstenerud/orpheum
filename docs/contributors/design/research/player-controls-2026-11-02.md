@@ -372,7 +372,7 @@ device, with what does not apply left out.
 
 ```
  ┌──────────────────────────────────────────────────────────────────┐
- │ ‹ S1E1 Pilot   [Back]                          Brass Arena · S1E2   │  TV: Up + Back; others: title
+ │ ‹ S1E1 Pilot   [Back]                          Tin Comet · S1E2  │  TV: Up + Back; others: title
  │                                                                  │
  │                       [ Skip intro ]                             │  only when relevant
  │ ━━━━━━━━━━━━━━━━━━━━━━━●──────────────────────── 0:41 / 0:58     │  timeline, full width
@@ -390,7 +390,7 @@ gets its own arrangement; the computer keeps A.
 
 ```
  ┌──────────────────────────────────────────────────────────────────┐
- │ Brass Arena · S1E2 “The Ledger”                          Ends 9:41  │  info (Up peeks this)
+ │ Tin Comet · S1E2 “The Spoon”                          Ends 9:41  │  info (Up peeks this)
  │                                                                  │
  │                       [ Skip intro ]                             │
  │ ━━━━━━━━━━━━━━━━━━━━━━━◉──────────────────────── 0:41 / 0:58     │  ◉ focus on open: Left/Right seek
@@ -411,7 +411,7 @@ centre cluster. The computer and TV take A or B.
 
 ```
  ┌──────────────────────────────────────────┐
- │ ‹ S1E1    Brass Arena · S1E2      [👥] [Aa] │  top: way out, title, together, tracks
+ │ ‹ S1E1    Tin Comet · S1E2     [👥] [Aa] │  top: way out, title, together, tracks
  │                                          │
  │        [↺10]      [ ▶ ]      [↻10]       │  centre, large; double-tap sides ±10
  │                                          │

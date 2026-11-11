@@ -289,7 +289,7 @@ benign there; on a title page joining versions, files and play state it is not.
 `UNIQUE` constraint on its natural or business key beside its surrogate key. Surrogate keys are
 right (sql.md is correct to forbid UUIDs and reissue). But a surrogate key says nothing about
 *sameness*, and only a unique constraint stops two concurrent derivations from both creating "The
-Unknown (1982)" (Date, *An Introduction to Database Systems*; Karwin, *SQL Antipatterns*, from
+Unknown (1927)" (Date, *An Introduction to Database Systems*; Karwin, *SQL Antipatterns*, from
 memory). Today title identity lives in the pass's in-memory `titleIDByKey` map, which is only
 safe because the pass is the sole writer for 30 s at a time.
 
