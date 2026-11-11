@@ -41,6 +41,19 @@ function call(holder: unknown, name: string, ...methodArguments: readonly unknow
   return Reflect.apply(method, holder, methodArguments);
 }
 
+/**
+ * What the SDK answered, awaited; a failure it gives as a bare error code ("cancel",
+ * "receiver_unavailable", "session_error"), which a report would show only as "failed", as an Error
+ * naming the code.
+ */
+async function answerOf(answer: unknown): Promise<unknown> {
+  try {
+    return await answer;
+  } catch (cause) {
+    throw typeof cause === "string" ? new Error(`the Cast SDK answered ${cause}`) : cause;
+  }
+}
+
 /** Makes an object of the SDK's class at path under the page's globals. */
 function make(path: readonly string[], ...madeOf: readonly unknown[]): object {
   const made: unknown = at(globalThis, ...path);
@@ -107,7 +120,7 @@ export async function castTo(appId: string): Promise<CastSession> {
     receiverApplicationId: appId,
     autoJoinPolicy: at(globalThis, "chrome", "cast", "AutoJoinPolicy", "ORIGIN_SCOPED"),
   });
-  const failure: unknown = await call(castContext, "requestSession");
+  const failure = await answerOf(call(castContext, "requestSession"));
   if (typeof failure === "string") {
     throw new Error(failure);
   }
@@ -131,7 +144,7 @@ async function loadOn(
   Reflect.set(media, "hlsVideoSegmentFormat", castMedia("HlsVideoSegmentFormat", "FMP4"));
   Reflect.set(media, "streamType", castMedia("StreamType", "BUFFERED"));
   const request = make(["chrome", "cast", "media", "LoadRequest"], media);
-  const code: unknown = await call(session, "loadMedia", request);
+  const code = await answerOf(call(session, "loadMedia", request));
   return typeof code === "string" ? code : undefined;
 }
 
@@ -142,7 +155,7 @@ function sessionOf(session: unknown): CastSession {
     receiverName: typeof name === "string" ? name : "",
     load: async (url, contentType) => await loadOn(session, url, contentType),
     send: async (message) => {
-      await call(session, "sendMessage", labNamespace, message);
+      await answerOf(call(session, "sendMessage", labNamespace, message));
     },
     onMessage: (listener) => {
       call(session, "addMessageListener", labNamespace, (_namespace: unknown, text: unknown) => {
