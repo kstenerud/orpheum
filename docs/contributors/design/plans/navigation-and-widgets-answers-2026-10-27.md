@@ -2490,14 +2490,16 @@ main pages is **not** built: it needs your two calls below.
    **`https://orpheum.dev/cast/`** (checked live 2026-11-07: Cloudflare's public certificate; the
    receiver's CSP allows Google's CAF and the core's names). Save; note the **app id** (8
    characters).
-2. Add New Device: the Chromecast's serial (Google Home app → the device → Settings → Device
-   information, or the sticker), description "staging". Registration takes up to 15 minutes.
+2. Add New Device: the Chromecast's serial, description "staging". Registration takes up to 15
+   minutes. The serial is the one the TV shows and reads aloud when the console's own page is cast
+   to it from Chrome (Google's registration page, read 2026-11-11); a Google TV model has more than
+   one serial, and only that software (Cast) serial works.
 3. Reboot the Chromecast after the device shows Ready (unplug it). An unpublished app runs only
    on a registered device.
 
 **On the Mac, in Chrome** (the sender SDK is Chrome's; Safari and Firefox cannot cast):
 
-1. Open **`https://orpheum.dev/lab/cast`**, signed in as yourself. "Ready to cast" shows.
+1. Open **`/lab/cast` at the client origin** (`https://<core id>.orpheum-client-test.com/lab/cast`, where `orpheum.dev` sends the browser; corrected 2026-11-11), signed in as yourself. "Ready to cast" shows.
 2. Type the app id under Our receiver; tick Send this device's sign-in. Press Cast to our
    receiver and choose the Chromecast. Passes: the TV shows our receiver's page, and Ask for its
    report logs what the Chromecast plays (VQ58).
@@ -3025,9 +3027,11 @@ The owner's answers:
 ## The 11-23 batch: Chromecast (the owner, 2026-11-11)
 
 Before the 11-22 batch's next-batch list (the owner, 2026-11-11: "before we start on those, I want
-to do some work on chromecast as the next batch"). The owner has set up the Chromecast in Google's
-Cast Developer Console (the steps under "Chromecast test steps for the owner (2026-11-08)"), so
-VQ286 and VQ287 can run.
+to do some work on chromecast as the next batch"). The owner has set the Chromecast up in Google
+Home and cast to it from YouTube; Google's Cast Developer Console is still to do (the steps under
+"Chromecast test steps for the owner (2026-11-08)", walked through again 2026-11-11: the serial is
+the one the TV shows when the console page is cast to it), and then VQ286 and VQ287 can run.
+Corrected 2026-11-11: the lead had written that the console was already done.
 
 1. **An Experimental page, gated by Show debug tools** (the owner, 2026-11-11: "What I want
    initially is a way to navigate to the chromecast pages of ours. So first step in the next batch
@@ -3049,4 +3053,51 @@ VQ286 and VQ287 can run.
    only when show debug tools is on." Who sees it follows from the gate: any account with Show debug
    tools on.
 2. **Noted (the owner, 2026-11-11):** YouTube's Android app casts to the owner's Fire TVs.
+3. **Found on the first run (2026-11-11, the owner's 3rd-generation Chromecast "Attic TV", CrKey
+   1.56, Chromium 90, 1280×720):** our receiver launched (*CAF started*, nothing blocked, its report
+   in the core's log, WebRTC's loopback connected in about 1 s; H.264 to High 4.2, no HEVC, VP9 or
+   AV1; AAC, AC-3, E-AC-3, Opus, FLAC). Three faults of the lab, for this batch:
+   (a) the Cast SDK's failures are logged as a bare "failed": `requestSession`, `loadMedia` and
+   `sendMessage` reject with a bare code, which `failureText` drops (fixed in the lab's
+   cast SDK adapter, with `lab-cast-sdk.test.ts`);
+   (b) opened at the core's own name, the lab sends the receiver no way to its core, and the
+   receiver, served from `orpheum.dev/cast/`, asks `orpheum.dev` for the film, which answers 404;
+   (c) the receiver's own log of a play (how it reached the core, "playing", a failure) shows only
+   on the TV, never in the sender's log or report. Also: "Start a playback of it" casts nothing (it
+   fills the address), and the page's order does not say so; the order is the owner's.
+   (d) **Why the film never started from the client origin (18:15 UTC):** the receiver reached the
+   core directly at its LAN name and asked for the playlist, then only stalled at 0.0 s. The
+   receiver runs on `https://orpheum.dev`, the loader's origin, and the core's `crossOrigin`
+   (internal/core/api/cross_origin.go) lets the loader's origin call only `/health` and the
+   sign-in's hand-off (D308 §4): so the path race's health check answered, the direct path was
+   chosen, and every byte request was refused by the browser (a preflight from orpheum.dev is
+   answered 204 with no Access-Control-Allow-Origin, checked from the sandbox). The client origin
+   serves `/cast/` too, with CAF's policy. To unblock the test: the console's receiver URL set to
+   `https://<core id>.orpheum-client-test.com/cast/`, which the core allows. Owner's call for
+   real use: one receiver URL serves every core, so either the core allows the loader's origin
+   the byte paths, or the receiver from the loader's origin goes over WebRTC only (no CORS).
+   **Then (the owner, 2026-11-11, 18:25 UTC):** "it's playing now" with the receiver URL at the
+   client origin: the receiver reached the core directly and the film played (VQ58 passes).
+   (e) **Make it a cast target passes at home** (the owner, 2026-11-11: "#1 passed"; the core
+   logged Attic TV activated by a code, its session begun direct from home, its live connection).
+   **A cast to it is taken but never played** (the owner: "it said on the tv 'cast 1 from Chrome on
+   MAc: Labyrinth', but it didn't stop playing marrowgate family"). The core logged the cast (file 1504),
+   the receiver's Use and its joining the cast's session as its video, then nothing: no `/playback`
+   from the Chromecast. The cause, in web/apps/cast-receiver/src/device.ts: `CastDevice.receive` only
+   joins the session and follows its group (`stepsToFollow`), but in a cast the receiver leads the
+   session (casts.go `startCast`), so the group has no film until the receiver plays one; the web
+   app's receiver instead opens the handed film itself (live.tsx `useReceiving`, `receivedRoute`).
+   Also: a cast handed again with a new film under the same cast id is ignored (`handed.castId !==
+   this.castId`), and the lab's own film (lab.ts `LabReceiver.playback`, on the same video) is not
+   stopped, so it kept playing and the receiver told the session its position (185 s) as a player of
+   no film. The fix: play the handed film (`fileId`, `positionMs`, `isPaused`) on each hand whose
+   film changed, stop the lab's film first, then follow the sender's commands.
+   **The owner, 2026-11-11:** "We'll do the code changes after this batch completes. I don't want
+   to turn orpheum.dev into a relay server, so I guess webrtc is the only way for chromecast?" The
+   lead answered that neither way of 3(d) relays through orpheum.dev (its page only runs the
+   receiver; the film goes from the core to the Chromecast either way); the owner's choice between
+   them was then made (the owner, 2026-11-11: "ok, we try webrtc only then"): **the receiver from
+   the loader's origin reaches the core over WebRTC only**, at home too; the core's `crossOrigin`
+   is unchanged. Owed with it: whether a Chromecast and a core behind each kind of router open the
+   link without a relay. Built after the 11-22 batch, with 3(e).
 
