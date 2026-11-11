@@ -148,6 +148,32 @@ export function WideArt(props: {
  */
 export const posterTileSizes = "(min-width: 1200px) 10.5rem, (min-width: 600px) 8.5rem, 6.75rem";
 
+/**
+ * Asks for a tile's art before its card is drawn, at a low priority, as the card will ask for it: a
+ * poster by the same srcset and sizes, so the browser picks the very size the card's img will and
+ * finds it kept; a still at landscape-s. The image is never put on the page. Dropping it (src "")
+ * stops a load still under way.
+ */
+export function tileArtAhead(
+  sourceSha256: string,
+  kind: "poster" | "still",
+  done: () => void,
+): HTMLImageElement {
+  const image = new Image();
+  image.fetchPriority = "low";
+  image.decoding = "async";
+  image.onload = done;
+  image.onerror = done;
+  if (kind === "poster") {
+    image.sizes = posterTileSizes;
+    image.srcset = srcSetOf(sourceSha256, tileSizes, 0);
+    image.src = againUrl(sourceSha256, "portrait-m", 0);
+  } else {
+    image.src = againUrl(sourceSha256, "landscape-s", 0);
+  }
+  return image;
+}
+
 /** A poster tile's sizes to choose from, by their widths in pixels (D212; nodeproto/artwork.go). */
 const tileSizes: readonly (readonly [ArtSize, number])[] = [
   ["portrait-s", 240],
@@ -225,10 +251,7 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
   }
   return {
     url: againUrl(sourceSha256, size, current.again),
-    srcSetOf: (sizes) =>
-      sizes
-        .map(([each, width]) => `${againUrl(sourceSha256, each, current.again)} ${String(width)}w`)
-        .join(", "),
+    srcSetOf: (sizes) => srcSetOf(sourceSha256, sizes, current.again),
     onError: () => {
       setState({ sha256: sourceSha256, isFailed: true, isDrawn: false, again: current.again });
       suspectWorker(); // a bypassed worker 404s every image, and the page says so (A51)
@@ -244,6 +267,17 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
 function againUrl(sourceSha256: string, size: ArtSize, again: number): string {
   const url = artUrl(sourceSha256, size);
   return again === 0 ? url : `${url}?again=${String(again)}`;
+}
+
+/** An img's srcset of an image in each of sizes, by its width, asked for the again-th time. */
+function srcSetOf(
+  sourceSha256: string,
+  sizes: readonly (readonly [ArtSize, number])[],
+  again: number,
+): string {
+  return sizes
+    .map(([each, width]) => `${againUrl(sourceSha256, each, again)} ${String(width)}w`)
+    .join(", ");
 }
 
 /** Whether the image at url loads, false if signal aborts first. */

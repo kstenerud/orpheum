@@ -111,6 +111,38 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(document.activeElement?.textContent).toBe("C");
   });
 
+  it("fills in the posters a hundred below the view ahead, and none past them (the owner, 2026-11-11)", async () => {
+    await page.viewport(960, 480);
+    const withPosters = films(300).map((film, index) => ({
+      ...film,
+      posterSha256: index.toString(16).padStart(64, "0"),
+    }));
+    // Each image asked for, by its address: the page's own timing list is full of the test's modules.
+    const asked = new Set<string>();
+    const watcher = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        asked.add(entry.name);
+      }
+    });
+    watcher.observe({ type: "resource" });
+    walking = await mountApp(
+      walkServices({ ...filmsOnly, "GET /items": { items: withPosters, nextCursor: "" } }),
+    );
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    window.scrollTo(0, 0);
+    const askedFor = (place: number): boolean =>
+      [...asked].some((name) =>
+        name.includes(`/bytes/art/${place.toString(16).padStart(64, "0")}/`),
+      );
+    // Fifteen rows down, far past what the browser's own lazy loading reaches.
+    await expect.poll(() => askedFor(95), { timeout: 10_000 }).toBe(true);
+    expect(askedFor(150)).toBe(false);
+    // Scrolled to the middle of the list, the window moves with it.
+    document.querySelectorAll(".poster-grid > li")[150]?.scrollIntoView({ block: "center" });
+    await expect.poll(() => askedFor(240), { timeout: 10_000 }).toBe(true);
+    watcher.disconnect();
+  });
+
   it("keeps the page's own margin left of the posters, the rail centred and whole in its gutter right of them", async () => {
     for (const [width, height] of [
       [960, 480],
