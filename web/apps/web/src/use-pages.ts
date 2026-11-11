@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import type { AskOutcome, Poller } from "./polling.ts";
 
@@ -208,9 +208,14 @@ function useLoadMore<T>(
     state.isLoadingMore = true;
     state.loading = load(cursor).then(
       (page) => {
-        setIsLoadingMore(false);
         state.isLoadingMore = false;
-        show([...pages, { cursor, ...page }]);
+        // A transition, so the page's new tiles render in slices a key press can run between: at
+        // once, 60 posters took 110–140 ms on the Fire TV, and a held arrow's presses waited behind
+        // them (2026-11-11). The list stays loading more until they are shown.
+        startTransition(() => {
+          setIsLoadingMore(false);
+          show([...pages, { cursor, ...page }]);
+        });
       },
       (cause: unknown) => {
         setIsLoadingMore(false);
