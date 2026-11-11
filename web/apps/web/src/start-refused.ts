@@ -63,13 +63,23 @@ export function pageAtRefusal(): PageAtRefusal {
 }
 
 /**
- * Tells the core's log of a film's start the browser refused (startRefusedNote), with the page as it
- * stands; any other failure of play() is the playback's own to report.
+ * The event a video is sent as the browser refuses to start it (noteIfStartRefused), which its
+ * player's overlay answers by showing its controls with Play focused (useStartRefused).
  */
-export function noteIfStartRefused(cause: unknown): void {
-  if (cause instanceof DOMException && cause.name === "NotAllowedError") {
-    noteForTheLog(startRefusedNote(cause, pageAtRefusal()));
-  }
+export const startRefusedEvent = "orpheum-start-refused";
+
+/**
+ * What answers the video's play() failing: a start the browser refused (NotAllowedError) is told to
+ * the core's log (startRefusedNote), with the page as it stands, and to the video
+ * (startRefusedEvent); any other failure of play() is the playback's own to report.
+ */
+export function noteIfStartRefused(video: HTMLVideoElement): (cause: unknown) => void {
+  return (cause) => {
+    if (cause instanceof DOMException && cause.name === "NotAllowedError") {
+      noteForTheLog(startRefusedNote(cause, pageAtRefusal()));
+      video.dispatchEvent(new Event(startRefusedEvent));
+    }
+  };
 }
 
 /**

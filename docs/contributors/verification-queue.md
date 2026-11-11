@@ -2900,3 +2900,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   play a film, turn the phone sideways, go back home and turn it upright. Passes when the banner shows
   the laurel alone with the link's line under it alone, the places beside it and none under the tray;
   then turn it sideways: the wordmark, whole. (`web/apps/web/src/app-shell.tsx`)
+- [ ] **VQ296** — A film the browser will not start shows its controls, Play focused, and says why
+  (the owner, 2026-11-11: "In Chrome it went black again"; the core's log: NotAllowedError,
+  lastPress=581 ms ago). On the owner's iPhone in Chrome, on staging: open The Navigator S1E1's page and
+  press Play. Passes when, should the film not start, the picture shows with the controls over it and
+  the line "Paused — press Play to start.", and one press of Play starts it with its sound; where the
+  film starts by itself, it passes too, and the line never shows. (`web/apps/web/src/player-overlay.tsx`)

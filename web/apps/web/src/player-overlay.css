@@ -158,6 +158,28 @@
   display: none;
 }
 
+/* The line over a film the browser would not start (useStartRefused in player-overlay.tsx): above
+   the middle, clear of the overlay's rows, on the film's control ground. */
+.player-overlay-refused {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  max-width: calc(100% - 2 * var(--space-3));
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+  font-size: var(--font-size-h2);
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.player-overlay-refused[hidden] {
+  display: none;
+}
+
 /* The volume + or − left (D407 §10), a moment, where the pause sign would be. */
 .player-overlay-volume {
   position: absolute;

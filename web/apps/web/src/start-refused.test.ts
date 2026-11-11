@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   followPressesForRefusals,
   keepThePressForTheStart,
+  noteIfStartRefused,
   pageAtRefusal,
+  startRefusedEvent,
   startRefusedNote,
 } from "./start-refused.ts";
 
@@ -49,6 +51,20 @@ describe("a film the browser would not start", () => {
     const since = pageAtRefusal().sincePressMs;
     expect(since).toBeDefined();
     expect(since).toBeLessThan(1000);
+  });
+});
+
+describe("telling the player of a start the browser refused", () => {
+  it("tells the video of a refusal for want of a press, and of no other failure", () => {
+    const video = document.createElement("video");
+    const told: string[] = [];
+    video.addEventListener(startRefusedEvent, () => {
+      told.push("refused");
+    });
+    noteIfStartRefused(video)(new DOMException("paused", "AbortError"));
+    expect(told).toEqual([]);
+    noteIfStartRefused(video)(new DOMException("no gesture", "NotAllowedError"));
+    expect(told).toEqual(["refused"]);
   });
 });
 
