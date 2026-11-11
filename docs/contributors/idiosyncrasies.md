@@ -84,7 +84,6 @@ User-Agent (D263; the User-Agent is logged only).
 | On Linux Mint with MATE, the screen blanked during a full-screen film in Firefox while the film's sound played on. | [Firefox's inhibit through the desktop portal does not stop MATE's screensaver](#firefoxs-inhibit-through-the-desktop-portal-does-not-stop-mates-screensaver) |
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
 | Turned upright, an iPhone's banner drew the laurel in the wordmark's box, the rest empty under the link's line. | [An iPhone keeps a picture's old box when its source changes as the phone turns](#an-iphone-keeps-a-pictures-old-box-when-its-source-changes-as-the-phone-turns) |
-| Chrome on an iPhone, turned sideways on the Play page, drew the page at about 0.8 with grey below; pinched and turned again, far larger than the screen. Safari was right. | [Chrome on iOS draws a page at the wrong zoom after the phone turns](#chrome-on-ios-draws-a-page-at-the-wrong-zoom-after-the-phone-turns) |
 | The play page says the picture is millions of milliseconds behind the sound, in Safari. | [Safari's requestVideoFrameCallback gives a mediaTime that is not the film's](#safaris-requestvideoframecallback-gives-a-mediatime-that-is-not-the-films) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
@@ -593,26 +592,6 @@ User-Agent (D263; the User-Agent is logged only).
   a web view by its user agent, names the app where the user agent does, and says to open the link
   in Safari (iOS) or Chrome (Android), with a "Copy link" button and the link shown to select where
   the app refuses the copy.
-
-
-### Chrome on iOS draws a page at the wrong zoom after the phone turns
-
-- **Technology:** WKWebView, which Chrome, Edge and Firefox on iOS run on (Chrome on iOS 18.5,
-  2026-11-11). Safari on the same phone does not do it.
-- **Symptom:** the Play page, its film filling the window, turned sideways was drawn at about 0.8 of
-  the screen with Chrome's grey below it; pinched to fit, then turned again, it was drawn far larger
-  than the screen, and stayed so turned back. Emulated WebKit (Playwright's iPhone 13) laid it out
-  right, so the page's own sizes are not the cause.
-- **Cause:** unverified. **[web]** Others report a page squashed or zoomed after a turn in Chrome and
-  Firefox on iOS but not Safari ([piunikaweb](https://piunikaweb.com/blog/chrome-content-on-ios-gets-squashed-on-changing-orientation-for-some),
-  [Mozilla bug 1147157](https://bugzilla.mozilla.org/show_bug.cgi?id=1147157),
-  [WebKit 238152](https://bugs.webkit.org/show_bug.cgi?id=238152)). Their workaround, scrolling a
-  pixel after the turn, cannot reach a page that does not scroll, as the Play page does not while its
-  film fills the window.
-- **What we do:** while the film fills the window, each turn holds the viewport's zoom at 1 for half a
-  second (`minimum-scale` and `maximum-scale` added to the viewport meta), then puts it back, so
-  pinching still zooms (`web/apps/web/src/film-fullscreen.ts`). VQ296.
-- **Evidence:** the owner's iPhone and photos, 2026-11-11.
 
 
 ### An iPhone keeps a picture's old box when its source changes as the phone turns
