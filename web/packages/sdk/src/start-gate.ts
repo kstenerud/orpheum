@@ -336,9 +336,15 @@ export class StartGate {
 
   /**
    * The element plays: a play that waited is no longer needed. One the gate did not make, as its
-   * person's press, plays now, whatever is loaded.
+   * person's press, plays now, whatever is loaded. A play already paused again as it is heard played
+   * nothing, and the wait stays: the Play page's press kept for its start (keepThePressForTheStart in
+   * the web app), played and paused at once, gave the gate's wait up, and the owner's next episode
+   * opened paused at 0:00, it seems in a full-screen browser (production, 2026-11-11).
    */
   readonly #played = (): void => {
+    if (this.#media.paused) {
+      return;
+    }
     if (this.#pending !== undefined) {
       this.#pending = undefined;
       this.#wait = undefined;
