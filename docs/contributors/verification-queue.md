@@ -2895,6 +2895,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   when it plays past 3:25 at its 1080p rung without a stall, no bufferFullError in Silk's console,
   and the rung not stepped down; the chunks the player fetched around 200 s are each 5 MiB or less.
   (`internal/core/chunks/grid.go`, `internal/core/chunks/offer.go`)
+  **Run 2026-11-11, 18:54 UTC, by the lead, on staging at "test(web): the Cast lab's test names
+  Google's own CastContext and bare code to the lint": partly passes.** Played 3:15 to past 4:10 at
+  1080p, no stall but the seek's own wait, no bufferFullError reported, the rung never stepped down,
+  17 frames dropped of 1031. The grid is the sized one (pieces of 1.0 to 4.9 s where keyframes allow)
+  but the source's keyframes stand about 10.4 s apart there, so pieces 34, 40, 41, 43 and 46 are one
+  keyframe's run each, of 13 to 23 MB: the 5 MiB clause cannot be met by cutting at keyframes.
+  Owed: the owner's call on that clause.
 - [ ] **VQ295** — The banner's logo is drawn right after an iPhone turns (the owner, 2026-11-11: the
   laurel "stuck halfway between full and small mode"). On the owner's iPhone in Chrome, on staging:
   play a film, turn the phone sideways, go back home and turn it upright. Passes when the banner shows
@@ -2921,6 +2928,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   open a film's Play page, and once it plays, remove 0.12 s of the picture's buffer from 2 s ahead of
   the position. Passes when, reaching it, the film plays on within about 2 s, and the core's log of
   the playback notes "stepped over a 0.12 s hole". (`web/packages/player/src/holes.ts`)
+  **Run 2026-11-11, 19:00 to 19:10 UTC, by the lead, on staging: does not reach holes.ts.** Silk
+  ignored the new-document script (the native addSourceBuffer stayed); wrapping it in the live page
+  and opening the film again from Continue watching kept both SourceBuffers. A remove 2 s ahead
+  dropped 2.2 s (to the next keyframe), and one cut to end at a keyframe 6 to 7 s ahead left holes
+  of 0.42 s and 0.33 s: each time the film played across without standing still, its frames there
+  already read by Chrome's pipeline, so no "stepped over" note. One stall 3 s later, inside loaded
+  picture, hls.js nudged (`skippedBy=nudge`), playing again 1.2 s on. A hole the pipeline has not
+  read yet (10 s or more ahead) never coincided with a cut in the 14 s loaded ahead. Owed: a way to
+  make the hole the flush made, or the owner's call to take it on the next stall it meets.
 - [x] **VQ299** — What the client's report-only Trusted Types policy would refuse reaches the core's
   log (the 11-22 batch's item 6) (passed 2026-11-11 on staging at "feat(web): the client's pages
   report what Trusted Types would refuse, to the core's log", in headless Chromium as `lead-tests`: run
