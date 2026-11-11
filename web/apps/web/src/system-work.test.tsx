@@ -65,9 +65,7 @@ it("shows what a machine is doing, and the faults the server saw in what it hold
   expect(mounted.container.textContent).toContain(
     "2 of 6 jobs it runs at once are running; 1 waiting.",
   );
-  expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
-    "1 times it held work",
-  );
+  expect(mounted.container.querySelector("output")?.textContent).toContain("1 times it held work");
 });
 
 it("sets how many may read a disk at once, and gives it back to its kind's (D240 §5)", async () => {

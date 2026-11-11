@@ -61,13 +61,15 @@ export function SystemNetworkView(props: {
           : t("system.network.routerRunning", { router: state.running.router })}
       </p>
       {state.fellBack.map((setting) => (
-        <p role="alert" key={setting}>
-          {t(
-            setting === "httpsPort"
-              ? "system.network.fellBackHttpsPort"
-              : "system.network.fellBackWebrtcPort",
-            { kept: state.kept[setting], running: state.running[setting] },
-          )}
+        <p key={setting}>
+          <output>
+            {t(
+              setting === "httpsPort"
+                ? "system.network.fellBackHttpsPort"
+                : "system.network.fellBackWebrtcPort",
+              { kept: state.kept[setting], running: state.running[setting] },
+            )}
+          </output>
         </p>
       ))}
       <NetworkForm kept={state.kept} onChanged={props.onChanged} />

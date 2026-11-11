@@ -244,7 +244,7 @@ it("the System page warns when a machine is too slow to convert a film as it pla
   expect(slow).toContain("It converts video at 60% of the speed it plays.");
   expect(slow).toContain("That is too slow to convert a film while it plays");
   expect(slow).toContain("told this server can't convert it fast enough");
-  expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(1);
+  expect(mounted?.container.querySelectorAll("output").length).toBe(1);
 });
 
 it("the System page shows each machine's build and system, and warns when it is not the server's (D225)", async () => {
@@ -266,6 +266,10 @@ it("the System page shows each machine's build and system, and warns when it is 
     isServersBuild: false,
   });
   expect(other).toContain("This machine runs a different Orpheum build from the server's.");
+  // A standing notice of how the machine is, not a failure of anything done: told politely.
+  expect(mounted?.container.querySelector("output")?.textContent).toContain(
+    "a different Orpheum build",
+  );
   expect(other).toContain("(built with uncommitted changes)");
 });
 
