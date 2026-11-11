@@ -2912,7 +2912,10 @@ The owner's answers:
      fetches.
    - `aria-invalid` and `:user-invalid` on failing fields; the `role="alert"`s reviewed for polite
      status.
-   - The Trusted Types CSP, report-only first.
+   - The Trusted Types CSP, report-only first. Built: the client's pages, the core's and Connect's,
+     are sent `Content-Security-Policy-Report-Only: require-trusted-types-for 'script'`, and the page
+     notes each violation to the core's log (`policy-violations.ts`, VQ299). Connect's page carries
+     the client's half at its next pin of Orpheum. Enforcing it waits for the log's list of sinks.
    - `dvh`, `text-wrap: balance` and `<search>`. Built: the four `100vh` are `100dvh` (the shell,
      the sign-in page, the Watch Together viewer and a pop-up's tallest), `h1`–`h3` balance their
      lines (`stylesheet-choices.test.ts`), and a list's Sort and filter and the server settings'

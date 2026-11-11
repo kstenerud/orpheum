@@ -38,6 +38,7 @@ import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
 import { isFilmPlayingOn, reportPageFreezes } from "./page-freezes.ts";
+import { notePolicyViolations } from "./policy-violations.ts";
 import { newerClientOver, reportReloadNote, watchForNewerClient } from "./newer-client.ts";
 import { i18n } from "./i18n.ts";
 import { createPathMoves, ServicesContext } from "./services.tsx";
@@ -61,6 +62,9 @@ if (rootElement === null) {
 keepPageAudio(document);
 const navigation = createNavigation(window);
 const root = createRoot(rootElement);
+// What the page's report-only policy would refuse goes to the core's log, found on the devices
+// before the policy is enforced (policy-violations.ts).
+notePolicyViolations(document);
 // The page's freezes of a second or more go to the core's log, on every screen, saying which.
 reportPageFreezes({
   screen: () => navigation.route().screen,

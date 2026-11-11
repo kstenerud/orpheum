@@ -19,6 +19,14 @@ const contentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsaf
 	"worker-src 'self' blob:; connect-src 'self'; font-src 'self' data:; manifest-src 'self'; " +
 	"object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
+// trustedTypesPolicy is the policy the client's pages are sent to report on, not enforce: that a
+// string reaches no script sink (innerHTML, a worker's or a service worker's address) but through
+// a Trusted Types policy. The page notes each violation to the core's log
+// (web/apps/web/src/policy-violations.ts), so the sinks still taking strings are found on the
+// devices before it is enforced (the 11-22 batch's item 6). Not the cast pages', whose Google SDK
+// is not the client's to change.
+const trustedTypesPolicy = "require-trusted-types-for 'script'"
+
 // castSDKOrigin is where Google's Cast SDKs load from, the sender's and the receiver's alike
 // (developers.google.com/cast): their scripts, and the framework scripts they load in turn.
 const castSDKOrigin = "https://www.gstatic.com"
@@ -81,6 +89,9 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 		name := strings.TrimPrefix(path.Clean(request.URL.Path), "/")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("Content-Security-Policy", policyFor(name))
+		if policyFor(name) == contentSecurityPolicy {
+			writer.Header().Set("Content-Security-Policy-Report-Only", trustedTypesPolicy)
+		}
 		writer.Header().Set("Referrer-Policy", "no-referrer")
 		if request.TLS != nil {
 			writer.Header().Set("Strict-Transport-Security", strictTransportSecurity)
