@@ -3040,6 +3040,11 @@ VQ286 and VQ287 can run.
    says "Device tests are turned off on this server." So two gates would meet: the server's setting
    and the account's Show debug tools. Corrected 2026-11-11: the lead first told the owner the lab
    had no link at all.
+   **The gates (the owner, 2026-11-11: "c"):** the Cast lab, and whatever else is an experiment,
+   moves under Show debug tools, on the Experimental page; the device tests (device, input, sound
+   timing, remote, extend, throughput) stay the lab's, behind Offer Device tests, which is there for
+   beta testers to run them. Asked of the owner and filed for the next batch: whether the remote and
+   extend probes, spikes whose VQ56 and VQ57 were never run, are retired.
    Open, asked of the owner: whether the Experimental page is the lab's menu given an entry, or a new
    page of links that includes the lab's; where its entry sits (the rail's manage group, the account
    page, beside the other debug tools); whether it is for anyone with Show debug tools or admins alone.
