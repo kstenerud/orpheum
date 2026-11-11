@@ -190,6 +190,13 @@ function isDrawn(element: HTMLElement): boolean {
 export const rovingAttribute = "data-focus-roving";
 
 /**
+ * The attribute on the control an arrow entering its container from outside goes to, before what last
+ * had focus there: the alphabet rail's letter of the poster beside it (the owner, 2026-11-11), set
+ * by standTabStopAt (roving-tab-stop.ts) and gone once focus moves in the container.
+ */
+export const entryAttribute = "data-focus-entry";
+
+/**
  * Whether an arrow may move focus to element by the tab order: it is in it, or out of it only by a
  * roving tab stop. One out of it any other way, a pointer's alone (IconButton), is not.
  */

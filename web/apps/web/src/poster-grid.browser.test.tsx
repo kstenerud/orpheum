@@ -14,6 +14,8 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { railLetters } from "./alphabet-rail.tsx";
+
 import {
   films,
   focusedTile,
@@ -84,6 +86,25 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       (control) => control.tabIndex >= 0,
     );
     expect(inTabsOrder).toHaveLength(1);
+  });
+
+  it("enters the alphabet rail at the letter of the poster just left, by an arrow or by Tab (the owner, 2026-11-11)", async () => {
+    await page.viewport(960, 480);
+    // Each film under a letter of its own, as a list by name says it: Film 1 under B, Film 2 under C.
+    const lettered = films(12).map((film, index) => ({ ...film, letter: railLetters[index + 2] }));
+    walking = await mountApp(
+      walkServices({ ...filmsOnly, "GET /items": { items: lettered, nextCursor: "" } }),
+    );
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    const links = document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link");
+    links[5]?.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement?.textContent).toBe("G");
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(focusedTile()).toBe("Film 6");
+    links[1]?.focus();
+    await userEvent.keyboard("{Tab}");
+    expect(document.activeElement?.textContent).toBe("C");
   });
 
   it("keeps the page's own margin left of the posters, the rail centred and whole in its gutter right of them", async () => {

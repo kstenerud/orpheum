@@ -5,6 +5,7 @@ import "./browse.css";
 import type { components } from "@orpheum/sdk";
 import {
   memo,
+  use,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -18,7 +19,9 @@ import type { TFunction } from "i18next";
 
 import {
   AlphabetRail,
+  RailStandContext,
   useAlphabetRailLetters,
+  useRailStand,
   useLetterJump,
   useLetterJumpState,
   useResetJumpOnChange,
@@ -110,6 +113,7 @@ export function PosterGrid(props: {
   const gridRef = useRef<HTMLUListElement>(null);
   useFocusedToComeKept(gridRef, props.entries);
   useRovingTabStop(gridRef);
+  useRailFollowsFocus(gridRef, props.entries);
   const loaded = props.entries.length;
   const firstToCome = useCallback(
     () => gridRef.current?.querySelector(`[${toComePlaceAttribute}="${String(loaded)}"]`) ?? null,
@@ -140,6 +144,32 @@ export function PosterGrid(props: {
       </ul>
     </>
   );
+}
+
+/**
+ * Says the focused poster's letter to the alphabet rail beside the grid (RailStandContext), each time
+ * a poster takes focus: Tab or an arrow to the rail then comes to that letter (the owner, 2026-11-11).
+ */
+function useRailFollowsFocus(
+  gridRef: RefObject<HTMLUListElement | null>,
+  entries: readonly Entry[],
+): void {
+  const standRailAt = use(RailStandContext);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (grid === null) {
+      return undefined;
+    }
+    const focused = (event: FocusEvent): void => {
+      const card = event.target instanceof Element ? event.target.closest("li") : null;
+      const place = card === null ? -1 : [...grid.children].indexOf(card);
+      standRailAt(place < 0 ? undefined : entries[place]?.letter);
+    };
+    grid.addEventListener("focusin", focused);
+    return () => {
+      grid.removeEventListener("focusin", focused);
+    };
+  }, [gridRef, entries, standRailAt]);
 }
 
 function doNothing(): void {
@@ -353,38 +383,42 @@ export function Browse(props: {
   const isNamed = choice.sort === "name";
   const listKey = `${props.kind}/${criteriaKey(listed)}`;
   useResetJumpOnChange(listKey, clearJump);
+  const rail = useRailStand();
   return (
-    <section className="browse browse__layout" aria-labelledby="browse-heading">
-      <div ref={listRef}>
-        <div className="browse__bar">
-          <h1 id="browse-heading">{t(props.kind === "film" ? "nav.films" : "nav.series")}</h1>
-          {/* Its tools on the bar's line after its name, so Up from the list's first row meets them,
+    <RailStandContext value={rail.standAt}>
+      <section className="browse browse__layout" aria-labelledby="browse-heading">
+        <div ref={listRef}>
+          <div className="browse__bar">
+            <h1 id="browse-heading">{t(props.kind === "film" ? "nav.films" : "nav.series")}</h1>
+            {/* Its tools on the bar's line after its name, so Up from the list's first row meets them,
               whichever poster it leaves, and Up again the banner (the owner, 2026-11-04: Up goes to
               the list's tools before the banner). */}
-          <ListingTools>
-            <ListCriteriaButton criteria={criteria} sorts={browseSorts} />
-          </ListingTools>
+            <ListingTools>
+              <ListCriteriaButton criteria={criteria} sorts={browseSorts} />
+            </ListingTools>
+          </div>
+          <BrowsePages
+            key={listKey}
+            kind={props.kind}
+            choice={choice}
+            search={search}
+            filters={filters}
+            jump={isNamed ? jump : undefined}
+            listRef={listRef}
+          />
         </div>
-        <BrowsePages
-          key={listKey}
-          kind={props.kind}
-          choice={choice}
-          search={search}
-          filters={filters}
-          jump={isNamed ? jump : undefined}
-          listRef={listRef}
-        />
-      </div>
-      {isNamed ? (
-        <BrowseAlphabetRail
-          kind={props.kind}
-          search={search}
-          filters={filters}
-          isZToA={choice.order === "descending"}
-          onLetter={onLetter}
-        />
-      ) : null}
-    </section>
+        {isNamed ? (
+          <BrowseAlphabetRail
+            kind={props.kind}
+            search={search}
+            filters={filters}
+            isZToA={choice.order === "descending"}
+            onLetter={onLetter}
+            railRef={rail.railRef}
+          />
+        ) : null}
+      </section>
+    </RailStandContext>
   );
 }
 
@@ -400,6 +434,7 @@ function BrowseAlphabetRail(props: {
   readonly filters: ListFilters;
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
+  readonly railRef: RefObject<HTMLOListElement | null>;
 }): JSX.Element {
   const letters = useAlphabetRailLetters({
     kind: props.kind,
@@ -408,7 +443,14 @@ function BrowseAlphabetRail(props: {
     search: props.search,
     filters: props.filters,
   });
-  return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
+  return (
+    <AlphabetRail
+      onLetter={props.onLetter}
+      letters={letters}
+      isZToA={props.isZToA}
+      railRef={props.railRef}
+    />
+  );
 }
 
 /**

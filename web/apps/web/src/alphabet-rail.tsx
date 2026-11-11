@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
@@ -9,7 +18,7 @@ import { filtersKey, filtersQuery, kindsQuery, type ListedKind } from "./list-fi
 import { useBackgroundChangesPoller } from "./polling.ts";
 import type { ListFilters } from "./router.ts";
 import { dataOrThrow } from "./problem.ts";
-import { useRovingTabStop } from "./roving-tab-stop.ts";
+import { standTabStopAt, useRovingTabStop } from "./roving-tab-stop.ts";
 import { useServices } from "./services.tsx";
 import type { Pages } from "./use-pages.ts";
 import { useResource } from "./use-resource.ts";
@@ -37,6 +46,8 @@ export const railLetters = [
  */
 export function AlphabetRail(props: {
   readonly onLetter: (letter: string) => void;
+  /** The rail, for the list beside it to stand it at its focused poster's letter (useRailStand). */
+  readonly railRef?: RefObject<HTMLOListElement | null> | undefined;
   readonly letters?: readonly string[] | undefined;
   readonly isZToA?: boolean | undefined;
 }): JSX.Element {
@@ -46,7 +57,8 @@ export function AlphabetRail(props: {
       ? railLetters
       : railLetters.filter((letter) => props.letters?.includes(letter) === true);
   const shown = props.isZToA === true ? [...given].reverse() : given;
-  const railRef = useRef<HTMLOListElement>(null);
+  const ownRef = useRef<HTMLOListElement>(null);
+  const railRef = props.railRef ?? ownRef;
   useRovingTabStop(railRef);
   return (
     <ol
@@ -70,6 +82,38 @@ export function AlphabetRail(props: {
       ))}
     </ol>
   );
+}
+
+/** Stands a list's alphabet rail at a letter, # or A to Z, by the entry's letter the list says. */
+export type StandRailAt = (letter: string | undefined) => void;
+
+/**
+ * Where a poster grid says its focused poster's letter: to the rail beside it (useRailStand), so Tab
+ * or an arrow from the poster to the rail comes to its letter (the owner, 2026-11-11); nowhere by
+ * default, a grid with no rail.
+ */
+export const RailStandContext = createContext<StandRailAt>(() => undefined);
+
+/**
+ * A list's alphabet rail, and how to stand it at a letter: its letter becomes the rail's Tab stop and
+ * where an arrow entering the rail goes (standTabStopAt), unless focus is in the rail already. A
+ * letter the rail does not show (its letters still loading) leaves it as it is.
+ */
+export function useRailStand(): {
+  readonly railRef: RefObject<HTMLOListElement | null>;
+  readonly standAt: StandRailAt;
+} {
+  const railRef = useRef<HTMLOListElement>(null);
+  const standAt = useCallback((letter: string | undefined) => {
+    const rail = railRef.current;
+    const button = [...(rail?.querySelectorAll<HTMLElement>(".alphabet-rail__letter") ?? [])].find(
+      (each) => each.textContent === letter,
+    );
+    if (rail !== null && button !== undefined) {
+      standTabStopAt(rail, button);
+    }
+  }, []);
+  return useMemo(() => ({ railRef, standAt }), [standAt]);
 }
 
 /**
