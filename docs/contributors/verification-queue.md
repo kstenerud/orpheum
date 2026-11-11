@@ -2906,3 +2906,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   press Play. Passes when, should the film not start, the picture shows with the controls over it and
   the line "Paused — press Play to start.", and one press of Play starts it with its sound; where the
   film starts by itself, it passes too, and the line never shows. (`web/apps/web/src/player-overlay.tsx`)
+- [ ] **VQ297** — Chrome on an iPhone starts a film from its page's Play (the owner, 2026-11-11: "In
+  Chrome it went black again"). On the owner's iPhone in Chrome, on staging: open The Navigator S1E1's page
+  and press Play. Passes when the film starts by itself, with its sound, and the line "Paused — press
+  Play to start." does not show; then in Safari, the same. (`web/apps/web/src/video-pressed-for-play.ts`)

@@ -63,18 +63,18 @@ describe("a film the browser would not start, on the Play page's overlay", () =>
     const video = pausedVideo();
     await drawn(video);
     expect(shown()).toBe("hidden");
-    expect(line()?.hidden).toBe(true);
+    expect(line()).toBeNull();
     act(() => {
       video.dispatchEvent(new Event(startRefusedEvent));
     });
     expect(shown()).toBe("full");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Play");
-    expect(line()?.hidden).toBe(false);
+    expect(line()).toBeInstanceOf(HTMLElement);
     expect(line()?.tagName).toBe("OUTPUT");
     expect(line()?.textContent).toBe("Paused — press Play to start.");
     act(() => {
       void video.play();
     });
-    expect(line()?.hidden).toBe(true);
+    expect(line()).toBeNull();
   });
 });

@@ -54,13 +54,11 @@ export function useStartRefused(
 
 /**
  * The line over a film the browser would not start (useStartRefused), saying why the picture stands
- * still and what starts it; an output, a status a screen reader says as it shows.
+ * still and what starts it, drawn only then; an output, a status a screen reader says as it shows.
  */
-export function StartRefusedShown(props: { readonly isShown: boolean }): JSX.Element {
+export function StartRefusedShown(props: { readonly isShown: boolean }): JSX.Element | null {
   const { t } = useTranslation();
-  return (
-    <output className="player-overlay-refused" hidden={!props.isShown}>
-      {props.isShown ? t("playerControls.pressPlayToStart") : ""}
-    </output>
-  );
+  return props.isShown ? (
+    <output className="player-overlay-refused">{t("playerControls.pressPlayToStart")}</output>
+  ) : null;
 }

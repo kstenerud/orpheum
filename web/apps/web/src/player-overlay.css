@@ -176,10 +176,6 @@
   transform: translate(-50%, -50%);
 }
 
-.player-overlay-refused[hidden] {
-  display: none;
-}
-
 /* The volume + or − left (D407 §10), a moment, where the pause sign would be. */
 .player-overlay-volume {
   position: absolute;
