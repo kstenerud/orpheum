@@ -1,25 +1,74 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
+/* How wide each end's fade is drawn: none until the row has more beyond that end. */
+@property --poster-row-fade-back {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --poster-row-fade-on {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 /*
  * A row of posters that scrolls sideways (poster-row.tsx), sized as the grid is. A row that scrolls
  * clips what leaves its box, so it keeps room for the focus ring around its posters, and stands
  * where it would without it.
+ *
+ * Each end with more beyond it fades out, over --poster-row-fade (the owner, 2026-11-11), drawn
+ * as a mask, so it fades to whatever is behind the row: the page, or a series' picture. The mask
+ * reads only how opaque each stop is: black is "all shown", no colour drawn. The row
+ * scrolls a focused poster that far further in, its ring clear of the fade. So the fade never dims
+ * the focused poster (D189), only the one partly out of view.
  */
 .poster-row {
+  --poster-row-fade: var(--space-6);
   display: flex;
   gap: var(--space-3);
   margin: calc(-1 * var(--focus-ring-room)) calc(-1 * var(--focus-ring-room)) 0;
   padding: var(--focus-ring-room) var(--focus-ring-room) var(--space-2);
   overflow-x: auto;
-  scroll-padding-inline: var(--focus-ring-room);
+  scroll-padding-inline: calc(var(--focus-ring-room) + var(--poster-row-fade));
   list-style: none;
-  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--poster-row-fade-back),
+    black calc(100% - var(--poster-row-fade-on)),
+    transparent
+  );
+  transition:
+    --poster-row-fade-back var(--duration-quick),
+    --poster-row-fade-on var(--duration-quick);
+}
+
+.poster-row--more-back {
+  --poster-row-fade-back: var(--poster-row-fade);
+}
+
+.poster-row--more-on {
+  --poster-row-fade-on: var(--poster-row-fade);
 }
 
 .poster-row > .poster-card {
   width: var(--size-poster-min);
   flex: none;
   scroll-snap-align: start;
+}
+
+/*
+ * A swipe comes to rest on a poster's edge, on a touch screen alone (a phone's or a tablet's: no
+ * hover). Elsewhere focus and the arrows place the row themselves, and a snap after them pulls a
+ * poster focus just brought in back under the edge fade, cut off: the Fire TV's Silk says its
+ * pointer is coarse, but that it hovers.
+ */
+@media (hover: none) and (pointer: coarse) {
+  .poster-row {
+    scroll-snap-type: x proximity;
+  }
 }
 
 /* A poster row's frame: the row, and its arrows over its ends. */

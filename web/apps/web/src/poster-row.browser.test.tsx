@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { EntryPoster, type Entry } from "./browse.tsx";
+import { scrollIntoViewGently } from "./focus-navigation.ts";
 import { PosterRow } from "./poster-row.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -202,6 +203,62 @@ function handMouseQuery(): { readonly attach: () => void } {
     },
   };
 }
+
+/** Which of the row's ends fade: its start's and its end's. */
+function fadedEnds(list: HTMLElement): string[] {
+  return [
+    list.classList.contains("poster-row--more-back") ? "back" : undefined,
+    list.classList.contains("poster-row--more-on") ? "on" : undefined,
+  ].filter((end) => end !== undefined);
+}
+
+describe("a poster row's edge fades (the owner, 2026-11-11)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.unstubAllGlobals();
+  });
+
+  it("fades each end with more beyond it, on a device with no mouse too", async () => {
+    handMouseQuery();
+    mounted = await rowOf(20);
+    const list = drawnAt(".poster-row");
+    await expect.poll(() => fadedEnds(list)).toEqual(["on"]);
+    expect(getComputedStyle(list).maskImage).toContain("linear-gradient");
+    list.scrollLeft = list.scrollWidth / 2;
+    await expect.poll(() => fadedEnds(list)).toEqual(["back", "on"]);
+    list.scrollLeft = list.scrollWidth;
+    await expect.poll(() => fadedEnds(list)).toEqual(["back"]);
+  });
+
+  it("fades no end of a row that fits", async () => {
+    mounted = await rowOf(2);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(fadedEnds(drawnAt(".poster-row"))).toEqual([]);
+  });
+
+  it("brings a focused poster in clear of the fades, either way (D189)", async () => {
+    mounted = await rowOf(20);
+    const list = drawnAt(".poster-row");
+    const fade = parseFloat(getComputedStyle(list).getPropertyValue("--poster-row-fade"));
+    expect(fade).toBeGreaterThan(0);
+    const links = [...list.querySelectorAll<HTMLElement>(".poster-card__link")];
+    // Along the row and back, as a remote's Right and Left move focus (focus-navigation.ts).
+    for (const index of [1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2]) {
+      const link = links[index];
+      link?.focus({ preventScroll: true });
+      if (link !== undefined) {
+        scrollIntoViewGently(link);
+      }
+      const box = list.getBoundingClientRect();
+      const card = link?.getBoundingClientRect();
+      expect(card?.left).toBeGreaterThanOrEqual(box.left + fade);
+      expect(card?.right).toBeLessThanOrEqual(box.right - fade);
+    }
+  });
+});
 
 describe("a poster row's Tab stop (the owner, 2026-11-11: one Tab stop per poster grid and row)", () => {
   let mounted: Mounted | undefined;

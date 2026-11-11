@@ -36,8 +36,9 @@ const slackPixels = 1;
  * enters and leaves in one step (useRovingTabStop); and, for a mouse with no sideways wheel, an
  * arrow at each end where there is more that way (the owner, 2026-11-04). The arrows show only on a device whose pointer hovers and is fine, while the
  * pointer is over the row or focus is in it (poster-row.css); they are out of Tab's order and a
- * remote's (IconButton's isPointerOnly), so a phone and a television are as they were. listRef,
- * given, is the list's, for a row that scrolls itself to a poster (SeasonRow).
+ * remote's (IconButton's isPointerOnly), so a phone and a television are as they were. On every
+ * device, each end with more beyond it fades out, the focused poster always clear of the fade
+ * (poster-row.css; D189). listRef, given, is the list's, for a row that scrolls itself to a poster (SeasonRow).
  */
 export function PosterRow(props: {
   readonly className?: string | undefined;
@@ -53,6 +54,7 @@ export function PosterRow(props: {
   const ownRef = useRef<HTMLUListElement>(null);
   const listRef = props.listRef ?? ownRef;
   const ends = useRowEnds(listRef);
+  const arrows = useIsMousePointer() ? ends : noEnds;
   useRovingTabStop(listRef);
   const scroll = (direction: RowDirection): void => {
     const list = listRef.current;
@@ -64,14 +66,14 @@ export function PosterRow(props: {
     <div className="poster-row__frame">
       <ul
         ref={listRef}
-        className={props.className === undefined ? "poster-row" : `poster-row ${props.className}`}
+        className={rowClassOf(ends, props.className)}
         aria-label={props.label}
         data-focus-container=""
         {...(props.isArrival === true ? arrivalMark : {})}
       >
         {props.children}
       </ul>
-      {ends.hasMoreBack ? (
+      {arrows.hasMoreBack ? (
         <span className="poster-row__arrow poster-row__arrow--back">
           <IconButton
             label={t("posterRow.scrollBack")}
@@ -83,7 +85,7 @@ export function PosterRow(props: {
           />
         </span>
       ) : null}
-      {ends.hasMoreOn ? (
+      {arrows.hasMoreOn ? (
         <span className="poster-row__arrow poster-row__arrow--on">
           <IconButton
             label={t("posterRow.scrollOn")}
@@ -97,6 +99,21 @@ export function PosterRow(props: {
       ) : null}
     </div>
   );
+}
+
+/**
+ * The list's classes: an edge fade at each end it has more beyond (poster-row.css; the owner,
+ * 2026-11-11: "Let's try it and see"), and the row's own.
+ */
+function rowClassOf(ends: RowEnds, own: string | undefined): string {
+  return [
+    "poster-row",
+    ends.hasMoreBack ? "poster-row--more-back" : undefined,
+    ends.hasMoreOn ? "poster-row--more-on" : undefined,
+    own,
+  ]
+    .filter((name) => name !== undefined)
+    .join(" ");
 }
 
 /** An arrow's chevron, pointing the way it scrolls. */
@@ -121,7 +138,7 @@ function RowArrowIcon(props: { readonly direction: RowDirection }): JSX.Element 
  */
 const mousePointerQuery = "(hover: hover) and (pointer: fine)";
 
-/** No row's ends, where the arrows show on no device: neither is drawn. */
+/** No more either way: a row that fits, and the arrows on a device they show on none of. */
 const noEnds: RowEnds = { hasMoreBack: false, hasMoreOn: false };
 
 /**
@@ -151,50 +168,70 @@ function isMousePointerNow(): boolean {
   );
 }
 
+/** How much of an end poster shows for the row to count it in view: all of it, but a pixel's rounding. */
+const wholeShown = 0.98;
+
 /**
- * Whether the list has more out of view either way, kept as it scrolls, as its box changes size and
- * as its posters come and go; measured only on a device the arrows show on (useIsMousePointer), so a
- * phone's or a television's scroll measures nothing (web architecture audit, 2026-11-10).
+ * Whether the list has more out of view either way: whether its first poster and its last are
+ * wholly in view, watched by an IntersectionObserver, which says only when one comes into view or
+ * leaves it, so a scroll on a television measures nothing frame by frame (web architecture audit,
+ * 2026-11-10). The arrows (a mouse's) and the edge fades (every device's) both read it.
  */
 function useRowEnds(listRef: RefObject<HTMLUListElement | null>): RowEnds {
-  const isMousePointer = useIsMousePointer();
   const [ends, setEnds] = useState<RowEnds>(noEnds);
   useEffect(() => {
     const list = listRef.current;
-    if (list === null || !isMousePointer) {
+    if (list === null || typeof IntersectionObserver === "undefined") {
       return undefined;
     }
-    const measure = (): void => {
-      const next = rowEndsOf(list);
+    const whole = new Map<Element, boolean>();
+    const watched: { first: Element | null; last: Element | null } = { first: null, last: null };
+    const show = (): void => {
+      const next = {
+        hasMoreBack: watched.first !== null && whole.get(watched.first) === false,
+        hasMoreOn: watched.last !== null && whole.get(watched.last) === false,
+      };
       setEnds((shown) =>
         shown.hasMoreBack === next.hasMoreBack && shown.hasMoreOn === next.hasMoreOn ? shown : next,
       );
     };
-    list.addEventListener("scroll", measure, { passive: true });
-    const resizes = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
-    resizes?.observe(list);
+    const sight = new IntersectionObserver(
+      (records) => {
+        for (const record of records) {
+          whole.set(record.target, record.intersectionRatio >= wholeShown);
+        }
+        show();
+      },
+      { root: list, threshold: [wholeShown] },
+    );
+    // The posters at the ends, watched afresh as posters come and go.
+    const watchEnds = (): void => {
+      const [first, last] = [list.firstElementChild, list.lastElementChild];
+      for (const was of [watched.first, watched.last]) {
+        if (was !== null && was !== first && was !== last) {
+          sight.unobserve(was);
+          whole.delete(was);
+        }
+      }
+      for (const end of [first, last]) {
+        if (end !== null && !whole.has(end)) {
+          sight.observe(end);
+        }
+      }
+      watched.first = first;
+      watched.last = last;
+      show();
+    };
+    watchEnds();
     const changes =
-      typeof MutationObserver === "undefined" ? undefined : new MutationObserver(measure);
+      typeof MutationObserver === "undefined" ? undefined : new MutationObserver(watchEnds);
     changes?.observe(list, { childList: true });
-    // The first measure, once the list is laid out, where no observer reports one.
-    const frame = requestAnimationFrame(measure);
     return () => {
-      cancelAnimationFrame(frame);
-      list.removeEventListener("scroll", measure);
-      resizes?.disconnect();
+      sight.disconnect();
       changes?.disconnect();
     };
-  }, [listRef, isMousePointer]);
-  return isMousePointer ? ends : noEnds;
-}
-
-/** Whether a list has more out of view before its scroll position, and after what it shows. */
-function rowEndsOf(list: HTMLElement): RowEnds {
-  const position = Math.abs(list.scrollLeft);
-  return {
-    hasMoreBack: position > slackPixels,
-    hasMoreOn: position + list.clientWidth < list.scrollWidth - slackPixels,
-  };
+  }, [listRef]);
+  return ends;
 }
 
 /** A computed length in pixels; none, as for "auto", is 0. */
@@ -207,15 +244,16 @@ function pixelsOf(length: string): number {
  * Scrolls a row by about its width less one poster, which stays in view at the other end for where
  * the row was: on, the last poster wholly in view comes to the start; back, the row moves so the
  * first wholly in view ends at the end. Each lands with a poster at the start, where the row's
- * scroll-snap would put one; at once for a person who asked for less motion.
+ * scroll-snap would put one, clear of the edge fade (its scroll-padding); at once for a person who
+ * asked for less motion. What is in view counts the posters under the fades: the row's box less its
+ * padding, the focus ring's room.
  */
 function scrollRowAPage(list: HTMLElement, direction: RowDirection): void {
   const style = getComputedStyle(list);
-  const paddingStart = pixelsOf(style.scrollPaddingLeft);
-  const paddingEnd = pixelsOf(style.scrollPaddingRight);
   const box = list.getBoundingClientRect();
-  const viewStart = box.left + list.clientLeft + paddingStart;
-  const viewEnd = box.left + list.clientLeft + list.clientWidth - paddingEnd;
+  const boxStart = box.left + list.clientLeft;
+  const viewStart = boxStart + pixelsOf(style.paddingLeft);
+  const viewEnd = boxStart + list.clientWidth - pixelsOf(style.paddingRight);
   const posters = [...list.children].map((poster) => poster.getBoundingClientRect());
   const target =
     direction === "on"
@@ -227,7 +265,7 @@ function scrollRowAPage(list: HTMLElement, direction: RowDirection): void {
   const isReduced =
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   list.scrollTo({
-    left: list.scrollLeft + target.left - viewStart,
+    left: list.scrollLeft + target.left - (boxStart + pixelsOf(style.scrollPaddingLeft)),
     behavior: isReduced ? "instant" : "smooth",
   });
 }
