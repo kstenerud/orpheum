@@ -317,11 +317,12 @@ describe("itemsToCome", () => {
     expect(itemsToCome({ items: [1, 2, 3], nextCursor: "3", total: 2 })).toBe(0);
   });
 
-  it("takes the total the first page read says, which a later page does not", () => {
+  it("takes the total the last page says, read after the list grew, or one before where it says none", () => {
     const pages = [
       { cursor: "", items: [1, 2], nextCursor: "2", total: 5 },
-      { cursor: "2", items: [3, 4], nextCursor: "4" },
+      { cursor: "2", items: [3, 4], nextCursor: "4", total: 7 },
     ];
-    expect(itemsToCome(merged(pages))).toBe(1);
+    expect(itemsToCome(merged(pages))).toBe(3);
+    expect(itemsToCome(merged([...pages, { cursor: "4", items: [5], nextCursor: "5" }]))).toBe(2);
   });
 });

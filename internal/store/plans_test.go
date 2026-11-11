@@ -411,11 +411,11 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibrarySeriesWithFetchedGroups": library + "a pass's last step, its series with an episode group " +
 			"fetched, whose episodes it keeps placed (episode-orderings.md)",
 		"ListLibraryWorks": library + "the identification pass",
-		// A list's first page counts the whole list, of each kind it names, so the grid reserves
-		// its room before the other pages come (the owner, 2026-11-11).
-		"CountFilmsListed":  library + "a list's count of its films, on its first page alone",
-		"CountSeriesListed": library + "a list's count of its series, on its first page alone",
-		"CountOtherListed":  library + "a list's count of its other videos, on its first page alone",
+		// Every page of a list but one from a name counts the whole list, of each kind it names, so the
+		// grid reserves its room before the other pages come (the owner, 2026-11-11).
+		"CountFilmsListed":  library + "a list's count of its films, on every page but one from a name",
+		"CountSeriesListed": library + "a list's count of its series, on every page but one from a name",
+		"CountOtherListed":  library + "a list's count of its other videos, on every page but one from a name",
 		// What the pass reads of its library at its start, once a pass, so that it runs no
 		// statement per file (D303, DL7).
 		"ListLibraryWorksForPass":        library + snapshot,

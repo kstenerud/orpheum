@@ -160,7 +160,7 @@ type ListItemsOutput struct {
 	Body struct {
 		Items      []ItemEntryBody `json:"items"`
 		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
-		Total      int64           `doc:"How many items the whole list holds, so a client can size it before its other pages come; on the first page alone, asked with no cursor and no from, and absent for an empty list and a list by identification" json:"total,omitempty"` //nolint:lll // one struct tag
+		Total      int64           `doc:"How many items the whole list holds, so a client can size it before its other pages come and see where its end now is; on every page but one asked with from, and absent for an empty list and a list by identification" json:"total,omitempty"` //nolint:lll // one struct tag
 	}
 }
 

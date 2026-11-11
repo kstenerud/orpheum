@@ -142,9 +142,9 @@ func otherFactsOf(recordedAt *int64, recordedFrom, fileName *string) *OtherFacts
 type Page struct {
 	Entries    []Entry
 	NextCursor string
-	// Total is how many entries the whole list holds, counted on its first page alone (no Cursor and
-	// no From), so a client sizes the list before its other pages come (the owner, 2026-11-11); 0 on
-	// every other page.
+	// Total is how many entries the whole list holds, counted on every page but one asked from a name
+	// (From), so a client sizes the list before its other pages come and sees, page by page, where its
+	// end now is (the owner, 2026-11-11); 0 on a page from a name.
 	Total int64
 }
 
@@ -256,7 +256,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	if err != nil {
 		return Page{}, err
 	}
-	if query.Cursor == "" && query.From == "" {
+	if query.From == "" {
 		if page.Total, err = browser.countListed(ctx, query); err != nil {
 			return Page{}, err
 		}

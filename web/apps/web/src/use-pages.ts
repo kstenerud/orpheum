@@ -12,8 +12,9 @@ export interface Page<T> {
   readonly items: readonly T[];
   readonly nextCursor: string;
   /**
-   * How many items the whole list holds, as its first page says it, where its server counts them:
-   * a view sizes the list by it before the other pages come (the owner, 2026-11-11).
+   * How many items the whole list holds, as its pages say it, where its server counts them: a view
+   * sizes the list by it before the other pages come, and each page read says where the list's end
+   * now is (the owner, 2026-11-11).
    */
   readonly total?: number | undefined;
 }
@@ -80,7 +81,10 @@ export interface ReadPage<T> extends Page<T> {
   readonly cursor: string;
 }
 
-/** The pages read, merged into one: their items in order, an id seen twice kept the first time. */
+/**
+ * The pages read, merged into one: their items in order, an id seen twice kept the first time, and
+ * the total the last page saying one says, the list as its latest page read found it.
+ */
 export function merged<T>(pages: readonly ReadPage<T>[], idOf?: (item: T) => unknown): Page<T> {
   const items: T[] = [];
   const seen = new Set<unknown>();
@@ -94,7 +98,11 @@ export function merged<T>(pages: readonly ReadPage<T>[], idOf?: (item: T) => unk
       items.push(item);
     }
   }
-  return { items, nextCursor: pages.at(-1)?.nextCursor ?? "", total: pages[0]?.total };
+  return {
+    items,
+    nextCursor: pages.at(-1)?.nextCursor ?? "",
+    total: pages.findLast((page) => page.total !== undefined)?.total,
+  };
 }
 
 /**

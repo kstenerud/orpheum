@@ -3981,7 +3981,7 @@ export interface components {
             nextCursor?: string;
             /**
              * Format: int64
-             * @description How many items the whole list holds, so a client can size it before its other pages come; on the first page alone, asked with no cursor and no from, and absent for an empty list and a list by identification
+             * @description How many items the whole list holds, so a client can size it before its other pages come and see where its end now is; on every page but one asked with from, and absent for an empty list and a list by identification
              */
             total?: number;
         };
