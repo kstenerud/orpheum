@@ -51,7 +51,7 @@ function useCurrentEntryFocused(ref: RefObject<HTMLElement | null>, isFromItsTop
     }
     const current = isFromItsTop ? null : list.querySelector<HTMLElement>(currentSelector);
     const onCurrent =
-      current === null || isFocusTarget(current) ? current : (firstFocusTargetIn(current) ?? null);
+      current === null || isFocusTarget(current) ? current : firstFocusTargetIn(current);
     (onCurrent ?? firstFocusTargetIn(list))?.focus({ preventScroll: true });
   }, [ref, isFromItsTop]);
 }
