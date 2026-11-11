@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { act, createElement } from "react";
+import { act, createElement, Suspense, use } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
@@ -166,6 +166,44 @@ describe("usePages", () => {
     });
     mounted.unmount();
     written.mockRestore();
+  });
+});
+
+describe("a page more (the Fire TV's trace, 2026-11-11)", () => {
+  it("is shown as a transition: what is shown stays while its tiles get ready, and it stays loading", async () => {
+    const load = pagedBy2(() => ["Arkon", "Greed", "Valdora"]);
+    const notReady = new Promise<never>(() => undefined);
+    let pages: Pages<string> | undefined;
+    function Tile(props: { readonly title: string }): React.JSX.Element {
+      if (props.title === "Valdora") {
+        use(notReady);
+      }
+      return createElement("li", null, props.title);
+    }
+    function List(): React.JSX.Element {
+      pages = usePages(load);
+      const items = pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
+      return createElement(
+        "ul",
+        { "data-loading-more": String(pages.isLoadingMore) },
+        items.map((title) => createElement(Tile, { key: title, title })),
+      );
+    }
+    const mounted = await mount(
+      createElement(
+        Suspense,
+        { fallback: createElement("p", null, "waiting") },
+        createElement(List),
+      ),
+    );
+    expect(mounted.container.textContent).toBe("ArkonGreed");
+    await act(async () => {
+      pages?.loadMore();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(mounted.container.textContent).toBe("ArkonGreed");
+    expect(mounted.container.querySelector("ul")?.dataset.loadingMore).toBe("true");
+    mounted.unmount();
   });
 });
 
