@@ -13541,7 +13541,7 @@ Tomatoes' audience score among them) is a later feature or a plugin
 A wrong match is worse than no match — it shows the wrong poster, synopsis and rating for a film
 the user owns, and nothing says it is a guess. So:
 
-1. **A provider ID in hand skips the search** — from an NFO, or in the name (`{tmdb-480631}`).
+1. **A provider ID in hand skips the search** — from an NFO, or in the name (`{tmdb-1}`).
 2. **A clear winner is accepted**: one result whose title and year both match the parse.
 3. **Anything else is not guessed.** The title is listed on local data, marked **ambiguous**,
    and **the search results are kept**, so the choice costs no further call.
