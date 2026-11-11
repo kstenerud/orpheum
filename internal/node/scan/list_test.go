@@ -21,12 +21,12 @@ import (
 func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{
-		"Movies/Arkon (1979)/Arkon (1979).mkv": "arkon",
-		"Movies/Arkon (1979)/Arkon (1979).nfo": "<movie/>",
-		"Movies/Metropolis (1995)/Sample/clip.mkv":   "debris",
-		"Movies/._Metropolis.mkv":                    "\x00\x05\x16\x07",
-		".trash/old.mkv":                       "old",
-		"notes.txt":                            "not media",
+		"Movies/Arkon (1979)/Arkon (1979).mkv":     "arkon",
+		"Movies/Arkon (1979)/Arkon (1979).nfo":     "<movie/>",
+		"Movies/Metropolis (1927)/Sample/clip.mkv": "debris",
+		"Movies/._Metropolis.mkv":                  "\x00\x05\x16\x07",
+		".trash/old.mkv":                           "old",
+		"notes.txt":                                "not media",
 	})
 	if err := syscall.Mkfifo(filepath.Join(root, "Movies", "pipe.mkv"), 0o600); err != nil {
 		t.Fatal(err)
@@ -48,9 +48,9 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		"listed Movies/Arkon (1979)/",
 		"listed Movies/Arkon (1979)/Arkon (1979).mkv",
 		"listed Movies/Arkon (1979)/Arkon (1979).nfo",
-		"listed Movies/Metropolis (1995)/",
-		"listed Movies/Metropolis (1995)/Sample/",
-		"listed Movies/Metropolis (1995)/Sample/clip.mkv",
+		"listed Movies/Metropolis (1927)/",
+		"listed Movies/Metropolis (1927)/Sample/",
+		"listed Movies/Metropolis (1927)/Sample/clip.mkv",
 		"skip Movies/pipe.mkv notRegular",
 		"listed notes.txt",
 		"scanComplete",
@@ -120,7 +120,7 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 
 func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 	t.Parallel()
-	films := writeTree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
+	films := writeTree(t, map[string]string{"Metropolis (1927)/Metropolis.mkv": "metropolis"})
 	shows := writeTree(t, map[string]string{"Shared/Arkon.mkv": "arkon"})
 	elsewhere := writeTree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
 	links := map[string]string{
@@ -141,8 +141,8 @@ func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 	// A directory reached again through a link is listed, and not walked twice (D206).
 	want := []string{
 		"scanBegin",
-		"listed Metropolis (1995)/",
-		"listed Metropolis (1995)/Metropolis.mkv",
+		"listed Metropolis (1927)/",
+		"listed Metropolis (1927)/Metropolis.mkv",
 		"listed a whole directory/",
 		"listed a whole directory/Arkon.mkv",
 		"error dangling.mkv entry notFound",

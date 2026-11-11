@@ -122,7 +122,7 @@ func (builder *treeBuilder) writeJunk() {
 	builder.tree.UnreadablePath = "Films/Locked (2004)/Locked (2004).mkv"
 	builder.write(builder.tree.UnreadablePath, []byte("locked"))
 	builder.addVideo("Films/Caf\xe9 Nights (1999)/Caf\xe9 Nights (1999).mkv")
-	builder.addVideo("Films/Аэлита (1972)/Аэлита (1972).mkv")
+	builder.addVideo("Films/Аэлита (1924)/Аэлита (1924).mkv")
 }
 
 // writeFilms writes films until the tree holds FixtureTreeFileCount files: every fifth with an NFO, every
