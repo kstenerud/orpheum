@@ -2913,3 +2913,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   from the info page. With sound."). On the owner's iPhone in Chrome, on staging: open The Navigator S1E1's page
   and press Play. Passes when the film starts by itself, with its sound, and the line "Paused — press
   Play to start." does not show; then in Safari, the same. (`web/apps/web/src/video-pressed-for-play.ts`)
+- [ ] **VQ298** — A Fire TV stepped over a hole in what it loaded plays on (the owner's Fire TV,
+  2026-11-11: stood still for good at 200.66 s, the next picture at 200.78 s, after a buffer-full
+  flush). On the Fire TV at .197 in Silk, on staging, through its devtools
+  (`adb forward tcp:9333 localabstract:amazon_silk_devtools_remote`): keep each SourceBuffer the page
+  adds (`Page.addScriptToEvaluateOnNewDocument` wrapping `MediaSource.prototype.addSourceBuffer`),
+  open a film's Play page, and once it plays, remove 0.12 s of the picture's buffer from 2 s ahead of
+  the position. Passes when, reaching it, the film plays on within about 2 s, and the core's log of
+  the playback notes "stepped over a 0.12 s hole". (`web/packages/player/src/holes.ts`)

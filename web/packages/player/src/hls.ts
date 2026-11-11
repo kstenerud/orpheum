@@ -19,6 +19,7 @@ import type { ChoiceWhy } from "./abr-options.ts";
 import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import { failureText } from "./diagnosis.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
+import { stepOverHoles } from "./holes.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
 import { linkNoter } from "./link-estimate.ts";
@@ -595,6 +596,7 @@ export function playHls(
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
   const stopEnding = endAtTheLastFrame(hls, video);
+  const stopStepping = stepOverHoles(video, linkNoter(video));
   const estimateKbps = measuredKbps(hls);
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -603,6 +605,7 @@ export function playHls(
     canSwitchSoundInPlace: true,
     destroy: () => {
       stopEnding();
+      stopStepping();
       stopRecoveringDecoding();
       hls.destroy();
     },

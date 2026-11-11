@@ -2962,7 +2962,9 @@ The owner's answers:
     the same Fire TV; each seriously hurts playing, so they are folded in):
     - (a) After bufferFullError and its flush, a 0.12 s hole was left at the play position
       (position 200.66 s, the next picture at 200.78 s), and playback stood still for good. The
-      player steps over a hole it is stopped at.
+      player steps over a hole it is stopped at. Built: hls.js steps a hole only within a piece it still
+      tracks, which the flush had taken; the player now steps one of at most 1 s after a second
+      standing in it (`holes.ts`, VQ298).
     - (b) The page's WebRTC to the core closed at 12:42:51 UTC and the page neither reconnected nor
       said anything.
     - (c) When Silk restored the page after Fire OS had killed it, the browser refused to start

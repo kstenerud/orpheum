@@ -135,6 +135,7 @@ User-Agent (D263; the User-Agent is logged only).
 | "a film whose prepare had made 46 s began at 40 s". | [An open (EVENT, no ENDLIST) playlist is treated as live and starts near its end](#an-open-event-no-endlist-playlist-is-treated-as-live-and-starts-near-its-end) |
 | A Watch Together host broadcast hls.js's own gap steps as user seeks ("each such step became a jump for everyone"). | [hls.js moves the playhead itself (gap jumps, stall nudges), and the browser reports each as a seek](#hlsjs-moves-the-playhead-itself-gap-jumps-stall-nudges-and-the-browser-reports-each-as-a-seek) |
 | An episode stood a frame short of its end for good, never "ended", and no next episode came (Fire TV, 2026-11-02). | [hls.js never ends a stream with a hole behind the playhead](#hlsjs-never-ends-a-stream-with-a-hole-behind-the-playhead) |
+| A Fire TV stood still for good 0.12 s short of its next picture, after the browser refused a chunk as its buffer was full (2026-11-11). | [hls.js leaves a hole a flush made](#hlsjs-leaves-a-hole-a-flush-made) |
 | "Both players held at 0 with 0.04 s to 60 s loaded … held the group up for good." | [A paused player is never stepped over a gap at the start, so it never becomes ready](#a-paused-player-is-never-stepped-over-a-gap-at-the-start-so-it-never-becomes-ready) |
 | After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s | [After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s](#after-an-audio-track-switch-the-audio-already-decoded-in-the-old-mix-plays-on-for-2-4-s) |
 | A phone reported its link as 500, then 5000 kb/s (hls.js's starting values), and the core remembered that. | [Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"](#before-any-measurement-bandwidthestimate-returns-its-configured-default-with-no-unknown) |
@@ -2288,6 +2289,22 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   video stood at 67.96 s, and the quality given up 6 s after it stood. **[web]** not searched: the session's
   search budget was spent.
 
+
+### hls.js leaves a hole a flush made
+
+- **Technology:** hls.js 1.7.3's gap controller, in Silk on a Fire TV (AFTSSS, 2026-11-11).
+- **Symptom:** /play/1504 at 1080p, about 200 s in: Silk refused a 21 MB chunk (bufferFullError,
+  "cannot free space"), hls.js flushed, and the video stood at 200.66 s with its next picture at
+  200.78 s, asked to play, for good, until the page closed.
+- **Cause:** **[source]** `gap-controller.ts`: `_trySkipBufferHole`, which steps a hole of any width,
+  runs only where the fragment tracker still has a piece appended at the position
+  (`appendedFragAtPosition`), and the flush had taken it; the nudge that remains needs the next
+  range within `maxBufferHole` (0.1 s) or a tracked piece at the position (`adjacentTraversal`), and
+  0.12 s was neither. So nothing moved it. **[web]** No report of exactly this was found.
+- **What we do:** the player steps a video standing still in a hole of at most 1 s, asked to play
+  and not seeking, over it after a second (`stepOverHoles`, `web/packages/player/src/holes.ts`,
+  VQ298); the heavy chunk itself is now cut smaller (the 11-22 batch's item 9).
+- **Evidence:** the core's log of the owner's Fire TV, staging, 2026-11-11 12:42 UTC.
 
 ### hls.js never ends a stream with a hole behind the playhead
 
