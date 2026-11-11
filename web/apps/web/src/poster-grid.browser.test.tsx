@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { railLetters } from "./alphabet-rail.tsx";
+import { rovingAttribute } from "./focus-engine.ts";
 
 import {
   films,
@@ -96,10 +97,13 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       walkServices({ ...filmsOnly, "GET /items": { items: lettered, nextCursor: "" } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    // The rail's letters come from their own request: a letter not yet drawn cannot be stood at.
-    await expect
-      .poll(() => document.querySelectorAll(".alphabet-rail__letter").length)
-      .toBeGreaterThan(0);
+    // The rail's letters come from their own request, and are taken into its one Tab stop after
+    // they are drawn: a letter not yet taken in cannot be stood at, and a loaded run met it so.
+    const takenIn = (): string[] =>
+      [...document.querySelectorAll(`.alphabet-rail__letter[${rovingAttribute}]`)].map(
+        (letter) => letter.textContent,
+      );
+    await expect.poll(takenIn).toEqual(expect.arrayContaining(["C", "G"]));
     const links = document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link");
     links[5]?.focus();
     await userEvent.keyboard("{ArrowRight}");
