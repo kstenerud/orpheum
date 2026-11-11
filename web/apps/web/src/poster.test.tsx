@@ -222,6 +222,18 @@ describe("a poster tile's image, at the size it is drawn (web architecture audit
     );
   });
 
+  it("shows a clock until its image loads, then the image alone, the same image kept", async () => {
+    mounted = await mount(<Poster sourceSha256="ab12" isTile />);
+    const image = mounted.container.querySelector("img.poster");
+    expect(mounted.container.querySelector(".poster-waiting .poster__clock")).not.toBeNull();
+    act(() => {
+      image?.dispatchEvent(new Event("load"));
+    });
+    // The faded clock is its own layer, painted over the image: it goes (the owner, 2026-11-11).
+    expect(mounted.container.querySelector(".poster-waiting")).toBeNull();
+    expect(mounted.container.querySelector("img.poster")).toBe(image);
+  });
+
   it("decodes a still and wide art off the main thread", async () => {
     mounted = await mount(
       <>
