@@ -4,7 +4,7 @@ import "./list-box.css";
 
 import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 
-import { focusTargetsIn, isFocusTarget } from "./focus-engine.ts";
+import { firstFocusTargetIn, isFocusTarget } from "./focus-engine.ts";
 import { Link } from "./link.tsx";
 import { keepsOpenAttribute } from "./popover.tsx";
 import type { Route } from "./router.ts";
@@ -51,8 +51,8 @@ function useCurrentEntryFocused(ref: RefObject<HTMLElement | null>, isFromItsTop
     }
     const current = isFromItsTop ? null : list.querySelector<HTMLElement>(currentSelector);
     const onCurrent =
-      current === null || isFocusTarget(current) ? current : (focusTargetsIn(current)[0] ?? null);
-    (onCurrent ?? focusTargetsIn(list)[0])?.focus({ preventScroll: true });
+      current === null || isFocusTarget(current) ? current : (firstFocusTargetIn(current) ?? null);
+    (onCurrent ?? firstFocusTargetIn(list))?.focus({ preventScroll: true });
   }, [ref, isFromItsTop]);
 }
 

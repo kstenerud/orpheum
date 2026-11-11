@@ -196,6 +196,24 @@ export function focusTargetsIn(region: ParentNode): HTMLElement[] {
 }
 
 /**
+ * The first element in region, in the document's order, that an arrow can move focus to and that
+ * is, where given; undefined where none. Asks no further: whether an element is drawn makes the
+ * browser lay out one skipped off the screen alone, about 15 ms each on the Fire TV, and a grid of a
+ * list's 332 cards asked whole held the screen 4.4 s as Films opened (the stick's trace, 2026-11-11).
+ */
+export function firstFocusTargetIn(
+  region: ParentNode,
+  is: (element: HTMLElement) => boolean = () => true,
+): HTMLElement | undefined {
+  for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
+    if (is(element) && isFocusTarget(element)) {
+      return element;
+    }
+  }
+  return undefined;
+}
+
+/**
  * The attribute that marks an element fixed over the page's top, as the shell's sticky banner: an
  * element focused beneath it is scrolled clear of it (focus-navigation.ts), and the search reads it
  * where it stands at the page's top, not where it sticks.

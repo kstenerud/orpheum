@@ -10,7 +10,7 @@
 import {
   caretOf,
   coversTopAttribute,
-  focusTargetsIn,
+  firstFocusTargetIn,
   geometricFocus,
   isFocusTarget,
   nextInContainers,
@@ -59,9 +59,10 @@ function startOf(marked: HTMLElement): HTMLElement | undefined {
   if (isFocusTarget(marked)) {
     return marked;
   }
-  const targets = focusTargetsIn(marked);
-  const empty = targets.find((target) => caretOf(target)?.valueLength === 0);
-  return empty ?? targets[0];
+  return (
+    firstFocusTargetIn(marked, (element) => caretOf(element)?.valueLength === 0) ??
+    firstFocusTargetIn(marked)
+  );
 }
 
 /** The first start marked in root, of those marked selector, that has a control to go to. */
@@ -104,7 +105,8 @@ export const dialogCloseAttribute = "data-dialog-close";
 export function choiceArrivalIn(root: HTMLElement): HTMLElement | undefined {
   return (
     arrivalIn(root) ??
-    focusTargetsIn(root).find(
+    firstFocusTargetIn(
+      root,
       (target) =>
         target.closest(`[${dangerousActionAttribute}]`) === null &&
         target.closest(`[${dialogCloseAttribute}]`) === null,
@@ -121,8 +123,8 @@ export function startIn(region: HTMLElement): HTMLElement | undefined {
   const main = region.querySelector("main") ?? region;
   return (
     firstMarkedIn(main, `[${focusStartAttribute}]`) ??
-    focusTargetsIn(main)[0] ??
-    focusTargetsIn(region)[0]
+    firstFocusTargetIn(main) ??
+    firstFocusTargetIn(region)
   );
 }
 
