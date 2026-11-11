@@ -104,10 +104,10 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 	}
 }
 
-// A list's first page holds the whole list's total, of every sort, its query and filters counted,
-// so a client sizes the list before its other pages come (the owner, 2026-11-11); its other pages,
-// and a page from a letter, hold none.
-func TestList_TheFirstPageHoldsTheWholeListsTotal(t *testing.T) {
+// Every page of a list holds the whole list's total, of every sort, its query and filters counted,
+// so a client sizes the list before its other pages come and sees where its end now is (the owner,
+// 2026-11-11); a page from a letter holds none.
+func TestList_EveryPageHoldsTheWholeListsTotal(t *testing.T) {
 	t.Parallel()
 	world := searchedShelf(t)
 	list := func(query ListQuery) Page {
@@ -123,8 +123,8 @@ func TestList_TheFirstPageHoldsTheWholeListsTotal(t *testing.T) {
 	if first.Total != 7 {
 		t.Errorf("the first page's total = %d; want the 7 films with a live file, not Metropolis Gone", first.Total)
 	}
-	if rest := list(ListQuery{Sort: SortName, Limit: 2, Cursor: first.NextCursor}); rest.Total != 0 {
-		t.Errorf("the next page's total = %d; want none, on the first page alone", rest.Total)
+	if rest := list(ListQuery{Sort: SortName, Limit: 2, Cursor: first.NextCursor}); rest.Total != 7 {
+		t.Errorf("the next page's total = %d; want the whole list's 7, as on the first", rest.Total)
 	}
 	if page := list(ListQuery{Sort: SortName, From: "H", Limit: 2}); page.Total != 0 {
 		t.Errorf("a page from H's total = %d; want none: it is not the list's start", page.Total)
