@@ -600,7 +600,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   film opens on the TV's screen and goes full screen at a press, the laptop's page shows its position
   move with each command, and each tone is heard on the output chosen for it, or the page says
   plainly which API is missing. (`web/apps/web/src/lab-extend.tsx`, `lab-extend-player.tsx`)
-- [ ] **VQ58** — With a Chromecast (or the TCL's built-in one) registered for development and our
+- [x] **VQ58** — (the owner, 2026-11-11, on staging, a 3rd-generation Chromecast at home: "it's playing now"; the receiver registered at the client origin's `/cast/` and the lab opened there, since at the loader's origin the core refuses the film's bytes, plan 11-23 item 3(d); CAF started, the reports reached the core's log as 2IVHOVHY and UZNLOXRD, the film played over the direct name.) With a Chromecast (or the TCL's built-in one) registered for development and our
   receiver registered at `https://<core's LAN name>/cast/` (plans/tv-device-tests.md §3), open
   `/lab/cast` in desktop Chrome at that name, **Cast to our receiver**, **Ask for its report**, and
   **Play the film on it** with the sign-in ticked. Passes when the TV shows the receiver's log with
@@ -2824,7 +2824,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ286** — Our Cast receiver plays from away and becomes a cast target (the owner,
   2026-11-07: "initial chromecast support"; the steps: plans/navigation-and-widgets-answers-2026-10-27.md,
   "Chromecast test steps for the owner"). With the app registered at `https://orpheum.dev/cast/`
-  and the Chromecast as its test device, from `https://orpheum.dev/lab/cast` in Chrome on the Mac:
+  and the Chromecast as its test device, from `/lab/cast` at the client origin the loader opens (`https://<core id>.orpheum-client-test.com/lab/cast`; `orpheum.dev` itself sends the browser on, and the core's own name sends the receiver no way to its core) in Chrome on the Mac:
   cast to our receiver, play a film on it with the sign-in sent (it plays from away, through the
   discovery, extending VQ58), then press Make it a cast target. Passes when the TV notes the check
   code this page shows, and after The TV shows the same both say it is a
