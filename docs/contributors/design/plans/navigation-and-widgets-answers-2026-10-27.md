@@ -2870,3 +2870,36 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   - Find whether it does. If it does, warm without releasing them.
   - Also open: whether to fetch the first segments themselves or only the decision and the
     playlist.
+
+## The 11-22 batch: the owner's answers on the list's blanks and Google's web guidance (2026-11-11)
+
+The questions, and the guidance compared, are in `/yoloai/files/focus-trace/modern-web-guidance.md`.
+The owner's answers:
+
+1. **Every page of a list carries the list's total, except a page asked from a letter.** "Knowing how many
+   there are in total would help planning the offscreen items in general, because you'd know that
+   changes happened while the user was scrolling, and where the end of the list currently is. I can't
+   imagine a simple DB query adding any significant latency."
+2. **Technique 4, rebuilt to yield on a 50 ms deadline** (`scheduler.yield`, with a `setTimeout`
+   fallback), so that posters fill in while Down is held. Re-measure on the stick. Its test is replaced
+   by one that pins tiles arriving during the hold, with `Test-Weakened:` citing this answer.
+3. **The blank poster:**
+   - A blank poster with a faded clock or spinner in it, not animating.
+   - The text parts are shown at once: "since it's cheap to fetch. Screen readers should be reading the
+     text portion anyway, since the poster itself wouldn't add any useful information beyond that."
+   - To confirm with the owner: this reads as the list's names and years coming for the whole list up
+     front, with only the posters' images following as they near the view.
+4. **Edge fades on poster rows that scroll:** "Let's try it and see. If it hurts performance too much
+   then we find a different way." The fades never dim the focused card (D189). Measure on the stick.
+5. **One Tab stop per poster grid and row** (roving tabindex, `role="grid"`): "yes, do it now."
+6. **Every other recommendation in the report is taken**:
+   - Long Animation Frame attribution in the freeze reports.
+   - Download priorities: `fetchpriority` on the first row's posters, `priority: "low"` on background
+     fetches.
+   - `aria-invalid` and `:user-invalid` on failing fields; the `role="alert"`s reviewed for polite
+     status.
+   - The Trusted Types CSP, report-only first.
+   - `dvh`, `text-wrap: balance` and `<search>`.
+7. **High contrast, because the browser says when it is wanted:** the focus ring and the three
+   `outline: none` sites keep a full indicator under `forced-colors: active` and
+   `prefers-contrast: more`.
