@@ -60,15 +60,20 @@ export function Poster(props: {
       width={240}
       height={360}
       onError={shown.onError}
+      {...(props.isTile === true ? { onLoad: shown.onDrawn } : {})}
     />
   );
-  // A tile's image is drawn over a clock, seen until the image is: a list read whole lays out
-  // every card at once, and the images arrive after.
+  // A tile's image is drawn over a clock until it loads, then the clock goes: a list read whole lays
+  // out every card at once, and the images arrive after. Gone, not covered: the faded clock is its
+  // own layer, painted over the image (the owner, 2026-11-11), and a dimmed image is seen through.
+  // The image stays the one element when the clock goes, so it is not drawn again.
   return props.isTile === true ? (
     <>
-      <span className="poster-waiting" aria-hidden="true">
-        <PosterClock />
-      </span>
+      {shown.isDrawn ? null : (
+        <span className="poster-waiting" aria-hidden="true">
+          <PosterClock />
+        </span>
+      )}
       {image}
     </>
   ) : (
@@ -149,7 +154,10 @@ const tileSizes: readonly (readonly [ArtSize, number])[] = [
   ["portrait-m", 480],
 ];
 
-/** The address an image is shown by, undefined for its blank, and what its img does when it fails. */
+/**
+ * The address an image is shown by, undefined for its blank, what its img does when it fails, and
+ * whether it has loaded.
+ */
 interface ArtShown {
   readonly url: string | undefined;
   /**
@@ -159,6 +167,9 @@ interface ArtShown {
    */
   readonly srcSetOf: (sizes: readonly (readonly [ArtSize, number])[]) => string;
   readonly onError: () => void;
+  /** Whether the image at url has loaded, so it is drawn; what its img does when it loads. */
+  readonly isDrawn: boolean;
+  readonly onDrawn: () => void;
 }
 
 /**
@@ -174,11 +185,14 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
   const [state, setState] = useState<{
     readonly sha256?: string;
     readonly isFailed: boolean;
+    readonly isDrawn: boolean;
     readonly again: number;
-  }>({ isFailed: false, again: 0 });
+  }>({ isFailed: false, isDrawn: false, again: 0 });
   const askedRef = useRef(0);
   const current =
-    state.sha256 === sourceSha256 ? state : { sha256: sourceSha256, isFailed: false, again: 0 };
+    state.sha256 === sourceSha256
+      ? state
+      : { sha256: sourceSha256, isFailed: false, isDrawn: false, again: 0 };
   const isFailed = sourceSha256 !== undefined && current.isFailed;
   useEffect(() => {
     if (!isFailed) {
@@ -190,7 +204,7 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
       const again = askedRef.current;
       void imageLoads(againUrl(sourceSha256, size, again), signal).then((isLoaded) => {
         if (isLoaded && isCurrent) {
-          setState({ sha256: sourceSha256, isFailed: false, again });
+          setState({ sha256: sourceSha256, isFailed: false, isDrawn: false, again });
         }
         answered(isLoaded ? "changed" : "unchanged");
       });
@@ -201,7 +215,13 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
     };
   }, [isFailed, poller, sourceSha256, size]);
   if (sourceSha256 === undefined || isFailed) {
-    return { url: undefined, srcSetOf: () => "", onError: () => undefined };
+    return {
+      url: undefined,
+      srcSetOf: () => "",
+      onError: () => undefined,
+      isDrawn: false,
+      onDrawn: () => undefined,
+    };
   }
   return {
     url: againUrl(sourceSha256, size, current.again),
@@ -210,8 +230,12 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
         .map(([each, width]) => `${againUrl(sourceSha256, each, current.again)} ${String(width)}w`)
         .join(", "),
     onError: () => {
-      setState({ sha256: sourceSha256, isFailed: true, again: current.again });
+      setState({ sha256: sourceSha256, isFailed: true, isDrawn: false, again: current.again });
       suspectWorker(); // a bypassed worker 404s every image, and the page says so (A51)
+    },
+    isDrawn: current.isDrawn,
+    onDrawn: () => {
+      setState({ sha256: sourceSha256, isFailed: false, isDrawn: true, again: current.again });
     },
   };
 }
