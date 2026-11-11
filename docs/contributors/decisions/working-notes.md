@@ -27726,3 +27726,31 @@ Not taken: the app updating itself (Watchtower, or Docker's socket in the contai
 root on the NAS, and 3 makes the NAS's button enough.
 
 **Status:** decided; to build before the first beta install.
+
+## D463 — More install routes, least work first, each ours to keep, each tested in a VM
+
+**Decided** (2026-11-11), by the owner (*"I'm fine with the recommendations. We'd be the ones
+maintaining these things."*), on the research in
+[install-routes-2026-11-11.md](../design/research/install-routes-2026-11-11.md), answering the
+owner's ask to *"look at all the ways that our competitors are installed, which ones are the most
+important, and how we can support them as painlessly as possible"*. Extends D461 and D462; amends
+neither.
+
+1. **The routes, in this order:** Proxmox (install.md: Docker in a VM or a container, then the
+   install script); Unraid (a generated compose file with Unraid's defaults, through its Compose
+   Manager plugin, as a route of its own); the CasaOS and Portainer entries already built, submitted;
+   a TrueNAS community app; a Synology package prototype, to learn whether it removes the SSH step.
+   QNAP, UGREEN, Asustor, TerraMaster and Raspberry Pi get install.md notes only when someone asks.
+2. **Not taken:** a single-container mode (it would undo D233 §2 and D235 §4 and weaken the node's
+   isolation); Unraid's one-container templates; Umbrel, Helm, native deb/rpm, Windows and macOS
+   installers, Flatpak, Snap, YunoHost. A native Debian package only if the Proxmox route fails.
+3. **New route names:** `unraid` and `truenas`, and `synology-package` if its prototype works. Each
+   carries its file, its frozen copies and its update steps under D461.
+4. **Orpheum maintains every entry it puts in another project's catalogue,** and those files join
+   the frozen, tested copies (D461) like its own.
+5. **Each platform is tested in a VM** on one of the owner's spare machines, not on the owner's own
+   Proxmox hosts (the owner: *"it might be better to spin up the various platforms in VMs on one of
+   the many available machines for testing"*).
+6. **Not in the closed beta's way:** both testers' platforms are covered already. A Docker Hub
+   mirror of the image changes the release workflow, a gate, so it waits for the owner.
+

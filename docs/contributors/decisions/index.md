@@ -466,8 +466,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D458](working-notes.md#d458--json-strictness-follows-who-controls-the-sender) JSON strictness follows who controls the sender
 - [D459](working-notes.md#d459--every-name-orpheum-puts-in-json-is-camelcase) Every name Orpheum puts in JSON is camelCase
 - [D460](working-notes.md#d460--migrations-are-live-from-a-baseline-at-0086-productions-schema) Migrations are live from a baseline at 0086, production's schema
-- [D461](working-notes.md#d461--a-pasted-compose-file-keeps-working-released-files-frozen-and-tested-changes-additive-a-version-on-the-file) A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file — *revisited by D462*
-- [D462](working-notes.md#d462--a-thin-compose-file-dockers-part-alone-the-settings-in-the-app-the-file-handed-over-filled-in) A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in
+- [D461](working-notes.md#d461--a-pasted-compose-file-keeps-working-released-files-frozen-and-tested-changes-additive-a-version-on-the-file) A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file — *revisited by D462, D463*
+- [D462](working-notes.md#d462--a-thin-compose-file-dockers-part-alone-the-settings-in-the-app-the-file-handed-over-filled-in) A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in — *revisited by D463*
+- [D463](working-notes.md#d463--more-install-routes-least-work-first-each-ours-to-keep-each-tested-in-a-vm) More install routes, least work first, each ours to keep, each tested in a VM
 
 ## Archived
 
