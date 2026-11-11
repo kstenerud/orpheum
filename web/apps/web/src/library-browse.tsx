@@ -523,7 +523,7 @@ function useTitlesPages(list: {
     },
     [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), { idOf: entryId });
   return pages;
 }
 

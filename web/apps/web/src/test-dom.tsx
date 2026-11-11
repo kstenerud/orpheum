@@ -48,11 +48,18 @@ export type Answer = readonly [number, unknown];
 
 /**
  * What a stand-in server answers each request with, by "METHOD /path" with the path as the API
- * names it (no /api/v1): one answer, or several given in turn, the last repeated.
+ * names it (no /api/v1): one answer, several given in turn, the last repeated, or one chosen by the
+ * request's query, as a list read whole asks its pages in an order no test fixes.
  */
 export type Answers = Readonly<
-  Record<string, Answer | readonly (Answer | typeof unanswered)[] | typeof unreachable>
+  Record<
+    string,
+    Answer | readonly (Answer | typeof unanswered)[] | AnswerByQuery | typeof unreachable
+  >
 >;
+
+/** An answer chosen by the request's query string. */
+export type AnswerByQuery = (query: URLSearchParams) => Answer | typeof unanswered;
 
 /** An answer that never comes: the request fails as fetch fails when the server cannot be reached. */
 export const unreachable = "unreachable";
@@ -112,8 +119,7 @@ export function servedBy(answers: Answers, heard: Heard[] = [], token?: string):
     try {
       const text = await request.text();
       const given = answers[methodAndPath];
-      const answer =
-        given === unreachable ? undefined : inTurn(given, counts.get(methodAndPath) ?? 0);
+      const answer = answerTo(given, url.searchParams, counts.get(methodAndPath) ?? 0);
       heard.push(heardOf(request, text, answer === unanswered));
       if (given === unreachable) {
         throw new TypeError("Failed to fetch");
@@ -164,6 +170,21 @@ async function untilAborted(signal: AbortSignal): Promise<never> {
 }
 
 /** The answer for the turn'th time a request is asked: one answer always, or the next in turn. */
+/** The answer given holds for a request with query, asked turn times before: none if unreachable. */
+function answerTo(
+  given: Answers[string] | undefined,
+  query: URLSearchParams,
+  turn: number,
+): Answer | typeof unanswered | undefined {
+  if (given === unreachable) {
+    return undefined;
+  }
+  if (typeof given === "function") {
+    return given(query);
+  }
+  return inTurn(given, turn);
+}
+
 function inTurn(
   answer: Answer | readonly (Answer | typeof unanswered)[] | undefined,
   turn: number,

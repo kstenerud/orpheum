@@ -73,6 +73,12 @@ const browseSorts = ["name", "released", "added"] as const;
 const entriesPerPage = 60;
 
 /**
+ * How many entries each page after the first reads, as the whole list is read at once: fewer asks
+ * of the server for a list of a thousand, and a poll, which reads two pages, still a small one.
+ */
+const entriesPerLaterPage = 120;
+
+/**
  * A grid of films, series or other videos, each a poster or a 16:9 tile with its name and year or
  * date under it. kind, given, is every entry's (Films, Series, a home page row); left out, each
  * entry's own says it, for a list a library's kind does not fix (the Libraries page, D349 §9.1).
@@ -449,7 +455,8 @@ function BrowsePages(props: {
         kind: [kind],
         sort,
         ...orderQuery({ sort, order }),
-        limit: entriesPerPage,
+        // By the cursor alone, so a poll reading a page again by its cursor reads it as it was read.
+        limit: cursor === "" ? entriesPerPage : entriesPerLaterPage,
         ...(search === "" ? {} : { query: search }),
         ...filtersQuery({ genre, decade, isUnwatchedOnly }),
         ...(cursor === "" ? {} : { cursor }),
@@ -459,7 +466,10 @@ function BrowsePages(props: {
     },
     [api, kind, sort, order, search, genre, decade, isUnwatchedOnly],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), {
+    idOf: entryId,
+    isReadWhole: true,
+  });
   const watchItemAt = useItemsInView(pages.showRange);
   useListLoadsToFocusNoted(
     pages,

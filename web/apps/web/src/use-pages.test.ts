@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { act, createElement, Suspense, use } from "react";
+import { act, createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
@@ -178,39 +178,71 @@ describe("usePages", () => {
 });
 
 describe("a page more (the Fire TV's trace, 2026-11-11)", () => {
-  it("is shown as a transition: what is shown stays while its tiles get ready, and it stays loading", async () => {
-    const load = pagedBy2(() => ["Arkon", "Greed", "Valdora"]);
-    const notReady = new Promise<never>(() => undefined);
+  it("is shown in pieces, each drawn as it is shown, and the list stays loading until all are", async () => {
+    const more = Array.from({ length: 30 }, (_, index) => `Title ${String(index)}`);
+    const load = (cursor: string): Promise<Page<string>> =>
+      Promise.resolve(
+        cursor === ""
+          ? { items: ["Arkon", "Greed"], nextCursor: "2" }
+          : { items: more, nextCursor: "" },
+      );
     let pages: Pages<string> | undefined;
-    function Tile(props: { readonly title: string }): React.JSX.Element {
-      if (props.title === "Valdora") {
-        use(notReady);
-      }
-      return createElement("li", null, props.title);
-    }
+    const drawn: string[] = [];
     function List(): React.JSX.Element {
       pages = usePages(load);
       const items = pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
+      drawn.push(`${String(items.length)}${pages.isLoadingMore ? " loading" : ""}`);
       return createElement(
         "ul",
-        { "data-loading-more": String(pages.isLoadingMore) },
-        items.map((title) => createElement(Tile, { key: title, title })),
+        null,
+        items.map((title) => createElement("li", { key: title }, title)),
       );
     }
-    const mounted = await mount(
-      createElement(
-        Suspense,
-        { fallback: createElement("p", null, "waiting") },
-        createElement(List),
-      ),
-    );
-    expect(mounted.container.textContent).toBe("ArkonGreed");
+    const mounted = await mount(createElement(List));
     await act(async () => {
       pages?.loadMore();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      for (let turn = 0; turn < 5; turn += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
     });
-    expect(mounted.container.textContent).toBe("ArkonGreed");
-    expect(mounted.container.querySelector("ul")?.getAttribute("data-loading-more")).toBe("true");
+    // A dozen a piece, each its own commit, drawn before the next is shown (in-pieces.test.ts holds
+    // when the main thread is handed back between them).
+    expect(drawn).toContain("14 loading");
+    expect(drawn).toContain("26 loading");
+    expect(drawn.at(-1)).toBe("32");
+    expect(mounted.container.querySelectorAll("li")).toHaveLength(32);
+    mounted.unmount();
+  });
+
+  it("is read page after page, with no view asking, for a list read whole", async () => {
+    const titles = ["Arkon", "Greed", "Valdora", "Zardoz", "Zarvo"];
+    let pages: Pages<string> | undefined;
+    let isReadWhole = true;
+    const load = pagedBy2(() => titles);
+    function List(): React.JSX.Element {
+      pages = usePages(load, undefined, { isReadWhole });
+      return createElement(
+        "p",
+        null,
+        String(pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items.length : 0),
+      );
+    }
+    const settle = async (): Promise<void> => {
+      await act(async () => {
+        for (let turn = 0; turn < 10; turn += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      });
+    };
+    let mounted = await mount(createElement(List));
+    await settle();
+    expect(mounted.container.textContent).toBe("5");
+    expect(pages?.isLoadingMore).toBe(false);
+    mounted.unmount();
+    isReadWhole = false;
+    mounted = await mount(createElement(List));
+    await settle();
+    expect(mounted.container.textContent).toBe("2");
     mounted.unmount();
   });
 });
@@ -276,7 +308,7 @@ describe("a poll of a list scrolled far (D306 §7)", () => {
     };
     let pages: Pages<{ id: number; name: string }> | undefined;
     function Probe(): null {
-      pages = usePages(load, poller, (title) => title.id);
+      pages = usePages(load, poller, { idOf: (title) => title.id });
       return null;
     }
     const mounted = await mount(createElement(Probe));
