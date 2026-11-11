@@ -488,7 +488,7 @@ describe("a film whose match is a guess (D301)", () => {
           {
             provider: "tmdb",
             candidates: [
-              { providerId: "949", name: "Metropolis", year: 1927 },
+              { providerId: "1", name: "Metropolis", year: 1927 },
               { providerId: "50", name: "Metropolis", year: 1919 },
             ],
           },
