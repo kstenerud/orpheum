@@ -49,8 +49,8 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
 		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg"}`},
 		{"/items?limit=10&person=40", `"name":"Metropolis","year":1995,`},
-		{"/items?limit=10&person=40", `"credit":{"jobs":["cast"],"character":"Mira Holloway-Pent"}}]}`},
-		{"/items?kind=film&limit=10&person=41", `"credit":{"jobs":["director"]}}]}`},
+		{"/items?limit=10&person=40", `"credit":{"jobs":["cast"],"character":"Mira Holloway-Pent"}}],"total":1}`},
+		{"/items?kind=film&limit=10&person=41", `"credit":{"jobs":["director"]}}],"total":1}`},
 		{"/genres?kind=film,series,other&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
 			`{"id":2,"name":"Drama","titleCount":1}]`},
 		{"/genres?kind=film&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},

@@ -314,6 +314,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListSeriesByReleased":          folders + "a series' episodes a person reaches",
 		"ListSeriesByReleasedAscending": folders + "a series' episodes a person reaches",
 		"ListSeriesUndated":             folders + "a series' episodes a person reaches",
+		"CountSeriesListed":             folders + "a series' episodes a person reaches",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
 			"the genre chips open; " + folders + "the titles counted",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
@@ -410,6 +411,11 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibrarySeriesWithFetchedGroups": library + "a pass's last step, its series with an episode group " +
 			"fetched, whose episodes it keeps placed (episode-orderings.md)",
 		"ListLibraryWorks": library + "the identification pass",
+		// A list's first page counts the whole list, of each kind it names, so the grid reserves
+		// its room before the other pages come (the owner, 2026-11-11).
+		"CountFilmsListed":  library + "a list's count of its films, on its first page alone",
+		"CountSeriesListed": library + "a list's count of its series, on its first page alone",
+		"CountOtherListed":  library + "a list's count of its other videos, on its first page alone",
 		// What the pass reads of its library at its start, once a pass, so that it runs no
 		// statement per file (D303, DL7).
 		"ListLibraryWorksForPass":        library + snapshot,

@@ -35,6 +35,35 @@ func (q *Queries) CountEpisodesNotInOrdering(ctx context.Context, arg CountEpiso
 	return count, err
 }
 
+const countFilmsListed = `-- name: CountFilmsListed :one
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'movie' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
+      AND (CAST(?1 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  )
+  AND (CAST(?3 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+`
+
+type CountFilmsListedParams struct {
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	ItemIdsJSON    *string
+}
+
+// How many films a list of them holds in every sort: what ListFilmsByName and ListFilmsByAdded read
+// from their start, without a LIMIT, so a client sizes the list before its pages come (the owner,
+// 2026-11-11).
+func (q *Queries) CountFilmsListed(ctx context.Context, arg CountFilmsListedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFilmsListed, arg.IsEveryLibrary, arg.LibraryIdsJSON, arg.ItemIdsJSON)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOrderingMembers = `-- name: CountOrderingMembers :many
 SELECT ordering.sequence_id, count(*) AS member_count,
   CAST(sum(EXISTS (
@@ -101,6 +130,62 @@ func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMem
 		return nil, err
 	}
 	return items, nil
+}
+
+const countOtherListed = `-- name: CountOtherListed :one
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'other' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
+      AND (CAST(?1 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  )
+  AND (CAST(?3 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+`
+
+type CountOtherListedParams struct {
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	ItemIdsJSON    *string
+}
+
+// How many other videos a list of them holds, as CountFilmsListed counts films.
+func (q *Queries) CountOtherListed(ctx context.Context, arg CountOtherListedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOtherListed, arg.IsEveryLibrary, arg.LibraryIdsJSON, arg.ItemIdsJSON)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSeriesListed = `-- name: CountSeriesListed :one
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'series' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
+    CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
+      AND (CAST(?1 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  )
+  AND (CAST(?3 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+`
+
+type CountSeriesListedParams struct {
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	ItemIdsJSON    *string
+}
+
+// How many series a list of them holds, as CountFilmsListed counts films.
+func (q *Queries) CountSeriesListed(ctx context.Context, arg CountSeriesListedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSeriesListed, arg.IsEveryLibrary, arg.LibraryIdsJSON, arg.ItemIdsJSON)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const getEpisodePlace = `-- name: GetEpisodePlace :one

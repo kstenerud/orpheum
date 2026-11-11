@@ -25,6 +25,34 @@ func (browser *Browser) listKind(
 	return browser.listFilmsOrSeriesByAdded(ctx, kind, query, after)
 }
 
+// countListed is how many entries a list holds, of every kind it names, in every sort and either way:
+// its reach and the items its Query and filters matched, without a page's limit.
+func (browser *Browser) countListed(ctx context.Context, query ListQuery) (int64, error) {
+	queries := browser.database.Read()
+	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	params := sqlcgen.CountFilmsListedParams{
+		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON, ItemIdsJSON: query.matched.idsJSON,
+	}
+	var total int64
+	for _, kind := range distinctKinds(query.Kinds) {
+		var count int64
+		var err error
+		switch kind {
+		case ListSeries:
+			count, err = queries.CountSeriesListed(ctx, sqlcgen.CountSeriesListedParams(params))
+		case ListOther:
+			count, err = queries.CountOtherListed(ctx, sqlcgen.CountOtherListedParams(params))
+		default:
+			count, err = queries.CountFilmsListed(ctx, params)
+		}
+		if err != nil {
+			return 0, fmt.Errorf("count the %s listed: %w", kind, err)
+		}
+		total += count
+	}
+	return total, nil
+}
+
 // eitherWay is one list's two queries, its rows read one way and the other (D366 §2): forward in
 // the sort's own default direction, reversed the other, with the reversed query's parameters made
 // from the forward's and its rows read as the forward's.

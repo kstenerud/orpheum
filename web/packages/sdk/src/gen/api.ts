@@ -3979,6 +3979,11 @@ export interface components {
             items: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
+            /**
+             * Format: int64
+             * @description How many items the whole list holds, so a client can size it before its other pages come; on the first page alone, asked with no cursor and no from, and absent for an empty list and a list by identification
+             */
+            total?: number;
         };
         LocatorOutputBody: {
             locator: string;

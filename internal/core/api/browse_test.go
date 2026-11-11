@@ -109,6 +109,11 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	if !strings.Contains(films.body, `"name":"Metropolis","year":1995`) || strings.Contains(films.body, "Breaking") {
 		t.Errorf("films = %d %s", films.status, films.body)
 	}
+	// The first page says the whole list's total, so a client sizes it before the rest comes (the
+	// owner, 2026-11-11).
+	if !strings.Contains(films.body, `"total":1`) {
+		t.Errorf("films = %s; want the list's total, its one film", films.body)
+	}
 	shows := harness.do(t, http.MethodGet, "/items?kind=series&sort=added&limit=10", user, nil)
 	if !strings.Contains(shows.body, `"name":"Brass Arena"`) {
 		t.Errorf("series = %d %s", shows.status, shows.body)

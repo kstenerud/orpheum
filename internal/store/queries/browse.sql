@@ -97,6 +97,49 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
 ORDER BY item.found_at DESC, item.found_file_modified_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
 
+-- name: CountFilmsListed :one
+-- How many films a list of them holds in every sort: what ListFilmsByName and ListFilmsByAdded read
+-- from their start, without a LIMIT, so a client sizes the list before its pages come (the owner,
+-- 2026-11-11).
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'movie' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
+      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))));
+
+-- name: CountSeriesListed :one
+-- How many series a list of them holds, as CountFilmsListed counts films.
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'series' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
+    CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
+      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))));
+
+-- name: CountOtherListed :one
+-- How many other videos a list of them holds, as CountFilmsListed counts films.
+SELECT COUNT(*) FROM item
+WHERE item.kind = 'other' AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
+      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))));
+
 -- name: GetWorkDetail :one
 -- A title, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
 SELECT work.id, work.kind, item.year, work.runtime_ms, item.identification_state, item.followed_source, item.followed_source_id,
