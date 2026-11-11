@@ -198,7 +198,7 @@ func newProvider(t *testing.T, keys LoginSecrets) (*fakeProvider, *Client, *cloc
 func TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash(t *testing.T) {
 	t.Parallel()
 	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
-	query := Query{IMDbID: "tt0123456", TMDBID: "4801", MovieHash: "8E245D9679D31E12", Language: "EN"}
+	query := Query{IMDbID: "tt0015864", TMDBID: "962", MovieHash: "8E245D9679D31E12", Language: "EN"}
 	found, err := client.Search(t.Context(), query)
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash(t *testing.T) {
 		t.Errorf("%d logins for two searches, want one, shared (opensubtitles-api.md §3)", fake.loginCount)
 	}
 	asked := fake.searched[0]
-	if asked.Get("imdb_id") != "133093" || asked.Get("tmdb_id") != "603" ||
+	if asked.Get("imdb_id") != "15864" || asked.Get("tmdb_id") != "962" ||
 		asked.Get("moviehash") != "8e245d9679d31e12" || asked.Get("languages") != "en" {
 		t.Errorf("searched with %v; want the ids without tt, the hash and language lower-case (D224 §3)", asked)
 	}
@@ -317,7 +317,7 @@ func TestSearch_ARateLimitIsTheOneEveryProviderReturns(t *testing.T) {
 		fake.mutex.Lock()
 		fake.limitedFor = limitedFor
 		fake.mutex.Unlock()
-		_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+		_, err := client.Search(t.Context(), Query{TMDBID: "962", Language: "en"})
 		if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited ||
 			limited.RetryAfter != want || limited.Provider != "OpenSubtitles" {
 			t.Errorf("a 429 with Retry-After %s: %v, want OpenSubtitles' RateLimitedError after %s",
@@ -332,7 +332,7 @@ func TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFail
 	fake.mutex.Lock()
 	fake.searchStatus = http.StatusServiceUnavailable
 	fake.mutex.Unlock()
-	_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+	_, err := client.Search(t.Context(), Query{TMDBID: "962", Language: "en"})
 	if !errors.Is(err, outbound.ErrUnavailable) {
 		t.Errorf("a search answered 503: %v, want OpenSubtitles unavailable", err)
 	}
@@ -374,7 +374,7 @@ func TestCurrentSession_ATokenAnsweredInvalidWithA500IsMadeAgainOnce(t *testing.
 	fake.mutex.Lock()
 	fake.searchStatus = http.StatusInternalServerError
 	fake.mutex.Unlock()
-	_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+	_, err := client.Search(t.Context(), Query{TMDBID: "962", Language: "en"})
 	if err == nil || errors.Is(err, outbound.ErrUnavailable) || fake.loginCount != 2 {
 		t.Errorf("a 500 that is not about the token: %v, %d logins; want the search's own failure, no new login",
 			err, fake.loginCount)

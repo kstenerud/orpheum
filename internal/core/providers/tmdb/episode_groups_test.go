@@ -15,13 +15,13 @@ import (
 func emberwingAtTMDB(t *testing.T) *Client {
 	t.Helper()
 	server, seen := fakeTMDB(t, map[string]string{
-		"/tv/4807": `{"id":4807,"name":"Emberwing","first_air_date":"2002-09-20",
-			"episode_groups":{"id":4807,"results":[
+		"/tv/7437": `{"id":7437,"name":"Emberwing","first_air_date":"2002-10-04",
+			"episode_groups":{"id":7437,"results":[
 				{"id":"5e90a","name":"Intended Order","description":"The intended order","type":2,
 				 "episode_count":14,"group_count":2,"network":null},
 				{"id":"5e90b","name":"DVD Order","description":"","type":3,"episode_count":23,"group_count":2,
 				 "network":null}]}}`,
-		"/tv/4807/episode_groups": `{"id":4807,"results":[{"id":"5e90a","name":"Intended Order","type":2,
+		"/tv/7437/episode_groups": `{"id":7437,"results":[{"id":"5e90a","name":"Intended Order","type":2,
 			"episode_count":14,"group_count":2}]}`,
 		"/tv/episode_group/5e90a": `{"id":"5e90a","name":"Intended Order","type":2,"episode_count":3,
 			"group_count":2,"groups":[
@@ -44,7 +44,7 @@ func emberwingAtTMDB(t *testing.T) *Client {
 func TestEpisodeGroups_ASeriesRecordCarriesItsListOfGroups(t *testing.T) {
 	t.Parallel()
 	client := emberwingAtTMDB(t)
-	record, err := client.Fetch(t.Context(), identify.KindSeries, "1437")
+	record, err := client.Fetch(t.Context(), identify.KindSeries, "7437")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,10 +60,10 @@ func TestEpisodeGroups_ASeriesRecordCarriesItsListOfGroups(t *testing.T) {
 	if err != nil || !slices.Equal(groups, want) {
 		t.Errorf("the record's groups = %+v, %v; want %+v", groups, err, want)
 	}
-	if _, isCarried := client.EpisodeGroupsIn([]byte(`{"id":4807,"name":"Emberwing"}`)); isCarried {
+	if _, isCarried := client.EpisodeGroupsIn([]byte(`{"id":7437,"name":"Emberwing"}`)); isCarried {
 		t.Error("a record fetched before it carried its groups says it carries them")
 	}
-	alone, err := client.FetchEpisodeGroups(t.Context(), "1437")
+	alone, err := client.FetchEpisodeGroups(t.Context(), "7437")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestEpisodeGroups_ASeriesRecordCarriesItsListOfGroups(t *testing.T) {
 func TestEpisodeGroups_AGroupIsItsPartsAndTheirEpisodes(t *testing.T) {
 	t.Parallel()
 	client := emberwingAtTMDB(t)
-	if _, err := client.Fetch(t.Context(), identify.KindSeries, "1437"); err != nil {
+	if _, err := client.Fetch(t.Context(), identify.KindSeries, "7437"); err != nil {
 		t.Fatal(err)
 	}
 	body, err := client.FetchEpisodeGroup(t.Context(), "5e90a")
