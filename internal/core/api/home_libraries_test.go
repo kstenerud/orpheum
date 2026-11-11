@@ -58,7 +58,8 @@ func TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows(t *testing.T) {
 	if got, want := harness.homeRows(t, admin), "watching [40], films []"; got != want {
 		t.Errorf("Home with library 1 left out = %s; want %s", got, want)
 	}
-	if names, _ := harness.titleNames(t, "/items?kind=film&sort=name&limit=5", admin); fmt.Sprint(names) != "[Metropolis]" {
+	names, _ := harness.titleNames(t, "/items?kind=film&sort=name&limit=5", admin)
+	if fmt.Sprint(names) != "[Metropolis]" {
 		t.Errorf("Films with library 1 left out of Home = %v; want Metropolis, still there", names)
 	}
 

@@ -201,11 +201,11 @@ func TestDoctor_NamesAFileAtTwoPlacesAndWarnsWhenTheirNFOFilesDisagree(t *testin
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	copyID := librarytest.File(t, harness.database, librarytest.FileSpec{
-		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1995).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
+		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1927).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
 	})
 	for index, besideID := range []int64{1, copyID} {
 		nfoID := librarytest.File(t, harness.database, librarytest.FileSpec{
-			NodeID: 1, Path: fmt.Sprintf("/m/%d/Metropolis (1995).nfo", index), SidecarKind: "nfo",
+			NodeID: 1, Path: fmt.Sprintf("/m/%d/Metropolis (1927).nfo", index), SidecarKind: "nfo",
 			AttachedToFile: besideID, FirstSeenAt: 2,
 		})
 		storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
@@ -215,10 +215,10 @@ func TestDoctor_NamesAFileAtTwoPlacesAndWarnsWhenTheirNFOFilesDisagree(t *testin
 	found := harness.do(t, http.MethodGet, "/system", admin, nil)
 	for _, want := range []string{
 		`{"check":"files found at more than one place","verdict":"ok","detail":"1, each one file, byte for byte ` +
-			`the same, at every place: file 1 at /m/Metropolis (1995).mkv and /m/Copy/Metropolis (1995).mkv"}`,
+			`the same, at every place: file 1 at /m/Metropolis (1927).mkv and /m/Copy/Metropolis (1927).mkv"}`,
 		`{"check":"NFO files beside the places of one file","verdict":"warn","detail":"1 with NFO files ` +
 			`that disagree, the one beside the place found first speaking for each: \"Metropolis\" (item 10) at ` +
-			`/m/Metropolis (1995).mkv and /m/Copy/Metropolis (1995).mkv"`,
+			`/m/Metropolis (1927).mkv and /m/Copy/Metropolis (1927).mkv"`,
 	} {
 		if !strings.Contains(found.body, want) {
 			t.Errorf("doctor = %d %s; want %s", found.status, found.body, want)

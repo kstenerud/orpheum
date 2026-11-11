@@ -154,7 +154,7 @@ func newHarness(t *testing.T) testHarness {
 	server := api.NewServer(logger)
 	codes := &authtest.SetupCodes{}
 	provider, cache, nodes := identifytest.NewProvider(), storetest.OpenCache(t), &fakeNodes{}
-	provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
+	provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "The remake."})
 	subtitler := &fakeSubtitler{}
 	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
 	directories, err := instancedir.Open(instancedir.PathsIn(t.TempDir()))

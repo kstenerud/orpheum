@@ -12,16 +12,16 @@ import (
 )
 
 // shelvePeople adds to shelve's Metropolis and Brass Arena their genres and people: Metropolis a Crime film
-// with Ansel Vardo as Mira Holloway-Pent, directed by Oren Talisk; Brass Arena a Drama with Bryan
-// Cranston as Corwin Ashby.
+// with Ansel Vardo as Mira Holloway-Pent, directed by Oren Talisk; Brass Arena a Drama with Bela
+// Ostrander as Corwin Ashby.
 func (harness testHarness) shelvePeople(t *testing.T) {
 	t.Helper()
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO item (id, kind, added_at) VALUES (40, 'person', 1), (41, 'person', 1), (42, 'person', 1)`,
 		`INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref) VALUES
-		 (40, 'person', '1158', 'ansel vardo', '/vardo.jpg'), (41, 'person', '638', 'oren talisk', NULL),
-		 (42, 'person', '17419', 'bela ostrander', NULL)`,
+		 (40, 'person', '5101', 'ansel vardo', '/vardo.jpg'), (41, 'person', '5102', 'oren talisk', NULL),
+		 (42, 'person', '5103', 'bela ostrander', NULL)`,
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES
 		 (40, 'und', 1, 'Ansel Vardo', 'ansel vardo'), (41, 'und', 1, 'Oren Talisk', 'oren talisk'),
 		 (42, 'und', 1, 'Bela Ostrander', 'bela ostrander')`,
@@ -57,7 +57,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items?kind=film,series,other&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
 		{"/items?kind=film&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
 		{"/items?kind=film&sort=name&limit=10&person=42", `{"items":[]}`},
-		{"/items/letters?kind=film&sort=name&genre=1", `"letters":["H"]`},
+		{"/items/letters?kind=film&sort=name&genre=1", `"letters":["M"]`},
 		{"/items/letters?kind=film&sort=name&genre=2", `"letters":[]`},
 		{"/search?query=r&limit=10", `"titles":{"hits":[`},
 		{"/search?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
@@ -70,9 +70,9 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		}
 	}
 	harness.wantSearchPagesPeopleByCursor(t, admin)
-	heat := harness.do(t, http.MethodGet, "/items?kind=film,series,other&sort=name&limit=10&genre=1", admin, nil)
-	if strings.Contains(heat.body, "Brass Arena") {
-		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
+	metropolis := harness.do(t, http.MethodGet, "/items?kind=film,series,other&sort=name&limit=10&genre=1", admin, nil)
+	if strings.Contains(metropolis.body, "Brass Arena") {
+		t.Errorf("the Crime titles = %s; want Metropolis alone", metropolis.body)
 	}
 	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM credit WHERE item_id = 10",
 		"DELETE FROM item_genre WHERE item_id = 10")

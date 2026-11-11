@@ -748,6 +748,7 @@ func TestTogether_TheHostsDetailsNameWhatPlays(t *testing.T) {
 	read := harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", hosted.Body.SessionID), hostToken, nil)
 	if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil || details.Body.FileID != 1 ||
 		details.Body.TitleName != "Nosferatu" {
-		t.Errorf("GET /together/%d = %d %s; want Nosferatu, file 1, playing", hosted.Body.SessionID, read.status, read.body)
+		t.Errorf("GET /together/%d = %d %s; want Nosferatu, file 1, playing", hosted.Body.SessionID, read.status,
+			read.body)
 	}
 }

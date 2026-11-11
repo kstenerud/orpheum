@@ -301,7 +301,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 	for _, file := range []librarytest.FileSpec{
 		{ID: 6, Path: "/m/Home/Beach.mkv", PayloadHash: []byte{0x06}, Filing: "listed", VersionID: 6},
 		{ID: 7, Path: "/m/Unknown.mkv", PayloadHash: []byte{0x07}, Filing: "unidentified"},
-		{ID: 8, Path: "/m/Metropolis (1995)/Trailer.mkv", PayloadHash: []byte{0x08}, Filing: "listed", VersionID: 8},
+		{ID: 8, Path: "/m/Metropolis (1927)/Trailer.mkv", PayloadHash: []byte{0x08}, Filing: "listed", VersionID: 8},
 	} {
 		file.LibraryID, file.NodeID, file.SizeBytes = 1, 1, 10
 		librarytest.File(t, harness.database, file)

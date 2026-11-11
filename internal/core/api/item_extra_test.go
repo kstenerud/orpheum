@@ -25,7 +25,7 @@ func TestItem_SaysAnExtrasTypeInCamelCase(t *testing.T) {
 		(owner_work, extra_work, extra_type, asserted_by)
 		VALUES (10, 31, 'behind_the_scenes', 'scanner')`)
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 8, Path: "/m/Metropolis (1995)/Making Of.mkv", PayloadHash: []byte{0x08}, Filing: "listed", VersionID: 8,
+		ID: 8, Path: "/m/Metropolis (1927)/Making Of.mkv", PayloadHash: []byte{0x08}, Filing: "listed", VersionID: 8,
 		LibraryID: 1, NodeID: 1, SizeBytes: 10,
 	})
 	got := harness.do(t, http.MethodGet, "/items/10", user, nil)

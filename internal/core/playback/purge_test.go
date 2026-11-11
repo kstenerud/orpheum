@@ -32,7 +32,8 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 	// Files 1 and 2 were removed long ago, 3 lately; 4 long ago, but its subtitle 5 is still there.
 	for fileID, removedAt := range map[int]int{1: longAgo, 2: longAgo, 3: lately, 4: longAgo} {
 		librarytest.File(t, database, librarytest.FileSpec{
-			ID: int64(fileID), LibraryID: libraryID, NodeID: nodeID, Path: fmt.Sprintf("/media/Metropolis %d.mkv", fileID),
+			ID: int64(fileID), LibraryID: libraryID, NodeID: nodeID,
+			Path:      fmt.Sprintf("/media/Metropolis %d.mkv", fileID),
 			SizeBytes: 10, PayloadHash: []byte{byte(fileID)}, //nolint:gosec // a test's small id, 1-4
 			Filing: "listed", VersionID: 20,
 			RemovedAt: int64(removedAt),

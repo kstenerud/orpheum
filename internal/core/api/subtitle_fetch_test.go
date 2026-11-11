@@ -103,7 +103,7 @@ func (harness testHarness) identifyFilm(t *testing.T) {
 		"UPDATE file_filing SET version_id = 3 WHERE file_id = 2",
 		"UPDATE file SET opensubtitles_hash = '8e245d9679d31e12' WHERE id = 2",
 		`INSERT INTO item_provider_id (item_id, provider, provider_id)
-		 VALUES (30, 'tmdb', '4801'), (30, 'imdb', 'tt0123456')`)
+		 VALUES (30, 'tmdb', '962'), (30, 'imdb', 'tt0015864')`)
 }
 
 func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft(t *testing.T) {
@@ -122,7 +122,7 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 			"asked by the ids and the hash (D224)", offered)
 	}
 	asked := harness.subtitler.queries[0]
-	if asked.IMDbID != "tt0123456" || asked.TMDBID != "4801" || asked.MovieHash != "8e245d9679d31e12" ||
+	if asked.IMDbID != "tt0015864" || asked.TMDBID != "962" || asked.MovieHash != "8e245d9679d31e12" ||
 		asked.Language != "de" {
 		t.Errorf("asked OpenSubtitles %+v; want the film's ids, the file's hash and the language (D224 §3)", asked)
 	}

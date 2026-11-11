@@ -62,8 +62,8 @@ func TestTake_QueuesOnlyTheImagesTheItemDoesNotHold(t *testing.T) {
 	bench := newBench(t, fakeFetcher{})
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
-	poster := Ref{Kind: library.ArtPoster, SourceRef: "/heat-poster.jpg"}
-	backdrop := Ref{Kind: library.ArtBackdrop, SourceRef: "/heat-back.jpg"}
+	poster := Ref{Kind: library.ArtPoster, SourceRef: "/metropolis-poster.jpg"}
+	backdrop := Ref{Kind: library.ArtBackdrop, SourceRef: "/metropolis-back.jpg"}
 	named := Found{Named: []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{poster, backdrop}}}}
 	bench.service.Take(t.Context(), named)
 	if got := queuedRefs(t, queue)["tmdb"]; !slices.Equal(got, []Ref{poster, backdrop}) {
@@ -82,7 +82,7 @@ func TestTake_QueuesOnlyTheImagesTheItemDoesNotHold(t *testing.T) {
 		t.Errorf("queued %+v once both are held; want nothing", *queue)
 	}
 	// The provider changed its poster: the new one is owed.
-	changed := Ref{Kind: library.ArtPoster, SourceRef: "/heat-poster-2.jpg"}
+	changed := Ref{Kind: library.ArtPoster, SourceRef: "/metropolis-poster-2.jpg"}
 	bench.service.Take(t.Context(),
 		Found{Named: []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{changed, backdrop}}}})
 	if got := queuedRefs(t, queue)["tmdb"]; !slices.Equal(got, []Ref{changed}) {
@@ -96,10 +96,10 @@ func TestTake_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T) {
 	// Metropolis's poster and backdrop are stored, and a person chose a backdrop of their own.
 	bench.insert(t,
 		sqlcgen.InsertArtworkParams{
-			Kind: library.ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1},
+			Kind: library.ArtPoster, Source: "tmdb", SourceRef: new("/metropolis-poster.jpg"), SourceSha256: []byte{1},
 		},
 		sqlcgen.InsertArtworkParams{
-			Kind: library.ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"), SourceSha256: []byte{2},
+			Kind: library.ArtBackdrop, Source: "tmdb", SourceRef: new("/metropolis-back.jpg"), SourceSha256: []byte{2},
 		},
 		sqlcgen.InsertArtworkParams{Kind: library.ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
 	)
@@ -109,7 +109,8 @@ func TestTake_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T) {
 	}
 	bench.service.Take(t.Context(), Found{Rematched: []ItemImages{leon}, Named: []ItemImages{leon}})
 	if live, want := bench.liveImages(t), []string{"backdrop user"}; !slices.Equal(live, want) {
-		t.Errorf("after the rematch: %v live, want %v: none of Metropolis's images, the person's kept (D223 §9)", live, want)
+		t.Errorf("after the rematch: %v live, want %v: none of Metropolis's images, the person's kept (D223 §9)",
+			live, want)
 	}
 }
 

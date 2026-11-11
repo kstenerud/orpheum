@@ -57,11 +57,11 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Kind: "extra", AddedAt: 3})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 4, TitleID: 30, CreatedAt: 3})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995) - 720p.mkv", SizeBytes: 500,
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1927) - 720p.mkv", SizeBytes: 500,
 		PayloadHash: []byte{0x03}, Filing: "listed", VersionID: 3,
 	})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 4, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995)-trailer.mkv", SizeBytes: 5,
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1927)-trailer.mkv", SizeBytes: 5,
 		PayloadHash: []byte{0x04}, Filing: "extra", VersionID: 4,
 	})
 	harness.setPositionReadAt(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
@@ -69,7 +69,7 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	harness.setPositionReadAt(t, 1, 500_000, 200) // Metropolis, halfway, latest
 	harness.setPositionReadAt(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
 
-	want := []string{"10:1:Metropolis (1995).mkv", "21:2:"} // Metropolis names its file: two are partway
+	want := []string{"10:1:" + "Metropolis (1927).mkv", "21:2:"} // Metropolis names its file: two are partway
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("Continue Watching = %v, want %v", got, want)
 	}

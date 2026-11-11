@@ -48,12 +48,12 @@ func TestSchema_TheTextIndexesAreRewrittenOnlyOnChange(t *testing.T) {
 	execRaw(t, database,
 		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (7, 'movie', 1, 'identified')",
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
-			"VALUES (7, 'und', 1, 'The General', 'solaris')")
+			"VALUES (7, 'und', 1, 'The General', 'the general')")
 	found := fmt.Sprint(queryRows(t, database,
 		"SELECT item_text.item_id FROM item_fts JOIN item_text ON item_text.id = item_fts.rowid "+
-			"WHERE item_fts MATCH 'solaris'", 1),
+			"WHERE item_fts MATCH 'general'", 1),
 		queryRows(t, database, "SELECT item_text.item_id FROM item_fts_tri JOIN item_text ON item_text.id = "+
-			"item_fts_tri.rowid WHERE item_fts_tri MATCH 'olar'", 1))
+			"item_fts_tri.rowid WHERE item_fts_tri MATCH 'ener'", 1))
 	if found != "[[7]] [[7]]" {
 		t.Errorf("the indexes find %s; want the text in both", found)
 	}
@@ -117,7 +117,7 @@ func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 		"a collection row on a title item": "INSERT INTO sequence (id, kind, created_by) " +
 			"VALUES (8, 'series', 'scanner')",
 		"an id with no source": "INSERT INTO item (kind, added_at, identification_state, followed_source_id) " +
-			"VALUES ('movie', 1, 'identified', '603')",
+			"VALUES ('movie', 1, 'identified', '962')",
 		"a release date outside its year": "INSERT INTO item (kind, added_at, identification_state, year, " +
 			"released_on) VALUES ('movie', 1, 'identified', 1999, 20000101)",
 		"a person with an identification": "INSERT INTO item (kind, added_at, identification_state) " +

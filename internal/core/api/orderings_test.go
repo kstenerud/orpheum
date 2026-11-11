@@ -18,9 +18,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// shelveDVDOrder adds to shelve's series three more aired episodes, S1E2 (22), S1E3 (23) and S2E1
-// (24), each with a file, and a DVD order, tmdb:dvd, whose disc 1 is 23 then 21 and disc 2 is 24:
-// 22 is not in it.
+// shelveDVDOrder adds to shelve's series three more aired episodes, season 1's episodes 2 (22) and
+// 3 (23) and season 2's episode 1 (24), each with a file, and a DVD order, tmdb:dvd, whose disc 1 is
+// 23 then 21 and disc 2 is 24: 22 is not in it.
 func (harness testHarness) shelveDVDOrder(t *testing.T) {
 	t.Helper()
 	harness.shelve(t)
@@ -122,7 +122,7 @@ func TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveDVDOrder(t)
-	harness.setPositionReadAt(t, 4, 1000, 9) // 23, aired S1E3 and disc 1's first, finished
+	harness.setPositionReadAt(t, 4, 1000, 9) // 23, aired season 1's episode 3 and disc 1's first, finished
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO play_event (user_id, file_id, kind, position_ms,
 		happened_at) VALUES (1, 4, 'completed', 1000, 9)`)
 	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 24:2:1"; got != want {
@@ -226,7 +226,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	}
 	harness.readJSON(t, "/items/20/not-in-order?limit=10", user, &left)
 	if got := fmt.Sprint(left.Episodes); got != "[{22 1 2}]" {
-		t.Errorf("not in the DVD order: %s; want 22, at its aired S1E2", got)
+		t.Errorf("not in the DVD order: %s; want 22, at its aired season 1's episode 2", got)
 	}
 	// Watching every episode the DVD order holds leaves no Next Up, though 22 is unwatched.
 	for _, file := range []int64{2, 4, 5} {
