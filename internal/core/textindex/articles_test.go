@@ -22,28 +22,31 @@ func TestSorter_FilesANameUnderItsWordsNotItsLeadingArticle(t *testing.T) {
 		slices.SortFunc(sorted, func(a, b string) int { return bytes.Compare(sorter.Key(a), sorter.Key(b)) })
 		return sorted
 	}
-	if got := ordered("en", "Destiny", "The Gold Rush", "A Woman of Paris", "Metropolis", "An Elephant", "The"); !slices.Equal(got,
-		[]string{"A Woman of Paris", "An Elephant", "Metropolis", "The Gold Rush", "The", "Destiny"}) {
-		t.Errorf("en: %v; want The Gold Rush among M, A Woman of Paris among B, and The alone under T", got)
+	got := ordered("en", "Wings", "The Gold Rush", "A Fool There Was", "Metropolis", "An Elephant", "The")
+	if !slices.Equal(got,
+		[]string{"An Elephant", "A Fool There Was", "The Gold Rush", "Metropolis", "The", "Wings"}) {
+		t.Errorf("en: %v; want The Gold Rush among G, A Fool There Was among F, and The alone under T", got)
 	}
-	if got := ordered("de", "Destiny", "Der letzte Mann", "Ulme", "Der Golem"); !slices.Equal(got,
-		[]string{"Der Golem", "Ulme", "Der letzte Mann", "Destiny"}) {
-		t.Errorf("de: %v; want Der letzte Mann under U, after Ulme, and Der Golem under B", got)
+	if got := ordered("de", "Variety", "Der letzte Mann", "Lantern", "Der Golem"); !slices.Equal(got,
+		[]string{"Der Golem", "Lantern", "Der letzte Mann", "Variety"}) {
+		t.Errorf("de: %v; want Der letzte Mann under L, after Lantern, and Der Golem under G", got)
 	}
-	if got := ordered("fr", "Zazie", "L'Arkon", "Der Golem", "Bof"); !slices.Equal(got,
-		[]string{"L'Arkon", "Bof", "Der Golem", "Zazie"}) {
-		t.Errorf("fr: %v; want L'Arkon under A, Der Golem under M", got)
+	if got := ordered("fr", "Zelkova Lane", "L'Arkon", "Les Phares du Nord", "Bof"); !slices.Equal(got,
+		[]string{"L'Arkon", "Bof", "Les Phares du Nord", "Zelkova Lane"}) {
+		t.Errorf("fr: %v; want L'Arkon under A, Les Phares du Nord under P", got)
 	}
-	if got := ordered("es", "Destiny", "El Laberinto", "Los Otros"); !slices.Equal(got,
-		[]string{"El Laberinto", "Los Otros", "Destiny"}) {
+	if got := ordered("es", "Variety", "El Mirage", "Los Ulme"); !slices.Equal(got,
+		[]string{"El Mirage", "Los Ulme", "Variety"}) {
 		t.Errorf("es: %v", got)
 	}
 	// English articles are no articles in German, and an initialism is no article.
-	if got := ordered("de", "The Gold Rush", "Metropolis"); !slices.Equal(got, []string{"Metropolis", "The Gold Rush"}) {
+	if got := ordered("de", "The Gold Rush", "Metropolis"); !slices.Equal(got,
+		[]string{"Metropolis", "The Gold Rush"}) {
 		t.Errorf("de: %v; The is no German article", got)
 	}
-	if got := ordered("en", "A. I.", "Metropolis", "I Robot"); !slices.Equal(got, []string{"A. I.", "Metropolis", "I Robot"}) {
-		t.Errorf("en: %v; A. I. keeps its A", got)
+	if got := ordered("en", "A. B.", "Greed", "I Lockfast"); !slices.Equal(got,
+		[]string{"A. B.", "Greed", "I Lockfast"}) {
+		t.Errorf("en: %v; A. B. keeps its A", got)
 	}
 }
 

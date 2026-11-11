@@ -46,14 +46,14 @@ func TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle(t *
 		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf("1\n"), PayloadBytes: 2,
 	}
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon/Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "heat"),
+		observedRecord("Arkon/Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "metropolis"),
 		sidecarRecord("Arkon/Arkon.nfo", nodeproto.SidecarNFO, "<movie/>"), subtitle,
 	}, true)
 	listing := []nodeproto.ScanRecord{
 		listedFile("Arkon/Arkon.en.srt", 2, 1),
 		listedFile("Arkon/Arkon.mkv", int64(len("arkon")), 1),
 		listedFile("Arkon/Arkon.nfo", int64(len("<movie/>")), 1),
-		listedFile("Metropolis.mkv", int64(len("heat")), 1),
+		listedFile("Metropolis.mkv", int64(len("metropolis")), 1),
 	}
 	if got := examined(world.takeListingReadingAgain(nil, listing)); len(got) != 0 {
 		t.Errorf("a scan reading nothing again reads %v; want nothing, every file as stored", got)
@@ -77,10 +77,13 @@ func TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle(t *
 func TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat"), observedRecord("Nosferatu.mkv", "ronin")}, true)
+	bench.scan([]nodeproto.ScanRecord{
+		observedRecord("Metropolis.mkv", "metropolis"), observedRecord("Nosferatu.mkv", "nosferatu"),
+	}, true)
 	ctx := t.Context()
 	listing := []nodeproto.ScanRecord{
-		listedFile("Metropolis.mkv", int64(len("heat")), 1), listedFile("Nosferatu.mkv", int64(len("ronin")), 1),
+		listedFile("Metropolis.mkv", int64(len("metropolis")), 1),
+		listedFile("Nosferatu.mkv", int64(len("nosferatu")), 1),
 	}
 	bench.requestUnder(wholeRoot)
 	err := bench.scans.RequestReadingAgain(ctx, bench.nodeID, root, wholeRoot, ReadAgain{"Metropolis.mkv"},
@@ -98,7 +101,7 @@ func TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter(t *testing.T) {
 	if _, files := bench.examine(); len(files) != 1 || files[0].Path.Text != "Metropolis.mkv" {
 		t.Fatalf("the scan joined reads %+v; want Metropolis.mkv, which the ask that joined it reads again", files)
 	}
-	bench.examineAs(observedRecord("Metropolis.mkv", "heat"))
+	bench.examineAs(observedRecord("Metropolis.mkv", "metropolis"))
 	bench.list(listing...)
 	if _, files := bench.examine(); len(files) != 1 || files[0].Path.Text != "Nosferatu.mkv" {
 		t.Errorf("the scan after reads %+v; want Nosferatu.mkv, asked for while the first ran", files)

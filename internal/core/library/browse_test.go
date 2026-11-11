@@ -100,28 +100,28 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{
 		observedRecord("z.mkv", "z"), observedRecord("o.mkv", "o"), observedRecord("a.mkv", "a"),
 	}, true)
-	world.fileAsFilm("Destiny", "z.mkv")
+	world.fileAsFilm("Zelkova Lane", "z.mkv")
 	world.fileAsFilm("Ödet", "o.mkv")
-	world.fileAsFilm("Fièvre", "a.mkv")
+	world.fileAsFilm("Élan Vital", "a.mkv")
 	world.fileAsFilm("Gone Film", "gone.mkv")
 	first, err := world.browser.List(t.Context(), ListQuery{
 		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 2,
 	})
-	if err != nil || !slices.Equal(entryNames(first), []string{"Fièvre", "Ödet"}) || first.NextCursor == "" {
+	if err != nil || !slices.Equal(entryNames(first), []string{"Élan Vital", "Ödet"}) || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
 	next := ListQuery{
 		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Cursor: first.NextCursor, Limit: 2,
 	}
 	rest, err := world.browser.List(t.Context(), next)
-	if err != nil || !slices.Equal(entryNames(rest), []string{"Destiny"}) || rest.NextCursor != "" {
+	if err != nil || !slices.Equal(entryNames(rest), []string{"Zelkova Lane"}) || rest.NextCursor != "" {
 		t.Errorf("second page = %+v, %v; the film with no live file is not listed", rest, err)
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
 	swedish, err := world.browser.List(t.Context(), ListQuery{
 		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 10,
 	})
-	if err != nil || !slices.Equal(entryNames(swedish), []string{"Fièvre", "Destiny", "Ödet"}) {
+	if err != nil || !slices.Equal(entryNames(swedish), []string{"Élan Vital", "Zelkova Lane", "Ödet"}) {
 		t.Errorf("in Swedish = %v, %v; Ö comes after Z", entryNames(swedish), err)
 	}
 	if _, err := world.browser.List(t.Context(), ListQuery{
@@ -142,11 +142,11 @@ func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
 		observedRecord("m2.mkv", "m2"), observedRecord("o.mkv", "o"), observedRecord("z.mkv", "z"),
 	}, true)
 	world.fileAsFilm("12 Patient Sailors", "1.mkv")
-	world.fileAsFilm("Fièvre", "a.mkv")
+	world.fileAsFilm("Élan Vital", "a.mkv")
 	world.fileAsFilm("M", "m.mkv")
-	world.fileAsFilm("memento", "m2.mkv")
+	world.fileAsFilm("mirage", "m2.mkv")
 	world.fileAsFilm("Ödet", "o.mkv")
-	world.fileAsFilm("Destiny", "z.mkv")
+	world.fileAsFilm("Zelkova Lane", "z.mkv")
 	from := func(name string, limit int64) Page {
 		t.Helper()
 		page, err := world.browser.List(t.Context(), ListQuery{
@@ -158,28 +158,28 @@ func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
 		return page
 	}
 	// A title named the letter itself is at it; one in lower case beside it; accents fold in English.
-	if page := from("M", 2); !slices.Equal(entryNames(page), []string{"M", "memento"}) || page.NextCursor == "" {
+	if page := from("M", 2); !slices.Equal(entryNames(page), []string{"M", "mirage"}) || page.NextCursor == "" {
 		t.Errorf("from M = %v", entryNames(page))
 	} else {
 		rest, err := world.browser.List(t.Context(), ListQuery{
 			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Cursor: page.NextCursor, Limit: 10,
 		})
-		if err != nil || !slices.Equal(entryNames(rest), []string{"Ödet", "Destiny"}) {
+		if err != nil || !slices.Equal(entryNames(rest), []string{"Ödet", "Zelkova Lane"}) {
 			t.Errorf("after from M = %v, %v", entryNames(rest), err)
 		}
 	}
 	if page := from("N", 1); !slices.Equal(entryNames(page), []string{"Ödet"}) {
 		t.Errorf("from N, which no title begins = %v; want the next title, Ödet", entryNames(page))
 	}
-	if page := from("A", 1); !slices.Equal(entryNames(page), []string{"Fièvre"}) {
-		t.Errorf("from A = %v; want Fièvre, after the title that begins with a digit", entryNames(page))
+	if page := from("A", 1); !slices.Equal(entryNames(page), []string{"Élan Vital"}) {
+		t.Errorf("from A = %v; want Élan Vital, after the title that begins with a digit", entryNames(page))
 	}
 	if page := from("Zz", 5); len(page.Entries) != 0 || page.NextCursor != "" {
 		t.Errorf("from past the last = %v", entryNames(page))
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
-	if page := from("P", 5); !slices.Equal(entryNames(page), []string{"Destiny", "Ödet"}) {
-		t.Errorf("from P in Swedish = %v; want Destiny, then Ödet after Z", entryNames(page))
+	if page := from("P", 5); !slices.Equal(entryNames(page), []string{"Zelkova Lane", "Ödet"}) {
+		t.Errorf("from P in Swedish = %v; want Zelkova Lane, then Ödet after Z", entryNames(page))
 	}
 }
 
@@ -210,9 +210,9 @@ func TestBrowse_FilmsNewestFirst(t *testing.T) {
 func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("metropolis.mkv", "heat")}, true)
-	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
-	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, heat)
+	world.scan([]nodeproto.ScanRecord{observedRecord("metropolis.mkv", "metropolis")}, true)
+	metropolis := world.fileAsFilm("Metropolis", "metropolis.mkv")
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, metropolis)
 	if err != nil || detail.Name == nil || *detail.Name != "Metropolis" || len(detail.Versions) != 1 {
 		t.Fatalf("Title = %+v, %v", detail, err)
 	}
@@ -232,24 +232,24 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 		observedRecord("b.mkv", "b"), observedRecord("s.mkv", "s"),
 		observedRecord("u.mkv", "u"), observedRecord("h.mkv", "h"),
 	}, true)
-	world.fileAsFilm("Sølvi: Lumenfold Live", "b.mkv")
-	world.fileAsFilm("十字路", "s.mkv")
-	world.fileAsFilm("Up", "u.mkv")
+	world.fileAsFilm("Sølvi Live", "b.mkv")
+	world.fileAsFilm("灯台の町 夏の夜", "s.mkv")
+	world.fileAsFilm("Ulme", "u.mkv")
 	world.fileAsFilm("Metropolis", "h.mkv")
 	for query, want := range map[string]string{
-		"solvi":      "Sølvi: Lumenfold Live", // the word index, through the alternates
-		"biophi":     "Sølvi: Lumenfold Live", // a prefix
-		"solvi live": "Sølvi: Lumenfold Live", // two words
-		"十字":       "十字路",              // the trigram index
-		"千尋":         "十字路",              // too short for it: the folded substring
-		"up":         "Up",
+		"solvi":      "Sølvi Live", // the word index, through the alternates
+		"solv":       "Sølvi Live", // a prefix
+		"solvi live": "Sølvi Live", // two words
+		"灯台の町":       "灯台の町 夏の夜",   // the trigram index
+		"夏の":         "灯台の町 夏の夜",   // too short for it: the folded substring
+		"ul":         "Ulme",
 	} {
 		hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), query, 10)
 		if err != nil || len(hits) == 0 || hits[0].Name != want {
 			t.Errorf("Search(%q) = %+v, %v; want %q first", query, hits, err, want)
 		}
 	}
-	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), `heat" OR "x`, 10); err != nil {
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), `metropolis" OR "x`, 10); err != nil {
 		t.Errorf("a query with FTS5 syntax in it = %+v, %v; want it read as words", hits, err)
 	}
 }
@@ -259,14 +259,16 @@ func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 	world := newShelf(t)
 	world.scan([]nodeproto.ScanRecord{observedRecord("h.mkv", "h"), observedRecord("u.mkv", "u")}, true)
 	world.fileAsFilm("Metropolis", "h.mkv")
-	world.fileAsFilm("Up", "u.mkv")
-	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "heat", 10); err != nil || len(hits) != 1 {
-		t.Fatalf("Search(heat) with its file = %+v, %v; want Metropolis", hits, err)
+	world.fileAsFilm("Ulme", "u.mkv")
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "metropolis", 10); err != nil ||
+		len(hits) != 1 {
+		t.Fatalf("Search(metropolis) with its file = %+v, %v; want Metropolis", hits, err)
 	}
 	// A complete scan without h.mkv removes its file; the film is kept, with its history, unlisted.
 	world.scan([]nodeproto.ScanRecord{observedRecord("u.mkv", "u")}, true)
-	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "heat", 10); err != nil || len(hits) != 0 {
-		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "metropolis", 10); err != nil ||
+		len(hits) != 0 {
+		t.Errorf("Search(metropolis) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
 	}
 }
 
@@ -274,16 +276,16 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
+		observedRecord("metropolis.mkv", "metropolis"), observedRecord("trailer.mkv", "trailer"),
 		observedRecord("interview.mkv", "interview"),
 	}, true)
-	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
+	metropolis := world.fileAsFilm("Metropolis", "metropolis.mkv")
 	trailer := world.fileAsFilm("Metropolis trailer", "trailer.mkv")
 	interview := world.fileAsFilm("Metropolis interview", "interview.mkv")
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		for _, extra := range []int64{trailer, interview} {
 			relation := sqlcgen.UpsertScannerExtraRelationParams{
-				OwnerWork: heat, ExtraWork: extra, ExtraType: "trailer",
+				OwnerWork: metropolis, ExtraWork: extra, ExtraType: "trailer",
 			}
 			if err := queries.UpsertScannerExtraRelation(t.Context(), relation); err != nil {
 				return err
@@ -296,9 +298,9 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	}
 	// A complete scan without the interview removes its file; its title is kept, unlisted.
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
+		observedRecord("metropolis.mkv", "metropolis"), observedRecord("trailer.mkv", "trailer"),
 	}, true)
-	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, heat)
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, metropolis)
 	if err != nil {
 		t.Fatal(err)
 	}

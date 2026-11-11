@@ -25,12 +25,12 @@ func TestLetters_ATitleIsUnderItsFirstWordThatIsNoArticle(t *testing.T) {
 	letters, err := world.browser.Letters(t.Context(), ListQuery{
 		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName,
 	})
-	if err != nil || !slices.Equal(letters, []string{"B", "M", "T"}) {
-		t.Errorf("the letters of The Gold Rush, A Woman of Paris and The = %v, %v; want B, M and T", letters, err)
+	if err != nil || !slices.Equal(letters, []string{"G", "T", "W"}) {
+		t.Errorf("the letters of The Gold Rush, A Woman of Paris and The = %v, %v; want G, T and W", letters, err)
 	}
 }
 
-// A list by name says each entry's letter as the rail names it, by the same key: The Gold Rush under M,
+// A list by name says each entry's letter as the rail names it, by the same key: The Gold Rush under G,
 // so the rail can stand at the letter of the poster beside it (the owner, 2026-11-11).
 func TestList_SaysEachEntrysRailLetter(t *testing.T) {
 	t.Parallel()
@@ -39,7 +39,7 @@ func TestList_SaysEachEntrysRailLetter(t *testing.T) {
 		observedRecord("m.mkv", "m"), observedRecord("n.mkv", "n"), observedRecord("b.mkv", "b"),
 	}, true)
 	world.fileAsFilm("The Gold Rush", "m.mkv")
-	world.fileAsFilm("The Freshman", "n.mkv")
+	world.fileAsFilm("7th Heaven", "n.mkv")
 	world.fileAsFilm("A Woman of Paris", "b.mkv")
 	page, err := world.browser.List(t.Context(), ListQuery{
 		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 10,
@@ -51,7 +51,7 @@ func TestList_SaysEachEntrysRailLetter(t *testing.T) {
 	for _, entry := range page.Entries {
 		said[entry.Name] = entry.Letter
 	}
-	want := map[string]string{"The Gold Rush": "M", "The Freshman": "#", "A Woman of Paris": "B"}
+	want := map[string]string{"The Gold Rush": "G", "7th Heaven": "#", "A Woman of Paris": "W"}
 	if !maps.Equal(said, want) {
 		t.Errorf("the letters said = %v; want %v", said, want)
 	}

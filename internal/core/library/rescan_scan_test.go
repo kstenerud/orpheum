@@ -18,7 +18,8 @@ func TestRescan_AFileUnchangedOnDiskIsNotProbedAgain(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
 	bench.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon (1979)/Arkon.mkv", "arkon"), observedRecord("Metropolis (1995)/Metropolis.mkv", "heat"),
+		observedRecord("Arkon (1979)/Arkon.mkv", "arkon"),
+		observedRecord("Metropolis (1927)/Metropolis.mkv", "metropolis"),
 	}, true)
 	ctx := t.Context()
 	films, err := bench.database.Read().GetLiveLibraryByName(ctx, "Films")
@@ -57,7 +58,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	bench := newScanBench(t)
 	bench.scan([]nodeproto.ScanRecord{
 		observedRecord("Arkon (1979)/Arkon.mkv", "arkon"), observedRecord("Arkon (1979)/Trailer.mkv", "trailer"),
-		observedRecord("Metropolis (1995)/Metropolis.mkv", "heat"),
+		observedRecord("Metropolis (1927)/Metropolis.mkv", "metropolis"),
 	}, true)
 	ctx := t.Context()
 	films, err := bench.database.Read().GetLiveLibraryByName(ctx, "Films")
@@ -93,7 +94,8 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	if asked, err := admin.ScanReadingAgain(ctx, films.ID); err != nil || asked != 1 {
 		t.Fatalf("ScanReadingAgain = %d, %v; want the root asked for", asked, err)
 	}
-	bench.list(append(folder, listedDirectory("Metropolis (1995)"), listedFile("Metropolis (1995)/Metropolis.mkv", 4, 1))...)
+	bench.list(append(folder, listedDirectory("Metropolis (1927)"),
+		listedFile("Metropolis (1927)/Metropolis.mkv", 10, 1))...)
 	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.ListedCount != 4 || scan.ToExamineCount != 4 {
 		t.Errorf("a full rescan of the library is %+v (%v); want its four files listed and every one read", scan,
 			isScanning)

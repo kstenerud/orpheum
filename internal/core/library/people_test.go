@@ -17,9 +17,9 @@ import (
 )
 
 // creditedShelf is a shelf of films with genres, years and people, as the identification pass
-// keeps them (step 0067): Metropolis (1995, Crime and Drama; Ansel Vardo as Mira Holloway-Pent, directed by
-// Oren Talisk), The Boarder (1999, Drama; Ansel Vardo, Oren Talisk), Scarlet Wren (1983, Crime; Al
-// Vardo) and Up (2009, Animation), and a film with no live file crediting Ansel Vardo.
+// keeps them (step 0067): Faust (1995, Crime and Drama; Ansel Vardo as Mira Holloway-Pent, directed by
+// Oren Talisk), The Lodger (1999, Drama; Ansel Vardo, Oren Talisk), Sparrows (1983, Crime; Oren
+// Talisk) and Up (2009, Animation), and a film with no live file crediting Ansel Vardo.
 type creditedShelf struct {
 	*shelf
 	films   map[string]int64
@@ -39,7 +39,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 		observedRecord("u.mkv", "u"),
 	}, true)
 	for name, path := range map[string]string{
-		"Metropolis": "h.mkv", "The Boarder": "i.mkv", "Scarlet Wren": "s.mkv", "Up": "u.mkv", "Gone": "gone.mkv",
+		"Faust": "h.mkv", "The Lodger": "i.mkv", "Sparrows": "s.mkv", "Ulme": "u.mkv", "Gone": "gone.mkv",
 	} {
 		world.films[name] = world.fileAsFilm(name, path)
 	}
@@ -56,7 +56,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 			return err
 		}
 		return queries.MarkWorksWatched(t.Context(), sqlcgen.MarkWorksWatchedParams{
-			UserID: world.userID, MarkedAt: 2, WorkIdsJSON: fmt.Sprintf("[%d]", world.films["Metropolis"]),
+			UserID: world.userID, MarkedAt: 2, WorkIdsJSON: fmt.Sprintf("[%d]", world.films["Faust"]),
 		})
 	})
 	world.gonePal = world.people["Ghost Actor"]
@@ -65,7 +65,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 
 // dateFilms gives each film its year.
 func (world *creditedShelf) dateFilms(queries *sqlcgen.Queries) error {
-	for name, year := range map[string]int64{"Metropolis": 1995, "The Boarder": 1999, "Scarlet Wren": 1983, "Up": 2009} {
+	for name, year := range map[string]int64{"Faust": 1995, "The Lodger": 1999, "Sparrows": 1983, "Ulme": 2009} {
 		if err := queries.UpdateWorkResolved(world.t.Context(), sqlcgen.UpdateWorkResolvedParams{
 			Kind: ListFilms, Year: new(year), IdentificationState: new("identified"), ID: world.films[name],
 		}); err != nil {
@@ -90,7 +90,7 @@ func (world *creditedShelf) addGenres(queries *sqlcgen.Queries) error {
 		}
 	}
 	for film, genres := range map[string][]string{
-		"Metropolis": {"Crime", "Drama"}, "The Boarder": {"Drama"}, "Scarlet Wren": {"Crime"}, "Up": {"Animation"},
+		"Faust": {"Crime", "Drama"}, "The Lodger": {"Drama"}, "Sparrows": {"Crime"}, "Ulme": {"Animation"},
 		"Gone": {"Crime"},
 	} {
 		for ordinal, genre := range genres {
@@ -135,12 +135,12 @@ func (world *creditedShelf) creditPeople(queries *sqlcgen.Queries) error {
 		film, role, person, character string
 		ordinal                       int64
 	}{
-		{"Metropolis", RoleCast, "Ansel Vardo", "Mira Holloway-Pent", 0},
-		{"Metropolis", RoleDirector, "Oren Talisk", "", 0},
-		{"Metropolis", RoleWriter, "Oren Talisk", "", 0},
-		{"The Boarder", RoleCast, "Ansel Vardo", "Edda Quarrin", 0},
-		{"The Boarder", RoleDirector, "Oren Talisk", "", 0},
-		{"Scarlet Wren", RoleCast, "Ansel Vardo", "Silas Morrow-Fenn", 0},
+		{"Faust", RoleCast, "Ansel Vardo", "Mira Holloway-Pent", 0},
+		{"Faust", RoleDirector, "Oren Talisk", "", 0},
+		{"Faust", RoleWriter, "Oren Talisk", "", 0},
+		{"The Lodger", RoleCast, "Ansel Vardo", "Edda Quarrin", 0},
+		{"The Lodger", RoleDirector, "Oren Talisk", "", 0},
+		{"Sparrows", RoleCast, "Ansel Vardo", "Silas Morrow-Fenn", 0},
 		{"Gone", RoleCast, "Ansel Vardo", "", 0},
 		{"Gone", RoleCast, "Ghost Actor", "", 1},
 	} {
@@ -181,13 +181,13 @@ func TestList_FiltersByGenrePersonDecadeAndUnwatchedCombine(t *testing.T) {
 		query ListQuery
 		want  []string
 	}{
-		"genre":               {ListQuery{GenreID: world.genres["Crime"]}, []string{"Metropolis", "Scarlet Wren"}},
-		"person":              {ListQuery{PersonID: world.people["Oren Talisk"]}, []string{"Metropolis", "The Boarder"}},
-		"decade":              {ListQuery{Decade: 1990}, []string{"Metropolis", "The Boarder"}},
-		"unwatched":           {ListQuery{IsUnwatched: true}, []string{"The Boarder", "Scarlet Wren", "Up"}},
-		"person and decade":   {ListQuery{PersonID: world.people["Ansel Vardo"], Decade: 1980}, []string{"Scarlet Wren"}},
-		"genre and unwatched": {ListQuery{GenreID: world.genres["Drama"], IsUnwatched: true}, []string{"The Boarder"}},
-		"query and genre":     {ListQuery{Query: "the", GenreID: world.genres["Drama"]}, []string{"The Boarder"}},
+		"genre":               {ListQuery{GenreID: world.genres["Crime"]}, []string{"Faust", "Sparrows"}},
+		"person":              {ListQuery{PersonID: world.people["Oren Talisk"]}, []string{"Faust", "The Lodger"}},
+		"decade":              {ListQuery{Decade: 1990}, []string{"Faust", "The Lodger"}},
+		"unwatched":           {ListQuery{IsUnwatched: true}, []string{"The Lodger", "Sparrows", "Ulme"}},
+		"person and decade":   {ListQuery{PersonID: world.people["Ansel Vardo"], Decade: 1980}, []string{"Sparrows"}},
+		"genre and unwatched": {ListQuery{GenreID: world.genres["Drama"], IsUnwatched: true}, []string{"The Lodger"}},
+		"query and genre":     {ListQuery{Query: "the", GenreID: world.genres["Drama"]}, []string{"The Lodger"}},
 		"nothing kept":        {ListQuery{GenreID: world.genres["Animation"], Decade: 1980}, nil},
 	} {
 		if got := list(test.query); !slices.Equal(got, test.want) {
@@ -201,7 +201,7 @@ func TestList_FiltersByGenrePersonDecadeAndUnwatchedCombine(t *testing.T) {
 func TestTitle_CarriesItsGenresAndCredits(t *testing.T) {
 	t.Parallel()
 	world := newCreditedShelf(t)
-	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), world.userID, world.films["Metropolis"])
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), world.userID, world.films["Faust"])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,11 +214,11 @@ func TestTitle_CarriesItsGenresAndCredits(t *testing.T) {
 		PersonID: world.people["Ansel Vardo"], Name: "Ansel Vardo", Character: "Mira Holloway-Pent",
 		PictureRef: "/Ansel Vardo.jpg",
 	}}
-	wantMann := []CreditedPerson{{
+	wantTalisk := []CreditedPerson{{
 		PersonID: world.people["Oren Talisk"], Name: "Oren Talisk", PictureRef: "/Oren Talisk.jpg",
 	}}
-	if !slices.Equal(people.Cast, wantCast) || !slices.Equal(people.Directors, wantMann) ||
-		!slices.Equal(people.Writers, wantMann) {
+	if !slices.Equal(people.Cast, wantCast) || !slices.Equal(people.Directors, wantTalisk) ||
+		!slices.Equal(people.Writers, wantTalisk) {
 		t.Errorf("credits %+v; want Ansel Vardo as Mira Holloway-Pent, directed and written by Oren Talisk", people)
 	}
 }
@@ -236,7 +236,7 @@ func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 	if vardo.Name != "Ansel Vardo" || vardo.PictureRef != "/Ansel Vardo.jpg" {
 		t.Errorf("Ansel Vardo's page %q %q; want his name and picture", vardo.Name, vardo.PictureRef)
 	}
-	ids := []int64{world.films["The Boarder"], world.films["Metropolis"], world.films["Scarlet Wren"]}
+	ids := []int64{world.films["The Lodger"], world.films["Faust"], world.films["Sparrows"]}
 	credits, err := world.browser.CreditsOn(t.Context(), world.people["Ansel Vardo"], ids)
 	if err != nil {
 		t.Fatal(err)
@@ -247,11 +247,11 @@ func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 		if len(roles) == 0 {
 			t.Fatalf("no credit on %d; want his part", id)
 		}
-		titles = append(titles, fmt.Sprintf("%d %s %s", id, roles[0].Role, roles[0].Character))
+		titles = append(titles, fmt.Sprintf("%d %s as %s", id, roles[0].Role, roles[0].Character))
 	}
 	want := []string{
-		fmt.Sprintf("%d cast Edda Quarrin", ids[0]), fmt.Sprintf("%d cast Mira Holloway-Pent", ids[1]),
-		fmt.Sprintf("%d cast Silas Morrow-Fenn", ids[2]),
+		fmt.Sprintf("%d cast as Edda Quarrin", ids[0]), fmt.Sprintf("%d cast as Mira Holloway-Pent", ids[1]),
+		fmt.Sprintf("%d cast as Silas Morrow-Fenn", ids[2]),
 	}
 	if !slices.Equal(titles, want) {
 		t.Errorf("Ansel Vardo's credits %v; want %v", titles, want)
@@ -327,10 +327,10 @@ func TestSearchGrouped_FindsTitlesPeopleAndGenresFromTheFirstLetter(t *testing.T
 	t.Parallel()
 	world := newCreditedShelf(t)
 	titles, people, genres := groupedNames(world.searchGrouped(GroupedQuery{Query: "a", Limit: 10}))
-	if !slices.Equal(titles, []string{"Metropolis", "Scarlet Wren"}) ||
+	if !slices.Equal(titles, []string{"Faust", "Sparrows"}) ||
 		!slices.Equal(people, []string{"Ansel Vardo", "Oren Talisk"}) ||
 		!slices.Equal(genres, []string{"Animation", "Drama"}) {
-		t.Errorf("a: titles %v, people %v, genres %v; want Metropolis, Scarlet Wren; Ansel Vardo, Oren Talisk; "+
+		t.Errorf("a: titles %v, people %v, genres %v; want Faust, Sparrows; Ansel Vardo, Oren Talisk; "+
 			"Animation (it begins so), then Drama", titles, people, genres)
 	}
 	if _, ghosts, _ := groupedNames(world.searchGrouped(GroupedQuery{Query: "ghost", Limit: 10})); len(ghosts) != 0 {

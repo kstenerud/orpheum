@@ -84,13 +84,13 @@ func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *tes
 		listedDirectory("#recycle"),
 		listedFile("#recycle/Old Film (1950)/Old Film (1950).mkv", 3, 1),
 		listedDirectory(".snapshot"),
-		listedFile(".snapshot/daily.0/Metropolis (1995)/Metropolis.mkv", 3, 1),
-		listedDirectory("Metropolis (1995)"),
-		listedFile("Metropolis (1995)/Metropolis.mkv", 4, 1),
-		listedDirectory("Metropolis (1995)/@eaDir"),
-		listedFile("Metropolis (1995)/@eaDir/Metropolis.mkv", 4, 1),
+		listedFile(".snapshot/daily.0/Metropolis (1927)/Metropolis.mkv", 3, 1),
+		listedDirectory("Metropolis (1927)"),
+		listedFile("Metropolis (1927)/Metropolis.mkv", 4, 1),
+		listedDirectory("Metropolis (1927)/@eaDir"),
+		listedFile("Metropolis (1927)/@eaDir/Metropolis.mkv", 4, 1),
 	}, false)
-	if got, want := examined(taken), []string{"video Metropolis (1995)/Metropolis.mkv"}; !slices.Equal(got, want) {
+	if got, want := examined(taken), []string{"video Metropolis (1927)/Metropolis.mkv"}; !slices.Equal(got, want) {
 		t.Errorf("to read %v, want %v", got, want)
 	}
 	skipped := map[string]string{}
@@ -99,7 +99,7 @@ func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *tes
 			skipped[strings.TrimPrefix(path, root+"/")] = *file.FilingReason
 		}
 	}
-	want := map[string]string{"#recycle": "system", ".snapshot": "system", "Metropolis (1995)/@eaDir": "system"}
+	want := map[string]string{"#recycle": "system", ".snapshot": "system", "Metropolis (1927)/@eaDir": "system"}
 	if !mapsEqual(skipped, want) {
 		t.Errorf("skipped %v, want %v", skipped, want)
 	}
@@ -113,14 +113,14 @@ func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	taken := world.takeListing([]nodeproto.ScanRecord{
-		listedFile("Metropolis (1995).iso", 3, 1),
+		listedFile("Metropolis (1927).iso", 3, 1),
 		listedDirectory("Arkon (1979)"),
 		listedDirectory("Arkon (1979)/VIDEO_TS"),
 		listedFile("Arkon (1979)/VIDEO_TS/VTS_01_1.mkv", 3, 1),
-		listedDirectory("Nosferatu (1998)"),
-		listedDirectory("Nosferatu (1998)/BDMV"),
-		listedFile("Nosferatu (1998)/BDMV/00001.mkv", 3, 1),
-		listedFile("Nosferatu (1998)/Nosferatu (1998).mkv", 4, 1),
+		listedDirectory("Nosferatu (1922)"),
+		listedDirectory("Nosferatu (1922)/BDMV"),
+		listedFile("Nosferatu (1922)/BDMV/00001.mkv", 3, 1),
+		listedFile("Nosferatu (1922)/Nosferatu (1922).mkv", 4, 1),
 	}, false)
 	skipped := map[string]string{}
 	for path, file := range world.liveFilesByPath() {
@@ -129,11 +129,11 @@ func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 		}
 	}
 	const rule = "discFolderNotSupportedYet"
-	want := map[string]string{"Arkon (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
+	want := map[string]string{"Arkon (1979)/VIDEO_TS": rule, "Nosferatu (1922)/BDMV": rule}
 	if !mapsEqual(skipped, want) {
 		t.Errorf("skipped %v, want %v", skipped, want)
 	}
-	wantExamined := []string{"video Metropolis (1995).iso", "video Nosferatu (1998)/Nosferatu (1998).mkv"}
+	wantExamined := []string{"video Metropolis (1927).iso", "video Nosferatu (1922)/Nosferatu (1922).mkv"}
 	if got := examined(taken); !slices.Equal(got, wantExamined) {
 		t.Errorf("taken to be read: %q; want %q, the disc's image a video", got, wantExamined)
 	}
@@ -146,20 +146,21 @@ func TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain(t *tes
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedAt("Metropolis.mkv", "heat", 41), observedAt("Arkon.mkv", "arkon", 42),
+		observedAt("Metropolis.mkv", "metropolis", 41), observedAt("Arkon.mkv", "arkon", 42),
 	}, true)
-	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	metropolis := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	taken := world.takeListing([]nodeproto.ScanRecord{
-		listedDirectory("Metropolis (1995)"),
-		listedAt("Metropolis (1995)/Metropolis (1995).mkv", int64(len("heat")), 41),
+		listedDirectory("Metropolis (1927)"),
+		listedAt("Metropolis (1927)/Metropolis (1927).mkv", int64(len("metropolis")), 41),
 		listedAt("Arkon (1979).mkv", int64(len("arkon"))+1, 42), // rewritten, not moved
 		listedAt("Nosferatu.mkv", 5, 43),
 	}, false)
-	if got, want := examined(taken), []string{"video Arkon (1979).mkv", "video Nosferatu.mkv"}; !slices.Equal(got, want) {
+	want := []string{"video Arkon (1979).mkv", "video Nosferatu.mkv"}
+	if got := examined(taken); !slices.Equal(got, want) {
 		t.Errorf("to read %v, want %v: the moved film needs no read", got, want)
 	}
-	if moved := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"]; moved.ID != heat {
-		t.Errorf("the moved film is file %d, want %d with its history", moved.ID, heat)
+	if moved := world.liveFilesByPath()[root+"/Metropolis (1927)/Metropolis (1927).mkv"]; moved.ID != metropolis {
+		t.Errorf("the moved film is file %d, want %d with its history", moved.ID, metropolis)
 	}
 }
 
@@ -181,19 +182,19 @@ func (world *harness) readThen(records ...nodeproto.ScanRecord) {
 func TestTakeListing_ANewVideoIsStoredUnreadAndItsReadFillsItsRow(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	const heat = "Metropolis (1995)/Metropolis (1995).mkv"
+	const metropolis = "Metropolis (1927)/Metropolis (1927).mkv"
 	taken := world.takeListing([]nodeproto.ScanRecord{
-		listedDirectory("Metropolis (1995)"), listedAt(heat, int64(len("heat")), 41),
+		listedDirectory("Metropolis (1927)"), listedAt(metropolis, int64(len("metropolis")), 41),
 	}, false)
-	if got, want := examined(taken), []string{"video " + heat}; !slices.Equal(got, want) {
+	if got, want := examined(taken), []string{"video " + metropolis}; !slices.Equal(got, want) {
 		t.Fatalf("to read %v, want %v", got, want)
 	}
-	unread, stored := world.liveFilesByPath()[root+"/"+heat]
+	unread, stored := world.liveFilesByPath()[root+"/"+metropolis]
 	if !stored || unread.PayloadHash != nil {
 		t.Fatalf("after its listing the film is %+v, stored %v; want it stored unread", unread, stored)
 	}
-	world.readThen(observedAt(heat, "heat", 41))
-	if read := world.liveFilesByPath()[root+"/"+heat]; read.ID != unread.ID || read.PayloadHash == nil {
+	world.readThen(observedAt(metropolis, "metropolis", 41))
+	if read := world.liveFilesByPath()[root+"/"+metropolis]; read.ID != unread.ID || read.PayloadHash == nil {
 		t.Errorf("after its read the film is file %d, hash %x; want file %d, read", read.ID, read.PayloadHash,
 			unread.ID)
 	}
@@ -205,14 +206,14 @@ func TestTakeListing_ANewVideoIsStoredUnreadAndItsReadFillsItsRow(t *testing.T) 
 func TestTakeListing_AVideoMovedToAnotherDiskReadAtItsNewPathKeepsItsRow(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedAt("Metropolis.mkv", "heat", 41)}, true)
-	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
-	const moved = "Disk 2/Metropolis (1995).mkv"
+	world.scan([]nodeproto.ScanRecord{observedAt("Metropolis.mkv", "metropolis", 41)}, true)
+	metropolis := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	const moved = "Disk 2/Metropolis (1927).mkv"
 	world.takeListing([]nodeproto.ScanRecord{listedDirectory("Disk 2"), listedAt(moved, 4, 99)}, false)
-	world.readThen(observedAt(moved, "heat", 99))
+	world.readThen(observedAt(moved, "metropolis", 99))
 	live := world.liveFilesByPath()
-	if got := live[root+"/"+moved]; got.ID != heat {
-		t.Errorf("the moved film is file %d, want %d with its history", got.ID, heat)
+	if got := live[root+"/"+moved]; got.ID != metropolis {
+		t.Errorf("the moved film is file %d, want %d with its history", got.ID, metropolis)
 	}
 	if len(live) != 1 {
 		t.Errorf("%d live files, %v; want the one, the unread row retired", len(live), slices.Collect(maps.Keys(live)))
@@ -233,13 +234,13 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 		listedFile("Arkon (1979)/Arkon (1979).mkv", 5, 1),
 		listedFile("Arkon (1979)/Arkon (1979).nfo", 8, 1),
 		listedFile("Arkon (1979)/sample.mkv", 6, 1),
-		listedDirectory("Metropolis (1995)"),
-		listedFile("Metropolis (1995)/._Metropolis.mkv", 4, 1),
-		listedFile("Metropolis (1995)/Metropolis.mkv", 4, 1),
-		listedDirectory("Metropolis (1995)/Sample"),
-		listedFile("Metropolis (1995)/Sample/clip.mkv", 6, 1),
-		listedFile("Metropolis (1995)/metropolis-SAMPLE.mp4", 6, 1),
-		listedFile("Metropolis (1995)/notes.txt", 6, 1),
+		listedDirectory("Metropolis (1927)"),
+		listedFile("Metropolis (1927)/._Metropolis.mkv", 4, 1),
+		listedFile("Metropolis (1927)/Metropolis.mkv", 4, 1),
+		listedDirectory("Metropolis (1927)/Sample"),
+		listedFile("Metropolis (1927)/Sample/clip.mkv", 6, 1),
+		listedFile("Metropolis (1927)/metropolis-SAMPLE.mp4", 6, 1),
+		listedFile("Metropolis (1927)/notes.txt", 6, 1),
 		listedDirectory("Shows/.trash"),
 		listedFile("Shows/.trash/kept.mkv", 6, 1),
 		{Type: nodeproto.RecordSkip, Skip: &nodeproto.Skip{
@@ -248,7 +249,7 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 	}, false)
 	want := []string{
 		"subtitle Arkon (1979)/Arkon (1979).en.srt", "video Arkon (1979)/Arkon (1979).mkv",
-		"nfo Arkon (1979)/Arkon (1979).nfo", "video Metropolis (1995)/Metropolis.mkv", "video Shows/.trash/kept.mkv",
+		"nfo Arkon (1979)/Arkon (1979).nfo", "video Metropolis (1927)/Metropolis.mkv", "video Shows/.trash/kept.mkv",
 	}
 	if got := examined(taken); !slices.Equal(got, want) {
 		t.Errorf("to read:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -260,9 +261,10 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 		}
 	}
 	wantSkipped := map[string]string{
-		".trash": "trash", "Arkon (1979)/sample.mkv": "sample", "Metropolis (1995)/._Metropolis.mkv": "appledouble",
-		"Metropolis (1995)/Sample": "sample", "Metropolis (1995)/metropolis-SAMPLE.mp4": "sample", "Metropolis (1995)/notes.txt": "extension",
-		"pipe.mkv": "notRegular",
+		".trash": "trash", "Arkon (1979)/sample.mkv": "sample", "Metropolis (1927)/._Metropolis.mkv": "appledouble",
+		"Metropolis (1927)/Sample": "sample", "Metropolis (1927)/metropolis-SAMPLE.mp4": "sample",
+		"Metropolis (1927)/notes.txt": "extension",
+		"pipe.mkv":                    "notRegular",
 	}
 	if !mapsEqual(skipped, wantSkipped) {
 		t.Errorf("skipped %v, want %v", skipped, wantSkipped)
@@ -322,7 +324,7 @@ func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf("1\n"), PayloadBytes: 2,
 	}
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Arkon/Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "heat"),
+		observedRecord("Arkon/Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "metropolis"),
 		sidecarRecord("Arkon/Arkon.nfo", nodeproto.SidecarNFO, "<movie/>"), subtitle,
 		errorRecord("Broken.mkv", nodeproto.ScopeEntry),
 	}, true)
@@ -332,7 +334,7 @@ func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 		listedFile("Arkon/Arkon.mkv", int64(len("arkon")), 1),
 		listedFile("Arkon/Arkon.nfo", int64(len("<movie/>")), 1),
 		listedFile("Broken.mkv", 6, 1),
-		listedFile("Metropolis.mkv", int64(len("heat")), 2),
+		listedFile("Metropolis.mkv", int64(len("metropolis")), 2),
 	}, false)
 	if got, want := examined(taken), []string{"video Broken.mkv", "video Metropolis.mkv"}; !slices.Equal(got, want) {
 		t.Errorf("to read %v, want %v: only what changed, or could not be read", got, want)
@@ -344,8 +346,8 @@ func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 			t.Errorf("%s = %+v, want it seen again as it was", name, seen)
 		}
 	}
-	if heat := after[root+"/Metropolis.mkv"]; heat.LastSeenAt != before[root+"/Metropolis.mkv"].LastSeenAt {
-		t.Errorf("Metropolis.mkv, changed, was marked seen before it was read: %+v", heat)
+	if metropolis := after[root+"/Metropolis.mkv"]; metropolis.LastSeenAt != before[root+"/Metropolis.mkv"].LastSeenAt {
+		t.Errorf("Metropolis.mkv, changed, was marked seen before it was read: %+v", metropolis)
 	}
 }
 

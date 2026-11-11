@@ -22,10 +22,10 @@ func searchedShelf(t *testing.T) *shelf {
 	world.fileAsFilm("Metropolis", "h1.mkv")
 	world.fileAsFilm("Metropolises", "h2.mkv")
 	world.fileAsFilm("Metropolis Wave", "h3.mkv")
-	world.fileAsFilm("Up", "u.mkv")
-	world.fileAsFilm("十字路", "s1.mkv")
-	world.fileAsFilm("千と千尋の物語", "s2.mkv")
-	world.fileAsFilm("Ordet", "o.mkv")
+	world.fileAsFilm("Ulme", "u.mkv")
+	world.fileAsFilm("灯台の町 夏の夜", "s1.mkv")
+	world.fileAsFilm("灯台の町", "s2.mkv")
+	world.fileAsFilm("Orchard Road", "o.mkv")
 	world.fileAsFilm("Metropolis Gone", "gone.mkv") // no live file: listed by no list, searched or not
 	return world
 }
@@ -38,7 +38,7 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 	world := searchedShelf(t)
 	list := func(query ListQuery) Page {
 		t.Helper()
-		query.Reach, query.Kinds, query.Query = auth.EveryLibrary(), []string{ListFilms}, "heat"
+		query.Reach, query.Kinds, query.Query = auth.EveryLibrary(), []string{ListFilms}, "metropolis"
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
 			t.Fatal(err)
@@ -47,27 +47,27 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 	}
 	first := list(ListQuery{Sort: SortName, Limit: 2})
 	if !slices.Equal(entryNames(first), []string{"Metropolis", "Metropolis Wave"}) || first.NextCursor == "" {
-		t.Fatalf("the first page of heat by name = %v (cursor %q); want Metropolis, Metropolis Wave and a next page",
-			entryNames(first), first.NextCursor)
+		t.Fatalf("the first page of metropolis by name = %v (cursor %q); want Metropolis, Metropolis Wave and "+
+			"a next page", entryNames(first), first.NextCursor)
 	}
 	rest := list(ListQuery{Sort: SortName, Limit: 2, Cursor: first.NextCursor})
 	if !slices.Equal(entryNames(rest), []string{"Metropolises"}) || rest.NextCursor != "" {
-		t.Errorf("the next page = %v (cursor %q); want Metropolises alone, and the last: Up and Ordet are not "+
-			"Metropolis's", entryNames(rest), rest.NextCursor)
+		t.Errorf("the next page = %v (cursor %q); want Metropolises alone, and the last: Ulme and Orchard Road are "+
+			"not Metropolis's", entryNames(rest), rest.NextCursor)
 	}
 	if page := list(ListQuery{Sort: SortName, Order: OrderDescending, Limit: 10}); !slices.Equal(entryNames(page),
 		[]string{"Metropolises", "Metropolis Wave", "Metropolis"}) {
-		t.Errorf("heat by name, Z to A = %v; want the three, the other way", entryNames(page))
+		t.Errorf("metropolis by name, Z to A = %v; want the three, the other way", entryNames(page))
 	}
 	if page := list(ListQuery{Sort: SortAdded, Limit: 10}); len(page.Entries) != 3 {
-		t.Errorf("heat newest first = %v; want the three that match", entryNames(page))
+		t.Errorf("metropolis newest first = %v; want the three that match", entryNames(page))
 	}
 	if page := list(ListQuery{Sort: SortReleased, Limit: 10}); len(page.Entries) != 3 {
-		t.Errorf("heat by release = %v; want the three that match, undated as they are", entryNames(page))
+		t.Errorf("metropolis by release = %v; want the three that match, undated as they are", entryNames(page))
 	}
-	if page := list(ListQuery{Sort: SortName, From: "Heath", Limit: 10}); !slices.Equal(entryNames(page),
+	if page := list(ListQuery{Sort: SortName, From: "Metropolise", Limit: 10}); !slices.Equal(entryNames(page),
 		[]string{"Metropolises"}) {
-		t.Errorf("heat from Heath = %v; want Metropolises, from where From starts", entryNames(page))
+		t.Errorf("metropolis from Metropolise = %v; want Metropolises, from where From starts", entryNames(page))
 	}
 }
 
@@ -78,9 +78,9 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 	t.Parallel()
 	world := searchedShelf(t)
 	for query, want := range map[string][]string{
-		"十字": {"千と千尋の物語", "十字路"}, // the trigram index, in the locale's order
-		"神隠":   {"十字路"},            // too short for it: the folded substring
-		"up":   {"Up"},
+		"灯台の町": {"灯台の町", "灯台の町 夏の夜"}, // the trigram index, in the locale's order
+		"夏の":   {"灯台の町 夏の夜"},         // too short for it: the folded substring
+		"ul":   {"Ulme"},
 		"   ":  nil, // plans to nothing
 		"...":  nil,
 		"zzz":  nil, // matches nothing
@@ -93,7 +93,7 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 		}
 	}
 	for query, want := range map[string][]string{
-		"heat": {"H"}, "ordet": {"O"}, "u": {"U"}, "zzz": nil, "   ": nil,
+		"metropolis": {"M"}, "orchard": {"O"}, "u": {"U"}, "zzz": nil, "   ": nil,
 	} {
 		letters, err := world.browser.Letters(t.Context(), ListQuery{
 			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Query: query,
@@ -130,8 +130,8 @@ func TestList_EveryPageHoldsTheWholeListsTotal(t *testing.T) {
 		t.Errorf("a page from H's total = %d; want none: it is not the list's start", page.Total)
 	}
 	for _, sort := range []string{SortAdded, SortReleased} {
-		if page := list(ListQuery{Sort: sort, Query: "heat", Limit: 2}); page.Total != 3 {
-			t.Errorf("heat by %s: total = %d; want the 3 that match", sort, page.Total)
+		if page := list(ListQuery{Sort: sort, Query: "metropolis", Limit: 2}); page.Total != 3 {
+			t.Errorf("metropolis by %s: total = %d; want the 3 that match", sort, page.Total)
 		}
 	}
 	if page := list(ListQuery{Sort: SortName, Query: "zzzz", Limit: 2}); page.Total != 0 {

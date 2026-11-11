@@ -42,7 +42,7 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	titleID := librarytest.Title(t, database, librarytest.TitleSpec{
-		ID: 10, Kind: "movie", Year: 1995, FollowedSource: "tmdb", FollowedSourceID: "603",
+		ID: 10, Kind: "movie", Year: 1995, FollowedSource: "tmdb", FollowedSourceID: "962",
 		IdentificationState: "identified",
 	})
 	if titleID != 10 {
@@ -52,7 +52,7 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	got := storetest.QueryRaw(t, database.Path(),
 		"SELECT work.kind, year, followed_source, followed_source_id, identification_state "+
 			"FROM work JOIN item ON item.id = work.id WHERE work.id = 10")
-	if want := []string{"movie|1995|tmdb|4801|identified"}; !slices.Equal(got, want) {
+	if want := []string{"movie|1995|tmdb|962|identified"}; !slices.Equal(got, want) {
 		t.Errorf("title 10 = %v, want %v", got, want)
 	}
 
@@ -102,7 +102,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	versionID := librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
 
 	auto := librarytest.File(t, database, librarytest.FileSpec{
-		LibraryID: libraryID, NodeID: nodeID, Path: "/media/Metropolis (1995).mkv", SizeBytes: 1000,
+		LibraryID: libraryID, NodeID: nodeID, Path: "/media/Metropolis (1927).mkv", SizeBytes: 1000,
 		PayloadHash: []byte{0x01}, VersionID: versionID,
 	})
 	got := storetest.QueryRaw(t, database.Path(),
@@ -110,7 +110,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 			"file_filing.library_kind, file_filing.filing, version_id, first_seen_at, last_seen_at "+
 			"FROM place JOIN file ON file.id = place.file_id JOIN file_filing ON file_filing.file_id = file.id "+
 			"WHERE place.id = "+itoa(auto))
-	if want := []string{"/media/Metropolis (1995).mkv|2f6d656469612f4d6574726f706f6c6973202831393935292e6d6b76" +
+	if want := []string{"/media/Metropolis (1927).mkv|2f6d656469612f4d6574726f706f6c6973202831393237292e6d6b76" +
 		"|1000|01|video|movie|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
 		t.Errorf("auto file %d = %v, want %v: a video its library's kind filed listed in the version", auto, got, want)
 	}
@@ -129,7 +129,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	}
 
 	sidecar := librarytest.File(t, database, librarytest.FileSpec{
-		LibraryID: libraryID, NodeID: nodeID, Path: "/media/Metropolis (1995).en.srt", SizeBytes: 5,
+		LibraryID: libraryID, NodeID: nodeID, Path: "/media/Metropolis (1927).en.srt", SizeBytes: 5,
 		SidecarKind: "subtitle", AttachedToFile: auto,
 	})
 	got = storetest.QueryRaw(t, database.Path(),

@@ -36,7 +36,7 @@ func TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName(t *testing.T)
 		"Copper Kettle (2015).fr.cc.ssa": {
 			codec: "ssa", containerLanguage: "fr", languageTag: "fr", disposition: deaf,
 		},
-		"Copper Kettle (2015).en.fr.srt":     {codec: "subrip", containerLanguage: "en", languageTag: "en"},
+		"Copper Kettle (2015).en.fr.srt": {codec: "subrip", containerLanguage: "en", languageTag: "en"},
 		"Something else entirely.en.srt": {codec: "subrip"},
 	} {
 		if got := sidecarTrackOf("/media/Copper Kettle (2015)/"+name, video); got != want {
@@ -58,15 +58,17 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 	t.Parallel()
 	world := newHarness(t)
 	// A subtitle file that belongs to no video is recorded, with no track, and the scan goes on.
-	world.scan([]nodeproto.ScanRecord{subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n")}, true)
+	world.scan([]nodeproto.ScanRecord{
+		subtitleSidecarRecord("Metropolis (1927)/Metropolis (1927).en.forced.srt", "1\n"),
+	}, true)
 	records := []nodeproto.ScanRecord{
-		subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n"),
-		observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat"),
+		subtitleSidecarRecord("Metropolis (1927)/Metropolis (1927).en.forced.srt", "1\n"),
+		observedRecord("Metropolis (1927)/Metropolis (1927).mkv", "metropolis"),
 	}
 	world.scan(records, true)
 	files := world.liveFilesByPath()
-	sidecarFile := files[root+"/Metropolis (1995)/Metropolis (1995).en.forced.srt"]
-	video := files[root+"/Metropolis (1995)/Metropolis (1995).mkv"]
+	sidecarFile := files[root+"/Metropolis (1927)/Metropolis (1927).en.forced.srt"]
+	video := files[root+"/Metropolis (1927)/Metropolis (1927).mkv"]
 	if hex.EncodeToString(sidecarFile.PayloadHash) != hashOf("1\n") {
 		t.Errorf("the subtitle file's payload hash is %x, want its bytes' (D179)", sidecarFile.PayloadHash)
 	}
@@ -97,27 +99,27 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 func TestIngest_ASubtitleBesideACopyIsATrackOfTheFileItIsACopyOf(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat")}, true)
-	fileID := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"].ID
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis (1927)/Metropolis (1927).mkv", "metropolis")}, true)
+	fileID := world.liveFilesByPath()[root+"/Metropolis (1927)/Metropolis (1927).mkv"].ID
 	backupID := librarytest.LibraryOn(t, world.database, world.nodeID,
 		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/backup"})
-	payloadHash, decodeErr := hex.DecodeString(hashOf("heat"))
+	payloadHash, decodeErr := hex.DecodeString(hashOf("metropolis"))
 	if decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	copyID := librarytest.File(t, world.database, librarytest.FileSpec{
-		LibraryID: backupID, NodeID: world.nodeID, Path: "/backup/Metropolis (1995).mkv", Filing: "copy",
+		LibraryID: backupID, NodeID: world.nodeID, Path: "/backup/Metropolis (1927).mkv", Filing: "copy",
 		CopyOf: fileID, PayloadHash: payloadHash, FirstSeenAt: 3,
 	})
 	// A scan of Backup that still sees its copy (as its own, unrelated scan would) alongside the
 	// subtitle beside it: attachSidecars runs over the two together, as it does in production.
 	backupFacts := nodeproto.ScanBegin{RootPath: "/backup", FilesystemDevice: 7, IsMountPoint: true}
 	backupRecords := []nodeproto.ScanRecord{
-		observedRecord("Metropolis (1995).mkv", "heat"),
-		sidecarRecord("Metropolis (1995).en.srt", nodeproto.SidecarSubtitle, "1\n"),
+		observedRecord("Metropolis (1927).mkv", "metropolis"),
+		sidecarRecord("Metropolis (1927).en.srt", nodeproto.SidecarSubtitle, "1\n"),
 	}
 	world.scanOn(backupFacts, backupRecords, true)
-	subtitleID := world.liveFilesByPath()["/backup/Metropolis (1995).en.srt"].ID
+	subtitleID := world.liveFilesByPath()["/backup/Metropolis (1927).en.srt"].ID
 	track, err := store.OrNotFound(world.database.Read().GetSidecarStream(t.Context(), subtitleID))
 	if err != nil {
 		t.Fatalf("the subtitle beside the copy has no track: %v", err)

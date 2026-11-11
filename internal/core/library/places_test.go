@@ -31,7 +31,7 @@ func placedFilm(t *testing.T) placed {
 	world := newShelf(t)
 	backupID := librarytest.LibraryOn(t, world.database, world.nodeID,
 		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/backup"})
-	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "metropolis")}, true)
 	titleID := world.fileAsFilm("Metropolis", "Metropolis.mkv")
 	fileID := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	librarytest.File(t, world.database, librarytest.FileSpec{
@@ -159,7 +159,7 @@ func TestPlaceToRead_AfterAReadFindsTheFileNotAtAPlaceItReadsAnotherUntilAScanSe
 	if got := placeOf(auth.LibrariesOnly(1)); got != first {
 		t.Errorf("for Films alone the place read is %s; want its own, never the copy it does not reach", got)
 	}
-	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "metropolis")}, true)
 	if got := placeOf(auth.EveryLibrary()); got != first {
 		t.Errorf("after a scan saw the file at its first place, the place read is %s; want the first again", got)
 	}

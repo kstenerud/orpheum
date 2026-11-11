@@ -80,7 +80,7 @@ func TestScans_AScanOfAFolderRemovesOnlyWhatItCovers(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
 	bench.scan([]nodeproto.ScanRecord{
-		observedRecord("Shows/Dag/1.mkv", "dag 1"), observedRecord("Films/Metropolis.mkv", "heat"),
+		observedRecord("Shows/Dag/1.mkv", "dag 1"), observedRecord("Films/Metropolis.mkv", "metropolis"),
 	}, true)
 	before, err := bench.database.Read().GetRootState(t.Context(), rootStateParams(bench.nodeID))
 	if err != nil {
@@ -110,10 +110,10 @@ func TestScans_AScanOfAFolderRemovesOnlyWhatItCovers(t *testing.T) {
 func TestScans_ACopyInTheFolderIsADuplicateNotAMoveOfTheFileOutsideIt(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Films/Metropolis.mkv", "heat")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Films/Metropolis.mkv", "metropolis")}, true)
 	bench.requestUnder("Shows")
 	bench.listedIn("Shows", listedDirectory("Shows"), listedFile("Shows/Metropolis.mkv", 4, 1))
-	bench.examineAs(observedRecord("Shows/Metropolis.mkv", "heat"))
+	bench.examineAs(observedRecord("Shows/Metropolis.mkv", "metropolis"))
 	live := bench.liveFilesByPath()
 	_, isOriginal := live[root+"/Films/Metropolis.mkv"]
 	_, isCopy := live[root+"/Shows/Metropolis.mkv"]
