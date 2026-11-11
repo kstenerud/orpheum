@@ -67,7 +67,7 @@ describe("when a player is ready again (seek-resync-2026-10-12.md)", () => {
     const readyOnMs = (2000 * readyAheadOfNextChunkPercent) / 100;
     expect(refill.isShort(loadedAhead(readyOnMs - 100, 2000))).toBe(true);
     expect(refill.isShort(loadedAhead(readyOnMs, 2000))).toBe(false);
-    // The Marrowgate shape: 1.57 s loaded, its next chunk 2.3 s away.
+    // The resumed shape: 1.57 s loaded, its next chunk 2.3 s away.
     expect(refill.isShort(loadedAhead(1570, 2300))).toBe(true);
   });
 

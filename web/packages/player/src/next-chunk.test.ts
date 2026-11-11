@@ -41,28 +41,28 @@ class FakeVideo extends EventTarget {
 }
 
 /** At 1798.9 s, loaded to 1799.2 s, the end of chunk 172 of 10.4 s each. */
-function marrowgateVideo(): FakeVideo {
+function resumedVideo(): FakeVideo {
   return new FakeVideo();
 }
 
 describe("how long the next chunk is expected to take to load (the owner, 2026-10-28)", () => {
   it("is the chunk after what is loaded, its length at its quality's average rate", () => {
     // Chunk 172 is 1788.8-1799.2 s: the next is 173, 10.4 s at 7.7 Mb/s.
-    expect(nextChunkBits(listing(7_700_000), marrowgateVideo())).toBeCloseTo(10.4 * 7_700_000);
+    expect(nextChunkBits(listing(7_700_000), resumedVideo())).toBeCloseTo(10.4 * 7_700_000);
   });
 
   it("is its byte range's size where the playlist gives one", () => {
-    expect(nextChunkBits(listing(7_700_000, [5_000_000, 15_000_000]), marrowgateVideo())).toBe(
+    expect(nextChunkBits(listing(7_700_000, [5_000_000, 15_000_000]), resumedVideo())).toBe(
       80_000_000,
     );
   });
 
   it("is unknown before the quality's playlist is loaded", () => {
-    expect(nextChunkBits({ ...listing(7_700_000), levels: [] }, marrowgateVideo())).toBeUndefined();
+    expect(nextChunkBits({ ...listing(7_700_000), levels: [] }, resumedVideo())).toBeUndefined();
   });
 
   it("tells the SDK its load: its first byte's wait and its bits over the link its controller names", () => {
-    const video = marrowgateVideo();
+    const video = resumedVideo();
     const link: { now?: NextChunkLink } = {
       now: { kbps: 40_040, firstByteMs: 0, from: "remembered" },
     };
@@ -83,7 +83,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
   });
 
   it("tells the chunk's film, whether it is of the lowest quality, and the most hls.js loads ahead (D414 §2)", () => {
-    const video = marrowgateVideo();
+    const video = resumedVideo();
     const lowest = {
       ...listing(1_782_000),
       config: { maxBufferLength: 30, maxMaxBufferLength: 20 },
@@ -108,7 +108,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
   });
 
   it("says nothing with nothing remembered and nothing measured, and the player waits refillAheadMs", () => {
-    const video = marrowgateVideo();
+    const video = resumedVideo();
     const stop = tellNextChunkLoad(listing(7_700_000), video, () => undefined);
     expect(readyAheadOf(video).nextChunkLoadMs).toBeUndefined();
     expect(readyAheadOf(video).nextChunkLoadFrom).toBe("none");

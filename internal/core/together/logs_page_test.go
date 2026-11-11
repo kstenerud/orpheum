@@ -296,7 +296,7 @@ func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
 
 // A play its follower did not make, while the group does not play, says at info what began it and
 // the group's state: a Fire TV's cast started with a play, a pause and a play, and the log said only
-// that it played with sound (the owner's Marrowgate Family, staging, 2026-10-28). An unknown cause is
+// that it played with sound (the owner's film, staging, 2026-10-28). An unknown cause is
 // refused.
 func TestHub_LogsWhatPlayedAPlayerItsGroupHeld(t *testing.T) {
 	t.Parallel()

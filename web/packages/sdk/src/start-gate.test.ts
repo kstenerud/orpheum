@@ -31,11 +31,11 @@ afterEach(() => {
 });
 
 /**
- * The owner's Marrowgate Family on a Fire TV (staging, 2026-10-28): resumed at 1798.9 s, its first
+ * The owner's film on a Fire TV (staging, 2026-10-28): resumed at 1798.9 s, its first
  * chunk loaded from 1794.96 s to 1800.47 s, canplay said; its next chunk, 10.4 s of film, about
  * 10 MB at some 9 Mb/s, expected to take 2.3 s.
  */
-function marrowgateResumed(): FakeMedia {
+function resumedMedia(): FakeMedia {
   const media = new FakeMedia();
   media.currentTime = 1798.9;
   media.loaded = [[1794.96, 1800.47]];
@@ -58,7 +58,7 @@ function countedPlay(media: FakeMedia): { readonly how: () => void; readonly pla
 
 describe("a player alone starts only once what it loaded outlasts its next chunk's load (start-gate.ts)", () => {
   it("does not play the Addams shape, 1.6 s loaded with its next chunk 2.3 s away, until more arrives", () => {
-    const media = marrowgateResumed();
+    const media = resumedMedia();
     const gate = startGateOf(media);
     const play = countedPlay(media);
     gate.play(play.how);
@@ -164,7 +164,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
   });
 
   it("plays at once where the browser loads no more while it is paused", () => {
-    const media = marrowgateResumed();
+    const media = resumedMedia();
     media.networkState = 1; // NETWORK_IDLE: preload stopped at the metadata
     const play = countedPlay(media);
     startGateOf(media).play(play.how);
@@ -172,7 +172,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
   });
 
   it("gives its wait up when the person plays it themselves, playing nothing more", () => {
-    const media = marrowgateResumed();
+    const media = resumedMedia();
     const play = countedPlay(media);
     const gate = startGateOf(media);
     gate.play(play.how);
@@ -185,7 +185,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
   });
 
   it("keeps its wait through a play paused again before it is heard, and plays once enough is (2026-11-11)", () => {
-    const media = marrowgateResumed();
+    const media = resumedMedia();
     const play = countedPlay(media);
     const gate = startGateOf(media);
     gate.play(play.how);
@@ -283,11 +283,11 @@ function withRoster(
   };
 }
 
-/** A cast's receiver at the Marrowgate shape, following its session as led by isLeading. */
-function receiverAtMarrowgate(
+/** A cast's receiver at the resumed shape, following its session as led by isLeading. */
+function resumedReceiver(
   isLeading: boolean,
 ): { media: FakeMedia } & ReturnType<typeof fakeConnection> {
-  const media = marrowgateResumed();
+  const media = resumedMedia();
   const fake = fakeConnection({ ...paused, state: "idle", fileId: 0 });
   const roster = [
     device(thisDevice, "video", isLeading),
@@ -303,7 +303,7 @@ function receiverAtMarrowgate(
 
 describe("a session's leader starts only with enough loaded ahead, and says so truthfully", () => {
   it("waits before its first play, saying it buffers and does not play until it plays", () => {
-    const { media, setGroup, connection, reports, commands } = receiverAtMarrowgate(true);
+    const { media, setGroup, connection, reports, commands } = resumedReceiver(true);
     setGroup({ ...paused, positionMs: 1_798_900, state: "waiting", event: "changedItem" }, 0);
     expect(media.paused).toBe(true);
     connection.reportState();
@@ -318,7 +318,7 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
   });
 
   it("never plays a start its group paused while it waited", () => {
-    const { media, setGroup } = receiverAtMarrowgate(true);
+    const { media, setGroup } = resumedReceiver(true);
     setGroup({ ...paused, positionMs: 1_798_900, state: "waiting", event: "changedItem" }, 0);
     setGroup({ ...paused, positionMs: 1_798_900, state: "paused", event: "paused" }, 500);
     media.loaded = [[1794.96, 1810.87]];
@@ -327,7 +327,7 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
   });
 
   it("sends no pause for everyone as it holds its own seek until enough is loaded", () => {
-    const { media, setGroup, commands } = receiverAtMarrowgate(true);
+    const { media, setGroup, commands } = resumedReceiver(true);
     media.loaded = [[0, 7200]];
     setGroup({ ...paused, positionMs: 1_798_900, state: "playing", event: "played" }, 0);
     media.fire("play");
@@ -342,7 +342,7 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
   });
 
   it("stands aside while it follows another device's lead: its follower plays it", () => {
-    const { media } = receiverAtMarrowgate(false);
+    const { media } = resumedReceiver(false);
     const play = countedPlay(media);
     startGateOf(media).play(play.how);
     expect(play.plays()).toBe(1);
@@ -399,7 +399,7 @@ describe("a cast's receiver asked to play before its session's welcome says it l
 
 describe("whether a paused element is asked to play, which makes its slow load a stall (starts-chunks-remote-2026-10-29.md §1.1)", () => {
   it("is while its start gate's play waits, and not before nor once given up", () => {
-    const media = marrowgateResumed();
+    const media = resumedMedia();
     expect(isAskedToPlay(media)).toBe(false); // a film page's hidden player, loading before Play
     const gate = startGateOf(media);
     expect(isAskedToPlay(media)).toBe(false);
