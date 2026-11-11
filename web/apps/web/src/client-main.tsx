@@ -33,6 +33,7 @@ import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed, tabStorage } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { followPressesForRefusals } from "./start-refused.ts";
+import { followPressesOfPlay } from "./video-pressed-for-play.ts";
 import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
@@ -102,6 +103,8 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
   // A film the browser will not start says how long ago the page's last press was (start-refused.ts,
   // VQ272).
   followPressesForRefusals();
+  // An iPhone's Play page plays in a video readied by the press that opened it (VQ297).
+  followPressesOfPlay(document);
   // A screen's code gone with an update reloads the page into the newer client, once, said here.
   watchForNewerClient(newerClientOver(api, reaches.ownScript));
   reportReloadNote();

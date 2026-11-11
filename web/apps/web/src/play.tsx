@@ -32,6 +32,7 @@ import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
+import { useVideoPressedForPlay } from "./video-pressed-for-play.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
@@ -183,6 +184,7 @@ function PlayerView(
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
   const { fileId, decision, receiving, onBare } = props;
   const { onDecideAgain, onPlaybackGone, onOwnPictureGivenUp } = props;
+  const pressedVideo = useVideoPressedForPlay();
   const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
   const tracks = useSequenceCommands(offered);
   usePlayerCommands(video, tracks);
@@ -217,7 +219,7 @@ function PlayerView(
               decision={props.decision}
               moved={moved}
               ladderStartMs={resumePositionMs}
-              composition={pageComposition(props)}
+              composition={pageComposition(props, pressedVideo)}
             />
             <ForTesters>
               <FrameTimingNote video={video} />
@@ -311,7 +313,10 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
  * (the owner, 2026-10-28: "It's much worse now. It jittered a bunch, and on the kid it
  * started flashing black when I first played"), so it was put back until the start is understood.
  */
-function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
+function pageComposition(
+  props: Parameters<typeof PlayView>[0],
+  keptVideo: HTMLVideoElement | undefined,
+): FilmComposition {
   // On a television the player's overlay, which a remote reaches, and full screen at once; on a
   // computer or a phone the player's bar, which the arrows and Tab reach as well as a mouse or a
   // finger: the browser's own were in a shadow the arrows could not reach (the owner, 2026-10-27).
@@ -327,6 +332,8 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
     onMediaBack: props.onMediaBack,
     under: PlayUnderOfPage,
     around: PlayTracksOfPage,
+    // An iPhone's, readied by the press that opened the page (video-pressed-for-play.ts).
+    keptVideo,
   };
 }
 

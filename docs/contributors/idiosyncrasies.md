@@ -85,6 +85,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
 | Turned upright, an iPhone's banner drew the laurel in the wordmark's box, the rest empty under the link's line. | [An iPhone keeps a picture's old box when its source changes as the phone turns](#an-iphone-keeps-a-pictures-old-box-when-its-source-changes-as-the-phone-turns) |
 | Chrome on an iPhone, turned sideways on the Play page, left a grey band under the film and the notch's sides empty. Safari was right. | [Chrome on iOS draws its page short of the screen, turned sideways](#chrome-on-ios-draws-its-page-short-of-the-screen-turned-sideways) |
+| Chrome on an iPhone opened the Play page black, the film never starting; Safari started it. | [Chrome on iOS refuses a film's start a moment after the press](#chrome-on-ios-refuses-a-films-start-a-moment-after-the-press) |
 | The play page says the picture is millions of milliseconds behind the sound, in Safari. | [Safari's requestVideoFrameCallback gives a mediaTime that is not the film's](#safaris-requestvideoframecallback-gives-a-mediatime-that-is-not-the-films) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
@@ -615,6 +616,25 @@ User-Agent (D263; the User-Agent is logged only).
   player, fills the whole screen in Chrome too (the owner, 2026-11-11).
 - **Evidence:** the owner's iPhone, photos and the page's log of its sizes, 2026-11-11 (A68).
 
+
+### Chrome on iOS refuses a film's start a moment after the press
+
+- **Technology:** Chrome on iOS (158, iOS 18.5, 2026-11-11), on WKWebView, as every iOS browser is.
+  Safari on the same phone starts the same film.
+- **Symptom:** Play on a film's page opened the Play page black, nothing over the picture, the film
+  never starting.
+- **Cause:** the Play page asks its video to play once enough is loaded, after the press that opened
+  it, and Chrome no longer counts the press by then: the core's log said `NotAllowedError`,
+  `pressLive=false pressed=true lastPress=581 ms ago` (start-refused.ts). WebKit lets a video play
+  that was once played during a press, for good. **[web]** WebKit's maintainers hold that a
+  navigation carries no press with it ([WebKit bug 254580](https://bugs.webkit.org/show_bug.cgi?id=254580));
+  the usual answer is to play inside the press itself, or to show a Play button when play() is
+  refused.
+- **What we do:** both. On an iPhone or an iPad, the press of a link to a Play page plays and at
+  once pauses a new video, and the Play page plays its film in that one
+  (video-pressed-for-play.ts, VQ297); a start refused all the same shows the overlay, Play focused,
+  and "Paused — press Play to start." (start-refused-shown.tsx, VQ296).
+- **Evidence:** the owner's iPhone and the core's log on staging, 2026-11-11.
 
 ### An iPhone keeps a picture's old box when its source changes as the phone turns
 
