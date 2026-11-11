@@ -2895,3 +2895,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   when it plays past 3:25 at its 1080p rung without a stall, no bufferFullError in Silk's console,
   and the rung not stepped down; the chunks the player fetched around 200 s are each 5 MiB or less.
   (`internal/core/chunks/grid.go`, `internal/core/chunks/offer.go`)
+- [ ] **VQ295** — The banner's logo is drawn right after an iPhone turns (the owner, 2026-11-11: the
+  laurel "stuck halfway between full and small mode"). On the owner's iPhone in Chrome, on staging:
+  play a film, turn the phone sideways, go back home and turn it upright. Passes when the banner shows
+  the laurel alone with the link's line under it alone, the places beside it and none under the tray;
+  then turn it sideways: the wordmark, whole. (`web/apps/web/src/app-shell.tsx`)
