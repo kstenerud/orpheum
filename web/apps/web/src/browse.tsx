@@ -27,6 +27,7 @@ import {
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
+import { useLatest } from "./latest.ts";
 import { focusableSelector, growsAttribute } from "./focus-engine.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { dateText } from "./date-time-text.ts";
@@ -160,7 +161,11 @@ function useRailFollowsFocus(
   entries: readonly Entry[],
 ): void {
   const standRailAt = use(RailStandContext);
-  useEffect(() => {
+  // Listening from the grid's drawing on, and to its entries as drawn: a passive effect may run a
+  // while after the posters show, and a poster focused before it stood the rail at no letter
+  // (Firefox under make check's load).
+  const entriesRef = useLatest(entries);
+  useLayoutEffect(() => {
     const grid = gridRef.current;
     if (grid === null) {
       return undefined;
@@ -168,13 +173,13 @@ function useRailFollowsFocus(
     const focused = (event: FocusEvent): void => {
       const card = event.target instanceof Element ? event.target.closest("li") : null;
       const place = card === null ? -1 : [...grid.children].indexOf(card);
-      standRailAt(place < 0 ? undefined : entries[place]?.letter);
+      standRailAt(place < 0 ? undefined : entriesRef.current[place]?.letter);
     };
     grid.addEventListener("focusin", focused);
     return () => {
       grid.removeEventListener("focusin", focused);
     };
-  }, [gridRef, entries, standRailAt]);
+  }, [gridRef, entriesRef, standRailAt]);
 }
 
 /** The art an entry's card shows, as its poster or still, to fill in ahead (EntryPoster, PosterCard). */
