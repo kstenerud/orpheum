@@ -34,7 +34,6 @@ import { PlainHttpNote } from "./plain-http-note.tsx";
 import { SecurityUpdateNote } from "./security-update-note.tsx";
 import { WorkerBypassedNote } from "./worker-bypassed-note.tsx";
 import { LinkCapBadge } from "./link-debug-tools.tsx";
-import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
@@ -72,11 +71,12 @@ function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
       <Link to={{ screen: "home" }} className="app-shell__home" isCurrent={props.isHome}>
         {/* On a phone, the laurel alone, the favicon's mark: the wordmark beside the bar's end ran
             into it (the owner, 2026-10-28: "reduce the orpheum text to just the logo when the screen
-            is small"). */}
-        <picture>
-          <source media={phoneWidthQuery} srcSet={markOnly} />
-          <img className="app-shell__logo" src={logo} alt={productName} />
-        </picture>
+            is small"). Two images, the stylesheet showing the one for the width, not a picture
+            whose source changes: an iPhone turned upright drew the laurel in the wordmark's box,
+            the rest of it empty and the places pushed under the tray (the owner, 2026-11-11;
+            idiosyncrasies.md). */}
+        <img className="app-shell__logo app-shell__logo--wordmark" src={logo} alt={productName} />
+        <img className="app-shell__logo app-shell__logo--mark" src={markOnly} alt={productName} />
       </Link>
     </p>
   );

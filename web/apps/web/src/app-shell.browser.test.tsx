@@ -85,8 +85,11 @@ describe("the shell, laid out by a real browser", () => {
       </AppShell>
     );
     await drawn(shell, async ({ container }) => {
-      const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo");
-      await loaded(logo);
+      // The image drawn at the window's width: the wordmark, or a phone's laurel.
+      const logo = [...container.querySelectorAll<HTMLImageElement>("img.app-shell__logo")].find(
+        (image) => getComputedStyle(image).display !== "none",
+      );
+      await loaded(logo ?? null);
       const [link, image] = [boxOf(container.querySelector(".app-shell__home")), boxOf(logo)];
       expect(image.height).toBeGreaterThan(0);
       // An inline link around the logo is a line of text tall, not the logo's own box.
@@ -188,12 +191,13 @@ describe("the shell, laid out by a real browser", () => {
       );
       try {
         await drawn(shell, async ({ container }) => {
-          const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo");
+          const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo--mark");
           await loaded(logo);
-          // The laurel alone at a phone's width: Firefox picks a picture's source again only once it
-          // has laid out at the new width, after a test before resized the window.
-          await expect.poll(() => logo?.currentSrc ?? "").toMatch(/favicon\.svg$/u);
-          await loaded(logo);
+          // The laurel alone at a phone's width, the wordmark not drawn.
+          expect(
+            getComputedStyle(container.querySelector(".app-shell__logo--wordmark") ?? document.body)
+              .display,
+          ).toBe("none");
           const [mark, end, places] = [
             boxOf(logo),
             boxOf(container.querySelector(".app-shell__end")),
@@ -239,6 +243,43 @@ describe("the shell, laid out by a real browser", () => {
       }
     });
   }
+
+  // The owner's iPhone, 2026-11-11: turned upright from the Play page, the laurel showed in the
+  // wordmark's box, "rpheum" an empty space under the link's line, the places under the tray.
+  it("draws the way home the laurel's size when a phone is turned upright, and the wordmark's turned back", async () => {
+    const shell = (
+      <AppShell
+        isAdmin={false}
+        canHostWatchTogether={true}
+        currentScreen="home"
+        onSignOut={() => undefined}
+        signedInAs={{ name: "owner", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>
+    );
+    try {
+      await page.viewport(844, 390);
+      await drawn(shell, async ({ container }) => {
+        const [wordmark, mark] = [
+          container.querySelector<HTMLImageElement>("img.app-shell__logo--wordmark"),
+          container.querySelector<HTMLImageElement>("img.app-shell__logo--mark"),
+        ];
+        await loaded(wordmark);
+        const linkWidth = (): number => boxOf(container.querySelector(".app-shell__home")).width;
+        expect(linkWidth()).toBeCloseTo(boxOf(wordmark).width, 0);
+        await page.viewport(390, 844);
+        await loaded(mark);
+        await expect.poll(linkWidth).toBeCloseTo(boxOf(mark).width, 0);
+        expect(boxOf(wordmark).width).toBe(0);
+        await page.viewport(844, 390);
+        await expect.poll(linkWidth).toBeCloseTo(boxOf(wordmark).width, 0);
+        expect(boxOf(mark).width).toBe(0);
+      });
+    } finally {
+      await page.viewport(1280, 720);
+    }
+  });
 
   it("draws a poster's status cues as a tray down from its top-right corner, over the poster (D301 §4)", async () => {
     // One that cannot play and is a guess: the tray holds both cues, in their order.

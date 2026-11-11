@@ -64,16 +64,17 @@
   content: "";
 }
 
-/* The picture choosing the logo by the width, a block as the logo is, so the link is its size. */
-.app-shell__home picture {
-  display: block;
-}
-
 /* The wordmark: the laurel stands in for the O (the owner's logo, 2026-10-06). */
 .app-shell__logo {
   display: block;
   height: 1.625rem;
   width: auto;
+}
+
+/* The laurel alone is a phone's (below); each image is its own box, so the link is the size of the
+   one drawn whichever way the phone was turned before (app-shell.tsx's HomeLogo). */
+.app-shell__logo--mark {
+  display: none;
 }
 
 .app-shell__nav {
@@ -306,6 +307,14 @@
   /* The laurel alone (app-shell.tsx's HomeLogo), a little taller than the wordmark's letters. */
   .app-shell__logo {
     height: 2rem;
+  }
+
+  .app-shell__logo--wordmark {
+    display: none;
+  }
+
+  .app-shell__logo--mark {
+    display: block;
   }
 
   .app-shell__watching a {

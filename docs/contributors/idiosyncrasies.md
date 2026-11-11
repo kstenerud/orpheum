@@ -83,6 +83,7 @@ User-Agent (D263; the User-Agent is logged only).
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
 | On Linux Mint with MATE, the screen blanked during a full-screen film in Firefox while the film's sound played on. | [Firefox's inhibit through the desktop portal does not stop MATE's screensaver](#firefoxs-inhibit-through-the-desktop-portal-does-not-stop-mates-screensaver) |
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
+| Turned upright, an iPhone's banner drew the laurel in the wordmark's box, the rest empty under the link's line. | [An iPhone keeps a picture's old box when its source changes as the phone turns](#an-iphone-keeps-a-pictures-old-box-when-its-source-changes-as-the-phone-turns) |
 | The play page says the picture is millions of milliseconds behind the sound, in Safari. | [Safari's requestVideoFrameCallback gives a mediaTime that is not the film's](#safaris-requestvideoframecallback-gives-a-mediatime-that-is-not-the-films) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
@@ -591,6 +592,24 @@ User-Agent (D263; the User-Agent is logged only).
   a web view by its user agent, names the app where the user agent does, and says to open the link
   in Safari (iOS) or Chrome (Android), with a "Copy link" button and the link shown to select where
   the app refuses the copy.
+
+
+### An iPhone keeps a picture's old box when its source changes as the phone turns
+
+- **Technology:** `<picture>` with a `<source media>` in WebKit on iOS (Chrome 158 on iOS 18.5,
+  2026-11-11).
+- **Symptom:** the banner's logo, a `<picture>` whose source is the laurel alone below 600 px and the
+  wordmark above, came back from the Play page held upright with the laurel drawn at the start of the
+  wordmark's width: "rpheum" an empty space under the link's line, the places pushed under the tray.
+  Turning the phone sideways and back drew it right.
+- **Cause:** unverified. WebKit swaps the image as the media query changes but keeps the box laid out
+  for the image before. **[web]** No report of exactly this was found. The nearest are WebKit bugs
+  [277093](https://bugs.webkit.org/show_bug.cgi?id=277093) (a changed image's intrinsic size not
+  invalidating its layout) and 266601 ("Image size not being recalculated after image loads").
+- **What we do:** two images, the stylesheet showing the one for the width
+  (`web/apps/web/src/app-shell.tsx`'s `HomeLogo`, `app-shell.css`), so neither box is resized when
+  the phone turns. VQ295.
+- **Evidence:** the owner's iPhone, 2026-11-11.
 
 
 ### iPhone Safari moves a range slider only by a touch that starts on its thumb

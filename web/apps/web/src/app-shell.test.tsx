@@ -70,7 +70,7 @@ describe("AppShell", () => {
     const open = await drawnWithMenuOpen(shell);
     expect(markup.match(/<main/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><nav class="app-shell__nav" aria-label="Main"><div class="app-shell__places"><p class="app-shell__title"><a href="\/" class="app-shell__home"><picture><source media="\(max-width: 599px\)" srcSet="\/favicon\.svg"\/><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/picture><\/a><\/p>/u,
+      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><nav class="app-shell__nav" aria-label="Main"><div class="app-shell__places"><p class="app-shell__title"><a href="\/" class="app-shell__home"><img class="app-shell__logo app-shell__logo--wordmark" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><img class="app-shell__logo app-shell__logo--mark" src="\/favicon\.svg" alt="Orpheum"\/><\/a><\/p>/u,
     );
     // A place for watching is its icon, named for a screen reader and a pointer's hover (2026-10-28).
     expect(markup).toContain(
