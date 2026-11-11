@@ -2831,3 +2831,10 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   with no `signallingClosedForLeave`. It passed 200 times in a row alone, and the next make check
   passed. The Leave does not end `holdSignalling` itself; the loop ends only when the discovery closes
   the connection, so a missed close leaves it reading. Find the race; don't widen the wait.
+
+- **Next batch (found 2026-11-11, the end-of-turn make check after the full-screen next-episode fix):**
+  `input-walk.browser.test.tsx`, "the app by a game controller, on a desktop's window > moves focus by
+  its D-pad, shown as a key's is, …", failed in Firefox alone: after the D-pad moved focus to Film 2,
+  `:focus-visible` did not match the focused tile (line 278, expected false to be true). The file
+  passed three runs in a row alone, both browsers. Find why focus-visible is sometimes missed after a
+  pad move; don't add a retry.
