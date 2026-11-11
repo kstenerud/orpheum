@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A68 — Twice named the cause of an iPhone's grey band from a guess the measurements did not test (2026-11-11)
+
+- **What happened:** Chrome on the owner's iPhone, turned sideways, drew the Play page short of the
+  screen, grey beneath. The lead first held the zoom at 1 as the phone turned, which made it worse
+  (the page stuck at 2.16 zoom), then read the page's log of its sizes, 808 by 275 of 896 by 414,
+  as a page laid out inside the screen's safe areas, and had the Play page say `viewport-fit=cover`.
+  Neither guess was tested by what had been measured: the log never held the safe-area insets, nor
+  the window's own outer size. Logged next, with cover in force, the insets were 0 on every side and
+  the window itself was 808 by 275: Chrome sizes its web view short of the screen, and nothing the
+  page draws reaches outside it.
+- **Caught by:** the owner: *"turned it sideways and it didn't fill the whole screen"*, and *"landscape
+  still has the grey area underneath"*.
+- **Gate:** none can. Nothing general beyond: a diagnosis is logged on the device for the quantity
+  the fix changes (here the insets and the window's frame) before the fix is built.
+
 ### A67 — Reported a list's blank posters working, measured on a held Down alone, when they held Films' opening 4.4 s (2026-11-11)
 
 - **What happened:** the lead added a blank card for every item still to come (332 on Films) and
