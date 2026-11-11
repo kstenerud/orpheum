@@ -12,6 +12,11 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-7) var(--space-6) var(--space-5);
+  /* Clear of a notch and a rounded corner, where the Play page covers the whole screen
+     (film-fullscreen.ts's coverTheWholeScreen); elsewhere the device's safe area is nothing. */
+  padding-block-end: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  padding-inline: calc(var(--space-6) + env(safe-area-inset-left, 0px))
+    calc(var(--space-6) + env(safe-area-inset-right, 0px));
   background: linear-gradient(to top, var(--color-video-scrim), transparent);
   color: var(--color-on-video);
 }
@@ -97,16 +102,18 @@
 .player-overlay[data-offer]:not([data-shown="convenience"])::before {
   grid-row: 1 / 4;
   grid-column: 1;
-  margin: calc(-1 * var(--space-7)) calc(-1 * var(--space-6)) calc(-1 * var(--space-5));
+  margin: calc(-1 * var(--space-7)) calc(-1 * var(--space-6) - env(safe-area-inset-right, 0px))
+    calc(-1 * var(--space-5) - env(safe-area-inset-bottom, 0px))
+    calc(-1 * var(--space-6) - env(safe-area-inset-left, 0px));
   background: linear-gradient(to top, var(--color-video-scrim), transparent);
   content: "";
 }
 
 .player-overlay[data-offer] .convenience-area {
   position: absolute;
-  inset-block-start: var(--space-5);
-  inset-inline-end: var(--space-5);
-  max-width: min(26rem, calc(100% - 2 * var(--space-5)));
+  inset-block-start: calc(var(--space-5) + env(safe-area-inset-top, 0px));
+  inset-inline-end: calc(var(--space-5) + env(safe-area-inset-right, 0px));
+  max-width: min(26rem, calc(100% - 2 * var(--space-5) - env(safe-area-inset-right, 0px)));
   pointer-events: auto;
 }
 
@@ -231,6 +238,9 @@
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
+  /* The film clear of a notch and a rounded corner, its black under them (coverTheWholeScreen). */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: var(--color-video-background);
 }
 

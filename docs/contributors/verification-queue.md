@@ -2900,3 +2900,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   play a film, turn the phone sideways, go back home and turn it upright. Passes when the banner shows
   the laurel alone with the link's line under it alone, the places beside it and none under the tray;
   then turn it sideways: the wordmark, whole. (`web/apps/web/src/app-shell.tsx`)
+- [ ] **VQ297** — The Play page covers the whole screen when an iPhone in Chrome is turned sideways
+  (the owner, 2026-11-11: sideways, "about 1/5 of the bottom is grey"). On the owner's iPhone in
+  Chrome, on staging: play S1E1 of The Navigator upright, turn it sideways,
+  upright, sideways. Passes when, sideways, the black reaches every edge of the screen with no grey,
+  the picture and the controls clear of the notch and the bottom bar; upright, the same. Then leave
+  the film: the other pages are as before. (`web/apps/web/src/film-fullscreen.ts`,
+  `player-overlay.css`)
