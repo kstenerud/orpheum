@@ -137,3 +137,30 @@ func TestFake_AdvanceToNextMovesToTheEarliestTimerOnly(t *testing.T) {
 	default:
 	}
 }
+
+func TestFake_AwaitArmedWaitsUntilAsManyTimersAreArmed(t *testing.T) {
+	t.Parallel()
+	fake := clocktest.NewFake(time.Date(2026, time.November, 12, 12, 0, 0, 0, time.UTC))
+	fake.NewTimer(time.Minute)
+	awaited := make(chan bool, 1)
+	go func() { awaited <- fake.AwaitArmed(t.Context(), 2) }()
+	select {
+	case <-awaited:
+		t.Fatal("AwaitArmed for two timers returned with one armed")
+	case <-time.After(50 * time.Millisecond):
+	}
+	fake.NewTimer(time.Second)
+	select {
+	case isArmed := <-awaited:
+		if !isArmed {
+			t.Error("AwaitArmed said its context ended, though two timers were armed")
+		}
+	case <-time.After(time.Minute):
+		t.Fatal("AwaitArmed for two timers never returned once two were armed")
+	}
+	ended, end := context.WithCancel(t.Context())
+	end()
+	if fake.AwaitArmed(ended, 3) {
+		t.Error("AwaitArmed for three timers, two armed, said they were once its context ended")
+	}
+}

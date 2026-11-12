@@ -18,6 +18,8 @@ type Fake struct {
 	mutex  sync.Mutex
 	now    time.Time
 	timers []*fakeTimer // the armed ones; guarded by mutex
+	// armed, once AwaitArmed waits, is closed at the next arming of a timer; guarded by mutex.
+	armed chan struct{}
 }
 
 // Compile-time proof that *Fake satisfies clock.Clock.
@@ -64,6 +66,30 @@ func (fake *Fake) AdvanceToNext() bool {
 	}
 	fake.fireDueLocked()
 	return true
+}
+
+// AwaitArmed waits until at least count timers are armed, and says false when ctx ends first. A test
+// that steps code over fake time, whose goroutines arm count timers between steps, steps it only once
+// they have: stepped sooner, the time moved to a later timer, and a timer armed after counted from
+// that later time.
+func (fake *Fake) AwaitArmed(ctx context.Context, count int) bool {
+	for {
+		fake.mutex.Lock()
+		if len(fake.timers) >= count {
+			fake.mutex.Unlock()
+			return true
+		}
+		if fake.armed == nil {
+			fake.armed = make(chan struct{})
+		}
+		armed := fake.armed
+		fake.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return false
+		case <-armed:
+		}
+	}
 }
 
 // Sleep moves the Fake's time forward by wait, as though the wait had passed, and returns at once:
@@ -129,6 +155,10 @@ func (timer *fakeTimer) Reset(wait time.Duration) {
 	timer.disarmLocked()
 	timer.firesAt = timer.fake.now.Add(wait)
 	timer.fake.timers = append(timer.fake.timers, timer)
+	if timer.fake.armed != nil {
+		close(timer.fake.armed)
+		timer.fake.armed = nil
+	}
 	timer.fake.fireDueLocked()
 }
 
