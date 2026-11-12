@@ -42,8 +42,6 @@ import { useRoute } from "./services.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
 
-/** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
-
 /**
  * The places for watching: the way home, which stays put, and the other places beside it in the room
  * left, scrolling sideways when they need more (the owner, 2026-10-28: on a phone "the laurel logo
@@ -63,6 +61,7 @@ function WatchingPlaces(props: {
   );
 }
 
+/** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
   return (
     <p className="app-shell__title">
