@@ -186,7 +186,7 @@ function SignedIn(): JSX.Element {
     // offered again by the screens that start or join one.
     void haveBackMySessions(api).catch(() => undefined);
   }, [api]);
-  if (me.state === "loaded" && me.value.isGuestReceiver === true) {
+  if (isGuestReceiver(me)) {
     return <GuestReceiving route={route} />;
   }
   return (
@@ -200,11 +200,7 @@ function SignedIn(): JSX.Element {
                   <AppShell
                     isAdmin={isAdmin}
                     canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-                    signedInAs={
-                      me.state === "loaded"
-                        ? { name: me.value.name, deviceName: me.value.device?.name }
-                        : undefined
-                    }
+                    signedInAs={signedInAsOf(me)}
                     currentScreen={route.screen}
                     administersFromHomeAt={administersFromHomeAt(me)}
                     realm={realm}
@@ -480,6 +476,20 @@ function signOutHere(api: Api, session: Session): void {
         session.signOutBecause("signOutUnheard");
       },
     );
+}
+
+/** Whether me is a guest receiver's, signed in for one cast (D465 §1, D469). */
+function isGuestReceiver(me: Resource<components["schemas"]["UserBody"]>): boolean {
+  return me.state === "loaded" && me.value.isGuestReceiver === true;
+}
+
+/** Who the shell says is signed in, once me is read. */
+function signedInAsOf(
+  me: Resource<components["schemas"]["UserBody"]>,
+): { readonly name: string; readonly deviceName: string | undefined } | undefined {
+  return me.state === "loaded"
+    ? { name: me.value.name, deviceName: me.value.device?.name }
+    : undefined;
 }
 
 /**
