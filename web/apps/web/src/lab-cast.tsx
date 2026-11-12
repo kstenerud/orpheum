@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
+import { receiverDiscoveryOf, receiverReachOf, type ReceiverDiscovery } from "./cast-reach.ts";
 import { LabFrame, LabSendButton } from "./lab-frame.tsx";
 import {
   castTo,
@@ -19,7 +20,7 @@ import {
 import { CastTargetPart } from "./lab-cast-target.tsx";
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
-import { useServices, type Services, type ThroughDiscovery } from "./services.tsx";
+import { useServices, type Services } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
 import { titleOrThrow } from "./item-detail.ts";
 import { requestPlayback } from "./watching.ts";
@@ -398,28 +399,10 @@ function useCast(
   };
 }
 
-/**
- * The page's discovery as the receiver is told it: the core as the discovery finds it, and this
- * page's origin, the core's client origin, the one page origin besides the core's own names that the
- * core lets reach it (D308 §4), so the receiver goes direct only when it is served there too (the
- * owner, 2026-11-11: from the loader's origin, over WebRTC only).
- */
-export interface LabDiscovery extends ThroughDiscovery {
-  readonly clientOrigin: string;
-}
-
-/** throughDiscovery as the receiver is told it, from a page at origin; undefined without one. */
-export function labDiscoveryOf(
-  throughDiscovery: ThroughDiscovery | undefined,
-  origin: string,
-): LabDiscovery | undefined {
-  return throughDiscovery === undefined ? undefined : { ...throughDiscovery, clientOrigin: origin };
-}
-
-/** The page's services, with its discovery as the lab's receiver is told it (labDiscoveryOf). */
-function useLabServices(): Services & { readonly discovery: LabDiscovery | undefined } {
+/** The page's services, with its discovery as the lab's receiver is told it (receiverDiscoveryOf). */
+function useLabServices(): Services & { readonly discovery: ReceiverDiscovery | undefined } {
   const services = useServices();
-  const discovery = labDiscoveryOf(services.throughDiscovery, globalThis.location.origin);
+  const discovery = receiverDiscoveryOf(services.throughDiscovery, globalThis.location.origin);
   return { ...services, discovery };
 }
 
@@ -433,17 +416,15 @@ function useLabServices(): Services & { readonly discovery: LabDiscovery | undef
 export function signInOf(
   shouldSendSignIn: boolean,
   session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
-  throughDiscovery: LabDiscovery | undefined,
+  throughDiscovery: ReceiverDiscovery | undefined,
 ): Readonly<Record<string, unknown>> {
   const token = session.token();
   if (!shouldSendSignIn || token === undefined) {
     return {};
   }
-  const locator = session.locator();
+  const reach = receiverReachOf(throughDiscovery, session.locator());
   const authorization = `Bearer ${token}`;
-  return throughDiscovery === undefined || locator === undefined
-    ? { authorization }
-    : { authorization, reach: { ...throughDiscovery, token, locator } };
+  return reach === undefined ? { authorization } : { authorization, reach: { ...reach, token } };
 }
 
 /**
@@ -453,7 +434,7 @@ export function signInOf(
  */
 export function castTargetRequest(
   session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
-  throughDiscovery: LabDiscovery | undefined,
+  throughDiscovery: ReceiverDiscovery | undefined,
 ): Readonly<Record<string, unknown>> {
   const { reach } = signInOf(true, session, throughDiscovery);
   return reach === undefined ? { type: "device" } : { type: "device", reach };
