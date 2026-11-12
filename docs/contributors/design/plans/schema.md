@@ -1078,7 +1078,8 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
                                            -- 'audio_used'; an item's 'subtitle_language',
                                            -- 'audio_language', a series' 'episode_ordering'
                                            -- (the ordering's name as a JSON string); a person's
-                                           -- own 'dialogue_boost', 'levelling'
+                                           -- own 'dialogue_boost', 'levelling'; a library's
+                                           -- 'library_sort' ({"sort":…,"order":…}, X5)
   value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset is not false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)

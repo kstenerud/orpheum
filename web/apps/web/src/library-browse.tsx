@@ -2,7 +2,7 @@
 
 import "./library-browse.css";
 
-import { allPages, type components } from "@orpheum/sdk";
+import { allPages, reportFailure, type components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,7 +27,7 @@ import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { UpTrail } from "./up-trail.tsx";
 import type { Upward } from "./upward.ts";
-import { dataOrThrow } from "./problem.ts";
+import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import {
   itemRoute,
   routeHref,
@@ -37,7 +37,12 @@ import {
   type SortOrder,
 } from "./router.ts";
 import { LibraryConfigure } from "./library-configure.tsx";
-import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
+import {
+  LibrariesReachedContext,
+  useLibrariesReachedRead,
+  sortedLibraries,
+  type LibraryBody,
+} from "./libraries-reached.ts";
 import type { ChipsKind } from "./list-chips.tsx";
 import {
   chipsOf,
@@ -173,12 +178,24 @@ function chosenLibraryOf(
   return sorted.find((library) => library.id === state.library);
 }
 
-/** The sort to list in: the one chosen, when the resolved kind offers it, else its default. */
-function resolvedSortOf(
+/**
+ * The order to list in: the address's sort, when the resolved kind offers it, so Back and a shared
+ * link show what they showed; else the one the person chose for the library on any device (X5, the
+ * owner, 2026-11-12), when its kind still offers it; else the kind's default, each its own way
+ * unless one is named.
+ */
+function resolvedChoiceOf(
   state: BrowseState,
+  saved: SortChoice | undefined,
   sortOptions: readonly [LibrarySort, ...LibrarySort[]],
-): LibrarySort {
-  return state.sort !== undefined && sortOptions.includes(state.sort) ? state.sort : sortOptions[0];
+): SortChoice {
+  if (state.sort !== undefined && sortOptions.includes(state.sort)) {
+    return { sort: state.sort, order: orderOf(state.sort, state.order) };
+  }
+  if (saved !== undefined && sortOptions.includes(saved.sort)) {
+    return saved;
+  }
+  return { sort: sortOptions[0], order: orderOf(sortOptions[0], undefined) };
 }
 
 function resolveBrowse(
@@ -190,11 +207,11 @@ function resolveBrowse(
   const kind: TitlesKind = state.library === "all" ? "all" : titlesKindOf(chosen?.kind);
   const sortOptions = sortOptionsFor(kind);
   const showsFolders = kind === "other";
-  const sort = resolvedSortOf(state, sortOptions);
+  const { sort, order } = resolvedChoiceOf(state, chosen?.sortChoice, sortOptions);
   return {
     kind,
     sort,
-    order: orderOf(sort, sort === state.sort ? state.order : undefined),
+    order,
     sortOptions,
     showsFolders,
     view: showsFolders && state.view === "folders" ? "folders" : "all",
@@ -235,13 +252,16 @@ function useAutoSelectFirstLibrary(
  */
 export function LibraryBrowse(props: BrowseState): JSX.Element {
   const { navigation } = useServices();
-  const libraries = useLibrariesReached();
-  useAutoSelectFirstLibrary(props, libraries, navigation);
+  const read = useLibrariesReachedRead();
+  useAutoSelectFirstLibrary(props, read.libraries, navigation);
+  // The page's own reading where the shell shares none, so a sort kept reads again what it shows.
   return (
-    <Loaded
-      resource={libraries}
-      render={(loaded) => <LibraryBrowseResolved state={props} libraries={loaded} />}
-    />
+    <LibrariesReachedContext value={read}>
+      <Loaded
+        resource={read.libraries}
+        render={(loaded) => <LibraryBrowseResolved state={props} libraries={loaded} />}
+      />
+    </LibrariesReachedContext>
   );
 }
 
@@ -265,6 +285,32 @@ function LibraryBrowseResolved(props: {
 }
 
 /**
+ * Keeps a sort the person chose for a library among their preferences, so it opens so on every
+ * device they sign in on (X5, the owner, 2026-11-12), then reads the libraries again, which carry
+ * it, so the library opened again from the banner opens so here too. The list already shows it,
+ * from the address: a refusal is reported, and the list stays as chosen.
+ */
+function useKeepLibrarySort(): (libraryId: number, choice: SortChoice) => void {
+  const { api } = useServices();
+  const { readAgain } = useLibrariesReachedRead();
+  return useCallback(
+    (libraryId: number, choice: SortChoice) => {
+      api
+        .PUT("/libraries/{id}/preferences", {
+          params: { path: { id: libraryId } },
+          body: { sortChoice: { sort: choice.sort, order: choice.order } },
+        })
+        .then((answer) => {
+          throwIfRefused(answer);
+          readAgain();
+        })
+        .catch(reportFailure);
+    },
+    [api, readAgain],
+  );
+}
+
+/**
  * A library's criteria (useListCriteria): its text, its sort and, a films' or a series' library's,
  * its chips (D417 §1), kept in the address; with the page's state and its library's as the list is
  * asked for them.
@@ -278,6 +324,7 @@ function useLibraryCriteria(
   readonly listedResolved: ResolvedBrowse;
 } {
   const { navigation } = useServices();
+  const keepSort = useKeepLibrarySort();
   const chipsKind = chipsKindOf(resolved.kind);
   const criteria = useListCriteria(
     {
@@ -288,6 +335,9 @@ function useLibraryCriteria(
     chipsKind,
     (next) => {
       navigation.replace(routeFor(fromAddress, criteriaOverrides(next, resolved)));
+      if (resolved.libraryId !== undefined && !isSameChoice(next.choice, resolved)) {
+        keepSort(resolved.libraryId, next.choice);
+      }
     },
   );
   const { listed } = criteria;

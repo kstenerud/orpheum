@@ -3,11 +3,13 @@
 package api_test
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -105,6 +107,89 @@ func TestPreferences_ShowDebugToolsIsOffUntilThePersonTurnsItOnAndFollowsThem(t 
 	if showsDebugTools(owner) {
 		t.Error("turned off again: debug tools shown; want hidden")
 	}
+}
+
+// The sort a person chooses for a library is kept for that library and that person, and GET
+// /libraries gives it back on every device they sign in on; another library and another person
+// have none until they choose, and a library the person does not reach is none of theirs to sort
+// (X5, the owner, 2026-11-12).
+func TestLibraryPreferences_ASortChosenIsKeptPerLibraryAndPerson(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	owner := harness.createAdminAndSignIn(t)
+	harness.shelve(t)            // library 1, films
+	harness.shelveOtherVideos(t) // library 2, other videos
+	storetest.ExecRaw(t, harness.databasePath,
+		"DELETE FROM role_library WHERE library_id = 2 AND role_id = (SELECT id FROM role WHERE name = 'user')")
+	for _, person := range []auth.NewUser{
+		{Name: "partner", Password: "partner-password", Role: auth.RoleAdmin},
+		{Name: "guest", Password: "guest-password", Role: auth.RoleUser},
+	} {
+		if _, err := harness.authService.CreateUser(t.Context(), person); err != nil {
+			t.Fatal(err)
+		}
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	guest := harness.signIn(t, "guest", "guest-password")
+	choose := func(token string, libraryID int64, sort, order string, wantStatus int, what string) {
+		t.Helper()
+		answer := harness.do(t, http.MethodPut, fmt.Sprintf("/libraries/%d/preferences", libraryID), token,
+			map[string]any{"sortChoice": map[string]string{"sort": sort, "order": order}})
+		if answer.status != wantStatus {
+			t.Fatalf("%s: PUT library %d's sort = %d %s; want %d",
+				what, libraryID, answer.status, answer.body, wantStatus)
+		}
+	}
+	if got := harness.librarySorts(t, owner); got != "map[]" {
+		t.Errorf("before any choice: sorts %s; want none", got)
+	}
+	choose(owner, 1, "released", "ascending", http.StatusNoContent, "the first choice")
+	if got, want := harness.librarySorts(t, owner), "map[1:released ascending]"; got != want {
+		t.Errorf("library 1 sorted: sorts %s; want %s, library 2 still none", got, want)
+	}
+	choose(owner, 1, "added", "descending", http.StatusNoContent, "library 1 again")
+	choose(owner, 2, "fileName", "descending", http.StatusNoContent, "library 2")
+	want := "map[1:added descending 2:fileName descending]"
+	if got := harness.librarySorts(t, owner); got != want {
+		t.Errorf("both sorted, library 1 twice: sorts %s; want %s, the last choice each", got, want)
+	}
+	if got := harness.librarySorts(t, harness.signIn(t, "owner", "owner-password")); got != want {
+		t.Errorf("another device's session: sorts %s; want %s, the person's", got, want)
+	}
+	if got := harness.librarySorts(t, partner); got != "map[]" {
+		t.Errorf("another person: sorts %s; want their own, none", got)
+	}
+	choose(guest, 1, "name", "ascending", http.StatusNoContent, "a library the guest's role reaches")
+	choose(guest, 2, "name", "ascending", http.StatusNotFound, "a library the person does not reach")
+	if got, wantGuests := harness.librarySorts(t, guest), "map[1:name ascending]"; got != wantGuests {
+		t.Errorf("the guest's sorts = %s; want %s, theirs alone", got, wantGuests)
+	}
+	if got := harness.librarySorts(t, owner); got != want {
+		t.Errorf("the guest sorted library 1: the owner's sorts %s; want %s, unchanged", got, want)
+	}
+	choose(owner, 1, "rating", "ascending", http.StatusUnprocessableEntity, "a sort no list has")
+}
+
+// librarySorts are the sorts GET /libraries says the person chose, by library id: "sort order".
+func (harness testHarness) librarySorts(t *testing.T, token string) string {
+	t.Helper()
+	var listed struct {
+		Libraries []struct {
+			ID         int64 `json:"id"`
+			SortChoice *struct {
+				Sort  string `json:"sort"`
+				Order string `json:"order"`
+			} `json:"sortChoice"`
+		} `json:"libraries"`
+	}
+	harness.readJSON(t, "/libraries", token, &listed)
+	sorts := map[int64]string{}
+	for _, library := range listed.Libraries {
+		if library.SortChoice != nil {
+			sorts[library.ID] = library.SortChoice.Sort + " " + library.SortChoice.Order
+		}
+	}
+	return fmt.Sprint(sorts)
 }
 
 // Switching Level loudness or the dialogue boost is logged with the device that switched it, as a

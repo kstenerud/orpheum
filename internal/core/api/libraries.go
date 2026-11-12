@@ -69,6 +69,9 @@ type LibraryBody struct {
 	FileCountsByFiling map[string]int64 `doc:"Live files by filing (D163)" json:"fileCountsByFiling,omitempty"`
 	// Rescan is, for an admin, how far its rescans in progress are; absent when none is (D357 §5).
 	Rescan *LibraryRescanBody `json:"rescan,omitempty"`
+	// SortChoice is the order the person chose to list it in (PUT /libraries/{id}/preferences),
+	// absent when they chose none (X5, the owner, 2026-11-12).
+	SortChoice *SortChoiceBody `json:"sortChoice,omitempty"`
 }
 
 // LibrariesOutput lists libraries.
@@ -384,6 +387,10 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 			return nil, server.logInternalError(ctx, "list the rescans", err)
 		}
 	}
+	sorts, err := dependencies.Preferences.LibrarySorts(ctx, principal.UserID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read the sorts a person lists libraries in", err)
+	}
 	output := &LibrariesOutput{}
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
 	for _, summary := range summaries {
@@ -393,6 +400,9 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryHours,
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,
+		}
+		if chosen, isChosen := sorts[summary.ID]; isChosen {
+			body.SortChoice = &SortChoiceBody{Sort: chosen.Sort, Order: chosen.Order}
 		}
 		// Roots are shown where the admin administers, never from away (the Plex-chain review's T2).
 		if administersHere(ctx, principal) {

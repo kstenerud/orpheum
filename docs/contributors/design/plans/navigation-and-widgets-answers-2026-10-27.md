@@ -3383,6 +3383,14 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   owner to correct: each library keeps its own sort and way among the person's preferences
   (`internal/core/preferences`), so every device the person signs in on opens it so; an address
   naming a sort still wins, so Back and a shared link show what they showed.
+  **Built** (2026-11-12): a sort chosen in one library's Sort and filter is kept for that library and
+  that person (`PUT /libraries/{id}/preferences`, a `library_sort` preference at `library` scope, no
+  schema change), and `GET /libraries` gives it back as the library's `sortChoice`; the library
+  opened with no sort in its address opens so, on every device. A kept sort the library's kind no
+  longer offers falls to the kind's default; All libraries keeps none, and Films and Series keep
+  theirs in the address alone, as before. A deleted library's stays, read by nothing; a removed
+  person's goes with their preferences. For the owner: whether Films, Series and All libraries
+  should keep theirs too.
 
 **Low priority:**
 

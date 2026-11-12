@@ -196,6 +196,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"listNotInOrder", "setItemPreferences",
+		// A library's sort is kept only for a library the person reaches
+		// (TestLibraryPreferences_ASortChosenIsKeptPerLibraryAndPerson).
+		"setLibraryPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
 		"getUpNext",
 		// A list's letters and an other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).

@@ -91,6 +91,13 @@ func (server *Server) registerPreferences() {
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.setItemPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "setLibraryPreferences", Method: http.MethodPut, Path: "/libraries/{id}/preferences",
+		Summary: "Keep a person's choices in one library: the sort they list it in and its way, which " +
+			"GET /libraries gives back as its sortChoice, on every device they sign in on",
+		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilitySignedIn),
+	}, server.setLibraryPreferences)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
 			"autoplay; and whether their pages show debug tools",
@@ -287,6 +294,44 @@ func (server *Server) setItemPreferences(ctx context.Context, input *SetItemPref
 	// says so until it is.
 	if _, err := dependencies.Refresher.QueueChosenOrderings(ctx, input.SeriesID); err != nil {
 		return nil, server.libraryError(ctx, "queue the fetch of a series' chosen ordering", err)
+	}
+	return &struct{}{}, nil
+}
+
+// SortChoiceBody is the order a person lists a library in: a sort, as GET /items takes it, and the
+// way it runs (D366 §2).
+type SortChoiceBody struct {
+	Sort  string `enum:"name,added,recorded,fileName,released" json:"sort"`
+	Order string `enum:"ascending,descending" json:"order"`
+}
+
+// SetLibraryPreferencesInput changes a person's choices in one library: what it names only.
+type SetLibraryPreferencesInput struct {
+	AuthorizationHeader
+	LibraryID int64 `minimum:"1" path:"id"`
+	Body      struct {
+		// SortChoice, when given, is the order the person lists the library in, which its page opens
+		// with where its address names none (X5, the owner, 2026-11-12).
+		SortChoice *SortChoiceBody `json:"sortChoice,omitempty" required:"false"`
+	}
+}
+
+func (server *Server) setLibraryPreferences(ctx context.Context, input *SetLibraryPreferencesInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if _, isReached := principal.Reach.Narrowed(input.LibraryID); !isReached {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such library")
+	}
+	chosen := input.Body.SortChoice
+	if chosen == nil {
+		return &struct{}{}, nil
+	}
+	err = dependencies.Preferences.ChooseLibrarySort(ctx, principal.UserID, input.LibraryID,
+		preferences.LibrarySort{Sort: chosen.Sort, Order: chosen.Order})
+	if err != nil {
+		return nil, server.libraryError(ctx, "keep the sort a person lists a library in", err)
 	}
 	return &struct{}{}, nil
 }

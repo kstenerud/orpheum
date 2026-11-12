@@ -3,6 +3,7 @@
 package preferences
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -91,6 +92,55 @@ func TestKeepUsed_LeavesAChoiceMadeInTheFile(t *testing.T) {
 	if prefs.Subtitle == nil || *prefs.Subtitle != french.TrackRef {
 		t.Errorf("the file starts with %+v, want the French chosen in it, not what a playback used before",
 			prefs.Subtitle)
+	}
+}
+
+// The sort a person lists a library in is kept for that library and that person, and goes with
+// their preferences when they are removed (X5, the owner, 2026-11-12; D173 §4.6).
+func TestLibrarySorts_AreKeptPerLibraryAndPersonAndForgottenWithThem(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	service := NewService(database, clocktest.NewFake(time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)))
+	alice := storetest.InsertUser(t, database, "alice", "admin")
+	bob := storetest.InsertUser(t, database, "bob", "admin")
+	sortsOf := func(userID int64) map[int64]LibrarySort {
+		t.Helper()
+		sorts, err := service.LibrarySorts(t.Context(), userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sorts
+	}
+	for _, chosen := range []struct {
+		userID, libraryID int64
+		sort              LibrarySort
+	}{
+		{alice, 1, LibrarySort{Sort: "released", Order: "ascending"}},
+		{alice, 2, LibrarySort{Sort: "recorded", Order: "descending"}},
+		{alice, 1, LibrarySort{Sort: "added", Order: "descending"}},
+		{bob, 1, LibrarySort{Sort: "name", Order: "descending"}},
+	} {
+		if err := service.ChooseLibrarySort(t.Context(), chosen.userID, chosen.libraryID, chosen.sort); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, want := fmt.Sprint(sortsOf(alice)), "map[1:{added descending} 2:{recorded descending}]"; got != want {
+		t.Errorf("alice's sorts = %s; want %s, the last chosen in each library", got, want)
+	}
+	if got, want := fmt.Sprint(sortsOf(bob)), "map[1:{name descending}]"; got != want {
+		t.Errorf("bob's sorts = %s; want %s, his own", got, want)
+	}
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return ForgetPreferencesOf(t.Context(), queries, alice)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sortsOf(alice); len(got) != 0 {
+		t.Errorf("alice removed: her sorts %v; want none", got)
+	}
+	if got := sortsOf(bob); len(got) != 1 {
+		t.Errorf("alice removed: bob's sorts %v; want his one kept", got)
 	}
 }
 

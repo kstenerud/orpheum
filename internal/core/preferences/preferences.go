@@ -103,9 +103,10 @@ type Preferences struct {
 
 // The preference table's names for what is kept.
 const (
-	scopeFile = "file"
-	scopeItem = "item" // a film or a whole series (D428)
-	scopeUser = "user"
+	scopeFile    = "file"
+	scopeItem    = "item" // a film or a whole series (D428)
+	scopeLibrary = "library"
+	scopeUser    = "user"
 	// A file's.
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
 	axisSubtitleUsed     = "subtitle_used"
