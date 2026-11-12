@@ -286,7 +286,8 @@ describe("a Chromecast's casts, one after another", () => {
       api,
       token: "token",
       reached: {
-        fetch: (request) => fetch(request),
+        // The film's bytes are never asked for: no film starts.
+        fetch: () => Promise.reject(new Error("no film's bytes in this test")),
         openSocket: (listeners) => {
           sockets.push(listeners);
           return { send: () => undefined, close: () => undefined };
