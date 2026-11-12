@@ -33,15 +33,19 @@ no package is added.
 ## 2. The steps
 
 1. **The core: a cast for a guest receiver, and its grant** (D465 §2).
-   - The sender asks for a cast to a Google Cast device; the core makes the cast with a receiver
-     that is no device of the person's yet, and mints its grant: random, opaque, stored hashed, one
-     use, valid for a minute until traded. It is the first kind in D154's one grant table, which does
-     not exist yet: a new table, appended as a migration (rule 8).
-   - The trade (the receiver's first request) makes the cast's receiver: proposed, a device row of
-     its own kind, never listed in Your devices, never a cast target, deleted when the cast ends by
-     any of D384, D385 or D389's ends, so the live connection, the cast's accept and the session's
-     membership work as they do for a paired TV. The trade answers a credential that reaches only
-     that cast: its session as its video, the films it puts on, nothing to browse.
+   - The sender asks for a grant for a Google Cast device (`POST /me/casts/guest-grants`, naming
+     the device as Chrome's picker does); the core mints it: random, opaque, kept in memory as its
+     SHA-256 alone, one use, valid for a minute until traded, at most four waiting per sending
+     device. (Built 2026-11-12: D154's grant table already exists, in the baseline, but a grant
+     that lives a minute and dies with the core needs no row; no migration.)
+   - The trade (`POST /guest-receivers`, the receiver's first request) signs the device in as a
+     guest receiver: a device row of the person's, with a session of the scope `guestReceiver`,
+     never listed in Your devices nor among the live connection's devices, cast to by the grant's
+     sender alone and once, and removed when that cast ends by any of D384, D385 or D389's ends, or
+     when none starts within live.UnansweredAfter of the trade, and at the core's start. The
+     session carries no capability: it is refused at every route but the cast's (its accept, the
+     playback of the films the cast plays, their bytes, reports, the live and session sockets).
+     The sender then casts to the device it names as to any of the person's (`POST /me/casts`).
    - Tests: the second trade is refused; the credential is refused outside its cast and after its
      end; the receiver's row is gone after each kind of end; the grant never appears in a URL or a log.
 2. **The receiver: the grant in place of a pairing.**
