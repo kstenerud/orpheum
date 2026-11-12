@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -115,11 +116,48 @@ def go_dependents(root: str, path: str) -> list[str]:
 
 @functools.cache
 def web_source_readers(root: str) -> tuple[str, ...]:
-    """The web test files, relative to web/, that read source files by path."""
-    done = subprocess.run(["git", "grep", "-lE", WEB_SOURCE_READER.pattern, "--", "web/*.test.ts",
-                           "web/*.test.tsx"], cwd=root, capture_output=True, text=True, check=False)
-    return tuple(sorted(path.removeprefix("web/") for path in done.stdout.split()
-                        if "/node_modules/" not in path))
+    """The web test files, relative to web/, that read source files by path: themselves, or through a
+    helper of theirs that does (test-sources.ts, whose readers the grep alone missed: check-pr called
+    eight stylesheets green on revert though stylesheet-choices.test.ts fails with them reverted,
+    2026-11-12)."""
+    done = subprocess.run(["git", "grep", "-lE", WEB_SOURCE_READER.pattern, "--", "web/*.ts", "web/*.tsx"],
+                          cwd=root, capture_output=True, text=True, check=False)
+    reading = [path for path in done.stdout.split() if "/node_modules/" not in path]
+    readers = {path for path in reading if _is_web_test(path)}
+    helpers = {_module(path) for path in reading if not _is_web_test(path)}
+    tests = subprocess.run(["git", "ls-files", "--", "web/*.test.ts", "web/*.test.tsx"], cwd=root,
+                           capture_output=True, text=True, check=False).stdout.split()
+    for test in tests:
+        if "/node_modules/" in test or test in readers:
+            continue
+        try:
+            text = (Path(root) / test).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        here = Path(test).parent
+        if any(_module(os.path.normpath(here / spec)) in helpers for spec in RELATIVE_IMPORT.findall(text)):
+            readers.add(test)
+    return tuple(sorted(path.removeprefix("web/") for path in readers))
+
+
+def web_stylesheet_readers(root: str) -> tuple[str, ...]:
+    """The web source readers, relative to web/, that read stylesheets: those naming a .css file. A
+    stylesheet's revert can turn them red, and its browser-mode runs never run them."""
+    return tuple(path for path in web_source_readers(root)
+                 if ".css" in (Path(root) / "web" / path).read_text(encoding="utf-8"))
+
+
+# A relative module a web file imports: `from "./x"`, `import "../y.ts"`, `vi.mock("./z")`.
+RELATIVE_IMPORT = re.compile(r"""(?:from\s+|import\s*\(?\s*|mock\(\s*)["'](\.{1,2}/[^"']+)["']""")
+
+
+def _is_web_test(path: str) -> bool:
+    return path.endswith((".test.ts", ".test.tsx"))
+
+
+def _module(path: str) -> str:
+    """A module's path without its extension, as an import names it."""
+    return re.sub(r"\.(?:[cm]?js|tsx?)$", "", path)
 
 
 # Where the Python a test can import lives: the gate scripts, their tests' helpers, the hooks.
