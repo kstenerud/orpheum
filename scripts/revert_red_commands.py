@@ -59,6 +59,15 @@ def is_go_test(command: list[str]) -> bool:
     return command[:2] == GO_TEST
 
 
+def compiled(command: list[str]) -> list[str] | None:
+    """A Go test run that builds every test binary command would and runs none, `true` run in place
+    of each (`-exec`, which overrides the GOFLAGS one `make setup` adds): what a clean tree must pass
+    for a build red to stand. None for any other run."""
+    if not is_go_test(command):
+        return None
+    return [*GO_TEST, "-exec", "true", *command[len(GO_TEST):]]
+
+
 def is_vitest(command: list[str]) -> bool:
     return command[: len(VITEST)] == VITEST or command[: len(WEB_SCRIPT) + 1] == [*WEB_SCRIPT, "test"]
 
