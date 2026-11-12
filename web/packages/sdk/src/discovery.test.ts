@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   answerMessage,
@@ -74,6 +74,35 @@ describe("the discovery's derivations, as the Go code makes them", () => {
     expect(await verifyAnswer(checked)).toBe(true);
     expect(await verifyAnswer({ ...checked, answer: { ...answer, sdp: "v=1" } })).toBe(false);
     expect(await verifyAnswer({ ...checked, fingerprint: "another-fingerprint" })).toBe(false);
+  });
+
+  describe("in a browser whose WebCrypto has no Ed25519, as a Chromecast's Chrome 90 (the owner, 2026-11-12)", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("still checks the core's answer, and still refuses one it did not sign", async () => {
+      const importKey = crypto.subtle.importKey.bind(crypto.subtle);
+      vi.spyOn(crypto.subtle, "importKey").mockImplementation(
+        async (...importArguments: Parameters<SubtleCrypto["importKey"]>) => {
+          const [, , algorithm] = importArguments;
+          const name = typeof algorithm === "string" ? algorithm : algorithm.name;
+          if (name === "Ed25519") {
+            throw new DOMException("Unrecognized name.", "NotSupportedError");
+          }
+          return await importKey(...importArguments);
+        },
+      );
+      const checked = {
+        publicKey: fromBase64(vectors.publicKey),
+        fingerprint: vectors.fingerprint,
+        answer,
+        signature: fromBase64(vectors.answerSignature),
+      };
+      expect(await verifyAnswer(checked)).toBe(true);
+      expect(await verifyAnswer({ ...checked, answer: { ...answer, sdp: "v=1" } })).toBe(false);
+      expect(await verifyAnswer({ ...checked, signature: new Uint8Array(3) })).toBe(false);
+    });
   });
 
   it("checks the core's client manifest by a key whose fingerprint the client holds, and derives a hand-off's offer key (D308)", async () => {

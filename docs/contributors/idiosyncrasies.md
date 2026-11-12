@@ -252,6 +252,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After an interface was taken down and up in a container, IPv4 had no route. | [Taking an LXC container's interface down and up loses its IPv4 default route](#taking-an-lxc-containers-interface-down-and-up-loses-its-ipv4-default-route) |
 | Pulling the image fails with "network is unreachable" though IPv6 works. | [GitHub's image registry, `ghcr.io`, has no IPv6 address](#githubs-image-registry-ghcrio-has-no-ipv6-address) |
 | A phone on a travel eSIM reaches no server: one IPv4 candidate abroad, no IPv6. | [A travel eSIM's data leaves through its operator's gateway, over IPv4 alone](#a-travel-esims-data-leaves-through-its-operators-gateway-over-ipv4-alone) |
+| A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
 ---
@@ -1372,6 +1373,24 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ---
+
+### A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies
+
+- **Symptom:** a cast to a Chromecast from orpheum.cc failed with "the answer is not the server's
+  own: its key or signature does not match its link", though the core had answered the receiver's
+  offer through the discovery (its log opened the connection, then closed it unused) and its key's
+  fingerprint was the one held (the owner, production, 2026-11-12).
+- **Cause:** a Chromecast (third generation, firmware `CrKey/1.56.500000`) runs Chrome
+  90.0.4430.225. Chrome shipped Ed25519 in WebCrypto in 137; before it, `crypto.subtle.importKey`
+  with `{ name: "Ed25519" }` throws `NotSupportedError`, and the SDK took that as a key it could not
+  take, so every signature the core makes for a client failed there. Staging's casts passed only
+  because the receiver reached the core by its own name there, never checking an answer.
+- **What we do:** `web/packages/sdk/src/ed25519.ts` checks a signature by WebCrypto, and only where
+  it refuses Ed25519 as an algorithm it does not know, by `@noble/ed25519` under RFC 8032's rules
+  (`zip215: false`), as WebCrypto and Go check it. Test: `discovery.test.ts`, "in a browser whose
+  WebCrypto has no Ed25519".
+- **Evidence:** the receiver's screen and the core's log on production, 2026-11-12; the user agent
+  staging's log holds for the same Chromecast.
 
 ## Web platform, all browsers
 

@@ -6,6 +6,9 @@ playable-formats probe (what this browser can play), the wait for a file the ser
 making, the reading of refusals, and the Watch Together client: a device's connection to its
 session over the session WebSocket (cut-a §5.1), and a player following its group.
 
+It checks the core's Ed25519 signatures in any browser, an old Chromecast's included
+(`src/ed25519.ts`).
+
 It also holds the device lab's capability report (`src/device-report.ts`: what a browser decodes
 and which APIs it has) and a WebRTC call of a page with itself (`src/rtc-loopback.ts`), shared by
 the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither talks to a server.
