@@ -27830,9 +27830,16 @@ and D154 §2's `LoadRequestData.credentials` route. The plan is
    and a second trade is refused, since Cast's sender channel is unauthenticated and anything on the
    network can listen to the receiver (D135). It ends with the cast.
 3. **The Cast menu lists the person's registered devices, then Google Cast.** The person's own
-   devices connected now come first, as D337 has them; then a Google Cast entry, which opens the
-   browser's own picker (a web page can open it but not list the devices in it). AirPlay is to join
-   the same menu the same way later, if it can (airplay.md).
+   devices connected now come first, as D337 has them, each with an icon in front saying which kind
+   of cast it takes: the laurel for Orpheum's own, the Cast icon for a Chromecast. Then a separator,
+   and a magnifying glass with "Chromecast", which opens the browser's own picker (a web page can
+   open it but not list the devices in it); AirPlay is to come under it later, a magnifying glass
+   with "AirPlay", if it can (airplay.md). The owner, 2026-11-12: *"For every registered device,
+   have an icon in front of it that shows what kind of cast it's for. So the laurel for orpheum, the
+   chromecast icon for chromecast devices, etc. Then a separator and a magnifying glass +
+   Chromecast, and later under that a magnifying glass + Airplay."* Google's sender script loads
+   only in Chrome, at the menu's first opening, so no page loads it until someone means to cast
+   (the owner: *"Agreed on the google script"*).
 4. **Pairing stays.** Making a Chromecast a cast target (D288's pairing, VQ286) still makes it one of
    the person's devices, listed in Your devices and cast to from any browser, since the core carries
    that cast. It is the route from a browser that cannot cast: web casting works only in Chrome on a
