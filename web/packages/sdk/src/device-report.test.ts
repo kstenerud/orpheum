@@ -6,6 +6,7 @@ import {
   codecAnswersFrom,
   deviceReportFrom,
   fireTvHintOf,
+  isFireTv,
   labCodecs,
   labFeatureNames,
   mediaQueryAnswer,
@@ -132,5 +133,18 @@ describe("a Fire TV's user agent", () => {
     expect(
       fireTvHintOf("Mozilla/5.0 (Linux; Android 12; BRAVIA) Chrome/120 Mobile Safari/537.36"),
     ).toBeUndefined();
+  });
+
+  it("is a Fire TV by one model code pattern, which the hint names it by too", () => {
+    const agents = [
+      "Mozilla/5.0 (Linux; Android 9; AFTSSS Build/PS7633) Silk/138",
+      "Mozilla/5.0 (Linux; Android 11; AFTKRT0123 Build/RS8101) Silk/138",
+      "Mozilla/5.0 (Linux; Android 12; BRAVIA) Chrome/120 Mobile Safari/537.36",
+    ];
+    expect(agents.map((agent) => [isFireTv(agent), fireTvHintOf(agent)])).toEqual([
+      [true, "Fire OS, model AFTSSS"],
+      [true, "Fire OS, model AFTKRT0123"],
+      [false, undefined],
+    ]);
   });
 });
