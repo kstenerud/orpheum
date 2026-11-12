@@ -7,6 +7,7 @@
  * discovery/link and discovery/proof, byte for byte; the tests hold vectors the Go code made.
  */
 
+import { isEd25519SignatureOf } from "./ed25519.ts";
 import type { Description, Signaller } from "./rtc-connect.ts";
 import { offerThroughDiscovery } from "./relayed-offer.ts";
 import { reaching, RefusedForGood } from "./rtc-reopen.ts";
@@ -171,15 +172,7 @@ async function isSignedByHeldKey(
   if ((await keyFingerprint(publicKey)) !== fingerprint) {
     return false;
   }
-  try {
-    const key = await crypto.subtle.importKey("raw", publicKey, { name: "Ed25519" }, false, [
-      "verify",
-    ]);
-    return await crypto.subtle.verify("Ed25519", key, signature, message);
-  } catch {
-    // A key this browser cannot import, or one that is no Ed25519 key, verifies nothing.
-    return false;
-  }
+  return await isEd25519SignatureOf(publicKey, signature, message);
 }
 
 /** What the core's signature over its client's manifest signs: proof.ClientManifestMessage. */
