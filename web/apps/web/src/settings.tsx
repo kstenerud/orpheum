@@ -9,13 +9,13 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { ConfirmQuestion } from "./confirm-button.tsx";
+import { ResetIcon } from "./icons.tsx";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { SaveNote, shownSaveState } from "./save-note.tsx";
 import {
   AboutButton,
   isFound,
-  ResetIcon,
   RowName,
   ServerSettings,
   settingLabel,

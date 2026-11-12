@@ -5,12 +5,12 @@ import "./status-cues.css";
 import { createElement, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { StillReadingIcon, UncertainMatchIcon, WarningIcon, WatchedIcon } from "./icons.tsx";
 import { unavailableText } from "./problem.ts";
-import { StillReadingIcon, StillReadingNote } from "./still-reading.tsx";
-import { UncertainMatchIcon, UncertainMatchNote } from "./uncertain-match.tsx";
-import { WarningIcon } from "./warning-sign.tsx";
+import { StillReadingNote } from "./still-reading.tsx";
+import { UncertainMatchNote } from "./uncertain-match.tsx";
 import { UnplayableSign } from "./unplayable-sign.tsx";
-import { WatchedIcon, WatchedNote } from "./watched-mark.tsx";
+import { WatchedNote } from "./watched-mark.tsx";
 
 /** What a status cue reads of a film, series or episode. */
 export interface CueSubject {

@@ -75,6 +75,13 @@ describe("every icon (the owner, 2026-10-27)", () => {
     expect(strayDrawings(sources)).toEqual([]);
   });
 
+  it("is written in icons.tsx, or the player's in player-icons.tsx, and nowhere else (the owner, 2026-11-11)", () => {
+    const writers = sourcesEndingIn(".tsx")
+      .filter(([, text]) => /<Icon\b/u.test(text))
+      .map(([name]) => name);
+    expect(writers).toEqual(["icons.tsx", "player-icons.tsx"]);
+  });
+
   it("is coloured only by the text colour and its ground, which its region sets", () => {
     const sheets = sourcesEndingIn(".css");
     expect(sheets.map(([name]) => name)).toContain("warning-sign.css");

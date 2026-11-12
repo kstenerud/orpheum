@@ -13,7 +13,8 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { CastKindMark, FindDevicesIcon } from "./cast-kind.tsx";
+import { CastKindMark } from "./cast-kind.tsx";
+import { FindDevicesIcon } from "./icons.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
 /** A mark's side: 1.125rem at the browser's 16 px root. */

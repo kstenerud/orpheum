@@ -8,7 +8,7 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
-import { Icon } from "./icon.tsx";
+import { AboutIcon, ResetIcon } from "./icons.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
@@ -164,24 +164,6 @@ export function bySection(settings: readonly Setting[]): [Section, Setting[]][] 
   }
   return [...sections.entries()].sort(
     ([first], [second]) => sectionOrder.indexOf(first) - sectionOrder.indexOf(second),
-  );
-}
-
-/** A circled i: the mark of the button that shows what a setting is for. */
-export function AboutIcon(): JSX.Element {
-  return (
-    <Icon className="settings__icon">
-      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 5h2V7h-2zm0 8h2v-6h-2z" />
-    </Icon>
-  );
-}
-
-/** A bin: the mark of the button that returns a setting to its starting value. */
-export function ResetIcon(): JSX.Element {
-  return (
-    <Icon className="settings__icon">
-      <path d="M9 3v1H4v2h16V4h-5V3zM5 8l1 13h12l1-13zm4 2h2v9H9zm4 0h2v9h-2z" />
-    </Icon>
   );
 }
 

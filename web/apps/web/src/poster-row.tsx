@@ -14,8 +14,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
-import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { RowArrowIcon } from "./icons.tsx";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
 
 /** Which way an arrow scrolls a row: back to its start, or on to its end. */
@@ -114,22 +114,6 @@ function rowClassOf(ends: RowEnds, own: string | undefined): string {
   ]
     .filter((name) => name !== undefined)
     .join(" ");
-}
-
-/** An arrow's chevron, pointing the way it scrolls. */
-function RowArrowIcon(props: { readonly direction: RowDirection }): JSX.Element {
-  return (
-    <Icon className="poster-row__arrow-icon">
-      <path
-        d={props.direction === "back" ? "M15 4.5 7.5 12l7.5 7.5" : "M9 4.5 16.5 12 9 19.5"}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Icon>
-  );
 }
 
 /**

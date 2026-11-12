@@ -28,7 +28,7 @@ import { useTranslation } from "react-i18next";
 
 import { ownScriptOf } from "./app-update.ts";
 import { useHasMicrophone } from "./has-microphone.ts";
-import { Icon } from "./icon.tsx";
+import { MicrophoneIcon } from "./icons.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -246,19 +246,6 @@ export const talkRingEveryMs = 100;
  */
 export function talkRingOf(level: number): number {
   return Math.min(1, Math.sqrt(Math.max(0, level) / 0.1));
-}
-
-/** A microphone, struck through while off. */
-export function MicrophoneIcon(props: { readonly isOn: boolean }): JSX.Element {
-  return (
-    <Icon className="together-voice__icon">
-      {props.isOn ? (
-        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z" />
-      ) : (
-        <path d="M19 11h-2a5 5 0 0 1-.6 2.4l1.5 1.5A7 7 0 0 0 19 11zM15 5a3 3 0 0 0-6 0v.2l6 6V5zM4.3 3 3 4.3l6 6V11a3 3 0 0 0 4.4 2.6l1.6 1.6A5 5 0 0 1 7 11H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 3.4-1.3l3.3 3.3 1.3-1.3z" />
-      )}
-    </Icon>
-  );
 }
 
 /** Has the Talk button's ring follow the voice going out, every talkRingEveryMs while talking. */

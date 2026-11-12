@@ -27,6 +27,7 @@ import {
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
+import { PosterClock } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
 import { focusableSelector, growsAttribute } from "./focus-engine.ts";
 import { arrivalMark } from "./focus-navigation.ts";
@@ -35,7 +36,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
-import { PosterClock, Still } from "./poster.tsx";
+import { Still } from "./poster.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
 import { EndOfList, useAskedWhenNear } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";

@@ -16,8 +16,8 @@ import { useTranslation } from "react-i18next";
 import logo from "./assets/orpheum-logo.svg";
 import { DropDown } from "./drop-down.tsx";
 import { dangerousMark } from "./focus-navigation.ts";
+import { FilmsIcon, LibrariesIcon, MenuIcon, SeriesIcon } from "./icons.tsx";
 import { ListNote, ListOption } from "./list-box.tsx";
-import { Icon } from "./icon.tsx";
 import { laurelMark } from "./laurel.ts";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
@@ -28,7 +28,6 @@ import {
   useLibrariesRead,
   useLibrariesReached,
 } from "./libraries-reached.ts";
-import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
@@ -447,15 +446,6 @@ function RealmMark(props: { readonly realm: string }): JSX.Element {
     <span className="app-shell__realm" title={t("nav.realmTitle", { realm: props.realm })}>
       {props.realm}
     </span>
-  );
-}
-
-/** Three lines: the menu's mark, its name for a screen reader. */
-export function MenuIcon(): JSX.Element {
-  return (
-    <Icon className="app-shell__menu-icon">
-      <path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" />
-    </Icon>
   );
 }
 

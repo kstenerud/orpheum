@@ -6,7 +6,7 @@ import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { DropDown } from "./drop-down.tsx";
-import { Icon } from "./icon.tsx";
+import { MoreIcon } from "./icons.tsx";
 import { ListOption } from "./list-box.tsx";
 
 /**
@@ -17,17 +17,6 @@ export type MoreAction = {
   readonly key: string;
   readonly label: string;
 } & ({ readonly dialog: (close: () => void) => ReactNode } | { readonly onChoose: () => void });
-
-/** Three dots one above the other: the mark of a page's menu of rarely used actions. */
-function MoreIcon(): JSX.Element {
-  return (
-    <Icon className="more-actions__icon">
-      <circle cx="12" cy="5" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="19" r="2" />
-    </Icon>
-  );
-}
 
 /**
  * A page's rarely used actions behind a vertical "…" (the owner, 2026-10-29: "these

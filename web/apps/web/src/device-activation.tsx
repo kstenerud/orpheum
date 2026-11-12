@@ -10,11 +10,11 @@ import { activateDevice, answerActivation, type Activation } from "./accounts.ts
 import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
 import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { WarningIcon } from "./icons.tsx";
 import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
-import { WarningIcon } from "./warning-sign.tsx";
 
 /** Where an activation stands on this device: being entered, being checked, or done. */
 type Step =

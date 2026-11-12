@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
-import { Icon } from "./icon.tsx";
+import { FilmStripIcon } from "./icons.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { SoundControls, type PlayerSound } from "./player-controls.tsx";
 import type { OneControl } from "./popover.tsx";
@@ -51,18 +51,6 @@ export function lettersOf(names: readonly string[]): readonly string[] {
     firsts.filter((first) => first === firsts[at]).length > 1
       ? firstLetters(name, 2)
       : (firsts[at] ?? "?"),
-  );
-}
-
-/** The film's mark in the row: a strip of film. */
-function FilmIcon(): JSX.Element {
-  return (
-    <Icon className="volume-row__film-icon">
-      <path
-        fillRule="evenodd"
-        d="M4 3h16v18H4zm2 2v2h2V5zm10 0v2h2V5zM6 9v2h2V9zm10 0v2h2V9zM6 13v2h2v-2zm10 0v2h2v-2zM6 17v2h2v-2zm10 0v2h2v-2zM10 5v14h4V5z"
-      />
-    </Icon>
   );
 }
 
@@ -234,7 +222,7 @@ function FilmSlider(props: {
       data-focused={props.isFocused ? "" : undefined}
     >
       <span className="volume-row__mark" title={props.title ?? t("playerControls.filmVolume")}>
-        <FilmIcon />
+        <FilmStripIcon />
       </span>
       <SoundControls
         sound={sound}

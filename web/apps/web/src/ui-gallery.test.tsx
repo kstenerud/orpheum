@@ -2,6 +2,7 @@
 
 import "./i18n.ts";
 
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
@@ -50,8 +51,36 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "settings__icon",
     "route-chooser__chevron",
     "poster__clapperboard",
+    "app-shell__place-glyph",
+    "app-shell__place-glyph",
+    "app-shell__place-glyph",
+    "more-actions__icon",
+    "listing-tools__icon",
+    "listing-tools__icon",
+    "listing-tools__arrow",
+    "listing-tools__arrow",
+    "poster-row__arrow-icon",
+    "poster-row__arrow-icon",
+    "cast-kind cast-kind--chromecast",
+    "cast-kind cast-kind--find",
+    "volume-row__film-icon",
+    "poster__clock",
     ...Array.from({ length: 15 }, () => "player-icons__icon"),
   ]);
+});
+
+it("shows each icon of icons.tsx and of player-icons.tsx in its icons section (the owner, 2026-11-11)", () => {
+  const gallery = readFileSync(new URL("./ui-gallery.tsx", import.meta.url), "utf8");
+  for (const file of ["icons.tsx", "player-icons.tsx"]) {
+    const source = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
+    const names = [...source.matchAll(/^export function (\w+)\(/gmu)].map(
+      (match) => match[1] ?? "",
+    );
+    expect(names.length).toBeGreaterThan(10);
+    for (const name of names) {
+      expect(gallery, `${file}'s ${name}`).toMatch(new RegExp(`<${name}\\b`, "u"));
+    }
+  }
 });
 
 it("shows the banner's status tray with each sign it can show, Watch Together's and Cast's always, off or on, beside the menu (D364 §12)", () => {

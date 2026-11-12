@@ -7,9 +7,9 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
-import { WarningIcon } from "./warning-sign.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
+import { WarningIcon } from "./icons.tsx";
 import { idempotent } from "./idempotent.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
