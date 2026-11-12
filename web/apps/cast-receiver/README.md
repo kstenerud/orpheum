@@ -24,8 +24,10 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 - **Becomes a cast target only as a device of its sender's person, by D288's pairing**: asked by the
   lab's sender, it pairs (its code carried over the lab's namespace, the check codes shown on both
   screens for the person to compare), keeps that session in its own storage, connects as a device
-  (D337), takes a cast handed to it at once and plays in the cast's session (D434): the session's
-  film, play, pause and position. Its sockets go the way its requests go, by the core's name or over
+  (D337), takes a cast handed to it at once, stopping the lab's own film, and plays in the cast's
+  session (D434): the film each hand names, which it puts on the session it leads (in a cast the
+  receiver leads, so the group has no film until it plays one), then the session's play, pause and
+  position. Its sockets go the way its requests go, by the core's name or over
   WebRTC (`src/reach.ts`). `src/device.test.ts`; only a device shows the whole: VQ286, VQ287.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle

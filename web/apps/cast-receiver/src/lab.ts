@@ -264,6 +264,9 @@ export class LabReceiver {
       onRefused: () => {
         keepSession(storage, undefined);
       },
+      onTaken: () => {
+        this.stopOwnFilm();
+      },
     });
     const stop = device.start();
     this.stopDevice = () => {
@@ -283,7 +286,8 @@ export class LabReceiver {
     }
   }
 
-  private play(request: Extract<LabRequest, { readonly type: "play" }>): void {
+  /** Stops the lab's own film, and any play of one still reaching its core. */
+  private stopOwnFilm(): void {
     this.stopWatching?.();
     this.stopWatching = undefined;
     this.playback?.destroy();
@@ -291,6 +295,10 @@ export class LabReceiver {
     this.reached?.close();
     this.reached = undefined;
     this.plays += 1;
+  }
+
+  private play(request: Extract<LabRequest, { readonly type: "play" }>): void {
+    this.stopOwnFilm();
     const play = this.plays;
     if (request.reach === undefined) {
       this.playOn(request, undefined);
