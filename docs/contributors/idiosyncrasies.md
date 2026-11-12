@@ -1751,6 +1751,31 @@ User-Agent (D263; the User-Agent is logged only).
   containing block unless fixed. **[web]** no search: the session's search budget was spent
   (2026-10-28).
 
+### Silk lays the page out each time a key focuses a button
+
+- **Symptom:** on a Fire TV Stick (AFTSSS, Silk 138, spatial navigation mode on), in Films with
+  332 posters, Right from the first row's last poster to the alphabet rail took 5–6 s the first
+  time after the page loaded, and every move onto or along the rail 300–600 ms after; a move between
+  posters took 45–100 ms. While the list was still being drawn each move onto the rail paid the 5 s
+  again, and the remote's presses queued behind it: Right seemed to do nothing, then the Lefts
+  after it were spent undoing Rights (the owner, the 11-24 batch's item 12).
+- **Cause:** after the page's own handler (about 20 ms of script, the key prevented), Silk runs
+  native work with no script on the stack: a trace showed about 12,500 forced style and layout
+  updates in the key's task, and the first time 308 full layouts, one for each poster
+  `content-visibility: auto` was skipping (4.4 s). It follows focus landing on a `<button>` by a
+  key, not on a link: the banner's Home to Films to Series links took 44–51 ms a move, Series to
+  its Libraries `<button>` 322 ms, and the same place as a `<div role="button" tabindex>` 47 ms.
+  Which part of Silk does it is unverified (a form control's focus is what autofill watches);
+  `focus()` from script alone was quick. No report of it was found online.
+- **What we do:** the alphabet rail's letters are buttons by role, not `<button>`s
+  (`web/apps/web/src/alphabet-rail.tsx`): with them so, the first move onto the rail took 107 ms
+  and the next 44–47 ms. Other `<button>`s on a long list (the banner's, the list's criteria) still
+  pay the 300 ms; they are moved to less often.
+- **Evidence:** **[measured]** 2026-11-12, staging's Films on the testing Fire TV over Silk's
+  DevTools: key-to-next-task times from a `keydown` logger, a Tracing capture of the 5.9 s key
+  (`Document::UpdateStyleAndLayout` ×12,817, `ScrollAnchor::Adjust` in each skipped poster's
+  layout), and the rail rebuilt in place as `div`s. **[web]** no report found (2026-11-12).
+
 
 ### Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)
 

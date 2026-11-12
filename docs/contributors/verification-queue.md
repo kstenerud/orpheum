@@ -3084,3 +3084,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   television's page; and pause the film for 30 minutes. Each time, the television's page is signed
   out within a minute or so (the third: a little after the 30 minutes), and the phone is told the cast
   ended. (`web/apps/web/src/device-activation.tsx`, `src/app.tsx`, `cmd/orpheum/casts_gone.go`)
+- [ ] **VQ312** — On a Fire TV, the films list's alphabet rail is reached at once, even while the
+  list is still being drawn (the 11-24 batch's item 12). On the upstairs Fire TV, open Films, sorted
+  by name, and as soon as the first row shows press Right along it to its last poster and once more:
+  the highlight is on the rail's letter within a moment, not seconds later. Press Down a few times
+  and Left back to the posters: each move follows its press, no press needing another to catch up.
+  Again after the list has settled, a few minutes later. Passes when no move waits.
+  (`web/apps/web/src/alphabet-rail.tsx`; idiosyncrasies.md, "Silk lays the page out each time a key
+  focuses a button")

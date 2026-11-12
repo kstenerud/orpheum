@@ -3386,6 +3386,20 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
     right reached the rail, but every move was very sluggish. The lead's guess, to check on the
     testing Fire TV against staging: the presses moved the focus onto something not yet drawn (the
     rail before it is laid out, or posters still loading), each left stepping back over one.
+  - **Found (2026-11-12): Silk lays the page out each time a key focuses a `<button>`**, and the
+    rail's letters were `<button>`s. Reproduced on the testing Fire TV against staging's 332 films:
+    the first Right onto the rail after a load took 5–6 s in one task (3 of 3 runs), each later move
+    on the rail 300–600 ms, a move between posters 45–100 ms. The page's script took about 20 ms of
+    it; the rest was Silk's own, with no script on the stack: about 12,500 forced style and layout
+    updates, the first time 308 full layouts, one for each poster `content-visibility` was
+    skipping. While the list is still being drawn (about 40 s here, longer for a larger library)
+    the posters keep changing, so each move onto the rail paid again, and the presses queued: the
+    "minutes" the owner saw. A `<div role="button">` in the same place costs what a link does
+    (47 ms). Not the lead's guess: focus moved where it should, only late.
+    (idiosyncrasies.md, "Silk lays the page out each time a key focuses a button".)
+  - **Built (2026-11-12):** "perf(web): the alphabet rail's letters are buttons by role, not
+    `<button>`s". Other `<button>`s on a long list (the banner's Libraries, the list's criteria)
+    still cost about 300 ms a move onto them; left as they are, moved to far less often.
 - **X2. A temporary sign-in for one cast, by "Get a code"** (the second casting request). After
   Cast to this device the phone goes to its home page with the device chosen as its cast target.
   The owner chose that it ends like a Chromecast session: when the phone stops casting, when the

@@ -12,7 +12,6 @@ import { Browse, type BrowseKind, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
   buttonNamed,
-  buttonWithText,
   click,
   mount,
   servedBy,
@@ -90,6 +89,13 @@ function focusedName(): string | undefined {
   return document.activeElement?.querySelector(".poster-card__name")?.textContent ?? undefined;
 }
 
+/** The alphabet rail's letter in container, a button by role. */
+function railLetter(container: HTMLElement, letter: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>(".alphabet-rail__letter")].find(
+    (each) => each.textContent === letter,
+  );
+}
+
 /** The requests heard against GET /items alone, in order: the rail's own letters are a sibling
  * request (alphabet-rail.tsx's useAlphabetRailLetters) these tests do not count by position. */
 function titlesHeard(heard: readonly Heard[]): Heard[] {
@@ -123,7 +129,7 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(buttonWithText(mounted.container, "M"));
+    await click(railLetter(mounted.container, "M"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("Mabel");
     const queries = listsHeard(heard).map((each) => new URLSearchParams(each.query));
@@ -171,7 +177,7 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(buttonWithText(mounted.container, "M"));
+    await click(railLetter(mounted.container, "M"));
     await settleUntil(() => mounted?.container.querySelectorAll(".poster-grid > li").length === 6);
     await settleUntil(() => shownAt.includes(6));
     expect(focusedName()).toBe("Mabel");
@@ -185,7 +191,7 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(buttonWithText(mounted.container, "#"));
+    await click(railLetter(mounted.container, "#"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("12 Patient Sailors");
     const onlyTitles = listsHeard(heard);
@@ -200,9 +206,31 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(buttonWithText(mounted.container, "Z"));
+    await click(railLetter(mounted.container, "Z"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("Zelkaro");
+  });
+
+  // Silk on a Fire TV lays the page out each time a key focuses a <button>: a move onto the rail
+  // took 300 ms, the first 5 s (the 11-24 batch's item 12; idiosyncrasies.md).
+  it("names its letters buttons by role, not <button>s, and Space presses one", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountFilms(
+      films([firstPage, page([film(5, "Mabel")], "")], { c1: secondPage, c2: lastPage }),
+      heard,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const letters = [...mounted.container.querySelectorAll(".alphabet-rail__letter")];
+    expect(letters.length).toBeGreaterThan(0);
+    for (const letter of letters) {
+      expect(letter.tagName).not.toBe("BUTTON");
+      expect(letter.getAttribute("role")).toBe("button");
+    }
+    const m = railLetter(mounted.container, "M");
+    m?.focus();
+    m?.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }));
+    await settleUntil(() => focusedName() !== undefined);
+    expect(focusedName()).toBe("Mabel");
   });
 });
 
@@ -450,7 +478,7 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       (letter) => letter.textContent,
     );
     expect(shown).toEqual(["M", "B", "#"]);
-    await click(buttonWithText(mounted.container, "M"));
+    await click(railLetter(mounted.container, "M"));
     await settleUntil(() => listsHeard(heard).length >= 3);
     const jump = new URLSearchParams(listsHeard(heard)[2]?.query);
     expect(jump.get("from")).toBe("N");
