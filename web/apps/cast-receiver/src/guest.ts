@@ -78,8 +78,9 @@ export function reachOfGrant(
 }
 
 /**
- * Takes the cast request's grant is for: reaches the core, trades the grant, answers the sender
- * which device it is, and connects as that device, taking the cast handed to it. Returns its
+ * Takes the cast request's grant is for: reaches the core, trades the grant, connects as the device
+ * the trade made, and once the core has welcomed it answers the sender which device it is, taking
+ * the cast handed to it. Returns its
  * stopping, or undefined where it failed, which it answers too. Nothing is kept in storage.
  */
 export async function castAsGuest(
@@ -101,17 +102,31 @@ export async function castAsGuest(
     note(`traded the grant: device ${String(session.deviceId)}`);
     const way = reached;
     let isStopped = false;
+    let isAnswered = false;
     const device = new CastDevice({
       api,
       token: session.token,
       reached: way,
       video: steps.video,
       note,
-      // Refused once its cast ends: the guest's device is removed then (D465 §2).
+      // Refused once its cast ends: the guest's device is removed then (D465 §2); refused before
+      // it was ever welcomed, the sender is told it failed.
       onRefused: () => {
+        if (!isAnswered) {
+          isAnswered = true;
+          steps.answer({ type: "failed", reason: "the core refused the device's live connection" });
+        }
         stop();
       },
       onTaken: steps.onTaken,
+      // Ready once the core has welcomed its live connection, not at the trade: the sender's cast
+      // to it is refused while it is not yet one of its person's devices connected now.
+      onConnected: () => {
+        if (!isAnswered) {
+          isAnswered = true;
+          steps.answer({ type: "ready", deviceId: session.deviceId });
+        }
+      },
     });
     const stopDevice = device.start();
     const stop = (): void => {
@@ -121,7 +136,6 @@ export async function castAsGuest(
         way.close();
       }
     };
-    steps.answer({ type: "ready", deviceId: session.deviceId });
     return stop;
   } catch (cause) {
     reached?.close();

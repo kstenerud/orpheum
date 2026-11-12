@@ -253,6 +253,11 @@ export interface CastDeviceOptions {
   readonly onRefused: () => void;
   /** Called as a cast is taken, before its film plays on the video: the lab stops its own film. */
   readonly onTaken: () => void;
+  /**
+   * Called once, the first time the core welcomes the live connection: the device is one of its
+   * person's connected now, which a cast to it needs (the core refuses one to a device not yet).
+   */
+  readonly onConnected?: () => void;
 }
 
 /** The receiver as a device of its person's: its live connection, and the cast it plays. */
@@ -284,12 +289,21 @@ export class CastDevice {
       monotonicMs: () => performance.now(),
     });
     let wasConnected = false;
+    let hasConnected = false;
+    const heardConnected = (isConnected: boolean): void => {
+      if (isConnected === wasConnected) {
+        return;
+      }
+      wasConnected = isConnected;
+      note(isConnected ? "connected as a device: ready to be cast to" : "connection lost");
+      if (isConnected && !hasConnected) {
+        hasConnected = true;
+        this.options.onConnected?.();
+      }
+    };
     const stop = live.subscribe(() => {
       const snapshot = live.snapshot();
-      if (snapshot.isConnected !== wasConnected) {
-        wasConnected = snapshot.isConnected;
-        note(wasConnected ? "connected as a device: ready to be cast to" : "connection lost");
-      }
+      heardConnected(snapshot.isConnected);
       if (snapshot.isRefused) {
         note("the server refused this receiver's sign-in");
         this.options.onRefused();
