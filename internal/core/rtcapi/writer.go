@@ -65,7 +65,7 @@ type channelWriter struct {
 	failed     error
 	// watch is told the bytes handed to SCTP and each wait for its buffer to drain.
 	watch *answerWatch
-	// endsInText is whether the response ends in EndMessage, its client unable to take an empty one.
+	// endsInText is whether the response ends in an End, its client unable to take an empty one.
 	endsInText bool
 }
 
@@ -158,7 +158,7 @@ func (writer *channelWriter) send(message []byte) error {
 	return nil
 }
 
-// sendEnd sends the message that ends the response: EndMessage to a client that asked for it, an
+// sendEnd sends the message that ends the response: an End to a client that asked for it, an
 // empty message to any other.
 func (writer *channelWriter) sendEnd() error {
 	if !writer.endsInText {
@@ -170,11 +170,15 @@ func (writer *channelWriter) sendEnd() error {
 	if err := writer.waitForRoom(); err != nil {
 		return err
 	}
-	if err := writer.channel.SendText(EndMessage); err != nil {
+	end, err := json.Marshal(End{IsEnd: true})
+	if err == nil {
+		err = writer.channel.SendText(string(end))
+	}
+	if err != nil {
 		writer.failed = fmt.Errorf("end the response: %w", err)
 		return writer.failed
 	}
-	writer.watch.sent(len(EndMessage))
+	writer.watch.sent(len(end))
 	return nil
 }
 
@@ -197,7 +201,7 @@ func (writer *channelWriter) waitForRoom() error {
 }
 
 // finish sends the head if nothing was written, and the message that ends the response, empty or
-// EndMessage as its client asked (EndHeader): the
+// an End as its client asked (EndHeader): the
 // watch is told the response is whole as the end is handed to SCTP, before the client can close the
 // channel on it, and told again should that fail.
 func (writer *channelWriter) finish() error {

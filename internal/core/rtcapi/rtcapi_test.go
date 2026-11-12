@@ -4,6 +4,7 @@ package rtcapi_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -75,7 +76,7 @@ func TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole(t *testin
 // A Chromecast's Chrome 90 neither sends nor receives an empty message on a data channel, and its
 // guest receiver's request waited 30 s for the end it had sent and was cut off (the owner, production,
 // 2026-11-12; idiosyncrasies.md): a request declaring its length is whole at its last byte, and a
-// response its client asked to end in text ends in rtcapi.EndMessage.
+// response its client asked to end in text ends in an rtcapi.End, `{"end":true}` as the SDK reads it.
 func TestChannel_ARequestFromChrome90IsAnsweredWithoutAnEmptyMessageEitherWay(t *testing.T) {
 	t.Parallel()
 	link := rtcapitest.Connect(t, newServer(t).Answer)
@@ -88,6 +89,9 @@ func TestChannel_ARequestFromChrome90IsAnsweredWithoutAnEmptyMessageEitherWay(t 
 	asked := link.DoAsChrome90(rtcapi.RequestHead{Method: http.MethodGet, Path: "/api/v1/things"}, nil)
 	if !strings.HasPrefix(string(asked.Body), "GET|/api/v1/things||") {
 		t.Errorf("a request with no body was answered %d %q", asked.Head.Status, asked.Body)
+	}
+	if end, err := json.Marshal(rtcapi.End{IsEnd: true}); err != nil || string(end) != `{"end":true}` {
+		t.Errorf("an End is written %s (%v), not the text the SDK's endMessage is", end, err)
 	}
 	big := link.DoAsChrome90(rtcapi.RequestHead{Method: http.MethodGet, Path: "/big"}, nil)
 	if len(big.Body) != 5<<20 {

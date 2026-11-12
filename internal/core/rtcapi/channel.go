@@ -58,12 +58,16 @@ type Credit struct {
 // message nor takes one it is sent (idiosyncrasies.md), so a client may end its request and have its
 // response ended without one: its head declares its body's length in Content-Length, 0 for none, and
 // the request is whole once that many bytes have come; and a head naming EndHeader with EndInText has
-// its response ended by EndMessage, a text message, instead of an empty one.
+// its response ended by an End, a text message, instead of an empty one.
 const (
-	EndHeader  = "X-Orpheum-End"
-	EndInText  = "text"
-	EndMessage = `{"end":true}`
+	EndHeader = "X-Orpheum-End"
+	EndInText = "text"
 )
+
+// End is the text message that ends a response whose request asked for it (EndHeader): {"end": true}.
+type End struct {
+	IsEnd bool `json:"end"`
+}
 
 // ResponseHead is a response's first message on its channel.
 type ResponseHead struct {
@@ -167,7 +171,7 @@ type requestReader struct {
 	conn      *MessageConn
 	isUpgrade bool
 	// declared is the body's length its head declared, or -1 where it declared none, and endsInText
-	// whether its head asked for its response to end in EndMessage (EndHeader).
+	// whether its head asked for its response to end in an End (EndHeader).
 	declared   int
 	endsInText bool
 	mutex      sync.Mutex
