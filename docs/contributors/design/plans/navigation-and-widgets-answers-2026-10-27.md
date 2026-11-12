@@ -3103,6 +3103,10 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    the loader's origin reaches the core over WebRTC only**, at home too; the core's `crossOrigin`
    is unchanged. Owed with it: whether a Chromecast and a core behind each kind of router open the
    link without a relay. Built after the 11-22 batch, with 3(e).
+   **3(e) built (2026-11-12, "fix(cast-receiver): a Chromecast plays the film a cast hands it"):**
+   the receiver plays each handed film itself (where the sender stood, else where the person left
+   it), puts it on the session it leads, follows the session only once the group is on it, puts on
+   a new film handed under the same cast, and stops the lab's own film first. VQ287 shows it.
 
 4. **A heavy stretch plays at full quality wherever it fits, and steps down only for the chunks that
    do not** (the owner, 2026-11-11, on VQ294's run: "how can we handle a situation where a heavy

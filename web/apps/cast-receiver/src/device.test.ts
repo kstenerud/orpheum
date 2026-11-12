@@ -4,10 +4,13 @@ import { createApi, type GroupView } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  groupToFollow,
+  handedWhat,
   keepSession,
   keptSessionOf,
   pairThisDevice,
   pairingPollEveryMs,
+  putOnCommands,
   seekPastMs,
   stepsToFollow,
   type StringStorage,
@@ -159,6 +162,39 @@ describe("a Chromecast following its cast's session (D434)", () => {
     expect(stepsToFollow(groupOf({ fileId: 0 }), 0, playing)).toEqual([{ step: "stop" }]);
     expect(stepsToFollow(groupOf({ fileId: 0 }), 0, stopped)).toEqual([]);
     expect(stepsToFollow(undefined, undefined, playing)).toEqual([]);
+  });
+});
+
+describe("a Chromecast taking a cast, which it leads (D337: the group has no film until it plays one)", () => {
+  const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
+
+  it("puts the handed film on its session at where it started it, paused where the sender was", () => {
+    expect(putOnCommands(1504, 185_000, false)).toEqual([
+      { command: "changeItem", fileId: 1504, positionMs: 185_000 },
+    ]);
+    expect(putOnCommands(1504, 185_000, true)).toEqual([
+      { command: "changeItem", fileId: 1504, positionMs: 185_000 },
+      { command: "pause" },
+    ]);
+  });
+
+  it("does not stop its film while the session is not yet on it, and follows it once it is", () => {
+    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 0 }), 7), 0, playing)).toEqual([]);
+    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 9 }), 7), 0, playing)).toEqual([]);
+    const paused = groupToFollow(groupOf({ state: "paused" }), 7);
+    expect(stepsToFollow(paused, 30_000, playing)).toEqual([{ step: "pause" }]);
+    // Handed nothing, ready for the next: the group's stop is followed.
+    expect(stepsToFollow(groupToFollow(groupOf({ fileId: 0 }), 0), 0, playing)).toEqual([
+      { step: "stop" },
+    ]);
+  });
+
+  it("takes a new cast, puts on another film handed under the same cast, and ignores the same again", () => {
+    expect(handedWhat({ castId: 3, fileId: 7 }, undefined, 0)).toBe("take");
+    expect(handedWhat({ castId: 4, fileId: 7 }, 3, 7)).toBe("take");
+    expect(handedWhat({ castId: 3, fileId: 8 }, 3, 7)).toBe("putOn");
+    expect(handedWhat({ castId: 3, fileId: 0 }, 3, 7)).toBe("putOn");
+    expect(handedWhat({ castId: 3, fileId: 7 }, 3, 7)).toBe("same");
   });
 });
 
