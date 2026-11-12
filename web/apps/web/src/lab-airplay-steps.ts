@@ -9,6 +9,7 @@
 import type { Api } from "@orpheum/sdk";
 import { failureText } from "@orpheum/sdk";
 
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow } from "./problem.ts";
 
 /** A line for the page's log. */
@@ -49,7 +50,13 @@ export async function makeAirPlayGrant(
   origin: string,
 ): Promise<AirPlayGrant> {
   doing.log("asking for the grant (POST /lab/airplay/grants)");
-  const made = dataOrThrow(await doing.api.POST("/lab/airplay/grants", { body: { mediaToken } }));
+  // Each ask is one click's (a way's button, or the menu opening for way B), under its own key (D244 §4).
+  const made = dataOrThrow(
+    await doing.api.POST("/lab/airplay/grants", {
+      body: { mediaToken },
+      ...idempotent(newIdempotencyKey()),
+    }),
+  );
   const grant = { url: new URL(made.masterPath, origin).href, expiresAt: made.expiresAt };
   doing.log(`grant fetched: ${grant.url}, until ${grant.expiresAt}`);
   return grant;
