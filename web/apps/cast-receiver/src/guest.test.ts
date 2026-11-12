@@ -29,6 +29,14 @@ function receiveText(castId: number): string {
   });
 }
 
+/** The core's welcome on the live connection: the person's devices connected, the guest's among them. */
+const welcomeText = JSON.stringify({
+  type: "devices",
+  deviceIds: [2, 9],
+  inFrontDeviceIds: [2],
+  receivingDeviceIds: [9],
+});
+
 /** A video element that plays nothing. */
 const video = {
   addEventListener: () => undefined,
@@ -106,7 +114,8 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         onTaken: () => undefined,
       },
     );
-    expect(answers).toEqual([{ type: "ready", deviceId: 9 }]);
+    // Not ready at the trade: a cast to it is refused until the core has welcomed its connection.
+    expect(answers).toEqual([]);
     expect(asked).toEqual(['POST /api/v1/guest-receivers signed out {"grant":"a guest grant"}']);
     // Its later offers are proven by the session the trade gave it.
     expect(traded?.()).toEqual({
@@ -116,6 +125,11 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
     });
     const [live] = sockets;
     live?.onOpen();
+    expect(answers).toEqual([]);
+    live?.onMessage(welcomeText);
+    expect(answers).toEqual([{ type: "ready", deviceId: 9 }]);
+    live?.onMessage(welcomeText);
+    expect(answers).toHaveLength(1);
     live?.onMessage(receiveText(1));
     await vi.waitFor(() => {
       expect(asked).toContain("POST /api/v1/me/casts/1/accept Bearer the-guests-token ");
@@ -126,6 +140,37 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
     expect(isClosed).toBe(true);
     expect(asked.some((each) => each.includes("/pairings"))).toBe(false);
     expect([...storage.keys()]).toEqual([]);
+  });
+
+  it("answers that it failed where the core refuses its live connection before welcoming it", async () => {
+    const sockets: Parameters<OpenTogetherSocket>[0][] = [];
+    const answers: GuestAnswer[] = [];
+    let isClosed = false;
+    await castAsGuest(
+      { grant: "a guest grant", reach },
+      {
+        reach: () =>
+          Promise.resolve({
+            fetch: guestCore([]),
+            openSocket: (listeners) => {
+              sockets.push(listeners);
+              return { send: () => undefined, close: () => undefined };
+            },
+            close: () => {
+              isClosed = true;
+            },
+          }),
+        video,
+        note: () => undefined,
+        answer: (answer) => answers.push(answer),
+        onTaken: () => undefined,
+      },
+    );
+    sockets[0]?.onOpen();
+    sockets[0]?.onMessage(JSON.stringify({ type: "signedOut" }));
+    expect(answers).toHaveLength(1);
+    expect(answers[0]?.type).toBe("failed");
+    expect(isClosed).toBe(true);
   });
 
   it("answers why where the trade is refused, and closes its way to the core", async () => {
