@@ -19,6 +19,7 @@ import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import {
   noRoomToMakeStatus,
   tooEarlyStatus,
+  goneStatus,
   unreachableStatus,
   type PlaybackFailed,
 } from "./failure.ts";
@@ -185,7 +186,7 @@ export const paceHeader = "Orpheum-Pace-Kbps";
 
 /**
  * Whether a chunk's load is tried again: as hls.js would, and after the core's 425 too; never after
- * its 429 or 503, which asking again does not change.
+ * its 404, 429 or 503, which asking again does not change.
  */
 // eslint-disable-next-line max-params -- hls.js's own signature for shouldRetry
 function retriesTooEarly(
@@ -202,6 +203,9 @@ function retriesTooEarly(
     // Its film cannot be read now: the page says why and plays again once it can, where ninety asks
     // again spun the player for minutes, saying nothing (the owner's test, 2026-10-21).
     return false;
+  }
+  if (response?.code === goneStatus) {
+    return false; // the core no longer has the playback: the page opens it again (goneStatus)
   }
   return isRetry || response?.code === tooEarlyStatus;
 }

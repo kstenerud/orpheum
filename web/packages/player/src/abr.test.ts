@@ -723,9 +723,31 @@ describe("a chunk whose film cannot be read now (the owner's test, 2026-10-21)",
       fatal: false,
       response: { code, text: "" },
     });
-    onError?.(Events.ERROR, loadFailed(404));
+    onError?.(Events.ERROR, loadFailed(500));
     expect([failures, stops]).toEqual([[], 0]);
     onError?.(Events.ERROR, loadFailed(503));
+    expect([failures, stops]).toEqual([["network"], 1]);
+  });
+
+  it("fails the playback at once and stops its loading at a 404, the playback gone, before hls.js tries another quality (staging, 2026-11-12)", () => {
+    let onError: ((event: unknown, data: unknown) => void) | undefined;
+    let stops = 0;
+    const hls = {
+      on: (event: Events, listener: (event: unknown, data: unknown) => void) => {
+        if (event === Events.ERROR) {
+          onError = listener;
+        }
+      },
+      stopLoad: () => (stops += 1),
+    } as unknown as Parameters<typeof failOnFatal>[0];
+    const failures: string[] = [];
+    failOnFatal(hls, (failure) => failures.push(failure));
+    onError?.(Events.ERROR, {
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: false,
+      response: { code: 404, text: "" },
+    });
     expect([failures, stops]).toEqual([["network"], 1]);
   });
 });

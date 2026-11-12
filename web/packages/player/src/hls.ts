@@ -20,7 +20,7 @@ import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import { failureText } from "./diagnosis.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { stepOverHoles } from "./holes.ts";
-import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
+import { goneStatus, hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
 import { linkNoter } from "./link-estimate.ts";
 
@@ -460,7 +460,8 @@ export interface LoadingHls {
 /**
  * Tells onFailed why, when hls.js says the playback cannot go on, unless the player recovers from
  * it by itself (isRecovered: a hole given up, or loading asked again after a load that failed), or
- * when the core says its film cannot be read now (a 503), which hls.js holds no failure: a sound
+ * when the core says its film cannot be read now (a 503) or it no longer has the playback (a 404,
+ * goneStatus), which hls.js holds no failure until it has tried the other qualities: a sound
  * chunk's 503 it only loaded again every two seconds, the player spinning and saying nothing (the
  * owner's test, 2026-10-21). With the code goes what failed, for the core's log alone (failureText,
  * what carried it read by carrierOf where given).
@@ -471,8 +472,10 @@ export function failOnFatal(
   carrierOf?: (url: string) => string,
 ): void {
   hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.response?.code === unreachableStatus) {
-      // Loading again finds it no more readable: the page plays it anew once it can be read.
+    const code = data.response?.code;
+    if (code === unreachableStatus || code === goneStatus) {
+      // Loading again finds it no more readable, or no more there: the page plays it anew once it
+      // can be read, or opens the playback again where it was.
       hls.stopLoad();
       onFailed(hlsErrorFailure(data), failureText(data, carrierOf));
     } else if (data.fatal && !isRecovered(data)) {
