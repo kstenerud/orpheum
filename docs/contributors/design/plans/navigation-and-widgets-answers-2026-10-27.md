@@ -3360,6 +3360,19 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
     the owner's to choose.
 - **10.** Confirm the two Firefox focus flakes are covered by "each browser test's frame takes back
   the focus a new Firefox page takes"; confirming, not new work.
+  - **Confirmed (2026-11-12), by reading:** the two flakes are the ones the entry "Firefox's
+    browser tests flake under the full run" (earlier in this file) names: `player-widgets.browser.test.tsx`,
+    "draws the focused scrub bar with no ring..." (`scrub.matches(":focus-visible")` false), and
+    `input-walk.browser.test.tsx`, "keeps the focused film in view..." (its focused tile read as not
+    shown). Both are browser-mode files in `vitest.browser.config.ts`'s `include`, so the fix's setup
+    file (`e2e/frame-focus-setup.ts`, calling `window.focus()` on the frame's own blur) runs in each
+    of their frames, and the cause the fix names is what both failures show: a new Firefox page,
+    opened as Chromium's files end, takes the focus from the frame, so `:focus-visible` stops
+    matching though `document.activeElement` still names the element. `e2e/frame-focus.browser.test.ts`
+    opens a page beside a kept frame and fails in Firefox without the fix. One targeted run of these
+    three files in Firefox alone passed (27 tests). It does not reproduce the flake, which needs
+    Chromium's files ending beside Firefox's; only the gate's full runs over the next batch show
+    that, and a Firefox failure there is then a third cause.
 - **11.** `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (discovery), timed out once under
   load.
   - **Done already (found 2026-11-12):** the fake discovery set its ending only after the handshake,
@@ -3415,6 +3428,19 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 
 - **3.** The lab says "is a cast target" before the core has taken the TV's sign-in, and a refusal
   is never told to the page.
+  - **Built (2026-11-12):** the lab's receiver sends its `device` message with `isReady: true` once
+    the core has welcomed its live connection (`CastDevice`'s `onConnected`, as the guest receiver
+    already did), no longer as it starts connecting. A refusal, of the live sign-in (the close frame's
+    reason now reaches `LiveSnapshot.refusalReason`, over a WebSocket and over WebRTC) or of the
+    reaching or pairing before it, goes to the page as `isReady: false` with a `refusal`; the page
+    (`lab-cast-target.tsx`) shows it, logs it, and a refusal after readiness takes the target back.
+    The words chosen, plain status text (`locales/en-lab.ts`): "Waiting for the core to take the
+    Chromecast's sign-in.", and "{name} is not a cast target: {reason}. Press Make it a cast target
+    to try again." The button is the offer to pair afresh: a refused sign-in is forgotten by the
+    receiver (as before), so the next ask pairs. Tests: `lab-cast-target.test.tsx`,
+    `apps/cast-receiver/src/lab.test.ts`, `live-connection.test.ts`, `rtc-together.test.ts`. The
+    core's close reason for a sign-in it does not take is only "sign in first"; the core is
+    unchanged. Only a device shows the whole.
 - **13.** The release record's expiry reminder: already in, "ci: a daily run fails from a week
   before the release record expires" (2026-11-11).
 
