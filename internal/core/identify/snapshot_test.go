@@ -150,7 +150,7 @@ func tmdbSeriesScenario() []func(lib *testLibrary) {
 		func(lib *testLibrary) {
 			found := []identify.Candidate{lib.provider.Add(orbitorama)}
 			lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = found
-			lib.provider.Seasons["615/2"] = []identify.Episode{
+			lib.provider.Seasons["7615/2"] = []identify.Episode{
 				{ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Year: 2000},
 				{ID: "1102", Season: 2, Number: 11, Name: "How Hermes Requisitioned His Groove Back", Year: 2000},
 			}
@@ -164,7 +164,7 @@ func tmdbSeriesScenario() []func(lib *testLibrary) {
 		},
 		func(lib *testLibrary) { lib.scanAll(episodes...) },
 		func(lib *testLibrary) {
-			lib.provider.Seasons["615/2"] = append(lib.provider.Seasons["615/2"],
+			lib.provider.Seasons["7615/2"] = append(lib.provider.Seasons["7615/2"],
 				identify.Episode{ID: "1103", Season: 2, Number: 12, Name: "Raging Bender", Year: 2000})
 			lib.scanAll(append(slices.Clone(episodes), "Orbitorama/Season 02/Orbitorama - S02E12.mkv")...)
 			if _, err := lib.matcher.Match(lib.t.Context(), lib.onlySeries().ID); err != nil {

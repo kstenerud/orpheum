@@ -19,7 +19,7 @@ import (
 )
 
 var orbitorama = identify.Metadata{
-	ID: "7615", Name: "Orbitorama", Year: 1999, Overview: "A delivery boy, a thousand years on.",
+	ID: "7615", Name: "Orbitorama", Year: 2003, Overview: "A courier, far from home.",
 	IDs: map[string]string{"tvdb": "78871"},
 }
 
@@ -28,14 +28,16 @@ func orbitoramaLibrary(t *testing.T) *testLibrary {
 	t.Helper()
 	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{lib.provider.Add(orbitorama)}
-	lib.provider.Seasons["615/2"] = []identify.Episode{{
-		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
+	lib.provider.Seasons["7615/2"] = []identify.Episode{{
+		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "A courier meets a copy of himself.",
 		Year: 2000, RuntimeMs: 22 * 60_000,
 	}}
 	return lib
 }
 
-var orbitoramaFiles = []string{"Orbitorama/Season 02/Orbitorama - S02E10.mkv", "Orbitorama/Season 02/Orbitorama - S02E11.mkv"}
+var orbitoramaFiles = []string{
+	"Orbitorama/Season 02/Orbitorama - S02E10.mkv", "Orbitorama/Season 02/Orbitorama - S02E11.mkv",
+}
 
 func (lib *testLibrary) scanAll(rels ...string) identify.Report {
 	lib.t.Helper()
@@ -77,7 +79,7 @@ func TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing(t *testing.T)
 		t.Fatalf("Match(series) = %s, %v", outcome, err)
 	}
 	lib.runOwedPasses()
-	if want := []string{"search Orbitorama|0", "fetch 615", "season 615/2"}; !slices.Equal(lib.provider.Calls, want) {
+	if want := []string{"search Orbitorama|0", "fetch 7615", "season 7615/2"}; !slices.Equal(lib.provider.Calls, want) {
 		t.Errorf("calls %v, want %v: one listing for the season, not one call an episode", lib.provider.Calls, want)
 	}
 	checkOrbitorama(t, lib, "after the match")
@@ -113,7 +115,7 @@ func checkOrbitorama(t *testing.T, lib *testLibrary, when string) {
 		ptr.ValueOrZero(series.IdentificationState),
 		ptr.ValueOrZero(series.FollowedSource), ptr.ValueOrZero(series.FollowedSourceID),
 	}
-	want := []string{"Orbitorama", "1999", identify.IdentificationIdentified, identify.SourceTMDB, "7615"}
+	want := []string{"Orbitorama", "2003", identify.IdentificationIdentified, identify.SourceTMDB, "7615"}
 	if !slices.Equal(got, want) {
 		t.Errorf("%s: series name, year, ident, source and id = %v, want %v", when, got, want)
 	}
@@ -128,7 +130,7 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	lib.clock.Advance(7 * 24 * time.Hour)
-	lib.provider.Seasons["615/2"] = append(lib.provider.Seasons["615/2"],
+	lib.provider.Seasons["7615/2"] = append(lib.provider.Seasons["7615/2"],
 		identify.Episode{ID: "1103", Season: 2, Number: 12, Name: "Raging Bender", Year: 2000})
 	const newest = "Orbitorama/Season 02/Orbitorama - S02E12.mkv"
 	report := lib.scanAll(append(slices.Clone(orbitoramaFiles), newest)...)
@@ -201,7 +203,7 @@ func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	lib.scan(videoRecord("The Ledger Room (2005)/Season 1/S01E01.mkv"),
 		videoRecord("Orbitorama/Season 1/S01E01.mkv"),
 		nfoRecord("Orbitorama/tvshow.nfo", "<tvshow><title>Orbitorama</title><tvdbid>78871</tvdbid></tvshow>"))
-	lib.provider.TMDBIDsByOtherID["78871"] = "615" // the fake's Find serves every source from one table
+	lib.provider.TMDBIDsByOtherID["78871"] = "7615" // the fake's Find serves every source from one table
 	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
 	if err != nil || len(series) != 2 {
 		t.Fatalf("series %+v, %v", series, err)
@@ -241,12 +243,12 @@ func TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{
-		lib.provider.Add(identify.Metadata{ID: "7615", Name: "Orbitorama", Year: 1999}),
+		lib.provider.Add(identify.Metadata{ID: "7615", Name: "Orbitorama", Year: 2003}),
 	}
 	lib.provider.Searches[identifytest.SearchKey("Fennimore", 0)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "1400", Name: "Fennimore", Year: 1989}),
 	}
-	lib.provider.Seasons["615/1"] = []identify.Episode{{ID: "1", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
+	lib.provider.Seasons["7615/1"] = []identify.Episode{{ID: "1", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
 	lib.provider.Seasons["1400/1"] = []identify.Episode{{ID: "2", Season: 1, Number: 1, Name: "Good News, Bad News"}}
 	lib.scanAll("Orbitorama/Season 1/S01E01.mkv", "Fennimore/Season 1/S01E01.mkv")
 	passes, wakes := 0, 0
@@ -295,9 +297,9 @@ func placedByNameLibrary(t *testing.T) *testLibrary {
 	listed := orbitorama
 	listed.SeasonNumbers = []int{0, 1, 2}
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{lib.provider.Add(listed)}
-	lib.provider.Seasons["615/1"] = []identify.Episode{{ID: "1001", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
-	lib.provider.Seasons["615/2"] = []identify.Episode{{ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own"}}
-	lib.provider.Seasons["615/0"] = []identify.Episode{}
+	lib.provider.Seasons["7615/1"] = []identify.Episode{{ID: "1001", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
+	lib.provider.Seasons["7615/2"] = []identify.Episode{{ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own"}}
+	lib.provider.Seasons["7615/0"] = []identify.Episode{}
 	lib.scanAll(placedByNameNumbered, placedByNameUnplaced, placedByNameBonus)
 	series := lib.onlySeries()
 	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeMatched {
@@ -315,7 +317,7 @@ func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing
 	t.Parallel()
 	lib := placedByNameLibrary(t)
 	numbered, unplaced, bonus := placedByNameNumbered, placedByNameUnplaced, placedByNameBonus
-	if !slices.Contains(lib.provider.Calls, "season 615/1") {
+	if !slices.Contains(lib.provider.Calls, "season 7615/1") {
 		t.Errorf("calls %v; want season 1 fetched, which no numbered episode is in", lib.provider.Calls)
 	}
 	titles := lib.titlesByPath()

@@ -144,13 +144,13 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	if _, err := lib.matcher.Match(t.Context(), series.ID); err != nil {
 		t.Fatal(err)
 	}
-	lib.provider.Seasons["615/2"][0].Name = "A Comet of My Own (renamed)"
+	lib.provider.Seasons["7615/2"][0].Name = "A Comet of My Own (renamed)"
 	calls := len(lib.provider.Calls)
 	lib.clock.Advance(time.Hour)
 	// An episode's refresh is its series'.
 	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].WorkID)
 	lib.runOwedPasses()
-	if got, want := lib.provider.Calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
+	if got, want := lib.provider.Calls[calls:], []string{"fetch 7615", "season 7615/2"}; !slices.Equal(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
 	}
 	if clone := lib.titlesByPath()[orbitoramaFiles[0]]; titleName(clone) != "A Comet of My Own (renamed)" {
