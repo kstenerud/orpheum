@@ -22969,6 +22969,8 @@ its notes (`cast-receiver.tsx`), the film's name in the receive message and the 
 `unanswered` ends (`internal/core/live`, `internal/core/api/casts.go`), and the notes' log lines
 (`internal/core/together`). Device checks: VQ76.
 
+> **Revised by [D468](#d468--a-cast-to-ones-own-device-asks-nothing-there-a-browser-receiver-with-no-press-yet-waits-for-one-press-to-start)** (2026-11-12): no question on the receiver; a page never pressed since it loaded waits for one press, "Press OK to start".
+
 ## D359 — A library's folder is any folder beneath one of its node's configured roots, chosen by browsing the node's folders
 
 **Decided** (2026-10-27), by the project owner: "The admin should be able to choose any subdir of any
@@ -23491,6 +23493,8 @@ Resolved in the build, where the decision left it open (say if any should go oth
   control back as it opened.
 - **A film's end with Up next shown and autoplay off** stays on the offer, as before, rather than
   going to the ready page; the next Play on the sender goes to it all the same.
+
+> **Revised by [D468](#d468--a-cast-to-ones-own-device-asks-nothing-there-a-browser-receiver-with-no-press-yet-waits-for-one-press-to-start)** (2026-11-12): no question on the receiver; a page never pressed since it loaded waits for one press, "Press OK to start".
 
 ## D365 — Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
 
@@ -27903,3 +27907,28 @@ only then"*), under which a receiver served there went over WebRTC even at home.
    the core answers its API to the receiver's page. A core before this decision answers that page
    its health alone, so the receiver asks once more, for the API, and goes over WebRTC where the
    browser refuses the answer.
+
+## D468 — A cast to one's own device asks nothing there; a browser receiver with no press yet waits for one press to start
+
+**Decided** (2026-11-12), by the owner: *"Chromecast doesn't require any kind of confirmation on the
+cast-to device, so we should also not confirm on the cast-to device. We're actually more secure even
+if we do this, because we can only orpheum-cast to devices logged in as the same user."* Then, asked
+what a browser receiver does with no press since its page loaded, the owner chose that it waits for
+one press. **Amends** [D358](#d358--a-cast-asks-the-receiving-device-first-device-wants-to-play-film-here-whose-play-is-the-press-that-starts-it-with-sound-and-full-screen)
+§1, §3 and §4 and [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)
+§2: the receiver's question, its Not now and its minute are gone. D358 asked for the browser's
+activation, not for safety: a browser plays sound only on a page that has been pressed, and goes full
+screen only within moments of a press
+([idiosyncrasies](../idiosyncrasies.md#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen)).
+
+1. **A cast starts on the receiver at once,** with no question and nothing to decline, where its page
+   has been pressed since it loaded: it plays with sound.
+2. **A receiver page never pressed since it loaded waits for one press,** the film held at its first
+   frame under "Press OK to start", with no Not now and no time limit. That press is D358 §2's: it
+   asks for full screen and plays with sound, so nothing of the film's start is missed.
+3. **The sender hands its playback off as the receiver takes the cast,** not at an answer.
+4. D358 §5 stands: a sound the browser still refuses is turned on by any key.
+5. Our Chromecast receiver is not a browser page in this sense: CAF's page plays with sound and fills
+   the screen, and was never asked.
+
+**Status:** Decided 2026-11-12; not built yet (the 11-24 batch).
