@@ -28,6 +28,12 @@ its output names (Go's, vitest's, the gate scripts') now has just those run agai
 reverted, a few seconds: they must pass for it to count. That catches a broken environment too,
 A45's, since those tests then fail as well. Only a red whose tests cannot be named (a build that
 fails, a compile, the browser tier, output it cannot read) still takes the run once per kind above.
+
+**A build red, by a clean build** (the owner's 11-24 batch, item 4, 2026-11-12): a Go package that
+fails to compile with a file reverted names no test, so the clean run was the whole package's tests,
+155 s for the core's API at the release's check-pr, on the run's busiest tree, to learn only that the
+clean tree compiles. Such a red is now settled by compiling the clean tree's test binaries and running
+none (`clean_run`), its own kind, "<kind>, compiled": seconds.
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from revert_red_commands import compiled
 from revert_red_timings import kind_of
 
 _CLEAN: dict[tuple[str, str], bool] = {}
@@ -129,6 +136,15 @@ def clean_failure(tree: str, kind: str) -> str:
     """The end of what the clean run of kind in tree printed when it failed, or "" when it passed."""
     with _LOCK:
         return _FAILED_OUTPUT.get((tree, kind), "")
+
+
+def clean_run(command: list[str], kind: str, build_failed: bool) -> tuple[list[str], str]:
+    """The run, and its kind, that a red whose failed tests cannot be named must pass with nothing
+    reverted: for a Go build that failed, the same packages' test binaries built and none run; else
+    the probe's own run."""
+    if build_failed and (built := compiled(command)) is not None:
+        return built, f"{kind}, compiled"
+    return command, kind
 
 
 def failed_pass_clean(failed: list, run: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> tuple[bool | None, str]:

@@ -105,7 +105,7 @@ from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach o
 from revert_red_stylesheets import own_browser_mode_reds, settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
-from revert_red_clean import clean_failure, failed_pass_clean, probe_kind, runs_clean
+from revert_red_clean import clean_failure, clean_run, failed_pass_clean, probe_kind, runs_clean
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope, direct_then_types
 from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
@@ -404,9 +404,11 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             if again is False:
                 return Outcome(change.path, "PROBE_BROKEN", f"the tests that failed{attempt.label} fail here with "
                                f"nothing reverted too, so its red says nothing; with nothing reverted:\n{said}")
-            clean = functools.partial(run_whole_group, attempt.command, tree, timeout, env)
-            if again is None and not runs_clean(tree, kind, lambda: timed(TIMINGS, change.path, f"{kind}, nothing reverted", None, clean), head):
-                failed = clean_failure(tree, kind)
+            confirm, confirm_kind = clean_run(attempt.command, kind, is_build_failure(combined))
+            clean = functools.partial(run_whole_group, confirm, tree, timeout, env)
+            if again is None and not runs_clean(tree, confirm_kind, lambda: timed(
+                    TIMINGS, change.path, f"{confirm_kind}, nothing reverted", None, clean), head):
+                failed = clean_failure(tree, confirm_kind)
                 return Outcome(change.path, "PROBE_BROKEN", f"its probe{attempt.label} fails here with nothing "
                                "reverted too, so its red says nothing" + (f"; with nothing reverted:\n{failed}" if failed else ""))
             if attempt.compile_only or is_build_failure(combined):

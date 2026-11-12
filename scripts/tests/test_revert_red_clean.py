@@ -110,5 +110,40 @@ class FailedAgain(unittest.TestCase):
         self.assertEqual(clean.failed_pass_clean([], mock.Mock()), (None, ""))
 
 
+
+class BuildRedSettledByABuild(unittest.TestCase):
+    """A Go build red is settled by compiling the clean tree, not by its whole package's tests (the
+    owner's 11-24 batch, item 4: 155 s for the core's API at the release's check-pr)."""
+
+    PROBE = ["go", "test", "-failfast", "./internal/core/api/..."]
+
+    def test_a_go_build_red_is_settled_by_building_its_test_binaries_alone(self):
+        self.assertEqual(clean.clean_run(self.PROBE, "go test, package", build_failed=True),
+                         (["go", "test", "-exec", "true", "-failfast", "./internal/core/api/..."],
+                          "go test, package, compiled"))
+
+    def test_a_red_that_ran_its_tests_or_is_not_go_takes_the_probes_own_run(self):
+        self.assertEqual(clean.clean_run(self.PROBE, "go test, package", build_failed=False),
+                         (self.PROBE, "go test, package"))
+        typecheck = ["npm", "--prefix", "web", "run", "typecheck"]
+        self.assertEqual(clean.clean_run(typecheck, "web type check", build_failed=True),
+                         (typecheck, "web type check"))
+
+    def test_the_build_compiles_the_tests_and_runs_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "go.mod").write_text("module example.com/x\n\ngo 1.21\n")
+            (root / "x.go").write_text("package x\n")
+            (root / "x_test.go").write_text('package x\n\nimport "testing"\n\n'
+                                           'func TestFails(t *testing.T) { t.Fatal("ran") }\n')
+            built = clean.clean_run(["go", "test", "-failfast", "./..."], "go test, package", True)[0]
+            env = {**os.environ, "GOFLAGS": "", "GOWORK": "off"}
+            done = subprocess.run(built, cwd=root, capture_output=True, text=True, env=env, check=False)
+            self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+            (root / "x_test.go").write_text("package x\n\nfunc broken( {\n")
+            done = subprocess.run(built, cwd=root, capture_output=True, text=True, env=env, check=False)
+            self.assertNotEqual(done.returncode, 0, "a test file that fails to compile fails the build")
+
+
 if __name__ == "__main__":
     unittest.main()
