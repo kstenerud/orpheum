@@ -37,8 +37,11 @@ the TV when the person chooses AirPlay; without one, remote playback stays off.
    home, only the core's public address; a core reached only through Connect's relay cannot AirPlay.
 3. **A grant that lasts the film** (casting-review §3):
    - one item, all its renditions, since the TV's player picks the rendition itself;
-   - valid for the film's length and a margin, and revoked by the server when the sender's playback
-     ends or the person presses Stop;
+   - valid for much longer than the film, since the person may pause it (the owner, 2026-11-12:
+     *"We'd need the lease to last much longer than the movie, because they could pause it. I don't
+     believe the threat model is very big here. At best someone could sniff the URL and play the
+     movie on another device."*), and revoked by the server when the person presses Stop; its length
+     is the owner's to set;
    - in the path (`/g/<grant>/master.m3u8`), not the query string;
    - bound to the sender's member and session, listed in their devices while live, with a Revoke.
 
