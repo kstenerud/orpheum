@@ -11,6 +11,16 @@ const closedAbnormally = 1006;
 const refusedUpgrade = 1011;
 
 /**
+ * The request that asks to become a WebSocket. Declaring no body, it is whole at its head where its
+ * empty end never leaves the browser, as Chrome before 92's (rtc-request.ts).
+ */
+const upgradeHead = {
+  method: "GET",
+  path: `${apiPrefix}/socket`,
+  headers: { upgrade: ["websocket"], "content-length": ["0"] },
+};
+
+/**
  * The session WebSocket over a WebRTC data channel (D273 §8, plans/webrtc-transport.md W3): a request
  * asking to become a WebSocket, then each text message either way one message, and the core's binary
  * message its close (rtcapi.CloseMessage). openChannel opens the channel: RtcTransport.openChannel.
@@ -25,29 +35,23 @@ export function rtcTogetherSocket(openChannel: () => ChannelLike): OpenTogetherS
     }
     let isOpen = false;
     let isClosed = false;
-    const closeWith = (code: number): void => {
+    const closeWith = (code: number, reason?: string): void => {
       if (isClosed) {
         return;
       }
       isClosed = true;
-      listeners.onClose(code);
+      listeners.onClose(code, reason);
       channel.close();
-    };
-    const head = {
-      method: "GET",
-      path: `${apiPrefix}/socket`,
-      // Declaring no body, the request is whole at its head where its empty end never leaves the
-      // browser, as Chrome before 92's (rtc-request.ts).
-      headers: { upgrade: ["websocket"], "content-length": ["0"] },
     };
     channel.listen({
       open: () => {
-        channel.send(JSON.stringify(head));
+        channel.send(JSON.stringify(upgradeHead));
         channel.send(new ArrayBuffer(0));
       },
       message: (data) => {
         if (typeof data !== "string") {
-          closeWith(closeCodeOf(data));
+          const close = closeOf(data);
+          closeWith(close.code, close.reason);
         } else if (isOpen) {
           listeners.onMessage(data);
         } else if (statusOf(data) === 101) {
@@ -116,17 +120,18 @@ function statusOf(text: string): number | undefined {
   }
 }
 
-/** The close code the core's close message names, else that of an abnormal close. */
-function closeCodeOf(data: ArrayBuffer): number {
+/** The close code and reason the core's close message names, else those of an abnormal close. */
+function closeOf(data: ArrayBuffer): { readonly code: number; readonly reason?: string } {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(data));
-    return typeof parsed === "object" &&
-      parsed !== null &&
-      "close" in parsed &&
-      typeof parsed.close === "number"
-      ? parsed.close
-      : closedAbnormally;
+    if (typeof parsed !== "object" || parsed === null || !("close" in parsed)) {
+      return { code: closedAbnormally };
+    }
+    const code = typeof parsed.close === "number" ? parsed.close : closedAbnormally;
+    return "reason" in parsed && typeof parsed.reason === "string"
+      ? { code, reason: parsed.reason }
+      : { code };
   } catch {
-    return closedAbnormally;
+    return { code: closedAbnormally };
   }
 }

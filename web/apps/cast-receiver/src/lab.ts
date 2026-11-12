@@ -4,6 +4,7 @@ import { playChunked, watchStalls, type ChunkedPlayback } from "@orpheum/player"
 import {
   browserDeviceFacts,
   createApi,
+  type Api,
   deviceReportFrom,
   failureText,
   testLoopback,
@@ -12,7 +13,14 @@ import {
   type LoopbackResult,
 } from "@orpheum/sdk";
 
-import { CastDevice, keepSession, keptSessionOf, pairThisDevice } from "./device.ts";
+import {
+  CastDevice,
+  keepSession,
+  keptSessionOf,
+  pairThisDevice,
+  type KeptSession,
+  type StringStorage,
+} from "./device.ts";
 import { castAsGuest, guestRequestOf, reachOfGrant, type GuestAnswer } from "./guest.ts";
 import { reachCore, reachedAt, reachOf, type Reach, type Reached } from "./reach.ts";
 
@@ -187,6 +195,7 @@ export class LabReceiver {
       this.stopDevice = undefined;
       this.becomeDevice(request.reach).catch((cause: unknown) => {
         this.note(`could not become a cast target: ${failureText(cause)}`);
+        this.send({ type: "device", isReady: false, refusal: failureText(cause) });
       });
       return;
     }
@@ -260,7 +269,9 @@ export class LabReceiver {
   /**
    * Becomes a cast target: reaches the sender's core (under its own kept session where it has one),
    * pairs as a device where it has none, the code and check code told to the senders, then connects
-   * as a device (device.ts).
+   * as a device (device.ts). The senders are told it is ready once the core has welcomed its live
+   * connection, not as it starts connecting, and told the core's words where it refuses (the 11-24
+   * batch's item 3; the owner's Chromecast, 2026-11-12).
    */
   private async becomeDevice(reach: Reach | undefined): Promise<void> {
     const storage = globalThis.localStorage;
@@ -280,34 +291,26 @@ export class LabReceiver {
       throw cause;
     }
     const api = createApi({ getToken: () => session?.token, fetch: reached.fetch });
-    if (session === undefined) {
-      this.note("pairing as a device of the sender's person");
-      session = await pairThisDevice(api, {
-        tellCode: (code) => {
-          this.send({ type: "pairing", code });
-        },
-        showCheckCode: (checkCode) => {
-          this.note(`check code ${checkCode}: confirm on the sender where it shows the same`);
-          this.send({ type: "checkCode", checkCode });
-        },
-        waitMs: async (ms) => {
-          await new Promise((resolve) => setTimeout(resolve, ms));
-        },
-      });
-      keepSession(storage, session);
-      this.note("paired");
-    }
+    session ??= await this.pairedSession(api, storage);
     const device = new CastDevice({
       api,
       token: session.token,
       reached,
       video: this.video,
       note,
-      onRefused: () => {
+      onRefused: (reason) => {
         keepSession(storage, undefined);
+        this.send({
+          type: "device",
+          isReady: false,
+          refusal: reason ?? "the core refused the receiver's sign-in",
+        });
       },
       onTaken: () => {
         this.stopOwnFilm();
+      },
+      onConnected: () => {
+        this.send({ type: "device", isReady: true });
       },
     });
     const stop = device.start();
@@ -315,7 +318,26 @@ export class LabReceiver {
       stop();
       reached.close();
     };
-    this.send({ type: "device", isReady: true });
+  }
+
+  /** Pairs as a device of the sender's person, telling the senders its codes, and keeps the session. */
+  private async pairedSession(api: Api, storage: StringStorage): Promise<KeptSession> {
+    this.note("pairing as a device of the sender's person");
+    const session = await pairThisDevice(api, {
+      tellCode: (code) => {
+        this.send({ type: "pairing", code });
+      },
+      showCheckCode: (checkCode) => {
+        this.note(`check code ${checkCode}: confirm on the sender where it shows the same`);
+        this.send({ type: "checkCode", checkCode });
+      },
+      waitMs: async (ms) => {
+        await new Promise((resolve) => setTimeout(resolve, ms));
+      },
+    });
+    keepSession(storage, session);
+    this.note("paired");
+    return session;
   }
 
   private toggle(): void {

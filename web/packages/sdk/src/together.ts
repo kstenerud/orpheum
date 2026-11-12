@@ -721,8 +721,11 @@ export function parseTogetherMessage(text: string): TogetherServerMessage | unde
 export interface TogetherSocketListeners {
   readonly onOpen: () => void;
   readonly onMessage: (text: string) => void;
-  /** The socket closed, with the close frame's code (1008: the server refused the hello). */
-  readonly onClose: (code: number) => void;
+  /**
+   * The socket closed, with the close frame's code (1008: the server refused the hello) and its
+   * reason, the server's words, where it said any.
+   */
+  readonly onClose: (code: number, reason?: string) => void;
 }
 
 /** An open session WebSocket, as the connection uses it. */
@@ -751,7 +754,7 @@ export function browserTogetherSocket(origin: string): OpenTogetherSocket {
       }
     });
     socket.addEventListener("close", (event) => {
-      listeners.onClose(event.code);
+      listeners.onClose(event.code, event.reason);
     });
     return {
       send: (text) => {
