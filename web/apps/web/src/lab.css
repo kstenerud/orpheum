@@ -320,3 +320,11 @@
   height: 100%;
   cursor: pointer;
 }
+
+/* The AirPlay probe's players: the page's own, and the second way A makes. */
+.lab__video,
+.lab__actions video {
+  width: 100%;
+  max-width: 40rem;
+  background: var(--color-video-background);
+}
