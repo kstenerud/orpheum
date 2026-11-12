@@ -22,6 +22,7 @@ import {
   at,
   channelOf,
   isCancelledByThePerson,
+  isNotListenedOn,
   loadCastSender,
   openCastSession,
   type CastChannel,
@@ -135,25 +136,74 @@ export interface GuestReceiver {
 }
 
 /**
+ * How long a receiver application being stopped may take to end its Cast session, in milliseconds,
+ * before it is launched again regardless. A justified constant: a Chromecast stops one in about one.
+ */
+const receiverStopsWithinMs = 5000;
+
+/**
  * Opens a Cast session with the receiver application appId on the device the person picks in
  * Chrome's picker, hands it a grant for one cast (askGrant) and how to reach the core (reach), and
  * answers it once it says it is ready; undefined where the person closed the picker picking none. A
- * device that fails has its Cast session ended.
+ * device that fails has its Cast session ended. A receiver page older than this one, left running
+ * across a deploy and joined rather than launched, does not hear the grant: it is stopped and
+ * launched once more, so the device loads the page as it is now (the owner, 2026-11-12).
  */
 export async function openGuestReceiver(
   appId: string,
   ways: { readonly askGrant: AskGuestCastGrant; readonly reach: ReceiverReach },
 ): Promise<GuestReceiver | undefined> {
-  let session: unknown;
+  const first = await openSessionWith(appId);
+  if (first === undefined) {
+    return undefined;
+  }
+  // Heard from the start: the failure below ends the session before it can be waited on.
+  const firstEnded = endedOf(first);
   try {
-    session = await openCastSession(appId);
+    return await handGrant(first, ways);
+  } catch (cause) {
+    if (!isNotListenedOn(cause)) {
+      throw cause;
+    }
+  }
+  await Promise.race([firstEnded, elapsed(receiverStopsWithinMs)]);
+  let again: CastChannel | undefined;
+  try {
+    again = await openSessionWith(appId);
+  } catch (cause) {
+    throw new GuestCastFailure(
+      `the Google Cast device ran an older receiver, stopped, and could not be launched again: ${String(cause)}`,
+    );
+  }
+  if (again === undefined) {
+    return undefined;
+  }
+  try {
+    return await handGrant(again, ways);
+  } catch (cause) {
+    throw isNotListenedOn(cause)
+      ? new GuestCastFailure("the Google Cast device still runs a receiver older than this page")
+      : cause;
+  }
+}
+
+/** A Cast session with appId on the device the person picks; undefined where they pick none. */
+async function openSessionWith(appId: string): Promise<CastChannel | undefined> {
+  try {
+    return channelOf(await openCastSession(appId), guestCastNamespace);
   } catch (cause) {
     if (isCancelledByThePerson(cause)) {
       return undefined;
     }
     throw cause;
   }
-  const channel = channelOf(session, guestCastNamespace);
+}
+
+/** Hands channel's device its grant; answers it once it is ready, its session ended where it fails. */
+async function handGrant(
+  channel: CastChannel,
+  ways: { readonly askGrant: AskGuestCastGrant; readonly reach: ReceiverReach },
+): Promise<GuestReceiver> {
   const ready = readyHeard(channel);
   try {
     const grant = await ways.askGrant(channel.receiverName);
@@ -164,6 +214,20 @@ export async function openGuestReceiver(
     endQuietly(channel);
     throw cause;
   }
+}
+
+/** Answers once channel's Cast session has ended. */
+async function endedOf(channel: CastChannel): Promise<void> {
+  await new Promise<void>((resolve) => {
+    channel.onEnded(resolve);
+  });
+}
+
+/** Answers once ms have passed. */
+async function elapsed(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 /**
