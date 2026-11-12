@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A73 — Said a web change reached orpheum.cc with Connect's deploy alone, when the loader runs the core's client (2026-11-12)
+
+- **What happened:** after the Cast menu gained its "Show the cast log on the TV" box, the lead
+  told the owner that no core deploy was needed for orpheum.cc, "since Connect serves that client".
+  The discovery's loader serves only itself and the Cast receiver; the client it runs is the core's,
+  embedded in the core's binary and loaded from the core (D308, `loader-interface.ts`). A change to
+  the web client reaches a person on orpheum.cc only with the core's deploy. The false belief came
+  from the receiver's move to the loader's origin (D465), taken as the whole web app moving with it.
+- **Caught by:** the owner: "I can't test this until the core is deployed".
+- **Gate:** none. The lesson: a change under `web/apps/web` needs the core deployed; one under
+  `web/apps/cast-receiver` needs the loader's (Connect's) deploy.
+
 ### A72 — Said a gate's tests could not be added, without checking the session's gate permission (2026-11-12)
 
 - **What happened:** adding an after-up hook to `./staging`, the lead found its tests in
