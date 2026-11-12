@@ -3,8 +3,15 @@
 Staging is Orpheum as it is deployed (D249, D272): the runtime image and its compose file's
 three services, written by the image's own `orpheum write-deployment` as release is, from an image
 built from this checkout instead of a tag. It runs beside `./dev`
-on the same machine, with its own data in `.staging/` and its own port, and it is what the VPS
+on the same machine, with its own data in staging's directory, below `<staging>/`, and its own port, and it is what the VPS
 (`deploy/vps/README.md`) forwards the public name to.
+
+`<staging>` is `$ORPHEUM_STAGING_DIR`, else `$XDG_STATE_HOME/orpheum-staging`
+(`~/.local/state/orpheum-staging`): outside the checkout, where a sandbox reset, which replaces the
+checkout, cannot delete it (agent-failures A71). A directory still in the checkout's old `<staging>/`
+is not moved for you: `./staging` says so and gives the `mv`. An executable `<staging>/after-up` runs
+after each deploy, from the checkout: what else serves this checkout and must follow it, such as a
+loader's copy of the web client.
 
 ```
 the house's network ── http://devnas.example:8440 ──┐
@@ -20,29 +27,29 @@ browser ─► media.orpheum-app.com ─► VPS ═ WireGuard ═► orpheum-tun
 - **orpheum-core** is the server: HTTPS for the public name, the voice relay, and plain HTTP on
   port 8440 for the house's network.
 - **orpheum-node** reads the media, read-only, and runs FFmpeg, confined. It has no network: it
-  reaches the core by the sockets in `.staging/run/`.
+  reaches the core by the sockets in `<staging>/run/`.
 
 The templates are in the binary (`internal/deployment/templates/`): each `./staging` writes the
-compose file, the configs and the tunnel's config into `.staging/` from your values,
-`.staging/values.toml`. `tunnel.sh`, here, is the tunnel service's.
+compose file, the configs and the tunnel's config into `<staging>/` from your values,
+`<staging>/values.toml`. `tunnel.sh`, here, is the tunnel service's.
 
 ## On another machine
 
 Since 2026-11-01, staging runs on the staging host rather than beside `./dev` (`orpheum-ops/machines.md`),
 so the gate has the development machine's processors to itself. Today it has no tunnel or VPS: it
 is reached at home on `http://staging.example:8440`, and from outside through its discovery.
-`.staging/remote.toml` names the machine:
+`<staging>/remote.toml` names the machine:
 
 ```toml
 host = "orpheum@staging.example"            # ssh's destination; the user is in the docker group
 identity = "~/.ssh/<staging key>"                       # ssh's key
-directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as .staging/ is here
+directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as <staging> is here
 ```
 
 With it, `./staging` and `./staging quick` build the image here, send it with
 `docker save | ssh … docker load`, and run write-deployment and compose there as the remote user,
 with the remote machine's GPU. `logs`, `status`, `down`, `setup-code` and `wipe` run there too.
-The values file is the remote one; the replaced run's logs are still kept here in `.staging/logs/`.
+The values file is the remote one; the replaced run's logs are still kept here in `<staging>/logs/`.
 Without the file, everything below holds as written, on this machine. The remote machine needs what
 the next section lists, with the media at the paths the values file names: the staging host has its tank at
 `/mnt/tank`, linked as `/tank`.
@@ -63,12 +70,12 @@ the next section lists, with the media at the paths the values file names: the s
 
 ## The first run
 
-1. `./staging`. It makes `.staging/`, builds the image (the first build fetches FFmpeg, Go and
+1. `./staging`. It makes `<staging>/`, builds the image (the first build fetches FFmpeg, Go and
    Node, and takes several minutes; later ones take about a minute), makes the tunnel's key pair,
    and stops, printing the tunnel's **public key**.
 2. On the VPS, put that key in `/etc/wireguard/wg0.conf`, `[Peer]`'s `PublicKey`, and restart the
    tunnel there: `systemctl restart wg-quick@wg0`.
-3. Fill in `.staging/values.toml`: the contact address; the VPS's endpoint, its address and
+3. Fill in `<staging>/values.toml`: the contact address; the VPS's endpoint, its address and
    WireGuard port, IPv4 (`"203.0.113.7:51820"`) where the machine has only IPv4 or reaches the VPS
    through DS-Lite's shared IPv4, or IPv6 in brackets (`"[3fff:4f8:…::1]:51820"`); its public IPv4
    address, for the voice relay; its WireGuard public key (`cat /etc/wireguard/public` on the
@@ -92,7 +99,7 @@ On the VPS, `wg show` shows a handshake with the house once staging is up.
 | --- | --- |
 | `./staging` | build the image from the checkout and start or restart staging |
 | `./staging quick` | the same in about half a minute, for trying a fix live: the binary is built in `./dev` and laid over the last full image, so a change to anything else the image holds (FFmpeg, system packages) needs `./staging` |
-| `./staging logs` | follow the three services' logs; each `./staging` keeps the run it replaces in `.staging/logs/` |
+| `./staging logs` | follow the three services' logs; each `./staging` keeps the run it replaces in `<staging>/logs/` |
 | `./staging status` | the services and whether they are healthy |
 | `./staging setup-code` | the code that makes the first admin |
 | `./staging down` | stop staging; its data stays |
@@ -103,15 +110,15 @@ services whose image changed. The dev loop goes on as it was.
 
 **When the schema changed.** Until migrations are live (D228), a schema change can leave staging's
 database one the new build cannot bring forward. Staging then sets it aside in
-`.staging/core/backups/` as `persistent-set-aside-<time>.db`, starts with an empty one, and says so
+`<staging>/core/backups/` as `persistent-set-aside-<time>.db`, starts with an empty one, and says so
 in its log (D249 §4). You make the first admin and the libraries again; the media is untouched.
 Release will refuse instead.
 
 ## When something is wrong
 
-- **`./staging` stops with what `.staging/values.toml` needs**: fill in what it names.
+- **`./staging` stops with what `<staging>/values.toml` needs**: fill in what it names.
 - **No handshake on the VPS**: the VPS's `wg0.conf` must hold staging's public key
-  (`.staging/tunnel/public`), and Hetzner's firewall must let in UDP 51820. `./staging logs`
+  (`<staging>/tunnel/public`), and Hetzner's firewall must let in UDP 51820. `./staging logs`
   shows the tunnel's line naming the VPS's end and the MTU.
 - **Large pages or videos stall from outside, small ones load**: the tunnel's MTU is too large for
   the path. Set `mtu = 1280` in `[vps]` and run `./staging` again.

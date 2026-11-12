@@ -66,13 +66,13 @@ git clone git@github.com:kstenerud/orpheum.git ~/orpheum
 
 As the Orpheum user in the container, with `/srv/orpheum` owned by it:
 
-1. **Share staging's tunnel keys** (D272 §8): copy `.staging/tunnel/private` and `public` from the
+1. **Share staging's tunnel keys** (D272 §8): copy `<staging>/tunnel/private` (deploy/staging/README.md) and `public` from the
    sandbox into `/srv/orpheum/tunnel/` (mode 600 for `private`), so the VPS needs no change. The
    agent puts them in the sandbox's shared files when asked; delete them there afterwards.
 2. `~/orpheum/deploy/release/build.sh v0.1.0 /srv/orpheum` (the newest tag; `git -C ~/orpheum
    fetch --tags` brings new ones). It builds the image `orpheum:v0.1.0` (the first build takes
    several minutes), writes `/srv/orpheum/values.toml`, and stops.
-3. Fill in `values.toml`: the values marked "fill in" are staging's (`.staging/values.toml` in the
+3. Fill in `values.toml`: the values marked "fill in" are staging's (`<staging>/values.toml` in the
    sandbox), and `[media] roots`: the folders the node may read, a library's folders chosen
    beneath them by browsing on the Libraries page (D359). One root over all the media is enough:
    the production NAS's is `["/tank/media/video"]`, everything its container mounts. Leave out `[node] name` and the node is named after the
