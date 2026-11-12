@@ -45,7 +45,7 @@ const labDirectory = "lab"
 // client's screens, whose Cast menu loads it in Chrome at its first opening, to cast to any Google
 // Cast device (D465 §3). The client moves between its screens in place, so a page keeps the policy
 // of the screen it was loaded at, and every screen has it; the client's files keep the strict one.
-const castSenderPolicy ="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' " + castSDKOrigin + "; " +
+const castSenderPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' " + castSDKOrigin + "; " +
 	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; " +
 	"worker-src 'self' blob:; connect-src 'self' " + castSDKOrigin + "; font-src 'self' data:; " +
 	"manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
