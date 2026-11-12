@@ -229,6 +229,18 @@ class RevertRed(unittest.TestCase):
         self.assertFalse(rr.Outcome("web/x.ts", "RED_TEST", "").is_failure)
 
 
+class BackgroundReds(unittest.TestCase):
+    def test_a_background_probes_red_is_kept_only_when_no_run_went_beside_it(self):
+        # The owner's 11-24 batch, item 4 (2026-11-12): a spot check goes beside the background probe,
+        # and its load can fake a red (a timeout), never a green.
+        import gate_lock  # noqa: PLC0415
+
+        for background, overlapped, kept in ((True, True, False), (True, False, True), (False, True, True)):
+            with mock.patch.dict(os.environ, {rr.background_probe.IN_BACKGROUND: "1" if background else ""}), \
+                    mock.patch.object(gate_lock, "ran_since", return_value=overlapped):
+                self.assertEqual(rr.red_is_kept(0.0), kept, (background, overlapped))
+
+
 class RevertRedBuildLines(unittest.TestCase):
     def test_a_file_whose_build_line_leaves_linux_out_is_compiled_for_darwin(self):
         directory = Path(tempfile.mkdtemp())

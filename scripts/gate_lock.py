@@ -16,9 +16,13 @@ session (`.claude/hooks/pre_bash.py` runs it through this).
 - **Its holder says what it is.** The holder writes its KIND (check, check-pr, revert-red, spot, test,
   probe), its process and the time into the lock file; `--held` prints it. The Stop hook leaves its
   `make check` for a later turn only behind a long gate (LONG), and waits behind the rest.
-- **The background probe gives way.** A run finding the probe holding the lock asks it to stop
-  (background_probe.stop) and takes the lock once it has: the probe's work is kept, and it runs again
-  after the next commit.
+- **The background probe goes beside a session's runs, and gives way to the gate's** (the owner's
+  11-24 batch, item 4, 2026-11-12). It holds no lock of this file's: a spot check or a test run
+  goes beside it, the probe at the lowest priority, so check-pr finds the batch's files probed; it
+  was stopped by each of them in turn, and found few. A run of STOPS_THE_PROBE (make check, check-pr,
+  revert-red), once it holds the lock, asks it to stop (background_probe.stop) and starts it again
+  as it ends: the probe's work is kept. A red the probe finds while a run went beside it is not kept
+  (`ran_since`): load can fake a red, never a green.
 - **A run's own sub-runs pass through.** The holder marks its environment (GATE_LOCK_HELD), so a
   gate's steps, revert-red's probes, and a commit's spot check inside a locked command do not wait on
   their own lock.
@@ -67,6 +71,9 @@ PROBE = "probe"
 # Holders the Stop hook does not wait behind: each can take longer than its ten minutes. A holder
 # that wrote nothing (one started before holders said) counts as long, so the hook never waits on it.
 LONG = frozenset({"check", "check-pr", "revert-red", GATE, ""})
+# Runs the background probe stops for, and starts again after: the gate's own, whose browser tests and
+# timings a probe beside them would load. A spot check or a test run goes beside it.
+STOPS_THE_PROBE = frozenset({"check", "check-pr", "revert-red", GATE, ""})
 
 MINUTE = 60
 HOUR = 60 * MINUTE
@@ -513,24 +520,46 @@ def _held(root: Path | None, kind: str, lease: float | None) -> Iterator[tuple[I
     with open(lock_path(root), "a+", encoding="utf-8") as lock:
         if not try_take(lock):
             said = holder(root)
-            if holder_kind(said) == PROBE:
-                sys.path.insert(0, str(Path(__file__).resolve().parent))
-                import background_probe  # noqa: PLC0415 (only a run behind the probe needs it)
-
-                background_probe.stop(root)
-            if not try_take(lock):
-                print(f"Another test run holds this repository's lock ({said or 'unnamed'}); waiting for it "
-                      "to finish.", flush=True)
-                with _registered_waiting(root, kind):
-                    wait_for(lock, root)
+            print(f"Another test run holds this repository's lock ({said or 'unnamed'}); waiting for it "
+                  "to finish.", flush=True)
+            with _registered_waiting(root, kind):
+                wait_for(lock, root)
         started = time.time()
         mark(lock, kind, lease, started=started)
+        probe = _background_probe() if kind in STOPS_THE_PROBE else None
+        stopped = probe is not None and probe.is_running(root)
+        if stopped:
+            probe.stop(root)
         try:
             yield lock, {**os.environ, GATE_LOCK_HELD: "1"}
         finally:
-            if kind != PROBE:
-                with contextlib.suppress(OSError):
-                    record_hold(root, kind, time.time() - started)
+            with contextlib.suppress(OSError):
+                record_hold(root, kind, time.time() - started)
+            if stopped:
+                probe.launch(root)
+
+
+def _background_probe():  # noqa: ANN202 (the module, imported only by a run that stops it)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import background_probe  # noqa: PLC0415
+
+    return background_probe
+
+
+def ran_since(since: float, root: Path | None = None) -> bool:
+    """Whether a run held the lock at any time since since (a time.time()): one holds it now, or a
+    recorded hold ended after it (to the whole second HOLDS records, so half a second before counts,
+    erring toward a run)."""
+    if is_held(root):
+        return True
+    path = common_dir(root) / HOLDS
+    if not path.exists():
+        return False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        with contextlib.suppress(json.JSONDecodeError, KeyError, TypeError, ValueError):
+            if float(json.loads(line)["ended"]) >= since - 0.5:
+                return True
+    return False
 
 
 @contextlib.contextmanager

@@ -16,9 +16,12 @@ runs `background_probe.py launch`; it starts this, detached, and returns at once
 - **Out of the way.** It runs the code part alone (no browser), on two probe trees, at nice 19,
   holding the probe trees' lock as any revert-red run does. A run of the gate's own (check-pr, a
   targeted revert-red) stops it first (`stop`), taking the trees; what it had probed is kept.
-- **One test run at a time.** Each pass holds the repository's test lock as `probe` (gate_lock.py),
-  waiting for it while anything else runs tests, and any run wanting the lock stops the pass first
-  (the owner, 2026-11-04: the probe beside agents' runs loaded the machine and failed their tests).
+- **Beside a session's runs, never the gate's** (the owner's 11-24 batch, item 4, 2026-11-12). It
+  takes no test lock: a spot check or a test run goes beside it, and it was stopped by each in turn
+  (the owner, 2026-11-04, when the probe beside agents' runs loaded the machine and failed their
+  tests), so check-pr found few files probed. It runs at the lowest CPU and disk priority, and a red
+  it finds while a run went beside it is not kept (gate_lock.ran_since). A pass waits while a run of
+  gate_lock.STOPS_THE_PROBE holds the lock, which stops it and starts it again as it ends.
 - **Stopped by a file, not a signal.** The post-commit hook starts it on the host, and check-pr runs
   in the gate's container, whose processes are numbered apart: its signal to the recorded process
   group reached nothing, said nothing, and check-pr waited eight minutes for the run to end on its
@@ -43,7 +46,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import IO
 
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
@@ -60,6 +62,8 @@ LOG = "background-probe.log"
 # Two probe trees and the lowest priority: the dev loop and the owner's staging come first.
 JOBS = 2
 NICENESS = 19
+# The disk only when nothing else wants it (ionice's idle class), as it runs beside a session's tests.
+IDLE_DISK = ["ionice", "-c", "3"]
 # Set in the run's environment, so its own revert-red does not stop it.
 IN_BACKGROUND = "ORPHEUM_BACKGROUND_PROBE"
 
@@ -81,15 +85,16 @@ def is_wanted(here: Path) -> bool:
     return check_pr_snapshot.running(Path.cwd()) is None
 
 
-def launch() -> int:
+def launch(root: Path | None = None) -> int:
     """Starts a run, detached, and returns at once; a run already going is told to go again."""
-    here = folder()
+    here = folder(root)
     if here is None or not is_wanted(here):
         return 0
     here.mkdir(parents=True, exist_ok=True)
     with open(here / LOG, "a", encoding="utf-8") as log:
         subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "run"], stdin=subprocess.DEVNULL,  # noqa: S603
-                         stdout=log, stderr=log, start_new_session=True, env=run_environment(os.environ))
+                         stdout=log, stderr=log, start_new_session=True, env=run_environment(os.environ),
+                         cwd=root)
     return 0
 
 
@@ -132,16 +137,28 @@ def clock_text() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
 
 
-def take_test_lock(here: Path, lock: IO[str]) -> bool:
-    """Takes the repository's test lock (gate_lock.py) as the probe, waiting while another run holds
-    it; False, without it, once the run is asked to stop or is no longer wanted. It never blocks on the
-    lock: a gate holding it may be waiting in `stop` for this run to end."""
+def await_turn(here: Path) -> bool:
+    """Waits while a run the probe gives way to (gate_lock.STOPS_THE_PROBE) holds the repository's
+    test lock; False once the run is asked to stop or is no longer wanted."""
     while is_wanted(here) and not (here / STOP).exists():
-        if gate_lock.try_take(lock):
-            gate_lock.mark(lock, gate_lock.PROBE)
+        if gate_lock.holder_kind(gate_lock.holder()) not in gate_lock.STOPS_THE_PROBE:
             return True
         time.sleep(STOP_POLL_SECONDS)
     return False
+
+
+def is_running(root: Path | None = None) -> bool:
+    """Whether a background run is going: it holds LOCK for its whole life."""
+    here = folder(root)
+    if here is None or not (here / LOCK).exists():
+        return False
+    with open(here / LOCK, "a", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        return False
 
 
 def probe_until_stopped(here: Path, command: list[str]) -> int:
@@ -182,16 +199,15 @@ def run() -> int:
                 break
             head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                                   check=False).stdout.strip()
-            with open(gate_lock.lock_path(), "a+", encoding="utf-8") as test_lock:
-                if not take_test_lock(here, test_lock):
-                    break
-                print(f"background probe: {start[:12]}..{head[:12]}, started at {clock_text()} UTC", flush=True)
-                began = time.monotonic()
-                status = probe_until_stopped(here, [
-                    "nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),
-                    "--base", start, "--head", head, "--part", "code", "--unrecorded", "--jobs", str(JOBS)])
-                print(f"background probe: ended at {clock_text()} UTC, after {time.monotonic() - began:.0f} s "
-                      f"(exit {status})", flush=True)
+            if not await_turn(here):
+                break
+            print(f"background probe: {start[:12]}..{head[:12]}, started at {clock_text()} UTC", flush=True)
+            began = time.monotonic()
+            status = probe_until_stopped(here, [
+                *IDLE_DISK, "nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),
+                "--base", start, "--head", head, "--part", "code", "--unrecorded", "--jobs", str(JOBS)])
+            print(f"background probe: ended at {clock_text()} UTC, after {time.monotonic() - began:.0f} s "
+                  f"(exit {status})", flush=True)
             if not (here / AGAIN).exists():
                 break
     return 0
