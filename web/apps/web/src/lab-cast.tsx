@@ -428,6 +428,19 @@ export function signInOf(
 }
 
 /**
+ * Opens a session with our receiver appId by open, and asks it to show its log on screen, which it
+ * shows only once a sender asks: the lab's sender, a debug tool, always does (the owner, 2026-11-12).
+ */
+export async function openOurs<Session extends Pick<CastSession, "send">>(
+  open: (appId: string) => Promise<Session>,
+  appId: string,
+): Promise<Session> {
+  const opened = await open(appId);
+  await opened.send({ type: "showLog" });
+  return opened;
+}
+
+/**
  * What asks our receiver to become a cast target (lab-cast-target.tsx): under a discovery's loader,
  * how it reaches this page's core from away, which it pairs through (signInOf's reach); on the core's
  * own origin nothing, the receiver pairing with the core that served it.
@@ -495,7 +508,7 @@ function useCastSteps(url: string, startAtBps: number): CastSteps {
   });
   const castToOurs = (appId: string): void => {
     run(async () => {
-      await open(appId);
+      await openOurs(open, appId);
     });
   };
   const askReport = (): void => {

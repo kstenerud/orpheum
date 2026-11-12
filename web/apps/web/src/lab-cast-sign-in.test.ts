@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { pairingCodeOf } from "./lab-cast-target.tsx";
 import { receiverDiscoveryOf } from "./cast-reach.ts";
-import { castTargetRequest, signInOf } from "./lab-cast.tsx";
+import { castTargetRequest, openOurs, signInOf } from "./lab-cast.tsx";
 
 const session = { token: () => "a-token", locator: () => "a-locator" };
 const throughDiscovery = {
@@ -44,6 +44,27 @@ describe("what asks the lab's receiver to become a cast target", () => {
 
   it("carries nothing on the core's own origin, where the receiver pairs with the core that served it", () => {
     expect(castTargetRequest(session, undefined)).toEqual({ type: "device" });
+  });
+});
+
+describe("the lab's opening of our receiver", () => {
+  it("asks it to show its log on screen, which it hides until a sender asks (the owner, 2026-11-12)", async () => {
+    const sent: unknown[] = [];
+    const opened = {
+      send: async (message: unknown) => {
+        sent.push(message);
+        await Promise.resolve();
+      },
+    };
+    const appIds: string[] = [];
+    const open = async (appId: string): Promise<typeof opened> => {
+      appIds.push(appId);
+      await Promise.resolve();
+      return opened;
+    };
+    await expect(openOurs(open, "ABCD1234")).resolves.toBe(opened);
+    expect(appIds).toEqual(["ABCD1234"]);
+    expect(sent).toEqual([{ type: "showLog" }]);
   });
 });
 

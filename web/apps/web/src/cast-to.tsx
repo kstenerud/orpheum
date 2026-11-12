@@ -22,11 +22,14 @@ import {
 } from "./cast.ts";
 import { loadCastSender } from "./cast-sdk.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { useShowsDebugTools } from "./debug-tools.tsx";
 import {
   castToAGoogleCastDevice,
   endCastSessionOf,
   guestCastOf,
   GuestCastFailure,
+  isCastLogTicked,
+  keepCastLogTicked,
   type GuestCastWays,
 } from "./google-cast.ts";
 import { useLatest } from "./latest.ts";
@@ -100,8 +103,8 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
         {guest === undefined ? null : (
           <ChromecastEntry
             isStale={!isConnected}
-            onCast={() => {
-              castToChromecast(guest);
+            onCast={(showsLog) => {
+              castToChromecast(guest, showsLog);
             }}
           />
         )}
@@ -124,7 +127,7 @@ function useStartsCasts(
   readonly isBusy: boolean;
   readonly problem: string | undefined;
   readonly castTo: (device: Device) => void;
-  readonly castToChromecast: (ways: GuestCastWays) => void;
+  readonly castToChromecast: (ways: GuestCastWays, showsLog: boolean) => void;
 } {
   const { t } = useTranslation();
   const services = useServices();
@@ -147,10 +150,10 @@ function useStartsCasts(
       told.onAsking({ cast, name: device.name });
     });
   };
-  const castToChromecast = (ways: GuestCastWays): void => {
+  const castToChromecast = (ways: GuestCastWays, showsLog: boolean): void => {
     told.onStarting();
     runRequest(async () => {
-      const how = { locator: services.session.locator(), film: film() };
+      const how = { locator: services.session.locator(), film: film(), showsLog };
       const made = await castToAGoogleCastDevice(api, ways, how);
       if (made !== undefined) {
         chosenNameRef.current = made.name;
@@ -179,22 +182,65 @@ function useGuestCast(): GuestCastWays | undefined {
 }
 
 /**
+ * Show the cast log on the TV, ticked or not in this browser (isTicked, kept by google-cast.ts), and
+ * whether a Chromecast cast to now shows its log (showsLog): ticked while the person shows debug
+ * tools, the one place the box is offered (the owner, 2026-11-12); off, it has no effect.
+ */
+interface CastLogChoice {
+  readonly isOffered: boolean;
+  readonly isTicked: boolean;
+  readonly setTicked: (isTicked: boolean) => void;
+  readonly showsLog: boolean;
+}
+
+/** Show the cast log on the TV, as this browser keeps it, and whether it has effect now. */
+function useCastLogChoice(): CastLogChoice {
+  const isOffered = useShowsDebugTools();
+  const [isTicked, setIsTicked] = useState(() => isCastLogTicked());
+  const setTicked = (isNowTicked: boolean): void => {
+    keepCastLogTicked(isNowTicked);
+    setIsTicked(isNowTicked);
+  };
+  return { isOffered, isTicked, setTicked, showsLog: isOffered && isTicked };
+}
+
+/**
  * After the person's devices, a separator, then a magnifying glass and Chromecast (D465 §3), which
  * opens Chrome's own picker of the Google Cast devices on the network; none is offered while the live
- * connection is down, as no device is.
+ * connection is down, as no device is. While the person shows debug tools, Show the cast log on the
+ * TV follows it (CastLogChoice); onCast is told whether the device shows its log.
  */
 function ChromecastEntry(props: {
   readonly isStale: boolean;
-  readonly onCast: () => void;
+  readonly onCast: (showsLog: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const castLog = useCastLogChoice();
   return (
     <>
       <hr className="cast-to__separator" />
-      <button type="button" disabled={props.isStale} onClick={props.onCast}>
+      <button
+        type="button"
+        disabled={props.isStale}
+        onClick={() => {
+          props.onCast(castLog.showsLog);
+        }}
+      >
         <FindDevicesIcon />
         {t("cast.chromecast")}
       </button>
+      {castLog.isOffered ? (
+        <label>
+          <input
+            type="checkbox"
+            checked={castLog.isTicked}
+            onChange={(event) => {
+              castLog.setTicked(event.target.checked);
+            }}
+          />{" "}
+          {t("cast.showCastLog")}
+        </label>
+      ) : null}
     </>
   );
 }

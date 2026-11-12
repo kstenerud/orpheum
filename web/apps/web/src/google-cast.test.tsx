@@ -8,10 +8,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { castSenderScript, type CastChannel } from "./cast-sdk.ts";
 import { CastTargets } from "./cast-to.tsx";
+import { DebugToolsContext } from "./debug-tools.tsx";
 import { castReceiverAppIdOf } from "./discovery-page.ts";
 import {
   askGuestCastGrantOf,
+  castLogTickedKey,
   guestCastNamespace,
+  isCastLogTicked,
   isChromeBrowser,
   linkCastSession,
 } from "./google-cast.ts";
@@ -450,5 +453,85 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
     await server.say({ type: "sending" });
     await settleUntil(() => endings === 1);
     expect(endings).toBe(1);
+  });
+});
+
+describe("the Cast menu's Show the cast log on the TV (the owner, 2026-11-12)", () => {
+  /**
+   * Opens the Cast menu, the person showing debug tools or not, does what before says, and casts to
+   * the Chromecast: what the device was handed, and the menu's box, if any, as it stood.
+   */
+  async function castWithLogChoice(
+    showsDebugTools: boolean,
+    before: (box: HTMLInputElement | null) => Promise<void> = () => Promise.resolve(),
+  ): Promise<{ readonly handed: unknown; readonly box: HTMLInputElement | null }> {
+    const server = fakeTogetherServer();
+    const services = underTheLoader(
+      { "GET /me/devices": [200, { devices: [thisLaptop] }] },
+      [],
+      server,
+    );
+    givenHints(chromeHints);
+    const device = givenCastSdk();
+    // The device's failure below, which ends the cast the test does not want, is said on the console.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mounted?.unmount();
+    mounted = await mount(
+      withServices(
+        <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
+          <LiveProvider>
+            <CastTargets film={() => undefined} />
+          </LiveProvider>
+        </DebugToolsContext>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1] });
+    await settleUntil(
+      () => buttonWithText(mounted?.container ?? document.body, "Chromecast") !== undefined,
+    );
+    const box = mounted.container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    await before(box);
+    await click(buttonWithText(mounted.container, "Chromecast"));
+    await settleUntil(() => device.sent.length === 1);
+    await act(async () => {
+      device.say({ type: "failed", reason: "not wanted by the test" });
+      await Promise.resolve();
+    });
+    return { handed: device.sent[0]?.[1], box };
+  }
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("is offered only while the person shows debug tools, and without them has no effect, ticked or not", async () => {
+    localStorage.setItem(castLogTickedKey, "1"); // ticked while debug tools were on
+    const hidden = await castWithLogChoice(false);
+    expect(hidden.box).toBeNull();
+    expect(hidden.handed).toMatchObject({ type: "guest", grant });
+    expect(hidden.handed).not.toHaveProperty("showsLog");
+    const shown = await castWithLogChoice(true);
+    expect(shown.box?.checked).toBe(true);
+    expect(shown.box?.parentElement?.textContent).toContain("Show the cast log on the TV");
+    expect(shown.handed).toMatchObject({ type: "guest", grant, showsLog: true });
+  });
+
+  it("is off until ticked, kept in this browser once ticked, and only then hands the device the log", async () => {
+    const unticked = await castWithLogChoice(true);
+    expect(unticked.box?.checked).toBe(false);
+    expect(unticked.handed).not.toHaveProperty("showsLog");
+    const ticked = await castWithLogChoice(true, async (box) => {
+      await click(box);
+    });
+    expect(ticked.handed).toMatchObject({ showsLog: true });
+    expect(isCastLogTicked()).toBe(true);
+    const untickedAgain = await castWithLogChoice(true, async (box) => {
+      expect(box?.checked).toBe(true);
+      await click(box);
+    });
+    expect(untickedAgain.handed).not.toHaveProperty("showsLog");
+    expect(localStorage.getItem(castLogTickedKey)).toBeNull();
   });
 });

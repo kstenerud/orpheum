@@ -39,6 +39,12 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   the cast as a paired device does, its later offers proven by the guest's session. It keeps nothing
   in storage, and stops once the core refuses the guest, whose device is gone when its cast ends.
   `src/guest.test.ts`; only a device shows the whole: VQ302.
+- **Shows its log on screen only once a sender asks** (the owner, 2026-11-12): it keeps noting
+  lines for its report from its start, the screen hidden, until a launch under a grant carries
+  `showsLog: true` (its sender's person shows debug tools and ticked Show the cast log on the TV;
+  a launch without the field, as an older sender's, keeps it hidden) or the lab's sender, a debug
+  tool, asks anything (`showLog` as it opens the receiver). Once shown it stays for the page's
+  life. `src/lab.test.ts`, `src/guest.test.ts`.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
   calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.
@@ -54,7 +60,7 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 ## Where to change
 
 - The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. The lab's session (the
-  report, the film, the memory, the log on screen): `src/lab.ts`. The receiver as a cast target (its
+  report, the film, the memory, the log on screen and when it shows): `src/lab.ts`. The receiver as a cast target (its
   pairing, its live connection, the cast it follows): `src/device.ts`. A cast under a grant:
   `src/guest.ts`.
 - The CAF receiver SDK script tag: `index.html`.

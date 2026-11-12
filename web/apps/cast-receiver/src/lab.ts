@@ -20,7 +20,10 @@ import { reachCore, reachedAt, reachOf, type Reach, type Reached } from "./reach
  * The lab receiver's spike (plans/tv-device-tests.md; casting-2026-10-25.md §5.2 step 2, review §4):
  * the device report the web app's /lab/device makes, with a WebRTC call with itself; our ladder
  * played by our own player, its events and stalls logged; the page's memory each minute. Everything
- * is shown on screen and sent to the senders, whose page sends it to the server's log.
+ * is sent to the senders, whose page sends it to the server's log, and shown on screen once a sender
+ * has asked for it: the lab's sender, a debug tool itself, by any request, and a cast under a grant
+ * where its sender's person shows debug tools and ticked Show the cast log on the TV (the owner,
+ * 2026-11-12). Until then the screen shows the film alone.
  */
 
 /** How many lines of log the screen shows and a report carries: well under a Cast message's 64 KiB. */
@@ -69,11 +72,13 @@ export function memoryOf(memory: unknown, atS: number): MemorySample | undefined
 }
 
 /**
- * What a sender asks of the receiver: its report, a film to play, to pause or play on, or to become a
- * cast target, a device of the sender's person (device.ts), reaching the sender's core by reach.
+ * What a sender asks of the receiver: its report, its log shown on screen, a film to play, to pause or
+ * play on, or to become a cast target, a device of the sender's person (device.ts), reaching the
+ * sender's core by reach. Every one shows the log: the lab's sender is a debug tool.
  */
 export type LabRequest =
   | { readonly type: "report" }
+  | { readonly type: "showLog" }
   | { readonly type: "toggle" }
   | { readonly type: "device"; readonly reach: Reach | undefined }
   | {
@@ -91,7 +96,7 @@ export function labRequestOf(message: unknown): LabRequest | undefined {
     return undefined;
   }
   const type: unknown = Reflect.get(message, "type");
-  if (type === "report" || type === "toggle") {
+  if (type === "report" || type === "showLog" || type === "toggle") {
     return { type };
   }
   if (type === "device") {
@@ -136,6 +141,7 @@ export class LabReceiver {
     private readonly video: HTMLVideoElement,
     private readonly send: (message: Readonly<Record<string, unknown>>) => void,
   ) {
+    this.screen.hidden = true; // until a sender asks for it (showLog)
     for (const type of loggedVideoEvents) {
       video.addEventListener(type, () => {
         this.note(`video ${type} at ${video.currentTime.toFixed(1)} s`);
@@ -146,7 +152,7 @@ export class LabReceiver {
     });
   }
 
-  /** Notes line on screen and in the log the report carries. */
+  /** Notes line in the log the report carries, and on screen where the log shows (showLog). */
   note(line: string): void {
     const atS = ((performance.now() - this.startedAtMs) / 1000).toFixed(1);
     this.lines.push(`${atS} s ${line}`);
@@ -157,11 +163,20 @@ export class LabReceiver {
     this.screen.textContent = [...this.lines].reverse().join("\n");
   }
 
-  /** Answers a sender's request. */
+  /** Shows the log on screen from now on; the notes are kept and reported whether or not it shows. */
+  showLog(): void {
+    this.screen.hidden = false;
+  }
+
+  /** Answers a sender's request, any of which shows the log: the lab's sender is a debug tool. */
   heard(message: unknown): void {
     const request = labRequestOf(message);
     if (request === undefined) {
       this.note(`a message it does not know: ${JSON.stringify(message).slice(0, 200)}`);
+      return;
+    }
+    this.showLog();
+    if (request.type === "showLog") {
       return;
     }
     if (request.type === "report") {
@@ -185,13 +200,16 @@ export class LabReceiver {
 
   /**
    * Takes a cast under a grant (guest.ts) in place of any cast target it is now, its film in place
-   * of the lab's own, answering the sender by answer.
+   * of the lab's own, answering the sender by answer; its log shown where the sender says so.
    */
   heardGuestLaunch(message: unknown, answer: (message: GuestAnswer) => void): void {
     const request = guestRequestOf(message);
     if (request === undefined) {
       this.note(`a cast it does not know: ${JSON.stringify(message).slice(0, 200)}`);
       return;
+    }
+    if (request.showsLog) {
+      this.showLog();
     }
     this.stopDevice?.();
     this.stopDevice = undefined;

@@ -65,6 +65,11 @@ no package is added.
      lab's without its token, and it answers `{type: "ready", deviceId}` or `{type: "failed",
      reason}`. `proof.GuestGrantOfferKey` is the grant's key, and the SDK's `targetOfGuestGrant`
      proves by it until the trade. On a device: VQ302.)
+   - The receiver's log stays off the TV unless the launch carries `showsLog: true`, which the
+     sender sends only while its person shows debug tools and ticked the Cast menu's Show the cast
+     log on the TV, kept per browser; a launch without it, as an older sender's, hides it, and an
+     older receiver ignores it. The lab's sender, a debug tool itself, has it shown by any request
+     (the owner, 2026-11-12).
 3. **The sender: the Cast menu's icons, and Chromecast in it.**
    - Google's Cast sender script, loaded only in Chrome and only when the menu is first opened (§1).
      The web client's content security policy allowed it on the lab's pages alone; allowing it on
