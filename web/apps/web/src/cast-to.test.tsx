@@ -293,6 +293,47 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
   });
 
+  it("puts before each device the mark of its kind of cast: the laurel, or the Cast icon for a paired Chromecast (D465 §3)", async () => {
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          {
+            devices: [
+              device(1, "Laptop", true),
+              device(2, "Phone"),
+              { ...device(3, "Living room TV"), platform: "chromecast" },
+            ],
+          },
+        ],
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3] });
+    const phone = buttonWithText(mounted.container, "Phone");
+    const television = buttonWithText(mounted.container, "Living room TV");
+    // The laurel, the favicon's mark, before the phone; Google's Cast icon before the Chromecast.
+    expect(phone?.firstElementChild?.getAttribute("src")).toBe("/favicon.svg");
+    expect(phone?.firstElementChild?.getAttribute("alt")).toBe("");
+    expect(phone?.querySelector("svg")).toBeNull();
+    expect(television?.firstElementChild?.tagName.toLowerCase()).toBe("svg");
+    expect(television?.firstElementChild?.getAttribute("class")).toBe(
+      "icon cast-kind cast-kind--chromecast",
+    );
+    expect(television?.querySelector("img")).toBeNull();
+  });
+
   // The owner's S23 cast to the Mac that hosted the Watch Together session, which ended it (2026-10-30).
   it("lists no device in the Watch Together session its person is in (D384 §3)", async () => {
     const services = servedBy(

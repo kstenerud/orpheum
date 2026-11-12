@@ -18,6 +18,7 @@ import { DropDown } from "./drop-down.tsx";
 import { dangerousMark } from "./focus-navigation.ts";
 import { ListNote, ListOption } from "./list-box.tsx";
 import { Icon } from "./icon.tsx";
+import { laurelMark } from "./laurel.ts";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -42,8 +43,6 @@ import { CanStartTogetherContext } from "./together-can-start.ts";
 import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
-/** The laurel alone, which the page's favicon is, served beside the client (index.html). */
-const markOnly = "/favicon.svg";
 
 /**
  * The places for watching: the way home, which stays put, and the other places beside it in the room
@@ -77,7 +76,7 @@ function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
             the rest of it empty and the places pushed under the tray (the owner, 2026-11-11;
             idiosyncrasies.md). */}
         <img className="app-shell__logo app-shell__logo--wordmark" src={logo} alt={productName} />
-        <img className="app-shell__logo app-shell__logo--mark" src={markOnly} alt={productName} />
+        <img className="app-shell__logo app-shell__logo--mark" src={laurelMark} alt={productName} />
       </Link>
     </p>
   );

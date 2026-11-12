@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
+import { castKindOf, CastKindMark } from "./cast-kind.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
   castAnswerGraceMs,
@@ -335,7 +336,8 @@ function Targets(props: {
 }
 
 /**
- * The devices to cast to: each a button with its name and when it was last used, or, with no Orpheum
+ * The devices to cast to: each a button with the mark of the kind of cast it takes (D465 §3: the
+ * laurel, or the Cast icon for a paired Chromecast) and its name, and when it was last used, or, with no Orpheum
  * tab in front, that one must be brought to the front there (D338 §2); one receiving a cast is
  * unavailable, its button disabled, until that cast ends (D386 §1).
  */
@@ -366,6 +368,7 @@ function TargetList(props: {
               props.onCast(device);
             }}
           >
+            <CastKindMark kind={castKindOf(device.platform)} />
             {device.name}
           </button>{" "}
           <span>{stateOf(device)}</span>
