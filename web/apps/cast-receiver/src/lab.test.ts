@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
+// @vitest-environment happy-dom
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { labRequestOf, memoryOf } from "./lab.ts";
+import { LabReceiver, labRequestOf, memoryOf } from "./lab.ts";
 import { reachOf } from "./reach.ts";
 
 describe("the lab receiver's requests", () => {
@@ -106,5 +107,69 @@ describe("the lab receiver's memory", () => {
     ).toEqual({ atS: 60, usedMb: 50, totalMb: 60, limitMb: 512 });
     expect(memoryOf(undefined, 60)).toBeUndefined();
     expect(memoryOf({ usedJSHeapSize: 1 }, 60)).toBeUndefined();
+  });
+});
+
+describe("the receiver's log on screen (the owner, 2026-11-12)", () => {
+  const reach = {
+    clientApi: "https://discovery.example/client/v1",
+    coreId: "k7xq2",
+    fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw",
+    clientOrigin: "https://client.example",
+    locator: "the-senders-locator",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** A receiver on a screen of its own, and what it answers a cast under a grant. */
+  function receiverOnScreen(): {
+    readonly lab: LabReceiver;
+    readonly screen: HTMLElement;
+    readonly answered: unknown[];
+  } {
+    // A test reaches no core: the cast under a grant fails, answered as such.
+    vi.stubGlobal("fetch", () => Promise.reject(new Error("no network in a test")));
+    const screen = document.createElement("pre");
+    const lab = new LabReceiver(screen, document.createElement("video"), () => undefined);
+    return { lab, screen, answered: [] };
+  }
+
+  it("is hidden until a sender asks for it, its notes kept for the report all the while", async () => {
+    const { lab, screen, answered } = receiverOnScreen();
+    lab.note("CAF started");
+    expect(screen.hidden).toBe(true);
+    expect(screen.textContent).toContain("CAF started");
+    lab.heardGuestLaunch({ type: "guest", grant: "g", reach }, (answer) => answered.push(answer));
+    expect(screen.hidden).toBe(true); // an older sender's launch says nothing of the log
+    await vi.waitFor(() => {
+      expect(answered).toHaveLength(1);
+    });
+    expect(screen.hidden).toBe(true);
+  });
+
+  it("shows once a cast under a grant says to, its sender's person showing debug tools", async () => {
+    const { lab, screen, answered } = receiverOnScreen();
+    lab.heardGuestLaunch({ type: "guest", grant: "g", reach, showsLog: true }, (answer) =>
+      answered.push(answer),
+    );
+    expect(screen.hidden).toBe(false);
+    await vi.waitFor(() => {
+      expect(answered).toHaveLength(1);
+    });
+  });
+
+  it("shows at any request of the lab's sender, a debug tool itself", () => {
+    expect(labRequestOf({ type: "showLog" })).toEqual({ type: "showLog" });
+    const asked = receiverOnScreen();
+    asked.lab.heard({ type: "showLog" });
+    expect(asked.screen.hidden).toBe(false);
+    const toggled = receiverOnScreen();
+    toggled.lab.heard({ type: "toggle" });
+    expect(toggled.screen.hidden).toBe(false);
+    const unknown = receiverOnScreen();
+    unknown.lab.heard({ type: "something else" });
+    expect(unknown.screen.hidden).toBe(true);
   });
 });

@@ -52,12 +52,24 @@ afterEach(() => {
 
 describe("a sender's launch under a grant (D465 §2)", () => {
   it("is a grant and its core's reach, which holds no session", () => {
-    expect(guestRequestOf({ type: "guest", grant: "g", reach })).toEqual({ grant: "g", reach });
+    expect(guestRequestOf({ type: "guest", grant: "g", reach })).toEqual({
+      grant: "g",
+      reach,
+      showsLog: false,
+    });
     expect(guestRequestOf({ type: "guest", grant: "", reach })).toBeUndefined();
     expect(
       guestRequestOf({ type: "guest", grant: "g", reach: { ...reach, locator: "" } }),
     ).toBeUndefined();
     expect(guestRequestOf({ type: "device", grant: "g", reach })).toBeUndefined();
+  });
+
+  it("shows the log on screen only where the sender says so: an older sender, saying nothing, has it hidden", () => {
+    const launch = { type: "guest", grant: "g", reach };
+    expect(guestRequestOf({ ...launch, showsLog: true })?.showsLog).toBe(true);
+    expect(guestRequestOf({ ...launch, showsLog: false })?.showsLog).toBe(false);
+    expect(guestRequestOf({ ...launch, showsLog: "yes" })?.showsLog).toBe(false);
+    expect(guestRequestOf(launch)?.showsLog).toBe(false);
   });
 });
 
@@ -93,7 +105,7 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
     let traded: (() => HeldSession | undefined) | undefined;
     let isClosed = false;
     const stop = await castAsGuest(
-      { grant: "a guest grant", reach },
+      { grant: "a guest grant", reach, showsLog: false },
       {
         reach: (tradedSession) => {
           traded = tradedSession;
@@ -147,7 +159,7 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
     const answers: GuestAnswer[] = [];
     let isClosed = false;
     await castAsGuest(
-      { grant: "a guest grant", reach },
+      { grant: "a guest grant", reach, showsLog: false },
       {
         reach: () =>
           Promise.resolve({
@@ -177,7 +189,7 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
     const answers: GuestAnswer[] = [];
     let isClosed = false;
     const stop = await castAsGuest(
-      { grant: "a traded grant", reach },
+      { grant: "a traded grant", reach, showsLog: false },
       {
         reach: () =>
           Promise.resolve({

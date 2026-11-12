@@ -11,6 +11,7 @@
 import type { Api } from "@orpheum/sdk";
 import { useEffect } from "react";
 
+import { browserStorage, type StringStorage } from "./browser-storage.ts";
 import { endCastRetrying, startCast, type Cast, type CastFilm } from "./cast.ts";
 import {
   receiverDiscoveryOf,
@@ -34,6 +35,29 @@ import type { AskGuestCastGrant, Services } from "./services.tsx";
 
 /** The namespace the sender and the receiver speak on of a cast under a grant. */
 export const guestCastNamespace = "urn:x-cast:org.orpheum.cast";
+
+/** Where this browser keeps whether the Cast menu's Show the cast log on the TV is ticked. */
+export const castLogTickedKey = "orpheum.debug.castLogTicked";
+
+/**
+ * Whether Show the cast log on the TV is ticked in this browser: off until ticked, kept per browser
+ * (the owner, 2026-11-12), and of effect only while the person shows debug tools (CastTargets).
+ */
+export function isCastLogTicked(storage: StringStorage = browserStorage()): boolean {
+  return storage.getItem(castLogTickedKey) === "1";
+}
+
+/** Keeps whether Show the cast log on the TV is ticked in this browser. */
+export function keepCastLogTicked(
+  isTicked: boolean,
+  storage: StringStorage = browserStorage(),
+): void {
+  if (isTicked) {
+    storage.setItem(castLogTickedKey, "1");
+  } else {
+    storage.removeItem(castLogTickedKey);
+  }
+}
 
 /**
  * Whether this browser is Google's Chrome, on a computer or on Android, which alone casts to a Google
@@ -91,18 +115,26 @@ export function guestCastOf(
  * be the person's): its device ready, the cast is made to it as to any device of the person's, and
  * its Cast session linked to it (linkCastSession); answers the cast and the device's name, or
  * undefined where the person picked none. locator is the session's, which the device reaches the core
- * by from away.
+ * by from away; showsLog, whether the device shows its log on screen (the owner, 2026-11-12).
  */
 export async function castToAGoogleCastDevice(
   api: Api,
   ways: GuestCastWays,
-  how: { readonly locator: string | undefined; readonly film: CastFilm | undefined },
+  how: {
+    readonly locator: string | undefined;
+    readonly film: CastFilm | undefined;
+    readonly showsLog: boolean;
+  },
 ): Promise<{ readonly cast: Cast; readonly name: string } | undefined> {
   const reach = receiverReachOf(ways.discovery, how.locator);
   if (reach === undefined || !(await loadCastSender())) {
     throw new GuestCastFailure("this page cannot cast to a Google Cast device");
   }
-  const receiver = await openGuestReceiver(ways.appId, { askGrant: ways.askGrant, reach });
+  const receiver = await openGuestReceiver(ways.appId, {
+    askGrant: ways.askGrant,
+    reach,
+    showsLog: how.showsLog,
+  });
   if (receiver === undefined) {
     return undefined;
   }
@@ -143,15 +175,16 @@ const receiverStopsWithinMs = 5000;
 
 /**
  * Opens a Cast session with the receiver application appId on the device the person picks in
- * Chrome's picker, hands it a grant for one cast (askGrant) and how to reach the core (reach), and
- * answers it once it says it is ready; undefined where the person closed the picker picking none. A
- * device that fails has its Cast session ended. A receiver page older than this one, left running
- * across a deploy and joined rather than launched, does not hear the grant: it is stopped and
- * launched once more, so the device loads the page as it is now (the owner, 2026-11-12).
+ * Chrome's picker, hands it a grant for one cast (askGrant), how to reach the core (reach) and
+ * whether to show its log (showsLog), and answers it once it says it is ready; undefined where the
+ * person closed the picker picking none. A device that fails has its Cast session ended. A receiver
+ * page older than this one, left running across a deploy and joined rather than launched, does not
+ * hear the grant: it is stopped and launched once more, so the device loads the page as it is now
+ * (the owner, 2026-11-12).
  */
 export async function openGuestReceiver(
   appId: string,
-  ways: { readonly askGrant: AskGuestCastGrant; readonly reach: ReceiverReach },
+  ways: GrantHandOver,
 ): Promise<GuestReceiver | undefined> {
   const first = await openSessionWith(appId);
   if (first === undefined) {
@@ -199,15 +232,24 @@ async function openSessionWith(appId: string): Promise<CastChannel | undefined> 
   }
 }
 
+/**
+ * What a Google Cast device is handed for its cast: a grant asked for it, how to reach the core, and
+ * whether it shows its log on screen, said only where it does: a receiver hearing nothing of it, as
+ * from an older sender, hides it, and an older receiver ignores it.
+ */
+interface GrantHandOver {
+  readonly askGrant: AskGuestCastGrant;
+  readonly reach: ReceiverReach;
+  readonly showsLog: boolean;
+}
+
 /** Hands channel's device its grant; answers it once it is ready, its session ended where it fails. */
-async function handGrant(
-  channel: CastChannel,
-  ways: { readonly askGrant: AskGuestCastGrant; readonly reach: ReceiverReach },
-): Promise<GuestReceiver> {
+async function handGrant(channel: CastChannel, ways: GrantHandOver): Promise<GuestReceiver> {
   const ready = readyHeard(channel);
   try {
     const grant = await ways.askGrant(channel.receiverName);
-    await channel.send({ type: "guest", grant, reach: ways.reach });
+    const log = ways.showsLog ? { showsLog: true } : {};
+    await channel.send({ type: "guest", grant, reach: ways.reach, ...log });
     return { channel, deviceId: await ready.deviceId };
   } catch (cause) {
     ready.stop();

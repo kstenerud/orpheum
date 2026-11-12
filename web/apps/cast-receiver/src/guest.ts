@@ -21,10 +21,15 @@ import { coreReachOf, reachThrough, type CoreReach, type Reached } from "./reach
 /** The namespace a sender casting under a grant speaks on (the web app's google-cast.ts). */
 export const castNamespace = "urn:x-cast:org.orpheum.cast";
 
-/** What a sender casting under a grant hands the receiver: the grant, and its core's reach. */
+/**
+ * What a sender casting under a grant hands the receiver: the grant, its core's reach, and whether
+ * the receiver shows its log on screen (showsLog: the sender's person shows debug tools and ticked
+ * Show the cast log on the TV). A sender that says nothing of the log, an older one, has it hidden.
+ */
 export interface GuestRequest {
   readonly grant: string;
   readonly reach: CoreReach;
+  readonly showsLog: boolean;
 }
 
 /** A sender's message as a cast under a grant, or undefined for anything else. */
@@ -35,8 +40,9 @@ export function guestRequestOf(message: unknown): GuestRequest | undefined {
   const type: unknown = Reflect.get(message, "type");
   const grant: unknown = Reflect.get(message, "grant");
   const reach = coreReachOf(Reflect.get(message, "reach"));
+  const showsLog = Reflect.get(message, "showsLog") === true;
   return type === "guest" && typeof grant === "string" && grant !== "" && reach !== undefined
-    ? { grant, reach }
+    ? { grant, reach, showsLog }
     : undefined;
 }
 
