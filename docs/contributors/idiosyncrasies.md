@@ -51,6 +51,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the page said the browser was asking to reach devices on the network, and nothing asked. | [Silk on Fire TV leaves the local-network permission still to ask, and never asks](#silk-on-fire-tv-leaves-the-local-network-permission-still-to-ask-and-never-asks) |
+| A Firefox browser test found the element it had just focused not `:focus-visible`, or its Enter clicked nothing; alone it passed. | [A page opening in Firefox takes the focus from the test frame opened before it](#a-page-opening-in-firefox-takes-the-focus-from-the-test-frame-opened-before-it) |
 | In a loaded machine's Firefox, an Enter on a focused button did nothing: no click, no dialog opened. | [Firefox now and then drops the click of an Enter on a button](#firefox-now-and-then-drops-the-click-of-an-enter-on-a-button) |
 | A Tab under load put focus on the overlay's button with no focus ring: not `:focus-visible` in Firefox. | [Firefox counts a script's focus as a key's only when focus was already shown](#firefox-counts-a-scripts-focus-as-a-keys-only-when-focus-was-already-shown) |
 | A Tab stopped on a tall dialog's body, focus drawn round nothing. | [A box that scrolls is a Tab stop of its own, in Chromium and Firefox](#a-box-that-scrolls-is-a-tab-stop-of-its-own-in-chromium-and-firefox) |
@@ -1393,6 +1394,37 @@ User-Agent (D263; the User-Agent is logged only).
   pressed): unguarded, both browsers submitted the form and left the box unticked; guarded, the box
   ticked and nothing submitted (`realm-sign-in.browser.test.tsx`). VQ199 on the Fire TV.
 
+### A page opening in Firefox takes the focus from the test frame opened before it
+
+- **Technology:** Firefox (Playwright 1.63's build 1543, headless), vitest 5's browser mode, which runs
+  each test file in a frame of a page of its own; measured 2026-11-12.
+- **Symptom:** a browser test in Firefox found the tile it had just focused not `:focus-visible`
+  (`input-walk`'s gamepad walk), or an Enter on a focused button clicked nothing (`app-shell`,
+  `modal-dialog`, `popover`), while `document.activeElement` still named the element. It passed
+  alone, and failed in the full browser run mostly when Chromium ran beside Firefox.
+- **Cause:** opening a page takes the focus from the frame of the page opened before it: the frame
+  gets `focusout` and a window `blur`, its focused element stops matching `:focus` and
+  `:focus-visible`, and `document.hasFocus()` stays false. Focusing the same element again is a
+  no-op, so it stays that way. Vitest shares its page budget between the browsers running
+  (`getPageAllowance`); when Chromium's files end, `grow()` opens more Firefox pages mid-run, robbing a
+  running test. `focusmanager.testmode`, which Playwright already sets, does not prevent it. Top-level
+  documents, Chromium, a page closing, a viewport change and full screen do not do it.
+- **What we do:** every browser test file's frame calls `window.focus()` on its window's `blur`
+  (`web/e2e/frame-focus.ts`, a setup file of `web/vitest.browser.config.ts`), which brings back its
+  focus, the ring and Enter's click; `web/e2e/frame-focus.browser.test.ts` opens a page beside a kept
+  frame and fails without it. The app is unchanged: a person's browser opens no page behind their back.
+  Running the browsers one after the other instead (`sequence.groupOrder`) took 143 s against 113 s
+  and still lost one Enter in `modal-dialog`.
+- **Evidence:** **[measured]** a Playwright probe of two contexts, each a page with a frame: a new
+  page made the older frame's focused button lose `:focus` and `:focus-visible` and its Enter's
+  click, every time; a blur listener calling `window.focus()` kept all three over three opens. Vitest's
+  pool log of a full run: 4 Chromium and 3 Firefox sessions at the start, 4 new Firefox sessions as
+  Chromium ended. **[source]** `vitest/dist/chunks/index.*.js`, the browser pool's `getPageAllowance`
+  and `grow()`. **[web]** no report of this exact case found (2026-11-12); the nearest are
+  [Mozilla bug 1617788](https://bugzilla.mozilla.org/show_bug.cgi?id=1617788) (a frame's focus lost
+  when switching away from Firefox) and [vitest#5036](https://github.com/vitest-dev/vitest/pull/5036)'s
+  note that parallel tests move focus between frames.
+
 ### Firefox now and then drops the click of an Enter on a button
 
 - **Technology:** Firefox (Playwright's, headless, in vitest's browser mode), a key press on a focused
@@ -1400,9 +1432,12 @@ User-Agent (D263; the User-Agent is logged only).
 - **Symptom:** a browser test that focused a button and pressed Enter saw no dialog open and no
   handler run, for the 10 s of its poll; it passed alone and failed in about one run in three of the
   browser tier's files together (`app-shell`, `modal-dialog` and `popover`'s tests).
-- **Cause:** unexplained. A listener on the window logged the key's `keydown`, `keypress` (not
-  default-prevented) and `keyup` on the focused button, and no `click`, which a button's Enter
-  dispatches on its keypress. Chromium never lost one.
+- **Cause:** another page opening had taken the test frame's focus ([A page opening in Firefox takes
+  the focus from the test frame opened before
+  it](#a-page-opening-in-firefox-takes-the-focus-from-the-test-frame-opened-before-it), found
+  2026-11-12). A listener on the window logged the key's `keydown`, `keypress` (not default-prevented)
+  and `keyup` on the focused button, and no `click`, which a button's Enter dispatches on its
+  keypress. Chromium never lost one.
 - **What we do:** the tests of what a dialog gives focus back to, and of the sign-out question,
   open, answer or choose (`popover`'s choosing, dropped in a make check 2026-11-04) by `click()` on the focused button, not by Enter: the Enter's click is the
   browser's, not the app's. Pressing Enter again did not help: four presses over 12 s were all
@@ -1420,7 +1455,10 @@ User-Agent (D263; the User-Agent is logged only).
 - **Cause:** the overlay had hidden between presses, taking focus off its controls; the Tab that showed
   it again moved focus to a control by script. The spec's heuristic, as Firefox applies it, lets a
   script's focus show as a key's only when the element it leaves was itself showing focus; the page
-  body was not. Not measured in Chromium under the same load.
+  body was not. Not measured in Chromium under the same load. Possibly instead another page opening
+  ([A page opening in Firefox takes the focus from the test frame opened before
+  it](#a-page-opening-in-firefox-takes-the-focus-from-the-test-frame-opened-before-it)), whose symptom
+  is the same; not measured again.
 - **What we do:** the test holds the overlay's time (`overlayTimeHeld` in
   `player-widgets.browser.test.tsx`: its hide timer's interval faked and `performance.now` the
   test's), so the overlay cannot hide during its presses, however slowly the keys come. A first fix
