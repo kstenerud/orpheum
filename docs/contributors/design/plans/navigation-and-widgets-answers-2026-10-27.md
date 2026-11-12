@@ -3271,3 +3271,78 @@ and Renew (a new link and code in its place), and never the outstanding link aga
 
 A small mismatch in the meantime: the route's summary says "withdrawing the old"
 (`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1).
+
+## The 11-24 batch: overnight (the owner, 2026-11-12)
+
+The owner, after releasing past v0.5.0: *"You'll run as many as you can autonomously. If you run out
+of things, find technical debt to fix, and do a code and architectural audit, then fix anything you
+can do without my input. Then do research runs for any future plans that aren't well fleshed out."*
+The numbers are those of "From releasing v0.5.0 (2026-11-12), next batch" and the list given to the
+owner; X1 to X4 are the owner's. Deploys go to staging only; production waits for the owner.
+
+**High priority:**
+
+- **X1. No confirmation on the cast-to device** (D468, the first of "Two casting requests,
+  pending"). Asked what a browser receiver does with no press since its page loaded, the owner chose
+  that it waits for one press, "Press OK to start", with no Not now and no time limit.
+- **1.** A chunk lost with its WebRTC connection is asked for again on the new connection at the
+  same quality, neither lowering it nor leaving a hole.
+- **2.** Where a Chromecast cast's 2.6 to 4.5 s go, measured and cut. The owner allowed about ten
+  casts tonight to the Attic TV Chromecast from the testing Pixel 3a, on staging, knowing they may
+  switch the TV on over HDMI-CEC.
+- **4.** check-pr's two gate changes (the background probe beside a session's test runs; revert-red
+  runs the named tests before the package), each with a `Gate-Changed:` trailer.
+  - **And a third, found by the release's check-pr (2026-11-12, 19:05 UTC):** revert-red failed in
+    `apps/cast-receiver/src/main.test.ts` and `device.test.ts`, "Failed to resolve import
+    \"@noble/ed25519\"", in a kept probe tree. A kept tree links the working tree's installed
+    packages only when it is first made (`scripts/revert_red_trees.py`, `set_kept_tree`), so a
+    package installed after that is missing from it. The lead removed the four trees, which are made
+    afresh, and re-ran the step; the fix is to link the packages each time a tree is set.
+- **5.** Film 1504's stalls on the testing Fire TV (the picture buffer Silk holds; the stand-still
+  at 3:22 until the step down).
+- **9.** Up next warms the next episode, without releasing the playing film's tokens.
+
+**Medium priority:**
+
+- **6.** The discovery test that failed once under a full run.
+- **7.** One icon library: the 55 icon drawings in one `icons.tsx`, with no visible change.
+- **8.** Film matching ranks a 2014 film with a similar translated title above the 1986 one.
+- **10.** Confirm the two Firefox focus flakes are covered by "each browser test's frame takes back
+  the focus a new Firefox page takes"; confirming, not new work.
+- **11.** `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (discovery), timed out once under
+  load.
+- **12.** The upstairs Fire TV's sluggishness: what more can be cut.
+- **X2. A temporary sign-in for one cast, by "Get a code"** (the second casting request). After
+  Cast to this device the phone goes to its home page with the device chosen as its cast target.
+  The owner chose that it ends like a Chromecast session: when the phone stops casting, when the
+  page on the device is closed, or after 30 minutes with nothing playing; then the device is
+  dissociated.
+- **X3. An AirPlay lab for the owner to try in the morning** (airplay.md's spike), on staging alone
+  (the owner's choice): a lab page behind Show debug tools, the playback grant in the media path for
+  the lab alone, lasting 24 hours and revoked on Stop, trying both ways past hls.js's
+  `disableRemotePlayback`. The D154 §6 amendment stays the owner's, after the spike. The owner turns
+  on AirPlay Receiver on the Mac (System Settings, General, AirDrop & Handoff).
+- **X4.** Ways to cut `make check`'s time.
+- **X6. A film's or series' page shows the no-poster still as its list card does** (the owner,
+  2026-11-12: *"We display a screencap in the 'no poster' version of the poster in the listing, but
+  not in the info page. We should do it in both."*). The list's card takes `noPosterStillSha256`,
+  the backdrop or a frame of the video or a series' first episode (`withNoPosterStills`,
+  `internal/core/library/art.go`; D362 §2); the title and series pages are sent no such picture and
+  draw `Poster` without one (`title.tsx`'s TitleArt, `series.tsx`). The pages' answers carry the same
+  pick, by the one function, and pass it on.
+- **X5. A library's sort is kept on the account** (the owner, 2026-11-12: *"When I choose a sort
+  order in a library, it should save that ordering to my account."*). Today the sort and its way
+  live only in the address (`router.ts`, `sort-choices.ts`, D366 §2). The lead's reading, for the
+  owner to correct: each library keeps its own sort and way among the person's preferences
+  (`internal/core/preferences`), so every device the person signs in on opens it so; an address
+  naming a sort still wins, so Back and a shared link show what they showed.
+
+**Low priority:**
+
+- **3.** The lab says "is a cast target" before the core has taken the TV's sign-in, and a refusal
+  is never told to the page.
+- **13.** The release record's expiry reminder: already in, "ci: a daily run fails from a week
+  before the release record expires" (2026-11-11).
+
+**Then:** technical debt (code-debt.md), a code and architecture audit (audit-checklist.md) and what
+it finds that needs no input from the owner, then research for the plans not yet fleshed out.
