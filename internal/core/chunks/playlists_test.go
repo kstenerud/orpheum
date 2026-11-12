@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -59,8 +60,38 @@ func TestMediaPlaylist_ListsEveryChunkAtItsExactLengthAfterTheInit(t *testing.T)
 		"#EXTINF:10.010,\n00001.m4s\n" +
 		"#EXTINF:2.410,\n00002.m4s\n" +
 		"#EXT-X-ENDLIST\n"
-	if got := mediaPlaylist(grid); got != want {
+	if got := mediaPlaylist(grid, nil); got != want {
 		t.Errorf("the media playlist =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// Each chunk of a stream whose chunks' bytes are known says its bit rate before it, rounded up, so a
+// player sizes a heavy chunk before it asks for it (D464 §1).
+func TestMediaPlaylist_SaysEachChunksBitRateWhereItsBytesAreKnown(t *testing.T) {
+	t.Parallel()
+	grid := Grid{StartsMs: []int64{0, 2000, 12_000}, FilmDurationMs: 13_000}
+	// 2 s of 250 kB, 10 s of 23 MB, then 1 s of 100 001 bytes.
+	const want = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:10\n#EXT-X-PLAYLIST-TYPE:VOD\n" +
+		"#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"init.mp4\"\n" +
+		"#EXT-X-BITRATE:1000\n#EXTINF:2.000,\n00000.m4s\n" +
+		"#EXT-X-BITRATE:18400\n#EXTINF:10.000,\n00001.m4s\n" +
+		"#EXT-X-BITRATE:801\n#EXTINF:1.000,\n00002.m4s\n" +
+		"#EXT-X-ENDLIST\n"
+	if got := mediaPlaylist(grid, []int64{250_000, 23_000_000, 100_001}); got != want {
+		t.Errorf("the media playlist =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A chunk's bytes are its seconds' from the read-through, each second's spread evenly over it.
+func TestChunkBytesOf_IsEachChunksShareOfItsSeconds(t *testing.T) {
+	t.Parallel()
+	grid := Grid{StartsMs: []int64{0, 1500, 3000}, FilmDurationMs: 4000}
+	got := chunkBytesOf(grid, []int64{1000, 3000, 500, 200})
+	if want := []int64{2500, 2000, 200}; !slices.Equal(got, want) {
+		t.Errorf("the chunks' bytes = %v; want %v", got, want)
+	}
+	if got := chunkBytesOf(grid, nil); got != nil {
+		t.Errorf("the chunks' bytes of a picture not read = %v; want none", got)
 	}
 }
 

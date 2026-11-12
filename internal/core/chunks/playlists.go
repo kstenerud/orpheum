@@ -70,8 +70,10 @@ func masterPlaylist(groups []soundGroup, variants []variant) string {
 }
 
 // mediaPlaylist is the playlist of one stream of a film on its grid, the same for every stream: a
-// VOD playlist of every chunk, each its exact length, after the store's init (chunks.md §3).
-func mediaPlaylist(grid Grid) string {
+// VOD playlist of every chunk, each its exact length, after the store's init (chunks.md §3). Given
+// each chunk's bytes (chunkBytesOf), each chunk says its bit rate in an EXT-X-BITRATE before it, so
+// a player knows a heavy chunk before it asks for it (D464 §1).
+func mediaPlaylist(grid Grid, chunkBytes []int64) string {
 	var longestMs int64
 	for n := range grid.StartsMs {
 		longestMs = max(longestMs, grid.endMs(n)-grid.StartsMs[n])
@@ -83,9 +85,34 @@ func mediaPlaylist(grid Grid) string {
 		"\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MAP:URI=\"" + initName + "\"\n")
 	for n := range grid.StartsMs {
 		lengthMs := grid.endMs(n) - grid.StartsMs[n]
+		if n < len(chunkBytes) && lengthMs > 0 {
+			text.WriteString("#EXT-X-BITRATE:" + strconv.FormatInt(kbpsOf(chunkBytes[n], lengthMs), 10) + "\n")
+		}
 		text.WriteString("#EXTINF:" + strconv.FormatFloat(float64(lengthMs)/msPerSecond, 'f', 3, 64) + ",\n" +
 			chunkName(n) + "\n")
 	}
 	text.WriteString("#EXT-X-ENDLIST\n")
 	return text.String()
+}
+
+// kbpsOf is the bit rate of bytes over lengthMs, in kilobits a second, rounded up: a chunk's
+// EXT-X-BITRATE, which a player sizes the chunk by, so never below its bytes.
+func kbpsOf(bytes, lengthMs int64) int64 {
+	const bitsPerByte = 8
+	// bits per millisecond is kilobits per second.
+	return (bytes*bitsPerByte + lengthMs - 1) / lengthMs
+}
+
+// chunkBytesOf is the bytes of each chunk of a grid, from its picture's bytesInEachSecond: nil
+// where they are not known.
+func chunkBytesOf(grid Grid, bytesInEachSecond []int64) []int64 {
+	if len(bytesInEachSecond) == 0 {
+		return nil
+	}
+	before := bytesBeforeOf(bytesInEachSecond)
+	bytes := make([]int64, len(grid.StartsMs))
+	for n := range grid.StartsMs {
+		bytes[n] = before(grid.endMs(n)) - before(grid.StartsMs[n])
+	}
+	return bytes
 }
