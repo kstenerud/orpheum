@@ -3174,3 +3174,9 @@ below: "agreed. Release anyway". Found by the lead:
   after the cast was made (the receiver asking for the film, loading it at the sender's place and
   playing it). Where those seconds go (the playback decision, hls.js's first chunks at the sender's
   place, the receiver's play) is to be measured on the TV before it is worked on.
+- **The lab says the Chromecast is a cast target before the core has taken it.** On the owner's
+  Chromecast (2026-11-12), its Orpheum device removed, Make it a cast target used the TV's kept
+  sign-in and the page said "Attic TV is a cast target" at once; the core then refused the sign-in,
+  the TV forgot it, and nothing told the page. The lab's `device` message goes as the receiver
+  starts connecting (`lab.ts`, becomeDevice); it should go once the live connection is welcomed, and
+  a refusal should tell the page so, which then offers to pair afresh.
