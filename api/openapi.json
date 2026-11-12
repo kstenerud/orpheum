@@ -182,6 +182,10 @@
           "backdropSha256": {
             "type": "string"
           },
+          "noPosterStillSha256": {
+            "description": "A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          },
           "posterSha256": {
             "type": "string"
           },

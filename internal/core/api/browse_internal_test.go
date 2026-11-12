@@ -20,3 +20,13 @@ func TestEntryBody_SaysEveryPictureTheEntryShows(t *testing.T) {
 			body.LandscapeSha256, body.NoPosterStillSha256)
 	}
 }
+
+// A film's or series' page says the pictures it shows, the still a film or series with no poster
+// shows in its place among them, as its card in a list does (D362 §2).
+func TestArtBody_SaysEveryPictureThePageShows(t *testing.T) {
+	t.Parallel()
+	body := artBody(library.Art{PosterSha256: "p", BackdropSha256: "b", StillSha256: "s", NoPosterStillSha256: "n"})
+	if body != (ArtBody{PosterSha256: "p", BackdropSha256: "b", StillSha256: "s", NoPosterStillSha256: "n"}) {
+		t.Errorf("the page's art body is %+v; want p, b, s and n", body)
+	}
+}

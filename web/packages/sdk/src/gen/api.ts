@@ -2653,6 +2653,8 @@ export interface components {
         };
         ArtBody: {
             backdropSha256?: string;
+            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            noPosterStillSha256?: string;
             posterSha256?: string;
             /** @description An episode's frame */
             stillSha256?: string;

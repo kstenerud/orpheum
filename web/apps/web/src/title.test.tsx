@@ -226,6 +226,15 @@ describe("TitleView", () => {
     expect(forUser).not.toContain("This file is gone for good…");
   });
 
+  it("shows a film with no poster its list card's still in the poster's place (D362 §2)", () => {
+    const posterless: TitleDetail = { ...metropolis, art: { noPosterStillSha256: "5711" } };
+    const markup = renderToStaticMarkup(withServices(<TitleView title={posterless} />));
+    expect(markup).toContain(
+      '<img class="poster__still" src="/api/v1/bytes/art/5711/landscape-s.webp"',
+    );
+    expect(markup).toContain("No poster");
+  });
+
   it("places an episode in its series and its season, each a link, with its still", () => {
     const episode: TitleDetail = {
       ...metropolis,

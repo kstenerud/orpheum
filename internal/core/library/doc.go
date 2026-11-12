@@ -437,9 +437,11 @@
 //   - An item shows any image of a kind before a frame still of its video, which stands in only where
 //     no other is; an other video's 16:9 picture is its still, else its backdrop, else its frame still;
 //     a film or series with no poster shows, in its poster's place, its backdrop, else a film's frame
-//     still or a series' first episode's still, read anew with each page (D349 §3, D362 §2). Enforced
-//     by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs and
-//     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives.
+//     still or a series' first episode's still, read anew with each page, and its own page shows the
+//     same, picked by the same noPosterStills (D349 §3, D362 §2). Enforced by
+//     TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs,
+//     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives and
+//     TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill.
 //
 //   - A series' aired seasons each show their own poster where one is stored, never as the series'
 //     own; another ordering's groups, discs or parts, show none (D379 §1).

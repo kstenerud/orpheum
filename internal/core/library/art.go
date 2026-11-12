@@ -18,6 +18,10 @@ type Art struct {
 	PosterSha256   string
 	BackdropSha256 string
 	StillSha256    string
+	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture its poster's place
+	// shows above the mark of a missing poster, as its card in a list does (noPosterStills); "" for
+	// anything else.
+	NoPosterStillSha256 string
 }
 
 // shownArtSourceSha256s is the image of a kind each item shows, by its source SHA-256 in hex, in
@@ -115,33 +119,70 @@ func (browser *Browser) withPosters(ctx context.Context, page Page) (Page, error
 }
 
 // withNoPosterStills gives each film and series that has no poster the 16:9 picture its poster's
-// place shows above the mark of a missing poster, read anew with each page, so a poster that arrives
-// replaces it at once (the owner, 2026-10-27; D362 §2): its backdrop; else, a film's still, which only
-// a frame of its video gives it, and a series' first episode's still (ListFirstEpisodes).
+// place shows above the mark of a missing poster (noPosterStills).
 func (browser *Browser) withNoPosterStills(ctx context.Context, page Page) (Page, error) {
-	var posterless, films, series []int64
+	var films, series []int64
 	for _, entry := range page.Entries {
 		if entry.PosterSha256 != "" {
 			continue
 		}
 		switch entry.Kind {
 		case ListFilms:
-			posterless, films = append(posterless, entry.ID), append(films, entry.ID)
+			films = append(films, entry.ID)
 		case ListSeries:
-			posterless, series = append(posterless, entry.ID), append(series, entry.ID)
+			series = append(series, entry.ID)
 		}
 	}
-	if len(posterless) == 0 {
-		return page, nil
-	}
-	queries := browser.database.Read()
-	backdrops, err := shownArt(ctx, queries, ArtBackdrop, posterless)
+	stills, err := noPosterStills(ctx, browser.database.Read(), films, series)
 	if err != nil {
 		return Page{}, err
+	}
+	for index, entry := range page.Entries {
+		if entry.PosterSha256 == "" {
+			page.Entries[index].NoPosterStillSha256 = stills[entry.ID]
+		}
+	}
+	return page, nil
+}
+
+// withNoPosterStill is a film's or series' page art with the picture its poster's place shows when
+// it has no poster (noPosterStills), as its card in a list shows; isSeries says which it is.
+func (browser *Browser) withNoPosterStill(ctx context.Context, itemID int64, isSeries bool, art Art) (Art, error) {
+	if art.PosterSha256 != "" {
+		return art, nil
+	}
+	films, series := []int64{itemID}, []int64(nil)
+	if isSeries {
+		films, series = nil, films
+	}
+	stills, err := noPosterStills(ctx, browser.database.Read(), films, series)
+	if err != nil {
+		return Art{}, err
+	}
+	art.NoPosterStillSha256 = stills[itemID]
+	return art, nil
+}
+
+// noPosterStills is, by item id, the 16:9 picture each of films and series, none with a poster,
+// shows in its poster's place above the mark of a missing poster, read anew with each read, so a
+// poster that arrives replaces it at once (the owner, 2026-10-27; D362 §2): its backdrop; else, a
+// film's still, which only a frame of its video gives it, and a series' first episode's still
+// (ListFirstEpisodes). One with none of these has none.
+func noPosterStills(
+	ctx context.Context, queries *sqlcgen.Queries, films, series []int64,
+) (map[int64]string, error) {
+	stillByItemID := map[int64]string{}
+	posterless := slices.Concat(films, series)
+	if len(posterless) == 0 {
+		return stillByItemID, nil
+	}
+	backdrops, err := shownArt(ctx, queries, ArtBackdrop, posterless)
+	if err != nil {
+		return nil, err
 	}
 	firstEpisodeBySeries, err := firstEpisodes(ctx, queries, series)
 	if err != nil {
-		return Page{}, err
+		return nil, err
 	}
 	stillOf := slices.Clone(films)
 	for _, episodeID := range firstEpisodeBySeries {
@@ -149,21 +190,15 @@ func (browser *Browser) withNoPosterStills(ctx context.Context, page Page) (Page
 	}
 	stills, err := shownArt(ctx, queries, ArtStill, stillOf)
 	if err != nil {
-		return Page{}, err
+		return nil, err
 	}
-	for index, entry := range page.Entries {
-		if entry.PosterSha256 != "" {
-			continue
-		}
-		switch entry.Kind {
-		case ListFilms:
-			page.Entries[index].NoPosterStillSha256 = cmp.Or(backdrops[entry.ID], stills[entry.ID])
-		case ListSeries:
-			firstEpisode := firstEpisodeBySeries[entry.ID]
-			page.Entries[index].NoPosterStillSha256 = cmp.Or(backdrops[entry.ID], stills[firstEpisode])
-		}
+	for _, film := range films {
+		stillByItemID[film] = cmp.Or(backdrops[film], stills[film])
 	}
-	return page, nil
+	for _, oneSeries := range series {
+		stillByItemID[oneSeries] = cmp.Or(backdrops[oneSeries], stills[firstEpisodeBySeries[oneSeries]])
+	}
+	return stillByItemID, nil
 }
 
 // firstEpisodes are each series' first episode with a live file, of its first regular season, else
