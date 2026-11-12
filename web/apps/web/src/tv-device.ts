@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { fireTvPattern, isFireTv } from "@orpheum/sdk";
+
 /**
  * Whether this browser runs on a television or a streaming stick, by what its user agent says of
  * itself: a Fire TV's (AFT…), Android TV's and Google TV's, a Chromecast's, Samsung's Tizen, LG's
@@ -12,13 +14,8 @@ export function isTelevision(userAgent: string): boolean {
   return televisionPattern.test(userAgent);
 }
 
-/** A Fire TV's model code, which its user agent names it by: AFTSSS, AFTKA, AFTMM... */
-const fireTvPattern = /\bAFT[A-Z0-9]+\b/u;
-
-/** Whether this browser runs on a Fire TV, by the model code its user agent names it by. */
-export function isFireTv(userAgent: string): boolean {
-  return fireTvPattern.test(userAgent);
-}
+/** Whether this browser runs on a Fire TV: the SDK's, which the player sizes its buffer by too. */
+export { isFireTv };
 
 /** The words a television's or a streaming stick's user agent says of itself. */
 const televisionPattern = new RegExp(

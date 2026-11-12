@@ -95,6 +95,14 @@ export function codecAnswersFrom(probe: CodecProbe): CodecAnswer[] {
   }));
 }
 
+/** A Fire TV's model code, which its user agent names it by: AFTSSS, AFTKA, AFTMM, AFTCA002... */
+export const fireTvPattern = /\bAFT[A-Z0-9]+\b/u;
+
+/** Whether this browser runs on a Fire TV, by the model code its user agent names it by. */
+export function isFireTv(userAgent: string): boolean {
+  return fireTvPattern.test(userAgent);
+}
+
 /**
  * What a user agent says of a Fire TV: Fire OS is Android's, and names the stick by an "AFT" model
  * code; Vega OS is Linux's and is not Android (its earlier name was Kepler). A hint, never the
@@ -102,7 +110,7 @@ export function codecAnswersFrom(probe: CodecProbe): CodecAnswer[] {
  * agent names no Fire TV.
  */
 export function fireTvHintOf(userAgent: string): string | undefined {
-  const model = /\b(AFT[A-Z0-9]{1,8})\b/u.exec(userAgent)?.[1];
+  const model = fireTvPattern.exec(userAgent)?.[0];
   if (/\b(?:Vega|Kepler)\b/u.test(userAgent)) {
     return model === undefined ? "Vega OS" : `Vega OS, model ${model}`;
   }

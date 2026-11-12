@@ -25,6 +25,8 @@ export {
   countAudioOutputs,
   deviceReportFrom,
   fireTvHintOf,
+  fireTvPattern,
+  isFireTv,
   labCodecs,
   labFeatureNames,
   measureAudioLatency,
