@@ -157,7 +157,8 @@ export function groupToFollow(
 
 /**
  * What the player does to follow the session's group, expectedMs being where the group stands now:
- * the group's film loaded at its position, or none; then played or paused as the group is, sought
+ * the group's film loaded at its position, or none; then played where the group plays or waits for
+ * its leader to (the receiver leads), paused where it is paused, sought
  * where it is further than seekPastMs away.
  */
 export function stepsToFollow(
@@ -172,7 +173,9 @@ export function stepsToFollow(
     return player.fileId === 0 ? [] : [{ step: "stop" }];
   }
   const positionMs = Math.max(0, expectedMs ?? group.positionMs);
-  const isPlaying = group.state === "playing";
+  // A waiting group is to play, standing until its leader plays (D371 §1), and in a cast the
+  // receiver is the leader (D337), so it plays, as the web app's leader does (together-leader.ts).
+  const isPlaying = group.state === "playing" || group.state === "waiting";
   if (group.fileId !== player.fileId) {
     return [
       { step: "load", fileId: group.fileId, positionMs },
