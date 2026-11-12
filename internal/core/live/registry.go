@@ -114,24 +114,6 @@ type person struct {
 	guests map[int64]*guest
 }
 
-// guest is a guest receiver (D465 §1): a Google Cast device running the receiver for one cast from
-// the device that sent it its grant, which no other device of the person's sees or casts to.
-type guest struct {
-	senderDeviceID int64
-	// name is the Cast device's name, as its sender's Cast menu showed it.
-	name string
-	// since is when its grant was traded: one never cast to is ended UnansweredAfter it (EndGuests).
-	since time.Time
-	// hasReceived is whether its one cast started: once it ends, it is no one's target (D465 §1).
-	hasReceived bool
-}
-
-// Guest is a guest receiver that EndGuests ended: its person's device, to remove.
-type Guest struct {
-	UserID   int64
-	DeviceID int64
-}
-
 // connection is one open page of a device.
 type connection struct {
 	id       int64
@@ -164,71 +146,6 @@ func NewRegistry(credential Credential, clockSource clock.Clock) *Registry {
 // newPerson is a person with no connections, casts or guests.
 func newPerson() *person {
 	return &person{connections: map[int64]*connection{}, casts: map[int64]*heldCast{}, guests: map[int64]*guest{}}
-}
-
-// ExpectGuest makes userID's device deviceID, named name, a guest receiver of senderDeviceID's (D465
-// §1), as its grant is traded: it is in no devices message, and only senderDeviceID casts to it, once.
-func (registry *Registry) ExpectGuest(userID, deviceID, senderDeviceID int64, name string) {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	owner := registry.people[userID]
-	if owner == nil {
-		owner = newPerson()
-		registry.people[userID] = owner
-	}
-	owner.guests[deviceID] = &guest{senderDeviceID: senderDeviceID, name: name, since: registry.clock.Now()}
-}
-
-// GuestCastableBy is the name of userID's guest receiver deviceID, and whether senderDeviceID may
-// cast to it: the device that sent its grant, before its one cast.
-func (registry *Registry) GuestCastableBy(userID, deviceID, senderDeviceID int64) (string, bool) {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	owner := registry.people[userID]
-	if owner == nil || owner.guests[deviceID] == nil {
-		return "", false
-	}
-	each := owner.guests[deviceID]
-	return each.name, each.senderDeviceID == senderDeviceID && !each.hasReceived
-}
-
-// IsGuest is whether userID's device deviceID is a guest receiver ExpectGuest made and EndGuests has
-// not ended.
-func (registry *Registry) IsGuest(userID, deviceID int64) bool {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	owner := registry.people[userID]
-	return owner != nil && owner.guests[deviceID] != nil
-}
-
-// EndGuests ends every guest receiver whose one cast has ended, or that was never cast to within
-// UnansweredAfter of its trade, each of its connections told its sign-in ended and let go, and
-// returns them for their devices to be removed (D465 §1: it keeps nothing after its cast).
-func (registry *Registry) EndGuests() []Guest {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	now := registry.clock.Now()
-	ended := []Guest{}
-	for userID, owner := range registry.people {
-		for deviceID, each := range owner.guests {
-			if owner.casts[deviceID] != nil || !each.hasReceived && now.Sub(each.since) < UnansweredAfter {
-				continue
-			}
-			delete(owner.guests, deviceID)
-			for id, open := range owner.connections {
-				if open.deviceID == deviceID {
-					open.send(Outbound{Type: MessageSignedOut})
-					delete(owner.connections, id)
-				}
-			}
-			ended = append(ended, Guest{UserID: userID, DeviceID: deviceID})
-		}
-		if owner.isEmpty() {
-			delete(registry.people, userID)
-		}
-	}
-	slices.SortFunc(ended, func(one, other Guest) int { return cmp.Compare(one.DeviceID, other.DeviceID) })
-	return ended
 }
 
 // TakesPartBy has each cast's receiver handed, by part, a credential for the Watch Together session

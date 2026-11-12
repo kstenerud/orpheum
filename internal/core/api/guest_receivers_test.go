@@ -168,3 +168,59 @@ func TestGuestReceiver_EndedIsRefusedItsLiveConnection(t *testing.T) {
 		t.Errorf("an ended guest receiver's live hello read %+v, %v; want closed for policy", message, err)
 	}
 }
+
+// A person who entered a device's code casts to it instead of activating it (D469 §1, §2): the device
+// takes its session as an activated one does, is told it is a guest receiver and nothing of the
+// person, is listed nowhere, and takes one cast from the asking device alone.
+func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	phone := harness.thisDevice(t, phoneToken)
+	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
+	var pairing api.PairingOutput
+	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
+		t.Fatalf("POST /pairings = %d %s", asked.status, asked.body)
+	}
+	code := map[string]any{"code": pairing.Body.Code}
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code), http.StatusNotFound,
+		api.CodeNotFound)
+	if entered := harness.do(t, http.MethodPost, "/pairings/code", phoneToken,
+		map[string]any{"code": pairing.Body.Code, "deviceName": "Upstairs TV"}); entered.status != http.StatusOK {
+		t.Fatalf("POST /pairings/code = %d %s", entered.status, entered.body)
+	}
+	answer := harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code)
+	var made api.CastToPairingOutput
+	if err := json.Unmarshal([]byte(answer.body), &made.Body); err != nil || answer.status != http.StatusCreated ||
+		made.Body.DeviceName != "Upstairs TV" {
+		t.Fatalf("POST /pairings/cast = %d %s", answer.status, answer.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code), http.StatusNotFound,
+		api.CodeNotFound)
+	harness.logs.AwaitEvent(t, "guestReceiverByCode", fmt.Sprintf(`"deviceId":%d`, made.Body.DeviceID))
+	session := harness.do(t, http.MethodPost, "/pairings/session", "",
+		map[string]string{"secret": pairing.Body.Secret})
+	guestToken, name := readSignIn(t, session)
+	if name != "" || !strings.Contains(session.body, `"isGuestReceiver":true`) {
+		t.Errorf("the device's session = %s; want a guest receiver's, nothing of the person", session.body)
+	}
+	if me := harness.do(t, http.MethodGet, "/me", guestToken, nil); me.status != http.StatusOK ||
+		!strings.Contains(me.body, `"isGuestReceiver":true`) || strings.Contains(me.body, "owner") {
+		t.Errorf("GET /me for the guest = %d %s; want a guest receiver's, nothing of the person", me.status, me.body)
+	}
+	listed := harness.do(t, http.MethodGet, "/me/devices", phoneToken, nil)
+	if strings.Contains(listed.body, "Upstairs TV") {
+		t.Errorf("GET /me/devices lists the guest receiver: %s", listed.body)
+	}
+	guestSocket := harness.dialLive(t, guestToken)
+	guestSocket.awaitConnected()
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(phone)
+	wantError(t, harness.startCast(t, laptopToken, made.Body.DeviceID, 0), http.StatusConflict, api.CodeConflict)
+	started := startedCast(t, harness.startCast(t, phoneToken, made.Body.DeviceID, 0))
+	guestSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+		return each.Receive.CastID == started.CastID
+	})
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // PairingRequestInput is a device not signed in asking for a code to show (D288 §1): with the secret
@@ -86,6 +87,24 @@ type ActivationAnswerInput struct {
 	}
 }
 
+// CastToPairingInput is a person signed in answering the code they entered for themselves by casting
+// to its device, for one cast (D469 §1), where they would have activated it.
+type CastToPairingInput struct {
+	AuthorizationHeader
+	Body struct {
+		Code string `json:"code" maxLength:"20" minLength:"1"`
+	}
+}
+
+// CastToPairingOutput is the guest receiver the device signs in as, which the asking device casts to
+// once its page connects (POST /me/casts), and its name.
+type CastToPairingOutput struct {
+	Body struct {
+		DeviceID   int64  `json:"deviceId"`
+		DeviceName string `json:"deviceName"`
+	}
+}
+
 func (server *Server) registerPairing() {
 	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
@@ -115,6 +134,12 @@ func (server *Server) registerPairing() {
 		Summary:       "Say whether the check codes match: only a match activates the device", Tags: tags,
 		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.answerPairingCheck)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "castToPairing", Method: http.MethodPost, Path: "/pairings/cast",
+		Summary: "Answer a code entered by casting to its device, signed in for that cast alone (D469)",
+		Tags:    tags, DefaultStatus: http.StatusCreated,
+		Extensions: callableBy(capabilityAccountSecurity),
+	}, server.castToPairing)
 	// The old paths, kept outside the document for one release (D425 §3): Connect serves the web
 	// build it was last deployed with, which enters a code at /activations. They go in the next batch.
 	huma.Register(server.humaAPI, huma.Operation{
@@ -227,6 +252,27 @@ func (server *Server) answerPairingCheck(ctx context.Context, input *ActivationA
 		return nil, server.authError(ctx, "answer a device's check code", err)
 	}
 	return &struct{}{}, nil
+}
+
+// castToPairing signs the device that showed the code in as a guest receiver of the asking device's
+// (D469 §1, §2): it takes its session as an activated device does, is listed nowhere, and is removed
+// once its one cast ends, or if none starts within live.GuestByCodeWaitsAfter.
+func (server *Server) castToPairing(ctx context.Context, input *CastToPairingInput) (*CastToPairingOutput, error) {
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	guest, err := dependencies.Auth.CastToPairing(ctx, principal, input.Body.Code)
+	if err != nil {
+		return nil, server.authError(ctx, "cast to a device's code", err)
+	}
+	dependencies.Live.ExpectGuestByCode(guest.UserID, guest.DeviceID, guest.SenderDeviceID, guest.Name)
+	server.logger.InfoContext(ctx, "cast: a device's code made a guest receiver", slogx.EventKey,
+		"guestReceiverByCode", logKeyUserID, guest.UserID, logKeyDeviceID, guest.DeviceID, "sender",
+		guest.SenderDeviceID)
+	output := &CastToPairingOutput{}
+	output.Body.DeviceID, output.Body.DeviceName = guest.DeviceID, guest.Name
+	return output, nil
 }
 
 // pairingRefusal is the API's error for auth's refusal of a pairing, or nil for another.

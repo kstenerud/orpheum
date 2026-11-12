@@ -27961,3 +27961,43 @@ page the tab was on, not at its first frame on the Play page: the press opens it
 - 1, 3: web/apps/web/src/cast-receiving.test.tsx, web/apps/web/src/start-refused.test.ts, VQ308
 - 2: web/apps/web/src/cast-start.test.tsx, web/apps/web/src/cast-receiving.test.tsx, VQ308
 - 4: web/apps/web/src/cast-receiver.test.tsx
+
+## D469 — A device's code signs it in for one cast alone, as a guest receiver of the phone that answered it
+
+**Decided:** the owner's second casting request (plans/navigation-and-widgets-answers-2026-10-27.md,
+X2): a person opens orpheum.cc on a device, chooses Get a code and scans it with their phone, and the
+phone offers **Claim this device**, today's sign-in, and **Cast to this device**, a sign-in for one
+cast. It is [D465](#d465--any-google-cast-device-on-the-network-receives-a-cast-under-a-grant-for-that-cast-alone-beside-the-persons-own-devices)'s guest receiver, listed nowhere and keeping nothing, reached through
+D293's device code (D288, D321) instead of Google's picker. **Builds on** D465, D293, D288, D321,
+D337, D358 and D468; it amends none.
+
+1. **Cast to this device answers the code as Claim would, but signs the device in as a guest
+   receiver** of the person's (`POST /pairings/cast`, `CastToPairing`): it takes its session as an
+   activated device does, at the core or sealed through the paid service, under the name its code
+   gave. Only a code the person entered for themselves is cast to, so an admin's code for someone
+   else is not. The phone then asks to cast nothing yet to it, again every 2 s while its page is not
+   connected, for up to 3 minutes; once it is, the phone goes to its home page casting to it, and
+   what it plays next plays there (D364).
+2. **Only the phone that answered casts to it, once** (D465 §1). It waits 3 minutes to be cast to
+   (`live.GuestByCodeWaitsAfter`, the service's hand-off's life), not D465's 90 s, as its page must
+   take its session and load first; uncast-to by then it is removed.
+3. **The cast ends as a Chromecast's does:** when the phone stops casting; when the page on the
+   device is closed (its receiver gone, D364 §6); or after 30 minutes with nothing playing
+   (`live.GuestIdleAfter`, counted from the last pause, or from the cast's start while nothing was put
+   on), told to the phone as `idle`. Then the device is removed with its session (D465 §1).
+4. **Its page shows the cast alone:** GET /me says it is a guest receiver and nothing of the person,
+   and the page draws no shell, only the cast's ready page and film, and while none has come, "Signed
+   in for one cast. Waiting for the cast from your phone…".
+
+**Status:** Decided 2026-11-12. Open for the owner: the wording; the typed code's path, which offers no
+Cast (its check code stays Claim's); what the phone says once 3 minutes pass with the device's page
+not connected ("did not open in time … scan the new code"); the shell that may show for a moment on
+the device before GET /me answers.
+
+**Proven by:**
+- 1: internal/core/auth/guest_receivers_test.go, internal/core/api/guest_receivers_test.go,
+  web/apps/web/src/device-activation.test.tsx, VQ311
+- 2: internal/core/live/guest_test.go, internal/core/api/guest_receivers_test.go
+- 3: internal/core/together/cast_test.go, internal/core/live/guest_test.go,
+  cmd/orpheum/casts_gone_test.go, VQ311
+- 4: internal/core/api/guest_receivers_test.go, web/apps/web/src/app.test.tsx, VQ311

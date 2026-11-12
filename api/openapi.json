@@ -485,6 +485,36 @@
         },
         "type": "object"
       },
+      "CastToPairingInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 20,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "CastToPairingOutputBody": {
+        "properties": {
+          "deviceId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "deviceName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "deviceName"
+        ],
+        "type": "object"
+      },
       "CertificateBody": {
         "properties": {
           "expiresAt": {
@@ -9515,6 +9545,9 @@
           "isAdmin": {
             "type": "boolean"
           },
+          "isGuestReceiver": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -16008,6 +16041,53 @@
           "Users"
         ],
         "x-orpheum-capability": "none"
+      }
+    },
+    "/pairings/cast": {
+      "post": {
+        "operationId": "castToPairing",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastToPairingInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastToPairingOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Answer a code entered by casting to its device, signed in for that cast alone (D469)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/pairings/check": {

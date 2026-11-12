@@ -80,6 +80,10 @@ function ActivateHere(props: { readonly onActivated: () => void }): JSX.Element 
       onScannedAnswered={() => {
         navigation.replace({ screen: "account" });
       }}
+      onCastStarted={() => {
+        // This device now casts to it: the person goes on to choose what plays there (D469 §1).
+        navigation.replace({ screen: "home" });
+      }}
     />
   );
 }

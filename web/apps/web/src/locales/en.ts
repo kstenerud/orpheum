@@ -271,11 +271,17 @@ export const en = {
     noMatch: "They don't match",
     activated: "{{device}} is activated and signed in.",
     notActivated: "Nothing was activated.",
-    scannedQuestion: "Activate {{device}}? It will be signed in as you.",
+    scannedQuestion:
+      "{{device}} asked for a code. Claim it to sign it in as you, or cast to it to sign it in for one cast only, until the cast ends.",
     scannedWarning:
-      "Only activate a device you can see in front of you, whose QR code you scanned yourself. A QR code someone sent you lets their device into your account.",
-    scannedActivate: "Activate",
+      "Only claim or cast to a device you can see in front of you, whose QR code you scanned yourself. A QR code someone sent you lets their device into your account.",
+    scannedClaim: "Claim this device",
+    scannedCast: "Cast to this device",
     scannedCancel: "Cancel",
+    casting: "Starting the cast on {{device}}…",
+    waitingAsGuest: "Signed in for one cast. Waiting for the cast from your phone…",
+    notCast:
+      "{{device}} did not open in time to take the cast. Choose Get a code on it again, and scan the new code.",
   },
   nowPlaying: {
     heading: "Now playing",

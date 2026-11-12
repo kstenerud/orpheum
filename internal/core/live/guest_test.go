@@ -126,3 +126,40 @@ func TestRegistry_AGuestReceiverEndsWithItsCastOrUnusedAfterUnansweredAfter(t *t
 		t.Error("the ended guest receiver is still kept")
 	}
 }
+
+// A guest receiver a device code made (D469 §2) waits GuestByCodeWaitsAfter for its cast, not
+// UnansweredAfter, its device having to take its session and load its client first; its cast, and no
+// cast to a guest a grant made, is among those that end idle (D469 §3).
+func TestRegistry_AGuestReceiverByCodeWaitsLongerAndItsCastEndsIdle(t *testing.T) {
+	t.Parallel()
+	fake := newClock()
+	registry := NewRegistry(minted(), fake)
+	registry.Connect(owner, phone, inFront, (&inbox{}).send)
+	registry.ExpectGuestByCode(owner, television, phone, "TV")
+	registry.ExpectGuestByCode(owner, laptop, phone, "Laptop")
+	fake.Advance(GuestByCodeWaitsAfter - time.Second)
+	if ended := registry.EndGuests(); len(ended) != 0 {
+		t.Fatalf("guests by code ended before GuestByCodeWaitsAfter: %+v", ended)
+	}
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	if _, _, err := registry.Cast(Cast{ID: 2, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television},
+		"secret"); err != nil {
+		t.Fatal(err)
+	}
+	fake.Advance(time.Second)
+	if ended := registry.EndGuests(); !slices.Equal(ended, []Guest{{UserID: owner, DeviceID: laptop}}) {
+		t.Fatalf("after GuestByCodeWaitsAfter the guests ended were %+v; want the one never cast to", ended)
+	}
+	const chromecast, tablet = int64(13), int64(14)
+	registry.Connect(owner, tablet, inFront, (&inbox{}).send)
+	registry.ExpectGuest(owner, chromecast, tablet, "Chromecast")
+	registry.Connect(owner, chromecast, inFront, (&inbox{}).send)
+	if _, _, err := registry.Cast(Cast{ID: 3, UserID: owner, SenderDeviceID: tablet, ReceiverDeviceID: chromecast},
+		"secret"); err != nil {
+		t.Fatal(err)
+	}
+	idle := registry.GuestCastsEndingIdle()
+	if len(idle) != 1 || idle[0].ID != 2 {
+		t.Errorf("the casts ending idle are %+v; want the cast to the guest by code alone", idle)
+	}
+}

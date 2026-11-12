@@ -6,6 +6,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // A cast is a session of one that nothing else finds: it has no links, is not among the person's
@@ -461,5 +462,37 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 		if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
 			t.Errorf("after %s, the receiver sounds %+v; want the last known", name, got)
 		}
+	}
+}
+
+// How long nothing has played in a cast (D469 §3) is none while it plays, and counts from its pause,
+// as from its making while nothing was put on.
+func TestCast_IdleForCountsFromWhenItLastStoppedPlaying(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID := stage.owner.UserID
+	stage.clock.Advance(time.Minute)
+	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != time.Minute {
+		t.Errorf("nothing put on for a minute: idle %v, %v; want a minute", idle, idleErr)
+	}
+	receiver, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	remote, _ := stage.attach(t, cast.SenderCredential, RolePanel)
+	stage.command(t, receiver, CommandChangeItem, 12)
+	stage.ready(t, receiver, false)
+	stage.clock.Advance(time.Hour)
+	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != 0 {
+		t.Errorf("playing for an hour: idle %v, %v; want none", idle, idleErr)
+	}
+	stage.command(t, remote, CommandPause, 0)
+	stage.clock.Advance(2 * time.Minute)
+	if idle, idleErr := stage.hub.CastIdleFor(cast.SessionID, userID); idleErr != nil || idle != 2*time.Minute {
+		t.Errorf("paused two minutes: idle %v, %v; want two minutes", idle, idleErr)
+	}
+	if _, idleErr := stage.hub.CastIdleFor(cast.SessionID+1, userID); idleErr == nil {
+		t.Error("a cast that is not there has an idle time")
 	}
 }

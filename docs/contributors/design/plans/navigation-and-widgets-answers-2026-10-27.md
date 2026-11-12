@@ -3391,6 +3391,9 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   The owner chose that it ends like a Chromecast session: when the phone stops casting, when the
   page on the device is closed, or after 30 minutes with nothing playing; then the device is
   dissociated.
+  - **Built (2026-11-12):** D469: Cast to this device on the scanned code's page signs the device
+    in as a guest receiver of the phone's (D465's machinery, reached by the device code); VQ311 is
+    the owner's check, and D469's status lists the questions left open.
 - **X3. An AirPlay lab for the owner to try in the morning** (airplay.md's spike), on staging alone
   (the owner's choice): a lab page behind Show debug tools, the playback grant in the media path for
   the lab alone, lasting 24 hours and revoked on Stop, trying both ways past hls.js's

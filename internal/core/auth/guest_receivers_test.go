@@ -252,3 +252,68 @@ func TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits(t *testin
 		t.Errorf("after the grant's minute %d keys are left; want none", len(left))
 	}
 }
+
+// A code its person entered for themselves is answered by casting to its device (D469 §1): the
+// device takes a guest receiver's session as an activated one takes its own, of the person, on a
+// device listed nowhere, which the sending device alone casts to; the code is answered once, and
+// one entered for someone else, or by a guest receiver, is cast to by no one.
+func TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	sender, _ := guestSender(t, fixture.service)
+	asked := claimedPairing(t, fixture.service, sender.UserID, sender.UserID, "192.0.2.10", "Upstairs TV")
+	traded, err := fixture.service.CastToPairing(ctx, sender, asked.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if traded.UserID != sender.UserID || traded.SenderDeviceID != sender.DeviceID || traded.DeviceID == 0 ||
+		traded.DeviceID == sender.DeviceID || traded.Name != "Upstairs TV" {
+		t.Errorf("cast to = %+v; want the sender's person on a device of its own, named as entered", traded)
+	}
+	token, err := tokenOf(fixture.service.TakePairedSession(ctx, asked.Secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, err := fixture.service.Authenticate(ctx, token)
+	if err != nil || receiver.DeviceID != traded.DeviceID || !receiver.IsGuestReceiver() {
+		t.Fatalf("the device signed in as %+v, %v; want the guest receiver", receiver, err)
+	}
+	devices, err := fixture.service.Devices(ctx, sender.UserID)
+	if err != nil || slices.ContainsFunc(devices, func(each Device) bool { return each.ID == traded.DeviceID }) {
+		t.Errorf("devices = %+v, %v; want the guest receiver listed nowhere", devices, err)
+	}
+	if _, err = fixture.service.CastToPairing(ctx, sender, asked.Code); !errors.Is(err, ErrNoPairing) {
+		t.Errorf("answered twice: %v, want ErrNoPairing", err)
+	}
+	if _, err = fixture.service.CastToPairing(ctx, receiver, asked.Code); !errors.Is(err, ErrGuestSender) {
+		t.Errorf("a guest receiver casting: %v, want ErrGuestSender", err)
+	}
+}
+
+// A code its person entered for someone else is cast to by no one (D469 §1): casting signs the
+// device in as the sender's own person, which a code claimed for another must not become.
+func TestCastToPairing_RefusesACodeEnteredForSomeoneElse(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	sender, _ := guestSender(t, fixture.service)
+	partner := fixture.createUser(t, "partner", "pw", RoleUser)
+	other := claimedPairing(t, fixture.service, sender.UserID, partner, "192.0.2.11", "Their TV")
+	if _, err := fixture.service.CastToPairing(t.Context(), sender, other.Code); !errors.Is(err, ErrNoPairing) {
+		t.Errorf("a code entered for someone else: %v, want ErrNoPairing", err)
+	}
+}
+
+// claimedPairing is a Fire TV's code asked for from address and entered by byUserID for forUserID,
+// naming the device name.
+func claimedPairing(t *testing.T, service *Service, byUserID, forUserID int64, address, name string) Pairing {
+	t.Helper()
+	asked, err := service.RequestPairing(t.Context(), "", "Fire TV", PreviousDevice{}, address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.ClaimPairing(t.Context(), byUserID, forUserID, asked.Code, name); err != nil {
+		t.Fatal(err)
+	}
+	return asked
+}

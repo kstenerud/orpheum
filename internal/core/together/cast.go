@@ -34,6 +34,9 @@ const (
 	// CastSessionEnded is the end of the Watch Together session the receiver took its person's part
 	// in (D389 §1): the cast ends with it.
 	CastSessionEnded = "sessionEnded"
+	// CastIdle is a cast to a guest receiver a device code made, ended after nothing played in it
+	// for its idle end (D469 §3).
+	CastIdle = "idle"
 )
 
 // endedCastKept is how long a cast's end is kept for a device of it that says hello after it: a
@@ -175,6 +178,21 @@ func (hub *Hub) CastPosition(sessionID, userID int64) (positionMs int64, isPlayi
 		return 0, false, err
 	}
 	return cast.positionAt(hub.clock.Now()).Milliseconds(), cast.group.state == GroupPlaying, nil
+}
+
+// CastIdleFor is how long nothing has played in the cast sessionID that userID cast: none while it
+// plays, else since its group last changed, a film stopped, paused or put on (D469 §3).
+func (hub *Hub) CastIdleFor(sessionID, userID int64) (time.Duration, error) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	cast, err := hub.castOf(sessionID, userID)
+	if err != nil {
+		return 0, err
+	}
+	if cast.group.state == GroupPlaying {
+		return 0, nil
+	}
+	return hub.clock.Now().Sub(cast.group.at), nil
 }
 
 // CastReady has the cast sessionID that userID cast play nothing, its receiver ready between videos

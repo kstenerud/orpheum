@@ -186,6 +186,9 @@ function SignedIn(): JSX.Element {
     // offered again by the screens that start or join one.
     void haveBackMySessions(api).catch(() => undefined);
   }, [api]);
+  if (me.state === "loaded" && me.value.isGuestReceiver === true) {
+    return <GuestReceiving route={route} />;
+  }
   return (
     <IsAdminContext value={isAdmin}>
       <DebugToolsContext value={debugTools}>
@@ -376,6 +379,25 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
     return <Lab key={route.probe ?? "menu"} probe={route.probe} />;
   }
   return route.screen === "about" ? <About /> : undefined;
+}
+
+/**
+ * A page signed in for one cast, as a guest receiver a device code made (D469 §4): no shell and none
+ * of the person's screens, only the cast's, its ready page and its film, and while none has come, a
+ * line saying it waits for it. Its cast's end signs it out, as a guest receiver's does (D465 §1).
+ */
+function GuestReceiving(props: { readonly route: Route }): JSX.Element {
+  const { t } = useTranslation();
+  const { route } = props;
+  return (
+    <LiveProvider>
+      {route.screen === "play" || route.screen === "cast-ready" ? (
+        <Screen route={route} />
+      ) : (
+        <p className="guest-receiving">{t("activate.waitingAsGuest")}</p>
+      )}
+    </LiveProvider>
+  );
 }
 
 /**

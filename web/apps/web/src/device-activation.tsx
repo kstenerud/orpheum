@@ -5,22 +5,60 @@ import "./device-activation.css";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import type { Api } from "@orpheum/sdk";
 
-import { activateDevice, answerActivation, type Activation } from "./accounts.ts";
+import { activateDevice, answerActivation, castToActivation, type Activation } from "./accounts.ts";
+import { startCast } from "./cast.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
 import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
 import { WarningIcon } from "./icons.tsx";
-import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { waitFor } from "./reopen.ts";
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
-/** Where an activation stands on this device: being entered, being checked, or done. */
+/**
+ * Where an activation stands on this device: being entered, being checked, done, or, cast to instead
+ * (D469 §1), waiting for the device's page to take the cast, or given up on.
+ */
 type Step =
   | { readonly kind: "entering" }
   | { readonly kind: "checking"; readonly code: string; readonly activation: Activation }
-  | { readonly kind: "done"; readonly isActivated: boolean; readonly deviceName: string };
+  | { readonly kind: "done"; readonly isActivated: boolean; readonly deviceName: string }
+  | { readonly kind: "casting"; readonly deviceName: string }
+  | { readonly kind: "notCast"; readonly deviceName: string };
+
+/**
+ * How often the phone asks to cast to a device it signed in for one cast while the device's page is
+ * not yet connected to take it (D469 §1), and how many times: three minutes in all, as long as the
+ * core waits for that cast (live.GuestByCodeWaitsAfter) before removing the device.
+ */
+export const castAsksEveryMs = 2000;
+export const castAsksAtMost = 90;
+
+/**
+ * Casts nothing yet to deviceId, the device chosen to cast to (D469 §1), asking again while its page
+ * is not yet connected (conflict); false once castAsksAtMost asks found it never connected. Any other
+ * refusal is thrown.
+ */
+async function castOnceItConnects(api: Api, deviceId: number): Promise<boolean> {
+  for (let ask = 1; ; ask++) {
+    try {
+      await startCast(api, deviceId, undefined);
+      return true;
+    } catch (cause) {
+      if (!(cause instanceof ApiProblem && cause.code === "conflict")) {
+        throw cause;
+      }
+      if (ask >= castAsksAtMost) {
+        return false;
+      }
+    }
+    await waitFor(castAsksEveryMs);
+  }
+}
 
 /**
  * Activates a device by the code it shows (D288): the code and the name to list it by, entered here;
@@ -38,6 +76,11 @@ export function ActivateDevice(props: {
    */
   readonly scanned?: Scanned;
   readonly onScannedAnswered?: () => void;
+  /**
+   * Told once a scanned device, cast to instead of activated (D469 §1), took the cast: this device
+   * now casts to it, and the page goes on to choose what to play.
+   */
+  readonly onCastStarted?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -72,14 +115,38 @@ export function ActivateDevice(props: {
       }
     });
   };
+  const cast = (): void => {
+    if (step.kind !== "checking") {
+      return;
+    }
+    runRequest(async (idempotencyKey) => {
+      const made = await castToActivation(api, step.code, idempotencyKey);
+      setStep({ kind: "casting", deviceName: made.deviceName });
+      try {
+        if (!(await castOnceItConnects(api, made.deviceId))) {
+          setStep({ kind: "notCast", deviceName: made.deviceName });
+          return;
+        }
+      } catch (cause) {
+        setStep({ kind: "notCast", deviceName: made.deviceName });
+        throw cause;
+      }
+      props.onCastStarted?.();
+    });
+  };
   return (
     <div className="device-activation">
       <h2>{t("activate.heading")}</h2>
       {step.kind === "checking" ? (
-        <Checking activation={step.activation} isBusy={isBusy} onAnswer={answer} />
+        <Checking activation={step.activation} isBusy={isBusy} onAnswer={answer} onCast={cast} />
+      ) : step.kind === "casting" ? (
+        <output>{t("activate.casting", { device: step.deviceName })}</output>
       ) : (
         <>
           {step.kind === "done" ? <Done step={step} /> : null}
+          {step.kind === "notCast" ? (
+            <output>{t("activate.notCast", { device: step.deviceName })}</output>
+          ) : null}
           <EnterCode isBusy={isBusy} onEnter={enter} marks={marks} />
         </>
       )}
@@ -264,6 +331,7 @@ function Checking(props: {
   readonly activation: Activation;
   readonly isBusy: boolean;
   readonly onAnswer: (isMatch: boolean) => void;
+  readonly onCast: () => void;
 }): JSX.Element {
   return props.activation.checkCode === "" ? (
     <ScannedConfirm {...props} />
@@ -274,12 +342,15 @@ function Checking(props: {
 
 /**
  * A scanned device's one question, with no check code to compare (D321): what it is and how long ago
- * it asked, the warning that only a device in front of one is to be activated, and Activate.
+ * it asked, the warning that only a device in front of one is to be let in, and the answers: Claim
+ * this device, which activates it, Cast to this device, which signs it in for one cast alone (D469
+ * §1), and Cancel.
  */
 function ScannedConfirm(props: {
   readonly activation: Activation;
   readonly isBusy: boolean;
   readonly onAnswer: (isActivating: boolean) => void;
+  readonly onCast: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -299,7 +370,10 @@ function ScannedConfirm(props: {
             props.onAnswer(true);
           }}
         >
-          {t("activate.scannedActivate")}
+          {t("activate.scannedClaim")}
+        </button>
+        <button type="button" disabled={props.isBusy} onClick={props.onCast}>
+          {t("activate.scannedCast")}
         </button>
         <button
           type="button"

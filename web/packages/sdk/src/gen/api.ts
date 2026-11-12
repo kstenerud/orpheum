@@ -1641,6 +1641,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pairings/cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a code entered by casting to its device, signed in for that cast alone (D469) */
+        post: operations["castToPairing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pairings/check": {
         parameters: {
             query?: never;
@@ -2840,6 +2857,14 @@ export interface components {
              * @description Where to start, in ms; absent, where the person left the film
              */
             positionMs?: number;
+        };
+        CastToPairingInputBody: {
+            code: string;
+        };
+        CastToPairingOutputBody: {
+            /** Format: int64 */
+            deviceId: number;
+            deviceName: string;
         };
         CertificateBody: {
             /** Format: int64 */
@@ -5967,6 +5992,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             isAdmin: boolean;
+            isGuestReceiver?: boolean;
             name: string;
             role: string;
             showsDebugTools: boolean;
@@ -9768,6 +9794,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PairingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    castToPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CastToPairingInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastToPairingOutputBody"];
                 };
             };
             /** @description Error */

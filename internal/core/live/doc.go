@@ -74,6 +74,9 @@
 //     TestRegistry_AGuestReceiverIsUnlisted, TestRegistry_AGuestReceiverTakesOneCastFromItsSenderAlone,
 //     TestRegistry_AGuestReceiverEndsWithItsCastOrUnusedAfterUnansweredAfter and, through the API,
 //     TestGuestReceiver_IsSignedInByAGrantTradedOnceAndCastToByItsSenderAlone in internal/core/api.
+//   - A guest receiver a device code made (D469 §2, §3) waits GuestByCodeWaitsAfter for its cast,
+//     and its cast alone is among GuestCastsEndingIdle, ended once nothing has played in it for
+//     GuestIdleAfter. Enforced by TestRegistry_AGuestReceiverByCodeWaitsLongerAndItsCastEndsIdle.
 //   - Starts no goroutine, and a Sender never blocks (the api's outbox). Review-only.
 //   - Imports nothing from internal/node, never os/exec, and no database/sql. Enforced by the
 //     depguard rules core-boundary and sql-only-in-store.
@@ -89,11 +92,13 @@
 //     at a film's end, the next episode as the sender would play it (plans/up-next.md).
 //   - D88: a cast is Watch Together with a group of one, so control is the hub's.
 //   - D465: casting to any Google Cast device, signed in as a guest receiver for one cast.
+//   - D469: a device's code signs it in as a guest receiver for one cast, ended idle after 30 minutes.
 //   - D154: no credential in a URL; the hello carries the session token.
 //   - D165: an offline device must not rewind a person, so the sender leaves its playback.
 //
 // # Where to change
 //
 //   - registry.go: the connections, the devices listed and the casts.
+//   - guest.go: the guest receivers (D465, D469): who may cast to each, its waits, and its end.
 //   - messages.go: what a live connection is sent and sends.
 package live
