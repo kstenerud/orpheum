@@ -3225,6 +3225,27 @@ below: "agreed. Release anyway". Found by the lead:
   It restarts a fake discovery behind a link left open and waits for the redial, the logged return
   and an answered offer: find which of the three it reads before it has happened under load.
 
+## Two casting requests, pending (the owner, 2026-11-12)
+
+- **Important: a cast to one's own device asks nothing on that device.** The owner: *"Chromecast
+  doesn't require any kind of confirmation on the cast-to device, so we should also not confirm on
+  the cast-to device. We're actually more secure even if we do this, because we can only
+  orpheum-cast to devices logged in as the same user."* This reverses D358 §1, §3 and §4 (the
+  "‹Device› wants to play ‹Film› here" prompt, Not now, and the minute's timeout), as a new decision.
+  To settle with the owner before it is built: D358 added the prompt for the browser's activation,
+  not for safety. A browser receiver (the Fire TV's Silk, Chrome on a computer) plays sound only on a
+  page pressed since it loaded, and goes full screen only within moments of a press
+  (idiosyncrasies.md, "A cast receiver is started by a message, so the browser gives it neither sound
+  nor full screen"). Without the prompt, a receiver page not pressed since it loaded plays muted
+  until a press (D358 §5's prompt), and none goes full screen by itself. Our Chromecast receiver is
+  unaffected: CAF's page plays with sound and fills the screen.
+- **Less important: a temporary sign-in for one cast, by "Get a code".** The owner: the person opens
+  orpheum.cc on the device, presses "Get a code" and scans it with the phone, whose page then offers
+  two paths, **Claim this device** (today's sign-in) and **Cast to this device**. Cast to this device
+  starts a cast to it at once, and when the cast ends the device is dissociated: the same life as
+  D465's guest receiver, which is listed nowhere and keeps nothing, but reached through the device
+  code sign-in (D293's device codes) instead of Google's picker.
+
 ## A password reset link, for a later batch (the owner, 2026-11-12)
 
 The owner: *"On a user's info page, I press the button 'New reset password link', which creates a
