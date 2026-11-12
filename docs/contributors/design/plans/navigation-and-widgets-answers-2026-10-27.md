@@ -3205,6 +3205,19 @@ below: "agreed. Release anyway". Found by the lead:
   the TV forgot it, and nothing told the page. The lab's `device` message goes as the receiver
   starts connecting (`lab.ts`, becomeDevice); it should go once the live connection is welcomed, and
   a refusal should tell the page so, which then offers to pair afresh.
+- **check-pr's time, two gate changes (the owner, 2026-11-12: "put those two fixes in the next
+  batch").** The Chromecast batch's check-pr took 14 minutes, 711 s of it revert-red, whose worst
+  files were three in `internal/core/api` at 250 to 300 s each, most of it `go test` on the whole
+  package. The owner asked whether a passing `make check-pr-failed` could stand for a full check-pr;
+  as it is, no: it skips every step that passed whatever the fixes changed, probes only the files
+  that failed (not the fixes' own), and skips the commit steps for the new commits. Its safe form
+  would re-run what a full check-pr with kept passes already re-runs, so the time is cut instead:
+  1. **The background probe keeps running beside a session's test runs.** It was stopped by each
+     of the lead's test runs and commits in turn (`scripts/background_probe.py`, the lock in
+     `scripts/gate_lock.py`), so check-pr found few files already probed.
+  2. **Revert-red runs the tests that name a file before its package.** A probe that goes red on
+     the named tests stops there; the whole package (and its dependents) runs only when they stay
+     green (`scripts/check_revert_red.py`).
 
 ## A password reset link, for a later batch (the owner, 2026-11-12)
 
