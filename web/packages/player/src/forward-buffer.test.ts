@@ -99,6 +99,7 @@ describe("the bytes cap: a third of the browser's memory for a page's picture (f
     expect(kindOf(desktopChrome, 8)).toBe("ordinary");
     expect(kindOf(androidChrome, 4)).toBe("ordinary");
     expect(kindOf(fireTvSilk, 1)).toBe("lowMemory");
+    expect(kindOf(fireTvSilk)).toBe("lowMemory"); // its Silk says no deviceMemory over http (D464 §2)
     expect(kindOf(androidChrome, 0.5)).toBe("lowMemory");
     expect(kindOf(chromecast)).toBe("cast");
     expect(kindOf(macFirefox)).toBe("firefox");
@@ -286,5 +287,36 @@ describe("the sound's own bytes cap it too: a third of the browser's memory for 
     expect(notes.at(-1)).toMatch(
       /^buffer full on audio: 10\.0 s behind, 30\.0 s ahead \(about 3\.2 MB at 640 kb\/s\); no cut$/u,
     );
+  });
+});
+
+describe("loading ahead by the picture's room (D464 §4)", () => {
+  it("loads no further than lets the next chunk fit, below the floor, read again at each chunk of picture buffered", () => {
+    const hls = new FakeHls();
+    const notes: string[] = [];
+    let roomS: number | undefined = 6;
+    keepForwardBuffer(hls as unknown as Parameters<typeof keepForwardBuffer>[0], {
+      device: { userAgent: fireTvSilk, deviceMemoryGb: undefined },
+      isTop: (level) => level >= 2,
+      note: (note) => notes.push(note),
+      room: { limitBytes: () => 20_000_000, aheadS: () => roomS },
+    });
+    expect(notes).toEqual([
+      `device memory unsaid, video buffer 31.5 MB, 20.0 MB learnt, sound 2.1 MB assumed (lowMemory); ${fireTvSilk}`,
+    ]);
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 2 });
+    expect(hls.config).toEqual({ maxBufferLength: 6, maxMaxBufferLength: 6 });
+    expect(notes.at(-1)).toMatch(/^loads ahead 6\.0 s .*, by room: level 2 .*; cap 6\.7 MB$/u);
+    roomS = 12;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
+    expect(hls.config.maxBufferLength).toBe(12);
+    expect(notes).toHaveLength(2); // the room moves at every chunk: noted as it began to bound
+    roomS = 3;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "audio" } });
+    expect(hls.config.maxBufferLength).toBe(12);
+    roomS = undefined;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
+    expect(hls.config.maxBufferLength).toBe(loadsAheadAtLeastS);
+    expect(notes.at(-1)).toMatch(/^loads ahead 20\.0 s .*, by floor: level 2 /u);
   });
 });

@@ -8,14 +8,23 @@
  * own cut after the browser's buffer ran full, and noted at each change, for the play report.
  */
 
+import { isFireTv } from "@orpheum/sdk";
 import Hls, {
   PlaylistLevelType,
   type ErrorData,
+  type FragBufferedData,
   type FragLoadedData,
   type HlsConfig,
 } from "hls.js";
 
 import { holdsQualityAheadS } from "./abr.ts";
+import {
+  browserStorage,
+  limitMemoryIn,
+  megabytes,
+  PictureRoom,
+  type BufferRoom,
+} from "./picture-room.ts";
 
 /**
  * How far ahead a playback loads below its top quality, in seconds: the step-up's 20 s loaded ahead
@@ -59,8 +68,8 @@ const mebibyte = 1024 * 1024;
  * ordinary Android device, 30 MiB on an Android device with 1 GB of memory or less and on a
  * Chromecast playing H.264 (its demuxer_memory_limit*.cc), about 100 MiB in Firefox (Mozilla bug
  * 1760529) and about 100 MB in WebKit (Safari, and every browser on an iPhone). Justified constants,
- * read from the browsers' sources or reports of them; the Fire TV's is not yet shown (VQ121, the
- * report's T4).
+ * read from the browsers' sources or reports of them. A Fire TV's Silk refused a chunk with 31.5 MB
+ * held (VQ294's run, 2026-11-11): lowMemory's 30 MiB.
  */
 export const videoLimitBytes = {
   ordinary: 150 * mebibyte,
@@ -118,16 +127,20 @@ export function deviceFactsOf(navigatorLike: { readonly userAgent: string }): De
 
 /**
  * The kind of device whose memory for its picture and sound a playback assumes (videoLimitBytes,
- * soundLimitBytes): a
- * Chromecast by its CrKey; a device of lowMemoryAtMostGb or less by its deviceMemory; Firefox; WebKit
- * where no Chromium is named (Safari, or any browser on an iPhone); else Chromium's ordinary.
+ * soundLimitBytes): a Chromecast by its CrKey; a device of lowMemoryAtMostGb or less by its
+ * deviceMemory, or a Fire TV by its model code, whose Silk says no deviceMemory over http, a
+ * secure context's alone (D464 §2); Firefox; WebKit where no Chromium is named (Safari, or any
+ * browser on an iPhone); else Chromium's ordinary.
  */
 export function bufferLimitKindOf(device: DeviceFacts): BufferLimitKind {
   const { userAgent } = device;
   if (/\bCrKey\//u.test(userAgent)) {
     return "cast";
   }
-  if (device.deviceMemoryGb !== undefined && device.deviceMemoryGb <= lowMemoryAtMostGb) {
+  if (
+    (device.deviceMemoryGb !== undefined && device.deviceMemoryGb <= lowMemoryAtMostGb) ||
+    isFireTv(userAgent)
+  ) {
     return "lowMemory";
   }
   if (/\bFirefox\//u.test(userAgent)) {
@@ -139,6 +152,18 @@ export function bufferLimitKindOf(device: DeviceFacts): BufferLimitKind {
   return "ordinary";
 }
 
+/**
+ * A playback's picture room (D464 §2): its buffer's limit the device kind's (videoLimitBytes), or the
+ * one learnt on this device and kept in the browser's storage for its user agent, if lower.
+ */
+export function pictureRoomOf(device: DeviceFacts, note: (note: string) => void): PictureRoom {
+  return new PictureRoom({
+    assumedBytes: videoLimitBytes[bufferLimitKindOf(device)],
+    memory: limitMemoryIn(browserStorage(), device.userAgent),
+    note,
+  });
+}
+
 /** A quality as the target reads it: its peak and average rates, bits a second. */
 export interface AheadLevel {
   readonly bitrate: number;
@@ -147,7 +172,7 @@ export interface AheadLevel {
 
 /**
  * What bounds the target in force: the quality, the picture's bytes, the sound's bytes, the floor
- * either's bytes were held to, a group's runway, hls.js's cut, the page.
+ * either's bytes were held to, the next chunk's room, a group's runway, hls.js's cut, the page.
  */
 export type AheadBound =
   | "below top"
@@ -156,6 +181,7 @@ export type AheadBound =
   | "sound bytes"
   | "floor"
   | "sound floor"
+  | "room"
   | "runway"
   | "cut"
   | "page";
@@ -168,6 +194,8 @@ export interface AheadTarget {
 
 /** What bounds the target besides the quality and the bytes, each in seconds ahead; undefined for none. */
 export interface AheadLimits {
+  /** Where the next chunk fits in the picture's room beside what is held (D464 §4), even below the floor. */
+  readonly roomS?: number | undefined;
   /** Its Watch Together group's runway (D285 §2). */
   readonly runwayS?: number | undefined;
   /** hls.js's own cut, after the browser's buffer ran full (its reduceMaxBufferLength). */
@@ -209,6 +237,7 @@ export function aheadTargetOf(
     target = cappedByBytes(target, loading.sound, ["sound bytes", "sound floor"]);
   }
   const lower: readonly [number | undefined, AheadBound][] = [
+    [limits.roomS, "room"],
     [limits.cutS, "cut"],
     [limits.runwayS, "runway"],
     [limits.atMostS, "page"],
@@ -280,6 +309,7 @@ export class ForwardBuffer {
   readonly #isTop: (level: number) => boolean;
   readonly #note: (note: string) => void;
   readonly #atMostS: number | undefined;
+  readonly #room: BufferRoom | undefined;
   #level = -1;
   #runwayS: number | undefined;
   #cutS: number | undefined;
@@ -297,21 +327,31 @@ export class ForwardBuffer {
       readonly isTop: (level: number) => boolean;
       readonly note: (note: string) => void;
       readonly atMostS?: number | undefined;
+      /** Its picture's room, whose limit is the picture's and which paces it (D464); undefined for none. */
+      readonly room?: BufferRoom | undefined;
     },
   ) {
     this.#hls = hls;
     this.#isTop = options.isTop;
     this.#note = options.note;
     this.#atMostS = options.atMostS;
+    this.#room = options.room;
     const kind = bufferLimitKindOf(options.device);
     this.#limitBytes = videoLimitBytes[kind];
     this.#soundLimitBytes = soundLimitBytes[kind];
     const memory = options.device.deviceMemoryGb;
+    const limitBytes = this.#pictureLimitBytes();
+    const learntText = limitBytes < this.#limitBytes ? `, ${megabytes(limitBytes)} learnt` : "";
     this.#note(
       `device memory ${memory === undefined ? "unsaid" : `${String(memory)} GB`},` +
-        ` video buffer ${megabytes(this.#limitBytes)}, sound ${megabytes(this.#soundLimitBytes)}` +
-        ` assumed (${kind}); ${options.device.userAgent}`,
+        ` video buffer ${megabytes(this.#limitBytes)}${learntText},` +
+        ` sound ${megabytes(this.#soundLimitBytes)} assumed (${kind}); ${options.device.userAgent}`,
     );
+  }
+
+  /** The picture's buffer's limit: its room's, else its kind's. */
+  #pictureLimitBytes(): number {
+    return this.#room?.limitBytes() ?? this.#limitBytes;
   }
 
   /** The target in force now; below the top at the first quality's rate before one loads. */
@@ -321,10 +361,15 @@ export class ForwardBuffer {
       {
         level,
         isTop: this.#level >= 0 && this.#isTop(this.#level),
-        limitBytes: this.#limitBytes,
+        limitBytes: this.#pictureLimitBytes(),
         sound: this.#soundOf(),
       },
-      { runwayS: this.#runwayS, cutS: this.#cutS, atMostS: this.#atMostS },
+      {
+        roomS: this.#level >= 0 ? this.#room?.aheadS(this.#level) : undefined,
+        runwayS: this.#runwayS,
+        cutS: this.#cutS,
+        atMostS: this.#atMostS,
+      },
     );
   }
 
@@ -362,6 +407,11 @@ export class ForwardBuffer {
   /** hls.js begins loading level (LEVEL_SWITCHING): its target is set before hls.js reads it. */
   loads(level: number): void {
     this.#level = level;
+    this.#keep();
+  }
+
+  /** A chunk of picture buffered: the next chunk's room is read again. */
+  pictureBuffered(): void {
     this.#keep();
   }
 
@@ -405,7 +455,9 @@ export class ForwardBuffer {
     config.maxBufferLength = target.aheadS;
     config.maxMaxBufferLength = target.aheadS;
     this.#setS = target.aheadS;
-    if (this.#noted?.aheadS !== target.aheadS || this.#noted.by !== target.by) {
+    // The room moves at every chunk while it bounds the target: noted as it begins to, not at each.
+    const isMoved = this.#noted?.aheadS !== target.aheadS && target.by !== "room";
+    if (isMoved || this.#noted?.by !== target.by) {
       this.#noted = target;
       this.#note(this.#targetText(target));
     }
@@ -442,7 +494,7 @@ export class ForwardBuffer {
     const [floorRateBps, floorLimitBytes] =
       target.by === "sound floor" && sound !== undefined
         ? [sound.rateBps, sound.limitBytes]
-        : [rateBps, this.#limitBytes];
+        : [rateBps, this.#pictureLimitBytes()];
     const isFloor = target.by === "floor" || target.by === "sound floor";
     const overflowText =
       isFloor && (target.aheadS * floorRateBps) / 8 > floorLimitBytes
@@ -450,16 +502,11 @@ export class ForwardBuffer {
         : "";
     return (
       `loads ahead ${target.aheadS.toFixed(1)} s (${megabytes((target.aheadS * rateBps) / 8)})` +
-      `, by ${target.by}: ${levelText}; cap ${megabytes(this.#limitBytes * aheadShareOfBufferLimit)}` +
+      `, by ${target.by}: ${levelText}; cap ${megabytes(this.#pictureLimitBytes() * aheadShareOfBufferLimit)}` +
       soundText +
       overflowText
     );
   }
-}
-
-/** Bytes as megabytes, for a note: "52.4 MB". */
-function megabytes(bytes: number): string {
-  return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
 /** What media holds loaded behind and ahead of where it plays, in seconds; undefined where nothing is loaded there. */
@@ -479,7 +526,7 @@ function loadedAround(
 
 /**
  * Keeps hls's loading ahead to a ForwardBuffer's target (P1, P2): at each quality it begins to
- * load, at each chunk of sound loaded, and at each buffer run full. Returns it, and the stopping.
+ * load, at each chunk of sound loaded and of picture buffered, and at each buffer run full. Returns it, and the stopping.
  */
 export function keepForwardBuffer(
   hls: AheadHls & Pick<Hls, "on" | "off">,
@@ -498,6 +545,11 @@ export function keepForwardBuffer(
       });
     }
   };
+  const onBuffered = (_event: unknown, data: FragBufferedData): void => {
+    if (data.frag.type === PlaylistLevelType.MAIN) {
+      buffer.pictureBuffered();
+    }
+  };
   const onError = (_event: unknown, data: ErrorData): void => {
     if (data.details === Hls.ErrorDetails.BUFFER_FULL_ERROR) {
       buffer.bufferFull(data);
@@ -505,12 +557,14 @@ export function keepForwardBuffer(
   };
   hls.on(Hls.Events.LEVEL_SWITCHING, onSwitching);
   hls.on(Hls.Events.FRAG_LOADED, onLoaded);
+  hls.on(Hls.Events.FRAG_BUFFERED, onBuffered);
   hls.on(Hls.Events.ERROR, onError);
   return {
     buffer,
     stop: () => {
       hls.off(Hls.Events.LEVEL_SWITCHING, onSwitching);
       hls.off(Hls.Events.FRAG_LOADED, onLoaded);
+      hls.off(Hls.Events.FRAG_BUFFERED, onBuffered);
       hls.off(Hls.Events.ERROR, onError);
     },
   };

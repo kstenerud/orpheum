@@ -22,7 +22,8 @@ import type Hls from "hls.js";
 
 import { Choosing } from "./abr.ts";
 import { arrivalMs } from "./abr-choice.ts";
-import type { ChoosingOptions } from "./abr-options.ts";
+import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
+import { StepDown, type PictureRoom } from "./picture-room.ts";
 import { cannotMakeStatus, tooEarlyStatus } from "./failure.ts";
 import { rebuilt, rebuildingFrom, resumePositionOf } from "./resume-position.ts";
 
@@ -127,9 +128,15 @@ const listenersOf = new WeakMap<
  */
 class OrpheumAbrController extends AbrController {
   readonly choosing: Choosing<Fragment>;
+  /** Its picture buffer's room, and the step-down of a chunk that does not fit (D464); undefined for none. */
+  readonly room: { readonly picture: PictureRoom; readonly step: StepDown } | undefined;
 
-  constructor(hls: Hls, options: ChoosingOptions) {
+  constructor(hls: Hls, options: ChoosingOptions, room?: PictureRoom) {
     super(hls);
+    this.room =
+      room === undefined
+        ? undefined
+        : { picture: room, step: new StepDown(hls, room, options.noteStep) };
     // hls.js's own giving up of a chunk on its way is off: choosing's is the one (D265 §3, D323). It
     // timed a chunk from its first ask, so one the core answered 425 while it made it looked stalled,
     // and with little loaded ahead it switched down to the quality it reckoned would arrive in time,
@@ -171,6 +178,7 @@ class OrpheumAbrController extends AbrController {
       },
       buffered: (event, data) => {
         this.onFragBuffered(event, data);
+        this.#held(data.frag);
       },
       // hls.js's own: the estimate's half-lives, and a timed-out chunk's sample.
       levelLoaded: (event, data) => {
@@ -189,6 +197,7 @@ class OrpheumAbrController extends AbrController {
         } else if (frag !== undefined && isPicture(frag) && isLoadFailure(data)) {
           this.choosing.failed(frag, data.details);
         }
+        this.#refused(data);
         if (
           data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&
           frag !== undefined &&
@@ -198,6 +207,29 @@ class OrpheumAbrController extends AbrController {
         }
       },
     };
+  }
+
+  /** The browser refused a chunk of picture for its memory: its room learns its limit (D464 §2). */
+  #refused(data: ErrorData): void {
+    if (data.details === ErrorDetails.BUFFER_FULL_ERROR && data.sourceBufferName === "video") {
+      this.room?.picture.refused();
+    }
+  }
+
+  /** A chunk of picture buffered is held in its room, with what is loaded where it plays. */
+  #held(frag: Fragment): void {
+    if (this.room === undefined || !isPicture(frag) || typeof frag.sn !== "number") {
+      return;
+    }
+    this.room.picture.buffered(
+      {
+        sn: frag.sn,
+        startS: frag.start,
+        endS: frag.start + frag.duration,
+        bytes: frag.stats.loaded,
+      },
+      this.hls.mainForwardBufferInfo,
+    );
   }
 
   /**
@@ -283,12 +315,17 @@ class OrpheumAbrController extends AbrController {
     return this.choosing.forcedLevel();
   }
 
+  /** The choosing's quality for the next chunk, stepped down where the chunk does not fit (D464 §3). */
   override get nextAutoLevel(): number {
-    return this.choosing.nextLevel();
+    const chosen = this.choosing.nextLevel();
+    return this.room === undefined ? chosen : this.room.step.level(chosen);
   }
 
+  /** A quality hls.js sets, passed to the choosing unless it is the step-down's echo. */
   override set nextAutoLevel(level: number) {
-    this.choosing.setLevel(level);
+    if (this.room?.step.isEcho(level) !== true) {
+      this.choosing.setLevel(level);
+    }
   }
 
   override destroy(): void {
@@ -297,20 +334,37 @@ class OrpheumAbrController extends AbrController {
   }
 }
 
-/** A playback's bitrate controller, made for hls.js's config, and its choosing once hls.js made it. */
+/**
+ * A playback's bitrate controller, made for hls.js's config, and once hls.js made it its choosing,
+ * its step-down's last choice before stepping, and why it chose a quality, the step-down's where it
+ * stepped down to it.
+ */
 export interface OrpheumAbr {
   readonly controller: typeof AbrController;
   readonly choosing: () => Choosing<Fragment> | undefined;
+  readonly chosenLevel: () => number | undefined;
+  readonly whyChose: (level: number) => ChoiceWhy | undefined;
 }
 
-/** The bitrate controller of one chunked playback, choosing by options (D265). */
-export function orpheumAbr(options: ChoosingOptions): OrpheumAbr {
-  let made: Choosing<Fragment> | undefined;
+/**
+ * The bitrate controller of one chunked playback, choosing by options (D265), each chunk stepped
+ * down where it does not fit in room (D464).
+ */
+export function orpheumAbr(options: ChoosingOptions, room?: PictureRoom): OrpheumAbr {
+  let made: OrpheumAbrController | undefined;
+  const madeAs = (controller: OrpheumAbrController): void => {
+    made = controller;
+  };
   class PlaybackAbrController extends OrpheumAbrController {
     constructor(hls: Hls) {
-      super(hls, options);
-      made = this.choosing;
+      super(hls, options, room);
+      madeAs(this);
     }
   }
-  return { controller: PlaybackAbrController, choosing: () => made };
+  return {
+    controller: PlaybackAbrController,
+    choosing: () => made?.choosing,
+    chosenLevel: () => made?.room?.step.chosen(),
+    whyChose: (level) => made?.room?.step.whyChose(level) ?? made?.choosing.whyChose(level),
+  };
 }
