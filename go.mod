@@ -2,7 +2,7 @@ module github.com/kstenerud/orpheum
 
 go 1.26.0
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 // No socket uses Multipath TCP: CVE-2026-98432, a Linux use-after-free in TCP that an MPTCP
 // listener (Go's default since 1.24) exposes to remote code execution; a patched kernel is the
