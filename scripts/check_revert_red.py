@@ -274,6 +274,15 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
 TRUST_RECORD = True
 
 
+def red_is_kept(began: float) -> bool:
+    """Whether a red found by a probe that began at began is kept: not the background probe's while
+    a session's run went beside it (gate_lock.ran_since), whose load can fake a red, never a green;
+    check-pr probes the file again."""
+    import gate_lock  # noqa: PLC0415 (the background probe's alone)
+
+    return os.environ.get(background_probe.IN_BACKGROUND) != "1" or not gate_lock.ran_since(began)
+
+
 def probe(tree: str, base: str, head: str, change: Change, timeout: int,
           browser: str = BROWSER_INLINE) -> Outcome:
     """One file's verdict: its revert probed, then the branch's claims if nothing went red.
@@ -336,6 +345,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         return Outcome(change.path, "UNCHECKED", "deleted; reverting would re-add it")
 
     unit = companions(change.path)
+    began = time.time()
     revert = known_red.revert_key(tree, base, head, [change.path, *unit])
     if TRUST_RECORD and (seen := known_red.known(tree, head, revert, browser)) is not None:
         return Outcome(change.path, seen["verdict"], f"{seen['detail']}, as its probe at {seen['head'][:12]} "
@@ -415,8 +425,9 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
                 red = Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
             else:
                 red = Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
-            known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail, output=combined)
-            known_red.remember_failed(change.path, combined, go_module(toplevel()), attempt.command)
+            if red_is_kept(began):
+                known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail, output=combined)
+                known_red.remember_failed(change.path, combined, go_module(toplevel()), attempt.command)
             return red
         if deferred:
             return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "

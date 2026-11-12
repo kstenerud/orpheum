@@ -60,7 +60,7 @@ class BackgroundProbe(unittest.TestCase):
         made = self.probes()
         self.assertEqual(len(made), 1)
         command = made[0]
-        self.assertEqual(command[:3], ["nice", "-n", "19"])
+        self.assertEqual(command[:6], ["ionice", "-c", "3", "nice", "-n", "19"])
         for part in (["--part", "code"], ["--jobs", "2"], ["--base", "abc"]):
             self.assertIn(" ".join(part), " ".join(command))
         self.assertIn("--unrecorded", command)
@@ -128,35 +128,45 @@ class BackgroundProbe(unittest.TestCase):
         self.assertRegex(out.getvalue(), r"background probe: abc\.\.\w+, started at \d\d:\d\d:\d\d UTC")
         self.assertRegex(out.getvalue(), r"background probe: ended at \d\d:\d\d:\d\d UTC, after \d+ s \(exit 0\)")
 
-    def test_a_pass_waits_for_another_test_run_and_holds_the_test_lock_as_the_probe(self):
-        # 2026-11-04: the probe ran beside agents' spot checks and test runs, the load reached 70 on 8
-        # cores, and their browser tests failed each other's.
+    def test_a_pass_waits_behind_the_gates_own_run_and_goes_beside_a_spot_check(self):
+        # The owner's 11-24 batch, item 4 (2026-11-12): stopped by every session run in turn, the probe
+        # left check-pr few files probed; it now goes beside a spot check, and gives way to make check.
         seen: list[str | None] = []
         with self.repo.cwd(), open(bp.gate_lock.lock_path(), "a+", encoding="utf-8") as other:
             bp.fcntl.flock(other, fcntl.LOCK_EX)
-            bp.gate_lock.mark(other, "spot")
+            bp.gate_lock.mark(other, "check")
 
-            def release(_seconds):
+            def check_ends_and_a_spot_starts(_seconds):
                 seen.append(bp.gate_lock.holder_kind(bp.gate_lock.holder()))
-                fcntl.flock(other, fcntl.LOCK_UN)
+                bp.gate_lock.mark(other, "spot")
 
             def fake(_here, _command):
                 seen.append(bp.gate_lock.holder_kind(bp.gate_lock.holder()))
                 return 0
 
             with mock.patch.object(bp, "base", return_value="abc"), \
-                    mock.patch.object(bp.time, "sleep", side_effect=release), \
+                    mock.patch.object(bp.time, "sleep", side_effect=check_ends_and_a_spot_starts), \
                     mock.patch.object(bp, "probe_until_stopped", side_effect=fake):
                 bp.run()
-        self.assertEqual(seen, ["spot", "probe"], "it waited behind the spot check, then probed holding the lock")
-        with self.repo.cwd():
-            self.assertIsNone(bp.gate_lock.holder(), "the lock is let go after the pass")
+        self.assertEqual(seen, ["check", "spot"], "it waited behind make check, then probed beside the spot check")
 
-    def test_a_stop_asked_while_it_waits_for_the_test_lock_ends_it_unprobed(self):
+    def test_a_stop_asked_while_it_waits_behind_the_gates_own_run_ends_it_unprobed(self):
         with self.repo.cwd(), open(bp.gate_lock.lock_path(), "a+", encoding="utf-8") as other:
             fcntl.flock(other, fcntl.LOCK_EX)
+            bp.gate_lock.mark(other, "check-pr")
             with mock.patch.object(bp.time, "sleep", side_effect=lambda _s: (self.here / bp.STOP).touch()):
                 self.assertEqual(self.probes(), [])
+
+    def test_it_says_whether_a_run_is_going(self):
+        self.assertFalse(bp.is_running(self.repo.root))
+        with open(self.here / bp.LOCK, "a", encoding="utf-8") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            done = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
+                                   "import background_probe as bp; from pathlib import Path; "
+                                   "sys.exit(0 if bp.is_running(Path(sys.argv[2])) else 1)",
+                                   str(Path(bp.__file__).parent), str(self.repo.root)], check=False)
+            self.assertEqual(done.returncode, 0, "the run holding its lock is going")
+        self.assertFalse(bp.is_running(self.repo.root))
 
     def test_a_probe_runs_revert_red_as_a_sub_run_of_the_lock_it_holds(self):
         with self.repo.cwd() as out, mock.patch.dict(os.environ, {bp.gate_lock.GATE_LOCK_HELD: ""}):

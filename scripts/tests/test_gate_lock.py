@@ -98,28 +98,43 @@ class GateLock(unittest.TestCase):
         self.assertEqual(gate_lock.holder_kind(said), "spot")
         self.assertIsNone(gate_lock.holder(root), "nothing holds it once the run ended")
 
-    def test_a_run_behind_the_background_probe_asks_it_to_stop_and_takes_the_lock(self):
-        # The probe gives way to every other run (the owner, 2026-11-04): one waiting behind a probe pass
-        # of many minutes slowed agents' spot checks as much as running beside it loaded them.
+    def test_the_gates_own_run_stops_the_background_probe_and_starts_it_again_a_spot_goes_beside_it(self):
+        # The owner's 11-24 batch, item 4 (2026-11-12): the probe stopped for every session run in turn
+        # and check-pr found few files probed; a spot check or a test run now goes beside it.
         root = repository(self)
-        asked: list[Path | None] = []
-        with open(gate_lock.lock_path(root), "a+", encoding="utf-8") as probe:
-            fcntl.flock(probe, fcntl.LOCK_EX)
-            gate_lock.mark(probe, gate_lock.PROBE)
+        import background_probe  # noqa: PLC0415
 
-            def stop(where):
-                asked.append(where)
-                fcntl.flock(probe, fcntl.LOCK_UN)  # the probe's pass ends
-                return 0.0
-
-            import background_probe  # noqa: PLC0415
-
-            with mock.patch.object(background_probe, "stop", side_effect=stop), \
+        for kind, stops in (("check", True), ("revert-red", True), ("spot", False), ("test", False)):
+            calls: list[str] = []
+            with mock.patch.object(background_probe, "is_running", return_value=True), \
+                    mock.patch.object(background_probe, "stop", side_effect=lambda _r: calls.append("stop")), \
+                    mock.patch.object(background_probe, "launch", side_effect=lambda _r: calls.append("launch")), \
                     mock.patch.dict(os.environ, {gate_lock.GATE_LOCK_HELD: ""}), \
-                    gate_lock.holding(root, "test") as env:
-                self.assertEqual(gate_lock.holder_kind(gate_lock.holder(root)), "test")
+                    gate_lock.holding(root, kind) as env:
+                self.assertEqual(gate_lock.holder_kind(gate_lock.holder(root)), kind)
                 self.assertEqual(env[gate_lock.GATE_LOCK_HELD], "1")
-        self.assertEqual(asked, [root])
+                calls.append("ran")
+            self.assertEqual(calls, ["stop", "ran", "launch"] if stops else ["ran"], kind)
+
+    def test_with_no_probe_going_the_gates_own_run_starts_none(self):
+        root = repository(self)
+        import background_probe  # noqa: PLC0415
+
+        with mock.patch.object(background_probe, "is_running", return_value=False), \
+                mock.patch.object(background_probe, "launch") as launch, \
+                mock.patch.dict(os.environ, {gate_lock.GATE_LOCK_HELD: ""}), \
+                gate_lock.holding(root, "check"):
+            pass
+        launch.assert_not_called()
+
+    def test_a_run_since_a_time_is_one_holding_the_lock_or_one_that_ended_after_it(self):
+        root = repository(self)
+        began = time.time()
+        self.assertFalse(gate_lock.ran_since(began, root))
+        with mock.patch.dict(os.environ, {gate_lock.GATE_LOCK_HELD: ""}), gate_lock.holding(root, "spot"):
+            self.assertTrue(gate_lock.ran_since(began, root), "one holds it now")
+        self.assertTrue(gate_lock.ran_since(began, root), "its hold ended after began")
+        self.assertFalse(gate_lock.ran_since(time.time() + 5, root), "none since a later time")
 
     def test_the_stop_hook_waits_behind_short_runs_only(self):
         for kind in ("spot", "test", "probe"):
