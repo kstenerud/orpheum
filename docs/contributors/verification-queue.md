@@ -3009,8 +3009,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   play, pause and a seek in the tab move the TV within a few seconds, Stop casting stops it, and the
   TV is in none of Your devices' lists after. (`web/apps/cast-receiver/src/guest.ts`, `src/caf.ts`,
   `src/main.ts`)
-- [ ] **VQ303** — A Chromecast never registered to any application casts under production's
-  application, which Google has published (D465 §5; google-cast.md §2, step 5). With the owner's
+- [x] **VQ303** — A Chromecast never registered to any application casts under production's
+  application, which Google has published (passed 2026-11-12 on production, the owner: its
+  registration removed and the Chromecast restarted, cast from Chrome on the Mac and from Chrome on
+  the phone, over WebRTC through the discovery, once the receiver checked the core's answer without
+  WebCrypto's Ed25519 and a request over a data channel ended without an empty message; orpheum.cc's
+  page named `EF14EAE8`) (D465 §5; google-cast.md §2, step 5). With the owner's
   3rd-generation Chromecast's registration removed in Google's console, from Chrome on the Mac at
   production's loader, cast a film to it as VQ302 does. Passes when it plays as VQ302 passes, and the
   page's `orpheum-cast-receiver-app-id` is production's application, not staging's.
