@@ -32,6 +32,7 @@ import {
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed, tabStorage } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
+import { askGuestCastGrantOf } from "./google-cast.ts";
 import { followPressesForRefusals } from "./start-refused.ts";
 import { followPressesOfPlay } from "./video-pressed-for-play.ts";
 import { LinkDebug } from "./link-debug.ts";
@@ -131,8 +132,10 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
     // Under a discovery's loader, what the lab's cast page hands its receiver to reach the core from
     // away; only a Chromecast away from home shows it whole (VQ256).
     throughDiscovery: reaches.throughDiscovery,
-    // The loader's Cast receiver application, for the Cast menu's Chromecast (D465 §5).
+    // The loader's Cast receiver application, for the Cast menu's Chromecast (D465 §5), and the grant
+    // for one cast it hands the device it launches on (D465 §2).
     castReceiverAppId: reaches.castReceiverAppId,
+    askGuestCastGrant: askGuestCastGrantOf(api),
     willLeaveWhenSignedOut: reaches.willLeaveWhenSignedOut,
     pathMoves: reaches.pathMoves,
     switchHousehold: reaches.switchHousehold,

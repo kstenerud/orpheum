@@ -9,7 +9,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { castSenderScript, type CastChannel } from "./cast-sdk.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { castReceiverAppIdOf } from "./discovery-page.ts";
-import { guestCastNamespace, isChromeBrowser, linkCastSession } from "./google-cast.ts";
+import {
+  askGuestCastGrantOf,
+  guestCastNamespace,
+  isChromeBrowser,
+  linkCastSession,
+} from "./google-cast.ts";
 import { LiveProvider } from "./live.tsx";
 import type { Services } from "./services.tsx";
 import { StatusTray } from "./status-tray.tsx";
@@ -17,6 +22,7 @@ import {
   bodyField,
   buttonWithText,
   click,
+  failOnUnexpectedRequests,
   mount,
   servedBy,
   settleUntil,
@@ -181,6 +187,18 @@ describe("which browsers cast to a Google Cast device (D465 §3)", () => {
     meta.content = "ABCD1234";
     page.head.append(meta);
     expect(castReceiverAppIdOf(page)).toBe("ABCD1234");
+  });
+});
+
+describe("a grant for one cast to a Google Cast device (D465 §2)", () => {
+  it("is asked of the core for the device Chrome's picker named, and is what the core answers", async () => {
+    const heard: Heard[] = [];
+    const { api } = servedBy({ "POST /me/casts/guest-grants": [201, { grant }] }, heard, "token");
+    await expect(askGuestCastGrantOf(api)("Living Room TV")).resolves.toBe(grant);
+    expect(heard.map((each) => [each.methodAndPath, each.body])).toEqual([
+      ["POST /me/casts/guest-grants", { receiverName: "Living Room TV" }],
+    ]);
+    failOnUnexpectedRequests();
   });
 });
 
