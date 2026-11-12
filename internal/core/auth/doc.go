@@ -231,6 +231,12 @@
 //     the locator of the session that asked for it alone, and no longer once traded or expired.
 //     TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits.
 //
+//   - The AirPlay lab's grant (airplay.md's spike) is kept only as its hash, in memory, stands for one
+//     playback of one file its session holds, for LabAirPlayGrantLife, 24 hours, and is revoked by
+//     its sending session alone; a guest receiver's session gets none.
+//     TestLabAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
+//     TestLabAirPlayGrant_IsRevokedByItsSenderAlone and TestLabAirPlayGrant_RefusesAGuestReceiver.
+//
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.
