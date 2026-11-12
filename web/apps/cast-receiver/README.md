@@ -20,7 +20,9 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 - **Plays only a path on its own core, or on its sender's core reached through the sender's
   discovery** (its own names, else WebRTC, as the web client reaches it: `src/reach.ts`, the 11-05
   batch's item 10), signed in by what its sender hands it, and answers only the lab's requests on
-  `urn:x-cast:org.orpheum.lab`. `src/lab.test.ts`.
+  `urn:x-cast:org.orpheum.lab`. It tries the core's own names only where it is served at the core's
+  client origin, which its sender names; served at the loader's origin, which the core refuses all
+  but its health check, it goes over WebRTC only (the 11-23 batch's item 3(d)). `src/lab.test.ts`.
 - **Becomes a cast target only as a device of its sender's person, by D288's pairing**: asked by the
   lab's sender, it pairs (its code carried over the lab's namespace, the check codes shown on both
   screens for the person to compare), keeps that session in its own storage, connects as a device
