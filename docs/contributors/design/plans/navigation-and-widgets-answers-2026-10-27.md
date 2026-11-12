@@ -3333,6 +3333,19 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 **Medium priority:**
 
 - **6.** The discovery test that failed once under a full run.
+  - **Found (2026-11-12): the test's clock driver moved the fake time past a timer not yet armed.**
+    `signalOverTime` called `AdvanceToNext` every 100 ms of real time, which jumps to the earliest
+    timer armed *then*. Under load, a pong's wait not yet armed when the tick came let the time jump
+    to the next health check, and the wait counted from there, so the dead link was found seconds
+    late, past the bound; a delay of 150 ms before the pong's wait is armed fails both silent-link
+    tests every run, "dialled again 1m1s after it opened" (0.7 s each, as the failure's 0.87 s).
+    And `holdSignalling` returned without waiting for its ping and health goroutines, whose armed
+    timers outlived the connection into the next dial. **Fixed:** `clocktest.Fake.AwaitArmed`, and
+    the driver moves the time only once both of a connection's timers are armed; `holdSignalling`
+    waits for both goroutines; `pingsUnanswered` counts a ping until its pong's wait is stopped.
+    The same injected delay passes now. The other `AdvanceToNext` users (the node's agent,
+    byteserver and diskwatch tests, subtitles' fetch) step until an answer comes and measure no span
+    of fake time, so a timer armed late cannot fail them.
 - **7.** One icon library: the 55 icon drawings in one `icons.tsx`, with no visible change.
 - **8.** Film matching ranks a 2014 film with a similar translated title above the 1986 one.
   - **Found (2026-11-12): no ranking bug.** D412's ranking (`rankFilms`, settle_film.go) already puts
