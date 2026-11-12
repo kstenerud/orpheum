@@ -4048,7 +4048,7 @@
           "link": {
             "description": "A TMDB address or id, or an IMDb address or tt id",
             "examples": [
-              "https://www.imdb.com/title/tt0456789/"
+              "https://www.imdb.com/title/tt0234567/"
             ],
             "minLength": 1,
             "type": "string"

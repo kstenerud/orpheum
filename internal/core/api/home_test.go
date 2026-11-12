@@ -69,7 +69,7 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	harness.setPositionReadAt(t, 1, 500_000, 200) // Metropolis, halfway, latest
 	harness.setPositionReadAt(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
 
-	want := []string{"10:1:" + "Metropolis (1927).mkv", "21:2:"} // Metropolis names its file: two are partway
+	want := []string{"10:1:Metropolis (1927).mkv", "21:2:"} // Metropolis names its file: two are partway
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("Continue Watching = %v, want %v", got, want)
 	}

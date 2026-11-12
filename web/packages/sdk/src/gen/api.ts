@@ -3998,7 +3998,7 @@ export interface components {
         MatchByLinkInputBody: {
             /**
              * @description A TMDB address or id, or an IMDb address or tt id
-             * @example https://www.imdb.com/title/tt0456789/
+             * @example https://www.imdb.com/title/tt0234567/
              */
             link: string;
         };
