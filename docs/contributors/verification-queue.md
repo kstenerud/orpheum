@@ -2833,6 +2833,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   went over WebRTC, and the film plays (the 11-23 batch's item 3(d)).
   (`web/apps/cast-receiver/src/device.ts`, `web/apps/cast-receiver/src/lab.ts`, `web/apps/cast-receiver/src/reach.ts`,
   `web/apps/web/src/lab-cast-target.tsx`)
+  The pairing passed at home (the owner, 2026-11-12, on staging, the 3rd-generation Chromecast, its
+  Orpheum device removed first: "I saw the code, pressed \"they're the same\", and it now shows up
+  in my device list. Playing a movie also works"). Still to do: the film played from away, through
+  the discovery.
 - [x] **VQ287** — A cast to the Chromecast plays and its remote works it (D434) (passed 2026-11-12 on staging at "fix(cast-receiver): a Chromecast takes the next cast after one is stopped", the owner's 3rd-generation Chromecast: play, pause and seek from the Mac's Chrome moved the TV, "it worked across multiple casts"; it took that fix and "fix(cast-receiver): a Chromecast plays the cast it leads, not only once its group says playing", and the loader's own copy of the receiver rebuilt, since `./staging quick` does not reach `orpheum.dev/cast/`). After VQ286, the
   lab's cast left running, open a film in another tab on the Mac, press Cast and choose the
   Chromecast. Passes when the film plays on the TV, the tab shows the cast's controls, play, pause
