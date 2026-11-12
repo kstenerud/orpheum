@@ -143,6 +143,26 @@ describe("a Chromecast following its cast's session (D434)", () => {
     ]);
   });
 
+  it("plays a group waiting for its leader to play, for in a cast the receiver leads it (D371 §1)", () => {
+    // As the staging run of 2026-11-12 had it: the receiver loaded the cast's film, put it on, and
+    // the group waited at 1749.9 s for its leader, the receiver, which stood paused.
+    const loaded = { fileId: 7, positionMs: 1_749_941, isPlaying: false };
+    expect(
+      stepsToFollow(groupOf({ state: "waiting", positionMs: 1_749_941 }), 1_749_941, loaded),
+    ).toEqual([{ step: "play" }]);
+    expect(stepsToFollow(groupOf({ state: "waiting", positionMs: 1000 }), 1000, stopped)).toEqual([
+      { step: "load", fileId: 7, positionMs: 1000 },
+      { step: "play" },
+    ]);
+    expect(
+      stepsToFollow(groupOf({ state: "waiting" }), 30_000, {
+        ...loaded,
+        positionMs: 30_000,
+        isPlaying: true,
+      }),
+    ).toEqual([]);
+  });
+
   it("plays, pauses and seeks as its remote has the group do", () => {
     const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
     expect(stepsToFollow(groupOf({ state: "paused" }), 30_000, playing)).toEqual([
