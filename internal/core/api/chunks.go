@@ -95,25 +95,42 @@ func (server *Server) getChunksMasterPlaylist(
 	if err != nil {
 		return nil, err
 	}
-	chunked, err := dependencies.Playback.ChunksOf(ctx, input.Token, holder)
-	if err != nil {
-		return nil, server.playbackError(ctx, "find a playback's chunks", err)
+	return server.masterPlaylistOf(ctx, dependencies, input.Token, holder, 0)
+}
+
+// masterPlaylistOf is the master playlist of the playback token names, as holder holds it. While the
+// film has no grid it is read through, and asked again every chunkAskEvery for up to hold, after
+// which the player is told to ask again (425): a hold of 0 tells it at once, as hls.js is told, which
+// honours the 425; an AirPlay receiver does not, and is held (airplay.md, the 2026-11-12 findings).
+func (server *Server) masterPlaylistOf(
+	ctx context.Context, dependencies *Dependencies, token string, holder playback.Holder, hold time.Duration,
+) (*huma.StreamResponse, error) {
+	giveUpAt := dependencies.Clock.Now().Add(hold)
+	for {
+		chunked, err := dependencies.Playback.ChunksOf(ctx, token, holder)
+		if err != nil {
+			return nil, server.playbackError(ctx, "find a playback's chunks", err)
+		}
+		text, kept, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
+		if errors.Is(err, chunks.ErrNoGrid) && dependencies.Clock.Now().Before(giveUpAt) &&
+			dependencies.Clock.Sleep(ctx, chunkAskEvery) == nil {
+			continue
+		}
+		if err != nil {
+			return nil, server.chunksError(ctx, "write a master playlist of chunks", err)
+		}
+		ladder, err := dependencies.Chunks.Ladder(ctx, chunked)
+		if err != nil {
+			return nil, server.chunksError(ctx, "find a playback's ladder", err)
+		}
+		dependencies.Playback.KeepLadder(token, ladder)
+		if kept != chunked.Kept() {
+			// The playback keeps the grid it began on, though a read-through finds the film's keyframes
+			// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.
+			dependencies.Playback.Keep(token, holder, kept)
+		}
+		return playlistResponse(text), nil
 	}
-	text, kept, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
-	if err != nil {
-		return nil, server.chunksError(ctx, "write a master playlist of chunks", err)
-	}
-	ladder, err := dependencies.Chunks.Ladder(ctx, chunked)
-	if err != nil {
-		return nil, server.chunksError(ctx, "find a playback's ladder", err)
-	}
-	dependencies.Playback.KeepLadder(input.Token, ladder)
-	if kept != chunked.Kept() {
-		// The playback keeps the grid it began on, though a read-through finds the film's keyframes
-		// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.
-		dependencies.Playback.Keep(input.Token, holder, kept)
-	}
-	return playlistResponse(text), nil
 }
 
 // getChunkFile answers GET /bytes/media/chunks/{token}/{streamName}/{fileName}: a stream's playlist,
@@ -124,27 +141,45 @@ func (server *Server) getChunkFile(ctx context.Context, input *ChunkFileInput) (
 	if err != nil {
 		return nil, err
 	}
-	if input.FileName == streamPlaylistName {
-		text, playlistErr := dependencies.Chunks.MediaPlaylist(ctx, chunked, input.StreamName)
+	asked := chunkFileAsked{streamName: input.StreamName, fileName: input.FileName, isSought: input.IsSought}
+	return server.chunkFileOf(ctx, dependencies, input.Token, chunked, asked, 0)
+}
+
+// chunkFileAsked is the file of a playback's chunks a request asks for: its stream, its name, and
+// whether the player loads where a seek took it.
+type chunkFileAsked struct {
+	streamName, fileName string
+	isSought             bool
+}
+
+// chunkFileOf is the file asked of the playback token names: a stream's playlist, which the core
+// writes, or its init or a chunk, relayed from the film's node and waited for while it is made, for
+// chunkHoldMs or holdAtLeast, whichever is longer (relayChunkFile).
+func (server *Server) chunkFileOf(
+	ctx context.Context, dependencies *Dependencies, token string, chunked chunks.Playback, asked chunkFileAsked,
+	holdAtLeast time.Duration,
+) (*huma.StreamResponse, error) {
+	if asked.fileName == streamPlaylistName {
+		text, playlistErr := dependencies.Chunks.MediaPlaylist(ctx, chunked, asked.streamName)
 		if playlistErr != nil {
 			return nil, server.chunksError(ctx, "write a stream's playlist of chunks", playlistErr)
 		}
 		return playlistResponse(text), nil
 	}
-	file, err := dependencies.Chunks.StoreFileOf(ctx, chunked, input.StreamName, input.FileName)
+	file, err := dependencies.Chunks.StoreFileOf(ctx, chunked, asked.streamName, asked.fileName)
 	if err != nil {
 		return nil, server.chunksError(ctx, "find a chunk", err)
 	}
-	if input.IsSought {
+	if asked.isSought {
 		file = file.AsSought()
 	}
-	dependencies.Playback.Fetched(input.Token, file)
-	if sound, hasSound := dependencies.Playback.SoundOf(input.Token); hasSound && !file.IsSound() {
+	dependencies.Playback.Fetched(token, file)
+	if sound, hasSound := dependencies.Playback.SoundOf(token); hasSound && !file.IsSound() {
 		if err = dependencies.Chunks.WantAlongside(ctx, file, sound); err != nil {
 			return nil, server.chunksError(ctx, "have a jump's sound made with its picture", err)
 		}
 	}
-	return server.relayChunkFile(ctx, dependencies, file)
+	return server.relayChunkFile(ctx, dependencies, file, holdAtLeast)
 }
 
 // errNotMadeYet is a store's file its node does not have: not made yet.
@@ -152,13 +187,14 @@ var errNotMadeYet = errors.New("the node has not made it yet")
 
 // relayChunkFile relays a store's init or chunk from its node. One the node has not made is asked
 // for (chunks.Service.Want), and the node asked again every chunkAskEvery until it has it, for up to
-// chunkHoldMs, after which the player is told to ask again (425). It is asked for again on each
+// chunkHoldMs or holdAtLeast, whichever is longer, after which the player is told to ask again
+// (425). It is asked for again on each
 // look: a run asked for while another of its store waits queued, after a seek, is folded into that
 // one, which makes other chunks, and only a later ask queues it once that one has started. A file
 // the node served is known made. Neither ever changes once made, so it is cached for a day. A file
 // waited for is logged (logChunkWait); one the node had at once is not.
 func (server *Server) relayChunkFile(
-	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile,
+	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile, holdAtLeast time.Duration,
 ) (*huma.StreamResponse, error) {
 	source := playback.Source{NodeID: file.NodeID, Target: file.Target, ContentType: file.ContentType}
 	request := relayRequest{http.MethodGet, source, http.Header{}, cacheForADay}
@@ -167,7 +203,7 @@ func (server *Server) relayChunkFile(
 		return nil, server.settingsError(ctx, "read "+string(settings.ChunkHoldMs), err)
 	}
 	askedAt := dependencies.Clock.Now()
-	giveUpAt := askedAt.Add(time.Duration(hold) * time.Millisecond)
+	giveUpAt := askedAt.Add(max(time.Duration(hold)*time.Millisecond, holdAtLeast))
 	var wait *chunkWait
 	for {
 		answer, err := server.relay(ctx, dependencies, request, func(int) error { return errNotMadeYet })

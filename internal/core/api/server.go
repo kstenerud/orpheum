@@ -270,6 +270,7 @@ func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
 	server.registerClientPaths()
 	server.registerLab()
+	server.registerLabAirPlay()
 	server.registerSystemVideos()
 }
 

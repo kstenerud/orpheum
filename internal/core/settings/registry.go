@@ -39,6 +39,7 @@ const (
 	ShouldServeDebugMetrics                        Key = "shouldServeDebugMetrics"
 	ShouldShowDeveloperPages                       Key = "shouldShowDeveloperPages"
 	ShouldOfferDeviceTests                         Key = "shouldOfferDeviceTests"
+	ShouldOfferAirPlayLab                          Key = "shouldOfferAirPlayLab"
 	NodeSilentAfterSeconds                         Key = "nodeSilentAfterSeconds"
 	AssignedJobLimitHours                          Key = "assignedJobLimitHours"
 	ShouldScanOnNodeHello                          Key = "shouldScanOnNodeHello"
@@ -615,6 +616,14 @@ func offeredPagesDefinitions() []Definition {
 				"in the menu, and the server takes their results (plans/tv-device-tests.md)",
 			StartSource: "the owner, 2026-10-25: the lab is for running device tests with beta participants, " +
 				"off unless an admin turns it on",
+		},
+		{
+			Key: ShouldOfferAirPlayLab, Kind: KindBool, StartJSON: json.RawMessage("false"),
+			Description: "whether the AirPlay lab's grants are made and the media path that takes them is served: " +
+				"a grant in the path of one playback's media, for an AirPlay receiver, which sends no cookie " +
+				"or header (airplay.md's spike, X3)",
+			StartSource: "the owner, 2026-11-12: the AirPlay lab on staging alone, for the lab alone; the " +
+				"D154 §6 amendment, whether such grants exist beyond it, is the owner's",
 		},
 	}
 }

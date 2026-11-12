@@ -172,6 +172,8 @@ type Service struct {
 	handOffs *handOffs
 	// guestGrants are the grants for Google Cast devices waiting to be traded (D465 §2).
 	guestGrants *guestGrants
+	// labAirPlayGrants are the AirPlay lab's grants in the media's path (airplay.md item 3).
+	labAirPlayGrants *labAirPlayGrants
 	// hashing is the turn each password hash waits for (hashesAtOnce).
 	hashing hashSlots
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
@@ -203,9 +205,10 @@ func NewService(database *store.Database, clockSource clock.Clock, random io.Rea
 	return &Service{
 		database: database, clock: clockSource, random: random, settings: settings,
 		limiter: newFailureLimiter(clockSource), pairings: &pairings{bySecret: map[string]*pairing{}},
-		handOffs:    &handOffs{byCode: map[string]handOff{}},
-		guestGrants: &guestGrants{byHash: map[string]guestGrant{}},
-		hashing:     newHashSlots(),
+		handOffs:         &handOffs{byCode: map[string]handOff{}},
+		guestGrants:      &guestGrants{byHash: map[string]guestGrant{}},
+		labAirPlayGrants: &labAirPlayGrants{byHash: map[string]labAirPlayGrant{}},
+		hashing:          newHashSlots(),
 	}
 }
 

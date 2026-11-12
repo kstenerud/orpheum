@@ -91,6 +91,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/media/g/{grant}/{streamName}/{fileName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One stream's playlist, init or chunk of an AirPlay lab grant's playback */
+        get: operations["getLabAirPlayFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bytes/media/g/{grant}/master.m3u8": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The master playlist of an AirPlay lab grant's playback, for the receiver to fetch itself */
+        get: operations["getLabAirPlayMasterPlaylist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bytes/media/sub/{token}/{fileName}": {
         parameters: {
             query?: never;
@@ -882,6 +916,24 @@ export interface paths {
         /** Cancel a queued or running job; a node's work is stopped */
         post: operations["cancelJob"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/airplay/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A grant in the media's path for one playback the caller holds, for the AirPlay lab alone, while the admin offers it (airplay.md's spike) */
+        post: operations["makeLabAirPlayGrant"];
+        /** Revokes every AirPlay lab grant the caller's session made, as the lab's Stop does */
+        delete: operations["revokeLabAirPlayGrants"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3760,6 +3812,26 @@ export interface components {
             /** Format: int64 */
             sessionId: number;
         };
+        LabAirPlayGrantInputBody: {
+            /** @description The playback's media token, as POST /playback answered it */
+            mediaToken: string;
+        };
+        LabAirPlayGrantOutputBody: {
+            /**
+             * Format: date-time
+             * @description When the grant ends, unless Stop revokes it sooner
+             */
+            expiresAt: string;
+            /** @description The master playlist's path under the grant, on the server's own origin, the grant in it */
+            masterPath: string;
+        };
+        LabAirPlayRevokeOutputBody: {
+            /**
+             * Format: int64
+             * @description How many of the session's AirPlay grants were still good and are revoked now
+             */
+            revoked: number;
+        };
         LabInputEvent: {
             /**
              * @description A Media Session action
@@ -6325,6 +6397,88 @@ export interface operations {
             };
         };
     };
+    getLabAirPlayFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */
+                fileName: string;
+                /** @description The AirPlay lab's grant */
+                grant: string;
+                /** @description A quality such as q1200k480p, or a sound such as sound0-96k */
+                streamName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A playlist, an init or a chunk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description No such grant, revoked or expired, the lab turned off, or a stream not offered */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not made yet, after the request was held for it */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLabAirPlayMasterPlaylist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The AirPlay lab's grant */
+                grant: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A playlist, an init or a chunk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description No such grant, revoked or expired, the lab turned off, or a stream not offered */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not made yet, after the request was held for it */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getSubtitle: {
         parameters: {
             query?: never;
@@ -8085,6 +8239,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    makeLabAirPlayGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabAirPlayGrantInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabAirPlayGrantOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeLabAirPlayGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabAirPlayRevokeOutputBody"];
+                };
             };
             /** @description Error */
             default: {

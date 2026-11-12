@@ -358,6 +358,8 @@ export const enSettingsCatalogue = {
     shouldServeDebugMetrics: "Serve /metrics, on a loopback address only. Not built yet.",
     shouldServeDebugPprof:
       "Serve Go's profiler at /debug/pprof, on a loopback address only. Read when the server starts.",
+    shouldOfferAirPlayLab:
+      "Whether the AirPlay lab works here: it makes a grant in the address of one playback's media, for an AirPlay receiver, which sends no sign-in. For a test server; off elsewhere.",
     shouldOfferDeviceTests:
       "Whether everyone signed in is offered Device tests beside Watch Together, the device lab's tests for TVs, phones and Chromecasts, and the server takes their results.",
     shouldShowDeveloperPages:

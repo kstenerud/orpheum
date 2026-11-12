@@ -80,6 +80,9 @@ var secretsChecked = map[string]string{
 	"getPairingState":   "the pairing's secret (Auth.PairingStateOf)",
 	"takePairedSession": "the pairing's secret (Auth.TakePairedSession)",
 	"tradeGuestGrant":   "the guest receiver's grant its sender handed it (Auth.TradeGuestGrant)",
+	"getLabAirPlayMasterPlaylist": "the AirPlay lab's grant in the path, while the lab is offered " +
+		"(Auth.LabAirPlayGrantOf)",
+	"getLabAirPlayFile": "the AirPlay lab's grant in the path, while the lab is offered (Auth.LabAirPlayGrantOf)",
 	"echoReachability":  "the nonce, answered only if this server made it (Reachability.Recognises)",
 	"joinTogether":      "the Watch Together link's secret (Together.Join)",
 	"checkTogetherLink": "the Watch Together link's secret (Together.LinkAdmits)",

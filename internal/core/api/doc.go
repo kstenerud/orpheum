@@ -198,6 +198,17 @@
 //     device tests off (shouldOfferDeviceTests, its start), it is refused as notFound, and
 //     /client-settings says whether they are offered. Enforced by
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
+//   - The AirPlay lab's path grant (GET /bytes/media/g/{grant}/..., airplay.md's spike) is made only
+//     for a playback the caller's session holds and serves that playback's film alone, with no
+//     credential, its playlists' URIs relative so the grant carries on; it signs no one in, and is
+//     refused on every other path. Stop (DELETE /lab/airplay/grants) revokes the session's grants and
+//     says how many. Every path of it is notFound while the admin has shouldOfferAirPlayLab off, its
+//     start, so D154 §6 is not widened beyond the lab. A master or chunk not made yet is held for
+//     labAirPlayHold under a grant, as AVPlayer does not honour a 425. Enforced by
+//     TestLabAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential,
+//     TestLabAirPlay_AGrantIsForItsSessionsPlaybackAloneAndSignsNoOneIn,
+//     TestLabAirPlay_StopRevokesTheGrant, TestLabAirPlay_IsOffByDefaultAndRefusedWhileOff and
+//     TestLabAirPlay_AMasterWithNoGridIsHeldForTheReceiver.
 //   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no
 //     gzip shrinks, never cached, behind the same sign-in and setting, each one logged as sent with
 //     the path it came over; a throughput test's figures are logged as "a throughput test ran"
