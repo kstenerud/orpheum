@@ -90,6 +90,11 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
+	if detail.Kind == TitleKindMovie {
+		if detail.Art, err = browser.withNoPosterStill(ctx, titleID, false, detail.Art); err != nil {
+			return TitleDetail{}, err
+		}
+	}
 	if detail.Episode, err = browser.EpisodePlaceOf(ctx, userID, titleID); err != nil {
 		return TitleDetail{}, err
 	}
@@ -252,6 +257,9 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 func (browser *Browser) withArtAndPeople(ctx context.Context, detail *SeriesDetail) error {
 	var err error
 	if detail.Art, err = browser.itemArt(ctx, detail.ID); err != nil {
+		return err
+	}
+	if detail.Art, err = browser.withNoPosterStill(ctx, detail.ID, true, detail.Art); err != nil {
 		return err
 	}
 	detail.People, err = browser.peopleOf(ctx, detail.ID)

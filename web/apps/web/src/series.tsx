@@ -89,7 +89,12 @@ export function SeriesView(props: {
     <article className="series" onClickCapture={warmsUp}>
       <TitleHead
         backdropSha256={series.art.backdropSha256}
-        art={<Poster sourceSha256={series.art.posterSha256} />}
+        art={
+          <Poster
+            sourceSha256={series.art.posterSha256}
+            stillSha256={series.art.noPosterStillSha256}
+          />
+        }
         name={series.name}
         facts={series.year === undefined ? null : <span>{series.year}</span>}
         notes={

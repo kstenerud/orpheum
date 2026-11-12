@@ -244,11 +244,11 @@ function VersionChoice(props: {
   );
 }
 
-/** A film's poster, or an episode's still. */
+/** A film's poster, else its list card's still (D362 §2); an episode's still. */
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return <Poster sourceSha256={art.posterSha256} />;
+    return <Poster sourceSha256={art.posterSha256} stillSha256={art.noPosterStillSha256} />;
   }
   return art.stillSha256 === undefined ? null : (
     <WideArt sourceSha256={art.stillSha256} size="landscape-m" className="title__still" />

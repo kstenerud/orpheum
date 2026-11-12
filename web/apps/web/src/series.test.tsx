@@ -111,6 +111,20 @@ describe("SeriesView", () => {
     expect(bare[1]).not.toContain("No poster");
     expect(bare[2]).toContain("No poster");
   });
+
+  it("shows a series with no poster its list card's still in the poster's place (D362 §2)", () => {
+    const series: SeriesDetail = {
+      id: 20,
+      kind: "series",
+      name: "Glass Tide",
+      art: { noPosterStillSha256: "5711" },
+      seasons: [{ seasonNumber: 1, episodeCount: 1 }],
+    };
+    const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
+    expect(markup).toContain(
+      '<img class="poster__still" src="/api/v1/bytes/art/5711/landscape-s.webp"',
+    );
+  });
 });
 
 describe("a series' next episode (the owner, 2026-10-25)", () => {

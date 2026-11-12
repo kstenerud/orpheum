@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -125,4 +126,39 @@ func seriesWithEpisodes(t *testing.T, world *shelf) (seriesID int64, firstStill 
 	}
 	storetest.ExecRaw(t, world.database.Path(), statements...)
 	return seriesID, firstStill
+}
+
+// A film's and a series' own page show in their poster's place the picture their cards in a list
+// show when they have no poster, picked the same way, and none once a poster arrives (X6, the
+// owner, 2026-11-12; D362 §2).
+func TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	film := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1})
+	librarytest.Version(t, world.database, librarytest.VersionSpec{TitleID: film})
+	frame := storeArt(t, world, film, ArtStill, ArtSourceFrame, 0x11)
+	series, episodeStill := seriesWithEpisodes(t, world)
+	readArt := func() (filmArt, seriesArt Art) {
+		title, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, film)
+		if err != nil {
+			t.Fatal(err)
+		}
+		detail, err := world.browser.Series(t.Context(), auth.EveryLibrary(), 0, series)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return title.Art, detail.Art
+	}
+	filmArt, seriesArt := readArt()
+	if filmArt.NoPosterStillSha256 != frame || seriesArt.NoPosterStillSha256 != episodeStill {
+		t.Errorf("no poster: the film's still %q, the series' %q; want %q and %q",
+			filmArt.NoPosterStillSha256, seriesArt.NoPosterStillSha256, frame, episodeStill)
+	}
+	storeArt(t, world, film, ArtPoster, "tmdb", 0x41)
+	storeArt(t, world, series, ArtPoster, "tmdb", 0x42)
+	filmArt, seriesArt = readArt()
+	if filmArt.NoPosterStillSha256 != "" || seriesArt.NoPosterStillSha256 != "" {
+		t.Errorf("with posters: the film's still %q, the series' %q; want none",
+			filmArt.NoPosterStillSha256, seriesArt.NoPosterStillSha256)
+	}
 }
