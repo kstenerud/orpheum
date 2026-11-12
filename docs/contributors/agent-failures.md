@@ -49,6 +49,23 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A71 — Cleared a sandbox reset as losing nothing, judged by git status, which hides ignored folders (2026-11-12)
+
+- **What happened:** asked before a `yoloai reset`, the lead checked each workdir with
+  `git status --short`, found them clean and said the reset lost nothing. The reset replaced the
+  workdirs with the owner's copies, which deleted orpheum-connect's gitignored `.staging/`: the
+  staging discovery's database, its tokens, its edge tunnel key and its published chain. The running
+  discovery went on serving from the deleted files, so nothing looked wrong until the next
+  `deploy/staging/up.sh` refused for want of a token; a restart then would have lost the database.
+  The lead rescued it all from the running containers (`/proc/<pid>/fd`, their secrets and
+  configuration) and restored it before restarting. The false belief came from `git status`,
+  which reports only what git tracks, while the state that matters on staging is kept untracked
+  on purpose.
+- **Caught by:** the lead, when `up.sh` stopped on the missing token, before any restart.
+- **Gate:** none. A check before a reset would list each workdir's ignored files outside the
+  build and cache folders (`git status --ignored`) and name any `.staging/`; that check, or keeping
+  staging's state outside the workdirs, is the owner's to choose.
+
 ### A70 — Named a film of the owner's in the repo, in a VQ item and a plan (2026-11-11)
 
 - **What happened:** given the episode where the owner's Fire TV stood still, to test VQ298 on, the
