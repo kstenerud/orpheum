@@ -68,8 +68,8 @@ func TestSeries_AConfirmedPlacementByNameStaysUnmarkedThroughLaterPasses(t *test
 func TestSeries_APlacementByNameAtAnotherPlaceAfterConfirmingIsANewGuess(t *testing.T) {
 	t.Parallel()
 	lib, titleID := confirmedPlacement(t)
-	lib.provider.Seasons["615/1"] = []identify.Episode{{ID: "1001", Season: 1, Number: 1, Name: "Something Else"}}
-	lib.provider.Seasons["615/2"] = []identify.Episode{
+	lib.provider.Seasons["7615/1"] = []identify.Episode{{ID: "1001", Season: 1, Number: 1, Name: "Something Else"}}
+	lib.provider.Seasons["7615/2"] = []identify.Episode{
 		{ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own"},
 		{ID: "1102", Season: 2, Number: 11, Name: "Comet Pilot 3000"},
 	}
