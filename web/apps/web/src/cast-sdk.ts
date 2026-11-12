@@ -40,16 +40,34 @@ export function call(
   return Reflect.apply(method, holder, methodArguments);
 }
 
+/** A failure the SDK gave as a bare error code, kept as code: "cancel" is the person's own choice. */
+export class CastSdkFailure extends Error {
+  readonly code: string;
+
+  constructor(code: string) {
+    super(`the Cast SDK answered ${code}`);
+    this.code = code;
+  }
+}
+
+/** The code the SDK answers a request with whose picker the person closed choosing no device. */
+const cancelledCode = "cancel";
+
+/** Whether cause is the person closing Chrome's Cast picker without choosing a device. */
+export function isCancelledByThePerson(cause: unknown): boolean {
+  return cause instanceof CastSdkFailure && cause.code === cancelledCode;
+}
+
 /**
  * What the SDK answered, awaited; a failure it gives as a bare error code ("cancel",
- * "receiver_unavailable", "session_error"), which a report would show only as "failed", as an Error
- * naming the code.
+ * "receiver_unavailable", "session_error"), which a report would show only as "failed", as a
+ * CastSdkFailure naming the code.
  */
 export async function answerOf(answer: unknown): Promise<unknown> {
   try {
     return await answer;
   } catch (cause) {
-    throw typeof cause === "string" ? new Error(`the Cast SDK answered ${cause}`) : cause;
+    throw typeof cause === "string" ? new CastSdkFailure(cause) : cause;
   }
 }
 
@@ -123,7 +141,7 @@ export async function openCastSession(appId: string): Promise<unknown> {
   });
   const failure = await answerOf(call(context, "requestSession"));
   if (typeof failure === "string") {
-    throw new Error(failure);
+    throw new CastSdkFailure(failure);
   }
   const session = call(context, "getCurrentSession");
   if (session === null || session === undefined) {

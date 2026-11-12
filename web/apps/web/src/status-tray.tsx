@@ -12,6 +12,7 @@ import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
 import { hasCopyWarning } from "./copy-warning.ts";
+import { useEndsTheCastSessionWithItsCast } from "./google-cast.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { routeHref } from "./router.ts";
@@ -43,6 +44,7 @@ export function StatusTray(props: {
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending, receiving } = useLive();
+  useEndsTheCastSessionWithItsCast(); // a Google Cast device's, its Cast menu closed once it took it
   useClosesTheDialogAsThePageMoves();
   useLoadsTrayDialogsAhead();
   return (
