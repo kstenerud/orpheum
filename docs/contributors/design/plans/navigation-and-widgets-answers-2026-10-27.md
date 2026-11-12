@@ -3349,6 +3349,9 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   the focus a new Firefox page takes"; confirming, not new work.
 - **11.** `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (discovery), timed out once under
   load.
+  - **Done already (found 2026-11-12):** the fake discovery set its ending only after the handshake,
+    so a Leave right after the core saw the connection open found none to end; fixed by "test(discovery):
+    the fake discovery can end a signalling connection from its handshake on", earlier the same day.
 - **12.** The upstairs Fire TV's sluggishness: what more can be cut.
   - **Raised to high (the owner, 2026-11-12, on production, a Fire TV):** in the films list, for the
     first few minutes the page was open, pressing right past the first row's last poster left the
