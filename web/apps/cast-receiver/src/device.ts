@@ -492,8 +492,12 @@ export class CastDevice {
   }
 
   private endCast(): void {
-    this.together?.close();
+    // Let go of the session before closing it: its close tells its listener, follow, which ended the
+    // cast again while it was still this cast's, over and over until the stack ran out, and the
+    // receiver took no cast after (the owner's Chromecast, 2026-11-12).
+    const together = this.together;
     this.together = undefined;
+    together?.close();
     this.castId = undefined;
     this.handedFileId = 0;
     this.toPutOn = [];
