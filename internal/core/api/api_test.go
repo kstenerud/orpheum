@@ -33,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/live"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
@@ -81,6 +82,8 @@ type testHarness struct {
 	looks       *interest.Register
 	directories *instancedir.Directories
 	clock       *clocktest.Fake
+	// live is which devices are connected and the casts between them, the server's own (D337).
+	live *live.Registry
 	// resourceUse records what the core and nodes use, at a test's call.
 	resourceUse *resourceuse.Recorder
 	nodeBytes   *fakeNodeBytes
@@ -237,7 +240,7 @@ func newHarness(t *testing.T) testHarness {
 		server: server, relay: dependencies.Relay, httpServer: served, logs: logs, authService: dependencies.Auth,
 		setupCodes:   codes,
 		databasePath: database.Path(),
-		database:     database, looks: dependencies.Interest,
+		database:     database, looks: dependencies.Interest, live: dependencies.Live,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: dependencies.Backups,
 		resourceUse: dependencies.ResourceUse,
