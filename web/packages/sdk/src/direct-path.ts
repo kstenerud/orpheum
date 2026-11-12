@@ -155,6 +155,24 @@ async function healthOf(url: string, send: typeof fetch, waitMs: number): Promis
 }
 
 /**
+ * Whether the core at origin lets this page call its API, and not only the health its names are
+ * raced by: a core before D467 answers the loader's origin its health and its hand-off alone, so a Cast
+ * receiver served there that went direct would find every other request refused. An answer of any
+ * status says it does; a request the browser refuses says it does not.
+ */
+export async function opensItsAPIToThisPage(
+  origin: string,
+  send: typeof fetch = fetch,
+): Promise<boolean> {
+  try {
+    await send(`${origin}/api/v1/me`, { mode: "cors", credentials: "omit" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Sends each request the page makes on its own origin to the core at origin instead, path and query
  * kept, with no cookie: the session goes in the Authorization header the request already carries
  * (the protocol's §3.4).

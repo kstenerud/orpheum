@@ -20609,6 +20609,7 @@ scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
 
 ## D308 — app.orpheum-app.com serves a small loader, and each core serves its own client
 
+> **Amended by [D467](#d467--a-cast-receiver-at-the-loaders-origin-calls-its-cores-api-on-the-cores-own-names-as-it-does-over-webrtc)** (2026-11-12): the loader's origin, where a Cast receiver runs, may call the API, not only the health and the hand-off.
 > **Revised by [D319](#d319--stagings-client-origins-are-orpheum-client-testcom-behind-one-wildcard-on-stagings-tunnel)** (2026-10-19): staging's client origins are `<core id>.orpheum-client-test.com`, behind one wildcard on staging's tunnel.
 
 **Decided** (2026-10-17), by the project owner, after the update to v0.2.0-nas.8 needed prod-api
@@ -27882,3 +27883,23 @@ user needs you to send it again, cycling the link has almost the same effect."*)
    (D318 §3). Renew makes a new link in its place, ending the old one (point 2), and shows the new
    link and its QR code. The page never shows the outstanding link again: Renew does that job (the
    owner, 2026-11-12: *"Have a cancel and a renew button for it. Renew brings up a new link/code."*).
+
+## D467 — A Cast receiver at the loader's origin calls its core's API on the core's own names, as it does over WebRTC
+
+**Decided** (2026-11-12), by the owner, once production's Chromecast had cast over WebRTC (VQ303):
+*"ok, let's allow direct now"*, then choosing that the loader's origin may call the whole API over
+a list of the receiver's paths. Amends [D308](#d308--apporpheum-appcom-serves-a-small-loader-and-each-core-serves-its-own-client) §4, under which the loader's origin could call
+a core's health and the hand-off alone, and the owner's choice of 2026-11-11 (*"ok, we try webrtc
+only then"*), under which a receiver served there went over WebRTC even at home.
+
+1. **The loader's origin may call the API and open the session socket, as the client origin may,**
+   and still may not read the core's client: its page and files are the client origin's alone
+   (D308 §6). A Cast receiver is served at the loader's origin, the one receiver address Google's
+   console names for every core ([D465](#d465--any-google-cast-device-on-the-network-receives-a-cast-under-a-grant-for-that-cast-alone-beside-the-persons-own-devices)), and over WebRTC it already reaches the whole API
+   by the token it holds, so a narrower list would protect nothing and fall behind each path the
+   receiver comes to call. No core's code runs at the loader's origin, so D308 §3's reason for
+   separate origins stands.
+2. **The receiver tries the core's own names first**, as the web client does, and takes them where
+   the core answers its API to the receiver's page. A core before this decision answers that page
+   its health alone, so the receiver asks once more, for the API, and goes over WebRTC where the
+   browser refuses the answer.

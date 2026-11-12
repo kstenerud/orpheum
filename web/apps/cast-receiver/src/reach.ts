@@ -6,6 +6,7 @@ import {
   directFetch,
   failureText,
   firstDirectPath,
+  opensItsAPIToThisPage,
   rtcTogetherSocket,
   targetOfSession,
   type DiscoveryClient,
@@ -17,9 +18,9 @@ import {
 /**
  * How the lab's receiver reaches its sender's core when it is away from it (the 11-05 batch's item
  * 10, the owner's test in Berlin): as the web client does, through the sender's discovery: the
- * core's own names first where its page is at the core's client origin (mayGoDirect), else WebRTC
- * through the discovery, its offers proven under the sender's session. The receiver is served by the discovery's loader, so the core and the discovery answer
- * it as they answer the web client there.
+ * core's own names first, where the core lets the receiver's page call its API (D467), else WebRTC
+ * through the discovery, its offers proven under the sender's session. The receiver is served by the
+ * discovery's loader, whose origin a core from D467 on lets call its API as it lets its client's.
  */
 
 /**
@@ -35,8 +36,8 @@ export interface CoreReach {
   /** The locator the discovery finds the core by for the sender's session. */
   readonly locator: string;
   /**
-   * The sender's page origin, the core's client origin: the one page origin besides the core's own
-   * names that the core lets reach it (D308 §4). Undefined where the sender names none.
+   * The sender's page origin, the core's client origin (D308 §4). Undefined where the sender names
+   * none.
    */
   readonly clientOrigin: string | undefined;
 }
@@ -95,17 +96,6 @@ export function reachOf(value: unknown): Reach | undefined {
 }
 
 /**
- * Whether the receiver, its page at pageOrigin, may try the core's own names: only where it is
- * served at the core's client origin, which the core lets call it. Served at the loader's origin
- * (the one receiver address the Cast console names for every core), the core answers its health
- * check but refuses every other request (cross_origin.go), so it goes over WebRTC only, at home too
- * (the owner, 2026-11-11: "ok, we try webrtc only then").
- */
-export function mayGoDirect(reach: Pick<Reach, "clientOrigin">, pageOrigin: string): boolean {
-  return reach.clientOrigin !== undefined && reach.clientOrigin === pageOrigin;
-}
-
-/**
  * The receiver's way to its core: the fetch its requests go by, the sockets its live and cast
  * connections open on the same path (as the web client's kept-path.ts opens them), and its ending.
  */
@@ -142,9 +132,9 @@ export async function reachCore(reach: Reach, note: (line: string) => void): Pro
 }
 
 /**
- * Reaches the core reach names, at the target targetOf finds through its discovery: where the page
- * may go direct (mayGoDirect), at the first of its own names that answers, else over WebRTC, its
- * offers proven as the target says. Notes each step, which a device shows on its screen and in its
+ * Reaches the core reach names, at the target targetOf finds through its discovery: at the first of
+ * its own names that answers, where the core lets this page call its API (opensItsAPIToThisPage),
+ * else over WebRTC, its offers proven as the target says. Notes each step, which a device shows on its screen and in its
  * report.
  */
 export async function reachThrough(
@@ -155,23 +145,21 @@ export async function reachThrough(
   const client = { clientApi: reach.clientApi };
   note(`asking ${reach.clientApi} for the core's paths`);
   const target = await targetOf(client);
-  const pageOrigin = globalThis.location.origin;
-  if (mayGoDirect(reach, pageOrigin)) {
-    const origin = await firstDirectPath(target.directUrls, undefined, {
-      tell: (outcomes) => {
-        for (const each of outcomes) {
-          note(`direct ${each.url}: ${each.outcome}`);
-        }
-      },
-    });
-    if (origin !== undefined) {
-      note(`reached the core at ${origin}`);
-      return reachedAt(origin);
-    }
+  const origin = await firstDirectPath(target.directUrls, undefined, {
+    tell: (outcomes) => {
+      for (const each of outcomes) {
+        note(`direct ${each.url}: ${each.outcome}`);
+      }
+    },
+  });
+  if (origin === undefined) {
     note("no direct name answered; connecting over WebRTC through the discovery");
+  } else if (await opensItsAPIToThisPage(origin)) {
+    note(`reached the core at ${origin}`);
+    return reachedAt(origin);
   } else {
     note(
-      `served at ${pageOrigin}, not the core's client origin: over WebRTC through the discovery`,
+      `${origin} answered but lets ${globalThis.location.origin} call only its health: over WebRTC through the discovery`,
     );
   }
   try {

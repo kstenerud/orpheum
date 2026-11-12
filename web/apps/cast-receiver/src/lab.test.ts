@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { labRequestOf, memoryOf } from "./lab.ts";
-import { mayGoDirect, reachOf } from "./reach.ts";
+import { reachOf } from "./reach.ts";
 
 describe("the lab receiver's requests", () => {
   it("are a report asked for, a pause or play, or a film to play by its path on this core, signed in or not", () => {
@@ -84,13 +84,6 @@ describe("how the lab's receiver reaches its sender's core (the 11-23 batch's it
     token: "session-token",
     locator: "loc-1",
   };
-
-  it("tries the core's own names only where it is served at the core's client origin, which the core lets call it", () => {
-    const clientOrigin = "https://k7xq2.client.example";
-    expect(mayGoDirect({ clientOrigin }, clientOrigin)).toBe(true);
-    expect(mayGoDirect({ clientOrigin }, "https://loader.example")).toBe(false);
-    expect(mayGoDirect({ clientOrigin: undefined }, "https://loader.example")).toBe(false);
-  });
 
   it("takes the sender's client origin on https alone, and goes over WebRTC where it names none", () => {
     expect(reachOf({ ...reach, clientOrigin: "https://k7xq2.client.example" })).toMatchObject({

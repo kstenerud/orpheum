@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { directFetch, endingOf, firstDirectPath, type DirectOutcome } from "./direct-path.ts";
+import {
+  directFetch,
+  endingOf,
+  firstDirectPath,
+  opensItsAPIToThisPage,
+  type DirectOutcome,
+} from "./direct-path.ts";
 
 /** A fetch whose hosts answer as named: a status, or never. */
 function hosts(answers: Record<string, number | "never">, asked: string[] = []): typeof fetch {
@@ -165,5 +171,18 @@ describe("a core's direct paths (W2c)", () => {
     );
     expect(answer.status).toBe(200);
     expect(asked).toEqual(["POST https://v4.core.example/api/v1/me?x=1 omit"]);
+  });
+});
+
+describe("whether a core opens its API to the page", () => {
+  it("goes direct where the core answers its API to the page, refused or not, and not where the browser refuses the answer, as a core before D467 makes it refuse at the loader's origin", async () => {
+    const answers = vi.fn(async () => await Promise.resolve(new Response("", { status: 401 })));
+    expect(await opensItsAPIToThisPage("https://core.example:8443", answers)).toBe(true);
+    expect(answers).toHaveBeenCalledWith("https://core.example:8443/api/v1/me", {
+      mode: "cors",
+      credentials: "omit",
+    });
+    const refuses = vi.fn(async () => await Promise.reject(new TypeError("Failed to fetch")));
+    expect(await opensItsAPIToThisPage("https://core.example:8443", refuses)).toBe(false);
   });
 });
