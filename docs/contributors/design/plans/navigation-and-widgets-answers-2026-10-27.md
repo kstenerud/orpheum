@@ -3107,6 +3107,12 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    the receiver plays each handed film itself (where the sender stood, else where the person left
    it), puts it on the session it leads, follows the session only once the group is on it, puts on
    a new film handed under the same cast, and stops the lab's own film first. VQ287 shows it.
+   **3(d) built (2026-11-12, "fix(cast-receiver): a Chromecast served from the loader reaches the
+   core over WebRTC only"):** the lab's sender names its page's origin, the core's client origin, in
+   the reach it hands the receiver; the receiver tries the core's own names only where it is served
+   at that origin, and otherwise connects over WebRTC through the discovery at once, its screen
+   saying so. A sender that names none (an older client) has it go over WebRTC too. Still owed: the
+   routers question above, which VQ286's relaunch begins to answer.
 
 4. **A heavy stretch plays at full quality wherever it fits, and steps down only for the chunks that
    do not** (the owner, 2026-11-11, on VQ294's run: "how can we handle a situation where a heavy

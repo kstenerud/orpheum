@@ -3,13 +3,14 @@
 import { describe, expect, it } from "vitest";
 
 import { pairingCodeOf } from "./lab-cast-target.tsx";
-import { castTargetRequest, signInOf } from "./lab-cast.tsx";
+import { castTargetRequest, labDiscoveryOf, signInOf } from "./lab-cast.tsx";
 
 const session = { token: () => "a-token", locator: () => "a-locator" };
 const throughDiscovery = {
   clientApi: "https://api.example/client/v1",
   coreId: "k7xq2",
   fingerprint: "a-fingerprint",
+  clientOrigin: "https://k7xq2.client.example",
 };
 
 describe("what a play sent to the lab's receiver signs in by", () => {
@@ -51,5 +52,17 @@ describe("the lab receiver's pairing code", () => {
     expect(pairingCodeOf({ type: "pairing", code: "" })).toBeUndefined();
     expect(pairingCodeOf({ type: "checkCode", checkCode: "42-17" })).toBeUndefined();
     expect(pairingCodeOf("pairing")).toBeUndefined();
+  });
+});
+
+describe("the page's discovery as the lab's receiver is told it", () => {
+  it("names this page's origin, the core's client origin, which the receiver goes direct from alone (the 11-23 batch's item 3(d))", () => {
+    const found = {
+      clientApi: throughDiscovery.clientApi,
+      coreId: throughDiscovery.coreId,
+      fingerprint: throughDiscovery.fingerprint,
+    };
+    expect(labDiscoveryOf(found, "https://k7xq2.client.example")).toEqual(throughDiscovery);
+    expect(labDiscoveryOf(undefined, "https://k7xq2.client.example")).toBeUndefined();
   });
 });

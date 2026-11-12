@@ -15,8 +15,8 @@ import {
 /**
  * How the lab's receiver reaches its sender's core when it is away from it (the 11-05 batch's item
  * 10, the owner's test in Berlin): as the web client does, through the sender's discovery: the
- * core's own names first, else WebRTC through the discovery, its offers proven under the sender's
- * session. The receiver is served by the discovery's loader, so the core and the discovery answer
+ * core's own names first where its page is at the core's client origin (mayGoDirect), else WebRTC
+ * through the discovery, its offers proven under the sender's session. The receiver is served by the discovery's loader, so the core and the discovery answer
  * it as they answer the web client there.
  */
 
@@ -31,9 +31,22 @@ export interface Reach {
   readonly token: string;
   /** The locator the discovery finds the core by for the sender's session. */
   readonly locator: string;
+  /**
+   * The sender's page origin, the core's client origin: the one page origin besides the core's own
+   * names that the core lets reach it (D308 §4). Undefined where the sender names none.
+   */
+  readonly clientOrigin: string | undefined;
 }
 
-/** A sender's reach, or undefined for anything else: a client API on https alone. */
+/** An address on https, else undefined. */
+function onHttps(address: string | undefined): string | undefined {
+  return address?.startsWith("https://") === true ? address : undefined;
+}
+
+/**
+ * A sender's reach, or undefined for anything else: a client API on https alone, and a client
+ * origin on https or none.
+ */
 export function reachOf(value: unknown): Reach | undefined {
   if (typeof value !== "object" || value === null) {
     return undefined;
@@ -42,14 +55,13 @@ export function reachOf(value: unknown): Reach | undefined {
     const each: unknown = Reflect.get(value, name);
     return typeof each === "string" && each !== "" ? each : undefined;
   };
-  const clientApi = field("clientApi");
+  const clientApi = onHttps(field("clientApi"));
   const coreId = field("coreId");
   const fingerprint = field("fingerprint");
   const token = field("token");
   const locator = field("locator");
   if (
     clientApi === undefined ||
-    !clientApi.startsWith("https://") ||
     coreId === undefined ||
     fingerprint === undefined ||
     token === undefined ||
@@ -57,7 +69,25 @@ export function reachOf(value: unknown): Reach | undefined {
   ) {
     return undefined;
   }
-  return { clientApi, coreId, fingerprint, token, locator };
+  return {
+    clientApi,
+    coreId,
+    fingerprint,
+    token,
+    locator,
+    clientOrigin: onHttps(field("clientOrigin")),
+  };
+}
+
+/**
+ * Whether the receiver, its page at pageOrigin, may try the core's own names: only where it is
+ * served at the core's client origin, which the core lets call it. Served at the loader's origin
+ * (the one receiver address the Cast console names for every core), the core answers its health
+ * check but refuses every other request (cross_origin.go), so it goes over WebRTC only, at home too
+ * (the owner, 2026-11-11: "ok, we try webrtc only then").
+ */
+export function mayGoDirect(reach: Pick<Reach, "clientOrigin">, pageOrigin: string): boolean {
+  return reach.clientOrigin !== undefined && reach.clientOrigin === pageOrigin;
 }
 
 /**
@@ -80,8 +110,9 @@ export function reachedAt(origin: string): Reached {
 }
 
 /**
- * Reaches the core reach names: at the first of its own names that answers, else over WebRTC through
- * its discovery. Notes each step, which a device shows on its screen and in its report.
+ * Reaches the core reach names: where the page may go direct (mayGoDirect), at the first of its own
+ * names that answers, else over WebRTC through its discovery. Notes each step, which a device shows
+ * on its screen and in its report.
  */
 export async function reachCore(reach: Reach, note: (line: string) => void): Promise<Reached> {
   const client = { clientApi: reach.clientApi };
@@ -91,18 +122,25 @@ export async function reachCore(reach: Reach, note: (line: string) => void): Pro
     token: reach.token,
     locator: reach.locator,
   });
-  const origin = await firstDirectPath(target.directUrls, undefined, {
-    tell: (outcomes) => {
-      for (const each of outcomes) {
-        note(`direct ${each.url}: ${each.outcome}`);
-      }
-    },
-  });
-  if (origin !== undefined) {
-    note(`reached the core at ${origin}`);
-    return reachedAt(origin);
+  const pageOrigin = globalThis.location.origin;
+  if (mayGoDirect(reach, pageOrigin)) {
+    const origin = await firstDirectPath(target.directUrls, undefined, {
+      tell: (outcomes) => {
+        for (const each of outcomes) {
+          note(`direct ${each.url}: ${each.outcome}`);
+        }
+      },
+    });
+    if (origin !== undefined) {
+      note(`reached the core at ${origin}`);
+      return reachedAt(origin);
+    }
+    note("no direct name answered; connecting over WebRTC through the discovery");
+  } else {
+    note(
+      `served at ${pageOrigin}, not the core's client origin: over WebRTC through the discovery`,
+    );
   }
-  note("no direct name answered; connecting over WebRTC through the discovery");
   try {
     const transport = await connectThrough(client, target);
     note("connected over WebRTC");

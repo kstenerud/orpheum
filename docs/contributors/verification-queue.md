@@ -2828,8 +2828,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   cast to our receiver, play a film on it with the sign-in sent (it plays from away, through the
   discovery, extending VQ58), then press Make it a cast target. Passes when the TV notes the check
   code this page shows, and after The TV shows the same both say it is a
-  cast target; cast to our receiver again later and it is ready without pairing again.
-  (`web/apps/cast-receiver/src/device.ts`, `web/apps/cast-receiver/src/lab.ts`,
+  cast target; cast to our receiver again later and it is ready without pairing again. At home
+  too, the TV's lines say it was served at `https://orpheum.dev`, not the core's client origin, and
+  went over WebRTC, and the film plays (the 11-23 batch's item 3(d)).
+  (`web/apps/cast-receiver/src/device.ts`, `web/apps/cast-receiver/src/lab.ts`, `web/apps/cast-receiver/src/reach.ts`,
   `web/apps/web/src/lab-cast-target.tsx`)
 - [ ] **VQ287** — A cast to the Chromecast plays and its remote works it (D434). After VQ286, the
   lab's cast left running, open a film in another tab on the Mac, press Cast and choose the

@@ -19,7 +19,7 @@ import {
 import { CastTargetPart } from "./lab-cast-target.tsx";
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
-import { useServices, type ThroughDiscovery } from "./services.tsx";
+import { useServices, type Services, type ThroughDiscovery } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
 import { titleOrThrow } from "./item-detail.ts";
 import { requestPlayback } from "./watching.ts";
@@ -399,6 +399,31 @@ function useCast(
 }
 
 /**
+ * The page's discovery as the receiver is told it: the core as the discovery finds it, and this
+ * page's origin, the core's client origin, the one page origin besides the core's own names that the
+ * core lets reach it (D308 §4), so the receiver goes direct only when it is served there too (the
+ * owner, 2026-11-11: from the loader's origin, over WebRTC only).
+ */
+export interface LabDiscovery extends ThroughDiscovery {
+  readonly clientOrigin: string;
+}
+
+/** throughDiscovery as the receiver is told it, from a page at origin; undefined without one. */
+export function labDiscoveryOf(
+  throughDiscovery: ThroughDiscovery | undefined,
+  origin: string,
+): LabDiscovery | undefined {
+  return throughDiscovery === undefined ? undefined : { ...throughDiscovery, clientOrigin: origin };
+}
+
+/** The page's services, with its discovery as the lab's receiver is told it (labDiscoveryOf). */
+function useLabServices(): Services & { readonly discovery: LabDiscovery | undefined } {
+  const services = useServices();
+  const discovery = labDiscoveryOf(services.throughDiscovery, globalThis.location.origin);
+  return { ...services, discovery };
+}
+
+/**
  * What a play sent to the receiver signs in by, only where the person ticked it, and only to our
  * receiver (D154: no grant yet): the page's session, and under a discovery's loader how the receiver
  * reaches the page's core from away, the core as the discovery finds it and the session's locator
@@ -408,7 +433,7 @@ function useCast(
 export function signInOf(
   shouldSendSignIn: boolean,
   session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
-  throughDiscovery: ThroughDiscovery | undefined,
+  throughDiscovery: LabDiscovery | undefined,
 ): Readonly<Record<string, unknown>> {
   const token = session.token();
   if (!shouldSendSignIn || token === undefined) {
@@ -428,7 +453,7 @@ export function signInOf(
  */
 export function castTargetRequest(
   session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
-  throughDiscovery: ThroughDiscovery | undefined,
+  throughDiscovery: LabDiscovery | undefined,
 ): Readonly<Record<string, unknown>> {
   const { reach } = signInOf(true, session, throughDiscovery);
   return reach === undefined ? { type: "device" } : { type: "device", reach };
@@ -454,7 +479,7 @@ interface CastSteps {
 
 /** What the probe's buttons do: each step's failure logged, never thrown. */
 function useCastSteps(url: string, startAtBps: number): CastSteps {
-  const { api, session, throughDiscovery } = useServices();
+  const { api, session, discovery } = useLabServices();
   const [lines, log] = useLog();
   const sdk = useCastSdk(log);
   const { cast, open, close } = useCast(api, log);
@@ -470,7 +495,7 @@ function useCastSteps(url: string, startAtBps: number): CastSteps {
   };
   const playOnOurs = (shouldSendSignIn: boolean): void => {
     const played = new URL(url, globalThis.location.href);
-    const signIn = signInOf(shouldSendSignIn, session, throughDiscovery);
+    const signIn = signInOf(shouldSendSignIn, session, discovery);
     run(async () => {
       await cast?.send({
         type: "play",
@@ -516,7 +541,7 @@ function useCastSteps(url: string, startAtBps: number): CastSteps {
  */
 export function LabCast(): JSX.Element {
   const { t } = useTranslation();
-  const { api, session, throughDiscovery } = useServices();
+  const { api, session, discovery } = useLabServices();
   const films = useFilms(api);
   const [playback, setPlayback] = useState<ReceiverPlayback>({ url: "", startAtBps: 0 });
   const { url } = playback;
@@ -554,11 +579,7 @@ export function LabCast(): JSX.Element {
         onPlay={steps.playOnOurs}
         onToggle={steps.toggleOurs}
       />
-      <CastTargetPart
-        cast={cast}
-        request={castTargetRequest(session, throughDiscovery)}
-        log={steps.log}
-      />
+      <CastTargetPart cast={cast} request={castTargetRequest(session, discovery)} log={steps.log} />
       <CastEnd
         isCasting={cast !== undefined}
         onStop={() => {
