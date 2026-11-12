@@ -618,7 +618,8 @@ func (reporter reporter) logAttributes() []any {
 // viewer by their membership, whose reports keep nothing (D243 §2) but whose stalls are answered as
 // anyone's (D247 §2).
 func (server *Server) reporterOf(ctx context.Context, authorization string) (reporter, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
+	// A guest receiver reports on the playbacks of its cast's film, the only ones it holds (D465 §2).
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, authorization)
 	if err == nil {
 		holder := playback.HolderOf(principal)
 		return reporter{dependencies: dependencies, holder: holder, deviceID: principal.DeviceID}, nil

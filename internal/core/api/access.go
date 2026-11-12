@@ -14,6 +14,9 @@ const (
 	// Anyone signed in: requireSignedIn, or one of its forms that also checks the caller reaches a
 	// file or an item.
 	capabilitySignedIn capability = "signedIn"
+	// Anyone signed in, or a guest receiver for the cast it receives (D465 §2):
+	// requireSignedInOrGuest, its handler holding the guest to its cast.
+	capabilitySignedInOrGuest capability = "signedInOrGuest"
 	// An admin administering here: requireAdmin.
 	capabilityAdmin capability = "admin"
 	// A session that may change its account's security, which a device a code activated may not
@@ -99,8 +102,8 @@ func defaultSchemes(declared capability) []string {
 		return []string{schemeMembership}
 	case capabilityMedia:
 		return []string{schemeSession, schemeMedia}
-	case capabilitySignedIn, capabilityAdmin, capabilityAccountSecurity, capabilityEditMetadata,
-		capabilityHostTogether, capabilityDeviceTests:
+	case capabilitySignedIn, capabilitySignedInOrGuest, capabilityAdmin, capabilityAccountSecurity,
+		capabilityEditMetadata, capabilityHostTogether, capabilityDeviceTests:
 	}
 	return []string{schemeSession}
 }

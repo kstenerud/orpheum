@@ -377,8 +377,29 @@ func bearerToken(header string) string {
 }
 
 // requireSignedIn authenticates a request's Authorization header and returns the dependencies
-// and who signed in, or the error to answer with.
+// and who signed in, or the error to answer with. A guest receiver's session is refused: it signs
+// in for its cast's routes alone (requireSignedInOrGuest; D465 §2).
 func (server *Server) requireSignedIn(
+	ctx context.Context, authorization string,
+) (*Dependencies, auth.Principal, error) {
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, authorization)
+	if err != nil {
+		return nil, auth.Principal{}, err
+	}
+	if principal.IsGuestReceiver() {
+		return nil, auth.Principal{}, errGuestReceiver
+	}
+	return dependencies, principal, nil
+}
+
+// errGuestReceiver is a guest receiver's session at a route of a person's: it may receive its cast and
+// play its films, and nothing else (D465 §2).
+var errGuestReceiver = newError(http.StatusForbidden, CodeForbidden,
+	"this Google Cast device is signed in for its cast alone")
+
+// requireSignedInOrGuest is requireSignedIn that takes a guest receiver's session too, for a route its
+// cast needs (D465 §2); its handler holds the guest to that cast.
+func (server *Server) requireSignedInOrGuest(
 	ctx context.Context, authorization string,
 ) (*Dependencies, auth.Principal, error) {
 	dependencies, err := server.readyDependencies()
@@ -444,7 +465,7 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 	case errors.Is(err, auth.ErrNoDevice):
 		return newError(http.StatusNotFound, CodeNotFound, "no such device")
 	}
-	for _, refusal := range []func(error) *Error{roleRefusal, pairingRefusal, handOffRefusal} {
+	for _, refusal := range []func(error) *Error{roleRefusal, pairingRefusal, handOffRefusal, guestRefusal} {
 		if refused := refusal(err); refused != nil {
 			return refused
 		}

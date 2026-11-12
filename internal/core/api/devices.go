@@ -72,6 +72,7 @@ type UserDeviceInput struct {
 
 func (server *Server) registerDevices() {
 	server.registerCasts()
+	server.registerGuestReceivers()
 	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyDevices", Method: http.MethodGet, Path: "/me/devices",

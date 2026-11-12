@@ -244,6 +244,11 @@
 //     TestTogether_AHelloOfAnotherVersionIsRefusedAndAttachesNothing,
 //     TestTogether_AMessageOfAnotherVersionIsRefusedAndActedOnNot and
 //     TestTogether_TheCoreAndTheClientSpeakVersion3.
+//   - A guest receiver's session (D465 §2) is refused at every route requireSignedIn guards; only
+//     its cast's routes (accept, playback of its cast's films, the byte paths, reports and the
+//     sockets) take it, through requireSignedInOrGuest, and the grant that made it is in no log.
+//     TestGuestReceiver_ReachesItsCastAlone and
+//     TestGuestReceiver_IsSignedInByAGrantTradedOnceAndCastToByItsSenderAlone.
 //
 // # Read before changing
 //

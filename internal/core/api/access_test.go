@@ -34,7 +34,9 @@ func (check callerCheck) String() string {
 // the one it reaches. A check is found by its name wherever a handler, or a function of this
 // package it reaches, names it, and what it calls in turn is its own.
 var callerChecks = map[string]callerCheck{
-	"requireSignedIn":               {"signedIn", []string{schemeSession}},
+	"requireSignedIn": {"signedIn", []string{schemeSession}},
+	// A guest receiver too, held by its handler to its cast (D465 §2).
+	"requireSignedInOrGuest":        {"signedInOrGuest", []string{schemeSession}},
 	"requireSignedInReachingFile":   {"signedIn", []string{schemeSession}},
 	"requireSignedInReachingItem":   {"signedIn", []string{schemeSession}},
 	"requireAdmin":                  {"admin", []string{schemeSession}},
@@ -77,6 +79,7 @@ var secretsChecked = map[string]string{
 		"person enters its code",
 	"getPairingState":   "the pairing's secret (Auth.PairingStateOf)",
 	"takePairedSession": "the pairing's secret (Auth.TakePairedSession)",
+	"tradeGuestGrant":   "the guest receiver's grant its sender handed it (Auth.TradeGuestGrant)",
 	"echoReachability":  "the nonce, answered only if this server made it (Reachability.Recognises)",
 	"joinTogether":      "the Watch Together link's secret (Together.Join)",
 	"checkTogetherLink": "the Watch Together link's secret (Together.LinkAdmits)",

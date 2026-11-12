@@ -131,7 +131,7 @@ func startUpkeep(ctx context.Context, opened openedServices, loops *sync.WaitGro
 	loops.Go(func() {
 		ticker := time.NewTicker(castsGoneEvery)
 		defer ticker.Stop()
-		endGoneCasts(ctx, dependencies.Live, dependencies.Together, ticker.C, logger)
+		endGoneCasts(ctx, dependencies.Live, dependencies.Together, dependencies.Auth, ticker.C, logger)
 	})
 	loops.Go(func() {
 		ticker := time.NewTicker(resourceuse.Every)

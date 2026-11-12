@@ -5,7 +5,6 @@ package live
 import (
 	"cmp"
 	"errors"
-	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -111,6 +110,26 @@ type person struct {
 	connections map[int64]*connection
 	// casts are by receiving device: each receives one cast at most.
 	casts map[int64]*heldCast
+	// guests are the person's guest receivers, by device (ExpectGuest).
+	guests map[int64]*guest
+}
+
+// guest is a guest receiver (D465 §1): a Google Cast device running the receiver for one cast from
+// the device that sent it its grant, which no other device of the person's sees or casts to.
+type guest struct {
+	senderDeviceID int64
+	// name is the Cast device's name, as its sender's Cast menu showed it.
+	name string
+	// since is when its grant was traded: one never cast to is ended UnansweredAfter it (EndGuests).
+	since time.Time
+	// hasReceived is whether its one cast started: once it ends, it is no one's target (D465 §1).
+	hasReceived bool
+}
+
+// Guest is a guest receiver that EndGuests ended: its person's device, to remove.
+type Guest struct {
+	UserID   int64
+	DeviceID int64
 }
 
 // connection is one open page of a device.
@@ -142,6 +161,76 @@ func NewRegistry(credential Credential, clockSource clock.Clock) *Registry {
 	return &Registry{credential: credential, clock: clockSource, people: map[int64]*person{}}
 }
 
+// newPerson is a person with no connections, casts or guests.
+func newPerson() *person {
+	return &person{connections: map[int64]*connection{}, casts: map[int64]*heldCast{}, guests: map[int64]*guest{}}
+}
+
+// ExpectGuest makes userID's device deviceID, named name, a guest receiver of senderDeviceID's (D465
+// §1), as its grant is traded: it is in no devices message, and only senderDeviceID casts to it, once.
+func (registry *Registry) ExpectGuest(userID, deviceID, senderDeviceID int64, name string) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		owner = newPerson()
+		registry.people[userID] = owner
+	}
+	owner.guests[deviceID] = &guest{senderDeviceID: senderDeviceID, name: name, since: registry.clock.Now()}
+}
+
+// GuestCastableBy is the name of userID's guest receiver deviceID, and whether senderDeviceID may
+// cast to it: the device that sent its grant, before its one cast.
+func (registry *Registry) GuestCastableBy(userID, deviceID, senderDeviceID int64) (string, bool) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil || owner.guests[deviceID] == nil {
+		return "", false
+	}
+	each := owner.guests[deviceID]
+	return each.name, each.senderDeviceID == senderDeviceID && !each.hasReceived
+}
+
+// IsGuest is whether userID's device deviceID is a guest receiver ExpectGuest made and EndGuests has
+// not ended.
+func (registry *Registry) IsGuest(userID, deviceID int64) bool {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	return owner != nil && owner.guests[deviceID] != nil
+}
+
+// EndGuests ends every guest receiver whose one cast has ended, or that was never cast to within
+// UnansweredAfter of its trade, each of its connections told its sign-in ended and let go, and
+// returns them for their devices to be removed (D465 §1: it keeps nothing after its cast).
+func (registry *Registry) EndGuests() []Guest {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	now := registry.clock.Now()
+	ended := []Guest{}
+	for userID, owner := range registry.people {
+		for deviceID, each := range owner.guests {
+			if owner.casts[deviceID] != nil || !each.hasReceived && now.Sub(each.since) < UnansweredAfter {
+				continue
+			}
+			delete(owner.guests, deviceID)
+			for id, open := range owner.connections {
+				if open.deviceID == deviceID {
+					open.send(Outbound{Type: MessageSignedOut})
+					delete(owner.connections, id)
+				}
+			}
+			ended = append(ended, Guest{UserID: userID, DeviceID: deviceID})
+		}
+		if owner.isEmpty() {
+			delete(registry.people, userID)
+		}
+	}
+	slices.SortFunc(ended, func(one, other Guest) int { return cmp.Compare(one.DeviceID, other.DeviceID) })
+	return ended
+}
+
 // TakesPartBy has each cast's receiver handed, by part, a credential for the Watch Together session
 // its person is in, if any, to take their part in it: as their host's player, leading it, so that each
 // film the person plays goes on for the group from it (D364 §11; plans/cast-to-device.md §7), or as a
@@ -161,7 +250,7 @@ func (registry *Registry) Connect(userID, deviceID int64, isInFront bool, send S
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
 	if owner == nil {
-		owner = &person{connections: map[int64]*connection{}, casts: map[int64]*heldCast{}}
+		owner = newPerson()
 		registry.people[userID] = owner
 	}
 	wasConnected, wasInFront := owner.isConnected(deviceID), owner.isInFront(deviceID)
@@ -239,7 +328,7 @@ func (registry *Registry) Disconnect(gone Connection) {
 		owner.tellDevices()
 	}
 	registry.handOffWaiting(owner, gone.DeviceID)
-	if len(owner.connections) == 0 && len(owner.casts) == 0 {
+	if owner.isEmpty() {
 		delete(registry.people, gone.UserID)
 	}
 }
@@ -289,6 +378,9 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 	if owner == nil || !owner.isConnected(cast.ReceiverDeviceID) || cast.ReceiverDeviceID == 0 {
 		return Cast{}, nil, ErrNotConnected
 	}
+	if !owner.mayCast(cast.SenderDeviceID, cast.ReceiverDeviceID) {
+		return Cast{}, nil, ErrNotConnected
+	}
 	if owner.casts[cast.ReceiverDeviceID] != nil {
 		return Cast{}, nil, ErrReceiving
 	}
@@ -307,6 +399,9 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 	}
 	held := &heldCast{Cast: cast, heldBy: front.id, askedAt: registry.clock.Now()}
 	owner.casts[cast.ReceiverDeviceID] = held
+	if receiving := owner.guests[cast.ReceiverDeviceID]; receiving != nil {
+		receiving.hasReceived = true
+	}
 	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held, receiverCredential)})
 	owner.tellSending(cast.SenderDeviceID)
 	owner.tellDevices()
@@ -344,7 +439,7 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	delete(owner.casts, held.ReceiverDeviceID)
 	owner.tellSending(held.SenderDeviceID)
 	owner.tellDevices()
-	if len(owner.connections) == 0 && len(owner.casts) == 0 {
+	if owner.isEmpty() {
 		delete(registry.people, userID)
 	}
 	return held.Cast, nil
@@ -476,7 +571,7 @@ func (registry *Registry) endEvery(isEnded func(held *heldCast) bool) []Cast {
 		if len(ended) > endedBefore {
 			owner.tellDevices()
 		}
-		if len(owner.connections) == 0 && len(owner.casts) == 0 {
+		if owner.isEmpty() {
 			delete(registry.people, userID)
 		}
 	}
@@ -592,6 +687,21 @@ func (owner *person) sentBy(deviceID int64) *heldCast {
 	return nil
 }
 
+// isEmpty is whether the person has nothing the registry keeps: no connection, cast or guest.
+func (owner *person) isEmpty() bool {
+	return len(owner.connections) == 0 && len(owner.casts) == 0 && len(owner.guests) == 0
+}
+
+// mayCast is whether sender may cast to receiver as guests go (D465 §1): a guest receiver casts to
+// no one, and is cast to by the device that sent it its grant alone, once.
+func (owner *person) mayCast(sender, receiver int64) bool {
+	if owner.guests[sender] != nil {
+		return false
+	}
+	receiving := owner.guests[receiver]
+	return receiving == nil || receiving.senderDeviceID == sender && !receiving.hasReceived
+}
+
 // isConnected is whether any connection of deviceID is open.
 func (owner *person) isConnected(deviceID int64) bool {
 	for _, each := range owner.connections {
@@ -619,29 +729,48 @@ func (owner *person) frontOf(deviceID int64) *connection {
 	return front
 }
 
-// connectedDevices is the person's devices with a connection open, by id, in order.
+// connectedDevices is the person's devices with a connection open, by id, in order, guest receivers
+// left out, as no device of theirs to show (D465 §1).
 func (owner *person) connectedDevices() []int64 {
 	devices := map[int64]bool{}
 	for _, each := range owner.connections {
-		devices[each.deviceID] = true
+		devices[each.deviceID] = owner.guests[each.deviceID] == nil
 	}
-	return slices.Sorted(maps.Keys(devices))
+	return listed(devices)
 }
 
-// devicesInFront is the person's devices with a tab in front, by id, in order.
+// devicesInFront is the person's devices with a tab in front, by id, in order, guest receivers left
+// out.
 func (owner *person) devicesInFront() []int64 {
 	devices := map[int64]bool{}
 	for _, each := range owner.connections {
 		if each.frontSince != 0 {
-			devices[each.deviceID] = true
+			devices[each.deviceID] = owner.guests[each.deviceID] == nil
 		}
 	}
-	return slices.Sorted(maps.Keys(devices))
+	return listed(devices)
 }
 
-// devicesReceiving is the person's devices that receive a cast now, by id, in order (D386 §1).
+// devicesReceiving is the person's devices that receive a cast now, by id, in order (D386 §1), guest
+// receivers left out.
 func (owner *person) devicesReceiving() []int64 {
-	return slices.Sorted(maps.Keys(owner.casts))
+	devices := map[int64]bool{}
+	for deviceID := range owner.casts {
+		devices[deviceID] = owner.guests[deviceID] == nil
+	}
+	return listed(devices)
+}
+
+// listed is the devices marked true, by id, in order.
+func listed(devices map[int64]bool) []int64 {
+	ids := []int64{}
+	for deviceID, isListed := range devices {
+		if isListed {
+			ids = append(ids, deviceID)
+		}
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 // devicesMessage is the devices message of the person's connected devices now, those in front, and
