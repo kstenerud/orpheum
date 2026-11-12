@@ -52,6 +52,12 @@ no package is added.
    - On our namespace, the sender's launch message carries the grant and how to reach the core (its
      discovery, as the lab's does now). The receiver trades it, then takes the cast as `receive()`
      does now. A pairing kept from Make it a cast target still works as today.
+   - The receiver is served from the loader's address, so it reaches the core over WebRTC alone,
+     and the core takes an offer only when it is proven under a key it knows; before its trade a
+     guest has none. The grant proves its first offer, as a hand-off code does (D308 §4): a key
+     derived from the grant under a purpose of its own, which the core takes under its sender's
+     locator only while the grant waits. After the trade the receiver proves later offers by its
+     own session (the owner, 2026-11-12).
    - Tests in `src/device.test.ts`: a launch with a grant accepts its cast without pairing and keeps
      nothing in storage after it ends.
 3. **The sender: the Cast menu's icons, and Chromecast in it.**
