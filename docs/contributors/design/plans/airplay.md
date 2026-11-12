@@ -5,7 +5,7 @@
 
 # AirPlay
 
-- **Status:** SKETCH — 2026-11-04. The owner asked what AirPlay needs and will schedule the spike
+- **Status:** SKETCH — 2026-11-04, findings added 2026-11-12. The owner asked what AirPlay needs and will schedule the spike
   later. The requirements below are known from the research; what is open is named under "Open".
 - **Depends on:** [cast-to-device.md](cast-to-device.md) (casting to one's own devices, the other
   route to a TV), [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md) (the LAN name the TV reaches
@@ -76,10 +76,45 @@ Its findings settle items 1 and 3 and go into the D154 amendment the owner decid
   passthrough and HDR.
 - The sandbox cannot test AirPlay; every run is on the owner's devices.
 
+## What the Chromecast work settled (2026-11-12)
+
+The owner asked again what AirPlay would take, "similarly" to the Chromecast cast of D465 and D467.
+What that work and a read of the code found:
+
+- **No channel to hand a grant over.** D465's receiver is our code, so the grant goes to it over
+  Cast's namespace and is traded once for the cast's credential. An AirPlay receiver is Apple's
+  player and takes only a URL, so the grant can only be in the path (item 3), and it cannot be
+  traded: the TV presents it on every playlist and chunk for the whole film. The D154 §6 amendment
+  stays the owner's decision.
+- **The route is proven at home.** The Chromecast reached the core's LAN name and its certificate
+  directly (D467, on production). Apple's player is not a page, so D467's cross-origin rule does not
+  even apply to it; it needs only the name. There is no WebRTC fallback without our code on the TV:
+  a core reached only through Connect cannot AirPlay, as item 2 says.
+- **Today's media URLs already carry the playback in the path** (`/bytes/media/chunks/{token}/…`,
+  `internal/core/api/chunks.go`), with relative URIs in every playlist, but they also need a
+  credential beside the token (an Authorization header or the media cookie, `mediaHolder` in
+  `internal/core/api/media_cookie.go`), which the TV sends neither of. A path grant standing in for
+  that credential, for one playback's chunks, is the core's change.
+- **Our 425 does not suit Apple's player.** The core answers a chunk not made yet with 425 and a
+  Retry-After, which our hls.js loader honours and AVPlayer does not. For a grant's requests the
+  core holds the request until the chunk is made (the hold the chunk route already has, off for
+  hls.js by D250 §5), and the master playlist waits for the film's grid the same way.
+- **Copied sound may not play.** A copied track (DTS, TrueHD, Opus) is offered to hls.js as it is;
+  the AirPlay master lists only AAC, AC-3 and E-AC-3 renditions.
+- **hls.js turns AirPlay off itself** (1.7.3): attaching under ManagedMediaSource it sets
+  `disableRemotePlayback` and removes every `<source>` child, so an alternative source added before
+  it is gone. Either the player puts the alternative back after hls.js attaches, or, when the person
+  chooses AirPlay in our Cast menu (D465 §3's magnifying glass and "AirPlay"), it leaves hls.js and
+  gives the element the grant's URL as native HLS at the position, then opens Safari's picker
+  (`webkitShowPlaybackTargetPicker`). The second needs the grant fetched before the press, as the
+  menu opens, since the picker needs the press's gesture. The spike tries both.
+- **Only Safari and iOS senders** (every iPhone browser is WebKit) can offer it; Chrome and Firefox
+  on a computer cannot.
+
 ## Open
 
-- Whether hls.js leaves room for the alternative source under ManagedMediaSource, or the player
-  must set it up itself (the spike).
+- Which of the two ways past hls.js's `disableRemotePlayback` works (the spike; see above): it does
+  not leave room for the alternative source by itself.
 - Whether the receiver's own controls (an Apple TV remote) reach the sender's page, so the
   position is recorded (the spike, then an Apple TV).
 - How a core reached only through Connect is told apart, so the page does not offer AirPlay where
