@@ -3,6 +3,7 @@
 # ABOUTME: and its build lines; split from test_gates.py at the 800-line limit.
 import fcntl
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -154,6 +155,30 @@ class RevertRed(unittest.TestCase):
         self.assertFalse((mirrored / ".vite").exists())
         self.assertTrue((tree / "web" / "packages" / "sdk" / "node_modules" / "typescript").is_symlink())
         self.assertEqual(list((installed / "vitest" / "node_modules").iterdir()), [])  # untouched
+
+    def test_a_kept_tree_gets_a_package_installed_since_it_was_made_and_loses_one_removed(self):
+        # @noble/ed25519, installed after the kept trees were made, failed revert-red (2026-11-12).
+        root = git_repo({".gitignore": "node_modules/\n", "web/a.ts": "one\n"})
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"], cwd=root, check=True)
+        installed = root / "web" / "node_modules"
+        (installed / "vitest").mkdir(parents=True)
+        (installed / "left-pad").mkdir()
+        cwd = os.getcwd()
+        try:
+            os.chdir(root)
+            [tree] = rr.probe_trees("HEAD", 1)
+            mirrored = Path(tree) / "web" / "node_modules"
+            (mirrored / ".vite").mkdir()  # a run's cache, kept
+            (installed / "@noble" / "ed25519").mkdir(parents=True)
+            shutil.rmtree(installed / "left-pad")
+            [tree] = rr.probe_trees("HEAD", 1)
+        finally:
+            os.chdir(cwd)
+        self.assertEqual((mirrored / "@noble" / "ed25519").resolve(), (installed / "@noble" / "ed25519").resolve())
+        self.assertEqual((mirrored / "vitest").resolve(), (installed / "vitest").resolve())
+        self.assertFalse((mirrored / "left-pad").is_symlink())
+        self.assertTrue((mirrored / ".vite").is_dir())
 
     def test_the_worktree_gets_the_working_trees_type_builds_in_place_of_its_own(self):
         # A probe's type check starts from them, incremental, where it was cold each time (2026-10-20).

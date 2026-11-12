@@ -40,17 +40,36 @@ def link_installed_packages(source: Path, tree: Path) -> None:
 
 
 def _mirror_packages(installed: Path, into: Path, scoped: bool) -> None:
+    """Brings `into` to the links `installed` calls for, whether it is new or a kept tree's: a
+    package installed since gets its link, one removed loses it, a changed link is made afresh, and
+    a run's own caches are left alone."""
     into.mkdir(parents=True, exist_ok=True)
+    wanted = set()
     for entry in installed.iterdir():
         if entry.name in PACKAGE_CACHES:
             continue
+        wanted.add(entry.name)
         target = into / entry.name
-        if entry.is_symlink():
-            target.symlink_to(os.readlink(entry))
-        elif scoped and entry.name.startswith("@") and entry.is_dir():
+        if not entry.is_symlink() and scoped and entry.name.startswith("@") and entry.is_dir():
+            if target.is_symlink():
+                target.unlink()
             _mirror_packages(entry, target, scoped=False)
-        else:
-            target.symlink_to(entry.resolve())
+            continue
+        link = os.readlink(entry) if entry.is_symlink() else str(entry.resolve())
+        if target.is_symlink() and os.readlink(target) == link:
+            continue
+        _remove(target)
+        target.symlink_to(link)
+    for stale in into.iterdir():
+        if stale.name not in wanted and stale.name not in PACKAGE_CACHES:
+            _remove(stale)
+
+
+def _remove(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
 
 
 def seed_type_builds(source: Path, tree: Path) -> int:
@@ -115,8 +134,11 @@ def probe_trees(head: str, count: int) -> list[str]:
 
 def set_kept_tree(source: Path, tree: Path, head: str) -> None:
     """Sets the kept worktree at `tree` to the commit `head`, cleaned of untracked files but keeping
-    the ignored ones (the linked node_modules), or makes it there; then seeds its type builds from
-    `source`, the working tree."""
+    the ignored ones (the linked node_modules), or makes it there; then links the working tree's
+    installed packages into it and seeds its type builds from `source`, the working tree. The links
+    are brought up to date at every set, not only when the tree is made: a package installed after
+    a kept tree was made was missing from it, and revert-red failed on "Failed to resolve import"
+    (the release's check-pr, 2026-11-12)."""
     if (tree / ".git").exists():
         reset = _git("checkout", "--detach", "--force", head, cwd=str(tree))
         cleaned = _git("clean", "-fdq", cwd=str(tree))
@@ -127,5 +149,5 @@ def set_kept_tree(source: Path, tree: Path, head: str) -> None:
         added = _git("worktree", "add", "--detach", str(tree), head)
         if added.returncode != 0:
             raise RuntimeError(f"could not make {tree}: {added.stderr}")
-        link_installed_packages(source, tree)
+    link_installed_packages(source, tree)
     seed_type_builds(source, tree)
