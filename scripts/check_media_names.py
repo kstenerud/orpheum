@@ -34,6 +34,7 @@ import fnmatch
 import re
 import subprocess
 import sys
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,14 +62,26 @@ MEDIA_EXTENSIONS = (
 MEDIA_EXTENSION_RE = re.compile(
     r"\.(?:" + MEDIA_EXTENSIONS + "|" + MEDIA_EXTENSIONS.upper() + r")(?![\w(])"
 )
-NAME_RUN_RE = re.compile(r"[\w' .,()\[\]&!+-]*\Z")
+# A combining mark (U+0300–U+036F) is part of a word: "Fie\u0300vre" is one name, not "vre".
+NAME_RUN_RE = re.compile(r"[\w\u0300-\u036f' .,()\[\]&!+-]*\Z")
+# A name as code writes it may hold an escape ("Fie\u0300vre.mkv"): the run takes it in, and the name
+# is read from the run with its escapes decoded ("\u003e.vtt" names nothing: ">" is no name's).
+ESCAPED_NAME_RUN_RE = re.compile(r"(?:[\w\u0300-\u036f' .,()\[\]&!+-]|\\u[0-9a-fA-F]{4})*\Z")
 # An episode's marker: S02E05, s2e5, or 2x05 (one figure before the x: "64x64" is a picture's size).
 EPISODE_RE = re.compile(r"(?<![\w])(?:[sS]\d{1,2}[eE]\d{1,3}|[1-9]x\d{2})(?![\w])")
 # A title before its year: the year is found first, and the run of capitalised words before it after.
 YEAR_RE = re.compile(r" \((?:19|20)\d\d\)")
+# Lowercase words may stand inside it before a capitalised one ("Der letzte Mann"): every tail of the
+# run is tried against the registry, so a longer run only adds names it may be.
+TITLE_WORD = r"[A-Z0-9][\w'’&!:,.-]*"
+SMALL_WORD = r"(?:of|the|a|an|and|in|on|to|for|at|de|la|le|du)"
 YEAR_TITLE_RE = re.compile(
-    r"(?<![\w'’&!:,.-])((?:[A-Z0-9][\w'’&!:,.-]*)"
-    r"(?: (?:[A-Z0-9][\w'’&!:,.-]*|of|the|a|an|and|in|on|to|for|at|de|la|le|du))*)\Z"
+    r"(?<![\w'’&!:,.-])(" + TITLE_WORD + r"(?:(?: [^\W\d_A-Z][\w'’-]*)+ [A-Z][\w'’&!:,.-]*"
+    r"| (?:" + TITLE_WORD + "|" + SMALL_WORD + r"))*)\Z"
+)
+# What a finding quotes: the capitalised words before the year, as the title is usually written.
+YEAR_TITLE_QUOTED_RE = re.compile(
+    r"(?<![\w'’&!:,.-])(?:" + TITLE_WORD + r"(?: (?:" + TITLE_WORD + "|" + SMALL_WORD + r"))*)\Z"
 )
 CAPITALISED = r"([A-Z][\w'’.-]*(?: [A-Z0-9][\w'’.-]*)*)"
 PHRASE_RES = (
@@ -90,8 +103,8 @@ QUALITY_RE = re.compile(
 )
 # An extra's kind after its film's name (Jellyfin's and Plex's "Name-trailer.mkv").
 EXTRA_RE = re.compile(
-    r"\s*-\s*(?:trailers?|teaser|deleted(?: scenes?)?|featurette|interview|scene|short|other|clip|"
-    r"theme|behind ?the ?scenes|sample|final)\s*$",
+    r"(?:\s+(?:trailer|teaser)|\s*-\s*(?:trailers?|teaser|deleted(?: scenes?)?|featurette|interview|scene|short|other|clip|"
+    r"theme|behind ?the ?scenes|sample|final))\s*$",
     re.IGNORECASE,
 )
 LANGUAGE_RE = re.compile(
@@ -100,7 +113,9 @@ LANGUAGE_RE = re.compile(
 
 
 def normalise(name: str) -> str:
-    """A name as the registry is read: case, separators and edge punctuation aside."""
+    """A name as the registry is read: case, separators, edge punctuation and how an accent is
+    encoded (a letter and its combining mark, or the one character) aside."""
+    name = unicodedata.normalize("NFC", name)
     name = re.sub(r"[._]+", " ", name)
     name = re.sub(r"\s+", " ", name)
     return name.strip(" -–—:,'\"“”[]()").casefold()
@@ -123,7 +138,12 @@ class Registry:
     def ends_with_known(self, phrase: str) -> bool:
         """Whether the phrase, or its last words, is a registered name or word: a title before its
         year is the end of a run of capitalised words, which may start the sentence."""
-        words = normalise(phrase).split(" ")
+        return any(self._has_tail(name) for name in (phrase, QUALITY_RE.sub("", " " + phrase)))
+
+    def _has_tail(self, phrase: str) -> bool:
+        """Whether the phrase's last words are a registered name or word; a title's tags ("Title
+        Unrated") are tried without them too."""
+        words = re.split(r" |:(?! )", normalise(phrase))  # "10:1:Title": a key before it
         return any(
             " ".join(words[n:]) in self.names or " ".join(words[n:]) in self.words
             for n in range(len(words))
@@ -180,7 +200,7 @@ def media_title(stem: str) -> str:
     stem = re.sub(r"^\s*(?:\[[^\]]*\]\s*)+", "", stem)  # a release group's tag before it
     stem = QUALITY_RE.sub("", " " + stem)
     stem = re.sub(r"[\[(][^\])]*(?:[\])]|$)", " ", stem)  # a bracketed tag: a site, a version
-    stem = re.sub(r"[ ._]+-?[ ._]*\d{1,4}(?:v\d)?\s*$", "", stem)  # an anime's absolute episode
+    stem = re.sub(r"[ ._]+-?[ ._]*\d{1,4}(?:[ ._]?v\d)?[\s._]*$", "", stem)  # an anime's absolute episode
     stem = EXTRA_RE.sub("", stem)
     return normalise(stem)
 
@@ -224,22 +244,26 @@ def find(text: str, registry: Registry, path: str | None) -> list[Finding]:
     for ext in MEDIA_EXTENSION_RE.finditer(text):
         # A name starts on its line and after the file named before it ("a.mkv, b.mkv").
         line_start = max(text.rfind("\n", 0, ext.start()) + 1, in_files[-1][1] if in_files else 0)
-        run = NAME_RUN_RE.search(text, line_start, ext.start())
+        run = ESCAPED_NAME_RUN_RE.search(text, line_start, ext.start())
         start = run.start() if run else ext.start()
         in_files.append((start, ext.end()))
-        if text.startswith("\\u", start - 1):  # a JSON escape before it: "\u003e.vtt"
-            start += 5
-        name = text[start : ext.start()].lstrip(" ,;:()&!+'-")
+        decoded = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m[1], 16)), text[start : ext.start()])
+        name = decoded[NAME_RUN_RE.search(decoded).start() :].lstrip(" ,;:()&!+'-")
         if not names_a_file(name, ext.group(0)) or registry.knows_file(name):
             continue
-        add(ext.start() - len(name), "media-file", name + ext.group(0))
+        add(start, "media-file", name + ext.group(0))
     for year in YEAR_RE.finditer(text):
         line_start = text.rfind("\n", 0, year.start()) + 1
         title = YEAR_TITLE_RE.search(text, line_start, year.start())
-        if title and re.search(r"[^\W\d_]", title.group(1)) and not registry.ends_with_known(
+        # The words after a sentence's end are the title; in capitals and figures alone they are an
+        # id ("CVE-2024-10441 (2024)"), not how a title is written.
+        last = re.split(r"\. ", title.group(1))[-1] if title else ""
+        if title and re.search(r"[^\W\d_]", last) and not is_acronyms(last) and not registry.ends_with_known(
             title.group(1)
         ):
-            add(title.start(), "title-and-year", text[title.start() : year.end()])
+            quoted = YEAR_TITLE_QUOTED_RE.search(text, title.start(), year.start())
+            start = quoted.start() if quoted else title.start()
+            add(start, "title-and-year", text[start : year.end()])
     if path is None or not registry.allows_episodes_in(path):
         for m in EPISODE_RE.finditer(text):
             if not any(a <= m.start() < b for a, b in in_files):

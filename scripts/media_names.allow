@@ -252,7 +252,7 @@ kitsune relay | invented for the tests
 orchard road | invented for the tests
 orchard road the movie | invented for the tests
 hollow violet | invented for the tests
-orbitorama | invented for the tests
+orbitorama - comet pilott | invented, a series' file named with its episode's title misspelt
 emberwing | invented for the tests
 copperfield station | invented for the tests
 copperfield station, the | invented for the tests
@@ -397,16 +397,19 @@ greed | out of copyright (1924)
 the freshman | out of copyright (1925)
 der golem | out of copyright (1920)
 der letzte mann | out of copyright (1924)
+das wachsfigurenkabinett | out of copyright (1924), the German sort's other article
 faust | out of copyright (1926)
 the thief of bagdad | out of copyright (1924)
 nanook of the north | out of copyright (1922)
 the big parade | out of copyright (1925)
 the navigator | out of copyright (1924)
+navigator | out of copyright (1924), its article dropped: the matcher finds a title without it
 wings | out of copyright (1927)
 sparrows | out of copyright (1926)
 variety | out of copyright (1925)
 the lodger | out of copyright (1927)
 the crowd | out of copyright (1928)
+crowd | out of copyright (1928), its article dropped: the matcher finds a title without it
 fièvre | out of copyright (1921)
 броненосец потёмкин | out of copyright (1925)
 аэлита | out of copyright (1924)
@@ -446,6 +449,7 @@ far orbit seven a bold beginning | invented for the tests
 loose ends | invented for the tests
 velvet static - deleted scene | invented for the tests
 velvet static: chapter 3 | invented for the tests
+aurèle: the ferryman | invented, a title with its original name before a colon
 velvet static extended edition | invented for the tests
 moth-lantern | invented for the tests
 metropols | invented for the tests
@@ -462,6 +466,7 @@ brindlewood | invented for the tests
 doctor wren | invented for the tests
 flatmates of ferris row | invented for the tests
 kaito kumo | invented for the tests
+kaito kumo - tsuki no onna | invented, a fansub's file named with its episode's title
 wed at first light au | invented for the tests
 fennimore | invented for the tests
 the nightly lantern | invented for the tests
@@ -542,7 +547,6 @@ gpg | a tool
 dolby vision | a picture format
 riedl and müller-putz | a study's authors
 bailenson | a study's author
-sa-26:13 on 2026-09-18 cve-2024-10441 | a security advisory
 summer of 1969 | a year in a test's sentence
 ases | a network's kind, before a year
 cast and hls | a study's subject, before a year
@@ -609,7 +613,46 @@ oses | operating systems
 # Where an episode's marker is the subject: the parser, its tests and the research behind them.
 internal/core/identify/* | the filename parser and its tests
 internal/testutil/* | the test fixtures' file trees
+internal/core/api/filing_reports_test.go | a filing report's text, which names the episode by its marker
+internal/core/library/neighbours_test.go | an episode's neighbours, named by their markers
 scripts/check_media_names.py | this gate's own patterns
 scripts/tests/test_check_media_names.py | this gate's tests
 docs/contributors/design/research/library-scanner-practice-2026-10-16.md | the naming conventions' research
 docs/contributors/design/plans/episode-orderings.md | the episode orderings' design
+scripts/dev_media.py | the development library's invented test show, its episodes' file names built in a loop
+scripts/tests/test_dev.py | the development library's tests, its invented test show's episode
+# The web client renders an episode as "S1E2" (the trail, Up next, the overlay): where the label is
+# the subject, its code, its tests and the designs of it name episodes by that marker.
+web/apps/web/README.md | the client's episode labels described
+web/apps/web/src/arrival.browser.test.tsx | the episode label the client renders
+web/apps/web/src/cast-remote.test.tsx | the episode label the client renders
+web/apps/web/src/cast-remote.tsx | the episode label the client renders
+web/apps/web/src/episode-orderings.test.tsx | the episode label the client renders
+web/apps/web/src/episode-place.ts | the episode label the client renders
+web/apps/web/src/episode-reached.ts | the episode label the client renders
+web/apps/web/src/locales/en-status.ts | the advice to rename a file to the "S01E04" form
+web/apps/web/src/play-up.tsx | the episode label the client renders
+web/apps/web/src/play.test.tsx | the episode label the client renders
+web/apps/web/src/player-overlay.css | the episode label the client renders
+web/apps/web/src/player-widgets.browser.test.tsx | the episode label the client renders
+web/apps/web/src/series.test.tsx | the episode label the client renders
+web/apps/web/src/series.tsx | the episode label the client renders
+web/apps/web/src/title-head.browser.test.tsx | the episode label the client renders
+web/apps/web/src/up-next-place.browser.test.tsx | the episode label the client renders
+web/apps/web/src/up-next.test.tsx | the episode label the client renders
+web/apps/web/src/up-next.tsx | the episode label the client renders
+web/apps/web/src/up-trail.browser.test.tsx | the episode label the client renders
+web/apps/web/src/up-trail.test.tsx | the episode label the client renders
+web/apps/web/src/up-trail.tsx | the episode label the client renders
+web/apps/web/src/upward.test.ts | the episode label the client renders
+web/apps/web/src/upward.ts | the episode label the client renders
+docs/contributors/decisions/working-notes.md | the trail's and the overlay's episode labels, as designed
+docs/contributors/design/plans/interest-priority.md | the "Continue"/"Play" episode labels, as designed
+docs/contributors/design/plans/inventory-2026-10-27.md | the trail's episode label, as designed
+docs/contributors/design/plans/navigation-and-widgets-answers-2026-10-27.md | the trail's and Play's episode labels, and the parser's example path
+docs/contributors/design/plans/player-overlay.md | the overlay's episode label, as designed
+docs/contributors/design/research/navigation-back-up-2026-10-27.md | the episode notation the research is written in
+docs/contributors/design/research/player-controls-2026-11-02.md | the overlay mockups' episode labels
+docs/contributors/design/research/ui-audit-2026-11-04-inventory.md | the "Play S2E1" label audited
+docs/contributors/design/research/ui-audit-2026-11-04.md | the "Play S2E1" label audited
+docs/contributors/verification-queue.md | the "Up next" and trail labels a device check reads
