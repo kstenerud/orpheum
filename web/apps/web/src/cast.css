@@ -61,6 +61,16 @@
   list-style: none;
 }
 
+/* The mark before each entry for the kind of cast it makes (cast-kind.tsx, D465 §3): the laurel, the
+   Cast icon, the magnifying glass; the size and spacing of a list's tool icons (listing-tools.css). */
+.cast-kind {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-inline-end: var(--space-2);
+  vertical-align: -0.2em;
+}
+
 /* A cast arrived, asked about before it plays (cast-asked.tsx): read across a room. */
 .cast-asked__question {
   margin: 0 0 var(--space-4);
