@@ -27989,7 +27989,14 @@ D337, D358 and D468; it amends none.
    and the page draws no shell, only the cast's ready page and film, and while none has come, "Signed
    in for one cast. Waiting for the cast from your phone…".
 
-**Status:** Decided 2026-11-12. Open for the owner: the wording; the typed code's path, which offers no
+**Status:** Decided 2026-11-12. Built 2026-11-12: `CastToPairing` and `isEnteredForThemselves`
+(`internal/core/auth/guest_receivers.go`); `POST /pairings/cast` (`internal/core/api/pairing.go`);
+the guest's trimmed body (`userBody`, `internal/core/api/session.go`); `ExpectGuestByCode`,
+`GuestCastsEndingIdle` and the two waits (`internal/core/live/guest.go`); `CastIdleFor` and the
+`idle` reason (`internal/core/together/cast.go`); the idle end in the casts' loop
+(`endIdleGuestCasts`, `cmd/orpheum/casts_gone.go`); Cast to this device and its asking
+(`web/apps/web/src/device-activation.tsx`); the guest's page (`GuestReceiving`,
+`web/apps/web/src/app.tsx`). Open for the owner: the wording; the typed code's path, which offers no
 Cast (its check code stays Claim's); what the phone says once 3 minutes pass with the device's page
 not connected ("did not open in time … scan the new code"); the shell that may show for a moment on
 the device before GET /me answers.
