@@ -61,6 +61,14 @@
   list-style: none;
 }
 
+/* Between the person's devices and Chromecast (cast-to.tsx's ChromecastEntry, D465 §3): a quiet rule,
+   spaced as the list's entries are. */
+.cast-to__separator {
+  margin: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
 /* The mark before each entry for the kind of cast it makes (cast-kind.tsx, D465 §3): the laurel, the
    Cast icon, the magnifying glass; the size and spacing of a list's tool icons (listing-tools.css). */
 .cast-kind {

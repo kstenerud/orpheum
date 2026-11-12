@@ -131,6 +131,8 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
     // Under a discovery's loader, what the lab's cast page hands its receiver to reach the core from
     // away; only a Chromecast away from home shows it whole (VQ256).
     throughDiscovery: reaches.throughDiscovery,
+    // The loader's Cast receiver application, for the Cast menu's Chromecast (D465 §5).
+    castReceiverAppId: reaches.castReceiverAppId,
     willLeaveWhenSignedOut: reaches.willLeaveWhenSignedOut,
     pathMoves: reaches.pathMoves,
     switchHousehold: reaches.switchHousehold,

@@ -8,7 +8,7 @@
 import { readMediaCarrierFrom, type OpenTogetherSocket } from "@orpheum/sdk";
 
 import { builtScriptOf } from "./app-update.ts";
-import { discoveryClientApiOf } from "./discovery-page.ts";
+import { castReceiverAppIdOf, discoveryClientApiOf } from "./discovery-page.ts";
 import { loaderConfigOf } from "./loader-config.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
 import { pathMovesHeardFrom, type PathMoves, type ThroughDiscovery } from "./services.tsx";
@@ -23,6 +23,8 @@ export interface Reaches {
   readonly realm?: string | undefined;
   /** The page's core as its discovery finds it (Services.throughDiscovery). */
   readonly throughDiscovery?: ThroughDiscovery | undefined;
+  /** The loader's Cast receiver application (Services.castReceiverAppId). */
+  readonly castReceiverAppId?: string | undefined;
   /** Whether the loader takes a page signed out to the discovery's sign-in (Services'). */
   readonly willLeaveWhenSignedOut?: boolean | undefined;
   readonly switchHousehold?: (() => void) | undefined;
@@ -86,6 +88,7 @@ export function reachesUnderLoader(loader: OrpheumLoader, page: Document): Reach
     ownScript: builtScriptOf(page),
     realm: loader.core.realm,
     throughDiscovery: throughDiscoveryOf(loader.core, discoveryClientApiOf(page)),
+    castReceiverAppId: castReceiverAppIdOf(page),
     // An older loader says nothing, and leaves for a core reached through a realm alone.
     willLeaveWhenSignedOut: loader.willLeaveWhenSignedOut ?? loader.core.realm !== undefined,
     switchHousehold: loader.switchHousehold,

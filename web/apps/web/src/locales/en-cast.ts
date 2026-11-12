@@ -18,6 +18,8 @@ export const enCast = {
     receivingAnother: "{{name}} is showing another cast. Cast to it once that cast ends.",
     castingHere:
       "{{name}} is casting to this device, so this device cannot cast to it. Stop that cast on {{name}} first.",
+    chromecast: "Chromecast",
+    chromecastFailed: "The Chromecast could not take the cast. Try again.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}}",
     asked: {

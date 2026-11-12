@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
-import { castKindOf, CastKindMark } from "./cast-kind.tsx";
+import { castKindOf, CastKindMark, FindDevicesIcon } from "./cast-kind.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
   castAnswerGraceMs,
@@ -20,7 +20,15 @@ import {
   type Cast,
   type CastFilm,
 } from "./cast.ts";
+import { loadCastSender } from "./cast-sdk.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import {
+  castToAGoogleCastDevice,
+  endCastSessionOf,
+  guestCastOf,
+  GuestCastFailure,
+  type GuestCastWays,
+} from "./google-cast.ts";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
@@ -49,33 +57,25 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
   const { api } = useServices();
   const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
     useLive();
+  const guest = useGuestCast();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
-  const chosenNameRef = useRef("");
   const [asking, setAsking] = useState<Asking | undefined>(undefined);
   const [answered, setAnswered] = useState<string | undefined>(undefined);
   const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
   const settled = (castId: number, said: string): void => {
+    endCastSessionOf(castId); // a Google Cast device's, which did not take it
     setSettledCastId(castId);
     setAsking(undefined);
     setAnswered(said);
   };
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    problemText(t, cause, {
-      conflict: t("cast.notInFront", { name: chosenNameRef.current }),
-      receivingACast: t("cast.receivingAnother", { name: chosenNameRef.current }),
-      castingHere: t("cast.castingHere", { name: chosenNameRef.current }),
-    }),
-  );
-  const castTo = (device: Device): void => {
-    chosenNameRef.current = device.name;
-    setAnswered(undefined);
-    runRequest(async () => {
-      const cast = await startCast(api, device.id, props.film());
-      setAsking({ cast, name: device.name });
-    });
-  };
+  const { isBusy, problem, castTo, castToChromecast } = useStartsCasts(props.film, {
+    onAsking: setAsking,
+    onStarting: () => {
+      setAnswered(undefined);
+    },
+  });
   if (asking !== undefined || unansweredOf(sending, settledCastId) !== undefined) {
     return (
       <AskingNow
@@ -97,10 +97,105 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
           states={{ inFrontDeviceIds, receivingDeviceIds }}
           onCast={castTo}
         />
+        {guest === undefined ? null : (
+          <ChromecastEntry
+            isStale={!isConnected}
+            onCast={() => {
+              castToChromecast(guest);
+            }}
+          />
+        )}
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>
     </section>
+  );
+}
+
+/**
+ * Starting a cast from Cast's menu: to one of the person's devices (castTo), or to the Google Cast
+ * device the person picks in Chrome's picker (castToChromecast, D465 §3), its failure said in a line;
+ * onStarting is told as one starts, and onAsking once its receiver is asked.
+ */
+function useStartsCasts(
+  film: () => CastFilm | undefined,
+  told: { readonly onAsking: (asking: Asking) => void; readonly onStarting: () => void },
+): {
+  readonly isBusy: boolean;
+  readonly problem: string | undefined;
+  readonly castTo: (device: Device) => void;
+  readonly castToChromecast: (ways: GuestCastWays) => void;
+} {
+  const { t } = useTranslation();
+  const services = useServices();
+  const { api } = services;
+  const chosenNameRef = useRef("");
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    cause instanceof GuestCastFailure
+      ? t("cast.chromecastFailed")
+      : problemText(t, cause, {
+          conflict: t("cast.notInFront", { name: chosenNameRef.current }),
+          receivingACast: t("cast.receivingAnother", { name: chosenNameRef.current }),
+          castingHere: t("cast.castingHere", { name: chosenNameRef.current }),
+        }),
+  );
+  const castTo = (device: Device): void => {
+    chosenNameRef.current = device.name;
+    told.onStarting();
+    runRequest(async () => {
+      const cast = await startCast(api, device.id, film());
+      told.onAsking({ cast, name: device.name });
+    });
+  };
+  const castToChromecast = (ways: GuestCastWays): void => {
+    told.onStarting();
+    runRequest(async () => {
+      const how = { locator: services.session.locator(), film: film() };
+      const made = await castToAGoogleCastDevice(api, ways, how);
+      if (made !== undefined) {
+        chosenNameRef.current = made.name;
+        told.onAsking(made);
+      }
+    });
+  };
+  return { isBusy, problem, castTo, castToChromecast };
+}
+
+/**
+ * What this page casts to a Google Cast device with, where the Cast menu offers Chromecast
+ * (guestCastOf); Google's sender script is loaded then, at the menu's first opening, and not before
+ * (D465 §3: the owner, 2026-11-12), so no page loads it until someone means to cast.
+ */
+function useGuestCast(): GuestCastWays | undefined {
+  const services = useServices();
+  const guest = guestCastOf(services, globalThis.location.origin);
+  const isOffered = guest !== undefined;
+  useEffect(() => {
+    if (isOffered) {
+      loadCastSender().catch(() => undefined); // loaded again at the press, which says its failure
+    }
+  }, [isOffered]);
+  return guest;
+}
+
+/**
+ * After the person's devices, a separator, then a magnifying glass and Chromecast (D465 §3), which
+ * opens Chrome's own picker of the Google Cast devices on the network; none is offered while the live
+ * connection is down, as no device is.
+ */
+function ChromecastEntry(props: {
+  readonly isStale: boolean;
+  readonly onCast: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <hr className="cast-to__separator" />
+      <button type="button" disabled={props.isStale} onClick={props.onCast}>
+        <FindDevicesIcon />
+        {t("cast.chromecast")}
+      </button>
+    </>
   );
 }
 

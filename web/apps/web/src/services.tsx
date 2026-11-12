@@ -26,6 +26,13 @@ export interface ThroughDiscovery {
   readonly fingerprint: string;
 }
 
+/**
+ * Asks the core for a grant for one cast to the Google Cast device receiverName, its name as its owner
+ * gave it (D465 §2: POST /me/casts/guest-grants); answers the grant, a secret valid a minute for one
+ * use, never logged, kept or put in an address (D154 §6).
+ */
+export type AskGuestCastGrant = (receiverName: string) => Promise<string>;
+
 export interface Services {
   readonly api: Api;
   readonly session: Session;
@@ -52,6 +59,18 @@ export interface Services {
    * undefined on the core's own origin.
    */
   readonly throughDiscovery?: ThroughDiscovery | undefined;
+  /**
+   * The Google Cast receiver application the Cast menu's Chromecast launches, named by the loader the
+   * page came from (D465 §5: staging's or production's, each at its own loader's /cast/); undefined
+   * on the core's own origin, which names none, so no Chromecast is offered there.
+   */
+  readonly castReceiverAppId?: string | undefined;
+  /**
+   * Asks the core for a grant for one cast to the Google Cast device receiverName (D465 §2), which the
+   * Cast menu's Chromecast hands that device over the Cast channel and nowhere else; undefined until
+   * it is wired, and then no Chromecast is offered (google-cast.ts).
+   */
+  readonly askGuestCastGrant?: AskGuestCastGrant | undefined;
   /**
    * Whether the page, once signed out, is taken by its discovery's loader to the discovery's
    * sign-in, so it draws none of the server's own meanwhile (D308; the owner, 2026-10-30): undefined
