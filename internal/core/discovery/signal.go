@@ -395,14 +395,16 @@ func (service *Service) answerOffer(
 	}
 }
 
-// whyUnproven says why the offer's proof does not hold under the key the core keeps for the hash the
-// discovery passed it on with, or is empty when it holds: an HMAC over the offer's DTLS fingerprint,
-// which the discovery cannot make, so an offer it made up, or a client's with its own certificate
-// swapped in, is refused before rtcapi sees it (the protocol's §2.5 item 3; A9). Under a person a
-// realm sign-in names, a live hand-off's key holds too, which a client origin holding only the
-// hand-off's code proves by (D308 §4). Which check failed goes to the log alone: three offers were
-// refused just after a sign-in on staging, and the log could not say whether their hash had no key
-// or their proof was made under another (2026-10-23).
+// whyUnproven says why the offer's proof does not hold under the key the core keeps for the hash
+// the discovery passed it on with, or is empty when it holds: an HMAC over the offer's DTLS
+// fingerprint, which the discovery cannot make, so an offer it made up, or a client's with its own
+// certificate swapped in, is refused before rtcapi sees it (the protocol's §2.5 item 3; A9). Under
+// a person a realm sign-in names, a live hand-off's key holds too, which a client origin holding
+// only the hand-off's code proves by (D308 §4), and under a session's locator a waiting guest
+// grant's, which a Google Cast device holding only the grant proves by (D465 §2). Which check
+// failed goes to the log alone: three offers were refused just after a sign-in on staging, and the
+// log could not say whether their hash had no key or their proof was made under another
+// (2026-10-23).
 func (service *Service) whyUnproven(ctx context.Context, offer discoveryproto.SignalMessage) string {
 	fingerprint := rtcapi.FingerprintOf(offer.SDP)
 	switch {
@@ -417,15 +419,22 @@ func (service *Service) whyUnproven(ctx context.Context, offer discoveryproto.Si
 	if err == nil && proof.VerifyOffer(key, fingerprint, offer.Proof) {
 		return ""
 	}
-	if service.parts.HandOffOfferKeys != nil {
-		for _, handedOff := range service.parts.HandOffOfferKeys(offer.LocatorHash) {
-			if proof.VerifyOffer(handedOff, fingerprint, offer.Proof) {
+	var furtherErr error
+	if service.parts.FurtherOfferKeys != nil {
+		var further [][]byte
+		further, furtherErr = service.parts.FurtherOfferKeys(ctx, offer.LocatorHash)
+		for _, each := range further {
+			if proof.VerifyOffer(each, fingerprint, offer.Proof) {
 				return ""
 			}
 		}
 	}
-	if err != nil {
-		return "no key for its hash: " + err.Error()
+	switch {
+	case err != nil:
+		return "no key for its hash: " + errors.Join(err, furtherErr).Error()
+	case furtherErr != nil:
+		return "its proof was not made under the key its hash has, and its further keys failed: " +
+			furtherErr.Error()
 	}
 	return "its proof was not made under the key its hash has"
 }

@@ -10,6 +10,7 @@
 
 import {
   discoverySignaller,
+  guestGrantOfferKey,
   pathsOf,
   sessionOfferKey,
   type DiscoveryClient,
@@ -87,21 +88,70 @@ export async function provingOf(held: HeldSession): Promise<Proving> {
   return { held: { locator: held.locator }, key: await sessionOfferKey(held.token) };
 }
 
-/** Finds the remembered core by this device's locator; its offers are proven under its session. */
-export async function targetOfSession(client: DiscoveryClient, held: HeldSession): Promise<Target> {
-  const located = await pathsOf(client, { locator: held.locator });
-  if (located.coreId !== held.core.coreId) {
+/**
+ * The core the discovery finds by locator, as the device knows it: core is the one it reached, or its
+ * sender did; the discovery answering for another is refused.
+ */
+async function targetAt(
+  client: DiscoveryClient,
+  core: KeptCore,
+  locator: string,
+  proving: Proving,
+): Promise<Target> {
+  const located = await pathsOf(client, { locator });
+  if (located.coreId !== core.coreId) {
     throw new Error("the discovery answered for another server than this device reached");
   }
   return {
-    coreId: held.core.coreId,
-    fingerprint: held.core.fingerprint,
-    ...(await provingOf(held)),
+    coreId: core.coreId,
+    fingerprint: core.fingerprint,
+    ...proving,
     iceServers: located.iceServers,
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
     families: located.families,
     ipv6Probe: located.ipv6Probe,
+  };
+}
+
+/** Finds the remembered core by this device's locator; its offers are proven under its session. */
+export async function targetOfSession(client: DiscoveryClient, held: HeldSession): Promise<Target> {
+  return targetAt(client, held.core, held.locator, await provingOf(held));
+}
+
+/**
+ * What a Google Cast device holds that its sender handed it, before it has a session (D465 §2): the
+ * sender's core, a grant for one cast, and the sender's locator, which the discovery finds the core by.
+ */
+export interface HeldGuestGrant {
+  readonly core: KeptCore;
+  readonly grant: string;
+  readonly senderLocator: string;
+}
+
+/**
+ * Finds the sender's core by the sender's locator. The offers are proven under the grant
+ * (proof.GuestGrantOfferKey), which the core takes under that locator only while the grant waits;
+ * once traded() gives the session the trade made, each later offer is proven under it, as a
+ * connection lost and made again must be (google-cast.md §2, step 2; the owner, 2026-11-12).
+ */
+export async function targetOfGuestGrant(
+  client: DiscoveryClient,
+  held: HeldGuestGrant,
+  traded: () => HeldSession | undefined,
+): Promise<Target> {
+  const byGrant: Proving = {
+    held: { locator: held.senderLocator },
+    key: await guestGrantOfferKey(held.grant),
+  };
+  const bySession = async (): Promise<Proving | undefined> => {
+    const session = traded();
+    return session === undefined ? undefined : provingOf(session);
+  };
+  return {
+    ...(await targetAt(client, held.core, held.senderLocator, byGrant)),
+    latest: bySession,
+    fallback: bySession,
   };
 }
 

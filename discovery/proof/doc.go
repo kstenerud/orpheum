@@ -19,6 +19,9 @@
 //     TestVerifyAnswer_CoversTheExactSDPTheOfferAndItsFingerprint.
 //   - An offer's proof covers its DTLS fingerprint under the client's session's or link's key, which
 //     the discovery holds neither of. TestOffer_ProvesOnlyItsFingerprintUnderItsKey.
+//   - A Google Cast device's first offers, before it trades its grant for a session, are proven under
+//     a key of the grant's own purpose, never a session's or a hand-off's (D465 §2); the SDK derives
+//     the same vector. Enforced by TestGuestGrantOfferKey_IsTheVectorAndNoSessionsNorHandOffsKey.
 //   - A person reads the fingerprint in safe32 groups, the same digest links carry in base64url.
 //     TestFingerprintText_IsTheSameDigestInSafe32Groups.
 //   - A realm key is PBKDF2-SHA256 of the password, salted by the realm and the name in lower case,

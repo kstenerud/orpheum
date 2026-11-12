@@ -3,14 +3,18 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // grantScopeGuestReceiver is the session of a guest receiver (D465 §1, §2): a Google Cast device
@@ -46,12 +50,16 @@ type guestGrants struct {
 }
 
 // guestGrant is what a grant makes when traded: a guest receiver of the person's, cast to by the
-// sending device alone, under the Cast device's name.
+// sending device alone, under the Cast device's name; and, while it waits, the key the Cast device
+// proves its first offers under (proof.GuestGrantOfferKey), taken under the sending session's locator.
 type guestGrant struct {
 	userID         int64
 	senderDeviceID int64
-	receiverName   string
-	madeAt         time.Time
+	// senderSession is the sending session's token's SHA-256, which its locator finds (sessionOfLocator).
+	senderSession []byte
+	offerKey      []byte
+	receiverName  string
+	madeAt        time.Time
 }
 
 // forgetLocked forgets every grant expired at now, and the oldest of senderDeviceID's while it has as
@@ -90,7 +98,8 @@ type GuestReceiver struct {
 // the sender's device (D465 §2): random, kept only as its SHA-256, traded once within
 // guestGrantLife. ErrGuestSender for a guest receiver's session or one of no device.
 func (service *Service) IssueGuestGrant(sender Principal, receiverName string) (string, error) {
-	if sender.isGuestReceiver || sender.DeviceID == 0 {
+	senderSession, err := hex.DecodeString(sender.SessionKey)
+	if sender.isGuestReceiver || sender.DeviceID == 0 || err != nil || len(senderSession) == 0 {
 		return "", ErrGuestSender
 	}
 	secret, err := randomSecret(service.random)
@@ -102,9 +111,48 @@ func (service *Service) IssueGuestGrant(sender Principal, receiverName string) (
 	defer service.guestGrants.mutex.Unlock()
 	service.guestGrants.forgetLocked(now, sender.DeviceID)
 	service.guestGrants.byHash[hex.EncodeToString(tokenHash(secret))] = guestGrant{
-		userID: sender.UserID, senderDeviceID: sender.DeviceID, receiverName: receiverName, madeAt: now,
+		userID: sender.UserID, senderDeviceID: sender.DeviceID, senderSession: senderSession,
+		offerKey: proof.GuestGrantOfferKey(secret), receiverName: receiverName, madeAt: now,
 	}
 	return secret, nil
+}
+
+// GuestGrantOfferKeys are the keys a Google Cast device holding a waiting grant proves its first
+// offers under (proof.GuestGrantOfferKey), passed on by the discovery under the locator of the
+// session that asked for the grant, which the sender handed the device with it: so a receiver served
+// at the loader's address, reached over WebRTC alone, can make the trade (google-cast.md §2, step 2).
+// None once the grant is traded or expired; none under any other locator.
+func (service *Service) GuestGrantOfferKeys(ctx context.Context, locatorHash string) ([][]byte, error) {
+	now := service.clock.Now()
+	service.guestGrants.mutex.Lock()
+	waiting := []guestGrant{}
+	for _, each := range service.guestGrants.byHash {
+		if now.Sub(each.madeAt) < guestGrantLife {
+			waiting = append(waiting, each)
+		}
+	}
+	service.guestGrants.mutex.Unlock()
+	if len(waiting) == 0 {
+		return nil, nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(locatorHash)
+	if err != nil {
+		return nil, ErrNoOfferKey
+	}
+	sender, err := service.sessionOfLocator(ctx, raw)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	keys := [][]byte{}
+	for _, each := range waiting {
+		if bytes.Equal(each.senderSession, sender) {
+			keys = append(keys, each.offerKey)
+		}
+	}
+	return keys, nil
 }
 
 // TradeGuestGrant trades a guest grant, once, for a session of a guest receiver of the grant's

@@ -86,6 +86,14 @@ export function handOffOfferKey(code: string): Promise<Uint8Array<ArrayBuffer>> 
   return sha256(`${prefix}handoff-offer\n${code}`);
 }
 
+/**
+ * The key a Google Cast device proves its first offers under while it holds only a grant for one
+ * cast, before it has traded it for a session: proof.GuestGrantOfferKey (D465 §2).
+ */
+export function guestGrantOfferKey(grant: string): Promise<Uint8Array<ArrayBuffer>> {
+  return sha256(`${prefix}guest-grant-offer\n${grant}`);
+}
+
 /** An offer's proof, an HMAC over its DTLS fingerprint under key: proof.Offer. */
 export async function offerProof(
   key: Uint8Array<ArrayBuffer>,
