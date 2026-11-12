@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
 import { DebugTool } from "./debug-tools.tsx";
+import { WarningIcon } from "./icons.tsx";
 import { SystemVideos } from "./system-videos.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -38,7 +39,6 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { WhatWaits } from "./system-waiting.tsx";
-import { WarningIcon } from "./warning-sign.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 

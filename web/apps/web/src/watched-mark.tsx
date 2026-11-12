@@ -7,26 +7,13 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "./icon.tsx";
+import { WatchedIcon } from "./icons.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
 /** A title's watched mark as it stood before a mark by hand, which Undo puts back (D370 §4). */
 export type WatchedState = components["schemas"]["WatchedStateBody"];
-
-/**
- * The watched check (D370 §2): a white tick, drawn by Icon, less intrusive than a colour ("Maybe a
- * white checkmark is less intrusive and would stop people complaining?", the owner). Decoration beside
- * words that say it.
- */
-export function WatchedIcon(): JSX.Element {
-  return (
-    <Icon className="watched-icon">
-      <path className="watched-icon__tick" d="M5 12.5l4.5 4.5L19 7.5" />
-    </Icon>
-  );
-}
 
 /**
  * The check on a row of a list that is not posters, a season's or an episode's (D370 §2): on the

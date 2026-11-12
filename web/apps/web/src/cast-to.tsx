@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
-import { castKindOf, CastKindMark, FindDevicesIcon } from "./cast-kind.tsx";
+import { castKindOf, CastKindMark } from "./cast-kind.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
   castTakenWithinMs,
@@ -31,6 +31,7 @@ import {
   keepCastLogTicked,
   type GuestCastWays,
 } from "./google-cast.ts";
+import { FindDevicesIcon } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";

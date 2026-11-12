@@ -8,13 +8,13 @@ import { dateTimeText } from "./date-time-text.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { i18n } from "./i18n.ts";
 import { hasCopyWarning } from "./copy-warning.ts";
+import { WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 import { useUpdate, type Update } from "./update.tsx";
-import { WarningIcon } from "./warning-sign.tsx";
 
 /**
  * A newer version, once the server's word of one is read, leading to How to update, which no menu

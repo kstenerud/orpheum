@@ -5,7 +5,7 @@ import "./route-chooser.css";
 import { useId, type JSX, type ReactNode } from "react";
 
 import { DropDown } from "./drop-down.tsx";
-import { Icon } from "./icon.tsx";
+import { ChevronDownIcon } from "./icons.tsx";
 import { ListOption } from "./list-box.tsx";
 import type { Route } from "./router.ts";
 
@@ -168,13 +168,4 @@ function openerClassOf(isIcon: boolean, isOverVideo: boolean): string {
   return isOverVideo
     ? "icon-button icon-button--over-video route-chooser__button"
     : "icon-button route-chooser__button";
-}
-
-/** A chooser's mark: a chevron pointing down, to the list it opens. */
-export function ChevronDownIcon(): JSX.Element {
-  return (
-    <Icon className="route-chooser__chevron">
-      <path d="M5.6 8.3 12 14.7l6.4-6.4 1.4 1.4-7.8 7.8-7.8-7.8z" />
-    </Icon>
-  );
 }

@@ -124,7 +124,7 @@
   flex: none;
 }
 
-/* A place for watching drawn as its icon (place-icons.tsx): a fingertip square, white as the tray's
+/* A place for watching drawn as its icon (icons.tsx): a fingertip square, white as the tray's
    signs are and on their centre line, the place shown marked by a line drawn under it rather than a
    border that would lift the icon (the owner, 2026-10-28: "the new icons are darker than the cast and
    watch together ones. Also the two icon sets aren't vertically aligned"). */

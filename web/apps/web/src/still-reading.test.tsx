@@ -2,8 +2,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
-
-import { StillReadingIcon } from "./still-reading.tsx";
+import { StillReadingIcon } from "./icons.tsx";
 
 it("draws an hourglass with its caps, its glass and sand run into the lower bulb (the owner, 2026-10-17)", () => {
   // The thin outline alone was not recognised as an hourglass at a poster's corner.

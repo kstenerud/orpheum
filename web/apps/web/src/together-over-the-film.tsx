@@ -18,9 +18,10 @@ import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IconButton } from "./icon-button.tsx";
+import { TogetherIcon } from "./icons.tsx";
 import { useLive } from "./live.tsx";
 import { LaterScreen } from "./screen-load.tsx";
-import { signMark, TogetherIcon } from "./sign-mark.tsx";
+import { signMark } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";

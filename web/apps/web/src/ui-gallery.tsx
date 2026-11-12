@@ -8,9 +8,34 @@ import { startingTuning, type TogetherVoice, type VoicePartner } from "@orpheum/
 import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { MenuIcon } from "./app-shell.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { IconButton } from "./icon-button.tsx";
+import {
+  AboutIcon,
+  CastIcon,
+  ChevronDownIcon,
+  Clapperboard,
+  FilmsIcon,
+  FilmStripIcon,
+  FindDevicesIcon,
+  GearIcon,
+  GoogleCastIcon,
+  LibrariesIcon,
+  MenuIcon,
+  MicrophoneIcon,
+  MoreIcon,
+  PosterClock,
+  ResetIcon,
+  RowArrowIcon,
+  SeriesIcon,
+  SortArrowIcon,
+  SortIcon,
+  StillReadingIcon,
+  TogetherIcon,
+  UncertainMatchIcon,
+  WarningIcon,
+  WatchedIcon,
+} from "./icons.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
@@ -35,19 +60,11 @@ import {
   SoundIcon,
   SubtitlesIcon,
 } from "./player-icons.tsx";
-import { Clapperboard } from "./poster.tsx";
-import { ChevronDownIcon, RouteChooser } from "./route-chooser.tsx";
-import { AboutIcon, ResetIcon } from "./server-settings.tsx";
+import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
-import { TogetherIcon } from "./sign-mark.tsx";
-import { CastIcon } from "./status-tray.tsx";
-import { StillReadingIcon } from "./still-reading.tsx";
 import { Timeline } from "./timeline.tsx";
-import { MicrophoneIcon, SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
-import { UncertainMatchIcon } from "./uncertain-match.tsx";
+import { SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
 import type { Upward } from "./upward.ts";
-import { WarningIcon } from "./warning-sign.tsx";
-import { WatchedIcon } from "./watched-mark.tsx";
 
 /** The poster tones the cues are shown over: a pale poster, a mid one, a dark one and a busy one. */
 const tones = ["light", "medium", "dark", "busy"] as const;
@@ -218,7 +235,7 @@ function IconsAndButtons(): JSX.Element {
   );
 }
 
-/** The icons alone, every one the app draws. */
+/** The icons alone, every one the app draws: icons.tsx's whole set, and the player's. */
 function Icons(): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -245,6 +262,7 @@ function Icons(): JSX.Element {
           <Clapperboard />
         </span>
       </p>
+      <PlacesAndToolsIcons />
       <p className="ui-gallery__icons">
         <PlayIcon />
         <PauseIcon />
@@ -263,6 +281,34 @@ function Icons(): JSX.Element {
         <BackIcon />
       </p>
     </section>
+  );
+}
+
+/** The icons of the banner's places, a listing's tools, a row's arrows, Cast's menu and a poster. */
+function PlacesAndToolsIcons(): JSX.Element {
+  return (
+    <p className="ui-gallery__icons">
+      <FilmsIcon className="app-shell__place-glyph" />
+      <SeriesIcon className="app-shell__place-glyph" />
+      <LibrariesIcon className="app-shell__place-glyph" />
+      <MoreIcon />
+      <GearIcon />
+      <SortIcon />
+      <SortArrowIcon isAscending={true} />
+      <SortArrowIcon isAscending={false} />
+      <span className="icon-button">
+        <RowArrowIcon direction="back" />
+      </span>
+      <span className="icon-button">
+        <RowArrowIcon direction="on" />
+      </span>
+      <GoogleCastIcon />
+      <FindDevicesIcon />
+      <FilmStripIcon />
+      <span className="ui-gallery__blank-mark">
+        <PosterClock />
+      </span>
+    </p>
   );
 }
 

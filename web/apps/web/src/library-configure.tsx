@@ -8,8 +8,8 @@ import { use, useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { IconButton } from "./icon-button.tsx";
+import { GearIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
-import { GearIcon } from "./listing-tools.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
