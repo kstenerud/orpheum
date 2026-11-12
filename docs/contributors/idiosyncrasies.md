@@ -1925,6 +1925,29 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   (searched 2026-11-03); [hls.js#5153](https://github.com/video-dev/hls.js/issues/5153) and
   [#6323](https://github.com/video-dev/hls.js/issues/6323) are about retries, not this.
 
+### A chunk whose connection was lost, the browser online, is taken for its quality's failure
+
+- **Symptom:** the owner's Firefox 157 on Wi-Fi dropping out, over WebRTC: the connection carrying a
+  chunk was taken as gone and replaced within half a second, the chunk failed (`fragLoadError`,
+  status 0), and hls.js forced the quality from level 5 to 4, held for a minute until the step-up,
+  leaving a 0.17 s hole stepped over with a 252 ms stand-still (staging, 2026-11-12).
+- **Cause:** hls.js's default `shouldRetry` asks a chunk again only for a status it takes as the
+  server's passing trouble (not 4xx), a timeout, or a status 0 while `navigator.onLine` is false
+  (`retryForHttpStatus`, `offlineHttpStatus`, `src/utils/error-helper.ts`); a status 0 online, which
+  it reads as a CORS refusal, is not retried, so `getFragRetryOrSwitchAction` switches to a lower
+  quality (`getLevelSwitchAction`), a force our controller obeys until a chunk of it loads. On the
+  player's paths a status 0 is a load nothing answered: XMLHttpRequest's for a request the service
+  worker's relay or the network failed, and `fetchLoader`'s for a fetch that failed.
+- **What we do:** `chunkLoadPolicy`'s `shouldRetry` asks a chunk nothing answered
+  (`unansweredStatus`) again `unansweredAsksAgain` (2) times in a row at its quality, 1 s and then
+  2 s later, on whatever connection the transport has up then; after that, hls.js tries a lower
+  quality as before. The core's own words (404, 422, 429, 503) are untouched
+  (`web/packages/player/src/chunk-load-policy.ts`, `retriesTooEarly`; `load-again.test.ts`).
+- **Evidence:** [staging] 2026-11-12, the owner's Firefox; **[source]** hls.js 1.7.3,
+  `src/controller/error-controller.ts` (`getFragRetryOrSwitchAction`), `src/utils/error-helper.ts`.
+  **[web]** no report found of this case (searched 2026-11-12); hls.js's own design notes say a
+  fragment's load error switches level when it can.
+
 ### `startLoad(position)` loads from where the video is, and goes back to fill a hole before it
 
 - **Symptom:** moving past a chunk not made with `startLoad(end)` then a seek, hls.js asked for the

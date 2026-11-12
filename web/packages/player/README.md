@@ -119,6 +119,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   One not yet answered is hls.js's to time out, since the core may hold it while it makes it.
   Waited for, a chunk stuck after 19 bytes over WebRTC held the owner's Chrome, throttled and
   unthrottled, for good (staging, 2026-10-29; VQ125). `abr-stuck.test.ts`.
+- **A chunk lost with its connection is asked for again at its quality**: a load nothing answered
+  (`unansweredStatus`, 0) while the browser is online is asked again by hls.js `unansweredAsksAgain`
+  (2) times in a row, 1 s and then 2 s later, before hls.js takes it for its quality's failure and
+  tries a lower one (`chunkLoadPolicy`); the transport holds it until a connection is up, so it goes
+  on the one that replaced the lost. The core's own words, its 404, 422, 429 and 503, fail as before.
+  Taken for its quality's failure, a chunk lost with its WebRTC connection forced the owner's Firefox
+  from level 5 to 4 for a minute and left a 0.17 s hole (staging, 2026-11-12; idiosyncrasies.md).
+  `load-again.test.ts`.
 - **A chunked playback never ends at a load that failed**: a fatal hls.js error that only stopped its
   loading, any but the media's own (MEDIA_ERROR, MUX_ERROR) and the core's 429 and 503, which have
   their own answers (`isLoadStopped`, `src/failure.ts`), is marked recovered, so it is no failure,
@@ -284,7 +292,7 @@ for how far ahead it loads;
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`; the volume the person set and what else of the sound is read without loading hls.js: `src/heard-volume.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`; the volume the person set and what else of the sound is read without loading hls.js: `src/heard-volume.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`; how a chunk's load waits and is asked for again: `src/chunk-load-policy.ts`;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it

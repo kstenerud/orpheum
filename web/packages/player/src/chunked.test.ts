@@ -13,7 +13,6 @@ import {
 
 import {
   beyondTheLink,
-  chunkLoadPolicy,
   ceilingHeader,
   chunkedHlsConfig,
   choosingOptionsOf,
@@ -28,6 +27,7 @@ import {
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
+import { chunkLoadPolicy } from "./chunk-load-policy.ts";
 import { FirstPieces } from "./first-piece.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
