@@ -48,7 +48,7 @@ type CastBody struct {
 	CastID int64 `json:"castId"`
 	// IsSender is whether the asking device cast it, and so is its remote; else it receives.
 	IsSender bool `json:"isSender"`
-	// IsAccepted is whether its receiver said Use, asked once (D364 §2).
+	// IsAccepted is whether its receiver took it, asking nothing (D468 §1).
 	IsAccepted           bool   `json:"isAccepted"`
 	FileID               int64  `doc:"What plays, 0 for nothing, the receiver ready (D364 §5)" json:"fileId"`
 	ItemID               int64  `doc:"The item the film is, 0 for none" json:"itemId"`
@@ -297,7 +297,7 @@ type AcceptCastInput struct {
 // acceptCast notes the receiver's Use to a cast, which its sender is told on its live connection
 // (D364 §2): from then on what the person plays goes to it.
 func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*StartCastOutput, error) {
-	// A guest receiver says Use to its one cast as any receiver does; the registry has it accept that
+	// A guest receiver takes its one cast as any receiver does; the registry has it accept that
 	// cast alone, the only one handed to it (D465 §2).
 	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
@@ -311,7 +311,7 @@ func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)
 	}
-	server.logger.InfoContext(ctx, "cast: a receiver said Use", "castId", accepted.ID, logKeyUserID,
+	server.logger.InfoContext(ctx, "cast: a receiver took it", "castId", accepted.ID, logKeyUserID,
 		accepted.UserID, "by", principal.DeviceID)
 	return &StartCastOutput{Body: castBodyOf(accepted, principal.DeviceID, credential)}, nil
 }

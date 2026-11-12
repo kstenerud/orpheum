@@ -29,7 +29,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { pressOf, type CastAnswer } from "./cast-asked.tsx";
+import { inThisDevicesWords, pressOf, type CastAnswer } from "./cast-start.tsx";
 import { moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, leaveFullScreenAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
@@ -49,7 +49,6 @@ import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { onTheFilmsStage } from "./together-over-the-film.tsx";
 import { SoundPanelContext } from "./sound-panel.ts";
 import { usePictureWorkedByTheRemote } from "./cast-receiver-picture.ts";
-import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
 
 /**
@@ -129,8 +128,9 @@ export interface Receiving {
    */
   readonly onLeave: () => void;
   /**
-   * The press that answered Play to the cast, where this tab was asked (D358 §2); absent for a cast
-   * received at once, as one replacing another this tab received.
+   * The press that started the cast, where this tab's page had not been pressed since it loaded and
+   * waited for one (D468 §2, D358 §2); absent for a cast taken at once (D468 §1), as on a page
+   * pressed before, or one replacing another this tab received.
    */
   readonly answer?: CastAnswer;
 }
@@ -288,7 +288,7 @@ function useFillsTheWindow(video: HTMLVideoElement | null): void {
 
 /**
  * Tells the server's log how the cast started here (D358 §2): what the browser answered the full
- * screen the Play press asked for, and by what press, once the session is connected; and whether the
+ * screen the press that started it asked for, and by what press, once the session is connected; and whether the
  * film started with its sound on, as it first plays (a refusal is told by playOrPlayMuted).
  */
 function useToldHowItStarted(started: {
@@ -340,8 +340,8 @@ function useToldHowItStarted(started: {
 
 /**
  * The sound turned on at the receiver's first press while the browser plays its film muted (D358
- * §5): it refused the film's sound, though Play was pressed (a policy, or a browser that wants its
- * press on the video itself). A line over the film says so ("Press OK to turn the sound on" on a
+ * §5, D468 §4): it refused the film's sound, though the page was pressed (a policy, or a browser that
+ * wants its press on the video itself). A line over the film says so ("Press OK to turn the sound on" on a
  * television), and the first press answers it: any key but those that are no press to a browser
  * (Escape, a modifier, a shortcut) or Back, which leaves full screen, and a click or a tap anywhere.
  * That press does nothing else, so OK does not pause the film, nor does a click OK makes after it
@@ -463,11 +463,11 @@ const modifierKeys = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "Ca
 
 /** The line that asks for a press to turn the sound on, in this device's words for one. */
 function soundOnText(t: TFunction): string {
-  if (isTelevision(navigator.userAgent)) {
-    return t("cast.soundOn.television");
-  }
-  const isTouch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  return isTouch ? t("cast.soundOn.touch") : t("cast.soundOn.pointer");
+  return inThisDevicesWords({
+    television: t("cast.soundOn.television"),
+    touch: t("cast.soundOn.touch"),
+    pointer: t("cast.soundOn.pointer"),
+  });
 }
 
 /**

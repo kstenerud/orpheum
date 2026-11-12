@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   followPressesForRefusals,
+  hasPageBeenPressed,
   keepThePressForTheStart,
   noteIfStartRefused,
   pageAtRefusal,
@@ -110,5 +111,33 @@ describe("keeping the press for a film's start", () => {
     const pressGone = countedVideo(true);
     keepThePressForTheStart(pressGone.video);
     expect(pressGone.steps).toEqual([]);
+  });
+});
+
+describe("whether the page has been pressed, for a cast handed to it (D468 §1, §2)", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "userActivation");
+  });
+
+  it("says what the browser says, a followed press notwithstanding", () => {
+    followPressesForRefusals();
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    Object.defineProperty(navigator, "userActivation", {
+      configurable: true,
+      value: { isActive: false, hasBeenActive: false },
+    });
+    expect(hasPageBeenPressed()).toBe(false);
+    Object.defineProperty(navigator, "userActivation", {
+      configurable: true,
+      value: { isActive: false, hasBeenActive: true },
+    });
+    expect(hasPageBeenPressed()).toBe(true);
+  });
+
+  it("takes a followed press where the browser says nothing", () => {
+    followPressesForRefusals();
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect("userActivation" in navigator).toBe(false);
+    expect(hasPageBeenPressed()).toBe(true);
   });
 });

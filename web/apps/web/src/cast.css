@@ -79,16 +79,24 @@
   vertical-align: -0.2em;
 }
 
-/* A cast arrived, asked about before it plays (cast-asked.tsx): read across a room. */
-.cast-asked__question {
-  margin: 0 0 var(--space-4);
-  font-size: var(--font-size-h2);
-}
-
-.cast-asked__buttons {
+/* A cast taken on a page never pressed, held for the press that starts it (cast-start.tsx, D468 §2):
+   one button over the whole window, the film's black ground, read across a room; above the
+   receiver's own layers, so a click or a tap anywhere lands on it. */
+.cast-start {
+  position: fixed;
+  z-index: 61;
+  inset: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--color-video-background);
+  color: var(--color-on-video);
+  font: inherit;
+  font-size: var(--font-size-h2);
+  cursor: pointer;
 }
 
 /* The receiver's line, over its film, that a press turns the sound on (cast-receiver.tsx). */

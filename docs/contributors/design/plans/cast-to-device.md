@@ -116,10 +116,12 @@ general socket of a signed-in device; that refactor is not needed for the first 
 ## 4. The receiver
 
 - **Asking first** ([D358](../../decisions/working-notes.md#d358--a-cast-asks-the-receiving-device-first-device-wants-to-play-film-here-whose-play-is-the-press-that-starts-it-with-sound-and-full-screen)).
-  A cast that arrives shows, over whatever page the tab is on, "‹Device› wants to play ‹Film›
-  here" with **Play** (focused, so a remote's OK answers it) and **Not now**. Play's press is the
-  one that lets the film play with sound and puts the page full screen; Not now, or no answer within
-  a minute, ends the cast as declined or unanswered, and the sender, still playing, says so.
+  Revised by [D468](../../decisions/working-notes.md#d468--a-cast-to-ones-own-device-asks-nothing-there-a-browser-receiver-with-no-press-yet-waits-for-one-press-to-start):
+  a cast that arrives is taken at once, the sender handing off as it is; a page pressed since it
+  loaded plays it with sound, and one never pressed shows, over whatever page the tab is on, one
+  focused button, "Press OK to start", whose press lets the film play with sound and puts the page
+  full screen. There is nothing to decline and no time limit; a sender whose receiver takes nothing
+  gives up and says so.
 - **Entering.** The hand-off names the file, the position and the sender's choices (subtitle track,
   audio track, boost, volume). The receiver asks for its own playback (`POST /playback`), so it gets
   the rendition its own browser can play (D2, D124), starts at the sender's position, and takes the
@@ -396,3 +398,8 @@ Where this plan was silent, the build assumed, each the plan's lean or the small
     as it goes, since a React development build mounts each component twice; and **a sender never
     answered gives up a few seconds after its receiver's minute**, ending the cast as unanswered
     itself. Device checks: VQ76.
+15. **Built for D468** (2026-11-12): the question, Not now and the receiver's minute are gone. The
+    receiver takes a cast as it is handed (`useTaking`, `live.tsx`), so the sender hands off at
+    once; a page never pressed holds it under "Press OK to start" (`cast-start.tsx`), whose press
+    opens the film full screen. The sender still gives up after `castTakenWithinMs`, for a page gone
+    or a receiver built before D468, and still reads `declined`. Device checks: VQ308.

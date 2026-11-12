@@ -22955,16 +22955,16 @@ playback at the hand-off"); keeps
    among them, as well as by a click or a tap.
 
 **Proven by:**
-- 1: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy (the film's name it asks with), VQ76
-- 2: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-receiver.test.tsx, TestHub_LogsThePagesActivationAndThePressThatAnswered, VQ76
-- 3: web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy
-- 4: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx
+- 1: web/apps/web/src/cast-receiving.test.tsx (the question gone since D468 §1), web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy (the film's name it is handed with), VQ76, VQ308
+- 2: web/apps/web/src/cast-start.test.tsx, web/apps/web/src/cast-receiver.test.tsx, TestHub_LogsThePagesActivationAndThePressThatAnswered, VQ76, VQ308
+- 3: web/apps/web/src/cast-to.test.tsx (an older receiver's `declined`), TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy
+- 4: web/apps/web/src/cast-to.test.tsx (the sender's give-up; the receiver's minute gone since D468)
 - 5: web/apps/web/src/cast-receiver.test.tsx, VQ76
 
 > **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): the receiver is asked once per session, "‹Device› wants to use this device for playback", Use and Not now.
 
 **Status:** Decided 2026-10-27. Built 2026-10-27: the question and its answers (`cast-asked.tsx`,
-`live.tsx`), the sender waiting for them (`cast-to.tsx`), the receiver's sound at any press and
+since D468 `cast-start.tsx`'s one press; `live.tsx`), the sender waiting for them (`cast-to.tsx`), the receiver's sound at any press and
 its notes (`cast-receiver.tsx`), the film's name in the receive message and the `declined` and
 `unanswered` ends (`internal/core/live`, `internal/core/api/casts.go`), and the notes' log lines
 (`internal/core/together`). Device checks: VQ76.
@@ -27931,4 +27931,15 @@ screen only within moments of a press
 5. Our Chromecast receiver is not a browser page in this sense: CAF's page plays with sound and fills
    the screen, and was never asked.
 
-**Status:** Decided 2026-11-12; not built yet (the 11-24 batch).
+**Status:** Decided 2026-11-12. Built 2026-11-12: the receiver takes a cast as it is handed, so its
+sender hands off at once (`useTaking`, `web/apps/web/src/live.tsx`; §1, §3); whether the page has
+been pressed (`hasPageBeenPressed`, `start-refused.ts`); the one press, "Press OK to start", focused
+and kept focused, asking for full screen in its handler (`cast-start.tsx`; §2); the question, Not now
+and the receiver's minute removed; the sender's give-up at `castTakenWithinMs`, and `declined` and
+`unanswered` still read from older receivers (`cast-to.tsx`, `cast.ts`). The film is held over the
+page the tab was on, not at its first frame on the Play page: the press opens it there.
+
+**Proven by:**
+- 1, 3: web/apps/web/src/cast-receiving.test.tsx, web/apps/web/src/start-refused.test.ts, VQ308
+- 2: web/apps/web/src/cast-start.test.tsx, web/apps/web/src/cast-receiving.test.tsx, VQ308
+- 4: web/apps/web/src/cast-receiver.test.tsx

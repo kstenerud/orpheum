@@ -1594,11 +1594,13 @@ User-Agent (D263; the User-Agent is logged only).
   ([above](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on));
   and Silk reloads a page when its navigation mode is changed (cast-to-device.md §4). Unverified
   which; the `playedMuted` note now says.
-- **What we do:** D358: a cast arriving asks first, "‹Device› wants to play ‹Film› here", with Play
-  focused, and Play's own handler asks for the page full screen (`document.documentElement`, the
-  player's stage not yet made) and opens the film, whose `play()` then has the press's sticky
-  activation (`cast-asked.tsx`, `live.tsx`). A press is the only reliable way; there is no permission
-  to ask for ahead. Should the sound still be refused, the receiver plays muted and "Press OK to turn
+- **What we do:** D468 (revising D358): a cast arriving on a page pressed since it loaded
+  (`navigator.userActivation.hasBeenActive`, else a press the page followed: `hasPageBeenPressed`,
+  `start-refused.ts`) plays at once, the page's sticky activation letting it play with sound; on a
+  page never pressed, the film is held under one focused button, "Press OK to start", whose own
+  handler asks for the page full screen (`document.documentElement`, the player's stage not yet
+  made) and opens the film, whose `play()` then has the press's sticky activation (`cast-start.tsx`,
+  `live.tsx`). A press is the only reliable way; there is no permission to ask for ahead. Should the sound still be refused, the receiver plays muted and "Press OK to turn
   the sound on" shows over the film, answered by any key but Escape, a modifier, a shortcut or Back,
   or by a click or a tap (`SoundAtAnyPress`, `cast-receiver.tsx`). The log says each step:
   `playedMuted` with `page=hasBeenActive=… isActive=… loadedMsAgo=… navigation=…`

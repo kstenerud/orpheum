@@ -228,10 +228,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the Play page under it at its position (`src/playing-here.ts`). There is no casting page (D384 §2):
   an old `/casting` address goes to the Play page of the film the cast plays, else home
   (`src/old-addresses.tsx`).
-  The receiver asks once, "‹Device› wants to use this device for playback" (`src/cast-asked.tsx`),
-  Use focused for a remote's OK: Use's press asks for the page full screen, tells the server, and
-  lets every video of the session play with sound; Not now, or a minute's silence, ends the session,
-  the sender saying so. Every film the sender then plays (`PlayOrSendOn`) is handed to the receiver
+  The receiver asks nothing (D468): it tells the server it takes the session as it is handed, so
+  the sender hands its playback off at once (`useTaking`, `src/live.tsx`); a page pressed since it
+  loaded (`hasPageBeenPressed`, `src/start-refused.ts`) plays with sound at once, and one never
+  pressed holds the film under one focused button, "Press OK to start" (`src/cast-start.tsx`),
+  whose press asks for the page full screen and lets every video of the session play with sound.
+  A sender whose receiver takes nothing within `castTakenWithinMs` ends the session as unanswered,
+  saying so. Every film the sender then plays (`PlayOrSendOn`) is handed to the receiver
   in the same cast, which opens its Play page, noting the page the session took the tab over from;
   between videos the receiver waits full screen on "Ready, controlled from ‹Device›"
   (`/cast-ready`, `src/cast-ready.tsx`), at a film's end with nothing after it too; the same cast
@@ -295,7 +298,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   refused, as after a restart) sends the page home, the shared notice's pop-up saying so there
   (`homeTold`, `src/notice.ts`; D386 §2), as it does the receiver; *Play here from* is gone; a film's warm-up is let go of while the page
   is a remote. `src/cast-to.test.tsx`,
-  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
+  `src/cast-start.test.tsx`, `src/cast-receiving.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
   `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/player-overlay.test.tsx`,
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`, `src/together-on-the-remote.test.tsx`;

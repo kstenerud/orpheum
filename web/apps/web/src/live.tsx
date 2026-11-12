@@ -21,14 +21,19 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ownScriptOf } from "./app-update.ts";
 import { tabStorage } from "./browser-storage.ts";
-import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { forgetReceiving, markReceiving, wasReceiving } from "./cast-receiving-mark.ts";
+import { CastStartPress, leaveFullScreen, type CastAnswer } from "./cast-start.tsx";
+import { acceptCast } from "./cast.ts";
 import type { Navigation } from "./navigation.ts";
+import { showNotice } from "./notice.ts";
+import { problemText } from "./problem.ts";
 import type { Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
+import { hasPageBeenPressed } from "./start-refused.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** What every signed-in screen knows of the page's live connection (D337 §2). */
@@ -53,7 +58,10 @@ export interface Live {
    * sending (PlayOrSendOn); true with no live connection, which sends nothing.
    */
   readonly isSendingKnown: boolean;
-  /** The press that answered Play to the cast received, and its full screen (D358 §2). */
+  /**
+   * The press that started the cast received, and its full screen, where the page waited for one
+   * (D468 §2, D358 §2).
+   */
   readonly answer: CastAnswer | undefined;
   /**
    * Ends receiving here and sends the device to its home page: the cast ended, however it ended
@@ -103,12 +111,12 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
   const received = useReceiving(connection, navigation);
   const isInDoubt = useLeavesACastNoOneControls(snapshot?.isReceiveKnown === true, received);
   const live = useLiveOf(snapshot, received, isInDoubt);
-  const { asked, onAnswered } = received;
+  const { held, onPressed, onHeldGone } = received;
   return (
     <LiveContext value={live}>
       {props.children}
-      {asked === undefined ? null : (
-        <CastAsked key={asked.castId} cast={asked} onAnswered={onAnswered} />
+      {held === undefined ? null : (
+        <CastStartPress key={held.castId} cast={held} onPressed={onPressed} onGone={onHeldGone} />
       )}
     </LiveContext>
   );
@@ -199,10 +207,10 @@ function useLiveOf(
 /**
  * Leaves a cast no one controls (D383 §2, D384 §1): this page loaded again while its tab received a
  * cast (a reload, a deploy), and once the server has said whether it hands the device a cast as it
- * connects (the snapshot's isReceiveKnown), it handed none, or one the person did not take (Not now),
- * so the cast is over unseen; a cast's page, its film's Play page or the ready page, goes home in its
- * place, and the mark that the tab received is forgotten. Whether the cast is still in doubt: until
- * then.
+ * connects (the snapshot's isReceiveKnown), it handed none, or one the server would not let it take
+ * (gone by then), so the cast is over unseen; a cast's page, its film's Play page or the ready page,
+ * goes home in its place, and the mark that the tab received is forgotten. Whether the cast is still
+ * in doubt: until then, a cast being taken or waiting for its press (D468 §2) among it.
  */
 function useLeavesACastNoOneControls(isReceiveKnown: boolean, received: Received): boolean {
   const { navigation } = useServices();
@@ -211,7 +219,7 @@ function useLeavesACastNoOneControls(isReceiveKnown: boolean, received: Received
   );
   if (doubt === "inDoubt" && received.receiving !== undefined) {
     setDoubt("settled"); // handed again and taken: the cast goes on
-  } else if (doubt === "inDoubt" && isReceiveKnown && received.asked === undefined) {
+  } else if (doubt === "inDoubt" && isReceiveKnown && received.taking === undefined) {
     setDoubt("over");
   }
   useEffect(() => {
@@ -276,19 +284,27 @@ function useTellsWhereTheTabIs(connection: LiveConnection | undefined): void {
   }, [connection]);
 }
 
-/** What useReceiving gives the provider: Live's part, and the cast it asks about and its answer. */
+/**
+ * What useReceiving gives the provider: Live's part, the cast it is taking, and the one of those
+ * that waits for the press that starts it.
+ */
 interface Received extends Pick<Live, "receiving" | "answer" | "leaveReceiving"> {
-  /** The cast arrived and asked about, until it is answered (D358 §1). */
-  readonly asked: CastToReceive | undefined;
-  /** Told the answer to asked: Play's, which receives it, or undefined for none (Not now, silence). */
-  readonly onAnswered: (answer: CastAnswer | undefined) => void;
+  /** The cast arrived and being taken, the server told, or waiting for its press (D468). */
+  readonly taking: CastToReceive | undefined;
+  /** The cast taken on a page never pressed since it loaded, until its press (D468 §2). */
+  readonly held: CastToReceive | undefined;
+  /** Told the press that starts held, which receives it. */
+  readonly onPressed: (answer: CastAnswer) => void;
+  /** Told that held ended before its press, its sender gone. */
+  readonly onHeldGone: () => void;
 }
 
 /**
  * The cast connection hands this device, and what it does with it: one arriving while the device
- * receives none is asked about first, and received once its Use is pressed (D364 §2, D358 §2); one
- * arriving while it receives one, the same cast handed again, is received at once (no other cast
- * takes a receiving device over, D386 §1). A cast received opens its film's Play page, or with nothing playing the full-screen ready
+ * receives none is taken, the server told at once so its sender hands its playback off (D468 §1,
+ * §3), and received then where the page has been pressed since it loaded, or once a press starts it
+ * where not (D468 §2); one arriving while it receives one, the same cast handed again, is received
+ * at once (no other cast takes a receiving device over, D386 §1). A cast received opens its film's Play page, or with nothing playing the full-screen ready
  * page (D364 §5), marking the tab as receiving (D383 §2); handed again as the
  * connection came back, it is received already, unless the page left it; handed again with another
  * film, or nothing, the person played another on the sender (D364 §3) or the cast moved on to the
@@ -319,7 +335,7 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
     },
     [navigation],
   );
-  const { asked, answer, onAnswered } = useAsking(connection, isReceivingRef, receive);
+  const taken = useTaking(connection, isReceivingRef, receive);
   const leaveReceiving = useCallback(() => {
     isReceivingRef.current = false;
     receivedRef.current = undefined;
@@ -327,13 +343,13 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
     setReceiving(undefined);
     sendHome(navigation);
   }, [navigation]);
-  return { receiving, answer, asked, onAnswered, leaveReceiving };
+  return { receiving, leaveReceiving, ...taken };
 }
 
 /**
  * Sends a receiver whose cast ended to its home page, in the current page's place, out of the full
- * screen its Use asked for (D384 §1, the owner: "it's probably best from a UX perspective for a castee
- * to go back to the home page whenever its cast ends"). A Play page of the cast's that Back reaches
+ * screen the press that started it asked for (D384 §1, the owner: "it's probably best from a UX
+ * perspective for a castee to go back to the home page whenever its cast ends"). A Play page of the cast's that Back reaches
  * later shows its title's page, never playing (D383 §1).
  */
 function sendHome(navigation: Navigation): void {
@@ -341,18 +357,27 @@ function sendHome(navigation: Navigation): void {
   navigation.replace({ screen: "home" });
 }
 
+/** A cast being taken: the server being told (isHeld false), or taken and waiting for its press. */
+interface Taking {
+  readonly cast: CastToReceive;
+  readonly isHeld: boolean;
+}
+
 /**
  * Takes each cast the connection hands: received at once (receive) while the tab receives one
- * already, else asked about (D358 §1) and received once answered Play, with that answer.
+ * already; else taken, the server told at once with nothing asked (D468 §1, §3), and received then
+ * where the page has been pressed since it loaded (hasPageBeenPressed), or held for the press that
+ * starts it (D468 §2) and received at that press, with it. One the server will not let it take, its
+ * sender gone by then (stopped, or the server restarted and lost it), is received not at all, a
+ * notice saying so.
  */
-function useAsking(
+function useTaking(
   connection: LiveConnection | undefined,
   isReceivingRef: RefObject<boolean>,
   receive: (handed: CastToReceive) => void,
-): Pick<Received, "asked" | "answer" | "onAnswered"> {
-  const [asked, setAsked] = useState<CastToReceive | undefined>(undefined);
+): Pick<Received, "taking" | "held" | "answer" | "onPressed" | "onHeldGone"> {
   const [answer, setAnswer] = useState<CastAnswer | undefined>(undefined);
-  const askedRef = useRef<CastToReceive | undefined>(undefined);
+  const { taking, takingRef, settle, take } = useTake(receive);
   useEffect(() => {
     if (connection === undefined) {
       return undefined;
@@ -367,23 +392,81 @@ function useAsking(
         receive(handed);
         return;
       }
-      askedRef.current = handed;
-      setAsked(handed);
+      take(handed);
     });
-  }, [connection, isReceivingRef, receive]);
-  const onAnswered = useCallback(
-    (given: CastAnswer | undefined) => {
-      const answered = askedRef.current;
-      askedRef.current = undefined;
-      setAsked(undefined);
-      if (given !== undefined && answered !== undefined) {
+  }, [connection, isReceivingRef, receive, take]);
+  const onPressed = useCallback(
+    (given: CastAnswer) => {
+      const held = takingRef.current;
+      settle();
+      if (held !== undefined) {
         setAnswer(given);
-        receive(answered);
+        receive(held);
       }
     },
-    [receive],
+    [receive, settle, takingRef],
   );
-  return { asked, answer, onAnswered };
+  return {
+    taking: taking?.cast,
+    held: taking?.isHeld === true ? taking.cast : undefined,
+    answer,
+    onPressed,
+    onHeldGone: settle,
+  };
+}
+
+/**
+ * useTaking's cast being taken (taking, and takingRef its cast meanwhile), its end (settle), and its
+ * take of a cast handed: the server told at once, then received where the page has been pressed,
+ * else held; one the server refuses settled, a notice saying so. An answer for a cast no longer
+ * takingRef's (handed again since, or over) is dropped.
+ */
+function useTake(receive: (handed: CastToReceive) => void): {
+  readonly taking: Taking | undefined;
+  readonly takingRef: RefObject<CastToReceive | undefined>;
+  readonly settle: () => void;
+  readonly take: (handed: CastToReceive) => void;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [taking, setTaking] = useState<Taking | undefined>(undefined);
+  const takingRef = useRef<CastToReceive | undefined>(undefined);
+  const settle = useCallback(() => {
+    takingRef.current = undefined;
+    setTaking(undefined);
+  }, []);
+  const take = useCallback(
+    (handed: CastToReceive) => {
+      takingRef.current = handed;
+      setTaking({ cast: handed, isHeld: false });
+      acceptCast(api, handed.castId).then(
+        () => {
+          if (takingRef.current !== handed) {
+            return; // handed again since, or over
+          }
+          if (hasPageBeenPressed()) {
+            settle();
+            receive(handed);
+            return;
+          }
+          setTaking({ cast: handed, isHeld: true });
+        },
+        (cause: unknown) => {
+          if (takingRef.current !== handed) {
+            return;
+          }
+          settle();
+          showNotice(
+            problemText(t, cause, {
+              notFound: t("cast.stoppedBeforeTaken", { device: handed.fromDeviceName }),
+            }),
+          );
+        },
+      );
+    },
+    [api, receive, settle, t],
+  );
+  return { taking, takingRef, settle, take };
 }
 
 /**

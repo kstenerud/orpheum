@@ -354,6 +354,17 @@ export function buttonWithText(
   return [...container.querySelectorAll("button")].find((each) => each.textContent === text);
 }
 
+/**
+ * Presses the one button a cast taken on a page never pressed waits for (D468 §2, cast-start.tsx),
+ * once the server has taken it: a test's page is never pressed, so each cast to one waits so.
+ */
+export async function pressToStartTheCast(): Promise<void> {
+  const shown = (): HTMLButtonElement | undefined =>
+    buttonWithText(document.body, "Click to start");
+  await settleUntil(() => shown() !== undefined);
+  await click(shown());
+}
+
 /** The first button whose text holds text, as a list's row holds several words. */
 export function buttonContaining(
   container: HTMLElement,

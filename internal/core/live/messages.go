@@ -91,7 +91,7 @@ type Receive struct {
 	IsPaused       bool   `json:"isPaused,omitempty"`
 	FromDeviceID   int64  `json:"fromDeviceId"`
 	FromDeviceName string `json:"fromDeviceName"`
-	// IsAccepted is whether the receiver said Use to the cast already, asked once (D364 §2).
+	// IsAccepted is whether the receiver took the cast already, asking nothing (D468 §1).
 	IsAccepted bool `json:"isAccepted,omitempty"`
 	// TogetherCredential is a credential for the Watch Together session the person is in, if any: one
 	// they host, which the receiver plays as their player, leading it, so what they play plays for the
@@ -102,7 +102,7 @@ type Receive struct {
 }
 
 // Sending is the cast a device sends, as its pages show it: to which device, what it plays there
-// (FileID 0 for nothing, ready between videos, D364 §5), and whether its receiver said Use.
+// (FileID 0 for nothing, ready between videos, D364 §5), and whether its receiver took it.
 type Sending struct {
 	CastID           int64  `json:"castId"`
 	ReceiverDeviceID int64  `json:"receiverDeviceId"`

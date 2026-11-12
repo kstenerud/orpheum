@@ -23,13 +23,12 @@ export const enCast = {
     showCastLog: "Show cast log",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}}",
-    asked: {
-      question: "{{device}} wants to use this device for playback",
-      use: "Use",
-      notNow: "Not now",
-      stopped: "{{device}} stopped casting.",
-      ok: "OK",
+    start: {
+      television: "Press OK to start",
+      touch: "Tap to start",
+      pointer: "Click to start",
     },
+    stoppedBeforeTaken: "{{device}} stopped casting.",
     asking: "Asking {{name}}…",
     cancelRequest: "Cancel casting request",
     answered: {

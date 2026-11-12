@@ -3041,3 +3041,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   a guest launch to a second Chromecast from a second Chrome on the same network. Passes when the
   second receiver answers that it failed, the first cast keeps playing, and no second device appears
   in the owner's devices. (`internal/core/api/guest_receivers.go`)
+- [ ] **VQ308** — A cast to one's own browser receiver asks nothing there (D468). On staging, from
+  the Pixel 3a, cast a film to the testing Fire TV's Silk, its Orpheum page pressed since it loaded
+  (an OK on any of its buttons). Passes when the film plays there at once with sound, nothing asked,
+  and the phone becomes the remote at once. Then reload the Silk page and, pressing nothing, cast
+  again: "Press OK to start" fills the TV's screen, the phone already the remote; one OK starts the
+  film full screen with sound (`logEvent=fullScreen answer=entered by=key`, `playedWithSound`), and
+  an arrow pressed first leaves OK still starting it. (`web/apps/web/src/live.tsx`, `cast-start.tsx`)

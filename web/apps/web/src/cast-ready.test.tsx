@@ -16,6 +16,7 @@ import {
   servedBy,
   type Heard,
   type Mounted,
+  pressToStartTheCast,
 } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
@@ -74,7 +75,7 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "receive", receive: handed });
-    await click(buttonWithText(document.body, "Use"));
+    await pressToStartTheCast();
     await sockets.session.accept();
     return { services, sockets };
   }

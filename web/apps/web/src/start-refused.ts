@@ -49,6 +49,17 @@ export function followPressesForRefusals(): void {
   }
 }
 
+/**
+ * Whether the page has been pressed since it loaded, which lets it play sound (sticky activation):
+ * as the browser says (navigator.userActivation's hasBeenActive), or, where it says nothing (before
+ * Chromium 72, an older WebView), whether a press was followed (followPressesForRefusals). A cast to
+ * a page never pressed waits for one (D468 §2).
+ */
+export function hasPageBeenPressed(): boolean {
+  const activation = "userActivation" in navigator ? navigator.userActivation : undefined;
+  return activation?.hasBeenActive ?? lastPressAtMs !== undefined;
+}
+
 /** The page as it stands now, for startRefusedNote. */
 export function pageAtRefusal(): PageAtRefusal {
   // Typed as always there, it is absent before Chromium 72 and in older WebViews.
