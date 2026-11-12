@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createApi, type GroupView } from "@orpheum/sdk";
+import { createApi, type GroupView, type TogetherSocketListeners } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CastDevice,
   groupToFollow,
   handedWhat,
   keepSession,
@@ -242,5 +243,78 @@ describe("the receiver's own core, reached by its name", () => {
       onClose: () => undefined,
     });
     expect(opened).toEqual(["wss://core.example/api/v1/socket"]);
+  });
+});
+
+describe("a Chromecast's casts, one after another", () => {
+  /** A cast handed on the live connection, as the core sends it. */
+  function receiveText(castId: number): string {
+    return JSON.stringify({
+      type: "receive",
+      receive: {
+        castId,
+        membershipCredential: `cast-${String(castId)}`,
+        fileId: 7,
+        itemName: "film 7",
+        fromDeviceId: 2,
+        fromDeviceName: "Chrome on Mac",
+      },
+    });
+  }
+
+  it("takes the next cast after one is stopped", async () => {
+    const asked: string[] = [];
+    const api = createApi({
+      origin: "https://core.example",
+      getToken: () => "token",
+      fetch: (request) => {
+        asked.push(`${request.method} ${new URL(request.url).pathname}`);
+        // No film starts: what is tested is the casts, not the player.
+        return Promise.resolve(new Response("{}", { status: 503 }));
+      },
+    });
+    const sockets: TogetherSocketListeners[] = [];
+    const video = {
+      addEventListener: () => undefined,
+      currentTime: 0,
+      paused: true,
+      seeking: false,
+      readyState: 0,
+    } as unknown as HTMLVideoElement;
+    const notes: string[] = [];
+    const device = new CastDevice({
+      api,
+      token: "token",
+      reached: {
+        fetch: (request) => fetch(request),
+        openSocket: (listeners) => {
+          sockets.push(listeners);
+          return { send: () => undefined, close: () => undefined };
+        },
+        close: () => undefined,
+      },
+      video,
+      note: (line) => {
+        notes.push(line);
+      },
+      onRefused: () => undefined,
+      onTaken: () => undefined,
+    });
+    const stop = device.start();
+    const [live] = sockets;
+    live?.onOpen();
+    live?.onMessage(receiveText(1));
+    const castSession = sockets[1];
+    castSession?.onOpen();
+    // The sender stops the cast: its session ends, the receiver ready for the next.
+    castSession?.onMessage(JSON.stringify({ type: "ended", reason: "stopped" }));
+    live?.onMessage(receiveText(2));
+    await vi.waitFor(() => {
+      expect(asked).toContain("POST /api/v1/me/casts/2/accept");
+    });
+    expect(notes.filter((line) => line.startsWith("the cast ended"))).toEqual([
+      "the cast ended: stopped",
+    ]);
+    stop();
   });
 });
