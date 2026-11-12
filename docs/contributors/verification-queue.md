@@ -2922,7 +2922,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   from the info page. With sound."). On the owner's iPhone in Chrome, on staging: open an episode's page
   and press Play. Passes when the film starts by itself, with its sound, and the line "Paused — press
   Play to start." does not show; then in Safari, the same. (`web/apps/web/src/video-pressed-for-play.ts`)
-- [ ] **VQ298** — A Fire TV stepped over a hole in what it loaded plays on (the owner's Fire TV,
+- [x] **VQ298** — A Fire TV stepped over a hole in what it loaded plays on (passed 2026-11-12 on staging
+  at "feat(player): a heavy chunk of picture steps down alone, and the buffer is paced by bytes", by its
+  first clause: no buffer-full flush at all; the run is under VQ300) (the owner's Fire TV,
   2026-11-11: stood still for good at 200.66 s, the next picture at 200.78 s, after a buffer-full
   flush). On the Fire TV at .197 in Silk, on staging, through its devtools
   (`adb forward tcp:9333 localabstract:amazon_silk_devtools_remote`): keep each SourceBuffer the page
@@ -2966,3 +2968,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   and plays the stretch with no refusal. Then play the same stretch in desktop Chrome: no "by room"
   and no step-down. (`internal/core/chunks/playlists.go`, `web/packages/player/src/picture-room.ts`,
   `web/packages/player/src/forward-buffer.ts`)
+  **Run 2026-11-12, 08:52 UTC, by the lead, on staging at "feat(player): a heavy chunk of picture
+  steps down alone, and the buffer is paced by bytes": the Fire TV clauses pass, on the test stick at
+  .150 (AFTSSS, Silk 138; .197 was off the network).** Seeked to 3:15 and played on to 6:38 with no
+  stall, no bufferFullError and no refusal note; 28 frames dropped of 4976. The first note said
+  "device memory unsaid, video buffer 31.5 MB, sound 2.1 MB assumed (lowMemory)". Chunk 40, held at
+  the seek, is 22.8 MB alone, so the next two could not sit beside what was held in the room's
+  28.3 MB: chunk 41 (21.3 MB) stepped down to level 3 and 42 (13.0 MB) to level 4, the forward
+  buffer "by room" meanwhile; the picture showed 540p and 720p from about 3:21 to 3:38 and 1080p from
+  3:39 on. Elsewhere chunk 2 (20.3 MB, at the film's start, to level 2) and chunk 62 (13.2 MB, to
+  level 4) each stepped down alone. Owed: the desktop Chrome clause, and the owner's look at whether 17 s
+  at 540p reads worse than the stall it replaces.
