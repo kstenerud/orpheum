@@ -3129,3 +3129,20 @@ Corrected 2026-11-11: the lead had written that the console was already done.
    the heavy stretch plays at 1080p without a stall, stepping down only for the chunks that cannot
    fit. VQ298 (a hole a buffer-full flush cut) waits on it too, and is run on film 1504 around 3:30,
    where the owner's Fire TV stood still (the owner, 2026-11-11).
+
+## From releasing v0.5.0 (2026-11-12), next batch
+
+v0.5.0 tagged by the owner after a full `make check-pr BASE=v0.4.0`; the owner, on film 1504's run
+below: "agreed. Release anyway". Found by the lead:
+
+- **A tab never gives up on a playback the server no longer has.** On staging a signed-in Chrome on
+  a Mac has asked for chunk 457 of one playback, picture and sound, about once a second for 11 hours
+  (still at 07:13 UTC: some 470 requests in 10 minutes), each answered 404 `playbackGone` ("the
+  server restarted since it began, or it ended; start it again"). The player should stop asking on
+  that code and say so, or start the playback again, not retry it forever.
+- **Film 1504 played through on the testing Fire TV at v0.5.0** (1080p throughout, 80 of 28,937
+  frames dropped), with two stalls, both item 4 of the 11-23 batch: 2.2 s at 0:13, a
+  bufferFullError (the player assumed a 157 MB picture buffer where Silk holds about 30 MiB) whose
+  flush left a 0.13 s hole that the hole-skip stepped over; and about 15 s at 3:22, standing still
+  with 9.2 s loaded ahead until the core judged the top rung unplayable and stepped down one. VQ298
+  stays unticked: the stand-still at 3:30 now ends, but not by the hole-skip.
