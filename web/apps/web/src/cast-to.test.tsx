@@ -68,6 +68,19 @@ const playingHere = (): { fileId: number; positionMs: number } => ({
   positionMs: 61_000,
 });
 
+/** The button with text in container, and the element first in it, its mark; throws without them. */
+function markedButton(
+  container: HTMLElement,
+  text: string,
+): { readonly button: HTMLButtonElement; readonly mark: Element } {
+  const button = buttonWithText(container, text);
+  const mark = button?.firstElementChild;
+  if (button === undefined || mark === null || mark === undefined) {
+    throw new Error(`no button "${text}" with a mark`);
+  }
+  return { button, mark };
+}
+
 describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
@@ -321,17 +334,15 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1, 2, 3] });
-    const phone = buttonWithText(mounted.container, "Phone");
-    const television = buttonWithText(mounted.container, "Living room TV");
+    const phone = markedButton(mounted.container, "Phone");
+    const television = markedButton(mounted.container, "Living room TV");
     // The laurel, the favicon's mark, before the phone; Google's Cast icon before the Chromecast.
-    expect(phone?.firstElementChild?.getAttribute("src")).toBe("/favicon.svg");
-    expect(phone?.firstElementChild?.getAttribute("alt")).toBe("");
-    expect(phone?.querySelector("svg")).toBeNull();
-    expect(television?.firstElementChild?.tagName.toLowerCase()).toBe("svg");
-    expect(television?.firstElementChild?.getAttribute("class")).toBe(
-      "icon cast-kind cast-kind--chromecast",
-    );
-    expect(television?.querySelector("img")).toBeNull();
+    expect(phone.mark.getAttribute("src")).toBe("/favicon.svg");
+    expect(phone.mark.getAttribute("alt")).toBe("");
+    expect(phone.button.querySelector("svg")).toBeNull();
+    expect(television.mark.tagName.toLowerCase()).toBe("svg");
+    expect(television.mark.getAttribute("class")).toBe("icon cast-kind cast-kind--chromecast");
+    expect(television.button.querySelector("img")).toBeNull();
   });
 
   // The owner's S23 cast to the Mac that hosted the Watch Together session, which ended it (2026-10-30).

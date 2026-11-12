@@ -25,6 +25,9 @@ export function castKindOf(platform: string): CastKind {
   return platform === chromecastPlatform ? "chromecast" : "orpheum";
 }
 
+/** The text of an image that is decoration alone: none, so a screen reader passes it by. */
+const decorativeText = "";
+
 /**
  * The mark before a device in Cast's menu for the kind of cast it takes: decoration, its name beside
  * it saying which device it is, so hidden from a screen reader as every icon is (icon.tsx).
@@ -33,7 +36,7 @@ export function CastKindMark(props: { readonly kind: CastKind }): JSX.Element {
   return props.kind === "chromecast" ? (
     <GoogleCastIcon />
   ) : (
-    <img className="cast-kind cast-kind--orpheum" src={laurelMark} alt="" />
+    <img className="cast-kind cast-kind--orpheum" src={laurelMark} alt={decorativeText} />
   );
 }
 
