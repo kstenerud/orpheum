@@ -21609,6 +21609,10 @@ driver's route waits on VQ53.
 
 ## D337 — Casting starts with a person's own signed-in devices: one chosen from those connected now plays the film, the one that cast becomes its remote, and either may take control back
 
+> **Amended by [D465](#d465--any-google-cast-device-on-the-network-receives-a-cast-under-a-grant-for-that-cast-alone-beside-the-persons-own-devices)**
+> (2026-11-12): beside a person's own devices, any Google Cast device the browser finds receives a
+> cast, for that cast alone.
+
 **Decided** (2026-10-25), by the project owner, choosing the first casting route after the casting
 research ([casting-2026-10-25.md](../design/research/casting-2026-10-25.md),
 [casting-review-2026-10-25.md](../design/research/casting-review-2026-10-25.md)), which proposed the
@@ -27801,3 +27805,43 @@ batch's item 4 left owed (plans/navigation-and-widgets-answers-2026-10-27.md); a
 6. **Not taken:** asking the device for its memory and computing the browser's limit from it (no
    browser does so, and the one signal is missing where most needed); re-encoding the heavy
    stretches, or handing a chunk over in pieces (both in the plan's item 4).
+
+## D465 — Any Google Cast device on the network receives a cast, under a grant for that cast alone, beside the person's own devices
+
+**Decided** (2026-11-12), by the owner, answering the lead's four questions on casting to Chromecasts
+"like people are used to" (*"1: yes. 2: registered devices + google cast. We'll also later support
+apple airplay in a similar fashion [if] we can. 3: yes. 4: yes"*), after VQ286 and VQ287 passed on
+the owner's Chromecast. Amends
+[D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back),
+which cast only to a person's own signed-in devices; builds the delegation of
+[D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)
+and D154 §2's `LoadRequestData.credentials` route. The plan is
+[google-cast.md](../design/plans/google-cast.md).
+
+1. **A Google Cast device that is not one of the person's devices receives a cast, for that cast
+   alone.** Chosen in the browser's Cast picker, it runs our receiver, which joins the cast's session
+   as its receiver and leads it (D371, D434), as a paired one does. It is no Orpheum device: it is not
+   listed in Your devices, keeps nothing after, and is no one's cast target once the cast ends, by
+   any of D384, D385 or D389's ends.
+2. **Its credential is a grant for that cast alone.** The sender asks its core for the grant and
+   hands it to the receiver over our namespace; it is never in a URL (D154 §6). It lets the receiver
+   play the films the cast puts on and be the video of the cast's session, nothing else: no
+   browsing, no other session. The receiver trades it once, at once, for the cast's own credential,
+   and a second trade is refused, since Cast's sender channel is unauthenticated and anything on the
+   network can listen to the receiver (D135). It ends with the cast.
+3. **The Cast menu lists the person's registered devices, then Google Cast.** The person's own
+   devices connected now come first, as D337 has them; then a Google Cast entry, which opens the
+   browser's own picker (a web page can open it but not list the devices in it). AirPlay is to join
+   the same menu the same way later, if it can (airplay.md).
+4. **Pairing stays.** Making a Chromecast a cast target (D288's pairing, VQ286) still makes it one of
+   the person's devices, listed in Your devices and cast to from any browser, since the core carries
+   that cast. It is the route from a browser that cannot cast: web casting works only in Chrome on a
+   computer and on Android, not on an iPhone or iPad, nor in Safari or Firefox.
+5. **Two receiver applications.** Staging's stays unpublished, so it runs only on Cast devices
+   registered in Google's console, served at staging's loader; production's is published, so it runs
+   on any Cast device, served at production's loader. A sender names the one of the loader it came
+   from.
+6. **Not taken:** Google's Default Media Receiver (it would play a URL alone: the credential in the
+   URL, and no session, no sync, no Watch Together); handing the receiver the sender's own sign-in,
+   as the device lab does (a stranger's TV would keep it).
+
