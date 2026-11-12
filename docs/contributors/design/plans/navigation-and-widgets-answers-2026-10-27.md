@@ -3187,8 +3187,16 @@ below: "agreed. Release anyway". Found by the lead:
   fades it a little while a key's focus is on a button", at `scrub.matches(":focus-visible")`
   (line 362), false; `make check-pr` had passed on the same tree minutes before, and the file alone
   passed three runs of three. Focus that a key's press is to give, read while the whole run loads
-  the machine, is the likely common cause. To do: gather each Firefox failure the gate logs and
-  gate-runs.jsonl hold, find what they share, and make each wait for what it reads, not loosen it.
+  the machine, is the likely common cause. The same test failed in the next `make check` too. What
+  brings it on (2026-11-12): the file alone under twelve busy-looping processes passed three runs of
+  three; four key-walking files together in Firefox alone passed two of two; the whole suite in
+  Firefox alone passed (355 tests); the whole suite in both browsers at once, as the gate runs it,
+  failed once in two, in Firefox again but another test (input-walk.browser.test.tsx, "keeps the
+  focused film in view as it moves down a long list, clear of the banner"). So the failures come
+  with Chromium running beside Firefox, not with load alone. To do: gather each Firefox failure the
+  gate logs and gate-runs.jsonl hold, find what they share, and make each wait for what it reads,
+  not loosen it; or, the owner's to decide, run the two browsers one after the other, at the cost of
+  the browser step's time.
 - **The lab says the Chromecast is a cast target before the core has taken it.** On the owner's
   Chromecast (2026-11-12), its Orpheum device removed, Make it a cast target used the TV's kept
   sign-in and the page said "Attic TV is a cast target" at once; the core then refused the sign-in,
