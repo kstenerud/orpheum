@@ -68,10 +68,13 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 }
 
 const listLiveDevicesOfSessionScope = `-- name: ListLiveDevicesOfSessionScope :many
-SELECT DISTINCT device.id, device.user_id FROM device
-JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
-WHERE "grant".scope = ?1 AND device.removed_at IS NULL
-ORDER BY device.id
+SELECT device.id, device.user_id FROM device
+WHERE device.removed_at IS NULL AND device.user_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM "grant"
+    WHERE "grant".device_id = device.id AND "grant".kind = 'session' AND "grant".scope = ?1
+  )
+ORDER BY device.user_id, device.id
 `
 
 type ListLiveDevicesOfSessionScopeRow struct {
@@ -80,7 +83,8 @@ type ListLiveDevicesOfSessionScopeRow struct {
 }
 
 // The devices not removed that a session of the scope was signed in on: the guest receivers a core
-// that stopped left kept (D465 section 1), to remove as it starts.
+// that stopped left kept (D465 section 1), to remove as it starts. Read from the live devices, a
+// household's handful, by their index, and each one's grants by theirs: never every session.
 func (q *Queries) ListLiveDevicesOfSessionScope(ctx context.Context, scope string) ([]ListLiveDevicesOfSessionScopeRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveDevicesOfSessionScope, scope)
 	if err != nil {
