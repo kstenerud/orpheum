@@ -24,7 +24,7 @@ export const castNamespace = "urn:x-cast:org.orpheum.cast";
 /**
  * What a sender casting under a grant hands the receiver: the grant, its core's reach, and whether
  * the receiver shows its log on screen (showsLog: the sender's person shows debug tools and ticked
- * Show the cast log on the TV). A sender that says nothing of the log, an older one, has it hidden.
+ * Show cast log). A sender that says nothing of the log, an older one, has it hidden.
  */
 export interface GuestRequest {
   readonly grant: string;

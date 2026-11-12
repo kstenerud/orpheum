@@ -182,7 +182,7 @@ function useGuestCast(): GuestCastWays | undefined {
 }
 
 /**
- * Show the cast log on the TV, ticked or not in this browser (isTicked, kept by google-cast.ts), and
+ * Show cast log, ticked or not in this browser (isTicked, kept by google-cast.ts), and
  * whether a Chromecast cast to now shows its log (showsLog): ticked while the person shows debug
  * tools, the one place the box is offered (the owner, 2026-11-12); off, it has no effect.
  */
@@ -193,7 +193,7 @@ interface CastLogChoice {
   readonly showsLog: boolean;
 }
 
-/** Show the cast log on the TV, as this browser keeps it, and whether it has effect now. */
+/** Show cast log, as this browser keeps it, and whether it has effect now. */
 function useCastLogChoice(): CastLogChoice {
   const isOffered = useShowsDebugTools();
   const [isTicked, setIsTicked] = useState(() => isCastLogTicked());
@@ -207,8 +207,8 @@ function useCastLogChoice(): CastLogChoice {
 /**
  * After the person's devices, a separator, then a magnifying glass and Chromecast (D465 §3), which
  * opens Chrome's own picker of the Google Cast devices on the network; none is offered while the live
- * connection is down, as no device is. While the person shows debug tools, Show the cast log on the
- * TV follows it (CastLogChoice); onCast is told whether the device shows its log.
+ * connection is down, as no device is. While the person shows debug tools, Show cast log follows it
+ * (CastLogChoice); onCast is told whether the device shows its log.
  */
 function ChromecastEntry(props: {
   readonly isStale: boolean;

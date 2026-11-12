@@ -456,7 +456,7 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
   });
 });
 
-describe("the Cast menu's Show the cast log on the TV (the owner, 2026-11-12)", () => {
+describe("the Cast menu's Show cast log (the owner, 2026-11-12)", () => {
   /**
    * Opens the Cast menu, the person showing debug tools or not, does what before says, and casts to
    * the Chromecast: what the device was handed, and the menu's box, if any, as it stood.
@@ -514,7 +514,7 @@ describe("the Cast menu's Show the cast log on the TV (the owner, 2026-11-12)", 
     expect(hidden.handed).not.toHaveProperty("showsLog");
     const shown = await castWithLogChoice(true);
     expect(shown.box?.checked).toBe(true);
-    expect(shown.box?.parentElement?.textContent).toContain("Show the cast log on the TV");
+    expect(shown.box?.parentElement?.textContent).toContain("Show cast log");
     expect(shown.handed).toMatchObject({ type: "guest", grant, showsLog: true });
   });
 
