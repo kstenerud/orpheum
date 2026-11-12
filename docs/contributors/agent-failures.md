@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A72 — Said a gate's tests could not be added, without checking the session's gate permission (2026-11-12)
+
+- **What happened:** adding an after-up hook to `./staging`, the lead found its tests in
+  `scripts/tests/`, a gate, and covered the change with a VQ item instead, telling the owner that unit
+  tests "would need a gate edit". The session had been started with `ORPHEUM_ALLOW_GATE_EDIT=1`; one
+  `echo` would have shown it. The false belief came from the gate list (`scripts/gate_paths.py`)
+  read alone, as if it were the whole rule, when CLAUDE.md names the variable beside it.
+- **Caught by:** the owner: "You should have the gate edit ENV var".
+- **Gate:** none. The pre-edit hook says whether an edit is allowed only once one is tried; the
+  lesson is to try the edit (or read the variable) before saying a gate stops it.
+
 ### A71 — Cleared a sandbox reset as losing nothing, judged by git status, which hides ignored folders (2026-11-12)
 
 - **What happened:** asked before a `yoloai reset`, the lead checked each workdir with

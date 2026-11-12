@@ -198,9 +198,68 @@ class WhereReached(unittest.TestCase):
         self.assertIn("http://127.0.0.1:18440", said)
 
 
+class StateDirectory(unittest.TestCase):
+    """Staging's directory is outside the checkout, where a sandbox reset cannot delete it
+    (agent-failures A71)."""
+
+    def test_it_is_named_by_its_variable_else_the_state_directory_and_never_in_the_checkout(self):
+        self.assertEqual(staging.state_directory({"ORPHEUM_STAGING_DIR": "/srv/stage"}), Path("/srv/stage"))
+        self.assertEqual(staging.state_directory({"XDG_STATE_HOME": "/st"}), Path("/st/orpheum-staging"))
+        self.assertEqual(staging.state_directory({}), Path.home() / ".local" / "state" / "orpheum-staging")
+        self.assertNotIn(staging.ROOT, staging.state_directory().parents)
+
+    def test_a_directory_left_in_the_checkout_is_named_with_the_move_and_a_running_one_stopped_first(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        old, new = root / "checkout" / ".staging", root / "state" / "orpheum-staging"
+        self.assertIsNone(staging.left_in_checkout(old, new))
+        old.mkdir(parents=True)
+        self.assertEqual(staging.left_in_checkout(old, new),
+                         f"staging: its directory is still in the checkout, {old}; move it: mv {old} {new}")
+        (old / "compose.yaml").write_text("{}\n")
+        self.assertIn("stop it (./staging down) if it runs on this machine, then move it",
+                      staging.left_in_checkout(old, new))
+        new.mkdir(parents=True)
+        self.assertIsNone(staging.left_in_checkout(old, new))
+
+
+class AfterUp(unittest.TestCase):
+    """A deploy ends by running the staging directory's after-up (VQ301): what else serves the
+    checkout, such as a loader's copy of the web client, follows each deploy."""
+
+    def directory_with(self, hook: "str | None") -> Path:
+        directory = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, directory)
+        if hook is not None:
+            (directory / staging.AFTER_UP).write_text(hook)
+            (directory / staging.AFTER_UP).chmod(0o755)
+        return directory
+
+    def test_the_hook_runs_from_the_checkout_and_its_success_is_the_deploy_s(self):
+        directory = self.directory_with('#!/bin/sh\npwd > "$(dirname "$0")/ran"\n')
+        with mock.patch("sys.stdout"):
+            self.assertEqual(staging.after_up(directory), 0)
+        self.assertEqual((directory / "ran").read_text().strip(), str(staging.ROOT))
+
+    def test_a_failing_hook_fails_the_deploy_and_says_staging_is_up(self):
+        directory = self.directory_with("#!/bin/sh\nexit 3\n")
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr") as err:
+            self.assertEqual(staging.after_up(directory), 3)
+        self.assertIn("staging itself is up", "".join(call.args[0] for call in err.write.call_args_list))
+
+    def test_no_hook_ends_the_deploy_as_before(self):
+        with mock.patch.object(staging.subprocess, "run") as run:
+            self.assertEqual(staging.after_up(self.directory_with(None)), 0)
+        run.assert_not_called()
+
+    def test_a_deploy_ends_with_the_hook(self):
+        source = (REPO / "staging").read_text().split("def up(", 1)[1].split("\ndef ", 1)[0]
+        self.assertTrue(source.rstrip().endswith("return after_up(DIR)"))
+
+
 class Remote(unittest.TestCase):
     # Staging moved to the staging host so the gate has the sandbox's processors (the owner, 2026-11-01:
-    # "Yes teach to deploy to stagehost"); .staging/remote.toml names it.
+    # "Yes teach to deploy to stagehost"); remote.toml in staging's directory names it.
     stagehost = staging.Target(Path("/home/orpheum/orpheum-staging"), "orpheum@192.168.1.16", "~/.ssh/stagehost")
 
     def test_no_remote_file_is_this_machine_and_one_names_the_host_its_key_and_its_directory(self):

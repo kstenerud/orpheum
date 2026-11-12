@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Staging (D249 §3): builds the runtime image from this checkout and runs the deployment
-# ABOUTME: (deploy/compose.yaml) beside the dev loop, with its own data in .staging/.
+# ABOUTME: (deploy/compose.yaml) beside the dev loop, with its own data outside the checkout.
 """Run Orpheum's staging deployment on this machine, from this checkout (D249, D272 §3).
 
-    ./staging             build the image from the checkout, write the deployment into .staging/ with
-                          the image's own write-deployment, and start or restart it, keeping the run
-                          it replaces' logs in .staging/logs/
+    ./staging             build the image from the checkout, write the deployment into staging's directory
+                          with the image's own write-deployment, and start or restart it, keeping the
+                          run it replaces' logs in its logs/
     ./staging quick       the same, the image only the last full one with this checkout's binary and
                           tunnel script laid over it, the binary built in ./dev's warm caches: a
                           minute in place of several, for trying a fix live; a change to anything
@@ -18,22 +18,26 @@
     ./staging wipe        stop staging and delete its data: the database, the caches, the instances
                           (the values file and the tunnel's keys stay)
 
-Staging runs on another machine when .staging/remote.toml names it (the staging host since 2026-11-01, so
+Staging's directory is outside the checkout, where a sandbox reset cannot delete it:
+ORPHEUM_STAGING_DIR, else $XDG_STATE_HOME/orpheum-staging (~/.local/state/orpheum-staging). Below it is
+"staging's directory".
+
+Staging runs on another machine when staging's directory's remote.toml names it (the staging host since 2026-11-01, so
 the gate has this machine's processors to itself):
 
     host = "orpheum@staging.example"        # ssh's destination; the user must be in the docker group
     identity = "~/.ssh/<staging key>"               # ssh's key, if not its default
-    directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as .staging/ is here
+    directory = "/home/orpheum/orpheum-staging"  # staging's directory there
 
 The image is built here and sent with `docker save | ssh docker load`; write-deployment and compose
 run there, over ssh, as the remote user, and every other command above runs there too. The run it
-replaces' logs are still kept here, in .staging/logs/.
+replaces' logs are still kept here, in staging's directory's logs/.
 
 Staging is written exactly as release is, by the image's `orpheum write-deployment`, so the one path
 stays tested; only the image differs, built here rather than from a tag. The first run makes
-.staging/, writes its values file and the tunnel's key pair, and says what to fill in.
+staging's directory, writes its values file and the tunnel's key pair, and says what to fill in.
 
-An executable .staging/after-up runs after each deploy, here, from the checkout: what else serves this
+An executable after-up in staging's directory runs after each deploy, here, from the checkout: what else serves this
 checkout and must follow it, such as a loader's copy of the web client.
 
 It needs Docker with the compose plugin and BuildKit, and a kernel with WireGuard. It never touches
@@ -58,7 +62,19 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import fetch_ffmpeg  # noqa: E402
 
-DIR = ROOT / ".staging"
+def state_directory(environ: "os._Environ[str] | dict[str, str]" = os.environ) -> Path:
+    """Staging's own directory, outside the checkout: a sandbox reset replaces the checkout and deletes
+    what git does not track in it (agent-failures A71; the owner, 2026-11-12). ORPHEUM_STAGING_DIR
+    names it, else the XDG state directory's orpheum-staging."""
+    if environ.get("ORPHEUM_STAGING_DIR"):
+        return Path(environ["ORPHEUM_STAGING_DIR"]).expanduser()
+    state = Path(environ["XDG_STATE_HOME"]) if environ.get("XDG_STATE_HOME") else Path.home() / ".local" / "state"
+    return state / "orpheum-staging"
+
+
+DIR = state_directory()
+# Where staging's directory was until 2026-11-12 (state_directory).
+CHECKOUT_DIR = ROOT / ".staging"
 CONTAINERFILE = ROOT / "deploy" / "Containerfile"
 VALUES = DIR / "values.toml"
 # Each deploy keeps the run it replaces here, since recreating a container drops its logs.
@@ -138,6 +154,15 @@ def lan_address() -> str:
             return probe.getsockname()[0]
     except OSError:
         return "this-machine"
+
+
+def left_in_checkout(old: Path, new: Path) -> str | None:
+    """What to do when staging's directory is still in the checkout and not yet where it now lives,
+    or None. Not moved for you: a staging running here has its data mounted from the old place."""
+    if not old.is_dir() or new.exists():
+        return None
+    stop = "stop it (./staging down) if it runs on this machine, then " if (old / "compose.yaml").exists() else ""
+    return f"staging: its directory is still in the checkout, {old}; {stop}move it: mv {old} {new}"
 
 
 def adopt_old_layout() -> bool:
@@ -299,7 +324,7 @@ def up(quick: bool = False, target: Target = LOCAL) -> int:
     # The disk first: a build that fills it fails part-way, saying something else (scripts/disk_guard.py).
     if subprocess.run([sys.executable, str(ROOT / "scripts" / "disk_guard.py")], check=False).returncode != 0:
         return 1
-    DIR.mkdir(exist_ok=True)
+    DIR.mkdir(parents=True, exist_ok=True)
     if target.host is None:
         (DIR / "run").mkdir(exist_ok=True)
         if adopt_old_layout():
@@ -399,6 +424,9 @@ def main(argv: list[str]) -> int:
     if shutil.which("docker") is None:
         print("staging: needs Docker with the compose plugin (https://docs.docker.com/engine/install/)",
               file=sys.stderr)
+        return 1
+    if (left := left_in_checkout(CHECKOUT_DIR, DIR)) is not None:
+        print(left, file=sys.stderr)
         return 1
     target = load_target(REMOTE.read_text() if REMOTE.exists() else None)
     if command in ("up", "quick"):
