@@ -2955,8 +2955,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   from the page, once however often it is run, and the page goes on working. The lines it logged
   before, unasked, are the sinks still to give a policy. (`web/apps/web/src/client-main.tsx`,
   `web/apps/web/src/policy-violations.ts`)
-- [ ] **VQ300** — A heavy stretch steps down only the chunks that do not fit, on a Fire TV with little
-  memory (the owner, 2026-11-12, "yes agreed. Go ahead"; D464; the 11-23 batch's item 4, in place of
+- [x] **VQ300** — A heavy stretch steps down only the chunks that do not fit, on a Fire TV with little
+  memory (passed 2026-11-12 on staging, the Fire TV test stick and desktop Chrome) (the owner,
+  2026-11-12, "yes agreed. Go ahead"; D464; the 11-23 batch's item 4, in place of
   VQ294's 5 MiB clause). On staging, with the owner's Fire TV at .197, over http (where Silk says no
   `deviceMemory`), start /play/1504 afresh and seek to about 3:15. Passes when it plays past 4:10
   without a stall but the seek's own wait and with no bufferFullError: the play report's link notes
@@ -2977,5 +2978,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   28.3 MB: chunk 41 (21.3 MB) stepped down to level 3 and 42 (13.0 MB) to level 4, the forward
   buffer "by room" meanwhile; the picture showed 540p and 720p from about 3:21 to 3:38 and 1080p from
   3:39 on. Elsewhere chunk 2 (20.3 MB, at the film's start, to level 2) and chunk 62 (13.2 MB, to
-  level 4) each stepped down alone. Owed: the desktop Chrome clause, and the owner's look at whether 17 s
-  at 540p reads worse than the stall it replaces.
+  level 4) each stepped down alone. The owner, 2026-11-12, on the 17 s at 540p: "lowering quality to
+  get through a bad stretch is preferable to stalls". **The desktop clause passes, 2026-11-12,
+  09:16 UTC, by the lead, as `lead-tests`, in headless Google Chrome 156 on Linux (16 GB):** the first
+  note said "device memory 16 GB, video buffer 100.0 MB … loads ahead 24.9 s (33.3 MB), by bytes";
+  seeked to 3:15 and played to 5:12 at 1080p with no stall, no dropped frame, and no "by room" or
+  step-down note.
