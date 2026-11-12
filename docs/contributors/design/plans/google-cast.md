@@ -15,18 +15,20 @@
 
 ## 1. What the person sees
 
-The Cast menu lists the person's own devices connected now (D337), a paired Chromecast among them,
-then **Google Cast**, in Chrome on a computer or on Android. Choosing it opens Chrome's own picker,
-which finds every Cast device on the network; choosing a TV there starts the cast, and from then on
-it is a cast as any other: the sender is its remote, Stop casting ends it, and the TV goes back to
-its own screen. Nothing on the TV asks for a code. A browser that cannot cast (Safari, Firefox, any
-browser on an iPhone or iPad) shows no Google Cast entry; a paired TV is reached there through the
-person's devices (D465 §4).
+The Cast menu lists the person's own devices connected now (D337), each with an icon in front for
+the kind of cast it takes: the laurel for Orpheum's own clients, the Cast icon for a paired
+Chromecast. Then a separator, and a magnifying glass with **Chromecast**, in Chrome on a computer or
+on Android (D465 §3). Choosing it opens Chrome's own picker, which finds every Cast device on the
+network; choosing a TV there starts the cast, and from then on it is a cast as any other: the sender
+is its remote, Stop casting ends it, and the TV goes back to its own screen. Nothing on the TV asks
+for a code. AirPlay comes later under it, a magnifying glass with **AirPlay**. A browser that cannot
+cast (Safari, Firefox, any browser on an iPhone or iPad) shows no Chromecast entry; a paired TV is
+reached there through the person's devices (D465 §4).
 
-Open for the owner, with the lead's proposal: the entry's label and its place in the menu's look;
-whether it shows only when Chrome reports a Cast device nearby (which needs Google's sender script
-loaded before the menu opens) or always in Chrome, with the script loaded at the first opening of
-the menu (proposed: the latter, so no page loads Google's script until someone means to cast).
+Google's sender script loads only in Chrome, at the menu's first opening (the owner, 2026-11-12), so
+no page loads it until someone means to cast; the Chromecast entry shows in Chrome from the start.
+The Cast icon is Material Symbols' `cast` (Apache-2.0), inlined as the client's other icons are, so
+no package is added.
 
 ## 2. The steps
 
@@ -48,7 +50,7 @@ the menu (proposed: the latter, so no page loads Google's script until someone m
      does now. A pairing kept from Make it a cast target still works as today.
    - Tests in `src/device.test.ts`: a launch with a grant accepts its cast without pairing and keeps
      nothing in storage after it ends.
-3. **The sender: Google Cast in the Cast menu.**
+3. **The sender: the Cast menu's icons, and Chromecast in it.**
    - Google's Cast sender script, loaded only in Chrome and only when the menu is first opened (§1).
      The web client's content security policy today allows it on the lab's pages alone
      (`TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK`); allowing it on the player is a
@@ -58,7 +60,10 @@ the menu (proposed: the latter, so no page loads Google's script until someone m
    - On a session started: ask the core for the cast and grant (step 1), send them over the
      namespace, and become the cast's remote, as for a paired TV. A session the person stops from
      Chrome's own Cast control ends the cast too.
-   - Tests: the menu offers Google Cast only where the sender script reports it can cast; the grant
+   - Each registered device's icon from its kind (the laurel, or the Cast icon for a paired
+     Chromecast, which the receiver's client name says).
+   - Tests: the menu offers Chromecast only in Chrome, each device has its kind's icon, and the
+     sender script is not loaded before the menu opens; the grant
      goes over the namespace and nowhere else.
 4. **Google's console (the owner's account).** Register production's receiver application, its
    address production's loader's `/cast/`, and publish it; staging's stays unpublished on the
