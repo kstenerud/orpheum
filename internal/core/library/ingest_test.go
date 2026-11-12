@@ -264,7 +264,7 @@ func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 func TestIngest_APathIsStoredInNFCBesideItsBytes(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	decomposed := "Fie\u0300vre" + ".mkv" // as macOS writes it
+	decomposed := "Fie\u0300vre.mkv" // as macOS writes it
 	world.scan([]nodeproto.ScanRecord{observedRecord(decomposed, "fievre")}, true)
 	row, found := world.liveFilesByPath()[root+"/Fièvre.mkv"]
 	if !found || string(row.ReportedPathRaw) != root+"/"+decomposed {

@@ -157,7 +157,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 	}{
 		{http.MethodGet, "/items/30/candidates", nil},
 		{http.MethodPost, "/items/30/match", map[string]any{"provider": "tmdb", "providerId": "1"}},
-		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0456789"}},
+		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0234567"}},
 		{http.MethodPost, "/items/30/confirm-match", nil},
 		{http.MethodGet, "/items/30/candidates?name=Civilisation", nil},
 		{http.MethodPut, "/interest/page", map[string]int64{"item": 30}},

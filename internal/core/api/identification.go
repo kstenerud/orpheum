@@ -81,7 +81,7 @@ type MatchByLinkInput struct {
 	AuthorizationHeader
 	ID   int64 `path:"id"`
 	Body struct {
-		Link string `doc:"A TMDB address or id, or an IMDb address or tt id" example:"https://www.imdb.com/title/tt0456789/" json:"link" minLength:"1"` //nolint:lll // one struct tag
+		Link string `doc:"A TMDB address or id, or an IMDb address or tt id" example:"https://www.imdb.com/title/tt0234567/" json:"link" minLength:"1"` //nolint:lll // one struct tag
 	}
 }
 
