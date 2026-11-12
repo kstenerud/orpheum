@@ -3402,6 +3402,8 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   - **Built (2026-11-12):** `/lab/airplay`, behind `shouldOfferAirPlayLab` (staging's admin turns it
     on); airplay.md's spike section says what it is, and VQ310 is the owner's check.
 - **X4.** Ways to cut `make check`'s time.
+  - **Proposed (2026-11-12):** [make-check-time-2026-11-12.md](../research/make-check-time-2026-11-12.md):
+    batch the api tests' seeding, stamp `check-generated` and seed the lint caches, split the browser walks.
 - **X6. A film's or series' page shows the no-poster still as its list card does** (the owner,
   2026-11-12: *"We display a screencap in the 'no poster' version of the poster in the listing, but
   not in the info page. We should do it in both."*). The list's card takes `noPosterStillSha256`,
