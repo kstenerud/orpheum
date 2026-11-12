@@ -169,10 +169,15 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 			slogx.EventKey, "signallingReopened",
 			"lostMs", service.parts.Clock.Now().Sub(lost.since).Milliseconds(), "dials", lost.dials)
 	}
+	// The pinging and the health watch end, their timers stopped, before the connection's holding
+	// does: one left running past it pinged a connection gone, and its timer was still armed as the
+	// next dial began (make check, 2026-11-12).
+	var watching sync.WaitGroup
+	defer watching.Wait()
 	pinging, stopPinging := context.WithCancel(ctx)
 	defer stopPinging()
-	go service.keepAlive(pinging, connection)
-	go service.watchHealth(pinging, connection)
+	watching.Go(func() { service.keepAlive(pinging, connection) })
+	watching.Go(func() { service.watchHealth(pinging, connection) })
 	var answering sync.WaitGroup
 	defer answering.Wait()
 	slots := make(chan struct{}, answersAtOnce)
@@ -318,12 +323,10 @@ func (service *Service) pingAnswered(ctx context.Context, connection *websocket.
 	pinging, stop := context.WithCancel(ctx)
 	defer stop()
 	answered := make(chan error, 1)
+	// Counted from before the pong's wait is armed until after it is stopped.
 	service.pingsUnanswered.Add(1)
-	go func() {
-		err := connection.Ping(pinging)
-		answered <- err
-		service.pingsUnanswered.Add(-1)
-	}()
+	defer service.pingsUnanswered.Add(-1)
+	go func() { answered <- connection.Ping(pinging) }()
 	timer := service.parts.Clock.NewTimer(pongWait)
 	defer timer.Stop()
 	select {

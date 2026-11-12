@@ -230,8 +230,9 @@ type Service struct {
 	// keeping is held through each write of the state file, so two never interleave.
 	keeping sync.Mutex
 
-	// pingsUnanswered is how many pings of the signalling connection wait for their answer: a test
-	// moves its fake time on only once a ping answered in real time has been heard.
+	// pingsUnanswered is how many pings of the signalling connection wait for their answer, counted
+	// until the pong's wait is stopped: a test moves its fake time on only once a ping answered in real
+	// time has been heard and its wait put away.
 	pingsUnanswered atomic.Int64
 }
 
