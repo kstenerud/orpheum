@@ -3193,10 +3193,12 @@ below: "agreed. Release anyway". Found by the lead:
   Firefox alone passed (355 tests); the whole suite in both browsers at once, as the gate runs it,
   failed once in two, in Firefox again but another test (input-walk.browser.test.tsx, "keeps the
   focused film in view as it moves down a long list, clear of the banner"). So the failures come
-  with Chromium running beside Firefox, not with load alone. To do: gather each Firefox failure the
-  gate logs and gate-runs.jsonl hold, find what they share, and make each wait for what it reads,
-  not loosen it; or, the owner's to decide, run the two browsers one after the other, at the cost of
-  the browser step's time.
+  with Chromium running beside Firefox, not with load alone. **Found and fixed (2026-11-12):** in
+  Firefox a page opening takes the focus from the test frame of the page opened before it, and
+  vitest opens more Firefox pages mid-run as Chromium's files end; every test frame now takes its
+  focus back on its window's blur (idiosyncrasies.md, "A page opening in Firefox takes the focus from
+  the test frame opened before it"). Running the browsers one after the other was tried and dropped:
+  30 s slower, and it still lost one Enter.
 - **The lab says the Chromecast is a cast target before the core has taken it.** On the owner's
   Chromecast (2026-11-12), its Orpheum device removed, Make it a cast target used the TV's kept
   sign-in and the page said "Attic TV is a cast target" at once; the core then refused the sign-in,
