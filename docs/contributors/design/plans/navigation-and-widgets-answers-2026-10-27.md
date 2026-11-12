@@ -3159,3 +3159,12 @@ below: "agreed. Release anyway". Found by the lead:
   flush left a 0.13 s hole that the hole-skip stepped over; and about 15 s at 3:22, standing still
   with 9.2 s loaded ahead until the core judged the top rung unplayable and stepped down one. VQ298
   stays unticked: the stand-still at 3:30 now ends, but not by the hole-skip.
+- **A chunk lost with its WebRTC connection lowers the quality for a minute and can leave a hole.**
+  The owner's Firefox 157 on a Mac, on staging (2026-11-12, 09:04 UTC, film 1504 at about 7:07), on
+  Wi-Fi that was dropping out ("bad enough for SSH sessions to break"): the connection carrying the
+  picture had no bytes for 8 s, the page took it as gone and opened another within half a second, and
+  the chunk on its way failed (`fragLoadError`). hls.js took that as reason to force the ceiling from
+  level 5 to 4 ("forced by hls.js"), held for a minute until the step-up, and a 0.17 s hole it left at
+  8:30 was stepped over with a 252 ms stand-still. The film did not stall: 30 s was loaded ahead. A
+  chunk lost because its connection was lost should be asked for again on the new connection at the
+  same quality, neither lowering it nor leaving a hole.
