@@ -249,8 +249,11 @@ export interface CastDeviceOptions {
   readonly reached: Reached;
   readonly video: HTMLVideoElement;
   readonly note: (line: string) => void;
-  /** Called when the server refuses the receiver's session: its device was removed. */
-  readonly onRefused: () => void;
+  /**
+   * Called when the server refuses the receiver's session (its device was removed, or the sign-in was
+   * not one it takes), with the server's words where it said any.
+   */
+  readonly onRefused: (reason?: string) => void;
   /** Called as a cast is taken, before its film plays on the video: the lab stops its own film. */
   readonly onTaken: () => void;
   /**
@@ -305,8 +308,13 @@ export class CastDevice {
       const snapshot = live.snapshot();
       heardConnected(snapshot.isConnected);
       if (snapshot.isRefused) {
-        note("the server refused this receiver's sign-in");
-        this.options.onRefused();
+        const { refusalReason } = snapshot;
+        note(
+          refusalReason === undefined
+            ? "the server refused this receiver's sign-in"
+            : `the server refused this receiver's sign-in: ${refusalReason}`,
+        );
+        this.options.onRefused(refusalReason);
       }
       const handed = snapshot.receive;
       if (handed !== undefined) {

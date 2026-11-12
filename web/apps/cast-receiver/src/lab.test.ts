@@ -172,3 +172,79 @@ describe("the receiver's log on screen (the owner, 2026-11-12)", () => {
     expect(unknown.screen.hidden).toBe(true);
   });
 });
+
+describe("the receiver as a cast target tells its senders when the core has taken it (the 11-24 batch's item 3)", () => {
+  /** The sockets the receiver opened to its core, as a browser's WebSocket stand-in records them. */
+  const sockets: FakeSocket[] = [];
+
+  class FakeSocket {
+    readonly readyState = 1;
+    readonly listeners = new Map<string, ((event: unknown) => void)[]>();
+    constructor() {
+      sockets.push(this);
+    }
+    addEventListener(type: string, listener: (event: unknown) => void): void {
+      this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+    }
+    send = (): undefined => undefined;
+    close = (): undefined => undefined;
+    fire(type: string, event: unknown): void {
+      for (const listener of this.listeners.get(type) ?? []) {
+        listener(event);
+      }
+    }
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sockets.length = 0;
+  });
+
+  /** A receiver holding a kept sign-in, whose core is at a stand-in address; the messages it sends. */
+  function keptReceiver(): { readonly lab: LabReceiver; readonly sent: unknown[] } {
+    const storage = new Map([
+      ["orpheum.cast.session", JSON.stringify({ token: "kept-token", locator: "kept-locator" })],
+    ]);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    vi.stubGlobal("location", { origin: "http://core.test" });
+    Reflect.set(FakeSocket, "OPEN", 1);
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const sent: unknown[] = [];
+    const lab = new LabReceiver(
+      document.createElement("pre"),
+      document.createElement("video"),
+      (message) => sent.push(message),
+    );
+    return { lab, sent };
+  }
+
+  it("says it is ready only once the core has welcomed its live connection, not as it starts connecting", async () => {
+    const { lab, sent } = keptReceiver();
+    lab.heard({ type: "device" });
+    await vi.waitFor(() => {
+      expect(sockets).toHaveLength(1);
+    });
+    sockets[0]?.fire("open", {});
+    expect(sent).toEqual([]);
+    sockets[0]?.fire("message", {
+      data: JSON.stringify({ type: "devices", deviceIds: [7], inFrontDeviceIds: [7] }),
+    });
+    expect(sent).toEqual([{ type: "device", isReady: true }]);
+  });
+
+  it("tells the senders the core's words where it refuses the sign-in, and forgets the sign-in so the next ask pairs afresh", async () => {
+    const { lab, sent } = keptReceiver();
+    lab.heard({ type: "device" });
+    await vi.waitFor(() => {
+      expect(sockets).toHaveLength(1);
+    });
+    sockets[0]?.fire("open", {});
+    sockets[0]?.fire("close", { code: 1008, reason: "sign in first" });
+    expect(sent).toEqual([{ type: "device", isReady: false, refusal: "sign in first" }]);
+    expect(globalThis.localStorage.getItem("orpheum.cast.session")).toBeNull();
+  });
+});

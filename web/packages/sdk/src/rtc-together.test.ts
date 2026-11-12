@@ -91,6 +91,23 @@ describe("the session socket over a data channel", () => {
     expect(channel.sent.slice(2)).toEqual(['{"type":"hello"}']);
   });
 
+  it("hands on the reason the core's close message gives with its code", () => {
+    const refused = new FakeChannel();
+    const reasons: (string | undefined)[] = [];
+    rtcTogetherSocket(() => refused)({
+      onOpen: () => undefined,
+      onMessage: () => undefined,
+      onClose: (_code, reason) => {
+        reasons.push(reason);
+      },
+    });
+    refused.listener?.message(JSON.stringify({ status: 101 }));
+    refused.listener?.message(
+      new TextEncoder().encode(JSON.stringify({ close: 1008, reason: "sign in first" })).buffer,
+    );
+    expect(reasons).toEqual(["sign in first"]);
+  });
+
   it("closes with the core's code, or as abnormal when the channel just ends", () => {
     const refused = new FakeChannel();
     const { heard } = open(refused);

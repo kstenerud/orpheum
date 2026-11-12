@@ -85,6 +85,8 @@ export interface LiveSnapshot {
    * after which it connects no more.
    */
   readonly isRefused: boolean;
+  /** The server's words for refusing the sign-in, where its close frame said any. */
+  readonly refusalReason: string | undefined;
 }
 
 /** A page's live connection. */
@@ -131,6 +133,7 @@ const startingSnapshot: LiveSnapshot = {
   isSendingKnown: false,
   isReceiveKnown: false,
   isRefused: false,
+  refusalReason: undefined,
 };
 
 /** A record's number field, or undefined. */
@@ -474,23 +477,28 @@ class PageLiveConnection implements LiveConnection {
   }
 
   /** Stops for good: the server refused the sign-in, or said it ended. */
-  #refused(): void {
+  #refused(reason?: string): void {
     this.#isClosed = true;
     this.#generation += 1; // its close, whenever it comes, is not heard
     this.#cancelReconnect();
     clearInterval(this.#pinger);
     this.#shownCheck.stop();
     this.#socket?.close();
-    this.#change({ ...this.#snapshot, isConnected: false, isRefused: true });
+    this.#change({
+      ...this.#snapshot,
+      isConnected: false,
+      isRefused: true,
+      refusalReason: reason === undefined || reason === "" ? undefined : reason,
+    });
   }
 
-  #closed(code: number, wasOpened: boolean): void {
+  #closed(code: number, wasOpened: boolean, reason?: string): void {
     clearInterval(this.#pinger);
     if (this.#isClosed) {
       return;
     }
     if (code === policyViolationCode) {
-      this.#refused();
+      this.#refused(reason);
       return;
     }
     this.#reconnectLater(!wasOpened);
@@ -541,9 +549,9 @@ class PageLiveConnection implements LiveConnection {
           this.#hear(text);
         }
       },
-      onClose: (code) => {
+      onClose: (code, reason) => {
         if (isCurrent()) {
-          this.#closed(code, wasOpened);
+          this.#closed(code, wasOpened, reason);
         }
       },
     });

@@ -288,6 +288,9 @@ export const enLab = {
       checkCode: "Check code: {{checkCode}}. Does the TV show the same?",
       codesMatch: "The TV shows the same",
       codesDiffer: "It differs",
+      targetWaiting: "Waiting for the core to take the Chromecast's sign-in.",
+      targetRefused:
+        "{{name}} is not a cast target: {{reason}}. Press Make it a cast target to try again.",
       targetReady:
         "{{name}} is a cast target: open a film, press Cast in the top icons and choose it. Leave this page's cast running: Stop casting here closes the Chromecast's app.",
       stop: "Stop casting and send",

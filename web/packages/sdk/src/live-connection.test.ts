@@ -93,6 +93,23 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().isRefused).toBe(true);
   });
 
+  it("keeps the server's words for refusing the sign-in, where its close frame said any (the 11-24 batch's item 3)", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "lapsed",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(connection.snapshot().refusalReason).toBeUndefined();
+    sockets.opened[0]!.onClose(1008, "sign in first");
+    expect(connection.snapshot()).toMatchObject({
+      isRefused: true,
+      refusalReason: "sign in first",
+    });
+  });
+
   it("connects no more once the server says the sign-in ended, the device removed from another", () => {
     vi.useFakeTimers();
     const sockets = fakeSockets();

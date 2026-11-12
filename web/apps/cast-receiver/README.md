@@ -31,7 +31,10 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   session (D434): the film each hand names, which it puts on the session it leads (in a cast the
   receiver leads, so the group has no film until it plays one), then the session's play, pause and
   position. Its sockets go the way its requests go, by the core's name or over
-  WebRTC (`src/reach.ts`). `src/device.test.ts`; only a device shows the whole: VQ286, VQ287.
+  WebRTC (`src/reach.ts`). It tells the sender it is a cast target only once the core has welcomed
+  its live connection, and tells it the core's words where the core refuses (`isReady: false` with a
+  `refusal`; the 11-24 batch's item 3). `src/device.test.ts`, `src/lab.test.ts`; only a device
+  shows the whole: VQ286, VQ287.
 - **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
   launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the
   core through the discovery, its first offer proven by the grant (`targetOfGuestGrant`), trades the

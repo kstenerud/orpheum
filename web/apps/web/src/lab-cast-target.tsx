@@ -40,6 +40,30 @@ function isTargetReady(message: unknown): boolean {
   );
 }
 
+/**
+ * The receiver's refusal, where its message says the core did not take it as a cast target: the
+ * core's words, or what the receiver could say of why (the 11-24 batch's item 3).
+ */
+export function refusalOf(message: unknown): string | undefined {
+  if (typeof message !== "object" || message === null) {
+    return undefined;
+  }
+  const refusal: unknown = Reflect.get(message, "refusal");
+  return Reflect.get(message, "type") === "device" &&
+    Reflect.get(message, "isReady") === false &&
+    typeof refusal === "string" &&
+    refusal !== ""
+    ? refusal
+    : undefined;
+}
+
+/** How a press of Make it a cast target stands: not asked, waiting on the core, or answered. */
+type TargetOutcome =
+  | { readonly state: "none" }
+  | { readonly state: "waiting" }
+  | { readonly state: "ready"; readonly name: string }
+  | { readonly state: "refused"; readonly name: string; readonly reason: string };
+
 /** A code entered here, and the check code the server gave for it. */
 interface Entered {
   readonly code: string;
@@ -48,7 +72,8 @@ interface Entered {
 
 /**
  * The receiver's messages of its pairing, heard while casting to it: its code entered under this
- * page's session, the check code kept to compare; and whether it said it is ready to be cast to.
+ * page's session, the check code kept to compare; and how the core answered it: ready to be cast to
+ * once the core has taken its sign-in, or refused, which is logged with the core's words.
  */
 function useTargetMessages(
   cast: CastSession | undefined,
@@ -56,12 +81,12 @@ function useTargetMessages(
 ): {
   readonly entered: Entered | undefined;
   readonly setEntered: (entered: Entered | undefined) => void;
-  readonly readyName: string | undefined;
-  readonly setReadyName: (name: string | undefined) => void;
+  readonly outcome: TargetOutcome;
+  readonly setOutcome: (outcome: TargetOutcome) => void;
 } {
   const { api } = useServices();
   const [entered, setEntered] = useState<Entered | undefined>();
-  const [readyName, setReadyName] = useState<string | undefined>();
+  const [outcome, setOutcome] = useState<TargetOutcome>({ state: "none" });
   useEffect(() => {
     if (cast === undefined) {
       return;
@@ -69,7 +94,14 @@ function useTargetMessages(
     const deviceName = cast.receiverName === "" ? "Chromecast" : cast.receiverName;
     cast.onMessage((message) => {
       if (isTargetReady(message)) {
-        setReadyName(deviceName);
+        setOutcome({ state: "ready", name: deviceName });
+        return;
+      }
+      const reason = refusalOf(message);
+      if (reason !== undefined) {
+        setEntered(undefined);
+        setOutcome({ state: "refused", name: deviceName, reason });
+        log(`the core did not take ${deviceName} as a cast target: ${reason}`);
         return;
       }
       const code = pairingCodeOf(message);
@@ -87,7 +119,7 @@ function useTargetMessages(
       );
     });
   }, [cast, api, log]);
-  return { entered, setEntered, readyName, setReadyName };
+  return { entered, setEntered, outcome, setOutcome };
 }
 
 /** The check code to compare with the TV's, and the person's answer. */
@@ -123,6 +155,28 @@ function CheckCode(props: {
   );
 }
 
+/** What the core has said of the receiver as a cast target: waiting for it, ready, or refused. */
+function TargetOutcomeView(props: { readonly outcome: TargetOutcome }): JSX.Element | undefined {
+  const { t } = useTranslation();
+  const { outcome } = props;
+  switch (outcome.state) {
+    case "none":
+      return undefined;
+    case "waiting":
+      return <output className="lab__lead">{t("lab.cast.targetWaiting")}</output>;
+    case "ready":
+      return (
+        <output className="lab__big">{t("lab.cast.targetReady", { name: outcome.name })}</output>
+      );
+    case "refused":
+      return (
+        <output className="lab__big" role="alert">
+          {t("lab.cast.targetRefused", { name: outcome.name, reason: outcome.reason })}
+        </output>
+      );
+  }
+}
+
 /** Making the receiver cast to a cast target: the press, the codes to compare, and the outcome. */
 export function CastTargetPart(props: {
   readonly cast: CastSession | undefined;
@@ -133,7 +187,7 @@ export function CastTargetPart(props: {
   const { t } = useTranslation();
   const { api } = useServices();
   const { cast, log } = props;
-  const { entered, setEntered, readyName, setReadyName } = useTargetMessages(cast, log);
+  const { entered, setEntered, outcome, setOutcome } = useTargetMessages(cast, log);
   const answer = (isMatch: boolean): void => {
     if (entered === undefined) {
       return;
@@ -158,7 +212,7 @@ export function CastTargetPart(props: {
           className="lab__button"
           disabled={cast === undefined}
           onClick={() => {
-            setReadyName(undefined);
+            setOutcome({ state: "waiting" });
             cast?.send(props.request).catch((cause: unknown) => {
               log(failureText(cause));
             });
@@ -170,9 +224,7 @@ export function CastTargetPart(props: {
       {entered === undefined ? undefined : (
         <CheckCode checkCode={entered.checkCode} onAnswer={answer} />
       )}
-      {readyName === undefined ? undefined : (
-        <output className="lab__big">{t("lab.cast.targetReady", { name: readyName })}</output>
-      )}
+      <TargetOutcomeView outcome={outcome} />
     </>
   );
 }
