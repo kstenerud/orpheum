@@ -525,21 +525,13 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
 
   /** Services answering the playing film's decision, a, and then the next episode's, n. */
   function served(heard: Heard[]): Services {
-    const services = servedBy(
+    return servedBy(
       {
         "POST /playback": [decidedOnLadder("a"), decidedOnLadder("n")],
         "DELETE /playback/a": [204, undefined],
       },
       heard,
     );
-    // Under the discovery's loader, where a warm-up preloads nothing (D260 §3).
-    const pathMoves = {
-      count: () => 0,
-      to: () => undefined,
-      subscribe: () => () => undefined,
-      isOverWebrtc: () => true,
-    };
-    return { ...services, pathMoves };
   }
 
   /** Plays file 3, its Up next offering file 4, here or on a cast's receiver. */

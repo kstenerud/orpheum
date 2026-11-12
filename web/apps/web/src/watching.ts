@@ -254,19 +254,17 @@ export class Watching {
   }
 
   /**
-   * Up next shows fileId, the film that plays after the one watched: it is warmed up as a film's
-   * page warms its own (warmUp), its decision asked and its preload started where warmUp's would be,
-   * while the film watched keeps its playbacks. warmUp would make fileId the film watched, letting
-   * go of the playing film's playbacks, whose runs stop at once, in its last half minute (the
-   * owner's request, 2026-11-11). Once fileId is watched, at its Play page or its own page, it plays
-   * on this warm-up; another film chosen lets go of it, as of any warm-up, and a later next replaces
-   * it, so at most one is kept.
+   * Up next shows fileId, the film that plays after the one watched: its decision is asked, as a
+   * film's page asks its own (warmUp), so the server starts its chunks, while the film watched keeps
+   * its playbacks. warmUp would make fileId the film watched, letting go of the playing film's
+   * playbacks, whose runs stop at once, in its last half minute (the owner's request, 2026-11-11).
+   * Nothing is preloaded, on any transport: a hidden player beside the film playing could take a
+   * television's hardware decoder from it (the owner, 2026-11-12, "Decision only while playing").
+   * Once fileId is watched, at its Play page or its own page, it plays on this decision; another
+   * film chosen lets go of it, as of any warm-up, and a later next replaces it, so at most one is
+   * kept.
    */
-  warmUpNext(
-    fileId: number,
-    playableFormats: PlayableFormats,
-    isOverWebrtc: () => boolean = () => false,
-  ): void {
+  warmUpNext(fileId: number, playableFormats: PlayableFormats): void {
     if (this.fileId === fileId || this.next?.fileId === fileId) {
       return;
     }
@@ -285,16 +283,6 @@ export class Watching {
           this.tokens.add(decided.mediaToken); // watched while it was asked for (watch)
         } else {
           this.leave(decided.mediaToken); // let go of while it was asked for
-          return;
-        }
-        const isUntaken = this.next === next || this.warm === warm;
-        if (
-          isUntaken &&
-          decided.onLadder !== undefined &&
-          !startsOnFilmsPicture() &&
-          !isOverWebrtc()
-        ) {
-          warm.preload = this.startPreload(decided.onLadder, decided.resumePositionMs);
         }
       },
       // A warm-up that fails is the Play page's to ask again; nothing waits on it here.
@@ -443,11 +431,10 @@ export class Watching {
     }
   }
 
-  /** Lets go of the next episode's warm-up: its preload, and its playback once decided. */
+  /** Lets go of the next episode's warm-up: its playback, once decided. */
   private letGoOfNext(): void {
     const next = this.next;
     this.next = undefined;
-    next?.warm.preload?.stop();
     if (next?.mediaToken !== undefined) {
       this.leave(next.mediaToken);
     }

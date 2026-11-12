@@ -411,14 +411,10 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     await watching.decide(7, playableFormats, { cause: "audioChosen" });
     expect(await settled(heard)).toEqual(["POST /playback", "POST /playback", "POST /playback"]);
     expect(playbackCauses(heard)).toEqual(["playPage", "upNext", "audioChosen"]);
-    expect(preloads.started).toEqual([
-      { url: "/api/v1/bytes/media/chunks/b/master.m3u8", positionMs: 40_000, isStopped: false },
-    ]);
-    preloads.settledAtBps = 1_896_000;
     const decision = await watching.decide(8, playableFormats);
     expect(decision.mediaToken).toBe("b");
-    expect(decision.onLadder?.startAtBps).toBe(1_896_000);
-    expect(preloads.started[0]?.isStopped).toBe(true);
+    // Its decision alone, nothing preloaded: the start is the server's (D381).
+    expect(decision.onLadder?.startAtBps).toBe(4_000_000);
     // Only now are the film played's playbacks let go of.
     expect((await settled(heard)).slice(3)).toEqual(["DELETE /playback/a", "DELETE /playback/c"]);
   });
@@ -440,15 +436,13 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     expect((await settled(heard)).slice(3)).toEqual(["DELETE /playback/b", "POST /playback"]);
   });
 
-  it("is let go of, its preload and playback, when another film is chosen instead", async () => {
+  it("is let go of, its playback, when another film is chosen instead", async () => {
     const heard: Heard[] = [];
-    const preloads = standInPreloads();
-    const { watching } = watchingServed(heard, preloads);
+    const { watching } = watchingServed(heard);
     await watching.decide(7, playableFormats);
     watching.warmUpNext(8, playableFormats);
     await settled(heard);
     watching.warmUp(9, playableFormats);
-    expect(preloads.started[0]?.isStopped).toBe(true);
     expect(await settled(heard)).toEqual([
       "POST /playback",
       "POST /playback",
@@ -477,13 +471,21 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     ]);
   });
 
-  it("preloads nothing where its media go over WebRTC, as a film page's warm-up does not (D260 §3)", async () => {
+  // A hidden player beside the film playing could take a television's hardware decoder from it
+  // (the owner, 2026-11-12, "Decision only while playing").
+  it("preloads nothing on any transport, where a film page's warm-up on HTTP preloads (D260 §3)", async () => {
     const preloads = standInPreloads();
     const { watching } = watchingServed([], preloads);
     await watching.decide(7, playableFormats);
-    watching.warmUpNext(8, playableFormats, () => true);
+    watching.warmUpNext(8, playableFormats);
     await settled([]);
     expect(preloads.started).toEqual([]);
     expect((await watching.decide(8, playableFormats)).mediaToken).toBe("b");
+    // Continue watching's press, a film page's warm-up, keeps its preload.
+    watching.warmUp(9, playableFormats, () => false);
+    await settled([]);
+    expect(preloads.started.map((preload) => preload.url)).toEqual([
+      "/api/v1/bytes/media/chunks/c/master.m3u8",
+    ]);
   });
 });
