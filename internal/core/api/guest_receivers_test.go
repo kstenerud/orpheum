@@ -3,11 +3,16 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/live"
@@ -112,4 +117,51 @@ func TestGuestReceiver_ReachesItsCastAlone(t *testing.T) {
 	harness.play(t, guest.Token, chrome(1))
 	wantError(t, harness.do(t, http.MethodPost, "/playback", guest.Token, chrome(2)),
 		http.StatusForbidden, api.CodeForbidden)
+}
+
+// A guest receiver plays its cast's film by its own session: it fetches the film's bytes, and
+// reports where it plays, as a paired TV does (D465 §2).
+func TestGuestReceiver_FetchesAndReportsOnItsCastsFilm(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	guest := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	guestSocket := harness.dialLive(t, guest.Token)
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
+	started := startedCast(t, harness.startCast(t, phoneToken, guest.DeviceID, 0))
+	guestSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+		return each.Receive.CastID == started.CastID
+	})
+	decided := harness.play(t, guest.Token, chrome(1))
+	read := harness.getBytePath(t, decided.URL, guest.Token, false, "bytes=0-3")
+	if read.status != http.StatusPartialContent {
+		t.Errorf("the guest receiver's read of its film = %d %s; want 206", read.status, read.body)
+	}
+	reported := harness.report(t, guest.Token, decided, reportBody(1, 60_000, 0))
+	if reported.status != http.StatusNoContent && reported.status != http.StatusOK {
+		t.Errorf("the guest receiver's report = %d %s; want it taken", reported.status, reported.body)
+	}
+}
+
+// A guest receiver the core ended, its cast never come in time, is refused a live connection,
+// though its session has not yet been removed with its device (D465 §1).
+func TestGuestReceiver_EndedIsRefusedItsLiveConnection(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	guest := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	harness.clock.Advance(live.UnansweredAfter)
+	if ended := harness.live.EndGuests(); len(ended) != 1 || ended[0].DeviceID != guest.DeviceID {
+		t.Fatalf("EndGuests = %+v; want the guest receiver %d", ended, guest.DeviceID)
+	}
+	refused := harness.dialLive(t, guest.Token)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	var message live.Outbound
+	err := wsjson.Read(ctx, refused.connection, &message)
+	if websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
+		t.Errorf("an ended guest receiver's live hello read %+v, %v; want closed for policy", message, err)
+	}
 }
