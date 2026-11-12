@@ -196,7 +196,9 @@ func TestList_SaysWhatWasChangedAndShowsOnlyTheImportantOnesWhenAsked(t *testing
 
 func TestRegistry_ALengthOfTimeHasTheUnitItsKeySpells(t *testing.T) {
 	t.Parallel()
-	unitBySuffix := map[string]time.Duration{"Seconds": time.Second, "Hours": time.Hour, "Days": 24 * time.Hour}
+	unitBySuffix := map[string]time.Duration{
+		"Seconds": time.Second, "Minutes": time.Minute, "Hours": time.Hour, "Days": 24 * time.Hour,
+	}
 	lengths := 0
 	for _, definition := range Registry() {
 		key := string(definition.Key)

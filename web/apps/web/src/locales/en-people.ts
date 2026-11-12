@@ -56,6 +56,7 @@ export const enPeople = {
       "Any link sent to {{name}} before keeps working until one of them is used. Using one sets a new password, ends the others and signs {{name}} out everywhere else.",
     newLinkConfirm: "Make a new link",
     issued: "{{name}}'s link: send it to them",
+    issuedReset: "{{name}}'s reset password link: send it to them",
   },
   person: {
     devices: "Their devices",
@@ -71,6 +72,19 @@ export const enPeople = {
     revokeOwnLinkConsequence:
       "The link {{name}} was sent stops leading back to this server. They stay signed in on their devices, and a new link from you gives them another.",
     revokeOwnLinkConfirm: "End it",
+    newResetLink: "New reset password link",
+    newResetLinkConsequence:
+      "{{name}} follows the link to set a new password, which signs them out everywhere else. Their password works until then.",
+    newResetLinkConfirm: "Make a reset link",
+    resetLink: "A reset password link is live until {{date}}.",
+    cancelResetLink: "Cancel",
+    cancelResetLinkConsequence:
+      "The reset password link sent to {{name}} stops working. Their password stays as it is.",
+    cancelResetLinkConfirm: "Cancel the link",
+    renewResetLink: "Renew",
+    renewResetLinkConsequence:
+      "The reset password link sent to {{name}} stops working, and a new one is made in its place to send them.",
+    renewResetLinkConfirm: "Make a new link",
   },
   roles: {
     heading: "Roles",

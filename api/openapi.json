@@ -9527,6 +9527,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "resetLinkExpiresAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
           "user": {
             "$ref": "#/components/schemas/UserEntryBody"
           },
@@ -18901,6 +18906,46 @@
       }
     },
     "/users/{id}/registration-invitation": {
+      "delete": {
+        "operationId": "cancelResetLink",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Cancel a person's outstanding reset password link; their password stays (D466 §4)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "admin"
+      },
       "post": {
         "operationId": "issueRegistrationInvitation",
         "parameters": [
@@ -18942,7 +18987,7 @@
             "session": []
           }
         ],
-        "summary": "A new registration link for a person, withdrawing the old; their password works until used",
+        "summary": "A new registration link for a person; for one with a password, a reset link replacing the outstanding one (D466); their password works until it is used",
         "tags": [
           "Users"
         ],

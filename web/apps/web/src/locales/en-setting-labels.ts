@@ -93,6 +93,7 @@ export const enSettingLabels = {
     opensubtitlesRequestsPerSecond: "OpenSubtitles requests per second",
     pairingCodesPerNetworkMost: "Most pairing codes from one network",
     pairingCodesPerSiteMost: "Most pairing codes from one site",
+    passwordResetLinkLifeMinutes: "A reset password link lasts (minutes)",
     playLadderWaitMs: "Wait before a lower quality is played (ms)",
     playPriorityKeptSeconds: "A playback's work stays first for (seconds)",
     portMappingLeaseSeconds: "Port mapping lease (seconds)",

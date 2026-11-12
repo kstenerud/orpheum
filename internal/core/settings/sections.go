@@ -60,6 +60,7 @@ var sectionByKey = map[Key]Section{
 	EndedCredentialsKeptDays:                       SectionAccounts,
 	PairingCodesPerNetworkMost:                     SectionAccounts,
 	PairingCodesPerSiteMost:                        SectionAccounts,
+	PasswordResetLinkLifeMinutes:                   SectionAccounts,
 	RegistrationInvitationLifeDays:                 SectionAccounts,
 	SecretLastCharsShown:                           SectionAccounts,
 	SessionIdleExpiryHours:                         SectionAccounts,

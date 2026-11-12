@@ -3048,3 +3048,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   again: "Press OK to start" fills the TV's screen, the phone already the remote; one OK starts the
   film full screen with sound (`logEvent=fullScreen answer=entered by=key`, `playedWithSound`), and
   an arrow pressed first leaves OK still starting it. (`web/apps/web/src/live.tsx`, `cast-start.tsx`)
+- [ ] **VQ309** — A registered person's password is reset by a link from their page, one at a time,
+  live an hour (D466). On staging, signed in as `admin`, open a tester's page (Users, then the
+  person) and press New reset password link, then Make a reset link: the link and its QR code
+  show, and the page says until when it is live, an hour on, with Cancel and Renew and no New
+  reset password link. Reload the page: the time, Cancel and Renew stay, the link does not. Open
+  the link on another device (the Pixel 3a, by the QR code) and set a new password: the tester's
+  other sessions are signed out, the old password no longer signs in, the new one does, and the
+  page no longer says a link is live. Make another, press Renew: a new link and QR code show and
+  the first link, opened, says it does not work. Press Cancel: the page says no link is live and
+  the renewed link does not work either. Last, set `passwordResetLinkLifeMinutes` to 2 in Settings
+  (the advanced view, Accounts), make a link and open it after three minutes: it does not work,
+  and the page no longer says one is live. Passes when each step reads so.
+  (`internal/core/auth/accounts.go`, `web/apps/web/src/user.tsx`)

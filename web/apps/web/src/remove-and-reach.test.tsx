@@ -248,7 +248,7 @@ it("shows a person's five latest devices with All devices, their actions in a ro
   // The actions sit in one row straight under the name, before the settings.
   const row = page.querySelector("h1 + p + .person__actions");
   expect([...(row?.querySelectorAll("button") ?? [])].map((button) => button.textContent)).toEqual([
-    "New link",
+    "New reset password link",
     "Remove Dan…",
   ]);
   expect(buttonWithText(page, "Rename")).toBeUndefined();

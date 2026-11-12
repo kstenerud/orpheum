@@ -6,6 +6,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
+  cancelResetLink,
   getUser,
   issueRegistrationInvitation,
   listUserDevices,
@@ -19,7 +20,7 @@ import {
 } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { dateText } from "./date-time-text.ts";
+import { dateText, dateTimeText } from "./date-time-text.ts";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
@@ -36,8 +37,9 @@ import { useResource } from "./use-resource.ts";
 import { RecentDevices } from "./your-devices.tsx";
 
 /**
- * One person, for the admin: their name, which can be changed; a new registration invitation, or a
- * device of theirs activated by the code it shows (D288 §2); their devices, which can be removed;
+ * One person, for the admin: their name, which can be changed; a reset password link, one at a
+ * time, until when it is live, Cancel and Renew (D466), or for one not registered yet a new
+ * registration link; a device of theirs activated by the code it shows (D288 §2); their devices, which can be removed;
  * what they have watched (the owner, 2026-09-27); and removing them, which an admin cannot do to
  * themselves (S40).
  */
@@ -70,6 +72,7 @@ export function UserPage(props: { readonly userId: number }): JSX.Element {
                 onActivated={reloadDevices}
               />
               <OwnLink person={value} onRevoke={actions.revokeOwnLink} />
+              <ResetLink person={value} actions={actions} />
             </>
           )}
         />
@@ -90,7 +93,8 @@ interface PersonActions {
   readonly rename: (name: string) => Promise<void>;
   readonly setNote: (note: string) => Promise<void>;
   readonly giveRole: (role: string) => Promise<void>;
-  readonly issueLink: (name: string) => void;
+  readonly issueLink: (name: string, isReset: boolean) => void;
+  readonly cancelResetLink: () => void;
   readonly remove: (device: Device) => void;
   readonly removeUser: () => void;
   readonly revokeOwnLink: () => void;
@@ -128,10 +132,19 @@ function usePersonActions(
     rename: (name: string) => saved(renameUser(api, userId, name)),
     setNote: (note: string) => saved(setAdminNote(api, userId, note)),
     giveRole: (role: string) => saved(setUserRole(api, userId, role)),
-    issueLink: (name: string): void => {
+    // A reset link replaces the outstanding one (D466 §2); the page, read again, says until when.
+    issueLink: (name: string, isReset: boolean): void => {
       runRequest(async (idempotencyKey) => {
         const invitation = await issueRegistrationInvitation(api, userId, idempotencyKey);
-        setIssued({ name, invitation });
+        setIssued({ name, invitation, isReset });
+        reloads.reloadUser();
+      });
+    },
+    // The link shown, cancelled, no longer works, so it is no longer shown (D466 §4).
+    cancelResetLink: (): void => {
+      change(async () => {
+        await cancelResetLink(api, userId);
+        setIssued(undefined);
       });
     },
     remove: (device: Device): void => {
@@ -180,9 +193,85 @@ function OwnLink(props: {
 }
 
 /**
+ * Until when a registered person's reset password link is live, with Cancel, which ends it, and
+ * Renew, which makes a new one in its place and shows it; never the outstanding link itself, and
+ * nothing while there is none (D466 §4).
+ */
+function ResetLink(props: {
+  readonly person: UserPageBody;
+  readonly actions: PersonActions;
+}): JSX.Element | null {
+  const { t, i18n } = useTranslation();
+  const { user, resetLinkExpiresAt } = props.person;
+  if (!user.hasPassword || resetLinkExpiresAt === undefined) {
+    return null;
+  }
+  return (
+    <div className="person__reset-link">
+      <p>{t("person.resetLink", { date: dateTimeText(resetLinkExpiresAt, i18n.language) })}</p>
+      <div className="page-actions">
+        <ConfirmButton
+          label={t("person.cancelResetLink")}
+          consequence={t("person.cancelResetLinkConsequence", { name: user.name })}
+          confirmLabel={t("person.cancelResetLinkConfirm")}
+          onConfirm={props.actions.cancelResetLink}
+        />
+        <ConfirmButton
+          label={t("person.renewResetLink")}
+          consequence={t("person.renewResetLinkConsequence", { name: user.name })}
+          confirmLabel={t("person.renewResetLinkConfirm")}
+          onConfirm={() => {
+            props.actions.issueLink(user.name, true);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The button that makes a person's link: for a registered person a reset password link (D466 §1),
+ * which, while one is outstanding, ResetLink's Renew stands in for; for one not yet registered a
+ * first link, any sent before staying live (D318 §1).
+ */
+function NewLinkButton(props: {
+  readonly person: UserPageBody;
+  readonly actions: PersonActions;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { user, resetLinkExpiresAt } = props.person;
+  if (!user.hasPassword) {
+    return (
+      <ConfirmButton
+        label={t("people.newLink")}
+        consequence={t("people.newLinkConsequence", { name: user.name })}
+        confirmLabel={t("people.newLinkConfirm")}
+        onConfirm={() => {
+          props.actions.issueLink(user.name, false);
+        }}
+      />
+    );
+  }
+  if (resetLinkExpiresAt !== undefined) {
+    return null;
+  }
+  return (
+    <ConfirmButton
+      label={t("person.newResetLink")}
+      consequence={t("person.newResetLinkConsequence", { name: user.name })}
+      confirmLabel={t("person.newResetLinkConfirm")}
+      onConfirm={() => {
+        props.actions.issueLink(user.name, true);
+      }}
+    />
+  );
+}
+
+/**
  * A person's name, what they have watched, the admin's actions on them in one row under it (New
- * link, and Remove where they may be removed; ui-audit-2026-11-04.md §3, A person), their settings,
- * each saved at once, and activating a device of theirs.
+ * reset password link, or New link for one not yet registered, and Remove where they may be
+ * removed; ui-audit-2026-11-04.md §3, A person), their settings, each saved at once, and
+ * activating a device of theirs.
  */
 function PersonHead(props: {
   readonly person: UserPageBody;
@@ -205,14 +294,7 @@ function PersonHead(props: {
         {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
       </p>
       <div className="page-actions person__actions">
-        <ConfirmButton
-          label={t("people.newLink")}
-          consequence={t("people.newLinkConsequence", { name: user.name })}
-          confirmLabel={t("people.newLinkConfirm")}
-          onConfirm={() => {
-            props.actions.issueLink(user.name);
-          }}
-        />
+        <NewLinkButton person={props.person} actions={props.actions} />
         {props.isRemovable ? (
           <ConfirmButton
             label={t("person.remove", { name: user.name })}
