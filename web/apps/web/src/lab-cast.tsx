@@ -428,15 +428,16 @@ export function signInOf(
 }
 
 /**
- * Opens a session with our receiver appId by open, and asks it to show its log on screen, which it
- * shows only once a sender asks: the lab's sender, a debug tool, always does (the owner, 2026-11-12).
+ * Opens a session with our receiver appId by open, and asks it for its device report, which it makes
+ * only when asked: its WebRTC check plays a tone a person casting would hear (the owner, 2026-11-12).
+ * Asking shows the receiver's log on screen, as any request of the lab's sender does.
  */
 export async function openOurs<Session extends Pick<CastSession, "send">>(
   open: (appId: string) => Promise<Session>,
   appId: string,
 ): Promise<Session> {
   const opened = await open(appId);
-  await opened.send({ type: "showLog" });
+  await opened.send({ type: "report" });
   return opened;
 }
 

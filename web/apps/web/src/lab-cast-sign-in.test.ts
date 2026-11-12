@@ -48,7 +48,7 @@ describe("what asks the lab's receiver to become a cast target", () => {
 });
 
 describe("the lab's opening of our receiver", () => {
-  it("asks it to show its log on screen, which it hides until a sender asks (the owner, 2026-11-12)", async () => {
+  it("asks for its report, which it makes only when asked, its log shown with it (the owner, 2026-11-12)", async () => {
     const sent: unknown[] = [];
     const opened = {
       send: async (message: unknown) => {
@@ -64,7 +64,7 @@ describe("the lab's opening of our receiver", () => {
     };
     await expect(openOurs(open, "ABCD1234")).resolves.toBe(opened);
     expect(appIds).toEqual(["ABCD1234"]);
-    expect(sent).toEqual([{ type: "showLog" }]);
+    expect(sent).toEqual([{ type: "report" }]);
   });
 });
 

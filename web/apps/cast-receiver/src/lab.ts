@@ -72,13 +72,11 @@ export function memoryOf(memory: unknown, atS: number): MemorySample | undefined
 }
 
 /**
- * What a sender asks of the receiver: its report, its log shown on screen, a film to play, to pause or
- * play on, or to become a cast target, a device of the sender's person (device.ts), reaching the
+ * What a sender asks of the receiver: its report, a film to play, to pause or play on, or to become a cast target, a device of the sender's person (device.ts), reaching the
  * sender's core by reach. Every one shows the log: the lab's sender is a debug tool.
  */
 export type LabRequest =
   | { readonly type: "report" }
-  | { readonly type: "showLog" }
   | { readonly type: "toggle" }
   | { readonly type: "device"; readonly reach: Reach | undefined }
   | {
@@ -96,7 +94,7 @@ export function labRequestOf(message: unknown): LabRequest | undefined {
     return undefined;
   }
   const type: unknown = Reflect.get(message, "type");
-  if (type === "report" || type === "showLog" || type === "toggle") {
+  if (type === "report" || type === "toggle") {
     return { type };
   }
   if (type === "device") {
@@ -176,9 +174,6 @@ export class LabReceiver {
       return;
     }
     this.showLog();
-    if (request.type === "showLog") {
-      return;
-    }
     if (request.type === "report") {
       void this.report();
       return;
