@@ -53,6 +53,17 @@ export class CastSdkFailure extends Error {
 /** The code the SDK answers a request with whose picker the person closed choosing no device. */
 const cancelledCode = "cancel";
 
+/**
+ * The code the SDK answers a message with on a namespace the receiver does not listen on: a receiver
+ * page older than the sender, left running on the device across a deploy and joined, not launched.
+ */
+const notListenedCode = "invalid_parameter";
+
+/** Whether cause is the receiver refusing a message on a namespace it does not listen on. */
+export function isNotListenedOn(cause: unknown): boolean {
+  return cause instanceof CastSdkFailure && cause.code === notListenedCode;
+}
+
 /** Whether cause is the person closing Chrome's Cast picker without choosing a device. */
 export function isCancelledByThePerson(cause: unknown): boolean {
   return cause instanceof CastSdkFailure && cause.code === cancelledCode;

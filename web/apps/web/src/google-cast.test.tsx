@@ -55,19 +55,31 @@ interface FakeCastDevice {
   readonly say: (message: unknown) => void;
   readonly endFromChrome: () => void;
   readonly endings: () => number;
+  /** How many sessions the page has asked Chrome for. */
+  readonly requests: () => number;
 }
 
-/** Puts a sender SDK on the page's globals whose picker picks the device named "Living room TV". */
-function givenCastSdk(): FakeCastDevice {
+/**
+ * Puts a sender SDK on the page's globals whose picker picks the device named "Living room TV";
+ * isOlderFirst, its first session joins a receiver page older than the sender's, left running, which
+ * does not listen on the grant's namespace, and its ending stopping that page.
+ */
+function givenCastSdk(isOlderFirst = false): FakeCastDevice {
   const sent: (readonly [unknown, unknown])[] = [];
   const listeners: ((namespace: unknown, text: unknown) => void)[] = [];
   const stateListeners: ((event: unknown) => void)[] = [];
   let endings = 0;
+  let requests = 0;
   const session = {
     getCastDevice: () => ({ friendlyName: "Living room TV" }),
     sendMessage: async (namespace: unknown, message: unknown) => {
-      sent.push([namespace, message]);
       await Promise.resolve();
+      if (isOlderFirst && requests === 1) {
+        // The SDK's own answer, a bare code, to a namespace the receiver does not listen on.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- the SDK rejects with a string
+        throw "invalid_parameter";
+      }
+      sent.push([namespace, message]);
     },
     addMessageListener: (
       _namespace: unknown,
@@ -77,12 +89,19 @@ function givenCastSdk(): FakeCastDevice {
     },
     endSession: () => {
       endings += 1;
+      if (isOlderFirst && requests === 1) {
+        current = null;
+        for (const listener of stateListeners) {
+          listener({ sessionState: "SESSION_ENDED" });
+        }
+      }
     },
   };
   let current: unknown = null;
   const context = {
     setOptions: () => undefined,
     requestSession: async () => {
+      requests += 1;
       current = session;
       await Promise.resolve();
     },
@@ -118,6 +137,7 @@ function givenCastSdk(): FakeCastDevice {
       }
     },
     endings: () => endings,
+    requests: () => requests,
   };
 }
 
@@ -347,6 +367,48 @@ describe("the Cast menu's Chromecast (D465 §3)", () => {
     await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/9/end"));
     const ended = heard.find((each) => each.methodAndPath === "POST /me/casts/9/end");
     expect(ended === undefined ? undefined : bodyField(ended, "reason")).toBe("stopped");
+  });
+
+  it("stops a receiver older than the page, left running on the device, and launches it again for the grant (the owner, 2026-11-12)", async () => {
+    const heard: Heard[] = [];
+    const server = fakeTogetherServer();
+    const services = underTheLoader(
+      {
+        "GET /me/devices": [200, { devices: [thisLaptop] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+      },
+      heard,
+      server,
+    );
+    givenHints(chromeHints);
+    const device = givenCastSdk(true);
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => ({ fileId: 4, positionMs: 61_000 })} />
+        </LiveProvider>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1] });
+    await settleUntil(
+      () => buttonWithText(mounted?.container ?? document.body, "Chromecast") !== undefined,
+    );
+    await click(buttonWithText(mounted.container, "Chromecast"));
+    await settleUntil(() => device.sent.length === 1);
+    // The older page stopped, a second session launched it as it is now, which heard the grant.
+    expect(device.endings()).toBe(1);
+    expect(device.requests()).toBe(2);
+    expect(device.sent[0]?.[0]).toBe(guestCastNamespace);
+    await act(async () => {
+      device.say({ type: "ready", deviceId: 12 });
+      await Promise.resolve();
+    });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts"));
+    const made = heard.find((each) => each.methodAndPath === "POST /me/casts");
+    expect(made === undefined ? undefined : bodyField(made, "toDeviceId")).toBe(12);
+    expect(mounted.container.textContent).not.toContain("could not take the cast");
   });
 
   it("ends the Cast session once its cast is over, the Cast menu closed (Stop casting on the remote)", async () => {
