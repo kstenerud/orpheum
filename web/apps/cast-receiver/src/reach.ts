@@ -8,8 +8,10 @@ import {
   firstDirectPath,
   rtcTogetherSocket,
   targetOfSession,
+  type DiscoveryClient,
   type FetchRequest,
   type OpenTogetherSocket,
+  type Target,
 } from "@orpheum/sdk";
 
 /**
@@ -20,15 +22,16 @@ import {
  * it as they answer the web client there.
  */
 
-/** What a sender hands the receiver to reach its core: its discovery, the core, and its session. */
-export interface Reach {
+/**
+ * What a sender hands the receiver to find its core: its discovery, the core, and the locator of
+ * the sender's session. A Google Cast device casting under a grant is handed this alone (D465 §2).
+ */
+export interface CoreReach {
   /** The discovery's client API, as the sender's page names it. */
   readonly clientApi: string;
   readonly coreId: string;
   /** The core's identity key's fingerprint, which its answers are checked by. */
   readonly fingerprint: string;
-  /** The sender's session, which the receiver's offers and requests are signed in by. */
-  readonly token: string;
   /** The locator the discovery finds the core by for the sender's session. */
   readonly locator: string;
   /**
@@ -38,33 +41,39 @@ export interface Reach {
   readonly clientOrigin: string | undefined;
 }
 
+/** What the lab's sender hands: a core's reach, with the sender's session, which signs it in. */
+export interface Reach extends CoreReach {
+  /** The sender's session, which the receiver's offers and requests are signed in by. */
+  readonly token: string;
+}
+
 /** An address on https, else undefined. */
 function onHttps(address: string | undefined): string | undefined {
   return address?.startsWith("https://") === true ? address : undefined;
 }
 
+/** The non-empty string at name in value, or undefined. */
+function stringAt(value: object, name: string): string | undefined {
+  const each: unknown = Reflect.get(value, name);
+  return typeof each === "string" && each !== "" ? each : undefined;
+}
+
 /**
- * A sender's reach, or undefined for anything else: a client API on https alone, and a client
- * origin on https or none.
+ * A sender's reach of its core, or undefined for anything else: a client API on https alone, and a
+ * client origin on https or none.
  */
-export function reachOf(value: unknown): Reach | undefined {
+export function coreReachOf(value: unknown): CoreReach | undefined {
   if (typeof value !== "object" || value === null) {
     return undefined;
   }
-  const field = (name: string): string | undefined => {
-    const each: unknown = Reflect.get(value, name);
-    return typeof each === "string" && each !== "" ? each : undefined;
-  };
-  const clientApi = onHttps(field("clientApi"));
-  const coreId = field("coreId");
-  const fingerprint = field("fingerprint");
-  const token = field("token");
-  const locator = field("locator");
+  const clientApi = onHttps(stringAt(value, "clientApi"));
+  const coreId = stringAt(value, "coreId");
+  const fingerprint = stringAt(value, "fingerprint");
+  const locator = stringAt(value, "locator");
   if (
     clientApi === undefined ||
     coreId === undefined ||
     fingerprint === undefined ||
-    token === undefined ||
     locator === undefined
   ) {
     return undefined;
@@ -73,10 +82,16 @@ export function reachOf(value: unknown): Reach | undefined {
     clientApi,
     coreId,
     fingerprint,
-    token,
     locator,
-    clientOrigin: onHttps(field("clientOrigin")),
+    clientOrigin: onHttps(stringAt(value, "clientOrigin")),
   };
+}
+
+/** A lab sender's reach, its core's with the sender's session, or undefined for anything else. */
+export function reachOf(value: unknown): Reach | undefined {
+  const core = coreReachOf(value);
+  const token = typeof value === "object" && value !== null ? stringAt(value, "token") : undefined;
+  return core === undefined || token === undefined ? undefined : { ...core, token };
 }
 
 /**
@@ -110,18 +125,36 @@ export function reachedAt(origin: string): Reached {
 }
 
 /**
- * Reaches the core reach names: where the page may go direct (mayGoDirect), at the first of its own
- * names that answers, else over WebRTC through its discovery. Notes each step, which a device shows
- * on its screen and in its report.
+ * Reaches the core reach names, signed in by the sender's session (the lab's): reachThrough, its
+ * offers proven under that session.
  */
 export async function reachCore(reach: Reach, note: (line: string) => void): Promise<Reached> {
+  return await reachThrough(
+    reach,
+    (client) =>
+      targetOfSession(client, {
+        core: { coreId: reach.coreId, fingerprint: reach.fingerprint },
+        token: reach.token,
+        locator: reach.locator,
+      }),
+    note,
+  );
+}
+
+/**
+ * Reaches the core reach names, at the target targetOf finds through its discovery: where the page
+ * may go direct (mayGoDirect), at the first of its own names that answers, else over WebRTC, its
+ * offers proven as the target says. Notes each step, which a device shows on its screen and in its
+ * report.
+ */
+export async function reachThrough(
+  reach: CoreReach,
+  targetOf: (client: DiscoveryClient) => Promise<Target>,
+  note: (line: string) => void,
+): Promise<Reached> {
   const client = { clientApi: reach.clientApi };
   note(`asking ${reach.clientApi} for the core's paths`);
-  const target = await targetOfSession(client, {
-    core: { coreId: reach.coreId, fingerprint: reach.fingerprint },
-    token: reach.token,
-    locator: reach.locator,
-  });
+  const target = await targetOf(client);
   const pageOrigin = globalThis.location.origin;
   if (mayGoDirect(reach, pageOrigin)) {
     const origin = await firstDirectPath(target.directUrls, undefined, {

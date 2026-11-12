@@ -3000,3 +3000,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   "staging: running /home/karl/orpheum/.staging/after-up", and the hook rebuilt Connect's staging;
   orpheum.dev then served `/` and `/cast/` with the same bundles as this checkout's build. Called
   with no file, after_up returned 0; with a hook that exits 3, it said so and returned 3.
+- [ ] **VQ302** — A Chromecast chosen in Chrome's own picker plays the cast without a code (D465 §2;
+  google-cast.md §2, steps 2 and 3). On staging, with the owner's 3rd-generation Chromecast
+  registered to staging's receiver application, open a film in Chrome on the Mac, press Cast, choose
+  Chromecast under the separator, then the TV in Chrome's picker. Passes when the TV shows the film
+  with no pairing code on either screen, the receiver's log there says "traded the grant: device …",
+  play, pause and a seek in the tab move the TV within a few seconds, Stop casting stops it, and the
+  TV is in none of Your devices' lists after. (`web/apps/cast-receiver/src/guest.ts`, `src/caf.ts`,
+  `src/main.ts`)

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The Cast Application Framework's receiver context, as the lab receiver uses it
- * (plans/tv-device-tests.md): index.html loads CAF from Google; it comes with no types this tree may
- * add (AGENTS.md rule 3), so it is reached through this narrow adapter. Undefined off a Cast device,
- * where the page still runs its report, for a desktop browser to try.
+ * The Cast Application Framework's receiver context, as the receiver uses it: on the lab's namespace
+ * (plans/tv-device-tests.md) and on the cast's, for a cast under a grant (D465 §2). index.html loads
+ * CAF from Google; it comes with no types this tree may add (AGENTS.md rule 3), so it is reached
+ * through this narrow adapter. Undefined off a Cast device, where the page still runs its report, for
+ * a desktop browser to try.
  */
 
 /** The value at path under holder, or undefined where any step is missing. */
@@ -28,20 +29,19 @@ function call(holder: unknown, name: string, ...methodArguments: readonly unknow
   return Reflect.apply(method, holder, methodArguments);
 }
 
-/** A started receiver: what it hears on the namespace, and its sending to every sender. */
+/** A started receiver: its sending, on one of its namespaces, to every sender. */
 export interface Receiver {
-  readonly broadcast: (message: Readonly<Record<string, unknown>>) => void;
+  readonly broadcast: (namespace: string, message: Readonly<Record<string, unknown>>) => void;
 }
 
 /**
- * Starts CAF's receiver on namespace: never closed for being idle, since our own player replaces
- * CAF's and CAF would see a receiver playing nothing (casting-review-2026-10-25.md §4), with CAF's
- * players not loaded. Tells onMessage each message, and onEvent the senders' coming and going.
- * Undefined where the page is not on a Cast device.
+ * Starts CAF's receiver on each namespace heard names: never closed for being idle, since our own
+ * player replaces CAF's and CAF would see a receiver playing nothing (casting-review-2026-10-25.md
+ * §4), with CAF's players not loaded. Tells each namespace's listener the messages on it, and
+ * onEvent the senders' coming and going. Undefined where the page is not on a Cast device.
  */
 export function startReceiver(
-  namespace: string,
-  onMessage: (message: unknown) => void,
+  heard: Readonly<Record<string, (message: unknown) => void>>,
   onEvent: (what: string) => void,
 ): Receiver | undefined {
   const framework = at(globalThis, "cast", "framework");
@@ -56,12 +56,17 @@ export function startReceiver(
   }
   Reflect.set(options, "disableIdleTimeout", true);
   Reflect.set(options, "skipPlayersLoad", true);
-  Reflect.set(options, "customNamespaces", {
-    [namespace]: at(framework, "system", "MessageType", "JSON"),
-  });
-  call(context, "addCustomMessageListener", namespace, (event: unknown) => {
-    onMessage(at(event, "data"));
-  });
+  const json = at(framework, "system", "MessageType", "JSON");
+  Reflect.set(
+    options,
+    "customNamespaces",
+    Object.fromEntries(Object.keys(heard).map((namespace) => [namespace, json])),
+  );
+  for (const [namespace, onMessage] of Object.entries(heard)) {
+    call(context, "addCustomMessageListener", namespace, (event: unknown) => {
+      onMessage(at(event, "data"));
+    });
+  }
   for (const type of ["SENDER_CONNECTED", "SENDER_DISCONNECTED", "SHUTDOWN"]) {
     const eventType = at(framework, "system", "EventType", type);
     if (eventType !== undefined) {
@@ -72,7 +77,7 @@ export function startReceiver(
   }
   call(context, "start", options);
   return {
-    broadcast: (message) => {
+    broadcast: (namespace, message) => {
       call(context, "sendCustomMessage", namespace, undefined, message);
     },
   };

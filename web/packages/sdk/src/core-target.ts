@@ -83,22 +83,24 @@ export interface HeldSession {
   readonly locator: string;
 }
 
+/** A proving by a locator the device holds, which the discovery finds its core by. */
+type ProvingByLocator = Proving & { readonly held: { readonly locator: string } };
+
 /** What an offer made with held is sent and proven with: its locator, under its token's key. */
-export async function provingOf(held: HeldSession): Promise<Proving> {
+export async function provingOf(held: HeldSession): Promise<ProvingByLocator> {
   return { held: { locator: held.locator }, key: await sessionOfferKey(held.token) };
 }
 
 /**
- * The core the discovery finds by locator, as the device knows it: core is the one it reached, or its
- * sender did; the discovery answering for another is refused.
+ * The core the discovery finds by the locator the offers are proven under, as the device knows it:
+ * core is the one it reached, or its sender did; the discovery answering for another is refused.
  */
 async function targetAt(
   client: DiscoveryClient,
   core: KeptCore,
-  locator: string,
-  proving: Proving,
+  proving: ProvingByLocator,
 ): Promise<Target> {
-  const located = await pathsOf(client, { locator });
+  const located = await pathsOf(client, { locator: proving.held.locator });
   if (located.coreId !== core.coreId) {
     throw new Error("the discovery answered for another server than this device reached");
   }
@@ -116,7 +118,7 @@ async function targetAt(
 
 /** Finds the remembered core by this device's locator; its offers are proven under its session. */
 export async function targetOfSession(client: DiscoveryClient, held: HeldSession): Promise<Target> {
-  return targetAt(client, held.core, held.locator, await provingOf(held));
+  return await targetAt(client, held.core, await provingOf(held));
 }
 
 /**
@@ -140,16 +142,16 @@ export async function targetOfGuestGrant(
   held: HeldGuestGrant,
   traded: () => HeldSession | undefined,
 ): Promise<Target> {
-  const byGrant: Proving = {
+  const byGrant: ProvingByLocator = {
     held: { locator: held.senderLocator },
     key: await guestGrantOfferKey(held.grant),
   };
   const bySession = async (): Promise<Proving | undefined> => {
     const session = traded();
-    return session === undefined ? undefined : provingOf(session);
+    return session === undefined ? undefined : await provingOf(session);
   };
   return {
-    ...(await targetAt(client, held.core, held.senderLocator, byGrant)),
+    ...(await targetAt(client, held.core, byGrant)),
     latest: bySession,
     fallback: bySession,
   };

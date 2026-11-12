@@ -58,8 +58,13 @@ no package is added.
      derived from the grant under a purpose of its own, which the core takes under its sender's
      locator only while the grant waits. After the trade the receiver proves later offers by its
      own session (the owner, 2026-11-12).
-   - Tests in `src/device.test.ts`: a launch with a grant accepts its cast without pairing and keeps
+   - Tests in `src/guest.test.ts`: a launch with a grant accepts its cast without pairing and keeps
      nothing in storage after it ends.
+   - (Built 2026-11-12. The receiver listens on the lab's namespace and on
+     `urn:x-cast:org.orpheum.cast`; a launch there is `{type: "guest", grant, reach}`, the reach the
+     lab's without its token, and it answers `{type: "ready", deviceId}` or `{type: "failed",
+     reason}`. `proof.GuestGrantOfferKey` is the grant's key, and the SDK's `targetOfGuestGrant`
+     proves by it until the trade. On a device: VQ302.)
 3. **The sender: the Cast menu's icons, and Chromecast in it.**
    - Google's Cast sender script, loaded only in Chrome and only when the menu is first opened (§1).
      The web client's content security policy today allows it on the lab's pages alone

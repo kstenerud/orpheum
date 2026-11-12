@@ -4,13 +4,14 @@
 import "./old-engine.ts";
 
 import { startReceiver } from "./caf.ts";
+import { castNamespace } from "./guest.ts";
 import { LabReceiver, memoryEveryMs } from "./lab.ts";
 
 /**
  * The cast receiver's entry point. For now it is the lab's spike receiver (plans/tv-device-tests.md;
  * casting-2026-10-25.md §5.2 step 2): CAF's receiver, started never to close for being idle, with
- * our own player in place of CAF's, listening on the lab's namespace; the receiver of M6 (D245)
- * grows from what it finds.
+ * our own player in place of CAF's, listening on the lab's namespace, and on the cast's for a cast
+ * under a grant (D465 §2); the receiver of M6 (D245) grows from what it finds.
  */
 
 /** The namespace the lab's sender (the web app's /lab/cast) and this receiver speak on. */
@@ -24,13 +25,19 @@ function start(): void {
   document.body.append(video, screen);
   let receiver: ReturnType<typeof startReceiver>;
   const lab = new LabReceiver(screen, video, (message) => {
-    receiver?.broadcast(message);
+    receiver?.broadcast(labNamespace, message);
   });
   try {
     receiver = startReceiver(
-      labNamespace,
-      (message) => {
-        lab.heard(message);
+      {
+        [labNamespace]: (message) => {
+          lab.heard(message);
+        },
+        [castNamespace]: (message) => {
+          lab.heardGuestLaunch(message, (answer) => {
+            receiver?.broadcast(castNamespace, answer);
+          });
+        },
       },
       (what) => {
         lab.note(what);
