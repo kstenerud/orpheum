@@ -55,6 +55,14 @@ class Planning(unittest.TestCase):
         self.assertIn("make generate", gaps)
         self.assertIn("go.mod", gaps)
 
+    def test_the_media_name_gate_reads_the_changed_files_or_every_file_for_its_own_change(self):
+        spot = spot_check.plan(["docs/a.md"], MODULE, {})
+        commands = [run.command for run in spot_check.runs(spot, MODULE)]
+        self.assertIn([sys.executable, "scripts/check_media_names.py", "docs/a.md"], commands)
+        spot = spot_check.plan(["docs/a.md", "scripts/media_names.allow"], MODULE, {})
+        commands = [run.command for run in spot_check.runs(spot, MODULE)]
+        self.assertIn([sys.executable, "scripts/check_media_names.py"], commands)
+
     def test_the_runs_are_the_planned_commands(self):
         spot = spot_check.plan(["internal/a/x.go", "web/apps/web/src/a.tsx", "scripts/x.py"], MODULE, IMPORTERS)
         commands = [run.command for run in spot_check.runs(spot, MODULE)]

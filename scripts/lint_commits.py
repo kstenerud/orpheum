@@ -23,7 +23,9 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
+from check_media_names import REGISTRY, find, read_registry
 from commit_hashes import cited_commits, subject_of
 
 # The type set, from yoloAI's settled convention, with Conventional Commits' `style` for a change
@@ -171,6 +173,17 @@ def check_session_line(c: Commit) -> list[Problem]:
                     "Drop the line (Co-Authored-By stays, rule 13)")]
 
 
+def check_media_names(c: Commit) -> list[Problem]:
+    """No message names a film, series or episode the registry does not list: the history is public,
+    and the owner's library is never named (AGENTS.md rule 12)."""
+    # Beside this script, not the working directory: a test runs the lint in a repository of its own.
+    registry = read_registry((Path(__file__).resolve().parent / REGISTRY.name).read_text(encoding="utf-8"))
+    return [Problem(c.sha, c.subject, "media-name",
+                    f"names {f.text!r} ({f.rule}), which {REGISTRY} does not list. Name a film by its id "
+                    "or as \"the owner's film\"")
+            for f in find(c.subject + "\n" + c.body, registry, None)]
+
+
 def read_commits(base: str, head: str) -> list[Commit]:
     sep, rec = "\x1f", "\x1e"
     out = subprocess.run(
@@ -205,6 +218,7 @@ def lint(commits: list[Commit]) -> list[Problem]:
         problems.extend(check_trailers(c))
         problems.extend(check_hashes(c))
         problems.extend(check_session_line(c))
+        problems.extend(check_media_names(c))
     return problems
 
 

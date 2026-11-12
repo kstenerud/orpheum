@@ -105,7 +105,7 @@ check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 .PHONY: check-parallel
 # check-generated runs beside the rest: nothing reads what it generates, which goes to a temporary
 # directory, and as a prerequisite it held every other step back by 7.6 s (2026-10-01).
-check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web-parallel
+check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-media-names check-architecture check-go check-web-parallel
 
 .PHONY: check-tools
 check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if another pinned tool is missing or at the wrong version
@@ -120,7 +120,7 @@ check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if anot
 	@command -v shellcheck >/dev/null || { echo "shellcheck is not installed"; exit 1; }
 
 .PHONY: check-documentation
-check-documentation: check-docs check-claims check-architecture ## The gate for a change of documentation alone (scripts/documentation_only.py): what reads the docs, and no test of the code
+check-documentation: check-docs check-claims check-media-names check-architecture ## The gate for a change of documentation alone (scripts/documentation_only.py): what reads the docs, and no test of the code
 	@# The one Go test that reads a document, schema.md's owners table (the M4 closing audit).
 	@$(HERMETIC) go test -run '^TestArch_EachTableHasOneWritingPackage$$' ./internal/archtest/
 

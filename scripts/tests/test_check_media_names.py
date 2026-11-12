@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_media_names as cmn  # noqa: E402
+import lint_commits  # noqa: E402
 
 REGISTRY = """
 # a comment
@@ -183,6 +184,31 @@ class MediaTitle(unittest.TestCase):
         self.assertEqual(cmn.media_title("Quarry Lamps (1987).en.forced"), "quarry lamps")
         self.assertEqual(cmn.media_title("Quarry Lamps - 2x05 - The Kiln"), "quarry lamps")
         self.assertEqual(cmn.media_title("Quarry Lamps Director's Cut"), "quarry lamps")
+
+
+class Files(unittest.TestCase):
+    def test_a_skipped_file_named_on_the_command_line_is_skipped_still(self):
+        # This file names unlisted films on purpose: spot names it when it changes.
+        self.assertEqual(cmn.find_in_files(["scripts/tests/test_check_media_names.py"], registry()), [])
+
+
+class CommitMessages(unittest.TestCase):
+    """The commit lint and the commit-msg hook run this gate over each message, with the registry
+    the repository holds."""
+
+    def rules(self, subject: str, body: str = "") -> list[str]:
+        return [p.rule for p in lint_commits.check_media_names(lint_commits.Commit("0" * 40, subject, body))]
+
+    def test_a_film_named_in_a_message_is_refused(self):
+        self.assertEqual(self.rules("test(scan): the Blue Gannet (1987) case"), ["media-name"])
+        self.assertEqual(self.rules("docs: x", "It stalled in s2e5."), ["media-name"])
+
+    def test_a_listed_film_passes(self):
+        self.assertEqual(self.rules("test(scan): the Metropolis (1927) case"), [])
+
+    def test_the_lint_runs_it(self):
+        problems = lint_commits.lint([lint_commits.Commit("0" * 40, "docs: the Blue Gannet (1987) case", "")])
+        self.assertIn("media-name", [p.rule for p in problems])
 
 
 if __name__ == "__main__":

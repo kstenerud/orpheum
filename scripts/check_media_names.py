@@ -287,6 +287,8 @@ def tracked_files() -> list[str]:
 def find_in_files(paths: list[str], registry: Registry) -> list[Finding]:
     out: list[Finding] = []
     for path in paths:
+        if path in SKIPPED or path.endswith(SKIPPED_SUFFIXES):  # a path spot names, as make check skips it
+            continue
         try:
             data = Path(path).read_bytes()
         except (FileNotFoundError, IsADirectoryError):

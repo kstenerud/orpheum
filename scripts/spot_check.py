@@ -52,6 +52,10 @@ PYTHON_GATES = re.compile(r"^(scripts/.*\.py|\.claude/hooks/.*\.py|dev|Makefile|
 GENERATED_FROM = re.compile(r"^(internal/store/(cache/)?queries/.*\.sql|internal/core/api/.*\.go)$")
 
 
+# The media-name gate and its registry: a change to either is checked against every file.
+MEDIA_NAMES_GATE = {"scripts/check_media_names.py", "scripts/media_names.allow"}
+
+
 @dataclass
 class Plan:
     """What the spot check runs, and what it names as left to `make check`."""
@@ -61,6 +65,10 @@ class Plan:
     web_files: list[str] = field(default_factory=list)
     python: bool = False
     docs: bool = False
+    # The changed files the media-name gate reads, and whether it reads every file instead: when the
+    # gate or its registry changed.
+    named: list[str] = field(default_factory=list)
+    named_all: bool = False
     not_run: list[str] = field(default_factory=list)
 
 
@@ -83,6 +91,7 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
     """What to run for `paths`: `module` is go.mod's module path, and `importers` maps each Go package
     to the packages that import it directly, their tests included."""
     result = Plan()
+    result.named, result.named_all = list(paths), bool(MEDIA_NAMES_GATE & set(paths))
     changed_packages: set[str] = set()
     styles = []
     for path in paths:
@@ -163,6 +172,9 @@ def runs(spot: Plan, module: str) -> list[Run]:
     linted = [p for p in linted if any(Path(p).glob("*.go"))]  # a package the change deleted has nothing to lint
     if linted:
         out.append(Run(f"golangci-lint, {len(linted)} package(s)", go_lint_as_make_check(linted)))
+    if spot.named or spot.named_all:
+        named = [] if spot.named_all else spot.named
+        out.append(Run("the media-name gate", [sys.executable, "scripts/check_media_names.py", *named]))
     return out
 
 
