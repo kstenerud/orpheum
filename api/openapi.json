@@ -7972,6 +7972,7 @@
             "description": "Why the page asked for this playback, for the log",
             "enum": [
               "filmPage",
+              "upNext",
               "playPage",
               "warmUpStale",
               "warmUpOffLadder",

@@ -10,20 +10,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferPlace } from "./convenience-area.tsx";
 import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
-import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  bodyField,
+  mount,
+  playbackCauses,
+  servedBy,
+  settleUntil,
+  type Answer,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 import type { Previous, UpNext } from "./around-file.ts";
+import type { Services } from "./services.tsx";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import {
   offerState,
   upNextCountdownMs,
   upNextLeadMs,
+  UpNextContext,
   UpNextOffer,
+  UpNextOver,
   useSequenceCommands,
   useUpNextOffered,
   type UpNextOffered,
 } from "./up-next.tsx";
+import { watchingOf } from "./watching.ts";
 
 /** S1E3, "Bag", which plays file 4. */
 const bag: UpNext = {
@@ -476,5 +489,120 @@ describe("the Up next offer over the film", () => {
     expect(page.textContent).toContain("Plays in 10 s");
     waitMs(upNextCountdownMs);
     expect(played).toBe(1);
+  });
+});
+
+/** A decision naming its media token, on its film's ladder, as POST /playback answers. */
+function decidedOnLadder(mediaToken: string): Answer {
+  return [
+    200,
+    {
+      delivery: "direct",
+      url: "/u",
+      notDirectReasons: [],
+      mediaToken,
+      resumePositionMs: 0,
+      onLadder: {
+        url: `/api/v1/bytes/media/chunks/${mediaToken}/master.m3u8`,
+        startAtBps: 4_000_000,
+        qualityKbps: 2400,
+        height: 1080,
+        isBelowTheLowest: false,
+        soundCarriedGainDb: 0,
+        isReady: false,
+        filmPictureKbps: 2400,
+      },
+    },
+  ];
+}
+
+describe("the next episode warmed up as Up next shows (the owner's request, 2026-11-11)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  /** Services answering the playing film's decision, a, and then the next episode's, n. */
+  function served(heard: Heard[]): Services {
+    const services = servedBy(
+      {
+        "POST /playback": [decidedOnLadder("a"), decidedOnLadder("n")],
+        "DELETE /playback/a": [204, undefined],
+      },
+      heard,
+    );
+    // Under the discovery's loader, where a warm-up preloads nothing (D260 §3).
+    const pathMoves = {
+      count: () => 0,
+      to: () => undefined,
+      subscribe: () => () => undefined,
+      isOverWebrtc: () => true,
+    };
+    return { ...services, pathMoves };
+  }
+
+  /** Plays file 3, its Up next offering file 4, here or on a cast's receiver. */
+  async function playingThree(
+    services: Services,
+    receiving?: UpNextOffered["receiving"],
+  ): Promise<ReturnType<typeof fakeVideo>> {
+    await watchingOf(services.api).decide(3, services.playableFormats());
+    const video = fakeVideo();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <UpNextContext value={{ upNext: bag, isAutoplayOn: true, receiving }}>
+          <UpNextOver videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </UpNextContext>,
+        services,
+      ),
+    );
+    return video;
+  }
+
+  /** The requests heard, by method and path, once every one sent so far has been answered. */
+  async function settled(heard: readonly Heard[]): Promise<string[]> {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    return heard.map((request) => request.methodAndPath);
+  }
+
+  it("is asked for once as it shows, the playing film keeping its playback, and the next Play takes it", async () => {
+    const heard: Heard[] = [];
+    const services = served(heard);
+    const video = await playingThree(services);
+    video.stand(600);
+    expect(await settled(heard)).toEqual(["POST /playback"]);
+    video.stand(1185);
+    expect(await settled(heard)).toEqual(["POST /playback", "POST /playback"]);
+    expect(heard.map((request) => bodyField(request, "fileId"))).toEqual([3, 4]);
+    expect(playbackCauses(heard)).toEqual(["playPage", "upNext"]);
+    // Moved back from the end and on to it again: the warm-up already held is asked for no more.
+    video.stand(1190);
+    video.stand(600);
+    video.stand(1185);
+    expect(await settled(heard)).toEqual(["POST /playback", "POST /playback"]);
+    // Autoplay's Play of the next episode starts on the warmed decision, and only then lets go of
+    // the film played.
+    const decision = await watchingOf(services.api).decide(4, services.playableFormats());
+    expect(decision.mediaToken).toBe("n");
+    expect(await settled(heard)).toEqual([
+      "POST /playback",
+      "POST /playback",
+      "DELETE /playback/a",
+    ]);
+  });
+
+  it("is not asked for on a cast's receiver, whose cast moves on to the next episode instead", async () => {
+    const heard: Heard[] = [];
+    const services = served(heard);
+    const video = await playingThree(services, { cast: castHere, onLeave: () => undefined });
+    video.stand(1185);
+    expect(mounted?.container.textContent).toContain("Up next: S1E3 · Bag");
+    expect(await settled(heard)).toEqual(["POST /playback"]);
   });
 });

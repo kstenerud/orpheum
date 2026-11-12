@@ -377,3 +377,113 @@ describe("the film being watched (D258)", () => {
     expect(preloads.started.map((preload) => preload.isStopped)).toEqual([true]);
   });
 });
+
+describe("the next episode warmed up as Up next shows (the owner's request, 2026-11-11)", () => {
+  it("is not a film page's warm-up, which lets go of the film playing, its runs stopped at once", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats);
+    watching.warmUp(8, playableFormats);
+    expect(await settled(heard)).toEqual([
+      "POST /playback",
+      "DELETE /playback/a",
+      "POST /playback",
+    ]);
+  });
+
+  it("keeps the film playing's playbacks to its end, and its Play takes the warmed decision, asking nothing", async () => {
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("a"), decided("b"), decided("c")],
+        "DELETE /playback/a": [204, undefined],
+        "DELETE /playback/c": [204, undefined],
+      },
+      heard,
+    );
+    const watching = new Watching(api, () => 0, preloads.start);
+    await watching.decide(7, playableFormats);
+    watching.warmUpNext(8, playableFormats);
+    // Up next shown again, as the person moves back and forward over the end: asked once.
+    watching.warmUpNext(8, playableFormats);
+    // The film playing deciding again, as a changed sound does, keeps the next episode's warm-up.
+    await watching.decide(7, playableFormats, { cause: "audioChosen" });
+    expect(await settled(heard)).toEqual(["POST /playback", "POST /playback", "POST /playback"]);
+    expect(playbackCauses(heard)).toEqual(["playPage", "upNext", "audioChosen"]);
+    expect(preloads.started).toEqual([
+      { url: "/api/v1/bytes/media/chunks/b/master.m3u8", positionMs: 40_000, isStopped: false },
+    ]);
+    preloads.settledAtBps = 1_896_000;
+    const decision = await watching.decide(8, playableFormats);
+    expect(decision.mediaToken).toBe("b");
+    expect(decision.onLadder?.startAtBps).toBe(1_896_000);
+    expect(preloads.started[0]?.isStopped).toBe(true);
+    // Only now are the film played's playbacks let go of.
+    expect((await settled(heard)).slice(3)).toEqual(["DELETE /playback/a", "DELETE /playback/c"]);
+  });
+
+  it("is taken by its Play while it is still asked for, its playback kept as the one watched", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats);
+    watching.warmUpNext(8, playableFormats);
+    expect((await watching.decide(8, playableFormats)).mediaToken).toBe("b");
+    // In the order the stand-in server reads them, a POST's body read last.
+    expect((await settled(heard)).toSorted()).toEqual([
+      "DELETE /playback/a",
+      "POST /playback",
+      "POST /playback",
+    ]);
+    // Another film: the next episode's playback, now the one watched, is let go of.
+    await watching.decide(9, playableFormats);
+    expect((await settled(heard)).slice(3)).toEqual(["DELETE /playback/b", "POST /playback"]);
+  });
+
+  it("is let go of, its preload and playback, when another film is chosen instead", async () => {
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { watching } = watchingServed(heard, preloads);
+    await watching.decide(7, playableFormats);
+    watching.warmUpNext(8, playableFormats);
+    await settled(heard);
+    watching.warmUp(9, playableFormats);
+    expect(preloads.started[0]?.isStopped).toBe(true);
+    expect(await settled(heard)).toEqual([
+      "POST /playback",
+      "POST /playback",
+      "DELETE /playback/a",
+      "DELETE /playback/b",
+      "POST /playback",
+    ]);
+  });
+
+  it("is let go of once answered, preloading nothing, where another film was chosen while it was asked for", async () => {
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { watching } = watchingServed(heard, preloads);
+    await watching.decide(7, playableFormats);
+    watching.warmUpNext(8, playableFormats);
+    watching.warmUp(9, playableFormats);
+    expect((await settled(heard)).toSorted()).toEqual([
+      "DELETE /playback/a",
+      "DELETE /playback/b",
+      "POST /playback",
+      "POST /playback",
+      "POST /playback",
+    ]);
+    expect(preloads.started.map((preload) => preload.url)).toEqual([
+      "/api/v1/bytes/media/chunks/c/master.m3u8",
+    ]);
+  });
+
+  it("preloads nothing where its media go over WebRTC, as a film page's warm-up does not (D260 §3)", async () => {
+    const preloads = standInPreloads();
+    const { watching } = watchingServed([], preloads);
+    await watching.decide(7, playableFormats);
+    watching.warmUpNext(8, playableFormats, () => true);
+    await settled([]);
+    expect(preloads.started).toEqual([]);
+    expect((await watching.decide(8, playableFormats)).mediaToken).toBe("b");
+  });
+});

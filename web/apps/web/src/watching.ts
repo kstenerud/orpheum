@@ -132,6 +132,13 @@ export function isStartThePages(offer: object): boolean {
   return startsThePageChose.has(offer);
 }
 
+/** answered, started at its ladder's top where this browser is set to (startsOnFilmsPicture). */
+function startedAsThisBrowserStarts(answered: PlaybackDecision): PlaybackDecision {
+  return answered.onLadder !== undefined && startsOnFilmsPicture()
+    ? { ...answered, onLadder: withThePagesStart(answered.onLadder, topOfTheLadderBps) }
+    : answered;
+}
+
 /** Starts a Preload of the film's ladder from where its playback resumes. */
 export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
 
@@ -199,6 +206,8 @@ export class Watching {
   private readonly tokens = new Set<string>();
   // The film page's decision, until the Play page takes it, and when it was asked for.
   private warm: Warm | undefined;
+  // The next episode's warm-up, asked as Up next shows, kept beside the film watched until it is.
+  private next: NextWarm | undefined;
 
   constructor(
     private readonly api: Api,
@@ -219,10 +228,11 @@ export class Watching {
     playableFormats: PlayableFormats,
     isOverWebrtc: () => boolean = () => false,
   ): void {
-    if (this.fileId === fileId && this.warm !== undefined) {
+    this.watch(fileId);
+    // Warmed already: on this film's page, or as Up next showed it (warmUpNext).
+    if (this.warm !== undefined) {
       return;
     }
-    this.watch(fileId);
     const decision = this.ask(fileId, { playableFormats, cause: "filmPage" });
     const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
     this.warm = warm;
@@ -231,6 +241,55 @@ export class Watching {
         // Not once the Play page took it, or another film was chosen.
         if (
           this.warm === warm &&
+          decided.onLadder !== undefined &&
+          !startsOnFilmsPicture() &&
+          !isOverWebrtc()
+        ) {
+          warm.preload = this.startPreload(decided.onLadder, decided.resumePositionMs);
+        }
+      },
+      // A warm-up that fails is the Play page's to ask again; nothing waits on it here.
+      () => undefined,
+    );
+  }
+
+  /**
+   * Up next shows fileId, the film that plays after the one watched: it is warmed up as a film's
+   * page warms its own (warmUp), its decision asked and its preload started where warmUp's would be,
+   * while the film watched keeps its playbacks. warmUp would make fileId the film watched, letting
+   * go of the playing film's playbacks, whose runs stop at once, in its last half minute (the
+   * owner's request, 2026-11-11). Once fileId is watched, at its Play page or its own page, it plays
+   * on this warm-up; another film chosen lets go of it, as of any warm-up, and a later next replaces
+   * it, so at most one is kept.
+   */
+  warmUpNext(
+    fileId: number,
+    playableFormats: PlayableFormats,
+    isOverWebrtc: () => boolean = () => false,
+  ): void {
+    if (this.fileId === fileId || this.next?.fileId === fileId) {
+      return;
+    }
+    this.letGoOfNext();
+    const decision = requestPlayback(this.api, fileId, { playableFormats, cause: "upNext" }).then(
+      startedAsThisBrowserStarts,
+    );
+    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
+    const next: NextWarm = { fileId, warm, mediaToken: undefined };
+    this.next = next;
+    decision.then(
+      (decided) => {
+        if (this.next === next) {
+          next.mediaToken = decided.mediaToken;
+        } else if (this.fileId === fileId) {
+          this.tokens.add(decided.mediaToken); // watched while it was asked for (watch)
+        } else {
+          this.leave(decided.mediaToken); // let go of while it was asked for
+          return;
+        }
+        const isUntaken = this.next === next || this.warm === warm;
+        if (
+          isUntaken &&
           decided.onLadder !== undefined &&
           !startsOnFilmsPicture() &&
           !isOverWebrtc()
@@ -335,11 +394,7 @@ export class Watching {
     fileId: number,
     asked: StartAsked & { readonly playableFormats: PlayableFormats },
   ): Promise<PlaybackDecision> {
-    const answered = await requestPlayback(this.api, fileId, asked);
-    const decision =
-      answered.onLadder !== undefined && startsOnFilmsPicture()
-        ? { ...answered, onLadder: withThePagesStart(answered.onLadder, topOfTheLadderBps) }
-        : answered;
+    const decision = startedAsThisBrowserStarts(await requestPlayback(this.api, fileId, asked));
     if (this.fileId === fileId) {
       this.tokens.add(decision.mediaToken);
     } else {
@@ -361,7 +416,10 @@ export class Watching {
     );
   }
 
-  /** Makes fileId the film watched, letting go of the playbacks of the one before. */
+  /**
+   * Makes fileId the film watched, letting go of the playbacks of the one before; the next
+   * episode's warm-up becomes fileId's own where it is fileId's, and is let go of otherwise.
+   */
   private watch(fileId: number): void {
     if (this.fileId === fileId) {
       return;
@@ -373,6 +431,26 @@ export class Watching {
     this.warm?.preload?.stop();
     this.warm = undefined;
     this.fileId = fileId;
+    const next = this.next;
+    if (next?.fileId !== fileId) {
+      this.letGoOfNext();
+      return;
+    }
+    this.next = undefined;
+    this.warm = next.warm;
+    if (next.mediaToken !== undefined) {
+      this.tokens.add(next.mediaToken);
+    }
+  }
+
+  /** Lets go of the next episode's warm-up: its preload, and its playback once decided. */
+  private letGoOfNext(): void {
+    const next = this.next;
+    this.next = undefined;
+    next?.warm.preload?.stop();
+    if (next?.mediaToken !== undefined) {
+      this.leave(next.mediaToken);
+    }
   }
 
   private leave(token: string): void {
@@ -386,6 +464,13 @@ interface Warm {
   readonly decision: Promise<PlaybackDecision>;
   readonly askedMs: number;
   preload: Preload | undefined;
+}
+
+/** The next episode's warm-up (warmUpNext), and its playback's token once it is decided. */
+interface NextWarm {
+  readonly fileId: number;
+  readonly warm: Warm;
+  mediaToken: string | undefined;
 }
 
 const watchingByApi = new WeakMap<Api, Watching>();
