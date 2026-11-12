@@ -3181,6 +3181,14 @@ below: "agreed. Release anyway". Found by the lead:
   after the cast was made (the receiver asking for the film, loading it at the sender's place and
   playing it). Where those seconds go (the playback decision, hls.js's first chunks at the sender's
   place, the receiver's play) is to be measured on the TV before it is worked on.
+- **Firefox's browser tests flake under the full run** (the owner, 2026-11-12: "We've had a lot of
+  firefox flakes in recent times"). The latest: `make check` at the end of the 11-23 batch failed
+  only in Firefox's player-widgets.browser.test.tsx, "draws the focused scrub bar with no ring, and
+  fades it a little while a key's focus is on a button", at `scrub.matches(":focus-visible")`
+  (line 362), false; `make check-pr` had passed on the same tree minutes before, and the file alone
+  passed three runs of three. Focus that a key's press is to give, read while the whole run loads
+  the machine, is the likely common cause. To do: gather each Firefox failure the gate logs and
+  gate-runs.jsonl hold, find what they share, and make each wait for what it reads, not loosen it.
 - **The lab says the Chromecast is a cast target before the core has taken it.** On the owner's
   Chromecast (2026-11-12), its Orpheum device removed, Make it a cast target used the TV's kept
   sign-in and the page said "Attic TV is a cast target" at once; the core then refused the sign-in,
