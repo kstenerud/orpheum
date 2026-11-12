@@ -2953,3 +2953,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   from the page, once however often it is run, and the page goes on working. The lines it logged
   before, unasked, are the sinks still to give a policy. (`web/apps/web/src/client-main.tsx`,
   `web/apps/web/src/policy-violations.ts`)
+- [ ] **VQ300** — A heavy stretch steps down only the chunks that do not fit, on a Fire TV with little
+  memory (the owner, 2026-11-12, "yes agreed. Go ahead"; D464; the 11-23 batch's item 4, in place of
+  VQ294's 5 MiB clause). On staging, with the owner's Fire TV at .197, over http (where Silk says no
+  `deviceMemory`), start /play/1504 afresh and seek to about 3:15. Passes when it plays past 4:10
+  without a stall but the seek's own wait and with no bufferFullError: the play report's link notes
+  say "video buffer 31.5 MB … assumed (lowMemory)", "by room" as a heavy chunk nears, and either no
+  step at all or "chunk N steps down from level …" for the few chunks of the 13 to 23 MB pieces, each
+  quality switch back to the top within a chunk or two after it; the rest of the film plays at the
+  1080p rung. Should a bufferFullError still come, passes when its note says "picture buffer refused:
+  limit … lowered to …", and a second playback from 3:15 starts with "… learnt" in its first note
+  and plays the stretch with no refusal. Then play the same stretch in desktop Chrome: no "by room"
+  and no step-down. (`internal/core/chunks/playlists.go`, `web/packages/player/src/picture-room.ts`,
+  `web/packages/player/src/forward-buffer.ts`)

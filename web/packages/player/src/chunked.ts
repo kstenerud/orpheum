@@ -46,6 +46,7 @@ import {
   deviceFactsOf,
   keepForwardBuffer,
   loadsAheadBelowTopS,
+  pictureRoomOf,
   type ForwardBuffer,
 } from "./forward-buffer.ts";
 import {
@@ -63,6 +64,7 @@ import { stepOverHoles } from "./holes.ts";
 import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
+import { bufferRoomOf, type PictureRoom } from "./picture-room.ts";
 
 /**
  * How long a chunk may take to begin arriving: longer than the core holds a request for one a run
@@ -432,6 +434,7 @@ function followAheadGroupSoundAndStalls(
   video: HTMLVideoElement,
   by: {
     readonly abr: OrpheumAbr;
+    readonly room: PictureRoom;
     readonly soundShift: SoundShift;
     readonly atMostS: number | undefined;
   },
@@ -441,6 +444,7 @@ function followAheadGroupSoundAndStalls(
     isTop: (level) => level >= (by.abr.choosing()?.topLevel() ?? Number.POSITIVE_INFINITY),
     note: linkNoter(video),
     atMostS: by.atMostS,
+    room: bufferRoomOf(hls, by.room, by.abr.chosenLevel),
   });
   return [
     ahead.stop,
@@ -487,6 +491,16 @@ export function tellChunkedLoading(
   const linkKbps = (): number | undefined => choosing()?.linkKbps();
   tellLoading(hls, video, { linkKbps, whyChose: (level) => choosing()?.whyChose(level) });
   return linkKbps;
+}
+
+/** abr's choosing as tellChunkedLoading reads it, why it chose a quality its step-down's where it stepped. */
+function choosingOf(
+  abr: OrpheumAbr,
+):
+  | { readonly linkKbps: () => number | undefined; readonly whyChose: OrpheumAbr["whyChose"] }
+  | undefined {
+  const choosing = abr.choosing();
+  return choosing && { linkKbps: () => choosing.linkKbps(), whyChose: abr.whyChose };
 }
 
 /**
@@ -730,7 +744,11 @@ export function playChunked(
     return withoutHlsJs;
   }
   const firstPieces = new FirstPieces(() => performance.now()); // hls.js's clock for its loads
-  const abr = orpheumAbr({ ...choosingOptionsOf(video, options), firstPieceOf: firstPieces.of });
+  const room = pictureRoomOf(deviceFactsOf(globalThis.navigator), linkNoter(video));
+  const abr = orpheumAbr(
+    { ...choosingOptionsOf(video, options), firstPieceOf: firstPieces.of },
+    room,
+  );
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
@@ -743,8 +761,8 @@ export function playChunked(
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);
   tellOwnMoves(hls, video);
-  const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
-  const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
+  const linkKbps = tellChunkedLoading(hls, video, () => choosingOf(abr));
+  const follow = { abr, room, soundShift, atMostS: options.loadsAheadAtMostS };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);

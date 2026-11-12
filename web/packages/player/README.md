@@ -201,8 +201,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   and `loadsAheadAtTopS` (60 s) at it**, the top being the ladder's below any quality found
   unplayable, never a ceiling of the moment; **no further than a third of the browser's memory for
   its picture** at the quality's average rate (`videoLimitBytes`: Chromium's 150 MiB, 30 MiB on a
-  Chromecast or where `navigator.deviceMemory` says 1 GB or less, about 100 MiB in Firefox, 100 MB in
-  WebKit), **nor than a third of its memory for its sound** at the sound's own rate, read from its
+  Chromecast, on a Fire TV by its model code, or where `navigator.deviceMemory` says 1 GB or less,
+  about 100 MiB in Firefox, 100 MB in WebKit; or the limit learnt on the device, if lower), **nor than a third of its memory for its sound** at the sound's own rate, read from its
   chunks as they load (`soundLimitBytes`: Chromium's 12 MiB, 2 MiB on the same weak devices, about
   30 MiB in Firefox, 100 MB in WebKit; a film's own copied 5.1 ran a Fire TV's full twice, staging,
   2026-10-29), but never below 20 s for either, a floor whose bytes the buffer cannot hold being
@@ -216,6 +216,18 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   2026-10-29, "Agreed with your recommendations"; its P3, replacing loaded low quality on a step up,
   is not to be built). `forward-buffer.test.ts`, `chunked.test.ts`, `hls.test.ts`,
   `abr-trust.test.ts`.
+- **A chunked playback steps down only the chunk of picture that does not fit** (D464): each chunk
+  is counted by its own bytes at each quality (its playlist's `EXT-X-BITRATE` on the film's own
+  picture, else its average, a made quality's peak over the chunk and its encoder's 2 s,
+  `madeBufferS`), and a chunk loads at the quality chosen where it and the chunk held before it fit
+  in `roomShareOfBufferLimit` (90%) of the picture buffer's limit, else at the highest below that
+  fits, else at the lowest; hls.js's echo of the step-down is no quality forced (D266). The picture
+  is loaded ahead no further than lets the next chunk, at the quality chosen, fit beside what is
+  held, even below the 20 s floor, read again at each chunk of picture buffered; at the browser's
+  first refusal of a chunk of picture for its memory, the limit becomes the most held at once, if
+  lower, kept in the browser's storage for its user agent alone. Each step-down is noted, and said
+  as why its quality was chosen. The sound's buffer is as above. `src/picture-room.ts`;
+  `picture-room.test.ts`, `forward-buffer.test.ts`; only a device shows the whole: VQ300.
 - **A chunked playback notes each stall of its page's main thread of `mainThreadStallAtLeastMs`
   (1 s) or more**, with its linkNotes, naming the player's last events before it (a seek, a quality
   or sound begun, a buffer flushed or run full), at most `mainThreadStallNotesAtMost` a playback:
@@ -276,7 +288,7 @@ for how far ahead it loads;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`; where a playback resumes after its decoding is rebuilt: `src/resume-position.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; the room its picture's buffer has for the next chunk, and the step-down of one that does not fit: `src/picture-room.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`; where a playback resumes after its decoding is rebuilt: `src/resume-position.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.
