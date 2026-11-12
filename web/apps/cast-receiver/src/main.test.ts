@@ -32,4 +32,14 @@ describe("the receiver's entry point", () => {
     expect("toSorted" in Array.prototype).toBe(true);
     expect([3, 1, 2].toSorted()).toEqual([1, 2, 3]);
   });
+
+  it("makes no report at its start, whose WebRTC check would play a tone through the TV", async () => {
+    // The owner, 2026-11-12: a cast started with a trill of some seconds, the report's tone.
+    vi.resetModules();
+    document.body.replaceChildren();
+    await import("./main.ts");
+    const log = document.querySelector(".receiver__log");
+    expect(log?.textContent).toContain(navigator.userAgent);
+    expect(log?.textContent).not.toContain("making the report");
+  });
 });

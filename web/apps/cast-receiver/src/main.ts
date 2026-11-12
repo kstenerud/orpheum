@@ -11,7 +11,8 @@ import { LabReceiver, memoryEveryMs } from "./lab.ts";
  * The cast receiver's entry point. For now it is the lab's spike receiver (plans/tv-device-tests.md;
  * casting-2026-10-25.md §5.2 step 2): CAF's receiver, started never to close for being idle, with
  * our own player in place of CAF's, listening on the lab's namespace, and on the cast's for a cast
- * under a grant (D465 §2); the receiver of M6 (D245) grows from what it finds.
+ * under a grant (D465 §2); the receiver of M6 (D245) grows from what it finds. It makes its device
+ * report only when the lab's sender asks (lab-cast.tsx's openOurs), never at its start.
  */
 
 /** The namespace the lab's sender (the web app's /lab/cast) and this receiver speak on. */
@@ -51,7 +52,8 @@ function start(): void {
   setInterval(() => {
     lab.sampleMemory();
   }, memoryEveryMs);
-  void lab.report();
+  // No report at the start: its WebRTC check plays a tone through the TV for seconds, which a
+  // person casting heard as a trill (the owner, 2026-11-12). The lab's sender asks for it instead.
 }
 
 start();

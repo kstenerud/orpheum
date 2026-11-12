@@ -45,6 +45,9 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   a launch without the field, as an older sender's, keeps it hidden) or the lab's sender, a debug
   tool, asks anything (`showLog` as it opens the receiver). Once shown it stays for the page's
   life. `src/lab.test.ts`, `src/guest.test.ts`.
+- **Makes its device report only when the lab's sender asks**, never at its start: the report's
+  WebRTC check calls the page with itself carrying a tone, which played through the TV as a trill
+  at the start of every cast (the owner, 2026-11-12). `src/main.test.ts`.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
   calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.

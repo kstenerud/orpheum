@@ -161,9 +161,8 @@ describe("the receiver's log on screen (the owner, 2026-11-12)", () => {
   });
 
   it("shows at any request of the lab's sender, a debug tool itself", () => {
-    expect(labRequestOf({ type: "showLog" })).toEqual({ type: "showLog" });
     const asked = receiverOnScreen();
-    asked.lab.heard({ type: "showLog" });
+    asked.lab.heard({ type: "report" });
     expect(asked.screen.hidden).toBe(false);
     const toggled = receiverOnScreen();
     toggled.lab.heard({ type: "toggle" });
