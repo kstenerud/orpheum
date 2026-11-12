@@ -3205,3 +3205,32 @@ below: "agreed. Release anyway". Found by the lead:
   the TV forgot it, and nothing told the page. The lab's `device` message goes as the receiver
   starts connecting (`lab.ts`, becomeDevice); it should go once the live connection is welcomed, and
   a refusal should tell the page so, which then offers to pair afresh.
+
+## A password reset link, for a later batch (the owner, 2026-11-12)
+
+The owner: *"On a user's info page, I press the button 'New reset password link', which creates a
+link that's valid for one reset or can be cancelled, similar to the invite link process. I then
+pass that to the user, who can follow it to enter a new password. Until they complete the password
+reset, the link remains valid, up to its expiry date (let's make it 1h for starters)."*
+
+Most of it is built: a person's page has **New link** (`user.tsx`, `POST
+/users/{id}/registration-invitation`), which makes a registration link shown as a link and a QR
+code (`IssuedInvitationView`). Following it, the person chooses a new password (`register.tsx`,
+D218 §5). Using it ends the person's other links and signs them out everywhere (D218 §5's 2026-10-13
+amendment, D318 §2), and until then their old password still works. What the request changes:
+
+- **The name:** "New reset password link" in place of "New link", and wording that says a reset.
+- **Its life:** 1 hour, where a registration link lives `registrationInvitationLifeDays` (7 days by
+  default, `settings/registry.go`), the same setting as a first invitation's.
+- **Cancelling it:** the person's page shows the outstanding reset link and a Cancel, which revokes
+  it (D318 §3 already provides the revoke; no screen offers it for a registered person).
+
+Questions for the owner before it is built:
+
+1. Does a second reset link leave the first one live (D318 §1, as now), or end it?
+2. Is 1 hour a setting, kept apart from the first invitation's 7 days, or fixed?
+3. While one is outstanding, does the page show the link and QR code again, or only "Reset link
+   live until 14:05" and Cancel?
+
+A small mismatch in the meantime: the route's summary says "withdrawing the old"
+(`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1).
