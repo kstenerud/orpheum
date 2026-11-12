@@ -75,6 +75,7 @@ export {
   endingOf,
   firstDirectPath,
   notWaitedFor,
+  opensItsAPIToThisPage,
   type DirectEnding,
   type DirectOutcome,
 } from "./direct-path.ts";

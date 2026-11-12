@@ -69,7 +69,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		http.Error(writer, "the server is not ready", http.StatusServiceUnavailable)
 		return
 	}
-	connection, err := acceptTogetherSocket(writer, request, server.clientOriginOf())
+	connection, err := acceptTogetherSocket(writer, request, server.clientOriginOf(), server.loaderOriginOf())
 	if err != nil {
 		return // the refusal is answered
 	}
@@ -338,11 +338,12 @@ type togetherSocket interface {
 }
 
 // acceptTogetherSocket accepts a device's connection: the message connection a request over a data
-// channel asked to become, else a WebSocket from the core's own page or from the client the core's
-// discovery serves, clientOrigin, never another (the discovery protocol's §3.4; discovery-core.md
-// K10). A refusal is answered by the time it returns.
+// channel asked to become, else a WebSocket from the core's own page, from the client the core's
+// discovery serves, clientOrigin, or from a Cast receiver at its loader's, loaderOrigin (D467), never
+// another (the discovery protocol's §3.4; discovery-core.md K10). A refusal is answered by the time
+// it returns.
 func acceptTogetherSocket(
-	writer http.ResponseWriter, request *http.Request, clientOrigin string,
+	writer http.ResponseWriter, request *http.Request, clientOrigin, loaderOrigin string,
 ) (togetherSocket, error) {
 	if conn, isChannel := rtcapi.MessageConnFrom(request.Context()); isChannel {
 		if err := conn.Accept(); err != nil {
@@ -351,8 +352,10 @@ func acceptTogetherSocket(
 		return channelSocket{conn: conn}, nil
 	}
 	options := &websocket.AcceptOptions{}
-	if origin, err := url.Parse(clientOrigin); clientOrigin != "" && err == nil && origin.Host != "" {
-		options.OriginPatterns = []string{origin.Host}
+	for _, allowed := range []string{clientOrigin, loaderOrigin} {
+		if origin, err := url.Parse(allowed); allowed != "" && err == nil && origin.Host != "" {
+			options.OriginPatterns = append(options.OriginPatterns, origin.Host)
+		}
 	}
 	connection, err := websocket.Accept(writer, request, options)
 	if err != nil {

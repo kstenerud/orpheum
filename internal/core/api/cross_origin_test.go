@@ -56,14 +56,16 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 	}
 }
 
-// The Watch Together socket opens from the discovery's client too, and from no other origin.
+// The Watch Together socket opens from the discovery's client too, and from a Cast receiver at its
+// loader's origin (D467), and from no other origin.
 func TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	client := "https://app.example"
+	client, loader := "https://app.example", "https://loader.example"
 	harness.server.NamedClientOrigin().Store(&client)
+	harness.server.NamedLoaderOrigin().Store(&loader)
 	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
-	for origin, isAllowed := range map[string]bool{client: true, "https://evil.example": false} {
+	for origin, isAllowed := range map[string]bool{client: true, loader: true, "https://evil.example": false} {
 		connection, answer, err := websocket.Dial(t.Context(), address, &websocket.DialOptions{
 			HTTPHeader: http.Header{"Origin": {origin}},
 		})
@@ -79,22 +81,32 @@ func TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone(t *testin
 	}
 }
 
-// The loader's origin, where no core's client runs, may read the health its path race probes and
-// ask for a hand-off's code, and nothing else: no session, no library (D308 §3–4).
-func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testing.T) {
+// The loader's origin, where no core's client runs but a Cast receiver does, may call the API, its
+// preflights answered as the client's, and on a core before D467 it could call only the health and
+// the hand-off, so a receiver there went over WebRTC even at home (the owner, 2026-11-12).
+func TestCrossOrigin_TheLoadersOriginCallsTheAPIAsACastReceiverThere(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
 	client, loader := "https://core1.client.example", "https://app.example"
 	harness.server.NamedClientOrigin().Store(&client)
 	harness.server.NamedLoaderOrigin().Store(&loader)
-	for path, isAllowed := range map[string]bool{
-		"/health": true, "/session/handoff": true, "/session/redeem": false, "/me": false, "/items": false,
-	} {
+	for _, path := range []string{"/health", "/session/handoff", "/me", "/items", "/guest-receivers"} {
 		answer := harness.doWithHeader(t, http.MethodGet, path, token, http.Header{"Origin": {loader}}, nil)
-		if allowed := answer.header.Get("Access-Control-Allow-Origin"); (allowed == loader) != isAllowed {
-			t.Errorf("GET %s from the loader's origin allowed %q; want allowed %v", path, allowed, isAllowed)
+		if allowed := answer.header.Get("Access-Control-Allow-Origin"); allowed != loader {
+			t.Errorf("GET %s from the loader's origin allowed %q; want %q", path, allowed, loader)
 		}
+	}
+	preflight := harness.doWithHeader(t, http.MethodOptions, "/guest-receivers", "", http.Header{
+		"Origin": {loader}, "Access-Control-Request-Method": {"POST"},
+		"Access-Control-Request-Headers": {"authorization, content-type"},
+	}, nil)
+	if preflight.header.Get("Access-Control-Allow-Origin") != loader ||
+		!strings.Contains(preflight.header.Get("Access-Control-Allow-Methods"), "POST") ||
+		preflight.header.Get("Access-Control-Allow-Credentials") != "" {
+		t.Errorf("a POST's preflight from the loader's origin allowed %q, methods %q; want it allowed, no "+
+			"credentials", preflight.header.Get("Access-Control-Allow-Origin"),
+			preflight.header.Get("Access-Control-Allow-Methods"))
 	}
 	if answer := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil); answer.
 		header.Get("Access-Control-Allow-Origin") != client {

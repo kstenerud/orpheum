@@ -47,7 +47,7 @@ func (server *Server) registerHandOff() {
 	}, server.redeemSession)
 }
 
-// handOffPath is the hand-off's path, which the loader's origin may call (isOpenToTheLoader).
+// handOffPath is the hand-off's path, which the loader's origin calls (isOpenToTheLoader).
 const handOffPath = "/session/handoff"
 
 // handOffSession signs a person in at the loader, where no session may be kept (D308 §3), and

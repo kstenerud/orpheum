@@ -2,7 +2,10 @@
 
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // What a page on the discovery's origin may send to the API and read from its answers (the
 // discovery protocol's §3.4; discovery-core.md K10): its sign-in by header, never a cookie, so no
@@ -25,9 +28,10 @@ const (
 // and never "null", no credentials, and Vary: Origin on every answer (the protocol's §3.4; S18).
 // Over the core's own names the client's page was refused, and a browser whose LAN waited on its
 // local-network prompt ran out of paths (staging, 2026-10-17). The loader's origin, where no core's
-// client runs (D308), may call only what finding the core takes (isOpenToTheLoader). A preflight
-// from any other origin, or none, is answered without permission; the core's own page, on its own
-// origin, needs none.
+// client runs (D308) but a Cast receiver does, may call the API and not read the client
+// (isOpenToTheLoader, D467): the receiver reaches the whole API from there over WebRTC already, by
+// the token it holds. A preflight from any other origin, or none, is answered without permission;
+// the core's own page, on its own origin, needs none.
 func (server *Server) crossOrigin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Add("Vary", "Origin")
@@ -51,10 +55,11 @@ func (server *Server) crossOrigin(next http.Handler) http.Handler {
 	})
 }
 
-// isOpenToTheLoader is whether the loader's origin may call path: the health its path race probes,
-// and the hand-off of a sign-in, which answers a code and never a session (D308 §4).
+// isOpenToTheLoader is whether the loader's origin may call path: the API's, which a Cast receiver
+// served there calls on the core's own names as it does over WebRTC (D467, amending D308 §4), and
+// never the core's client, which runs at the client origin alone (D308 §6).
 func isOpenToTheLoader(path string) bool {
-	return path == Prefix+"/health" || path == Prefix+handOffPath
+	return path == Prefix || strings.HasPrefix(path, Prefix+"/")
 }
 
 // loaderOriginOf is the loader's origin crossOrigin allows for pathsOpenToTheLoader: the discovery's,

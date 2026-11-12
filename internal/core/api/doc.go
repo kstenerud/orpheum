@@ -11,9 +11,12 @@
 // # Invariants
 //
 //   - A page on the client origin the core's discovery names may call the API and open the session
-//     socket, by header alone; no other origin may, nor "null", and no answer allows credentials
+//     socket, by header alone, and so may a Cast receiver at its loader's origin, which may not read
+//     the core's client (D467); no other origin may, nor "null", and no answer allows credentials
 //     (the discovery protocol's §3.4; discovery-core.md K10). Enforced by
-//     TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone and
+//     TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone,
+//     TestCrossOrigin_TheLoadersOriginCallsTheAPIAsACastReceiverThere,
+//     TestCrossOrigin_TheClientOriginReadsTheCoresClientAndTheLoadersDoesNot and
 //     TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone.
 //   - The plain-HTTP listener answers only the names a household reaches it by (its addresses,
 //     localhost, names public DNS never answers, the configured names and the core's names at its
