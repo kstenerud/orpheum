@@ -2988,3 +2988,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   note said "device memory 16 GB, video buffer 100.0 MB … loads ahead 24.9 s (33.3 MB), by bytes";
   seeked to 3:15 and played to 5:12 at 1080p with no stall, no dropped frame, and no "by room" or
   step-down note.
+- [x] **VQ301** — A staging deploy runs the staging directory's `after-up` once staging is up, so a
+  loader's copy of the web client follows each deploy (the owner, 2026-11-12: "If we have changes that
+  affect the orpheum-dev web client, we should be updating that as well"; the Chromecast had run the
+  old receiver from the loader's copy after a deploy). Passes when `./staging quick`, with an
+  executable `.staging/after-up` that rebuilds Connect's staging, prints "staging: running …/after-up",
+  orpheum.dev's `/cast/` then serves the receiver this checkout builds, and without the file the deploy
+  ends as before. (`staging`, after_up; its tests are in `scripts/tests/`, a gate, so a device run
+  stands for them)
+  **Passed 2026-11-12, by the lead, on staging:** `./staging quick` brought staging up, printed
+  "staging: running /home/karl/orpheum/.staging/after-up", and the hook rebuilt Connect's staging;
+  orpheum.dev then served `/` and `/cast/` with the same bundles as this checkout's build. Called
+  with no file, after_up returned 0; with a hook that exits 3, it said so and returned 3.
