@@ -71,7 +71,9 @@ no package is added.
      the player is a security change, reviewed with the policy. Built: every screen of the client
      allows the sender's origin, since the client moves between screens in place and a page keeps
      the policy it was loaded with; files and the lab's other probes do not
-     (`TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`).
+     (`TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`); orpheum-connect's loader
+     does the same, and names its receiver application from `-cast-receiver-app-id`, which is empty
+     until step 4 gives one.
    - The receiver's application ID comes from the loader the page came from (D465 §5), never from
      a field typed in, as the lab's is.
    - On a session started: ask the core for the cast and grant (step 1), send them over the
@@ -88,7 +90,8 @@ no package is added.
 5. **Device checks (VQ items).** The owner's Chromecast with its registration removed, under
    production's application; a TV with Cast built in (an Android TV or Google TV) and a Chromecast
    with Google TV; from Chrome on Android; at a house that is not the core's, through its discovery;
-   and a second sender on the same network that cannot trade a grant already traded.
+   and a second sender on the same network that cannot trade a grant already traded. (Queued
+   2026-11-12 as VQ303 to VQ307, after VQ302 for steps 2 and 3.)
 
 ## 3. What could go wrong
 
