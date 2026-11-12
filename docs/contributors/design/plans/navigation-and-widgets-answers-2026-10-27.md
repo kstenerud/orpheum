@@ -3383,6 +3383,8 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   the lab alone, lasting 24 hours and revoked on Stop, trying both ways past hls.js's
   `disableRemotePlayback`. The D154 §6 amendment stays the owner's, after the spike. The owner turns
   on AirPlay Receiver on the Mac (System Settings, General, AirDrop & Handoff).
+  - **Built (2026-11-12):** `/lab/airplay`, behind `shouldOfferAirPlayLab` (staging's admin turns it
+    on); airplay.md's spike section says what it is, and VQ310 is the owner's check.
 - **X4.** Ways to cut `make check`'s time.
 - **X6. A film's or series' page shows the no-poster still as its list card does** (the owner,
   2026-11-12: *"We display a screencap in the 'no poster' version of the poster in the listing, but

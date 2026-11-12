@@ -4,12 +4,13 @@ import "./lab-words.ts";
 
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 import { failureText } from "@orpheum/sdk";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
 import { receiverDiscoveryOf, receiverReachOf, type ReceiverDiscovery } from "./cast-reach.ts";
 import { LabFrame, LabSendButton } from "./lab-frame.tsx";
+import { useLog } from "./lab-log.ts";
 import {
   castTo,
   defaultReceiverAppId,
@@ -23,13 +24,10 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices, type Services } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
 import { titleOrThrow } from "./item-detail.ts";
-import { requestPlayback } from "./watching.ts";
+import { requestPlayback, type PlaybackDecision } from "./watching.ts";
 
 /** Where the custom receiver's app id is kept, so a TV visit types it once. */
 const appIdKey = "orpheum.lab.castAppId";
-
-/** How many lines of the log the page keeps and sends. */
-const logKept = 200;
 
 /** How many films the probe offers to pick from: the first page, by name. */
 const filmsOffered = 50;
@@ -49,10 +47,11 @@ const receiverFormats: PlayableFormats = {
 type SdkState = "loading" | "ready" | "unavailable" | "failed";
 
 /** A film the probe may cast. */
-type Film = components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
+export type Film =
+  components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 
 /** The films the person may pick from. */
-function useFilms(api: Api): readonly Film[] {
+export function useFilms(api: Api): readonly Film[] {
   const [films, setFilms] = useState<readonly Film[]>([]);
   useEffect(() => {
     void api
@@ -63,20 +62,6 @@ function useFilms(api: Api): readonly Film[] {
       .catch(() => undefined);
   }, [api]);
   return films;
-}
-
-/** The log of what the sender and receiver said, newest last, and its adding. */
-function useLog(): readonly [readonly string[], (line: string) => void] {
-  const [lines, setLines] = useState<readonly string[]>([]);
-  const [startedAt] = useState(() => performance.now());
-  const add = useCallback(
-    (line: string): void => {
-      const at = ((performance.now() - startedAt) / 1000).toFixed(1);
-      setLines((before) => [...before, `${at} s ${line}`].slice(-logKept));
-    },
-    [startedAt],
-  );
-  return [lines, add];
 }
 
 /** Loads the Cast SDK at the page's load, logging what blocked it. */
@@ -114,12 +99,8 @@ interface ReceiverPlayback {
   readonly startAtBps: number;
 }
 
-/** Starts a playback of the title filmId for a receiver. */
-async function startPlayback(
-  api: Api,
-  filmId: number,
-  log: (line: string) => void,
-): Promise<ReceiverPlayback> {
+/** Starts a playback of the title filmId for a receiver, as a play page asks for one. */
+export async function receiverPlaybackOf(api: Api, filmId: number): Promise<PlaybackDecision> {
   const title = titleOrThrow(
     dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: filmId } } })),
   );
@@ -128,10 +109,19 @@ async function startPlayback(
     throw new Error("the film has no file that plays now");
   }
   // Asked as a play page asks: a receiver's start is a play page's, on another screen.
-  const decision = await requestPlayback(api, fileId, {
+  return await requestPlayback(api, fileId, {
     playableFormats: receiverFormats,
     cause: "playPage",
   });
+}
+
+/** Starts a playback of the title filmId for a receiver. */
+async function startPlayback(
+  api: Api,
+  filmId: number,
+  log: (line: string) => void,
+): Promise<ReceiverPlayback> {
+  const decision = await receiverPlaybackOf(api, filmId);
   const played = decision.onLadder?.url ?? decision.url;
   log(`playback ${decision.delivery}: ${played}`);
   return {

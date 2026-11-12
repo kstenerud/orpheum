@@ -629,7 +629,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   type and sends it to the core's log through the SDK, showing the name the log keeps it by (the
   button test as it goes, below); the
   cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
-  probe's test film needs no sign-in. The sound timing test (`src/lab-sound.tsx`, the owner, 2026-11-06) has
+  probe's test film needs no sign-in. The AirPlay probe (`src/lab-airplay.tsx`, airplay.md's spike) is
+  in the menu for someone showing debug tools alone, and the core answers it only while the admin
+  offers the AirPlay lab (`shouldOfferAirPlayLab`): opening its AirPlay menu fetches the grant in the
+  media's path, so way B's press shows Safari's picker within its gesture; way A gives a second
+  element the grant, way B the page's own once hls.js lets go of it; Stop ends both and shows the
+  revocation's answer, every step in its log (`src/lab-airplay.test.tsx`). The sound timing test (`src/lab-sound.tsx`, the owner, 2026-11-06) has
   no Send: what it finds is kept as the device's sound offset, by the control under a film. Its
   beeps, a WAV made in the page (`src/lab-tone.ts`), play through a video element as a film's sound
   does, levelled as the person's Level loudness says and moved by the device's offset through the

@@ -15,6 +15,7 @@ export const labPages = [
   "extend",
   "throughput",
   "cast",
+  "airplay",
 ] as const;
 
 /** One of the device lab's probes. */

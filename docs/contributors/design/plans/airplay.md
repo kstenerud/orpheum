@@ -5,8 +5,9 @@
 
 # AirPlay
 
-- **Status:** SKETCH — 2026-11-04, findings added 2026-11-12. The owner asked what AirPlay needs and will schedule the spike
-  later. The requirements below are known from the research; what is open is named under "Open".
+- **Status:** SKETCH — 2026-11-04, findings added 2026-11-12; **the spike's lab built 2026-11-12**
+  (X3, below), for the owner to try on staging. The requirements below are known from the research;
+  what is open is named under "Open".
 - **Depends on:** [cast-to-device.md](cast-to-device.md) (casting to one's own devices, the other
   route to a TV), [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md) (the LAN name the TV reaches
   at home).
@@ -68,6 +69,25 @@ About a day. From the iPhone to the owner's MacBook, one film, at home:
 - which of our renditions and sound tracks the receiver plays.
 
 Its findings settle items 1 and 3 and go into the D154 amendment the owner decides.
+
+**The lab, built 2026-11-12 (X3):** the lab's AirPlay page (`/lab/airplay`, Show debug tools) plays
+a film here by hls.js, and AirPlays it two ways past hls.js's `disableRemotePlayback`: way A gives a
+second element, AirPlay allowed, the grant's address at the position; way B lets hls.js go of the
+page's element and gives it the grant fetched as the AirPlay menu opened, so the picker keeps the
+press's gesture. Every step is logged. Stop ends both and revokes the grant, showing the answer.
+
+- **The grant** is in the media's path, `https://<core>/api/v1/bytes/media/g/<grant>/master.m3u8`
+  (POST `/lab/airplay/grants` with the playback's media token), its stream playlists and chunks
+  under it by the playlists' relative URIs. It stands for that playback's film alone, for 24 hours,
+  kept in memory as its hash (a restart revokes it), and DELETE `/lab/airplay/grants` (Stop) revokes
+  the session's. A master or chunk not made yet is held up to 30 s under it, as AVPlayer does not
+  honour the 425.
+- **The gate** is the admin setting `shouldOfferAirPlayLab` (Diagnostics, Offer the AirPlay lab), off
+  by default: off, every path of the lab answers not found, so D154 §6 is not widened beyond the lab.
+  Staging's admin turns it on; production keeps it off.
+- **Not settled by it:** the playback token's own idle expiry still ends a paused playback before
+  the grant's day; the master is not filtered to the sound codecs Apple's player takes; the grant is
+  not among the person's devices. The device check is VQ310.
 
 ## Testing devices
 

@@ -7,6 +7,8 @@ import "./lab-words.ts";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { DebugTool } from "./debug-tools.tsx";
+import { LabAirPlay } from "./lab-airplay.tsx";
 import { LabCast } from "./lab-cast.tsx";
 import { LabDevice } from "./lab-device.tsx";
 import { LabExtend } from "./lab-extend.tsx";
@@ -61,6 +63,8 @@ function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
       return <LabThroughput />;
     case "cast":
       return <LabCast />;
+    case "airplay":
+      return <LabAirPlay />;
     case undefined:
       return <LabMenu />;
   }
@@ -100,6 +104,16 @@ function LabMenu(): JSX.Element {
             <span className="lab__menu-what">{t("lab.menu.castWhat")}</span>
           </a>
         </li>
+        <DebugTool>
+          {/* The AirPlay spike's page, for the owner alone (airplay.md); the server answers it only
+              while the admin offers the AirPlay lab. */}
+          <li>
+            <Link to={{ screen: "lab", probe: "airplay" }} className="lab__menu-link">
+              <span className="lab__menu-name">{t("lab.menu.airplay")}</span>
+              <span className="lab__menu-what">{t("lab.menu.airplayWhat")}</span>
+            </Link>
+          </li>
+        </DebugTool>
         <li>
           {/* The toolkit's gallery, a few presses away on a TV, where its address is a pain to type
               (the owner, 2026-11-03). */}

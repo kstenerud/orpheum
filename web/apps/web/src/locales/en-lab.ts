@@ -25,6 +25,9 @@ export const enLab = {
       extendWhat: "Put a test film on a second screen, and sound on two outputs at once",
       cast: "Cast",
       castWhat: "Cast to a Chromecast: Google's receiver or ours (opens on its own)",
+      airplay: "AirPlay",
+      airplayWhat:
+        "AirPlay a film from Safari to a Mac or a TV, two ways, while the admin offers it",
       throughput: "Throughput",
       throughputWhat: "How fast this device loads from the server, each way it can",
       uiGallery: "UI gallery",
@@ -288,6 +291,28 @@ export const enLab = {
       targetReady:
         "{{name}} is a cast target: open a film, press Cast in the top icons and choose it. Leave this page's cast running: Stop casting here closes the Chromecast's app.",
       stop: "Stop casting and send",
+      log: "What happened",
+    },
+    airplay: {
+      heading: "AirPlay",
+      explain:
+        "AirPlays a film from Safari to a Mac with AirPlay Receiver on, or an Apple TV. Open this page at the server's own address, the one the receiver reaches. Play the film here, open the AirPlay menu, then try a way; everything is logged below.",
+      pickFilm: "Film",
+      noFilm: "Pick a film",
+      playHere: "Play here",
+      ways: "AirPlay it",
+      openMenu: "AirPlay menu",
+      wayA: "Way A: a second player",
+      wayB: "Way B: this player",
+      stop: "Stop",
+      second: "Way A's player",
+      noGrant: "No grant fetched",
+      grant: "Grant: {{url}}",
+      revoked: "Stop answered: {{revoked}} grant(s) revoked",
+      stopState: {
+        stopping: "Stopping…",
+        failed: "Stop's revocation failed",
+      },
       log: "What happened",
     },
   },
