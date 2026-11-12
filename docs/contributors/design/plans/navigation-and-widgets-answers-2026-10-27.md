@@ -3291,7 +3291,8 @@ life is a setting of its own, 1 hour to start; the page shows until when one is 
 and Renew (a new link and code in its place), and never the outstanding link again.
 
 A small mismatch in the meantime: the route's summary says "withdrawing the old"
-(`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1).
+(`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1). Fixed with D466: a
+reset link does replace the outstanding one, and the summary says so for it alone.
 
 ## The 11-24 batch: overnight (the owner, 2026-11-12)
 

@@ -122,7 +122,10 @@ export async function setAdminNote(api: Api, userId: number, adminNote: string):
   );
 }
 
-/** A new registration invitation for a person, withdrawing the old. */
+/**
+ * A new registration link for a person: for one with a password, a reset link, which cancels the
+ * outstanding one (D466 §2); for one without, a first link, leaving the others live (D318 §1).
+ */
 export async function issueRegistrationInvitation(
   api: Api,
   userId: number,
@@ -133,6 +136,13 @@ export async function issueRegistrationInvitation(
       params: { path: { id: userId } },
       ...idempotent(idempotencyKey),
     }),
+  );
+}
+
+/** Cancels a person's outstanding reset password link; their password stays (D466 §4). */
+export async function cancelResetLink(api: Api, userId: number): Promise<void> {
+  throwIfRefused(
+    await api.DELETE("/users/{id}/registration-invitation", { params: { path: { id: userId } } }),
   );
 }
 

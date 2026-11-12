@@ -177,6 +177,28 @@ func (q *Queries) GetLiveLinkOfferKey(ctx context.Context, arg GetLiveLinkOfferK
 	return offer_key, err
 }
 
+const getLiveRegistrationLinkOfUser = `-- name: GetLiveRegistrationLinkOfUser :one
+SELECT expires_at FROM "grant"
+WHERE user_id = ?1 AND kind = 'issued_secret' AND scope = 'register' AND revoked_at IS NULL
+  AND expires_at > ?2
+ORDER BY expires_at DESC
+LIMIT 1
+`
+
+type GetLiveRegistrationLinkOfUserParams struct {
+	UserID *int64
+	Now    *int64
+}
+
+// When the person's outstanding registration link that lives longest stops working: a registered
+// person's reset link, whose page says until when it is live and never shows it again (D466 section 4).
+func (q *Queries) GetLiveRegistrationLinkOfUser(ctx context.Context, arg GetLiveRegistrationLinkOfUserParams) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getLiveRegistrationLinkOfUser, arg.UserID, arg.Now)
+	var expires_at *int64
+	err := row.Scan(&expires_at)
+	return expires_at, err
+}
+
 const getOwnLinkOfUser = `-- name: GetOwnLinkOfUser :one
 SELECT secret_sha256, expires_at, link_sealed FROM "grant"
 WHERE user_id = ?1 AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
@@ -329,8 +351,8 @@ type RevokeLiveGrantsOfUserParams struct {
 	Scope     string
 }
 
-// A person's live grants of one kind and scope: an older registration invitation, when a new one is
-// made (D218).
+// A person's live grants of one kind and scope: their other registration links, when one is used
+// (D318 section 2), cancelled (section 3) or, a reset link, replaced by a new one (D466 section 2).
 func (q *Queries) RevokeLiveGrantsOfUser(ctx context.Context, arg RevokeLiveGrantsOfUserParams) error {
 	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOfUser,
 		arg.RevokedAt,

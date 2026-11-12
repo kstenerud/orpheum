@@ -20,7 +20,8 @@ func TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	settingstest.Set(t, fixture.settings, settings.RegistrationInvitationLifeDays, "30")
-	id := fixture.createUser(t, "traveller", "forgotten", RoleUser)
+	// A person with no password yet: a registered one's link is a reset link, with its own life (D466 §3).
+	id := fixture.createUnregistered(t, "traveller")
 	invitation, err := fixture.service.IssueRegistrationInvitation(t.Context(), id)
 	if err != nil {
 		t.Fatal(err)
@@ -201,11 +202,14 @@ func TestInvitation_AnExpiredOneIsListedUntilWithdrawn(t *testing.T) {
 	}
 }
 
+// A person with no password yet keeps every link sent live until one is used (D318 §1); a registered
+// person's reset link, one at a time (D466 §2, reset_link_test.go), leaves the old password working
+// until the new one is set (D218 §5).
 func TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneIsSet(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	id := fixture.createUser(t, "partner", "forgotten", RoleUser)
+	id := fixture.createUnregistered(t, "partner")
 	first, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +222,12 @@ func TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneI
 	if kind, kindErr := fixture.service.KindOfLink(ctx, first.Secret); kindErr != nil || kind.Name != "partner" {
 		t.Errorf("the first link after a second was made: %+v, %v; want it still live", kind, kindErr)
 	}
-	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
+	spouse := fixture.createUser(t, "spouse", "forgotten", RoleUser)
+	reset, err := fixture.service.IssueRegistrationInvitation(ctx, spouse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fixture.service.SignIn(ctx, "spouse", "forgotten", "192.0.2.1", laptop)
 	if err != nil {
 		t.Errorf("the old password before the new one is set: %v, want it to work (D218 §5)", err)
 	}
@@ -226,17 +235,21 @@ func TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneI
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Using one ends the other (D318 §2), and the old password with it.
+	// Using one ends the other (D318 §2).
 	_, err = fixture.service.Register(ctx, second.Secret, "", "taken over", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("the other link after one was used: %v, want ended", err)
 	}
-	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
+	if _, err = fixture.service.Register(ctx, reset.Secret, "", "remembered", laptop); err != nil {
+		t.Fatal(err)
+	}
+	// The new password ends the old.
+	_, err = fixture.service.SignIn(ctx, "spouse", "forgotten", "192.0.2.1", laptop)
 	if err == nil {
 		t.Error("the old password still works after the new one is set")
 	}
 	fixture.clock.Advance(time.Second)
-	expiring, err := fixture.service.IssueRegistrationInvitation(ctx, id)
+	expiring, err := fixture.service.IssueRegistrationInvitation(ctx, fixture.createUnregistered(t, "newcomer"))
 	if err != nil {
 		t.Fatal(err)
 	}

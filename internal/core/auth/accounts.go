@@ -77,9 +77,11 @@ func (service *Service) AccountsAfter(ctx context.Context, afterName string, aft
 	return accounts, nil
 }
 
-// IssueRegistrationInvitation makes a person's registration link, leaving any earlier one live until
-// one is used (D318): for a forgotten password, when the old password works until the new one is set
-// (D218 §5). It takes the person out of the failed-sign-in limit.
+// IssueRegistrationInvitation makes a person's registration link. A person with a password gets a
+// reset link (D466): it lives passwordResetLinkLifeMinutes, and it cancels any outstanding one in
+// the same write, one at a time (D466 §2); their old password works until it is used (D218 §5). A
+// person without one gets a link for registrationInvitationLifeDays that leaves any earlier one live
+// until one is used (D318 §1). It takes the person out of the failed-sign-in limit.
 func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID int64) (IssuedSecret, error) {
 	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
@@ -91,9 +93,14 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	if err != nil {
 		return IssuedSecret{}, err
 	}
-	life, err := service.settings.Duration(ctx, settings.RegistrationInvitationLifeDays)
+	isReset := user.PasswordHash != nil
+	lifeKey := settings.RegistrationInvitationLifeDays
+	if isReset {
+		lifeKey = settings.PasswordResetLinkLifeMinutes
+	}
+	life, err := service.settings.Duration(ctx, lifeKey)
 	if err != nil {
-		return IssuedSecret{}, fmt.Errorf("read registrationInvitationLifeDays: %w", err)
+		return IssuedSecret{}, fmt.Errorf("read %s: %w", lifeKey, err)
 	}
 	kept, err := service.keepOfLink(secret)
 	if err != nil {
@@ -101,8 +108,17 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	}
 	now := service.clock.Now()
 	expires := now.Add(life)
-	// The links sent before stay live, each for its own life, until one is used (D318 §1).
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		// A reset link is passed on by the admin in person, and the one just made is the one that
+		// counts (D466 §2); a first registration's links stay live, each for its own life (D318 §1).
+		if isReset {
+			if revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
+				RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindIssuedSecret,
+				Scope: grantScopeRegister,
+			}); revokeErr != nil {
+				return revokeErr
+			}
+		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeRegister,
 			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
@@ -115,6 +131,45 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	}
 	service.linksChanged()
 	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
+}
+
+// ResetLink is when a registered person's outstanding reset link stops working, and whether they
+// have one: their page says until when it is live, and never shows the link again (D466 §4). A
+// person without a password has none, whatever registration links they were sent.
+func (service *Service) ResetLink(ctx context.Context, userID int64) (time.Time, bool, error) {
+	queries := service.database.Read()
+	user, err := liveUser(ctx, queries, userID)
+	if err != nil || user.PasswordHash == nil {
+		return time.Time{}, false, err
+	}
+	expiresAt, err := store.OrNotFound(queries.GetLiveRegistrationLinkOfUser(ctx,
+		sqlcgen.GetLiveRegistrationLinkOfUserParams{UserID: &userID, Now: new(service.clock.Now().UnixMilli())}))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && expiresAt == nil) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("read user %d's reset link: %w", userID, err)
+	}
+	return time.UnixMilli(*expiresAt), true, nil
+}
+
+// CancelResetLink ends every outstanding registration link of the person's, a reset link among them,
+// which then sets no password (D318 §3, D466 §4); their password and sessions stay as they are.
+func (service *Service) CancelResetLink(ctx context.Context, userID int64) error {
+	now := service.clock.Now().UnixMilli()
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if _, err := liveUser(ctx, queries, userID); err != nil {
+			return err
+		}
+		return queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
+			RevokedAt: &now, UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeRegister,
+		})
+	})
+	if err != nil {
+		return err
+	}
+	service.linksChanged()
+	return nil
 }
 
 // Register uses a link: an invitation makes the account, with the name the person chose, under the

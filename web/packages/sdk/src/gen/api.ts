@@ -2579,9 +2579,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A new registration link for a person, withdrawing the old; their password works until used */
+        /** A new registration link for a person; for one with a password, a reset link replacing the outstanding one (D466); their password works until it is used */
         post: operations["issueRegistrationInvitation"];
-        delete?: never;
+        /** Cancel a person's outstanding reset password link; their password stays (D466 §4) */
+        delete: operations["cancelResetLink"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5914,6 +5915,11 @@ export interface components {
              * @description Unix milliseconds
              */
             ownLinkExpiresAt?: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            resetLinkExpiresAt?: number;
             user: components["schemas"]["UserEntryBody"];
             watchStats: components["schemas"]["WatchStatsBody"];
         };
@@ -11737,6 +11743,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["IssuedSecretBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelResetLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

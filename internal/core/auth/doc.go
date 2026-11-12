@@ -83,10 +83,19 @@
 //     TestInvitation_MakesTheAccountItsPersonFillsInOnceAndSignsTheDeviceIn and
 //     TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne.
 //
-//   - A registration link sets a forgotten password, once; every link sent works until one is used,
-//     which ends the others (D318); the old password works until the new one is set (D218 §5).
+//   - A registration link sets its person's password, once; for a person with no password yet,
+//     every link sent works until one is used, which ends the others (D318), for
+//     registrationInvitationLifeDays; the old password works until the new one is set (D218 §5).
 //     Enforced by TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
 //     TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneIsSet.
+//
+//   - A registered person's registration link is a reset link (D466): one at a time, a new one
+//     cancelling the outstanding one in the same write; it lives passwordResetLinkLifeMinutes (an
+//     hour to start); their page is told until when one is outstanding, never the link; cancelling
+//     it leaves their password and sessions. Enforced by
+//     TestResetLink_ANewOneCancelsTheOutstandingOne, TestResetLink_LastsAsLongAsItsOwnSettingSays,
+//     TestResetLink_IsOutstandingUntilUsedOrCancelled and
+//     TestCancelResetLink_EndsItLeavingThePasswordAndSessions.
 //
 //   - A device is activated by a code it asks for and shows: eight safe32 characters, the same each
 //     time it asks while no one has entered it, for ten minutes; a person signed in enters it, read
@@ -231,6 +240,8 @@
 //   - D154: one grant table, opaque and revocable.
 //
 //   - D218: accounts by one-time link; a device by a short code. D221: a device keeps its identity.
+//
+//   - D466: a registered person's reset link, one at a time, for its own setting's time.
 //
 //   - D168: entitlement is resolved at the point of use, never pushed.
 //

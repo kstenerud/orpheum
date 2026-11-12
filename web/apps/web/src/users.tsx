@@ -32,6 +32,8 @@ import { useResource } from "./use-resource.ts";
 export interface IssuedInvitation {
   readonly name: string;
   readonly invitation: components["schemas"]["IssuedSecretBody"];
+  /** A registered person's reset password link (D466), headed as one. */
+  readonly isReset?: boolean;
 }
 
 /**
@@ -193,7 +195,10 @@ function OpenDialog(props: {
   );
 }
 
-/** What was just issued, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
+/**
+ * What was just issued, to pass on: a link also as a QR code a phone's camera opens (D218 §1). A
+ * reset link is shown here once, when made, and never again (D466 §4).
+ */
 export function IssuedInvitationView(props: { readonly issued: IssuedInvitation }): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
@@ -201,7 +206,9 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   const text = registrationUrl(navigation.origin(), issued.invitation);
   return (
     <div className="people__issued">
-      <h2>{t("people.issued", { name: issued.name })}</h2>
+      <h2>
+        {t(issued.isReset === true ? "people.issuedReset" : "people.issued", { name: issued.name })}
+      </h2>
       <QrCode text={text} label={t("people.qrLabel", { name: issued.name })} />
       <Share text={text} invitation={issued.invitation} />
     </div>

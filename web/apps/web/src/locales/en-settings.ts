@@ -305,6 +305,8 @@ export const enSettingsCatalogue = {
     pairingCodesPerNetworkMost: "How many pairing codes one network may have waiting at once.",
     pairingCodesPerSiteMost:
       "How many pairing codes one site of many networks may have waiting at once.",
+    passwordResetLinkLifeMinutes:
+      "How long a link to set a new password, made on a person's page, keeps working unused.",
     playLadderWaitMs:
       "How long a film not yet cut for slow links waits for that before playing another way.",
     playPriorityKeptSeconds:

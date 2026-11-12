@@ -27888,6 +27888,24 @@ user needs you to send it again, cycling the link has almost the same effect."*)
    link and its QR code. The page never shows the outstanding link again: Renew does that job (the
    owner, 2026-11-12: *"Have a cancel and a renew button for it. Renew brings up a new link/code."*).
 
+**Status:** Decided 2026-11-12. Built 2026-11-12: a person with a password is the registered one,
+whose registration link is the reset link; one without keeps D318 §1's links and
+`registrationInvitationLifeDays` (`IssueRegistrationInvitation`, `internal/core/auth/accounts.go`;
+§2, §3). The life is `passwordResetLinkLifeMinutes`, 60 to start, 1 to 10,080 (a week)
+(`internal/core/settings/registry.go`; §3). A person's page (`GET /users/{id}`) carries
+`resetLinkExpiresAt` while a reset link is outstanding, never the link; `DELETE
+/users/{id}/registration-invitation` cancels it; Renew is the same `POST` as New reset password
+link (`internal/core/api/accounts.go`, `web/apps/web/src/user.tsx`; §1, §4). Cancel and Renew are
+asked again, as New reset password link is, for each ends a link sent. The page a reset link opens
+(`register.tsx`) still reads "Choose your password", as a first registration's does.
+
+**Proven by:**
+- 1, 4: internal/core/api/reset_link_test.go, web/apps/web/src/reset-link.test.tsx, VQ309
+- 2: internal/core/auth/reset_link_test.go (`TestResetLink_ANewOneCancelsTheOutstandingOne`), VQ309
+- 3: internal/core/auth/reset_link_test.go (`TestResetLink_LastsAsLongAsItsOwnSettingSays`), VQ309
+- 4: internal/core/auth/reset_link_test.go (`TestResetLink_IsOutstandingUntilUsedOrCancelled`,
+  `TestCancelResetLink_EndsItLeavingThePasswordAndSessions`)
+
 ## D467 — A Cast receiver at the loader's origin calls its core's API on the core's own names, as it does over WebRTC
 
 **Decided** (2026-11-12), by the owner, once production's Chromecast had cast over WebRTC (VQ303):

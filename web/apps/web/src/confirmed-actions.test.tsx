@@ -167,8 +167,8 @@ it("makes a person a new link only when asked again, their old one stopping", as
   );
   expect(mounted.container.textContent).not.toContain("keeps working until one of them is used");
   await pressAndConfirm(heard, {
-    label: "New link",
-    confirmLabel: "Make a new link",
+    label: "New reset password link",
+    confirmLabel: "Make a reset link",
     methodAndPath: "POST /users/5/registration-invitation",
   });
 });

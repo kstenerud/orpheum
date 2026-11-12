@@ -137,6 +137,10 @@ type ChangePasswordInput struct {
 	}
 }
 
+// pathRegistrationInvitation is a person's registration link, made and cancelled there; a registered
+// person's is a reset link (D466).
+const pathRegistrationInvitation = "/users/{id}/registration-invitation"
+
 func (server *Server) registerUsers() {
 	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
@@ -151,11 +155,20 @@ func (server *Server) registerUsers() {
 	}, server.createUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueRegistrationInvitation", Method: http.MethodPost,
-		Path:       "/users/{id}/registration-invitation",
-		Summary:    "A new registration link for a person, withdrawing the old; their password works until used",
+		Path: pathRegistrationInvitation,
+		Summary: "A new registration link for a person; for one with a password, a reset link replacing " +
+			"the outstanding one (D466); their password works until it is used",
 		Tags:       tags,
 		Extensions: callableBy(capabilityAdmin),
 	}, server.issueRegistrationInvitation)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "cancelResetLink", Method: http.MethodDelete,
+		Path:          pathRegistrationInvitation,
+		Summary:       "Cancel a person's outstanding reset password link; their password stays (D466 §4)",
+		Tags:          tags,
+		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityAdmin),
+	}, server.cancelResetLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
 		Summary:    "Use an invitation or a registration link: make the account or set a new password, and sign in",
@@ -235,6 +248,18 @@ func (server *Server) issueRegistrationInvitation(
 	return &IssuedSecretOutput{Body: issuedSecretBody(invitation, dependencies.Discovery)}, nil
 }
 
+func (server *Server) cancelResetLink(ctx context.Context, input *RegistrationInvitationInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if err = dependencies.Auth.CancelResetLink(ctx, input.UserID); err != nil {
+		return nil, server.authError(ctx, "cancel a reset link", err)
+	}
+	server.logger.InfoContext(ctx, "an admin cancelled a person's reset link", "userId", input.UserID)
+	return &struct{}{}, nil
+}
+
 func (server *Server) register(ctx context.Context, input *RegisterInput) (*SessionOutput, error) {
 	dependencies, err := server.readyDependencies()
 	if err != nil {
@@ -278,6 +303,9 @@ type UserPageOutput struct {
 		// OwnLinkExpiresAt is when the person's own link stops leading them back through a discovery,
 		// unless a visit renews it; absent when they have none (D292 §4).
 		OwnLinkExpiresAt int64 `doc:"Unix milliseconds" json:"ownLinkExpiresAt,omitempty"`
+		// ResetLinkExpiresAt is when the person's outstanding reset password link stops working; absent
+		// when they have none. The link itself is never sent again: a new one replaces it (D466 §4).
+		ResetLinkExpiresAt int64 `doc:"Unix milliseconds" json:"resetLinkExpiresAt,omitempty"`
 	}
 }
 
@@ -362,6 +390,13 @@ func (server *Server) getUser(ctx context.Context, input *UserInput) (*UserPageO
 	}
 	if hasOwnLink {
 		output.Body.OwnLinkExpiresAt = own.ExpiresAt.UnixMilli()
+	}
+	resetExpiresAt, hasResetLink, err := dependencies.Auth.ResetLink(ctx, input.UserID)
+	if err != nil {
+		return nil, server.authError(ctx, "read a person's reset link", err)
+	}
+	if hasResetLink {
+		output.Body.ResetLinkExpiresAt = resetExpiresAt.UnixMilli()
 	}
 	return output, nil
 }

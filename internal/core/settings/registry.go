@@ -76,6 +76,7 @@ const (
 	InProgressAfterPercent                         Key = "inProgressAfterPercent"
 	FinishedAfterPercent                           Key = "finishedAfterPercent"
 	RegistrationInvitationLifeDays                 Key = "registrationInvitationLifeDays"
+	PasswordResetLinkLifeMinutes                   Key = "passwordResetLinkLifeMinutes"
 	EndedCredentialsKeptDays                       Key = "endedCredentialsKeptDays"
 	RemovedFilesKeptDays                           Key = "removedFilesKeptDays"
 	NewLibraryDefaultScanEveryHours                Key = "newLibraryDefaultScanEveryHours"
@@ -146,7 +147,7 @@ type Definition struct {
 	// IsValid, for a string, is what a value must also pass that no pattern can say; nil takes any.
 	IsValid func(text string) bool
 	// Unit, for an integer that is a length of time, is what one of it is: the unit its key's
-	// suffix spells out (Seconds, Hours, Days). Duration reads such a setting; zero is not a length of time.
+	// suffix spells out (Seconds, Minutes, Hours, Days). Duration reads such a setting; zero is not a length of time.
 	Unit     time.Duration
 	Question string
 	// IsImportant puts the setting in the settings page's normal view, the few most households set;
@@ -618,15 +619,19 @@ func offeredPagesDefinitions() []Definition {
 	}
 }
 
-// upkeepAndDisplayDefinitions are the rest of Registry: how long an invitation lasts, a new
-// library's check interval, the loudness level, artwork's quality and upkeep, and how many rows
-// the screens list. The owner made each a setting on 2026-09-30, answering the sweep for
-// hardcoded values ("We're basically giving full tweak capability"), each with its basis.
+// upkeepAndDisplayDefinitions are the rest of Registry: how long an invitation and a reset link
+// last, a new library's check interval, the loudness level, artwork's quality and upkeep, and how
+// many rows the screens list. The owner made each a setting on 2026-09-30, answering the sweep for
+// hardcoded values ("We're basically giving full tweak capability"), each with its basis; the
+// reset link's came with it (D466 §3).
 func upkeepAndDisplayDefinitions() []Definition {
 	return []Definition{
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),
+		sourced(durationSetting(PasswordResetLinkLifeMinutes, time.Minute, "60", 1, 7*24*60,
+			"minutes a registered person's reset password link works before it ends unused (D466 §3)"),
+			"D466 §3: the owner, 2026-11-12: \"let's make it 1h for starters\", to be learnt from the testers"),
 		sourced(durationSetting(ScreenRefreshFirstWaitSeconds, time.Second, "2", 1, 60,
 			"seconds a screen showing what the server changes in the background waits before asking again, "+
 				"and after an answer that changed it (D237)"),

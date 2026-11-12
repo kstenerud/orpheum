@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -72,6 +73,27 @@ func (fixture fixture) createUser(t *testing.T, name, password string, role Role
 	id, err := fixture.service.CreateUser(t.Context(), NewUser{Name: name, Password: password, Role: role})
 	if err != nil {
 		t.Fatalf("CreateUser(%s): %v", name, err)
+	}
+	return id
+}
+
+// createUnregistered is a person with no password yet, as one set up before D246 §2 is: their
+// registration link is a first one, not a reset link.
+func (fixture fixture) createUnregistered(t *testing.T, name string) int64 {
+	t.Helper()
+	var id int64
+	err := fixture.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		role, err := queries.GetRoleByName(t.Context(), string(RoleUser))
+		if err != nil {
+			return err
+		}
+		id, err = queries.InsertUser(t.Context(), sqlcgen.InsertUserParams{
+			Name: name, RoleID: role.ID, CreatedAt: fixture.clock.Now().UnixMilli(),
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("create %s with no password: %v", name, err)
 	}
 	return id
 }
