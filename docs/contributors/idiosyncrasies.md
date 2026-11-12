@@ -252,6 +252,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After an interface was taken down and up in a container, IPv4 had no route. | [Taking an LXC container's interface down and up loses its IPv4 default route](#taking-an-lxc-containers-interface-down-and-up-loses-its-ipv4-default-route) |
 | Pulling the image fails with "network is unreachable" though IPv6 works. | [GitHub's image registry, `ghcr.io`, has no IPv6 address](#githubs-image-registry-ghcrio-has-no-ipv6-address) |
 | A phone on a travel eSIM reaches no server: one IPv4 candidate abroad, no IPv6. | [A travel eSIM's data leaves through its operator's gateway, over IPv4 alone](#a-travel-esims-data-leaves-through-its-operators-gateway-over-ipv4-alone) |
+| Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
 ---
 
@@ -4405,6 +4406,23 @@ miss was our own bug (Appendix B).*
   refused it, and it is not tried again until an admin changes it
   (`TestCurrentSession_ALoginAnswered400IsRefused`). A 400 to any other request stays an error.
 - **Evidence:** observed on staging, 2026-11-02 (VQ11). [doc] opensubtitles-api.md §3 speaks of a 401.
+
+## Google's consoles
+
+### Google's Cast developer console in Chrome loses a sender's details, and publishing refuses
+
+- **Symptom:** in the Google Cast SDK Developer Console, in Chrome on the Mac, Publish answered "You
+  must add details about at least one sender application" however often Sender Details' Chrome
+  website URL was filled in and saved: the page said "Saving...", and the field was empty again on
+  the next edit (the owner, publishing production's receiver application, 2026-11-12).
+- **Cause:** the console's own script fails in Chrome. Its console printed `Error: int64 … at
+  f.setLastPublishedTimestamp` as the application loaded, `TypeError: Cannot mix BigInt and other
+  types` from `getLastPublishedTimestamp() + 15 * 60 * 1000`, and `Cannot read properties of undefined
+  (reading 'toUpperCase')` in `alreadyRegistered`: a 64-bit timestamp now read as a BigInt, which
+  the page's arithmetic cannot take, so the form never holds the application whole.
+- **What we do:** use the console in Firefox, where the same edit saved and Publish took (the owner,
+  2026-11-12).
+- **Evidence:** the owner's console output and a saved copy of the page, 2026-11-12.
 
 ## Watch list: researched, not yet met here
 
