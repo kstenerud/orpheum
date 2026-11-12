@@ -202,6 +202,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListLiveLibraryIDs":            few + "libraries; the identification sweep lists them",
 		"GetLiveLibraryByName":          few + "libraries; a name is checked when one is made or renamed",
 		"ListLibraries":                 few + "libraries",
+		"ListLiveDevicesOfSessionScope": few + "devices each; the core's start reads them once for the guest " +
+			"receivers a stopped core left (D465 §1)",
 		"MoveProgressHidesToItem": few + "people; a title merged into another gives it each one's hiding, " +
 			"found by its key",
 		"cache.SummarizeResourceUse": "every row kept is what it sums: a minute's row for the core and each node, " +

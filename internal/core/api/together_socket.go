@@ -80,7 +80,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	if !isSession {
 		return
 	}
-	signedIn, err := signedInBy(ctx, dependencies, hello.SessionToken)
+	signedIn, err := signedInBy(ctx, dependencies, hello.SessionToken, true)
 	if err != nil {
 		// Could not be checked: the server's failure, and the device comes again (the M4 closing audit).
 		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked",

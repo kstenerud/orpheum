@@ -242,6 +242,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A person's own casts between their devices: the receiver plays by its own playback, which
 		// checks its reach (D337 §1).
 		"listMyCasts", "endCast", "acceptCast",
+		// A grant for a Google Cast device, and its trade: the guest receiver it signs in plays only its
+		// cast's films (guestPlays; TestGuestReceiver_ReachesItsCastAlone), by playback that checks the
+		// sender's person's reach (D465 §2).
+		"issueGuestGrant", "tradeGuestGrant",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.

@@ -160,7 +160,8 @@ func (server *Server) mediaHolder(
 	if err != nil {
 		return nil, playback.Holder{}, err
 	}
-	_, principal, signInErr := server.requireSignedInForMedia(ctx, credentials)
+	// A guest receiver holds the tokens of the playbacks it started, its cast's film alone (D465 §2).
+	_, principal, signInErr := server.requireSignedInOrGuest(ctx, credentials.asAuthorizationHeader())
 	var viewer *playback.Holder
 	for _, credential := range []string{
 		bearerToken(credentials.Authorization), credentials.ViewerHeader, credentials.viewerCookie(),

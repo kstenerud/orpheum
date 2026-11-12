@@ -428,14 +428,20 @@ func (server *Server) removeTogetherLink(ctx context.Context, input *RemoveToget
 
 // signedInBy is the person a Watch Together join or device is signed in as, and their device, by its
 // session token: nil for none, or for one lapsed or ended, which joins as nobody, as the link allows.
+// A guest receiver is its person's only on its cast's socket, by that cast's credential: a join by a
+// link takes it for nobody (isGuestTaken false; D465 §2).
 // A token that could not be checked is the server's failure: taken for nobody, the session would not
 // have followed its person (D267 §2), and nothing said why (the M4 closing audit, 2026-10-08).
-func signedInBy(ctx context.Context, dependencies *Dependencies, token string) (*together.SignedIn, error) {
+func signedInBy(
+	ctx context.Context, dependencies *Dependencies, token string, isGuestTaken bool,
+) (*together.SignedIn, error) {
 	if token == "" {
 		return nil, nil //nolint:nilnil // no sign-in is no error
 	}
 	principal, err := dependencies.Auth.Authenticate(ctx, token)
 	switch {
+	case err == nil && principal.IsGuestReceiver() && !isGuestTaken:
+		return nil, nil //nolint:nilnil // a guest receiver joins by a link as nobody
 	case err == nil:
 		return &together.SignedIn{
 			Person:   together.Person{UserID: principal.UserID, Name: principal.Name},
@@ -456,7 +462,7 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	if name == "" {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.name", "a name is needed")
 	}
-	signedIn, err := signedInBy(ctx, dependencies, bearerToken(input.Authorization))
+	signedIn, err := signedInBy(ctx, dependencies, bearerToken(input.Authorization), false)
 	if err != nil {
 		return nil, server.authError(ctx, "check the sign-in of someone joining by a link", err)
 	}

@@ -74,6 +74,11 @@ func (server *Server) serveLiveSocket(
 		_ = connection.closeWith(websocket.StatusPolicyViolation, why) //nolint:errcheck // closing
 		return
 	}
+	if principal.IsGuestReceiver() && !dependencies.Live.IsGuest(principal.UserID, principal.DeviceID) {
+		// Its cast ended, or none started in time: it is no one's target (D465 §1).
+		_ = connection.closeWith(websocket.StatusPolicyViolation, "sign in first") //nolint:errcheck // closing
+		return
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	outbox := make(chan live.Outbound, outboxSize)

@@ -108,7 +108,7 @@ func (server *Server) registerCasts() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "acceptCast", Method: http.MethodPost, Path: "/me/casts/{id}/accept",
 		Summary: "Say Use, on its receiver, to a cast it was asked about (D364 §2)", Tags: tags,
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.acceptCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyCasts", Method: http.MethodGet, Path: "/me/casts",
@@ -297,7 +297,9 @@ type AcceptCastInput struct {
 // acceptCast notes the receiver's Use to a cast, which its sender is told on its live connection
 // (D364 §2): from then on what the person plays goes to it.
 func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*StartCastOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	// A guest receiver says Use to its one cast as any receiver does; the registry has it accept that
+	// cast alone, the only one handed to it (D465 §2).
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +338,13 @@ func (server *Server) castNames(
 		}
 	}
 	if !isOwn {
-		return "", "", server.castRefused(ctx, principal, "start", live.ErrNotConnected, "to", toDeviceID)
+		// A guest receiver is no device of theirs to list, and its grant's sender alone casts to it
+		// (D465 §1); to any other it is not connected, as a device of someone else's is.
+		guestName, isCastable := dependencies.Live.GuestCastableBy(principal.UserID, toDeviceID, principal.DeviceID)
+		if !isCastable {
+			return "", "", server.castRefused(ctx, principal, "start", live.ErrNotConnected, "to", toDeviceID)
+		}
+		receiverName = guestName
 	}
 	return senderName, receiverName, nil
 }

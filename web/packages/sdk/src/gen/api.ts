@@ -432,6 +432,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/guest-receivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trade a Google Cast device's grant, once, for its session for one cast (D465 §2) */
+        post: operations["tradeGuestGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1223,6 +1240,23 @@ export interface paths {
         put?: never;
         /** Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5) */
         post: operations["playInCast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/casts/guest-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A grant for a Google Cast device to receive a cast from this device (D465 §2) */
+        post: operations["issueGuestGrant"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3419,6 +3453,14 @@ export interface components {
             episodes: components["schemas"]["EpisodeBody"][] | null;
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
+        };
+        GuestGrantInputBody: {
+            /** @description The Cast device's name, as Chrome's Cast menu shows it */
+            receiverName: string;
+        };
+        GuestGrantOutputBody: {
+            /** @description Traded once, within a minute, by the receiver at POST /guest-receivers */
+            grant: string;
         };
         HandOffOutputBody: {
             /** @description Taken once, within a minute, by POST /session/redeem at the client origin */
@@ -5709,6 +5751,15 @@ export interface components {
             pictures: components["schemas"]["PictureTrackBody"][] | null;
             sounds: components["schemas"]["SoundTrackBody"][] | null;
         };
+        TradeGuestGrantInputBody: {
+            grant: string;
+        };
+        TradeGuestGrantOutputBody: {
+            /** Format: int64 */
+            deviceId: number;
+            locator: string;
+            token: string;
+        };
         UnavailableBody: {
             /** @description The machine that holds it */
             nodeName: string;
@@ -6913,6 +6964,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenresOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    tradeGuestGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TradeGuestGrantInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeGuestGrantOutputBody"];
                 };
             };
             /** @description Error */
@@ -8720,6 +8804,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CastBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueGuestGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestGrantInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestGrantOutputBody"];
                 };
             };
             /** @description Error */

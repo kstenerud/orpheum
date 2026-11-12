@@ -109,6 +109,9 @@ type Principal struct {
 	// isDeviceScoped is a session of the device scope: its Capabilities lack administering, and
 	// it may not change the account's security (CanManageAccount).
 	isDeviceScoped bool
+	// isGuestReceiver is a guest receiver's session (D465 §2): no capability, and refused wherever a
+	// person signs in (IsGuestReceiver).
+	isGuestReceiver bool
 	// AdminAway is the person's own word on administering from away from home (D302): AdminAwayNever
 	// or AdminAwayAlways.
 	AdminAway string
@@ -130,7 +133,13 @@ func (principal Principal) AdministersFromAway() bool {
 // its devices, and the codes it enters for other devices. A device-scoped session may not (D292 §4;
 // the security audit's A11).
 func (principal Principal) CanManageAccount() bool {
-	return !principal.isDeviceScoped
+	return !principal.isDeviceScoped && !principal.isGuestReceiver
+}
+
+// IsGuestReceiver reports whether the session is a guest receiver's (D465 §2): a Google Cast device
+// signed in for one cast, which may receive that cast and play its films, and nothing else.
+func (principal Principal) IsGuestReceiver() bool {
+	return principal.isGuestReceiver
 }
 
 // IsAdmin reports whether the principal's role carries the administer capability.
@@ -161,6 +170,8 @@ type Service struct {
 	pairings *pairings
 	// handOffs are the sessions a loader's sign-in made, waiting for the client origin (D308 §4).
 	handOffs *handOffs
+	// guestGrants are the grants for Google Cast devices waiting to be traded (D465 §2).
+	guestGrants *guestGrants
 	// hashing is the turn each password hash waits for (hashesAtOnce).
 	hashing hashSlots
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
@@ -192,8 +203,9 @@ func NewService(database *store.Database, clockSource clock.Clock, random io.Rea
 	return &Service{
 		database: database, clock: clockSource, random: random, settings: settings,
 		limiter: newFailureLimiter(clockSource), pairings: &pairings{bySecret: map[string]*pairing{}},
-		handOffs: &handOffs{byCode: map[string]handOff{}},
-		hashing:  newHashSlots(),
+		handOffs:    &handOffs{byCode: map[string]handOff{}},
+		guestGrants: &guestGrants{byHash: map[string]guestGrant{}},
+		hashing:     newHashSlots(),
 	}
 }
 
@@ -507,6 +519,8 @@ type Issued struct {
 	// Locator is what the device finds its core by at a discovery, handed over the direct path only
 	// (discovery-core.md K7).
 	Locator string
+	// DeviceID is the device the session is signed in on.
+	DeviceID int64
 }
 
 // issueSession signs the user in on a device, resumed or made, with a session grant of scope tied to
@@ -528,8 +542,10 @@ func (service *Service) issueSession(
 		return Issued{}, err
 	}
 	now := service.clock.Now().UnixMilli()
+	var deviceID int64
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		deviceID, deviceErr := resumeOrMakeDevice(ctx, queries, userID, device, now)
+		var deviceErr error
+		deviceID, deviceErr = resumeOrMakeDevice(ctx, queries, userID, device, now)
 		if deviceErr != nil {
 			return deviceErr
 		}
@@ -548,7 +564,7 @@ func (service *Service) issueSession(
 		return Issued{}, fmt.Errorf("record the session: %w", err)
 	}
 	service.linksChanged()
-	return Issued{Token: token, DeviceSecret: deviceSecret, Locator: locator}, nil
+	return Issued{Token: token, DeviceSecret: deviceSecret, Locator: locator, DeviceID: deviceID}, nil
 }
 
 // replaceDeviceSecret makes secret the device's one device secret.
@@ -630,8 +646,11 @@ func (service *Service) sessionPrincipal(
 	if err != nil {
 		return Principal{}, err
 	}
-	isDeviceScoped := grant.Scope == grantScopeDevice
+	isDeviceScoped, isGuestReceiver := grant.Scope == grantScopeDevice, grant.Scope == grantScopeGuestReceiver
 	capabilities := sessionCapabilities(user.Capabilities, isDeviceScoped)
+	if isGuestReceiver {
+		capabilities = []string{}
+	}
 	// The role's reach, not the session's: a device scope takes away administering, never the
 	// libraries an admin's role reaches by it (D292 §4; the production NAS's TV, 2026-10-20, saw none).
 	reach, err := reachOfRole(ctx, queries, user.RoleID, strings.Split(user.Capabilities, ","))
@@ -642,7 +661,7 @@ func (service *Service) sessionPrincipal(
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
 		Capabilities: capabilities, Reach: reach,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
-		isDeviceScoped: isDeviceScoped, AdminAway: user.AdminAway,
+		isDeviceScoped: isDeviceScoped, isGuestReceiver: isGuestReceiver, AdminAway: user.AdminAway,
 	}, nil
 }
 

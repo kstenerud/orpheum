@@ -177,7 +177,7 @@ func (server *Server) registerPlayback() {
 		OperationID: "startPlayback", Method: http.MethodPost, Path: "/playback",
 		Summary:    "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
 		Tags:       []string{tagPlayback},
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.startPlayback)
 	directResponses := map[string]*huma.Response{
 		"200": {Description: "The file", Content: map[string]*huma.MediaType{"application/octet-stream": {}}},
@@ -243,9 +243,18 @@ func (server *Server) getFileAvailability(
 }
 
 func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInput) (*StartPlaybackOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	holder := playback.HolderOf(principal)
+	if principal.IsGuestReceiver() {
+		// A guest receiver plays its cast's film alone (D465 §2): the one handed it or played in the
+		// cast since, or the one its cast's session plays.
+		if !guestPlays(dependencies, principal, input.Body.FileID) {
+			return nil, errGuestReceiver
+		}
+		holder.OnlyFileID = input.Body.FileID
 	}
 	request := playback.Request{
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
@@ -253,7 +262,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
 		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture, IsWebAudioLate: input.Body.IsWebAudioLate,
 	}
-	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
+	started, err := dependencies.Playback.Start(ctx, holder, request)
 	who := []any{
 		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "fileId", input.Body.FileID,
 		logKeyUserAgent, input.userAgent, "over", input.over, "host", input.host, "clientAddress", input.clientAddress,

@@ -210,6 +210,14 @@
 //     no one's, one character off a live one, or of another kind the service issues.
 //     TestCredentials_EachCheckRefusesAWrongOneOfItsShapeAndEveryOtherKind.
 //
+//   - A guest receiver's grant (D465 §2) is kept only as its hash, traded once within a minute, a
+//     sending device keeping few waiting; its session carries no capability, manages no account and
+//     sends no grant; its device is never listed among its person's, and is removed with its session.
+//     TestGuestGrant_IsTradedOnceForAGuestReceiversSession,
+//     TestGuestGrant_ExpiresAfterAMinuteAndASenderKeepsFewWaiting,
+//     TestGuestGrant_TheGuestReceiversSessionCarriesNoCapabilityAndSendsNoGrant and
+//     TestGuestGrant_AGuestReceiverIsUnlistedAndRemovedWithItsSession.
+//
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.

@@ -10,7 +10,8 @@ RETURNING id;
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
 -- of its sessions, whether any is still live, and whether a live one a code activated (the device
 -- scope), which the person's account page names (the device code audit's M4), and its sound offset,
--- which a Watch Together viewer signed in on it starts from.
+-- which a Watch Together viewer signed in on it starts from. A guest receiver, a Google Cast device
+-- signed in for one cast (D465 section 1), is no device of theirs to list.
 SELECT device.id, device.name, device.platform, device.added_at, device.sound_offset_ms,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in,
@@ -18,8 +19,20 @@ SELECT device.id, device.name, device.platform, device.added_at, device.sound_of
 FROM device
 LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
 WHERE device.user_id = sqlc.arg(user_id) AND device.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "grant" AS guest
+    WHERE guest.device_id = device.id AND guest.kind = 'session' AND guest.scope = 'guestReceiver'
+  )
 GROUP BY device.id
 ORDER BY last_used_at DESC, device.id DESC;
+
+-- name: ListLiveDevicesOfSessionScope :many
+-- The devices not removed that a session of the scope was signed in on: the guest receivers a core
+-- that stopped left kept (D465 section 1), to remove as it starts.
+SELECT DISTINCT device.id, device.user_id FROM device
+JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
+WHERE "grant".scope = sqlc.arg(scope) AND device.removed_at IS NULL
+ORDER BY device.id;
 
 -- name: RenameDevice :exec
 UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);

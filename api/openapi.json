@@ -2438,6 +2438,33 @@
         ],
         "type": "object"
       },
+      "GuestGrantInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "receiverName": {
+            "description": "The Cast device's name, as Chrome's Cast menu shows it",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "receiverName"
+        ],
+        "type": "object"
+      },
+      "GuestGrantOutputBody": {
+        "properties": {
+          "grant": {
+            "description": "Traded once, within a minute, by the receiver at POST /guest-receivers",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant"
+        ],
+        "type": "object"
+      },
       "HandOffOutputBody": {
         "properties": {
           "code": {
@@ -9066,6 +9093,40 @@
         ],
         "type": "object"
       },
+      "TradeGuestGrantInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "grant": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant"
+        ],
+        "type": "object"
+      },
+      "TradeGuestGrantOutputBody": {
+        "properties": {
+          "deviceId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "locator",
+          "deviceId"
+        ],
+        "type": "object"
+      },
       "UnavailableBody": {
         "properties": {
           "nodeName": {
@@ -11497,6 +11558,49 @@
           "Browse"
         ],
         "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/guest-receivers": {
+      "post": {
+        "operationId": "tradeGuestGrant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradeGuestGrantInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGuestGrantOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [],
+        "summary": "Trade a Google Cast device's grant, once, for its session for one cast (D465 §2)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/health": {
@@ -14403,6 +14507,53 @@
         "x-orpheum-capability": "signedIn"
       }
     },
+    "/me/casts/guest-grants": {
+      "post": {
+        "operationId": "issueGuestGrant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestGrantInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestGrantOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "A grant for a Google Cast device to receive a cast from this device (D465 §2)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
     "/me/casts/{id}/accept": {
       "post": {
         "operationId": "acceptCast",
@@ -14449,7 +14600,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/me/casts/{id}/end": {
@@ -15804,7 +15955,7 @@
         "tags": [
           "Playback"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/playback/{token}": {

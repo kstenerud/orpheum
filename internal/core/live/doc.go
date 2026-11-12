@@ -67,6 +67,12 @@
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,
 //     TestLive_ARemovedDeviceIsToldItsSignInEnded in internal/core/api.
+//   - A guest receiver (D465 §1) is listed to no one, casts to no one, and is cast to once, by the
+//     device that asked for its grant alone; EndGuests ends it as that cast ends, or UnansweredAfter
+//     its sign-in if none started. Enforced by
+//     TestRegistry_AGuestReceiverIsUnlisted, TestRegistry_AGuestReceiverTakesOneCastFromItsSenderAlone,
+//     TestRegistry_AGuestReceiverEndsWithItsCastOrUnusedAfterUnansweredAfter and, through the API,
+//     TestGuestReceiver_IsSignedInByAGrantTradedOnceAndCastToByItsSenderAlone in internal/core/api.
 //   - Starts no goroutine, and a Sender never blocks (the api's outbox). Review-only.
 //   - Imports nothing from internal/node, never os/exec, and no database/sql. Enforced by the
 //     depguard rules core-boundary and sql-only-in-store.
@@ -81,6 +87,7 @@
 //     D338, the owner's changes after the first build: the tab in front receives.
 //     at a film's end, the next episode as the sender would play it (plans/up-next.md).
 //   - D88: a cast is Watch Together with a group of one, so control is the hub's.
+//   - D465: casting to any Google Cast device, signed in as a guest receiver for one cast.
 //   - D154: no credential in a URL; the hello carries the session token.
 //   - D165: an offline device must not rewind a person, so the sender leaves its playback.
 //
