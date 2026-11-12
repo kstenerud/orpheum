@@ -264,7 +264,10 @@ func TestSignal_AConnectionsHoldingEndsOnlyOnceItsHealthWatchHas(t *testing.T) {
 	built.service.parts.Healthy = func(context.Context) error {
 		if checks.Add(1) == 2 { // the first is the dial's own, the second the watch's
 			close(checking)
-			<-release
+			select { // not on the check's own context, which ends as the connection does
+			case <-release:
+			case <-t.Context().Done():
+			}
 		}
 		return nil
 	}
