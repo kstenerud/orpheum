@@ -2994,8 +2994,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   old receiver from the loader's copy after a deploy). Passes when `./staging quick`, with an
   executable `.staging/after-up` that rebuilds Connect's staging, prints "staging: running …/after-up",
   orpheum.dev's `/cast/` then serves the receiver this checkout builds, and without the file the deploy
-  ends as before. (`staging`, after_up; its tests are in `scripts/tests/`, a gate, so a device run
-  stands for them)
+  ends as before. (`staging`, after_up; `scripts/tests/test_staging.py`'s
+  AfterUp tests)
   **Passed 2026-11-12, by the lead, on staging:** `./staging quick` brought staging up, printed
   "staging: running /home/karl/orpheum/.staging/after-up", and the hook rebuilt Connect's staging;
   orpheum.dev then served `/` and `/cast/` with the same bundles as this checkout's build. Called
