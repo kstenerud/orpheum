@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 
 import { pairingCodeOf } from "./lab-cast-target.tsx";
-import { castTargetRequest, labDiscoveryOf, signInOf } from "./lab-cast.tsx";
+import { receiverDiscoveryOf } from "./cast-reach.ts";
+import { castTargetRequest, signInOf } from "./lab-cast.tsx";
 
 const session = { token: () => "a-token", locator: () => "a-locator" };
 const throughDiscovery = {
@@ -62,7 +63,7 @@ describe("the page's discovery as the lab's receiver is told it", () => {
       coreId: throughDiscovery.coreId,
       fingerprint: throughDiscovery.fingerprint,
     };
-    expect(labDiscoveryOf(found, "https://k7xq2.client.example")).toEqual(throughDiscovery);
-    expect(labDiscoveryOf(undefined, "https://k7xq2.client.example")).toBeUndefined();
+    expect(receiverDiscoveryOf(found, "https://k7xq2.client.example")).toEqual(throughDiscovery);
+    expect(receiverDiscoveryOf(undefined, "https://k7xq2.client.example")).toBeUndefined();
   });
 });
