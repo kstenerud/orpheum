@@ -31,6 +31,13 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   receiver leads, so the group has no film until it plays one), then the session's play, pause and
   position. Its sockets go the way its requests go, by the core's name or over
   WebRTC (`src/reach.ts`). `src/device.test.ts`; only a device shows the whole: VQ286, VQ287.
+- **Casts under a grant with nothing kept** (D465 §2): on `urn:x-cast:org.orpheum.cast`, a sender's
+  launch carries a grant for one cast and its core's reach, with no session. The receiver reaches the
+  core through the discovery, its first offer proven by the grant (`targetOfGuestGrant`), trades the
+  grant at `POST /guest-receivers`, answers `ready` with its device or `failed` with why, and takes
+  the cast as a paired device does, its later offers proven by the guest's session. It keeps nothing
+  in storage, and stops once the core refuses the guest, whose device is gone when its cast ends.
+  `src/guest.test.ts`; only a device shows the whole: VQ302.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
   calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.
@@ -47,5 +54,6 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 
 - The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. The lab's session (the
   report, the film, the memory, the log on screen): `src/lab.ts`. The receiver as a cast target (its
-  pairing, its live connection, the cast it follows): `src/device.ts`.
+  pairing, its live connection, the cast it follows): `src/device.ts`. A cast under a grant:
+  `src/guest.ts`.
 - The CAF receiver SDK script tag: `index.html`.

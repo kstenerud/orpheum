@@ -13,6 +13,7 @@ import {
 } from "@orpheum/sdk";
 
 import { CastDevice, keepSession, keptSessionOf, pairThisDevice } from "./device.ts";
+import { castAsGuest, guestRequestOf, reachOfGrant, type GuestAnswer } from "./guest.ts";
 import { reachCore, reachedAt, reachOf, type Reach, type Reached } from "./reach.ts";
 
 /**
@@ -180,6 +181,34 @@ export class LabReceiver {
       return;
     }
     this.play(request);
+  }
+
+  /**
+   * Takes a cast under a grant (guest.ts) in place of any cast target it is now, its film in place
+   * of the lab's own, answering the sender by answer.
+   */
+  heardGuestLaunch(message: unknown, answer: (message: GuestAnswer) => void): void {
+    const request = guestRequestOf(message);
+    if (request === undefined) {
+      this.note(`a cast it does not know: ${JSON.stringify(message).slice(0, 200)}`);
+      return;
+    }
+    this.stopDevice?.();
+    this.stopDevice = undefined;
+    const note = (line: string): void => {
+      this.note(line);
+    };
+    void castAsGuest(request, {
+      reach: reachOfGrant(request, note),
+      video: this.video,
+      note,
+      answer,
+      onTaken: () => {
+        this.stopOwnFilm();
+      },
+    }).then((stop) => {
+      this.stopDevice = stop;
+    });
   }
 
   /** Samples the page's memory, and tells the senders. */

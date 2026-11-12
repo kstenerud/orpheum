@@ -32,10 +32,10 @@ describe("a Google Cast device's target, holding a grant for one cast (D465 §2)
   });
 
   it("proves its offers by the session the trade made, once it has one", async () => {
-    let traded: HeldSession | undefined;
+    const traded: HeldSession[] = [];
     const held = { core, grant: "a guest grant", senderLocator: "the-senders-locator" };
-    const target = await targetOfGuestGrant(discoveryOf("k7xq2", []), held, () => traded);
-    traded = { core, token: "the-guests-token", locator: "the-guests-locator" };
+    const target = await targetOfGuestGrant(discoveryOf("k7xq2", []), held, () => traded[0]);
+    traded.push({ core, token: "the-guests-token", locator: "the-guests-locator" });
     const bySession = {
       held: { locator: "the-guests-locator" },
       key: await sessionOfferKey("the-guests-token"),
