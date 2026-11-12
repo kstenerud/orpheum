@@ -3225,12 +3225,9 @@ amendment, D318 §2), and until then their old password still works. What the re
 - **Cancelling it:** the person's page shows the outstanding reset link and a Cancel, which revokes
   it (D318 §3 already provides the revoke; no screen offers it for a registered person).
 
-Questions for the owner before it is built:
-
-1. Does a second reset link leave the first one live (D318 §1, as now), or end it?
-2. Is 1 hour a setting, kept apart from the first invitation's 7 days, or fixed?
-3. While one is outstanding, does the page show the link and QR code again, or only "Reset link
-   live until 14:05" and Cancel?
+Decided (D466, the owner's answers 2026-11-12): a new reset link cancels any outstanding one; its
+life is a setting of its own, 1 hour to start; the page shows until when one is live, with a
+Cancel, and never the link again.
 
 A small mismatch in the meantime: the route's summary says "withdrawing the old"
 (`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1).

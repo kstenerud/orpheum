@@ -27852,3 +27852,31 @@ and D154 §2's `LoadRequestData.credentials` route. The plan is
    URL, and no session, no sync, no Watch Together); handing the receiver the sender's own sign-in,
    as the device lab does (a stranger's TV would keep it).
 
+
+## D466 — A person's password is reset by a link the admin makes on their page: one at a time, live for a set time, cancellable
+
+**Decided** (2026-11-12), by the owner, asking for a reset link (*"On a user's info page, I press the
+button 'New reset password link', which creates a link that's valid for one reset or can be
+cancelled, similar to the invite link process. ... Until they complete the password reset, the link
+remains valid, up to its expiry date (let's make it 1h for starters)."*) and answering the lead's
+three questions (*"1: For reset links, making a new one auto-cancels any outstanding one. 2: We
+make it a setting. This will take some user feedback before we reach a 'feels good' default. 3: I
+think we don't need to show it again since making a new link invalidates the old one. So if the
+user needs you to send it again, cycling the link has almost the same effect."*). Amends
+[D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code)
+§5, whose forgotten password took a new registration link, and, for reset links alone,
+[D318](#d318--several-codes-may-be-outstanding-for-one-entitlement-and-redeeming-any-one-of-them-ends-them-all)
+§1. The plan is the "A password reset link" section of
+[navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md).
+
+1. **A registered person's page has "New reset password link".** It makes a link, shown with its QR
+   code as an invitation's is, which the admin passes on; following it, the person sets a new
+   password. Using it ends it, signs the person out everywhere (D218 §5's 2026-10-13 amendment), and
+   until then their old password still works.
+2. **One reset link at a time.** Making a new one cancels any outstanding one, in the same step:
+   D318 §1 keeps every code sent live, but a reset link is passed on by the admin in person, and the
+   one just made is the one that counts.
+3. **It lives for a setting's time**, 1 hour to start with, its own setting apart from a first
+   invitation's `registrationInvitationLifeDays`: the right length is to be learnt from the testers.
+4. **While one is outstanding, the page says until when, with a Cancel**, which revokes it (D318 §3).
+   It does not show the link again: a new link in its place does the same, and ends the old one.
