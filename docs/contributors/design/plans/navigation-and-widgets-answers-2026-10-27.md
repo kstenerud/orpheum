@@ -3323,6 +3323,12 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   at 3:22 until the step down).
 - **9.** Up next warms the next episode, without releasing the playing film's tokens.
 
+- **X7. A password reset link from a person's page (D466), wanted by 2026-11-13** (the owner,
+  2026-11-12: *"I'd like to have that by tomorrow if we can"*), folded in from "A password reset
+  link, for a later batch" above: the button reads New reset password link, the link lives its own
+  setting's time (1 hour to start), a new one cancels any outstanding one, and the page shows until
+  when one is live, with Cancel and Renew, never the link again.
+
 **Medium priority:**
 
 - **6.** The discovery test that failed once under a full run.
