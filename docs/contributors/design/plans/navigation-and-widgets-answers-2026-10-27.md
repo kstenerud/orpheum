@@ -3152,7 +3152,14 @@ below: "agreed. Release anyway". Found by the lead:
   a Mac has asked for chunk 457 of one playback, picture and sound, about once a second for 11 hours
   (still at 07:13 UTC: some 470 requests in 10 minutes), each answered 404 `playbackGone` ("the
   server restarted since it began, or it ended; start it again"). The player should stop asking on
-  that code and say so, or start the playback again, not retry it forever.
+  that code and say so, or start the playback again, not retry it forever. **Done in the 11-23
+  batch (the owner, 2026-11-12: "agreed. go ahead"):** "fix(player): a chunk the core answers 404
+  ends the playback at once, where it was asked for again forever"; the failure's report learns
+  the playback is gone and the page opens it again where it was.
+- **Go 1.26.11, for GO-2026-6859** (net/http's MaxBytesReader racing the request's headers crashes
+  an HTTP/1 server; check-vulns says our code reaches it). **Done in the 11-23 batch:** "build(go):
+  Go 1.26.11, for GO-2026-6859, an HTTP/1 server crash our code reaches", and Connect's toolchain
+  line with it.
 - **Film 1504 played through on the testing Fire TV at v0.5.0** (1080p throughout, 80 of 28,937
   frames dropped), with two stalls, both item 4 of the 11-23 batch: 2.2 s at 0:13, a
   bufferFullError (the player assumed a 157 MB picture buffer where Silk holds about 30 MiB) whose
