@@ -22,7 +22,7 @@ import { reachCore, reachedAt, reachOf, type Reach, type Reached } from "./reach
  * played by our own player, its events and stalls logged; the page's memory each minute. Everything
  * is sent to the senders, whose page sends it to the server's log, and shown on screen once a sender
  * has asked for it: the lab's sender, a debug tool itself, by any request, and a cast under a grant
- * where its sender's person shows debug tools and ticked Show the cast log on the TV (the owner,
+ * where its sender's person shows debug tools and ticked Show cast log (the owner,
  * 2026-11-12). Until then the screen shows the film alone.
  */
 

@@ -36,18 +36,18 @@ import type { AskGuestCastGrant, Services } from "./services.tsx";
 /** The namespace the sender and the receiver speak on of a cast under a grant. */
 export const guestCastNamespace = "urn:x-cast:org.orpheum.cast";
 
-/** Where this browser keeps whether the Cast menu's Show the cast log on the TV is ticked. */
+/** Where this browser keeps whether the Cast menu's Show cast log is ticked. */
 export const castLogTickedKey = "orpheum.debug.castLogTicked";
 
 /**
- * Whether Show the cast log on the TV is ticked in this browser: off until ticked, kept per browser
+ * Whether Show cast log is ticked in this browser: off until ticked, kept per browser
  * (the owner, 2026-11-12), and of effect only while the person shows debug tools (CastTargets).
  */
 export function isCastLogTicked(storage: StringStorage = browserStorage()): boolean {
   return storage.getItem(castLogTickedKey) === "1";
 }
 
-/** Keeps whether Show the cast log on the TV is ticked in this browser. */
+/** Keeps whether Show cast log is ticked in this browser. */
 export function keepCastLogTicked(
   isTicked: boolean,
   storage: StringStorage = browserStorage(),

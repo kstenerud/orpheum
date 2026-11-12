@@ -3031,7 +3031,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   offers no Chromecast. (`web/apps/web/src/google-cast.ts`)
 - [ ] **VQ306** — A Chromecast at a house that is not the core's casts through the discovery (D465 §2).
   With the Mac and a Chromecast on a network away from the core, Show debug tools on and the Cast
-  menu's Show the cast log on the TV ticked, cast a film as VQ302 does. Passes
+  menu's Show cast log ticked, cast a film as VQ302 does. Passes
   when it plays, and the receiver's log says it connected over WebRTC through the discovery, its
   first offer proven by the grant. (`web/apps/cast-receiver/src/guest.ts`, `src/reach.ts`;
   `web/packages/sdk/src/core-target.ts`)

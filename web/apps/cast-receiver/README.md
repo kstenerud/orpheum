@@ -41,7 +41,7 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   `src/guest.test.ts`; only a device shows the whole: VQ302.
 - **Shows its log on screen only once a sender asks** (the owner, 2026-11-12): it keeps noting
   lines for its report from its start, the screen hidden, until a launch under a grant carries
-  `showsLog: true` (its sender's person shows debug tools and ticked Show the cast log on the TV;
+  `showsLog: true` (its sender's person shows debug tools and ticked Show cast log;
   a launch without the field, as an older sender's, keeps it hidden) or the lab's sender, a debug
   tool, asks anything (`showLog` as it opens the receiver). Once shown it stays for the page's
   life. `src/lab.test.ts`, `src/guest.test.ts`.
