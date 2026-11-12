@@ -27,6 +27,7 @@ import {
   type CastChannel,
 } from "./cast-sdk.ts";
 import { useLive } from "./live.tsx";
+import { dataOrThrow } from "./problem.ts";
 import type { AskGuestCastGrant, Services } from "./services.tsx";
 
 /** The namespace the sender and the receiver speak on of a cast under a grant. */
@@ -42,6 +43,12 @@ export function isChromeBrowser(browser: unknown = globalThis.navigator): boolea
   return (
     Array.isArray(brands) && brands.some((entry: unknown) => at(entry, "brand") === "Google Chrome")
   );
+}
+
+/** Asks the core of api for a grant for one cast to the Google Cast device receiverName (D465 §2). */
+export function askGuestCastGrantOf(api: Api): AskGuestCastGrant {
+  return async (receiverName) =>
+    dataOrThrow(await api.POST("/me/casts/guest-grants", { body: { receiverName } })).grant;
 }
 
 /** What a page casts to a Google Cast device with: the loader's application, the grant, the reach. */

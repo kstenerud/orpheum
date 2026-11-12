@@ -67,8 +67,9 @@ export interface Services {
   readonly castReceiverAppId?: string | undefined;
   /**
    * Asks the core for a grant for one cast to the Google Cast device receiverName (D465 §2), which the
-   * Cast menu's Chromecast hands that device over the Cast channel and nowhere else; undefined until
-   * it is wired, and then no Chromecast is offered (google-cast.ts).
+   * Cast menu's Chromecast hands that device over the Cast channel and nowhere else
+   * (google-cast.ts's askGuestCastGrantOf); where it is undefined, as in most tests, no Chromecast is
+   * offered.
    */
   readonly askGuestCastGrant?: AskGuestCastGrant | undefined;
   /**
