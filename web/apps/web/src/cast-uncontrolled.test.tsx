@@ -11,13 +11,12 @@ import { PlayOrSendOn } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { createNavigation, type Navigation } from "./navigation.ts";
 import {
-  buttonWithText,
-  click,
   mount,
   servedBy,
   settleUntil,
   type Answers,
   type Mounted,
+  pressToStartTheCast,
 } from "./test-dom.tsx";
 import { fakePlace, withServices, type FakePlace } from "./test-services.tsx";
 import { liveAndSession, type FakeTogetherServer } from "./test-together.ts";
@@ -100,7 +99,7 @@ describe("a page loaded again while its tab received a cast (D383 §2, D384 §1)
       "POST /me/casts/5/accept": [200, { castId: 5 }],
     });
     await live.say({ type: "receive", receive: handed });
-    await click(buttonWithText(shown.container, "Use"));
+    await pressToStartTheCast();
     await handedNothing(live);
     expect(shown.container.textContent).toContain("receiving cast 5");
     expect(shown.container.textContent).toContain("the film plays");

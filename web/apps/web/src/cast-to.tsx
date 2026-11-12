@@ -12,8 +12,7 @@ import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark, FindDevicesIcon } from "./cast-kind.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
-  castAnswerGraceMs,
-  castAnswerWithinMs,
+  castTakenWithinMs,
   endCastRetrying,
   playInCast,
   startCast,
@@ -45,9 +44,9 @@ import { watchingOf } from "./watching.ts";
  * Setting a cast up (D364 §1, §2; D337 §2): the person's other devices open now, each by its name and
  * when it was last used, read again as that set changes; one chosen starts a session with it, playing
  * film, the video this device played as the person came here, if any (film), from where it stood.
- * The device is asked once whether to be used (D364 §2), and this page says it is asking until it
- * answers: its Use makes the session the server's and the live connection says so (useLive's
- * sending), and its Not now or no answer is said in a line. A cast this device sends unanswered that
+ * The device takes it at once, asking nothing (D468 §1), and this page says it is asking until it
+ * has: its taking makes the session the server's and the live connection says so (useLive's
+ * sending); a cast ended first, never taken, is said in a line. A cast this device sends unanswered that
  * this page is not waiting on, the dialog closed while it asked, shows asking too, to be cancelled
  * (AskingWithCancel). A device with no Orpheum tab in front says so, and a cast to it is refused
  * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
@@ -282,17 +281,19 @@ function AskingNow(props: {
   );
 }
 
-/** A cast started, its receiver asked whether to be used (D364 §2), and the name it is asked on. */
+/** A cast started, its receiver about to take it (D468 §1), and the name it is cast to. */
 interface Asking {
   readonly cast: Cast;
   readonly name: string;
 }
 
 /**
- * The sender waiting for its receiver's answer (D364 §2, D358 §1–§4): its Use is said by the live
- * connection (sending, accepted), after which the casting page shows the session's remote; Not now,
- * or no answer, ends the cast, said in a line (onNotTaken). A receiver that never answers, its page
- * gone, is given up on after castAnswerWithinMs and castAnswerGraceMs. Cancel casting request ends
+ * The sender waiting for its receiver to take the cast, which it does at once, asking nothing (D468
+ * §1, §3): its taking is said by the live connection (sending, accepted), after which the casting
+ * page shows the session's remote, the sender's playback handed off. A cast ended before, by a
+ * receiver built before D468 whose person said Not now or nothing (D358 §3, §4), is said in a line
+ * (onNotTaken). A receiver that never takes it, its page gone, is given up on after
+ * castTakenWithinMs. Cancel casting request ends
  * it while it is asked, and a cast the live connection said this device sends, then no longer, is
  * over at once: the server lost it (a restart), and no answer will come (the owner, 2026-11-03: the
  * phone stayed asking).
@@ -333,7 +334,7 @@ function AwaitingAnswer(props: {
         // Failing twice, the core ends it itself once it is unanswered past live.UnansweredAfter.
         endCastRetrying(api, cast.castId, "unanswered").catch(() => undefined);
       }
-    }, castAnswerWithinMs + castAnswerGraceMs);
+    }, castTakenWithinMs);
     return () => {
       clearTimeout(timer);
     };
@@ -350,7 +351,7 @@ function AwaitingAnswer(props: {
 }
 
 /**
- * The cast this device sends whose receiver has not said Use, unless this page has settled it
+ * The cast this device sends whose receiver has not taken it, unless this page has settled it
  * (settledCastId): the live connection keeps saying it until the server ends it.
  */
 function unansweredOf(
@@ -427,7 +428,7 @@ function useIsLost(isSent: boolean): boolean {
   return wasSent && !isSent;
 }
 
-/** What a sender says of a cast that ended before its receiver said Use. */
+/** What a sender says of a cast that ended before its receiver took it. */
 function notTakenText(t: TFunction, reason: TogetherEndReason, name: string): string {
   if (reason === "declined") {
     return t("cast.answered.declined", { name });
@@ -604,7 +605,7 @@ type PlaysWhere =
 /**
  * Where a Play page's film plays (PlayOrSendOn), first decided once the server says what the device
  * sends, or after sendingKnownWithinMs: here when shouldPlayHere or the device sends no cast its
- * receiver said Use to; the remote at once where that cast plays this film already; else sent on.
+ * receiver took; the remote at once where that cast plays this film already; else sent on.
  * Playing here, a cast that takes this film on (started from Cast's dialog) makes the page its
  * remote; playHereFrom plays it here again, as the cast ends.
  */
@@ -643,7 +644,7 @@ function useWhereItPlays(props: {
 }
 
 /**
- * Whether taken, a cast its receiver said Use to, took on the page's film fileId while it played here:
+ * Whether taken, a cast its receiver took, took on the page's film fileId while it played here:
  * one started from Cast's dialog over the page, not one the page played here from.
  */
 function isTakenOn(
@@ -659,7 +660,7 @@ function hereFrom(atMs: number | undefined, round: number, isPaused?: boolean): 
   return { kind: "here", from: { atMs, round, ...(isPaused === true ? { isPaused } : {}) } };
 }
 
-/** Where the page's film plays first, given the cast taken, if any, its receiver having said Use. */
+/** Where the page's film plays first, given the cast taken, if any, its receiver having taken it. */
 function firstWhere(
   taken: CastSending | undefined,
   page: {

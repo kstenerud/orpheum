@@ -23,6 +23,7 @@ import {
   settleUntil,
   type Heard,
   type Mounted,
+  pressToStartTheCast,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
@@ -437,7 +438,7 @@ it("turns Cast's sign blue on a device being cast to, naming the device that cas
   };
   await server.say({ type: "receive", receive: handed });
   expect(sign("Cast to a device")).toEqual({ isOn: false, href: null }); // asked, not yet receiving
-  await click(buttonWithText(mounted.container, "Use"));
+  await pressToStartTheCast();
   expect(sign("Cast from Mac")).toEqual({ isOn: true, href: null });
   await server.say({ type: "receive", receive: { ...handed, fileId: 3, fromDeviceName: "" } });
   expect(sign("Cast from another of your devices")).toEqual({ isOn: true, href: null });

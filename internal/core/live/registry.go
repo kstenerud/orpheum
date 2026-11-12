@@ -75,7 +75,7 @@ type Cast struct {
 	// IsPaused is whether the receiver opens the film paused at PositionMs, as the sender had it as the
 	// cast started (the owner, 2026-11-08); a film played in the cast after it plays.
 	IsPaused bool
-	// IsAccepted is whether the receiver said Use to the session, asked once (D364 §2).
+	// IsAccepted is whether the receiver took the session, asking nothing (D468 §1).
 	IsAccepted bool
 	// SendersMembership is the Watch Together membership credential the sender's page holds as a
 	// guest, whose part in the session the receiver takes (TogetherPart); "" for the person's own
@@ -477,7 +477,7 @@ func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positi
 	return held.Cast, nil
 }
 
-// Accept notes that the receiver, userID's device deviceID, said Use to the cast castID, which it is
+// Accept notes that the receiver, userID's device deviceID, took the cast castID, which it is
 // asked once (D364 §2), and tells its sender's pages.
 func (registry *Registry) Accept(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
@@ -534,7 +534,7 @@ func (registry *Registry) EndGone() []Cast {
 	})
 }
 
-// EndUnanswered ends every cast whose receiver has not said Use within UnansweredAfter of being
+// EndUnanswered ends every cast whose receiver has not taken it within UnansweredAfter of being
 // asked (D358 §4), its sender's pages told, and returns them for their sessions to be ended.
 func (registry *Registry) EndUnanswered() []Cast {
 	registry.mutex.Lock()

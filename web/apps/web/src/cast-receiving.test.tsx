@@ -11,19 +11,24 @@ import { useReceiving } from "./cast-receiver.tsx";
 import { castReceivingKey } from "./cast-receiving-mark.ts";
 import { LiveProvider, useLive } from "./live.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { currentNotice, dismissNotice } from "./notice.ts";
+import {
+  buttonWithText,
+  click,
+  mount,
+  pressToStartTheCast,
+  refusal,
+  servedBy,
+  settleUntil,
+  type Answers,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { createNavigation } from "./navigation.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 
 // The receiving side of the page's live connection, apart from setting a cast up (cast-to.test.tsx).
-
-/** Answers Use to the cast the receiver asks about (D364 §2). */
-async function pressUse(container: HTMLElement): Promise<void> {
-  const use = buttonWithText(container, "Use");
-  expect(use).toBeDefined();
-  await click(use);
-}
 
 /** What the page's live connection says the receiver is handed, as a child of the provider. */
 function Receiving(): JSX.Element {
@@ -63,11 +68,15 @@ function TakingBack(): JSX.Element {
   );
 }
 
-describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)", () => {
+describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4; D468)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
+    const notice = currentNotice();
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
   });
 
   /** A cast handed to the receiver: cast 5, of film 7, from the Pixel. */
@@ -79,9 +88,10 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     fromDeviceName: "Pixel",
   };
 
-  it("asks once whether to be used for playback, tells the server its Use, and opens the film's Play page", async () => {
+  /** The receiver's provider over Receiving, its connection accepted, and what its server heard. */
+  async function receiver(answers: Answers = { "POST /me/casts/5/accept": [200, { castId: 5 }] }) {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, heard, "token");
+    const services = servedBy(answers, heard, "token");
     const sockets = liveAndSession();
     const server = sockets.live;
     mounted = await mount(
@@ -93,12 +103,54 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
       ),
     );
     await server.accept();
+    const accepts = (): number =>
+      heard.filter((each) => each.methodAndPath === "POST /me/casts/5/accept").length;
+    return { services, server, accepts, container: mounted.container };
+  }
+
+  it("takes a cast at once on a page pressed since it loaded, asking nothing, and opens the film's Play page (D468 §1)", async () => {
+    Object.defineProperty(navigator, "userActivation", {
+      configurable: true,
+      value: { isActive: false, hasBeenActive: true },
+    });
+    try {
+      const { services, server, accepts, container } = await receiver();
+      await server.say({ type: "receive", receive: { ...handed, positionMs: 61_000 } });
+      await settleUntil(() => container.textContent.includes("receiving cast 5"));
+      expect(accepts()).toBe(1);
+      expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+      expect(document.body.querySelector("button")).toBeNull();
+    } finally {
+      Reflect.deleteProperty(navigator, "userActivation");
+    }
+  });
+
+  it("takes a cast at once on a page never pressed, so its sender hands it off, and holds the film for the press that starts it (D468 §2, §3)", async () => {
+    const { services, server, accepts, container } = await receiver();
+    const before = services.navigation.route();
     await server.say({ type: "receive", receive: { ...handed, positionMs: 61_000 } });
-    expect(mounted.container.textContent).toContain("Pixel wants to use this device for playback");
-    await pressUse(mounted.container);
-    expect(heard.map((each) => each.methodAndPath)).toContain("POST /me/casts/5/accept");
-    expect(mounted.container.textContent).toContain("receiving cast 5");
+    await settleUntil(() => buttonWithText(document.body, "Click to start") !== undefined);
+    expect(accepts()).toBe(1);
+    expect(container.textContent).not.toContain("receiving");
+    expect(services.navigation.route()).toEqual(before);
+    await pressToStartTheCast();
+    expect(accepts()).toBe(1);
+    expect(container.textContent).toContain("receiving cast 5");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    expect(buttonWithText(document.body, "Click to start")).toBeUndefined();
+  });
+
+  it("says its sender stopped where the cast is gone as it is taken, and receives nothing", async () => {
+    const { services, server, container } = await receiver({
+      "POST /me/casts/5/accept": refusal(404, "notFound"),
+    });
+    const before = services.navigation.route();
+    await server.say({ type: "receive", receive: handed });
+    await settleUntil(() => currentNotice() !== undefined);
+    expect(currentNotice()?.text).toBe("Pixel stopped casting.");
+    expect(container.textContent).not.toContain("receiving");
+    expect(buttonWithText(document.body, "Click to start")).toBeUndefined();
+    expect(services.navigation.route()).toEqual(before);
   });
 
   it("heads its player's overlay with Stop casting here, which a device playing its own film has not (D446 §3)", async () => {
@@ -121,7 +173,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(buttonWithText(overlay(), "Stop casting here")).toBeUndefined();
     await sockets.live.accept();
     await sockets.live.say({ type: "receive", receive: handed });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     expect(buttonWithText(overlay(), "Stop casting here")).toBeDefined();
   });
 
@@ -138,10 +190,10 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 0 } });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     expect(services.navigation.route()).toEqual({ screen: "cast-ready" });
     await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 8 } });
-    expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
+    expect(buttonWithText(document.body, "Click to start")).toBeUndefined();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 8 });
     await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 0 } });
     expect(services.navigation.route()).toEqual({ screen: "cast-ready" });
@@ -164,10 +216,10 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     );
     await server.accept();
     await server.say({ type: "receive", receive: handed });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     // The cast handed again with another film is received at once: its device is asked no more.
     await server.say({ type: "receive", receive: { ...handed, fileId: 9 } });
-    expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
+    expect(buttonWithText(document.body, "Click to start")).toBeUndefined();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
     await click(buttonWithText(mounted.container, "leave"));
     expect(services.navigation.route()).toEqual({ screen: "home" });
@@ -203,7 +255,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "receive", receive: handed });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     expect(mounted.container.textContent).toContain("part none");
     await sockets.live.say({
       type: "receive",
@@ -240,7 +292,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "receive", receive: handed });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     expect(navigation.route()).toEqual({ screen: "play", fileId: 7 });
     // The receiver's own entry, which a Fire TV's Back steps off to take control back.
     act(() => {
@@ -268,7 +320,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     );
     await server.accept();
     await server.say({ type: "receive", receive: handed });
-    await pressUse(mounted.container);
+    await pressToStartTheCast();
     expect(mounted.container.textContent).toContain("receiving cast 5");
     await click(buttonWithText(mounted.container, "take back"));
     expect(services.navigation.route()).toEqual({ screen: "home" });

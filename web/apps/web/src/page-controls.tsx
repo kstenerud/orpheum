@@ -6,7 +6,7 @@ import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { pressOf } from "./cast-asked.tsx";
+import { pressOf } from "./cast-start.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";

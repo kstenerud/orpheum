@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CastReceiver, castNoteShownMs, ControlledMode, moveOnOrReady } from "./cast-receiver.tsx";
 import { playedMutedEvent, type CastToReceive } from "@orpheum/sdk";
 
-import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
+import { leaveFullScreen, type CastAnswer } from "./cast-start.tsx";
 import { fillsWindowClass, followFillsWindow } from "./film-fullscreen.ts";
 import { onCommand } from "./input-commands.ts";
 import { currentNotice, dismissNotice } from "./notice.ts";

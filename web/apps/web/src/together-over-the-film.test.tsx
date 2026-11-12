@@ -15,6 +15,7 @@ import {
   settleUntil,
   type Heard,
   type Mounted,
+  pressToStartTheCast,
 } from "./test-dom.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { LiveProvider } from "./live.tsx";
@@ -351,7 +352,7 @@ it("offers no session to start over the film while this device receives a cast, 
       fromDeviceName: "Pixel",
     },
   });
-  await click(buttonWithText(document.body, "Use"));
+  await pressToStartTheCast();
   await settleUntil(() => startSign() === null);
   expect(sign()).toBeNull();
 });
@@ -435,7 +436,7 @@ it("shows no Watch Together sign over the film on the device the session its per
       togetherCredential: "host-part",
     },
   });
-  await click(buttonWithText(document.body, "Use"));
+  await pressToStartTheCast();
   await settleUntil(() => startSign() === null);
   expect(document.querySelector(".player-overlay__together")).toBeNull();
   expect(buttonWithText(document.body, "Move it here")).toBeUndefined();

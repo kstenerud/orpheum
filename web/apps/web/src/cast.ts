@@ -17,26 +17,21 @@ import { readMembership } from "./together-storage.ts";
 export type Cast = components["schemas"]["CastBody"];
 
 /**
- * Why a device ends a cast: Stop casting here on the receiver, Stop casting on the sender; or, asked
- * whether to take it, the receiver's Not now or no answer (D358 §3, §4, D446 §1). The server's own
- * list, so no reason it refuses is sent.
+ * Why a device ends a cast: Stop casting here on the receiver, Stop casting on the sender; or a
+ * receiver that never took it (unanswered), as its sender gives up on it. A receiver built before
+ * D468 still sends its person's Not now (declined) or no answer (D358 §3, §4, D446 §1). The server's
+ * own list, so no reason it refuses is sent.
  */
 export type CastEnd = components["schemas"]["EndCastInputBody"]["reason"];
 
 /**
- * How long a receiver asks whether to take a cast before it takes no answer as no, in milliseconds
- * (D358 §4): a person across the room finds the remote and presses OK well within a minute, and a
- * sender left waiting longer has given up on it. A justified constant.
+ * How long a sender waits for its receiver to take a cast before ending it as unanswered itself, in
+ * milliseconds: a receiver takes it at once, a round trip after it is handed (D468 §1), but one whose
+ * page went away takes nothing, and a receiver built before D468, its page not loaded again since,
+ * still asks its person for a minute (D358 §4) and ends the cast itself at its end; a few round trips
+ * past that minute. A justified constant.
  */
-export const castAnswerWithinMs = 60_000;
-
-/**
- * How much longer than castAnswerWithinMs a sender waits for its receiver's answer before ending the
- * cast as unanswered itself, in milliseconds: a receiver whose page went away answers nothing, and
- * one still there ends it first, its own minute counted from the moment it was handed the cast. A
- * justified constant, a few round trips.
- */
-export const castAnswerGraceMs = 5000;
+export const castTakenWithinMs = 65_000;
 
 /** Where a cast stood as it ended. */
 export type CastEnded = components["schemas"]["EndCastOutputBody"];
@@ -106,7 +101,7 @@ export async function playInCast(
   );
 }
 
-/** Says Use, on its receiver, to the cast castId, which it is asked once (D364 §2). */
+/** Takes, on its receiver, the cast castId, at once as it is handed, asking nothing (D468 §1). */
 export async function acceptCast(api: Api, castId: number): Promise<Cast> {
   return dataOrThrow(
     await api.POST("/me/casts/{id}/accept", {

@@ -47,7 +47,7 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
 }
 
 /**
- * Closes the dialog once a cast started from it is taken, its receiver having said Use: the page
+ * Closes the dialog once a cast started from it is taken by its receiver (D468 §1): the page
  * under it is the cast's remote then, which the dialog would cover. A cast on as it opened leaves it
  * open, to be stopped or gone back to.
  */

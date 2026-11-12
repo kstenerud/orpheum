@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { castAnswerGraceMs, castAnswerWithinMs } from "./cast.ts";
+import { castTakenWithinMs } from "./cast.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
 import {
@@ -17,6 +17,7 @@ import {
   servedBy,
   type Heard,
   type Mounted,
+  pressToStartTheCast,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, liveAndSession, type FakeTogetherServer } from "./test-together.ts";
@@ -267,12 +268,12 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       const heard: Heard[] = [];
       await castToTheTv(heard);
       await act(async () => {
-        vi.advanceTimersByTime(castAnswerWithinMs);
+        vi.advanceTimersByTime(castTakenWithinMs - 1_000);
         await Promise.resolve();
       });
       expect(mounted?.container.textContent).toContain("Asking Fire TV…");
       await act(async () => {
-        vi.advanceTimersByTime(castAnswerGraceMs);
+        vi.advanceTimersByTime(1_000);
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
       expect(mounted?.container.textContent).toContain("Fire TV did not answer.");
@@ -489,9 +490,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
         fromDeviceName: "Mac",
       },
     });
-    const use = buttonWithText(mounted.container, "Use");
-    expect(use).toBeDefined();
-    await click(use);
+    await pressToStartTheCast();
     expect(buttonWithText(mounted.container, "Mac")).toBeUndefined();
     await click(buttonWithText(mounted.container, "Pixel"));
     expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
