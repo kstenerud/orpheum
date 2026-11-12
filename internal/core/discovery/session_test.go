@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -143,6 +144,10 @@ func TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond(t *testing.T)
 	}
 }
 
+// timersOfAConnection is how many timers the core arms while it holds a signalling connection and
+// waits: keepAlive's, for its next ping or its pong, and watchHealth's.
+const timersOfAConnection = 2
+
 // signalOverTime runs the signalling loop of a claimed core while its clock moves a second every few
 // milliseconds of real time, and is each dial's time on that clock, until stop.
 func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan time.Time, stop func()) {
@@ -165,9 +170,13 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 		built.service.signal(ctx)
 	}()
 	go func() {
-		// Each step gives the code a real moment to answer a ping and arm its next timer before the
-		// fake time moves to that timer; a connection that answers its pings is given until its ping
-		// is answered, however busy the machine (make check, 2026-10-16: two missed under load).
+		// The fake time moves only while the core holds a connection and has armed both its timers,
+		// its ping's wait (or its pong's) and its next health check, however busy the machine: moved
+		// sooner, it went to the later of them, and the one armed after counted from there (make check,
+		// 2026-11-12: a pong's wait armed late, so the dead link was found seconds late). A connection
+		// that answers its pings is given until its ping is answered (make check, 2026-10-16: two
+		// missed under load). The steps are a real moment apart, so the test can speak to a
+		// connection before the next is dialled.
 		tick := time.NewTicker(100 * time.Millisecond)
 		defer tick.Stop()
 		for {
@@ -177,6 +186,9 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 			case <-tick.C:
 				for answersPings && built.service.pingsUnanswered.Load() > 0 && ctx.Err() == nil {
 					time.Sleep(time.Millisecond)
+				}
+				if !built.clock.AwaitArmed(ctx, timersOfAConnection) {
+					return
 				}
 				built.clock.AdvanceToNext()
 			}
@@ -236,6 +248,54 @@ func TestSignal_ADiscoveryRestartedBehindALinkLeftOpenIsFoundAgainAndAnswered(t 
 		t.Errorf("the log says\n%s\nwant the connection open again, how long it was lost and after how many dials",
 			text)
 	}
+}
+
+// A signalling connection's holding ends only once its pinging and health watch have: one left
+// running past it pinged a connection gone, and its armed timer moved a test's fake time on to its own
+// as the next dial began (make check, 2026-11-12).
+func TestSignal_AConnectionsHoldingEndsOnlyOnceItsHealthWatchHas(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	built.service.parts.Answerer = &answering{}
+	checking, release := make(chan struct{}), make(chan struct{})
+	released := sync.OnceFunc(func() { close(release) })
+	defer released()
+	var checks atomic.Int32
+	built.service.parts.Healthy = func(context.Context) error {
+		if checks.Add(1) == 2 { // the first is the dial's own, the second the watch's
+			close(checking)
+			<-release
+		}
+		return nil
+	}
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(t.Context())
+	built.fake.mutex.Lock()
+	built.fake.silentDials = 1
+	built.fake.mutex.Unlock()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	returned, baseURL := make(chan struct{}), built.service.Status().BaseURL
+	go func() {
+		defer close(returned)
+		_, _ = built.service.holdSignalling(ctx, baseURL, &lostSignalling{}) //nolint:errcheck // the test ends it
+	}()
+	if !built.clock.AwaitArmed(t.Context(), timersOfAConnection) {
+		t.Fatal("the connection's timers were never armed")
+	}
+	built.clock.Advance(healthCheckEvery)
+	testutil.Receive(t, checking, "the health watch's check")
+	cancel()
+	select {
+	case <-returned:
+		t.Error("the connection's holding ended while its health watch was still checking")
+	case <-time.After(50 * time.Millisecond):
+	}
+	released()
+	testutil.Receive(t, returned, "the connection's holding to end once its health watch has")
 }
 
 // A connection that answers its pings is kept: the pings keep it from looking idle to a proxy, which
