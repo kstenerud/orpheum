@@ -71,14 +71,19 @@ def settle(sheets: list[str], run_reverted: Callable[[list[str]], subprocess.Com
 
 
 def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,
-                          timeout: int, timings: Timings, spare: queue.Queue[str] | None = None) -> dict[str, str]:
+                          timeout: int, timings: Timings, spare: queue.Queue[str] | None = None,
+                          readers: list[str] | None = None) -> dict[str, str]:
     """The sheets whose own browser-mode tests turn red with it reverted alone, with what the run
     printed; each run timed in timings, each sheet put back. A run past its timeout settles nothing.
+
+    `readers`, when given, runs first: the tests that read the stylesheets as text, which no import
+    reaches, a few seconds; a red there settles the sheet. Without it, check-pr called eight sheets
+    green on revert though stylesheet-choices.test.ts failed with them reverted (2026-11-12).
 
     The runs go side by side, each in tree or in a probe tree it borrows from spare as one comes
     free: one after another in one tree, about two minutes each, they were 1000 s of a check-pr while
     the other three trees sat idle (2026-11-03)."""
-    if not related:
+    if not related and not readers:
         return {}
     noticed: dict[str, str] = {}
     mine: queue.Queue[str] = queue.Queue()
@@ -97,6 +102,14 @@ def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], re
         started = time.monotonic()
         try:
             if git_run("checkout", base, "--", path, cwd=here).returncode != 0:
+                return
+            if readers:
+                read = timed(timings, path, "vitest, the tests that read stylesheets", None,
+                             functools.partial(run_whole_group, readers, here, timeout))
+                if read.returncode != 0:
+                    noticed[path] = read.stdout + read.stderr
+                    return
+            if not related:
                 return
             done = timed(timings, path, "vitest related (browser mode)", None,
                          functools.partial(run_whole_group, [*related, path.removeprefix("web/")], here, timeout))

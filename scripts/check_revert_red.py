@@ -98,7 +98,7 @@ from revert_red_changes import (GO_GENERATED_QUERIES, GO_TEST_SUPPORT, SHELL_SOU
                                 is_python, is_test_file, types_touching)
 from revert_red_dependents import (GO_SHIPPED_SOURCE_READERS, git_run as _git, go_dependents, go_module,  # noqa: F401 (tests reach rev_exists here)
                                    python_tests_naming, python_tests_reaching, rev_exists, toplevel,
-                                   web_source_readers)
+                                   web_source_readers, web_stylesheet_readers)
 from revert_red_locales import LOCALE_SOURCE, locale_runs
 from revert_red_naming import naming_runs
 from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach other_builds here)
@@ -438,7 +438,8 @@ def is_stylesheet(change: Change) -> bool:
 def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,
                          command: list[str] | None = None,
                          browser_mode: list[str] | None = None,
-                         spare: queue.Queue[str] | None = None) -> dict[str, Outcome]:
+                         spare: queue.Queue[str] | None = None,
+                         readers: list[str] | None = None) -> dict[str, Outcome]:
     """The stylesheets' verdicts, settled by halves (revert_red_stylesheets): every one reverted at
     once, run once, and each half of a failing group again, down to the sheets a test noticed.
 
@@ -446,7 +447,8 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     runs them, and only when they stay green the browser tier: the tier alone missed app-shell.css
     and tokens.css, each red by the browser-mode tests alone (check-pr, 2026-10-26). The gate's own
     run uses BROWSER_MODE_RELATED; a test that hands its own tier command hands its own browser-mode
-    one, or runs none.
+    one, or runs none. Before either, the tests that read stylesheets as text (`readers`; the gate's
+    own run, revert_red_dependents.web_stylesheet_readers), which neither reaches.
 
     A sheet alone costs a whole browser tier, and a skin changes dozens: one run per sheet took a
     skin's branch three quarters of an hour (2026-10-06). A passing run settles every sheet it
@@ -474,13 +476,16 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
 
     unreached: set[str] = set()
     related = browser_mode if command is not None else (browser_mode or BROWSER_MODE_RELATED)
+    if readers is None and command is None:
+        reading = web_stylesheet_readers(tree)
+        readers = [*VITEST_RUN, *reading] if reading else None
     # Each sheet's own browser-mode tests first, alone, seconds each: a red settles it, and only the
     # rest go into the halving, over the browser tier alone. The halving's every level ran every
     # browser-mode test of its group, sixteen runs one after another, about 1500 s of one check-pr
     # (the test-regime audit of 2026-10-31, R2).
     # They run side by side, in whichever probe trees come free (spare).
     noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout,
-                                          TIMINGS, spare)
+                                          TIMINGS, spare, readers)
 
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"

@@ -559,6 +559,16 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
                          "each sheet reverted alone, as vitest related's path, web/ left off")
         self.assertEqual(repo.git("status", "--porcelain"), "")
 
+    def test_the_tests_reading_the_sheets_as_text_run_with_each_reverted_and_their_red_counts(self):
+        # No import reaches a test that reads a sheet from disk, and neither browser run runs it: check-pr
+        # called eight sheets green on revert though stylesheet-choices.test.ts failed (2026-11-12).
+        repo, base = self.repo()
+        with repo.cwd():
+            settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, ["true"],
+                                              ["true"], readers=["sh", "-c", f"! grep -q old {self.UNCLAIMED}"])
+        self.assertEqual(settled[self.UNCLAIMED].verdict, "RED_TEST")
+        self.assertEqual(repo.git("status", "--porcelain"), "")
+
     def test_the_sheets_own_browser_mode_runs_go_side_by_side_in_the_trees_that_come_free(self):
         # One after another in one tree, two minutes each, they were 1000 s of a check-pr while three
         # probe trees sat idle (2026-11-03).
