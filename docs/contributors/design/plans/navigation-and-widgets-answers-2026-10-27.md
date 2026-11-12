@@ -3226,8 +3226,8 @@ amendment, D318 §2), and until then their old password still works. What the re
   it (D318 §3 already provides the revoke; no screen offers it for a registered person).
 
 Decided (D466, the owner's answers 2026-11-12): a new reset link cancels any outstanding one; its
-life is a setting of its own, 1 hour to start; the page shows until when one is live, with a
-Cancel, and never the link again.
+life is a setting of its own, 1 hour to start; the page shows until when one is live, with Cancel
+and Renew (a new link and code in its place), and never the outstanding link again.
 
 A small mismatch in the meantime: the route's summary says "withdrawing the old"
 (`internal/core/api/accounts.go`), but the earlier links stay live (D318 §1).

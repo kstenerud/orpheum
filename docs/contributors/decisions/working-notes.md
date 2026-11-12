@@ -27878,5 +27878,7 @@ user needs you to send it again, cycling the link has almost the same effect."*)
    one just made is the one that counts.
 3. **It lives for a setting's time**, 1 hour to start with, its own setting apart from a first
    invitation's `registrationInvitationLifeDays`: the right length is to be learnt from the testers.
-4. **While one is outstanding, the page says until when, with a Cancel**, which revokes it (D318 §3).
-   It does not show the link again: a new link in its place does the same, and ends the old one.
+4. **While one is outstanding, the page says until when, with Cancel and Renew.** Cancel revokes it
+   (D318 §3). Renew makes a new link in its place, ending the old one (point 2), and shows the new
+   link and its QR code. The page never shows the outstanding link again: Renew does that job (the
+   owner, 2026-11-12: *"Have a cancel and a renew button for it. Renew brings up a new link/code."*).
