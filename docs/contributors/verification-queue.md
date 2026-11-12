@@ -3008,3 +3008,29 @@ An item is ticked only by the person who did it, and only with what they saw.
   play, pause and a seek in the tab move the TV within a few seconds, Stop casting stops it, and the
   TV is in none of Your devices' lists after. (`web/apps/cast-receiver/src/guest.ts`, `src/caf.ts`,
   `src/main.ts`)
+- [ ] **VQ303** — A Chromecast never registered to any application casts under production's
+  application, which Google has published (D465 §5; google-cast.md §2, step 5). With the owner's
+  3rd-generation Chromecast's registration removed in Google's console, from Chrome on the Mac at
+  production's loader, cast a film to it as VQ302 does. Passes when it plays as VQ302 passes, and the
+  page's `orpheum-cast-receiver-app-id` is production's application, not staging's.
+  (`orpheum-connect` `-cast-receiver-app-id`; `web/apps/web/src/discovery-page.ts`)
+- [ ] **VQ304** — A TV with Cast built in, and a Chromecast with Google TV, cast under a grant (D465
+  §2; google-cast.md §3, "Older receivers"). On staging, cast a film from Chrome on the Mac to an
+  Android TV or Google TV set, then to a Chromecast with Google TV. Passes when each plays the film
+  with no code, its receiver's report names the engine it runs, and play, pause and a seek move it as
+  VQ302's do. (`web/apps/cast-receiver/src/guest.ts`, `src/old-engine.ts`)
+- [ ] **VQ305** — Chrome on Android casts to a Chromecast under a grant (D465 §3). On staging, on the
+  Pixel 3a in Chrome, open a film, press Cast, choose Chromecast, then the TV. Passes when the TV
+  plays it with no code and the phone's controls move it, and the menu on Firefox on the same phone
+  offers no Chromecast. (`web/apps/web/src/google-cast.ts`)
+- [ ] **VQ306** — A Chromecast at a house that is not the core's casts through the discovery (D465 §2).
+  With the Mac and a Chromecast on a network away from the core, cast a film as VQ302 does. Passes
+  when it plays, and the receiver's log says it connected over WebRTC through the discovery, its
+  first offer proven by the grant. (`web/apps/cast-receiver/src/guest.ts`, `src/reach.ts`;
+  `web/packages/sdk/src/core-target.ts`)
+- [ ] **VQ307** — A grant already traded buys nothing a second time (D465 §2; google-cast.md §3, "A
+  listener on the network"). On staging, once a Chromecast plays a cast under a grant, take that
+  grant from the sending tab's DevTools (the answer to `POST /me/casts/guest-grants`) and send it in
+  a guest launch to a second Chromecast from a second Chrome on the same network. Passes when the
+  second receiver answers that it failed, the first cast keeps playing, and no second device appears
+  in the owner's devices. (`internal/core/api/guest_receivers.go`)
