@@ -33,6 +33,9 @@ Staging is written exactly as release is, by the image's `orpheum write-deployme
 stays tested; only the image differs, built here rather than from a tag. The first run makes
 .staging/, writes its values file and the tunnel's key pair, and says what to fill in.
 
+An executable .staging/after-up runs after each deploy, here, from the checkout: what else serves this
+checkout and must follow it, such as a loader's copy of the web client.
+
 It needs Docker with the compose plugin and BuildKit, and a kernel with WireGuard. It never touches
 the dev loop's container or .dev/. Stdlib only, as ./dev is.
 """
@@ -68,6 +71,8 @@ FULL_IMAGE = "orpheum-runtime:staging-full"
 BINARY_IN_IMAGE = "/usr/local/bin/orpheum"
 TUNNEL_IN_IMAGE = "/usr/local/bin/orpheum-tunnel"
 TUNNEL = ROOT / "deploy" / "staging" / "tunnel.sh"
+# Run after each deploy, from the checkout, when the staging directory holds it (after_up).
+AFTER_UP = "after-up"
 # Where write-deployment sees the deployment's directory and its run directory (cmd/orpheum's
 # deploymentMount and deploymentRun), and where the core's instance is in its container.
 MOUNT = "/var/lib/orpheum"
@@ -331,7 +336,22 @@ def up(quick: bool = False, target: Target = LOCAL) -> int:
     run(target.compose("up", "--detach", "--remove-orphans", "--force-recreate", "--wait"))
     print(where_reached(tomllib.loads(values_text(target) or ""),
                         lan_address() if target.host is None else target.host.rpartition("@")[2]))
-    return 0
+    return after_up(DIR)
+
+
+def after_up(directory: Path) -> int:
+    """Runs the staging directory's after-up, when there is one: what else serves this checkout and
+    must follow each deploy, such as a loader's copy of the web client (the owner's Chromecast ran the
+    old receiver from the loader's copy after a deploy here, 2026-11-12). This machine's own, so the
+    directory holds it, not the repository."""
+    hook = directory / AFTER_UP
+    if not os.access(hook, os.X_OK):
+        return 0
+    print(f"staging: running {hook}", flush=True)
+    done = subprocess.run([str(hook)], cwd=ROOT, check=False)
+    if done.returncode != 0:
+        print(f"staging: {hook} failed ({done.returncode}); staging itself is up", file=sys.stderr)
+    return done.returncode
 
 
 def where_reached(values: dict, this_machine: str) -> str:
