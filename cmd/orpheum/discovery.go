@@ -69,7 +69,7 @@ func discoveryParts(
 		Answerer:   answerer, OnClaimed: onClaimed,
 		Random: rand.Reader,
 		Links:  linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
-		HandOffOfferKeys: opened.auth.HandOffOfferKeys,
+		FurtherOfferKeys: furtherOfferKeysOf(opened.auth),
 		// A person's realm key is made for the realm the discovery finds the core by, and checks the
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
@@ -172,6 +172,16 @@ func offerKeyOf(accounts *auth.Service, sessions *together.Hub) func(context.Con
 			return key, nil
 		}
 		return nil, err
+	}
+}
+
+// furtherOfferKeysOf are the further keys an offer under hash is proven under, as accounts keeps
+// them: a live hand-off's, under the person a realm sign-in names (D308 §4), and a waiting guest
+// grant's, under the locator of the session that asked for it (D465 §2).
+func furtherOfferKeysOf(accounts *auth.Service) func(context.Context, string) ([][]byte, error) {
+	return func(ctx context.Context, hash string) ([][]byte, error) {
+		guests, err := accounts.GuestGrantOfferKeys(ctx, hash)
+		return append(accounts.HandOffOfferKeys(hash), guests...), err
 	}
 }
 

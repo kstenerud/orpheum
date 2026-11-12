@@ -58,8 +58,14 @@ export {
   RtcUnconnected,
   TurnedAway,
 } from "./rtc-connect.ts";
-export { connectThrough, provingOf, signallerOf, targetOfSession } from "./core-target.ts";
-export type { HeldSession, KeptCore, Target } from "./core-target.ts";
+export {
+  connectThrough,
+  provingOf,
+  signallerOf,
+  targetOfGuestGrant,
+  targetOfSession,
+} from "./core-target.ts";
+export type { HeldGuestGrant, HeldSession, KeptCore, Target } from "./core-target.ts";
 export { isUnreached, reaching, unreachedRetryMs } from "./rtc-reopen.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { SilentRequestError } from "./rtc-request.ts";
@@ -110,6 +116,7 @@ export {
   clientManifestMessage,
   discoverySignaller,
   fromBase64,
+  guestGrantOfferKey,
   handOffOfferKey,
   locate,
   locateHash,

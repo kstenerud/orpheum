@@ -184,3 +184,21 @@ func TestHandOffOfferKey_IsTheVectorAndNoSessionsKey(t *testing.T) {
 		t.Error("a hand-off's key is the key of a session whose token is the code")
 	}
 }
+
+// guestGrantOfferKeyVector is GuestGrantOfferKey of "a guest grant", which the SDK's tests hold too,
+// so a Google Cast device proves its first offer under the key the core derives.
+const guestGrantOfferKeyVector = "Sp_nzXoDtDoRH33p4TcO25G-fMNNjngNGfcDbvoIVzY"
+
+// A guest grant's offer key is the vector, and neither a session's key nor a hand-off's of the same
+// text.
+func TestGuestGrantOfferKey_IsTheVectorAndNoSessionsNorHandOffsKey(t *testing.T) {
+	t.Parallel()
+	key := GuestGrantOfferKey("a guest grant")
+	if got := base64.RawURLEncoding.EncodeToString(key); got != guestGrantOfferKeyVector {
+		t.Errorf("GuestGrantOfferKey = %s; want %s", got, guestGrantOfferKeyVector)
+	}
+	if string(key) == string(SessionOfferKey("a guest grant")) ||
+		string(key) == string(HandOffOfferKey("a guest grant")) {
+		t.Error("a guest grant's key is the key of a session or a hand-off of the same text")
+	}
+}

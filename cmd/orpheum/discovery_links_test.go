@@ -290,8 +290,10 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 }
 
 // A live hand-off's code proves the offers the discovery passes on for its person, so the client
-// origin it was handed to reaches the core over WebRTC (D308 §4).
-func TestDiscoveryParts_AHandOffsCodeProvesOffersForItsPerson(t *testing.T) {
+// origin it was handed to reaches the core over WebRTC (D308 §4); and a waiting guest grant's key
+// proves those passed on under its sender's locator, so a Google Cast device holding the grant
+// reaches it to trade it (D465 §2).
+func TestDiscoveryParts_AHandOffsCodeAndAGuestGrantProveOffers(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	database := storetest.OpenMigrated(t)
@@ -311,12 +313,30 @@ func TestDiscoveryParts_AHandOffsCodeProvesOffersForItsPerson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parts.HandOffOfferKeys == nil {
-		t.Fatal("the parts give the discovery no hand-off keys")
+	if parts.FurtherOfferKeys == nil {
+		t.Fatal("the parts give the discovery no further keys")
 	}
-	keys := parts.HandOffOfferKeys(proof.RealmPerson("karlnas", "karl"))
-	if len(keys) != 1 || !bytes.Equal(keys[0], proof.HandOffOfferKey(code)) {
-		t.Errorf("karl's hand-off keys through the parts are %d; want his live code's", len(keys))
+	keys, err := parts.FurtherOfferKeys(ctx, proof.RealmPerson("karlnas", "karl"))
+	if err != nil || len(keys) != 1 || !bytes.Equal(keys[0], proof.HandOffOfferKey(code)) {
+		t.Errorf("karl's hand-off keys through the parts are %d, %v; want his live code's", len(keys), err)
+	}
+	issued, err := opened.auth.SignIn(ctx, "karl", "a password", "192.0.2.1",
+		auth.NewDevice{Name: "Chrome on a laptop", Platform: "web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender, err := opened.auth.Authenticate(ctx, issued.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, err := opened.auth.IssueGuestGrant(sender, "Living room TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, err = parts.FurtherOfferKeys(ctx, link.LocatorHash(issued.Locator))
+	if err != nil || len(keys) != 1 || !bytes.Equal(keys[0], proof.GuestGrantOfferKey(grant)) {
+		t.Errorf("the keys under the sender's locator through the parts are %d, %v; want its grant's",
+			len(keys), err)
 	}
 }
 

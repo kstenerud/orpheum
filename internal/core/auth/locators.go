@@ -264,21 +264,15 @@ func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, erro
 	if err != nil {
 		return nil, ErrNoOfferKey
 	}
-	idleExpiry, err := service.sessionLocatorExpiry(ctx)
-	if err != nil {
-		return nil, err
-	}
-	now := service.clock.Now()
-	session, err := store.OrNotFound(service.database.Read().GetLiveSessionOfLocator(ctx,
-		sqlcgen.GetLiveSessionOfLocatorParams{Hash: raw, IdleSince: new(now.Add(-idleExpiry).UnixMilli())}))
+	session, err := service.sessionOfLocator(ctx, raw)
 	switch {
 	case err == nil:
 		return session, nil
 	case !errors.Is(err, store.ErrNotFound):
-		return nil, fmt.Errorf("look up a locator: %w", err)
+		return nil, err
 	}
 	key, err := store.OrNotFound(service.database.Read().GetLiveLinkOfferKey(ctx,
-		sqlcgen.GetLiveLinkOfferKeyParams{LocateHash: raw, Now: new(now.UnixMilli())}))
+		sqlcgen.GetLiveLinkOfferKeyParams{LocateHash: raw, Now: new(service.clock.Now().UnixMilli())}))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// A person a realm sign-in found the core for: their offers are proven by their realm key.
@@ -292,4 +286,21 @@ func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, erro
 		return nil, fmt.Errorf("look up a link: %w", err)
 	}
 	return key, nil
+}
+
+// sessionOfLocator is the live session whose device locator hashes to raw, as its token's SHA-256
+// (proof.SessionOfferKey); store.ErrNotFound for none.
+func (service *Service) sessionOfLocator(ctx context.Context, raw []byte) ([]byte, error) {
+	idleExpiry, err := service.sessionLocatorExpiry(ctx)
+	if err != nil {
+		return nil, err
+	}
+	session, err := store.OrNotFound(service.database.Read().GetLiveSessionOfLocator(ctx,
+		sqlcgen.GetLiveSessionOfLocatorParams{
+			Hash: raw, IdleSince: new(service.clock.Now().Add(-idleExpiry).UnixMilli()),
+		}))
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("look up a locator: %w", err)
+	}
+	return session, err
 }

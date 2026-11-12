@@ -104,9 +104,11 @@ type Parts struct {
 	// locator's hash, or a live link's, by its locate hash (auth.Service.OfferKey; the protocol's §2.5
 	// item 3). Nil proves none, and every offer is refused.
 	OfferKey func(ctx context.Context, hash string) ([]byte, error)
-	// HandOffOfferKeys are the further keys an offer passed on under hash may be proven under: those
-	// of the live hand-offs of the person a realm sign-in names by it (D308 §4); nil adds none.
-	HandOffOfferKeys func(hash string) [][]byte
+	// FurtherOfferKeys are the further keys an offer passed on under hash may be proven under: those
+	// of the live hand-offs of the person a realm sign-in names by it (D308 §4), and of the waiting
+	// grants a session asked for to cast to a Google Cast device, under its locator (D465 §2); nil
+	// adds none.
+	FurtherOfferKeys func(ctx context.Context, hash string) ([][]byte, error)
 	// RealmSignIn takes a realm sign-in the discovery passed on, who it is for and its proof, and is
 	// the person's realm key, which the core's answer is tagged under; an error refuses it (D297 §3).
 	RealmSignIn func(ctx context.Context, person, ask string) ([]byte, error)

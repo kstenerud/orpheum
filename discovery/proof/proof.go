@@ -18,10 +18,11 @@ const prefix = "orpheum-discovery-v1:"
 // The purposes of a signature over a WebRTC answer, of a proof over an offer, and of a signature
 // over the manifest of a core's client.
 const (
-	answerPurpose         = "answer"
-	offerPurpose          = "offer"
-	clientManifestPurpose = "client-manifest"
-	handOffOfferPurpose   = "handoff-offer"
+	answerPurpose          = "answer"
+	offerPurpose           = "offer"
+	clientManifestPurpose  = "client-manifest"
+	handOffOfferPurpose    = "handoff-offer"
+	guestGrantOfferPurpose = "guest-grant-offer"
 )
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
@@ -112,6 +113,16 @@ func SessionOfferKey(token string) []byte {
 // sign-in was for, beside their realm key, only while the code is live.
 func HandOffOfferKey(code string) []byte {
 	digest := sha256.Sum256([]byte(prefix + handOffOfferPurpose + "\n" + code))
+	return digest[:]
+}
+
+// GuestGrantOfferKey is what a Google Cast device proves its first offers under while it holds only
+// a grant for one cast, before it has traded it for a session of its own (D465 §2; google-cast.md
+// §2, step 2): SHA-256 over the grant under a purpose of its own, so neither a session's key nor a
+// hand-off's is ever one. The core takes it under its sender's locator, beside the sender's own
+// session key, only while the grant waits.
+func GuestGrantOfferKey(grant string) []byte {
+	digest := sha256.Sum256([]byte(prefix + guestGrantOfferPurpose + "\n" + grant))
 	return digest[:]
 }
 

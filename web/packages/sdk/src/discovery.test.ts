@@ -17,6 +17,7 @@ import {
   sessionOfferKey,
   verifyAnswer,
   verifyClientManifest,
+  guestGrantOfferKey,
   handOffOfferKey,
   isCoreOffline,
   isKeyRefused,
@@ -37,10 +38,12 @@ const vectors = {
   fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw",
   answerSignature:
     "zPjLjCmzDvVqHdAZSpOC8WniJI6O_7YspYaS3m4jADbYVFqR7XuBosDQ7V5iD9XEtR-e9abWmBjGPJqid-ofAQ",
-  // proof's clientManifestVector, over the manifest {"files":[]}, and handOffOfferKeyVector.
+  // proof's clientManifestVector, over the manifest {"files":[]}, handOffOfferKeyVector and
+  // guestGrantOfferKeyVector.
   clientManifestSignature:
     "UoKlrdFrAoHSyIoY1izKxSjrqGmsqj7KVvSJQWAvuhtvCYzkVwJaI_cag2Lrv9Q3h7gt7rF87XmmPLcmSaPeDQ",
   handOffOfferKey: "4kr2Om59JFSPErbW1mQ4dnJuRTQiDyeFHb7U_kPBfxI",
+  guestGrantOfferKey: "Sp_nzXoDtDoRH33p4TcO25G-fMNNjngNGfcDbvoIVzY",
 };
 const answer = {
   coreId: "k7xq2",
@@ -93,6 +96,13 @@ describe("the discovery's derivations, as the Go code makes them", () => {
       false,
     );
     expect(base64url(await handOffOfferKey("a hand-off code"))).toBe(vectors.handOffOfferKey);
+  });
+
+  it("derives a guest grant's offer key as the core does, no session's nor hand-off's (D465)", async () => {
+    const key = base64url(await guestGrantOfferKey("a guest grant"));
+    expect(key).toBe(vectors.guestGrantOfferKey);
+    expect(key).not.toBe(base64url(await sessionOfferKey("a guest grant")));
+    expect(key).not.toBe(base64url(await handOffOfferKey("a guest grant")));
   });
 
   it("reads a link's fragment, and nothing that is not one", () => {

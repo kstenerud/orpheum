@@ -187,11 +187,11 @@ func TestSignal_AnOfferProvenByALiveHandOffsKeyIsAnswered(t *testing.T) {
 	const person, sdp = "a-realm-person", "a client origin's offer\r\na=fingerprint:sha-256 AB:CD"
 	live := proof.HandOffOfferKey("a live code")
 	built, answerer := signallingWorld(t, offerKeys)
-	built.service.parts.HandOffOfferKeys = func(hash string) [][]byte {
+	built.service.parts.FurtherOfferKeys = func(_ context.Context, hash string) ([][]byte, error) {
 		if hash != person {
-			return nil
+			return nil, nil
 		}
-		return [][]byte{live}
+		return [][]byte{live}, nil
 	}
 	for offerID, key := range map[string][]byte{"1": live, "2": proof.HandOffOfferKey("a stale code")} {
 		built.fake.signals <- discoveryproto.SignalMessage{

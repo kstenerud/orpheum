@@ -3,26 +3,32 @@
 package auth
 
 import (
+	"bytes"
 	"errors"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/discovery/link"
+	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
-// guestSender is an admin signed in on a laptop, who casts to Google Cast devices.
-func guestSender(t *testing.T, service *Service) (Principal, string) {
+// guestSender is an admin signed in on a laptop, who casts to Google Cast devices, and the session
+// the laptop holds.
+func guestSender(t *testing.T, service *Service) (Principal, Issued) {
 	t.Helper()
 	if _, err := service.CreateUser(t.Context(), NewUser{Name: "owner", Password: "pw", Role: RoleAdmin}); err != nil {
 		t.Fatal(err)
 	}
-	token, err := tokenOf(service.SignIn(t.Context(), "owner", "pw", "192.0.2.10", laptop))
+	issued, err := service.SignIn(t.Context(), "owner", "pw", "192.0.2.10", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender, err := service.Authenticate(t.Context(), token)
+	sender, err := service.Authenticate(t.Context(), issued.Token)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sender, token
+	return sender, issued
 }
 
 // A guest grant is traded once (D465 §2): the trade signs a guest receiver in as the sender's person,
@@ -184,7 +190,7 @@ func TestGuestGrant_AGuestReceiverIsUnlistedAndRemovedWithItsSession(t *testing.
 func TestGuestGrant_TheGuestReceiversAStoppedCoreLeftAreRemoved(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
-	sender, senderToken := guestSender(t, fixture.service)
+	sender, senderSession := guestSender(t, fixture.service)
 	left, since := guestTraded(t, fixture.service, sender), guestTraded(t, fixture.service, sender)
 	isLive := func(_, deviceID int64) bool { return deviceID == since.DeviceID }
 	if err := fixture.service.RemoveEveryGuestReceiver(t.Context(), isLive); err != nil {
@@ -193,7 +199,56 @@ func TestGuestGrant_TheGuestReceiversAStoppedCoreLeftAreRemoved(t *testing.T) {
 	if isSignedIn(t, fixture.service, left.Token) {
 		t.Error("a guest receiver left at start is still signed in")
 	}
-	if !isSignedIn(t, fixture.service, since.Token) || !isSignedIn(t, fixture.service, senderToken) {
+	if !isSignedIn(t, fixture.service, since.Token) || !isSignedIn(t, fixture.service, senderSession.Token) {
 		t.Error("a guest receiver signed in since the start, or the sender, was signed out")
+	}
+}
+
+// A Google Cast device proves its first offer by its grant (google-cast.md §2, step 2): the grant's
+// key holds under the locator of the session that asked for it while the grant waits, and under no
+// other locator, nor once traded or expired.
+func TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	sender, senderSession := guestSender(t, fixture.service)
+	underSender := link.LocatorHash(senderSession.Locator)
+	keysUnder := func(hash string) [][]byte {
+		t.Helper()
+		keys, err := fixture.service.GuestGrantOfferKeys(ctx, hash)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return keys
+	}
+	traded, err := fixture.service.IssueGuestGrant(sender, "TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expired, err := fixture.service.IssueGuestGrant(sender, "TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds := func(keys [][]byte, grant string) bool {
+		want := proof.GuestGrantOfferKey(grant)
+		return slices.ContainsFunc(keys, func(key []byte) bool { return bytes.Equal(key, want) })
+	}
+	keys := keysUnder(underSender)
+	if len(keys) != 2 || !holds(keys, traded) || !holds(keys, expired) {
+		t.Errorf("the keys under the sender's locator are %d; want both waiting grants'", len(keys))
+	}
+	if others := keysUnder(link.LocatorHash("another device's locator")); len(others) != 0 {
+		t.Errorf("another locator has %d grant keys; want none", len(others))
+	}
+	if _, err = fixture.service.TradeGuestGrant(ctx, traded); err != nil {
+		t.Fatal(err)
+	}
+	keys = keysUnder(underSender)
+	if len(keys) != 1 || !holds(keys, expired) {
+		t.Errorf("after one trade the keys are %d; want the other grant's alone", len(keys))
+	}
+	fixture.clock.Advance(guestGrantLife)
+	if left := keysUnder(underSender); len(left) != 0 {
+		t.Errorf("after the grant's minute %d keys are left; want none", len(left))
 	}
 }

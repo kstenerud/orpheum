@@ -218,6 +218,10 @@
 //     TestGuestGrant_TheGuestReceiversSessionCarriesNoCapabilityAndSendsNoGrant and
 //     TestGuestGrant_AGuestReceiverIsUnlistedAndRemovedWithItsSession.
 //
+//   - A waiting guest grant proves its Cast device's first offers (proof.GuestGrantOfferKey) under
+//     the locator of the session that asked for it alone, and no longer once traded or expired.
+//     TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits.
+//
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.
