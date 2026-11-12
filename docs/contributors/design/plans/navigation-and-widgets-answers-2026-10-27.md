@@ -2531,7 +2531,7 @@ Report the lab's log (Stop casting and send gives its short name) for any step t
   and connect-src with `https://www.gstatic.com`) for `lab/cast` alone, and would serve it for
   every client page; in Connect, `internal/webclient/webclient.go`'s `clientPolicyOf` adds
   `castSDKOrigin` for the lab's page alone, and would add it for all, with the tests that pin it
-  to the lab (the core's `TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK`, and Connect's
+  to the lab (the core's, since google-cast.md step 3 `TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`, and Connect's
   test of the sender on the lab's probe alone) changed to match.
   Without it the Chromecast is still a target once paired, listed as your device.
 - **The Chromecast's sign-in route.** D337 left casting to a device that is not signed in for

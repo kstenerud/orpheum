@@ -126,10 +126,12 @@ func TestHandler_WithoutTheClientSaysSo(t *testing.T) {
 	}
 }
 
-// Only the cast pages may load Google's Cast SDK: the lab's cast probe the sender's, by its own load,
-// and the receiver under /cast/ CAF's and the Cast platform's socket on the device; every other page
-// loads nothing from elsewhere (plans/tv-device-tests.md).
-func TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK(t *testing.T) {
+// Only the client's screens and the cast receiver may load Google's Cast SDK: every screen the
+// sender's, which the Cast menu's Chromecast loads in Chrome at its first opening (D465 §3), the
+// client moving between screens in place, and the lab's cast probe with them; the receiver under
+// /cast/ CAF's and the Cast platform's socket on the device. The client's files and the lab's other
+// probes load nothing from elsewhere, and no screen reaches the device's socket.
+func TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK(t *testing.T) {
 	t.Parallel()
 	files := builtClientFS()
 	files["cast/index.html"] = &fstest.MapFile{Data: []byte("<!doctype html><title>Receiver</title>")}
@@ -137,16 +139,22 @@ func TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK(t *testing.T) {
 	policyOf := func(target string) string {
 		return get(t, handler, target).Header().Get("Content-Security-Policy")
 	}
-	for _, target := range []string{"/", "/films", "/lab", "/lab/device", "/lab/cast/x", "/favicon.svg", "/castle"} {
+	for _, target := range []string{"/lab", "/lab/device", "/lab/cast/x", "/favicon.svg", "/assets/app-1a2b.js",
+		"/assets/missing-9z.js"} {
 		if policy := policyOf(target); strings.Contains(policy, "gstatic") || strings.Contains(policy, "localhost") {
 			t.Errorf("%s: the policy %q lets the page load from elsewhere", target, policy)
 		}
 	}
-	sender := policyOf("/lab/cast")
-	for _, want := range []string{"script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com;",
-		"connect-src 'self' https://www.gstatic.com;", "frame-ancestors 'none'"} {
-		if !strings.Contains(sender, want) {
-			t.Errorf("the cast probe's policy %q lacks %q", sender, want)
+	for _, target := range []string{"/", "/index.html", "/films", "/play/4", "/castle", "/lab/cast"} {
+		sender := policyOf(target)
+		for _, want := range []string{"script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com;",
+			"connect-src 'self' https://www.gstatic.com;", "frame-ancestors 'none'", "object-src 'none'"} {
+			if !strings.Contains(sender, want) {
+				t.Errorf("%s: the screen's policy %q lacks %q", target, sender, want)
+			}
+		}
+		if strings.Contains(sender, "localhost") {
+			t.Errorf("%s: the screen's policy %q reaches the Cast device's socket", target, sender)
 		}
 	}
 	for _, target := range []string{"/cast", "/cast/", "/cast/assets/receiver-1a.js"} {
