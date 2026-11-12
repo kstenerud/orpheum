@@ -3328,6 +3328,16 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 - **6.** The discovery test that failed once under a full run.
 - **7.** One icon library: the 55 icon drawings in one `icons.tsx`, with no visible change.
 - **8.** Film matching ranks a 2014 film with a similar translated title above the 1986 one.
+  - **Found (2026-11-12): no ranking bug.** D412's ranking (`rankFilms`, settle_film.go) already puts
+    the 1986 film first for this file's shape: no year, 148.8 minutes, votes 11,339 to 1, the 2014
+    film named so only in translation; a first match, a rescan, and a rescan of a guess made under the
+    old rules all take the 1986 film (a throwaway test with invented names). The likeliest cause: the
+    title still follows a guess made before D412 reached the library, and only a rescan matches a
+    guess again (D357 §3). **For the owner:** press Rescan this on the film; if it still takes the
+    2014 film, the rescan's log names each candidate's year, runtime, votes and fit (D365 §5), which
+    would show a real bug. The other way, re-settling on their own every guess the current rules
+    would rank otherwise (amending D357, and keeping each candidate's original name in cache.db), is
+    the owner's to choose.
 - **10.** Confirm the two Firefox focus flakes are covered by "each browser test's frame takes back
   the focus a new Firefox page takes"; confirming, not new work.
 - **11.** `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (discovery), timed out once under
@@ -3358,6 +3368,9 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   `internal/core/library/art.go`; D362 §2); the title and series pages are sent no such picture and
   draw `Poster` without one (`title.tsx`'s TitleArt, `series.tsx`). The pages' answers carry the same
   pick, by the one function, and pass it on.
+  - **Built (2026-11-12), two looks for the owner:** a posterless page with a backdrop shows the
+    backdrop twice, as the page's ground and in the poster's place (the card's own pick); and the
+    still is drawn at the card's small size, which may look soft at the page's larger poster.
 - **X5. A library's sort is kept on the account** (the owner, 2026-11-12: *"When I choose a sort
   order in a library, it should save that ordering to my account."*). Today the sort and its way
   live only in the address (`router.ts`, `sort-choices.ts`, D366 §2). The lead's reading, for the
