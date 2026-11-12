@@ -231,8 +231,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// The caller's own rows, which say nothing of what a library holds.
 		"unmarkHidden", "restoreWatched",
 		"getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
-		"signOutElsewhere", "enterPairingCode", "answerPairingCheck", "changePassword", "setMyPreferences",
-		"getMyPreferences", "withdrawPageInterest", "withdrawTilesInterest",
+		"signOutElsewhere", "enterPairingCode", "answerPairingCheck", "castToPairing", "changePassword",
+		"setMyPreferences", "getMyPreferences", "withdrawPageInterest", "withdrawTilesInterest",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
 		"answerRTCOffer",

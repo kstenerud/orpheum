@@ -239,16 +239,20 @@ describe("activating a device whose QR code was scanned (D321)", () => {
     const navigation = createNavigation(fakePlace(scannedAddress));
     mounted = await mount(withServices(<Account />, { ...services, navigation }));
     const { container } = mounted;
-    await settleUntil(() => container.textContent.includes("Activate Tizen?"));
+    await settleUntil(() => container.textContent.includes("Tizen asked for a code."));
     expect(heard.find((each) => each.methodAndPath === "POST /pairings/code")?.body).toEqual({
       code: "abcd-efgh",
       deviceName: "",
       keyHash: "rTBVo-NI60s-RZ3ENfKqkw",
     });
-    expect(container.textContent).toContain("Activate Tizen? It will be signed in as you.");
-    expect(container.textContent).toContain("Only activate a device you can see in front of you");
+    expect(container.textContent).toContain(
+      "Tizen asked for a code. Claim it to sign it in as you",
+    );
+    expect(container.textContent).toContain(
+      "Only claim or cast to a device you can see in front of you",
+    );
     expect(container.querySelector(".device-activation__check-code")).toBeNull();
-    await click(buttonWithText(container, "Activate"));
+    await click(buttonWithText(container, "Claim this device"));
     await settleUntil(() => container.textContent.includes("Tizen is activated and signed in."));
     expect(heard.find((each) => each.methodAndPath === "POST /pairings/check")?.body).toEqual({
       code: "abcd-efgh",
@@ -256,5 +260,45 @@ describe("activating a device whose QR code was scanned (D321)", () => {
     });
     // The address no longer carries the code, so a reload enters nothing again.
     expect(navigation.route()).toEqual({ screen: "account" });
+  });
+});
+
+describe("casting to a device whose QR code was scanned instead of claiming it (D469 §1)", () => {
+  it("signs it in for the cast, casts nothing to it yet, and goes home to choose what plays", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [] }],
+        "GET /me": [200, { ...owner, canManageAccount: true }],
+        "GET /me/own-link": refusal(404, "notFound"),
+        "GET /me/preferences": [
+          200,
+          { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+        ],
+        "GET /libraries": [200, { libraries: [] }],
+        "POST /pairings/code": [
+          200,
+          { checkCode: "", deviceName: "Tizen", platform: "Tizen", askedSecondsAgo: 5 },
+        ],
+        "POST /pairings/cast": [201, { deviceId: 31, deviceName: "Tizen" }],
+        "POST /me/casts": [201, { castId: 7, sessionId: 7 }],
+      },
+      heard,
+    );
+    const navigation = createNavigation(
+      fakePlace("/account?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw"),
+    );
+    mounted = await mount(withServices(<Account />, { ...services, navigation }));
+    const { container } = mounted;
+    await settleUntil(() => container.textContent.includes("Tizen asked for a code."));
+    await click(buttonWithText(container, "Cast to this device"));
+    await settleUntil(() => navigation.route().screen === "home");
+    expect(heard.find((each) => each.methodAndPath === "POST /pairings/cast")?.body).toEqual({
+      code: "abcd-efgh",
+    });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toMatchObject({
+      toDeviceId: 31,
+    });
+    expect(heard.some((each) => each.methodAndPath === "POST /pairings/check")).toBe(false);
   });
 });

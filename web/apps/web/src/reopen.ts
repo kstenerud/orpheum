@@ -77,7 +77,7 @@ export const reopenWaitsMs: readonly number[] = [1000, 2000, 4000, 8000, 15_000,
 export const reopenAtMostEveryMs = 60_000;
 
 /** Waits ms, as setTimeout does. */
-function waitFor(ms: number): Promise<void> {
+export function waitFor(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 

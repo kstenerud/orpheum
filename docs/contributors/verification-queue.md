@@ -3073,3 +3073,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   the log shows `webkitcurrentplaybacktargetiswirelesschanged, wireless true`, and Stop answers "1
   grant(s) revoked" and the Mac stops within a few chunks. Note which way worked, the sound the Mac
   played, and the log of each. (`web/apps/web/src/lab-airplay.tsx`, `src/lab-airplay-steps.ts`)
+
+- [ ] **VQ311** — Cast to this device signs a device in for one cast, and it is let go as the cast
+  ends (D469). On staging, open orpheum.cc on a television's browser (the TCL or the Fire TV) and
+  choose Get a code; scan its QR code with the phone, signed in. The phone offers Claim this device,
+  Cast to this device and Cancel: press Cast to this device. Passes when the phone says it starts the
+  cast and then shows its home page casting to the television; the television shows the cast's ready
+  page, and a film chosen on the phone plays there with sound; the television is in no list of the
+  person's devices. Then three ends, a new code each time: Stop casting on the phone; close the
+  television's page; and pause the film for 30 minutes. Each time, the television's page is signed
+  out within a minute or so (the third: a little after the 30 minutes), and the phone is told the cast
+  ended. (`web/apps/web/src/device-activation.tsx`, `src/app.tsx`, `cmd/orpheum/casts_gone.go`)

@@ -272,6 +272,20 @@ export async function answerActivation(
   );
 }
 
+/**
+ * Answers a code entered by casting to its device instead of activating it (D469 §1): the device signs
+ * in for that one cast as a guest receiver this device alone casts to, named as it is said.
+ */
+export async function castToActivation(
+  api: Api,
+  code: string,
+  idempotencyKey: string,
+): Promise<components["schemas"]["CastToPairingOutputBody"]> {
+  return dataOrThrow(
+    await api.POST("/pairings/cast", { body: { code }, ...idempotent(idempotencyKey) }),
+  );
+}
+
 /** Changes one's own password. */
 export async function changePassword(
   api: Api,

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/safe32code"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -182,6 +183,66 @@ func (service *Service) TradeGuestGrant(ctx context.Context, grant string) (Gues
 		Issued: issued, UserID: waiting.userID, DeviceID: issued.DeviceID, SenderDeviceID: waiting.senderDeviceID,
 		Name: waiting.receiverName,
 	}, nil
+}
+
+// CastToPairing answers the code a device shows, which sender's person entered for themselves, by
+// casting to it (D469 §1): the device is signed in as a guest receiver of theirs, as a traded grant
+// signs a Google Cast device in (TradeGuestGrant), under the name and platform its code gave, and
+// takes its session as an activated device would, at the core or through the paid service. It is
+// listed nowhere, only sender's device casts to it, and it keeps nothing after its cast. ErrNoPairing
+// for a code sender's person did not enter, entered for someone else, or answered; ErrGuestSender for
+// a sender that cannot cast.
+func (service *Service) CastToPairing(ctx context.Context, sender Principal, typed string) (GuestReceiver, error) {
+	if sender.isGuestReceiver || sender.DeviceID == 0 {
+		return GuestReceiver{}, ErrGuestSender
+	}
+	code, err := safe32code.Read(typed, safe32code.DeviceLength)
+	if err != nil {
+		return GuestReceiver{}, ErrNoPairing
+	}
+	if refusal := service.isEnteredForThemselves(sender.UserID, code); refusal != nil {
+		return GuestReceiver{}, refusal
+	}
+	known, err := service.answered(sender.UserID, code, true)
+	if err != nil {
+		return GuestReceiver{}, err
+	}
+	issued, err := service.issueSession(ctx, known.forUserID, NewDevice{
+		Name: known.deviceName, Platform: known.platform,
+	}, grantScopeGuestReceiver)
+	if err != nil {
+		return GuestReceiver{}, err
+	}
+	if known.deviceKey != "" {
+		err = service.answerService(ctx, known, issued, true)
+	} else {
+		service.pairings.mutex.Lock()
+		if kept, found := service.pairings.bySecret[known.secret]; found {
+			kept.issued = issued
+		}
+		service.pairings.mutex.Unlock()
+	}
+	if err != nil {
+		return GuestReceiver{}, err
+	}
+	return GuestReceiver{
+		Issued: issued, UserID: known.forUserID, DeviceID: issued.DeviceID, SenderDeviceID: sender.DeviceID,
+		Name: known.deviceName,
+	}, nil
+}
+
+// isEnteredForThemselves is nil when byUserID entered code for themselves and has not answered it:
+// a guest receiver is its sender's person's, so a code an admin entered for someone else is cast to by
+// no one (ErrNoPairing).
+func (service *Service) isEnteredForThemselves(byUserID int64, code string) error {
+	service.pairings.mutex.Lock()
+	defer service.pairings.mutex.Unlock()
+	service.pairings.forgetExpiredLocked(service.clock.Now())
+	known, found := service.pairings.byCodeLocked(code)
+	if !found || !known.isClaimed || known.byUserID != byUserID || known.forUserID != byUserID || known.isConfirmed {
+		return ErrNoPairing
+	}
+	return nil
 }
 
 // RemoveGuestReceiver removes a guest receiver's device as its cast ends (D465 §1), its session and

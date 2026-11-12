@@ -21,6 +21,18 @@ type goneOnce struct {
 	unanswered []live.Cast
 	guests     []live.Guest
 	liveGuest  int64
+	// idleable are the casts to guest receivers by code, and endedIdle the ones End ended.
+	idleable  []live.Cast
+	endedIdle []int64
+}
+
+func (gone *goneOnce) GuestCastsEndingIdle() []live.Cast {
+	return gone.idleable
+}
+
+func (gone *goneOnce) End(_, _, castID int64) (live.Cast, error) {
+	gone.endedIdle = append(gone.endedIdle, castID)
+	return live.Cast{ID: castID}, nil
 }
 
 func (gone *goneOnce) EndGuests() []live.Guest {
@@ -75,6 +87,12 @@ func (gone *goneOnce) EndUnanswered() []live.Cast {
 // endings keeps each cast's session ended, and why.
 type endings struct {
 	ended chan string
+	// idleFor is how long nothing has played in each cast, by id.
+	idleFor map[int64]time.Duration
+}
+
+func (ender endings) CastIdleFor(sessionID, _ int64) (time.Duration, error) {
+	return ender.idleFor[sessionID], nil
 }
 
 func (ender endings) EndCast(sessionID, _ int64, reason string) error {
@@ -136,5 +154,31 @@ func TestEndGoneCasts_RemovesTheGuestReceiversLeftAtStartAndEachWhoseCastIsOver(
 	tick <- time.Time{}
 	if removed := testutil.Receive(t, remover.removed, "a guest receiver's removal"); removed != 31 {
 		t.Errorf("removed guest receiver %d; want 31, whose cast is over", removed)
+	}
+}
+
+// Each tick ends the casts to a guest receiver a device code made that have had nothing playing for
+// live.GuestIdleAfter, their sessions told idle (D469 §3), and leaves one idle for less.
+func TestEndGoneCasts_EndsACastToAGuestByCodeIdleForGuestIdleAfter(t *testing.T) {
+	t.Parallel()
+	registry := &goneOnce{idleable: []live.Cast{{ID: 9, UserID: 1, ReceiverDeviceID: 11}, {ID: 10, UserID: 1}}}
+	ender := endings{ended: make(chan string, 2), idleFor: map[int64]time.Duration{
+		9: live.GuestIdleAfter, 10: live.GuestIdleAfter - time.Second,
+	}}
+	tick := make(chan time.Time)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go endGoneCasts(ctx, registry, ender, noRemovals(), tick, slog.New(slog.DiscardHandler))
+	tick <- time.Time{}
+	if ended := testutil.Receive(t, ender.ended, "the idle cast's end"); ended != together.CastIdle+" 9" {
+		t.Errorf("the session was ended as %q; want cast 9 as %s", ended, together.CastIdle)
+	}
+	tick <- time.Time{} // the first tick's work is done once the second is taken
+	select {
+	case ended := <-ender.ended:
+		if ended == together.CastIdle+" 10" {
+			t.Error("a cast idle for less than GuestIdleAfter was ended")
+		}
+	default:
 	}
 }

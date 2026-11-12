@@ -61,6 +61,9 @@ type UserBody struct {
 	// until they turn it on (PUT /me/preferences): said here, which every page reads as it starts,
 	// so the tools show with no read of their own.
 	ShowsDebugTools bool `json:"showsDebugTools"`
+	// IsGuestReceiver is a guest receiver's session (D465 §2), signed in for one cast: its page shows
+	// that cast alone (D469 §4), and the body says nothing else of the person.
+	IsGuestReceiver bool `json:"isGuestReceiver,omitempty"`
 }
 
 // CurrentDeviceBody is the device a session is on; a client keeps its id to resume it (D221).
@@ -193,7 +196,7 @@ func (server *Server) registerSetupAndAuth() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMe", Method: http.MethodGet, Path: "/me",
 		Summary: "Who this session belongs to", Tags: tags,
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.getMe)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "freshLocator", Method: http.MethodPost, Path: "/me/locator",
@@ -390,7 +393,7 @@ type MeOutput struct {
 // client asks at start, so a browser whose cookie is missing, from an older path, or from
 // another session gets the right one before it fetches an image or a video (D154, D216).
 func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -401,10 +404,14 @@ func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, err
 	return &MeOutput{SetCookie: mediaCookies(bearerToken(input.Authorization), input.isOverTLS), Body: body}, nil
 }
 
-// userBody is who a session belongs to, and the device it is on.
+// userBody is who a session belongs to, and the device it is on. A guest receiver's says it is one and
+// nothing more of the person: its page asks to know it receives one cast (D469 §4).
 func (server *Server) userBody(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
 ) (UserBody, error) {
+	if principal.IsGuestReceiver() {
+		return UserBody{ID: principal.UserID, IsGuestReceiver: true}, nil
+	}
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
 		IsAdmin: administersHere(ctx, principal), CanHostWatchTogether: principal.CanHostWatchTogether(),

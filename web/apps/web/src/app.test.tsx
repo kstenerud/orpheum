@@ -555,3 +555,24 @@ describe("the code loaded ahead of its screen (the architecture audit of 2026-11
     mounted.unmount();
   });
 });
+
+describe("a page signed in for one cast (D469 §4)", () => {
+  it("shows no shell, only that it waits for the cast", async () => {
+    const services = servedBy(
+      {
+        ...backgroundAnswers,
+        "GET /me": [200, { id: 1, isGuestReceiver: true }],
+        // The home screen's, asked while the shell shows before GET /me is answered.
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<App />, services));
+    const { container } = mounted;
+    await settleUntil(() => container.textContent.includes("Waiting for the cast from your phone"));
+    expect(container.querySelector(".app-shell")).toBeNull();
+    mounted.unmount();
+  });
+});

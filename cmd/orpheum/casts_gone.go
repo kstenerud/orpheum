@@ -23,6 +23,8 @@ type goneReceivers interface {
 	EndUnanswered() []live.Cast
 	EndGuests() []live.Guest
 	IsGuest(userID, deviceID int64) bool
+	GuestCastsEndingIdle() []live.Cast
+	End(userID, deviceID, castID int64) (live.Cast, error)
 }
 
 // guestRemover removes a guest receiver's device, its sign-in with it: auth.Service.
@@ -34,13 +36,15 @@ type guestRemover interface {
 // castEnder ends a cast's session, each of its devices told why: together.Hub.
 type castEnder interface {
 	EndCast(sessionID, userID int64, reason string) error
+	CastIdleFor(sessionID, userID int64) (time.Duration, error)
 }
 
 // endGoneCasts ends, at each tick until ctx ends, the casts whose receiver has been gone for
 // live.ReceiverGoneAfter, their sessions ended as receiverGone so their senders are told (D364 §6),
 // and those whose receiver left its question unanswered for live.UnansweredAfter, ended as
-// unanswered (D358 §4); then it removes each guest receiver whose cast is over, or that none was cast
-// to in time (D465 §1). As it starts, it removes the guest receivers a stopped core left.
+// unanswered (D358 §4), and the casts to a guest receiver a device code made with nothing played for
+// live.GuestIdleAfter, ended as idle (D469 §3); then it removes each guest receiver whose cast is
+// over, or that none was cast to in time (D465 §1). As it starts, it removes the guest receivers a stopped core left.
 func endGoneCasts(
 	ctx context.Context, casts goneReceivers, hub castEnder, guests guestRemover, tick <-chan time.Time,
 	logger *slog.Logger,
@@ -64,6 +68,7 @@ func endGoneCasts(
 			logger.InfoContext(ctx, "cast: a cast ended, never answered", "castId", unanswered.ID,
 				"userId", unanswered.UserID, "to", unanswered.ReceiverDeviceID)
 		}
+		endIdleGuestCasts(ctx, casts, hub, logger)
 		for _, guest := range casts.EndGuests() {
 			if err := guests.RemoveGuestReceiver(ctx, guest.UserID, guest.DeviceID); err != nil {
 				logger.ErrorContext(ctx, "cast: a guest receiver was not removed", "userId", guest.UserID,
@@ -73,5 +78,23 @@ func endGoneCasts(
 			logger.InfoContext(ctx, "cast: a guest receiver was removed, its cast over", "userId", guest.UserID,
 				"deviceId", guest.DeviceID)
 		}
+	}
+}
+
+// endIdleGuestCasts ends each cast to a guest receiver a device code made that has had nothing
+// playing for live.GuestIdleAfter, as idle (D469 §3): its sender's pages are told, and the guest is
+// removed with the casts' other ends.
+func endIdleGuestCasts(ctx context.Context, casts goneReceivers, hub castEnder, logger *slog.Logger) {
+	for _, each := range casts.GuestCastsEndingIdle() {
+		idle, err := hub.CastIdleFor(each.ID, each.UserID)
+		if err != nil || idle < live.GuestIdleAfter {
+			continue
+		}
+		if _, err = casts.End(each.UserID, each.ReceiverDeviceID, each.ID); err != nil {
+			continue // ended meanwhile
+		}
+		_ = hub.EndCast(each.ID, each.UserID, together.CastIdle) //nolint:errcheck // each is ended
+		logger.InfoContext(ctx, "cast: a cast to a guest receiver ended, idle", "castId", each.ID,
+			"userId", each.UserID, "to", each.ReceiverDeviceID, "idleFor", idle.String())
 	}
 }
