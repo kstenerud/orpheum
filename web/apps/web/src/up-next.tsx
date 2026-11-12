@@ -237,24 +237,21 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
 }
 
 /**
- * What warms up fileId, the next episode, as the Up next offer shows: the way a film's page warms
- * its own (Watching.warmUpNext), the film playing keeping its playbacks to its end. Nothing where it
- * plays on a cast's receiver, not here (isHere false), whose cast moves on to it instead.
+ * What warms up fileId, the next episode, as the Up next offer shows: its decision alone, nothing
+ * preloaded beside the film playing, which keeps its playbacks to its end (Watching.warmUpNext).
+ * Nothing where it plays on a cast's receiver, not here (isHere false), whose cast moves on to it
+ * instead.
  */
 function useWarmsUpNext(fileId: number | undefined, isHere: boolean): (() => void) | undefined {
-  const { api, playableFormats, pathMoves } = useServices();
+  const { api, playableFormats } = useServices();
   return useMemo(() => {
     if (fileId === undefined || !isHere) {
       return undefined;
     }
     return () => {
-      watchingOf(api).warmUpNext(
-        fileId,
-        playableFormats(),
-        () => pathMoves?.isOverWebrtc() === true,
-      );
+      watchingOf(api).warmUpNext(fileId, playableFormats());
     };
-  }, [api, playableFormats, pathMoves, fileId, isHere]);
+  }, [api, playableFormats, fileId, isHere]);
 }
 
 /**

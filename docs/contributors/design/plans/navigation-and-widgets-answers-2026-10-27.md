@@ -2875,6 +2875,22 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   - Find whether it does. If it does, warm without releasing them.
   - Also open: whether to fetch the first segments themselves or only the decision and the
     playlist.
+  - **Found:** it did. `Watching.warmUp` makes the film it warms the one watched, and so lets go of
+    the playing film's playbacks with `replaced`; their runs stop at once, in the film's last half
+    minute.
+  - **The owner's choice (2026-11-12, "Decision only while playing"):** while the film plays, Up
+    next's warm-up asks for the next episode's decision alone, so the server starts its chunks. No
+    hidden muted player preloads its first buffer, on any transport: it could take a television's
+    hardware decoder from the episode playing. Continue watching's warm-up keeps its preload.
+  - **Built** ("feat(web): Up next warms the next episode as it shows, the playing film kept", and
+    the follow-up that drops its preload):
+    - `Watching.warmUpNext` asks the decision (cause `upNext`) beside the playing film, whose
+      playbacks it keeps.
+    - The next episode's Play page, or its own page, plays on that decision without asking again.
+      Only then is the playing film let go of.
+    - Another film chosen lets go of it, and a later next replaces it, so at most one is held.
+    - Up next asks it each time it comes to show, except on a cast's receiver, whose cast moves on
+      by itself.
 
 ## The 11-22 batch: the owner's answers on the list's blanks and Google's web guidance (2026-11-11)
 
