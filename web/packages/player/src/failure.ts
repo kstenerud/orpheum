@@ -79,6 +79,15 @@ export const cannotMakeStatus = 422;
  */
 export const unreachableStatus = 503;
 
+/**
+ * HTTP's 404: on a chunk's or a playlist's path, the core's word that it no longer has the playback
+ * (playbackGone: it restarted since the playback began, or ended it) or never offered what was asked,
+ * which asking again does not change: the page's report learns why and opens the playback again
+ * where it was. Taken for a load that only stopped, a Mac's Chrome asked for one chunk of a gone
+ * playback about once a second for 11 hours (staging, 2026-11-12).
+ */
+export const goneStatus = 404;
+
 /** HTTP's 425 Too Early: on a chunk's path, the core's word that it is being made, and to ask again. */
 export const tooEarlyStatus = 425;
 
@@ -86,7 +95,7 @@ export const tooEarlyStatus = 425;
  * Whether a fatal hls.js error only stopped its loading, which asking it to load on may mend: any but
  * the media's own (MEDIA_ERROR, MUX_ERROR), which alone end a playback, a load failing or timing out,
  * its playlist's or its chunk's, or an exception hls.js caught in its own handling; never the core's
- * 422, 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
+ * 404, 422, 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
  * D241 §7). A load that failed while the owner's Chrome was offline ended its playback for good,
  * though the link came back (staging, 2026-10-29; VQ125).
  */
@@ -98,7 +107,8 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
     data.type !== Hls.ErrorTypes.MUX_ERROR &&
     code !== noRoomToMakeStatus &&
     code !== cannotMakeStatus &&
-    code !== unreachableStatus
+    code !== unreachableStatus &&
+    code !== goneStatus
   );
 }
 

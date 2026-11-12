@@ -91,6 +91,15 @@ describe("loading a chunk the core is making (D250 §5)", () => {
   });
 });
 
+describe("a chunk of a playback the core no longer has", () => {
+  it("is not asked for again after a 404, where a Mac's Chrome asked once a second for 11 hours (staging, 2026-11-12)", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00457.m4s", code: 404 }, true)).toBe(
+      false,
+    );
+  });
+});
+
 describe("where a playback's stepping has settled (D260 §3)", () => {
   it("is the quality it last loaded a chunk of, and nothing before it loads one", () => {
     expect(settledAtBps({ levels, loadLevel: -1 })).toBeUndefined();
