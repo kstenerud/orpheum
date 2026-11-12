@@ -5376,7 +5376,7 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "raiseWanted" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
+            cause?: "filmPage" | "upNext" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "raiseWanted" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
             /** Format: int64 */
             fileId: number;
             /** @description Whether the player gave the film's own picture up as unplayable here */

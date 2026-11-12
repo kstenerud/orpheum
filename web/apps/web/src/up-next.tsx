@@ -35,6 +35,7 @@ import {
 } from "./still-watching.tsx";
 import { useServices } from "./services.tsx";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
+import { watchingOf } from "./watching.ts";
 
 /**
  * How long before the film's end the offer shows, in ms, where nothing says where its credits start
@@ -210,12 +211,14 @@ function isNearItsEnd(ending: Ending): boolean {
  * The Up next offer over the film, from the page's UpNextContext; nothing where nothing plays next.
  * On a cast's receiver it is shown and counts, but presses there are Take back control's: its film
  * is the cast's next episode, which the remote follows (D337's §9 answers, Q4). In the overlay's
- * convenience area it is told where it is (OfferPlace).
+ * convenience area it is told where it is (OfferPlace). As it shows, the next episode is warmed up
+ * (useWarmsUpNext), so its start is fetched before it plays (the owner's request, 2026-11-11).
  */
 export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const offered = use(UpNextContext);
   const { next } = useSequenceMoves(offered);
   const upNext = offered?.upNext;
+  const warmUpNext = useWarmsUpNext(upNext?.episode.fileId, offered?.receiving === undefined);
   if (upNext === undefined || next === undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
@@ -227,9 +230,31 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
       videoRef={props.videoRef}
       isOverlayFull={props.isOverlayFull}
       onOffered={props.onOffered}
+      onShown={warmUpNext}
       onPlay={next}
     />
   );
+}
+
+/**
+ * What warms up fileId, the next episode, as the Up next offer shows: the way a film's page warms
+ * its own (Watching.warmUpNext), the film playing keeping its playbacks to its end. Nothing where it
+ * plays on a cast's receiver, not here (isHere false), whose cast moves on to it instead.
+ */
+function useWarmsUpNext(fileId: number | undefined, isHere: boolean): (() => void) | undefined {
+  const { api, playableFormats, pathMoves } = useServices();
+  return useMemo(() => {
+    if (fileId === undefined || !isHere) {
+      return undefined;
+    }
+    return () => {
+      watchingOf(api).warmUpNext(
+        fileId,
+        playableFormats(),
+        () => pathMoves?.isOverWebrtc() === true,
+      );
+    };
+  }, [api, playableFormats, pathMoves, fileId, isHere]);
 }
 
 /**
@@ -263,6 +288,18 @@ export function ControlsUnderTheFilm(props: FilmParts): JSX.Element | null {
   return <PageControls {...props} offer={UpNextOver} moves={moves} />;
 }
 
+/** What the Up next offer is given: where it is, what it offers, and what it tells. */
+interface UpNextOfferParts extends OfferPlace {
+  readonly upNext: UpNext;
+  readonly isAutoplayOn: boolean;
+  /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
+  readonly isPressable?: boolean;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  /** Told each time the offer comes to show, once each time. */
+  readonly onShown?: (() => void) | undefined;
+  readonly onPlay: () => void;
+}
+
 /**
  * The offer itself: "Up next: S1E3 · ‹name›" with its still, a button that plays it, near the end and
  * on the end screen; with autoplay on, counting down from the end and then playing it. Any press
@@ -270,18 +307,10 @@ export function ControlsUnderTheFilm(props: FilmParts): JSX.Element | null {
  * the overlay shows, whose first Back hides it (D407 §5); a click elsewhere stops the count. It takes
  * focus as the film ends, and as it shows where nothing else has it, so OK presses it.
  */
-export function UpNextOffer(
-  props: OfferPlace & {
-    readonly upNext: UpNext;
-    readonly isAutoplayOn: boolean;
-    /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
-    readonly isPressable?: boolean;
-    readonly videoRef: RefObject<HTMLVideoElement | null>;
-    readonly onPlay: () => void;
-  },
-): JSX.Element | null {
+export function UpNextOffer(props: UpNextOfferParts): JSX.Element | null {
   const ending = useEnding(props.videoRef);
   const { isShown, isCounting, setChoice } = useOfferChoice(ending, props);
+  useTellsShown(isShown, props.onShown);
   const playRef = useRef<HTMLButtonElement>(null);
   const isPressable = props.isPressable !== false;
   const { isAsking, secondsLeft } = useAutoplay(isCounting, isPressable, props.onPlay);
@@ -412,6 +441,16 @@ function DismissButton(props: { readonly onDismiss: () => void }): JSX.Element {
       onClick={props.onDismiss}
     />
   );
+}
+
+/** Tells onShown, where given, as the offer comes to show: once each time it does. */
+function useTellsShown(isShown: boolean, onShown: (() => void) | undefined): void {
+  const onShownRef = useLatest(onShown);
+  useEffect(() => {
+    if (isShown) {
+      onShownRef.current?.();
+    }
+  }, [isShown, onShownRef]);
 }
 
 /** Tells onOffered, where given, whether the offer shows, and that it does not once it goes. */
