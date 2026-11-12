@@ -14742,7 +14742,7 @@
         "tags": [
           "Setup and auth"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/me/admin-away": {
