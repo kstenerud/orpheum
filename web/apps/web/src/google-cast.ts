@@ -26,6 +26,7 @@ import {
   openCastSession,
   type CastChannel,
 } from "./cast-sdk.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import type { AskGuestCastGrant, Services } from "./services.tsx";
@@ -45,10 +46,18 @@ export function isChromeBrowser(browser: unknown = globalThis.navigator): boolea
   );
 }
 
-/** Asks the core of api for a grant for one cast to the Google Cast device receiverName (D465 §2). */
+/**
+ * Asks the core of api for a grant for one cast to the Google Cast device receiverName (D465 §2),
+ * under a key of its own, as the menu's choice sends it: a repeat is answered with the first grant.
+ */
 export function askGuestCastGrantOf(api: Api): AskGuestCastGrant {
   return async (receiverName) =>
-    dataOrThrow(await api.POST("/me/casts/guest-grants", { body: { receiverName } })).grant;
+    dataOrThrow(
+      await api.POST("/me/casts/guest-grants", {
+        body: { receiverName },
+        ...idempotent(newIdempotencyKey()),
+      }),
+    ).grant;
 }
 
 /** What a page casts to a Google Cast device with: the loader's application, the grant, the reach. */
