@@ -65,6 +65,7 @@ func TestGuestReceiver_IsSignedInByAGrantTradedOnceAndCastToByItsSenderAlone(t *
 		t.Errorf("the grant was logged:\n%s", logged)
 	}
 	guestSocket := harness.dialLive(t, guest.Token)
+	guestSocket.awaitConnected()
 	phoneSocket := harness.dialLive(t, phoneToken)
 	phoneSocket.awaitDevices(phone)
 	var devices api.DevicesOutput
@@ -108,6 +109,7 @@ func TestGuestReceiver_ReachesItsCastAlone(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/playback", guest.Token, chrome(1)),
 		http.StatusForbidden, api.CodeForbidden)
 	guestSocket := harness.dialLive(t, guest.Token)
+	guestSocket.awaitConnected()
 	phoneSocket := harness.dialLive(t, phoneToken)
 	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
 	started := startedCast(t, harness.startCast(t, phoneToken, guest.DeviceID, 0))
@@ -128,6 +130,7 @@ func TestGuestReceiver_FetchesAndReportsOnItsCastsFilm(t *testing.T) {
 	harness.shelveFilms(t)
 	guest := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
 	guestSocket := harness.dialLive(t, guest.Token)
+	guestSocket.awaitConnected()
 	phoneSocket := harness.dialLive(t, phoneToken)
 	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
 	started := startedCast(t, harness.startCast(t, phoneToken, guest.DeviceID, 0))

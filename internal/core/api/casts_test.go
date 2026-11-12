@@ -74,6 +74,19 @@ func (opened liveSocket) await(kind live.MessageType, isIt func(live.Outbound) b
 	}
 }
 
+// awaitConnected pings and reads until the pong: the core takes a connection before it reads its first
+// message, so the connection is then one of its person's connected now. A cast started straight after
+// dialLive could find it not yet taken, under load (CI, 2026-11-12: 409 "not one of yours connected now").
+func (opened liveSocket) awaitConnected() {
+	opened.t.Helper()
+	ctx, cancel := context.WithTimeout(opened.t.Context(), 5*time.Second)
+	defer cancel()
+	if err := wsjson.Write(ctx, opened.connection, live.Inbound{Type: live.MessagePing}); err != nil {
+		opened.t.Fatal(err)
+	}
+	opened.await(live.MessagePong, func(live.Outbound) bool { return true })
+}
+
 // keepAlive pings every period until the test ends, as a page does.
 func (opened liveSocket) keepAlive(period time.Duration) {
 	ctx, cancel := context.WithCancel(opened.t.Context())
