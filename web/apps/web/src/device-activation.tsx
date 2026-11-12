@@ -60,13 +60,8 @@ async function castOnceItConnects(api: Api, deviceId: number): Promise<boolean> 
   }
 }
 
-/**
- * Activates a device by the code it shows (D288): the code and the name to list it by, entered here;
- * then the check code, which the person compares with their own eyes to the one the device shows,
- * under a plain warning never to take someone's word for it; only their "Yes, they match" signs the
- * device in. For oneself on one's account, or, with userId, by an admin for that person.
- */
-export function ActivateDevice(props: {
+/** What ActivateDevice is given: for whom, and whom to tell as the device is signed in. */
+interface ActivateDeviceProps {
   readonly userId?: number;
   /** Told once a device is activated, so the list can show it. */
   readonly onActivated: () => void;
@@ -81,7 +76,15 @@ export function ActivateDevice(props: {
    * now casts to it, and the page goes on to choose what to play.
    */
   readonly onCastStarted?: () => void;
-}): JSX.Element {
+}
+
+/**
+ * Activates a device by the code it shows (D288): the code and the name to list it by, entered here;
+ * then the check code, which the person compares with their own eyes to the one the device shows,
+ * under a plain warning never to take someone's word for it; only their "Yes, they match" signs the
+ * device in. For oneself on one's account, or, with userId, by an admin for that person.
+ */
+export function ActivateDevice(props: ActivateDeviceProps): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [step, setStep] = useState<Step>({ kind: "entering" });
@@ -100,6 +103,7 @@ export function ActivateDevice(props: {
     });
   };
   useScannedEntry(props.scanned, runRequest, setStep);
+  const castTo = useCastTo(setStep, props.onCastStarted);
   const answer = (isMatch: boolean): void => {
     if (step.kind !== "checking") {
       return;
@@ -115,40 +119,20 @@ export function ActivateDevice(props: {
       }
     });
   };
-  const cast = (): void => {
-    if (step.kind !== "checking") {
-      return;
-    }
-    runRequest(async (idempotencyKey) => {
-      const made = await castToActivation(api, step.code, idempotencyKey);
-      setStep({ kind: "casting", deviceName: made.deviceName });
-      try {
-        if (!(await castOnceItConnects(api, made.deviceId))) {
-          setStep({ kind: "notCast", deviceName: made.deviceName });
-          return;
-        }
-      } catch (cause) {
-        setStep({ kind: "notCast", deviceName: made.deviceName });
-        throw cause;
-      }
-      props.onCastStarted?.();
-    });
-  };
   return (
     <div className="device-activation">
       <h2>{t("activate.heading")}</h2>
       {step.kind === "checking" ? (
-        <Checking activation={step.activation} isBusy={isBusy} onAnswer={answer} onCast={cast} />
-      ) : step.kind === "casting" ? (
-        <output>{t("activate.casting", { device: step.deviceName })}</output>
+        <Checking
+          activation={step.activation}
+          isBusy={isBusy}
+          onAnswer={answer}
+          onCast={() => {
+            runRequest(castTo(step.code));
+          }}
+        />
       ) : (
-        <>
-          {step.kind === "done" ? <Done step={step} /> : null}
-          {step.kind === "notCast" ? (
-            <output>{t("activate.notCast", { device: step.deviceName })}</output>
-          ) : null}
-          <EnterCode isBusy={isBusy} onEnter={enter} marks={marks} />
-        </>
+        <NotChecking step={step} isBusy={isBusy} onEnter={enter} marks={marks} />
       )}
       {problem === undefined ? null : (
         <p role="alert" id={marks.problemId}>
@@ -296,6 +280,54 @@ function CheckCode(props: {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Casts to the device whose code was entered (D469 §1): signed in for one cast, it is cast to once its
+ * page connects; onCastStarted is told once it took the cast, and the step says when it did not.
+ */
+function useCastTo(
+  setStep: (step: Step) => void,
+  onCastStarted: (() => void) | undefined,
+): (code: string) => (idempotencyKey: string) => Promise<void> {
+  const { api } = useServices();
+  return (code) => async (idempotencyKey) => {
+    const made = await castToActivation(api, code, idempotencyKey);
+    setStep({ kind: "casting", deviceName: made.deviceName });
+    try {
+      if (!(await castOnceItConnects(api, made.deviceId))) {
+        setStep({ kind: "notCast", deviceName: made.deviceName });
+        return;
+      }
+    } catch (cause) {
+      setStep({ kind: "notCast", deviceName: made.deviceName });
+      throw cause;
+    }
+    onCastStarted?.();
+  };
+}
+
+/** The activation's every step but the check code's: the cast going, or the code to enter. */
+function NotChecking(props: {
+  readonly step: Exclude<Step, { readonly kind: "checking" }>;
+  readonly isBusy: boolean;
+  readonly onEnter: (code: string, deviceName: string) => void;
+  readonly marks: FieldMarks;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { step } = props;
+  if (step.kind === "casting") {
+    return <output>{t("activate.casting", { device: step.deviceName })}</output>;
+  }
+  return (
+    <>
+      {step.kind === "done" ? <Done step={step} /> : null}
+      {step.kind === "notCast" ? (
+        <output>{t("activate.notCast", { device: step.deviceName })}</output>
+      ) : null}
+      <EnterCode isBusy={props.isBusy} onEnter={props.onEnter} marks={props.marks} />
+    </>
   );
 }
 
