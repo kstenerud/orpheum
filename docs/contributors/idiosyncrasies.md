@@ -252,6 +252,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After an interface was taken down and up in a container, IPv4 had no route. | [Taking an LXC container's interface down and up loses its IPv4 default route](#taking-an-lxc-containers-interface-down-and-up-loses-its-ipv4-default-route) |
 | Pulling the image fails with "network is unreachable" though IPv6 works. | [GitHub's image registry, `ghcr.io`, has no IPv6 address](#githubs-image-registry-ghcrio-has-no-ipv6-address) |
 | A phone on a travel eSIM reaches no server: one IPv4 candidate abroad, no IPv6. | [A travel eSIM's data leaves through its operator's gateway, over IPv4 alone](#a-travel-esims-data-leaves-through-its-operators-gateway-over-ipv4-alone) |
+| A Chromecast connected over WebRTC, then its request never completed: "a request over WebRTC did not arrive in time". | [Chrome before 92 neither sends nor receives an empty message on a data channel](#chrome-before-92-neither-sends-nor-receives-an-empty-message-on-a-data-channel) |
 | A cast to a Chromecast over WebRTC failed: "the answer is not the server's own: its key or signature does not match its link". | [A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies](#a-chromecasts-chrome-90-has-no-ed25519-in-webcrypto-so-no-cores-answer-verifies) |
 | Google's Cast console would not publish a receiver application: "You must add details about at least one sender application", the Chrome website URL saved and then gone. | [Google's Cast developer console in Chrome loses a sender's details, and publishing refuses](#googles-cast-developer-console-in-chrome-loses-a-senders-details-and-publishing-refuses) |
 
@@ -1373,6 +1374,30 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ---
+
+### Chrome before 92 neither sends nor receives an empty message on a data channel
+
+- **Symptom:** a cast to a Chromecast connected over WebRTC ("WebRTC: connected" on the TV), then
+  its guest receiver's `POST /guest-receivers` never completed: the core logged "a request over
+  WebRTC did not arrive in time" after 30 s with `requests=0`, though 924 bytes had come, and the
+  sender page said "the channel for /api/v1/guest-receivers closed before its response ended" (the
+  owner, production, 2026-11-12).
+- **Cause:** in Chrome 90's WebRTC (branch-heads/4430), `SctpDataChannel::Send` returns at once
+  for an empty buffer ("the spec is unclear about if the remote side should get the onmessage
+  event"), so nothing leaves; and its `sctp_transport.cc` drops a message with PPID 56 or 57, an
+  empty one as RFC 8831 carries it, as "an unknown PPID". Branch 4515, Chrome 92, sends and takes
+  them. The core's protocol over a channel ended each request and each response with an empty
+  message, so on a Chromecast (`CrKey/1.56`, Chrome 90) no request ever ended. The web platform
+  tests' `RTCDataChannel-send.html` sends a second message "in case the implementation ignores
+  empty messages".
+- **What we do:** a request's head declares its body's length (`content-length`, 0 for none), and
+  the core takes the request as whole at its last byte; the head names `x-orpheum-end: text`, and
+  the core ends the response with the text message `{"end":true}`. The empty messages are still
+  sent and taken, for a core or a client from before. Tests:
+  `TestChannel_ARequestFromChrome90IsAnsweredWithoutAnEmptyMessageEitherWay`, and
+  `rtc-transport.test.ts`'s "ends a response at the core's text end".
+- **Evidence:** the core's log and the receiver's screen on production, 2026-11-12; the WebRTC
+  sources of branch-heads 4430, 4472 and 4515.
 
 ### A Chromecast's Chrome 90 has no Ed25519 in WebCrypto, so no core's answer verifies
 

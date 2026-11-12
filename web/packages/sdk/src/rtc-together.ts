@@ -36,7 +36,9 @@ export function rtcTogetherSocket(openChannel: () => ChannelLike): OpenTogetherS
     const head = {
       method: "GET",
       path: `${apiPrefix}/socket`,
-      headers: { upgrade: ["websocket"] },
+      // Declaring no body, the request is whole at its head where its empty end never leaves the
+      // browser, as Chrome before 92's (rtc-request.ts).
+      headers: { upgrade: ["websocket"], "content-length": ["0"] },
     };
     channel.listen({
       open: () => {

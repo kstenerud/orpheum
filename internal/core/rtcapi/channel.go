@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"runtime/debug"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,6 +53,17 @@ const InitialCreditMessages = 64
 type Credit struct {
 	Messages int `json:"credit"`
 }
+
+// A data channel in Chrome before 92, a Chromecast's Chrome 90 among them, neither sends an empty
+// message nor takes one it is sent (idiosyncrasies.md), so a client may end its request and have its
+// response ended without one: its head declares its body's length in Content-Length, 0 for none, and
+// the request is whole once that many bytes have come; and a head naming EndHeader with EndInText has
+// its response ended by EndMessage, a text message, instead of an empty one.
+const (
+	EndHeader  = "X-Orpheum-End"
+	EndInText  = "text"
+	EndMessage = `{"end":true}`
+)
 
 // ResponseHead is a response's first message on its channel.
 type ResponseHead struct {
@@ -131,6 +144,7 @@ func serveChannel(
 			request = request.WithContext(context.WithValue(overWebRTC, messageConnKey{}, conn))
 		}
 		writer := newChannelWriter(ctx, channel, credit, watch)
+		writer.endsInText = reader.endsInText
 		if !serveGuarded(ctx, handler, writer, request, logger) {
 			_ = channel.Close() //nolint:errcheck // the response is cut short, and the client knows it so
 			return
@@ -152,47 +166,114 @@ type requestReader struct {
 	// conn takes the client's messages after a request that asked to become a WebSocket.
 	conn      *MessageConn
 	isUpgrade bool
-	mutex     sync.Mutex
-	head      *RequestHead
-	body      bytes.Buffer
-	failed    error
-	isDone    bool
-	done      chan struct{}
+	// declared is the body's length its head declared, or -1 where it declared none, and endsInText
+	// whether its head asked for its response to end in EndMessage (EndHeader).
+	declared   int
+	endsInText bool
+	mutex      sync.Mutex
+	head       *RequestHead
+	body       bytes.Buffer
+	failed     error
+	isDone     bool
+	done       chan struct{}
 }
 
-// take takes one message of the request.
+// take takes one message of the request, or one its client sends after it.
 func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	reader.mutex.Lock()
 	defer reader.mutex.Unlock()
-	if reader.isDone && reader.isUpgrade {
+	switch {
+	case reader.isDone:
+		reader.takeAfter(message)
+	case reader.head == nil:
+		reader.takeHead(message)
+	default:
+		reader.takeBody(message.Data)
+	}
+}
+
+// takeAfter takes a message after the request: a socket's text, or a grant of credit; any other, as
+// the empty end a client sends after a request whose length it declared, is nothing. The caller holds
+// the mutex.
+func (reader *requestReader) takeAfter(message webrtc.DataChannelMessage) {
+	if reader.isUpgrade {
 		if message.IsString {
 			reader.conn.take(message.Data)
 		}
 		return
 	}
-	if reader.isDone {
-		var granted Credit
-		if message.IsString && strictjson.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
-			reader.credit.grant(granted.Messages)
-		}
+	var granted Credit
+	if message.IsString && strictjson.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
+		reader.credit.grant(granted.Messages)
+	}
+}
+
+// takeHead takes the request's first message, its head. The caller holds the mutex.
+func (reader *requestReader) takeHead(message webrtc.DataChannelMessage) {
+	var head RequestHead
+	if err := strictjson.Unmarshal(message.Data, &head); err != nil || !message.IsString {
+		reader.end(fmt.Errorf("the first message is not a request head: %w", errors.Join(err, errNotText(message))))
 		return
 	}
+	reader.head = &head
+	reader.isUpgrade = asksForUpgrade(head.Headers)
+	reader.endsInText = slices.Contains(headValues(head.Headers, EndHeader), EndInText)
+	reader.takeDeclaredLength(head.Headers)
+}
+
+// takeBody takes a message of the request's body, or the empty one that ends it. The caller holds the
+// mutex.
+func (reader *requestReader) takeBody(data []byte) {
 	switch {
-	case reader.head == nil:
-		var head RequestHead
-		if err := strictjson.Unmarshal(message.Data, &head); err != nil || !message.IsString {
-			reader.end(fmt.Errorf("the first message is not a request head: %w", errors.Join(err, errNotText(message))))
-			return
-		}
-		reader.head = &head
-		reader.isUpgrade = asksForUpgrade(head.Headers)
-	case len(message.Data) == 0:
+	case len(data) == 0 && reader.declared > reader.body.Len():
+		reader.end(fmt.Errorf("the request's body ended at %d bytes of the %d its head declared",
+			reader.body.Len(), reader.declared))
+	case len(data) == 0:
 		reader.end(nil)
-	case reader.body.Len()+len(message.Data) > MaxRequestBodyBytes:
+	case reader.body.Len()+len(data) > MaxRequestBodyBytes:
 		reader.end(fmt.Errorf("the request's body is over %d bytes", MaxRequestBodyBytes))
+	case reader.declared >= 0 && reader.body.Len()+len(data) > reader.declared:
+		reader.end(fmt.Errorf("the request's body is over the %d bytes its head declared", reader.declared))
 	default:
-		_, _ = reader.body.Write(message.Data) // a bytes.Buffer's Write never returns an error
+		_, _ = reader.body.Write(data) // a bytes.Buffer's Write never returns an error
+		if reader.body.Len() == reader.declared {
+			reader.end(nil)
+		}
 	}
+}
+
+// takeDeclaredLength reads the body's length a head declared, ending a request that declared none
+// at its head, and refusing one whose length is not one or is over MaxRequestBodyBytes; a head that
+// declared none leaves the request to its empty message. The caller holds the mutex.
+func (reader *requestReader) takeDeclaredLength(headers http.Header) {
+	reader.declared = -1
+	values := headValues(headers, "Content-Length")
+	if len(values) == 0 {
+		return
+	}
+	declared, err := strconv.Atoi(values[0])
+	switch {
+	case len(values) > 1 || err != nil || declared < 0:
+		reader.end(fmt.Errorf("the request's head declared its body's length as %q", values))
+	case declared > MaxRequestBodyBytes:
+		reader.end(fmt.Errorf("the request's body is over %d bytes", MaxRequestBodyBytes))
+	case declared == 0:
+		reader.end(nil)
+	default:
+		reader.declared = declared
+	}
+}
+
+// headValues is the values headers give name, in whatever case its client wrote it: a browser names
+// headers in lower case, and a head's headers are as it wrote them.
+func headValues(headers http.Header, name string) []string {
+	var values []string
+	for written, given := range headers {
+		if strings.EqualFold(written, name) {
+			values = append(values, given...)
+		}
+	}
+	return values
 }
 
 // end ends the request, failed or whole. The caller holds the mutex.
