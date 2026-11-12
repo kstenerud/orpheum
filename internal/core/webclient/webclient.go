@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-// contentSecurityPolicy is what the client's pages may load and run: everything from the server
+// contentSecurityPolicy is what the client's files and the lab's probes may load and run, and the
+// client's screens with Google's Cast sender besides (castSenderPolicy): everything from the server
 // itself and nothing from elsewhere, the subtitle renderer's WebAssembly and the player's workers
 // (from blob URLs too), media and images from blob URLs, inline styles, which React sets; no framing,
 // no plugins, no <base>. The core sent no policy and no frame-ancestors (the second audit's W14,
@@ -31,14 +32,20 @@ const trustedTypesPolicy = "require-trusted-types-for 'script'"
 // (developers.google.com/cast): their scripts, and the framework scripts they load in turn.
 const castSDKOrigin = "https://www.gstatic.com"
 
-// castSenderLabPath is the one page that loads Google's Cast sender SDK, the lab's cast probe
-// (plans/tv-device-tests.md), opened by its own load, never moved to in place, so the client's
-// other pages keep the policy that loads nothing from elsewhere.
+// castSenderLabPath is the lab's cast probe (plans/tv-device-tests.md), which loads Google's Cast
+// sender SDK at its own load, under the client's screens' policy; the lab's other probes, each opened
+// by its own load too, keep the policy that loads nothing from elsewhere.
 const castSenderLabPath = "lab/cast"
 
-// castSenderLabPolicy is contentSecurityPolicy with the Cast sender SDK's scripts and requests
-// allowed: the lab's cast probe alone.
-const castSenderLabPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' " + castSDKOrigin + "; " +
+// labDirectory is where the lab's probes are, under /lab/.
+const labDirectory = "lab"
+
+// castSenderPolicy is contentSecurityPolicy with the Cast sender SDK's scripts and requests allowed,
+// what the lab's probe needed of it on the owner's devices (VQ286, VQ287) and nothing more: the
+// client's screens, whose Cast menu loads it in Chrome at its first opening, to cast to any Google
+// Cast device (D465 §3). The client moves between its screens in place, so a page keeps the policy
+// of the screen it was loaded at, and every screen has it; the client's files keep the strict one.
+const castSenderPolicy ="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' " + castSDKOrigin + "; " +
 	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; " +
 	"worker-src 'self' blob:; connect-src 'self' " + castSDKOrigin + "; font-src 'self' data:; " +
 	"manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
@@ -56,15 +63,33 @@ const receiverPolicy = "default-src 'self'; script-src 'self' " + castSDKOrigin 
 	"font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 // policyFor is the content-security policy of the page or file at name, a path without its leading
-// slash: the receiver's under /cast/, the cast probe's at /lab/cast, the client's everywhere else.
+// slash: the receiver's under /cast/; the Cast sender's for the client's screens, the lab's cast probe
+// among them; the strict one for the lab's other probes and for every file.
 func policyFor(name string) string {
 	switch {
 	case isReceiverPath(name):
 		return receiverPolicy
 	case name == castSenderLabPath:
-		return castSenderLabPolicy
+		return castSenderPolicy
+	case name == labDirectory || strings.HasPrefix(name, labDirectory+"/"):
+		return contentSecurityPolicy
+	case isScreenPath(name):
+		return castSenderPolicy
 	}
 	return contentSecurityPolicy
+}
+
+// isScreenPath is whether name, a path without its leading slash, is one of the client's screens,
+// answered with its index.html: an address with no extension, as the handler takes one, or the page
+// itself.
+func isScreenPath(name string) bool {
+	return path.Ext(name) == "" || name == "index.html"
+}
+
+// isCastPage is whether name, a path without its leading slash, is a cast page, whose Google SDK is
+// not the client's to change: the receiver's, or the lab's cast probe.
+func isCastPage(name string) bool {
+	return isReceiverPath(name) || name == castSenderLabPath
 }
 
 // isReceiverPath is whether name, a path without its leading slash, is the cast receiver's.
@@ -89,7 +114,7 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 		name := strings.TrimPrefix(path.Clean(request.URL.Path), "/")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("Content-Security-Policy", policyFor(name))
-		if policyFor(name) == contentSecurityPolicy {
+		if !isCastPage(name) {
 			writer.Header().Set("Content-Security-Policy-Report-Only", trustedTypesPolicy)
 		}
 		writer.Header().Set("Referrer-Policy", "no-referrer")

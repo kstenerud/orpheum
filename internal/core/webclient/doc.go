@@ -20,7 +20,8 @@
 //   - The client counts as built only when dist/ has an index.html; the placeholder alone does
 //     not. Enforced by TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex.
 //   - Every answer carries `X-Content-Type-Options: nosniff`, a content-security policy that loads
-//     nothing from elsewhere and forbids framing, and `Referrer-Policy: no-referrer`; one over HTTPS
+//     nothing from elsewhere but Google's Cast SDK where the next invariants allow it and forbids
+//     framing, and `Referrer-Policy: no-referrer`; one over HTTPS
 //     carries `Strict-Transport-Security`. Enforced by TestHandler_ServesFilesAndFallsBackToIndex
 //     and TestHandler_EveryAnswerCarriesTheSecurityHeaders.
 //   - The client's pages, not the cast pages, report every string reaching a script sink without a
@@ -28,10 +29,14 @@
 //     'script'`), which the page notes to the core's log (web/apps/web/src/policy-violations.ts);
 //     the enforced policy holds no Trusted Types yet. Enforced by
 //     TestHandler_TheClientsPagesReportWhatTrustedTypesWouldRefuse.
-//   - Only the cast pages load from elsewhere, and only Google's Cast SDK (www.gstatic.com): the lab's
-//     cast probe at /lab/cast its sender's, the receiver under /cast/ CAF's and the Cast platform's
-//     socket on the device (ws://localhost:8008); every other page keeps the policy above
-//     (plans/tv-device-tests.md). Enforced by TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK.
+//   - Only the client's screens and the cast receiver load from elsewhere, and only Google's Cast SDK
+//     (www.gstatic.com): every screen of the client its sender's, for the Cast menu's Chromecast to
+//     load in Chrome at its first opening (D465 §3), since the client moves between screens in place
+//     and a page keeps the policy it was loaded with, and the lab's cast probe at /lab/cast with them;
+//     the receiver under /cast/ CAF's and the Cast platform's socket on the device
+//     (ws://localhost:8008). The client's files and the lab's other probes load nothing from
+//     elsewhere, and only the receiver reaches the device's socket. Enforced by
+//     TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK.
 //   - The cast receiver, where it is built in (dist/cast/, which web/apps/cast-receiver's build
 //     writes inside the web client's dist), answers its addresses under /cast/ with its own page.
 //     Enforced by TestHandler_ServesTheCastReceiverUnderCast.

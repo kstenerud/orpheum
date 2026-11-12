@@ -67,9 +67,11 @@ no package is added.
      proves by it until the trade. On a device: VQ302.)
 3. **The sender: the Cast menu's icons, and Chromecast in it.**
    - Google's Cast sender script, loaded only in Chrome and only when the menu is first opened (§1).
-     The web client's content security policy today allows it on the lab's pages alone
-     (`TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK`); allowing it on the player is a
-     security change, reviewed with the policy.
+     The web client's content security policy allowed it on the lab's pages alone; allowing it on
+     the player is a security change, reviewed with the policy. Built: every screen of the client
+     allows the sender's origin, since the client moves between screens in place and a page keeps
+     the policy it was loaded with; files and the lab's other probes do not
+     (`TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`).
    - The receiver's application ID comes from the loader the page came from (D465 §5), never from
      a field typed in, as the lab's is.
    - On a session started: ask the core for the cast and grant (step 1), send them over the

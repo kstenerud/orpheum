@@ -13,7 +13,7 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   `base` and `outDir` in `vite.config.ts`; the core answers its addresses with its page under a
   policy that allows CAF from www.gstatic.com and the Cast platform's socket on the device
   (`internal/core/webclient`, `TestHandler_ServesTheCastReceiverUnderCast`,
-  `TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK`).
+  `TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`).
 - **Never closed for being idle, with CAF's players not loaded**: our player replaces CAF's, which
   would otherwise see a receiver playing nothing (casting-review-2026-10-25.md §4). `src/caf.ts`;
   only a device shows it: VQ58.
