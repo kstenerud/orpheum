@@ -469,6 +469,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D461](working-notes.md#d461--a-pasted-compose-file-keeps-working-released-files-frozen-and-tested-changes-additive-a-version-on-the-file) A pasted compose file keeps working: released files frozen and tested, changes additive, a version on the file — *revisited by D462, D463*
 - [D462](working-notes.md#d462--a-thin-compose-file-dockers-part-alone-the-settings-in-the-app-the-file-handed-over-filled-in) A thin compose file: Docker's part alone, the settings in the app, the file handed over filled in — *revisited by D463*
 - [D463](working-notes.md#d463--more-install-routes-least-work-first-each-ours-to-keep-each-tested-in-a-vm) More install routes, least work first, each ours to keep, each tested in a VM
+- [D464](working-notes.md#d464--a-heavy-chunk-steps-down-alone-each-chunks-bytes-in-the-playlist-the-devices-buffer-learnt) A heavy chunk steps down alone: each chunk's bytes in the playlist, the device's buffer learnt
 
 ## Archived
 

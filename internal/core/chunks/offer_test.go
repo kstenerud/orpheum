@@ -98,6 +98,42 @@ func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing
 	}
 }
 
+// The film's own picture, copied, says each chunk's bit rate from its read-through, so a player can
+// step down for a heavy chunk alone; a made quality, its chunks not yet made, says none (D464 §1).
+func TestMediaPlaylist_TheCopiedPictureSaysEachChunksBitRate(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	settingsService, isService := service.settings.(*settings.Service)
+	if !isService {
+		t.Fatal("the fixture's settings are not the settings service")
+	}
+	settingstest.Set(t, settingsService, settings.ChunkQualities, `"1200k@480p"`)
+	// Film 2's picture: 10 s at 2 Mb/s, then a heavy 10 s at 16 Mb/s.
+	err := service.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.UpsertVideoTimeline(t.Context(), sqlcgen.UpsertVideoTimelineParams{
+			PayloadHash: []byte{0x02}, KeyframesMsJSON: "[0,10000,20000]",
+			BytesInEachSecondJSON: "[" + strings.Repeat("250000,", 10) + strings.Repeat("2000000,", 9) + "2000000]",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	playback := Playback{FileID: 2, IsSourcePictureDecodable: true}
+	text, err := service.MediaPlaylist(t.Context(), playback, "picture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "#EXT-X-BITRATE:2000\n#EXTINF:10.000,\n00000.m4s\n" +
+		"#EXT-X-BITRATE:16000\n#EXTINF:10.000,\n00001.m4s\n"
+	if !strings.Contains(text, want) {
+		t.Errorf("the copied picture's playlist =\n%s\nwant its chunks\n%s", text, want)
+	}
+	made, err := service.MediaPlaylist(t.Context(), playback, "q1200k480p")
+	if err != nil || strings.Contains(made, "BITRATE") {
+		t.Errorf("a made quality's playlist =\n%s, %v\nwant no bit rates", made, err)
+	}
+}
+
 // A quality offered by the file's bit rate, before the picture's bytes in each second were known, is
 // still the playback's once they are, though they put the picture's own below it (the M4 closing
 // audit).

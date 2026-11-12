@@ -31,6 +31,13 @@
 //     (D457). A node whose speed is not known offers its whole ladder. Enforced by
 //     TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied.
 //
+//   - The film's own picture, copied, says each chunk's bit rate in its media playlist
+//     (EXT-X-BITRATE), from its read-through's bytes in each second, rounded up, so a player whose
+//     picture buffer cannot hold a heavy chunk beside the one playing steps down for it alone
+//     (D464 §1); a made stream says none. Enforced by
+//     TestMediaPlaylist_TheCopiedPictureSaysEachChunksBitRate and
+//     TestMediaPlaylist_SaysEachChunksBitRateWhereItsBytesAreKnown.
+//
 //   - A film whose loudness is not measured offers its sounds unlevelled, each a store of its own
 //     ("-raw"), so a levelled chunk never follows an unlevelled one; a playback goes on with the
 //     sounds its playlist named once the loudness is measured (D259 §2).

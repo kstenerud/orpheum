@@ -512,13 +512,19 @@ func (film cutFilm) averageWithSoundKbps(picture Stream, soundKbps int) int64 {
 }
 
 // MediaPlaylist is the playlist of one stream the playback is offered, every chunk of the film's
-// grid: ErrNoStream for a stream it is not offered, and ErrNoGrid as MasterPlaylist says.
+// grid: ErrNoStream for a stream it is not offered, and ErrNoGrid as MasterPlaylist says. The film's
+// own picture, copied, says each chunk's bit rate from its read-through (D464 §1); a made stream's
+// chunks are not yet made, so say none.
 func (service *Service) MediaPlaylist(ctx context.Context, playback Playback, streamName string) (string, error) {
-	film, _, err := service.offeredStream(ctx, playback, streamName)
+	film, stream, err := service.offeredStream(ctx, playback, streamName)
 	if err != nil {
 		return "", err
 	}
-	return mediaPlaylist(film.grid), nil
+	var chunkBytes []int64
+	if stream.Kind == nodeproto.StreamPicture {
+		chunkBytes = chunkBytesOf(film.grid, film.bytesInEachSecond)
+	}
+	return mediaPlaylist(film.grid, chunkBytes), nil
 }
 
 // offeredStream is the playback's film, cut, and the stream a name names, when the playback is

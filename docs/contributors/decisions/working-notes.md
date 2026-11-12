@@ -27758,3 +27758,46 @@ neither.
 6. **Not in the closed beta's way:** both testers' platforms are covered already. A Docker Hub
    mirror of the image changes the release workflow, a gate, so it waits for the owner.
 
+
+## D464 — A heavy chunk steps down alone: each chunk's bytes in the playlist, the device's buffer learnt
+
+**Decided** (2026-11-12), by the owner (*"yes agreed. Go ahead"*), on the lead's answer to the
+owner's question of 2026-11-11 (*"are there ways to query the device to find out how much memory it
+has, and then use the browser's size calculation when we know how it will do it?"*, with *"We also
+need to be careful that h.264 doesn't compress as well as HEVC."*). Settles what the 11-23 Chromecast
+batch's item 4 left owed (plans/navigation-and-widgets-answers-2026-10-27.md); amends none.
+
+1. **Each chunk of the film's own picture says its bytes.** The copied picture's media playlist
+   carries `#EXT-X-BITRATE:<kbps>` before each chunk: its bytes from the read-through
+   (`bytesInEachSecond`), ×8 over its length, rounded up. An encoded rung and the sound carry none,
+   and neither does a picture whose read-through gave no bytes. hls.js reads the tag into each
+   fragment's `bitrate`, so the player knows a heavy chunk before it asks for it.
+2. **The device's picture buffer is the table, a Fire TV by its name, and the first refusal.**
+   `navigator.deviceMemory` is Chromium's alone, coarse (0.25 to 8 GB) and exposed only in a secure
+   context: the owner's Fire TV said 1 GB over https and nothing over the core's http address, where
+   it was given 157 MB and played on as ordinary. No browser computes its limit from memory: each
+   engine and embedder fixes it (Chromium 150 MB of picture, about 30 MiB on a low-memory device).
+   So the table stays, a user agent naming an `AFT…` model counts as low-memory, and at the first
+   picture `bufferFullError` the player takes as the limit the most picture bytes it saw held at
+   once, if below the table's. That limit is kept in the browser's storage with its user agent and
+   dropped when the user agent changes.
+3. **A pair that does not fit takes the next chunk from a lower rung, at that chunk alone.** At each
+   choice the player adds the chunk it holds playing to the next one at the rung chosen; if the two
+   pass 0.9 of the picture buffer, the next is taken from the highest rung below at which they fit,
+   else the lowest, and the choice after goes back up. A rung's chunk is counted by its own bytes,
+   never the film's: the copied picture's from point 1; an encoded rung's bounded by its peak rate
+   over the chunk plus its encoder's 2-second buffer (`-maxrate 1.5× -bufsize 2×`,
+   internal/node/encode/encoder.go), since H.264 at the same height may be no smaller than the
+   film's HEVC. 0.9 leaves the room the browser keeps for itself: 23 MB chunks beside small ones
+   played in Silk's 31.5 MB (VQ294's run, 2026-11-11). A device with room never steps down, and a
+   step-down is the player's own, never counted as hls.js forcing a quality (D266).
+4. **The forward buffer is paced by bytes where they are known.** The time loaded ahead is cut so
+   that what is held from the playing chunk on, with the next chunk at its rung, fits in 0.9 of the
+   buffer, even below the 20-second floor; it is worked out again at each picture chunk buffered.
+   The sound buffer is unchanged.
+5. **What it does not mend:** a node too slow to encode (D457) offers no lower rung, so its heavy
+   chunk is asked for as before; one run between keyframes larger than the buffer still cannot
+   play. A step-down restarts the hold before the next step up (D266).
+6. **Not taken:** asking the device for its memory and computing the browser's limit from it (no
+   browser does so, and the one signal is missing where most needed); re-encoding the heavy
+   stretches, or handing a chunk over in pieces (both in the plan's item 4).
