@@ -92,6 +92,13 @@ export const goneStatus = 404;
 export const tooEarlyStatus = 425;
 
 /**
+ * The status of a load nothing answered: its connection was lost on its way (a WebRTC connection
+ * taken as gone, an HTTP connection reset), as XMLHttpRequest says it and fetchLoader says a fetch
+ * that failed. Never the core's word: each of those has a status of its own.
+ */
+export const unansweredStatus = 0;
+
+/**
  * Whether a fatal hls.js error only stopped its loading, which asking it to load on may mend: any but
  * the media's own (MEDIA_ERROR, MUX_ERROR), which alone end a playback, a load failing or timing out,
  * its playlist's or its chunk's, or an exception hls.js caught in its own handling; never the core's

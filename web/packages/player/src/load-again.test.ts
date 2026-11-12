@@ -3,9 +3,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } from "hls.js";
+import type { ErrorData, HlsConfig } from "hls.js";
 
 import { asksAgainAfterAtMostMs, asksAgainAfterMs } from "./abr-choice.ts";
 import { loadAgainFrom, orpheumAbr } from "./abr-controller.ts";
+import { chunkLoadPolicy, unansweredAsksAgain } from "./chunk-load-policy.ts";
 import type { PlaybackFailure } from "./failure.ts";
 import { failOnFatal } from "./hls.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
@@ -28,11 +30,13 @@ const carrierOf = (url: string): string => `WebRTC connection 3 for ${url}`;
 /**
  * A chunked playback's hls.js with its own bitrate controller, its video playing at 42 s or as given, a film's
  * four qualities as hls.js holds them, loading again after a load that failed (loadOnAfterFailures),
- * and failing as failOnFatal tells; page is the window whose online event it hears.
+ * and failing as failOnFatal tells; page is the window whose online event it hears, and config
+ * what of hls.js's config it is given besides.
  */
 function playbackLoadingOn(
   page: EventTarget,
   video = videoAt(42, { isPaused: false, readyState: 4 }),
+  config: Partial<HlsConfig> = {},
 ): {
   readonly hls: Hls;
   readonly loadsOnFromS: number[];
@@ -46,7 +50,7 @@ function playbackLoadingOn(
     noteLink: (note) => scene.linkNotes.push(note),
     carrierOf,
   });
-  const hls = new Hls({ abrController: abr.controller });
+  const hls = new Hls({ ...config, abrController: abr.controller });
   Object.defineProperty(hls, "media", { value: video });
   // hls.js's own qualities, each with the counts its error handling keeps.
   const held = levels.map((level) => ({
@@ -194,6 +198,60 @@ describe("a load that failed for good", () => {
     expect(failures).toEqual([]);
     waitMs(asksAgainAfterMs);
     expect(loadsOnFromS).toEqual([42]);
+    hls.destroy();
+  });
+});
+
+/** hls.js's error of a chunk of picture of level, its number sn, whose load ended with status code. */
+function chunkFailed(level: number, sn: number, code: number): ErrorData {
+  return {
+    type: ErrorTypes.NETWORK_ERROR,
+    details: ErrorDetails.FRAG_LOAD_ERROR,
+    fatal: false,
+    frag: pictureChunk(level, sn),
+    response: { url: "", code, text: "" },
+    error: new Error(`HTTP Error ${String(code)} ()`),
+  };
+}
+
+/** hls.js's action on an error, as its error controller chose it: NetworkErrorAction.RetryRequest. */
+const retryRequest = 5;
+
+// The owner's Firefox 157 on Wi-Fi dropping out, over WebRTC: the connection carrying a chunk had no
+// bytes for 8 s, was taken as gone and replaced within half a second, and the chunk lost with it
+// (fragLoadError, nothing answering it) had hls.js force the quality from level 5 to 4 for a minute,
+// leaving a 0.17 s hole (staging, 2026-11-12).
+describe("a chunk lost with its connection, the browser online", () => {
+  it("is asked for again at its quality, on the connection that replaced it, before hls.js tries a lower one", () => {
+    const { hls, failures } = playbackLoadingOn(new EventTarget(), undefined, {
+      fragLoadPolicy: chunkLoadPolicy,
+    });
+    for (let time = 1; time <= unansweredAsksAgain; time++) {
+      const lost = chunkFailed(3, 7, 0);
+      hls.trigger(Events.ERROR, lost);
+      expect([lost.errorAction?.action, lost.errorAction?.nextAutoLevel, lost.fatal]).toEqual([
+        retryRequest,
+        undefined,
+        false,
+      ]);
+    }
+    // Lost time after time, it is no connection lost once: hls.js tries a lower quality, as before.
+    const again = chunkFailed(3, 7, 0);
+    hls.trigger(Events.ERROR, again);
+    expect(again.errorAction?.action).not.toBe(retryRequest);
+    expect(again.errorAction?.nextAutoLevel).toBe(2);
+    expect(failures).toEqual([]);
+    hls.destroy();
+  });
+
+  it("leaves a chunk the core answered as it was: a 404 ends the playback at once, never asked again", () => {
+    const { hls, failures } = playbackLoadingOn(new EventTarget(), undefined, {
+      fragLoadPolicy: chunkLoadPolicy,
+    });
+    const gone = chunkFailed(3, 457, 404);
+    hls.trigger(Events.ERROR, gone);
+    expect(gone.errorAction?.action).not.toBe(retryRequest);
+    expect(failures.map(([failure]) => failure)).toEqual(["network"]);
     hls.destroy();
   });
 });
