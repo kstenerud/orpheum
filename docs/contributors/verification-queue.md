@@ -3000,7 +3000,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   "staging: running /home/karl/orpheum/.staging/after-up", and the hook rebuilt Connect's staging;
   orpheum.dev then served `/` and `/cast/` with the same bundles as this checkout's build. Called
   with no file, after_up returned 0; with a hook that exits 3, it said so and returned 3.
-- [ ] **VQ302** — A Chromecast chosen in Chrome's own picker plays the cast without a code (D465 §2;
+- [x] **VQ302** — A Chromecast chosen in Chrome's own picker plays the cast without a code (passed
+  2026-11-12 on staging, the owner's attic Chromecast, after the receiver waited for its welcome) (D465 §2;
   google-cast.md §2, steps 2 and 3). On staging, with the owner's 3rd-generation Chromecast
   registered to staging's receiver application, open a film in Chrome on the Mac, press Cast, choose
   Chromecast under the separator, then the TV in Chrome's picker. Passes when the TV shows the film
@@ -3019,7 +3020,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Android TV or Google TV set, then to a Chromecast with Google TV. Passes when each plays the film
   with no code, its receiver's report names the engine it runs, and play, pause and a seek move it as
   VQ302's do. (`web/apps/cast-receiver/src/guest.ts`, `src/old-engine.ts`)
-- [ ] **VQ305** — Chrome on Android casts to a Chromecast under a grant (D465 §3). On staging, on the
+- [x] **VQ305** — Chrome on Android casts to a Chromecast under a grant (passed 2026-11-12 on
+  staging, the owner) (D465 §3). On staging, on the
   Pixel 3a in Chrome, open a film, press Cast, choose Chromecast, then the TV. Passes when the TV
   plays it with no code and the phone's controls move it, and the menu on Firefox on the same phone
   offers no Chromecast. (`web/apps/web/src/google-cast.ts`)
