@@ -3219,6 +3219,12 @@ below: "agreed. Release anyway". Found by the lead:
      the named tests stops there; the whole package (and its dependents) runs only when they stay
      green (`scripts/check_revert_red.py`).
 
+- **A discovery test failed once under a full run** (the gate, 2026-11-12 03:02 UTC): `make check`
+  failed only in `TestSignal_ADiscoveryRestartedBehindALinkLeftOpenIsFoundAgainAndAnswered`
+  (internal/core/discovery), after 0.87 s; the next `make check` passed, and the test passes alone.
+  It restarts a fake discovery behind a link left open and waits for the redial, the logged return
+  and an answered offer: find which of the three it reads before it has happened under load.
+
 ## A password reset link, for a later batch (the owner, 2026-11-12)
 
 The owner: *"On a user's info page, I press the button 'New reset password link', which creates a
