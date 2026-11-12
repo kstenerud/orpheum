@@ -3333,6 +3333,13 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 - **11.** `TestLeave_TheSignallingConnectionItEndsIsNoWarning` (discovery), timed out once under
   load.
 - **12.** The upstairs Fire TV's sluggishness: what more can be cut.
+  - **Raised to high (the owner, 2026-11-12, on production, a Fire TV):** in the films list, for the
+    first few minutes the page was open, pressing right past the first row's last poster left the
+    highlight where it was, and then as many presses left as there had been rights were needed
+    before the posters moved again; the alphabet rail could not be reached. After those minutes
+    right reached the rail, but every move was very sluggish. The lead's guess, to check on the
+    testing Fire TV against staging: the presses moved the focus onto something not yet drawn (the
+    rail before it is laid out, or posters still loading), each left stepping back over one.
 - **X2. A temporary sign-in for one cast, by "Get a code"** (the second casting request). After
   Cast to this device the phone goes to its home page with the device chosen as its cast target.
   The owner chose that it ends like a Chromecast session: when the phone stops casting, when the
