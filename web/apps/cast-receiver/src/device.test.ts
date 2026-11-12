@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createApi, type GroupView, type TogetherSocketListeners } from "@orpheum/sdk";
+import { createApi, type GroupView, type OpenTogetherSocket } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -273,7 +273,7 @@ describe("a Chromecast's casts, one after another", () => {
         return Promise.resolve(new Response("{}", { status: 503 }));
       },
     });
-    const sockets: TogetherSocketListeners[] = [];
+    const sockets: Parameters<OpenTogetherSocket>[0][] = [];
     const video = {
       addEventListener: () => undefined,
       currentTime: 0,
