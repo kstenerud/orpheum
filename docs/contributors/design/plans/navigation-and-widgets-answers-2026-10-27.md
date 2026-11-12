@@ -3168,3 +3168,8 @@ below: "agreed. Release anyway". Found by the lead:
   8:30 was stepped over with a 252 ms stand-still. The film did not stall: 30 s was loaded ahead. A
   chunk lost because its connection was lost should be asked for again on the new connection at the
   same quality, neither lowering it nor leaving a hole.
+- **A cast can take a while to start playing on the Chromecast** (the owner, 2026-11-12, after VQ287
+  passed: "Some of the casts can take multiple sessions to start playing video"). On staging's log,
+  each cast from 09:39 to 09:41 UTC was taken within 0.25 s, and its group began playing 2.6 to 4.5 s
+  after the cast was made (the receiver asking for the film, loading it at the sender's place and
+  playing it). What the owner saw on the TV is to be pinned down with them before it is worked on.
