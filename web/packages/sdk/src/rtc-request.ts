@@ -5,10 +5,23 @@
  * head (method, path, headers), the body in binary messages of at most `maxMessageBytes`, an empty
  * message ending it; the core answers on the same channel the same way, its body handed to its reader
  * only as it reads. Which connection a channel is opened on is rtc-transport.ts.
+ *
+ * Chrome before 92, a Chromecast's Chrome 90 among them, neither sends an empty message on a data
+ * channel nor takes one it is sent (idiosyncrasies.md), so the head also declares the body's length,
+ * by which the core takes the request as whole, and asks for the response to end in `endMessage`,
+ * text; an empty message still ends a request and a response, for a core before that (rtcapi's
+ * EndHeader).
  */
 
 /** The most a message holds, which every browser carries; the core's rtcapi.MaxMessageBytes. */
 export const maxMessageBytes = 64 * 1024;
+
+/** What a request's head names, with its value, to have its response end in endMessage. */
+const endHeader = "x-orpheum-end";
+const endInText = "text";
+
+/** The text message that ends a response its head asked to end in it: rtcapi.EndMessage. */
+export const endMessage = '{"end":true}';
 
 /** What a channel says, to the one request it carries. */
 export interface ChannelListener {
@@ -96,7 +109,8 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
 
 /**
  * A request as the messages that carry it: its head, its body in pieces, and an empty end. The head
- * carries the browser's user agent, as a request over HTTP does: a Request's headers never hold it,
+ * declares the body's length and asks for its response to end in endMessage, for a browser that
+ * cannot send or take an empty message; and it carries the browser's user agent, as a request over HTTP does: a Request's headers never hold it,
  * and every playback over WebRTC was logged with userAgent="" (local-path-2026-10-27.md §4 item 7).
  */
 export async function requestMessages(
@@ -112,6 +126,8 @@ export async function requestMessages(
   if (headers["user-agent"] === undefined && userAgent !== "") {
     headers["user-agent"] = [userAgent];
   }
+  headers["content-length"] = [String(body?.byteLength ?? 0)];
+  headers[endHeader] = [endInText];
   const head: RequestHead = { method: request.method, path: url.pathname + url.search, headers };
   const messages: (string | ArrayBuffer)[] = [JSON.stringify(head)];
   for (let start = 0; body !== undefined && start < body.byteLength; start += maxMessageBytes) {
@@ -447,7 +463,8 @@ function receiveResponse(
 
 /**
  * Listens on channel for the answer to its request for path: its head to head, its body's pieces
- * into body, and its end, an empty message, or the channel closing or failing first, to end.
+ * into body, and its end, an empty message or endMessage after its head, or the channel closing or
+ * failing first, to end.
  */
 function listenForAnswer(
   channel: ChannelLike,
@@ -458,10 +475,14 @@ function listenForAnswer(
     readonly end: (failure?: Error) => void;
   },
 ): void {
+  let isHeadHeard = false;
   channel.listen({
     open: () => onceOpen.get(channel)?.(),
     message: (data) => {
-      if (typeof data === "string") {
+      if (typeof data === "string" && isHeadHeard && data === endMessage) {
+        answer.end();
+      } else if (typeof data === "string") {
+        isHeadHeard = true;
         answer.head(data);
       } else if (data.byteLength === 0) {
         answer.end();

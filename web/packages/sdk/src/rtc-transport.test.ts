@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  endMessage,
   grantEvery,
   maxMessageBytes,
   sendOnChannel,
@@ -110,7 +111,14 @@ describe("the WebRTC transport", () => {
       method: "POST",
       path: "/api/v1/things?x=1",
       // The browser's user agent rides in the head, as over HTTP (local-path-2026-10-27.md §4 item 7).
-      headers: { authorization: ["Bearer t"], "user-agent": [navigator.userAgent] },
+      // Its length declared and a text end asked for, as Chrome before 92 neither sends nor takes an
+      // empty message (rtcapi's EndHeader; the owner's Chromecast, production, 2026-11-12).
+      headers: {
+        authorization: ["Bearer t"],
+        "user-agent": [navigator.userAgent],
+        "content-length": [String(maxMessageBytes + 10)],
+        "x-orpheum-end": ["text"],
+      },
     });
     expect(navigator.userAgent).not.toBe("");
     const sizes = channel.sent.slice(1).map((message) => (message as ArrayBuffer).byteLength);
@@ -130,6 +138,25 @@ describe("the WebRTC transport", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/plain");
     expect(await response.text()).toBe("orpheum");
+    expect(channel.isClosed).toBe(true);
+  });
+
+  it("ends a response at the core's text end, as Chrome before 92 never takes an empty one", async () => {
+    const channel = new FakeChannel();
+    channel.readyState = "open";
+    const answered = sendOnChannel(
+      channel,
+      new Request("https://app.example/api/v1/guest-receivers"),
+    );
+    await settle();
+    expect(channel.sentHead()).toMatchObject({
+      headers: { "content-length": ["0"], "x-orpheum-end": ["text"] },
+    });
+    channel.answer(JSON.stringify({ status: 200 }));
+    const response = await answered;
+    channel.answer(new TextEncoder().encode("guest").buffer);
+    channel.answer(endMessage);
+    expect(await response.text()).toBe("guest");
     expect(channel.isClosed).toBe(true);
   });
 

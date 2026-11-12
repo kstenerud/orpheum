@@ -11,6 +11,12 @@
 //     an empty message ending it; the response the same way back. The handler sees the method, the
 //     path and query, the headers and the body as sent, and the client's address as the request's.
 //     TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole.
+//   - A request whose head declares its body's length (Content-Length, 0 for none) is whole at its
+//     last byte, its empty message not waited for, and a response whose request named EndHeader ends
+//     in EndMessage, a text message, not an empty one: Chrome before 92, a Chromecast's 90 among them,
+//     neither sends nor receives an empty message (idiosyncrasies.md). A head that declares a length
+//     its body does not keep is refused.
+//     TestChannel_ARequestFromChrome90IsAnsweredWithoutAnEmptyMessageEitherWay.
 //   - A channel closing ends its request: the handler's context ends with it, so a request whose
 //     client gave it up, closing its channel, is not still worked on. There is no other cancel.
 //     TestChannel_AChannelTheClientClosesEndsItsRequest.

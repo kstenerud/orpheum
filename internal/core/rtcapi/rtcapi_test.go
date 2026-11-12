@@ -72,6 +72,29 @@ func TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole(t *testin
 	}
 }
 
+// A Chromecast's Chrome 90 neither sends nor receives an empty message on a data channel, and its
+// guest receiver's request waited 30 s for the end it had sent and was cut off (the owner, production,
+// 2026-11-12; idiosyncrasies.md): a request declaring its length is whole at its last byte, and a
+// response its client asked to end in text ends in rtcapi.EndMessage.
+func TestChannel_ARequestFromChrome90IsAnsweredWithoutAnEmptyMessageEitherWay(t *testing.T) {
+	t.Parallel()
+	link := rtcapitest.Connect(t, newServer(t).Answer)
+	sent := link.DoAsChrome90(rtcapi.RequestHead{Method: http.MethodPost, Path: "/api/v1/guest-receivers"},
+		bytes.Repeat([]byte("g"), rtcapi.MaxMessageBytes+7))
+	if parts := strings.Split(string(sent.Body), "|"); len(parts) != 4 || len(parts[2]) != rtcapi.MaxMessageBytes+7 {
+		t.Errorf("a request with a body of two messages was answered %d %q", sent.Head.Status,
+			sent.Body[:min(len(sent.Body), 80)])
+	}
+	asked := link.DoAsChrome90(rtcapi.RequestHead{Method: http.MethodGet, Path: "/api/v1/things"}, nil)
+	if !strings.HasPrefix(string(asked.Body), "GET|/api/v1/things||") {
+		t.Errorf("a request with no body was answered %d %q", asked.Head.Status, asked.Body)
+	}
+	big := link.DoAsChrome90(rtcapi.RequestHead{Method: http.MethodGet, Path: "/big"}, nil)
+	if len(big.Body) != 5<<20 {
+		t.Errorf("a 5 MiB response arrived as %d bytes", len(big.Body))
+	}
+}
+
 func TestChannel_ALargeResponseArrivesWholeInMessagesABrowserCarries(t *testing.T) {
 	t.Parallel()
 	got := rtcapitest.Connect(t, newServer(t).Answer).Do(rtcapi.RequestHead{Method: http.MethodGet, Path: "/big"}, nil)

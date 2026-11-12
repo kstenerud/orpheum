@@ -79,7 +79,9 @@ describe("the session socket over a data channel", () => {
     expect(typeof head === "string" ? JSON.parse(head) : head).toEqual({
       method: "GET",
       path: "/api/v1/socket",
-      headers: { upgrade: ["websocket"] },
+      // Declaring no body, it is whole at its head where its empty end never leaves the browser, as
+      // Chrome before 92's (rtcapi's EndHeader).
+      headers: { upgrade: ["websocket"], "content-length": ["0"] },
     });
     socket.send("too early");
     channel.listener?.message(JSON.stringify({ status: 101 }));

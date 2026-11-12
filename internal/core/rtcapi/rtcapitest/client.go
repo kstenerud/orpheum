@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -383,6 +385,63 @@ func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
 		}
 	})
 	channel.OnOpen(func() { send(client.tb, channel, head, body) })
+	receive(client.tb, done, "the response to "+head.Path)
+	_ = channel.Close() //nolint:errcheck // the response is read
+	return got
+}
+
+// DoAsChrome90 sends one request on a channel of its own as Chrome before 92 can, and reads its
+// response whole: no empty message ends it, its head declaring its body's length and asking for its
+// response to end in rtcapi.EndMessage, and an empty message the core sends fails the test, as that
+// Chrome never receives one (idiosyncrasies.md).
+func (client *Client) DoAsChrome90(head rtcapi.RequestHead, body []byte) Reply {
+	client.tb.Helper()
+	channel, err := client.connection.CreateDataChannel("request", nil)
+	if err != nil {
+		client.tb.Fatal(err)
+	}
+	asked := rtcapi.RequestHead{Method: head.Method, Path: head.Path, Headers: head.Headers.Clone()}
+	if asked.Headers == nil {
+		asked.Headers = http.Header{}
+	}
+	asked.Headers["content-length"] = []string{strconv.Itoa(len(body))}
+	asked.Headers[strings.ToLower(rtcapi.EndHeader)] = []string{rtcapi.EndInText}
+	var got Reply
+	read := 0
+	isHeadRead := false
+	done := make(chan struct{})
+	var once sync.Once
+	channel.OnMessage(func(message webrtc.DataChannelMessage) {
+		switch {
+		case message.IsString && isHeadRead && string(message.Data) == rtcapi.EndMessage:
+			once.Do(func() { close(done) })
+		case message.IsString:
+			isHeadRead = true
+			if err := strictjson.Unmarshal(message.Data, &got.Head); err != nil {
+				client.tb.Error(err)
+			}
+		case len(message.Data) == 0:
+			client.tb.Error("the core sent an empty message, which Chrome before 92 never receives")
+		default:
+			got.Body = append(got.Body, message.Data...)
+			read++
+			if read%grantEvery == 0 {
+				grant(client.tb, channel, grantEvery)
+			}
+		}
+	})
+	channel.OnOpen(func() {
+		encoded, err := json.Marshal(asked)
+		if err == nil {
+			err = channel.SendText(string(encoded))
+		}
+		for start := 0; err == nil && start < len(body); start += rtcapi.MaxMessageBytes {
+			err = channel.Send(body[start:min(len(body), start+rtcapi.MaxMessageBytes)])
+		}
+		if err != nil {
+			client.tb.Error(err)
+		}
+	})
 	receive(client.tb, done, "the response to "+head.Path)
 	_ = channel.Close() //nolint:errcheck // the response is read
 	return got
