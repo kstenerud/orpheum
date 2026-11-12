@@ -532,16 +532,19 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		http.Error(writer, "no session", http.StatusUnauthorized)
 		return
 	}
-	connection, err := websocket.Accept(writer, request, nil)
-	if err != nil {
-		return
-	}
-	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // the test is over
+	// The ending is set before the handshake: the core says the connection is open once Accept
+	// answers, and a Leave right after found no ending set yet, so the connection stayed open and
+	// the test waited out its minute (make check, 2026-11-12).
 	ctx, end := context.WithCancel(request.Context())
 	defer end()
 	fake.mutex.Lock()
 	fake.endSignalling = end
 	fake.mutex.Unlock()
+	connection, err := websocket.Accept(writer, request, nil)
+	if err != nil {
+		return
+	}
+	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // the test is over
 	switch {
 	case mode.drops:
 		return
