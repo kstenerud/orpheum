@@ -28238,5 +28238,21 @@ off); a lease shorter
 than the film, renewed while the sender's page is open (an iPhone suspends a page in the
 background).
 
-**Status:** Decided 2026-11-13; not built. The next batch builds it, after the lab's VQ310 shows
-AirPlay plays at all.
+**Status:** Decided 2026-11-13; part built 2026-11-13. Built: §1–4's core (the grant's route and
+`/g/` paths the product's, the lab setting gone, D154 §6's test asserting the one exception, the
+day's life, the revocations, the address binding), a receiver gone logged as gone, and the
+player's playing on as a phone's page hides while on a receiver (VQ315). Not built: the Cast
+menu's AirPlay entry and the player's hand-over to AirPlay and back.
+
+**Proven by:**
+- 1: internal/core/api/airplay_test.go (TestAirPlay_OnlyTheMediaUnderGTakesACredentialInThePath,
+  TestAirPlay_AGrantIsForItsSessionsPlaybackAloneAndSignsNoOneIn)
+- 2: internal/core/auth/airplay_test.go (TestAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
+  TestAirPlayGrant_EndsWithItsSendersSession, TestAirPlayGrant_EndsWhenItsSendersDeviceIsRevoked),
+  internal/core/api/airplay_test.go (TestAirPlay_StopRevokesTheGrant,
+  TestAirPlay_AGrantEndsWithTheSignInThatMadeIt)
+- 3: internal/core/auth/airplay_test.go (TestAirPlayGrant_IsBoundToTheFirstIPv4AddressThatPresentsIt,
+  TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64), internal/core/api/airplay_test.go
+  (TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders), VQ315
+- 4: VQ315, internal/core/api/airplay_test.go
+  (TestAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential)
