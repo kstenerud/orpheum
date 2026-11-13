@@ -177,8 +177,11 @@ expected needs that seeding cut too (the per-file triggers are the next place to
 typecheck, lint and format check are stamped on what they read (`scripts/area_stamp.py`; a second
 `check-generated` on an unchanged tree went from 16 s to none), and every run of `make check`
 writes each step's time, the longest first, to `.git/gate-logs/check-verbose.steps`
-(`scripts/step_clock.sh` as make's shell under `quiet_gate.py`). Option 3 waits for its try: whether
-eslint's cache, keyed by file path, hits in another worktree.
+(`scripts/step_clock.sh` as make's shell under `quiet_gate.py`). Option 3 is not built: tried on a finished agent's worktree
+(2026-11-13), eslint with the main checkout's cache, its paths rewritten to the worktree's and under
+the name that worktree gives it, took 220 s, as cold (221 s; warm, 2.9 s). It hits nothing, so
+seeding needs eslint's own cache keys, not a copy; prettier's are absolute paths too. The stamps of
+option 5, kept in the git common directory, already spare a worktree whose `web/` a pass has seen.
 
 **Considered and not proposed:**
 
