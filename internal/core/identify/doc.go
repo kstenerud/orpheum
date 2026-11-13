@@ -64,6 +64,16 @@
 //     makes a title for a file at a path at most once (D303, M10).
 //     TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass.
 //
+//   - A person every film or series crediting them shares is named and pictured by the newest of
+//     their responses: the later fetched, or at once the later item's, recorded as the person's
+//     named_by_item_id; an older response leaves them alone, and an item's credits are the same
+//     whatever name and picture their people have. So films whose responses name or picture a person
+//     differently settle, filed twice (the owner, 2026-11-13).
+//     TestPass_APersonTwoResponsesPictureDifferentlySettles,
+//     TestPass_FilmsCreditingPeopleDifferentlySettleOnTheNewestResponse,
+//     TestPass_SeriesCreditingAPersonDifferentlySettleOnTheNewestResponse,
+//     TestPass_ARefreshedResponsePicturesThePersonItCredits.
+//
 //   - No live title is left with no version: one a file left is merged into the file's title, and
 //     none is made for a file that stays where it is (D173; the store's invariant "every live title
 //     has a version"). TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays,

@@ -326,7 +326,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	if err != nil {
 		return err
 	}
-	if err := filer.writePeople(ctx, seriesID, own.genres, own.credits); err != nil {
+	if err := filer.writePeople(ctx, seriesID, own.source, own.genres, own.credits); err != nil {
 		return err
 	}
 	filer.reportImages(seriesID, source, own.artwork)

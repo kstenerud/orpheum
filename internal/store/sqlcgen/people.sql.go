@@ -42,19 +42,29 @@ func (q *Queries) GetGenreIDByKey(ctx context.Context, nameKey string) (int64, e
 }
 
 const getPersonByTMDBID = `-- name: GetPersonByTMDBID :one
-SELECT person.id, person.name_key, person.picture_ref FROM person WHERE person.tmdb_id = ?1
+SELECT person.id, person.picture_ref, person.named_by_item_id, item_text.name
+FROM person
+LEFT JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
+WHERE person.tmdb_id = ?1
 `
 
 type GetPersonByTMDBIDRow struct {
-	ID         int64
-	NameKey    string
-	PictureRef *string
+	ID            int64
+	PictureRef    *string
+	NamedByItemID *int64
+	Name          *string
 }
 
+// TMDB's person by their id, with their name and picture and the item whose response set them.
 func (q *Queries) GetPersonByTMDBID(ctx context.Context, tmdbID *string) (GetPersonByTMDBIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getPersonByTMDBID, tmdbID)
 	var i GetPersonByTMDBIDRow
-	err := row.Scan(&i.ID, &i.NameKey, &i.PictureRef)
+	err := row.Scan(
+		&i.ID,
+		&i.PictureRef,
+		&i.NamedByItemID,
+		&i.Name,
+	)
 	return i, err
 }
 
@@ -171,15 +181,17 @@ func (q *Queries) InsertItemGenre(ctx context.Context, arg InsertItemGenreParams
 }
 
 const insertPerson = `-- name: InsertPerson :exec
-INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref)
-VALUES (?1, 'person', ?2, ?3, ?4)
+INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref, named_by_item_id)
+VALUES (?1, 'person', ?2, ?3, ?4,
+  ?5)
 `
 
 type InsertPersonParams struct {
-	ID         int64
-	TmdbID     *string
-	NameKey    string
-	PictureRef *string
+	ID            int64
+	TmdbID        *string
+	NameKey       string
+	PictureRef    *string
+	NamedByItemID *int64
 }
 
 func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) error {
@@ -188,6 +200,7 @@ func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) erro
 		arg.TmdbID,
 		arg.NameKey,
 		arg.PictureRef,
+		arg.NamedByItemID,
 	)
 	return err
 }
@@ -345,7 +358,7 @@ func (q *Queries) ListGenresWithCounts(ctx context.Context, arg ListGenresWithCo
 
 const listItemCredits = `-- name: ListItemCredits :many
 SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
-  person.picture_ref, item_text.name
+  person.picture_ref, person.named_by_item_id, item_text.name
 FROM credit
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
@@ -354,14 +367,15 @@ ORDER BY credit.job, credit.ordinal
 `
 
 type ListItemCreditsRow struct {
-	ItemID     int64
-	Job        string
-	Ordinal    int64
-	Character  *string
-	PersonID   int64
-	TmdbID     *string
-	PictureRef *string
-	Name       string
+	ItemID        int64
+	Job           string
+	Ordinal       int64
+	Character     *string
+	PersonID      int64
+	TmdbID        *string
+	PictureRef    *string
+	NamedByItemID *int64
+	Name          string
 }
 
 // One item's credits, each with its person, in billing order within each job.
@@ -382,6 +396,7 @@ func (q *Queries) ListItemCredits(ctx context.Context, itemID int64) ([]ListItem
 			&i.PersonID,
 			&i.TmdbID,
 			&i.PictureRef,
+			&i.NamedByItemID,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -444,7 +459,7 @@ func (q *Queries) ListItemGenres(ctx context.Context, itemID int64) ([]ListItemG
 const listLibraryCredits = `-- name: ListLibraryCredits :many
 
 SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
-  person.picture_ref, item_text.name
+  person.picture_ref, person.named_by_item_id, item_text.name
 FROM item
 CROSS JOIN credit ON credit.item_id = item.id
 CROSS JOIN person ON person.id = credit.person_id
@@ -454,14 +469,15 @@ ORDER BY credit.item_id, credit.job, credit.ordinal
 `
 
 type ListLibraryCreditsRow struct {
-	ItemID     int64
-	Job        string
-	Ordinal    int64
-	Character  *string
-	PersonID   int64
-	TmdbID     *string
-	PictureRef *string
-	Name       string
+	ItemID        int64
+	Job           string
+	Ordinal       int64
+	Character     *string
+	PersonID      int64
+	TmdbID        *string
+	PictureRef    *string
+	NamedByItemID *int64
+	Name          string
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -489,6 +505,7 @@ func (q *Queries) ListLibraryCredits(ctx context.Context, libraryID *int64) ([]L
 			&i.PersonID,
 			&i.TmdbID,
 			&i.PictureRef,
+			&i.NamedByItemID,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -594,18 +611,27 @@ func (q *Queries) ListPersonCreditsOn(ctx context.Context, arg ListPersonCredits
 }
 
 const updatePerson = `-- name: UpdatePerson :exec
-UPDATE person SET name_key = ?1, picture_ref = ?2
-WHERE id = ?3 AND (name_key IS NOT ?1 OR picture_ref IS NOT ?2)
+UPDATE person
+SET name_key = ?1, picture_ref = ?2, named_by_item_id = ?3
+WHERE id = ?4 AND (name_key IS NOT ?1 OR picture_ref IS NOT ?2
+  OR named_by_item_id IS NOT ?3)
 `
 
 type UpdatePersonParams struct {
-	NameKey    string
-	PictureRef *string
-	ID         int64
+	NameKey       string
+	PictureRef    *string
+	NamedByItemID *int64
+	ID            int64
 }
 
-// A person their source now names or pictures otherwise; unchanged, nothing is written.
+// A person the newest response that credits them names or pictures otherwise, or that names them
+// first; unchanged, nothing is written.
 func (q *Queries) UpdatePerson(ctx context.Context, arg UpdatePersonParams) error {
-	_, err := q.db.ExecContext(ctx, updatePerson, arg.NameKey, arg.PictureRef, arg.ID)
+	_, err := q.db.ExecContext(ctx, updatePerson,
+		arg.NameKey,
+		arg.PictureRef,
+		arg.NamedByItemID,
+		arg.ID,
+	)
 	return err
 }

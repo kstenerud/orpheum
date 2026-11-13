@@ -281,7 +281,7 @@ func (filer *libraryFiler) resolveKindAndPeople(ctx context.Context, titleID int
 	if spec.source == "" {
 		return nil
 	}
-	return filer.writePeople(ctx, titleID, spec.genres, spec.credits)
+	return filer.writePeople(ctx, titleID, spec.source, spec.genres, spec.credits)
 }
 
 // recordIDs keeps the provider ids a title's evidence names.

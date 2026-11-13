@@ -56,6 +56,8 @@ type snapshot struct {
 	// credits and genres are each held item's, as the pass last wrote them.
 	credits map[int64][]heldCredit
 	genres  map[int64][]heldGenre
+	// people are the persons the held items credit, as the pass last wrote them, by id.
+	people map[int64]heldPerson
 }
 
 // responseKey names one stored provider response.
@@ -86,7 +88,7 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		seriesPlaces: map[int64][]sqlcgen.ListSeriesEpisodePlacesRow{},
 		seriesMatch:  map[int64]sqlcgen.GetSeriesForMatchRow{},
 		extras:       map[memberKey]sqlcgen.ExtraRelation{},
-		credits:      map[int64][]heldCredit{}, genres: map[int64][]heldGenre{},
+		credits:      map[int64][]heldCredit{}, genres: map[int64][]heldGenre{}, people: map[int64]heldPerson{},
 	}
 	versions, err := filer.queries.ListLibraryVersionWorks(ctx, libraryID)
 	if err != nil {
@@ -627,13 +629,17 @@ func (filer *libraryFiler) seasonsForUnplaced(ctx context.Context, provider Prov
 // listingFetchedAt is when a season's stored listing was fetched.
 func (filer *libraryFiler) listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error) {
 	key := responseKey{where.seriesID, where.provider.Name(), groupListingPart(where.season)}
+	return filer.responseFetchedAt(ctx, key)
+}
+
+// responseFetchedAt is when a stored response, one part of an item's, was fetched; sql.ErrNoRows
+// for none.
+func (filer *libraryFiler) responseFetchedAt(ctx context.Context, key responseKey) (int64, error) {
 	if fetchedAt, held := filer.snap.fetchedAt[key]; held {
 		return fetchedAt, nil
 	}
-	listing := sqlcgen.GetProviderResponseFetchedAtParams{
-		ItemID: where.seriesID, Provider: where.provider.Name(), Part: groupListingPart(where.season),
-	}
-	return filer.queries.GetProviderResponseFetchedAt(ctx, listing) //nolint:wrapcheck // isListingStale says which
+	return filer.queries.GetProviderResponseFetchedAt(ctx, //nolint:wrapcheck // its callers say which
+		sqlcgen.GetProviderResponseFetchedAtParams{ItemID: key.itemID, Provider: key.provider, Part: key.part})
 }
 
 // keepExtraRelation makes a title an extra of another, of a type, unless it is one already, or a
