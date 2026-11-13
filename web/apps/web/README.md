@@ -779,7 +779,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   to play, and as full screen ends unasked (a Fire TV's Back) focus goes to play, so the next Back
   leaves the page. The player's own controls name the video they command
   (`markPlayersControls`), as the bar under the film is outside its stage. A mouse's click on a
-  computer's film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
+  computer's film plays or pauses it and its double click puts it full screen; a finger's or a pen's
+  never does either, nor a click whose pointerType is not the mouse's or that comes just after a touch
+  on the screen, as some phones' browsers give a tap's click (`TouchClock` in `src/player-taps.ts`,
+  idiosyncrasies.md; the owner, 2026-11-13). `src/page-controls.test.tsx`,
   `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
   `src/player-commands.test.tsx`, `src/player-overlay.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,

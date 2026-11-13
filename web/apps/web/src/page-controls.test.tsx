@@ -240,6 +240,75 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(asked).toHaveBeenCalledOnce();
   });
 
+  /** A finger's touch on the film, its pointer events and its touch events as a phone sends them. */
+  function touched(video: HTMLVideoElement): void {
+    const init = { bubbles: true, pointerType: "touch", pointerId: 7 };
+    act(() => {
+      video.dispatchEvent(new PointerEvent("pointerdown", init));
+      video.dispatchEvent(new Event("touchstart", { bubbles: true }));
+      video.dispatchEvent(new PointerEvent("pointerup", init));
+      video.dispatchEvent(new Event("touchend", { bubbles: true }));
+    });
+  }
+
+  // The owner's phone, 2026-11-13: "half of my taps pause playback". Some mobile browsers give a
+  // tap's click a mouse's pointerType or none (idiosyncrasies.md).
+  it("neither plays nor pauses at a click not known to be a mouse's: no pointerType, or a pen's", async () => {
+    const { video, videoRef } = stagedVideo(() => false);
+    await drawn(video, videoRef);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    act(() => {
+      video.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      video.dispatchEvent(
+        new PointerEvent("click", { bubbles: true, detail: 1, pointerType: "pen" }),
+      );
+    });
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("neither plays nor pauses at a mouse's click that comes right after a touch, a tap's own", async () => {
+    const { video, videoRef } = stagedVideo(() => false);
+    await drawn(video, videoRef);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    touched(video);
+    act(() => {
+      video.dispatchEvent(
+        new PointerEvent("click", { bubbles: true, detail: 1, pointerType: "mouse" }),
+      );
+    });
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("puts nothing full screen at a double click right after a touch, a double tap's", async () => {
+    const { video, videoRef } = stagedVideo(() => false);
+    const stage = await drawn(video, videoRef);
+    const asked = vi.fn(() => Promise.resolve());
+    stage.requestFullscreen = asked;
+    touched(video);
+    act(() => {
+      video.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
+    });
+    expect(asked).not.toHaveBeenCalled();
+  });
+
+  it("pauses at a mouse's click a while after a touch, and not at the tap's click before it", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    await drawn(video, videoRef);
+    const pause = vi.spyOn(video, "pause").mockReturnValue();
+    vi.useFakeTimers({ toFake: ["performance", "Date"] }); // the clock of an event's timeStamp
+    touched(video);
+    act(() => {
+      video.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 })); // the tap's
+    });
+    vi.advanceTimersByTime(1_000);
+    act(() => {
+      video.dispatchEvent(
+        new PointerEvent("click", { bubbles: true, detail: 1, pointerType: "mouse" }),
+      );
+    });
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
   // D407 §9 replaces the bar over the film that hid after its time (D369 §2): under the film it
   // hides nothing, so it stays and reads where the film stands as it plays.
   it("stays while the film plays, long after anyone was seen, its time following the film", async () => {
