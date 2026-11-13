@@ -3346,6 +3346,48 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
     afresh, and re-ran the step; the fix is to link the packages each time a tree is set.
 - **5.** Film 1504's stalls on the testing Fire TV (the picture buffer Silk holds; the stand-still
   at 3:22 until the step down).
+  - **Measured (2026-11-13, 00:27 to 00:37 UTC), staging at dev-7477c2b9 (main's code), Silk 138
+    on the AFTSSS over orpheum.dev, from 0:00 to 9:23,** sampled each second over Silk's remote
+    debugging beside the core's log. The player took the table's buffer: "device memory 1 GB, video
+    buffer 31.5 MB … (lowMemory)", nothing learnt. Silk then died (the system killed it under
+    memory pressure at 00:36:59) while the lead was reading the page's 142 event listeners over the
+    debugging link, which may have caused it; it is not counted as the player's.
+    - **Both of v0.5.0's stalls are gone as they were.** No `bufferFullError` in 9 minutes. At 0:13
+      chunk 1 (24.4 MB) played and chunk 2 stepped down ("20.3 MB beside 24.4 MB held is over the
+      room's 28.3 MB; level 2's 2.4 MB"), back up at chunk 3: no flush, no hole there. Near 3:22 the
+      stand-still is 3.2 s at 3:13, not about 15 s.
+    - **What remains, in 563 s played:** a 1.3 s stall at 0:03 (the start: play began with 3.2 s
+      loaded and the 24.4 MB chunk 1 took 8.8 s to come); 2.3 s at 1:25 (0.2 s ahead, the next
+      level-5 chunk still on its way); and 3.2 s at 3:13, standing with 7.4 s of picture loaded
+      ahead (165.21–200.87), where chunk 40 had stepped down ("22.9 MB beside 10.4 MB … level 4's
+      6.8 MB") yet a 22.79 MB level-5 chunk loaded in the stall and the picture from 192.24 on was
+      removed before it refilled; 77 frames were dropped in it. Why chunk 40 came at level 5 after
+      its step-down is not yet known (it needs hls.js's own events, not the 400 characters of steps
+      a stall report keeps). 434 of 13,306 frames dropped in all. Ten rung changes after the start
+      at 1080: to 480 at 14 s, 1080 at 24, 720 at 92, 1080 at 114, 540 at 201, 720 at 212, 1080
+      at 229, 720 at 330, 1080 at 339, 720 at 524.
+    - **New: a hole at every switch between the copied picture and an encoded rung,** both ways,
+      skipped by the player's hole-skip (D464 §3 makes two switches a heavy chunk): nine in 563 s,
+      at 22.4, 22.7, 26.0, 113.0, 113.2, 122.8, 218.0, 232.0 and 348.9 s, each 0.08 to 0.46 s
+      wide, the picture and sound both, standing 0.2 to 0.9 s. The cause, from FFmpeg's probe of
+      the chunks and hls.js 1.7.3's passthrough remuxer: the copied picture's MP4 track counts in
+      1/16000 (the Matroska source's 1/1000, doubled by the MP4 muxer until past 10,000), every
+      encoded rung's in 1/24000 (the encoder's frame rate). When a chunk's timescale differs from
+      the one hls.js holds, hls.js maps the chunk's first decode time onto its playlist start and
+      takes a new time offset for the whole stream; the copy's first picture is decoded 0.083 s
+      before shown and an encoded rung's 0.042 s, so each switch moves the timeline by tens of
+      milliseconds and leaves a gap. The chunks themselves agree: the keyframes and display times
+      of every rung line up with the copy's to the millisecond.
+    - **Proposed, not built (the owner's call): every encoded rung keeps its source's time base.**
+      FFmpeg's `-enc_time_base:v -1` gives the encoder the demuxer's time base, so the MP4 muxer
+      makes the same timescale as for the copy: on a synthetic Matroska film, copy 1/16000,
+      encode 1/24000 as now, encode with the option 1/16000; on an MP4 source all three 1/24000.
+      Two reasons it is not built here: an MPEG-TS source's encode with the option ran past three
+      minutes at full CPU on a 6-second clip and was killed (not understood yet), and a store's
+      init is written by every run, so a store made at 1/24000 and continued at another timescale
+      would mistime its old chunks: the change needs every encoded store made again, by a new
+      store key (D392 §3). The other way, all on one fixed timescale such as 90000, re-makes the
+      copies too and rounds a 1/24000 source's times.
 - **9.** Up next warms the next episode, without releasing the playing film's tokens.
 
 - **X7. A password reset link from a person's page (D466), wanted by 2026-11-13** (the owner,
