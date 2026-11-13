@@ -28370,6 +28370,10 @@ Continue Watching, the newest films and the newest series in three requests, eac
 
 **Status:** decided.
 
+**Amended 2026-11-13** (the owner: "Go ahead with the moves and removals"): `GET /items?home=true`
+and `GET /items/letters` are removed, neither having a caller left after this decision and D475
+("refactor(api)!: GET /items/letters and GET /items' home parameter are gone").
+
 **Proven by:**
 - 1: internal/core/api/me_shell_test.go (TestMe_TheShellsReadCarriesWhatTheShellReadsApart,
   TestMe_TheShellOfSomeoneWhoDoesNotAdministerCarriesNoAdminsData)
