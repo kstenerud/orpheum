@@ -179,11 +179,11 @@ function PersonTitleLink(props: { readonly title: PersonItem }): JSX.Element {
 export function CreditedPerson(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
   const [person] = useResource(`person/${String(props.id)}`, async () => {
-    const named = dataOrThrow(
-      await api.GET("/people/{id}", { params: { path: { id: props.id } } }),
-    );
+    // Their name and the titles crediting them are read together, neither waiting on the other
+    // (D477 §4).
+    const naming = api.GET("/people/{id}", { params: { path: { id: props.id } } });
     // Every title crediting them, page after page: the page lists them all (D425 §7).
-    const pages = await loadAgain(async (cursor) => {
+    const crediting = loadAgain(async (cursor) => {
       const query = {
         person: props.id,
         sort: "released" as const,
@@ -193,6 +193,10 @@ export function CreditedPerson(props: { readonly id: number }): JSX.Element {
       const page = dataOrThrow(await api.GET("/items", { params: { query } }));
       return { items: page.items ?? [], nextCursor: page.nextCursor ?? "" };
     }, Number.POSITIVE_INFINITY);
+    // A failed name is the page's failure, the titles' own, then, heard and dropped.
+    crediting.catch(() => undefined);
+    const named = dataOrThrow(await naming);
+    const pages = await crediting;
     return { ...named, titles: pages.flatMap((page) => page.items) };
   });
   return (

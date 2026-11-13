@@ -197,3 +197,61 @@ describe("a series' next episode pressed", () => {
     expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);
   });
 });
+
+describe("a series' page drawn from its one read (D477 §1)", () => {
+  /** The series as its read answers it carrying season's first page, the episode id alone. */
+  const carrying = (season: number, id: number): SeriesDetail => ({
+    ...series,
+    shownSeason: { seasonNumber: season, episodes: [episode(id, season)] },
+  });
+  const seasonReads = (heard: readonly Heard[]): string[] =>
+    heard
+      .map((each) => each.methodAndPath)
+      .filter((methodAndPath) => methodAndPath.startsWith("GET /items/6/groups/"));
+  const seriesRead = (heard: readonly Heard[]): Heard | undefined =>
+    heard.find((each) => each.methodAndPath === "GET /items/6");
+
+  it("draws its shown season's episodes from the series' read, reading no season of its own", async () => {
+    const heard: Heard[] = [];
+    const served = servedBy({ ...answers, "GET /items/6": [200, carrying(1, 41)] }, heard);
+    shown = await mount(withServices(<Series id={6} />, served));
+    const { container } = shown;
+    await settleUntil(() => container.querySelector('a[href="/titles/41"]') !== null);
+    expect(seasonReads(heard)).toEqual([]);
+    expect(seriesRead(heard)?.query).toBeUndefined();
+  });
+
+  it("names the season it returns to in its read, and draws that season's episodes from it", async () => {
+    const heard: Heard[] = [];
+    const served = servedBy({ ...answers, "GET /items/6": [200, carrying(2, 42)] }, heard);
+    shown = await mount(withServices(<Series id={6} season={2} />, served));
+    const { container } = shown;
+    await settleUntil(() => container.querySelector('a[href="/titles/42"]') !== null);
+    expect(seriesRead(heard)?.query).toBe("?season=2");
+    expect(seasonReads(heard)).toEqual([]);
+  });
+
+  /** A series' page at the season its address names, as the app routes it (app.tsx). */
+  function RoutedSeries(): JSX.Element {
+    const route = useRoute();
+    return route.screen === "series-page" ? (
+      <Series id={route.collectionId} season={route.season} />
+    ) : (
+      <p>{"elsewhere"}</p>
+    );
+  }
+
+  it("reads a season the series' read did not carry, as another chosen", async () => {
+    const heard: Heard[] = [];
+    const navigation = createNavigation(fakePlace("/series"), false);
+    navigation.go({ screen: "series-page", collectionId: 6 });
+    const served = servedBy({ ...answers, "GET /items/6": [200, carrying(1, 41)] }, heard);
+    shown = await mount(withServices(<RoutedSeries />, { ...served, navigation }));
+    const { container } = shown;
+    await settleUntil(() => container.querySelector('a[href="/titles/41"]') !== null);
+    await click(container.querySelector('.series__seasons a[href="/series/6?season=2"]'));
+    await settleUntil(() => container.querySelector('a[href="/titles/42"]') !== null);
+    expect(container.querySelector('a[href="/titles/41"]')).toBeNull();
+    expect(seasonReads(heard)).toEqual(["GET /items/6/groups/2"]);
+  });
+});

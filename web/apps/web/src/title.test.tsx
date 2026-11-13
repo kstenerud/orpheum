@@ -635,10 +635,20 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a", resumePositionMs },
   ];
 
-  it("names its Play Resume with the point its warm-up was told, and offers Start over beside it", async () => {
+  /** metropolis with its file's resume position, as its read carries it (D477 §3). */
+  const resumingAt = (resumePositionMs: number): TitleDetail => ({
+    ...metropolis,
+    versions: (metropolis.versions ?? []).map((version) => ({
+      ...version,
+      files: (version.files ?? []).map((file) => ({ ...file, resumePositionMs })),
+    })),
+  });
+
+  it("names its Play Resume with the point its own read carries, its warm-up unanswered, and offers Start over beside it", async () => {
     const services = servedBy({
-      "GET /items/10": [200, metropolis],
-      "POST /playback": played(754_000),
+      "GET /items/10": [200, resumingAt(754_000)],
+      // The warm-up readies the start; the label waits on none of it (D477 §3).
+      "POST /playback": [unanswered],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
     });
@@ -670,7 +680,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     mounted.unmount();
   });
 
-  it("offers an episode's Next episode in its actions row, from what the player's Up next asks", async () => {
+  it("offers an episode's Next episode in its actions row, from what its own read carries, asking nothing more", async () => {
     const pilot: TitleDetail = {
       ...metropolis,
       id: 40,
@@ -679,22 +689,21 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       art: {},
       episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
       extras: null,
+      upNext: {
+        ordering: "aired",
+        episode: { fileId: 7, itemId: 41, groupNumber: 1, numberInGroup: 2, isPartway: false },
+      },
     };
-    const services = servedBy({
-      "GET /items/40": [200, pilot],
-      "POST /playback": played(0),
-      "GET /files/1/up-next": [
-        200,
-        {
-          upNext: {
-            ordering: "aired",
-            episode: { fileId: 7, itemId: 41, groupNumber: 1, numberInGroup: 2, isPartway: false },
-          },
-        },
-      ],
-      "PUT /interest/page": [204, null],
-      "DELETE /interest/page": [204, null],
-    });
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/40": [200, pilot],
+        "POST /playback": played(0),
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
+      },
+      heard,
+    );
     const mounted = await mount(withServices(<Title id={40} />, services));
     const page = mounted.container;
     const next = (): Element | undefined =>
@@ -703,6 +712,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       );
     await settleUntil(() => next() !== undefined);
     expect(next()?.getAttribute("href")).toBe("/play/7");
+    // Its one read (D477 §2): no second for what plays after it.
+    expect(heard.map((request) => request.methodAndPath)).not.toContain("GET /files/1/up-next");
     // Its series and season sit above its name, the breadcrumb line.
     const words = page.querySelector(".title-head__words");
     expect(words?.firstElementChild?.textContent).toContain("Brass Arena");

@@ -8,7 +8,7 @@ import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
 import type { components } from "@orpheum/sdk";
-import { use, useEffect, useState, type JSX } from "react";
+import { use, useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -27,7 +27,6 @@ import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
 import { TitleHead } from "./title-head.tsx";
 import { clockText } from "./timeline.tsx";
-import { useUpNext } from "./around-file.ts";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { noteEpisodeReached } from "./episode-reached.ts";
@@ -91,7 +90,6 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
 }
 
 /** The episode after one, as the server's up-next says it (GET /files/{id}/up-next). */
-type NextUp = components["schemas"]["NextUpBody"];
 
 /**
  * A title's page, a film's, an episode's or an extra's, in the title template (title-head.tsx,
@@ -110,14 +108,12 @@ export function TitleView(props: {
   readonly onMatchCorrected?: () => void;
   /** Told it was marked watched or unwatched by hand (D370 §4): the page reads it again. */
   readonly onWatchedChanged?: () => void;
-  /** Where its Play resumes, as its warm-up was told: 0 at its start, undefined while unknown. */
-  readonly resumeMs?: number | undefined;
-  /** An episode's next, which its Next episode plays; undefined where none is known. */
-  readonly nextEpisode?: NextUp | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { title, nextEpisode } = props;
+  const { title } = props;
   const fileId = firstPlayableFile(title);
+  // An episode's next, which its Next episode plays, as its own read carries it (D477 §2).
+  const nextEpisode = title.upNext?.episode;
   return (
     <article className="title">
       <TitleHead
@@ -130,7 +126,7 @@ export function TitleView(props: {
         actions={
           <>
             {fileId === undefined ? null : (
-              <PlayActions fileId={fileId} resumeMs={props.resumeMs} />
+              <PlayActions fileId={fileId} resumeMs={resumeMsOf(title)} />
             )}
             {nextEpisode === undefined || nextEpisode.unavailable !== undefined ? null : (
               <Link to={{ screen: "play", fileId: nextEpisode.fileId }} className="title__action">
@@ -167,13 +163,10 @@ export function TitleView(props: {
  * The actions row's first: Play, or, where its person stopped partway, Resume with the point, which
  * plays from there as Play always has (the server's resume position), and Start over, from its start.
  */
-function PlayActions(props: {
-  readonly fileId: number;
-  readonly resumeMs: number | undefined;
-}): JSX.Element {
+function PlayActions(props: { readonly fileId: number; readonly resumeMs: number }): JSX.Element {
   const { t } = useTranslation();
   const { fileId, resumeMs } = props;
-  const isResuming = resumeMs !== undefined && resumeMs > 0;
+  const isResuming = resumeMs > 0;
   return (
     <>
       <Link to={{ screen: "play", fileId }} className="title__play">
@@ -513,30 +506,25 @@ function useEpisodeReached(title: TitleDetail | undefined): void {
 const rememberedTitles = rememberedInTheTab<TitleDetail>();
 
 /**
+ * Where a title's Play resumes, its first playable file's resume position as its own read carries
+ * it (D477 §3): 0 at its start. The page names its Play by it without waiting on its warm-up.
+ */
+function resumeMsOf(title: TitleDetail): number {
+  return title.versions?.[0]?.files?.[0]?.resumePositionMs ?? 0;
+}
+
+/**
  * Warms up fileId, the first file a title's page plays, while the page shows it (D258 §1); its
  * preload is made only where the page's media do not go over WebRTC (D260 §3's revision of
- * 2026-10-28). Returns where it resumes, as the warm-up was told, undefined until it is.
+ * 2026-10-28). Its answer readies the start; the page waits on nothing of it (D477 §3).
  */
-function useWarmsUp(fileId: number | undefined): number | undefined {
+function useWarmsUp(fileId: number | undefined): void {
   const { api, playableFormats, pathMoves } = useServices();
-  const [resume, setResume] = useState<{ readonly fileId: number; readonly ms: number }>();
   useEffect(() => {
-    if (fileId === undefined) {
-      return undefined;
+    if (fileId !== undefined) {
+      watchingOf(api).warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
     }
-    const watching = watchingOf(api);
-    watching.warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
-    let isCurrent = true;
-    void watching.warmResumeMs(fileId).then((ms) => {
-      if (isCurrent && ms !== undefined) {
-        setResume({ fileId, ms });
-      }
-    });
-    return () => {
-      isCurrent = false;
-    };
   }, [api, playableFormats, pathMoves, fileId]);
-  return resume !== undefined && resume.fileId === fileId ? resume.ms : undefined;
 }
 
 /** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
@@ -561,9 +549,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   useEpisodeReached(shown);
   const context = useLibraryContext();
   const fileId = shown === undefined ? undefined : firstPlayableFile(shown);
-  const resumeMs = useWarmsUp(fileId);
-  // An episode's next, as its player's Up next asks for it: a film has none to ask for.
-  const nextEpisode = useUpNext(fileId ?? 0, shown?.kind === "episode" && fileId !== undefined);
+  useWarmsUp(fileId);
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {
@@ -592,8 +578,6 @@ export function Title(props: { readonly id: number }): JSX.Element {
               onRetireFile={retireFile}
               onMatchCorrected={reload}
               onWatchedChanged={reload}
-              resumeMs={resumeMs}
-              nextEpisode={nextEpisode?.episode}
             />
           )}
         />

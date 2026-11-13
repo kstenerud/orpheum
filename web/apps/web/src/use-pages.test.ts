@@ -286,6 +286,38 @@ describe("a list read whole (D475)", () => {
   });
 });
 
+describe("a list's first page given by another read (D477 §1)", () => {
+  it("is drawn as it mounts and stands for its first read; a page more and a poll read as before", async () => {
+    const asked: string[] = [];
+    const load = (cursor: string): Promise<Page<string>> => {
+      asked.push(cursor);
+      return pagedBy2(() => ["A", "B", "C"])(cursor);
+    };
+    const poller = handPoller();
+    let pages: Pages<string> | undefined;
+    function List(): React.JSX.Element {
+      pages = usePages(load, poller, { given: { items: ["A", "B"], nextCursor: "2" } });
+      const shown = pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
+      return createElement("p", null, shown.join(","));
+    }
+    const mounted = await mount(createElement(List));
+    expect(mounted.container.textContent).toBe("A,B");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(asked).toEqual([]);
+    await act(async () => {
+      pages?.loadMore();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(mounted.container.textContent).toBe("A,B,C");
+    expect(asked).toEqual(["2"]);
+    await pollOnce(poller);
+    expect(asked.slice(1)).toContain(""); // the poll reads the first page as any list's does
+    mounted.unmount();
+  });
+});
+
 describe("a poll of a list scrolled far (D306 §7)", () => {
   it("reads only the pages in view, each by its own cursor, and keeps the rest as they were", async () => {
     const poller = handPoller();

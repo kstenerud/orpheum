@@ -2,9 +2,10 @@
 
 /**
  * What plays after a file and before it, as the server says it (GET /files/{id}/up-next): read
- * apart from the Up next offer (up-next.tsx), which draws over the player and loads it, so a
- * title's page, which names its next episode, does not wait on hls.js (the web client's
- * architecture audit of 2026-11-10, Playback 2).
+ * apart from the Up next offer (up-next.tsx), which draws over the player and loads it, so the
+ * cast's remote does not wait on hls.js (the web client's architecture audit of 2026-11-10,
+ * Playback 2). The remote reads it once for its ⏮ and its Up next; a title's page reads none, its
+ * own answer carrying it (D477 §2).
  */
 
 import type { components } from "@orpheum/sdk";
@@ -44,17 +45,4 @@ export function useAroundFile(fileId: number, isAsked: boolean): AroundFile | un
     },
   );
   return around.state === "loaded" ? around.value : undefined;
-}
-
-/**
- * What plays after fileId, undefined while unknown and where nothing does; asked for once isAsked,
- * nothing before.
- */
-export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
-  return useAroundFile(fileId, isAsked)?.upNext;
-}
-
-/** What plays before fileId, undefined while unknown and where nothing does. */
-export function usePrevious(fileId: number): Previous | undefined {
-  return useAroundFile(fileId, true)?.previous;
 }

@@ -33,7 +33,7 @@ import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 import { soundOffsetStepMs, TimingRow } from "./sound-delay.tsx";
 import { SessionTalk } from "./together-voice.tsx";
-import { usePrevious } from "./around-file.ts";
+import type { Previous } from "./around-file.ts";
 
 /** What the remote's menus send the receiver: its sound's choices and its picture's (D434). */
 export type ReceiverChoices = CarriesSoundChoices & CarriesPictureChoices;
@@ -332,13 +332,16 @@ function useReceiverFilmSound(
 }
 
 /**
- * The remote's ⏮ (D440 §5), as the player's (D407 §2): the episode before the cast's film, which the
- * receiver is handed to play (D364 §3); none, and no button, where nothing plays before it, as on
- * the player (the plan's "restart or previous" names no restart the player has).
+ * The remote's ⏮ (D440 §5), as the player's (D407 §2): the episode before the cast's film, previous,
+ * as the remote's one read of what plays around it says (D477 §2), which the receiver is handed to
+ * play (D364 §3); none, and no button, where nothing plays before it, as on the player (the plan's
+ * "restart or previous" names no restart the player has).
  */
-export function useRemotePrevious(sent: CastSending): SequenceMoves {
+export function useRemotePrevious(
+  sent: CastSending,
+  previous: Previous | undefined,
+): SequenceMoves {
   const { api } = useServices();
-  const previous = usePrevious(sent.fileId);
   if (previous === undefined || previous.unavailable !== undefined) {
     return {};
   }

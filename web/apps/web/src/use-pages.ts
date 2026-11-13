@@ -333,6 +333,12 @@ export interface PagesOptions<T> {
    * it, is shown once. */
   readonly idOf?: (item: T) => unknown;
   readonly remembered?: RememberedList<T> | undefined;
+  /**
+   * The list's first page as another answer already carried it, as a series' carries its shown
+   * season's (D477 §1): drawn at once, it stands for load's first read, which is not made. A
+   * different read, load changed, is read as before; polls and later pages read as before.
+   */
+  readonly given?: Page<T> | undefined;
 }
 
 /** How a list's first read is made and heard: what it loads, how it shows pages, and how it fails. */
@@ -342,14 +348,21 @@ interface FirstRead<T> {
   readonly fail: (cause: unknown) => void;
 }
 
+/** A list's first page as another answer carried it (PagesOptions' given), and the load it stands for. */
+interface GivenPage<T> {
+  readonly page: Page<T>;
+  readonly load: (cursor: string) => Promise<Page<T>>;
+}
+
 /**
  * Reads load's first page, shown, or its failure, again whenever load is a different read; a list
  * kept in the tab is shown from there first, each item read again that did not change kept the one
- * shown.
+ * shown. A page given for this load stands for its read, which is not made (D477 §1).
  */
 function useFirstPage<T>(
   { load, show, fail }: FirstRead<T>,
   kept: readonly ReadPage<T>[] | undefined,
+  given: GivenPage<T> | undefined,
 ): void {
   const keptRef = useRef(kept);
   useEffect(() => {
@@ -359,7 +372,9 @@ function useFirstPage<T>(
       // After this commit: show draws its first piece at once, and its others as commits of their own.
       void Promise.resolve().then(() => (isCurrent ? show([...before]) : undefined));
     }
-    load("").then(
+    const firstRead =
+      given !== undefined && given.load === load ? Promise.resolve(given.page) : load("");
+    firstRead.then(
       (first) => {
         if (isCurrent) {
           const now = { cursor: "", ...first };
@@ -377,7 +392,7 @@ function useFirstPage<T>(
     return () => {
       isCurrent = false;
     };
-  }, [load, show, fail]);
+  }, [load, show, fail, given]);
 }
 
 /** The first count of a page's items, the rest still to be drawn. */
@@ -571,11 +586,18 @@ export function usePages<T>(
 ): Pages<T> {
   const { remembered } = options;
   const [kept] = useState(() => remembered?.in.get(remembered.key));
-  const [loadedSoFar, setLoadedSoFar] = useState<Resource<Page<T>>>(() =>
-    kept === undefined
-      ? { state: "loading" }
-      : { state: "loaded", value: firstOf(merged(kept, options.idOf), drawnAtOnce) },
+  // The first page given stands for the first read of the load it came with alone.
+  const [given] = useState<GivenPage<T> | undefined>(() =>
+    options.given === undefined ? undefined : { page: options.given, load },
   );
+  const [loadedSoFar, setLoadedSoFar] = useState<Resource<Page<T>>>(() => {
+    if (kept !== undefined) {
+      return { state: "loaded", value: firstOf(merged(kept, options.idOf), drawnAtOnce) };
+    }
+    return given === undefined
+      ? { state: "loading" }
+      : { state: "loaded", value: firstOf(given.page, drawnAtOnce) };
+  });
   const [held, setHeld] = useState<readonly T[] | undefined>(undefined);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   // What is shown and whether a page more is loading, as the poll, which outlives renders, reads them.
@@ -589,7 +611,7 @@ export function usePages<T>(
     },
     [shown],
   );
-  useFirstPage({ load, show, fail }, kept);
+  useFirstPage({ load, show, fail }, kept, given);
   usePagesPolling(poller, { load, shown, show });
   const loadMore = useLoadMore({ load, shown, show, fail }, setIsLoadingMore);
   const showRange = useCallback(

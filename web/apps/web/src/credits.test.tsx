@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { CreditedPerson, initialsOf, type Credits } from "./credits.tsx";
 import { SeriesView, type SeriesDetail } from "./series.tsx";
-import { mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, settleUntil, unanswered, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { TitleView, type TitleDetail } from "./title.tsx";
 
@@ -154,5 +154,17 @@ describe("a credited person's page", () => {
         (link) => `${link.getAttribute("href") ?? ""} ${link.textContent}`,
       ),
     ).toEqual(["/series/7 Brass Arena2020Writer", "/titles/10 Metropolis1927Director, as A guard"]);
+  });
+
+  it("asks for their titles as it asks for their name, neither waiting on the other (D477 §4)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <CreditedPerson id={50} />,
+        servedBy({ "GET /people/50": [unanswered], "GET /items": [200, { items: [] }] }, heard),
+      ),
+    );
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /items"));
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /people/50", "GET /items"]);
   });
 });

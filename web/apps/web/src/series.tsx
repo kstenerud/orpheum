@@ -48,9 +48,11 @@ type Season = components["schemas"]["SeasonBody"];
 type Episode = components["schemas"]["EpisodeBody"];
 type NextUp = components["schemas"]["NextUpBody"];
 type Ordering = components["schemas"]["OrderingBody"];
+/** The season a series' page shows and its first page of episodes, as its own read carried them. */
+type ShownSeason = components["schemas"]["ShownSeasonBody"];
 
 /** How many of a season's episodes one read asks for: a season or two of most series. */
-const episodesPerPage = 100;
+const episodesPerPage = 100; // the server's shownSeasonPageSize, the page its answer carries
 
 /** The name of a season, a group of the ordering the series is shown in: "Season 2", "Disc 2". */
 function seasonName(t: TFunction, series: SeriesDetail, season: Season): string {
@@ -78,6 +80,12 @@ export function SeriesView(props: {
   readonly onOrderingChosen?: () => void;
   /** Told its episodes were marked watched or unwatched by hand (D370 §4): the page reads it again. */
   readonly onWatchedChanged?: () => void;
+  /**
+   * The shown season's first page as the series' own read answered it now (D477 §1), which its
+   * episodes draw from with no read of their own; undefined where it did not, as a series shown
+   * from the tab's memory while it is read again.
+   */
+  readonly shownSeason?: ShownSeason | undefined;
 }): JSX.Element {
   const { series } = props;
   const seasons = series.seasons ?? [];
@@ -128,6 +136,7 @@ export function SeriesView(props: {
         season={props.season}
         marks={marks}
         onWatchedChanged={onWatchedChanged}
+        given={props.shownSeason}
       />
       <TitlePeople credits={series.credits} />
     </article>
@@ -293,10 +302,18 @@ function SeriesSeasons(props: {
   /** How many marks by hand the page has made, by which its episodes are read again. */
   readonly marks: number;
   readonly onWatchedChanged: (() => void) | undefined;
+  /** The shown season's first page as the series' read answered it (SeriesView's shownSeason). */
+  readonly given: ShownSeason | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { series } = props;
+  const { series, given } = props;
   const shown = shownSeasonOf(series, props.season);
+  // Its first page as the series' read carried it, where that is the season shown and no mark since
+  // has made it old: a mark reads the season again (D370 §4).
+  const firstPage =
+    shown !== undefined && props.marks === 0 && given?.seasonNumber === shown.seasonNumber
+      ? { items: given.episodes ?? [], nextCursor: given.nextCursor ?? "" }
+      : undefined;
   return (
     <>
       {shown === undefined ? null : (
@@ -305,7 +322,12 @@ function SeriesSeasons(props: {
             <h2 id={`season-${String(shown.seasonNumber)}`}>{seasonName(t, series, shown)}</h2>
             <SeasonMark series={series} season={shown} onChanged={props.onWatchedChanged} />
           </div>
-          <SeasonEpisodes key={props.marks} seriesId={series.id} season={shown.seasonNumber} />
+          <SeasonEpisodes
+            key={props.marks}
+            seriesId={series.id}
+            season={shown.seasonNumber}
+            given={firstPage}
+          />
         </section>
       )}
       {(series.notInOrderingCount ?? 0) > 0 ? (
@@ -512,10 +534,14 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
 /** An episode's id, by which a season shows an episode read twice once. */
 const episodeId = (episode: Episode): number => episode.id;
 
-/** One season's episodes, read a page at a time (D306 §9). */
+/**
+ * One season's episodes, read a page at a time (D306 §9), its first page drawn from the series'
+ * read where that carried it (D477 §1).
+ */
 function SeasonEpisodes(props: {
   readonly seriesId: number;
   readonly season: number;
+  readonly given?: Page<Episode> | undefined;
 }): JSX.Element {
   const { api } = useServices();
   const { seriesId, season } = props;
@@ -531,7 +557,10 @@ function SeasonEpisodes(props: {
     },
     [api, seriesId, season],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), { idOf: episodeId });
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), {
+    idOf: episodeId,
+    given: props.given,
+  });
   const watchItemAt = useItemsInView(pages.showRange);
   return (
     <SeasonView
@@ -698,13 +727,16 @@ export function Series(props: {
   readonly season?: number | undefined;
 }): JSX.Element {
   const { api } = useServices();
+  const season = useSeasonReturnedTo(props.id, props.season);
+  // Its one read carries the shown season's first page, of the season the page returns to where it
+  // names one, else the server's choice, the page's own (D477 §1).
   const [loaded, reload] = useResource(
     `series/${String(props.id)}`,
     async () => {
       return seriesOrThrow(
         dataOrThrow(
           await api.GET("/items/{id}", {
-            params: { path: { id: props.id } },
+            params: { path: { id: props.id }, query: season === undefined ? {} : { season } },
           }),
         ),
       );
@@ -712,7 +744,6 @@ export function Series(props: {
     { poller: useBackgroundChangesPoller() },
   );
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
-  const season = useSeasonReturnedTo(props.id, props.season);
   // A season chosen is that season's look; the default the series' own.
   usePageInterest(props.id, season);
   const context = useLibraryContext();
@@ -734,6 +765,7 @@ export function Series(props: {
             onMatchCorrected={reload}
             onOrderingChosen={reload}
             onWatchedChanged={reload}
+            shownSeason={loaded.state === "loaded" ? loaded.value.shownSeason : undefined}
           />
         )}
       />

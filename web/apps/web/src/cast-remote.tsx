@@ -28,7 +28,7 @@ import { useServices, useToken } from "./services.tsx";
 import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
-import { useUpNext } from "./around-file.ts";
+import { useAroundFile, type UpNext } from "./around-file.ts";
 import { offerState } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
@@ -343,7 +343,9 @@ function RemotePlaying(props: {
   const { sent, hosted } = props;
   const worked = hosted ?? props.cast;
   const source = useRemoteSource({ ...worked, durationMs: sent.durationMs });
-  const moves = useRemotePrevious(sent);
+  // What plays after the cast's film and before it, read once for its ⏮ and its Up next (D477 §2).
+  const around = useAroundFile(sent.fileId, true);
+  const moves = useRemotePrevious(sent, around?.previous);
   // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
   // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at
   // all which TV has what offset or playback characteristics").
@@ -351,7 +353,7 @@ function RemotePlaying(props: {
   return (
     <div className="player-overlay cast-remote__overlay" data-shown="full">
       <OverlayRowsOf
-        top={<RemoteTop sent={sent} source={source} />}
+        top={<RemoteTop sent={sent} source={source} upNext={around?.upNext} />}
         source={source}
         controls={remoteControls}
         moves={moves}
@@ -372,6 +374,7 @@ const remoteControls: readonly PlayerControl[] = ["previous", "steps", "play"];
 function RemoteTop(props: {
   readonly sent: CastSending;
   readonly source: PlayerSource;
+  readonly upNext: UpNext | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent, source } = props;
@@ -388,7 +391,7 @@ function RemoteTop(props: {
       </div>
       {isAtTheEnd ? (
         <div className="convenience-area">
-          <RemoteUpNext sent={sent} />
+          <RemoteUpNext sent={sent} upNext={props.upNext} />
         </div>
       ) : null}
       <SignsOverTheFilm onOpenChange={noOverlay} />
@@ -415,11 +418,13 @@ function useHostedPanel(): WorkedSession | undefined {
  * The remote's Up next: the cast's film's next episode, "Up next: S1E3 · ‹name›", which moves the
  * cast on to it, the receiver handed it (plans/up-next.md); nothing where none can play next.
  */
-function RemoteUpNext(props: { readonly sent: CastSending }): JSX.Element | null {
+function RemoteUpNext(props: {
+  readonly sent: CastSending;
+  readonly upNext: UpNext | undefined;
+}): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { sent } = props;
-  const upNext = useUpNext(sent.fileId);
+  const { sent, upNext } = props;
   if (upNext === undefined || upNext.episode.unavailable !== undefined) {
     return null;
   }

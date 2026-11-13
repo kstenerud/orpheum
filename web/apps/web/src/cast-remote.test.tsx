@@ -623,6 +623,29 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
     expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
   });
+
+  it("reads what plays around the cast's film once, for its ⏮ and its Up next both (D477 §2)", async () => {
+    const heard: Heard[] = [];
+    const pilot = { itemId: 2, groupNumber: 1, numberInGroup: 1, fileId: 3, isPartway: false };
+    const cat = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
+    const { sockets } = await casting(
+      {
+        "GET /files/4/up-next": [
+          200,
+          { upNext: { episode: { ...cat, isPartway: false }, ordering: "aired" }, previous: pilot },
+        ],
+      },
+      heard,
+    );
+    const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
+    await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
+    await settleUntil(
+      () => buttonWithText(mounted!.container, "Up next: S1E2 · Cat") !== undefined,
+    );
+    expect(buttonNamed(mounted!.container, "Previous episode")).toBeDefined();
+    const reads = heard.filter((each) => each.methodAndPath === "GET /files/4/up-next");
+    expect(reads).toHaveLength(1);
+  });
 });
 
 describe("playing here from where a cast stood (§9 Q5)", () => {
