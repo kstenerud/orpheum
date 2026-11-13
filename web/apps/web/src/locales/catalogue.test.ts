@@ -54,7 +54,8 @@ function catalogueOf(source: string): object {
  * settings pages' words join `settings.`, which the first page's catalogue has too. */
 function withWords(catalogue: object, words: object): object {
   const merged = new Map<string, unknown>(Object.entries(catalogue));
-  for (const [key, value] of Object.entries(words)) {
+  const added: [string, unknown][] = Object.entries(words);
+  for (const [key, value] of added) {
     const held = merged.get(key);
     merged.set(
       key,
