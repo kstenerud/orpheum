@@ -304,6 +304,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`, `src/together-on-the-remote.test.tsx`;
   on devices, VQ282, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.
+- **AirPlay is Cast's menu's last entry, where Safari offers it** (D473). It is offered only while
+  the person's own player plays a film on its ladder (`useOffersAirPlay`, `src/airplay.ts`), and
+  only where the page reaches the core at a name a receiver can reach too (`grantOriginOf`), never
+  over WebRTC alone. Its grant is asked for as the menu opens, so the press keeps its gesture for
+  Safari's picker. Pressed, the player hands the element over: hls.js lets go, and the grant's
+  master plays at the film's place (`playOnAirPlay`, `@orpheum/player`). While on AirPlay, the
+  chunked playback starts no hls.js. The menu offers *Stop AirPlay* then. AirPlay ends at Stop, as
+  the target stops being wireless, or when no receiver is picked within 30 s. At its end the grant
+  is revoked, the element is emptied, and hls.js plays the film again where AirPlay left it, paused
+  if it was (`src/ladder-playback.ts`). `src/airplay-entry.test.tsx`, `src/cast-dialog.test.tsx`,
+  `src/ladder-playback.test.tsx`; on a device, VQ315.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.

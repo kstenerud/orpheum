@@ -116,6 +116,16 @@ export function airPlayHere(): AirPlayHere | undefined {
   return offered;
 }
 
+/** Offers AirPlay for here, the film this tab plays, till the returned function takes it back. */
+export function offerAirPlayHere(here: AirPlayHere): () => void {
+  offered = here;
+  return () => {
+    if (offered === here) {
+      offered = undefined;
+    }
+  };
+}
+
 /** How a film on its ladder lets its element go to AirPlay, and takes it back where it stood. */
 export interface AirPlayHandOff {
   readonly letGoOfHls: () => void;
@@ -166,13 +176,11 @@ export function useOffersAirPlay(
         playing?.stop();
       },
     };
-    offered = here;
+    const unoffer = offerAirPlayHere(here);
     return () => {
       isGone = true;
       playing?.stop();
-      if (offered === here) {
-        offered = undefined;
-      }
+      unoffer();
     };
   }, [videoRef, mediaToken, api, handOffRef]);
 }

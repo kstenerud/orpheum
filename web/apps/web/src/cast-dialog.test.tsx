@@ -6,6 +6,7 @@ import "./i18n.ts";
 import type { JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { offerAirPlayHere } from "./airplay.ts";
 import { CastDialog } from "./cast-dialog.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { CastingLeft } from "./old-addresses.tsx";
@@ -68,6 +69,43 @@ describe("Cast's dialog (D384 §2)", () => {
     expect(onClose).not.toHaveBeenCalled();
     await live.say({ type: "sending", sending });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes as the film goes to AirPlay from it (D473)", async () => {
+    const started: string[] = [];
+    const unoffer = offerAirPlayHere({
+      mediaToken: "media",
+      isPlaying: () => false,
+      start: (url) => {
+        started.push(url);
+      },
+      stop: () => undefined,
+    });
+    try {
+      const live = fakeTogetherServer();
+      const grant = { masterPath: "/g/master.m3u8", expiresAt: "2026-11-14T12:00:00Z" };
+      const services = servedBy(
+        { "GET /me/devices": [200, { devices: [] }], "POST /airplay/grants": [201, grant] },
+        [],
+        "token",
+      );
+      const onClose = vi.fn();
+      mounted = await mount(
+        withServices(
+          <LiveProvider>
+            <CastDialog onClose={onClose} />
+          </LiveProvider>,
+          { ...services, openTogetherSocket: live.openSocket },
+        ),
+      );
+      await live.accept();
+      await live.say({ type: "sending" });
+      await click(buttonWithText(mounted.container, "AirPlay"));
+      expect(started).toHaveLength(1);
+      expect(onClose).toHaveBeenCalledOnce();
+    } finally {
+      unoffer();
+    }
   });
 
   it("stays open over a cast on as it opened, saying what plays where", async () => {

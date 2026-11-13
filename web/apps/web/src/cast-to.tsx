@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } fr
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
+import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark } from "./cast-kind.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
@@ -41,6 +42,12 @@ import { useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
 
+/** The film a cast moves, and what is told as the film goes to AirPlay from the menu, to close it. */
+interface CastTargetsProps {
+  readonly film: () => CastFilm | undefined;
+  readonly onAirPlayStarted?: (() => void) | undefined;
+}
+
 /**
  * Setting a cast up (D364 §1, §2; D337 §2): the person's other devices open now, each by its name and
  * when it was last used, read again as that set changes; one chosen starts a session with it, playing
@@ -53,9 +60,9 @@ import { watchingOf } from "./watching.ts";
  * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
  * raced, is refused with its name (D386 §1). The device casting to this one is not listed, and a cast
  * back to one casting here through others is refused with its name (casting_here; the owner's 11-20
- * batch, finding 6).
+ * batch, finding 6). After Chromecast, AirPlay, where this tab offers it (AirPlayEntry, D473).
  */
-export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
+export function CastTargets(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
@@ -108,6 +115,7 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
             }}
           />
         )}
+        <AirPlayEntry onStarted={props.onAirPlayStarted} />
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>

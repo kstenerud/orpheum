@@ -19,6 +19,8 @@ export const enCast = {
     castingHere:
       "{{name}} is casting to this device, so this device cannot cast to it. Stop that cast on {{name}} first.",
     chromecast: "Chromecast",
+    airPlay: "AirPlay",
+    stopAirPlay: "Stop AirPlay",
     chromecastFailed: "The Chromecast could not take the cast. Try again.",
     showCastLog: "Show cast log",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
