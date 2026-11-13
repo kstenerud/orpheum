@@ -15,7 +15,8 @@ import { useTranslation } from "react-i18next";
 export function whatHappened(
   reached: {
     readonly coreId: string | undefined;
-    readonly addressesTried: readonly string[];
+    /** The core's names the page tried; undefined where it found no way in to try. */
+    readonly addressesTried: readonly string[] | undefined;
     readonly problem: unknown;
   },
   userAgent: string,
@@ -25,11 +26,25 @@ export function whatHappened(
   return [
     "Orpheum could not reach its server.",
     `Server: ${reached.coreId ?? "not found"}`,
-    `Addresses tried: ${reached.addressesTried.length === 0 ? "none" : reached.addressesTried.join(", ")}`,
+    `Addresses tried: ${addressesText(reached.addressesTried)}`,
     `What failed: ${failed}`,
     `Browser: ${userAgent}`,
     ...stepsText(steps),
   ].join("\n");
+}
+
+/**
+ * The addresses a page tried, as text. A way in that named none was tried over WebRTC alone, as the
+ * page away from home does at a core whose discovery gives it no name to try, and says so: a bare
+ * "none" read as though nothing was tried at all (the owner's train, 2026-11-13).
+ */
+function addressesText(tried: readonly string[] | undefined): string {
+  if (tried === undefined) {
+    return "none";
+  }
+  return tried.length === 0
+    ? "none: the server named no address to try from here, so only WebRTC was tried"
+    : tried.join(", ");
 }
 
 /**

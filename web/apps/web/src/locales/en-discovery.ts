@@ -46,6 +46,11 @@ export const enDiscovery = {
       text: "It may be restarting, switched off, or without internet. This page tries again by itself every few seconds.",
       again: "Try again now",
     },
+    pathLost: {
+      heading: "Waiting for the network",
+      text: "The connection to your server was lost. This page keeps trying, and carries on by itself once the network is back.",
+      again: "Try again",
+    },
     turnedAway: {
       heading: "Too many Orpheum pages are open on your network",
       text: "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",

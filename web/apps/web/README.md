@@ -381,6 +381,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
   `loader-sweep.test.ts`, `sw.test.ts`, `worker-bypassed-note.test.tsx`, and the SDK's
   `discovery.test.ts`, `rtc-media.test.ts` and `worker-control.test.ts`.
+- **A loader whose path is lost waits it out; a refusal stays a refusal** (principles §28; the owner's
+  train, 2026-11-13, where one channel lost mid-manifest ended the page for good): a try that fails
+  for no known cause and is no refusal (`isLoaderPathLost`: not `ClientRefused`, `HandOffRefused` or
+  a page no worker controls) shows "Waiting for the network" and tries again by itself on a new
+  connection, asking again every read whose channel was lost, after 5 s, doubling to a ceiling of a
+  minute (`pathLostRetryAfterMs`), at once on its Try again, the browser's `online` event or the
+  page shown again; a try that gets through runs the client with no reload. A hand-off's code is
+  redeemed once a page, under one idempotency key, so a redeem asked again after a lost answer is
+  not refused as spent (`redeemOnce`). What happened says no address was tried as WebRTC alone where
+  a way in was found that named none, and as none only where none was found.
+  `loader-path-lost.test.tsx`, `what-happened.test.tsx`.
 - **A TV's code is activated by its QR code with one tap, or typed with a committed check code**
   (D321): the TV shows a QR code of the loader's `/activate` carrying its key's hash; `/activate`
   goes to the one realm's Activate a device, asks which of several, or offers the link to copy or a
