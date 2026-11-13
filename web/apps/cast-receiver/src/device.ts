@@ -18,6 +18,7 @@ import {
 } from "@orpheum/sdk";
 
 import type { Reached } from "./reach.ts";
+import { UpNextCard } from "./up-next.ts";
 
 /**
  * The receiver as a cast target (inventory B-10; the owner, 2026-11-07: "initial chromecast
@@ -273,8 +274,11 @@ export class CastDevice {
   private handedFileId = 0;
   /** The commands putting the handed film on, until the session is connected to take them. */
   private toPutOn: readonly GroupCommand[] = [];
+  /** What plays after the film, shown near its end; chosen on the caster (D471). */
+  private readonly upNext: UpNextCard;
 
   constructor(private readonly options: CastDeviceOptions) {
+    this.upNext = new UpNextCard(options.video, options.api, options.note);
     for (const type of reportedVideoEvents) {
       options.video.addEventListener(type, () => {
         this.together?.reportState();
@@ -482,6 +486,7 @@ export class CastDevice {
         fetch: reached.fetch,
       });
       this.together?.reportState();
+      this.upNext.plays(fileId);
       return positionMs;
     } catch (cause) {
       note(`could not start file ${String(fileId)}: ${failureText(cause)}`);
@@ -511,6 +516,7 @@ export class CastDevice {
     this.playback?.destroy();
     this.playback = undefined;
     this.playingFileId = 0;
+    this.upNext.plays(0);
   }
 
   private endCast(): void {

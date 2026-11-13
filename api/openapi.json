@@ -11501,7 +11501,7 @@
         "tags": [
           "Playback"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/files/{id}/waits": {
@@ -14986,7 +14986,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/me/casts/{id}/play": {
@@ -15046,6 +15046,55 @@
           "Users"
         ],
         "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/me/casts/{id}/previous": {
+      "post": {
+        "operationId": "moveCastBack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Move a cast this device sends or receives back to what plays before its film, the previous episode, which its receiver is handed (D471 §1)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/me/devices": {

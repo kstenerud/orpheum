@@ -199,7 +199,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"listNotInOrder", "setItemPreferences",
-		// What plays after a file, which reaches the file (requireSignedInReachingFile).
+		// What plays after a file, which reaches the file (getUpNext's ReachFile).
 		"getUpNext",
 		// A list's letters and an other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
 		"listItemLetters", "getLibraryFolder",
@@ -212,9 +212,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A cast's film is reach-checked as its sender casts it
 		// (TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow).
 		"startCast",
-		// What a cast moves on to is reach-checked as a playback is
-		// (TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt).
-		"moveCastOn",
+		// What a cast moves on or back to is reach-checked as a playback is
+		// (TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt,
+		// TestCast_MovesBackToThePreviousEpisodeAndItsReceiverIsHandedIt).
+		"moveCastOn", "moveCastBack",
 		// A mark by hand (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere,
 		// TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark).
 		"markWatched", "unmarkWatched", "markGroupWatched",

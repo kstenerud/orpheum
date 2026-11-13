@@ -243,3 +243,34 @@ func TestUpNext_PreviousIsTheEpisodeBeforeInThePersonsOrdering(t *testing.T) {
 		t.Errorf("DVD order, after the last: %s; want %s, beside its previous", got, want)
 	}
 }
+
+// A cast moves back to its film's previous episode in its person's ordering, at its receiver's or its
+// remote's asking, as it moves on (D471 §1): the receiver is handed it; the first has none, a
+// conflict, and a device of neither end is answered as no such cast.
+func TestCast_MovesBackToThePreviousEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // aired: 21 (file 2), 22 "Cat" (3), 23 (4), 24 (5)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	started := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken,
+		map[string]any{"toDeviceId": tv, "fileId": 4, "positionMs": 5000}))
+	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 4 })
+	previous := fmt.Sprintf("/me/casts/%d/previous", started.CastID)
+	wantError(t, harness.do(t, http.MethodPost, previous, laptopToken, nil), http.StatusNotFound, api.CodeNotFound)
+	answer := harness.do(t, http.MethodPost, previous, tvToken, nil)
+	var moved api.CastBody
+	if err := json.Unmarshal([]byte(answer.body), &moved); err != nil || answer.status != http.StatusOK ||
+		moved.CastID != started.CastID || moved.FileID != 3 || moved.ItemName != "Cat" {
+		t.Fatalf("POST %s by the TV = %d %s; want the same cast, of file 3, Cat", previous, answer.status, answer.body)
+	}
+	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 3 })
+	if answer := harness.do(t, http.MethodPost, previous, phoneToken, nil); answer.status != http.StatusOK {
+		t.Fatalf("POST %s by the phone = %d %s", previous, answer.status, answer.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, previous, phoneToken, nil), http.StatusConflict, api.CodeConflict)
+}

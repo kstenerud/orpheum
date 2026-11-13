@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -125,11 +126,19 @@ func (server *Server) registerCasts() {
 		Summary: "Move a cast this device sends or receives on to what plays after its film, the next " +
 			"episode, which its receiver is handed (plans/up-next.md)",
 		Tags:       tags,
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.moveCastOn)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "moveCastBack", Method: http.MethodPost, Path: "/me/casts/{id}/previous",
+		Summary: "Move a cast this device sends or receives back to what plays before its film, the " +
+			"previous episode, which its receiver is handed (D471 §1)",
+		Tags:       tags,
+		Extensions: callableBy(capabilitySignedInOrGuest),
+	}, server.moveCastBack)
 }
 
-// MoveCastOnInput moves a cast the asking device sends or receives on to its film's next episode.
+// MoveCastOnInput moves a cast the asking device sends or receives on to its film's next episode, or
+// back to its previous.
 type MoveCastOnInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
@@ -138,46 +147,89 @@ type MoveCastOnInput struct {
 // moveCastOn moves a cast on to what plays after its film for its person (GET /files/{id}/up-next):
 // the receiver is handed the cast again with it, and the remote reads it from the answer or, told by
 // the cast's session that another film plays, from GET /me/casts. A film with nothing after it, or
-// whose next episode cannot be read now, is a conflict; the cast goes on as it was.
+// whose next episode cannot be read now, is a conflict; the cast goes on as it was. A guest receiver
+// moves its own cast on as any receiver does, the registry giving it that cast alone (D471 §1, D465
+// §2).
 func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*StartCastOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	return server.moveCast(ctx, input, castMoveOn)
+}
+
+// moveCastBack is moveCastOn to what plays before the cast's film, its previous episode (D407 §2):
+// the receiver's ⏮, which a guest receiver takes for its own cast too (D471 §1).
+func (server *Server) moveCastBack(ctx context.Context, input *MoveCastOnInput) (*StartCastOutput, error) {
+	return server.moveCast(ctx, input, castMoveBack)
+}
+
+// castMove is which way a cast moves along its film's sequence, named as its refusals are logged.
+type castMove string
+
+const (
+	castMoveOn   castMove = "moveOn"
+	castMoveBack castMove = "moveBack"
+)
+
+// moveCast moves the cast input names, one the asking device sends or receives, on or back along its
+// film's sequence for its person, as moveCastOn says.
+func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way castMove) (*StartCastOutput, error) {
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
+	request := string(way)
 	casts := dependencies.Live.CastsOf(principal.UserID, principal.DeviceID)
 	index := slices.IndexFunc(casts, func(each live.Cast) bool { return each.ID == input.CastID })
 	if index < 0 {
-		return nil, server.castRefused(ctx, principal, "moveOn", live.ErrNoCast, "castId", input.CastID)
+		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
 	cast := casts[index]
-	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.Reach, principal.UserID, cast.FileID)
+	member, err := server.castMovesTo(ctx, dependencies, principal, cast.FileID, way)
 	if err != nil {
-		return nil, server.libraryError(ctx, "read what plays after a cast's film", err)
+		return nil, err
 	}
-	if !hasNext || next.Unreadable != nil {
-		return nil, newError(http.StatusConflict, CodeConflict, "nothing that can be read now plays after this film")
-	}
-	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, next.FileID); err != nil {
+	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, member.FileID); err != nil {
 		return nil, server.playbackError(ctx, "reach a file", err)
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, next.FileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, member.FileID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
 	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, live.Film{
-		FileID: next.FileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
+		FileID: member.FileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
 	}, nil)
 	if err != nil {
-		return nil, server.castRefused(ctx, principal, "moveOn", err, "castId", input.CastID)
+		return nil, server.castRefused(ctx, principal, request, err, "castId", input.CastID)
 	}
 	credential, err := dependencies.Together.CastCredential(moved.ID, principal.UserID)
 	if err != nil {
-		// ended as it moved on
-		return nil, server.castRefused(ctx, principal, "moveOn", live.ErrNoCast, "castId", input.CastID)
+		// ended as it moved
+		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
-	server.logger.InfoContext(ctx, "cast: a cast moved on to the next episode", "castId", moved.ID,
-		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", moved.FileID)
+	server.logger.InfoContext(ctx, "cast: a cast moved along its sequence", "castId", moved.ID,
+		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", moved.FileID, "way", request)
 	return &StartCastOutput{Body: castBodyOf(moved, principal.DeviceID, credential)}, nil
+}
+
+// castMovesTo is the member a cast of fileID moves to, way along its sequence for its person: a
+// conflict where none is there, or it cannot be read now.
+func (server *Server) castMovesTo(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, fileID int64, way castMove,
+) (library.NextUp, error) {
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, fileID)
+	if err != nil {
+		return library.NextUp{}, server.libraryError(ctx, "read what plays after a cast's film and before it", err)
+	}
+	member := neighbours.Previous
+	if way == castMoveOn {
+		member = nil
+		if neighbours.Next != nil {
+			member = &neighbours.Next.NextUp
+		}
+	}
+	if member == nil || member.Unreadable != nil {
+		return library.NextUp{}, newError(http.StatusConflict, CodeConflict,
+			"nothing that can be read now plays there after or before this film")
+	}
+	return *member, nil
 }
 
 // startCast starts casting from the asking device to another of the person's, connected now, which
