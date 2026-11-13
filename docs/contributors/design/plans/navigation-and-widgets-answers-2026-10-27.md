@@ -3547,7 +3547,9 @@ series, not swapped in". For the owner, most serious first:
    `typeof … Reflect.get` in three functions (`pairingCodeOf`, `isTargetReady`, `refusalOf`) where
    `cast-sdk.ts` has `at`; Up next's `NextWarm.warm.preload` (`watching.ts`) is never set for the
    next episode since "Up next's warm-up asks the next episode's decision alone, preloading
-   nothing".
+   nothing". **The first done** (the lead, 2026-11-13): the three read through `at`. The second left:
+   `Warm` is shared with the film page's warm-up, whose preload is set, and splitting the type for
+   the next episode's alone costs more than the field.
 
 Checked and sound: a guest receiver's session reaches only `GET /me` (its trimmed body), its cast's
 accept, its playback and reports, its media and the live socket, each holding it to its cast;

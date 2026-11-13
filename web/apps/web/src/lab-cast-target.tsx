@@ -7,6 +7,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { activateDevice, answerActivation } from "./accounts.ts";
+import { at } from "./cast-sdk.ts";
 import { newIdempotencyKey } from "./idempotent.ts";
 import type { CastSession } from "./lab-cast-sdk.ts";
 import { useServices } from "./services.tsx";
@@ -21,23 +22,15 @@ import { useServices } from "./services.tsx";
 
 /** The receiver's pairing code, where its message tells one. */
 export function pairingCodeOf(message: unknown): string | undefined {
-  if (typeof message !== "object" || message === null) {
-    return undefined;
-  }
-  const code: unknown = Reflect.get(message, "code");
-  return Reflect.get(message, "type") === "pairing" && typeof code === "string" && code !== ""
+  const code = at(message, "code");
+  return at(message, "type") === "pairing" && typeof code === "string" && code !== ""
     ? code
     : undefined;
 }
 
 /** Whether the receiver's message says it is connected as a device, ready to be cast to. */
 function isTargetReady(message: unknown): boolean {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    Reflect.get(message, "type") === "device" &&
-    Reflect.get(message, "isReady") === true
-  );
+  return at(message, "type") === "device" && at(message, "isReady") === true;
 }
 
 /**
@@ -45,12 +38,9 @@ function isTargetReady(message: unknown): boolean {
  * core's words, or what the receiver could say of why (the 11-24 batch's item 3).
  */
 export function refusalOf(message: unknown): string | undefined {
-  if (typeof message !== "object" || message === null) {
-    return undefined;
-  }
-  const refusal: unknown = Reflect.get(message, "refusal");
-  return Reflect.get(message, "type") === "device" &&
-    Reflect.get(message, "isReady") === false &&
+  const refusal = at(message, "refusal");
+  return at(message, "type") === "device" &&
+    at(message, "isReady") === false &&
     typeof refusal === "string" &&
     refusal !== ""
     ? refusal
