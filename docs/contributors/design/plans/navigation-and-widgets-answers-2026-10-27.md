@@ -4001,6 +4001,9 @@ staging, production waits.
   above).
 - **The browser walks' stand-in servers** answer `/me?shell=true` without its shell (D476), so the
   walks still read the shell's parts apart, as no real core makes them.
+  **Built:** `walkServices` (`test-walk.tsx`) answers `/me?shell=true` with the shell's parts, built
+  from each walk's own answers (`shellOf`, typed by the SDK's `ShellBody`; `test-walk.test.tsx`).
+- **The scrub bar** waits on the owner's layout of the player on phones.
 - **check-pr took 522 s** against its 300 s budget, most of it the browser tier and its revert-red:
   find the step that grew (standards/makefile.md).
 - **AirPlay out of the lab** waits for VQ310, which is not yet ticked.
