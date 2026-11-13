@@ -118,7 +118,7 @@ func (server *Server) registerCasts() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "endCast", Method: http.MethodPost, Path: "/me/casts/{id}/end",
 		Summary: "End a cast this device sends or receives, and say where it stood", Tags: tags,
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.endCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "moveCastOn", Method: http.MethodPost, Path: "/me/casts/{id}/next",
@@ -372,9 +372,11 @@ func (server *Server) listMyCasts(ctx context.Context, input *AuthorizationHeade
 }
 
 // endCast ends a cast the asking device sends or receives: each of its devices is told why, and the
-// answer says where it stood.
+// answer says where it stood. A guest receiver ends its one cast as any receiver does, Stop casting
+// here on its page (D469 §3); the registry has it end that cast alone, the only one it receives
+// (D465 §2).
 func (server *Server) endCast(ctx context.Context, input *EndCastInput) (*EndCastOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}

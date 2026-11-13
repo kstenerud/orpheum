@@ -259,12 +259,13 @@
 //     TestTogether_AMessageOfAnotherVersionIsRefusedAndActedOnNot and
 //     TestTogether_TheCoreAndTheClientSpeakVersion3.
 //   - A guest receiver's session (D465 §2) is refused at every route requireSignedIn guards; only
-//     its cast's routes (accept, playback of its cast's films, the byte paths, reports and the
+//     its cast's routes (accept, end, playback of its cast's films, the byte paths, reports and the
 //     sockets) take it, through requireSignedInOrGuest, and the grant that made it is in no log.
-//     TestGuestReceiver_ReachesItsCastAlone and
+//     TestGuestReceiver_ReachesItsCastAlone,
+//     TestGuestReceiver_EndsItsOwnCastAloneAsAReceiverDoes and
 //     TestGuestReceiver_IsSignedInByAGrantTradedOnceAndCastToByItsSenderAlone.
-//   - Cast to this device (D469 §1, §4) signs the device that showed a code its person entered in as a
-//     guest receiver the answering device alone casts to; GET /me and its session's body say it is
+//   - Cast to this device (D469 §1, §4) signs the device that showed a code its person scanned in as
+//     a guest receiver the answering device alone casts to; GET /me and its session's body say it is
 //     one and nothing of the person.
 //     TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone.
 //

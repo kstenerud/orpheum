@@ -15019,7 +15019,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "signedInOrGuest"
       }
     },
     "/me/casts/{id}/next": {
