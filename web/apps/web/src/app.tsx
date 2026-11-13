@@ -154,14 +154,19 @@ function LeavingForSignIn(): JSX.Element {
   return <p>{t("signIn.leaving")}</p>;
 }
 
+/** Who is signed in, a way to read it again, and what the shell's one essential read said. */
+interface SignedInRead {
+  readonly me: Resource<components["schemas"]["UserBody"]>;
+  readonly readMeAgain: () => void;
+  readonly shellRead: ShellRead;
+}
+
 /**
- * The signed-in client. A session the server no longer knows is signed out by the watch every
- * request passes (signed-out-watch.ts), with the server's reason.
+ * Reads who is signed in, again on each path the page moves to, its first read the shell's one
+ * essential read (D476), and keeps what it said last while it is read again.
  */
-function SignedIn(): JSX.Element {
-  const { t } = useTranslation();
+function useSignedInRead(): SignedInRead {
   const { api, session } = useServices();
-  const route = useRoute();
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
   // reloaded (the owner's Chrome, 2026-10-15).
@@ -179,8 +184,7 @@ function SignedIn(): JSX.Element {
           ? await api.GET("/me", { params: { query: { shell: true } } })
           : await api.GET("/me"),
       ),
-    undefined,
-    isFirstRead && handedUser !== undefined ? { value: handedUser } : undefined,
+    { given: isFirstRead && handedUser !== undefined ? { value: handedUser } : undefined },
   );
   const [shellRead, setShellRead] = useState<ShellRead>(
     handedUser === undefined ? { state: "waiting" } : { state: "read", shell: handedUser.shell },
@@ -197,6 +201,18 @@ function SignedIn(): JSX.Element {
   // Kept by this signed-in page alone, so another sign-in never starts from it.
   const [rememberedMe] = useState(() => new Remembered<components["schemas"]["UserBody"]>());
   const me = useRemembered("me", meNow, rememberedMe);
+  return { me, readMeAgain, shellRead };
+}
+
+/**
+ * The signed-in client. A session the server no longer knows is signed out by the watch every
+ * request passes (signed-out-watch.ts), with the server's reason.
+ */
+function SignedIn(): JSX.Element {
+  const { t } = useTranslation();
+  const { session } = useServices();
+  const route = useRoute();
+  const { me, readMeAgain, shellRead } = useSignedInRead();
   // A person's shell and screen start reading alongside the read of who is signed in, not after it
   // (D476). A guest receiver, refused every read of a person's own, the client settings and the
   // person's Watch Together sessions among them (D469 §4, D465 §2), starts none: a session not yet
@@ -317,8 +333,7 @@ function useClientSettings(): components["schemas"]["ClientSettingsBody"] | unde
   const [clientSettings] = useResource(
     "client-settings",
     async () => dataOrThrow(await api.GET("/client-settings")),
-    undefined,
-    useShellPart((shell) => shell.clientSettings),
+    { given: useShellPart((shell) => shell.clientSettings) },
   );
   return clientSettings.state === "loaded" ? clientSettings.value : undefined;
 }

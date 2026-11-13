@@ -86,8 +86,7 @@ export function UpdateProvider(props: {
       }
       return lastReadRef.current;
     },
-    isAdmin ? updatePoller : undefined,
-    isAdmin ? fromShell : undefined,
+    isAdmin ? { poller: updatePoller, given: fromShell } : {},
   );
   const shared = useMemo(() => ({ update, readAgain }), [update, readAgain]);
   return <SharedUpdateContext value={shared}>{props.children}</SharedUpdateContext>;

@@ -57,8 +57,7 @@ export function useLibrariesRead(isNeeded = true): Resource<readonly LibraryBody
       ? async (): Promise<readonly LibraryBody[]> =>
           dataOrThrow(await api.GET("/libraries")).libraries ?? []
       : readsNothing,
-    isNeeded ? poller : undefined,
-    isNeeded ? fromShell : undefined,
+    isNeeded ? { poller, given: fromShell } : {},
   );
   return libraries;
 }

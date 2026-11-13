@@ -659,7 +659,7 @@ function FolderView(props: {
       );
       return { subfolders: page.subfolders ?? [], titles: page.titles ?? [] };
     },
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   return (
     <Loaded

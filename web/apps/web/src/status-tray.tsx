@@ -237,8 +237,7 @@ function NeedsAttentionSign(): JSX.Element | null {
   const [counts] = useResource(
     "status-needs-attention",
     async () => dataOrThrow(await api.GET("/needs-attention")),
-    undefined,
-    useShellPart((shell) => shell.needsAttention),
+    { given: useShellPart((shell) => shell.needsAttention) },
   );
   if (counts.state !== "loaded") {
     return null;

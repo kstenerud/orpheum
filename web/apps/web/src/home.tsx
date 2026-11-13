@@ -28,11 +28,9 @@ import { useWarmsPlay } from "./warm-play.ts";
 export function Home(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [home, readHomeAgain] = useResource(
-    "home",
-    (signal) => loadHome(api, signal),
-    useBackgroundChangesPoller(),
-  );
+  const [home, readHomeAgain] = useResource("home", (signal) => loadHome(api, signal), {
+    poller: useBackgroundChangesPoller(),
+  });
   useWarmsPlay();
   return (
     <section className="home" aria-labelledby="home-heading">

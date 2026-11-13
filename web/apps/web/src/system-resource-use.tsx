@@ -34,7 +34,7 @@ export function SystemResourceUse(): JSX.Element {
   const [use] = useResource(
     "resource-use",
     async () => dataOrThrow(await api.GET("/system/resource-use")),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   return (
     <section aria-labelledby="system-resource-use">

@@ -67,7 +67,9 @@ describe("useResource", () => {
     const answers = [1, 1, 2, 2];
     const seen: Resource<number>[] = [];
     function Probe(): null {
-      const [resource] = useResource("probe", () => Promise.resolve(answers.shift() ?? 2), poller);
+      const [resource] = useResource("probe", () => Promise.resolve(answers.shift() ?? 2), {
+        poller,
+      });
       seen.push(resource);
       return null;
     }
@@ -91,7 +93,7 @@ describe("useResource", () => {
       const [resource] = useResource(
         "probe",
         () => (isServerUp ? Promise.resolve(1) : Promise.reject(new TypeError("Failed to fetch"))),
-        poller,
+        { poller },
       );
       seen.push(resource);
       return null;
@@ -124,7 +126,7 @@ describe("useResource", () => {
             });
           });
         },
-        poller,
+        { poller },
       );
       seen.push(resource);
       return null;
@@ -215,8 +217,7 @@ describe("useResource, given a value another read holds (D476)", () => {
           reads += 1;
           return Promise.resolve(2);
         },
-        poller,
-        given,
+        { poller, given },
       );
       reloadNow = reload;
       seen.push(resource);

@@ -102,7 +102,7 @@ export function SystemFilingReports(): JSX.Element {
         const page = dataOrThrow(await api.GET("/filing-reports", { params: { query } }));
         return { entries: page.reports ?? [], nextCursor: page.nextCursor };
       }),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   return (
     <section aria-labelledby="system-filing-reports">

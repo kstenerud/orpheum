@@ -114,6 +114,45 @@ function prefixed(storage: StringStorage, prefix: string): StringStorage {
   };
 }
 
+/** The device this browser was last signed in as, as storage keeps it; undefined for none. */
+function keptDeviceId(storage: StringStorage): number | undefined {
+  const kept = Number(storage.getItem(deviceIdStorageKey) ?? "");
+  return Number.isSafeInteger(kept) && kept > 0 ? kept : undefined;
+}
+
+/** Whose a session is, as the sign-in's answer says who is signed in; undefined where it says none. */
+function kindOf(user: UserBody | undefined): SessionKind | undefined {
+  if (user === undefined) {
+    return undefined;
+  }
+  return user.isGuestReceiver === true ? "guestReceiver" : "person";
+}
+
+/** Whose a session is (Session.knownAs), kept in storage so a reload knows it, and a way to note it. */
+interface KeptKind {
+  readonly get: () => SessionKind | undefined;
+  /** Keeps kind, or forgets it given undefined. */
+  readonly note: (kind: SessionKind | undefined) => void;
+}
+
+/** Whose the session kept in storage is, as it was last noted there. */
+function keptKind(storage: StringStorage): KeptKind {
+  const stored = storage.getItem(kindStorageKey);
+  let kind: SessionKind | undefined =
+    stored === "person" || stored === "guestReceiver" ? stored : undefined;
+  return {
+    get: () => kind,
+    note: (next) => {
+      kind = next;
+      if (next === undefined) {
+        storage.removeItem(kindStorageKey);
+      } else {
+        storage.setItem(kindStorageKey, next);
+      }
+    },
+  };
+}
+
 /**
  * Creates a session over storage, which may throw on every call, its keys under prefix: one core's
  * credentials, apart from any other's.
@@ -125,22 +164,10 @@ export function createSession(
   const storage = prefixed(storageThatNeverThrows(refusableStorage), prefix);
   let token = storage.getItem(tokenStorageKey) ?? undefined;
   let endedReason: string | undefined;
-  const keptDeviceId = Number(storage.getItem(deviceIdStorageKey) ?? "");
-  let storedDeviceId =
-    Number.isSafeInteger(keptDeviceId) && keptDeviceId > 0 ? keptDeviceId : undefined;
+  let storedDeviceId = keptDeviceId(storage);
   let deviceProof = storage.getItem(deviceProofStorageKey) ?? undefined;
   let locator = storage.getItem(locatorStorageKey) ?? undefined;
-  const keptKind = storage.getItem(kindStorageKey);
-  let kind: SessionKind | undefined =
-    keptKind === "person" || keptKind === "guestReceiver" ? keptKind : undefined;
-  const noteKind = (next: SessionKind | undefined): void => {
-    kind = next;
-    if (next === undefined) {
-      storage.removeItem(kindStorageKey);
-    } else {
-      storage.setItem(kindStorageKey, next);
-    }
-  };
+  const kind = keptKind(storage);
   let handedUser: UserBody | undefined;
   const listeners = new Set<() => void>();
   const setToken = (next: string | undefined): void => {
@@ -148,7 +175,7 @@ export function createSession(
     if (next === undefined) {
       locator = undefined;
       handedUser = undefined;
-      noteKind(undefined);
+      kind.note(undefined);
       storage.removeItem(locatorStorageKey);
       storage.removeItem(tokenStorageKey);
     } else {
@@ -165,13 +192,7 @@ export function createSession(
       storedDeviceId = keepIfGiven(storage, deviceIdStorageKey, kept.deviceId) ?? storedDeviceId;
       deviceProof = keepIfGiven(storage, deviceProofStorageKey, kept.deviceSecret) ?? deviceProof;
       handedUser = kept.user;
-      noteKind(
-        kept.user === undefined
-          ? undefined
-          : kept.user.isGuestReceiver === true
-            ? "guestReceiver"
-            : "person",
-      );
+      kind.note(kindOf(kept.user));
       setToken(next);
       locator = keepIfGiven(storage, locatorStorageKey, kept.locator) ?? locator;
     },
@@ -187,8 +208,8 @@ export function createSession(
     deviceProof: () => deviceProof,
     locator: () => locator,
     handedUser: () => handedUser,
-    knownAs: () => kind,
-    noteKnownAs: noteKind,
+    knownAs: kind.get,
+    noteKnownAs: kind.note,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

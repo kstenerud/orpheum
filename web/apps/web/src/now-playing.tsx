@@ -28,7 +28,7 @@ export function NowPlaying(): JSX.Element {
   const [playing, reload] = useResource(
     "now-playing",
     async () => dataOrThrow(await api.GET("/now-playing")).playbacks ?? [],
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const stop = (playbackId: number, message: string): void => {

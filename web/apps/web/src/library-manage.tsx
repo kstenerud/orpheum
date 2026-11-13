@@ -701,11 +701,9 @@ function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
 export function LibraryPage(props: { readonly libraryId: number }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [libraries, reload] = useResource(
-    "libraries",
-    () => listLibraries(api),
-    useBackgroundChangesPoller(),
-  );
+  const [libraries, reload] = useResource("libraries", () => listLibraries(api), {
+    poller: useBackgroundChangesPoller(),
+  });
   const actions = useLibraryActions(props.libraryId, reload);
   const [places] = useResource("library-places", async () =>
     placesOf(dataOrThrow(await api.GET("/nodes"))),
