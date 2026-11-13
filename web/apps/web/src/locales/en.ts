@@ -193,7 +193,7 @@ export const en = {
     refused: "{{refusalText}}",
     badLinkHeading: "This link no longer works",
     badLink:
-      "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
+      "This link does not work: it was used, cancelled, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
   },
   screenNotLoaded: {
     said: "This page could not load.",
