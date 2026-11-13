@@ -97,6 +97,30 @@ it("asks a reset link's person for their new password, and a first registration'
   expect(await headingFor({ name: "newcomer", isReset: false })).toBe("Choose your password");
 });
 
+it("says as it opens that a link no longer works, and offers nothing to fill in (D466)", async () => {
+  const services = {
+    ...servedBy({ "POST /registration/link": refusal(401, "authRequired") }),
+    navigation: createNavigation(fakePlace("/register#used-link")),
+  };
+  const mounted = await mount(withServices(<Register />, services));
+  expect(mounted.container.querySelector("h1")?.textContent).toBe("This link no longer works");
+  expect(mounted.container.textContent).toContain("This link does not work: it was used");
+  expect(mounted.container.querySelector("input")).toBeNull();
+  expect(mounted.container.querySelector("button")).toBeNull();
+  mounted.unmount();
+});
+
+it("still offers the form when the link could not be read for another reason", async () => {
+  const services = {
+    ...servedBy({ "POST /registration/link": refusal(503, "unavailable") }),
+    navigation: createNavigation(fakePlace("/register#a-link")),
+  };
+  const mounted = await mount(withServices(<Register />, services));
+  expect(mounted.container.querySelector("h1")?.textContent).toBe("Choose your password");
+  expect(mounted.container.querySelectorAll("input")).toHaveLength(2);
+  mounted.unmount();
+});
+
 /** The registration page for an invitation whose name is taken, with its three fields. */
 async function registeringATakenName(): Promise<
   readonly [Mounted, ...(HTMLInputElement | undefined)[]]

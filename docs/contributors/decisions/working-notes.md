@@ -27898,10 +27898,15 @@ whose registration link is the reset link; one without keeps D318 §1's links an
 link (`internal/core/api/accounts.go`, `web/apps/web/src/user.tsx`; §1, §4). Cancel and Renew are
 asked again, as New reset password link is, for each ends a link sent. **Amended 2026-11-13** by
 the owner (the 11-25 batch's answers, item 4, in the plan file): the page a reset link opens says
-"Choose your new password", a first registration's keeping "Choose your password". Built
-2026-11-13: the link's read without using it (`POST /registration/link`, `KindOfLink`) says
-`isReset` for a registration link whose person has a password, and `register.tsx` heads its page
-by it.
+"Choose your new password", a first registration's keeping "Choose your password"; and a link that
+no longer works, used, cancelled, replaced or expired, says so as its page opens (the owner, re-using
+a used link, had reached the password's entry, refused only at its sending). Built 2026-11-13: the
+link's read without using it (`POST /registration/link`, `KindOfLink`) says `isReset` for a
+registration link whose person has a password, and `register.tsx` heads its page by it; the same
+read refuses an unknown, used, cancelled, replaced and expired link alike (401 authRequired, naming
+no one), and `register.tsx` shows the form only once the read has answered, a refused link getting
+"This link no longer works" and the words a refused sending had (`register.badLink`) in its
+place.
 
 **Proven by:**
 - 1, 4: internal/core/api/reset_link_test.go, web/apps/web/src/reset-link.test.tsx, VQ309
@@ -27909,6 +27914,9 @@ by it.
 - 3: internal/core/auth/reset_link_test.go (`TestResetLink_LastsAsLongAsItsOwnSettingSays`), VQ309
 - 4: internal/core/auth/reset_link_test.go (`TestResetLink_IsOutstandingUntilUsedOrCancelled`,
   `TestCancelResetLink_EndsItLeavingThePasswordAndSessions`)
+- The 2026-11-13 amendment's link refused as its page opens: internal/core/api/reset_link_test.go
+  (`TestLinkKind_AResetLinkSaysSoAndOneThatNoLongerWorksIsRefusedAlike`),
+  web/apps/web/src/register.test.tsx
 - The 2026-11-13 amendment's heading: internal/core/auth/reset_link_test.go
   (`TestKindOfLink_SaysAResetLinkIsOneAndAFirstRegistrationsIsNot`),
   internal/core/api/reset_link_test.go
