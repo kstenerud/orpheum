@@ -114,7 +114,7 @@ check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 .PHONY: check-parallel
 # check-generated runs beside the rest: nothing reads what it generates, which goes to a temporary
 # directory, and as a prerequisite it held every other step back by 7.6 s (2026-10-01).
-check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-media-names check-architecture check-go check-web-parallel
+check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-media-names check-e2e-strings check-architecture check-go check-web-parallel
 
 .PHONY: check-tools
 check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if another pinned tool is missing or at the wrong version
@@ -172,6 +172,10 @@ check-claims: ## TestArch_ citations, decision IDs in code, and ORPHEUM_TEST_ va
 
 check-media-names: ## No film, series or episode the registry (scripts/media_names.allow) does not list: the owner's library is never named (AGENTS.md rule 12)
 	@$(PYTHON) scripts/check_media_names.py
+
+.PHONY: check-e2e-strings
+check-e2e-strings: ## Every name, text or label an e2e spec's locator waits for is in the web client's words, not found first by check-pr's browser tier
+	@$(PYTHON) scripts/check_e2e_strings.py
 
 check-architecture: ## Every package has a row in the architecture map; schema.md's owners table lists every table
 	@$(PYTHON) scripts/check_architecture_map.py
