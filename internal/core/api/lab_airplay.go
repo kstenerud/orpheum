@@ -180,7 +180,7 @@ func (server *Server) labAirPlayPlayback(ctx context.Context, grant string) (lab
 	if offErr := server.requireLabAirPlay(ctx, dependencies); offErr != nil {
 		return labAirPlayServed{}, offErr
 	}
-	kept, err := dependencies.Auth.LabAirPlayGrantOf(grant)
+	kept, err := dependencies.Auth.LabAirPlayGrantOf(ctx, grant)
 	if errors.Is(err, auth.ErrNoLabAirPlayGrant) {
 		return labAirPlayServed{}, newError(http.StatusNotFound, CodeNotFound, err.Error())
 	}
