@@ -19,6 +19,12 @@ The rule:
 > backdrops, people's photos) is fetched after, at a lower priority, and the page works without
 > it.**
 
+**The ideal: one page, one "essential data" fetch** (the owner, 2026-11-13: "Ideally one page does
+one \"essential data\" fetch, and then other fetches for the rest as matches the situation."). A
+page's first request answers everything the person needs to act on it; every other request follows
+as the situation calls for it (images nearing the view, a menu opened, a section scrolled to), and
+nothing a person acts on waits for those.
+
 What that asks:
 
 - **A page that can be read in one request is read in one,** not in a chain where each request
