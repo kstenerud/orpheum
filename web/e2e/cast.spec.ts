@@ -3,12 +3,12 @@
 /**
  * Casting between two of a person's own devices, a session with a device (D364; D337, D338): two
  * browsers signed in as the owner are two devices; one plays a film and casts to the other from the
- * status tray's Cast, which asks once and plays it with a television's controls while the first is
- * its remote, the page it cast from staying where it is (D384 §2); every film the first then plays
- * goes to the second, which waits full screen and ready between them; the receiver goes home as the
- * cast ends by the remote's Stop casting or the receiver's own Stop casting here, the first then
- * playing the film itself (D446). While it receives, a third device's Cast dialog shows it
- * unavailable, no device taking it over (D386 §1).
+ * status tray's Cast, which asks nothing there (D468) and plays it with a television's controls
+ * while the first is its remote, the page it cast from staying where it is (D384 §2); every film the
+ * first then plays goes to the second, which waits full screen and ready between them; the receiver
+ * goes home as the cast ends by the remote's Stop casting or the receiver's own Stop casting here,
+ * the first then playing the film itself (D446). While it receives, a third device's Cast dialog
+ * shows it unavailable, no device taking it over (D386 §1).
  */
 
 import { expect, type Browser, type Page } from "@playwright/test";
@@ -56,7 +56,7 @@ function castSign(page: Page): ReturnType<Page["locator"]> {
 
 /**
  * Signs two devices in, plays the film on the first and casts to the second from the tray's Cast,
- * the film moving with it: the second is asked once, is answered Use and plays it; then runs what
+ * the film moving with it: the second takes it as it is handed and plays it; then runs what
  * the test does with them, and closes both, so a device of one test is never another's to cast to.
  */
 async function castBetweenTwo(
@@ -97,16 +97,12 @@ async function castFromOneToTheOther(
     .locator(".cast-to__devices button")
     .first()
     .click();
-  // The receiver asks once (D364 §2): the sender says it is asking until it answers.
-  await expect(sender.getByText(/^Asking /u)).toBeVisible({ timeout: 10_000 });
-  await expect(receiver.getByText(/wants to use this device for playback$/u)).toBeVisible();
-  await receiver
-    .getByRole("dialog", { name: /wants to use this device for playback$/u })
-    .getByRole("button", { name: "Use" })
-    .click();
-
+  // The receiver asks nothing (D468): it takes the cast as it is handed, so the sender hands off at
+  // once, and it plays, its page pressed at sign-in.
   await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
-  await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver said Use
+  await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver took the cast
+  await expect(receiver.getByRole("dialog", { name: /wants to use this device/u })).toHaveCount(0);
+  await expect(receiver.getByRole("button", { name: "Press OK to start" })).toHaveCount(0);
   expect(sender.url()).toBe(playAddress);
   await expect(sender.locator("video")).toHaveCount(0);
   await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
