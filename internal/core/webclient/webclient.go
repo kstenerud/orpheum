@@ -97,6 +97,13 @@ func isReceiverPath(name string) bool {
 	return name == receiverDirectory || strings.HasPrefix(name, receiverDirectory+"/")
 }
 
+// typesGoLacks are the types of the client's files that Go's own table does not know, and that the
+// host's mime.types would otherwise decide or, missing, a sniff of the bytes sent, gzipped ones
+// among them: the setup help for a person's AI agent (web/apps/web/src/agent-help.ts), Markdown.
+var typesGoLacks = map[string]string{ //nolint:gochecknoglobals // a constant table
+	".md": "text/markdown; charset=utf-8",
+}
+
 // strictTransportSecurity tells a browser that reached the client over HTTPS to come back only over
 // HTTPS, for a year: not its subdomains, which may be another's.
 const strictTransportSecurity = "max-age=31536000"
@@ -148,6 +155,9 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 			writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
 			writer.Header().Set("Cache-Control", "no-cache")
+		}
+		if contentType, isKnown := typesGoLacks[strings.ToLower(path.Ext(name))]; isKnown {
+			writer.Header().Set("Content-Type", contentType)
 		}
 		compressed.serveFile(writer, request, files, name)
 	})

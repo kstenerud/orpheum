@@ -21,7 +21,7 @@ import (
 // and every television's, has it.
 var compressedExtensions = map[string]bool{ //nolint:gochecknoglobals // a constant set
 	".js": true, ".mjs": true, ".css": true, ".html": true, ".svg": true, ".json": true, ".map": true,
-	".wasm": true, ".txt": true, ".webmanifest": true,
+	".wasm": true, ".txt": true, ".md": true, ".webmanifest": true,
 }
 
 // smallestCompressed is the smallest file sent gzipped: below about a packet, gzip's header and the

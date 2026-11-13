@@ -17,6 +17,10 @@
 //     browser whose Accept-Encoding takes gzip, varying by it, and as it is to one that does not;
 //     images and fonts, compressed already, as they are (D129). Enforced by
 //     TestHandler_SendsTextGzippedToABrowserThatAcceptsIt.
+//   - The setup help for a person's AI agent (agent-setup.md) and /llms.txt, which the client's build
+//     writes beside its files, are answered as text, never with index.html: the help as
+//     `text/markdown; charset=utf-8` whatever the host's mime.types says of `.md`, and gzipped as
+//     the other text is. Enforced by TestHandler_ServesTheAgentsHelpAsText.
 //   - The client counts as built only when dist/ has an index.html; the placeholder alone does
 //     not. Enforced by TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex.
 //   - Every answer carries `X-Content-Type-Options: nosniff`, a content-security policy that loads
