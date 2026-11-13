@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./play-words.ts";
+
 import { seekTo } from "@orpheum/player";
 import type { PlaybackReport } from "@orpheum/sdk";
 import {

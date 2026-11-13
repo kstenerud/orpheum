@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./cast-words.ts";
+
 import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";

@@ -4012,6 +4012,13 @@ continue without my input."
 
 - **The two catalogue moves:** `play.updateAfterFilm` and the four `cast.start.*` keys go into the
   shared list, so `en-play.ts` and `en-cast.ts` move to their areas' words modules.
+  - **Built:** the start-time keys went into the first page's `en.ts`: `play.updateAfterFilm` is
+    `shell.updateAfterFilm` (`reload-when-outdated.tsx`) and `cast.start.*` are `castStart.*`
+    (`cast-start.tsx`), with `cast.stoppedBeforeTaken`, which `live.tsx` also asks at start, as
+    `castStart.stoppedBeforeTaken` (the four were these, not `soundOn`, which only `cast-receiver.tsx`
+    asks). `en-play.ts` is now added by `play-words.ts` and `en-cast.ts` by `cast-words.ts`, each
+    imported by the 28 and 12 modules that ask for one of its words; the first-page test lists both
+    parts, and the catalogue test reads those modules' keys from the words they bring.
 - **The two removals:** `GET /items/letters` and `GET /items?home=true` have no caller since D475 and
   D476; they go, with their mocks, their tests' reliance on them and the comments that name them
   (`list-filters.ts`).

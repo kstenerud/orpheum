@@ -6,12 +6,14 @@ import { camelKey } from "../catalogue-key.ts";
 import { sectionOrder } from "../server-settings.tsx";
 import { settingsWords } from "../settings-words.ts";
 import { en } from "./en.ts";
+import { enCast } from "./en-cast.ts";
 import { enCredits } from "./en-credits.ts";
 import { enDevices } from "./en-devices.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enLab } from "./en-lab.ts";
 import { enLibraries } from "./en-libraries.ts";
 import { enPeople } from "./en-people.ts";
+import { enPlay } from "./en-play.ts";
 import { enSystem } from "./en-system.ts";
 
 /** Every source file of the app, as text, tests left out. */
@@ -44,6 +46,8 @@ const laterWords: Record<string, object> = {
   "./settings-words.ts": settingsWords,
   "./credits-words.ts": enCredits,
   "./devices-words.ts": enDevices,
+  "./play-words.ts": enPlay,
+  "./cast-words.ts": enCast,
 };
 
 /** The catalogue a source file's keys are read from: the first page's, and the words it brings. */

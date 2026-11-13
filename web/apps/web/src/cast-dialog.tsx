@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./cast.css";
+import "./cast-words.ts";
 
 import type { CastSending } from "@orpheum/sdk";
 import { useEffect, useState, type JSX } from "react";

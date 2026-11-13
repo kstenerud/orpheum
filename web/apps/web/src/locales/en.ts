@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { enCast } from "./en-cast.ts";
 import { enDiscovery } from "./en-discovery.ts";
-import { enPlay } from "./en-play.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
@@ -15,14 +13,12 @@ import { enFind } from "./en-find.ts";
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
  * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
- * gallery's, the settings pages', a credited person's page's and the devices pages' words come with
- * their screens' code (lab-words.ts, gallery-words.ts, settings-words.ts, credits-words.ts,
- * devices-words.ts), not here.
+ * gallery's, the settings pages', a credited person's page's, the devices pages', the player's and
+ * the casting pages' words come with their screens' code (lab-words.ts, gallery-words.ts,
+ * settings-words.ts, credits-words.ts, devices-words.ts, play-words.ts, cast-words.ts), not here.
  */
 export const en = {
   ...enTogether,
-  ...enPlay,
-  ...enCast,
   ...enDiscovery,
   ...enStatus,
   ...enWarning,
@@ -535,6 +531,14 @@ export const en = {
   },
   shell: {
     notFound: "There is nothing at this address.",
+    updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
+  },
+  /** A cast taken on a page waiting for a press, and one that ended first (cast-start.tsx, live.tsx). */
+  castStart: {
+    television: "Press OK to start",
+    touch: "Tap to start",
+    pointer: "Click to start",
+    stoppedBeforeTaken: "{{device}} stopped casting.",
   },
   notice: {
     ok: "OK",

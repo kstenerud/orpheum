@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./play-words.ts";
+
 import type { Api, components, SoundTrack } from "@orpheum/sdk";
 import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";

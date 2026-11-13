@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./play-words.ts";
+import "./cast-words.ts";
+
 import type {
   CarriesPictureChoices,
   CarriesSoundChoices,

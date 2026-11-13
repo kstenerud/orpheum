@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./film-player.css";
+import "./play-words.ts";
 
 import {
   keepScreenAwake,

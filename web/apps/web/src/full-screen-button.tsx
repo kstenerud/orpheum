@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./play-words.ts";
+
 import { useRef, useSyncExternalStore, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 

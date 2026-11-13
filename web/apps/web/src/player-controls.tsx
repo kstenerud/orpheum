@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./player-controls.css";
+import "./play-words.ts";
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
 import { useEffect, useState, type JSX, type ReactNode, type RefObject } from "react";

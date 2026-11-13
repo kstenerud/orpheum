@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./cast-words.ts";
+
 import {
   expectedGroupPositionMs,
   scrubPauseWindowMs,

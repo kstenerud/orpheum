@@ -2,7 +2,8 @@
 
 /**
  * The English catalogue's play part: the player's screen, what plays and why, its failures and its
- * menus (play), kept apart so the catalogue fits in one read (en.ts).
+ * menus (play), added as the first module that asks for one loads (play-words.ts), never with the
+ * first page (home-imports.test.ts holds it).
  */
 export const enPlay = {
   skipped: {
@@ -47,7 +48,6 @@ export const enPlay = {
     pressPlayToStart: "Paused — press Play to start.",
   },
   play: {
-    updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
     directFailed: "This browser could not play the original file: {{reason}}.",
     cannotConvert: "This file can't be converted for this device.",
     ladderFailed: "The film could not play: {{reason}}.",

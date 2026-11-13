@@ -458,7 +458,7 @@ function useTake(receive: (handed: CastToReceive) => void): {
           settle();
           showNotice(
             problemText(t, cause, {
-              notFound: t("cast.stoppedBeforeTaken", { device: handed.fromDeviceName }),
+              notFound: t("castStart.stoppedBeforeTaken", { device: handed.fromDeviceName }),
             }),
           );
         },

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./play.css";
+import "./play-words.ts";
 
 import type { CannotKeepUp } from "@orpheum/sdk";
 import {

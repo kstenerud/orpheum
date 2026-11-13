@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./cast.css";
+import "./cast-words.ts";
 
 import type { CastSending, TogetherEndReason } from "@orpheum/sdk";
 import type { TFunction } from "i18next";

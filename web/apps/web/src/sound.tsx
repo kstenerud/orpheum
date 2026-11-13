@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./sound.css";
+import "./play-words.ts";
 
 import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";

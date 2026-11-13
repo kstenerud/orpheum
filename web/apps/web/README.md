@@ -970,8 +970,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`
   (D251).
 - Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,
-  `en-play.ts`), and an area's own words, which its `<area>-words.ts` adds as its screens load
-  (`devices-words.ts`, `settings-words.ts`), through react-i18next (D51).
+  `en-navigation.ts`), and an area's own words, which its `<area>-words.ts` adds as its screens
+  load (`play-words.ts`, `cast-words.ts`, `devices-words.ts`, `settings-words.ts`), through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.
 - The mount point: `src/main.tsx`, which loads the loader (`src/loader-main.tsx`) or the client
   (`src/client-main.tsx`) by what the page says it is, and `index.html`.

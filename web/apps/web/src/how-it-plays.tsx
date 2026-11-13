@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./cast-words.ts";
+
 import { PlaybackTold, playerSwitchedQualityEvent, type PlaybackReport } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";

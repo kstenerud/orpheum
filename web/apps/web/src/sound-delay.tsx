@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./devices-words.ts";
+import "./play-words.ts";
 
 import type { TFunction } from "i18next";
 import {

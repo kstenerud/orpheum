@@ -32,7 +32,7 @@ export function ReloadWhenOutdated(props: {
     }
   }, [isOutdated, isPlayingScreen, reload, watch]);
   return isOutdated && isPlayingScreen ? (
-    <output className="reload-when-outdated">{t("play.updateAfterFilm")}</output>
+    <output className="reload-when-outdated">{t("shell.updateAfterFilm")}</output>
   ) : null;
 }
 

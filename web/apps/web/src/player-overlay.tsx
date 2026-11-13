@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./player-overlay.css";
+import "./play-words.ts";
 
 import {
   use,

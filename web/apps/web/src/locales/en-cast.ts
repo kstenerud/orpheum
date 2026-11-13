@@ -2,8 +2,9 @@
 
 /**
  * The English catalogue's casting part (D337, D364): the casting page and its list of devices to
- * cast to, the receiver's question, line and ready page, and the remote of a session's film, kept
- * apart so the catalogue fits in one read (en.ts).
+ * cast to, the receiver's question, line and ready page, and the remote of a session's film, added
+ * as the first module that asks for one loads (cast-words.ts), never with the first page
+ * (home-imports.test.ts holds it).
  */
 export const enCast = {
   cast: {
@@ -25,12 +26,6 @@ export const enCast = {
     showCastLog: "Show cast log",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}}",
-    start: {
-      television: "Press OK to start",
-      touch: "Tap to start",
-      pointer: "Click to start",
-    },
-    stoppedBeforeTaken: "{{device}} stopped casting.",
     asking: "Asking {{name}}…",
     cancelRequest: "Cancel casting request",
     answered: {

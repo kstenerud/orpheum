@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./together-viewer.css";
+import "./cast-words.ts";
 
 import {
   followGroup,
@@ -362,11 +363,10 @@ export function FollowsTheGroupHere(props: { readonly credential: string }): JSX
 
 /**
  * Where the film plays: black while nothing does (NothingPlays), else the group's film, followed, in
- * the session's kept video; over either, a tap asked for while the voices wait for one, as when a
- * phone call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the
- * video"). While this device casts, the device it casts to plays the film in its place, a follower too, and
- * this one holds the group's controls its rights give (D371 §4), telling its session it plays no
- * film, so it never leads in its receiver's place (D374 §1).
+ * the session's kept video; over it, a tap while the voices wait for one, as a phone call did (the
+ * owner, 2026-10-13: "a small 'tap to re-enable sound' over the video"). While this device casts, its
+ * receiver plays the film in its place, and this one holds the group's controls its rights give (D371
+ * §4), telling its session it plays no film, so it never leads in its receiver's place (D374 §1).
  */
 function ViewingArea(props: {
   readonly kept: KeptVideo;

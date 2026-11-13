@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./cast.css";
+import "./play-words.ts";
+import "./cast-words.ts";
 
 import type { CastToReceive } from "@orpheum/sdk";
 import type { JSX } from "react";

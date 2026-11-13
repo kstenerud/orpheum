@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./play-words.ts";
+
 import { playerSkippedEvent, skippedStretchOf, type SkippedStretch } from "@orpheum/player";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";

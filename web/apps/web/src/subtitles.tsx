@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./subtitles.css";
+import "./play-words.ts";
 
 import type { TFunction } from "i18next";
 import { drawSubtitles, type CaptionSource, type SubtitleLayer } from "@orpheum/player";

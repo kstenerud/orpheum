@@ -85,9 +85,9 @@ export function inThisDevicesWords(words: PressWords): string {
 /** "Press OK to start", in this device's words for a press. */
 function startText(t: TFunction): string {
   return inThisDevicesWords({
-    television: t("cast.start.television"),
-    touch: t("cast.start.touch"),
-    pointer: t("cast.start.pointer"),
+    television: t("castStart.television"),
+    touch: t("castStart.touch"),
+    pointer: t("castStart.pointer"),
   });
 }
 
