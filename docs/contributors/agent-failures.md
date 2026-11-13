@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A75 — Said the app holds only the pages it has read, when Films and Series read the whole list (2026-11-13)
+
+- **What happened:** asked why the alphabet rail's jump is not instant, the lead said the app holds
+  only the posters it has loaded, 60 at a time as the person scrolls. The owner had decided on
+  2026-11-11 that the whole list's text comes up front, and Films and Series read it whole
+  (`isReadWhole`, `browse.tsx`), every page in a row. The answer came from reading `useLetterJump`
+  and `useLoadUntil` alone, not the list that calls them or the plan file's answers on it.
+- **Caught by:** the owner: "I thought we were first grabbing a list of all entries".
+- **Gate:** none. The lesson: before explaining why the code behaves as it does, read the plan
+  file's answers on that feature and the caller's options, not only the function in the path.
+
 ### A74 — Listed a step as still the owner's that the lead's own commit had done the day before (2026-11-13)
 
 - **What happened:** listing the questions still open, the lead told the owner that production's
