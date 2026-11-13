@@ -92,7 +92,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
   it("fetches the grant as the menu opens, so way B shows the picker on this player within the press", async () => {
     const heard: Heard[] = [];
     const letGoOfHls = vi.fn();
-    const { page, main } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, heard, {
+    const { page, main } = await mountControls({ "POST /airplay/grants": [200, made] }, heard, {
       letGoOfHls,
     });
     expect(buttonNamed(page.container, "Way B: this player")).toBeUndefined();
@@ -100,7 +100,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     await settleUntil(() => page.container.textContent.includes("Grant: "));
     const url = new URL(masterPath, globalThis.location.origin).href;
     expect(page.container.textContent).toContain(`Grant: ${url}`);
-    expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /lab/airplay/grants"]);
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /airplay/grants"]);
     expect(bodyField(heard[0]!, "mediaToken")).toBe("media-1");
     await click(buttonNamed(page.container, "Way B: this player"));
     expect(letGoOfHls).toHaveBeenCalledOnce();
@@ -117,7 +117,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
   });
 
   it("way A gives a second player the grant and shows its picker, and logs what it says of its target", async () => {
-    const { page, main } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, []);
+    const { page, main } = await mountControls({ "POST /airplay/grants": [200, made] }, []);
     await click(buttonNamed(page.container, "AirPlay menu"));
     await settleUntil(() => page.container.textContent.includes("Grant: "));
     expect(page.container.querySelector("video")?.hasAttribute("src")).toBe(false);
@@ -141,8 +141,8 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     const heard: Heard[] = [];
     const { page, main } = await mountControls(
       {
-        "POST /lab/airplay/grants": [200, made],
-        "DELETE /lab/airplay/grants": [200, { revoked: 1 }],
+        "POST /airplay/grants": [200, made],
+        "DELETE /airplay/grants": [200, { revoked: 1 }],
       },
       heard,
     );
@@ -156,15 +156,15 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     expect(page.container.querySelector("video")?.hasAttribute("src")).toBe(false);
     expect(main.hasAttribute("src")).toBe(false);
     expect(heard.map((each) => each.methodAndPath)).toEqual([
-      "POST /lab/airplay/grants",
-      "DELETE /lab/airplay/grants",
+      "POST /airplay/grants",
+      "DELETE /airplay/grants",
     ]);
     expect(logOf(page)).toContain("revocation answered: 1 revoked");
   });
 
   it("under a discovery's loader, puts the grant on the core's name the page reaches, not the client origin it is at (the owner's staging test, 2026-11-13)", async () => {
     const lanName = "https://192-168-1-2.k7xq2.orpheum-core.com:8443";
-    const { page, main } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, [], {
+    const { page, main } = await mountControls({ "POST /airplay/grants": [200, made] }, [], {
       pathMoves: { ...createPathMoves(), directOrigin: () => lanName },
     });
     await click(buttonNamed(page.container, "AirPlay menu"));
@@ -178,7 +178,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
 
   it("over WebRTC alone, says AirPlay cannot work, asks for no grant and shows no picker (airplay.md item 2)", async () => {
     const heard: Heard[] = [];
-    const { page } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, heard, {
+    const { page } = await mountControls({ "POST /airplay/grants": [200, made] }, heard, {
       pathMoves: {
         ...createPathMoves(),
         isOverWebrtc: () => true,
@@ -197,10 +197,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
   });
 
   it("logs a grant refused, as while the lab is off, and way B then shows no picker", async () => {
-    const { page } = await mountControls(
-      { "POST /lab/airplay/grants": refusal(404, "notFound") },
-      [],
-    );
+    const { page } = await mountControls({ "POST /airplay/grants": refusal(404, "notFound") }, []);
     await click(buttonNamed(page.container, "AirPlay menu"));
     await settleUntil(() => logOf(page).includes("the grant was refused"));
     await click(buttonNamed(page.container, "Way B: this player"));

@@ -35,6 +35,9 @@ type fakeNodeBytes struct {
 	asksBeforeFound map[string]int
 	// asked are the targets asked for, in order. Guarded by mutex.
 	asked []string
+	// whenAsked, when set, is told of each target asked for, the mutex held: a test ends a request
+	// while the core holds it for a chunk not made yet.
+	whenAsked func(target string)
 }
 
 func (fake *fakeNodeBytes) Do(
@@ -49,6 +52,9 @@ func (fake *fakeNodeBytes) Do(
 		return nil, &nodes.StalledRootError{NodeID: nodeID, RootPath: fake.stalledRoot}
 	}
 	fake.asked = append(fake.asked, target)
+	if fake.whenAsked != nil {
+		fake.whenAsked(target)
+	}
 	recorder := httptest.NewRecorder()
 	contents, found := fake.files[target]
 	if fake.asksBeforeFound[target] > 0 {

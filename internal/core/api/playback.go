@@ -587,6 +587,17 @@ func tooEarly() error {
 	return failure
 }
 
+// statusClientClosedRequest is the status of a request whose client went away before its answer:
+// 499, as proxies name it, since HTTP names none. Nothing reaches the client; it is what the log and
+// the handler's own tests see.
+const statusClientClosedRequest = 499
+
+// clientGone is the answer to a request whose client went away while it was held: no status a
+// player acts on, as nothing reaches it, and logged as gone, not as a fault (logErrorAnswer).
+func clientGone() error {
+	return newError(statusClientClosedRequest, CodeInternal, "the client went away before its answer")
+}
+
 // relayRequest is one request a relay makes of a node's byte socket, and how its answer is cached.
 type relayRequest struct {
 	method       string

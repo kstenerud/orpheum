@@ -78,10 +78,10 @@ export async function makeAirPlayGrant(
   mediaToken: string,
   origin: string,
 ): Promise<AirPlayGrant> {
-  doing.log("asking for the grant (POST /lab/airplay/grants)");
+  doing.log("asking for the grant (POST /airplay/grants)");
   // Each ask is one click's (a way's button, or the menu opening for way B), under its own key (D244 §4).
   const made = dataOrThrow(
-    await doing.api.POST("/lab/airplay/grants", {
+    await doing.api.POST("/airplay/grants", {
       body: { mediaToken },
       ...idempotent(newIdempotencyKey()),
     }),
@@ -93,8 +93,8 @@ export async function makeAirPlayGrant(
 
 /** Revokes the session's AirPlay grants, as Stop does, and says how many were revoked. */
 export async function revokeAirPlayGrants(doing: AirPlayDoing): Promise<number> {
-  doing.log("revoking the grants (DELETE /lab/airplay/grants)");
-  const { revoked } = dataOrThrow(await doing.api.DELETE("/lab/airplay/grants", {}));
+  doing.log("revoking the grants (DELETE /airplay/grants)");
+  const { revoked } = dataOrThrow(await doing.api.DELETE("/airplay/grants", {}));
   doing.log(`revocation answered: ${String(revoked)} revoked`);
   return revoked;
 }
