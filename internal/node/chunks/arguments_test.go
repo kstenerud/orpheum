@@ -153,6 +153,29 @@ func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 	}
 }
 
+// A quality is encoded in its source's time base, on every encoder, so its MP4 track counts in the
+// copied picture's timescale and hls.js takes no new time offset at a switch between them; each
+// picture once at its own time, as the segment muxer would otherwise have FFmpeg hold a constant rate
+// counted in the source's ticks (idiosyncrasies.md). A copy keeps its own times as it is.
+func TestArguments_EncodeAQualityInItsSourcesTimeBase(t *testing.T) {
+	t.Parallel()
+	for _, encoder := range []encode.Encoder{
+		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
+	} {
+		arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r",
+			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encoder)
+		timeBase, rate := valueOf(arguments, "-enc_time_base:v"), valueOf(arguments, "-fps_mode:v")
+		if timeBase != "demux" || rate != "vfr" {
+			t.Errorf("%s encodes at time base %q, frame rate mode %q; want demux, vfr", encoder, timeBase, rate)
+		}
+	}
+	copied := Arguments(execx.Film{Path: "/a.ts"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
+		encode.EncoderX264)
+	if slices.Contains(copied, "-enc_time_base:v") || slices.Contains(copied, "-fps_mode:v") {
+		t.Errorf("a copied picture is given an encoder's time base: %q", copied)
+	}
+}
+
 // A picture whose B-frames carry no display times, copied or encoded, is re-timed by dts2pts, a
 // copy's on the output and an encode's on its input, and read a second past its end, an
 // encode keyframed at that end too so what is read past it is cut off; an ordinary picture is not,

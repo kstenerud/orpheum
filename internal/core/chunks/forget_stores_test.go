@@ -61,6 +61,50 @@ func TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores(t
 	}
 }
 
+// A quality's store is named by its encode's recipe too, so every quality's store made before each
+// encode kept its source's time base, named by the grid and the picture's facts alone, is made again,
+// and a run of one ends for good rather than write an init at another timescale over its chunks; the
+// copied picture's stores are kept, and a quality's still follow the picture's facts (D392 §3).
+func TestStoreKey_AQualitysStoreIsNamedByItsEncodesRecipeToo(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	gridID := mustGrid(t, service).ID()
+	file, err := library.PlayableFile(t.Context(), service.database.Read(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe, err := library.ProbeOf(file.ProbeJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	madeBefore := gridID + library.PictureChunksFactsKey(probe)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	if key := testStoreKey(t, service, Stream{Kind: nodeproto.StreamPicture}, gridID); key != madeBefore {
+		t.Errorf("the copied picture's store is %s; want it kept, %s", key, madeBefore)
+	}
+	key := testStoreKey(t, service, quality, gridID)
+	if key == madeBefore || len(key) != len(madeBefore) {
+		t.Fatalf("the quality's store is %s; want another of the same length as the one made before, %s",
+			key, madeBefore)
+	}
+	staleID, err := service.storeIDOf(t.Context(), 1, quality, madeBefore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ended := fixture.resolver.Start(t, service.HandleMakeChunks, jobs.Job{
+		ID: 7, Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: staleID},
+		ArgsJSON: `{"firstChunk":0,"lastChunk":1}`, Priority: jobs.PriorityPlayNow,
+	})
+	if err := testutil.Receive(t, ended, "the old store's run to end"); !errors.Is(err, ErrGridChanged) {
+		t.Errorf("a run of the quality's store made before ended %v; want ErrGridChanged", err)
+	}
+	retimedFilmOne(t, service)
+	if after := testStoreKey(t, service, quality, mustGrid(t, service).ID()); after == key {
+		t.Errorf("the quality's store is %s after its picture was marked for re-timing; want another", after)
+	}
+}
+
 // A film's picture's stores, copied and at each quality, are thrown out once their facts changed, its
 // sounds' kept; a track's sound stores, every mix and its copy, and no other track's; what the
 // tracker held of them with them. A second time finds nothing (D392 §3).

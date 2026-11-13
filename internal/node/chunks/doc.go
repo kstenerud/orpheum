@@ -97,6 +97,13 @@
 //     chunks of a flattened H.264 and HEVC clip have the clip's own composition offsets, but its last
 //     few pictures', and an encode of it every picture once, by
 //     TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked (integration tier).
+//   - Every encode of a quality keeps its source's time base and passes each picture once: its
+//     track counts in the copied picture's timescale, so a player stepping between the copy and an
+//     encode keeps one timeline, and the segment muxer's constant frame rate, at that time base, would
+//     repeat each picture once a tick (idiosyncrasies.md). Enforced by
+//     TestArguments_EncodeAQualityInItsSourcesTimeBase; with the pinned FFmpeg, a Matroska and an
+//     MPEG-TS clip's encodes count in their copies' timescales, every picture once, by
+//     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes (integration tier).
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, ending no
 //     more than a few frames past its bound, the run's last chunk too, and the run's last only once
 //     FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as

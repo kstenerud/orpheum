@@ -227,6 +227,20 @@ const retimingFilter = "dts2pts"
 // shown at its bound.
 const encodeRetimingFilters = retimingFilter + ",setts=pts=PTS-STARTPTS+STARTDTS"
 
+// encodeTimeBase keeps an encode in its source's time base, so its MP4 track counts in the copied
+// picture's timescale: the MP4 muxer makes a track's timescale from its stream's time base, 1/16000
+// for Matroska's 1/1000 (doubled until past 10,000), 1/90000 for MPEG-TS's, and the encoder's
+// default, 1/its frame rate, made every encoded rung's 1/24000 whatever the source; and hls.js, given
+// a chunk at a timescale other than the one it holds, takes a new time offset for the whole stream,
+// and every switch between the copy and an encoded rung left a hole of 0.08 to 0.46 s (film 1504
+// on the Fire TV, staging, 2026-11-13; design/plans/navigation-and-widgets-answers-2026-10-27.md,
+// item 5). Each picture is passed once at its own time (vfr): the segment muxer declares no variable
+// frame rate, so FFmpeg would hold a constant one, counted in the time base's ticks, and at 1/90000
+// encoded each picture 3,753 times (idiosyncrasies.md).
+func encodeTimeBase() []string {
+	return []string{"-enc_time_base:v", "demux", "-fps_mode:v", "vfr"}
+}
+
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
 // run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
@@ -261,6 +275,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))
 		arguments = append(arguments,
 			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command))...)
+		arguments = append(arguments, encodeTimeBase()...)
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),

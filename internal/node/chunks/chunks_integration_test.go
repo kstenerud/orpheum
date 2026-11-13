@@ -133,6 +133,20 @@ func joined(t *testing.T, storePath string, chunkCount int) string {
 	return path
 }
 
+// initTimescale is the ticks per second its store's init gives its track (its mdhd's).
+func initTimescale(t *testing.T, storePath string) uint32 {
+	t.Helper()
+	init, err := os.ReadFile(filepath.Join(storePath, chunks.InitName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	timescale, err := chunks.Timescale(init)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return timescale
+}
+
 // packetTimes are the shown times, in seconds, of the packets of the stream joined from a store's
 // init and its chunks, in order: what a player plays.
 func packetTimes(t *testing.T, runner *execx.Runner, storePath string, chunkCount int) []float64 {
@@ -221,6 +235,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	// MPEG-TS carries its picture's packets in another framing than MP4: its copy's packets are
 	// the film copied whole into MP4.
 	transportCopied := remuxed(t, transport, "a film (2020) from MPEG-TS.mp4")
+	timescales := map[string]uint32{}
 	for storeDir, made := range map[string]struct {
 		source, packetsAs string
 		stream            nodeproto.ChunkStream
@@ -231,8 +246,10 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 		"4/chunks-picture/0123456789abcdef":  {openGOP, openGOP, picture},
 		"1/chunks-q300k96p/0123456789abcdef": {source, source, quality},
 		"2/chunks-q300k96p/0123456789abcdef": {matroska, matroska, quality},
+		"3/chunks-q300k96p/0123456789abcdef": {transport, transportCopied, quality},
 	} {
 		makeInTwoRuns(t, maker, made.source, storeDir, grid, made.stream)
+		timescales[storeDir] = initTimescale(t, filepath.Join(directory, storeDir))
 		if made.stream.Kind == nodeproto.StreamPicture {
 			stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1), "0")
 			if want := packetSizes(t, runner, made.packetsAs, "v:0"); !slices.Equal(stored, want) {
@@ -252,6 +269,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 			}
 		}
 	}
+	encodesCountInTheirCopiesTimescale(t, timescales, "1", "2", "3")
 	soundStore := "1/chunks-sound0/0123456789abcdef"
 	makeInTwoRuns(t, maker, source, soundStore, grid, nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
@@ -266,6 +284,21 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	if len(times) == 0 || math.Abs(times[0]-(offset-frame)) > 0.002 || times[len(times)-1] < offset+11.9 {
 		t.Errorf("the sound runs from %.4f to %.4f s; want from its priming, a frame before the film, to the end",
 			times[0], times[len(times)-1])
+	}
+}
+
+// encodesCountInTheirCopiesTimescale fails the test where a film's encoded quality's track counts in
+// a timescale other than its copied picture's, the MP4's, Matroska's and MPEG-TS's alike, so hls.js
+// takes no new time offset at a switch between them: timescales holds each store's, by its directory.
+func encodesCountInTheirCopiesTimescale(t *testing.T, timescales map[string]uint32, files ...string) {
+	t.Helper()
+	for _, file := range files {
+		copied := timescales[file+"/chunks-picture/0123456789abcdef"]
+		encoded := timescales[file+"/chunks-q300k96p/0123456789abcdef"]
+		if copied == 0 || encoded != copied {
+			t.Errorf("film %s: the encode's track counts in 1/%d, the copy's in 1/%d; want the copy's",
+				file, encoded, copied)
+		}
 	}
 }
 
