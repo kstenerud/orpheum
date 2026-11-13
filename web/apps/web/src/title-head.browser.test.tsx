@@ -246,8 +246,9 @@ describe("a title's actions row, by a remote", () => {
       walkServices(
         {
           ...signedIn,
-          "GET /items/230": episode,
-          "GET /files/2300/up-next": {
+          // Its next as its own read carries it (D477 §2).
+          "GET /items/230": {
+            ...episode,
             upNext: {
               ordering: "aired",
               episode: {
