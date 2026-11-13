@@ -14,7 +14,7 @@ func TestAirPlayGrant_StandsForItsPlaybackForADayThenExpires(t *testing.T) {
 	t.Parallel()
 	setup := newFixture(t)
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,12 +42,12 @@ func TestAirPlayGrant_IsRevokedByItsSenderAlone(t *testing.T) {
 	t.Parallel()
 	setup := newFixture(t)
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	other := anotherSession(t, setup.service)
-	otherGrant, err := setup.service.IssueAirPlayGrant(other, "other-token", 8)
+	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestAirPlayGrant_RefusesAGuestReceiver(t *testing.T) {
 	sender, _ := guestSender(t, setup.service)
 	guest := sender
 	guest.isGuestReceiver = true
-	if _, err := setup.service.IssueAirPlayGrant(guest, "media-token", 7); !errors.Is(err, ErrAirPlaySender) {
+	if _, err := setup.service.IssueAirPlayGrant(guest, phone, "media-token", 7); !errors.Is(err, ErrAirPlaySender) {
 		t.Errorf("a guest receiver's grant: %v, want ErrAirPlaySender", err)
 	}
 }
@@ -85,12 +85,12 @@ func TestAirPlayGrant_EndsWithItsSendersSession(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, issued := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	other := anotherSession(t, setup.service)
-	otherGrant, err := setup.service.IssueAirPlayGrant(other, "other-token", 8)
+	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestAirPlayGrant_EndsWhenItsSendersDeviceIsRevoked(t *testing.T) {
 	if sender.DeviceID == 0 {
 		t.Fatal("the sender's session has no device to revoke")
 	}
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestAirPlayGrant_IsBoundToTheFirstIPv4AddressThatPresentsIt(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +188,56 @@ func TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64(t *testing.T) {
 		t.Errorf("the first IPv4 address, after IPv6 bound: %v; want it bound and served", err)
 	}
 }
+
+// The sender's own address is served whenever it presents its grant and binds nothing (D474): Safari
+// on the phone fetches the master before the receiver does, then the receiver binds the grant, and
+// the phone, its IPv4 address or any in its IPv6 /64, is still served after, as when the receiver lets
+// the film go back to it. Any third address is refused.
+func TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther(t *testing.T) {
+	t.Parallel()
+	setup := newFixture(t)
+	ctx := t.Context()
+	sender, _ := guestSender(t, setup.service)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, grant, phone); err != nil {
+		t.Fatalf("the sender first, as Safari fetches the master before the receiver: %v", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, grant, tv); err != nil {
+		t.Fatalf("the receiver after the sender: %v; want it bound and served", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, grant, phone); err != nil {
+		t.Errorf("the sender after the receiver bound it: %v; want it served", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, grant, netip.MustParseAddr("192.0.2.31")); !errors.Is(err,
+		ErrNoAirPlayGrant) {
+		t.Errorf("a third IPv4 address: %v, want ErrNoAirPlayGrant", err)
+	}
+
+	sixPhone := netip.MustParseAddr("2001:db8:5:6::20")
+	sixGrant, err := setup.service.IssueAirPlayGrant(sender, sixPhone, "media-token", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, sixGrant, netip.MustParseAddr("2001:db8:5:6:cccc::1")); err != nil {
+		t.Fatalf("another address in the sender's /64: %v; want it served", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, sixGrant, netip.MustParseAddr("2001:db8:7:8::30")); err != nil {
+		t.Fatalf("the receiver in another /64: %v; want it bound and served", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, sixGrant, sixPhone); err != nil {
+		t.Errorf("the sender after the receiver bound IPv6: %v; want it served", err)
+	}
+	if _, err = setup.service.AirPlayGrantOf(ctx, sixGrant, netip.MustParseAddr("2001:db8:9:a::40")); !errors.Is(
+		err, ErrNoAirPlayGrant) {
+		t.Errorf("a third /64: %v, want ErrNoAirPlayGrant", err)
+	}
+}
+
+// phone is the address of the sender that asks for a grant: an iPhone at home.
+var phone = netip.MustParseAddr("192.0.2.20")
 
 // tv is the address of the AirPlay receiver presenting a grant.
 var tv = netip.MustParseAddr("192.0.2.30")

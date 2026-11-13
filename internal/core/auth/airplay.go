@@ -46,14 +46,17 @@ type airPlayGrants struct {
 }
 
 // airPlayGrant is one grant: the playback it serves, by its media token, of which file, the session
-// that started it, which alone revokes it, and the addresses it is bound to, one of each family, by
-// the first request from each (D473 §3).
+// that started it, which alone revokes it, the address of the sender that asked for it, and the
+// addresses it is bound to, one of each family, by the first request from each other than the
+// sender's (D473 §3, D474).
 type airPlayGrant struct {
 	AirPlayGrant
 
-	madeAt  time.Time
-	boundV4 netip.Addr
-	boundV6 netip.Prefix
+	madeAt   time.Time
+	senderV4 netip.Addr
+	senderV6 netip.Prefix
+	boundV4  netip.Addr
+	boundV6  netip.Prefix
 }
 
 // AirPlayGrant is what an AirPlay grant stands for (D473 §2): one playback's media, by its token, of
@@ -65,28 +68,49 @@ type AirPlayGrant struct {
 	FileID     int64
 }
 
-// admits is whether a request from address may present the grant, binding it to address's family
-// on the first (D473 §3): an IPv4 address must be the first IPv4 address's, an IPv6 address within
-// the first IPv6 address's /64. An IPv4 address mapped into IPv6 is taken as the IPv4 address it is.
+// admits is whether a request from address may present the grant (D473 §3, as D474 amends it). The
+// sender's own address is always admitted and binds nothing, since Safari on the sender fetches the
+// master and the inits a moment before the receiver does, and plays the grant itself again when the
+// receiver lets it go. Any other address binds the grant to its family on the first request from
+// it: an IPv4 address must be the first such IPv4 address, an IPv6 address within the first such
+// IPv6 address's /64.
 func (grant *airPlayGrant) admits(address netip.Addr) bool {
+	ipv4, ipv6Prefix, isAddress := addressKey(address)
+	switch {
+	case !isAddress:
+		return false
+	case ipv4.IsValid():
+		if ipv4 == grant.senderV4 {
+			return true
+		}
+		if !grant.boundV4.IsValid() {
+			grant.boundV4 = ipv4
+		}
+		return grant.boundV4 == ipv4
+	default:
+		if ipv6Prefix == grant.senderV6 {
+			return true
+		}
+		if !grant.boundV6.IsValid() {
+			grant.boundV6 = ipv6Prefix
+		}
+		return grant.boundV6 == ipv6Prefix
+	}
+}
+
+// addressKey is address as a grant tells addresses apart: an IPv4 address as itself, one mapped into
+// IPv6 as the IPv4 address it maps, an IPv6 address by its /64, within which a device's address may
+// change while it plays. False for an address of neither family.
+func addressKey(address netip.Addr) (netip.Addr, netip.Prefix, bool) {
 	address = address.Unmap()
 	switch {
 	case address.Is4():
-		if !grant.boundV4.IsValid() {
-			grant.boundV4 = address
-		}
-		return grant.boundV4 == address
+		return address, netip.Prefix{}, true
 	case address.Is6():
 		prefix, err := address.WithZone("").Prefix(airPlayIPv6Prefix)
-		if err != nil {
-			return false
-		}
-		if !grant.boundV6.IsValid() {
-			grant.boundV6 = prefix
-		}
-		return grant.boundV6 == prefix
+		return netip.Addr{}, prefix, err == nil
 	}
-	return false
+	return netip.Addr{}, netip.Prefix{}, false
 }
 
 // forgetLocked forgets every grant expired at now, and the oldest of sessionKey's while it has as many
@@ -112,11 +136,14 @@ func (kept *airPlayGrants) forgetLocked(now time.Time, sessionKey string) {
 }
 
 // IssueAirPlayGrant mints an AirPlay grant for the playback of fileID that mediaToken names, which
-// the sender's session holds (the caller has checked): random, kept only as its SHA-256, good for
-// AirPlayGrantLife unless revoked, and bound to no address until it is first presented. It goes in
+// the sender's session holds (the caller has checked), asked for from senderAddress (the
+// connection's own): random, kept only as its SHA-256, good for AirPlayGrantLife unless revoked,
+// served to the sender's address always, and bound to no other until one first presents it. It goes in
 // the media's path, the one place an AirPlay receiver, which runs none of our code, can carry it
 // (D473 §1). ErrAirPlaySender for a guest receiver's session or one of no session key.
-func (service *Service) IssueAirPlayGrant(sender Principal, mediaToken string, fileID int64) (string, error) {
+func (service *Service) IssueAirPlayGrant(
+	sender Principal, senderAddress netip.Addr, mediaToken string, fileID int64,
+) (string, error) {
 	if sender.isGuestReceiver || sender.SessionKey == "" {
 		return "", ErrAirPlaySender
 	}
@@ -128,18 +155,20 @@ func (service *Service) IssueAirPlayGrant(sender Principal, mediaToken string, f
 	service.airPlayGrants.mutex.Lock()
 	defer service.airPlayGrants.mutex.Unlock()
 	service.airPlayGrants.forgetLocked(now, sender.SessionKey)
+	senderV4, senderV6, _ := addressKey(senderAddress)
 	service.airPlayGrants.byHash[hex.EncodeToString(tokenHash(secret))] = airPlayGrant{
 		AirPlayGrant: AirPlayGrant{
 			UserID: sender.UserID, SessionKey: sender.SessionKey, MediaToken: mediaToken, FileID: fileID,
 		},
-		madeAt: now,
+		madeAt: now, senderV4: senderV4, senderV6: senderV6,
 	}
 	return secret, nil
 }
 
 // AirPlayGrantOf is what an AirPlay grant stands for, presented by a request from address (the
-// connection's own, never a header's), while it lasts and its sender's session does. The first
-// request of each address family binds the grant to it (admits). ErrNoAirPlayGrant for one unknown,
+// connection's own, never a header's), while it lasts and its sender's session does. The sender's
+// address is always served; the first request of each address family from any other binds the grant
+// to it (admits). ErrNoAirPlayGrant for one unknown,
 // revoked or expired, presented from another address, or whose session ended: signed out, ended by a
 // new password or its device revoked, or its person removed. The grant serves that session's
 // playback with no credential of its own, so it ends with the session, as the session's own media

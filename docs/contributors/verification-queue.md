@@ -3119,14 +3119,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`internal/node/chunks/arguments.go`, `encodeTimeBase`; idiosyncrasies.md, "The `segment` muxer
   repeats each picture once a tick of an encoder given the source's time base")
 - [ ] **VQ315** — D473's AirPlay, from Cast's menu, plays on an AirPlay receiver with no lab
-  setting, from the receiver's address alone, and comes back to the phone; a receiver that gives up
+  setting, from the receiver's and the sender's addresses alone (D474), and comes back to the phone; a receiver that gives up
   is logged as gone. On staging, after the deploy, on the iPhone in Safari, play a film, open Cast
   and press AirPlay, and pick the MacBook; seek and pause from the iPhone, then let it wait 10
   minutes. Then play it again on the Mac, open Cast and press Stop AirPlay; then AirPlay again and
   choose the iPhone in the picker. Passes when it plays with no setting turned on; at Stop AirPlay
   and at choosing the iPhone, the film plays on in the iPhone's page from where the Mac stood,
   paused if it was paused, and the core's log shows no more requests under the grant from the
-  iPhone; after Apple's idle drop the iPhone's page holds the film where it stood; the core's log shows each `airPlayRequest` from the Mac's address alone, with no grant
+  iPhone; after Apple's idle drop the iPhone's page holds the film where it stood; the core's log shows each `airPlayRequest` from the Mac's address or the iPhone's alone (the
+  iPhone's first, as Safari fetches the master before the Mac, which D474 serves), with no grant
   in it; a chunk not made yet is answered once made or after the 30 s hold, never 425 in under it;
   and a request the Mac gave up on is logged `clientGone`, not as answered 425 or 500. Then present
   the grant's master from another machine on the LAN: it is answered not found.

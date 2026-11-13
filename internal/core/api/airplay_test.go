@@ -191,10 +191,12 @@ func TestAirPlay_AGrantEndsWithTheSignInThatMadeIt(t *testing.T) {
 	}
 }
 
-// A grant is bound to the first address that presents it, by the connection's own address and never
-// a header's (D473 §3): from another IPv4 address it is answered exactly as a grant unknown, whatever
-// Forwarded or X-Forwarded-For says, and from its own it is served whatever they say; the first IPv6
-// address binds its /64 beside it.
+// A grant is served to the sender that asked for it, and bound to the first other address that
+// presents it, by the connection's own address and never a header's (D473 §3, D474): the sender's
+// address (the test server's own, 127.0.0.1) first binds nothing; the receiver's then binds the
+// grant; from a third IPv4 address it is answered exactly as a grant unknown, whatever Forwarded or
+// X-Forwarded-For says, and from the receiver's or the sender's it is served whatever they say; the
+// first IPv6 address binds its /64 beside it.
 func TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -202,11 +204,15 @@ func TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders(t *testing.T) 
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
 	_, made := harness.makeAirPlayGrant(t, user, harness.play(t, user, chrome(1)).MediaToken)
-	if first := harness.getAsAirPlayReceiver(t, made.MasterPath); first.status != http.StatusOK {
-		t.Fatalf("the first request, from 127.0.0.1: %d", first.status)
+	if sender := harness.getAsAirPlayReceiver(t, made.MasterPath); sender.status != http.StatusOK {
+		t.Fatalf("the sender first, from 127.0.0.1: %d", sender.status)
+	}
+	if first := harness.serveAsAirPlayReceiver(t.Context(), made.MasterPath, "192.0.2.40:4000",
+		nil); first.Code != http.StatusOK {
+		t.Fatalf("the receiver, the first address other than the sender's: %d %s", first.Code, first.Body)
 	}
 	claimsTheFirst := http.Header{
-		"X-Forwarded-For": {"127.0.0.1"}, "X-Real-Ip": {"127.0.0.1"}, "Forwarded": {"for=127.0.0.1"},
+		"X-Forwarded-For": {"192.0.2.40"}, "X-Real-Ip": {"192.0.2.40"}, "Forwarded": {"for=192.0.2.40"},
 	}
 	unknownPath := api.Prefix + "/bytes/media/g/not-a-grant/master.m3u8"
 	unknown := harness.serveAsAirPlayReceiver(t.Context(), unknownPath, "192.0.2.50:4321", claimsTheFirst)
@@ -217,9 +223,15 @@ func TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders(t *testing.T) 
 			refused.Code, refused.Body, unknown.Code, unknown.Body)
 	}
 	claimsAnother := http.Header{"X-Forwarded-For": {"192.0.2.50"}, "Forwarded": {"for=192.0.2.50"}}
-	if own := harness.serveAsAirPlayReceiver(t.Context(), made.MasterPath, "127.0.0.1:5555",
+	if own := harness.serveAsAirPlayReceiver(t.Context(), made.MasterPath, "192.0.2.40:5555",
 		claimsAnother); own.Code != http.StatusOK {
-		t.Errorf("from its own address on another port, claiming another: %d %s; want it served", own.Code, own.Body)
+		t.Errorf("from the receiver's address on another port, claiming another: %d %s; want it served", own.Code,
+			own.Body)
+	}
+	if sender := harness.serveAsAirPlayReceiver(t.Context(), made.MasterPath, "127.0.0.1:5556",
+		claimsAnother); sender.Code != http.StatusOK {
+		t.Errorf("from the sender's address after the receiver bound it: %d %s; want it served", sender.Code,
+			sender.Body)
 	}
 	if sixFirst := harness.serveAsAirPlayReceiver(t.Context(), made.MasterPath, "[2001:db8:1:2::10]:443",
 		nil); sixFirst.Code != http.StatusOK {
