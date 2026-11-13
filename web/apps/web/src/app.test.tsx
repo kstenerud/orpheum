@@ -4,7 +4,6 @@
 import "./i18n.ts";
 
 import { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "@orpheum/sdk";
-import { renderToStaticMarkup } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
@@ -25,6 +24,7 @@ import {
 } from "./test-dom.tsx";
 import { isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
+import { signedInMarkupAt } from "./test-app.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 
@@ -103,7 +103,10 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
  * in a first render's place.
  */
 async function markupAt(path: string, isSignedIn = true): Promise<string> {
-  const services = testServices(isSignedIn ? "token" : undefined, path);
+  if (isSignedIn) {
+    return await signedInMarkupAt(path);
+  }
+  const services = testServices(undefined, path);
   const { prelude } = await prerender(withServices(<App />, services));
   return await new Response(prelude).text();
 }
@@ -374,8 +377,8 @@ describe("App", () => {
     setReadyAheadPercent(150);
   });
 
-  it("says when an address names nothing", () => {
-    const markup = renderToStaticMarkup(withServices(<App />, testServices("token", "/nowhere")));
+  it("says when an address names nothing", async () => {
+    const markup = await markupAt("/nowhere");
     expect(markup).toContain("There is nothing at this address.");
   });
 
@@ -557,16 +560,14 @@ describe("the code loaded ahead of its screen (the architecture audit of 2026-11
 });
 
 describe("a page signed in for one cast (D469 §4)", () => {
-  it("shows no shell, only that it waits for the cast", async () => {
+  it("shows no shell, only that it waits for the cast, asking nothing but who is signed in", async () => {
+    // A guest receiver is refused every read of a person's own: the shell's, the home screen's, the
+    // client settings and the person's Watch Together sessions (D465 §2). The stand-in server
+    // answers none of them, and fails the test on any.
+    const heard: Heard[] = [];
     const services = servedBy(
-      {
-        ...backgroundAnswers,
-        "GET /me": [200, { id: 1, isGuestReceiver: true }],
-        // The home screen's, asked while the shell shows before GET /me is answered.
-        "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
-      },
-      [],
+      { "GET /me": [200, { id: 1, isGuestReceiver: true }] },
+      heard,
       "token",
     );
     const mounted = await mount(withServices(<App />, services));
@@ -574,5 +575,6 @@ describe("a page signed in for one cast (D469 §4)", () => {
     await settleUntil(() => container.textContent.includes("Waiting for the cast from your phone"));
     expect(container.querySelector(".app-shell")).toBeNull();
     mounted.unmount();
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /me"]);
   });
 });

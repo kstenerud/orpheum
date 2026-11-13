@@ -21,6 +21,7 @@ import {
   settleUntil,
   type Heard,
 } from "./test-dom.tsx";
+import { signedInMarkupAt } from "./test-app.tsx";
 import { fakePlace, testServices, withServices } from "./test-services.tsx";
 
 /**
@@ -32,11 +33,12 @@ async function markupOf(tree: ReactNode): Promise<string> {
   return await new Response(prelude).text();
 }
 
-/** The markup the app shows at path, signed in or not, before it has read anything. */
+/** The markup the app shows at path: signed in, once it settles (test-app.tsx); else before it has read anything. */
 async function appAt(path: string, isSignedIn = true): Promise<string> {
-  return await markupOf(
-    withServices(<App />, testServices(isSignedIn ? "token" : undefined, path)),
-  );
+  if (isSignedIn) {
+    return await signedInMarkupAt(path);
+  }
+  return await markupOf(withServices(<App />, testServices(undefined, path)));
 }
 
 /** The markup of the screen at path, on a server that offers the device tests. */

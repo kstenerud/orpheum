@@ -377,6 +377,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   check code; a typed one's check code is made of the key, the nonce the TV committed to and the
   core's. `loader-device-code.test.tsx`, `loader-pages.test.tsx`, `device-activation.test.tsx`, and
   the SDK's `device-code.test.ts`.
+- **A guest receiver's page asks for no route the core refuses a guest** (D469 §4, D465 §2): the
+  signed-in page reads who is signed in first, and a page signed in for one cast draws no shell and
+  reads none of a person's own (the client settings, their Watch Together sessions); on its play
+  screen (`IsGuestReceiverContext`, `src/guest-receiver.ts`) there is no Up next, no levelling's
+  waits and no sound choice offered to its remote, and the audio track and subtitles its remote
+  chooses are played and shown but kept for no one. `guest-receiving.test.tsx` plays a cast through
+  against a server refusing every route whose `x-orpheum-capability` a guest's session does not hold,
+  and `app.test.tsx`'s "a page signed in for one cast".
 - **An admin rescans from the Libraries pages and from a film's or series' page** (D357): "Rescan
   everything" on the list, and "Rescan" on the own page of a library of films or of series alone,
   never a mixed or other one; the list and the library's page show how far its rescan is, scanning

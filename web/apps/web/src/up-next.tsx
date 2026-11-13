@@ -19,6 +19,7 @@ import { moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import type { OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
+import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { IconButton } from "./icon-button.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -102,7 +103,9 @@ export function useUpNextOffered(
   playing: Omit<UpNextOffered, "upNext" | "previous">,
 ): UpNextOffered {
   const { isAutoplayOn, receiving } = playing;
-  const around = useAroundFile(fileId, useHasPlayed(video, fileId));
+  // A guest receiver is refused what plays next, a person's own (D469 §4): its cast's remote moves on.
+  const isGuest = useIsGuestReceiver();
+  const around = useAroundFile(fileId, useHasPlayed(video, fileId) && !isGuest);
   const upNext = around?.upNext;
   const previous = around?.previous;
   return useMemo(

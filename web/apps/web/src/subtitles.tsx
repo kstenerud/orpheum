@@ -12,6 +12,7 @@ import { languageName } from "./language-name.ts";
 import { Cluster } from "./layout.tsx";
 import { signedTenthsText } from "./number-text.ts";
 import { useSubtitlesShownToARemote } from "./picture-panel.ts";
+import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
@@ -167,6 +168,8 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
   const offsetRef = useRef(props.preferences.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
+  // A guest receiver keeps no choice, its person's preferences refused it (D469 §4): it shows one.
+  const isGuest = useIsGuestReceiver();
   const track = props.tracks.find((candidate) => trackKey(candidate) === chosenTrackKey);
   const labelOf = useTrackLabel();
   const drawn = track === undefined ? undefined : drawnTrackOf(track, labelOf(track));
@@ -179,6 +182,9 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
     setOffsetMs(newOffsetMs);
     offsetRef.current = newOffsetMs;
     layerRef.current?.setOffsetMs(newOffsetMs);
+    if (isGuest) {
+      return;
+    }
     keepOffset(api, props.fileId, newOffsetMs).catch((cause: unknown) => {
       setFailure(problemText(t, cause));
     });
@@ -186,6 +192,9 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
   const choose = (key: TrackKey | undefined): void => {
     setFailure(undefined);
     setChosenTrackKey(key);
+    if (isGuest) {
+      return;
+    }
     keepSubtitleChoice(api, props.fileId, key).catch((cause: unknown) => {
       setFailure(problemText(t, cause));
     });

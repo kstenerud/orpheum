@@ -10,6 +10,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
 import { Home } from "./home.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
+import { IsGuestReceiverContext } from "./guest-receiver.ts";
 import { InputLayer } from "./input-layer.tsx";
 import { LiveProvider } from "./live.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
@@ -157,7 +158,8 @@ function LeavingForSignIn(): JSX.Element {
  * request passes (signed-out-watch.ts), with the server's reason.
  */
 function SignedIn(): JSX.Element {
-  const { api, session, realm, switchHousehold } = useServices();
+  const { t } = useTranslation();
+  const { api } = useServices();
   const route = useRoute();
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
@@ -171,6 +173,33 @@ function SignedIn(): JSX.Element {
   // Kept by this signed-in page alone, so another sign-in never starts from it.
   const [rememberedMe] = useState(() => new Remembered<components["schemas"]["UserBody"]>());
   const me = useRemembered("me", meNow, rememberedMe);
+  // Who is signed in is known before anything else is asked: a guest receiver is refused every read
+  // of a person's own, the client settings and the person's Watch Together sessions among them
+  // (D469 §4, D465 §2).
+  if (me.state === "loading") {
+    return <p>{t("common.loading")}</p>;
+  }
+  if (isGuestReceiver(me)) {
+    return (
+      <IsGuestReceiverContext value={true}>
+        <GuestReceiving route={route} />
+      </IsGuestReceiverContext>
+    );
+  }
+  return <PersonSignedIn me={me} readMeAgain={readMeAgain} route={route} />;
+}
+
+/**
+ * The signed-in client of a person, not a guest receiver: its shell, its screens and what every
+ * screen shares, read once who is signed in (me) is known, or could not be.
+ */
+function PersonSignedIn(props: {
+  readonly me: Resource<components["schemas"]["UserBody"]>;
+  readonly readMeAgain: () => void;
+  readonly route: Route;
+}): JSX.Element {
+  const { api, session, realm, switchHousehold } = useServices();
+  const { me, readMeAgain, route } = props;
   const signOut = (): void => {
     signOutHere(api, session);
   };
@@ -186,9 +215,6 @@ function SignedIn(): JSX.Element {
     // offered again by the screens that start or join one.
     void haveBackMySessions(api).catch(() => undefined);
   }, [api]);
-  if (isGuestReceiver(me)) {
-    return <GuestReceiving route={route} />;
-  }
   return (
     <IsAdminContext value={isAdmin}>
       <DebugToolsContext value={debugTools}>

@@ -3670,6 +3670,11 @@ them (2026-11-13). Deploys go to staging; production waits for the owner.
    may go to the next or previous video. Today a guest's rights are play/pause and seek alone
    (`nextRights`, D271 §4), and the guest's player shows no Up next, so it already holds; a right to
    change the film would be new (amending D271), for the owner.
+   **Done 2026-11-13** in "fix(cast): a guest receiver's page asks for nothing the core refuses
+   it": the signed-in page draws once GET /me answers, so the shell's tests now answer it as a
+   person's (the owner's option (a)). The audio track and subtitles a guest's remote chooses play
+   but are kept for no one, as `PUT /files/{id}/preferences` is refused a guest too.
+   `guest-receiving.test.tsx` checks it against the API document's capabilities.
 3. **X2 (D469): as proposed.** The wording stays until VQ311; a typed code is never cast to.
 4. **X7 (D466):** Cancel and Renew keep their confirmation; 60 minutes stays. **New:** the page a
    reset link opens says "Choose your new password" (a first registration's keeps "Choose your
