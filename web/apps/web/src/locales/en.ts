@@ -4,8 +4,6 @@ import { enCast } from "./en-cast.ts";
 import { enDevices } from "./en-devices.ts";
 import { enDiscovery } from "./en-discovery.ts";
 import { enPlay } from "./en-play.ts";
-import { enSettingLabels } from "./en-setting-labels.ts";
-import { enSettingsCatalogue } from "./en-settings.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
@@ -18,8 +16,9 @@ import { enFind } from "./en-find.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
- * server once translations exist. Keys name what the text is for, never what it says. The lab's and
- * the gallery's words come with their screens' code (lab-words.ts, gallery-words.ts), not here.
+ * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
+ * gallery's and the settings pages' words come with their screens' code (lab-words.ts,
+ * gallery-words.ts, settings-words.ts), not here.
  */
 export const en = {
   ...enTogether,
@@ -536,8 +535,6 @@ export const en = {
     tipRemove: "Remove it",
     tipNotSet: "Not set, so nothing to remove",
     intro: "Every setting is saved as it is changed. For a newer release of the server, see",
-    ...enSettingLabels,
-    ...enSettingsCatalogue,
   },
   shell: {
     notFound: "There is nothing at this address.",

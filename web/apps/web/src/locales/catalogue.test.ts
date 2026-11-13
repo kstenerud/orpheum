@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { camelKey } from "../catalogue-key.ts";
 import { sectionOrder } from "../server-settings.tsx";
+import { settingsWords } from "../settings-words.ts";
 import { en } from "./en.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enLab } from "./en-lab.ts";
@@ -38,6 +39,7 @@ const laterWords: Record<string, object> = {
   "./system-words.ts": enSystem,
   "./libraries-words.ts": enLibraries,
   "./people-words.ts": enPeople,
+  "./settings-words.ts": settingsWords,
 };
 
 /** The catalogue a source file's keys are read from: the first page's, and the words it brings. */
@@ -45,7 +47,23 @@ function catalogueOf(source: string): object {
   const brought = Object.entries(laterWords).filter(([path]) =>
     source.includes(`import "${path}";`),
   );
-  return brought.reduce<object>((catalogue, [, words]) => ({ ...catalogue, ...words }), en);
+  return brought.reduce<object>((catalogue, [, words]) => withWords(catalogue, words), en);
+}
+
+/** A catalogue with words added, merged at every depth as i18n.ts's addWords merges them: the
+ * settings pages' words join `settings.`, which the first page's catalogue has too. */
+function withWords(catalogue: object, words: object): object {
+  const merged = new Map<string, unknown>(Object.entries(catalogue));
+  for (const [key, value] of Object.entries(words)) {
+    const held = merged.get(key);
+    merged.set(
+      key,
+      typeof held === "object" && held !== null && typeof value === "object" && value !== null
+        ? withWords(held, value)
+        : value,
+    );
+  }
+  return Object.fromEntries(merged);
 }
 
 /** Whether the catalogue has text at a dotted key. */
@@ -176,7 +194,9 @@ describe("the English catalogue", () => {
     const section = field(field(field(schemas, "SettingBody"), "properties"), "section");
     expect(field(section, "enum")).toEqual(sectionOrder);
     expect(
-      sectionOrder.filter((each) => !hasText(en, `settings.sections.${camelKey(each)}`)),
+      sectionOrder.filter(
+        (each) => !hasText(withWords(en, settingsWords), `settings.sections.${camelKey(each)}`),
+      ),
     ).toEqual([]);
   });
 });
