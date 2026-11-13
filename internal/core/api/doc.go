@@ -204,11 +204,14 @@
 //     refused on every other path. Stop (DELETE /lab/airplay/grants) revokes the session's grants and
 //     says how many. Every path of it is notFound while the admin has shouldOfferAirPlayLab off, its
 //     start, so D154 §6 is not widened beyond the lab. A master or chunk not made yet is held for
-//     labAirPlayHold under a grant, as AVPlayer does not honour a 425. Enforced by
-//     TestLabAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential,
+//     labAirPlayHold under a grant, as AVPlayer does not honour a 425. Each request under a grant,
+//     a refused one's too, is logged at debug with its file, status, bytes and times, and the grant,
+//     a bearer credential, is in no log line, an error's path included (loggingLabAirPlay). Enforced
+//     by TestLabAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential,
 //     TestLabAirPlay_AGrantIsForItsSessionsPlaybackAloneAndSignsNoOneIn,
-//     TestLabAirPlay_StopRevokesTheGrant, TestLabAirPlay_IsOffByDefaultAndRefusedWhileOff and
-//     TestLabAirPlay_AMasterWithNoGridIsHeldForTheReceiver.
+//     TestLabAirPlay_StopRevokesTheGrant, TestLabAirPlay_IsOffByDefaultAndRefusedWhileOff,
+//     TestLabAirPlay_AMasterWithNoGridIsHeldForTheReceiver and
+//     TestLabAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant.
 //   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no
 //     gzip shrinks, never cached, behind the same sign-in and setting, each one logged as sent with
 //     the path it came over; a throughput test's figures are logged as "a throughput test ran"
