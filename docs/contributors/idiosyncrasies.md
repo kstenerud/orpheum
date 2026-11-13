@@ -151,6 +151,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A WebRTC connection to Chrome carries 50–80 Mb/s on a fast link; Chrome's socket drops packets (`UdpRcvbufErrors`). | [Chrome reads a WebRTC connection through a 64 KiB socket buffer unless it has a video m-line](#chrome-reads-a-webrtc-connection-through-a-64-kib-socket-buffer-unless-it-has-a-video-m-line) |
 | Chrome cannot connect through a discovery; the core logs "the core refused the offer: 2 fingerprints". | [Chrome writes a=fingerprint in every m-line, Firefox once for the session](#chrome-writes-afingerprint-in-every-m-line-firefox-once-for-the-session) |
 | The core's "rtc connection ended" line reads zero for every SCTP figure after a Chromium page closes. | [Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection](#chromium-ends-a-connection-with-dtls-close_notify-and-no-sctp-abort-and-pion-then-closes-the-whole-peer-connection) |
+| On a lossy Wi-Fi every connection carried about 25 KB in 50 s, `cwndBytes=1191`, and the page gave each up. | [pion's SCTP backs its resends off to 60 s and narrows its window to one packet, so on a lossy link it goes quiet past the page's 40 s](#pions-sctp-backs-its-resends-off-to-60-s-and-narrows-its-window-to-one-packet-so-on-a-lossy-link-it-goes-quiet-past-the-pages-40-s) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | An encode given its source's time base ran at full CPU and wrote thousands of pictures for each of the film's. | [The `segment` muxer repeats each picture once a tick of an encoder given the source's time base](#the-segment-muxer-repeats-each-picture-once-a-tick-of-an-encoder-given-the-sources-time-base) |
@@ -2682,6 +2683,36 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   met the same alert as "immediate DTLS state change to failed" and changed it; [GStreamer
   webrtcbin #1539](https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/issues/1539) saw
   Chrome's close arrive only as a DTLS close, with no connection-state change (checked 2026-11-01).
+
+### pion's SCTP backs its resends off to 60 s and narrows its window to one packet, so on a lossy link it goes quiet past the page's 40 s
+
+- **Symptom:** on a train's Wi-Fi, a round trip of 100–200 ms, every connection from the owner's
+  phone carried about 25 KB in about 50 s and ended with `cwndBytes=1191`, one packet; the page gave
+  each up, and playback stopped and would not load again. Other sites, YouTube among them, loaded
+  slowly.
+- **Cause:** **[source]** pion/sctp v1.12.0 doubles its resend timeout at each T3-rtx expiry up to
+  `defaultRTOMax`, 60 s (`rtx_timer.go`, `calculateNextTimeout`), from a floor of 1 s (`rtoMin`), so
+  lost resends go at 1, 3, 7, 15, 31 and 63 s: past the page's `silentAtMostMs` (40 s,
+  `web/packages/sdk`'s `rtc-request.ts`). At each expiry it sets `cwnd` to one MTU, 1191 bytes from
+  pion/webrtc (`constants.go`, `sctpOutboundMTU`), as RFC 4960 §7.2.3 asks (`association.go`,
+  `onRetransmissionTimeout`), and on a link that loses most full-size packets it stays there.
+  `SettingEngine.SetSCTPRTOMax` caps the backoff (and the measured RTO); `SetSCTPMinCwnd` floors every
+  window pion sets (`setCWND`), the one after a timeout included.
+- **What we do:** `rtcapi` caps the resend wait at 3 s (`sctpResendCeiling`) and floors the window at
+  four packets (`sctpLeastWindowBytes`). `TestSettings_AResponseOverALossyLinkArrivesBeforeThePageGivesUp`
+  runs two pion peers over pion's virtual network (`transport/v5/vnet`, a chunk filter dropping the
+  core's full-size datagrams for 32 s) inside a `testing/synctest` bubble, so the 40 s pass in
+  milliseconds; `TestSettings_PionsOwnGoQuietOverALossyLinkPastThePagesLimit` shows pion's own
+  settings miss the 40 s with a one-packet window. `vnet.NewRouter` panics with no `LoggerFactory`.
+- **Evidence:** the core's log, the owner's train, 2026-11-13 (VQ316). **[source]** libwebrtc caps
+  Chrome's own backoff at 3 s: `media/sctp/dcsctp_transport.cc`, `kMaxTimerBackoffDuration =
+  DurationMs(3000)`, "When there is packet loss for a long time, the SCTP retry timers will use
+  exponential backoff, which can grow to very long durations and when the connection recovers, it
+  may take a long time to reach the new backoff duration" ([source](https://webrtc.googlesource.com/src/+/main/media/sctp/dcsctp_transport.cc),
+  [the change](https://webrtc.googlesource.com/src/+/cebbff7f5851b6a1cf0552b60cba311c64abea89%5E%21/));
+  dcsctp's least window on a loss SACKs show is four MTUs (`net/dcsctp/public/dcsctp_options.h`,
+  `cwnd_mtus_min = 4`), one after a timeout ([source](https://webrtc.googlesource.com/src/+/main/net/dcsctp/public/dcsctp_options.h);
+  checked 2026-11-13).
 
 ---
 

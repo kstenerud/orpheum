@@ -97,6 +97,14 @@
 //     TestListenAddressPerFamily_IsOneOfEachFamilyNeitherLoopbackNorLinkLocal.
 //   - A new address at home is offered from the next offer on, on the same socket (D452 §3).
 //     TestListenLAN_ANewAddressAtHomeIsOfferedFromTheNextOffer.
+//   - A connection's SCTP waits at most sctpResendCeiling (3 s, Chrome's own ceiling, libwebrtc's
+//     dcsctp_transport.cc kMaxTimerBackoffDuration) before resending what its client has not
+//     acknowledged, and its send window is never narrower than sctpLeastWindowBytes (four packets,
+//     dcsctp's cwnd_mtus_min), so on a link that loses most full-size packets the core is not quiet
+//     past the page's silentAtMostMs (40 s): pion's own ceiling is 60 s, and its window one packet
+//     after a resend timeout (the owner's train, 2026-11-13; idiosyncrasies.md).
+//     TestSettings_AResponseOverALossyLinkArrivesBeforeThePageGivesUp, over pion's virtual network,
+//     TestSettings_PionsOwnGoQuietOverALossyLinkPastThePagesLimit showing the loss it answers.
 //   - Only an offer is answered, and none past the most connections the core holds at once:
 //     DefaultMaxConnections until SetMaxConnections names another (the config's
 //     webrtc.max_connections, D348). TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit,

@@ -42,6 +42,29 @@ const ClientConnections = 4
 // 64 KiB took a 50 ms round trip from 15 to 20 Mbit/s on one connection (§9.4).
 const cwndStepBytes = 64 << 10
 
+// sctpResendCeiling is the longest the core waits before resending what a client has not
+// acknowledged. Each resend that goes unanswered doubles the wait, and pion's own ceiling is 60 s
+// (sctp v1.12.0's rtx_timer.go, defaultRTOMax): on a lossy link the core went quiet past the page's
+// silentAtMostMs (40 s, web/packages/sdk's rtc-request.ts), and the page gave its connections up
+// (the owner's train, 2026-11-13). 3 s is Chrome's own ceiling for what it sends
+// (libwebrtc's media/sctp/dcsctp_transport.cc, kMaxTimerBackoffDuration), so the core resends
+// over a lossy link as often as a browser does: fourteen times in the page's 40 s rather than five.
+// Its floor is pion's 1 s (rtoMin), so the waits run 1, 2, 3, 3 … s.
+const sctpResendCeiling = 3 * time.Second
+
+// sctpPacketBytes is the most an SCTP packet the core sends holds: pion's (webrtc v4's
+// sctpOutboundMTU, unexported), the cwndBytes of a window one packet wide.
+const sctpPacketBytes = 1191
+
+// sctpLeastWindowBytes is the narrowest the core's send window gets: four packets, as Chrome's
+// least on a loss (libwebrtc's net/dcsctp/public/dcsctp_options.h, cwnd_mtus_min). The pion library
+// narrows it to one packet at each resend timeout, as RFC 4960 §7.2.3 asks, and on a link losing most
+// full-size packets it stayed there: every connection on the owner's train sent about 25 KB in 50 s
+// with cwndBytes=1191 (2026-11-13). Small packets passed there, so the loss was the link's rather
+// than a full queue's, which a window one packet wide does not ease; four packets in flight give
+// each round trip four chances.
+const sctpLeastWindowBytes = 4 * sctpPacketBytes
+
 // NegotiationLabel is the channel a client opens only so its offer has something to negotiate
 // (web/packages/sdk's rtc-connect.ts, rtcapitest): it carries no request, so it is never served,
 // takes no request's place, and is not logged as one that did not arrive.
@@ -349,10 +372,11 @@ func (server *Server) relayedSettings() webrtc.SettingEngine {
 	return relayed
 }
 
-// settings are every connection's: the congestion window's growth, and what a client may send. A
-// browser closing its connection sends DTLS close_notify, on which pion closes the connection itself,
-// dropping SCTP's association before its end could be logged (logEnded): the core closes it instead
-// as its SCTP ends. Every socket ICE opens sends through paced (pacer.go).
+// settings are every connection's: the congestion window's growth and floor, the ceiling on SCTP's
+// wait to resend, and what a client may send. A browser closing its connection sends DTLS
+// close_notify, on which pion closes the connection itself, dropping SCTP's association before its
+// end could be logged (logEnded): the core closes it instead as its SCTP ends. Every socket ICE
+// opens sends through paced (pacer.go).
 func settings(paced *pacer) webrtc.SettingEngine {
 	engine := webrtc.SettingEngine{}
 	engine.DisableCloseByDTLS(true)
@@ -362,6 +386,8 @@ func settings(paced *pacer) webrtc.SettingEngine {
 	engine.SetSCTPCwndCAStep(cwndStepBytes)
 	engine.SetSCTPMaxReceiveBufferSize(sctpReceiveBytes)
 	engine.SetSCTPMaxMessageSize(MaxMessageBytes)
+	engine.SetSCTPRTOMax(sctpResendCeiling)
+	engine.SetSCTPMinCwnd(sctpLeastWindowBytes)
 	engine.SetSTUNGatherTimeout(stunGatherTimeout)
 	return engine
 }
