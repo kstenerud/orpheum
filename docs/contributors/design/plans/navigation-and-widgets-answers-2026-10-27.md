@@ -3825,3 +3825,22 @@ its steps, ending "Renew it with the discovery's operator."
 - **With billing:** the admins' banner in grace ("Discovery ends on <date>") and a client's own
   message for a paused server none of whose direct paths answers. In the beta nothing lapses by
   date and only the owner lapses a server, by hand, so neither has a date or a case to show.
+
+## The settings words loaded with their pages, next batch (the owner, 2026-11-13)
+
+The 11-25 batch's check-pr spent ten minutes of revert-red on each of `locales/en-setting-labels.ts`
+and `locales/en-settings.ts`, for a one-line change to each: `en.ts` spreads them into the shared
+catalogue, which `i18n.ts` imports and 192 modules import in turn, so reverting either re-runs nearly
+every web test and the type check. The owner asked whether they should be split by area; they
+already are, and the cost is the merge, not the size.
+
+- **The settings words move to a `settings-words.ts`** that adds them with `addWords`, the way
+  `lab-words.ts`, `people-words.ts`, `gallery-words.ts`, `system-words.ts` and `libraries-words.ts`
+  already do, imported by the modules that ask for a `settings.` word (`settings.tsx`,
+  `server-settings.tsx`, `system-unused-settings.tsx`, `your-devices.tsx`, `confirm-button.tsx`,
+  `loader-at-loader-origin.tsx`; check each). The two files keep their names, so the Go test holding a
+  label and a description for every server setting reads them as now. The settings words also leave
+  the first page's load.
+- **The other merged parts are looked at the same way** (`en-play.ts`, `en-cast.ts`,
+  `en-devices.ts`, `en-together.ts`, …): a part asked for only by its own area's modules moves; one
+  asked for everywhere (navigation, status) stays in `en.ts`.
