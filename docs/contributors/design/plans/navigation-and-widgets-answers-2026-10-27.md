@@ -3312,6 +3312,30 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 - **2.** Where a Chromecast cast's 2.6 to 4.5 s go, measured and cut. The owner allowed about ten
   casts tonight to the Attic TV Chromecast from the testing Pixel 3a, on staging, knowing they may
   switch the TV on over HDMI-CEC.
+  - **Not measured yet (2026-11-13, 00:15 to 00:40 UTC): the Pixel found no Cast device. No cast was
+    made (0 of the ten).** Chrome on the Pixel, signed in to orpheum.dev as lead-tests, opened the
+    picker from the Cast menu's Chromecast three times, once after the Pixel's Wi-Fi was turned off
+    and on, and each time said "No devices available". Chrome's own menu offered no Cast either.
+    The Pixel and Attic TV are on the same network ("st"), the Pixel pings it, and nuc7, on the
+    wire, finds it by mDNS at once (192.168.111.129, Cast firmware 1.56.291998). The Pixel's log
+    shows its mDNS discovery failing about once a second ("AOSP-MdnsDiscoveryManag: Error while
+    decoding multicast packet", over 157,000 so far). A restart of the Pixel, to clear it, left the
+    phone at its PIN, which no agent has: the owner unlocks it before the next run.
+  - **The stages, from the code, and where each is read on the next run.** The core makes the cast
+    only once the receiver has launched, traded its grant and been welcomed (`castToAGoogleCastDevice`
+    in `web/apps/web/src/google-cast.ts`), so the 2.6 to 4.5 s leave out the launch; it is timed
+    apart, from the press. After the cast is made: (1) the receiver takes it (`POST
+    /me/casts/{id}/accept`, the 0.25 s seen); (2) it asks the playback decision (`POST /playback`,
+    the core's "a playback started"); (3) hls.js loads the master and the quality's playlists, the
+    init chunk and the first chunk at the sender's place, at the decision's `startAtBps` (the node's
+    log says whether a chunk was made on request); (4) the receiver puts the film on the session
+    (`changeItem`) only once the decision is back, the group waits for its leader, the receiver
+    calls `play()`, and the group plays once the receiver reports playing and not buffering
+    (`followLeader`), which is about the first frame on the TV. The core's debug log holds each
+    player's change ("a device's player changed"); the receiver keeps its own timed notes from its
+    start, its video's `loadedmetadata`, `canplay`, `playing` and `waiting` among them, even with
+    its log hidden, and Attic TV opens its remote debugging on port 9222 while a receiver runs, so
+    the notes and each load's timing (the page's resource timings) are read after each cast.
 - **4.** check-pr's two gate changes (the background probe beside a session's test runs; revert-red
   runs the named tests before the package), each with a `Gate-Changed:` trailer.
   - **And a third, found by the release's check-pr (2026-11-12, 19:05 UTC):** revert-red failed in
