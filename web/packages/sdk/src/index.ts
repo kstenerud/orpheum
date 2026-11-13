@@ -53,6 +53,7 @@ export {
 } from "./rtc-loopback.ts";
 export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
+export { waitMs } from "./wait-ms.ts";
 export {
   connectRtc,
   isSecureUnfinished,

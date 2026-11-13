@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { setVoiceLive } from "./voice-live.ts";
+import { waitMs } from "./wait-ms.ts";
 import { voiceFirstStatsAfterMs, voiceStatsEveryMs } from "./together-voice-stats.ts";
 import {
   CallEntry,
@@ -431,11 +432,11 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   }
 
   /**
-   * A call with partner, made once the ICE servers are known, after waitMs when it is made again;
+   * A call with partner, made once the ICE servers are known, after afterMs when it is made again;
    * the lower device id offers. Signalling heard meanwhile waits its turn on it. One not connected
    * within callConnectsWithinMs is failed, and so made again (D281 §6).
    */
-  #startCall(partner: PartnerDevice, waitMs = 0): CallEntry {
+  #startCall(partner: PartnerDevice, afterMs = 0): CallEntry {
     const entry = new CallEntry(partner, (this.#ownDeviceId ?? 0) < partner.deviceId, () => {
       this.#setState(entry, "failed");
     });
@@ -443,15 +444,15 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       if (entry.partner().state !== "connected") {
         this.#setState(entry, "failed");
       }
-    }, waitMs + callConnectsWithinMs);
+    }, afterMs + callConnectsWithinMs);
     // A call made long after the last ask asks again: the relay's credentials last a day (D243 §8).
     if (this.#options.monotonicMs() - this.#iceServersAskedAtMs > iceServersFreshForMs) {
       this.#askForIceServers();
     }
     const iceServers = this.#iceServers;
     entry.run(async () => {
-      if (waitMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      if (afterMs > 0) {
+        await waitMs(afterMs);
       }
       const servers = await iceServers;
       if (entry.isClosed) {
@@ -563,8 +564,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
     const failures = (this.#failures.get(failed.deviceId) ?? 0) + 1;
     this.#failures.set(failed.deviceId, failures);
-    const waitMs = callRetryWaitsMs[Math.min(failures, callRetryWaitsMs.length) - 1] ?? 0;
-    this.#calls.set(failed.deviceId, this.#startCall(failed, waitMs));
+    const afterMs = callRetryWaitsMs[Math.min(failures, callRetryWaitsMs.length) - 1] ?? 0;
+    this.#calls.set(failed.deviceId, this.#startCall(failed, afterMs));
     this.#change({ ...this.#snapshot, partners: this.#partners() });
   }
 

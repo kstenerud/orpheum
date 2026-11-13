@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { waitMs } from "./wait-ms.ts";
+
 /**
  * A WebRTC call of the page with itself, for the lab pages (plans/tv-device-tests.md): two peer
  * connections in one page, signalled by hand, with a data channel whose messages come back and an
@@ -196,13 +198,6 @@ export function toneTrack(
   };
 }
 
-/** Waits ms. */
-async function pause(ms: number): Promise<void> {
-  await new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
 /**
  * Calls the page with itself carrying track, hands what arrives to playOut to play (a browser
  * decodes a received track only while something plays it), undefined once it ends, and measures: how long it took to connect, three
@@ -225,7 +220,7 @@ export async function testLoopback(
       roundTripsMs.push(Math.round((await loopback.ping()) * 10) / 10);
     }
     for (let index = 0; index < (options.samples ?? 4); index += 1) {
-      await pause(options.sampleEveryMs ?? 500);
+      await waitMs(options.sampleEveryMs ?? 500);
       levels.push((await loopback.level()) ?? null);
     }
     return { connectMs, roundTripsMs, levels, failure: undefined };

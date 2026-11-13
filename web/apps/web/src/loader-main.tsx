@@ -4,7 +4,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { noteForTheLog } from "@orpheum/sdk";
+import { noteForTheLog, waitMs } from "@orpheum/sdk";
 import { StrictMode, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -15,7 +15,7 @@ import { guardFormsOk } from "./form-ok.ts";
 import { coreIdOfOrigin, loaderConfigOf } from "./loader-config.ts";
 import { removeUnownedKeys } from "./browser-storage.ts";
 import { clearCookies } from "./loader-sweep.ts";
-import { loadRole, waitMs, type PartLoadParts } from "./part-load.ts";
+import { loadRole, type PartLoadParts } from "./part-load.ts";
 
 /** The keys the loader owns at its own origin: the household list, and the remembered realm. */
 const ownedAtLoaderOrigin = new Set(["orpheum.loader.households", "orpheum.discovery.realm"]);

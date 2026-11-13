@@ -5,7 +5,7 @@ import "./device-activation.css";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import type { Api } from "@orpheum/sdk";
+import { waitMs, type Api } from "@orpheum/sdk";
 
 import { activateDevice, answerActivation, castToActivation, type Activation } from "./accounts.ts";
 import { startCast } from "./cast.ts";
@@ -14,7 +14,6 @@ import { FormRow } from "./form-row.tsx";
 import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
 import { WarningIcon } from "./icons.tsx";
 import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
-import { waitFor } from "./reopen.ts";
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
@@ -56,7 +55,7 @@ async function castOnceItConnects(api: Api, deviceId: number): Promise<boolean> 
         return false;
       }
     }
-    await waitFor(castAsksEveryMs);
+    await waitMs(castAsksEveryMs);
   }
 }
 

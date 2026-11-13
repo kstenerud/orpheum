@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { failureText, SilentRequestError } from "@orpheum/sdk";
+import { failureText, SilentRequestError, waitMs } from "@orpheum/sdk";
 
 import { ApiProblem } from "./problem.ts";
 
@@ -76,11 +76,6 @@ export const reopenWaitsMs: readonly number[] = [1000, 2000, 4000, 8000, 15_000,
  */
 export const reopenAtMostEveryMs = 60_000;
 
-/** Waits ms, as setTimeout does. */
-export function waitFor(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * One attempt an ask makes to reach the server: how long it took, on the caller's clock, and what
  * happened, "ok" or a failure's words (failureText). For a playback's start timing (play.tsx,
@@ -118,10 +113,10 @@ async function timedAsk<T>(ask: () => Promise<T>, timing: AskTiming | undefined)
  */
 export async function askUntilAnswered<T>(
   ask: () => Promise<T>,
-  wait: (ms: number) => Promise<void> = waitFor,
+  wait: (ms: number) => Promise<void> = waitMs,
   timing?: AskTiming,
 ): Promise<T> {
-  for (const waitMs of reopenWaitsMs) {
+  for (const afterMs of reopenWaitsMs) {
     try {
       return await timedAsk(ask, timing);
     } catch (cause) {
@@ -129,7 +124,7 @@ export async function askUntilAnswered<T>(
         throw cause;
       }
     }
-    await wait(waitMs);
+    await wait(afterMs);
   }
   return await timedAsk(ask, timing);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { tabStorage } from "./browser-storage.ts";
-import { loadOwnPart, waitMs } from "./part-load.ts";
+import { loadOwnPart, shellWaitMs } from "./part-load.ts";
 
 // The page loads only its own part, the loader or the core's client, asked again when it does not
 // come (part-load.ts).
@@ -16,6 +16,6 @@ void loadOwnPart(
     reload: () => {
       window.location.reload();
     },
-    wait: waitMs,
+    wait: shellWaitMs,
   },
 );

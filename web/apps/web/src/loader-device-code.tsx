@@ -24,6 +24,7 @@ import {
   type DeviceCodeState,
   type DeviceKey,
   type DiscoveryClient,
+  waitMs,
 } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -87,11 +88,6 @@ type Shown =
   | { readonly kind: "refused" }
   | { readonly kind: "failed" };
 
-/** Waits ms, by the browser's clock. */
-function browserWait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Runs one device's code to its end while isLive says the page still shows it: asks for a code,
  * shows it, shows the check code once it is entered, asks for a new one when it ends, and goes on to
@@ -102,7 +98,7 @@ async function runCode(
   show: (shown: Shown) => void,
   isLive: () => boolean,
 ): Promise<void> {
-  const wait = parts.wait ?? browserWait;
+  const wait = parts.wait ?? waitMs;
   const platform = thisDevice({ deviceId: () => undefined, deviceProof: () => undefined }).platform;
   let isRenewed = false;
   while (isLive()) {
