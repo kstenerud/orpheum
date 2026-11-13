@@ -132,10 +132,19 @@ func (server *Server) logErrorAnswer(ctx huma.Context, status string, body any) 
 	if operation := ctx.Operation(); operation != nil {
 		operationID = operation.OperationID
 	}
-	server.logger.DebugContext(ctx.Context(), "answered with an error",
-		"operation", operationID, "method", ctx.Method(), "path", withoutLabAirPlayGrant(ctx.URL().Path),
-		"status", status,
-		"code", failure.ErrorBody.Error.Code, "message", failure.ErrorBody.Error.Message)
+	path := withoutAirPlayGrant(ctx.URL().Path)
+	if clientWentAway := ctx.Context().Err() != nil; clientWentAway {
+		// Its client went away before the answer: nothing reaches it, so no status or fault is logged
+		// as answered (the AirPlay lab's second run, 2026-11-13: an AVPlayer cancelling a held chunk was
+		// logged as answered 425, and one cancelling a node's read as answered 500).
+		server.logger.DebugContext(ctx.Context(), "a request's client went away before its answer",
+			"operation", operationID, "method", ctx.Method(), "path", path)
+	} else {
+		server.logger.DebugContext(ctx.Context(), "answered with an error",
+			"operation", operationID, "method", ctx.Method(), "path", path,
+			"status", status,
+			"code", failure.ErrorBody.Error.Code, "message", failure.ErrorBody.Error.Message)
+	}
 	return body, nil
 }
 

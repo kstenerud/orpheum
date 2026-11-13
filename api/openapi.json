@@ -156,6 +156,52 @@
         ],
         "type": "object"
       },
+      "AirPlayGrantInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "mediaToken": {
+            "description": "The playback's media token, as POST /playback answered it",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaToken"
+        ],
+        "type": "object"
+      },
+      "AirPlayGrantOutputBody": {
+        "properties": {
+          "expiresAt": {
+            "description": "When the grant ends, unless Stop revokes it sooner",
+            "format": "date-time",
+            "type": "string"
+          },
+          "masterPath": {
+            "description": "The master playlist's path under the grant, on the server's own origin, the grant in it",
+            "type": "string"
+          }
+        },
+        "required": [
+          "masterPath",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AirPlayRevokeOutputBody": {
+        "properties": {
+          "revoked": {
+            "description": "How many of the session's AirPlay grants were still good and are revoked now",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "type": "object"
+      },
       "AllowanceBody": {
         "properties": {
           "allowedDownloads": {
@@ -3339,52 +3385,6 @@
           "memberId",
           "membershipCredential",
           "locator"
-        ],
-        "type": "object"
-      },
-      "LabAirPlayGrantInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "mediaToken": {
-            "description": "The playback's media token, as POST /playback answered it",
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "mediaToken"
-        ],
-        "type": "object"
-      },
-      "LabAirPlayGrantOutputBody": {
-        "properties": {
-          "expiresAt": {
-            "description": "When the grant ends, unless Stop revokes it sooner",
-            "format": "date-time",
-            "type": "string"
-          },
-          "masterPath": {
-            "description": "The master playlist's path under the grant, on the server's own origin, the grant in it",
-            "type": "string"
-          }
-        },
-        "required": [
-          "masterPath",
-          "expiresAt"
-        ],
-        "type": "object"
-      },
-      "LabAirPlayRevokeOutputBody": {
-        "properties": {
-          "revoked": {
-            "description": "How many of the session's AirPlay grants were still good and are revoked now",
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "revoked"
         ],
         "type": "object"
       },
@@ -9881,6 +9881,88 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/airplay/grants": {
+      "delete": {
+        "operationId": "revokeAirPlayGrants",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirPlayRevokeOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Revokes every AirPlay grant the caller's session made, as Stop and the end of AirPlay do",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "signedIn"
+      },
+      "post": {
+        "operationId": "makeAirPlayGrant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AirPlayGrantInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirPlayGrantOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "A grant in the media's path for one playback the caller holds, for an AirPlay receiver to fetch its film with, for a day unless revoked (D473)",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
     "/backups": {
       "get": {
         "operationId": "listBackups",
@@ -10546,15 +10628,15 @@
     },
     "/bytes/media/g/{grant}/master.m3u8": {
       "get": {
-        "operationId": "getLabAirPlayMasterPlaylist",
+        "operationId": "getAirPlayMasterPlaylist",
         "parameters": [
           {
-            "description": "The AirPlay lab's grant",
+            "description": "The AirPlay grant",
             "in": "path",
             "name": "grant",
             "required": true,
             "schema": {
-              "description": "The AirPlay lab's grant",
+              "description": "The AirPlay grant",
               "type": "string"
             }
           }
@@ -10569,14 +10651,14 @@
             "description": "A playlist, an init or a chunk"
           },
           "404": {
-            "description": "No such grant, revoked or expired, the lab turned off, or a stream not offered"
+            "description": "No such grant, revoked or expired, presented from another address, or a stream not offered"
           },
           "425": {
             "description": "Not made yet, after the request was held for it"
           }
         },
         "security": [],
-        "summary": "The master playlist of an AirPlay lab grant's playback, for the receiver to fetch itself",
+        "summary": "The master playlist of an AirPlay grant's playback, for the receiver to fetch itself",
         "tags": [
           "Playback"
         ],
@@ -10585,15 +10667,15 @@
     },
     "/bytes/media/g/{grant}/{streamName}/{fileName}": {
       "get": {
-        "operationId": "getLabAirPlayFile",
+        "operationId": "getAirPlayFile",
         "parameters": [
           {
-            "description": "The AirPlay lab's grant",
+            "description": "The AirPlay grant",
             "in": "path",
             "name": "grant",
             "required": true,
             "schema": {
-              "description": "The AirPlay lab's grant",
+              "description": "The AirPlay grant",
               "type": "string"
             }
           },
@@ -10628,14 +10710,14 @@
             "description": "A playlist, an init or a chunk"
           },
           "404": {
-            "description": "No such grant, revoked or expired, the lab turned off, or a stream not offered"
+            "description": "No such grant, revoked or expired, presented from another address, or a stream not offered"
           },
           "425": {
             "description": "Not made yet, after the request was held for it"
           }
         },
         "security": [],
-        "summary": "One stream's playlist, init or chunk of an AirPlay lab grant's playback",
+        "summary": "One stream's playlist, init or chunk of an AirPlay grant's playback",
         "tags": [
           "Playback"
         ],
@@ -13747,88 +13829,6 @@
           "Jobs"
         ],
         "x-orpheum-capability": "admin"
-      }
-    },
-    "/lab/airplay/grants": {
-      "delete": {
-        "operationId": "revokeLabAirPlayGrants",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LabAirPlayRevokeOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "Revokes every AirPlay lab grant the caller's session made, as the lab's Stop does",
-        "tags": [
-          "Running it"
-        ],
-        "x-orpheum-capability": "signedIn"
-      },
-      "post": {
-        "operationId": "makeLabAirPlayGrant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LabAirPlayGrantInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LabAirPlayGrantOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "A grant in the media's path for one playback the caller holds, for the AirPlay lab alone, while the admin offers it (airplay.md's spike)",
-        "tags": [
-          "Running it"
-        ],
-        "x-orpheum-capability": "signedIn"
       }
     },
     "/lab/input-events": {

@@ -210,6 +210,11 @@ func (server *Server) relayChunkFile(
 		if !errors.Is(err, errNotMadeYet) {
 			return server.relayed(ctx, dependencies, file, wait, answer, err)
 		}
+		if ctx.Err() != nil {
+			// The player went away while the node was asked: as below, it is gone, not failed.
+			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitPlayerGone)
+			return nil, clientGone()
+		}
 		if err = dependencies.Chunks.Want(ctx, file); err != nil {
 			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitFailed)
 			return nil, server.chunksError(ctx, "have a chunk made", err)
@@ -227,8 +232,11 @@ func (server *Server) relayChunkFile(
 			return nil, tooEarly()
 		}
 		if err = dependencies.Clock.Sleep(ctx, chunkAskEvery); err != nil {
+			// The player went away while the request was held: it cancelled it, as AVPlayer does a chunk
+			// it no longer wants, so nothing reaches it and its wait did not run out. A request under an
+			// AirPlay grant held so is logged as gone (loggingAirPlay), never as answered 425.
 			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitPlayerGone)
-			return nil, tooEarly()
+			return nil, clientGone()
 		}
 	}
 }

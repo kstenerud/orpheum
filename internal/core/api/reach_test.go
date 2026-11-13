@@ -190,9 +190,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "fetchFileSubtitle", "startPlayback",
 		"getDirect",
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
-		// The AirPlay lab's grant serves a playback's chunks as the token does, its holder's reach read
-		// again at each request (labAirPlayPlayback), and its film alone.
-		"getLabAirPlayMasterPlaylist", "getLabAirPlayFile",
+		// An AirPlay grant serves a playback's chunks as the token does, its holder's reach read
+		// again at each request (airPlayPlayback), and its film alone.
+		"getAirPlayMasterPlaylist", "getAirPlayFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "markHidden", "getArt", "getItemCandidates", "matchItem", "setOverride",
 		"clearOverride", "refreshItem", "matchItemByLink", "confirmItemMatch", "sayPageInterest",
@@ -262,9 +262,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// What a lab page measured on a device, which is only logged and answers its name in the log or
 		// nothing, and the throughput test's body, bytes of no meaning.
 		"reportLabResult", "reportLabInputEvents", "getLabThroughput",
-		// The AirPlay lab's grant is made for a playback the caller holds, found by ChunksOf, which
+		// An AirPlay grant is made for a playback the caller holds, found by ChunksOf, which
 		// checks the reach; Stop answers how many grants it revoked.
-		"makeLabAirPlayGrant", "revokeLabAirPlayGrants",
+		"makeAirPlayGrant", "revokeAirPlayGrants",
 		// A player's word that it left its own playback, by a token only its holder may use (D258 §2):
 		// it answers nothing (TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor).
 		"leavePlayback",

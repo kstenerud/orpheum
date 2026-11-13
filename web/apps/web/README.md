@@ -644,8 +644,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   button test as it goes, below); the
   cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
   probe's test film needs no sign-in. The AirPlay probe (`src/lab-airplay.tsx`, airplay.md's spike) is
-  in the menu for someone showing debug tools alone, and the core answers it only while the admin
-  offers the AirPlay lab (`shouldOfferAirPlayLab`): opening its AirPlay menu fetches the grant in the
+  in the menu for someone showing debug tools alone (the grant is the product's since D473): opening its AirPlay menu fetches the grant in the
   media's path, on the core's name the page's requests reach it at, never the client origin, and
   says AirPlay cannot work where the core is reached over WebRTC alone (`grantOriginOf`, the
   loader's `directOriginInUse`, its minor 6), so way B's press shows Safari's picker within its

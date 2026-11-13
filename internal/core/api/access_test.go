@@ -77,15 +77,14 @@ var secretsChecked = map[string]string{
 	"redeemSession":     "the hand-off's code (Auth.TakeHandOff)",
 	"requestPairing": "none: it makes a pairing under the device's own secret, which grants nothing until a " +
 		"person enters its code",
-	"getPairingState":   "the pairing's secret (Auth.PairingStateOf)",
-	"takePairedSession": "the pairing's secret (Auth.TakePairedSession)",
-	"tradeGuestGrant":   "the guest receiver's grant its sender handed it (Auth.TradeGuestGrant)",
-	"getLabAirPlayMasterPlaylist": "the AirPlay lab's grant in the path, while the lab is offered " +
-		"(Auth.LabAirPlayGrantOf)",
-	"getLabAirPlayFile": "the AirPlay lab's grant in the path, while the lab is offered (Auth.LabAirPlayGrantOf)",
-	"echoReachability":  "the nonce, answered only if this server made it (Reachability.Recognises)",
-	"joinTogether":      "the Watch Together link's secret (Together.Join)",
-	"checkTogetherLink": "the Watch Together link's secret (Together.LinkAdmits)",
+	"getPairingState":          "the pairing's secret (Auth.PairingStateOf)",
+	"takePairedSession":        "the pairing's secret (Auth.TakePairedSession)",
+	"tradeGuestGrant":          "the guest receiver's grant its sender handed it (Auth.TradeGuestGrant)",
+	"getAirPlayMasterPlaylist": "the AirPlay grant in the path, from its address (Auth.AirPlayGrantOf)",
+	"getAirPlayFile":           "the AirPlay grant in the path, from its address (Auth.AirPlayGrantOf)",
+	"echoReachability":         "the nonce, answered only if this server made it (Reachability.Recognises)",
+	"joinTogether":             "the Watch Together link's secret (Together.Join)",
+	"checkTogetherLink":        "the Watch Together link's secret (Together.LinkAdmits)",
 }
 
 // sourceText is one Go source file: its name and its text.

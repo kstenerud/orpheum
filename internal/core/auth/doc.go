@@ -237,12 +237,16 @@
 //     the locator of the session that asked for it alone, and no longer once traded or expired.
 //     TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits.
 //
-//   - The AirPlay lab's grant (airplay.md's spike) is kept only as its hash, in memory, stands for one
-//     playback of one file its session holds, for LabAirPlayGrantLife, 24 hours, and is revoked by
-//     its sending session alone, and ends with that session (signed out, a new password); a guest
-//     receiver's session gets none. TestLabAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
-//     TestLabAirPlayGrant_IsRevokedByItsSenderAlone, TestLabAirPlayGrant_EndsWithItsSendersSession
-//     and TestLabAirPlayGrant_RefusesAGuestReceiver.
+//   - An AirPlay grant (D473) is kept only as its hash, in memory, stands for one playback of one
+//     file its session holds, for AirPlayGrantLife, 24 hours, and is revoked by its sending session
+//     alone, and ends with that session (signed out, a new password, its device revoked); a guest
+//     receiver's session gets none. It is bound to the first IPv4 address and the first IPv6
+//     address's /64 that present it, and any other address is refused as an unknown grant.
+//     TestAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
+//     TestAirPlayGrant_IsRevokedByItsSenderAlone, TestAirPlayGrant_EndsWithItsSendersSession,
+//     TestAirPlayGrant_EndsWhenItsSendersDeviceIsRevoked, TestAirPlayGrant_RefusesAGuestReceiver,
+//     TestAirPlayGrant_IsBoundToTheFirstIPv4AddressThatPresentsIt and
+//     TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64.
 //
 // # Read before changing
 //

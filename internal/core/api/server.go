@@ -270,7 +270,7 @@ func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
 	server.registerClientPaths()
 	server.registerLab()
-	server.registerLabAirPlay()
+	server.registerAirPlay()
 	server.registerSystemVideos()
 }
 
@@ -290,7 +290,7 @@ func (server *Server) registerBrowsing() {
 func (server *Server) Handler() http.Handler {
 	return identifyingRequests(server.forAPerson(server.markingHome(server.loggingSlow(
 		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(
-			server.loggingLabAirPlay(server.compressing(server.mux))))))))))
+			server.loggingAirPlay(server.compressing(server.mux))))))))))
 }
 
 // forAPerson marks every request as one a person waits on: its writes take the database's writer
@@ -539,15 +539,16 @@ func (server *Server) requireAccountManager(ctx context.Context, authorization s
 }
 
 // logInternalError logs an unexpected error and returns the generic internal error, so nothing
-// about it reaches the client.
+// about it reaches the client. A request whose client went away is no fault: it is answered as
+// gone (clientGone), not as an internal error.
 func (server *Server) logInternalError(ctx context.Context, action string, err error) error {
 	if ctx.Err() != nil {
 		// The client went away, as a player does from a segment it no longer wants: no one reads
 		// the answer, and nothing failed but the asking.
 		server.logger.DebugContext(ctx, "a request's client went away", "action", action, "err", err)
-	} else {
-		server.logger.ErrorContext(ctx, "request failed", "action", action, "err", err)
+		return clientGone()
 	}
+	server.logger.ErrorContext(ctx, "request failed", "action", action, "err", err)
 	return newError(http.StatusInternalServerError, CodeInternal, "internal error")
 }
 
