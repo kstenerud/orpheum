@@ -3134,3 +3134,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`internal/core/auth/airplay.go`, `admits`; `internal/core/api/airplay.go`, `loggingAirPlay`;
   `internal/core/api/chunks.go`, `relayChunkFile`; `web/packages/player/src/airplay.ts`,
   `playOnAirPlay`; `web/apps/web/src/airplay-entry.tsx`, `web/apps/web/src/ladder-playback.ts`)
+- [ ] **VQ316** — On a lossy network, the core's data link keeps answering within the page's 40 s:
+  each SCTP resend waits at most 3 s and the send window stays at least four packets. On the next
+  train (or a phone on a link that loses most full-size packets), after the deploy, play a film
+  over the core's WebRTC path. Passes when the page keeps loading, slowly if it must, with no
+  "nothing came for … in 40000 ms", and the core's "rtc connection ended" lines read `cwndBytes`
+  of 4764 or more. (`internal/core/rtcapi/rtcapi.go`, `sctpResendCeiling`, `sctpLeastWindowBytes`;
+  idiosyncrasies.md, "pion's SCTP backs its resends off to 60 s and narrows its window to one
+  packet")
