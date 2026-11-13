@@ -487,6 +487,9 @@ CREATE TABLE person (                                       -- class F, an item 
   name_key    TEXT NOT NULL,
   -- Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched.
   picture_ref TEXT,
+  -- The film or series whose stored response last set their name and picture: of the responses
+  -- crediting a person, the newest names them (the owner, 2026-11-13). NULL for none.
+  named_by_item_id INTEGER,
   FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 ) STRICT;
 CREATE UNIQUE INDEX person_tmdb ON person(tmdb_id) WHERE tmdb_id IS NOT NULL;

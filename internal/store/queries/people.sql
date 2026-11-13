@@ -9,7 +9,7 @@
 -- name: ListLibraryCredits :many
 -- The credits of the library's live items, each with its person, for the pass's snapshot.
 SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
-  person.picture_ref, item_text.name
+  person.picture_ref, person.named_by_item_id, item_text.name
 FROM item
 CROSS JOIN credit ON credit.item_id = item.id
 CROSS JOIN person ON person.id = credit.person_id
@@ -20,7 +20,7 @@ ORDER BY credit.item_id, credit.job, credit.ordinal;
 -- name: ListItemCredits :many
 -- One item's credits, each with its person, in billing order within each job.
 SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
-  person.picture_ref, item_text.name
+  person.picture_ref, person.named_by_item_id, item_text.name
 FROM credit
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
@@ -70,20 +70,28 @@ ON CONFLICT (name_key) DO NOTHING;
 SELECT id FROM genre WHERE name_key = sqlc.arg(name_key);
 
 -- name: GetPersonByTMDBID :one
-SELECT person.id, person.name_key, person.picture_ref FROM person WHERE person.tmdb_id = sqlc.arg(tmdb_id);
+-- TMDB's person by their id, with their name and picture and the item whose response set them.
+SELECT person.id, person.picture_ref, person.named_by_item_id, item_text.name
+FROM person
+LEFT JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
+WHERE person.tmdb_id = sqlc.arg(tmdb_id);
 
 -- name: GetPersonIDByNameKey :one
 -- The person an NFO names with no id: the first by that folded name, from any source.
 SELECT person.id FROM person WHERE person.name_key = sqlc.arg(name_key) ORDER BY person.id LIMIT 1;
 
 -- name: InsertPerson :exec
-INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref)
-VALUES (sqlc.arg(id), 'person', sqlc.arg(tmdb_id), sqlc.arg(name_key), sqlc.arg(picture_ref));
+INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref, named_by_item_id)
+VALUES (sqlc.arg(id), 'person', sqlc.arg(tmdb_id), sqlc.arg(name_key), sqlc.arg(picture_ref),
+  sqlc.arg(named_by_item_id));
 
 -- name: UpdatePerson :exec
--- A person their source now names or pictures otherwise; unchanged, nothing is written.
-UPDATE person SET name_key = sqlc.arg(name_key), picture_ref = sqlc.arg(picture_ref)
-WHERE id = sqlc.arg(id) AND (name_key IS NOT sqlc.arg(name_key) OR picture_ref IS NOT sqlc.arg(picture_ref));
+-- A person the newest response that credits them names or pictures otherwise, or that names them
+-- first; unchanged, nothing is written.
+UPDATE person
+SET name_key = sqlc.arg(name_key), picture_ref = sqlc.arg(picture_ref), named_by_item_id = sqlc.arg(named_by_item_id)
+WHERE id = sqlc.arg(id) AND (name_key IS NOT sqlc.arg(name_key) OR picture_ref IS NOT sqlc.arg(picture_ref)
+  OR named_by_item_id IS NOT sqlc.arg(named_by_item_id));
 
 -- name: GetPersonReached :one
 -- A person with a credit on a film or series the caller reaches, with their name and picture.
