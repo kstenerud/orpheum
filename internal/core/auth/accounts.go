@@ -133,10 +133,10 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
-// ResetLink is when a registered person's outstanding reset link stops working, and whether they
-// have one: their page says until when it is live, and never shows the link again (D466 §4). A
+// ResetLinkExpiresAt is when a registered person's outstanding reset link stops working, and whether
+// they have one: their page says until when it is live, and never shows the link again (D466 §4). A
 // person without a password has none, whatever registration links they were sent.
-func (service *Service) ResetLink(ctx context.Context, userID int64) (time.Time, bool, error) {
+func (service *Service) ResetLinkExpiresAt(ctx context.Context, userID int64) (time.Time, bool, error) {
 	queries := service.database.Read()
 	user, err := liveUser(ctx, queries, userID)
 	if err != nil || user.PasswordHash == nil {
