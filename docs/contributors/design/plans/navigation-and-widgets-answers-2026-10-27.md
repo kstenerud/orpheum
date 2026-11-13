@@ -3932,3 +3932,19 @@ tried: none".
 - It carries on by itself when a try gets through.
 - A request whose channel is lost is asked again on the new connection; the loader's reads are all safe to repeat.
 - "Addresses tried: none" in the failure report says what it means when the page is away from home and tried no address.
+
+## A tap on the film pauses it on a phone, this batch (the owner, 2026-11-13)
+
+**What the owner saw** on a phone in the player: "half of my taps pause playback", and stray jumps to another part of the film as they tried to find their place again. The owner: "it's generally a bad idea to make tapping the video frame pause."
+
+**The cause found:**
+- `usePressesOnTheFilm` (page-controls.tsx) plays or pauses on every `click` on the `<video>` that `pressOf` (cast-start.tsx) does not see as a touch.
+- A tap whose click reaches the page without a touch `pointerType` therefore toggles play.
+- A paused overlay does not hide (D407 §6), so the taps alternate between pause and play.
+- The `dblclick` listener has no touch check at all.
+- The jumps are most likely a second tap landing on the full-width scrub bar, which the first tap's overlay put in the bottom half of the screen.
+
+**The fix the owner chose** ("yes that works", 2026-11-13):
+- Only a click known to come from a mouse plays or pauses, and only a mouse's double click goes full screen; a touch never does either.
+- A mouse click still pauses, as the common web players do (D407 §9 narrowed to a mouse, as D415 §4 has it).
+- The scrub bar's stray seeks go to the next batch's player layout on phones.
