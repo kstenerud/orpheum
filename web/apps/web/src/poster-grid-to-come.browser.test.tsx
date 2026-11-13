@@ -83,6 +83,29 @@ describe("a grid's posters still to come", () => {
     expect(document.activeElement?.textContent).toContain(`Film ${String(place + 1)}`);
   });
 
+  // Down into the blanks while the list was drawn was a <button>'s focus at each press, which cost
+  // Silk on a Fire TV 300 ms of layout (idiosyncrasies.md, "Silk lays the page out each time a key
+  // focuses a button").
+  it("draws each blank as a button by role, pressed by nothing, no <button>", async () => {
+    mounted = await mount(withServices(<Grid entries={filmsFrom(1, 2)} toCome={3} />));
+    const blanks = [...document.querySelectorAll(".poster-card--to-come .poster-card__link")];
+    expect(blanks).toHaveLength(3);
+    for (const blank of blanks) {
+      expect([
+        blank.tagName,
+        blank.getAttribute("role"),
+        blank.getAttribute("aria-disabled"),
+      ]).toEqual(["DIV", "button", "true"]);
+      // Drawn as a poster's link is, not as a button: no button's padding, border or centring.
+      const look = getComputedStyle(blank);
+      expect([look.paddingTop, look.borderTopWidth, look.textAlign]).toEqual([
+        "0px",
+        "0px",
+        "start",
+      ]);
+    }
+  });
+
   it("asks for the next page as the first blank nears the view, and not while one loads", async () => {
     const asked = vi.fn();
     mounted = await mount(

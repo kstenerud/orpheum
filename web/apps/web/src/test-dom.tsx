@@ -306,12 +306,12 @@ export async function chooseIn(container: Element, field: string, text: string):
   const chooser = [...container.querySelectorAll(".route-chooser")].find(
     (each) => each.querySelector(".route-chooser__field")?.textContent === field,
   );
-  const opener = chooser?.querySelector<HTMLButtonElement>("button[aria-haspopup]");
+  const opener = chooser?.querySelector<HTMLElement>("[aria-haspopup]");
   if (opener === null || opener === undefined) {
     throw new Error(`no chooser of ${field}`);
   }
   await click(opener);
-  const choice = [...(chooser?.querySelectorAll("dialog .list-box button") ?? [])].find(
+  const choice = [...(chooser?.querySelectorAll(`dialog .list-box :is(${anyButton})`) ?? [])].find(
     (button) => button.textContent === text,
   );
   if (choice === undefined) {
@@ -337,21 +337,27 @@ export async function enter(input: Element | null | undefined, text: string): Pr
 }
 
 /**
- * The button named name in container, as a screen reader names it: by its aria-label, else its
- * text. An icon button (icon-button.tsx) has no text, its name its label.
+ * A button, a `<button>` or a button by role (button-by-role.tsx), as a screen reader finds one and
+ * the tests' finders do.
  */
-export function buttonNamed(container: HTMLElement, name: string): HTMLButtonElement | undefined {
-  return [...container.querySelectorAll("button")].find(
+export const anyButton = 'button, [role="button"]';
+
+/**
+ * The button named name in container, as a screen reader names it: by its aria-label, else its
+ * text. An icon button (icon-button.tsx) has no text, its name its label. A `<button>` or a button
+ * by role (anyButton).
+ */
+export function buttonNamed(container: HTMLElement, name: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>(anyButton)].find(
     (each) => (each.getAttribute("aria-label") ?? each.textContent) === name,
   );
 }
 
-/** The button whose text is text, in container. */
-export function buttonWithText(
-  container: HTMLElement,
-  text: string,
-): HTMLButtonElement | undefined {
-  return [...container.querySelectorAll("button")].find((each) => each.textContent === text);
+/** The button whose text is text, in container (anyButton). */
+export function buttonWithText(container: HTMLElement, text: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>(anyButton)].find(
+    (each) => each.textContent === text,
+  );
 }
 
 /**
@@ -359,18 +365,16 @@ export function buttonWithText(
  * once the server has taken it: a test's page is never pressed, so each cast to one waits so.
  */
 export async function pressToStartTheCast(): Promise<void> {
-  const shown = (): HTMLButtonElement | undefined =>
-    buttonWithText(document.body, "Click to start");
+  const shown = (): HTMLElement | undefined => buttonWithText(document.body, "Click to start");
   await settleUntil(() => shown() !== undefined);
   await click(shown());
 }
 
-/** The first button whose text holds text, as a list's row holds several words. */
-export function buttonContaining(
-  container: HTMLElement,
-  text: string,
-): HTMLButtonElement | undefined {
-  return [...container.querySelectorAll("button")].find((each) => each.textContent.includes(text));
+/** The first button whose text holds text, as a list's row holds several words (anyButton). */
+export function buttonContaining(container: HTMLElement, text: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>(anyButton)].find((each) =>
+    each.textContent.includes(text),
+  );
 }
 
 /**

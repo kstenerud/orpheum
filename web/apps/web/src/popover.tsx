@@ -13,6 +13,7 @@ import {
 } from "react";
 import { reportFailure } from "@orpheum/sdk";
 
+import { ButtonByRole } from "./button-by-role.tsx";
 import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
 import { caretOf } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
@@ -328,7 +329,7 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
       const keeper = target.closest(`[${keepsOpenAttribute}]`);
       if (
         target.closest("dialog") === popover &&
-        target.closest("a, button") !== null &&
+        target.closest('a, button, [role="button"]') !== null &&
         (keeper === null || !popover.contains(keeper))
       ) {
         close();
@@ -466,7 +467,9 @@ export function Popover(props: PopoverProps): JSX.Element {
  * A button that opens a pop-up (Popover) of what it holds, and closes it when pressed again: the
  * player's 🔈, and every drop-down (drop-down.tsx). It says whether the pop-up is open
  * (aria-expanded), and tells onOpenChange each time it opens or closes, as the player's overlay holds
- * its time (D407 §6).
+ * its time (D407 §6). It is a button by role (ButtonByRole), not a <button>: the banner's Libraries
+ * and menu and a list's Sort and filter are on the page of a long list, where Silk on a Fire TV lays
+ * the page out each time a key focuses a <button> (idiosyncrasies.md).
  */
 export function PopoverButton(props: {
   /** The pop-up's name for a screen reader. */
@@ -485,7 +488,7 @@ export function PopoverButton(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
-  const openerRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLDivElement>(null);
   const { onOpenChange } = props;
   const onOpenChangeRef = useLatest(onOpenChange);
   const setOpen = useCallback(
@@ -500,9 +503,8 @@ export function PopoverButton(props: {
   }, [setOpen]);
   return (
     <>
-      <button
+      <ButtonByRole
         ref={openerRef}
-        type="button"
         className={props.openerClassName}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
@@ -512,7 +514,7 @@ export function PopoverButton(props: {
         }}
       >
         {props.opener}
-      </button>
+      </ButtonByRole>
       {isOpen ? (
         <Popover
           label={props.label}

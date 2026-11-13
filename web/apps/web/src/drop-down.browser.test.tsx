@@ -140,8 +140,8 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     await userEvent.click(
       mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
     );
-    await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
-    const first = document.querySelector<HTMLElement>("dialog ul button");
+    await expect.poll(() => document.querySelector('dialog ul [role="button"]')).not.toBeNull();
+    const first = document.querySelector<HTMLElement>('dialog ul [role="button"]');
     await expect.poll(() => document.activeElement).toBe(first);
     expect(document.querySelector('dialog button[aria-label="Close"]')).toBeNull();
     const [ringed, list] = [ringedBoxOf(first), boxOf(document.querySelector("dialog"))];
@@ -171,7 +171,7 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     );
     await expect.poll(() => document.activeElement?.textContent).toBe("Choice 7");
     const places = boxOf(document.querySelector("dialog .list-box"));
-    const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
+    const buttons = [...document.querySelectorAll<HTMLElement>('dialog ul [role="button"]')];
     for (const neighbour of [buttons[5], buttons[7]]) {
       const box = boxOf(neighbour);
       expect(box.top, neighbour?.textContent ?? "").toBeGreaterThanOrEqual(places.top - roundingPx);
@@ -200,9 +200,9 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     await userEvent.click(
       mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
     );
-    await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
+    await expect.poll(() => document.querySelector('dialog ul [role="button"]')).not.toBeNull();
     const places = document.querySelector<HTMLElement>("dialog .list-box");
-    const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
+    const buttons = [...document.querySelectorAll<HTMLElement>('dialog ul [role="button"]')];
     expect((places?.scrollHeight ?? 0) > (places?.clientHeight ?? 0)).toBe(true);
     for (let at = 1; at < buttons.length; at += 1) {
       await movedTo(at, { arrow: "{ArrowDown}", next: at + 1 }, { buttons, places });
@@ -360,7 +360,7 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     await userEvent.click(opener);
     expect(document.activeElement?.textContent).toBe("Choice 1");
     const listBox = boxOf(document.querySelector("dialog .list-box"));
-    for (const place of document.querySelectorAll<HTMLElement>("dialog ul button")) {
+    for (const place of document.querySelectorAll<HTMLElement>('dialog ul [role="button"]')) {
       const box = boxOf(place);
       expect(box.top, place.textContent).toBeGreaterThanOrEqual(listBox.top - roundingPx);
       expect(box.bottom, place.textContent).toBeLessThanOrEqual(listBox.bottom + roundingPx);

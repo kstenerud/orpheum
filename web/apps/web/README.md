@@ -518,6 +518,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/watch-together.test.tsx`, `src/together-join.test.tsx`, `src/together-viewer.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
+- **A button a key moves onto over a long list is a button by role** (the 11-25 batch's item 12):
+  Silk on a Fire TV lays the whole page out each time a key focuses a `<button>`, 300 ms a move
+  over a list of posters (idiosyncrasies.md, "Silk lays the page out each time a key focuses a
+  button"). The one way to draw one is `ButtonByRole` (`src/button-by-role.tsx`): a `div` of role
+  button in Tab's order, pressed by a click, by Space, and by OK or Enter through the input layer's
+  click, looking as a `<button>` does (`base.css`). The rail's letters, `PopoverButton`'s opener,
+  a list box's choices, the chips' Unwatched, Clear and a list's blank posters are drawn by it.
+  `src/button-by-role.test.tsx`, `src/library-browse.test.tsx`, `src/player-commands.test.tsx`,
+  `src/poster-grid-to-come.browser.test.tsx`, `src/app-shell.browser.test.tsx`.
 - **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names
   the first title at or after the letter in its own order (`/titles?from=`), # the first of all; the
   list loads its pages up to it as scrolling would, and its poster takes focus at the view's top,

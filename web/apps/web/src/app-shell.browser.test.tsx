@@ -17,7 +17,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
 import { PosterGrid, type Entry } from "./browse.tsx";
-import { mount, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
 
@@ -100,6 +100,62 @@ describe("the shell, laid out by a real browser", () => {
 
   // D364 §12: a sign whose function is off is white and still; only one that is on breathes. The
   // IconButton batch left every sign's icon pulsing, the off ones too (check-pr, 2026-11-03).
+  // Libraries, a menu where the person has two, is a button by role (button-by-role.tsx): drawn the
+  // size of a place's link, its ground raised under a pointer as the link's is.
+  it("draws Libraries' menu as a place's icon, its size and its raised ground", async () => {
+    const library = (id: number, name: string): Record<string, unknown> => ({
+      id,
+      name,
+      kind: "film",
+      metadataSource: "tmdb",
+      isWritable: true,
+      createdAt: 0,
+    });
+    const services = servedBy(
+      { "GET /libraries": [200, { libraries: [library(1, "Alpha"), library(2, "Zoo")] }] },
+      [],
+      "token",
+    );
+    const mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={true}
+          currentScreen="home"
+          onSignOut={() => undefined}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        services,
+      ),
+    );
+    try {
+      const libraries = (): HTMLElement | null =>
+        mounted.container.querySelector<HTMLElement>(
+          '.app-shell__watching [role="button"].app-shell__place-icon',
+        );
+      await expect.poll(libraries).not.toBeNull();
+      const link = mounted.container.querySelector<HTMLElement>(
+        ".app-shell__watching a.app-shell__place-icon",
+      );
+      expect(boxOf(libraries()).width).toBeCloseTo(boxOf(link).width, 0);
+      expect(boxOf(libraries()).height).toBeCloseTo(boxOf(link).height, 0);
+      if (link === null) {
+        throw new Error("no place's link");
+      }
+      await userEvent.hover(link);
+      const raised = getComputedStyle(link).backgroundColor;
+      expect(raised).not.toBe("rgba(0, 0, 0, 0)");
+      await userEvent.hover(libraries() ?? document.body);
+      await expect
+        .poll(() => getComputedStyle(libraries() ?? document.body).backgroundColor)
+        .toBe(raised);
+    } finally {
+      mounted.unmount();
+    }
+  });
+
   it("keeps a status sign whose function is off still, its icon unanimated", async () => {
     const shell = (
       <AppShell
@@ -454,7 +510,7 @@ describe("the shell, laid out by a real browser", () => {
       // Laid out open before a place is focused: Firefox scrolls a focused place into view in the
       // layout it has, which the opening has not reached yet in the same task.
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
+      const places = [...menu.querySelectorAll<HTMLElement>('ul a, ul button, ul [role="button"]')];
       expect(places.at(-1)?.textContent).toBe("Sign out");
       // A pop-up, no Close of its own (the owner, 2026-11-02; D408 §2).
       expect(menu.querySelector('button[aria-label="Close"]')).toBeNull();
@@ -495,7 +551,7 @@ describe("the shell, laid out by a real browser", () => {
           const menu = container.querySelector("dialog");
           await new Promise((resolve) => requestAnimationFrame(resolve));
           const places = menu?.querySelector<HTMLElement>(".list-box");
-          const first = menu?.querySelector<HTMLElement>("ul a, ul button");
+          const first = menu?.querySelector<HTMLElement>('ul a, ul button, ul [role="button"]');
           expect(places?.scrollTop).toBe(0);
           expect(document.activeElement).toBe(first);
           expect(boxOf(menu).top).toBeGreaterThanOrEqual(0);

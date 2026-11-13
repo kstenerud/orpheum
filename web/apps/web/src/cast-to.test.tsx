@@ -73,7 +73,7 @@ const playingHere = (): { fileId: number; positionMs: number } => ({
 function markedButton(
   container: HTMLElement,
   text: string,
-): { readonly button: HTMLButtonElement; readonly mark: Element } {
+): { readonly button: HTMLElement; readonly mark: Element } {
   const button = buttonWithText(container, text);
   const mark = button?.firstElementChild;
   if (button === undefined || mark === null || mark === undefined) {
@@ -446,7 +446,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
     expect(items[0]).toContain("Showing another cast");
     expect(items[1]).toContain("Open now");
-    expect(buttonWithText(mounted.container, "Fire TV")?.disabled).toBe(true);
+    expect(buttonWithText(mounted.container, "Fire TV")?.matches(":disabled")).toBe(true);
     await click(buttonWithText(mounted.container, "Pixel"));
     expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
       "Pixel is showing another cast. Cast to it once that cast ends.",

@@ -11,8 +11,8 @@ import { act } from "react";
 import { buttonNamed, click, enter } from "./test-dom.tsx";
 
 /** The list's Sort and filter button, on its bar. */
-export function criteriaButton(container: HTMLElement): HTMLButtonElement | null {
-  return container.querySelector<HTMLButtonElement>(".list-criteria__button");
+export function criteriaButton(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>(".list-criteria__button");
 }
 
 /** The pop-up the button opened, null while it is closed. */
@@ -57,7 +57,7 @@ export async function chooseInCriteria(
   if (chooser === undefined) {
     throw new Error(`no chooser of ${field} in the Sort and filter`);
   }
-  await click(chooser.querySelector("button[aria-haspopup]"));
+  await click(chooser.querySelector("[aria-haspopup]"));
   const list = chooser.querySelector<HTMLElement>("dialog");
   const choice = list === null ? undefined : buttonNamed(list, text);
   if (choice === undefined) {

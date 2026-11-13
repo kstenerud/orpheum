@@ -561,7 +561,7 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
     const { mounted, sockets } = await sessionPage([], 35);
     await sockets.session.drop();
     const stop = buttonWithText(mounted.container, "Stop the film for everyone");
-    expect(stop?.disabled).toBe(true);
+    expect(stop?.matches(":disabled")).toBe(true);
     expect(mounted.container.textContent).toContain("Reconnecting…");
     const heardBefore = sockets.session.heard.length;
     await click(stop);

@@ -27,6 +27,7 @@ import {
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
+import { ButtonByRole } from "./button-by-role.tsx";
 import { PosterClock } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
 import { focusableSelector, growsAttribute } from "./focus-engine.ts";
@@ -249,7 +250,9 @@ function useFocusedToComeKept(
 
 /**
  * A blank poster where an entry not yet come will be: the room its card takes, a button so an arrow
- * moves on into it, which does nothing pressed.
+ * moves on into it, which does nothing pressed. A button by role (ButtonByRole): Down into the
+ * blanks while the list is still being drawn was a <button>'s focus at each press, which Silk on a
+ * Fire TV pays for with a layout of the whole page (idiosyncrasies.md).
  */
 const PosterToCome = memo(function PosterToCome(props: {
   readonly place: number;
@@ -257,12 +260,7 @@ const PosterToCome = memo(function PosterToCome(props: {
 }): JSX.Element {
   return (
     <li className="poster-card poster-card--to-come" {...{ [toComePlaceAttribute]: props.place }}>
-      <button
-        type="button"
-        className="poster-card__link"
-        aria-disabled="true"
-        aria-label={props.label}
-      >
+      <ButtonByRole className="poster-card__link" aria-disabled="true" aria-label={props.label}>
         <span className="poster-card__art">
           <span className="poster">
             <PosterClock />
@@ -270,7 +268,7 @@ const PosterToCome = memo(function PosterToCome(props: {
         </span>
         <span className="poster-card__name">{"\u00a0"}</span>
         <span className="poster-card__detail">{"\u00a0"}</span>
-      </button>
+      </ButtonByRole>
     </li>
   );
 });

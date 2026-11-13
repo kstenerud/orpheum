@@ -85,8 +85,8 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     expect(offered.container.querySelector(".route-chooser__button")?.textContent).toBe(
       "DVD Order (DVD) · episodes here: 3",
     );
-    await click(offered.container.querySelector(".series__ordering button[aria-haspopup]"));
-    const choices = [...offered.container.querySelectorAll("dialog .list-box button")];
+    await click(offered.container.querySelector(".series__ordering [aria-haspopup]"));
+    const choices = [...offered.container.querySelectorAll('dialog .list-box [role="button"]')];
     expect(choices.map((choice) => choice.textContent)).toEqual([
       "Aired",
       "DVD Order (DVD) · episodes here: 3",

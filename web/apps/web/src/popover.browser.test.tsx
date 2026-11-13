@@ -264,7 +264,7 @@ async function volumeOpenedAt(spot: Readonly<Record<string, string>>): Promise<{
   return {
     // Measured open: the page's scrollbar's room, kept while a pop-up is open (modal-layer.css),
     // may move it.
-    opener: boxOf(document.querySelector('button[aria-label="Volume"]')),
+    opener: boxOf(document.querySelector('[aria-haspopup][aria-label="Volume"]')),
     speaker: boxOf(popUp().querySelector('button[aria-label="Mute"]')),
     slider: boxOf(popUp().querySelector(".volume-range")),
   };

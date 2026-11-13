@@ -48,7 +48,7 @@ async function shellOverLibraries(
 }
 
 /** The banner's Libraries icon where it opens a menu: its button. */
-const librariesButton = '.app-shell__watching button[aria-label="Libraries"]';
+const librariesButton = '.app-shell__watching [role="button"][aria-label="Libraries"]';
 
 describe("the banner's Libraries", () => {
   it("opens a menu of the person's libraries by name, All libraries last, the one shown marked, each its page", async () => {

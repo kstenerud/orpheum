@@ -79,7 +79,7 @@ describe("the Libraries page's bar in a real browser", () => {
     await page.viewport(1440, 1000);
     walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
     await expect.poll(() => isDrawn(".listing-tools .list-criteria__button")).toBe(true);
-    const tools = [...document.querySelectorAll(".listing-tools button")];
+    const tools = [...document.querySelectorAll('.listing-tools :is(button, [role="button"])')];
     const buttons = tools.map((button) => button.getBoundingClientRect());
     expect(buttons.length).toBeGreaterThan(1);
     const fingertip = 2.75 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);

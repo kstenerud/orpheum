@@ -130,7 +130,7 @@ describe("a signed-in guest's Play page of the group's film while their device c
     // The panel's Leave and volume no longer show on the page: the button holds them.
     expect(mounted.container.querySelector(".together-panel")?.hasAttribute("hidden")).toBe(true);
     await click(button);
-    const leave = (): HTMLButtonElement | undefined => {
+    const leave = (): HTMLElement | undefined => {
       const dialog = document.querySelector<HTMLDialogElement>("dialog[open]");
       return dialog === null ? undefined : buttonWithText(dialog, "Leave");
     };

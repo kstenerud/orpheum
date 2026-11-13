@@ -5,6 +5,7 @@ import "./listing-tools.css";
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ButtonByRole } from "./button-by-role.tsx";
 import { SortArrowIcon, SortIcon } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
 import { ListChips, useGenres, type ChipsKind, type Genre } from "./list-chips.tsx";
@@ -242,8 +243,7 @@ function CriteriaControls(props: {
         }}
       />
       {isNarrowed(shown) ? (
-        <button
-          type="button"
+        <ButtonByRole
           className="list-criteria__clear"
           onClick={() => {
             change(clearedCriteria(shown));
@@ -252,7 +252,7 @@ function CriteriaControls(props: {
           }}
         >
           {t("criteria.clear")}
-        </button>
+        </ButtonByRole>
       ) : null}
     </search>
   );

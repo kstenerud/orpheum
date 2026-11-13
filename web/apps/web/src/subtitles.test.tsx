@@ -94,8 +94,8 @@ describe("subtitles", () => {
     );
     try {
       expect(mounted.container.querySelector("select")).toBeNull();
-      await click(mounted.container.querySelector(".subtitles button[aria-haspopup]"));
-      const choices = [...mounted.container.querySelectorAll("dialog .list-box button")];
+      await click(mounted.container.querySelector(".subtitles [aria-haspopup]"));
+      const choices = [...mounted.container.querySelectorAll('dialog .list-box [role="button"]')];
       expect(choices.map((choice) => choice.textContent)).toEqual(["Off", "English", "French"]);
       expect(choices[2]?.getAttribute("aria-current")).toBe("true");
       expect(document.activeElement).toBe(choices[2]);

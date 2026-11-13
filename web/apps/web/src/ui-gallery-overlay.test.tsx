@@ -29,7 +29,7 @@ function galleryOverlay(): HTMLElement {
 
 /** The names of the pop-up a button of the overlay opens: its entries, as a list box shows them. */
 async function popUpOf(name: string): Promise<string[]> {
-  const opener = [...galleryOverlay().querySelectorAll("button")].find(
+  const opener = [...galleryOverlay().querySelectorAll('button, [role="button"]')].find(
     (button) => button.getAttribute("aria-label") === name,
   );
   if (opener === undefined) {
@@ -51,7 +51,7 @@ it("shows the player's real overlay rows over a film, each of whose menus opens 
   mounted = await mount(withServices(<UiGallery />));
   const overlay = galleryOverlay();
   expect(overlay.querySelector('input[type="range"].timeline__range')).not.toBeNull();
-  const names = [...overlay.querySelectorAll("button")].map((button) =>
+  const names = [...overlay.querySelectorAll('button, [role="button"]')].map((button) =>
     button.getAttribute("aria-label"),
   );
   expect(names).toEqual(

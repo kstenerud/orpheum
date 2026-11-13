@@ -151,7 +151,7 @@
   cursor: default;
 }
 
-.poster-card--to-come button.poster-card__link {
+.poster-card--to-come [role="button"].poster-card__link {
   padding: 0;
   border: 0;
   background: none;

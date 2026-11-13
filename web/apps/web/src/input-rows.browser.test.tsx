@@ -257,7 +257,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Nosferatu");
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    await expect.poll(() => isDrawn('dialog .list-box [role="button"]')).toBe(true);
     expect(document.activeElement?.textContent).toBe("Hide");
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => heard).toContain("PUT /items/202/hidden");
@@ -283,13 +283,13 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Sunrise");
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    await expect.poll(() => isDrawn('dialog .list-box [role="button"]')).toBe(true);
     await userEvent.keyboard("{Enter}");
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Metropolis");
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    await expect.poll(() => isDrawn('dialog .list-box [role="button"]')).toBe(true);
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => document.activeElement?.textContent).toBe("Undo");
     expect(document.activeElement?.closest(".continue-watching__hidden")).not.toBeNull();

@@ -89,6 +89,9 @@ function playingVideo(): HTMLVideoElement {
   return video;
 }
 
+/** The overlay's buttons, `<button>`s and buttons by role (button-by-role.tsx). */
+const overlayButtons = '.player-overlay__buttons :is(button, [role="button"])';
+
 describe("the film's times", () => {
   it("are said as a player says them", () => {
     expect(clockText(0)).toBe("0:00");
@@ -161,7 +164,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     await drawn(document.createElement("video"));
     const container = mounted?.container;
     expect(container?.querySelector(".player-overlay__scrub input[type='range']")).not.toBeNull();
-    const buttons = [...(container?.querySelectorAll(".player-overlay__buttons button") ?? [])];
+    const buttons = [...(container?.querySelectorAll(overlayButtons) ?? [])];
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Back 10 s",
       "Play",
@@ -176,7 +179,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
 
   /** The labels of the overlay's buttons' row, in order. */
   function buttonLabels(): (string | null)[] {
-    const buttons = mounted?.container.querySelectorAll(".player-overlay__buttons button") ?? [];
+    const buttons = mounted?.container.querySelectorAll(overlayButtons) ?? [];
     return [...buttons].map((button) => button.getAttribute("aria-label"));
   }
 
@@ -480,7 +483,7 @@ describe("the player's full-screen overlay on a computer (D407 §6)", () => {
   // D407 §10, Q11: the sound is 🔈 first of the trailing group, no mute and slider in the row.
   it("draws 🔈 before full screen, and no mute or slider of the bar's", async () => {
     const on = await drawnOver(playingVideo());
-    const buttons = on.container.querySelectorAll(".player-overlay__buttons button");
+    const buttons = on.container.querySelectorAll(overlayButtons);
     const labels = [...buttons].map((button) => button.getAttribute("aria-label"));
     expect(labels.slice(-2)).toEqual(["Volume", "Full screen"]);
     expect(labels).not.toContain("Mute");
@@ -605,7 +608,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
     press("up"); // the remote shows it, hidden as the player opens (D418 §1)
-    const more = mounted.container.querySelector("button[aria-label='Settings']");
+    const more = mounted.container.querySelector("[aria-haspopup][aria-label='Settings']");
     act(() => {
       more?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
@@ -616,7 +619,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     const on = await drawnWithMoreOpen();
     const names = [
       ...on.container.querySelectorAll(
-        ".player-controls__trailing > * button, .player-controls__trailing > button",
+        '.player-controls__trailing > * :is(button, [role="button"]), .player-controls__trailing > :is(button, [role="button"])',
       ),
     ]
       .filter((button) => button.closest("dialog") === null)

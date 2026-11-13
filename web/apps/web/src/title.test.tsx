@@ -172,7 +172,9 @@ describe("TitleView", () => {
       ),
     );
     const controls = [
-      ...markup.matchAll(/<(?:a [^>]*class="title__play"|button)[^>]*>([^<]*)/gu),
+      ...markup.matchAll(
+        /<(?:a [^>]*class="title__play"|button|div [^>]*role="button")[^>]*>([^<]*)/gu,
+      ),
     ].map((control) =>
       control[0].includes('aria-label="More actions"') ? "More actions" : control[1],
     );

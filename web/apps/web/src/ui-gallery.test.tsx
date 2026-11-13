@@ -125,7 +125,9 @@ it("shows the parts the widgets are built from, a pop-up at its button and the l
     markup.indexOf('id="gallery-pop-ups"'),
     markup.indexOf('id="gallery-player"'),
   );
-  expect(parts).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Open a pop-up<\/button>/u);
+  expect(parts).toMatch(
+    /<div[^>]*aria-haspopup="dialog"[^>]*role="button"[^>]*>Open a pop-up<\/div>/u,
+  );
   expect(parts).toContain('<div class="stack layout-space-2"><button type="button">First choice');
   expect(parts).toContain(
     '<div class="cluster cluster--align-center layout-space-3"><button type="button">First choice',

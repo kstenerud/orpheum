@@ -102,7 +102,7 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     const asked: string[] = [];
     mounted = await onItsLadder(true, asked);
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
-    const original = [...menuOpen(mounted).querySelectorAll("button")].find(
+    const original = [...menuOpen(mounted).querySelectorAll('button, [role="button"]')].find(
       (each) => each.textContent === "Play the original file",
     );
     await fire(original ?? null, new MouseEvent("click", { bubbles: true }));
@@ -122,7 +122,7 @@ describe("the player's How it plays (D444)", () => {
 
 /** The player's ⁝ (player-menus.tsx). */
 function moreButton(on: Mounted): Element | null {
-  return on.container.querySelector('button[aria-label="Settings"]');
+  return on.container.querySelector('[aria-haspopup][aria-label="Settings"]');
 }
 
 /** The menu or dialog open over the film. */

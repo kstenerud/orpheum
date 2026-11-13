@@ -117,7 +117,7 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   const container = mounted.container;
   // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's action marked dangerous, so
   // focus arrives on Keep it (D421; dangerous-choices.browser.test.tsx).
-  const repairs = (): HTMLButtonElement | undefined =>
+  const repairs = (): HTMLElement | undefined =>
     buttonNamed(container, "More for local: /media/films");
   await click(repairs());
   await click(buttonWithText(container, "This folder is gone for good…"));

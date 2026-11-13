@@ -4,6 +4,7 @@ import { allPages, type components, reportFailure } from "@orpheum/sdk";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ButtonByRole } from "./button-by-role.tsx";
 import { chipsOf, decades } from "./list-filters.ts";
 import { dataOrThrow } from "./problem.ts";
 import { ActionChooser } from "./route-chooser.tsx";
@@ -85,8 +86,7 @@ export function ListChips(props: {
           },
         }))}
       />
-      <button
-        type="button"
+      <ButtonByRole
         className="list-chips__toggle"
         aria-pressed={filters.isUnwatchedOnly === true}
         onClick={() => {
@@ -94,7 +94,7 @@ export function ListChips(props: {
         }}
       >
         {t("chips.unwatched")}
-      </button>
+      </ButtonByRole>
     </>
   );
 }

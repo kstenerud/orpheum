@@ -53,7 +53,7 @@ async function typeInto(shown: Mounted, label: string, value: string): Promise<v
   );
 }
 
-const saveButton = (shown: Mounted): HTMLButtonElement | undefined =>
+const saveButton = (shown: Mounted): HTMLElement | undefined =>
   buttonWithText(shown.container, "Save");
 
 // D462 §2, §10.11: the house's network settings are the app's; the System page shows what runs,

@@ -155,7 +155,9 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
         </div>,
       ),
     );
-    const button = document.querySelector<HTMLElement>(`button[aria-label^="${opener}: "]`);
+    const button = document.querySelector<HTMLElement>(
+      `[aria-haspopup][aria-label^="${opener}: "]`,
+    );
     button?.focus();
     expect(document.activeElement).toBe(button);
     // A remote's OK is Enter on the focused opener, whose click Firefox under load can drop

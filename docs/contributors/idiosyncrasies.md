@@ -1767,10 +1767,13 @@ User-Agent (D263; the User-Agent is logged only).
   its Libraries `<button>` 322 ms, and the same place as a `<div role="button" tabindex>` 47 ms.
   Which part of Silk does it is unverified (a form control's focus is what autofill watches);
   `focus()` from script alone was quick. No report of it was found online.
-- **What we do:** the alphabet rail's letters are buttons by role, not `<button>`s
-  (`web/apps/web/src/alphabet-rail.tsx`): with them so, the first move onto the rail took 107 ms
-  and the next 44–47 ms. Other `<button>`s on a long list (the banner's, the list's criteria) still
-  pay the 300 ms; they are moved to less often.
+- **What we do:** every button a key moves onto over a long list is a button by role, not a
+  `<button>`, drawn by the one `ButtonByRole` (`web/apps/web/src/button-by-role.tsx`): the
+  alphabet rail's letters, every pop-up's opener (the banner's Libraries and menu, Sort and filter,
+  the player's menus) and its choices, the chips' Unwatched and Clear, and the blank posters of a
+  list still being drawn. With the rail's so, the first move onto it took 107 ms and the next
+  44–47 ms. The banner's status tray (Cast, Watch Together) and the player's icon buttons are still
+  `<button>`s (`icon-button.tsx`), moved to less often.
 - **Evidence:** **[measured]** 2026-11-12, staging's Films on the testing Fire TV over Silk's
   DevTools: key-to-next-task times from a `keydown` logger, a Tracing capture of the 5.9 s key
   (`Document::UpdateStyleAndLayout` ×12,817, `ScrollAnchor::Adjust` in each skipped poster's
