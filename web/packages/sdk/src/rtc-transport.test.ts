@@ -22,6 +22,22 @@ import {
   type PeerLike,
 } from "./rtc-transport.ts";
 
+/** What the test reads of node:fs: the SDK's own types know no Node, as it runs in a browser. */
+interface FileReading {
+  readonly readFileSync: (file: URL, encoding: "utf8") => string;
+}
+
+/**
+ * The text message that ends a response its head asked to end in text, as the core writes it: the
+ * golden file rtcapi's test checks its End against (rtcapi_test.go).
+ */
+const coreEnd = (await vi.importActual<FileReading>("node:fs"))
+  .readFileSync(
+    new URL("../../../../internal/core/rtcapi/testdata/end.json", import.meta.url),
+    "utf8",
+  )
+  .trim();
+
 /** Every channel a test opened, so that the requests it left open are ended after it. */
 const channelsOpened: FakeChannel[] = [];
 
@@ -155,7 +171,8 @@ describe("the WebRTC transport", () => {
     channel.answer(JSON.stringify({ status: 200 }));
     const response = await answered;
     channel.answer(new TextEncoder().encode("guest").buffer);
-    channel.answer(endMessage);
+    expect(endMessage).toBe(coreEnd);
+    channel.answer(coreEnd);
     expect(await response.text()).toBe("guest");
     expect(channel.isClosed).toBe(true);
   });

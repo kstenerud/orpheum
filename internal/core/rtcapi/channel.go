@@ -64,7 +64,8 @@ const (
 	EndInText = "text"
 )
 
-// End is the text message that ends a response whose request asked for it (EndHeader): {"end": true}.
+// End is the text message that ends a response whose request asked for it (EndHeader): {"end":true},
+// testdata/end.json, the golden file the SDK's endMessage is tested against too.
 type End struct {
 	IsEnd bool `json:"end"`
 }
