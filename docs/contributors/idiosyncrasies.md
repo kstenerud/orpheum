@@ -2703,7 +2703,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   runs two pion peers over pion's virtual network (`transport/v5/vnet`, a chunk filter dropping the
   core's full-size datagrams for 32 s) inside a `testing/synctest` bubble, so the 40 s pass in
   milliseconds; `TestSettings_PionsOwnGoQuietOverALossyLinkPastThePagesLimit` shows pion's own
-  settings miss the 40 s with a one-packet window. `vnet.NewRouter` panics with no `LoggerFactory`.
+  settings miss the 40 s with a one-packet window. `vnet.NewRouter` panics with no `LoggerFactory`, and `vnet` counts MAC addresses in a package
+  variable it does not lock (`net.go`, `newMACAddress`), so two tests making virtual networks at once
+  race: the tests do not run in parallel.
 - **Evidence:** the core's log, the owner's train, 2026-11-13 (VQ316). **[source]** libwebrtc caps
   Chrome's own backoff at 3 s: `media/sctp/dcsctp_transport.cc`, `kMaxTimerBackoffDuration =
   DurationMs(3000)`, "When there is packet loss for a long time, the SCTP retry timers will use

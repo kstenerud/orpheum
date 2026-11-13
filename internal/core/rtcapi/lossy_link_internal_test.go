@@ -36,8 +36,9 @@ const lossyResponseBytes = 16 << 10
 // On a link losing every full-size packet the core sends for lossFor, a response sent as the loss
 // begins still reaches the page before it gives the request up, and the core's send window stays
 // sctpLeastWindowBytes wide through the loss: its resends wait at most sctpResendCeiling.
+// Not parallel: vnet counts its MAC addresses in a package variable it does not lock
+// (transport v5.1.1's net.go, newMACAddress), so two virtual networks made at once race.
 func TestSettings_AResponseOverALossyLinkArrivesBeforeThePageGivesUp(t *testing.T) {
-	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		arrived, windowBytes := sendOverLossyLink(t, settings(nil))
 		if !arrived {
@@ -52,8 +53,8 @@ func TestSettings_AResponseOverALossyLinkArrivesBeforeThePageGivesUp(t *testing.
 
 // The same link with pion's own settings goes quiet past the page's limit, its window one packet: the
 // harness shows the loss the core's settings answer.
+// Not parallel, as the test above.
 func TestSettings_PionsOwnGoQuietOverALossyLinkPastThePagesLimit(t *testing.T) {
-	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		arrived, windowBytes := sendOverLossyLink(t, webrtc.SettingEngine{})
 		if arrived {
