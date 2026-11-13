@@ -97,6 +97,27 @@ grant itself and the Mac asked for nothing. The player's AirPlay is therefore Wa
 that plays hands the TV the grant. Two runs before it failed: the lab was off (every grant
 answered not found), then the grant was on the client's origin, which serves no media.
 
+**The lab's second run (2026-11-13, 11:40 to 12:01 UTC, the owner, iPhone to MacBook, Way B), read
+beside the core's log of every request under the grant:**
+
+- **What plays.** Five films, each with picture and sound on the Mac, playing, pausing and seeking
+  from the iPhone: H.264 with DTS (film 27; its sound converted to AAC, its picture copied), H.264
+  with AC-3 (films 8 and 13), MPEG-4 Part 2 with MP3 (film 33, both converted), and HEVC with E-AC-3
+  (film 2, which the iPhone's playback took at an encoded H.264 quality, so a copied HEVC picture on
+  the Mac is still untried). The Mac fetches far ahead: up to 200 chunks in 15 s.
+- **The page going away and coming back.** With the iPhone locked, or Safari left for another app,
+  the Mac played on; it stopped as Safari came back, on unlocking the iPhone or on returning to
+  Safari. The lab does not pause a hidden page (the player's `pauseWhenHidden`, D287, is not on the
+  lab's element), so the stop at Safari's return is Safari's or the page's own, not yet told apart. The player's AirPlay must not pause its element when the page is
+  hidden while it plays on a wireless target, as D287 does today for a handheld.
+- **A long pause** was not measured: both the iPhone and the Mac locked themselves while the film
+  waited, and when it stopped is not known.
+- **For the build (D473):** a request the client gives up on is answered and logged as an internal
+  error (500, "a request's client went away … context canceled") and should be logged as gone, not
+  as a fault; a chunk or init not made yet still came back 425 under the grant, twice to the Mac
+  and repeatedly to the iPhone after about 1 to 12 s held, not after the 30 s hold; and the lab's
+  film list stops after about 40 films, so most of the library cannot be picked there.
+
 ## Testing devices
 
 - **For the spike and the build:** the owner's MacBook (2018 or later, macOS 12 or newer) as the
