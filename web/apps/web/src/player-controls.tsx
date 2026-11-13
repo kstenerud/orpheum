@@ -160,7 +160,7 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
   const move = (isForward: boolean): JSX.Element | null => {
     const go = isForward ? moves?.next : moves?.previous;
     return has(isForward ? "next" : "previous") && go !== undefined ? (
-      <MoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />
+      <SequenceMoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />
     ) : null;
   };
   const play = has("play") ? (
@@ -256,8 +256,11 @@ function StepButton(props: {
   );
 }
 
-/** Previous or next in the sequence, which plays that video (SequenceMoves). */
-function MoveButton(props: {
+/**
+ * Previous or next in the sequence, which plays that video (SequenceMoves): the bar's, and a Watch
+ * Together guest's beside Full screen (D471).
+ */
+export function SequenceMoveButton(props: {
   readonly isOverVideo: boolean | undefined;
   readonly isForward: boolean;
   readonly onMove: () => void;
