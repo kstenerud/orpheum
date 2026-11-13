@@ -3785,3 +3785,14 @@ Once VQ310 shows AirPlay plays from the lab:
 - **A request whose client went away under a grant is answered 500** and logged "internal error"
   (staging, 2026-11-13: the grant's session lookup sees the cancelled context); it should be logged
   as the client gone, as other handlers do.
+
+## The lapse on the Orpheum side (the owner, 2026-11-13)
+
+Built this batch: the System page's frozen line takes U7's words (connect's spec §3.10) without
+its steps, ending "Renew it with the discovery's operator."
+
+- **Next batch:** a user guide to running one's own discovery, which frozen's line then points to
+  as U7's `<steps>`.
+- **With billing:** the admins' banner in grace ("Discovery ends on <date>") and a client's own
+  message for a paused server none of whose direct paths answers. In the beta nothing lapses by
+  date and only the owner lapses a server, by hand, so neither has a date or a case to show.
