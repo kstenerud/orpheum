@@ -380,7 +380,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A guest receiver's page asks for no route the core refuses a guest** (D469 §4, D465 §2): the
   signed-in page reads who is signed in first, and a page signed in for one cast draws no shell and
   reads none of a person's own (the client settings, their Watch Together sessions); on its play
-  screen (`IsGuestReceiverContext`, `src/guest-receiver.ts`) there is no Up next, no levelling's
+  screen (`IsGuestContext`, `src/guest-page.ts`) there is no Up next, no levelling's
   waits and no sound choice offered to its remote, and the audio track and subtitles its remote
   chooses are played and shown but kept for no one. `guest-receiving.test.tsx` plays a cast through
   against a server refusing every route whose `x-orpheum-capability` a guest's session does not hold,

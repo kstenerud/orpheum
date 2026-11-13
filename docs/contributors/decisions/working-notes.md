@@ -28122,9 +28122,8 @@ since they would have control over both devices."* **Amends**
 
 - **Watch Together host:** takes every action (D246 §5).
 - **Watch Together guest:** play and pause, by `canPlayPause`; the position, by `canSeek`; Up next,
-  by `canNext` (§2, §3); stop, never (D271 §4); ⏮ and ⏭ with `canNext`, beside Full screen (*not
-  built*); their sound and subtitles on their own device for themselves alone (the owner's answers
-  below).
+  by `canNext` (§2, §3); stop, never (D271 §4); ⏮ and ⏭ with `canNext`, beside Full screen; their
+  sound and subtitles on their own device for themselves alone (the owner's answers below).
 - **Caster** (the remote on the person's phone, D440): takes every action: play and pause, the
   position, Up next and ⏮, sound and subtitles, and Stop casting.
 - **An Orpheum tab or TV receiving, with a remote** (D364, D434): takes every action it can, as its
@@ -28145,7 +28144,7 @@ since they would have control over both devices."* **Amends**
 
 - **Who counts down for a session: the host alone.** A guest with `canNext` picks Up next and
   presses it; only the host's player counts down.
-- **⏮ and ⏭ for a guest with `canNext`: yes**, beside Full screen. *Not built.*
+- **⏮ and ⏭ for a guest with `canNext`: yes**, beside Full screen.
 - **A guest's sound and subtitles:** chosen on their own device, for themselves alone.
 - **A guest may pause and resume** (`canPlayPause`), as now, **and never stop** so that the film goes
   away (D271 §4).
@@ -28156,7 +28155,10 @@ since they would have control over both devices."* **Amends**
 
 **Status:** Decided 2026-11-13. §1 to §3 are in the commit "feat(together): a guest's link may give
 the next and previous episode, and a guest given it is offered Up next", to be read back against
-the code by a later commit. The cells above marked not built, and the questions, are not built.
+the code by a later commit. A guest's ⏮ and ⏭ and their own sound and subtitles are in the commits
+"feat(together): a guest given next and previous has ⏮ and ⏭ beside Full screen" and
+"feat(together): a guest's sound and subtitles are their own, chosen on their page alone". The cells
+above marked not built, and the questions, are not built.
 
 **Proven by:**
 - 1: internal/core/together/hub_test.go (TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows),
@@ -28166,6 +28168,9 @@ the code by a later commit. The cells above marked not built, and the questions,
   (TestTogether_ALinkCarriesTheRightsTheHostGaveIt), web/apps/web/src/watch-together.test.tsx
 - 3: internal/core/api/together_next_test.go (TestTogether_AGuestWithTheRightSeesUpNextAndPutsItOn),
   web/apps/web/src/together-viewer.test.tsx
+- A guest's ⏮ and ⏭: web/apps/web/src/together-viewer.test.tsx ("draws ⏮ and ⏭ beside Full screen
+  for a viewer whose link lets them …")
+- A guest's sound and subtitles: web/apps/web/src/together-guest-tracks.test.tsx
 
 ## D472 — Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
 

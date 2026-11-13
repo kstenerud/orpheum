@@ -287,7 +287,7 @@ function startReporting(
   const stopWatching = watchForReport(video, reporter, movingDown);
   const stopTelling = reportWhilePlaying(video, reporter, videoEvents.lastPositionMs);
   const stopSaying = sayInterestOf(video, (said) => {
-    sendInterest(api, mediaToken, said);
+    sendInterest(api, { mediaToken }, said);
   });
   const stop = (): void => {
     loss.stop();

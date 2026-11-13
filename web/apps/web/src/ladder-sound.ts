@@ -142,13 +142,17 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
  * Another audio track chosen in a file played as it is (DirectUnder): switched in place where the
  * element lists its file's tracks, as Safari's does, levelled by its own and said to the server as the
  * sound playing, whose stall's offer then starts it; else askAgain, the film moving onto its ladder
- * once, as Chrome and Firefox do (the owner's answers of 2026-10-31). Returns the level of the sound
- * playing and the handler for a choice.
+ * once, as Chrome and Firefox do (the owner's answers of 2026-10-31). A Watch Together guest says it by
+ * ways.headers, their membership's. Returns the level of the sound playing and the handler for a
+ * choice.
  */
 export function useOwnTrackChoice(
   decision: PlaybackDecision,
   videoRef: RefObject<HTMLVideoElement | null>,
-  askAgain: () => void,
+  ways: {
+    readonly askAgain: () => void;
+    readonly headers?: Readonly<Record<string, string>>;
+  },
 ): { readonly level: SoundLevel; readonly onAudioChosen: (track: AudioTrack) => void } {
   const { api } = useServices();
   const [playingTrack, setPlayingTrack] = useState<number | undefined>(undefined);
@@ -162,15 +166,16 @@ export function useOwnTrackChoice(
       chosen === undefined ||
       !switchOwnTrack(ownAudioTracksOf(video), track.audioTrackIndex)
     ) {
-      askAgain();
+      ways.askAgain();
       return;
     }
     setPlayingTrack(track.audioTrackIndex);
-    sendInterest(api, decision.mediaToken, {
+    const said = {
       soundStream: chosen.stream,
       positionMs: Math.round(video.currentTime * 1000),
       isPaused: video.paused,
-    });
+    };
+    sendInterest(api, { mediaToken: decision.mediaToken, headers: ways.headers }, said);
   };
   const level =
     playing === undefined

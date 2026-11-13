@@ -57,10 +57,25 @@ export function sayInterestOf(
 /** Why a player let go of its playback (D309 §7): it left its page, or went on to another film. */
 export type LeftFor = "left" | "replaced";
 
-/** Says to the server what the playback mediaToken names wants now; one that fails costs nothing. */
-export function sendInterest(api: Api, mediaToken: string, said: SaidInterest): void {
+/**
+ * Says to the server what the playback to.mediaToken names wants now, by to.headers where they carry a
+ * Watch Together guest's membership (D247 §2); one that fails costs nothing.
+ */
+export function sendInterest(
+  api: Api,
+  to: {
+    readonly mediaToken: string;
+    readonly headers?: Readonly<Record<string, string>> | undefined;
+  },
+  said: SaidInterest,
+): void {
+  const { mediaToken, headers } = to;
   api
-    .PUT("/playback/{token}/wants", { params: { path: { token: mediaToken } }, body: said })
+    .PUT("/playback/{token}/wants", {
+      params: { path: { token: mediaToken } },
+      body: said,
+      ...(headers === undefined ? {} : { headers }),
+    })
     .catch(() => undefined);
 }
 
