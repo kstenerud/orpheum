@@ -87,8 +87,9 @@ type ActivationAnswerInput struct {
 	}
 }
 
-// CastToPairingInput is a person signed in answering the code they entered for themselves by casting
-// to its device, for one cast (D469 §1), where they would have activated it.
+// CastToPairingInput is a person signed in answering the code they scanned for themselves (D321) by
+// casting to its device, for one cast (D469 §1), where they would have activated it; a typed code,
+// whose check code is to match, is cast to by no one.
 type CastToPairingInput struct {
 	AuthorizationHeader
 	Body struct {

@@ -253,17 +253,18 @@ func TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits(t *testin
 	}
 }
 
-// A code its person entered for themselves is answered by casting to its device (D469 §1): the
-// device takes a guest receiver's session as an activated one takes its own, of the person, on a
-// device listed nowhere, which the sending device alone casts to; the code is answered once, and
-// one entered for someone else, or by a guest receiver, is cast to by no one.
+// A code its person scanned for themselves is answered by casting to its device (D469 §1): the
+// device takes a guest receiver's session as an activated one takes its own, sealed through the paid
+// service (D321), of the person, on a device listed nowhere, which the sending device alone casts to;
+// the code is answered once, and one entered for someone else, or by a guest receiver, is cast to by
+// no one.
 func TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, fixture.service)
-	asked := claimedPairing(t, fixture.service, sender.UserID, sender.UserID, "192.0.2.10", "Upstairs TV")
-	traded, err := fixture.service.CastToPairing(ctx, sender, asked.Code)
+	codes := scannedPairing(t, fixture.service, sender.UserID, sender.UserID, "Upstairs TV")
+	traded, err := fixture.service.CastToPairing(ctx, sender, scannedCode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +272,7 @@ func TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender(t *testing.T)
 		traded.DeviceID == sender.DeviceID || traded.Name != "Upstairs TV" {
 		t.Errorf("cast to = %+v; want the sender's person on a device of its own, named as entered", traded)
 	}
-	token, err := tokenOf(fixture.service.TakePairedSession(ctx, asked.Secret))
+	token, err := tokenOf(fixture.service.TakeHandOff(ctx, codes.activated[scannedCode]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,10 +284,10 @@ func TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender(t *testing.T)
 	if err != nil || slices.ContainsFunc(devices, func(each Device) bool { return each.ID == traded.DeviceID }) {
 		t.Errorf("devices = %+v, %v; want the guest receiver listed nowhere", devices, err)
 	}
-	if _, err = fixture.service.CastToPairing(ctx, sender, asked.Code); !errors.Is(err, ErrNoPairing) {
+	if _, err = fixture.service.CastToPairing(ctx, sender, scannedCode); !errors.Is(err, ErrNoPairing) {
 		t.Errorf("answered twice: %v, want ErrNoPairing", err)
 	}
-	if _, err = fixture.service.CastToPairing(ctx, receiver, asked.Code); !errors.Is(err, ErrGuestSender) {
+	if _, err = fixture.service.CastToPairing(ctx, receiver, scannedCode); !errors.Is(err, ErrGuestSender) {
 		t.Errorf("a guest receiver casting: %v, want ErrGuestSender", err)
 	}
 }
@@ -298,22 +299,52 @@ func TestCastToPairing_RefusesACodeEnteredForSomeoneElse(t *testing.T) {
 	fixture := newFixture(t)
 	sender, _ := guestSender(t, fixture.service)
 	partner := fixture.createUser(t, "partner", "pw", RoleUser)
-	other := claimedPairing(t, fixture.service, sender.UserID, partner, "192.0.2.11", "Their TV")
-	if _, err := fixture.service.CastToPairing(t.Context(), sender, other.Code); !errors.Is(err, ErrNoPairing) {
+	scannedPairing(t, fixture.service, sender.UserID, partner, "Their TV")
+	if _, err := fixture.service.CastToPairing(t.Context(), sender, scannedCode); !errors.Is(err, ErrNoPairing) {
 		t.Errorf("a code entered for someone else: %v, want ErrNoPairing", err)
 	}
 }
 
-// claimedPairing is a Fire TV's code asked for from address and entered by byUserID for forUserID,
-// naming the device name.
-func claimedPairing(t *testing.T, service *Service, byUserID, forUserID int64, address, name string) Pairing {
-	t.Helper()
-	asked, err := service.RequestPairing(t.Context(), "", "Fire TV", PreviousDevice{}, address)
+// A typed code is cast to by no one (D469's status): its check code must match before its device
+// signs in (D288 §3), so it stays Claim's, which still answers it after the refusal.
+func TestCastToPairing_RefusesATypedCodeWhoseCheckCodeIsClaims(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	sender, _ := guestSender(t, fixture.service)
+	asked, err := fixture.service.RequestPairing(ctx, "", "Fire TV", PreviousDevice{}, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.ClaimPairing(t.Context(), byUserID, forUserID, asked.Code, name); err != nil {
+	claim, err := fixture.service.ClaimPairing(ctx, sender.UserID, sender.UserID, asked.Code, "Upstairs TV")
+	if err != nil || claim.CheckCode == "" {
+		t.Fatalf("typing the code: %+v, %v; want a check code", claim, err)
+	}
+	if _, err = fixture.service.CastToPairing(ctx, sender, asked.Code); !errors.Is(err, ErrNoPairing) {
+		t.Errorf("casting to a typed code: %v, want ErrNoPairing", err)
+	}
+	if err = fixture.service.AnswerPairing(ctx, sender.UserID, asked.Code, true); err != nil {
+		t.Errorf("the typed code's match after the refusal: %v; want it answered as Claim answers it", err)
+	}
+}
+
+// scannedCode is the code scannedPairing's television waits with at the paid service.
+const scannedCode = "abcd-efgh"
+
+// scannedPairing is a television waiting with scannedCode at the paid service, its code scanned from
+// its QR code (D321) by byUserID for forUserID and named name; the service's codes keep the hand-off
+// its activation passes on.
+func scannedPairing(t *testing.T, service *Service, byUserID, forUserID int64, name string) *fakeServiceCodes {
+	t.Helper()
+	codes := newFakeServiceCodes(map[string]fakeDevice{scannedCode: newWaitingDevice(t, "Tizen", 5)})
+	service.ClaimDeviceCodesFrom(codes)
+	keyHash, err := proof.DeviceKeyHash(codes.waiting[scannedCode].claim.PublicKey)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return asked
+	claim, err := service.ClaimScannedPairing(t.Context(), byUserID, forUserID, scannedCode, keyHash, name)
+	if err != nil || claim.CheckCode != "" {
+		t.Fatalf("scanning the code: %+v, %v; want a claim with no check code", claim, err)
+	}
+	return codes
 }

@@ -169,9 +169,10 @@ func TestGuestReceiver_EndedIsRefusedItsLiveConnection(t *testing.T) {
 	}
 }
 
-// A person who entered a device's code casts to it instead of activating it (D469 §1, §2): the device
-// takes its session as an activated one does, is told it is a guest receiver and nothing of the
-// person, is listed nowhere, and takes one cast from the asking device alone.
+// A person who scanned a device's code casts to it instead of activating it (D469 §1, §2): the device
+// takes its session as an activated one does, through the paid service's hand-off (D321), is told it
+// is a guest receiver and nothing of the person, is listed nowhere, and takes one cast from the asking
+// device alone.
 func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -179,16 +180,13 @@ func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *test
 	harness.shelveFilms(t)
 	laptopToken := harness.signIn(t, "owner", "owner-password")
 	phone := harness.thisDevice(t, phoneToken)
-	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
-	var pairing api.PairingOutput
-	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
-		t.Fatalf("POST /pairings = %d %s", asked.status, asked.body)
-	}
-	code := map[string]any{"code": pairing.Body.Code}
+	codes, keyHash := newScannedServiceCodes(t, harness, "Tizen")
+	code := map[string]any{"code": "abcd-efgh"}
 	wantError(t, harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code), http.StatusNotFound,
 		api.CodeNotFound)
 	if entered := harness.do(t, http.MethodPost, "/pairings/code", phoneToken,
-		map[string]any{"code": pairing.Body.Code, "deviceName": "Upstairs TV"}); entered.status != http.StatusOK {
+		map[string]any{"code": "abcd-efgh", "keyHash": keyHash, "deviceName": "Upstairs TV"}); entered.status !=
+		http.StatusOK {
 		t.Fatalf("POST /pairings/code = %d %s", entered.status, entered.body)
 	}
 	answer := harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code)
@@ -200,8 +198,11 @@ func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *test
 	wantError(t, harness.do(t, http.MethodPost, "/pairings/cast", phoneToken, code), http.StatusNotFound,
 		api.CodeNotFound)
 	harness.logs.AwaitEvent(t, "guestReceiverByCode", fmt.Sprintf(`"deviceId":%d`, made.Body.DeviceID))
-	session := harness.do(t, http.MethodPost, "/pairings/session", "",
-		map[string]string{"secret": pairing.Body.Secret})
+	if len(codes.handOffs) != 1 {
+		t.Fatalf("the service was handed %v; want the guest receiver's one hand-off, sealed to the TV", codes.handOffs)
+	}
+	session := harness.do(t, http.MethodPost, "/session/redeem", "",
+		map[string]string{"code": codes.handOffs[0]})
 	guestToken, name := readSignIn(t, session)
 	if name != "" || !strings.Contains(session.body, `"isGuestReceiver":true`) {
 		t.Errorf("the device's session = %s; want a guest receiver's, nothing of the person", session.body)

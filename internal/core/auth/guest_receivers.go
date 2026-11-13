@@ -188,10 +188,10 @@ func (service *Service) TradeGuestGrant(ctx context.Context, grant string) (Gues
 // CastToPairing answers the code a device shows, which sender's person entered for themselves, by
 // casting to it (D469 §1): the device is signed in as a guest receiver of theirs, as a traded grant
 // signs a Google Cast device in (TradeGuestGrant), under the name and platform its code gave, and
-// takes its session as an activated device would, at the core or through the paid service. It is
+// takes its session as an activated device would, through the paid service. It is
 // listed nowhere, only sender's device casts to it, and it keeps nothing after its cast. ErrNoPairing
-// for a code sender's person did not enter, entered for someone else, or answered; ErrGuestSender for
-// a sender that cannot cast.
+// for a code sender's person did not enter, entered for someone else, typed (its check code to match),
+// or answered; ErrGuestSender for a sender that cannot cast.
 func (service *Service) CastToPairing(ctx context.Context, sender Principal, typed string) (GuestReceiver, error) {
 	if sender.isGuestReceiver || sender.DeviceID == 0 {
 		return GuestReceiver{}, ErrGuestSender
@@ -213,16 +213,8 @@ func (service *Service) CastToPairing(ctx context.Context, sender Principal, typ
 	if err != nil {
 		return GuestReceiver{}, err
 	}
-	if known.deviceKey != "" {
-		err = service.answerService(ctx, known, issued, true)
-	} else {
-		service.pairings.mutex.Lock()
-		if kept, found := service.pairings.bySecret[known.secret]; found {
-			kept.issued = issued
-		}
-		service.pairings.mutex.Unlock()
-	}
-	if err != nil {
+	// A scanned code is the paid service's alone (D321): its session is sealed to the device's key.
+	if err := service.answerService(ctx, known, issued, true); err != nil {
 		return GuestReceiver{}, err
 	}
 	return GuestReceiver{
@@ -231,15 +223,18 @@ func (service *Service) CastToPairing(ctx context.Context, sender Principal, typ
 	}, nil
 }
 
-// isEnteredForThemselves is nil when byUserID entered code for themselves and has not answered it:
+// isEnteredForThemselves is nil when byUserID scanned code for themselves and has not answered it:
 // a guest receiver is its sender's person's, so a code an admin entered for someone else is cast to by
-// no one (ErrNoPairing).
+// no one, and a typed code, whose check code must match before its device signs in (D288 §3), is
+// Claim's alone (D469's status), so only a scanned code (D321), which has none, is cast to
+// (ErrNoPairing).
 func (service *Service) isEnteredForThemselves(byUserID int64, code string) error {
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	service.pairings.forgetExpiredLocked(service.clock.Now())
 	known, found := service.pairings.byCodeLocked(code)
-	if !found || !known.isClaimed || known.byUserID != byUserID || known.forUserID != byUserID || known.isConfirmed {
+	if !found || !known.isClaimed || known.byUserID != byUserID || known.forUserID != byUserID ||
+		known.isConfirmed || known.checkCode != "" {
 		return ErrNoPairing
 	}
 	return nil

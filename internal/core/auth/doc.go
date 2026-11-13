@@ -228,8 +228,10 @@
 //     TestGuestGrant_AGuestReceiverIsUnlistedAndRemovedWithItsSession.
 //
 //   - A device's code answered by casting (D469 §1) signs the device in as a guest receiver of the
-//     answering device's person, once, and only for a code they entered for themselves.
-//     TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender.
+//     answering device's person, once, and only for a code they scanned for themselves (D321): a
+//     typed code's check code must match first (D288 §3), so it is Claim's alone.
+//     TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender and
+//     TestCastToPairing_RefusesATypedCodeWhoseCheckCodeIsClaims.
 //
 //   - A waiting guest grant proves its Cast device's first offers (proof.GuestGrantOfferKey) under
 //     the locator of the session that asked for it alone, and no longer once traded or expired.
