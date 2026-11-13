@@ -5,17 +5,20 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { act } from "react";
+import { act, type JSX } from "react";
 
 import { LibraryBrowse } from "./library-browse.tsx";
 import { typingRestMs } from "./listing-tools.tsx";
-import { BackgroundChangesContext } from "./polling.ts";
+import { chipsOf } from "./list-filters.ts";
+import { useRoute } from "./services.tsx";
+import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
   buttonWithText,
   click,
   mount,
   servedBy,
   settleUntil,
+  type Answer,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -27,14 +30,96 @@ import {
   narrowByName,
   openCriteria,
 } from "./test-list-criteria.tsx";
-import {
-  neverAsks,
-  library,
-  titlesPage,
-  lettersPage,
-  mountBrowse,
-  RoutedLibraryBrowse,
-} from "./test-library-browse.tsx";
+
+/** A poller that never asks: a list is read only as the test's steps ask. */
+const neverAsks: Poller = { start: () => () => undefined };
+
+/** A library, as the server sends it. */
+function library(
+  id: number,
+  name: string,
+  kind: "film" | "series" | "other" = "film",
+): Record<string, unknown> {
+  return {
+    id,
+    name,
+    kind,
+    metadataSource: kind === "other" ? "nfo" : "tmdb",
+    changeDetection: "watch",
+    isWritable: true,
+    createdAt: 0,
+  };
+}
+
+/** One film in a titles page, so .poster-grid draws: an empty page shows browse.empty instead. */
+const titlesPage = (): Answer => [
+  200,
+  {
+    items: [
+      {
+        id: 1,
+        name: "A film",
+        kind: "film",
+        identificationState: "identified",
+        libraryId: 1,
+        addedAt: 1,
+      },
+    ],
+    nextCursor: "",
+  },
+];
+const lettersPage = (): Answer => [200, { letters: [] }];
+
+/** Mounts the Libraries page with its state given by the address (app.tsx's own props). */
+async function mountBrowse(
+  state: Partial<{
+    library: number | "all" | undefined;
+    view: "folders" | undefined;
+    folder: string | undefined;
+    sort: "name" | "added" | "recorded" | "fileName" | "released" | undefined;
+    order: "ascending" | "descending" | undefined;
+    query: string;
+  }>,
+  answers: Record<string, Answer | readonly Answer[]>,
+  heard: Heard[] = [],
+): Promise<Mounted> {
+  // A films' or a series' library asks its genres as its Sort and filter opens (list-chips.tsx).
+  const services = servedBy({ "GET /genres": [200, { genres: [] }], ...answers }, heard);
+  return await mount(
+    <BackgroundChangesContext value={neverAsks}>
+      {withServices(
+        <LibraryBrowse
+          library={state.library}
+          view={state.view}
+          folder={state.folder}
+          sort={state.sort}
+          order={state.order}
+          query={state.query ?? ""}
+        />,
+        services,
+      )}
+    </BackgroundChangesContext>,
+  );
+}
+
+/** The Libraries page as app.tsx shows it: what it lists read from the address it replaces. */
+function RoutedLibraryBrowse(): JSX.Element {
+  const route = useRoute();
+  if (route.screen !== "browse") {
+    return <p>{route.screen}</p>;
+  }
+  return (
+    <LibraryBrowse
+      library={route.library}
+      view={route.view}
+      folder={route.folder}
+      sort={route.sort}
+      order={route.order}
+      query={route.query ?? ""}
+      filters={chipsOf(route)}
+    />
+  );
+}
 
 /** The sort's options in the Sort and filter, opened for them: each its field after an arrow. */
 async function sortOptions(container: HTMLElement): Promise<HTMLButtonElement[]> {
@@ -240,7 +325,6 @@ describe("the Libraries page (D349)", () => {
   it("offers a films library's every sort either way, by release date too, the way in the address (D366)", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "PUT /libraries/1/preferences": [204, null],
       "GET /items": titlesPage(),
       "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
@@ -456,7 +540,6 @@ describe("the Libraries page (D349)", () => {
   it("sends the typed text, with the library chosen, to the address as its pop-up closes", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "PUT /libraries/1/preferences": [204, null],
       "GET /items": titlesPage(),
       "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],

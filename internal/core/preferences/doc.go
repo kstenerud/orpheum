@@ -5,8 +5,7 @@
 // started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
 // boost, levelling and autoplay (plans/up-next.md), and whether the person's pages show the tools
 // marked as debug tools; and the ordering a person watches each series
-// in (D159 §1), which internal/core/library resolves (ViewingOrdering); and the sort they list each
-// library in (X5), which the web client opens it with. A choice is worked out
+// in (D159 §1), which internal/core/library resolves (ViewingOrdering). A choice is worked out
 // against a file's tracks when it plays, never copied between files (D230). Playback lists a
 // file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
 // through it. A device's sound is a fact about the device, kept on its row by internal/core/auth,
@@ -53,10 +52,6 @@
 //     two choices, each none until made, and one leaves nothing out of the other's place (D349 §8,
 //     D366 §5). Enforced by TestBrowse_ALibraryLeftOutOfFilmsAndSeries and
 //     TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows (internal/core/api).
-//   - The sort a person lists a library in, and its way, is kept per person and per library, the
-//     last chosen, none until chosen, and goes with their preferences (X5, the owner, 2026-11-12).
-//     Enforced by TestLibrarySorts_AreKeptPerLibraryAndPersonAndForgottenWithThem and
-//     TestLibraryPreferences_ASortChosenIsKeptPerLibraryAndPerson (internal/core/api).
 //
 // # Read before changing
 //
@@ -70,6 +65,5 @@
 //
 //   - preferences.go: what is kept and how a file's starting tracks are worked out from it.
 //     keep.go: the writes: a choice, what a started file used, an offset and the switches.
-//     libraries.go: the libraries left out of Films and Series, and out of Home, and the sort each
-//     library is listed in.
+//     libraries.go: the libraries left out of Films and Series, and out of Home.
 package preferences

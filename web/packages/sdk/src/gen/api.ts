@@ -1059,23 +1059,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/libraries/{id}/preferences": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Keep a person's choices in one library: the sort they list it in and its way, which GET /libraries gives back as its sortChoice, on every device they sign in on */
-        put: operations["setLibraryPreferences"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/libraries/{id}/rescan": {
         parameters: {
             query?: never;
@@ -4106,7 +4089,6 @@ export interface components {
             name: string;
             rescan?: components["schemas"]["LibraryRescanBody"];
             roots?: components["schemas"]["RootBody"][] | null;
-            sortChoice?: components["schemas"]["SortChoiceBody"];
         };
         LibraryNameBody: {
             /** Format: int64 */
@@ -5332,9 +5314,6 @@ export interface components {
         SetItemPreferencesInputBody: {
             episodeOrdering?: string;
         };
-        SetLibraryPreferencesInputBody: {
-            sortChoice?: components["schemas"]["SortChoiceBody"];
-        };
         SetMyPreferencesInputBody: {
             isAutoplayOn?: boolean;
             isDialogueBoostOn?: boolean;
@@ -5394,12 +5373,6 @@ export interface components {
             device: components["schemas"]["NewDeviceBody"];
             name: string;
             password: string;
-        };
-        SortChoiceBody: {
-            /** @enum {string} */
-            order: "ascending" | "descending";
-            /** @enum {string} */
-            sort: "name" | "added" | "recorded" | "fileName" | "released";
         };
         SoundTrackBody: {
             /** Format: int64 */
@@ -8592,39 +8565,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FolderOutputBody"];
                 };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    setLibraryPreferences: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetLibraryPreferencesInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Error */
             default: {
