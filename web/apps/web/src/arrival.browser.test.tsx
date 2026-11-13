@@ -129,6 +129,8 @@ describe("a page's arrival", () => {
       }),
       openTogetherSocket: server.openSocket,
     });
+    // The live connection opens once the page knows who is signed in (D469 §4).
+    await expect.poll(() => server.openedCount()).toBeGreaterThan(0);
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
     await expect.poll(() => isDrawn('button[aria-label="Cast to a device"]')).toBe(true);
