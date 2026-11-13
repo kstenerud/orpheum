@@ -70,6 +70,7 @@ class SourceHeaders(unittest.TestCase):
         self.assertFalse(cs.is_source("web/node_modules/x/index.js"))
         self.assertFalse(cs.is_source("docs/contributors/README.md"))
         self.assertTrue(cs.is_source("Makefile"))
+        self.assertTrue(cs.is_source("mk/dev.mk"))  # the Makefile's split-out parts (2026-11-13)
 
     def test_query_files_must_be_ascii(self):
         bad = cs.check_ascii("internal/store/queries/user.sql", "-- ok\n-- see \u00a7 4\n")
@@ -121,6 +122,11 @@ class Migrations(unittest.TestCase):
         self.assertTrue(gate_paths.is_committed_migration(self.BASELINE, root))
         self.assertTrue(gate_paths.is_committed_migration(self.STEP, root))
         self.assertFalse(gate_paths.is_committed_migration("internal/store/migrations/0026_new.sql", root))
+
+    def test_the_makefiles_split_out_parts_are_the_owners_as_it_is(self):
+        self.assertTrue(gate_paths.is_gate("Makefile"))
+        self.assertTrue(gate_paths.is_gate("mk/dev.mk"))
+        self.assertFalse(gate_paths.is_gate("mk/notes.md"))
 
     def test_the_checkpoint_is_the_owners(self):
         self.assertTrue(gate_paths.is_gate(gate_paths.MIGRATIONS_CHECKPOINT))
@@ -218,6 +224,9 @@ class Claims(unittest.TestCase):
         problems = cc.check_test_vars(files)
         self.assertEqual(len(problems), 1)
         self.assertIn("ORPHEUM_TEST_GPU", problems[0].message)
+        # A part of the Makefile in mk/ sets a variable as the Makefile does (2026-11-13).
+        files["mk/lab.mk"] = "test-gpu: export ORPHEUM_TEST_GPU := 1\n"
+        self.assertEqual(cc.check_test_vars(files), [])
 
 
 class DecisionProofs(unittest.TestCase):

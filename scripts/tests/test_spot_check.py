@@ -47,6 +47,7 @@ class Planning(unittest.TestCase):
     def test_a_gate_script_runs_the_python_tests_and_markdown_the_docs_gate(self):
         self.assertTrue(spot_check.plan(["scripts/x.py"], MODULE, {}).python)
         self.assertTrue(spot_check.plan(["Makefile"], MODULE, {}).python)
+        self.assertTrue(spot_check.plan(["mk/dev.mk"], MODULE, {}).python)
         self.assertTrue(spot_check.plan(["docs/a.md"], MODULE, {}).docs)
         self.assertFalse(spot_check.plan(["docs/a.md"], MODULE, {}).python)
 
@@ -101,6 +102,7 @@ class Wiring(unittest.TestCase):
         listed = subprocess.run(["make", "-f", str(REPO / "Makefile"), "help"], capture_output=True, text=True,
                                 check=True, cwd=REPO).stdout
         self.assertIn("  spot ", listed)
+        self.assertIn("  cover ", listed, "and the targets of the Makefile's parts in mk/, unprefixed")
         self.assertEqual(spot_check.DEFAULT_JOBS, 2, "two runs at once by default, beside staging")
 
 

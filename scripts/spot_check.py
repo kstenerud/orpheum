@@ -48,7 +48,7 @@ HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", 
 
 WEB_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/(src|e2e)/.*\.tsx?$")
 WEB_STYLE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
-PYTHON_GATES = re.compile(r"^(scripts/.*\.py|\.claude/hooks/.*\.py|dev|Makefile|\.githooks/.*)$")
+PYTHON_GATES = re.compile(r"^(scripts/.*\.py|\.claude/hooks/.*\.py|dev|Makefile|mk/.*\.mk|\.githooks/.*)$")
 GENERATED_FROM = re.compile(r"^(internal/store/(cache/)?queries/.*\.sql|internal/core/api/.*\.go)$")
 
 
