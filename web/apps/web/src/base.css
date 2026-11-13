@@ -79,6 +79,7 @@ ol {
 
 /* Controls: dark fields and quiet buttons, a fingertip tall; a form's submit is the primary one. */
 button,
+:where([role="button"]),
 input,
 select,
 textarea {
@@ -86,7 +87,17 @@ textarea {
   color: inherit;
 }
 
-button {
+/* A button by role (button-by-role.tsx) is drawn as a <button> is, its content centred as a
+   <button>'s; :where keeps it below every class, as the bare button selector is. */
+:where([role="button"]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+button,
+:where([role="button"]) {
   min-height: var(--size-control);
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
@@ -100,7 +111,8 @@ button {
 /* A hover is a pointer's: a phone's browser keeps a tapped button hovered, and Firefox for Android
    painted a pressed Talk button grey over its fill (the owner, 2026-10-11). */
 @media (hover: hover) {
-  button:hover:not(:disabled) {
+  button:hover:not(:disabled),
+  :where([role="button"]:hover:not([aria-disabled="true"])) {
     background: var(--color-border);
   }
 }

@@ -116,9 +116,6 @@
   font-size: inherit;
   font-weight: var(--font-weight-strong);
   line-height: 1.2;
-  /* A button's, the letter a button by role alone (alphabet-rail.tsx). */
-  text-align: center;
-  cursor: pointer;
 }
 
 .alphabet-rail__letter:hover:not(:disabled) {

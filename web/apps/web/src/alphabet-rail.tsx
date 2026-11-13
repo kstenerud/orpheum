@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ButtonByRole } from "./button-by-role.tsx";
 import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
 import { filtersKey, filtersQuery, kindsQuery, type ListedKind } from "./list-filters.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -43,9 +44,8 @@ export const railLetters = [
  * undefined, for a list that has not asked. A list Z to A lists its letters Z to A, # last (D366 §4).
  * It is one Tab stop, as a poster grid is (useRovingTabStop; the owner, 2026-11-11): Tab enters it at
  * the letter last focused and leaves it with the next, the arrows moving from letter to letter.
- * Its letters are buttons by role, not <button>s: Silk on a Fire TV lays the whole page out each
- * time a key focuses a <button>, every poster content-visibility skipped included, and a move onto
- * the rail took 300 ms, the first 5 s (the 11-24 batch's item 12; idiosyncrasies.md).
+ * Its letters are buttons by role (ButtonByRole), not <button>s: Silk on a Fire TV lays the whole
+ * page out each time a key focuses a <button>, and a move onto the rail took 300 ms, the first 5 s.
  */
 export function AlphabetRail(props: {
   readonly onLetter: (letter: string) => void;
@@ -72,24 +72,14 @@ export function AlphabetRail(props: {
     >
       {shown.map((letter) => (
         <li key={letter}>
-          {/* eslint-disable-next-line jsx-a11y-x/prefer-tag-over-role -- a <button> focused by a key costs Silk on a Fire TV 300 ms of layout a move, 5 s the first (idiosyncrasies.md, "Silk lays out the page each time a key focuses a button") */}
-          <div
-            role="button"
-            tabIndex={0}
+          <ButtonByRole
             className="alphabet-rail__letter"
             onClick={() => {
               props.onLetter(letter);
             }}
-            onKeyDown={(event) => {
-              // A button's Space; its Enter is OK's, pressFocused's click (focus-navigation.ts).
-              if (event.key === " ") {
-                event.preventDefault();
-                props.onLetter(letter);
-              }
-            }}
           >
             {letter}
-          </div>
+          </ButtonByRole>
         </li>
       ))}
     </ol>
