@@ -12,9 +12,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// resumePositionMs is where the person's playback of a file starts (play-state.md): where they left it,
-// when that is partway through the file by the resume thresholds and was watched after they last
-// marked its title by hand (D370 §4), and otherwise the beginning.
+// resumePositionMs is where the person's playback of a file starts (play-state.md), by the rule a
+// title's page names its Play by (library's ResumeAtMs).
 func (service *Service) resumePositionMs(ctx context.Context, userID, fileID, durationMs int64) (int64, error) {
 	stored, err := store.OrNotFound(service.database.Read().GetPlayPosition(ctx, sqlcgen.GetPlayPositionParams{
 		UserID: userID, FileID: fileID,
@@ -29,13 +28,5 @@ func (service *Service) resumePositionMs(ctx context.Context, userID, fileID, du
 	if err != nil {
 		return 0, err
 	}
-	var markedAt *int64
-	if stored.MarkedAt > 0 {
-		markedAt = &stored.MarkedAt
-	}
-	if library.IsBeforeMark(stored.PositionReadAt, markedAt) ||
-		!thresholds.IsPartwayThrough(stored.PositionMs, durationMs) {
-		return 0, nil
-	}
-	return stored.PositionMs, nil
+	return thresholds.ResumeAtMs(stored.PositionMs, stored.PositionReadAt, stored.MarkedAt, durationMs), nil
 }

@@ -47,6 +47,9 @@ type FileDetail struct {
 	Paths     []string
 	SizeBytes *int64
 	Streams   []sqlcgen.ListStreamsOfVideoFileRow
+	// ResumeAtMs is where its person's playback of it starts, as the player's does (ResumeAtMs): 0
+	// at its start.
+	ResumeAtMs int64
 }
 
 // IsCollection is whether an item is a collection (a series) rather than a title, which says whose
@@ -77,7 +80,7 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 		return TitleDetail{}, reachErr
 	}
 	detail := TitleDetail{GetWorkDetailRow: title}
-	if detail.Versions, err = browser.versions(ctx, reach, titleID); err != nil {
+	if detail.Versions, err = browser.versionsResumed(ctx, reach, userID, titleID); err != nil {
 		return TitleDetail{}, err
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
@@ -120,6 +123,21 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	return detail, nil
 }
 
+// versionsResumed are a title's versions (versions), each file with where userID's playback of it
+// resumes (D477 §3).
+func (browser *Browser) versionsResumed(
+	ctx context.Context, reach auth.Reach, userID, titleID int64,
+) ([]Version, error) {
+	versions, err := browser.versions(ctx, reach, titleID)
+	if err != nil {
+		return nil, err
+	}
+	if err := browser.withResumePositions(ctx, userID, titleID, versions); err != nil {
+		return nil, err
+	}
+	return versions, nil
+}
+
 // versions are a title's versions and their files at the places reach reaches, each file once with
 // every such place; a version none of whose files it reaches is not among them (D363 §8).
 func (browser *Browser) versions(ctx context.Context, reach auth.Reach, titleID int64) ([]Version, error) {
@@ -151,6 +169,35 @@ func (browser *Browser) versions(ctx context.Context, reach auth.Reach, titleID 
 		})
 	}
 	return versions, nil
+}
+
+// withResumePositions sets where each of a title's files resumes for userID, in versions, which a
+// title's page names its Play by without waiting on its warm-up (D477 §3).
+func (browser *Browser) withResumePositions(ctx context.Context, userID, titleID int64, versions []Version) error {
+	positions, err := browser.database.Read().ListWorkFilePlayPositions(ctx,
+		sqlcgen.ListWorkFilePlayPositionsParams{UserID: userID, WorkID: titleID})
+	if err != nil {
+		return fmt.Errorf("read the positions in title %d's files: %w", titleID, err)
+	}
+	if len(positions) == 0 {
+		return nil
+	}
+	thresholds, err := ReadResumeThresholds(ctx, browser.settings)
+	if err != nil {
+		return err
+	}
+	resumeAt := map[int64]int64{}
+	for _, position := range positions {
+		resumeAt[position.FileID] = thresholds.ResumeAtMs(position.PositionMs, position.PositionReadAt,
+			position.MarkedAt, position.DurationMs)
+	}
+	for versionIndex := range versions {
+		files := versions[versionIndex].Files
+		for fileIndex := range files {
+			files[fileIndex].ResumeAtMs = resumeAt[files[fileIndex].ID]
+		}
+	}
+	return nil
 }
 
 // SeriesDetail is a series with its episodes in the ordering its person watches it in.

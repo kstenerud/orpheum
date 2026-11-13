@@ -546,6 +546,68 @@ func (q *Queries) ListWatchedLiveFiles(ctx context.Context) ([]ListWatchedLiveFi
 	return items, nil
 }
 
+const listWorkFilePlayPositions = `-- name: ListWorkFilePlayPositions :many
+SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = play_position.file_id), 0)
+    AS INTEGER) AS duration_ms,
+  CAST(coalesce((
+    SELECT max(work_watched.marked_at) FROM file_filing AS filed
+    CROSS JOIN version AS filed_version ON filed_version.id = filed.version_id
+    CROSS JOIN work_watched ON work_watched.user_id = play_position.user_id
+      AND work_watched.work_id = filed_version.work_id
+    WHERE filed.file_id = play_position.file_id), 0) AS INTEGER) AS marked_at
+FROM version
+CROSS JOIN file_filing ON file_filing.version_id = version.id
+CROSS JOIN play_position ON play_position.user_id = ?1 AND play_position.file_id = file_filing.file_id
+WHERE version.work_id = ?2 AND version.removed_at IS NULL
+`
+
+type ListWorkFilePlayPositionsParams struct {
+	UserID int64
+	WorkID int64
+}
+
+type ListWorkFilePlayPositionsRow struct {
+	FileID         int64
+	PositionMs     int64
+	PositionReadAt int64
+	DurationMs     int64
+	MarkedAt       int64
+}
+
+// A person's positions in a title's files, each with its file's length where its probe knows it and
+// the latest of their marks by hand of the titles the file is filed as, 0 for none, as
+// GetPlayPosition has them: where each file resumes, which the title's page names its Play by (D477
+// section 3). The title's versions drive, by its index.
+func (q *Queries) ListWorkFilePlayPositions(ctx context.Context, arg ListWorkFilePlayPositionsParams) ([]ListWorkFilePlayPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWorkFilePlayPositions, arg.UserID, arg.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkFilePlayPositionsRow{}
+	for rows.Next() {
+		var i ListWorkFilePlayPositionsRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.PositionMs,
+			&i.PositionReadAt,
+			&i.DurationMs,
+			&i.MarkedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorksPlayPositions = `-- name: ListWorksPlayPositions :many
 SELECT version.work_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.file_id), 0) AS INTEGER)

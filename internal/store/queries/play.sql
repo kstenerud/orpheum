@@ -298,3 +298,22 @@ SELECT work_watched.work_id, work_watched.watched_at, work_watched.marked_at
 FROM json_each(CAST(sqlc.arg(work_ids_json) AS TEXT)) AS listed
 CROSS JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = listed.value
 ORDER BY work_watched.work_id;
+
+-- name: ListWorkFilePlayPositions :many
+-- A person's positions in a title's files, each with its file's length where its probe knows it and
+-- the latest of their marks by hand of the titles the file is filed as, 0 for none, as
+-- GetPlayPosition has them: where each file resumes, which the title's page names its Play by (D477
+-- section 3). The title's versions drive, by its index.
+SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = play_position.file_id), 0)
+    AS INTEGER) AS duration_ms,
+  CAST(coalesce((
+    SELECT max(work_watched.marked_at) FROM file_filing AS filed
+    CROSS JOIN version AS filed_version ON filed_version.id = filed.version_id
+    CROSS JOIN work_watched ON work_watched.user_id = play_position.user_id
+      AND work_watched.work_id = filed_version.work_id
+    WHERE filed.file_id = play_position.file_id), 0) AS INTEGER) AS marked_at
+FROM version
+CROSS JOIN file_filing ON file_filing.version_id = version.id
+CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file_filing.file_id
+WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL;

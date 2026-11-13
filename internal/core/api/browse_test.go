@@ -321,7 +321,8 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 // A series' page lists its seasons, numbered in order and the specials last, each with how many
 // episodes it has; a season's episodes come a page at a time, in aired order, so no answer grows
 // with a series however damaged its library (D306 §9; the owner's NAS, 2026-10-16: 80,269 episodes in
-// one answer).
+// one answer). The series' own answer carries one page of one season, its shown season's (D477 §1),
+// and no more: its seasons carry none, and the rest of a season longer than a page comes by its cursor.
 func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -337,13 +338,16 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 				id),
 			storetest.Positions(fmt.Sprintf(`(1, %d, %d, %d, %d)`, id, episode.season, episode.number, 10001+index+1)))
 	}
+	statements = append(statements, harness.longSeason(t)...)
 	storetest.ExecRaw(t, harness.databasePath, statements...)
 	series := harness.do(t, http.MethodGet, "/items/20", user, nil)
 	if !strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":3,`) ||
-		!strings.Contains(series.body, `{"seasonNumber":2,"episodeCount":1},{"seasonNumber":0,"episodeCount":2}]`) ||
-		strings.Contains(series.body, `"episodes"`) {
-		t.Errorf("the series = %s; want seasons 1, 2 and the specials, counted, and no episodes", series.body)
+		!strings.Contains(series.body, `{"seasonNumber":2,"episodeCount":1},{"seasonNumber":3,"episodeCount":101},`+
+			`{"seasonNumber":0,"episodeCount":2}]`) {
+		t.Errorf("the series = %s; want seasons 1, 2, 3 and the specials, counted", series.body)
 	}
+	wantEpisodesOnlyInTheShownSeason(t, series.body, 1, 3)
+	harness.wantTheLongSeasonsRestByItsCursor(t, user)
 	first := harness.do(t, http.MethodGet, "/items/20/groups/1?limit=2", user, nil)
 	var page struct {
 		Episodes []struct {
@@ -367,6 +371,76 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodGet, "/items/99/groups/1?limit=2", user, nil),
 		http.StatusNotFound, api.CodeNotFound)
+}
+
+// longSeason shelves series 20's season 3, 101 episodes, longer than the page a series' answer
+// carries of its shown season (D477 §1); it returns the statements that place them.
+func (harness testHarness) longSeason(t *testing.T) []string {
+	t.Helper()
+	statements := []string{}
+	for number := range 101 {
+		id := int64(200 + number)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Kind: "episode", AddedAt: 2})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{TitleID: id, CreatedAt: 2})
+		statements = append(statements,
+			storetest.Positions(fmt.Sprintf(`(1, %d, 3, %d, %d)`, id, number+1, 20001+number)))
+	}
+	return statements
+}
+
+// wantTheLongSeasonsRestByItsCursor fails unless series 20's answer at its long season 3
+// (longSeason) carries a page of 100 of it, and the season's endpoint gives the rest by its cursor.
+func (harness testHarness) wantTheLongSeasonsRestByItsCursor(t *testing.T, user string) {
+	t.Helper()
+	long := harness.do(t, http.MethodGet, "/items/20?season=3", user, nil)
+	cursor := wantEpisodesOnlyInTheShownSeason(t, long.body, 3, 100)
+	if cursor == "" {
+		t.Fatalf("season 3's page in the series = %s; want a cursor for the rest", long.body)
+	}
+	rest := harness.do(t, http.MethodGet, "/items/20/groups/3?limit=100&cursor="+cursor, user, nil)
+	if !strings.Contains(rest.body, `"episodeNumber":101`) || strings.Contains(rest.body, "nextCursor") {
+		t.Errorf("the rest of season 3 = %s; want its 101st episode, the last", rest.body)
+	}
+}
+
+// wantEpisodesOnlyInTheShownSeason fails unless body, a series' answer, carries episodes in its
+// shown season alone, the season numbered season, count of them; none in its seasons or elsewhere
+// (D477 §1). It returns the shown season's cursor for the rest.
+func wantEpisodesOnlyInTheShownSeason(t *testing.T, body string, season int64, count int) string {
+	t.Helper()
+	var answer map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &answer); err != nil {
+		t.Fatalf("the series = %s: %v", body, err)
+	}
+	var seasons []map[string]json.RawMessage
+	if err := json.Unmarshal(answer["seasons"], &seasons); err != nil || len(seasons) == 0 {
+		t.Fatalf("the series' seasons = %s (%v); want a list of them", answer["seasons"], err)
+	}
+	for _, each := range seasons {
+		if _, hasEpisodes := each["episodes"]; hasEpisodes {
+			t.Errorf("a season in the series' list = %v; want no episodes in it", each)
+		}
+	}
+	var shown struct {
+		SeasonNumber int64             `json:"seasonNumber"`
+		Episodes     []json.RawMessage `json:"episodes"`
+		NextCursor   string            `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(answer["shownSeason"], &shown); err != nil {
+		t.Fatalf("the series' shown season = %s: %v", answer["shownSeason"], err)
+	}
+	if shown.SeasonNumber != season || len(shown.Episodes) != count {
+		t.Errorf("the series' shown season = season %d of %d episodes; want season %d of %d",
+			shown.SeasonNumber, len(shown.Episodes), season, count)
+	}
+	if len(shown.Episodes) > 100 {
+		t.Errorf("the series' shown season carries %d episodes; want at most a page of 100", len(shown.Episodes))
+	}
+	delete(answer, "shownSeason")
+	if rest, err := json.Marshal(answer); err != nil || strings.Contains(string(rest), `"episodes"`) {
+		t.Errorf("the series but its shown season = %s (%v); want no episodes in it", rest, err)
+	}
+	return shown.NextCursor
 }
 
 // pagedEpisodeIDs are the episodes of path, a list of a series' episodes, limit at a time, each

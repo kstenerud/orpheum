@@ -214,3 +214,14 @@ func (thresholds ResumeThresholds) IsPartwayThrough(positionMs, durationMs int64
 	return positionMs*100 >= thresholds.inProgressAfterPercent*durationMs &&
 		positionMs*100 <= thresholds.finishedAfterPercent*durationMs
 }
+
+// ResumeAtMs is where a person's playback of a file starts (play-state.md): their position in it,
+// where that is partway through the file and was watched after the latest of their marks by hand of
+// the titles it is filed as, markedAt, 0 for none (D370 §4); else 0, its start. The player's start
+// and a title's page, which names its Play by it, read it alike (D477 §3).
+func (thresholds ResumeThresholds) ResumeAtMs(positionMs, positionReadAt, markedAt, durationMs int64) int64 {
+	if markedAt > 0 && IsBeforeMark(positionReadAt, &markedAt) || !thresholds.IsPartwayThrough(positionMs, durationMs) {
+		return 0
+	}
+	return positionMs
+}

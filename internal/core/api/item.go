@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -70,7 +71,8 @@ func (server *Server) registerItem() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItem", Method: http.MethodGet, Path: "/items/{id}",
 		Summary: "An item's detail, by its kind: a title's versions, files, streams, extras and, for an " +
-			"episode, its place; a series' seasons, each with how many episodes it has",
+			"episode, its place and what plays after it and before it; a series' seasons, each with how " +
+			"many episodes it has, and the shown season's first page of episodes",
 		Description: "A credited person is not an item here: their id answers 404, and their page is " +
 			"GET /people/{id} (D425 §7).",
 		Tags:       []string{tagBrowse},
@@ -78,7 +80,14 @@ func (server *Server) registerItem() {
 	}, server.getItem)
 }
 
-func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetailOutput, error) {
+// ItemDetailInput asks for an item's detail; a series' at the season its page shows.
+type ItemDetailInput struct {
+	AuthorizationHeader
+	ID     int64 `path:"id"`
+	Season int64 `default:"-1" doc:"For a series, the season its page shows, 0 for the specials, whose first page of episodes the answer carries; -1, the default, for the season of the person's next episode, else the first" minimum:"-1" query:"season"` //nolint:lll // one struct tag
+}
+
+func (server *Server) getItem(ctx context.Context, input *ItemDetailInput) (*ItemDetailOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -89,7 +98,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	}
 	output := &ItemDetailOutput{}
 	if isCollection {
-		output.Body.Series, err = server.seriesBody(ctx, dependencies, principal, input.ID)
+		output.Body.Series, err = server.seriesBody(ctx, dependencies, principal, input.ID, input.Season)
 	} else {
 		output.Body.Title, err = server.titleBody(ctx, dependencies, principal, input.ID)
 	}
@@ -123,6 +132,8 @@ type ItemBody struct {
 	Genres              []GenreBody       `doc:"Its genres in its source's order; an episode's are its series'; absent when it has none" json:"genres,omitempty"`                                               //nolint:lll // one struct tag
 	Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one" json:"credits,omitempty"`                        //nolint:lll // one struct tag
 	FilmOfExtra         *FilmOfExtraBody  `doc:"The film an extra belongs to, which its page goes up to (D367); absent for anything else" json:"filmOfExtra,omitempty"`                                         //nolint:lll // one struct tag
+	UpNext              *UpNextBody       `doc:"For an episode, what plays after its first file, as GET /files/{id}/up-next says it (D477 §2); absent where nothing does" json:"upNext,omitempty"`              //nolint:lll // one struct tag
+	Previous            *NextUpBody       `doc:"For an episode, what plays before its first file, as GET /files/{id}/up-next says it (D477 §2); absent where nothing does" json:"previous,omitempty"`           //nolint:lll // one struct tag
 }
 
 // SeriesBody is a series with its seasons, the groups of the ordering its person watches it in, in
@@ -149,7 +160,20 @@ type SeriesBody struct {
 	Genres              []GenreBody       `doc:"Its genres in its source's order; absent when it has none" json:"genres,omitempty"`                                                                                              //nolint:lll // one struct tag
 	Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; absent when it credits no one" json:"credits,omitempty"`                                                                       //nolint:lll // one struct tag
 	Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
+	ShownSeason         *ShownSeasonBody  `doc:"The season its page shows, the one asked for where it has it, and its first page of episodes (D477 §1); absent where it has no season" json:"shownSeason,omitempty"`             //nolint:lll // one struct tag
 }
+
+// ShownSeasonBody is the season a series' page shows and its first page of episodes, as
+// GET /items/{id}/groups/{group} answers it, whose nextCursor the page reads the rest by (D477 §1).
+type ShownSeasonBody struct {
+	SeasonNumber int64         `json:"seasonNumber"`
+	Episodes     []EpisodeBody `json:"episodes"`
+	NextCursor   string        `doc:"The next page's cursor, for GET /items/{id}/groups/{group}; absent on the last" json:"nextCursor,omitempty"` //nolint:lll // one struct tag
+}
+
+// shownSeasonPageSize is how many episodes a series' answer carries of its shown season: the web
+// client's page of them (series.tsx's episodesPerPage).
+const shownSeasonPageSize = 100
 
 // titleBody is a title's detail as principal sees it.
 func (server *Server) titleBody(
@@ -174,7 +198,9 @@ func (server *Server) titleBody(
 	for _, version := range detail.Versions {
 		versionBody := VersionBody{ID: version.ID, Files: []FileDetailBody{}}
 		for _, file := range version.Files {
-			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}}
+			fileBody := FileDetailBody{
+				ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}, ResumePositionMs: file.ResumeAtMs,
+			}
 			// Paths are shown where the admin administers, never from away (the Plex-chain review's T2).
 			if administersHere(ctx, principal) {
 				fileBody.Path, fileBody.OtherPaths = file.Path, file.Paths[1:]
@@ -206,6 +232,9 @@ func (server *Server) titleBody(
 	body.FilmOfExtra = filmOfExtraBody(whereabouts.FilmOfExtra)
 	body.Unavailable = unavailableBody(detail.Unreadable, server.nodeNamer(ctx, dependencies))
 	body.IsWatched = detail.IsWatched
+	if body.UpNext, body.Previous, err = server.titleNeighbours(ctx, dependencies, principal, detail); err != nil {
+		return nil, err
+	}
 	if detail.Unreadable != nil && detail.Unreadable.Reason == library.StillReading {
 		// Its page open, its files are read before what else waits, so Play works soon (D304 §4).
 		if readErr := dependencies.Playback.ReadWhenViewed(ctx, detail.ID); readErr != nil {
@@ -213,6 +242,25 @@ func (server *Server) titleBody(
 		}
 	}
 	return body, nil
+}
+
+// titleNeighbours are what plays after an episode and before it, as its page's Play plays it: from
+// the first version's first file, the one GET /files/{id}/up-next is asked of (D477 §2); none for
+// any other title, and none while none of its files can be read, whose page plays nothing.
+func (server *Server) titleNeighbours(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, detail library.TitleDetail,
+) (*UpNextBody, *NextUpBody, error) {
+	if detail.Kind != library.TitleKindEpisode || detail.Unreadable != nil || len(detail.Versions) == 0 ||
+		len(detail.Versions[0].Files) == 0 {
+		return nil, nil, nil
+	}
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID,
+		detail.Versions[0].Files[0].ID)
+	if err != nil {
+		return nil, nil, server.libraryError(ctx, "read what plays after an episode and before it", err)
+	}
+	upNext, previous := server.neighbourBodies(ctx, dependencies, neighbours)
+	return upNext, previous, nil
 }
 
 // episodePlaceBody is an episode's place as the API shows it, or nil for a title in no series.
@@ -238,7 +286,7 @@ func episodePlaceBody(place *library.EpisodePlace) *EpisodePlaceBody {
 
 // seriesBody is a series as principal sees it.
 func (server *Server) seriesBody(
-	ctx context.Context, dependencies *Dependencies, principal auth.Principal, seriesID int64,
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, seriesID, season int64,
 ) (*SeriesBody, error) {
 	series, err := dependencies.Browser.Series(ctx, principal.Reach, principal.UserID, seriesID)
 	if err != nil {
@@ -288,5 +336,37 @@ func (server *Server) seriesBody(
 		nextUp := server.nextUpBody(ctx, dependencies, next)
 		body.NextUp = &nextUp
 	}
+	if body.ShownSeason, err = server.shownSeasonBody(ctx, dependencies, principal, body, season); err != nil {
+		return nil, err
+	}
 	return body, nil
+}
+
+// shownSeasonBody is the season a series' page shows and its first page of episodes (D477 §1): the
+// one asked for, where the series has it; else that of the person's next episode; else the first, as
+// the page chooses; nil for a series with no season.
+func (server *Server) shownSeasonBody(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, series *SeriesBody, asked int64,
+) (*ShownSeasonBody, error) {
+	if len(series.Seasons) == 0 {
+		return nil, nil //nolint:nilnil // a series with no season shows none
+	}
+	has := func(number int64) bool {
+		return slices.ContainsFunc(series.Seasons, func(each SeasonBody) bool { return each.SeasonNumber == number })
+	}
+	shown := series.Seasons[0].SeasonNumber
+	switch {
+	case asked >= 0 && has(asked):
+		shown = asked
+	case series.NextUp != nil && has(series.NextUp.GroupNumber):
+		shown = series.NextUp.GroupNumber
+	}
+	page, err := dependencies.Browser.Season(ctx, principal.Reach, library.SeasonQuery{
+		SeriesID: series.ID, UserID: principal.UserID, Season: shown, Limit: shownSeasonPageSize,
+	})
+	if err != nil {
+		return nil, server.libraryError(ctx, "read a series' shown season", err)
+	}
+	episodes := server.episodePageOutput(ctx, dependencies, page).Body
+	return &ShownSeasonBody{SeasonNumber: shown, Episodes: episodes.Episodes, NextCursor: episodes.NextCursor}, nil
 }

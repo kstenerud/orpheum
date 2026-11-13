@@ -59,17 +59,28 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 		return nil, server.libraryError(ctx, "read what plays after a file and before it", err)
 	}
 	output := &UpNextOutput{}
+	output.Body.UpNext, output.Body.Previous = server.neighbourBodies(ctx, dependencies, neighbours)
+	return output, nil
+}
+
+// neighbourBodies are what plays after a file and before it, as the API offers them, each nil where
+// there is none: GET /files/{id}/up-next's, and an episode's page's (D477 §2).
+func (server *Server) neighbourBodies(
+	ctx context.Context, dependencies *Dependencies, neighbours library.Neighbours,
+) (*UpNextBody, *NextUpBody) {
+	var upNext *UpNextBody
 	if next := neighbours.Next; next != nil {
-		output.Body.UpNext = &UpNextBody{
+		upNext = &UpNextBody{
 			Episode: server.nextUpBody(ctx, dependencies, next.NextUp), Ordering: next.Ordering,
 			IsOnlyGroup: next.IsOnlyGroup, StillSha256: next.StillSha256,
 		}
 	}
+	var before *NextUpBody
 	if previous := neighbours.Previous; previous != nil {
 		body := server.nextUpBody(ctx, dependencies, *previous)
-		output.Body.Previous = &body
+		before = &body
 	}
-	return output, nil
+	return upNext, before
 }
 
 // TogetherUpNextInput asks what plays after the session a viewer's membership is in plays.

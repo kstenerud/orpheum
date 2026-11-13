@@ -634,7 +634,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * An item's detail, by its kind: a title's versions, files, streams, extras and, for an episode, its place; a series' seasons, each with how many episodes it has
+         * An item's detail, by its kind: a title's versions, files, streams, extras and, for an episode, its place and what plays after it and before it; a series' seasons, each with how many episodes it has, and the shown season's first page of episodes
          * @description A credited person is not an item here: their id answers 404, and their page is GET /people/{id} (D425 §7).
          */
         get: operations["getItem"];
@@ -3445,6 +3445,8 @@ export interface components {
             otherPaths?: string[] | null;
             path?: string;
             /** Format: int64 */
+            resumePositionMs?: number;
+            /** Format: int64 */
             sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
@@ -3773,6 +3775,8 @@ export interface components {
             libraries?: components["schemas"]["LibraryNameBody"][] | null;
             name: string;
             overview?: string;
+            /** @description For an episode, what plays before its first file, as GET /files/{id}/up-next says it (D477 §2); absent where nothing does */
+            previous?: components["schemas"]["NextUpBody"];
             /**
              * Format: int64
              * @description When a person asked for it to be refreshed, while no fetch has answered yet
@@ -3783,6 +3787,8 @@ export interface components {
             tagline?: string;
             /** @description Why none of its files can be read now; absent when one can */
             unavailable?: components["schemas"]["UnavailableBody"];
+            /** @description For an episode, what plays after its first file, as GET /files/{id}/up-next says it (D477 §2); absent where nothing does */
+            upNext?: components["schemas"]["UpNextBody"];
             versions: components["schemas"]["VersionBody"][] | null;
             /** Format: int64 */
             year?: number;
@@ -5246,6 +5252,8 @@ export interface components {
              */
             refreshRequestedAt?: number;
             seasons: components["schemas"]["SeasonBody"][] | null;
+            /** @description The season its page shows, the one asked for where it has it, and its first page of episodes (D477 §1); absent where it has no season */
+            shownSeason?: components["schemas"]["ShownSeasonBody"];
             /** @description Why none of its episodes' files can be read now; absent when one can */
             unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
@@ -5400,6 +5408,13 @@ export interface components {
             libraries: components["schemas"]["LibraryBody"][] | null;
             needsAttention?: components["schemas"]["NeedsAttentionBody"];
             update?: components["schemas"]["UpdateBody"];
+        };
+        ShownSeasonBody: {
+            episodes: components["schemas"]["EpisodeBody"][] | null;
+            /** @description The next page's cursor, for GET /items/{id}/groups/{group}; absent on the last */
+            nextCursor?: string;
+            /** Format: int64 */
+            seasonNumber: number;
         };
         SignedOutDetailBody: {
             /** @enum {string} */
@@ -7631,7 +7646,10 @@ export interface operations {
     };
     getItem: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description For a series, the season its page shows, 0 for the specials, whose first page of episodes the answer carries; -1, the default, for the season of the person's next episode, else the first */
+                season?: number;
+            };
             header?: never;
             path: {
                 id: number;

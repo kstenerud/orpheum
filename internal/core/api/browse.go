@@ -91,6 +91,9 @@ type FileDetailBody struct {
 	OtherPaths []string     `doc:"The file's other places, its byte-identical copies, after its first; an admin's alone" json:"otherPaths,omitempty"` //nolint:lll // one struct tag
 	SizeBytes  *int64       `json:"sizeBytes,omitempty"`
 	Streams    []StreamBody `json:"streams"`
+	// ResumePositionMs is where its person's playback of it starts, as POST /playback's
+	// resumePositionMs says it, absent at its start: a title's page names its Play by it (D477 §3).
+	ResumePositionMs int64 `json:"resumePositionMs,omitempty"`
 }
 
 // VersionBody is one version of a title (D155): its files, in part order.
