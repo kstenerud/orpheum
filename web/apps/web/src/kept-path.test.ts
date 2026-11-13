@@ -303,6 +303,7 @@ describe("the kept path", () => {
     // owner, 2026-10-30), and the client is told so.
     expect(loader.willLeaveWhenSignedOut).toBe(true);
     expect(loader.pathInUse?.()).toBe("webrtc");
+    expect(loader.directOriginInUse?.()).toBeUndefined();
     // Its media is carried in the loader's copy of the SDK, so the client asks the loader what
     // carries a load (the Fire TV on staging, 2026-10-29: the client's own copy said "http").
     expect(loader.mediaCarrierOf?.("https://app.example/api/v1/bytes/media/chunks/t/1.m4s")).toBe(
@@ -310,6 +311,8 @@ describe("the kept path", () => {
     );
     await vi.advanceTimersByTimeAsync(betterPathFirstMs);
     expect(loader.pathInUse?.()).toBe("direct");
+    // The address a receiver that fetches a playlist itself reaches the core at (the AirPlay lab).
+    expect(loader.directOriginInUse?.()).toBe(home.origin);
     kept.close();
     globalThis.fetch = realFetch;
   });

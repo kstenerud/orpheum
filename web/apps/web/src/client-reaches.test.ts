@@ -66,6 +66,18 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
     expect(reachesUnderLoader(loaderWith(), document).pathMoves.isOverWebrtc()).toBe(false);
   });
 
+  it("takes the loader's word on the core's name its requests reach directly, and none over WebRTC (the AirPlay lab, 2026-11-13)", () => {
+    const lanName = "https://192-168-1-2.k7xq2.orpheum-core.com:8443";
+    let origin: string | undefined = lanName;
+    const reaches = reachesUnderLoader(
+      { ...loaderWith(), directOriginInUse: () => origin },
+      document,
+    );
+    expect(reaches.pathMoves.directOrigin?.()).toBe(lanName);
+    origin = undefined;
+    expect(reaches.pathMoves.directOrigin?.()).toBeUndefined();
+  });
+
   it("names what carries a media load by the loader's word, and its own from an older loader (the Fire TV on staging, 2026-10-29)", () => {
     const chunk = "https://client.example/api/v1/bytes/media/chunks/t/00001.m4s";
     takeMediaCarriers(loaderWith());

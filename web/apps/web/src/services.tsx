@@ -134,6 +134,13 @@ export interface PathMoves {
    * `?transport=webrtc` carried them over.
    */
   readonly isOverWebrtc: () => boolean;
+  /**
+   * The core's name the page's requests go to directly now, its origin, under a loader: undefined
+   * while they go over WebRTC, or from a loader older than its minor 6, which does not say. Absent
+   * on the core's own origin, where the page's own origin is the core's. What a device that fetches
+   * a playlist itself, as an AirPlay receiver does, is handed it on (plans/airplay.md item 2).
+   */
+  readonly directOrigin?: (() => string | undefined) | undefined;
 }
 
 /**
@@ -174,12 +181,14 @@ export function createPathMoves(): PathMoves & {
 
 /**
  * The path moves a loader tells of, with the name of the path each went to, for the screens that
- * read again on a move and the play report that logs it (the owner, 2026-10-17), and the kind of
- * path in use, where the loader says it (since its minor 2).
+ * read again on a move and the play report that logs it (the owner, 2026-10-17), the kind of path
+ * in use, where the loader says it (since its minor 2), and the core's name it goes to directly,
+ * where the loader says it (since its minor 6).
  */
 export function pathMovesHeardFrom(
   onPathMove: OrpheumLoader["onPathMove"],
   pathInUse?: OrpheumLoader["pathInUse"],
+  directOriginInUse?: OrpheumLoader["directOriginInUse"],
 ): PathMoves {
   const pathMoves = createPathMoves();
   onPathMove((to) => {
@@ -188,6 +197,7 @@ export function pathMovesHeardFrom(
   return {
     ...pathMoves,
     isOverWebrtc: () => pathInUse?.() === "webrtc",
+    directOrigin: () => directOriginInUse?.(),
   };
 }
 

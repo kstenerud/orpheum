@@ -10,6 +10,7 @@ import {
   airPlayFromSecondElement,
   airPlayFromTheSameElement,
   endPlaying,
+  grantOriginOf,
   makeAirPlayGrant,
   revokeAirPlayGrants,
   watchTarget,
@@ -38,8 +39,8 @@ interface Playing {
 /**
  * The AirPlay lab (plans/airplay.md's spike): a film played here by hls.js, then AirPlayed two ways
  * past its disableRemotePlayback, each with the grant in the media's path, every step logged; Stop
- * ends it and revokes the grant. Safari on a Mac or an iPhone, opened at the core's own address, the
- * one the receiver reaches.
+ * ends it and revokes the grant. Safari on a Mac or an iPhone, the grant's address on the core's name
+ * the page reaches it at, the one the receiver must reach too (grantOriginOf).
  */
 export function LabAirPlay(): JSX.Element {
   const { t } = useTranslation();
@@ -245,7 +246,10 @@ function AirPlayState(props: {
   );
 }
 
-/** The grant, kept once fetched, and its fetching for a playback, a refusal logged. */
+/**
+ * The grant, kept once fetched, and its fetching for a playback, its address on the core's name the
+ * page reaches it at; a refusal, or no such name, logged.
+ */
 function useGrant(
   log: Log,
 ): readonly [
@@ -253,11 +257,15 @@ function useGrant(
   (mediaToken: string) => Promise<AirPlayGrant | undefined>,
   () => void,
 ] {
-  const { api } = useServices();
+  const { api, pathMoves } = useServices();
   const [grant, setGrant] = useState<AirPlayGrant | undefined>(undefined);
   const fetchGrant = async (mediaToken: string): Promise<AirPlayGrant | undefined> => {
+    const origin = grantOriginOf(pathMoves, globalThis.location.origin, log);
+    if (origin === undefined) {
+      return undefined;
+    }
     try {
-      const made = await makeAirPlayGrant({ api, log }, mediaToken, globalThis.location.origin);
+      const made = await makeAirPlayGrant({ api, log }, mediaToken, origin);
       setGrant(made);
       return made;
     } catch (cause: unknown) {

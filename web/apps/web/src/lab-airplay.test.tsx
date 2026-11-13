@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AirPlayControls } from "./lab-airplay.tsx";
 import { useLog } from "./lab-log.ts";
+import { createPathMoves, type PathMoves } from "./services.tsx";
 import {
   bodyField,
   buttonNamed,
@@ -68,9 +69,10 @@ function Controls(props: {
 async function mountControls(
   answers: Parameters<typeof servedBy>[0],
   heard: Heard[],
-  letGoOfHls: () => void = () => undefined,
+  given: { readonly letGoOfHls?: () => void; readonly pathMoves?: PathMoves } = {},
 ): Promise<{ readonly page: Mounted; readonly main: HTMLVideoElement }> {
-  const services = servedBy(answers, heard);
+  const { letGoOfHls = () => undefined, pathMoves } = given;
+  const services = { ...servedBy(answers, heard), pathMoves };
   services.session.signIn("token");
   const main = document.createElement("video");
   main.disableRemotePlayback = true;
@@ -90,11 +92,9 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
   it("fetches the grant as the menu opens, so way B shows the picker on this player within the press", async () => {
     const heard: Heard[] = [];
     const letGoOfHls = vi.fn();
-    const { page, main } = await mountControls(
-      { "POST /lab/airplay/grants": [200, made] },
-      heard,
+    const { page, main } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, heard, {
       letGoOfHls,
-    );
+    });
     expect(buttonNamed(page.container, "Way B: this player")).toBeUndefined();
     await click(buttonNamed(page.container, "AirPlay menu"));
     await settleUntil(() => page.container.textContent.includes("Grant: "));
@@ -160,6 +160,40 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
       "DELETE /lab/airplay/grants",
     ]);
     expect(logOf(page)).toContain("revocation answered: 1 revoked");
+  });
+
+  it("under a discovery's loader, puts the grant on the core's name the page reaches, not the client origin it is at (the owner's staging test, 2026-11-13)", async () => {
+    const lanName = "https://192-168-1-2.k7xq2.orpheum-core.com:8443";
+    const { page, main } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, [], {
+      pathMoves: { ...createPathMoves(), directOrigin: () => lanName },
+    });
+    await click(buttonNamed(page.container, "AirPlay menu"));
+    await settleUntil(() => page.container.textContent.includes("Grant: "));
+    const url = `${lanName}${masterPath}`;
+    expect(page.container.textContent).toContain(`Grant: ${url}`);
+    await click(buttonNamed(page.container, "Way B: this player"));
+    expect(main.src).toBe(url);
+    expect(pickedOn).toEqual([main]);
+  });
+
+  it("over WebRTC alone, says AirPlay cannot work, asks for no grant and shows no picker (airplay.md item 2)", async () => {
+    const heard: Heard[] = [];
+    const { page } = await mountControls({ "POST /lab/airplay/grants": [200, made] }, heard, {
+      pathMoves: {
+        ...createPathMoves(),
+        isOverWebrtc: () => true,
+        directOrigin: () => undefined,
+      },
+    });
+    await click(buttonNamed(page.container, "AirPlay menu"));
+    await settleUntil(() => logOf(page).includes("WebRTC alone"));
+    expect(logOf(page)).toContain(
+      "the core is reached over WebRTC alone: a receiver cannot reach it, so AirPlay cannot work here",
+    );
+    await click(buttonNamed(page.container, "Way B: this player"));
+    expect(pickedOn).toEqual([]);
+    expect(heard).toEqual([]);
+    expect(page.container.textContent).toContain("No grant fetched");
   });
 
   it("logs a grant refused, as while the lab is off, and way B then shows no picker", async () => {

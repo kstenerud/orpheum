@@ -3066,8 +3066,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   (airplay.md's spike). On staging, as admin, turn on Settings, Diagnostics, Offer the AirPlay lab
   (Show advanced settings), and Show debug tools on the account. On the Mac, turn on AirPlay Receiver
   (System Settings, General, AirDrop & Handoff). From Safari on the iPhone (or a second Mac), open
-  the lab at the staging core's own address, the one the Mac reaches (not the orpheum.dev loader),
-  and open Experimental, AirPlay. Pick a film, Play here, open the AirPlay menu and wait for "Grant:
+  the lab at the staging core's own address or through orpheum.dev, either way with the iPhone at
+  home, reaching the core at its LAN name, which the Mac reaches too (over WebRTC alone the lab says
+  AirPlay cannot work), and open Experimental, AirPlay. Pick a film, Play here, open the AirPlay menu and wait for "Grant:
   …", then press Way A and choose the Mac; Stop; Play here again, the menu, Way B and the Mac. Passes
   when, each way, the picker opens at the press, the Mac plays the film from about where it was,
   the log shows `webkitcurrentplaybacktargetiswirelesschanged, wireless true`, and Stop answers "1

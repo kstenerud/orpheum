@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 5;
+export const loaderMinor = 6;
 
 /** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
 export type LoaderPathKind = "direct" | "webrtc";
@@ -56,6 +56,14 @@ export interface OrpheumLoader {
    * none, and its client takes its path for HTTP.
    */
   readonly pathInUse?: () => LoaderPathKind;
+  /**
+   * The core's name the requests go to now, its origin, when they go to one directly: undefined over
+   * WebRTC. It is the address a device the page hands a playlist to, which fetches it itself and
+   * runs none of the page's code, reaches the core at; the client origin serves it no media (the
+   * AirPlay lab, the owner's staging test, 2026-11-13). Since minor 6: an older loader has none, and
+   * its client knows no such address.
+   */
+  readonly directOriginInUse?: () => string | undefined;
   /**
    * What carries the load of a media url now, for a stuck chunk's log: "http", the path's name, or
    * the WebRTC connection and its state (the SDK's mediaCarrierOf in the loader's own copy, which
