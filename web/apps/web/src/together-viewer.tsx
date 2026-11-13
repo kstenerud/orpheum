@@ -31,19 +31,19 @@ import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
-import { JoinForm, NoLink } from "./together-join.tsx";
+import { JoinForm } from "./together-join.tsx";
 import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { productName } from "./product-name.ts";
-import { problemText } from "./problem.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { useMembership } from "./together-membership.ts";
-import { useGoneFromUnder, useSessionEnd, type SessionsAsked } from "./together-session-end.ts";
+import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
+import { NoSessionHere, SessionOver, usePastedLinks } from "./together-viewer-outside.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -70,10 +70,8 @@ import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
-  forgetMembership,
   keepMembership,
   membershipHeaders,
-  readMembership,
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
@@ -214,75 +212,6 @@ function ToTheGroupsFilm(props: { readonly membership: Membership }): JSX.Elemen
     return <AsksWhatPlays membership={props.membership} onAnswered={setPlays} />;
   }
   return plays.kind === "nothing" ? <GroupFilmPage membership={props.membership} /> : null;
-}
-
-/**
- * No link in the address and no session here: signed in, the server is asked for their session
- * first, and without one they are taken home (useGoneFromUnder); else there is nothing to join.
- */
-function NoSessionHere(props: {
-  readonly isSignedIn: boolean;
-  readonly asked: SessionsAsked | undefined;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { asked } = props;
-  if (!props.isSignedIn) {
-    return <NoLink />;
-  }
-  if (asked === undefined) {
-    return <p>{t("common.loading")}</p>;
-  }
-  return (
-    <>
-      <p role="alert">{problemText(t, asked.failure)}</p>
-      <button type="button" onClick={asked.askAgain}>
-        {t("together.askAgain")}
-      </button>
-    </>
-  );
-}
-
-/**
- * A link pasted into a tab already here changes only what follows #, and the page does not load
- * again: the new link is joined in place of whatever this browser was in, unless it is the same.
- */
-function usePastedLinks(setSecret: (secret: string) => void, again: () => void): void {
-  const { navigation } = useServices();
-  useEffect(
-    () =>
-      navigation.subscribe(() => {
-        const pasted = secretFromHash(navigation.fragment());
-        if (pasted !== undefined) {
-          if (readMembership(browserStorage(), "viewer")?.link !== pasted) {
-            forgetMembership(browserStorage(), "viewer");
-          }
-          setSecret(pasted);
-          again();
-        }
-      }),
-    [navigation, setSecret, again],
-  );
-}
-
-/**
- * Why the session is over for this viewer, and that the page has nothing more to show; or, sent away
- * because the host's connection could not carry everyone, a way back in (D286 §5).
- */
-function SessionOver(props: {
-  readonly reason: TogetherEndReason;
-  readonly onAgain: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
-      <output>{t(`together.over.${props.reason}`)}</output>
-      {props.reason === "uploadFull" ? (
-        <button type="button" onClick={props.onAgain}>
-          {t("together.over.joinAgain")}
-        </button>
-      ) : null}
-    </ViewerPage>
-  );
 }
 
 /** What a viewer's page waits on before its film can play: its tap. */
