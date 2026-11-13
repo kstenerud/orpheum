@@ -17,7 +17,7 @@ import { page, userEvent } from "vitest/browser";
 import { chooseOk, okChoice } from "./controller-choice.ts";
 import { closeTrayDialog } from "./tray-dialog.ts";
 import { createSession } from "./session.ts";
-import { screens, signedIn, devices, remoteWalk } from "./test-input-pages.tsx";
+import { screens, signedIn, devices, remoteWalk } from "./test-walk.tsx";
 import { focusedName, isFocusIn, mountApp, walkServices, type Walking } from "./test-walk.tsx";
 
 const { press, pressUntil, drawn, unreachedInMain, unreachedIn } = remoteWalk({

@@ -26,7 +26,7 @@ import {
   isOnFirstPlace,
   isFocusOnLinkTo,
   remoteWalk,
-} from "./test-input-pages.tsx";
+} from "./test-walk.tsx";
 import {
   filmDetail,
   films,

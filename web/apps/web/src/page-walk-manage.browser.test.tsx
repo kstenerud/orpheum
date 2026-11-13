@@ -13,7 +13,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { anAdmin, managePages, unreachedOnThePage } from "./test-page-walk.tsx";
+import { anAdmin, managePages, unreachedOnThePage } from "./test-walk.tsx";
 import { mountApp, walkServices, type Walking } from "./test-walk.tsx";
 
 /** The walk's tools: vitest's own expect and keyboard. */

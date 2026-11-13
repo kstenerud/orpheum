@@ -8,7 +8,7 @@
  *
  * Here the banner's menu and a title's pages; input-pages-lists.browser.test.tsx and
  * input-pages-person.browser.test.tsx walk the rest, the answers and keys all three take in
- * test-input-pages.tsx (split for the browser run's time, make-check-time-2026-11-12.md §2 and §3).
+ * test-walk.tsx (split for the browser run's time, make-check-time-2026-11-12.md §2 and §3).
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
@@ -33,7 +33,7 @@ import {
   isOnFirstPlace,
   isFocusOnLinkTo,
   remoteWalk,
-} from "./test-input-pages.tsx";
+} from "./test-walk.tsx";
 import {
   filmDetail,
   films,
