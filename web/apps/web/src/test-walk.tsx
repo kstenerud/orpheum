@@ -9,6 +9,7 @@
 
 import { apiPrefix } from "@orpheum/sdk";
 import { act } from "react";
+import type { expect as vitestExpect } from "vitest";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./app.tsx";
@@ -140,6 +141,15 @@ export function focusedName(): string {
     return "";
   }
   return (focused.getAttribute("aria-label") ?? focused.textContent).trim();
+}
+
+/**
+ * What a walk's shared keys and waits take from its test file: vitest's expect, to poll by, and its
+ * keyboard, which production code may not import (web/.dependency-cruiser.cjs).
+ */
+export interface WalkTools {
+  readonly expect: typeof vitestExpect;
+  readonly keyboard: (keys: string) => Promise<void>;
 }
 
 /**

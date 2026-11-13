@@ -3,7 +3,8 @@
 /**
  * A list's Sort and filter (listing-tools.tsx, D417) in a real browser, by a keyboard's keys, on a
  * phone's narrow screen: its pop-up within the screen, its field's caret, and Back from its field.
- * The walks from a remote on a TV's and a desktop's screen are input-pages.browser.test.tsx's.
+ * The walks from a remote on a TV's and a desktop's screen are input-pages.browser.test.tsx's and
+ * its two siblings', input-pages-lists and input-pages-person.
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
