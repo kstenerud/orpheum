@@ -58,6 +58,8 @@ work they bear on, and one that bears on two kinds of work is listed under both.
   way found later is raised at once
 - [§28](28-messages-get-lost.md) — Every message may be lost and every copy of state may drift;
   each exchange recovers
+- [§30](30-one-request-before-the-person-acts.md) — What a person waits on comes in one request;
+  what is only cosmetic follows
 
 ## The product and its documents
 

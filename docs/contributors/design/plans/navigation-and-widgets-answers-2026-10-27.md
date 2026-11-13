@@ -3883,3 +3883,12 @@ with a rail, a library's page included, and each title carries the letter the se
 under, so the client finds a letter among what it holds, in the server's order, the articles and
 the locale's collation included. A press then moves at once, with no request; the posters' images
 follow as they near the view, as now.
+
+## The client-server audit (the owner, 2026-11-13)
+
+The owner saw the rail's slow jump on **Films**. The general rule they gave is principles §30: what a
+person waits on comes in as few requests as it can, and what is only cosmetic (posters) follows on
+a lower "eventual consistency" rung. They asked for an audit of the architecture from the
+client-server side, to find where it falls short. Its report is
+`design/research/client-server-audit-2026-11-13.md`; the fixes it proposes are the owner's to
+order, the rail's jump above among them.
