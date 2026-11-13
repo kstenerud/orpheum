@@ -3706,3 +3706,22 @@ them (2026-11-13). Deploys go to staging; production waits for the owner.
 13. **Item 2: on the testing Pixel**, which the owner has unlocked.
 14. **The e2e strings gate: agreed.** A UI string an e2e spec waits for, gone from the locales,
     fails `make check`.
+
+### The owner's answers on the 11-25 batch's reports (2026-11-13, later)
+
+1. **Scanning for nearby Chromecasts and AirPlay devices: withdrawn**, left as it is.
+2. **The rescan that never settles: the lead's pick.** A shared person's name and picture follow
+   the newest TMDB answer that names them, recorded on the person, so every pass settles. A scan
+   that can never settle is a bug: it records the error and gives up rather than waiting for ever,
+   and the development cycle looks for it happening.
+3. **Together guests: a next and previous right.** A client sends only the requests its rights
+   allow, and the core refuses the rest. A watch-together guest has fewer rights than the host. A cast
+   target has a subset of the caster's, by what it can do and where each action makes most sense: on
+   one side, or on both. A Chromecast has no remote, so it shows Up next on screen, but Up next is
+   picked from the caster.
+4. **The scan warning for a root the node was not given** stays: a library whose folder is missing
+   is a setup someone may have. The lead is to say if there is a better way to handle it.
+5. **Audit finding 2, the guest's page: the lead's pick (a).** The four `App` tests' `/me` answers as
+   a person; the guest's page knows it is a guest before any other read.
+6. **The link page's words: agreed.** "This link no longer works", and the reason names a cancelled
+   link too.
