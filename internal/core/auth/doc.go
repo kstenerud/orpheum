@@ -237,9 +237,10 @@
 //
 //   - The AirPlay lab's grant (airplay.md's spike) is kept only as its hash, in memory, stands for one
 //     playback of one file its session holds, for LabAirPlayGrantLife, 24 hours, and is revoked by
-//     its sending session alone; a guest receiver's session gets none.
-//     TestLabAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
-//     TestLabAirPlayGrant_IsRevokedByItsSenderAlone and TestLabAirPlayGrant_RefusesAGuestReceiver.
+//     its sending session alone, and ends with that session (signed out, a new password); a guest
+//     receiver's session gets none. TestLabAirPlayGrant_StandsForItsPlaybackForADayThenExpires,
+//     TestLabAirPlayGrant_IsRevokedByItsSenderAlone, TestLabAirPlayGrant_EndsWithItsSendersSession
+//     and TestLabAirPlayGrant_RefusesAGuestReceiver.
 //
 // # Read before changing
 //

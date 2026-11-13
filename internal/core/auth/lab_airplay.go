@@ -3,10 +3,15 @@
 package auth
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // LabAirPlayGrantLife is how long the AirPlay lab's grant serves its playback's media, unless its
@@ -100,19 +105,63 @@ func (service *Service) IssueLabAirPlayGrant(sender Principal, mediaToken string
 	return secret, nil
 }
 
-// LabAirPlayGrantOf is what an AirPlay lab grant stands for while it lasts; ErrNoLabAirPlayGrant for
-// one unknown, revoked or expired.
-func (service *Service) LabAirPlayGrantOf(grant string) (LabAirPlayGrant, error) {
+// LabAirPlayGrantOf is what an AirPlay lab grant stands for while it lasts and its sender's session
+// does; ErrNoLabAirPlayGrant for one unknown, revoked or expired, or whose session ended: signed out,
+// ended by a new password or its device removed, or its person removed. The grant serves that
+// session's playback with no credential of its own, so it ends with the session, as the session's
+// own media requests do.
+func (service *Service) LabAirPlayGrantOf(ctx context.Context, grant string) (LabAirPlayGrant, error) {
 	now := service.clock.Now()
 	hash := hex.EncodeToString(tokenHash(grant))
 	service.labAirPlayGrants.mutex.Lock()
-	defer service.labAirPlayGrants.mutex.Unlock()
 	kept, found := service.labAirPlayGrants.byHash[hash]
 	if !found || now.Sub(kept.madeAt) >= LabAirPlayGrantLife {
 		delete(service.labAirPlayGrants.byHash, hash)
+		service.labAirPlayGrants.mutex.Unlock()
+		return LabAirPlayGrant{}, ErrNoLabAirPlayGrant
+	}
+	service.labAirPlayGrants.mutex.Unlock()
+	isLive, err := service.isSessionLive(ctx, kept.SessionKey, now)
+	if err != nil {
+		return LabAirPlayGrant{}, err
+	}
+	if !isLive {
+		service.labAirPlayGrants.mutex.Lock()
+		delete(service.labAirPlayGrants.byHash, hash)
+		service.labAirPlayGrants.mutex.Unlock()
 		return LabAirPlayGrant{}, ErrNoLabAirPlayGrant
 	}
 	return kept.LabAirPlayGrant, nil
+}
+
+// isSessionLive is whether the session sessionKey names (Principal.SessionKey) has not ended by now
+// and its person is not removed. Its idle end is not counted: the receiver plays on while the sending
+// page waits, which uses the session not at all.
+func (service *Service) isSessionLive(ctx context.Context, sessionKey string, now time.Time) (bool, error) {
+	// A principal's key is always its session's hash in hex (sessionPrincipal), so one that is not is
+	// a fault, not a session ended.
+	session, err := hex.DecodeString(sessionKey)
+	if err != nil {
+		return false, fmt.Errorf("read an AirPlay grant's session key: %w", err)
+	}
+	queries := service.database.Read()
+	grant, err := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+		SecretSha256: session, Now: new(now.UnixMilli()),
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("look up an AirPlay grant's session: %w", err)
+	}
+	if grant.Kind != grantKindSession || grant.UserID == nil {
+		return false, nil
+	}
+	_, err = liveUser(ctx, queries, *grant.UserID)
+	if errors.Is(err, ErrNoUser) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // RevokeLabAirPlayGrants revokes every AirPlay lab grant the sender's session made, as its page's
