@@ -195,4 +195,14 @@ describe("a series' trail", () => {
     await click(crumb(page, "Series"));
     expect(place.location.pathname).toBe("/series");
   });
+
+  it("goes back to Series as the person left it, its genre and sort kept (D470)", async () => {
+    const leftAt = "/series?sort=released&order=ascending&genre=18";
+    const place = fakePlace(leftAt);
+    createNavigation(place).go({ screen: "series-page", collectionId: 5 });
+    const page = await showAt(place, pageAnswers(series), <Series id={5} />);
+    expect(crumb(page, "Series")?.getAttribute("href")).toBe(leftAt);
+    await click(crumb(page, "Series"));
+    expect(`${place.location.pathname}${place.location.search}`).toBe(leftAt);
+  });
 });

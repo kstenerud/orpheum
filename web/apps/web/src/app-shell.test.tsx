@@ -231,6 +231,9 @@ describe("AppShell", () => {
     const markup = renderToStaticMarkup(withServices(shell));
     const watching = /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
     expect(watching).toContain('href="/films"');
+    // Films and Series open at their defaults, whatever the list behind was left at (D470).
+    expect(watching).toContain('href="/series"');
+    expect(watching).not.toMatch(/href="\/(films|series)\?/u);
     expect(watching).not.toContain('href="/watch-together"');
     expect(watching).not.toContain('href="/jobs"');
     // One menu, behind its icon, marked as where one is (the owner, 2026-10-11).

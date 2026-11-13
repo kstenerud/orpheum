@@ -263,6 +263,60 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
   });
 });
 
+// D470, the owner's example (2026-11-13): Series filtered to a genre and sorted by release date, a
+// series opened from it and several of its episodes played; Back, or Up through the chain, comes back
+// to Series as it was left, and the banner's Series opens it at its defaults.
+describe("a list's choices kept for the way back (D470)", () => {
+  const seriesList: Route = { screen: "series", genre: 18, sort: "released", order: "ascending" };
+  const leftAt = "/series?sort=released&order=ascending&genre=18";
+  const banner: Route = { screen: "series" }; // the banner's Series (app-shell.tsx)
+
+  it("Up from the player, through the episode and its series, comes back to Series as it was left", () => {
+    const { place, navigation } = walked(seriesList, series);
+    navigation.replace(seasonTwo);
+    navigation.go(episodePage);
+    navigation.go({ screen: "play", fileId: 28 });
+    navigation.replace({ screen: "play", fileId: 29 }); // Up next, in the player's place
+    navigation.replace(playing);
+    const seriesUnderList = (at: Navigation): Upward => ({
+      crumbs: [libraryCrumb("series", [shows], { t: i18n.t, behind: at.behind() })],
+      here: "Gus Doyle",
+    });
+    up(navigation, playingUpward(playsEpisode));
+    up(navigation, episodePageUpward);
+    expect(routeHref(navigation.route())).toBe("/series/5?season=2");
+    up(navigation, seriesUnderList);
+    expect(historyOf(place, navigation)).toBe(`/ [${leftAt}]`);
+    expect(navigation.route()).toEqual(seriesList);
+  });
+
+  it("Back from the series comes back to Series as it was left", () => {
+    const { navigation } = walked(seriesList, series);
+    navigation.back();
+    expect(navigation.route()).toEqual(seriesList);
+  });
+
+  it("goes up from the episode's own trail straight to Series as it was left, its crumb the list's address", () => {
+    const { navigation } = walked(seriesList, series, episodePage);
+    const [list] = episodePageUpward(navigation).crumbs;
+    expect(list?.label).toBe("Series");
+    expect(list === undefined ? "" : routeHref(list.to)).toBe(leftAt);
+  });
+
+  it("the banner's Series is the list at its defaults, and Up from a series opened from it comes back there", () => {
+    const { place, navigation } = walked(seriesList, series, banner, {
+      screen: "series-page",
+      collectionId: 6,
+    });
+    const otherUnderList = (at: Navigation): Upward => ({
+      crumbs: [libraryCrumb("series", [shows], { t: i18n.t, behind: at.behind() })],
+      here: "Tidewater",
+    });
+    up(navigation, otherUnderList);
+    expect(historyOf(place, navigation)).toBe(`/ ${leftAt} /series/5 [/series]`);
+  });
+});
+
 // ui-audit-2026-11-04.md Q7, the owner's yes: one name for each list wherever it is shown. Every
 // library together is the Libraries page, as its heading and the banner's menu say.
 describe("a library's Up says the list's one name (ui-audit-2026-11-04.md Q7)", () => {

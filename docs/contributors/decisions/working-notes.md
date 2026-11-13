@@ -28053,7 +28053,10 @@ series → Series): the filter and sort are still there; the banner's Series ope
      goes up to the first library listing it, at its defaults, as D367 §3 has it;
    - where the list's scroll stands, and the tile focused, on the way back are not this decision's.
 
-**Status:** Decided 2026-11-13.
+**Status:** Decided 2026-11-13. Built 2026-11-13: §1 by removing X5 (the commit "feat(web): a
+library's sort is no longer kept on the person's account"); §2 to §4 were already so, by D366 §2's
+address (`router.ts`, `browse.tsx`'s `useBrowseCriteria` replacing the entry) and D367 §7's Up
+(`navigation.ts`'s `below` and `up`, `upward.ts`'s `libraryCrumb`), and are now pinned by tests.
 
 **Proven by:**
 - 1: internal/core/preferences/preferences_test.go

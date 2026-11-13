@@ -121,3 +121,46 @@ func TestSwitches_ShowDebugToolsIsKeptAsThePersonLeftIt(t *testing.T) {
 		}
 	}
 }
+
+// A library's sort X5 kept on the account before the owner withdrew it (D470 §1) is read by nothing:
+// a person's switches, the libraries they leave out and a file's choices read as they would without
+// it, the stored row harmless where staging and production kept one.
+func TestPreferences_AWithdrawnLibrarySortStoredIsHarmless(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	service := NewService(database, clocktest.NewFake(time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)))
+	userID := storetest.InsertUser(t, database, "alice", "admin")
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for _, scope := range []struct {
+			name string
+			id   int64
+		}{{"library", 1}, {scopeUser, 0}} {
+			if err := queries.SetPreference(t.Context(), sqlcgen.SetPreferenceParams{
+				UserID: userID, Scope: scope.name, ScopeID: scope.id, Axis: "library_sort",
+				ValueJSON: `{"sort":"released","order":"ascending"}`, SetAt: 1,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	switches, err := service.Switches(t.Context(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (Switches{IsLevellingOn: true, IsAutoplayOn: true}); switches != want {
+		t.Errorf("switches %+v, want the starting %+v", switches, want)
+	}
+	if leftOut, err := service.LeftOutLibraries(t.Context(), userID); err != nil || len(leftOut) != 0 {
+		t.Errorf("left out of Films and Series: %v, %v; want none and no error", leftOut, err)
+	}
+	if leftOut, err := service.LeftOutOfHome(t.Context(), userID); err != nil || len(leftOut) != 0 {
+		t.Errorf("left out of Home: %v, %v; want none and no error", leftOut, err)
+	}
+	if _, err := service.ForFile(t.Context(), database.Read(), userID, 6, Tracks{}); err != nil {
+		t.Errorf("a file's starting choices: %v", err)
+	}
+}
