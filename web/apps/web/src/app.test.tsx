@@ -104,7 +104,7 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
  */
 async function markupAt(path: string, isSignedIn = true): Promise<string> {
   if (isSignedIn) {
-    return await signedInMarkupAt(path);
+    return await signedInMarkupAt(<App />, path);
   }
   const services = testServices(undefined, path);
   const { prelude } = await prerender(withServices(<App />, services));
