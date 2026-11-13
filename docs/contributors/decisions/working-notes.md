@@ -28327,3 +28327,8 @@ and letter, measured 2026-11-13): 1000 entries are about 235 KB, about 47 KB gzi
 **Proven by:**
 - 1: internal/core/api/browse_test.go (TestBrowse_AListWithNoLimitComesWholeInOneAnswer),
   internal/core/api/library_lists_test.go (TestBrowse_AFolderComesInPages)
+- 2: web/apps/web/src/alphabet-rail.test.tsx (one request with no limit; a letter's jump asks
+  nothing and lands on its poster; the rail's letters from the held entries),
+  web/apps/web/src/use-pages.test.ts (a list read whole)
+- 3: web/apps/web/src/alphabet-rail.test.tsx (drawn from the tab's memory on Back),
+  web/apps/web/src/use-pages.test.ts (drawn from the tab's memory as it mounts again)

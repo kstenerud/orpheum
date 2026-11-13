@@ -473,8 +473,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`src/episode-reached.ts`), it shows that episode's season with the episode focused; opened by a
   step forward, as from a list, it shows from its top, every episode reached let go at each step
   forward, and any page a step forward opens starts at its top (`src/input-layer.tsx`; the owner's
-  Fire TV, 2026-10-29). A list Back returns to (Films, Series, a library's) loads its pages until the
-  entry it was left from is drawn, which then takes focus in view (`useListLoadsToFocusNoted`).
+  Fire TV, 2026-10-29). A list Back returns to (Films, Series, a library's) is drawn at once from the tab's
+  memory (`listsKept`, D475 §3), read again behind it, and drawn through the entry it was left
+  from, which then takes focus in view (`useListDrawsToFocusNoted`).
   `src/series-page.test.tsx`, `src/input-layer.test.tsx`, `src/input-walk.browser.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
   `src/input-rows.browser.test.tsx`,
   `src/input-player.browser.test.tsx`.
@@ -546,15 +547,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
   a list box's choices, the chips' Unwatched, Clear and a list's blank posters are drawn by it.
   `src/button-by-role.test.tsx`, `src/library-browse.test.tsx`, `src/player-commands.test.tsx`,
   `src/poster-grid-to-come.browser.test.tsx`, `src/app-shell.browser.test.tsx`.
-- **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names
-  the first title at or after the letter in its own order (`/titles?from=`), # the first of all; the
-  list loads its pages up to it as scrolling would, and its poster takes focus at the view's top,
-  where no title comes after the letter the last. The rail (`src/alphabet-rail.tsx`,
-  `useAlphabetRailLetters`) is given the letters a list has titles under (`GET /titles/letters`),
-  refreshed with the list's own background poll (D237), and shows only those: Films, Series and
-  the Libraries page all ask it this one way, Films and Series shown only sorted by name. A list Z
-  to A lists its letters Z to A, and a letter starts it at the letter's first title in that order,
-  asking from the letter after it (`fromForLetter`, D366 §4). `src/alphabet-rail.test.tsx`.
+- **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25), asking nothing
+  (D475 §2): Films, Series and a library's page read their list whole in one request, and a letter
+  finds its first title among the held entries by each one's `letter` (`placeOfLetter`), # the
+  first of all, where none comes after it the last; the list is drawn through it and its poster
+  takes focus at the view's top. The rail (`src/alphabet-rail.tsx`, `useHeldLetters`) shows only
+  the letters the held entries are under (`lettersOf`), so its letters follow the list's own
+  background poll (D237); Films and Series show it only sorted by name. A list Z to A lists its
+  letters Z to A, and a letter starts it at the letter's first title in that order (D366 §4).
+  `src/alphabet-rail.test.tsx`.
+- **A list is read whole, in one request** (D475 §2, the owner, 2026-11-11): Films, Series, a
+  library's page and its Folders view send no `limit`; the first screen is drawn at once and the
+  rest in pieces (`src/use-pages.ts`), and posters stay lazy. `src/alphabet-rail.test.tsx`,
+  `src/use-pages.test.ts`.
 - **Every sort runs either way** (D366 §2): Films, Series and the Libraries page offer each sort
   its own way and the other (`src/sort-choices.ts`), names A–Z or Z–A, dates newest or oldest
   first; films and series sort by release date too (§1); the Libraries page keeps the way in its

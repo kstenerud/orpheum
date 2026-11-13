@@ -5,6 +5,7 @@ import { act, createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
+import { Remembered } from "./remembered.ts";
 import { mount } from "./test-dom.tsx";
 import {
   appendPage,
@@ -14,6 +15,7 @@ import {
   usePages,
   type Page,
   type Pages,
+  type ReadPage,
 } from "./use-pages.ts";
 
 /**
@@ -213,36 +215,73 @@ describe("a page more (the Fire TV's trace, 2026-11-11)", () => {
     expect(mounted.container.querySelectorAll("li")).toHaveLength(32);
     mounted.unmount();
   });
+});
 
-  it("is read page after page, with no view asking, for a list read whole", async () => {
-    const titles = ["Arkon", "Greed", "Valdora", "Zelkaro", "Zorvane"];
+// The owner, 2026-11-11: a list's text comes whole in one answer (D475); its first screen is drawn
+// at once and the rest in pieces, so the main thread is never held for the whole of it.
+describe("a list read whole (D475)", () => {
+  const titles = Array.from({ length: 100 }, (_, index) => `Title ${String(index)}`);
+  const whole = (): Promise<Page<string>> => Promise.resolve({ items: titles, nextCursor: "" });
+  const settle = async (): Promise<void> => {
+    await act(async () => {
+      for (let turn = 0; turn < 10; turn += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+  };
+
+  it("holds every entry at once, draws its first screen at once and the rest in pieces", async () => {
     let pages: Pages<string> | undefined;
-    let isReadWhole = true;
-    const load = pagedBy2(() => titles);
+    const drawn: string[] = [];
     function List(): React.JSX.Element {
-      pages = usePages(load, undefined, { isReadWhole });
+      pages = usePages(whole);
+      const items = pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
+      drawn.push(`${String(items.length)}/${String(pages.held?.length ?? 0)}`);
+      return createElement("p", null, String(items.length));
+    }
+    const mounted = await mount(createElement(List));
+    await settle();
+    expect(drawn).toContain("60/100");
+    expect(drawn).toContain("72/100");
+    expect(drawn.at(-1)).toBe("100/100");
+    expect(pages?.isLoadingMore).toBe(false);
+    mounted.unmount();
+  });
+
+  it("is drawn from the tab's memory as it mounts again, before the read answers", async () => {
+    const kept = new Remembered<ReadPage<string>[]>(5);
+    let answer: ((page: Page<string>) => void) | undefined;
+    let reads = 0;
+    const load = (): Promise<Page<string>> => {
+      reads += 1;
+      return reads === 1
+        ? whole()
+        : new Promise((resolve) => {
+            answer = resolve;
+          });
+    };
+    function List(): React.JSX.Element {
+      const pages = usePages(load, undefined, { remembered: { in: kept, key: "films" } });
       return createElement(
         "p",
         null,
         String(pages.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items.length : 0),
       );
     }
-    const settle = async (): Promise<void> => {
-      await act(async () => {
-        for (let turn = 0; turn < 10; turn += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-      });
-    };
     let mounted = await mount(createElement(List));
     await settle();
-    expect(mounted.container.textContent).toBe("5");
-    expect(pages?.isLoadingMore).toBe(false);
+    expect(mounted.container.textContent).toBe("100");
     mounted.unmount();
-    isReadWhole = false;
     mounted = await mount(createElement(List));
+    expect(Number(mounted.container.textContent)).toBeGreaterThanOrEqual(60);
     await settle();
-    expect(mounted.container.textContent).toBe("2");
+    expect(mounted.container.textContent).toBe("100");
+    expect(reads).toBe(2);
+    act(() => {
+      answer?.({ items: titles.slice(0, 3), nextCursor: "" });
+    });
+    await settle();
+    expect(mounted.container.textContent).toBe("3");
     mounted.unmount();
   });
 });
