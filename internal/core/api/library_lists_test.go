@@ -28,14 +28,28 @@ func (harness testHarness) titleNames(t *testing.T, path, token string) (names [
 	return names, page.NextCursor
 }
 
-// railLetters are the alphabet rail's letters a GET /items/letters answers.
+// railLetters are the alphabet rail's letters of a list GET /items answers whole: each item's
+// letter, in the list's order, once each (D475 §2).
 func (harness testHarness) railLetters(t *testing.T, path, token string) string {
 	t.Helper()
-	var letters struct {
-		Letters []string `json:"letters"`
+	var page struct {
+		Items      []api.ItemEntryBody `json:"items"`
+		NextCursor string              `json:"nextCursor"`
 	}
-	harness.readJSON(t, path, token, &letters)
-	return fmt.Sprint(letters.Letters)
+	harness.readJSON(t, path, token, &page)
+	if page.NextCursor != "" {
+		t.Fatalf("%s came with a next cursor; want the whole list in one answer", path)
+	}
+	letters := []string{}
+	for _, item := range page.Items {
+		if item.Letter == "" {
+			t.Fatalf("%s: %q says no letter; want each item of a list by name or file name to say one", path, item.Name)
+		}
+		if len(letters) == 0 || letters[len(letters)-1] != item.Letter {
+			letters = append(letters, item.Letter)
+		}
+	}
+	return fmt.Sprint(letters)
 }
 
 // One library's list holds its titles alone, and a library the person does not reach is no such
@@ -62,7 +76,7 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 	}
 	user := harness.signIn(t, "partner", "partner-password")
 	for _, path := range []string{
-		"/items?kind=other&sort=name&limit=10&library=2", "/items/letters?kind=other&sort=name&library=2",
+		"/items?kind=other&sort=name&limit=10&library=2", "/items?kind=other&sort=name&library=2",
 		"/libraries/2/folders?limit=500&sort=name",
 	} {
 		wantError(t, harness.do(t, http.MethodGet, path, user, nil), http.StatusNotFound, api.CodeNotFound)
@@ -97,13 +111,12 @@ func TestBrowse_AListNamesItsKinds(t *testing.T) {
 			t.Errorf("%s = %v; want %s", path, names, want)
 		}
 	}
-	if got := harness.railLetters(t, "/items/letters?kind=series,other&sort=name", admin); got != "[B C W]" {
+	if got := harness.railLetters(t, "/items?kind=series,other&sort=name", admin); got != "[B C W]" {
 		t.Errorf("the letters of series and other videos = %s; want [B C W]", got)
 	}
 	for path, location := range map[string]string{
 		"/items?kind=any&sort=name&limit=10":      "query.kind[0]",
 		"/items?kind=film,any&sort=name&limit=10": "query.kind[1]",
-		"/items/letters?kind=any&sort=name":       "query.kind[0]",
 		"/genres?kind=any&limit=10":               "query.kind[0]",
 		"/items?kind=album&sort=name&limit=10":    "query.kind[0]",
 	} {
@@ -143,7 +156,8 @@ func TestBrowse_OtherVideosInTheirFourOrders(t *testing.T) {
 }
 
 // The rail's letters are those a list has titles under in its order, by name or file name, # for
-// what comes before A (D349 §9).
+// what comes before A (D349 §9): each item of the list read whole says its own, and no request of
+// their own answers them, GET /items/letters being gone (D475 §2).
 func TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -151,16 +165,19 @@ func TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items/letters?kind=film,series,other&sort=name": "[B C M W]",
-		"/items/letters?kind=film&sort=name":              "[M]",
-		"/items/letters?kind=other&sort=fileName":         "[# C]",
-		"/items/letters?kind=series&sort=name&library=2":  "[]",
-		"/items/letters?kind=other&sort=name&library=2":   "[B C W]",
+		"/items?kind=film,series,other&sort=name": "[B C M W]",
+		"/items?kind=film&sort=name":              "[M]",
+		"/items?kind=other&sort=fileName":         "[# C]",
+		"/items?kind=series&sort=name&library=2":  "[]",
+		"/items?kind=other&sort=name&library=2":   "[B C W]",
 	} {
 		if got := harness.railLetters(t, path, admin); got != want {
 			t.Errorf("%s = %s; want %s", path, got, want)
 		}
 	}
+	// "letters" is no item's id now: GET /items/{id} refuses it as it refuses any id not a number.
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items/letters?kind=film&sort=name", admin, nil),
+		http.StatusUnprocessableEntity, "path.id")
 }
 
 // An other library's folders open into their folders and videos, each folder saying how many videos
@@ -246,7 +263,7 @@ func TestBrowse_ALibraryLeftOutOfFilmsAndSeries(t *testing.T) {
 			t.Errorf("%s = %v; want %s", path, names, want)
 		}
 	}
-	if got := harness.railLetters(t, "/items/letters?kind=film&sort=name", admin); got != "[]" {
+	if got := harness.railLetters(t, "/items?kind=film&sort=name", admin); got != "[]" {
 		t.Errorf("the films' letters with their one library left out = %s; want none", got)
 	}
 }
@@ -261,25 +278,24 @@ func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items?kind=film,series,other&sort=name&limit=10&query=beach":                "[Beach day]",
-		"/items?kind=film,series,other&sort=name&limit=10&query=b":                    "[Beach day Brass Arena]",
-		"/items?kind=film&sort=name&limit=10&query=beach":                             "[]",
-		"/items?kind=other&sort=name&limit=10&query=beach&library=1":                  "[]",
-		"/items?kind=other&sort=recorded&limit=10&query=beach":                        "[Beach day]",
-		"/items?kind=series&sort=added&limit=10&query=brass":                          "[Brass Arena]",
-		"/items?kind=series&sort=name&limit=10&query=pilot":                           "[]", // its episode's name
-		"/items?kind=film,series,other&sort=name&limit=10&query=%20":                  "[]",
-		"/items?kind=film,series,other&sort=name&limit=10&home=true&query=metropolis": "[Metropolis]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=beach": "[Beach day]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=b":     "[Beach day Brass Arena]",
+		"/items?kind=film&sort=name&limit=10&query=beach":              "[]",
+		"/items?kind=other&sort=name&limit=10&query=beach&library=1":   "[]",
+		"/items?kind=other&sort=recorded&limit=10&query=beach":         "[Beach day]",
+		"/items?kind=series&sort=added&limit=10&query=brass":           "[Brass Arena]",
+		"/items?kind=series&sort=name&limit=10&query=pilot":            "[]", // its episode's name
+		"/items?kind=film,series,other&sort=name&limit=10&query=%20":   "[]",
 	} {
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s = %v; want %s", path, names, want)
 		}
 	}
 	for path, want := range map[string]string{
-		"/items/letters?kind=film,series,other&sort=name&query=b":                 "[B]",
-		"/items/letters?kind=film,series,other&sort=name&query=wedding":           "[W]",
-		"/items/letters?kind=other&sort=fileName&query=clip":                      "[C]",
-		"/items/letters?kind=film,series,other&sort=name&query=wedding&library=1": "[]",
+		"/items?kind=film,series,other&sort=name&query=b":                 "[B]",
+		"/items?kind=film,series,other&sort=name&query=wedding":           "[W]",
+		"/items?kind=other&sort=fileName&query=clip":                      "[C]",
+		"/items?kind=film,series,other&sort=name&query=wedding&library=1": "[]",
 	} {
 		if got := harness.railLetters(t, path, admin); got != want {
 			t.Errorf("%s = %s; want %s", path, got, want)

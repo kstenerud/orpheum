@@ -158,8 +158,9 @@ func TestContinueWatching_AWorkThatCannotBeReadNowSaysWhy(t *testing.T) {
 }
 
 // GET /home answers every row of Home in one read (D476, principles §30): Continue Watching, and the
-// newest films and the newest series of the libraries kept on Home, as GET /items?sort=added&home=true
-// lists each (D366 §5), so the rows come together and one poll keeps them.
+// newest films and the newest series, at most 18 of each, as GET /items?sort=added lists them, so
+// the rows come together and one poll keeps them. Which libraries they draw on (D366 §5) is
+// TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows's.
 func TestHome_AnswersItsThreeRowsInOneRead(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -183,7 +184,7 @@ func TestHome_AnswersItsThreeRowsInOneRead(t *testing.T) {
 		name, kind string
 		got        json.RawMessage
 	}{{"newestFilms", "film", home.NewestFilms}, {"newestSeries", "series", home.NewestSeries}} {
-		listed := harness.do(t, http.MethodGet, "/items?kind="+row.kind+"&sort=added&limit=18&home=true", admin, nil)
+		listed := harness.do(t, http.MethodGet, "/items?kind="+row.kind+"&sort=added&limit=18", admin, nil)
 		var items struct {
 			Items json.RawMessage `json:"items"`
 		}
@@ -191,7 +192,7 @@ func TestHome_AnswersItsThreeRowsInOneRead(t *testing.T) {
 			t.Fatal(err)
 		}
 		if string(row.got) != string(items.Items) || string(row.got) == "[]" {
-			t.Errorf("GET /home's %s = %s; want the newest of Home's libraries, as /items lists them: %s",
+			t.Errorf("GET /home's %s = %s; want the newest, as /items lists them: %s",
 				row.name, row.got, items.Items)
 		}
 	}

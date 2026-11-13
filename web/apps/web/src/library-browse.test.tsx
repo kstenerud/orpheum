@@ -68,7 +68,6 @@ const titlesPage = (): Answer => [
     nextCursor: "",
   },
 ];
-const lettersPage = (): Answer => [200, { letters: [] }];
 
 /** Mounts the Libraries page with its state given by the address (app.tsx's own props). */
 async function mountBrowse(
@@ -151,7 +150,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -168,7 +166,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -181,7 +178,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -203,7 +199,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
       "GET /items": titlesPage(),
-      "GET /items/letters": lettersPage(),
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -284,7 +279,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films", "film")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
       filmsHeard,
     );
@@ -306,7 +300,6 @@ describe("the Libraries page (D349)", () => {
           { libraries: [library(1, "Films"), library(2, "Shows", "series")] },
         ],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
       heard,
     );
@@ -322,7 +315,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
     });
     services.navigation.replace({ screen: "browse", library: 1 });
@@ -380,7 +372,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
     });
     services.navigation.replace({ screen: "browse", library: 1 });
@@ -502,7 +493,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
         "GET /me/preferences": [200, { isDialogueBoostOn: false, isLevellingOn: true }],
       },
     );
@@ -518,7 +508,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -579,7 +568,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
@@ -618,7 +606,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
       heard,
     );
@@ -665,7 +652,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
       heard,
     );
@@ -701,7 +687,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -743,7 +728,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /items/letters": lettersPage(),
       },
       heard,
     );
@@ -774,7 +758,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": [200, { items: [], nextCursor: "" }],
-        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".browse__empty") !== null);

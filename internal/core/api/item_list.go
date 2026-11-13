@@ -47,7 +47,7 @@ type ItemEntryCommon struct {
 	// Identification is where its match stands, in a list by identification alone (D425 §7).
 	Identification *IdentificationBody `doc:"Where its match stands; present in a list by identification alone" json:"identification,omitempty"` //nolint:lll // one struct tag
 	// Letter is the alphabet rail's letter it is under, in a list by name or by file name.
-	Letter string `doc:"The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name" json:"letter,omitempty"` //nolint:lll // one struct tag
+	Letter string `doc:"The alphabet rail's letter it is under, # for what sorts before A, then A to Z, so a list read whole gives the rail its letters (D475); present in a list by name or by file name" json:"letter,omitempty"` //nolint:lll // one struct tag
 	// Credit is the person's credit on it, in a list by person alone (D425 §7).
 	Credit *ItemCreditBody `doc:"The person's credit on it; present in a list by person alone" json:"credit,omitempty"`
 }
@@ -149,7 +149,6 @@ type ListItemsInput struct {
 	Sort           string   `default:"name" doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and fileName: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,fileName,released" query:"sort"` //nolint:lll // one struct tag
 	Order          string   `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                       //nolint:lll // one struct tag
 	Library        int64    `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                //nolint:lll // one struct tag
-	IsHome         bool     `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                           //nolint:lll // one struct tag
 	Identification string   `doc:"Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library" enum:"identified,ambiguous,unidentified,confirmed" query:"identification"`                                                                                                                                                                                                                                                                               //nolint:lll // one struct tag
 	From           string   `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items" maxLength:"100" query:"from"`                                                                                                                                                                                                                                         //nolint:lll // one struct tag
 	// A list of films, series or other videos may be read whole in one answer, its limit left out
@@ -176,11 +175,6 @@ func (server *Server) registerItemList() {
 			"filtered by library, genre, person, decade, unwatched or identification", Tags: tags,
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.listItems)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "listItemLetters", Method: http.MethodGet, Path: "/items/letters",
-		Summary: "The letters of the alphabet a list by name has items under", Tags: tags,
-		Extensions: callableBy(capabilitySignedIn),
-	}, server.listItemLetters)
 }
 
 func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*ListItemsOutput, error) {
@@ -201,12 +195,7 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 	if limit == 0 {
 		limit = library.WholeList
 	}
-	if input.IsHome && input.Library != 0 {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.home",
-			"a row of Home is of every library the person keeps on it, not of one library")
-	}
-	reach, err := server.listReach(ctx, dependencies, principal,
-		listOf{kinds: input.Kinds, libraryID: input.Library, isHome: input.IsHome})
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +256,7 @@ func (server *Server) addCredits(
 func (server *Server) listItemsByIdentification(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, input *ListItemsInput,
 ) (*ListItemsOutput, error) {
-	if !isEveryListKind(input.Kinds) || input.Sort != library.SortName || input.Order != "" || input.IsHome ||
+	if !isEveryListKind(input.Kinds) || input.Sort != library.SortName || input.Order != "" ||
 		input.From != "" || input.Query != "" || input.ListFilters != (ListFilters{}) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.identification",
 			"a list by identification is of every kind, by name, and takes no other filter than library")

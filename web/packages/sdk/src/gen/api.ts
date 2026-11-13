@@ -888,23 +888,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/items/letters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The letters of the alphabet a list by name has items under */
-        get: operations["listItemLetters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -4088,10 +4071,6 @@ export interface components {
             /** @description The chunked master playlist */
             url: string;
         };
-        LettersOutputBody: {
-            /** @description In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next */
-            letters: string[] | null;
-        };
         LevellingBody: {
             /**
              * Format: double
@@ -5306,7 +5285,7 @@ export interface components {
              * @enum {string}
              */
             kind: "series";
-            /** @description The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name */
+            /** @description The alphabet rail's letter it is under, # for what sorts before A, then A to Z, so a list read whole gives the rail its letters (D475); present in a list by name or by file name */
             letter?: string;
             name: string;
             /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
@@ -5817,7 +5796,7 @@ export interface components {
             kind: "episode" | "extra" | "film" | "other";
             /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             landscapeSha256?: string;
-            /** @description The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name */
+            /** @description The alphabet rail's letter it is under, # for what sorts before A, then A to Z, so a list read whole gives the rail its letters (D475); present in a list by name or by file name */
             letter?: string;
             name: string;
             /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
@@ -7605,8 +7584,6 @@ export interface operations {
                 from?: string;
                 /** @description Only the titles in this genre, by its id from GET /genres */
                 genre?: number;
-                /** @description The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series */
-                home?: boolean;
                 /** @description Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library */
                 identification?: "identified" | "ambiguous" | "unidentified" | "confirmed";
                 /** @description The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1) */
@@ -8252,52 +8229,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchedMarkOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listItemLetters: {
-        parameters: {
-            query: {
-                /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
-                decade?: number;
-                /** @description Only the titles in this genre, by its id from GET /genres */
-                genre?: number;
-                /** @description As GET /items takes it: the kinds, each named, comma-separated */
-                kind: ("film" | "series" | "other")[] | null;
-                /** @description As GET /items takes it */
-                library?: number;
-                /** @description Only the titles crediting this person, by their id from a title's credits or a search */
-                person?: number;
-                /** @description As GET /items takes it: only the letters some title whose name matches it is under */
-                query?: string;
-                /** @description The order the rail follows: by name, or an other video's by file name */
-                sort: "name" | "fileName";
-                /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
-                unwatched?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LettersOutputBody"];
                 };
             };
             /** @description Error */

@@ -47,7 +47,6 @@ describe("an other video's tile, laid out by a real browser", () => {
           nextCursor: "",
         },
       ],
-      "GET /items/letters": [200, { letters: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>

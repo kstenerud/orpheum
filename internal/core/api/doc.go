@@ -184,10 +184,10 @@
 //     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
 //     A list of one library is of one the user reaches, and a search finds only what they reach
 //     (D349). Enforced by TestBrowse_OneLibrarysListAndALibraryNotReached.
-//   - Home's rows, Continue Watching and the newest (GET /items?home=true), draw on every library
-//     the person reaches less those they left out of Home, apart from those left out of Films and
-//     Series; an item two libraries reach is on Home while either is left in (D366 §5). Enforced
-//     by TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows.
+//   - Home's rows, Continue Watching and the newest films and series (GET /home, D476 §6), draw on
+//     every library the person reaches less those they left out of Home, apart from those left out
+//     of Films and Series; an item two libraries reach is on Home while either is left in (D366
+//     §5). Enforced by TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.

@@ -275,7 +275,7 @@ func (server *Server) registerWhatPagesLog() {
 }
 
 // registerBrowsing registers a list's titles and a library browsed on its own (D349): films,
-// series and other videos, the alphabet rail's letters and an other library's folders.
+// series and other videos, and an other library's folders.
 func (server *Server) registerBrowsing() {
 	server.registerBrowse()
 	server.registerItemList()

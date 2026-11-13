@@ -36,7 +36,7 @@ export function chipsOf(state: {
   };
 }
 
-/** The chips as GET /items and GET /items/letters take them, each left out when not chosen. */
+/** The chips as GET /items takes them, each left out when not chosen. */
 export function filtersQuery(chips: {
   readonly [Chip in keyof ListFilters]?: ListFilters[Chip] | undefined;
 }): TitlesChipsQuery {
@@ -47,7 +47,7 @@ export function filtersQuery(chips: {
   };
 }
 
-/** A kind GET /items, GET /items/letters and GET /genres take, each by name. */
+/** A kind GET /items and GET /genres take, each by name. */
 type NamedKind = NonNullable<
   NonNullable<paths["/items"]["get"]["parameters"]["query"]>["kind"]
 >[number];

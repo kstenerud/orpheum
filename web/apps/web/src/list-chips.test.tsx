@@ -63,7 +63,6 @@ describe("Films' chips (search-by-more §4.3)", () => {
     const services = servedBy(
       {
         "GET /items": [titles, titles, titles, titles],
-        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [
           200,
           {
@@ -127,7 +126,6 @@ describe("Films' chips (search-by-more §4.3)", () => {
     const services = servedBy(
       {
         "GET /items": [titles],
-        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [200, { genres: [{ id: 18, name: "Drama", titleCount: 3 }] }],
       },
       heard,

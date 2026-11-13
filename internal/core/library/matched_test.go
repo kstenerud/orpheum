@@ -95,10 +95,16 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 	for query, want := range map[string][]string{
 		"metropolis": {"M"}, "orchard": {"O"}, "u": {"U"}, "zzz": nil, "   ": nil,
 	} {
-		letters, err := world.browser.Letters(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Query: query,
+		page, err := world.browser.List(t.Context(), ListQuery{
+			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: WholeList, Query: query,
 		})
-		if err != nil || !slices.Equal(letters, want) || letters == nil {
+		var letters []string
+		for _, entry := range page.Entries {
+			if len(letters) == 0 || letters[len(letters)-1] != entry.Letter {
+				letters = append(letters, entry.Letter)
+			}
+		}
+		if err != nil || !slices.Equal(letters, want) {
 			t.Errorf("the letters of the films matching %q = %v, %v; want %v", query, letters, err, want)
 		}
 	}

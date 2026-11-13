@@ -314,7 +314,6 @@ export const anAdmin: WalkAnswers = {
     })),
   },
   "GET /items": { items: films(6), nextCursor: "" },
-  "GET /items/letters": { letters: [] },
   "GET /libraries": {
     libraries: [
       {
@@ -511,7 +510,6 @@ export function filmsLibrary(id: number, name: string): Record<string, unknown> 
 export const aLibrary: WalkAnswers = {
   ...signedIn,
   "GET /libraries": { libraries: [filmsLibrary(1, "Films")] },
-  "GET /items/letters": { letters: [] },
 };
 
 /** Sixteen libraries, more than a Fire TV's screen holds in the banner's Libraries menu. */

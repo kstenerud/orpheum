@@ -3925,24 +3925,6 @@
         ],
         "type": "object"
       },
-      "LettersOutputBody": {
-        "properties": {
-          "letters": {
-            "description": "In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "letters"
-        ],
-        "type": "object"
-      },
       "LevellingBody": {
         "properties": {
           "gainDb": {
@@ -7462,7 +7444,7 @@
             ]
           },
           "letter": {
-            "description": "The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name",
+            "description": "The alphabet rail's letter it is under, # for what sorts before A, then A to Z, so a list read whole gives the rail its letters (D475); present in a list by name or by file name",
             "type": "string"
           },
           "name": {
@@ -9045,7 +9027,7 @@
             "type": "string"
           },
           "letter": {
-            "description": "The alphabet rail's letter it is under, # or A to Z, as GET /items/letters names them; present in a list by name or by file name",
+            "description": "The alphabet rail's letter it is under, # for what sorts before A, then A to Z, so a list read whole gives the rail its letters (D475); present in a list by name or by file name",
             "type": "string"
           },
           "name": {
@@ -12462,16 +12444,6 @@
             }
           },
           {
-            "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
-            "explode": false,
-            "in": "query",
-            "name": "home",
-            "schema": {
-              "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
-              "type": "boolean"
-            }
-          },
-          {
             "description": "Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library",
             "explode": false,
             "in": "query",
@@ -12609,154 +12581,6 @@
           }
         ],
         "summary": "The one list: films, series or other videos by name in the library's locale or newest first, filtered by library, genre, person, decade, unwatched or identification",
-        "tags": [
-          "Browse"
-        ],
-        "x-orpheum-capability": "signedIn"
-      }
-    },
-    "/items/letters": {
-      "get": {
-        "operationId": "listItemLetters",
-        "parameters": [
-          {
-            "description": "As GET /items takes it: the kinds, each named, comma-separated",
-            "explode": false,
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "description": "As GET /items takes it: the kinds, each named, comma-separated",
-              "items": {
-                "enum": [
-                  "film",
-                  "series",
-                  "other"
-                ],
-                "type": "string"
-              },
-              "minItems": 1,
-              "type": [
-                "array",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "The order the rail follows: by name, or an other video's by file name",
-            "explode": false,
-            "in": "query",
-            "name": "sort",
-            "required": true,
-            "schema": {
-              "description": "The order the rail follows: by name, or an other video's by file name",
-              "enum": [
-                "name",
-                "fileName"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "As GET /items takes it",
-            "explode": false,
-            "in": "query",
-            "name": "library",
-            "schema": {
-              "description": "As GET /items takes it",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "As GET /items takes it: only the letters some title whose name matches it is under",
-            "explode": false,
-            "in": "query",
-            "name": "query",
-            "schema": {
-              "description": "As GET /items takes it: only the letters some title whose name matches it is under",
-              "maxLength": 200,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Only the titles in this genre, by its id from GET /genres",
-            "explode": false,
-            "in": "query",
-            "name": "genre",
-            "schema": {
-              "description": "Only the titles in this genre, by its id from GET /genres",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-            "explode": false,
-            "in": "query",
-            "name": "person",
-            "schema": {
-              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-            "explode": false,
-            "in": "query",
-            "name": "decade",
-            "schema": {
-              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-              "format": "int64",
-              "maximum": 9990,
-              "minimum": 0,
-              "multipleOf": 10,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-            "explode": false,
-            "in": "query",
-            "name": "unwatched",
-            "schema": {
-              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LettersOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "The letters of the alphabet a list by name has items under",
         "tags": [
           "Browse"
         ],

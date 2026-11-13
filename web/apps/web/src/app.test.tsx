@@ -36,7 +36,6 @@ import { forgetMembership, keepMembership } from "./together-storage.ts";
  */
 const backgroundAnswers: Answers = {
   "GET /libraries": [200, { libraries: [] }],
-  "GET /items/letters": [200, { letters: [] }],
   // An admin's shell asks what it knows of an update (security-update-note.tsx): none pending.
   "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
   "GET /client-settings": [
@@ -308,7 +307,6 @@ describe("App", () => {
     const offersGallery = async (isOn: boolean | undefined): Promise<boolean> => {
       const services = servedBy(
         {
-          "GET /items/letters": [200, { letters: [] }],
           "GET /me/together": [200, { sessions: [] }],
           "GET /libraries": [200, { libraries: [] }],
           "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],

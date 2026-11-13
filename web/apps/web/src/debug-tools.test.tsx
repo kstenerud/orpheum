@@ -79,7 +79,6 @@ describe("debug tools (the owner, 2026-10-29: a per-person Show debug tools)", (
         withServices(<App />, {
           ...servedBy(
             {
-              "GET /items/letters": [200, { letters: [] }],
               "GET /client-settings": [200, {}],
               "GET /me/together": [200, { sessions: [] }],
               "GET /libraries": [200, { libraries: [] }],

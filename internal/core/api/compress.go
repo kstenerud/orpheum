@@ -21,7 +21,7 @@ import (
 // (BREACH). TestArch_NoCompressedOperationAnswersWithACredential holds every one listed here to it.
 var compressedOperations = []string{ //nolint:gochecknoglobals // a constant list
 	// Browsing.
-	"listItems", "listItemLetters", "getItem", "getGroup", "listNotInOrder", "search", "getHome",
+	"listItems", "getItem", "getGroup", "listNotInOrder", "search", "getHome",
 	"listLibraries", "getUpNext",
 	// Identification and the scanner's view.
 	"getItemCandidates", "listFiles", "getSubtitleCandidates",

@@ -37,7 +37,6 @@ const filmsList: WalkAnswers = {
   "GET /client-settings": {},
   "GET /home": { continueWatching: [] },
   "GET /items": { items: films(3), nextCursor: "" },
-  "GET /items/letters": { letters: [] },
   "GET /genres": { genres: [{ id: 2, name: "Drama" }] },
 };
 

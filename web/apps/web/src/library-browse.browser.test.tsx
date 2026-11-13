@@ -130,7 +130,6 @@ const oneLibrary = {
     ],
     nextCursor: "",
   },
-  "GET /items/letters": { letters: [] },
 };
 
 /** The same server, its library one of other videos, whose page offers a view by folders. */

@@ -243,7 +243,6 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         {
           ...signedIn,
           "GET /items": { items: films(3), nextCursor: "" },
-          "GET /items/letters": { letters: [] },
           "GET /genres": {
             genres: [
               { id: 2, name: "Drama" },

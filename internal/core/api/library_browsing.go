@@ -14,23 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
-// LettersInput asks which letters of the alphabet rail a list by name or file name has titles under.
-type LettersInput struct {
-	AuthorizationHeader
-	Kinds   []string `doc:"As GET /items takes it: the kinds, each named, comma-separated" enum:"film,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
-	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,fileName" query:"sort" required:"true"`           //nolint:lll // one struct tag
-	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
-	Query   string   `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
-	ListFilters
-}
-
-// LettersOutput are the rail's letters the list has titles under.
-type LettersOutput struct {
-	Body struct {
-		Letters []string `doc:"In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next" json:"letters"` //nolint:lll // one struct tag
-	}
-}
-
 // FolderInput asks for one folder of an other library.
 type FolderInput struct {
 	AuthorizationHeader
@@ -69,17 +52,14 @@ func (server *Server) registerLibraryBrowsing() {
 	}, server.getLibraryFolder)
 }
 
-// listOf is which list a request asks for: its kinds, one library's or 0, and whether it is a row of
-// Home.
+// listOf is which list a request asks for: its kinds, and one library's or 0.
 type listOf struct {
 	kinds     []string
 	libraryID int64
-	isHome    bool
 }
 
-// listReach is the libraries a list holds: one library, which the person must reach; for a row of
-// Home, every one they reach less those they left out of Home (D366 §5); else every one they
-// reach, less, for films and series, those they left out of them (D349 §8).
+// listReach is the libraries a list holds: one library, which the person must reach; else every one
+// they reach, less, for films and series, those they left out of them (D349 §8).
 func (server *Server) listReach(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, list listOf,
 ) (auth.Reach, error) {
@@ -90,8 +70,6 @@ func (server *Server) listReach(
 			return auth.Reach{}, newError(http.StatusNotFound, CodeNotFound, "no such library")
 		}
 		return narrowed, nil
-	case list.isHome:
-		return server.homeReach(ctx, dependencies, principal)
 	case !isFilmsOrSeriesAlone(list.kinds):
 		return principal.Reach, nil
 	}
@@ -144,28 +122,6 @@ func (server *Server) reachWithout(
 		return auth.Reach{}, server.logInternalError(ctx, "list the libraries", err)
 	}
 	return principal.Reach.Without(leftOut, live), nil
-}
-
-func (server *Server) listItemLetters(ctx context.Context, input *LettersInput) (*LettersOutput, error) {
-	input.Kinds = keptKinds(input.Kinds)
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
-	if err != nil {
-		return nil, err
-	}
-	letters, err := dependencies.Browser.Letters(ctx,
-		input.withFilters(library.ListQuery{
-			Kinds: input.Kinds, Sort: input.Sort, Reach: reach, UserID: principal.UserID, Query: input.Query,
-		}))
-	if err != nil {
-		return nil, server.libraryError(ctx, "list a list's letters", err)
-	}
-	output := &LettersOutput{}
-	output.Body.Letters = letters
-	return output, nil
 }
 
 func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) (*FolderOutput, error) {

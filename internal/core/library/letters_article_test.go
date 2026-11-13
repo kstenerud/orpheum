@@ -22,11 +22,18 @@ func TestLetters_ATitleIsUnderItsFirstWordThatIsNoArticle(t *testing.T) {
 	world.fileAsFilm("The Gold Rush", "m.mkv")
 	world.fileAsFilm("A Woman of Paris", "b.mkv")
 	world.fileAsFilm("The", "t.mkv")
-	letters, err := world.browser.Letters(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName,
+	page, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: WholeList,
 	})
-	if err != nil || !slices.Equal(letters, []string{"G", "T", "W"}) {
-		t.Errorf("the letters of The Gold Rush, A Woman of Paris and The = %v, %v; want G, T and W", letters, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	letters := []string{}
+	for _, entry := range page.Entries {
+		letters = append(letters, entry.Letter)
+	}
+	if !slices.Equal(letters, []string{"G", "T", "W"}) {
+		t.Errorf("the letters of The Gold Rush, The and A Woman of Paris = %v; want G, T and W", letters)
 	}
 }
 

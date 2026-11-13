@@ -592,8 +592,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A person configures each library for themselves on its own list** (the owner, 2026-10-27): a
   library's Configure on the Libraries page, for everyone, opens a dialog of their own choices, kept
   on their account, the one place they are made: Show on Home (D366 §5), every library on Home until
-  left out (`leftOutOfHomeLibraryIds`), Home's newest rows asking `GET /titles?home=true` and the
-  server drawing Continue Watching the same way; and Show in Films or Series (D349 §8), a films or
+  left out (`leftOutOfHomeLibraryIds`), the server drawing every row of `GET /home` that way
+  (D476 §6); and Show in Films or Series (D349 §8), a films or
   series library in those pages until left out (`leftOutLibraryIds`, `GET`/`PUT /me/preferences`),
   staying on the Libraries page regardless. Escape or a remote's Back closes it.
   `src/library-configure.tsx`; `src/library-configure.test.tsx`, `src/library-browse.test.tsx`,

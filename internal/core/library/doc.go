@@ -336,9 +336,9 @@
 //     (internal/core/api). Z to A, a name starts the list at the last title before it (D366 §4).
 //     TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt (internal/core/api).
 //
-//   - The alphabet rail's letters are those a list by name or file name has a title under in its
-//     order, whichever way it runs, found by a read from each letter that has one, never the list
-//     (D349 §9).
+//   - Each entry of a list by name or file name says the alphabet rail's letter it is under, by
+//     its sort key, so the rail's letters are those the list read whole has titles under (D349 §9,
+//     D475 §2). TestList_SaysEachEntrysRailLetter,
 //     TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder (internal/core/api).
 //
 //   - An other library's folders are its files' folders below its roots, every root's together,

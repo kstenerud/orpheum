@@ -12,8 +12,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
-// ListFilters are a list's filters, which GET /titles and its letters take alike, combined with each
-// other and with its query (search-by-more-2026-11-04.md §4).
+// ListFilters are a list's filters, which GET /items takes, combined with each other and with its
+// query (search-by-more-2026-11-04.md §4).
 type ListFilters struct {
 	Genre     int64 `doc:"Only the titles in this genre, by its id from GET /genres" minimum:"0" query:"genre"`
 	Person    int64 `doc:"Only the titles crediting this person, by their id from a title's credits or a search" minimum:"0" query:"person"`                                                           //nolint:lll // one struct tag
