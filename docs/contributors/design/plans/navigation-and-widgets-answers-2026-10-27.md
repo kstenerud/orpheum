@@ -3629,7 +3629,9 @@ commits and test weakening passed first time. What failed, and what was done:
    `Refactor-Only:` on the cast-spec commit.
 4. **Revert-red, `web/apps/cast-receiver/src/reach.ts` (D467) and `web/packages/player/src/chunked.ts`
    (the lost chunk asked again):** each wiring has no test of its own (the policy it wires does).
-   An agent is writing the two tests.
+   Fixed by "test(cast-receiver): a receiver at the loader's origin goes to its core's own name
+   where it may" and "test(player): a chunked playback's hls.js settings ask again for a chunk
+   nothing answered", each red on revert.
 5. **For the owner, a gate: `scripts/background_probe.py` cannot settle.** With it reverted, its
    test `test_a_pass_waits_behind_the_gates_own_run_and_goes_beside_a_spot_check` waits for ever
    (the old probe waits behind any holder of the lock, the test holding it as a spot check), so
