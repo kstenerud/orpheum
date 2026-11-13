@@ -93,13 +93,24 @@ func sendOverLossyLink(t *testing.T, core webrtc.SettingEngine) (arrived bool, w
 
 	core.SetNet(coreNet)
 	core.LoggerFactory = quiet
+	// Each peer closes when the test closes it, never by itself on the other's close_notify (as
+	// settings() has it already): see closeOneThenTheOther.
+	core.DisableCloseByDTLS(true)
 	var client webrtc.SettingEngine
 	client.SetNet(clientNet)
 	client.LoggerFactory = quiet
+	client.DisableCloseByDTLS(true)
 	corePeer := newPeer(t, core)
-	defer closeQuietly(t, "the core's peer", corePeer.Close)
+	defer closeQuietly(t, "the core's peer", corePeer.GracefulClose)
+	coreHeardTheEnd := make(chan struct{}, 1)
+	corePeer.SCTP().OnClose(func(error) {
+		select {
+		case coreHeardTheEnd <- struct{}{}:
+		default:
+		}
+	})
 	clientPeer := newPeer(t, client)
-	defer closeQuietly(t, "the client's peer", clientPeer.Close)
+	defer closeOneThenTheOther(t, clientPeer, coreHeardTheEnd)
 
 	opened := make(chan *webrtc.DataChannel, 1)
 	corePeer.OnDataChannel(func(channel *webrtc.DataChannel) {
@@ -199,6 +210,28 @@ func sendWindowBytes(peer *webrtc.PeerConnection) uint32 {
 	}
 	return 0
 }
+
+// closeOneThenTheOther closes the client's peer and waits, at most closeSettlesWithin, for the core's
+// SCTP association to hear its ABORT (heardTheEnd) before the deferred close of the core's peer runs.
+// Closed at once, or by pion itself on the client's DTLS close_notify, the core's SCTPTransport.Stop
+// can hold its lock while Abort waits 200 ms on a timer for a write loop the ABORT has already ended,
+// and the goroutine that accepted data channels blocks on that lock to report the close; a goroutine
+// blocked on a mutex is not durably blocked, so the bubble never idles, its clock never moves and the
+// timer never fires. GracefulClose waits for the goroutines pion started, as the bubble's clock stops
+// once the test's own goroutine returns.
+func closeOneThenTheOther(t *testing.T, clientPeer *webrtc.PeerConnection, heardTheEnd <-chan struct{}) {
+	t.Helper()
+	closeQuietly(t, "the client's peer", clientPeer.GracefulClose)
+	select {
+	case <-heardTheEnd:
+	case <-time.After(closeSettlesWithin):
+	}
+}
+
+// closeSettlesWithin bounds the wait for one peer to hear the other close: a virtual network with no
+// loss carries the ABORT at once, and a test that failed before the association began has none to
+// hear.
+const closeSettlesWithin = time.Second
 
 // closeQuietly closes what with closeIt, failing the test if it fails.
 func closeQuietly(t *testing.T, what string, closeIt func() error) {
