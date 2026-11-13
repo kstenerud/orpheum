@@ -54,7 +54,7 @@ function RegisterForm(props: { readonly secret: string }): JSX.Element {
   const marks = useFieldMarks(registration.failure, registration.failure?.fields ?? []);
   return (
     <CredentialsForm
-      heading={t(isInvitation ? "register.invitedHeading" : "register.heading")}
+      heading={headingText(t, kind)}
       onSubmit={() => {
         registration.submit({ name: isInvitation ? name : undefined, password, passwordAgain });
       }}
@@ -96,6 +96,17 @@ function useLinkKind(secret: string): LinkKind | undefined {
   const { api } = useServices();
   const [kind] = useResource("link-kind", async () => await linkKind(api, secret));
   return kind.state === "loaded" ? kind.value : undefined;
+}
+
+/**
+ * The page's heading by what the link is for: an invitation makes an account, a reset link a new
+ * password for a person who has one (D466), and a first registration's link their first.
+ */
+function headingText(t: TFunction, kind: LinkKind | undefined): string {
+  if (kind?.isInvitation === true) {
+    return t("register.invitedHeading");
+  }
+  return t(kind?.isReset === true ? "register.resetHeading" : "register.heading");
 }
 
 /** What the page says the link is for: an invitation, a person's new password, or a link. */

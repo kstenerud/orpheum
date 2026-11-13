@@ -82,6 +82,21 @@ it("asks an invitation's person for their own name, and sends it with the passwo
   });
 });
 
+it("asks a reset link's person for their new password, and a first registration's for their password (D466)", async () => {
+  const headingFor = async (kind: { readonly name: string; readonly isReset: boolean }) => {
+    const services = {
+      ...servedBy({ "POST /registration/link": [200, { isInvitation: false, ...kind }] }),
+      navigation: createNavigation(fakePlace("/register#a-link")),
+    };
+    const mounted = await mount(withServices(<Register />, services));
+    const heading = mounted.container.querySelector("h1")?.textContent;
+    mounted.unmount();
+    return heading;
+  };
+  expect(await headingFor({ name: "partner", isReset: true })).toBe("Choose your new password");
+  expect(await headingFor({ name: "newcomer", isReset: false })).toBe("Choose your password");
+});
+
 /** The registration page for an invitation whose name is taken, with its three fields. */
 async function registeringATakenName(): Promise<
   readonly [Mounted, ...(HTMLInputElement | undefined)[]]

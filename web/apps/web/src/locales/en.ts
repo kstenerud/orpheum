@@ -176,6 +176,7 @@ export const en = {
   },
   register: {
     heading: "Choose your password",
+    resetHeading: "Choose your new password",
     explain: "This link is yours, and works once. Choose the password you will sign in with.",
     explainFor:
       "This link is {{name}}'s, and works once. Choose the password you will sign in with.",

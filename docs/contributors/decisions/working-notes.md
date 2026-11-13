@@ -27896,8 +27896,12 @@ whose registration link is the reset link; one without keeps D318 §1's links an
 `resetLinkExpiresAt` while a reset link is outstanding, never the link; `DELETE
 /users/{id}/registration-invitation` cancels it; Renew is the same `POST` as New reset password
 link (`internal/core/api/accounts.go`, `web/apps/web/src/user.tsx`; §1, §4). Cancel and Renew are
-asked again, as New reset password link is, for each ends a link sent. The page a reset link opens
-(`register.tsx`) still reads "Choose your password", as a first registration's does.
+asked again, as New reset password link is, for each ends a link sent. **Amended 2026-11-13** by
+the owner (the 11-25 batch's answers, item 4, in the plan file): the page a reset link opens says
+"Choose your new password", a first registration's keeping "Choose your password". Built
+2026-11-13: the link's read without using it (`POST /registration/link`, `KindOfLink`) says
+`isReset` for a registration link whose person has a password, and `register.tsx` heads its page
+by it.
 
 **Proven by:**
 - 1, 4: internal/core/api/reset_link_test.go, web/apps/web/src/reset-link.test.tsx, VQ309
@@ -27905,6 +27909,11 @@ asked again, as New reset password link is, for each ends a link sent. The page 
 - 3: internal/core/auth/reset_link_test.go (`TestResetLink_LastsAsLongAsItsOwnSettingSays`), VQ309
 - 4: internal/core/auth/reset_link_test.go (`TestResetLink_IsOutstandingUntilUsedOrCancelled`,
   `TestCancelResetLink_EndsItLeavingThePasswordAndSessions`)
+- The 2026-11-13 amendment's heading: internal/core/auth/reset_link_test.go
+  (`TestKindOfLink_SaysAResetLinkIsOneAndAFirstRegistrationsIsNot`),
+  internal/core/api/reset_link_test.go
+  (`TestLinkKind_AResetLinkSaysSoAndOneThatNoLongerWorksIsRefusedAlike`),
+  web/apps/web/src/register.test.tsx
 
 ## D467 — A Cast receiver at the loader's origin calls its core's API on the core's own names, as it does over WebRTC
 
