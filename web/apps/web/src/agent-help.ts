@@ -5,7 +5,7 @@
  * without running its script (index.html's head and its root's paragraph): the build writes it
  * beside the client's files from its one source, docs/users/agent-setup.md (vite.config.ts), with
  * /llms.txt pointing to it, so the core and the loader serve both as their other files (the
- * plan's "Help for a person's own AI agent at orpheum.cc").
+ * plan's "Help for a person's own AI agent", navigation-and-widgets-answers-2026-10-27.md).
  */
 
 /** The help's one source, from the repository's root. */
