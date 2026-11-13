@@ -33,8 +33,18 @@ it("says what happened at a dead end: the server, the addresses tried, what fail
     "Browser: Mozilla/5.0 Firefox/140",
   ]);
   expect(
-    whatHappened({ coreId: undefined, addressesTried: [], problem: "refused" }, "x"),
+    whatHappened({ coreId: undefined, addressesTried: undefined, problem: "refused" }, "x"),
   ).toContain("Server: not found\nAddresses tried: none\nWhat failed: refused");
+});
+
+// The owner's train (2026-11-13): reached over WebRTC alone, the report said "Addresses tried: none".
+it("says a way in that named no address as tried over WebRTC alone, and none where none was found", () => {
+  const happened = (tried: readonly string[] | undefined): string =>
+    whatHappened({ coreId: "k7xq2", addressesTried: tried, problem: "closed" }, "x", []);
+  expect(happened([]).split("\n")[2]).toBe(
+    "Addresses tried: none: the server named no address to try from here, so only WebRTC was tried",
+  );
+  expect(happened(undefined).split("\n")[2]).toBe("Addresses tried: none");
 });
 
 it("tells the steps the page took, last, each on its own line, so a connection's loss is placed", () => {

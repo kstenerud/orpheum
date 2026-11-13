@@ -588,7 +588,7 @@ describe("taking a hand-off's session at the client origin", () => {
     };
     const session = createSession(memoryStorage());
     forgetSteps();
-    await redeem(again, session, "a-code");
+    await redeem(again, session, { code: "a-code", key: "a-key" });
     expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
       "redeeming the link's hand-off",
       "the core answered the hand-off: 200",

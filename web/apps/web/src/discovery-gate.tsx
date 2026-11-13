@@ -22,6 +22,7 @@ import {
   type Target,
 } from "@orpheum/sdk";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -33,7 +34,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
-import { GateMessage, type Phase } from "./discovery-gate-message.tsx";
+import { GateMessage, type Phase, type Waiting } from "./discovery-gate-message.tsx";
 import {
   deadEndReasonOf,
   deadEndReasonWith,
@@ -126,6 +127,14 @@ export interface GateParts {
    * send (K16), and the cause the page names (D398 §3); the gate gives its own.
    */
   readonly onDeadEnd?: (happened: string, cause: DeadEndCause) => void;
+  /**
+   * Whether problem, which ended a reach in a dead end whose cause the page does not know, is the
+   * path's loss, which the page waits out: a channel or connection lost, or an offer that reached no
+   * server. The page then says it is waiting for the network and keeps trying on a new connection
+   * while it is open, with a bounded backoff, carrying on once a try gets through (§28; the owner's
+   * train, 2026-11-13). A refusal is never one. Absent, every dead end is the end.
+   */
+  readonly isPathLost?: (problem: unknown) => boolean;
 }
 
 /**
@@ -169,6 +178,7 @@ function realmProblemOf(phase: Phase, cause: DeadEndCause): RealmProblem | undef
  */
 const phasesTellingWhatHappened: ReadonlySet<Phase> = new Set<Phase>([
   "deadEnd",
+  "pathLost",
   "noWorker",
   "keyRefused",
   "realmUnreached",
@@ -347,7 +357,8 @@ function withoutLanIfSkipped(parts: GateParts, target: Target): Target {
 }
 
 /** How a reach that did not connect ended. */
-type Ended = "notFound" | "deadEnd" | "noWorker" | "turnedAway" | "offline" | "keyRefused";
+type Ended =
+  "notFound" | "deadEnd" | "pathLost" | "noWorker" | "turnedAway" | "offline" | "keyRefused";
 
 /** Reaches a core: finds it, connects, and says how it went. */
 async function reach(
@@ -389,8 +400,21 @@ async function reach(
     if (target !== undefined) {
       await reportDeadEnd(parts.client, target.held, reason);
     }
-    return "deadEnd";
+    return deadEndOrLost(parts, reason.cause, problem);
   }
+}
+
+/**
+ * How a dead end with problem ends: in the path's loss, which the page waits out, where its cause is
+ * unknown and the parts say problem is one (GateParts.isPathLost); else in the dead end. A cause the
+ * page knows is said as it is: waiting would not change it.
+ */
+function deadEndOrLost(
+  parts: GateParts,
+  cause: DeadEndCause,
+  problem: unknown,
+): "deadEnd" | "pathLost" {
+  return cause === "unknown" && parts.isPathLost?.(problem) === true ? "pathLost" : "deadEnd";
 }
 
 /**
@@ -415,22 +439,31 @@ function deadEndOf(
   problem: unknown,
 ): string {
   return whatHappened(
-    { coreId, addressesTried: target?.directUrls ?? [], problem },
+    { coreId, addressesTried: target?.directUrls, problem },
     globalThis.navigator.userAgent,
   );
 }
 
+/** How a remembered core's reach ends that leaves it remembered at a discovery with realms. */
+const stillRemembered: ReadonlySet<Ended> = new Set<Ended>([
+  "turnedAway",
+  "offline",
+  "noWorker",
+  "pathLost",
+]);
+
 /**
  * Where a remembered core that was not reached leaves the page: at the realm sign-in, saying so, where
  * the discovery has realms, the core forgotten so nothing kept stands in the way again; else as it
- * ended. A core that turned the page away was reached, and stays remembered. One that refused the
- * device's key has what the device held forgotten first.
+ * ended. A core that turned the page away was reached, and stays remembered, as does one whose path
+ * was lost, which the page waits out. One that refused the device's key has what the device held
+ * forgotten first.
  */
 function afterRemembered(parts: GateParts, core: KeptCore, ended: Ended): Phase {
   if (ended === "keyRefused") {
     parts.onKeyRefused?.(core);
   }
-  if (!parts.hasRealms || ended === "turnedAway" || ended === "offline" || ended === "noWorker") {
+  if (!parts.hasRealms || stillRemembered.has(ended)) {
     return ended;
   }
   parts.forgetCore();
@@ -459,7 +492,7 @@ export function DiscoveryGate(props: {
   const [phase, setPhase] = useState<Phase>(() => firstPhase(start, parts));
   // A realm sign-in under way keeps its form, its button saying so (D297 §5).
   const [isRealmSending, setIsRealmSending] = useState(false);
-  const { reachingRef, reachThen, reachAgain } = useReach(parts, start, setPhase);
+  const { reachingRef, reachThen, reachAgain, waiting } = useReach(parts, start, setPhase);
   useGoneOnceNotFound(phase, start, parts);
   useReachingAtOnce(start, parts, reachThen);
   const shownHappened =
@@ -495,6 +528,7 @@ export function DiscoveryGate(props: {
       phase={start.kind === "none" ? "none" : phase}
       cause={cause}
       onRetry={reachAgain}
+      waiting={waiting}
       after={after}
     />
   );
@@ -529,7 +563,9 @@ function useDeadEndTold(
 
 /**
  * How the gate reaches its core: once at a time, the phase set to how it ended; reachAgain tries the
- * last reach again, as a page turned away does once pages on its network are closed.
+ * last reach again, as a page turned away does once pages on its network are closed. While the path
+ * is lost, waiting says how many reaches in a row lost it, and its retry tries the last reach again
+ * with the page left as it is, saying it waits.
  */
 function useReach(
   parts: GateParts,
@@ -539,9 +575,11 @@ function useReach(
   readonly reachingRef: RefObject<boolean>;
   readonly reachThen: (core: KeptCore, find: () => Promise<Target>) => void;
   readonly reachAgain: () => void;
+  readonly waiting: Waiting;
 } {
   const reachingRef = useRef(false);
   const lastReachRef = useRef<(() => void) | undefined>(undefined);
+  const [lostTries, setLostTries] = useState(0);
   const reachThen = (core: KeptCore, find: () => Promise<Target>): void => {
     if (reachingRef.current) {
       return;
@@ -552,6 +590,7 @@ function useReach(
     };
     void reach(parts, core, find).then((ended) => {
       reachingRef.current = false;
+      setLostTries((tries) => (ended === "pathLost" ? tries + 1 : 0));
       if (ended !== undefined) {
         setPhase(start.kind === "remembered" ? afterRemembered(parts, core, ended) : ended);
       }
@@ -561,7 +600,11 @@ function useReach(
     setPhase("connecting");
     lastReachRef.current?.();
   };
-  return { reachingRef, reachThen, reachAgain };
+  // Never anew, so the waiting page's timer and listeners are set once a try.
+  const retry = useCallback(() => {
+    lastReachRef.current?.();
+  }, []);
+  return { reachingRef, reachThen, reachAgain, waiting: { tries: lostTries, retry } };
 }
 
 /** A remembered core found no more sends the page where the parts say, a link's page excepted. */

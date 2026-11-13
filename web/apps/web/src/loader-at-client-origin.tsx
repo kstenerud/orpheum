@@ -39,7 +39,7 @@ import {
   signedOutAddress,
   switchAddress,
 } from "./loader-households.ts";
-import { checkedClient, mountClient } from "./loader-run-client.ts";
+import { checkedClient, ClientRefused, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { forgetMembership, membershipText, readMembership } from "./together-storage.ts";
@@ -291,17 +291,25 @@ export function loaderOver(
  * lost, the core answers the session it gave the first time. Without one, Firefox's Local Network
  * Access, which lets a LAN name's request reach the core and then drops its answer, left the code
  * spent and the page on the core's own sign-in (the owner's production NAS sign-in, 2026-10-20).
+ * The key is the page's for its code (redeemOnce), so a try on a new connection asks under it too.
  */
-export async function redeem(send: FetchRequest, session: Session, code: string): Promise<void> {
+export async function redeem(
+  send: FetchRequest,
+  session: Session,
+  handOff: { readonly code: string; readonly key: string },
+): Promise<void> {
+  const { code, key } = handOff;
   const api = createApi({ getToken: () => undefined, fetch: send });
   noteStep("redeeming the link's hand-off");
   const { data, response } = await api.POST("/session/redeem", {
     body: { code },
-    ...idempotent(newIdempotencyKey()),
+    ...idempotent(key),
   });
   noteStep(`the core answered the hand-off: ${String(response.status)}`);
   if (data === undefined) {
-    throw new Error(`the server answered ${String(response.status)} for the hand-off's code`);
+    throw new HandOffRefused(
+      `the server answered ${String(response.status)} for the hand-off's code`,
+    );
   }
   session.signIn(data.token, {
     deviceId: data.user.device?.id,
@@ -309,6 +317,41 @@ export async function redeem(send: FetchRequest, session: Session, code: string)
     locator: data.locator,
     user: data.user,
   });
+}
+
+/** The core's refusal of a hand-off's code, as once it was spent: no path's loss, and not waited out. */
+export class HandOffRefused extends Error {}
+
+/**
+ * Takes a hand-off's session by its code at most once a page (redeem): asked again on a new
+ * connection after the path was lost, it asks under the same idempotency key, so a code whose answer
+ * was lost gets the session it gave, and once the session is taken it asks no more. A new key each
+ * try spent the code on the first and was refused on the next.
+ */
+export function redeemOnce(code: string): (send: FetchRequest, session: Session) => Promise<void> {
+  const key = newIdempotencyKey();
+  let isTaken = false;
+  return async (send, session) => {
+    if (!isTaken) {
+      await redeem(send, session, { code, key });
+      isTaken = true;
+    }
+  };
+}
+
+/**
+ * Whether problem, which ended the page's reach of its core or its run of the core's client, is the
+ * path's loss, which the page waits out on a new connection (GateParts.isPathLost; §28; the owner's
+ * train, 2026-11-13): anything but a refusal, which a new connection would not change. The client's
+ * own (ClientRefused: an unsigned manifest, a changed page, a refused version) is the loader's
+ * security check, not the network's; so is a refused hand-off, and a page no worker controls.
+ */
+export function isLoaderPathLost(problem: unknown): boolean {
+  return !(
+    problem instanceof ClientRefused ||
+    problem instanceof HandOffRefused ||
+    problem instanceof PageNotControlled
+  );
 }
 
 /** The tab's key for the reload it made because no service worker controlled its page. */
@@ -402,10 +445,12 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
   const { at } = props;
   const start = startAtClient(at);
   const sessionOfCore = (): Session => createSession(at.storage, corePrefix(at.coreId));
+  const takeHandOff = start.kind === "handoff" ? redeemOnce(start.handOff.code) : undefined;
   const parts: GateParts = {
     client: { clientApi: at.config.clientApi },
     hasRealms: false,
     realmStorage: undefined,
+    isPathLost: isLoaderPathLost,
     ...holdingsOf(sessionOfCore),
     forgetCore: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
@@ -421,9 +466,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
       const session = sessionOfCore();
       const kept = keepPath(reaching, session);
       try {
-        if (start.kind === "handoff") {
-          await redeem(kept.fetch, session, start.handOff.code);
-        }
+        await takeHandOff?.(kept.fetch, session);
         storageThatNeverThrows(at.storage).setItem(
           keptCoreKey,
           JSON.stringify({ fingerprint: core.fingerprint, realm: core.realm ?? "" }),

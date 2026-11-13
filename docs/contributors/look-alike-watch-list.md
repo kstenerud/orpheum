@@ -13,6 +13,7 @@ reads this list and D229 §2 before reporting duplicates.
 | --- | --- | --- |
 | CSS `.poster-grid__card` (browse) and `.continue-watching__play` (home) | audit-2026-09-29 | Is a Continue Watching item a poster card with progress on it, or its own kind of tile? If the first, they are one component. |
 | The wait-then-attach hook in `play.tsx` and `subtitles.tsx` | audit-2026-09-29 | The two are the same pattern; a generic hook would defeat the `exhaustive-deps` lint. Is there a shape that keeps the lint's check, or does a third copy appear? |
+| The doubling waits in `kept-path.ts` (a better path: 30 s to 10 min, reset on `online`) and `discovery-gate-message.tsx`'s `pathLostRetryAfterMs` (a lost path: 5 s to 1 min) | the loader's lost path, 2026-11-13 | Both double from a first wait to a ceiling; one is a timer loop, the other a page's effect keyed on its tries. Does a third appear, and would one `backoffMs(first, most, tries)` serve all three? |
 
 ## Twins
 
