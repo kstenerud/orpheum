@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 )
@@ -51,6 +52,53 @@ func TestPerson_ThePageSaysUntilWhenAResetLinkIsLiveAndTheAdminCancelsIt(t *test
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/users/99/registration-invitation", admin, nil),
 		http.StatusNotFound, api.CodeNotFound)
+}
+
+// The page a link opens asks, without using it, what the link is for: a reset link says so, by its
+// person, so the page asks for a new password (D466); an unknown, used, replaced, cancelled and
+// expired link are answered alike, naming no one, so the page says at once that it is no good.
+func TestLinkKind_AResetLinkSaysSoAndOneThatNoLongerWorksIsRefusedAlike(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "spouse", "password": "spouse-password", "role": "user"})
+	path := fmt.Sprintf("/users/%d", harness.accountNamed(t, admin, "spouse").ID)
+	kindOf := func(secret string) response {
+		return harness.do(t, http.MethodPost, "/registration/link", "", map[string]string{"secret": secret})
+	}
+	replaced := harness.issueResetLink(t, admin, path)
+	used := harness.issueResetLink(t, admin, path)
+	if kind := kindOf(used.Secret); kind.status != http.StatusOK ||
+		!strings.Contains(kind.body, `"isInvitation":false,"name":"spouse","isReset":true`) {
+		t.Errorf("POST /registration/link for a reset link = %d %s, want spouse's reset link", kind.status, kind.body)
+	}
+	invitation := harness.invite(t, admin, "user", "the newcomer")
+	if kind := kindOf(invitation.Link.Secret); !strings.Contains(kind.body, `"isInvitation":true,"isReset":false`) {
+		t.Errorf("POST /registration/link for an invitation = %d %s, want no reset link", kind.status, kind.body)
+	}
+	if registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": used.Secret, "password": "remembered", "device": testDevice,
+	}); registered.status != http.StatusOK {
+		t.Fatalf("POST /registration with the reset link = %d", registered.status)
+	}
+	cancelled := harness.issueResetLink(t, admin, path)
+	if answer := harness.do(t, http.MethodDelete, path+"/registration-invitation", admin, nil); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("DELETE %s/registration-invitation = %d %s", path, answer.status, answer.body)
+	}
+	expired := harness.issueResetLink(t, admin, path)
+	harness.clock.Advance(61 * time.Minute)
+	unknown := kindOf("no-such-link")
+	wantError(t, unknown, http.StatusUnauthorized, api.CodeAuthRequired)
+	for name, secret := range map[string]string{
+		"replaced": replaced.Secret, "used": used.Secret, "cancelled": cancelled.Secret, "expired": expired.Secret,
+	} {
+		if kind := kindOf(secret); kind.status != unknown.status || kind.body != unknown.body {
+			t.Errorf("POST /registration/link for a %s reset link = %d %s, want an unknown link's %d %s",
+				name, kind.status, kind.body, unknown.status, unknown.body)
+		}
+	}
 }
 
 // issueResetLink is POST path/registration-invitation, as the admin.

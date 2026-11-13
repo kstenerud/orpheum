@@ -76,11 +76,13 @@ type LinkKindInput struct {
 }
 
 // LinkKindOutput is what a link is for: an invitation, which asks for a name and a password, or a
-// registration link, which asks for a new password for the person it names.
+// registration link, which asks for a new password for the person it names, a reset link when they
+// already have one (D466). A link that no longer works is refused, whatever ended it.
 type LinkKindOutput struct {
 	Body struct {
 		IsInvitation bool   `json:"isInvitation"`
 		Name         string `doc:"A registration link's person; absent for an invitation" json:"name,omitempty"`
+		IsReset      bool   `doc:"A registration link whose person has a password: a reset link (D466)" json:"isReset"`
 	}
 }
 
@@ -232,7 +234,7 @@ func (server *Server) getLinkKind(ctx context.Context, input *LinkKindInput) (*L
 		return nil, server.authError(ctx, "read a link", err)
 	}
 	output := &LinkKindOutput{}
-	output.Body.IsInvitation, output.Body.Name = kind.IsInvitation, kind.Name
+	output.Body.IsInvitation, output.Body.Name, output.Body.IsReset = kind.IsInvitation, kind.Name, kind.IsReset
 	return output, nil
 }
 

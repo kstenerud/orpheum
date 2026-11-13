@@ -4114,6 +4114,8 @@ export interface components {
         };
         LinkKindOutputBody: {
             isInvitation: boolean;
+            /** @description A registration link whose person has a password: a reset link (D466) */
+            isReset: boolean;
             /** @description A registration link's person; absent for an invitation */
             name?: string;
         };

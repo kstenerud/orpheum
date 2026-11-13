@@ -149,3 +149,29 @@ func TestCancelResetLink_EndsItLeavingThePasswordAndSessions(t *testing.T) {
 		t.Errorf("cancelling no one's reset link: %v, want ErrNoUser", err)
 	}
 }
+
+// A link read without using it says whether it is a reset link, its person already having a
+// password, so its page asks for a new one; a first registration's link is not one (D466).
+func TestKindOfLink_SaysAResetLinkIsOneAndAFirstRegistrationsIsNot(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	registered := fixture.createUser(t, "partner", "forgotten", RoleUser)
+	reset, err := fixture.service.IssueRegistrationInvitation(ctx, registered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind, kindErr := fixture.service.KindOfLink(ctx, reset.Secret); kindErr != nil ||
+		kind != (LinkKind{Name: "partner", IsReset: true}) {
+		t.Errorf("a reset link reads as %+v, %v; want partner's reset link", kind, kindErr)
+	}
+	newcomer := fixture.createUnregistered(t, "newcomer")
+	first, err := fixture.service.IssueRegistrationInvitation(ctx, newcomer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind, kindErr := fixture.service.KindOfLink(ctx, first.Secret); kindErr != nil ||
+		kind != (LinkKind{Name: "newcomer"}) {
+		t.Errorf("a first registration's link reads as %+v, %v; want newcomer's, no reset link", kind, kindErr)
+	}
+}

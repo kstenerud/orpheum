@@ -225,11 +225,15 @@ func (service *Service) WithdrawInvitation(ctx context.Context, id int64) error 
 
 // LinkKind is what a link is for, so the page that opened it asks for what it needs: an invitation,
 // which asks for a name and a password, or a registration link, which asks for a new password for
-// the person it names. ErrBadInvitation when it is neither, or no longer works.
+// the person it names. ErrBadInvitation when it is neither, or no longer works: an unknown, used,
+// cancelled, replaced and expired link are answered alike, naming no one.
 type LinkKind struct {
 	IsInvitation bool
 	// Name is a registration link's person; empty for an invitation.
 	Name string
+	// IsReset is whether a registration link's person already has a password, so the link is a
+	// reset link and sets a new one (D466); false for a first registration and an invitation.
+	IsReset bool
 }
 
 // KindOfLink says what a link is for, without spending it.
@@ -251,7 +255,7 @@ func (service *Service) KindOfLink(ctx context.Context, secret string) (LinkKind
 		if userErr != nil {
 			return LinkKind{}, ErrBadInvitation
 		}
-		return LinkKind{Name: user.Name}, nil
+		return LinkKind{Name: user.Name, IsReset: user.PasswordHash != nil}, nil
 	}
 	return LinkKind{}, ErrBadInvitation
 }
