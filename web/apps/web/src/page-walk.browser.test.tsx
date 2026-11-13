@@ -10,7 +10,7 @@
  *
  * Here the library's pages and sign-in; page-walk-manage.browser.test.tsx and
  * page-walk-person.browser.test.tsx walk the rest, the answers and the walk all three take in
- * test-page-walk.tsx (split for the browser run's time, make-check-time-2026-11-12.md §2 and §3).
+ * test-walk.tsx (split for the browser run's time, make-check-time-2026-11-12.md §2 and §3).
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
@@ -22,7 +22,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { createSession } from "./session.ts";
-import { anAdmin, libraryPages, unreachedOnThePage } from "./test-page-walk.tsx";
+import { anAdmin, libraryPages, unreachedOnThePage } from "./test-walk.tsx";
 import { mountApp, walkServices, type Walking } from "./test-walk.tsx";
 
 /** The walk's tools: vitest's own expect and keyboard. */
