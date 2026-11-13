@@ -103,11 +103,14 @@
 //     facts of the film's probe the stream is made from (StoreKey, library.PictureChunksFactsKey and
 //     library.SoundChunksFactsKey), so a changed grid is a new store, and so is a stream whose facts
 //     changed when its file was read again: a picture newly marked for re-timing is made into new
-//     stores, its sounds' kept, and a run of a store made before ends for good (D392 §3). Enforced by
+//     stores, its sounds' kept, and a run of a store made before ends for good (D392 §3). A quality's
+//     key hashes its encode's recipe with the facts (encodeRecipe), so a store made by an earlier
+//     recipe, whose init another run would rewrite at another timescale, is made again. Enforced by
 //     TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers,
 //     TestGridID_IsTheHashOfItsStartsAndLengthAndNamesTheStore,
-//     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber and
-//     TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores.
+//     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber,
+//     TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores and
+//     TestStoreKey_AQualitysStoreIsNamedByItsEncodesRecipeToo.
 //
 //   - A film's stores of a stream whose probe's facts changed are thrown out when its file is read
 //     again (library.DerivedDroppers): the picture's, copied and at each quality, or one audio track's,

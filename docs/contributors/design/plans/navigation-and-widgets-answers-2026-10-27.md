@@ -3388,6 +3388,27 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
       would mistime its old chunks: the change needs every encoded store made again, by a new
       store key (D392 §3). The other way, all on one fixed timescale such as 90000, re-makes the
       copies too and rounds a 1/24000 source's times.
+    - **Built (the 11-25 batch's item 5), and why MPEG-TS ran away.** With the node's own command
+      line (`-f segment`, x264, `-force_key_frames` at the bounds) on a synthetic 6 s lavfi film
+      at 24 fps, H.264 in MPEG-TS, `timeout 60` on each run: `-enc_time_base:v -1` alone wrote
+      129,727 pictures for 1.44 s of film before it was killed at 60 s, FFmpeg logging
+      `*** 3753 dup!` at each picture. The cause is FFmpeg's `-fps_mode auto`, not the source:
+      the `segment` muxer lacks `AVFMT_VARIABLE_FPS`, so auto picks a constant frame rate, and a
+      constant frame rate at the encoder's time base fills every tick: 1/90000 is 3,750 ticks
+      a picture at 24 fps. The same run on an MP4 source (1/24000) wrote 48,000 pictures a 2 s
+      chunk, and on a Matroska source (1/16000 in the MP4, 1/1000 at the encoder) 2,000 a chunk,
+      41 times over, which the measurement above did not see. Writing straight to an `.mp4`, no
+      `segment` muxer, auto picks a variable rate: 96 pictures in 547 ms. So the option goes
+      with `-fps_mode:v vfr`, on every encoded rung whatever the source (spelled `demux`, -1's
+      undeprecated name; `internal/node/chunks/arguments.go`, `encodeTimeBase`). The integration
+      test now counts in the copy's timescale for a Matroska (1/16000) and an MPEG-TS (1/90000)
+      source, every picture once; with `-enc_time_base` alone it made 147,456, 12,040 and
+      1,081,920 pictures of the films' 288, and with neither option the MPEG-TS film's encode
+      already repeated one picture (289; `vfr` drops it). A quality's store key is now its
+      grid's id and the first 16 hex characters of the SHA-256 of its picture's facts key and
+      `;encode=sourceTimeBase` (`internal/core/chunks/streams.go`, D392 §3), so every encoded
+      store is made again once, at its next play; the copies' and sounds' keys are kept. The
+      hardware encoders at the source's time base are untested here: VQ314.
 - **9.** Up next warms the next episode, without releasing the playing film's tokens.
 
 - **X7. A password reset link from a person's page (D466), wanted by 2026-11-13** (the owner,

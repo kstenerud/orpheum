@@ -152,6 +152,7 @@ User-Agent (D263; the User-Agent is logged only).
 | The core's "rtc connection ended" line reads zero for every SCTP figure after a Chromium page closes. | [Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection](#chromium-ends-a-connection-with-dtls-close_notify-and-no-sctp-abort-and-pion-then-closes-the-whole-peer-connection) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
+| An encode given its source's time base ran at full CPU and wrote thousands of pictures for each of the film's. | [The `segment` muxer repeats each picture once a tick of an encoder given the source's time base](#the-segment-muxer-repeats-each-picture-once-a-tick-of-an-encoder-given-the-sources-time-base) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
@@ -2686,6 +2687,25 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   keyframes": open (checked 2026-10-08). **Better workaround:** `-segment_time_delta 0.05` is the muxer's own
   flag for our 50 ms early cut, so the cut times could stay exact.
 
+
+### The `segment` muxer repeats each picture once a tick of an encoder given the source's time base
+
+- **Symptom:** an encode with `-enc_time_base:v demux` (or `-1`), cut by the `segment` muxer, ran
+  at full CPU and wrote thousands of pictures for each one of the film: an MPEG-TS source 129,727
+  for 1.44 s of film in 60 s, FFmpeg logging `*** 3753 dup!` at each picture; an MP4 source
+  48,000 a 2 s chunk; a Matroska source 2,000 a chunk, which plays and so passes unseen.
+- **Cause:** `-fps_mode auto` picks a constant frame rate for a muxer without
+  `AVFMT_VARIABLE_FPS`, and `segment` has none, though the MP4 it writes into would take any. A
+  constant frame rate fills every tick of the encoder's time base: the demuxer's 1/90000 is 3,750
+  ticks a picture at 24 fps. Writing straight to an `.mp4`, auto picks a variable rate (96
+  pictures in 547 ms).
+- **What we do:** every encoded rung adds `-fps_mode:v vfr` beside `-enc_time_base:v demux`, so
+  its MP4 track counts in the copied picture's timescale, each picture once.
+  `internal/node/chunks/arguments.go`, `encodeTimeBase`.
+- **Evidence:** measured 2026-11-13 on the pinned FFmpeg 8.1.3, synthetic lavfi films
+  (design/plans/navigation-and-widgets-answers-2026-10-27.md, the 11-25 batch's item 5); tests
+  `TestArguments_EncodeAQualityInItsSourcesTimeBase`,
+  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` (integration tier).
 
 ### An input seek at a keyframe of a Matroska film lands on the keyframe before it
 

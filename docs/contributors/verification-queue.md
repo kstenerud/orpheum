@@ -3106,3 +3106,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   none taking a third of a second or more, the first after the page opens no slower; OK and Space
   still press each one. Passes when no move waits. (`web/apps/web/src/button-by-role.tsx`;
   idiosyncrasies.md, "Silk lays the page out each time a key focuses a button")
+- [ ] **VQ314** — An encoded quality plays on from the copied picture with no hole at the step, and
+  the node's Quick Sync encodes at the source's time base (the 11-25 batch's item 5). On staging,
+  after the deploy (each encoded store is made again at its next play), play a Matroska film on the
+  upstairs Fire TV from its start for ten minutes, on a link where it steps between its top quality
+  and an encoded one (the finding of 2026-11-12 had nine holes in 563 s). Passes when the player's
+  log shows no hole skipped at a step, the node's log shows the encodes made on Quick Sync, not
+  fallen back to x264, and an MPEG-TS film's encoded quality plays as well.
+  (`internal/node/chunks/arguments.go`, `encodeTimeBase`; idiosyncrasies.md, "The `segment` muxer
+  repeats each picture once a tick of an encoder given the source's time base")
