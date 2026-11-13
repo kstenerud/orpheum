@@ -12,11 +12,11 @@ import {
   PasswordField,
 } from "./credentials-form.tsx";
 import { useFieldMarks, type FieldMark } from "./field-marks.ts";
-import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 
 /** Why a registration did not go through. */
 export type RegisterProblem = "mismatch" | "refused";
@@ -38,14 +38,45 @@ export function Register(): JSX.Element {
       </CredentialsNotice>
     );
   }
-  return <RegisterForm secret={secret} />;
+  return <RegisterLink secret={secret} />;
 }
 
-/** The registration form for the link whose secret is given. */
-function RegisterForm(props: { readonly secret: string }): JSX.Element {
+/**
+ * The page for the link whose secret is given, once the server has said what it is for: a link
+ * that no longer works, used, cancelled, replaced or expired, says so as the page opens, with
+ * nothing to fill in (D466), rather than at the form's sending. A read that failed otherwise still
+ * offers the form, whose sending tells why it does not go through.
+ */
+function RegisterLink(props: { readonly secret: string }): JSX.Element {
   const { t } = useTranslation();
-  const { secret } = props;
-  const kind = useLinkKind(secret);
+  const link = useLinkKind(props.secret);
+  if (link.state === "loading") {
+    return <CredentialsNotice heading={t("common.loading")}>{null}</CredentialsNotice>;
+  }
+  if (link.state === "failed" && isLinkRefused(link.cause)) {
+    return (
+      <CredentialsNotice heading={t("register.badLinkHeading")}>
+        <p>{t("register.badLink")}</p>
+      </CredentialsNotice>
+    );
+  }
+  return (
+    <RegisterForm secret={props.secret} kind={link.state === "loaded" ? link.value : undefined} />
+  );
+}
+
+/** Whether the server refused the link itself: unknown to it, or no longer working. */
+function isLinkRefused(cause: unknown): boolean {
+  return cause instanceof ApiProblem && cause.code === "authRequired";
+}
+
+/** The registration form for the link whose secret is given, and what it is for if known. */
+function RegisterForm(props: {
+  readonly secret: string;
+  readonly kind: LinkKind | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { secret, kind } = props;
   const isInvitation = kind?.isInvitation === true;
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -91,11 +122,11 @@ function RegisterForm(props: { readonly secret: string }): JSX.Element {
   );
 }
 
-/** What the link is for, once the server has said; undefined until then. */
-function useLinkKind(secret: string): LinkKind | undefined {
+/** What the link is for, as the server says, read as its page opens. */
+function useLinkKind(secret: string): Resource<LinkKind> {
   const { api } = useServices();
   const [kind] = useResource("link-kind", async () => await linkKind(api, secret));
-  return kind.state === "loaded" ? kind.value : undefined;
+  return kind;
 }
 
 /**

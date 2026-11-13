@@ -191,6 +191,7 @@ export const en = {
     noLink: "This address has no registration link in it. Open the link you were given.",
     mismatch: "The two passwords are not the same.",
     refused: "{{refusalText}}",
+    badLinkHeading: "This link no longer works",
     badLink:
       "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
   },
