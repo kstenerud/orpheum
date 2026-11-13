@@ -32,6 +32,7 @@ const airPlayHold = 30 * time.Second
 // AirPlayGrantInput asks for an AirPlay grant for one playback the caller holds.
 type AirPlayGrantInput struct {
 	AuthorizationHeader
+	ConnectionAddress
 	Body struct {
 		MediaToken string `doc:"The playback's media token, as POST /playback answered it" json:"mediaToken" maxLength:"200" minLength:"1"` //nolint:lll // one struct tag
 	}
@@ -54,31 +55,31 @@ type AirPlayRevokeOutput struct {
 
 // AirPlayMasterInput asks for the master playlist of an AirPlay grant's playback.
 type AirPlayMasterInput struct {
-	AirPlayReceiver
+	ConnectionAddress
 
 	Grant string `doc:"The AirPlay grant" path:"grant"`
 }
 
 // AirPlayFileInput asks for one file of one stream of an AirPlay grant's playback.
 type AirPlayFileInput struct {
-	AirPlayReceiver
+	ConnectionAddress
 
 	Grant      string `doc:"The AirPlay grant"                                       path:"grant"`
 	StreamName string `doc:"A quality such as q1200k480p, or a sound such as sound0-96k" path:"streamName"`
 	FileName   string `doc:"stream.m3u8, init.mp4 or a chunk, NNNNN.m4s"                path:"fileName"`
 }
 
-// AirPlayReceiver is the address of the receiver presenting an AirPlay grant: the connection's own,
-// never a header's, which a client writes as it likes (D473 §3). Invalid when the connection's
-// address cannot be read, which no grant admits.
-type AirPlayReceiver struct {
+// ConnectionAddress is the address of the sender asking for an AirPlay grant, or of the receiver
+// presenting one: the connection's own, never a header's, which a client writes as it likes (D473
+// §3). Invalid when the connection's address cannot be read, which no grant admits.
+type ConnectionAddress struct {
 	address netip.Addr
 }
 
 // Resolve records the connection's address.
-func (receiver *AirPlayReceiver) Resolve(ctx huma.Context) []error {
+func (connection *ConnectionAddress) Resolve(ctx huma.Context) []error {
 	if addressPort, err := netip.ParseAddrPort(ctx.RemoteAddr()); err == nil {
-		receiver.address = addressPort.Addr()
+		connection.address = addressPort.Addr()
 	}
 	return nil
 }
@@ -137,7 +138,7 @@ func (server *Server) makeAirPlayGrant(
 	if err != nil {
 		return nil, server.playbackError(ctx, "find the playback to AirPlay", err)
 	}
-	grant, err := dependencies.Auth.IssueAirPlayGrant(principal, input.Body.MediaToken, chunked.FileID)
+	grant, err := dependencies.Auth.IssueAirPlayGrant(principal, input.address, input.Body.MediaToken, chunked.FileID)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "make an AirPlay grant", err)
 	}

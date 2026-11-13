@@ -7,7 +7,7 @@
 
 - **Status:** BUILT — 2026-11-04, findings added 2026-11-12, the spike's lab built 2026-11-12
   (X3, below); **D473's core built 2026-11-13**: the grant is the product's (POST and DELETE
-  `/airplay/grants`, no lab setting), for a day, bound to the receiver's address, revoked at Stop, at
+  `/airplay/grants`, no lab setting), for a day, served to its sender's address and bound to the receiver's (D474), revoked at Stop, at
   a device's revoke and as its sign-in ends, and a request whose receiver went away is logged as gone
   (VQ315). The player plays on as the phone's page hides while its film is on an AirPlay receiver.
   **Cast's menu's AirPlay built 2026-11-13** (way B, the product's): offered where Safari offers it

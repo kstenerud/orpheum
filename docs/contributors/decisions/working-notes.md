@@ -28210,7 +28210,8 @@ hands the URL to the TV itself; no person copies, pastes or sends it.
 2. **The grant lasts about a day** (24 hours, so a paused film keeps it), for one film and all its
    renditions, and ends sooner at Stop, at a Revoke from the person's devices, or when the sign-in
    that made it ends.
-3. **It is bound to the address of the first request made under it** (the owner, 2026-11-13: *"go
+3. **It is bound to the address of the first request made under it** (amended by D474: the
+   sender's own address is always served and binds nothing) (the owner, 2026-11-13: *"go
    ahead, and list the risks. If we get reports in the wild, we reconsider."*), per address family:
    the first IPv4 address, and the first IPv6 address's /64 prefix, since Apple's devices rotate
    their temporary IPv6 addresses and a dual-stack TV may fetch over either family. A request from
@@ -28262,3 +28263,31 @@ way B is the same hand-over.
   (TestAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential),
   web/apps/web/src/airplay-entry.test.tsx, web/apps/web/src/ladder-playback.test.tsx,
   web/packages/player/src/airplay.test.ts
+
+## D474 — An AirPlay grant serves its sender's address always and binds to the first other
+
+**Decided** (2026-11-13), by the owner (*"Yes on all of that"*), on the lead's proposal. Amends
+[D473](#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab)
+§3.
+
+D473 §3 bound the grant to the address of the first request made under it. In the lab's second run
+(2026-11-13, the core's log of every request under each grant), Safari on the iPhone fetched the
+master playlist and the inits itself every time, 1 to 4 s before the Mac did: way B gives the phone's
+own element the grant's address before the picker hands it to the receiver. Bound to the first
+request, every grant would have bound to the phone and refused the Mac.
+
+1. **The grant keeps the address of the sender that asked for it** (the POST's connection address,
+   never a header's): its IPv4 address, or its IPv6 address's /64.
+2. **The sender's address is always served and binds nothing**, before the receiver and after it, as
+   when the receiver lets the film go back to the phone.
+3. **The first request from any other address binds the grant**, per family as D473 §3 says; every
+   further address is refused as if the grant did not exist. D473 §3's risks stand, and one more:
+   a device sharing the sender's address (behind the same NAT, away from home) is served as the
+   sender is.
+
+**Status:** Decided 2026-11-13.
+
+**Proven by:**
+- 1–3: internal/core/auth/airplay_test.go
+  (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther), internal/core/api/airplay_test.go
+  (TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders), VQ315
