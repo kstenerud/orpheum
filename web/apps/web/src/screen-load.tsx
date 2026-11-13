@@ -9,7 +9,7 @@
  * for a chunk whose name is gone, meets the same.
  */
 
-import { reportFailure } from "@orpheum/sdk";
+import { reportFailure, waitMs } from "@orpheum/sdk";
 import {
   Component,
   createElement,
@@ -202,9 +202,7 @@ export async function loadScreenCode<T>(
     reportIfSlow();
     return result;
   } catch {
-    await new Promise((resolve) => {
-      setTimeout(resolve, retryAfterMs);
-    });
+    await waitMs(retryAfterMs);
   }
   try {
     const result = await timedLoad(load, nowMs, attempts);

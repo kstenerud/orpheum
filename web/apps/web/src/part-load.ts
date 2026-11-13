@@ -37,8 +37,12 @@ export interface PartLoadParts {
   readonly wait: (ms: number) => Promise<void>;
 }
 
-/** Waits ms on the page's clock. */
-export async function waitMs(ms: number): Promise<void> {
+/**
+ * Waits ms on the page's clock: the SDK's waitMs, written again here for the shell's entry alone,
+ * which loads no SDK so the page's first bytes stay small (home-imports.test.ts, the architecture
+ * audit of 2026-11-10, Startup 5). Everything else waits with the SDK's.
+ */
+export async function shellWaitMs(ms: number): Promise<void> {
   await new Promise((resolve) => {
     setTimeout(resolve, ms);
   });

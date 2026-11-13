@@ -11,6 +11,7 @@ import {
   toneTrack,
   type FetchRequest,
   type LoopbackResult,
+  waitMs,
 } from "@orpheum/sdk";
 
 import {
@@ -331,9 +332,7 @@ export class LabReceiver {
         this.note(`check code ${checkCode}: confirm on the sender where it shows the same`);
         this.send({ type: "checkCode", checkCode });
       },
-      waitMs: async (ms) => {
-        await new Promise((resolve) => setTimeout(resolve, ms));
-      },
+      waitMs,
     });
     keepSession(storage, session);
     this.note("paired");

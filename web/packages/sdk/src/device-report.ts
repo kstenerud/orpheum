@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { waitMs } from "./wait-ms.ts";
+
 /**
  * A device's capability report, for the lab pages of the web app and the cast receiver
  * (docs/contributors/design/plans/tv-device-tests.md): what the browser says of itself, what it
@@ -349,9 +351,7 @@ export async function measureAudioLatency(settleMs = 500): Promise<AudioLatency 
   const context = new Context();
   try {
     await context.resume();
-    await new Promise((resolve) => {
-      setTimeout(resolve, settleMs);
-    });
+    await waitMs(settleMs);
     return {
       baseLatencyMs: inMs(Reflect.get(context, "baseLatency")),
       outputLatencyMs: inMs(Reflect.get(context, "outputLatency")),

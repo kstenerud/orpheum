@@ -8,7 +8,7 @@
  * and the Cast session and the cast end together, whichever ends first.
  */
 
-import type { Api } from "@orpheum/sdk";
+import { waitMs, type Api } from "@orpheum/sdk";
 import { useEffect } from "react";
 
 import { browserStorage, type StringStorage } from "./browser-storage.ts";
@@ -199,7 +199,7 @@ export async function openGuestReceiver(
       throw cause;
     }
   }
-  await Promise.race([firstEnded, elapsed(receiverStopsWithinMs)]);
+  await Promise.race([firstEnded, waitMs(receiverStopsWithinMs)]);
   let again: CastChannel | undefined;
   try {
     again = await openSessionWith(appId);
@@ -262,13 +262,6 @@ async function handGrant(channel: CastChannel, ways: GrantHandOver): Promise<Gue
 async function endedOf(channel: CastChannel): Promise<void> {
   await new Promise<void>((resolve) => {
     channel.onEnded(resolve);
-  });
-}
-
-/** Answers once ms have passed. */
-async function elapsed(ms: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
   });
 }
 

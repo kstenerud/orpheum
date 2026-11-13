@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { ApiProblem, problemFromAnswer } from "./problem.ts";
+import { waitMs } from "./wait-ms.ts";
 
 /**
  * What waiting for a file the server is still making needs: how to fetch and how to wait, so a
@@ -66,9 +67,7 @@ function withDefaults(options: WaitOptions): {
 } {
   return {
     get: options.fetch ?? browserFetch,
-    sleep:
-      options.sleep ??
-      ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))),
+    sleep: options.sleep ?? waitMs,
     maxAttempts: options.maxAttempts ?? 600,
   };
 }

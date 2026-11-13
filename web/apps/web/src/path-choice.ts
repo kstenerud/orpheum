@@ -14,6 +14,7 @@ import {
   type CandidatePairSeen,
   type DirectOutcome,
   type FetchRequest,
+  waitMs,
 } from "@orpheum/sdk";
 
 import { usesLanName, type LocalNetworkState } from "./local-network.ts";
@@ -142,10 +143,7 @@ export interface PathChoiceTold {
 export async function reportPathChoice(
   send: FetchRequest,
   told: PathChoiceTold,
-  wait: (ms: number) => Promise<void> = (ms) =>
-    new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    }),
+  wait: (ms: number) => Promise<void> = waitMs,
 ): Promise<void> {
   await wait(pairsSettleMs);
   const held = told.token();
