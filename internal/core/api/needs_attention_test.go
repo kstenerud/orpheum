@@ -168,43 +168,7 @@ func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	names := make([]string, 0, silentFilms)
-	for index := range silentFilms {
-		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", 1000+index, index))
-	}
-	seedTitles(t, harness.databasePath, titleRows{
-		firstID: 1000, count: silentFilms, kind: "movie", state: "identified", year: 1950, addedAt: 3,
-	})
-	library, err := harness.database.Read().GetLibraryForIdentify(t.Context(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		for index := range silentFilms {
-			id := int64(1000 + index)
-			fileID, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
-				workID: id, path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), sizeBytes: 1000,
-				payloadHash: []byte{byte(index), 0xf0}, placeIndex: index, versionCreatedAt: 3,
-			})
-			if seedErr != nil {
-				return seedErr
-			}
-			streamIndex := int64(0)
-			seedErr = queries.UpsertStream(t.Context(), sqlcgen.UpsertStreamParams{
-				FileID: fileID, StreamIndex: &streamIndex, Kind: "video", Codec: new("h264"),
-			})
-			if seedErr != nil {
-				return fmt.Errorf("stream %d: %w", index, seedErr)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("films: %v", err)
-	}
-	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES "+
-			strings.Join(names, ", "))
+	seedSoundlessFilms(t, harness, 1000, silentFilms)
 	var got api.NeedsAttentionOutput
 	harness.readJSON(t, "/needs-attention", admin, &got.Body)
 	if len(got.Body.FilmsWithoutSound) != 100 || got.Body.FilmsWithoutSoundCount != silentFilms {
@@ -238,6 +202,49 @@ func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing
 		t.Errorf("GET /needs-attention = %d %.400s; want Brass Arena's %d unplaced files counted", got.status,
 			got.body, unplaced)
 	}
+}
+
+// seedSoundlessFilms writes count films in library 1, ids from firstID, each named "Silent <n>"
+// from 1950 with one listed file whose one stream is its video: no sound.
+func seedSoundlessFilms(t *testing.T, harness testHarness, firstID int64, count int) {
+	t.Helper()
+	names := make([]string, 0, count)
+	for index := range count {
+		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", firstID+int64(index), index))
+	}
+	seedTitles(t, harness.databasePath, titleRows{
+		firstID: firstID, count: int64(count), kind: "movie", state: "identified", year: 1950, addedAt: 3,
+	})
+	library, err := harness.database.Read().GetLibraryForIdentify(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for index := range count {
+			id := firstID + int64(index)
+			fileID, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
+				workID: id, path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), sizeBytes: 1000,
+				payloadHash: []byte{byte(index), 0xf0}, placeIndex: index, versionCreatedAt: 3,
+			})
+			if seedErr != nil {
+				return seedErr
+			}
+			streamIndex := int64(0)
+			seedErr = queries.UpsertStream(t.Context(), sqlcgen.UpsertStreamParams{
+				FileID: fileID, StreamIndex: &streamIndex, Kind: "video", Codec: new("h264"),
+			})
+			if seedErr != nil {
+				return fmt.Errorf("stream %d: %w", index, seedErr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("films: %v", err)
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES "+
+			strings.Join(names, ", "))
 }
 
 // titleRows is count titles of one kind in library 1 (an item and its work each), numbered from

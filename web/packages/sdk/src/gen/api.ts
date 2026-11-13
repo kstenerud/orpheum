@@ -7587,8 +7587,8 @@ export interface operations {
     };
     listItems: {
         parameters: {
-            query: {
-                /** @description From the previous page's nextCursor */
+            query?: {
+                /** @description From the previous page's nextCursor; absent for the first page */
                 cursor?: string;
                 /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
                 decade?: number;
@@ -7604,7 +7604,8 @@ export interface operations {
                 kind?: ("film" | "series" | "other")[] | null;
                 /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
                 library?: number;
-                limit: number;
+                /** @description At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475) */
+                limit?: number;
                 /** @description The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way */
                 order?: "ascending" | "descending";
                 /** @description Only the titles crediting this person, by their id from a title's credits or a search */
@@ -8594,7 +8595,8 @@ export interface operations {
                 cursor?: string;
                 /** @description Its path below the library's folders, as a listed folder's path says it; absent for their top */
                 folder?: string;
-                limit: number;
+                /** @description At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475) */
+                limit?: number;
                 /** @description The way the sort runs, as GET /titles takes it */
                 order?: "ascending" | "descending";
                 /** @description The order its videos come in */

@@ -16,6 +16,14 @@ type PageInput struct {
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
+// PageOrWholeInput asks for one page of a list a client may also read whole in one answer, as a
+// list with an alphabet rail is (D475): its limit left out, the whole list, with no nextCursor; given,
+// a page as PageInput asks for one.
+type PageOrWholeInput struct {
+	Cursor string `doc:"From the previous page's nextCursor; absent for the first page" query:"cursor"`
+	Limit  int64  `doc:"At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475)" maximum:"500" minimum:"1" query:"limit"` //nolint:lll // one struct tag
+}
+
 // errBadCursor is the refusal of a cursor this server did not give, on every list.
 func errBadCursor() error {
 	return invalidRequestAt(http.StatusUnprocessableEntity, "query.cursor", "the cursor is not one this server gave")
@@ -33,8 +41,9 @@ func decodeCursor(cursor string) ([]byte, int64, error) {
 
 // nextCursorOf is a page's nextCursor: the cursor made from its last entry when the page is full,
 // for there may be more, and "" (absent in the answer) when it is not (D416 §6).
+// A list read whole (limit 0, D475) has none.
 func nextCursorOf(count int, limit int64, cursorOfLast func() string) string {
-	if count == 0 || int64(count) < limit {
+	if count == 0 || limit == 0 || int64(count) < limit {
 		return ""
 	}
 	return cursorOfLast()
