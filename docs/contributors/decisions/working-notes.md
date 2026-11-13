@@ -28187,7 +28187,7 @@ the code by a later commit. The cells above marked not built, and the questions,
 **Status:** Decided 2026-11-13. Its work is in orpheum-connect: the pages first, then the address (§3).
 
 
-## D473 — AirPlay's grant may be in the media's path, for a day, and AirPlay leaves the lab
+## D473 — AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab
 
 **Decided** (2026-11-13), by the owner, after the AirPlay lab's first runs on staging. Amends
 [D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)
@@ -28205,15 +28205,31 @@ hands the URL to the TV itself; no person copies, pastes or sends it.
 2. **The grant lasts about a day** (24 hours, so a paused film keeps it), for one film and all its
    renditions, and ends sooner at Stop, at a Revoke from the person's devices, or when the sign-in
    that made it ends.
-3. **It is not bound to the network address that first uses it.** A leaked link works from anywhere
-   until it ends; that is accepted, as above.
+3. **It is bound to the address of the first request made under it** (the owner, 2026-11-13: *"go
+   ahead, and list the risks. If we get reports in the wild, we reconsider."*), per address family:
+   the first IPv4 address, and the first IPv6 address's /64 prefix, since Apple's devices rotate
+   their temporary IPv6 addresses and a dual-stack TV may fetch over either family. A request from
+   any other address is refused as if the grant did not exist. A leaked link then works only from
+   the TV's own network. The risks, accepted, to be reconsidered on reports from the wild:
+   - **A TV whose address changes mid-film** (Wi-Fi roaming, a new DHCP lease, moving between
+     networks) loses the stream; choosing AirPlay again makes a new grant.
+   - **Everyone behind the TV's router shares its address**, more so behind carrier-grade NAT, so
+     a link caught on the TV's own network (an older or third-party receiver's unencrypted
+     protocol, a proxy that opens HTTPS) still plays there.
+   - **Whoever fetches first wins:** a link used before the TV's first request leaves the TV refused;
+     the TV fetches within moments of receiving it, so the window is short, and a theft shows.
+   - **Behind a reverse proxy** (SWAG, as some installs run) every request comes from the proxy, so
+     the binding guards nothing: the core takes the connection's address and trusts no proxy's
+     header.
+   - **An IPv6 /64 holds many devices** on a network that hands one prefix to all of them, as a
+     household's router does; the binding is to that network, not to the TV.
 4. **The lab's setting goes.** `shouldOfferAirPlayLab` keeps the path grant off production only
    until this amendment; with it, AirPlay is offered wherever the TV can reach the core: its LAN name
    at home, its public address away. A core reached only through Connect's relay cannot AirPlay
    (airplay.md item 2), and the page says so.
 
-**Not taken:** binding the grant to the first address that fetches with it (a TV that changes
-networks mid-film would lose the stream, against a risk the owner judges small); a lease shorter
+**Not taken:** binding to the full IPv6 address (a rotated temporary address would cut the film
+off); a lease shorter
 than the film, renewed while the sender's page is open (an iPhone suspends a page in the
 background).
 

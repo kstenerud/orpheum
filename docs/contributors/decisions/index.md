@@ -478,7 +478,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D470](working-notes.md#d470--a-lists-sort-and-filters-are-kept-for-the-way-back-to-it-in-its-address-alone-the-banner-opens-it-at-its-defaults) A list's sort and filters are kept for the way back to it, in its address alone; the banner opens it at its defaults
 - [D471](working-notes.md#d471--a-client-sends-only-what-its-rights-allow-a-guests-link-may-give-next-and-previous) A client sends only what its rights allow; a guest's link may give next and previous
 - [D472](working-notes.md#d472--connects-operator-console-before-the-beta-its-actions-a-fresh-passkey-touch-before-each-that-destroys-over-wireguard) Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
-- [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, and AirPlay leaves the lab
+- [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab
 
 ## Archived
 

@@ -3772,6 +3772,11 @@ Once VQ310 shows AirPlay plays from the lab:
 
 - **D154 §6's exception** (D473 §1), its test asserting the one exception under `/g/`.
 - **The grant among the person's devices with a Revoke**, ending also with its sign-in (D473 §2).
+- **The grant bound to its first request's address** (D473 §3): the IPv4 address and the IPv6 /64
+  prefix, each family bound at its first request; another address is answered as an unknown grant.
+  The address is the one the core already takes for a sign-in (the connection's, as
+  `internal/core/api/session.go` reads it); the core trusts no proxy's header today, so behind a
+  reverse proxy the binding guards nothing (D473 §3's risks), and trusting one is not part of it.
 - **The player offers AirPlay** as the element's alternative source, the lab's setting removed
   (D473 §4).
 - **The lab page's own fixes**, found in its first runs: it says when the lab is off; its ways stay
