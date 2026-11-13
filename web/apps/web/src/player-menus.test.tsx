@@ -100,7 +100,7 @@ async function drawn(tracks: PlayerTracks, told: boolean[] = []): Promise<Mounte
 
 /** Opens the menu whose button's name starts with name. */
 async function opened(on: Mounted, name: string): Promise<void> {
-  const opener = [...on.container.querySelectorAll("button[aria-haspopup]")].find(
+  const opener = [...on.container.querySelectorAll("[aria-haspopup]")].find(
     (button) => button.getAttribute("aria-label")?.startsWith(name) === true,
   );
   await fire(opener, new MouseEvent("click", { bubbles: true }));
@@ -115,7 +115,7 @@ function places(on: Mounted): string[] {
 
 /** Presses the open list's place whose text is text. */
 async function choosing(on: Mounted, text: string): Promise<void> {
-  const place = [...on.container.querySelectorAll("dialog .list-box button")].find(
+  const place = [...on.container.querySelectorAll('dialog .list-box [role="button"]')].find(
     (button) => button.textContent === text,
   );
   await fire(place, new MouseEvent("click", { bubbles: true }));
@@ -189,7 +189,7 @@ describe("the overlay's menus (D407 §8)", () => {
   // The owner, 2026-11-04: Sound track and Subtitles are two menus, not one panel.
   it("names Subtitles by its choice alone, a button apart from Sound track's", async () => {
     await drawn(tracksNoting({ subtitles: [], audio: [] }));
-    const names = [...document.querySelectorAll("button[aria-haspopup]")].map((button) =>
+    const names = [...document.querySelectorAll("[aria-haspopup]")].map((button) =>
       button.getAttribute("aria-label"),
     );
     expect(names).toEqual(["Subtitles: Off", "Sound track: English", "Settings"]);
@@ -255,7 +255,7 @@ function offered(target: Element | null, command: string): boolean {
 
 /** The menu opener whose name starts with name, if one is drawn. */
 function openerNamed(name: string): Element | undefined {
-  return [...(mounted?.container.querySelectorAll("button[aria-haspopup]") ?? [])].find(
+  return [...(mounted?.container.querySelectorAll("[aria-haspopup]") ?? [])].find(
     (button) => button.getAttribute("aria-label")?.startsWith(name) === true,
   );
 }
@@ -275,7 +275,7 @@ describe("🔈 (D407 §10, Q11)", () => {
       ),
     );
     mounted = on;
-    expect(on.container.querySelectorAll("button[aria-haspopup]")).toHaveLength(1);
+    expect(on.container.querySelectorAll("[aria-haspopup]")).toHaveLength(1);
     await opened(on, "Volume");
     const range = on.container.querySelector<HTMLInputElement>("dialog input[type=range]");
     expect(range?.classList.contains("volume-range--upright")).toBe(true);
@@ -326,7 +326,7 @@ describe("🔈 (D407 §10, Q11)", () => {
         </PlayerTracksContext>,
       ),
     );
-    const names = [...mounted.container.querySelectorAll("button[aria-haspopup]")].map((button) =>
+    const names = [...mounted.container.querySelectorAll("[aria-haspopup]")].map((button) =>
       button.getAttribute("aria-label"),
     );
     expect(names[0]).toBe("Volume");

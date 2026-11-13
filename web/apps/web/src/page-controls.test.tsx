@@ -77,7 +77,7 @@ function OfferedAtOnce(props: OfferPlace): JSX.Element {
 
 /** The names of the buttons in element, in order. */
 function buttonNames(element: Element | null | undefined): (string | null)[] {
-  return [...(element?.querySelectorAll("button") ?? [])].map(
+  return [...(element?.querySelectorAll('button, [role="button"]') ?? [])].map(
     (each) => each.getAttribute("aria-label") ?? each.textContent,
   );
 }

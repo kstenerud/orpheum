@@ -457,9 +457,9 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
     const sortChooser = [...popUp.querySelectorAll(".route-chooser")].find(
       (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
     );
-    await click(sortChooser?.querySelector("button[aria-haspopup]"));
-    const options = [...(sortChooser?.querySelectorAll("dialog li button") ?? [])].map((each) =>
-      each.getAttribute("aria-label"),
+    await click(sortChooser?.querySelector("[aria-haspopup]"));
+    const options = [...(sortChooser?.querySelectorAll('dialog li [role="button"]') ?? [])].map(
+      (each) => each.getAttribute("aria-label"),
     );
     expect(options).toEqual([
       "Name, A–Z",

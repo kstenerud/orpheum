@@ -4,6 +4,7 @@ import "./list-box.css";
 
 import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 
+import { ButtonByRole } from "./button-by-role.tsx";
 import { firstFocusTargetIn, isFocusTarget } from "./focus-engine.ts";
 import { Link } from "./link.tsx";
 import { keepsOpenAttribute } from "./popover.tsx";
@@ -91,8 +92,9 @@ interface ListOptionTold {
 
 /**
  * A choice of a list (ListBox), drawn as one, the width of the list: a link to a route (`to`, its
- * history's entry replaced where isReplacing, D367 §9), or a button that does something (`onChoose`).
- * Choosing it closes the pop-up it is in (popover.tsx).
+ * history's entry replaced where isReplacing, D367 §9), or a button that does something (`onChoose`),
+ * a button by role (ButtonByRole), as a pop-up of a long list's page holds them. Choosing it closes
+ * the pop-up it is in (popover.tsx).
  */
 export function ListOption(
   props: ListOptionTold &
@@ -111,15 +113,14 @@ export function ListOption(
           {props.children}
         </Link>
       ) : (
-        <button
-          type="button"
+        <ButtonByRole
           className="list-box__option"
           aria-current={props.isCurrent === true ? "true" : undefined}
           aria-label={props.spoken}
           onClick={props.onChoose}
         >
           {props.children}
-        </button>
+        </ButtonByRole>
       )}
     </li>
   );

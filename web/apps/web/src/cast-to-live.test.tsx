@@ -49,10 +49,10 @@ describe("the device list as the live connection says what is open", () => {
     );
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1, 3], inFrontDeviceIds: [1, 3] });
-    expect(buttonWithText(mounted.container, "Fire TV")?.disabled).toBe(false);
+    expect(buttonWithText(mounted.container, "Fire TV")?.matches(":disabled")).toBe(false);
     expect(mounted.container.textContent).not.toContain("Reconnecting…");
     await server.drop();
-    expect(buttonWithText(mounted.container, "Fire TV")?.disabled).toBe(true);
+    expect(buttonWithText(mounted.container, "Fire TV")?.matches(":disabled")).toBe(true);
     expect(mounted.container.textContent).toContain("Reconnecting…");
   });
 

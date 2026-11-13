@@ -118,11 +118,11 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     const { session } = await casting({});
     const page = mounted!.container;
     const opener = (): Element | undefined =>
-      [...page.querySelectorAll("button[aria-haspopup]")].find(
+      [...page.querySelectorAll("[aria-haspopup]")].find(
         (button) => button.getAttribute("aria-label")?.startsWith("Subtitles") === true,
       );
     const choice = (text: string): Element | undefined =>
-      [...page.querySelectorAll("dialog .list-box button")].find(
+      [...page.querySelectorAll('dialog .list-box [role="button"]')].find(
         (button) => button.textContent === text,
       );
     await session.say(shows({ subtitles: [] }));
@@ -134,9 +134,9 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await session.say(shows({ subtitles }));
     expect(opener()?.getAttribute("aria-label")).toBe("Subtitles: Off");
     await click(opener());
-    expect([...page.querySelectorAll("dialog .list-box button")].map((b) => b.textContent)).toEqual(
-      ["Off", "English", "French"],
-    );
+    expect(
+      [...page.querySelectorAll('dialog .list-box [role="button"]')].map((b) => b.textContent),
+    ).toEqual(["Off", "English", "French"]);
 
     await click(choice("French"));
     await session.say(shows({ subtitles, subtitleKey: "s7" })); // the receiver says it shows it
@@ -160,7 +160,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     expect(buttonWithText(mounted!.container, "Play the original file")).toBeUndefined();
     await session.say(shows({ canPlayOriginal: true }));
     // In ⁝, as the player's (D444).
-    const settings = [...mounted!.container.querySelectorAll("button[aria-haspopup]")].find(
+    const settings = [...mounted!.container.querySelectorAll("[aria-haspopup]")].find(
       (button) => button.getAttribute("aria-label") === "Settings",
     );
     await click(settings);

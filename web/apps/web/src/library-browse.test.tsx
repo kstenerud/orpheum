@@ -122,13 +122,13 @@ function RoutedLibraryBrowse(): JSX.Element {
 }
 
 /** The sort's options in the Sort and filter, opened for them: each its field after an arrow. */
-async function sortOptions(container: HTMLElement): Promise<HTMLButtonElement[]> {
+async function sortOptions(container: HTMLElement): Promise<HTMLElement[]> {
   const popUp = await openCriteria(container);
   const chooser = [...popUp.querySelectorAll(".route-chooser")].find(
     (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
   );
-  await click(chooser?.querySelector("button[aria-haspopup]"));
-  return [...(chooser?.querySelectorAll<HTMLButtonElement>("dialog li button") ?? [])];
+  await click(chooser?.querySelector("[aria-haspopup]"));
+  return [...(chooser?.querySelectorAll<HTMLElement>('dialog li [role="button"]') ?? [])];
 }
 
 /** The bar's gear, a library's Configure. */
@@ -375,6 +375,40 @@ describe("the Libraries page (D349)", () => {
       "added/ascending",
       "added/",
     ]);
+  });
+
+  // A <button> focused by a key cost Silk on a Fire TV 300 ms of layout a move, the first 5 s
+  // (idiosyncrasies.md, "Silk lays the page out each time a key focuses a button"): every control a
+  // remote moves onto over the list is a button by role (button-by-role.tsx).
+  it("draws Sort and filter, its choices, Unwatched and Clear as buttons by role, no <button>", async () => {
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+      "GET /items": titlesPage(),
+      "GET /items/letters": lettersPage(),
+      "GET /genres": [200, { genres: [] }],
+    });
+    services.navigation.replace({ screen: "browse", library: 1 });
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<RoutedLibraryBrowse />, services)}
+      </BackgroundChangesContext>,
+    );
+    const { container } = mounted;
+    await settleUntil(() => container.querySelector(".poster-grid") !== null);
+    const byRole = (element: Element | null | undefined): string =>
+      `${element?.tagName ?? "none"} ${element?.getAttribute("role") ?? "no role"}`;
+    expect(byRole(criteriaButton(container))).toBe("DIV button");
+    await narrowByName(container, "Alpha");
+    const popUp = await openCriteria(container);
+    expect(byRole(popUp.querySelector(".list-chips__toggle"))).toBe("DIV button");
+    expect(byRole(popUp.querySelector(".list-criteria__clear"))).toBe("DIV button");
+    const sortOpener = popUp.querySelector(".route-chooser [aria-haspopup]");
+    await click(sortOpener);
+    expect(byRole(sortOpener)).toBe("DIV button");
+    expect(popUp.querySelectorAll("dialog .list-box__option").length).toBeGreaterThan(0);
+    for (const option of popUp.querySelectorAll("dialog .list-box__option")) {
+      expect(byRole(option)).toBe("DIV button");
+    }
   });
 
   it("lists Z to A as its address says, with the rail's letters Z to A (D366 §2, §4)", async () => {

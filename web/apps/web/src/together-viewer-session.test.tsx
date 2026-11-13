@@ -211,7 +211,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       await Promise.resolve();
     });
     const join = buttonWithText(mounted.container, "Join");
-    expect(join?.disabled).toBe(false);
+    expect(join?.matches(":disabled")).toBe(false);
     await enter(mounted.container.querySelector("input"), "Gran");
     await submit(mounted.container.querySelector("form"));
     expect(heard).toEqual([

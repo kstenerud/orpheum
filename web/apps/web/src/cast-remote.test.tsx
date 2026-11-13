@@ -32,7 +32,7 @@ import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
 /** Opens the remote's menu whose opener's name starts with name, as over the film. */
 async function openedMenu(page: Element, name: string): Promise<void> {
-  const opener = [...page.querySelectorAll("button[aria-haspopup]")].find(
+  const opener = [...page.querySelectorAll("[aria-haspopup]")].find(
     (button) => button.getAttribute("aria-label")?.startsWith(name) === true,
   );
   await click(opener);
@@ -193,9 +193,9 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       "Metropolis",
     );
     expect(overlay?.querySelector(".player-overlay__scrub input[type=range]")).not.toBeNull();
-    const openers = [...(overlay?.querySelectorAll(".player-overlay__buttons button") ?? [])].map(
-      (button) => button.getAttribute("aria-label")?.split(":")[0],
-    );
+    const openers = [
+      ...(overlay?.querySelectorAll('.player-overlay__buttons :is(button, [role="button"])') ?? []),
+    ].map((button) => button.getAttribute("aria-label")?.split(":")[0]);
     expect(openers).toEqual(expect.arrayContaining(["Play", "Volume", "Subtitles", "Settings"]));
     await openedMenu(page, "Settings");
     const places = [...page.querySelectorAll("dialog .list-box li")].map((li) => li.textContent);
@@ -239,7 +239,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await click(labelled("Level loudness"));
     await openedMenu(page, "Settings"); // closes ⁝ again
     await openedMenu(page, "Sound track");
-    const tracks = [...page.querySelectorAll("dialog .list-box button")];
+    const tracks = [...page.querySelectorAll('dialog .list-box [role="button"]')];
     expect(tracks.map((each) => each.textContent)).toEqual([
       "English",
       "English · Director · commentary",

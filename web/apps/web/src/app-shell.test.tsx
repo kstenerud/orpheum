@@ -246,7 +246,7 @@ describe("AppShell", () => {
     // 2026-10-28: "the only real difference being that there's no extra visual indicator that it's
     // a dropdown").
     expect(markup).toMatch(
-      /<div class="app-shell__menu app-shell__menu--current"><button type="button" class="app-shell__menu-button" aria-haspopup="dialog" aria-expanded="false" aria-label="Menu" title="Menu"><svg[^>]*class="icon app-shell__menu-icon"[^]*?<\/svg><\/button><\/div>/u,
+      /<div class="app-shell__menu app-shell__menu--current"><div class="app-shell__menu-button" aria-haspopup="dialog" aria-expanded="false" aria-label="Menu" title="Menu" role="button" tabindex="0"><svg[^>]*class="icon app-shell__menu-icon"[^]*?<\/svg><\/div><\/div>/u,
     );
     expect(markup).not.toContain("route-chooser__chevron");
     expect(await drawnWithMenuOpen(shell)).toMatch(
@@ -426,7 +426,7 @@ describe("AppShell", () => {
     expect(markup).not.toContain("Manage");
     expect(markup).not.toContain("app-shell__divider");
     expect(markup).toContain('aria-label="Menu" title="Menu"');
-    expect(markup).toContain(">Sign out</button>");
+    expect(markup).toContain('role="button" tabindex="0">Sign out</div>');
   });
 
   it("closes a menu when one of its places is chosen, on a press outside it, and on Escape, drawing no Close", async () => {

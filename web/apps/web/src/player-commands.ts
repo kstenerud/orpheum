@@ -202,7 +202,7 @@ function isSpaceThePlayers(video: HTMLVideoElement): boolean {
     return true;
   }
   return (
-    !(focused instanceof HTMLButtonElement) &&
+    !focused.matches('button, [role="button"]') &&
     focused.closest("dialog") === null &&
     isInThePlayersControls(focused, video)
   );

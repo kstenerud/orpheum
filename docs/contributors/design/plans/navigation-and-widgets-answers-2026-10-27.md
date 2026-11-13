@@ -3466,6 +3466,14 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   - **Built (2026-11-12):** "perf(web): the alphabet rail's letters are buttons by role, not
     `<button>`s". Other `<button>`s on a long list (the banner's Libraries, the list's criteria)
     still cost about 300 ms a move onto them; left as they are, moved to far less often.
+  - **Built (2026-11-13), the 11-25 batch's item 8:** "perf(web): every button a key moves onto
+    over a long list is a button by role". One `ButtonByRole` draws the rail's letters, every
+    pop-up's opener and choices, the chips' Unwatched, Clear and the blank posters (VQ313). The
+    status tray's and the player's icon buttons stay `<button>`s. The drawing: its pieces cost about
+    0.6 s of the stick's time in all, so the 40 s is the pages and pictures coming, not the drawing;
+    what each piece cost a move was a `<button>`'s focus, the blanks' and the openers', now gone.
+    Larger pieces, two-line blanks or posters drawn only near the view change what the person sees,
+    and are the owner's choice.
 - **X2. A temporary sign-in for one cast, by "Get a code"** (the second casting request). After
   Cast to this device the phone goes to its home page with the device chosen as its cast target.
   The owner chose that it ends like a Chromecast session: when the phone stops casting, when the

@@ -282,6 +282,28 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     mounted.unmount();
   });
 
+  // 🔈's opener is a button by role (popover.tsx, button-by-role.tsx): Space presses it as a
+  // <button>'s, and does not play.
+  it("leaves Space on a button by role among the player's controls to the button", async () => {
+    const stage = document.createElement("div");
+    const video = videoAt(30);
+    const controls = document.createElement("div");
+    controls.setAttribute(playerControlsAttribute, "");
+    markPlayersControls(controls, { current: video });
+    const volume = document.createElement("div");
+    volume.setAttribute("role", "button");
+    controls.append(volume);
+    stage.append(video, controls);
+    document.body.append(stage);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    Object.defineProperty(video, "paused", { configurable: true, value: true });
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    focusOn(volume);
+    expect(pressSpace()).toEqual({ isDownTaken: false, isUpTaken: false });
+    expect(play).not.toHaveBeenCalled();
+    mounted.unmount();
+  });
+
   // Chrome keeps focus on its own control a click pressed, inside the video, and presses it at
   // Space before the page hears the key: the full-screen button left full screen.
   it("takes focus back to the video after a press on it or its own controls", async () => {

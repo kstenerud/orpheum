@@ -185,7 +185,7 @@ async function unreachedIn(selector: string): Promise<string[]> {
 
 /** Whether what has focus is the first place of an open drop-down's list. */
 function isOnFirstPlace(): boolean {
-  const first = document.querySelector("dialog .list-box a, dialog .list-box button");
+  const first = document.querySelector('dialog .list-box a, dialog .list-box [role="button"]');
   return first !== null && document.activeElement === first;
 }
 
@@ -313,7 +313,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     const more = document.querySelector<HTMLElement>(".more-actions__button");
     more?.focus();
     await press("{Enter}");
-    await drawn("dialog .list-box button");
+    await drawn('dialog .list-box [role="button"]');
     expect(focusedName()).toBe("Identified incorrectly");
     await press("{Enter}");
     await drawn('dialog[aria-label="Identified incorrectly"]');
@@ -386,7 +386,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     const picker = sortChooser();
     picker?.focus();
     await press("{Enter}");
-    await drawn("dialog .list-box button");
+    await drawn('dialog .list-box [role="button"]');
     // The browser's Back closes the chooser's list alone, then the pop-up it was opened from.
     place.history.back();
     await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
@@ -401,7 +401,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await drawn(".list-criteria");
     sortChooser()?.focus();
     await press("{Enter}");
-    await drawn("dialog .list-box button");
+    await drawn('dialog .list-box [role="button"]');
     expect(document.querySelector('dialog button[aria-label="Close"]')).toBeNull();
     await press("{Escape}");
     await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
@@ -439,7 +439,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       }
       picker.focus({ preventScroll: true });
       await press("{Enter}");
-      await drawn("dialog .list-box button");
+      await drawn('dialog .list-box [role="button"]');
       expect(isFocusIn("dialog ul")).toBe(true);
       expect(document.activeElement?.getAttribute("aria-current")).toBe("true");
       expect(window.scrollY).toBe(scrolled);
@@ -463,9 +463,9 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("closes the banner's Libraries menu by Left and by Right from its first place, focus on its icon, its places scrolling within its height", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(manyLibraries, "/"));
-    await drawn('.app-shell__watching button[aria-label="Libraries"]');
+    await drawn('.app-shell__watching [role="button"][aria-label="Libraries"]');
     const icon = document.querySelector<HTMLElement>(
-      '.app-shell__watching button[aria-label="Libraries"]',
+      '.app-shell__watching [role="button"][aria-label="Libraries"]',
     );
     icon?.focus();
     for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
@@ -577,8 +577,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(first).toBeInstanceOf(HTMLElement);
     const reached: Set<Element> =
       first instanceof HTMLElement ? await reachedFrom(first, press) : new Set();
-    const isCriteriaButton = (control: Element): control is HTMLButtonElement =>
-      control instanceof HTMLButtonElement && control.classList.contains("list-criteria__button");
+    const isCriteriaButton = (control: Element): control is HTMLElement =>
+      control instanceof HTMLElement && control.matches('[role="button"].list-criteria__button');
     const button = [...reached].find(isCriteriaButton);
     expect(button).toBeDefined();
     button?.focus();
@@ -652,7 +652,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(await pressUntil("{ArrowUp}", () => focusedName() === "Name contains")).toBe(true);
     expect(await pressUntil("{ArrowDown}", () => focusedName() === "Any genre")).toBe(true);
     await press("{Enter}");
-    await drawn("dialog .list-box button");
+    await drawn('dialog .list-box [role="button"]');
     expect(await pressUntil("{ArrowDown}", () => focusedName() === "Heist")).toBe(true);
     await press("{Enter}");
     await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);

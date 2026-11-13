@@ -100,7 +100,7 @@ async function openedRow(
     ),
   );
   mounted = on;
-  const opener = on.container.querySelector("button[aria-label='Volume']");
+  const opener = on.container.querySelector("[aria-haspopup][aria-label='Volume']");
   await fire(opener, new MouseEvent("click", { bubbles: true }));
   return on;
 }

@@ -3092,3 +3092,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   Again after the list has settled, a few minutes later. Passes when no move waits.
   (`web/apps/web/src/alphabet-rail.tsx`; idiosyncrasies.md, "Silk lays the page out each time a key
   focuses a button")
+- [ ] **VQ313** — On a Fire TV, every button over a long list is reached at once, as the rail's
+  letters are (the 11-25 batch's item 12). On the upstairs Fire TV, open Films and, while its
+  posters are still being drawn, press Down past the last poster drawn into the blank ones, and Up
+  to the banner: Libraries, the menu, and Sort and filter. Open Sort and filter and move through its
+  name, Sort, the chips, Unwatched and Clear, and open Sort's choices. Each move follows its press,
+  none taking a third of a second or more, the first after the page opens no slower; OK and Space
+  still press each one. Passes when no move waits. (`web/apps/web/src/button-by-role.tsx`;
+  idiosyncrasies.md, "Silk lays the page out each time a key focuses a button")

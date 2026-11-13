@@ -68,7 +68,7 @@ describe("the player's bar (D369 §1)", () => {
         <PlayerControls source={{ ...source, isReady: false }} controls={["play", "timeline"]} />,
       ),
     );
-    expect(buttonNamed(mounted.container, "Play")?.disabled).toBe(true);
+    expect(buttonNamed(mounted.container, "Play")?.matches(":disabled")).toBe(true);
     expect(mounted.container.querySelector("input")?.disabled).toBe(true);
   });
 
