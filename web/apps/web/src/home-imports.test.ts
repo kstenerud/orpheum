@@ -104,6 +104,8 @@ describe("what the first page loads before it draws (the efficiency audit of 202
       // The owner, 2026-11-13: the settings pages' words load with them.
       "./locales/en-settings.ts",
       "./locales/en-setting-labels.ts",
+      // The owner, 2026-11-13: each area's words load with its screens.
+      "./locales/en-credits.ts",
       // The architecture audit of 2026-11-10, Startup 3: no start draws these first.
       "./about.tsx",
       "./account.tsx",
