@@ -22,7 +22,10 @@ import (
 type scannedServiceCodes struct {
 	waiting   discoveryproto.DeviceCodeClaimResponse
 	activated []string
-	refused   []string
+	// handOffs are the hand-offs' codes each activation sealed to the television, which it takes its
+	// session by (POST /session/redeem).
+	handOffs []string
+	refused  []string
 }
 
 func (codes *scannedServiceCodes) ClaimDeviceCode(
@@ -31,9 +34,30 @@ func (codes *scannedServiceCodes) ClaimDeviceCode(
 	return codes.waiting, code == "abcd-efgh", nil
 }
 
-func (codes *scannedServiceCodes) ActivateDeviceCode(_ context.Context, code, _, _, _ string) error {
+func (codes *scannedServiceCodes) ActivateDeviceCode(_ context.Context, code, _, handOffCode, _ string) error {
 	codes.activated = append(codes.activated, code)
+	codes.handOffs = append(codes.handOffs, handOffCode)
 	return nil
+}
+
+// newScannedServiceCodes is the paid service with a television of platform waiting with abcd-efgh,
+// served to harness's core, and the hash of its key its QR code shows.
+func newScannedServiceCodes(t *testing.T, harness testHarness, platform string) (*scannedServiceCodes, string) {
+	t.Helper()
+	private, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey := base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes())
+	codes := &scannedServiceCodes{waiting: discoveryproto.DeviceCodeClaimResponse{
+		PublicKey: publicKey, Platform: platform, AskedSecondsAgo: 5,
+	}}
+	harness.authService.ClaimDeviceCodesFrom(codes)
+	keyHash, err := proof.DeviceKeyHash(publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return codes, keyHash
 }
 
 func (codes *scannedServiceCodes) RefuseDeviceCode(_ context.Context, code string) error {
@@ -48,23 +72,11 @@ func TestActivation_AScannedCodeNeedsNoCheckCodeAndOnlyItsKeyIsActivated(t *test
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	private, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	publicKey := base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes())
-	codes := &scannedServiceCodes{waiting: discoveryproto.DeviceCodeClaimResponse{
-		PublicKey: publicKey, Platform: "Tizen", AskedSecondsAgo: 5,
-	}}
-	harness.authService.ClaimDeviceCodesFrom(codes)
-	keyHash, err := proof.DeviceKeyHash(publicKey)
-	if err != nil {
-		t.Fatal(err)
-	}
+	codes, keyHash := newScannedServiceCodes(t, harness, "Tizen")
 	entered := harness.do(t, http.MethodPost, "/pairings/code", admin,
 		map[string]any{"code": "abcd-efgh", "keyHash": keyHash})
 	var claim api.ActivationOutput
-	if err = json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK ||
+	if err := json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK ||
 		claim.Body.CheckCode != "" || claim.Body.DeviceName != "Tizen" {
 		t.Fatalf("POST /pairings/code with the key's hash = %d %s; want no check code, the TV named Tizen",
 			entered.status, entered.body)
