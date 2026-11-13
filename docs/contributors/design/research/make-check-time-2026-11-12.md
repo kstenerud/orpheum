@@ -163,6 +163,16 @@ owner's go (test-weight §26); the rest change gate files, the owner's.
 | 10 | **Start the browser-mode run when the jsdom run ends**, beside the Go tests | up to the gap between the two ends, 13–40 s | small | brings back the load that failed Firefox's connect on 2026-10-20 | `Makefile` (`check-verbose`) |
 | 11 | **Fewer agents gating at once** | about half a run's time at the loads seen (42 against 9) | other work's throughput | none | `docs/contributors/lead.md` §1–2 (an operating rule, not a gate) |
 
+**Option 1, built** (2026-11-13): `needs_attention_test.go` seeds both tests' titles in two statements
+(items, then works) and the films' files, versions and streams in one `database.Write`, through the
+one `seedListedFile` that `seedEpisodeFiles` now shares. Measured on a loaded machine, other agents
+testing, so the numbers move with it. The two tests alone: `ListsAHundredAndCountsThemAll` 23.3 s to
+10.9 s, `PastFiveThousand` 56.3 s to 51.2 s. The whole package: 124 s to 82 s, with the films test 50.9
+s to 27.5 s and `PastFiveThousand` 91 s to 74 s. **`PastFiveThousand` was not title-bound:** a timed
+run put its 1001 titles and positions at 0.5 s and its one-transaction `seedEpisodeFiles` (5005 files)
+at 34 s of its 37 s, so the longest test stays the package's wall, and the 79 s to 50 s the option
+expected needs that seeding cut too (the per-file triggers are the next place to look).
+
 **Considered and not proposed:**
 
 - **The lock queue:** 4% of the time; nothing to win.
