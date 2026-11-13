@@ -36,7 +36,7 @@ async function markupOf(tree: ReactNode): Promise<string> {
 /** The markup the app shows at path: signed in, once it settles (test-app.tsx); else before it has read anything. */
 async function appAt(path: string, isSignedIn = true): Promise<string> {
   if (isSignedIn) {
-    return await signedInMarkupAt(path);
+    return await signedInMarkupAt(<App />, path);
   }
   return await markupOf(withServices(<App />, testServices(undefined, path)));
 }

@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { App } from "./app.tsx";
+import type { JSX } from "react";
+
 import { mount, settleUntil } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 /**
  * The markup of the app at path, signed in as a person: the page knows who is signed in before it
  * draws (D469 §4), so GET /me is answered, as a person's, and nothing else is, as a prerender
- * answers nothing. Taken once the page stops changing, its screen's code loaded.
+ * answers nothing. Taken once the page stops changing, its screen's code loaded. The caller passes
+ * the app, which this helper does not import: a shared helper loads no lazily loaded screen
+ * (home-imports.test.ts).
  */
-export async function signedInMarkupAt(path: string): Promise<string> {
+export async function signedInMarkupAt(app: JSX.Element, path: string): Promise<string> {
   const send = async (request: Request): Promise<Response> => {
     if (request.method === "GET" && new URL(request.url).pathname.endsWith("/me")) {
       return new Response(JSON.stringify({ id: 1, name: "owner", role: "user", isAdmin: false }), {
@@ -23,7 +26,7 @@ export async function signedInMarkupAt(path: string): Promise<string> {
       });
     });
   };
-  const mounted = await mount(withServices(<App />, testServices("token", path, send)));
+  const mounted = await mount(withServices(app, testServices("token", path, send)));
   const { container } = mounted;
   await settleUntil(() => container.querySelector(".app-shell") !== null);
   // Unchanged for longer than React holds back a Suspense boundary's reveal, about 300 ms, so a
