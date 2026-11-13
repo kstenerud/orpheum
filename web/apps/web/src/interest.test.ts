@@ -75,7 +75,7 @@ describe("what a player says it wants (D309)", () => {
       },
       heard,
     );
-    sendInterest(api, "a-token", { positionMs: 10_000, isPaused: true });
+    sendInterest(api, { mediaToken: "a-token" }, { positionMs: 10_000, isPaused: true });
     leavePlayback(api, "a-token", "replaced");
     await vi.waitFor(() => {
       expect(heard).toHaveLength(2);

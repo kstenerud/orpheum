@@ -154,7 +154,9 @@ export function OwnFileTracks(
   },
 ): JSX.Element {
   const { decision, askAgain } = props;
-  const { level, onAudioChosen } = useOwnTrackChoice(decision, props.videoRef, askAgain.audio);
+  const { level, onAudioChosen } = useOwnTrackChoice(decision, props.videoRef, {
+    askAgain: askAgain.audio,
+  });
   const boost = {
     isInitiallyOn: false,
     onSwitched: () => undefined,

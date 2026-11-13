@@ -10,7 +10,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
 import { Home } from "./home.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
-import { IsGuestReceiverContext } from "./guest-receiver.ts";
+import { IsGuestContext } from "./guest-page.ts";
 import { InputLayer } from "./input-layer.tsx";
 import { LiveProvider } from "./live.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
@@ -181,9 +181,9 @@ function SignedIn(): JSX.Element {
   }
   if (isGuestReceiver(me)) {
     return (
-      <IsGuestReceiverContext value={true}>
+      <IsGuestContext value={true}>
         <GuestReceiving route={route} />
-      </IsGuestReceiverContext>
+      </IsGuestContext>
     );
   }
   return <PersonSignedIn me={me} readMeAgain={readMeAgain} route={route} />;

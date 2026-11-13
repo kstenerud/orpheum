@@ -30,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { IsGuestContext } from "./guest-page.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm } from "./together-join.tsx";
 import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts";
@@ -38,6 +39,7 @@ import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { SequenceMoveButton, type SequenceMoves } from "./player-controls.tsx";
 import { useStallReports } from "./play-state.ts";
+import { GuestTracks } from "./together-guest-tracks.tsx";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
@@ -447,9 +449,9 @@ interface Following {
 /**
  * The group's film, asked for afresh each time it changes, playing as the server decided, in the one
  * player every page composes: following the group, with the player's own controls where the guest's
- * rights give them (D271 §4), Tap for sound and Full screen over it, and its stalls told by the
- * membership. A guest may not ask why the host's file cannot be read: the player's own words are
- * told.
+ * rights give them (D271 §4), Tap for sound and Full screen over it, its stalls told by the
+ * membership, its sound and subtitles the guest's own (D471, IsGuestContext). A guest may not ask
+ * why the host's file cannot be read: the player's own words are told.
  */
 function GroupFilm(props: {
   readonly keptVideo: HTMLVideoElement;
@@ -490,19 +492,21 @@ function GroupFilm(props: {
             {value.titleName === undefined ? null : (
               <p className="together-viewer__title">{value.titleName}</p>
             )}
-            <FilmPlayer
-              decision={value}
-              moved={moved}
-              ladderStartMs={ladderStartMs}
-              composition={{
-                hasControls: canPlayPause || canSeek,
-                isAutoPlay: false,
-                askAbout: undefined,
-                over: FollowingGroup,
-                under: GuestStalls,
-                keptVideo: props.keptVideo,
-              }}
-            />
+            <IsGuestContext value={true}>
+              <FilmPlayer
+                decision={value}
+                moved={moved}
+                ladderStartMs={ladderStartMs}
+                composition={{
+                  hasControls: canPlayPause || canSeek,
+                  isAutoPlay: false,
+                  askAbout: undefined,
+                  over: FollowingGroup,
+                  under: GuestStalls,
+                  keptVideo: props.keptVideo,
+                }}
+              />
+            </IsGuestContext>
           </GuestFilmContext>
         );
       }}
@@ -546,8 +550,8 @@ function useGuestFilm(): GuestFilm {
 }
 
 /**
- * Under the guest's film: its stalls reported by the membership, the original's
- * (useMovingDown), or a ladder's word that even its lowest cannot keep up (D247 §8).
+ * Under the guest's film: its stalls reported by the membership, the original's (useMovingDown), or
+ * a ladder's word that its lowest cannot keep up (D247 §8); the guest's sound, subtitles and offset.
  */
 function GuestStalls(props: FilmParts): JSX.Element {
   const film = useGuestFilm();
@@ -562,6 +566,7 @@ function GuestStalls(props: FilmParts): JSX.Element {
           cannotKeepUp={ladder.cannotKeepUp}
         />
       )}
+      <GuestTracks {...props} {...film} />
       <DeviceSoundOffsetControl videoRef={props.videoRef} />
     </>
   );
