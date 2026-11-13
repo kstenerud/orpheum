@@ -28392,3 +28392,59 @@ banner draws once the shell's first read answers, the admin's places with the re
 - 6: internal/core/api/home_test.go (TestHome_AnswersItsThreeRowsInOneRead),
   web/apps/web/src/home.test.tsx ("reads every row in one read of the libraries the person keeps on
   Home, and polls it once (D366 §5, D476)")
+
+## D477 — A series', an episode's, a film's and a person's page each wait on one read
+
+**Decided** (2026-11-13), by the lead, on the owner's order of the client-server audit's fixes
+(finding 5: "Yes those sound good. Do your recommended ones in the next batch, and then the rest in
+the batch after"), applying [principles §30](../principles/README.md). The owner to confirm.
+Amends nothing; D258 §1's warm-up and D306 §9's season pages stand.
+
+The client-server audit found a series' page read the series, and only once it came, the shown
+season's first page of episodes, which are what a person picks from; an episode's page read the
+episode, then what plays after it (GET /files/{id}/up-next); a film's or an episode's Resume label
+waited on the warm-up's answer, the item's carrying no resume position; a person's page read their
+name, then their titles, one after the other. The cast's remote read what plays around its film twice,
+once for its ⏮ and once for its Up next.
+
+1. **A series' answer (GET /items/{id}) carries its shown season's first page** (`shownSeason`): the
+   season the client names with `?season=`, where the series has it; else that of the person's next
+   episode; else the first, as the page chooses. It is the season's own first page of 100, as
+   GET /items/{id}/groups/{group} answers it, its `nextCursor` the rest's. The page draws its episodes
+   from it and reads no season; another season chosen, a page more, a poll, and a season read again
+   after an episode is marked (D370 §4), read the season's endpoint as before. Only the series' read
+   as answered now stands for it: one shown from the tab's memory reads its season.
+2. **An episode's answer carries what plays after it and before it** (`upNext`, `previous`), as
+   GET /files/{id}/up-next says it of its first version's first file, the one its Play plays. Its page
+   names its Next episode from it and asks nothing more; a film's carries neither. The player's Up
+   next keeps the endpoint, and the cast's remote reads it once for both its ⏮ and its Up next.
+3. **A title's answer carries each file's resume position** (`resumePositionMs`), by the rule the
+   player's start reads it: partway through by the thresholds, and read after the last mark by hand
+   (D370 §4); absent at its start. It is per file, not per version, because Play plays a version's
+   file, and the page's Play is named by the first's. The label waits on no warm-up; the warm-up stays
+   (D258 §1): it readies the start, it is not what the page waits on.
+4. **A person's page starts its two reads together**: their name (GET /people/{id}) and the titles
+   crediting them (GET /items?person=), the smaller change of the two the audit offered; neither waits
+   on the other.
+
+No endpoint is removed: the season's, up-next's and the warm-up's each keep their callers.
+
+**Status:** decided.
+
+**Proven by:**
+- 1: internal/core/api/item_one_read_test.go (TestItem_ASeriesCarriesTheShownSeasonsFirstPage),
+  web/apps/web/src/series-page.test.tsx ("draws its shown season's episodes from the series' read,
+  reading no season of its own", "names the season it returns to in its read, and draws that season's
+  episodes from it", "reads a season the series' read did not carry, as another chosen"),
+  internal/core/api/browse_test.go (TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime),
+  web/apps/web/src/use-pages.test.ts ("is drawn as it mounts and stands for its first read; a page
+  more and a poll read as before")
+- 2: internal/core/api/item_one_read_test.go (TestItem_AnEpisodeCarriesWhatPlaysAfterItAndBefore),
+  web/apps/web/src/title.test.tsx ("offers an episode's Next episode in its actions row, from what its
+  own read carries, asking nothing more"), web/apps/web/src/cast-remote.test.tsx ("reads what plays
+  around the cast's film once, for its ⏮ and its Up next both (D477 §2)")
+- 3: internal/core/api/item_one_read_test.go (TestItem_EachFileCarriesWhereItResumes),
+  web/apps/web/src/title.test.tsx ("names its Play Resume with the point its own read carries, its
+  warm-up unanswered, and offers Start over beside it")
+- 4: web/apps/web/src/credits.test.tsx ("asks for their titles as it asks for their name, neither
+  waiting on the other (D477 §4)")

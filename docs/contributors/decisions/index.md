@@ -482,6 +482,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D474](working-notes.md#d474--an-airplay-grant-serves-its-senders-address-always-and-binds-to-the-first-other) An AirPlay grant serves its sender's address always and binds to the first other
 - [D475](working-notes.md#d475--a-list-a-client-may-read-whole-comes-in-one-answer-its-limit-left-out) A list a client may read whole comes in one answer, its limit left out
 - [D476](working-notes.md#d476--the-shells-first-read-carries-what-it-reads-as-it-starts-and-home-answers-its-rows-in-one-read) The shell's first read carries what it reads as it starts, and Home answers its rows in one read
+- [D477](working-notes.md#d477--a-series-an-episodes-a-films-and-a-persons-page-each-wait-on-one-read) A series', an episode's, a film's and a person's page each wait on one read
 
 ## Archived
 
