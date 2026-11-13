@@ -139,8 +139,11 @@ export async function issueRegistrationInvitation(
   );
 }
 
-/** Cancels a person's outstanding reset password link; their password stays (D466 §4). */
-export async function cancelResetLink(api: Api, userId: number): Promise<void> {
+/**
+ * Cancels every outstanding registration link of a person's, a reset password link among them; their
+ * password and sessions stay (D318 §3, D466 §4).
+ */
+export async function cancelRegistrationLinks(api: Api, userId: number): Promise<void> {
   throwIfRefused(
     await api.DELETE("/users/{id}/registration-invitation", { params: { path: { id: userId } } }),
   );

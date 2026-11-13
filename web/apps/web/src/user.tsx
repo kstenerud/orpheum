@@ -6,7 +6,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  cancelResetLink,
+  cancelRegistrationLinks,
   getUser,
   issueRegistrationInvitation,
   listUserDevices,
@@ -143,7 +143,7 @@ function usePersonActions(
     // The link shown, cancelled, no longer works, so it is no longer shown (D466 §4).
     cancelResetLink: (): void => {
       change(async () => {
-        await cancelResetLink(api, userId);
+        await cancelRegistrationLinks(api, userId);
         setIssued(undefined);
       });
     },
