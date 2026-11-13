@@ -88,6 +88,8 @@ export type { SubtitleLayer } from "./subtitles.ts";
 export type { CaptionSource } from "./fullscreen-captions.ts";
 export { keepScreenAwake } from "./wake.ts";
 export { isHandheld, pauseWhenHidden } from "./hidden.ts";
+export { isAirPlayOffered, playOnAirPlay } from "./airplay.ts";
+export type { AirPlayLeft, AirPlaying, AirPlayVideo } from "./airplay.ts";
 export type { HandheldSigns, HiddenPage, PausedFilm } from "./hidden.ts";
 export type { AwakeMedia, AwakePage, ScreenLock, ScreenLocks } from "./wake.ts";
 
