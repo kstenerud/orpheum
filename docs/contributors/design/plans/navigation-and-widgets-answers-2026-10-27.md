@@ -3912,3 +3912,23 @@ batch, and then the rest in the batch after"):**
   - 10: the admin pages' sections.
   - 11: code loading before data.
   - 12: polls that read whole answers.
+
+## The loader gives up on one lost connection, this batch (the owner, 2026-11-13)
+
+**What the owner saw.** On a train's WiFi, production, Firefox on Android: "Orpheum could not reach its
+server … the channel for /api/v1/client-manifest closed before its response ended", with "Addresses
+tried: none".
+
+**What the core's log shows** (read on the production host):
+- **The train's network all but stopped carrying data from about 17:33 to 17:37 UTC.** Every connection from its address lost its SCTP send window down to one packet (`cwndBytes=1191`).
+- **Not a packet-size limit.** The owner's other phone had carried 3 MB of video over full-size packets just before, then stalled at the same moment.
+- **The loader's two tries both stalled.** The core handed over the whole 26 KB manifest each time, and about 150 bytes of it reached the phone in 33 s (`bufferedAtClose=25922`) before the train dropped the connection.
+
+**What was wrong on Orpheum's side** (principles §28): the loader ended for good on that one lost channel and drew its failure page. The network came back within minutes, and the owner had to load the page again by hand.
+
+**The fix the owner chose this batch** ("This batch", 2026-11-13):
+- While the page is open, the loader keeps trying on a new connection, with a bounded backoff.
+- While it tries, it says it is waiting for the network, with a way to try again at once.
+- It carries on by itself when a try gets through.
+- A request whose channel is lost is asked again on the new connection; the loader's reads are all safe to repeat.
+- "Addresses tried: none" in the failure report says what it means when the page is away from home and tried no address.
