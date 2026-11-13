@@ -37,8 +37,9 @@ type FolderInput struct {
 	ID     int64  `path:"id"`
 	Folder string `doc:"Its path below the library's folders, as a listed folder's path says it; absent for their top" maxLength:"4096" query:"folder"` //nolint:lll // one struct tag
 	Sort   string `doc:"The order its videos come in" enum:"recorded,name,fileName,added" query:"sort" required:"true"`
-	// A page holds the folder's folders first, then its videos: limit of them in all (D432 §3).
-	PageInput
+	// A page holds the folder's folders first, then its videos: limit of them in all (D432 §3); with
+	// no limit, the whole folder in one answer (D475).
+	PageOrWholeInput
 	Order string `doc:"The way the sort runs, as GET /titles takes it" enum:"ascending,descending" query:"order"`
 }
 

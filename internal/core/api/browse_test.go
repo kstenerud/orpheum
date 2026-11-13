@@ -119,7 +119,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	if !strings.Contains(shows.body, `"name":"Brass Arena"`) {
 		t.Errorf("series = %d %s", shows.status, shows.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name", user, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name&limit=0", user, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 
 	checkDetailsPaths(t, harness, user, admin)
@@ -182,6 +182,54 @@ func TestBrowse_AListByNameFromALetterStartsAtItsFirstTitle(t *testing.T) {
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=H&cursor=abc&limit=10", admin,
 		nil), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+}
+
+// A list with no limit is read whole, in one answer, past the 500 a page holds at most (D475): every
+// film by name with its rail's letter, no nextCursor and its total; a page still holds 500 at most,
+// and a list by identification is still read a page at a time.
+func TestBrowse_AListWithNoLimitComesWholeInOneAnswer(t *testing.T) {
+	t.Parallel()
+	const films = 520
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	seedSoundlessFilms(t, harness, 1000, films)
+	sorter, err := textindex.NewSorter("en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := make([]string, 0, films)
+	for index := range films {
+		keys = append(keys, fmt.Sprintf("(%d, 'en', 'movie', X'%s')",
+			1000+index, hex.EncodeToString(sorter.Key(fmt.Sprintf("Silent %d", index)))))
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES "+strings.Join(keys, ", "))
+	var whole api.ListItemsOutput
+	harness.readJSON(t, "/items?kind=film&sort=name", admin, &whole.Body)
+	silent := 0
+	for _, item := range whole.Body.Items {
+		if strings.HasPrefix(item.Name, "Silent ") {
+			silent++
+		}
+		if item.Letter == "" {
+			t.Errorf("%s has no letter; want the rail's letter it is under", item.Name)
+		}
+	}
+	if silent != films || whole.Body.NextCursor != "" || whole.Body.Total != int64(len(whole.Body.Items)) {
+		t.Errorf("films with no limit = %d of the %d silent films of %d, nextCursor %q, total %d; want all, none after",
+			silent, films, len(whole.Body.Items), whole.Body.NextCursor, whole.Body.Total)
+	}
+	var byDate api.ListItemsOutput
+	harness.readJSON(t, "/items?kind=film&sort=added", admin, &byDate.Body)
+	if len(byDate.Body.Items) != len(whole.Body.Items) || byDate.Body.NextCursor != "" {
+		t.Errorf("films newest first with no limit = %d, nextCursor %q; want all %d",
+			len(byDate.Body.Items), byDate.Body.NextCursor, len(whole.Body.Items))
+	}
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name&limit=501", admin, nil),
+		http.StatusUnprocessableEntity, "query.limit")
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?identification=identified", admin, nil),
+		http.StatusUnprocessableEntity, "query.identification")
 }
 
 func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {

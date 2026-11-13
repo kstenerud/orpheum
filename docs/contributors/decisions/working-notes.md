@@ -28293,3 +28293,37 @@ POST's connection (`IssueAirPlayGrant`), and `admits` serves it before binding t
 - 2: internal/core/auth/airplay_test.go (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther)
 - 3: internal/core/auth/airplay_test.go (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther),
   VQ315
+
+## D475 — A list a client may read whole comes in one answer, its limit left out
+
+**Decided** (2026-11-11), by the owner (*"yes, I mean the up-front fetch of the whole library's
+text. Even at 1000 titles it should still be pretty light overall. If we get issues with larger
+libraries, we could split up fetching to 1/2 or 1/3 of the library later."*), on the lead's proposal
+(the client-server audit of 2026-11-13, findings 1 and 2, against principles §30). Amends
+[D416](#d416--the-api-is-renamed-once-before-anyone-else-depends-on-it-users-items-groups-people-one-list-shape-capabilities-declared-per-operation) §6.
+
+D416 §6 gave every list that can grow one shape, `cursor` and `limit` in and `nextCursor` out, with a
+page of 500 at most. Films, Series and a library's page then read a list as a chain of pages, each
+waiting on the one before, and their rail's letters and jumps as requests of their own: a person
+pressing a letter waited on the server for a place the client could have found in what it held. An
+entry of the list is about 235 to 290 bytes of JSON (a film with its poster's hash, year, added time
+and letter, measured 2026-11-13): 1000 entries are about 235 KB, about 47 KB gzipped, and 2000 about
+470 KB and 94 KB.
+
+1. **`GET /items` and `GET /libraries/{id}/folders` take their `limit` as optional.** Left out, the
+   whole list comes in one answer, with no `nextCursor`; given, a page of at most 500 comes, as
+   D416 §6 says. A list by identification (Needs a match) still takes a limit.
+2. **Films, Series, a library's page and its Folders view read their list in one request** and hold
+   it: the rail's letters are the held entries' `letter`s, and a letter's jump finds its place among
+   them, with no request. Posters stay lazy: an entry's poster is fetched as it nears the view.
+3. **The list is kept in the tab, as a film's page is**: Back draws it from memory at once and puts
+   the focus back, while the poll reads it again.
+4. **A poll of such a list reads the whole of it**, in one request, where D306 §7 read the pages in
+   view. If a larger library makes this heavy, the list may be read in halves or thirds (the owner's
+   words above).
+
+**Status:** Decided 2026-11-11.
+
+**Proven by:**
+- 1: internal/core/api/browse_test.go (TestBrowse_AListWithNoLimitComesWholeInOneAnswer),
+  internal/core/api/library_lists_test.go (TestBrowse_AFolderComesInPages)

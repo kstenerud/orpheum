@@ -12402,16 +12402,6 @@
             }
           },
           {
-            "description": "From the previous page's nextCursor",
-            "explode": false,
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "description": "From the previous page's nextCursor",
-              "type": "string"
-            }
-          },
-          {
             "description": "A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items",
             "explode": false,
             "in": "query",
@@ -12423,11 +12413,22 @@
             }
           },
           {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "description": "At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475)",
             "explode": false,
             "in": "query",
             "name": "limit",
-            "required": true,
             "schema": {
+              "description": "At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475)",
               "format": "int64",
               "maximum": 500,
               "minimum": 1,
@@ -14264,11 +14265,12 @@
             }
           },
           {
+            "description": "At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475)",
             "explode": false,
             "in": "query",
             "name": "limit",
-            "required": true,
             "schema": {
+              "description": "At most this many, a page; absent, the whole list in one answer, with no nextCursor (D475)",
               "format": "int64",
               "maximum": 500,
               "minimum": 1,

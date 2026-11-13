@@ -186,7 +186,8 @@ func TestBrowse_AnOtherLibrarysFolders(t *testing.T) {
 }
 
 // An other library's folder comes in pages, its folders first and then its videos, each page's
-// cursor taking up where it ended; a cursor the server did not give is refused (D432 §3).
+// cursor taking up where it ended; a cursor the server did not give is refused (D432 §3). With no
+// limit, the whole folder comes in one answer (D475).
 func TestBrowse_AFolderComesInPages(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -212,8 +213,12 @@ func TestBrowse_AFolderComesInPages(t *testing.T) {
 	}
 	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/2/folders?limit=2&sort=name&cursor=!", admin, nil),
 		http.StatusUnprocessableEntity, "query.cursor")
-	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/2/folders?sort=name", admin, nil),
-		http.StatusUnprocessableEntity, "query.limit")
+	var whole api.FolderOutput
+	harness.readJSON(t, "/libraries/2/folders?sort=name", admin, &whole.Body)
+	if len(whole.Body.Subfolders) != 3 || whole.Body.NextCursor != "" {
+		t.Errorf("the top with no limit = %d folders, nextCursor %q; want its three folders, none after",
+			len(whole.Body.Subfolders), whole.Body.NextCursor)
+	}
 }
 
 // A library a person leaves out is gone from their Films and Series, and still on its own (D349 §8).

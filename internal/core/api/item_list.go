@@ -151,10 +151,11 @@ type ListItemsInput struct {
 	Library        int64    `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                //nolint:lll // one struct tag
 	IsHome         bool     `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                           //nolint:lll // one struct tag
 	Identification string   `doc:"Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library" enum:"identified,ambiguous,unidentified,confirmed" query:"identification"`                                                                                                                                                                                                                                                                               //nolint:lll // one struct tag
-	Cursor         string   `doc:"From the previous page's nextCursor" query:"cursor"`
-	From           string   `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items" maxLength:"100" query:"from"` //nolint:lll // one struct tag
-	Limit          int64    `maximum:"500" minimum:"1" query:"limit" required:"true"`
-	Query          string   `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	From           string   `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items" maxLength:"100" query:"from"`                                                                                                                                                                                                                                         //nolint:lll // one struct tag
+	// A list of films, series or other videos may be read whole in one answer, its limit left out
+	// (D475); a list by identification is read a page at a time.
+	PageOrWholeInput
+	Query string `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
 }
 
@@ -196,6 +197,10 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.from",
 			"from starts a list by name, in place of its first page: it takes no cursor")
 	}
+	limit := input.Limit
+	if limit == 0 {
+		limit = library.WholeList
+	}
 	if input.IsHome && input.Library != 0 {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.home",
 			"a row of Home is of every library the person keeps on it, not of one library")
@@ -207,7 +212,7 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 	}
 	page, err := dependencies.Browser.List(ctx, input.withFilters(library.ListQuery{
 		Kinds: input.Kinds, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
-		Limit: input.Limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
+		Limit: limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
 	}))
 	if err != nil {
 		return nil, server.libraryError(ctx, "list items", err)
@@ -266,6 +271,10 @@ func (server *Server) listItemsByIdentification(
 		input.From != "" || input.Query != "" || input.ListFilters != (ListFilters{}) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.identification",
 			"a list by identification is of every kind, by name, and takes no other filter than library")
+	}
+	if input.Limit == 0 {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.identification",
+			"a list by identification is read a page at a time: it takes a limit")
 	}
 	reach, err := server.listReach(ctx, dependencies, principal,
 		listOf{kinds: library.ListKinds(), libraryID: input.Library})

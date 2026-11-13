@@ -152,6 +152,10 @@ type Page struct {
 	Total int64
 }
 
+// WholeList is the Limit of a list read whole, in one answer (D475): no page ends before the list
+// does, and none has a NextCursor.
+const WholeList int64 = math.MaxInt64
+
 // ListQuery asks for one page of a list, of the libraries Reach reaches (D243 §4).
 type ListQuery struct {
 	// Kinds are the kinds it lists, merged in its order: ListFilms, ListSeries or ListOther, each
@@ -166,7 +170,8 @@ type ListQuery struct {
 	Cursor string
 	// From is a name a list by name or by file name starts at, its first title sorted at or after it
 	// in the sortLocale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
-	From  string
+	From string
+	// Limit is how many entries the page holds at most: WholeList for the whole list.
 	Limit int64
 	// Reach is the libraries listed: the caller's, narrowed to one library or less those they left
 	// out (auth.Reach's Narrowed and Without).
