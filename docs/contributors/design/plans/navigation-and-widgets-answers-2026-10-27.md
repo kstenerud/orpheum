@@ -3892,3 +3892,23 @@ a lower "eventual consistency" rung. They asked for an audit of the architecture
 client-server side, to find where it falls short. Its report is
 `design/research/client-server-audit-2026-11-13.md`; the fixes it proposes are the owner's to
 order, the rail's jump above among them.
+
+**Ordered (the owner, 2026-11-13: "Yes those sound good. Do your recommended ones in the next
+batch, and then the rest in the batch after"):**
+
+- **Next batch:** the audit's findings 1 to 4.
+  - **1 and 2:** Films, Series and a library's page get the whole list's text in one answer. The
+    rail jumps by each entry's `Letter`, which every entry already carries, with no request. The
+    list stays held in the tab for Back. Those three together fix the rail's slow jump above.
+  - **3:** sign-in's own answer feeds the first screen, and `/me` carries what the shell then reads
+    separately.
+  - **4:** `GET /home` answers all three of Home's rows, so Home makes one read and runs one poll.
+- **The batch after:** the audit's findings 5 to 12.
+  - 5: the second read on the series, episode, film and person pages.
+  - 6: posters waiting in one queue with the data.
+  - 7: the chain of requests before playback starts.
+  - 8: reads of what the client already holds.
+  - 9: the five menus that should not fetch when opened.
+  - 10: the admin pages' sections.
+  - 11: code loading before data.
+  - 12: polls that read whole answers.
