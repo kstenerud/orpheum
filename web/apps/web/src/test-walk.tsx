@@ -12,6 +12,7 @@ import { act } from "react";
 import type { expect as vitestExpect } from "vitest";
 import { createRoot } from "react-dom/client";
 
+import { railLetters } from "./alphabet-rail.tsx";
 import { App } from "./app.tsx";
 import { focusTargetsIn } from "./focus-engine.ts";
 import { focusRegion } from "./focus-navigation.ts";
@@ -55,6 +56,20 @@ export function films(count: number): Record<string, unknown>[] {
     name: `Film ${String(index + 1)}`,
     year: 2000 + index,
   }));
+}
+
+/**
+ * films(count), each under a rail letter as a list by name says it, in the rail's order: Film 1
+ * under #, Film 2 under A, and Film 27 and every one after it under Z. The rail shows only the
+ * letters its list's entries are under (D475 §2), so a list of 27 or more has the whole rail.
+ */
+export function letteredFilms(count: number): Record<string, unknown>[] {
+  return films(count).map((film, index) => ({ ...film, letter: railLetterAt(index) }));
+}
+
+/** The rail letter of the entry at index in a stand-in list by name (letteredFilms). */
+export function railLetterAt(index: number): string {
+  return railLetters[Math.min(index, railLetters.length - 1)] ?? "#";
 }
 
 /** A film's page as the server sends it, with one file to play and one extra. */

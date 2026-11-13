@@ -21,13 +21,14 @@ import type { Services } from "./services.tsx";
 import { fakePlace, testServices } from "./test-services.tsx";
 import {
   filmDetail,
-  films,
   focusedTile,
   isDrawn,
   isFocusIn,
   isFocusOnFirst,
   isFocusInView,
+  letteredFilms,
   mountApp,
+  railLetterAt,
   viewer,
   walkServices,
   type Walking,
@@ -47,10 +48,10 @@ const signedIn: WalkAnswers = {
   "GET /home": { continueWatching: [] },
 };
 
-/** The films list of twelve, and Film 3's page. */
+/** The films list of twelve, whole in one answer with each film's rail letter (D475), and Film 3's page. */
 const filmsAndOne: WalkAnswers = {
   ...signedIn,
-  "GET /items": { items: films(12), nextCursor: "" },
+  "GET /items": { items: letteredFilms(12) },
   "GET /items/103": filmDetail(103, "Film 3"),
   "GET /items/102": filmDetail(102, "Film 2"),
 };
@@ -108,7 +109,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     // list; forty ended at the seventh row, and a press past it reached the letters beside the list,
     // where focus is on no film.
     walking = await mountApp(
-      walkServices({ ...filmsAndOne, "GET /items": { items: films(60), nextCursor: "" } }),
+      walkServices({ ...filmsAndOne, "GET /items": { items: letteredFilms(60) } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     // The first press waits for the page's arrival, on the first film: pressed before it, the arrow
@@ -128,12 +129,13 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
 
   // The owner's Fire TV, 2026-10-29: "Pressing back from the Gus Doyle page brought me back to the
   // top of the series list. It should bring me back to the point in the list where Gus Doyle is,
-  // still highlighted." Silk's Back is a step of the history, and the list drew its first page alone.
-  it("goes back by the browser's own Back to a series on the list's second page, focused and in view", async () => {
+  // still highlighted." Silk's Back is a step of the history, and the list drew its first page alone;
+  // the list now comes whole (D475), and Back draws it from the tab's memory.
+  it("goes back by the browser's own Back to a series far down a long list, focused and in view", async () => {
     await page.viewport(width, height);
     const place = fakePlace("/series");
     walking = await mountApp({
-      ...pagedSeriesServices(70),
+      ...seriesListServices(70),
       navigation: createNavigation(place, false),
     });
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
@@ -159,22 +161,29 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
 
 /**
  * The signed-in app's services, its Series list count series long, Series 1 to Series count with ids
- * from 201, sent sixty a page by the cursor asked for, and each series' page.
+ * from 201, each under its rail letter (railLetterAt), and each series' page. As the server does
+ * (D475 §1), the list comes whole in one answer when no limit is asked, and a page of the limit by the
+ * cursor asked for when one is.
  */
-function pagedSeriesServices(count: number): Services {
+function seriesListServices(count: number): Services {
   const all = Array.from({ length: count }, (_, index) => ({
     id: 201 + index,
     kind: "series",
     name: `Series ${String(index + 1)}`,
     year: 2000,
+    letter: railLetterAt(index),
   }));
-  const pageSize = 60;
   return testServices("token", "/series", async (request) => {
     await Promise.resolve();
     const url = new URL(request.url);
     const path = url.pathname.slice(apiPrefix.length);
     if (request.method === "GET" && path === "/items") {
+      const limit = url.searchParams.get("limit");
+      if (limit === null) {
+        return Response.json({ items: all });
+      }
       const from = Number(url.searchParams.get("cursor") ?? "0");
+      const pageSize = Number(limit);
       const items = all.slice(from, from + pageSize);
       // The last page carries no nextCursor (D416 §6).
       return Response.json(
