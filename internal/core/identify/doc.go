@@ -367,6 +367,12 @@
 //     that settled it, and each rescan's totals when it ends (D357 §6).
 //     TestRescan_LogsEachChangedMatchAndTheRunsTotals.
 //
+//   - A rescan whose library changes each time the sweep reads it waits, logging the write that
+//     changed it, for rescanWaitsBeforeGivingUp sweeps in a row, then gives up: it ends, logged as
+//     an error with that write, which names the item it was filing (the owner, 2026-11-13).
+//     TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt,
+//     TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt.
+//
 //   - A full rescan (FullRescan), of the same three scopes, has its scan read every file in its scope
 //     again, changed on disk or not, which throws out what the differences touch
 //     (internal/core/library), asks again for the images each film and series it lists is missing or

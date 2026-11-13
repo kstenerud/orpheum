@@ -71,6 +71,39 @@ type Rescans struct {
 	scans   RescanScans
 	// onRequested asks for the rescans' sweep soon (OnRequested); nil asks for none.
 	onRequested func()
+	// waits is how many sweeps in a row found each rescan's library still changing, by rescan id;
+	// guarded by waitsMutex. A restart begins the count again.
+	waits      map[int64]int
+	waitsMutex sync.Mutex
+}
+
+// rescanWaitsBeforeGivingUp is how many sweeps in a row may find a rescan's library still changing,
+// each having filed it filesSayReads times, before the rescan gives up: a library no pass settles
+// is a bug, which waiting longer does not fix (the owner, 2026-11-13). The sweep runs about every
+// ten seconds, so a minute or so.
+const rescanWaitsBeforeGivingUp = 6
+
+// waited counts one more sweep that found a rescan's library still changing, and says whether the
+// rescan has waited as long as it may.
+func (rescans *Rescans) waited(rescanID int64) bool {
+	rescans.waitsMutex.Lock()
+	defer rescans.waitsMutex.Unlock()
+	if rescans.waits == nil {
+		rescans.waits = map[int64]int{}
+	}
+	rescans.waits[rescanID]++
+	if rescans.waits[rescanID] < rescanWaitsBeforeGivingUp {
+		return false
+	}
+	delete(rescans.waits, rescanID)
+	return true
+}
+
+// stoppedWaiting forgets the sweeps a rescan waited, its library read.
+func (rescans *Rescans) stoppedWaiting(rescanID int64) {
+	rescans.waitsMutex.Lock()
+	defer rescans.waitsMutex.Unlock()
+	delete(rescans.waits, rescanID)
 }
 
 // NewRescans returns the rescans, matching through matcher and queuing on queue.
@@ -240,25 +273,50 @@ func (rescans *Rescans) Advance(ctx context.Context) (int, error) {
 		if isScanning {
 			continue
 		}
-		said, known := saidByLibrary[rescan.LibraryID]
-		if !known {
-			said, err = rescans.matcher.pass.filesSayOf(ctx, rescan.LibraryID)
-			if errors.Is(err, errLibraryKeptChanging) {
-				rescans.matcher.logger.InfoContext(ctx, "a rescan waits for its library to stop changing",
-					slogx.EventKey, "rescanWaiting",
-					"libraryId", rescan.LibraryID, "cause", err)
-				continue
-			}
-			if err != nil {
-				return 0, err
-			}
-			saidByLibrary[rescan.LibraryID] = said
+		said, err := rescans.filesSayFor(ctx, rescan, saidByLibrary)
+		if err != nil {
+			return 0, err
 		}
+		if said == nil {
+			continue // its library still changes
+		}
+		rescans.stoppedWaiting(rescan.ID)
 		if err := rescans.list(ctx, rescan, said); err != nil {
 			return 0, err
 		}
 	}
 	return rescans.queueRematches(ctx)
+}
+
+// filesSayFor is what the files of a rescan's library say, read once a sweep for all its rescans;
+// nil for a library that changed each time it was read, whose rescan waits or gives up.
+func (rescans *Rescans) filesSayFor(
+	ctx context.Context, rescan cachegen.ListRescansRow, saidByLibrary map[int64]map[int64]filesQuery,
+) (map[int64]filesQuery, error) {
+	if said, known := saidByLibrary[rescan.LibraryID]; known {
+		return said, nil
+	}
+	said, err := rescans.matcher.pass.filesSayOf(ctx, rescan.LibraryID)
+	if errors.Is(err, errLibraryKeptChanging) {
+		return nil, rescans.wait(ctx, rescan, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	saidByLibrary[rescan.LibraryID] = said
+	return said, nil
+}
+
+// wait leaves a rescan whose library changed each time the sweep read it for the next sweep, or,
+// once it has waited as long as it may, ends it given up, logging the write that kept changing the
+// library, which names the item it was filing.
+func (rescans *Rescans) wait(ctx context.Context, rescan cachegen.ListRescansRow, keptChanging error) error {
+	if rescans.waited(rescan.ID) {
+		return rescans.matcher.endRescan(ctx, rescan.ID, keptChanging)
+	}
+	rescans.matcher.logger.InfoContext(ctx, "a rescan waits for its library to stop changing",
+		slogx.EventKey, "rescanWaiting", "libraryId", rescan.LibraryID, "cause", keptChanging)
+	return nil
 }
 
 // list records the films and series a rescan matches again, with what their files say, once its
@@ -481,6 +539,12 @@ func (matcher *Matcher) endRematch(ctx context.Context, itemID, rescanID int64, 
 // endRescanIfDone ends a rescan whose films and series were all matched again, and logs its totals
 // (D357 §6).
 func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) error {
+	return matcher.endRescan(ctx, rescanID, nil)
+}
+
+// endRescan ends a rescan that is done, or, given why it gave up, one that is not, and logs its
+// totals: a rescan given up as an error, with why.
+func (matcher *Matcher) endRescan(ctx context.Context, rescanID int64, givenUp error) error {
 	var ended cachegen.Rescan
 	isEnded := false
 	matcher.rescans.mutex.Lock()
@@ -500,7 +564,8 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 		if err != nil {
 			return fmt.Errorf("count what it waits on: %w", err)
 		}
-		if waiting > 0 || rescan.ListedAt == nil {
+		// A rescan gives up before it is listed, so waits on nothing.
+		if givenUp == nil && (waiting > 0 || rescan.ListedAt == nil) {
 			return nil
 		}
 		ended, isEnded = rescan, true
@@ -513,7 +578,12 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 	if err != nil {
 		return fmt.Errorf("end rescan %d: %w", rescanID, err)
 	}
-	if isEnded {
+	switch {
+	case !isEnded:
+	case givenUp != nil:
+		matcher.logger.ErrorContext(ctx, "a rescan gave up: its library changed every time it was read",
+			append([]any{slogx.EventKey, "rescanGaveUp", "cause", givenUp.Error()}, rescanTotals(ended)...)...)
+	default:
 		matcher.logger.InfoContext(ctx, "a rescan ended",
 			append([]any{slogx.EventKey, "rescanEnded"}, rescanTotals(ended)...)...)
 		if ended.IsFull != 0 {

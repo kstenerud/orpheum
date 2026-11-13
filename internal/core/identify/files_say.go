@@ -57,7 +57,7 @@ func (filer *libraryFiler) noteSeriesFilesSay(seriesID int64, spec seriesSpec) {
 const filesSayReads = 3
 
 // errLibraryKeptChanging is a library that changed each time a rescan read what its files say.
-var errLibraryKeptChanging = errors.New("the library changed each time it was read; its rescan tries again later")
+var errLibraryKeptChanging = errors.New("the library changed each time it was read")
 
 // filesSayOf is what each film's and series' files and NFOs in a library say it is, read as a pass
 // reads them, by id (D357 §2). It reads in a read alone, which an unchanged library completes; a
