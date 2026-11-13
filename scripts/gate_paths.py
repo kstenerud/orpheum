@@ -25,6 +25,7 @@ from pathlib import Path
 
 GATE_PATTERNS = (
     r"^Makefile$",
+    r"^mk/.*\.mk$",
     r"^\.golangci\.ya?ml$",
     r"^sqlc\.ya?ml$",
     r"^scripts/",

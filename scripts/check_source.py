@@ -52,7 +52,7 @@ FROZEN_GPL_STEPS = frozenset(
 # Extensions that are source code and can carry a comment. JSON cannot hold one, and
 # Markdown is documentation, which the docs gate covers.
 SOURCE_SUFFIXES = frozenset(
-    {".go", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".py", ".sh", ".sql"}
+    {".go", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".py", ".sh", ".sql", ".mk"}
 )
 SOURCE_NAMES = frozenset({"Makefile"})
 

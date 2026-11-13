@@ -90,7 +90,7 @@ VQ_ITEM = re.compile(r"\bVQ(\d+)\b")
 CODE_SUFFIXES = (".go", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
 GENERATED_PARTS = ("internal/store/sqlcgen/", "internal/store/cachegen/", "web/packages/sdk/src/gen/")
 # Where a test variable may be set: job definitions, not the code that reads it.
-SETTERS = ("Makefile", ".github/workflows/", "scripts/")
+SETTERS = ("Makefile", "mk/", ".github/workflows/", "scripts/")
 
 
 @dataclass(frozen=True)
