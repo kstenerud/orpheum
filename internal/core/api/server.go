@@ -290,7 +290,7 @@ func (server *Server) registerBrowsing() {
 func (server *Server) Handler() http.Handler {
 	return identifyingRequests(server.forAPerson(server.markingHome(server.loggingSlow(
 		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(
-			server.compressing(server.mux)))))))))
+			server.loggingLabAirPlay(server.compressing(server.mux))))))))))
 }
 
 // forAPerson marks every request as one a person waits on: its writes take the database's writer

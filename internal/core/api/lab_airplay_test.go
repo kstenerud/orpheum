@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // labAirPlayGrant is what POST /lab/airplay/grants answers.
@@ -207,5 +208,40 @@ func TestLabAirPlay_AMasterWithNoGridIsHeldForTheReceiver(t *testing.T) {
 	if early.status != http.StatusTooEarly || harness.clock.Now().Sub(askedAt) != 0 {
 		t.Errorf("by the token, for hls.js: %d after %v; want 425 at once", early.status,
 			harness.clock.Now().Sub(askedAt))
+	}
+}
+
+// Each request under a grant is logged once answered, at debug: the receiver's address and its own
+// words for itself, the file it asked for, the status and bytes, and how long it was held and took;
+// a refused grant's too. The grant, a bearer credential, is in no line of the log, the error line of
+// a refused one included (D194; the owner, 2026-11-13).
+func TestLabAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.offerLabAirPlay(t, "true")
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	mediaToken := harness.play(t, user, chrome(1)).MediaToken
+	_, made := harness.makeLabAirPlayGrant(t, user, mediaToken)
+	grant := strings.TrimSuffix(strings.TrimPrefix(made.MasterPath, api.Prefix+"/bytes/media/g/"), "/master.m3u8")
+	harness.getAsAirPlayReceiver(t, made.MasterPath)
+	served := harness.logs.AwaitEvent(t, "labAirPlayRequest", `"file":"master.m3u8"`, `"status":200`,
+		`"clientAddress":"127.0.0.1"`, `"userAgent":"Go-http-client/1.1"`, `"heldMs":`, `"tookMs":`)
+	if strings.Contains(served, `"bytes":0,`) || !strings.Contains(served, `"bytes":`) {
+		t.Errorf("the master's line names no bytes sent:\n%s", served)
+	}
+	harness.getAsAirPlayReceiver(t, strings.TrimSuffix(made.MasterPath, "master.m3u8")+"q1200k480p/stream.m3u8")
+	harness.logs.AwaitEvent(t, "labAirPlayRequest", `"file":"q1200k480p/stream.m3u8"`, `"status":200`)
+	harness.do(t, http.MethodDelete, "/lab/airplay/grants", user, nil)
+	harness.getAsAirPlayReceiver(t, made.MasterPath)
+	harness.logs.AwaitEvent(t, "labAirPlayRequest", `"file":"master.m3u8"`, `"status":404`)
+	if logged := harness.logs.String(); strings.Contains(logged, grant) {
+		t.Errorf("the log names the grant:\n%s", logged)
+	}
+	for _, line := range testutil.LinesWith(harness.logs.String(), "labAirPlayRequest") {
+		if strings.Contains(line, mediaToken) {
+			t.Errorf("a request's line names the media token:\n%s", line)
+		}
 	}
 }

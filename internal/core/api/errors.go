@@ -133,7 +133,8 @@ func (server *Server) logErrorAnswer(ctx huma.Context, status string, body any) 
 		operationID = operation.OperationID
 	}
 	server.logger.DebugContext(ctx.Context(), "answered with an error",
-		"operation", operationID, "method", ctx.Method(), "path", ctx.URL().Path, "status", status,
+		"operation", operationID, "method", ctx.Method(), "path", withoutLabAirPlayGrant(ctx.URL().Path),
+		"status", status,
 		"code", failure.ErrorBody.Error.Code, "message", failure.ErrorBody.Error.Message)
 	return body, nil
 }
