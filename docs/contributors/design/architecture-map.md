@@ -226,6 +226,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement) | yes | in persistent.db (step 0063, D427), so a release that rebuilds cache.db keeps it; it changes only when a player measures, so the hourly backup still skips an unchanged database; its rows deleted a day after their last word |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |
+| rescan_given_up | cache.db | T4 (a library whose rescan gave up, for Needs attention) | no | ⚑ lost with cache.db, the library's next rescan gives up again if it still never settles |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | chunk_store (a stream of a film on a grid, the target of its runs) | cache.db | T4 | no | made again by the next run asked for; the chunks themselves are the node's |

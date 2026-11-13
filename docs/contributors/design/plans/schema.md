@@ -1489,6 +1489,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
 | `rescan` | cache.db | `internal/core/identify` | an admin's rescan in progress, from its request to its end (D357) |
 | `rematch` | cache.db | `internal/core/identify` | each film and series a rescan matches again, with what its files say (D357) |
+| `rescan_given_up` | cache.db | `internal/core/identify` | a library whose rescan gave up, listed on Needs attention until a later rescan of it finishes (the owner, 2026-11-13) |
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
 | `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
