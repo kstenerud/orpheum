@@ -15,7 +15,7 @@ const serverSettingKeys = Object.entries(
 ).flatMap(([path, source]) =>
   path.endsWith("_test.go")
     ? []
-    : [...String(source).matchAll(/\bKey\s+=\s+"(\w+)"/gu)].flatMap((match) =>
+    : [...source.matchAll(/\bKey\s+=\s+"(\w+)"/gu)].flatMap((match) =>
         match[1] === undefined ? [] : [match[1]],
       ),
 );
