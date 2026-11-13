@@ -22,7 +22,7 @@ import {
   type Answers,
   type Heard,
 } from "./test-dom.tsx";
-import { isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
+import { isFilmAndSeriesLoaded, isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
 import { signedInMarkupAt } from "./test-app.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -546,6 +546,27 @@ describe("the code loaded ahead of its screen (the architecture audit of 2026-11
     );
     expect(isPlayLoaded()).toBe(false);
     await settleUntil(isPlayLoaded);
+    mounted.unmount();
+  });
+
+  // The client-server audit of 2026-11-13, finding 11: a film's page's first visit since a release
+  // waited on its code before it asked for its answer.
+  it("loads a film's and a series' pages' code from Home, so either asks for its answer at once", async () => {
+    const mounted = await mount(
+      withServices(<Screen route={{ screen: "home" }} />, testServices("token")),
+    );
+    expect(isFilmAndSeriesLoaded()).toBe(false);
+    await settleUntil(isFilmAndSeriesLoaded);
+    expect(isPlayLoaded()).toBe(false);
+    mounted.unmount();
+  });
+
+  it("loads them from the Films list too", async () => {
+    const mounted = await mount(
+      withServices(<Screen route={{ screen: "films" }} />, testServices("token")),
+    );
+    expect(isFilmAndSeriesLoaded()).toBe(false);
+    await settleUntil(isFilmAndSeriesLoaded);
     mounted.unmount();
   });
 

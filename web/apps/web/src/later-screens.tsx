@@ -148,8 +148,10 @@ const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }
  * React.lazy wrapper (lazyScreen). Runtime code never calls that; production makes each only once, here, at
  * module load, same as a const would.
  */
-export let Title = lazyScreen("title", loadTitle);
-export let Series = lazyScreen("series", loadSeries);
+let title = preloadableScreen("title", loadTitle);
+export let Title = title.component;
+let series = preloadableScreen("series", loadSeries);
+export let Series = series.component;
 let play = preloadableScreen("play", loadPlay);
 export let Play = play.component;
 export let TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
@@ -181,37 +183,51 @@ export let SignIn = signIn.component;
 export let ThisDevice = lazyScreen("this-device", loadThisDevice);
 
 /**
- * How long a film's or a series' page shows before the Play page's code is asked for, in ms: past the
- * page's own code and first requests, which it never delays, and well before a person reaches Play.
- * A justified constant, as the tray's dialogs' (tray-dialog-code.tsx).
+ * How long a page shows before the code of the pages it leads to is asked for, in ms: past the page's
+ * own code and first requests, which it never delays, and well before a person reaches the next. A
+ * justified constant, as the tray's dialogs' (tray-dialog-code.tsx).
  */
-export const playAheadAfterMs = 1000;
+const loadAheadAfterMs = 1000;
 
-/** How long the browser's idle is waited for once playAheadAfterMs has passed, at most, in ms. */
-const playAheadIdleWithinMs = 2000;
+/** How long the browser's idle is waited for once loadAheadAfterMs has passed, at most, in ms. */
+const loadAheadIdleWithinMs = 2000;
+
+/** The screens whose code loads ahead on a page, by what the page leads to. */
+export type LoadedAhead = "play" | "film-and-series";
 
 /**
- * Loads the Play page's code ahead while shouldLoad (a film's or a series' page is shown), once it has
- * shown for playAheadAfterMs and the browser is idle, so Play then draws at once, never "Loading…" in
- * its place: a lazy screen suspends once even when its module is in (the web client's architecture
- * audit of 2026-11-10, Playback 3). A page left before then loads nothing.
+ * Loads ahead the code of the pages this one leads to (Play from a film's or a series' page; a film's
+ * and a series' page from a list of them), once it has shown for loadAheadAfterMs and the browser is
+ * idle, so the next page draws at once and asks for its answer, never waiting on its code first: a
+ * lazy screen suspends once even when its module is in (the web client's architecture audit of
+ * 2026-11-10, Playback 3; the client-server audit of 2026-11-13, finding 11). A page left before then
+ * loads nothing; undefined loads nothing ahead.
  */
-export function usePreloadsPlay(shouldLoad: boolean): void {
+export function useLoadsAhead(ahead: LoadedAhead | undefined): void {
   useEffect(() => {
-    if (!shouldLoad || play.isLoaded()) {
+    const screens = ahead === undefined ? [] : ahead === "play" ? [play] : [title, series];
+    const toLoad = screens.filter((screen) => !screen.isLoaded());
+    if (toLoad.length === 0) {
       return undefined;
     }
     let stopIdle: (() => void) | undefined = undefined;
     const timer = setTimeout(() => {
       stopIdle = whenIdle(() => {
-        void play.preload();
-      }, playAheadIdleWithinMs);
-    }, playAheadAfterMs);
+        for (const screen of toLoad) {
+          void screen.preload();
+        }
+      }, loadAheadIdleWithinMs);
+    }, loadAheadAfterMs);
     return () => {
       clearTimeout(timer);
       stopIdle?.();
     };
-  }, [shouldLoad]);
+  }, [ahead]);
+}
+
+/** Whether a film's and a series' pages' code has loaded, ahead or as they were shown. */
+export function isFilmAndSeriesLoaded(): boolean {
+  return title.isLoaded() && series.isLoaded();
 }
 
 /** Whether the Play page's code has loaded, ahead or as it was shown. */
@@ -245,8 +261,10 @@ export function isSignInLoaded(): boolean {
  * for every screen in this file, none of which has hit it yet). Never called by runtime code.
  */
 export function resetLazyScreensForTests(): void {
-  Title = lazyScreen("title", loadTitle);
-  Series = lazyScreen("series", loadSeries);
+  title = preloadableScreen("title", loadTitle);
+  Title = title.component;
+  series = preloadableScreen("series", loadSeries);
+  Series = series.component;
   play = preloadableScreen("play", loadPlay);
   Play = play.component;
   TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);

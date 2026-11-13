@@ -46,7 +46,8 @@ import {
   UiGallery,
   UserPage,
   Users,
-  usePreloadsPlay,
+  useLoadsAhead,
+  type LoadedAhead,
   usePreloadsSignIn,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
@@ -360,11 +361,29 @@ function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | un
   return changing.poller;
 }
 
+/** The screens whose code loads ahead while route shows: those it leads to. */
+function loadedAheadOn(route: Route): LoadedAhead | undefined {
+  switch (route.screen) {
+    case "title":
+    case "series-page":
+      return "play";
+    case "home":
+    case "films":
+    case "series":
+    case "browse":
+    case "person":
+      return "film-and-series";
+    default:
+      return undefined;
+  }
+}
+
 /** The screen a route names. */
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
-  // A film's and a series' pages lead to Play: its code loads ahead there (later-screens.tsx).
-  usePreloadsPlay(props.route.screen === "title" || props.route.screen === "series-page");
+  // A film's and a series' pages lead to Play, and the lists to them: their code loads ahead there
+  // (later-screens.tsx).
+  useLoadsAhead(loadedAheadOn(props.route));
   return (
     <LaterScreen resetKey={JSON.stringify(props.route)}>
       {viewerScreen(props.route) ?? nonLibraryScreen(props.route) ?? adminScreen(props.route) ?? (
