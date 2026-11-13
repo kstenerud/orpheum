@@ -3968,3 +3968,19 @@ tried: none".
 - Both are tested.
 
 A network that throttles UDP itself still needs a TCP path. This train is evidence for the household relay that D438 defers until the beta's data asks for it.
+
+## From the 11-25 batch's end, next batch (the owner, 2026-11-13)
+
+The owner: "Wait for the next batch" (the cast receiver), and no release today: the batch stays on
+staging, production waits.
+
+- **The cast receiver pauses on a tap.** `pauseOrPlayAtAClick` (`cast-receiver.tsx`) still uses
+  `pressOf(event) === "click"`, the check the phone's player gave up this batch; it takes the
+  player's mouse-only rule (`TouchClock`, `player-taps.ts`).
+- **The scrub bar's stray seeks** on a phone, with the player's layout on phones (the tap section
+  above).
+- **The browser walks' stand-in servers** answer `/me?shell=true` without its shell (D476), so the
+  walks still read the shell's parts apart, as no real core makes them.
+- **check-pr took 522 s** against its 300 s budget, most of it the browser tier and its revert-red:
+  find the step that grew (standards/makefile.md).
+- **AirPlay out of the lab** waits for VQ310, which is not yet ticked.
