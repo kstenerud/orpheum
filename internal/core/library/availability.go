@@ -109,3 +109,25 @@ func isPlaceUnavailable(ctx context.Context, queries *sqlcgen.Queries, nodeID in
 	}
 	return err == nil, err
 }
+
+// notGivenFolders are the library folders, by node and path, that their node's hello names no root
+// holding (causeNotNamed): the node was not given them (D107), so they are not scanned until a hello
+// names one again (D241 §2). A library can keep such a folder on purpose (the owner, 2026-11-13).
+func notGivenFolders(ctx context.Context, queries *sqlcgen.Queries) (map[ScanRoot]bool, error) {
+	places, err := queries.ListUnavailablePlaces(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the unavailable places: %w", err)
+	}
+	return notGivenAmong(places), nil
+}
+
+// notGivenAmong are the library folders among places that their node was not given (notGivenFolders).
+func notGivenAmong(places []sqlcgen.ListUnavailablePlacesRow) map[ScanRoot]bool {
+	notGiven := map[ScanRoot]bool{}
+	for _, place := range places {
+		if place.Cause == causeNotNamed {
+			notGiven[ScanRoot{NodeID: place.NodeID, RootPath: place.Path}] = true
+		}
+	}
+	return notGiven
+}

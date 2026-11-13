@@ -143,7 +143,7 @@ func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths
 
 // markRootsNotNamed makes each library root on the node that its hello does not name unavailable:
 // its files are not there to read, and nothing is removed on that absence; a hello that names it
-// again asks for its scan, which brings it back (D241 §2).
+// again asks for its scan, which brings it back, whether or not a hello scans the roots (D241 §2).
 func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, named []string) error {
 	libraryRoots, err := service.database.Read().ListLiveRootsOfNode(ctx, nodeID)
 	if err != nil {
@@ -152,6 +152,9 @@ func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, nam
 	for _, root := range libraryRoots {
 		// A library folder is a root the hello names or a folder inside one (D359 §4).
 		if _, isHeld := pathtree.DeepestHolding(root.RootPath, named); isHeld {
+			if err := service.scans.MarkRootNamed(ctx, nodeID, root.RootPath); err != nil {
+				return err
+			}
 			continue
 		}
 		if err := service.scans.MarkRootNotNamed(ctx, nodeID, root.RootPath); err != nil {

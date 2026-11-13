@@ -5100,6 +5100,8 @@ export interface components {
             path: string;
         };
         RootBody: {
+            /** @description Whether the folder's node was not given it: no root the node names holds it, so it is not scanned until one does (D241 §2) */
+            isNotGivenToNode?: boolean;
             /** Format: int64 */
             lastScanAt?: number;
             /** @enum {string} */

@@ -11,14 +11,17 @@ import { WarningSign } from "./warning-sign.tsx";
 type Root = components["schemas"]["RootBody"];
 
 /**
- * The warning sign beside a library folder with a problem (D278): its scan could not read it, its
- * removals wait for the admin and why (D277), or a disk inside it is missing. Nothing for a folder
- * that is well.
+ * The warning sign beside a library folder with a problem (D278): its media node was not given it,
+ * so it is not scanned until it is (D241 §2), its scan could not read it, its removals wait for the
+ * admin and why (D277), or a disk inside it is missing. Nothing for a folder that is well.
  */
 export function RootWarning(props: { readonly root: Root }): JSX.Element | null {
   const { t } = useTranslation();
   const { root } = props;
   const missing = root.missingMountPaths ?? [];
+  if (root.isNotGivenToNode === true) {
+    return <WarningSign summary={t("warning.folderNotGiven")} forAdmin={t("warning.goToSystem")} />;
+  }
   if (root.lastScanOutcome === "withheld") {
     return (
       <WarningSign

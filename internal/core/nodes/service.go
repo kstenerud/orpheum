@@ -40,6 +40,9 @@ type ScanRequester interface {
 	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error
+	// MarkRootNamed is a library root its node's hello names a root holding: one it did not name until
+	// now is asked for the scan that brings it back (D241 §2).
+	MarkRootNamed(ctx context.Context, nodeID int64, root string) error
 	// MarkStalled makes the deepest place the scans know under a root that holds waitingOn, whose
 	// disk is not answering, unavailable from now, and asks for the scan that brings it back (D233
 	// §10, D328 §5).

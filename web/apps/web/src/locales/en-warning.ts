@@ -11,6 +11,7 @@ export const enWarning = {
     cannotPlay: "This cannot be played now",
     cannotPlayForViewer: "Some of what is here is not available at the moment.",
     folderOffline: "This folder cannot be read",
+    folderNotGiven: "This folder is not available to the media node",
     folderWaiting: "A scan waits for you",
     folderUnread: "Part of this folder could not be read",
     diskMissing: "Something mounted inside this folder is missing",
