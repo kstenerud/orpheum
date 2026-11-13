@@ -3074,6 +3074,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the log shows `webkitcurrentplaybacktargetiswirelesschanged, wireless true`, and Stop answers "1
   grant(s) revoked" and the Mac stops within a few chunks. Note which way worked, the sound the Mac
   played, and the log of each. (`web/apps/web/src/lab-airplay.tsx`, `src/lab-airplay-steps.ts`)
+  **Run 2026-11-13, with the grant on the reached name** (the owner, iPhone to MacBook): Way B
+  passes: the Mac (`AppleCoreMedia`, its own address) fetched the master, both streams and every
+  chunk under the grant, all answered 200, and played. Way A fails: the iPhone's second element
+  fetched and played the grant's chunks itself, and the Mac asked for nothing. Open: Way A, and
+  whether the Mac stops at Stop.
 
 - [ ] **VQ311** — Cast to this device signs a device in for one cast, and it is let go as the cast
   ends (D469). On staging, open orpheum.cc on a television's browser (the TCL or the Fire TV) and
