@@ -6,7 +6,6 @@ import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { pressOf } from "./cast-start.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
@@ -18,6 +17,7 @@ import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
+import { TouchClock, touchClockEvents } from "./player-taps.ts";
 import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -36,8 +36,8 @@ interface ControlsGiven {
  * §1, §5), and nothing otherwise, the controls then lying under the film (PageControls, D407 §9).
  * shouldOpenFullScreen puts the stage full screen as the player opens, as a television's player is,
  * filling the window where the browser refuses; hasPressesOnTheFilm has a mouse's click on the film
- * play or pause it and a double click put it full screen or leave (the two clicks' play and pause
- * undoing each other). Over the film too, in and out of full screen, the pop-up that tells a long
+ * play or pause it and its double click put it full screen or leave (the two clicks' play and pause
+ * undoing each other), a finger's never (usePressesOnTheFilm). Over the film too, in and out of full screen, the pop-up that tells a long
  * stretch skipped (SkippedPopUp). The switch is made in the Play page's pieces, not in the film
  * player's stage, which Watch Together's guest shares (the plan's §6 audit).
  */
@@ -209,8 +209,31 @@ function useDownFromTheFilm(
 }
 
 /**
+ * Whether a click is known to be a mouse's: a PointerEvent a mouse made (pointerType "mouse"), with
+ * a count (a key's click has none), and no finger or pen on the screen just before, as some browsers
+ * give a tap's click a mouse's pointerType or none (idiosyncrasies.md).
+ */
+function isAMousesClick(event: MouseEvent, touches: TouchClock): boolean {
+  const isMouse = "pointerType" in event && event.pointerType === "mouse";
+  return isMouse && event.detail > 0 && !touches.isATouchsClick(event);
+}
+
+/**
+ * Whether a double click may be a mouse's: a browser makes it a MouseEvent with no pointerType, so
+ * it is the mouse's unless a finger or a pen was on the screen just before, or it says another
+ * pointer made it.
+ */
+function isAMousesDoubleClick(event: MouseEvent, touches: TouchClock): boolean {
+  const isOtherPointer = "pointerType" in event && event.pointerType !== "mouse";
+  return !isOtherPointer && !touches.isATouchsClick(event);
+}
+
+/**
  * Makes the video a stop for the arrows and Tab, as the browser's own controls made it, and answers
- * a mouse's click on it by playing or pausing, a double click by full screen, where isOn.
+ * a mouse's click on it by playing or pausing, a mouse's double click by full screen, where isOn
+ * (D407 §9, narrowed to a mouse as D415 §4 has it). A finger's or a pen's never does either: the
+ * click a tap makes, whatever pointerType it carries, is left to the overlay's taps (D415), and one
+ * known to be no mouse's does nothing (the owner, 2026-11-13: half the phone's taps paused).
  */
 function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>, isOn: boolean): void {
   useEffect(() => {
@@ -219,17 +242,26 @@ function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>, isOn:
       return undefined;
     }
     video.tabIndex = 0;
+    const touches = new TouchClock();
     const clicked = (event: MouseEvent): void => {
-      if (pressOf(event) === "click") {
+      if (isAMousesClick(event, touches)) {
         answerPlayerCommand(video, "playPause");
       }
     };
-    const doubleClicked = (): void => {
-      toggleFullScreen(video.closest(".film-player__stage"), document);
+    const doubleClicked = (event: MouseEvent): void => {
+      if (isAMousesDoubleClick(event, touches)) {
+        toggleFullScreen(video.closest(".film-player__stage"), document);
+      }
     };
+    for (const name of touchClockEvents) {
+      document.addEventListener(name, touches.heard, { capture: true, passive: true });
+    }
     video.addEventListener("click", clicked);
     video.addEventListener("dblclick", doubleClicked);
     return () => {
+      for (const name of touchClockEvents) {
+        document.removeEventListener(name, touches.heard, { capture: true });
+      }
       video.removeEventListener("click", clicked);
       video.removeEventListener("dblclick", doubleClicked);
     };

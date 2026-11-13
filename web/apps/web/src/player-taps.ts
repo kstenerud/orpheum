@@ -40,6 +40,35 @@ const tapMaxMs = 500;
  */
 const tapClickWithinMs = 700;
 
+/** Whether a click came within a tap's click time (tapClickWithinMs) of a touch at touchAtMs. */
+function isWithinATapsClick(click: MouseEvent, touchAtMs: number): boolean {
+  return click.timeStamp - touchAtMs <= tapClickWithinMs;
+}
+
+/** The events a TouchClock hears. */
+export const touchClockEvents = ["pointerdown", "pointerup", "touchstart", "touchend"] as const;
+
+/**
+ * When the screen was last touched, by a finger or a pen, from the page's pointer and touch events
+ * (touchClockEvents, its listener heard): a click soon after is the touch's (isATouchsClick),
+ * whatever pointerType it carries, as some browsers give a tap's click a mouse's or none
+ * (idiosyncrasies.md).
+ */
+export class TouchClock {
+  private lastAtMs = -Infinity;
+
+  readonly heard = (event: Event): void => {
+    const isMouse = "pointerType" in event && event.pointerType === "mouse";
+    if (!isMouse) {
+      this.lastAtMs = event.timeStamp;
+    }
+  };
+
+  isATouchsClick(click: MouseEvent): boolean {
+    return isWithinATapsClick(click, this.lastAtMs);
+  }
+}
+
 /** What a tap is on, in the player: the overlay, or a control the page draws over the film. */
 const controlSelector = "[data-player-controls], button, a, input, select, textarea, [role='menu']";
 
@@ -182,7 +211,7 @@ class PointerReader {
   };
 
   readonly clicked = (event: MouseEvent): void => {
-    const isTapsClick = event.timeStamp - this.lastTapAtMs <= tapClickWithinMs;
+    const isTapsClick = isWithinATapsClick(event, this.lastTapAtMs);
     if (event.detail > 0 && !isTapsClick) {
       this.open();
     }

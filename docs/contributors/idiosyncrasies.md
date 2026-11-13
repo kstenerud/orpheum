@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| On a phone in the player, about half the taps on the film paused it, though a touch's click was meant to do nothing there. | [Some mobile browsers give a tap's click a mouse's pointerType, or none](#some-mobile-browsers-give-a-taps-click-a-mouses-pointertype-or-none) |
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
@@ -1419,6 +1420,31 @@ User-Agent (D263; the User-Agent is logged only).
   staging's log holds for the same Chromecast.
 
 ## Web platform, all browsers
+
+### Some mobile browsers give a tap's click a mouse's pointerType, or none
+
+- **Technology:** the `click` a finger's tap makes, in Safari on iOS from 18.2 and in Firefox on
+  Android (2026-11-13).
+- **Symptom:** the owner, on a phone in the player, 2026-11-13: "half of my taps pause playback". A
+  click on the film played or paused it unless its `pointerType` said `touch`.
+- **Cause:** the spec makes `click` a `PointerEvent` whose `pointerType` is the pointer's, and Chrome
+  does that. Safari 18.2 made `click` a `PointerEvent` but gives a tap's click `pointerType` `"mouse"`,
+  though the tap's `pointerdown` and `pointerup` say `"touch"` (WebKit 282988, reopened after its fix
+  was reverted). Firefox gave `click` as a plain `MouseEvent`, with no `pointerType`, until a recent
+  release. Which of the two the owner's phone met is unverified.
+- **What we do:** a click's `pointerType` is never taken alone for a touch. The film plays or pauses
+  only at a click whose `pointerType` is `"mouse"` and that comes more than a tap's click time after a
+  finger's or a pen's last pointer or touch event (`TouchClock` in `web/apps/web/src/player-taps.ts`,
+  `usePressesOnTheFilm` in `page-controls.tsx`); a double click, a `MouseEvent` in every browser, goes
+  full screen only on the same terms. The overlay's own taps are read from `pointerup` (D415).
+- **Evidence:** **[owner]** the phone, 2026-11-13. **[web]**
+  [WebKit 282988](https://bugs.webkit.org/show_bug.cgi?id=282988), "iOS Safari 'click' events have
+  the 'mouse' pointerType when triggered from touch"; MDN's
+  [click event](https://developer.mozilla.org/en-US/docs/Web/API/Element/click_event), whose type is
+  still a `MouseEvent` in Firefox and Safari in its older text, and caniuse's
+  [click is a PointerEvent](https://caniuse.com/mdn-api_element_click_event_type_pointerevent). A
+  W3C Pointer Events issue suggests the same remedy: remember the last `pointerup`'s type and read it
+  in the click.
 
 ### Enter on a focused checkbox submits its form, and does not tick it
 
