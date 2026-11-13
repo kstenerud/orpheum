@@ -3508,6 +3508,9 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
   theirs in the address alone, as before. A deleted library's stays, read by nothing; a removed
   person's goes with their preferences. For the owner: whether Films, Series and All libraries
   should keep theirs too.
+  **Withdrawn** (the owner, 2026-11-13, the 11-25 batch's item 5): removed, and in its place a list's
+  sort and filters are kept for the way back to it, by Back or up the chain, in its address alone, the
+  banner opening it at its defaults ([D470](../../decisions/working-notes.md#d470--a-lists-sort-and-filters-are-kept-for-the-way-back-to-it-in-its-address-alone-the-banner-opens-it-at-its-defaults)).
 
 **Low priority:**
 

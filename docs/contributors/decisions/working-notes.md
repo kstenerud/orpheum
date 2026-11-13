@@ -28008,3 +28008,56 @@ the device before GET /me answers.
 - 3: internal/core/together/cast_test.go, internal/core/live/guest_test.go,
   cmd/orpheum/casts_gone_test.go, VQ311
 - 4: internal/core/api/guest_receivers_test.go, web/apps/web/src/app.test.tsx, VQ311
+
+## D470 — A list's sort and filters are kept for the way back to it, in its address alone; the banner opens it at its defaults
+
+**Decided** (2026-11-13), by the owner, withdrawing X5
+(plans/navigation-and-widgets-answers-2026-10-27.md, the 11-25 batch, item 5): *"remembering the
+sort order could lead to confusing UX if the person doesn't remember setting the order"*; the
+filters would have had to be kept too, and a library could then open showing few or no titles with
+no sign why. In its place, a list's choices are kept when the person comes back to it from what they
+opened from it. The owner's example: Series filtered to a genre and sorted by release date, a series
+opened from it, several episodes played, then back by Back or up the chain (episode → season → the
+series → Series): the filter and sort are still there; the banner's Series opens it at its defaults.
+**Amends** [D366](#d366--every-sort-runs-either-way-films-and-series-also-sort-by-release-date-and-each-person-chooses-which-libraries-fill-their-home)
+§2, whose sort and way the address keeps, now said to be the only place they are kept, and
+[D367](#d367--up-goes-a-level-up-from-any-page-to-its-parent-back-goes-back-the-way-the-person-came)
+§3, whose library Up leads to is now the list as the person left it, not only which list.
+
+1. **A list's sort, its way, its search and its chips live in its address alone** (Films, Series and
+   the Libraries page, D349 §2, D366 §2): never on the person's account, never across devices. The
+   sort X5 kept on the account (`PUT /libraries/{id}/preferences`, the `library_sort` preference,
+   `GET /libraries`' `sortChoice`) is removed. Rows already stored are read by nothing: no reader of
+   the preference table reads the `library` scope, and each names its scope and ignores an axis it
+   does not know; they go with their person's preferences, so no schema step removes them.
+2. **Back returns to the list as it was left,** its address being its history entry's.
+3. **Up comes back to the list the person came through, as they left it,** however far down they
+   went and whatever played on the way (Up next replacing the player, D367 §7): the list's crumb is
+   the nearest list behind in the tab's history that holds the page, by its full address (`below`,
+   D367 §7), and Up goes back to that entry. It is the tab's alone: a new tab, a reload of a typed
+   address or a link opened from outside has none behind, and goes up to the list at its defaults
+   (D367 §3's first library listing it).
+4. **The banner's buttons open each list at its defaults:** Films, Series, Libraries and its menu's
+   libraries are bare addresses, whatever a list behind was left at. A list opened from the banner is
+   a new entry, so Up from what is opened from it comes back to it at its defaults, and Back past it
+   still finds the list left before.
+5. **Where the way back meets something else, the reading taken, for the owner:**
+   - the season and the series' page are one page (D367 §9), so the owner's chain is three Ups from
+     the player: the episode, the series at the episode's season, the list;
+   - a list behind the page is found however the page was reached after it: Series filtered → a
+     series → Home → Continue Watching → its episode goes up to the series behind, then to Series as
+     filtered, as D367 §7 finds the nearest copy behind;
+   - a series opened from a search typed in Series goes up to Series with that search, as it is that
+     list's;
+   - a page whose list behind is another kind's (a series reached from Films) or another library's
+     goes up to the first library listing it, at its defaults, as D367 §3 has it;
+   - where the list's scroll stands, and the tile focused, on the way back are not this decision's.
+
+**Status:** Decided 2026-11-13.
+
+**Proven by:**
+- 1: internal/core/preferences/preferences_test.go
+  (TestPreferences_AWithdrawnLibrarySortStoredIsHarmless), web/apps/web/src/library-browse.test.tsx
+- 2: web/apps/web/src/upward.test.ts, web/apps/web/src/list-chips.test.tsx
+- 3: web/apps/web/src/upward.test.ts, web/apps/web/src/up-trail.test.tsx
+- 4: web/apps/web/src/upward.test.ts, web/apps/web/src/app-shell.test.tsx
