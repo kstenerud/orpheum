@@ -2,7 +2,8 @@
 
 /**
  * The English catalogue's device part: the This device page (thisDevice) and the person's list of
- * devices (devices), kept apart so the catalogue fits in one read (en.ts).
+ * devices (devices), added as the first of their modules loads (devices-words.ts), never with the
+ * first page.
  */
 export const enDevices = {
   thisDevice: {

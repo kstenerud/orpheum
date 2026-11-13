@@ -7,6 +7,7 @@ import { sectionOrder } from "../server-settings.tsx";
 import { settingsWords } from "../settings-words.ts";
 import { en } from "./en.ts";
 import { enCredits } from "./en-credits.ts";
+import { enDevices } from "./en-devices.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enLab } from "./en-lab.ts";
 import { enLibraries } from "./en-libraries.ts";
@@ -42,6 +43,7 @@ const laterWords: Record<string, object> = {
   "./people-words.ts": enPeople,
   "./settings-words.ts": settingsWords,
   "./credits-words.ts": enCredits,
+  "./devices-words.ts": enDevices,
 };
 
 /** The catalogue a source file's keys are read from: the first page's, and the words it brings. */

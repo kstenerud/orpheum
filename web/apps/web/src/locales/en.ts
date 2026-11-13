@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { enCast } from "./en-cast.ts";
-import { enDevices } from "./en-devices.ts";
 import { enDiscovery } from "./en-discovery.ts";
 import { enPlay } from "./en-play.ts";
 import { enStatus } from "./en-status.ts";
@@ -16,13 +15,13 @@ import { enFind } from "./en-find.ts";
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
  * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
- * gallery's, the settings pages' and a credited person's page's words come with their screens' code
- * (lab-words.ts, gallery-words.ts, settings-words.ts, credits-words.ts), not here.
+ * gallery's, the settings pages', a credited person's page's and the devices pages' words come with
+ * their screens' code (lab-words.ts, gallery-words.ts, settings-words.ts, credits-words.ts,
+ * devices-words.ts), not here.
  */
 export const en = {
   ...enTogether,
   ...enPlay,
-  ...enDevices,
   ...enCast,
   ...enDiscovery,
   ...enStatus,
