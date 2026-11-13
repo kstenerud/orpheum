@@ -3848,3 +3848,22 @@ its check-pr runs again anyway.
 - **Next batch: the other merged parts are looked at the same way** (`en-play.ts`, `en-cast.ts`,
   `en-devices.ts`, `en-together.ts`, …): a part asked for only by its own area's modules moves; one
   asked for everywhere (navigation, status) stays in `en.ts`.
+
+## The alphabet rail's slow jump, next batch (the owner, 2026-11-13)
+
+**What the owner saw:** pressing a letter in the alphabet rail takes 1 to 3 seconds to move the
+poster list to it.
+
+**The likely cause, from the code:** `useLetterJump` (`alphabet-rail.tsx`) asks the server for the
+letter's first title (`GET /items`, `limit: 1`, `from` the letter), then `loadUntil`
+(`use-pages.ts`) reads the list a page at a time from the last one loaded, 60 titles a page
+(`entriesPerPage`, `library-browse.tsx`), each read waiting for the one before and each page drawn
+as it comes, until that title is among them. A letter far down a large library is many requests in
+a row, each a round trip, more so away from home over WebRTC.
+
+**To measure first:** the number of reads and their times for a far letter (S, T) in the owner's
+largest library, at home and away, and which device the owner used.
+
+**Ways to fix it, for the owner to choose:** the server answers the found title's place in the
+list with it, and the client reads the titles up to it in one request, or reads only the pages
+around it and leaves the gap above to fill as the person scrolls up.
