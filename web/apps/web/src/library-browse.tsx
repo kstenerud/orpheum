@@ -2,7 +2,7 @@
 
 import "./library-browse.css";
 
-import { allPages, type components } from "@orpheum/sdk";
+import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,18 +10,19 @@ import { useTranslation } from "react-i18next";
 import {
   AlphabetRail,
   RailStandContext,
-  useAlphabetRailLetters,
+  useHeldLetters,
   useLetterJump,
   useLetterJumpState,
+  useRailLetters,
   useRailStand,
   useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
-import { PosterGrid, type Entry } from "./browse.tsx";
+import { listsKept, PosterGrid, type Entry } from "./browse.tsx";
 import { EndOfList } from "./end-of-list.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
-import { useListLoadsToFocusNoted } from "./input-layer.tsx";
+import { useListDrawsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -66,9 +67,6 @@ type SubfolderBody = components["schemas"]["SubfolderBody"];
 
 /** Which titles a list asks for: a library's own kind, or every kind for All libraries. */
 type TitlesKind = ListedKind;
-
-/** How many posters a page loads, as Films and Series do (browse.tsx). */
-const entriesPerPage = 60;
 
 /** The kind of titles a library's own page lists (D349 §9.2); every kind before its library is read. */
 function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
@@ -315,6 +313,7 @@ function LibraryBrowseLayout(props: {
   const showsRail =
     (state.query !== "" || listedResolved.view === "all") && isByName(listedResolved.sort);
   const rail = useRailStand();
+  const [letters, onLetters] = useRailLetters();
   return (
     <RailStandContext value={rail.standAt}>
       <section className="browse browse__layout" aria-labelledby="browse-heading">
@@ -330,15 +329,12 @@ function LibraryBrowseLayout(props: {
             resolved={listedResolved}
             jump={showsRail ? jump : undefined}
             listRef={listRef}
+            onLetters={onLetters}
           />
         </div>
         {showsRail ? (
-          <LibraryLetters
-            kind={listedResolved.kind}
-            search={state.query}
-            filters={criteria.listed.filters}
-            library={listedResolved.libraryId}
-            sort={listedResolved.sort === "fileName" ? "fileName" : "name"}
+          <AlphabetRail
+            letters={letters}
             isZToA={listedResolved.order === "descending"}
             onLetter={onLetter}
             railRef={rail.railRef}
@@ -407,6 +403,7 @@ function LibraryBrowseBody(props: {
   readonly resolved: ResolvedBrowse;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
+  readonly onLetters: (letters: readonly string[] | undefined) => void;
 }): JSX.Element {
   const { state, resolved } = props;
   if (resolved.view === "folders" && state.query === "" && resolved.libraryId !== undefined) {
@@ -429,9 +426,12 @@ function LibraryBrowseBody(props: {
       </>
     );
   }
+  const listKey = `library/${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}/${filtersKey(state.filters ?? {})}`;
   return (
     <LibraryGrid
-      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}/${filtersKey(state.filters ?? {})}`}
+      key={listKey}
+      listKey={listKey}
+      onLetters={props.onLetters}
       kind={resolved.kind}
       library={resolved.libraryId}
       search={state.query}
@@ -443,35 +443,13 @@ function LibraryBrowseBody(props: {
   );
 }
 
-/**
- * The alphabet rail's letters for a library's list, only those some title in it begins with (D349
- * §9.1), through alphabet-rail.tsx's one mechanism, shared with Films and Series.
- */
-function LibraryLetters(props: {
-  readonly kind: TitlesKind;
-  readonly search: string;
-  readonly filters: ListFilters;
-  readonly library: number | undefined;
-  readonly sort: "name" | "fileName";
-  readonly isZToA: boolean;
-  readonly onLetter: (letter: string) => void;
-  readonly railRef: RefObject<HTMLOListElement | null>;
-}): JSX.Element {
-  const letters = useAlphabetRailLetters(props);
-  return (
-    <AlphabetRail
-      onLetter={props.onLetter}
-      letters={letters}
-      isZToA={props.isZToA}
-      railRef={props.railRef}
-    />
-  );
-}
-
 /** An entry's id, by which a list shows an entry read twice once. */
 const entryId = (entry: Entry): number => entry.id;
 
-/** A library list's page as GET /items is asked for it: its criteria, its search one of them. */
+/**
+ * A library's list as GET /items is asked for it: its criteria, its search one of them, and no
+ * limit, the whole list in one answer (D475).
+ */
 function titlesQuery(
   list: {
     readonly kind: TitlesKind;
@@ -488,7 +466,6 @@ function titlesQuery(
     kind: kindsQuery(kind),
     sort,
     ...orderQuery({ sort, order }),
-    limit: entriesPerPage,
     ...(library === undefined ? {} : { library }),
     ...(search === "" ? {} : { query: search }),
     ...filtersQuery(list.filters),
@@ -514,6 +491,7 @@ function useTitlesPages(list: {
   readonly search: string;
   readonly filters: ListFilters;
   readonly choice: SortChoice;
+  readonly listKey: string;
 }): Pages<Entry> {
   const { api } = useServices();
   const { kind, library, search, filters } = list;
@@ -537,12 +515,14 @@ function useTitlesPages(list: {
     },
     [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller(), { idOf: entryId });
-  return pages;
+  return usePages(loadPage, useBackgroundChangesPoller(), {
+    idOf: entryId,
+    remembered: { in: listsKept, key: list.listKey },
+  });
 }
 
 /**
- * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
+ * One library's (or All libraries') list, in one order, read whole, moved to a letter
  * as the alphabet rail asks (D349 §9.1). kind and library say what GET /items asks for; All
  * libraries' grid reads each entry's own kind (browse.tsx's PosterGrid).
  */
@@ -556,20 +536,20 @@ function LibraryGrid(props: {
   readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
+  /** What it lists, by which it is kept in the tab (listsKept). */
+  readonly listKey: string;
+  /** Says the rail letters its entries are under, as it reads them. */
+  readonly onLetters: (letters: readonly string[] | undefined) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { kind, library, search, filters } = props;
+  const { search, filters } = props;
   const { sort, order } = props.choice;
   const pages = useTitlesPages(props);
   const watchItemAt = useItemsInView(pages.showRange);
-  useListLoadsToFocusNoted(pages, entryHref);
+  useListDrawsToFocusNoted(pages, entryHref);
+  useHeldLetters(pages, props.onLetters);
   useLetterJump({
-    kind,
-    sort: sort === "fileName" ? "fileName" : "name",
     isZToA: order === "descending",
-    library,
-    search,
-    filters,
     jump: isByName(sort) ? props.jump : undefined,
     pages,
     listRef: props.listRef,
@@ -668,26 +648,16 @@ function FolderView(props: {
   const [result] = useResource(
     `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}/${choice.order}`,
     async () => {
-      const pages = await allPages(async (query) => {
-        const page = dataOrThrow(
-          await api.GET("/libraries/{id}/folders", {
-            params: {
-              path: { id: libraryId },
-              query: {
-                sort,
-                ...orderQuery(choice),
-                ...(folder === undefined ? {} : { folder }),
-                ...query,
-              },
-            },
-          }),
-        );
-        return { entries: [page], nextCursor: page.nextCursor };
-      });
-      return {
-        subfolders: pages.flatMap((page) => page.subfolders ?? []),
-        titles: pages.flatMap((page) => page.titles ?? []),
-      };
+      // No limit: the whole folder in one answer (D475).
+      const page = dataOrThrow(
+        await api.GET("/libraries/{id}/folders", {
+          params: {
+            path: { id: libraryId },
+            query: { sort, ...orderQuery(choice), ...(folder === undefined ? {} : { folder }) },
+          },
+        }),
+      );
+      return { subfolders: page.subfolders ?? [], titles: page.titles ?? [] };
     },
     useBackgroundChangesPoller(),
   );

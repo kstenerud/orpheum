@@ -3,10 +3,10 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { act, useState, type JSX } from "react";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { fromForLetter, railLetters } from "./alphabet-rail.tsx";
-import type { JSX } from "react";
+import { lettersOf, placeOfLetter } from "./alphabet-rail.tsx";
 
 import { Browse, type BrowseKind, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
@@ -17,9 +17,9 @@ import {
   servedBy,
   settleUntil,
   type Answer,
-  type AnswerByQuery,
   type Heard,
   type Mounted,
+  unanswered,
 } from "./test-dom.tsx";
 import { useRoute } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
@@ -35,48 +35,37 @@ function RoutedBrowse(props: { readonly kind: BrowseKind }): JSX.Element {
 /** A poller that never asks: the list is read only as the test's steps ask. */
 const neverAsks: Poller = { start: () => () => undefined };
 
-/** A film called name, by its id. */
+/** A film called name, by its id, under the rail letter its name begins with, # for a digit. */
 function film(id: number, name: string): Entry {
-  return { id, name, kind: "film", identificationState: "identified", addedAt: id };
-}
-
-/** A page of the films list, with the cursor of the next, absent on the last. */
-function page(entries: readonly Entry[], nextCursor: string): Answer {
-  return [200, { items: entries, ...(nextCursor === "" ? {} : { nextCursor }) }];
-}
-
-const firstPage = page([film(1, "12 Patient Sailors"), film(2, "Arkon")], "c1");
-const secondPage = page([film(3, "Brindlewood"), film(4, "Hearthstead")], "c2");
-const lastPage = page([film(5, "Mabel"), film(6, "Zelkaro")], "");
-
-/**
- * GET /items as the list asks it: a page after another by its cursor, from byCursor, an empty last
- * page for a cursor it does not hold; every other ask (a first page, a page from a letter) answered
- * by turns in turn, the last repeated. Films reads its whole list as soon as its first page is shown
- * (the owner, 2026-11-11), so its pages after the first are asked while the test's steps run.
- */
-function films(
-  turns: readonly Answer[],
-  byCursor: Readonly<Record<string, Answer>> = {},
-): AnswerByQuery {
-  let turn = 0;
-  return (query) => {
-    const cursor = query.get("cursor");
-    if (cursor !== null) {
-      return byCursor[cursor] ?? page([], "");
-    }
-    const answer = turns[Math.min(turn, turns.length - 1)] ?? page([], "");
-    turn += 1;
-    return answer;
+  const first = name.charAt(0).toUpperCase();
+  return {
+    id,
+    name,
+    kind: "film",
+    identificationState: "identified",
+    addedAt: id,
+    letter: first >= "A" && first <= "Z" ? first : "#",
   };
 }
 
+/** The films list, whole in one answer (D475). */
+function page(entries: readonly Entry[]): Answer {
+  return [200, { items: entries, total: entries.length }];
+}
+
+const sixFilms = [
+  film(1, "12 Patient Sailors"),
+  film(2, "Arkon"),
+  film(3, "Brindlewood"),
+  film(4, "Hearthstead"),
+  film(5, "Mabel"),
+  film(6, "Zelkaro"),
+];
+const wholeList = page(sixFilms);
+
 /** The films' list, by name, with the rail beside it, answered by answers. */
-async function mountFilms(answers: AnswerByQuery, heard: Heard[]): Promise<Mounted> {
-  const services = servedBy(
-    { "GET /items": answers, "GET /items/letters": [200, { letters: railLetters }] },
-    heard,
-  );
+async function mountFilms(answers: Answer | readonly Answer[], heard: Heard[]): Promise<Mounted> {
+  const services = servedBy({ "GET /items": answers, "GET /genres": [200, { genres: [] }] }, heard);
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(<RoutedBrowse kind="film" />, services)}
@@ -96,22 +85,16 @@ function railLetter(container: HTMLElement, letter: string): HTMLElement | undef
   );
 }
 
-/** The requests heard against GET /items alone, in order: the rail's own letters are a sibling
- * request (alphabet-rail.tsx's useAlphabetRailLetters) these tests do not count by position. */
+/** The requests heard against GET /items alone, in order. */
 function titlesHeard(heard: readonly Heard[]): Heard[] {
   return heard.filter((each) => each.methodAndPath === "GET /items");
 }
 
-/** The lists GET /items was asked for, in order: each one's start, its pages after it left out. */
-function listsHeard(heard: readonly Heard[]): Heard[] {
-  return titlesHeard(heard).filter((each) => !new URLSearchParams(each.query).has("cursor"));
-}
-
-/** The cursors the list's pages after the first were read by, in order. */
-function cursorsHeard(heard: readonly Heard[]): (string | null)[] {
-  return titlesHeard(heard)
-    .map((each) => new URLSearchParams(each.query).get("cursor"))
-    .filter((cursor) => cursor !== null);
+/** The rail's letters shown, in order. */
+function railShown(container: HTMLElement): (string | null)[] {
+  return [...container.querySelectorAll(".alphabet-rail__letter")].map(
+    (letter) => letter.textContent,
+  );
 }
 
 describe("the alphabet rail (the owner, 2026-10-25)", () => {
@@ -121,105 +104,60 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
     mounted = undefined;
   });
 
-  it("moves the list to a letter's first title, loading the pages before it, and focuses it", async () => {
+  it("moves the list to a letter's first title among those it holds, asking nothing, and focuses it", async () => {
     const heard: Heard[] = [];
-    // The list's first page; the server's first title from M; then the pages up to it.
-    mounted = await mountFilms(
-      films([firstPage, page([film(5, "Mabel")], "")], { c1: secondPage, c2: lastPage }),
-      heard,
-    );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    mounted = await mountFilms(wholeList, heard);
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
+    const asked = heard.length;
     await click(railLetter(mounted.container, "M"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("Mabel");
-    const queries = listsHeard(heard).map((each) => new URLSearchParams(each.query));
-    expect(queries[1]?.get("from")).toBe("M");
-    expect(queries[1]?.get("sort")).toBe("name");
-    expect(queries[1]?.get("limit")).toBe("1");
-    expect(cursorsHeard(heard)).toEqual(["c1", "c2"]);
-    expect(mounted.container.querySelectorAll(".poster-grid > li")).toHaveLength(6);
+    expect(heard).toHaveLength(asked);
   });
 
-  it("loads the page after a title jumped to when the page's end stops it short of the top, and shows it there (the owner, 2026-11-02)", async () => {
+  it("lands on the poster a letter leads to deep in a long list, drawn through it at once", async () => {
     const heard: Heard[] = [];
-    // Mabel ends the second page; the page ends below it, too soon to scroll it to the top,
-    // until the page after it is drawn.
-    const posterTop = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: HTMLElement) {
-        const isShort = document.querySelectorAll(".poster-grid > li").length <= 4;
-        const top = isShort && this.textContent.includes("Mabel") ? 500 : 0;
-        return DOMRect.fromRect({ x: 0, y: top, width: 100, height: 100 });
-      });
-    // The browser keeps what is on screen in place as the list grows below it, so the page's
-    // scroll moves by itself between one showing and the next; no person moved it.
-    let scrolled = 0;
-    const scrollY = vi.spyOn(window, "scrollY", "get").mockImplementation(() => (scrolled += 24));
-    // How many posters were drawn each time Mabel's was scrolled to.
-    const shownAt: number[] = [];
-    const scrolledTo = vi
-      .spyOn(HTMLElement.prototype, "scrollIntoView")
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.textContent.includes("Mabel")) {
-          shownAt.push(document.querySelectorAll(".poster-grid > li").length);
-        }
-      });
-    onTestFinished(() => {
-      posterTop.mockRestore();
-      scrollY.mockRestore();
-      scrolledTo.mockRestore();
-    });
-    mounted = await mountFilms(
-      films([firstPage, page([film(4, "Mabel")], "")], {
-        c1: page([film(3, "Brindlewood"), film(4, "Mabel")], "c2"),
-        c2: page([film(5, "Zelkaro"), film(6, "Zorvane")], ""),
-      }),
-      heard,
+    const long = Array.from({ length: 300 }, (_, index) =>
+      film(index + 1, `${index < 250 ? "Arkon" : "Mabel"} ${String(index + 1).padStart(3, "0")}`),
     );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    mounted = await mountFilms(page(long), heard);
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
+    const asked = heard.length;
     await click(railLetter(mounted.container, "M"));
-    await settleUntil(() => mounted?.container.querySelectorAll(".poster-grid > li").length === 6);
-    await settleUntil(() => shownAt.includes(6));
-    expect(focusedName()).toBe("Mabel");
-    expect(cursorsHeard(heard)).toEqual(["c1", "c2"]);
+    await settleUntil(() => focusedName() !== undefined);
+    expect(focusedName()).toBe("Mabel 251");
+    expect(heard).toHaveLength(asked);
   });
 
-  it("moves to the first title of all for #, those beginning with a digit, loading nothing more", async () => {
+  it("moves to the first title of all for #, those beginning with a digit", async () => {
     const heard: Heard[] = [];
-    mounted = await mountFilms(
-      films([firstPage, page([film(1, "12 Patient Sailors")], "x")]),
-      heard,
-    );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    mounted = await mountFilms(wholeList, heard);
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "#") !== undefined);
     await click(railLetter(mounted.container, "#"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("12 Patient Sailors");
-    const onlyTitles = listsHeard(heard);
-    expect(new URLSearchParams(onlyTitles[1]?.query).has("from")).toBe(false);
-    expect(onlyTitles).toHaveLength(2);
+    expect(titlesHeard(heard)).toHaveLength(1);
   });
 
-  it("moves to the last title for a letter no title comes at or after", async () => {
-    const heard: Heard[] = [];
-    mounted = await mountFilms(
-      films([firstPage, page([], "")], { c1: secondPage, c2: lastPage }),
-      heard,
-    );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(railLetter(mounted.container, "Z"));
-    await settleUntil(() => focusedName() !== undefined);
-    expect(focusedName()).toBe("Zelkaro");
+  it("finds a letter's place by the letter each entry is under, the last where none is", () => {
+    const entries = sixFilms;
+    expect(placeOfLetter(entries, "M", false)).toBe(4);
+    expect(placeOfLetter(entries, "C", false)).toBe(3);
+    expect(placeOfLetter(entries, "#", false)).toBe(0);
+    const zToA = [...entries].reverse();
+    expect(placeOfLetter(zToA, "M", true)).toBe(1);
+    expect(placeOfLetter(zToA, "Y", true)).toBe(1);
+    expect(placeOfLetter(zToA, "Z", true)).toBe(0);
+    expect(placeOfLetter(zToA, "#", true)).toBe(5);
+    expect(placeOfLetter(entries.slice(0, 4), "M", false)).toBe(-1);
   });
 
   // Silk on a Fire TV lays the page out each time a key focuses a <button>: a move onto the rail
   // took 300 ms, the first 5 s (the 11-24 batch's item 12; idiosyncrasies.md).
   it("names its letters buttons by role, not <button>s, and Space presses one", async () => {
     const heard: Heard[] = [];
-    mounted = await mountFilms(
-      films([firstPage, page([film(5, "Mabel")], "")], { c1: secondPage, c2: lastPage }),
-      heard,
-    );
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    mounted = await mountFilms(wholeList, heard);
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
     const letters = [...mounted.container.querySelectorAll(".alphabet-rail__letter")];
     expect(letters.length).toBeGreaterThan(0);
     for (const letter of letters) {
@@ -235,21 +173,58 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
 });
 
 // The owner, 2026-11-11: a list's text comes whole, up front, so a held Down or a letter never
-// waits on a page; even a thousand titles is light.
-describe("Films' whole list, read as soon as its first page is shown", () => {
+// waits on a page; even a thousand titles is light (D475).
+describe("Films' whole list, read in one request (D475)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
   });
 
-  it("reads page after page, with no view asking, 60 first and 120 a page after", async () => {
+  it("reads the whole list in one request, with no limit, and draws every entry", async () => {
     const heard: Heard[] = [];
-    mounted = await mountFilms(films([firstPage], { c1: secondPage, c2: lastPage }), heard);
+    const long = Array.from({ length: 150 }, (_, index) =>
+      film(index + 1, `Arkon ${String(index)}`),
+    );
+    mounted = await mountFilms(page(long), heard);
+    await settleUntil(() => mounted?.container.querySelector('a[href="/titles/150"]') !== null);
+    expect(titlesHeard(heard)).toHaveLength(1);
+    const asked = new URLSearchParams(titlesHeard(heard)[0]?.query);
+    expect([asked.has("limit"), asked.has("cursor")]).toEqual([false, false]);
+    expect(mounted.container.querySelectorAll(".poster-grid > li")).toHaveLength(150);
+  });
+
+  it("is drawn from the tab's memory at once on Back, while it is read again", async () => {
+    let showList: ((isShown: boolean) => void) | undefined;
+    function BackAndForth(): JSX.Element {
+      const [isShown, setIsShown] = useState(true);
+      showList = setIsShown;
+      return isShown ? <RoutedBrowse kind="film" /> : <p>A film's page</p>;
+    }
+    const heard: Heard[] = [];
+    const services = servedBy(
+      { "GET /items": [wholeList, unanswered], "GET /genres": [200, { genres: [] }] },
+      heard,
+    );
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<BackAndForth />, services)}
+      </BackgroundChangesContext>,
+    );
     await settleUntil(() => mounted?.container.querySelector('a[href="/titles/6"]') !== null);
-    expect(cursorsHeard(heard)).toEqual(["c1", "c2"]);
-    const limits = titlesHeard(heard).map((each) => new URLSearchParams(each.query).get("limit"));
-    expect(limits).toEqual(["60", "120", "120"]);
+    act(() => {
+      showList?.(false);
+    });
+    expect(mounted.container.querySelector(".poster-grid")).toBeNull();
+    act(() => {
+      showList?.(true);
+    });
+    // Drawn before the second read answers, which it never does.
+    expect(mounted.container.querySelector('a[href="/titles/6"]')).not.toBeNull();
+    await settleUntil(() => titlesHeard(heard).length >= 2);
+    expect(titlesHeard(heard)).toHaveLength(2);
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
+    expect(railShown(mounted.container)).toEqual(["#", "A", "B", "H", "M", "Z"]);
   });
 });
 
@@ -260,39 +235,22 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 Â
     mounted = undefined;
   });
 
-  it("shows only the letters the server says the list has titles under, sorted by name", async () => {
+  it("shows only the letters the list's entries are under, sorted by name, asking nothing more", async () => {
     const heard: Heard[] = [];
-    const services = servedBy(
-      {
-        "GET /items": films([firstPage]),
-        "GET /items/letters": [200, { letters: ["#", "B", "M"] }],
-        "GET /genres": [200, { genres: [] }],
-      },
+    mounted = await mountFilms(
+      page([film(1, "12 Patient Sailors"), film(3, "Brindlewood"), film(5, "Mabel")]),
       heard,
     );
-    mounted = await mount(
-      <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="film" />, services)}
-      </BackgroundChangesContext>,
-    );
-    await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
-    const shown = [...mounted.container.querySelectorAll(".alphabet-rail__letter")].map(
-      (letter) => letter.textContent,
-    );
-    expect(shown).toEqual(["#", "B", "M"]);
-    const letters = heard.find((each) => each.methodAndPath === "GET /items/letters");
-    expect(new URLSearchParams(letters?.query).get("kind")).toBe("film");
-    expect(new URLSearchParams(letters?.query).get("sort")).toBe("name");
+    await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
+    expect(railShown(mounted.container)).toEqual(["#", "B", "M"]);
+    expect(heard.filter((each) => each.methodAndPath.startsWith("GET /items/"))).toEqual([]);
+    expect(lettersOf(undefined)).toBeUndefined();
   });
 
-  it("shows no rail, and asks the server for no letters, sorted newest first", async () => {
+  it("shows no rail sorted newest first", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      {
-        "GET /items": films([firstPage, firstPage]),
-        "GET /items/letters": [200, { letters: [] }],
-        "GET /genres": [200, { genres: [] }],
-      },
+      { "GET /items": [wholeList, wholeList], "GET /genres": [200, { genres: [] }] },
       heard,
     );
     mounted = await mount(
@@ -302,17 +260,9 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 Â
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     expect(mounted.container.querySelector(".alphabet-rail")).not.toBeNull();
-    const lettersAsksByName = heard.filter(
-      (each) => each.methodAndPath === "GET /items/letters",
-    ).length;
-    expect(lettersAsksByName).toBe(1);
     await chooseSort(mounted.container, "Newest added");
-    await settleUntil(() => listsHeard(heard).length >= 2);
+    await settleUntil(() => titlesHeard(heard).length >= 2);
     expect(mounted.container.querySelector(".alphabet-rail")).toBeNull();
-    // The rail unmounts sorted by added: its letters are not asked for again.
-    expect(heard.filter((each) => each.methodAndPath === "GET /items/letters")).toHaveLength(
-      lettersAsksByName,
-    );
   });
 });
 
@@ -327,8 +277,7 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items": films([firstPage, page([film(4, "Hearthstead")], "")]),
-        "GET /items/letters": [200, { letters: [] }],
+        "GET /items": [wholeList, page([film(4, "Hearthstead")])],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -341,8 +290,8 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     expect(mounted.container.querySelector("h1")?.textContent).toBe("Films");
     await narrowByName(mounted.container, "hearth");
-    await settleUntil(() => listsHeard(heard).length >= 2);
-    const searched = new URLSearchParams(listsHeard(heard)[1]?.query);
+    await settleUntil(() => titlesHeard(heard).length >= 2);
+    const searched = new URLSearchParams(titlesHeard(heard)[1]?.query);
     expect([searched.get("kind"), searched.get("query"), searched.get("sort")]).toEqual([
       "film",
       "hearth",
@@ -368,12 +317,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
 
   it("puts a search and a sort chosen in the address", async () => {
     const services = servedBy({
-      "GET /items": films([
-        firstPage,
-        page([film(4, "Hearthstead")], ""),
-        page([film(4, "Hearthstead")], ""),
-      ]),
-      "GET /items/letters": [200, { letters: [] }],
+      "GET /items": [wholeList, page([film(4, "Hearthstead")]), page([film(4, "Hearthstead")])],
       "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
@@ -397,8 +341,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items": [page([film(4, "Hearthstead")], "")],
-        "GET /items/letters": [200, { letters: [] }],
+        "GET /items": [page([film(4, "Hearthstead")])],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -429,20 +372,11 @@ describe("the rail follows a name sort's direction (D366 Â§4)", () => {
     mounted = undefined;
   });
 
-  it("starts a jump Z to A at the letter after it, Z at the start and # at A", () => {
-    expect(fromForLetter("M", false)).toEqual({ from: "M" });
-    expect(fromForLetter("#", false)).toEqual({});
-    expect(fromForLetter("M", true)).toEqual({ from: "N" });
-    expect(fromForLetter("Z", true)).toEqual({});
-    expect(fromForLetter("#", true)).toEqual({ from: "A" });
-  });
-
-  it("lists Films Z to A when chosen, its letters Z to A, and a jump asks Z to A from the next letter", async () => {
+  it("lists Films Z to A when chosen, its letters Z to A, and a jump finds its letter Z to A", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items": films([firstPage, lastPage, page([film(5, "Mabel")], "")]),
-        "GET /items/letters": [200, { letters: ["#", "B", "M"] }],
+        "GET /items": [wholeList, page([...sixFilms].reverse())],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -471,17 +405,13 @@ describe("the rail follows a name sort's direction (D366 Â§4)", () => {
     ]);
     await click(buttonNamed(mounted.container, "Name, Zâ€“A"));
     await closeCriteria(mounted.container);
-    await settleUntil(() => listsHeard(heard).length >= 2);
-    expect(new URLSearchParams(listsHeard(heard)[1]?.query).get("order")).toBe("descending");
-    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    const shown = [...mounted.container.querySelectorAll(".alphabet-rail__letter")].map(
-      (letter) => letter.textContent,
-    );
-    expect(shown).toEqual(["M", "B", "#"]);
+    await settleUntil(() => titlesHeard(heard).length >= 2);
+    expect(new URLSearchParams(titlesHeard(heard)[1]?.query).get("order")).toBe("descending");
+    await settleUntil(() => railShown(mounted?.container ?? document.body)[0] === "Z");
+    expect(railShown(mounted.container)).toEqual(["Z", "M", "H", "B", "A", "#"]);
     await click(railLetter(mounted.container, "M"));
-    await settleUntil(() => listsHeard(heard).length >= 3);
-    const jump = new URLSearchParams(listsHeard(heard)[2]?.query);
-    expect(jump.get("from")).toBe("N");
-    expect(jump.get("order")).toBe("descending");
+    await settleUntil(() => focusedName() !== undefined);
+    expect(focusedName()).toBe("Mabel");
+    expect(titlesHeard(heard)).toHaveLength(2);
   });
 });

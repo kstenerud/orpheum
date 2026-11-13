@@ -228,7 +228,7 @@ describe("the Libraries page (D349)", () => {
 
   // The owner's Fire TV, 2026-10-29: Back to a list showed its top, the entry left from on a later
   // page never drawn, so never focused.
-  it("returned to by Back, loads its pages until the film it was left from is drawn, for focus to find it", async () => {
+  it("returned to by Back, draws the list through the film it was left from, for focus to find it", async () => {
     const film = (id: number) => ({
       id,
       name: `Film ${String(id)}`,
@@ -239,11 +239,7 @@ describe("the Libraries page (D349)", () => {
     });
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
-      "GET /items": [
-        [200, { items: [film(1)], nextCursor: "c2" }],
-        [200, { items: [film(2)], nextCursor: "" }],
-      ],
-      "GET /items/letters": lettersPage(),
+      "GET /items": [200, { items: [film(1), film(2)] }],
     });
     services.navigation.noteOnEntry({ href: "/titles/2", ordinal: 0 });
     mounted = await mount(
@@ -417,12 +413,28 @@ describe("the Libraries page (D349)", () => {
       { library: 1, sort: "name", order: "descending" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /items": titlesPage(),
-        "GET /items/letters": [200, { letters: ["A", "H", "Z"] }],
+        // The rail's letters are the held entries' (D475), the list Z to A as the server sends it.
+        "GET /items": [
+          200,
+          {
+            items: ["Zebra", "Harbour", "Apple"].map((name, index) => ({
+              id: index + 1,
+              name,
+              kind: "film",
+              identificationState: "identified",
+              libraryId: 1,
+              addedAt: 1,
+              letter: name.slice(0, 1),
+            })),
+            nextCursor: "",
+          },
+        ],
       },
       heard,
     );
-    await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
+    await settleUntil(
+      () => mounted?.container.querySelectorAll(".alphabet-rail__letter").length === 3,
+    );
     const query = new URLSearchParams(
       heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
@@ -439,40 +451,32 @@ describe("the Libraries page (D349)", () => {
     expect(criteriaButton(mounted.container)?.textContent).toBe("Sort and filterName, Z–A");
   });
 
-  it("shows an other library's folder whole, following each page's cursor (D432 §3)", async () => {
+  it("shows an other library's folder whole, in one answer to one request (D432 §3, D475)", async () => {
     const heard: Heard[] = [];
     mounted = await mountBrowse(
       { library: 5, view: "folders" },
       {
         "GET /libraries": [200, { libraries: [library(5, "Home movies", "other")] }],
         "GET /libraries/5/folders": [
-          [
-            200,
-            {
-              folder: "",
-              subfolders: [{ name: "Beach", path: "Beach", videoCount: 3 }],
-              titles: [],
-              nextCursor: "next",
-            },
-          ],
-          [
-            200,
-            {
-              folder: "",
-              subfolders: [{ name: "Garden", path: "Garden", videoCount: 1 }],
-              titles: [],
-            },
-          ],
+          200,
+          {
+            folder: "",
+            subfolders: [
+              { name: "Beach", path: "Beach", videoCount: 3 },
+              { name: "Garden", path: "Garden", videoCount: 1 },
+            ],
+            titles: [],
+          },
         ],
       },
       heard,
     );
     await settleUntil(() => mounted?.container.textContent.includes("Garden") === true);
     expect(mounted.container.textContent).toContain("Beach");
-    const cursors = heard
-      .filter((each) => each.methodAndPath === "GET /libraries/5/folders")
-      .map((each) => new URLSearchParams(each.query).get("cursor"));
-    expect(cursors.slice(0, 2)).toEqual([null, "next"]);
+    const asked = heard.filter((each) => each.methodAndPath === "GET /libraries/5/folders");
+    expect(asked).toHaveLength(1);
+    // Asked with no limit, the folder comes whole (D475 §2).
+    expect(new URLSearchParams(asked[0]?.query).get("limit")).toBeNull();
   });
 
   it("asks an other library's folder either way (D366 §2)", async () => {
@@ -752,11 +756,12 @@ describe("the Libraries page (D349)", () => {
       "metro",
       "name",
     ]);
-    // The rail's letters are the search's too.
-    const letters = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /items/letters")?.query,
-    );
-    expect(letters.get("query")).toBe("metro");
+    // The rail's letters are the search's too: they are the held entries' (D475), and every read
+    // of the list is the search's.
+    const reads = heard
+      .filter((each) => each.methodAndPath === "GET /items")
+      .map((each) => new URLSearchParams(each.query).get("query"));
+    expect(reads).toEqual(reads.map(() => "metro"));
     // The query the address names is in the field its Sort and filter opens (as the retired Search
     // page's was).
     const popUp = await openCriteria(mounted.container);

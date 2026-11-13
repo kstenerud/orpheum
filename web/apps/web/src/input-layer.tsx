@@ -389,24 +389,25 @@ export function useCommands(
 }
 
 /**
- * Loads a list's pages, once its first is drawn, until it holds the entry whose link had focus when
- * its page was left, where Back returns to it, so the input layer's watch for that link
- * (keepFocusOnEntries) finds it and focuses it: a list returned to draws its first page alone, and
- * a series on the Series list's second page left Back at the list's top, nothing focused (the
- * owner's Fire TV, 2026-10-29). hrefOf is an entry's link's address.
+ * Draws a list, once it is read, through the entry whose link had focus when its page was left,
+ * where Back returns to it, so the input layer's watch for that link (keepFocusOnEntries) finds it
+ * and focuses it while the rest is still drawn in pieces: a series on the Series list's second page
+ * left Back at the list's top, nothing focused (the owner's Fire TV, 2026-10-29). hrefOf is an
+ * entry's link's address.
  */
-export function useListLoadsToFocusNoted<T>(pages: Pages<T>, hrefOf: (item: T) => string): void {
+export function useListDrawsToFocusNoted<T>(pages: Pages<T>, hrefOf: (item: T) => string): void {
   const { navigation } = useServices();
-  const { loadedSoFar, loadUntil } = pages;
+  const { held, drawThrough } = pages;
   const isLookedRef = useRef(false);
   useEffect(() => {
-    if (isLookedRef.current || loadedSoFar.state !== "loaded") {
+    if (isLookedRef.current || held === undefined) {
       return;
     }
     isLookedRef.current = true;
     const href = asFocusNote(navigation.entryNote())?.href;
-    if (href !== undefined) {
-      void loadUntil((item) => hrefOf(item) === href);
+    const place = href === undefined ? -1 : held.findIndex((item) => hrefOf(item) === href);
+    if (place >= 0) {
+      drawThrough(place + 1);
     }
-  }, [loadedSoFar, loadUntil, hrefOf, navigation]);
+  }, [held, drawThrough, hrefOf, navigation]);
 }

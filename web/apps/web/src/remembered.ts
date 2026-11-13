@@ -14,6 +14,12 @@ const rememberedAtMost = 50;
 /** The last value each of a kind of page loaded in this tab, by its resource key, the latest last. */
 export class Remembered<T> {
   readonly #values = new Map<string, T>();
+  readonly #atMost: number;
+
+  /** atMost: how many it keeps, rememberedAtMost unless a kind's values are larger. */
+  constructor(atMost = rememberedAtMost) {
+    this.#atMost = atMost;
+  }
 
   get(key: string): T | undefined {
     return this.#values.get(key);
@@ -23,7 +29,7 @@ export class Remembered<T> {
     this.#values.delete(key);
     this.#values.set(key, value);
     const oldest = this.#values.keys().next();
-    if (this.#values.size > rememberedAtMost && oldest.done !== true) {
+    if (this.#values.size > this.#atMost && oldest.done !== true) {
       this.#values.delete(oldest.value);
     }
   }
@@ -40,8 +46,8 @@ export class Remembered<T> {
  * never shows, while it loads, the details an earlier test in its file left under the same id (the
  * series agent's tests in Firefox, 2026-11-04).
  */
-export function rememberedInTheTab<T>(): Remembered<T> {
-  const remembered = new Remembered<T>();
+export function rememberedInTheTab<T>(atMost?: number): Remembered<T> {
+  const remembered = new Remembered<T>(atMost);
   resetOnEachTestMount(() => {
     remembered.clear();
   });

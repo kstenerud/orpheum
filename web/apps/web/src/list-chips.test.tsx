@@ -154,9 +154,10 @@ describe("Films' chips (search-by-more §4.3)", () => {
       "1980",
       null,
     ]);
-    const letters = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /items/letters")?.query,
+    // The rail's letters are the held entries' (D475), so every read of the
+    // list carries the chips the address names.
+    expect(titlesAsked(heard).map((each) => [each.get("genre"), each.get("decade")])).toEqual(
+      titlesAsked(heard).map(() => ["18", "1980"]),
     );
-    expect([letters.get("genre"), letters.get("decade")]).toEqual(["18", "1980"]);
   });
 });

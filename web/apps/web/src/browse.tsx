@@ -20,7 +20,8 @@ import type { TFunction } from "i18next";
 import {
   AlphabetRail,
   RailStandContext,
-  useAlphabetRailLetters,
+  useHeldLetters,
+  useRailLetters,
   useRailStand,
   useLetterJump,
   useLetterJumpState,
@@ -56,10 +57,11 @@ import {
   type ShownCriteria,
 } from "./listing-tools.tsx";
 import { Loaded } from "./loaded.tsx";
-import { useListLoadsToFocusNoted } from "./input-layer.tsx";
+import { useListDrawsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
-import { itemsToCome, usePages, type Page } from "./use-pages.ts";
+import { rememberedInTheTab } from "./remembered.ts";
+import { itemsToCome, usePages, type Page, type ReadPage } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
 import { usePostersFilledAhead, type ArtAhead } from "./posters-filled-ahead.ts";
@@ -75,16 +77,16 @@ export type BrowseKind = "film" | "series";
 const browseSorts = ["name", "released", "added"] as const;
 
 /**
- * How many posters a page loads, a best guess: a few screens of the grid, few enough to answer at
- * once; sixty divides into rows of 2, 3, 4, 5, 6 and 10, so a full page ends on a full row.
+ * How many lists the tab keeps, each read whole (D475): a few, as a list of a thousand is a few
+ * hundred kilobytes, where a film's page is a few.
  */
-const entriesPerPage = 60;
+const listsKeptAtMost = 5;
 
 /**
- * How many entries each page after the first reads, as the whole list is read at once: fewer asks
- * of the server for a list of a thousand, and a poll, which reads two pages, still a small one.
+ * The lists read whole kept in the tab, by what each lists: Films, Series and a library's page, so
+ * Back draws one at once, its focus put back, while it is read again (D475).
  */
-const entriesPerLaterPage = 120;
+export const listsKept = rememberedInTheTab<ReadPage<Entry>[]>(listsKeptAtMost);
 
 /**
  * A grid of films, series or other videos, each a poster or a 16:9 tile with its name and year or
@@ -407,6 +409,7 @@ export function Browse(props: {
   const isNamed = choice.sort === "name";
   const listKey = `${props.kind}/${criteriaKey(listed)}`;
   useResetJumpOnChange(listKey, clearJump);
+  const [letters, onLetters] = useRailLetters();
   const rail = useRailStand();
   return (
     <RailStandContext value={rail.standAt}>
@@ -429,13 +432,13 @@ export function Browse(props: {
             filters={filters}
             jump={isNamed ? jump : undefined}
             listRef={listRef}
+            listKey={listKey}
+            onLetters={onLetters}
           />
         </div>
         {isNamed ? (
-          <BrowseAlphabetRail
-            kind={props.kind}
-            search={search}
-            filters={filters}
+          <AlphabetRail
+            letters={letters}
             isZToA={choice.order === "descending"}
             onLetter={onLetter}
             railRef={rail.railRef}
@@ -443,37 +446,6 @@ export function Browse(props: {
         ) : null}
       </section>
     </RailStandContext>
-  );
-}
-
-/**
- * Films' or Series' alphabet rail, only shown sorted by name (D349 §9): its letters are only
- * those some title in the whole list (every library the person reaches, less any left out, D349
- * §8) begins with, asked for again with the list's own background poll, through
- * alphabet-rail.tsx's one mechanism, shared with the Libraries page.
- */
-function BrowseAlphabetRail(props: {
-  readonly kind: BrowseKind;
-  readonly search: string;
-  readonly filters: ListFilters;
-  readonly isZToA: boolean;
-  readonly onLetter: (letter: string) => void;
-  readonly railRef: RefObject<HTMLOListElement | null>;
-}): JSX.Element {
-  const letters = useAlphabetRailLetters({
-    kind: props.kind,
-    library: undefined,
-    sort: "name",
-    search: props.search,
-    filters: props.filters,
-  });
-  return (
-    <AlphabetRail
-      onLetter={props.onLetter}
-      letters={letters}
-      isZToA={props.isZToA}
-      railRef={props.railRef}
-    />
   );
 }
 
@@ -504,7 +476,7 @@ export function listStateOf(criteria: ListCriteria): ListState {
 /** An entry's id, by which a list shows an entry read twice once, and its tile says it is in view. */
 const entryId = (entry: Entry): number => entry.id;
 
-/** One list in one order, read a page at a time, moved to a letter as the alphabet rail asks. */
+/** One list in one order, read whole, moved to a letter as the alphabet rail asks. */
 function BrowsePages(props: {
   readonly kind: BrowseKind;
   readonly choice: SortChoice;
@@ -514,9 +486,13 @@ function BrowsePages(props: {
   readonly filters: ListFilters;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
+  /** What it lists, by which it is kept in the tab (listsKept). */
+  readonly listKey: string;
+  /** Says the rail letters its entries are under, as it reads them. */
+  readonly onLetters: (letters: readonly string[] | undefined) => void;
 }): JSX.Element {
   const { api } = useServices();
-  const { kind, search, filters } = props;
+  const { kind, search, filters, listKey } = props;
   const { sort, order } = props.choice;
   const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
@@ -525,8 +501,8 @@ function BrowsePages(props: {
         kind: [kind],
         sort,
         ...orderQuery({ sort, order }),
-        // By the cursor alone, so a poll reading a page again by its cursor reads it as it was read.
-        limit: cursor === "" ? entriesPerPage : entriesPerLaterPage,
+        // No limit: the whole list in one answer (D475), its text all there at once, and only its
+        // posters' images coming as they near the view (the owner, 2026-11-11).
         ...(search === "" ? {} : { query: search }),
         ...filtersQuery({ genre, decade, isUnwatchedOnly }),
         ...(cursor === "" ? {} : { cursor }),
@@ -538,20 +514,16 @@ function BrowsePages(props: {
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), {
     idOf: entryId,
-    isReadWhole: true,
+    remembered: { in: listsKept, key: listKey },
   });
   const watchItemAt = useItemsInView(pages.showRange);
-  useListLoadsToFocusNoted(
+  useListDrawsToFocusNoted(
     pages,
     useCallback((entry: Entry) => routeHref(itemRoute(kind, entry.id)), [kind]),
   );
+  useHeldLetters(pages, props.onLetters);
   useLetterJump({
-    kind,
-    sort: "name",
     isZToA: order === "descending",
-    library: undefined,
-    search,
-    filters,
     jump: props.jump,
     pages,
     listRef: props.listRef,
