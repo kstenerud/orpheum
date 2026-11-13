@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import type { CastToReceive } from "@orpheum/sdk";
+import { upNextLeadMs, type CastToReceive } from "@orpheum/sdk";
 import { act, createRef, Profiler, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,6 @@ import { testServices, withServices } from "./test-services.tsx";
 import {
   offerState,
   upNextCountdownMs,
-  upNextLeadMs,
   UpNextContext,
   UpNextOffer,
   UpNextOver,
@@ -197,18 +196,38 @@ describe("previous and next in a sequence (D407 §2, §10)", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("on a cast's receiver, moves the cast on at next, and has no previous", async () => {
+  it("on a cast's receiver, moves the cast on at next and back at previous, as its caster does (D471 §1)", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /me/casts/5/next": [200, { castId: 5, fileId: 4 }] }, heard);
+    const services = servedBy(
+      {
+        "POST /me/casts/5/next": [200, { castId: 5, fileId: 4 }],
+        "POST /me/casts/5/previous": [200, { castId: 5, fileId: 2 }],
+      },
+      heard,
+    );
     const replace = vi.spyOn(services.navigation, "replace");
     const receiving = { cast: castHere, onLeave: () => undefined };
     const said = await hearing({ upNext: bag, previous: pilot, receiving }, services);
-    expect(JSON.parse(said())).toEqual({ hasPrevious: false, hasNext: true });
+    expect(JSON.parse(said())).toEqual({ hasPrevious: true, hasNext: true });
     press("previous");
     press("next");
-    await settleUntil(() => heard.length > 0);
-    expect(heard.map((request) => request.methodAndPath)).toEqual(["POST /me/casts/5/next"]);
+    await settleUntil(() => heard.length > 1);
+    expect(heard.map((request) => request.methodAndPath)).toEqual([
+      "POST /me/casts/5/previous",
+      "POST /me/casts/5/next",
+    ]);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("on a cast's receiver, has no previous where none can be read now", async () => {
+    const away = { reason: "nodeAway", nodeName: "devnas" } as const;
+    const receiving = { cast: castHere, onLeave: () => undefined };
+    const said = await hearing({
+      upNext: bag,
+      previous: { ...pilot, unavailable: away },
+      receiving,
+    });
+    expect(JSON.parse(said())).toEqual({ hasPrevious: false, hasNext: true });
   });
 });
 

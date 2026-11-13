@@ -30,7 +30,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { inThisDevicesWords, pressOf, type CastAnswer } from "./cast-start.tsx";
-import { moveCastOn, playInCast } from "./cast.ts";
+import { moveCastBack, moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, leaveFullScreenAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
@@ -105,6 +105,14 @@ export function moveOnOrReady(api: Api, receiving: Receiving): void {
   moveCastOn(api, receiving.cast.castId).catch(() => {
     readyForTheNext(api, receiving);
   });
+}
+
+/**
+ * Moves the cast this device receives back to the previous episode, which the server hands it again
+ * (live.tsx plays it), its remote following (D471 §1); where it cannot, the cast goes on as it was.
+ */
+export function moveBack(api: Api, receiving: Receiving): void {
+  moveCastBack(api, receiving.cast.castId).catch(() => undefined);
 }
 
 /**

@@ -263,3 +263,48 @@ func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *test
 		return each.Receive.CastID == started.CastID
 	})
 }
+
+// A guest receiver reads what plays after its cast's film and before it, and moves its own cast on
+// and back, as its caster does (D471 §1): any other film's, and another cast, stay refused it.
+func TestGuestReceiver_ReadsAndMovesItsOwnCastAlongItsFilmsSequenceAlone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // aired: 21 (file 2), 22 "Cat" (3), 23 (4), 24 (5)
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	ours := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	theirs := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, laptopToken))).Body
+	ourSocket := harness.dialLive(t, ours.Token)
+	ourSocket.awaitConnected()
+	theirSocket := harness.dialLive(t, theirs.Token)
+	theirSocket.awaitConnected()
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
+	ourCast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken,
+		map[string]any{"toDeviceId": ours.DeviceID, "fileId": 3, "positionMs": 0}))
+	theirCast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", laptopToken,
+		map[string]any{"toDeviceId": theirs.DeviceID, "fileId": 3, "positionMs": 0}))
+	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool { return each.Receive.FileID == 3 })
+	if seen := harness.upNextSeen(t, ours.Token, 3); !strings.Contains(seen, "file 4") {
+		t.Errorf("the guest receiver's Up next of its cast's film = %s; want file 4", seen)
+	}
+	if seen := harness.previousSeen(t, ours.Token, 3); !strings.Contains(seen, "file 2") {
+		t.Errorf("the guest receiver's previous of its cast's film = %s; want file 2", seen)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/files/4/up-next", ours.Token, nil), http.StatusForbidden,
+		api.CodeForbidden)
+	for _, way := range []string{"next", "previous"} {
+		wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/%s", theirCast.CastID, way),
+			ours.Token, nil), http.StatusNotFound, api.CodeNotFound)
+	}
+	moved := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/next", ourCast.CastID), ours.Token, nil)
+	if moved.status != http.StatusOK || !strings.Contains(moved.body, `"fileId":4`) {
+		t.Fatalf("the guest receiver's next = %d %s; want its cast on file 4", moved.status, moved.body)
+	}
+	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool { return each.Receive.FileID == 4 })
+	back := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/previous", ourCast.CastID), ours.Token, nil)
+	if back.status != http.StatusOK || !strings.Contains(back.body, `"fileId":3`) {
+		t.Fatalf("the guest receiver's previous = %d %s; want its cast back on file 3", back.status, back.body)
+	}
+	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool { return each.Receive.FileID == 3 })
+}

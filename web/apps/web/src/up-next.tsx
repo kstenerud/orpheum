@@ -12,14 +12,14 @@ import {
   type JSX,
   type RefObject,
 } from "react";
+import { isNearItsEnd, type Ending } from "@orpheum/sdk";
 import { useTranslation } from "react-i18next";
 
 import { useAroundFile, type Previous, type UpNext } from "./around-file.ts";
-import { moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
+import { moveBack, moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import type { OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
-import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { IconButton } from "./icon-button.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -37,13 +37,6 @@ import {
 import { useServices } from "./services.tsx";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { watchingOf } from "./watching.ts";
-
-/**
- * How long before the film's end the offer shows, in ms, where nothing says where its credits start
- * (plans/up-next.md §2): the length of a typical episode's end credits. A justified constant, until
- * detected credits place the offer (D82, D139).
- */
-export const upNextLeadMs = 30_000;
 
 /**
  * How long autoplay counts down before it plays the next episode, in ms: long enough to read the
@@ -103,9 +96,8 @@ export function useUpNextOffered(
   playing: Omit<UpNextOffered, "upNext" | "previous">,
 ): UpNextOffered {
   const { isAutoplayOn, receiving } = playing;
-  // A guest receiver is refused what plays next, a person's own (D469 §4): its cast's remote moves on.
-  const isGuest = useIsGuestReceiver();
-  const around = useAroundFile(fileId, useHasPlayed(video, fileId) && !isGuest);
+  // A guest receiver asks it of its cast's film, the one it plays, which the core opens to it (D471 §1).
+  const around = useAroundFile(fileId, useHasPlayed(video, fileId));
   const upNext = around?.upNext;
   const previous = around?.previous;
   return useMemo(
@@ -116,9 +108,9 @@ export function useUpNextOffered(
 
 /**
  * What the player's previous and next play (D407 §2, §10): the episode before and after this one,
- * each where there is one that can be read now, played the way Up next plays. On a cast's receiver
- * next moves the cast on, as its Up next does, and there is no previous: the cast has no move back
- * yet (plans/player-overlay.md §6).
+ * each where there is one that can be read now, played the way Up next plays. On a cast's receiver,
+ * a guest receiver among them, next moves the cast on, as its Up next does, and previous moves it
+ * back, as its caster's ⏮ does (D471 §1).
  */
 export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMoves {
   const { api, navigation } = useServices();
@@ -142,7 +134,13 @@ export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMo
     const movingOn = (): void => {
       moveOnOrReady(api, receiving);
     };
-    return { next: isPlayable(upNext) ? movingOn : undefined };
+    const movingBack = (): void => {
+      moveBack(api, receiving);
+    };
+    return {
+      previous: isPlayable(previous) ? movingBack : undefined,
+      next: isPlayable(upNext) ? movingOn : undefined,
+    };
   }, [api, navigation, upNext, previous, receiving]);
 }
 
@@ -166,13 +164,6 @@ export function useSequenceCommands(offered: UpNextOffered): Required<MediaTrack
   const hasPrevious = moves.previous !== undefined;
   const hasNext = moves.next !== undefined;
   return useMemo(() => ({ hasPrevious, hasNext }), [hasPrevious, hasNext]);
-}
-
-/** Where the film stands for the offer: where it is, its length, and whether it has ended. */
-export interface Ending {
-  readonly atMs: number;
-  readonly durationMs: number;
-  readonly hasEnded: boolean;
 }
 
 /** What the person did to the offer: dismissed it, or stopped its countdown. */
@@ -201,13 +192,6 @@ export function offerState(
     isShown,
     isCounting: isShown && ending.hasEnded && isAutoplayOn && !choice.isCancelled,
   };
-}
-
-/** Whether the film is within upNextLeadMs of its end, or has ended: where the offer shows. */
-function isNearItsEnd(ending: Ending): boolean {
-  return (
-    ending.hasEnded || (ending.durationMs > 0 && ending.durationMs - ending.atMs <= upNextLeadMs)
-  );
 }
 
 /**

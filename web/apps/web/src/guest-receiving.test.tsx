@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "./app.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { castReceivingKey } from "./cast-receiving-mark.ts";
+import { commandEventName } from "./input-commands.ts";
 import { mount, pressToStartTheCast, settleUntil, type Mounted } from "./test-dom.tsx";
 import type { SubtitleTrack } from "./subtitles.tsx";
 import { directDecision } from "./test-fixtures.ts";
@@ -79,6 +80,18 @@ const guestsAnswers: Readonly<Record<string, readonly [number, unknown]>> = {
     { id: 3, name: "Pixel's guest", role: "user", isAdmin: false, isGuestReceiver: true },
   ],
   "POST /me/casts/5/accept": [200, { castId: 5 }],
+  "GET /files/7/up-next": [
+    200,
+    {
+      upNext: {
+        episode: { itemId: 8, name: "Bag", groupNumber: 1, numberInGroup: 3, fileId: 8 },
+        ordering: "aired",
+      },
+      previous: { itemId: 6, name: "Pilot", groupNumber: 1, numberInGroup: 1, fileId: 6 },
+    },
+  ],
+  "POST /me/casts/5/next": [200, { castId: 5, fileId: 8 }],
+  "POST /me/casts/5/previous": [200, { castId: 5, fileId: 6 }],
   "POST /playback": [
     200,
     directDecision({
@@ -204,6 +217,60 @@ describe("a guest receiver's page (D469 §4)", () => {
     expect(asked).toContain("POST /playback");
     // The audio track chosen plays: the playback is asked for again, with it.
     expect(asked.filter((each) => each === "POST /playback").length).toBeGreaterThan(1);
+    expect(refused).toEqual([]);
+  });
+
+  it("reads its cast's film's Up next and moves its cast on and back, which the core opens to it (D471 §1)", async () => {
+    const asked: string[] = [];
+    const refused: string[] = [];
+    const sockets = liveAndSession();
+    const services = {
+      ...testServices("token", "/", guestsServer(asked, refused)),
+      openTogetherSocket: sockets.openSocket,
+    };
+    mounted = await mount(withServices(<App />, services));
+    const { container } = mounted;
+    await settleUntil(() => container.textContent.includes("Waiting for the cast from your phone"));
+    await sockets.live.accept();
+    await sockets.live.say({ type: "receive", receive: handed });
+    await pressToStartTheCast();
+    await settleUntil(() => container.querySelector("video") !== null);
+    await sockets.session.accept();
+    await sockets.session.say({
+      type: "welcome",
+      seq: 1,
+      sessionId: 5,
+      memberId: 2,
+      deviceId: 6,
+      isHost: true,
+      rights: { canPlayPause: true, canSeek: true },
+      group: { state: "playing", positionMs: 0, rate: 1, fileId: 7 },
+      roster: [],
+    });
+    // The film has played, when Up next is asked for.
+    const video = container.querySelector("video");
+    if (video !== null) {
+      Object.defineProperty(video, "paused", { configurable: true, value: false });
+    }
+    await act(async () => {
+      video?.dispatchEvent(new Event("playing"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    await settleUntil(() => asked.includes("GET /files/7/up-next"));
+    for (const command of ["previous", "next"] as const) {
+      await act(async () => {
+        (document.activeElement ?? document.body).dispatchEvent(
+          new CustomEvent(commandEventName, {
+            detail: { command, source: "key" },
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
+    await settleUntil(() => asked.includes("POST /me/casts/5/next"));
+    expect(asked).toContain("POST /me/casts/5/previous");
     expect(refused).toEqual([]);
   });
 });

@@ -36,14 +36,23 @@ func (server *Server) registerUpNext() {
 		Summary: "What plays after a file as it ends, and what before it: the next and previous episodes in " +
 			"the ordering its person watches its series in",
 		Tags:       []string{tagPlayback},
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.getUpNext)
 }
 
+// getUpNext is what plays after a file and before it for its person. A guest receiver asks it of its
+// own cast's film alone, whose Up next and ⏮ ⏭ it shows and takes as the caster does (D471 §1); any
+// other file is refused it, as every route of a person's is (D465 §2).
 func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextOutput, error) {
-	dependencies, principal, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.ID)
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	if principal.IsGuestReceiver() && !guestPlays(dependencies, principal, input.ID) {
+		return nil, errGuestReceiver
+	}
+	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, input.ID); err != nil {
+		return nil, server.playbackError(ctx, "reach a file", err)
 	}
 	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, input.ID)
 	if err != nil {

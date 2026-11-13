@@ -1298,6 +1298,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/casts/{id}/previous": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a cast this device sends or receives back to what plays before its film, the previous episode, which its receiver is handed (D471 §1) */
+        post: operations["moveCastBack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/casts/guest-grants": {
         parameters: {
             query?: never;
@@ -9067,6 +9084,37 @@ export interface operations {
                 "application/json": components["schemas"]["CastItem"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    moveCastBack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

@@ -156,8 +156,25 @@ function undefinedIfGone(cause: unknown): undefined {
  * handed (plans/up-next.md), and says the cast as it is now.
  */
 export async function moveCastOn(api: Api, castId: number): Promise<Cast> {
+  return await movedCast(api, castId, "/me/casts/{id}/next");
+}
+
+/**
+ * Moves the cast castId back to what plays before its film, its previous episode, as moveCastOn moves
+ * it on (D471 §1); rejects where nothing that can be read now plays before it.
+ */
+export async function moveCastBack(api: Api, castId: number): Promise<Cast> {
+  return await movedCast(api, castId, "/me/casts/{id}/previous");
+}
+
+/** The cast castId moved along its film's sequence by path. */
+async function movedCast(
+  api: Api,
+  castId: number,
+  path: "/me/casts/{id}/next" | "/me/casts/{id}/previous",
+): Promise<Cast> {
   return dataOrThrow(
-    await api.POST("/me/casts/{id}/next", {
+    await api.POST(path, {
       params: { path: { id: castId } },
       ...idempotent(newIdempotencyKey()),
     }),
