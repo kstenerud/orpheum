@@ -2,7 +2,7 @@
 
 import type { Api, MediaCredentials, PlayableFormats } from "@orpheum/sdk";
 
-import type { UpNext } from "./around-file.ts";
+import type { AroundFile } from "./around-file.ts";
 import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
 import type { Session } from "./session.ts";
@@ -30,18 +30,19 @@ export async function requestTogetherPlayback(
   );
 }
 
-/** The membership whose playback this page asked for last, which its media loads are signed with. */
 /**
- * What plays after the session's film, in its host's ordering, for a viewer whose link lets them put
- * it on (GET /together/up-next, D471 §3); undefined where nothing does.
+ * What plays after the session's film and before it, in its host's ordering, for a viewer whose link
+ * lets them put either on (GET /together/up-next, D471 §3): each undefined where nothing does.
  */
-export async function requestTogetherUpNext(
+export async function requestTogetherAround(
   api: Api,
   headers: Readonly<Record<string, string>>,
-): Promise<UpNext | undefined> {
+): Promise<AroundFile> {
   const answer = dataOrThrow(await api.GET("/together/up-next", { headers }));
-  return answer.upNext ?? undefined;
+  return { upNext: answer.upNext ?? undefined, previous: answer.previous ?? undefined };
 }
+
+/** The membership whose playback this page asked for last, which its media loads are signed with. */
 
 const mediaViewer: { credential: string | undefined } = { credential: undefined };
 

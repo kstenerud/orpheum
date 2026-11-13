@@ -51,12 +51,21 @@
   min-height: 60dvh;
 }
 
-/* Every viewer's full screen, the stage's, at the film's corner. */
-.together-viewer__fullscreen {
+/*
+ * At the film's corner: every viewer's full screen, the stage's, with ⏮ and ⏭ before it for a guest
+ * whose link lets them put on the episode after or before (D471).
+ */
+.together-viewer__corner {
   position: absolute;
   inset-block-end: var(--space-2);
   inset-inline-end: var(--space-2);
   z-index: 2;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.together-viewer__fullscreen {
   opacity: 0.85;
 }
 

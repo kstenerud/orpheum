@@ -36,6 +36,7 @@ import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts"
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
+import { SequenceMoveButton, type SequenceMoves } from "./player-controls.tsx";
 import { useStallReports } from "./play-state.ts";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
@@ -51,7 +52,7 @@ import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
-import { requestTogetherPlayback, requestTogetherUpNext } from "./together-playback.ts";
+import { requestTogetherAround, requestTogetherPlayback } from "./together-playback.ts";
 import { UpNextOffer } from "./up-next.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
@@ -568,7 +569,8 @@ function GuestStalls(props: FilmParts): JSX.Element {
 
 /**
  * Over the guest's film: the video following the group, Tap for sound and Full screen, which stays
- * the stage's, and Up next where their link lets them put it on (D471 §2).
+ * the stage's, and where their link lets them put on the episode after or before, ⏮ and ⏭ beside
+ * Full screen and Up next (D471 §2, §3).
  */
 function FollowingGroup(props: FilmParts): JSX.Element {
   const { fileId, following, isVoiceWaiting } = useGuestFilm();
@@ -576,40 +578,55 @@ function FollowingGroup(props: FilmParts): JSX.Element {
   useFullScreenOnTheStage(props.videoRef);
   // A link's rights never change, and are known by the time a film is on.
   const { canNext } = following.connection.snapshot().rights;
-  return (
-    <>
-      <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />
-      {canNext ? <GuestUpNext videoRef={props.videoRef} /> : null}
-    </>
-  );
+  const buttons = { ...muted, isVoiceWaiting, videoRef: props.videoRef };
+  return canNext ? <MovesTheGroup {...buttons} /> : <FilmButtons {...buttons} />;
 }
 
 /**
- * The episode after the group's film, offered near its end as the host's own player offers it, which
- * puts it on for everyone (D471 §2, §3). It does not count down: whose autoplay moves the group on
- * is not decided (D471's open question), and the host's own still does.
+ * For a guest whose link lets them put on the episode after or before the group's film (D471 §2):
+ * read once from GET /together/up-next, ⏮ and ⏭ beside Full screen, each where there is one, as the
+ * host's own bar draws them (D407 §2), and the episode after offered near the film's end as the
+ * host's own player offers it; each puts it on for everyone. The offer does not count down: only the
+ * host's player does (D471, the owner's answers).
  */
-function GuestUpNext(props: {
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-}): JSX.Element | null {
+function MovesTheGroup(props: FilmButtonsParts): JSX.Element {
   const { fileId, following, headers } = useGuestFilm();
   const { api } = useServices();
-  const [around] = useResource(`together-up-next/${String(fileId)}`, () =>
-    requestTogetherUpNext(api, headers),
+  const [read] = useResource(`together-up-next/${String(fileId)}`, () =>
+    requestTogetherAround(api, headers),
   );
-  const upNext = around.state === "loaded" ? around.value : undefined;
-  if (upNext === undefined) {
-    return null;
-  }
+  const around = read.state === "loaded" ? read.value : undefined;
+  const hasPrevious = around?.previous !== undefined;
+  const upNext = around?.upNext;
+  const { connection } = following;
+  const moves = useMemo(
+    (): SequenceMoves => ({
+      previous: hasPrevious
+        ? () => {
+            connection.command({ command: "previous" });
+          }
+        : undefined,
+      next:
+        upNext === undefined
+          ? undefined
+          : () => {
+              connection.command({ command: "next" });
+            },
+    }),
+    [connection, hasPrevious, upNext],
+  );
   return (
-    <UpNextOffer
-      upNext={upNext}
-      isAutoplayOn={false}
-      videoRef={props.videoRef}
-      onPlay={() => {
-        following.connection.command({ command: "next" });
-      }}
-    />
+    <>
+      <FilmButtons {...props} moves={moves} />
+      {upNext === undefined || moves.next === undefined ? null : (
+        <UpNextOffer
+          upNext={upNext}
+          isAutoplayOn={false}
+          videoRef={props.videoRef}
+          onPlay={moves.next}
+        />
+      )}
+    </>
   );
 }
 
@@ -731,19 +748,24 @@ function useFollowing(
   return { isMuted, turnSoundOn };
 }
 
+/** What the buttons over a guest's film are given: the film's sound and its video. */
+interface FilmButtonsParts extends MutedFilm {
+  readonly isVoiceWaiting: boolean;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}
+
 /**
  * Over a film the browser would only play muted, or while the voices wait for a tap, the tap that
  * turns the sound back on, small, at the film's top (the voices' is the page's, playWaitingAtTaps);
- * and Full screen, which every viewer has: the stage's, which holds these over the film, never the
- * video's, which would show the film alone (the owner, Firefox on Android, 2026-11-07).
+ * and at its corner Full screen, which every viewer has: the stage's, which holds these over the
+ * film, never the video's, which would show the film alone (the owner, Firefox on Android,
+ * 2026-11-07); with ⏮ and ⏭ before it, each where moves gives it (D471).
  */
 function FilmButtons(
-  props: MutedFilm & {
-    readonly isVoiceWaiting: boolean;
-    readonly videoRef: RefObject<HTMLVideoElement | null>;
-  },
+  props: FilmButtonsParts & { readonly moves?: SequenceMoves | undefined },
 ): JSX.Element {
   const { t } = useTranslation();
+  const { moves } = props;
   return (
     <>
       {props.isMuted || props.isVoiceWaiting ? (
@@ -751,15 +773,23 @@ function FilmButtons(
           {t("together.soundBack")}
         </button>
       ) : null}
-      <button
-        type="button"
-        className="together-viewer__fullscreen"
-        onClick={() => {
-          toggleFullScreen(props.videoRef.current?.closest(".film-player__stage"), document);
-        }}
-      >
-        {t("together.fullscreen")}
-      </button>
+      <div className="together-viewer__corner">
+        {moves?.previous === undefined ? null : (
+          <SequenceMoveButton isOverVideo isForward={false} onMove={moves.previous} />
+        )}
+        {moves?.next === undefined ? null : (
+          <SequenceMoveButton isOverVideo isForward onMove={moves.next} />
+        )}
+        <button
+          type="button"
+          className="together-viewer__fullscreen"
+          onClick={() => {
+            toggleFullScreen(props.videoRef.current?.closest(".film-player__stage"), document);
+          }}
+        >
+          {t("together.fullscreen")}
+        </button>
+      </div>
     </>
   );
 }

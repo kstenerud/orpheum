@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
 import {
+  buttonNamed,
   buttonWithText,
   click,
   enter,
@@ -387,6 +388,66 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(shown).toEqual([
       "canNext true: offered true, asked true",
       "canNext false: offered false, asked false",
+    ]);
+  });
+
+  it("draws ⏮ and ⏭ beside Full screen for a viewer whose link lets them put the episode before or after on, each where there is one, and puts it on for everyone; none to one whose link does not (D471)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const upNext = {
+      episode: { itemId: 9, name: "Bag", groupNumber: 1, numberInGroup: 3, fileId: 6 },
+      ordering: "aired",
+      isOnlyGroup: false,
+    };
+    const previous = { itemId: 7, name: "Pilot", groupNumber: 1, numberInGroup: 1, fileId: 4 };
+    const shown: string[] = [];
+    for (const [canNext, around] of [
+      [true, { upNext, previous }],
+      [true, { upNext }],
+      [true, { previous }],
+      [false, { upNext, previous }],
+    ] as const) {
+      const { services, heard, server } = viewerServices("/together", {
+        "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+        "GET /together/up-next": [200, around],
+      });
+      const mounted = await mount(withServices(<TogetherViewer />, services));
+      await click(buttonWithText(mounted.container, "Tap to continue"));
+      await server.accept();
+      await server.say({ ...welcome, rights: { canPlayPause: true, canSeek: true, canNext } });
+      await server.say({
+        type: "group",
+        seq: 2,
+        group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
+      });
+      const corner = mounted.container.querySelector<HTMLElement>(".together-viewer__corner");
+      const names = [...(corner?.querySelectorAll("button") ?? [])].map(
+        (each) => each.getAttribute("aria-label") ?? each.textContent,
+      );
+      for (const name of ["Previous episode", "Next episode"]) {
+        const move = buttonNamed(mounted.container, name);
+        if (move !== undefined) {
+          await click(move);
+        }
+      }
+      const commands = server.heard
+        .filter((message) => message["type"] === "command")
+        .map((message) => String(message["command"]));
+      const isAsked = heard.some((each) => each.methodAndPath === "GET /together/up-next");
+      shown.push(
+        `canNext ${String(canNext)}, ${Object.keys(around).join(" and ")}: ${names.join(", ")}; sent ${
+          commands.length === 0 ? "nothing" : commands.join(", ")
+        }; asked ${String(isAsked)}`,
+      );
+      mounted.unmount();
+    }
+    expect(shown).toEqual([
+      "canNext true, upNext and previous: Previous episode, Next episode, Full screen; sent previous, next; asked true",
+      "canNext true, upNext: Next episode, Full screen; sent next; asked true",
+      "canNext true, previous: Previous episode, Full screen; sent previous; asked true",
+      "canNext false, upNext and previous: Full screen; sent nothing; asked false",
     ]);
   });
 
