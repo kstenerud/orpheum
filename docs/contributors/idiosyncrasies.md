@@ -2705,7 +2705,18 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   milliseconds; `TestSettings_PionsOwnGoQuietOverALossyLinkPastThePagesLimit` shows pion's own
   settings miss the 40 s with a one-packet window. `vnet.NewRouter` panics with no `LoggerFactory`, and `vnet` counts MAC addresses in a package
   variable it does not lock (`net.go`, `newMACAddress`), so two tests making virtual networks at once
-  race: the tests do not run in parallel.
+  race: the tests do not run in parallel. Closing the two peers at once hung the bubble now and then
+  for good (**[measured]** one run in six, 2026-11-13): when the other side's ABORT, or pion's own
+  close on a DTLS close_notify, has already ended an association's write loop, pion/sctp's `Abort`
+  waits out two 200 ms timers (`association.go`, `flushTimeout`) inside `SCTPTransport.Stop`, which
+  holds the transport's lock, while the goroutine that accepted data channels blocks on that lock to
+  report the close (pion/webrtc v4.2.23 `sctptransport.go`, `acceptDataChannels` → `onClose`). A
+  goroutine waiting on a `sync.Mutex` is not durably blocked, so the bubble never idles, its clock
+  never moves and no timer in it fires, the test's own bounds included. The tests turn off
+  close-by-DTLS on both peers, close the client, wait for the core's `SCTPTransport.OnClose` before
+  closing it, and close with `GracefulClose`, which waits for pion's goroutines: the bubble's clock
+  stops once the test's own goroutine returns, so a goroutine still waiting on a timer then fails it
+  as a deadlock.
 - **Evidence:** the core's log, the owner's train, 2026-11-13 (VQ316). **[source]** libwebrtc caps
   Chrome's own backoff at 3 s: `media/sctp/dcsctp_transport.cc`, `kMaxTimerBackoffDuration =
   DurationMs(3000)`, "When there is packet loss for a long time, the SCTP retry timers will use
