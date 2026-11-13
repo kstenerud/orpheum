@@ -153,7 +153,7 @@ function HostedSession(props: {
   const [asked, reload] = useResource(
     `together/${String(sessionId)}`,
     async () => await detailsOf(api, sessionId),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const known = knownDetailsOf(sessionId);
   const details: typeof asked =

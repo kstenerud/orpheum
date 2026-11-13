@@ -709,7 +709,7 @@ export function Series(props: {
         ),
       );
     },
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
   const season = useSeasonReturnedTo(props.id, props.season);

@@ -229,7 +229,7 @@ export function Identify(): JSX.Element {
       );
       return { ambiguous: ambiguous ?? [], unidentified: unidentified ?? [] };
     },
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   return (
     <section aria-labelledby="identify-heading">

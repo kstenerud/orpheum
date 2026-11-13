@@ -94,7 +94,9 @@ export function isCancellable(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), useBackgroundChangesPoller());
+  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), {
+    poller: useBackgroundChangesPoller(),
+  });
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     problemText(t, cause, { conflict: t("jobs.alreadyEnded") }),
   );

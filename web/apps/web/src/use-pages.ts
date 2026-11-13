@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
 
 import { inPieces } from "./in-pieces.ts";
@@ -335,15 +335,20 @@ export interface PagesOptions<T> {
   readonly remembered?: RememberedList<T> | undefined;
 }
 
+/** How a list's first read is made and heard: what it loads, how it shows pages, and how it fails. */
+interface FirstRead<T> {
+  readonly load: (cursor: string) => Promise<Page<T>>;
+  readonly show: (pages: ReadPage<T>[]) => Promise<unknown>;
+  readonly fail: (cause: unknown) => void;
+}
+
 /**
  * Reads load's first page, shown, or its failure, again whenever load is a different read; a list
  * kept in the tab is shown from there first, each item read again that did not change kept the one
  * shown.
  */
 function useFirstPage<T>(
-  load: (cursor: string) => Promise<Page<T>>,
-  show: (pages: ReadPage<T>[]) => Promise<unknown>,
-  fail: (cause: unknown) => void,
+  { load, show, fail }: FirstRead<T>,
   kept: readonly ReadPage<T>[] | undefined,
 ): void {
   const keptRef = useRef(kept);
@@ -381,6 +386,165 @@ function firstOf<T>(page: Page<T>, count: number): Page<T> {
 }
 
 /**
+ * What a list's poll reads against (Shown), its first drawing drawn items long, kept for as long as
+ * the component shows the list, and saying when it no longer does (isMounted).
+ */
+function useShown<T>(drawn: number): RefObject<Shown<T>> {
+  const shown = useRef<Shown<T>>({
+    pages: undefined,
+    held: undefined,
+    drawn,
+    drawnThrough: 0,
+    isDrawing: false,
+    hasFailed: false,
+    isLoadingMore: false,
+    range: undefined,
+    isMounted: true,
+  });
+  useEffect(() => {
+    const state = shown.current;
+    state.isMounted = true;
+    return () => {
+      state.isMounted = false;
+    };
+  }, []);
+  return shown;
+}
+
+/**
+ * How a list draws the first count of the items it holds: as a commit of its own at once (isNow),
+ * or with the render's others.
+ */
+function useDrawFirst<T>(
+  shown: RefObject<Shown<T>>,
+  setLoadedSoFar: (loadedSoFar: Resource<Page<T>>) => void,
+): (count: number, isNow: boolean) => void {
+  return useCallback(
+    (count: number, isNow: boolean): void => {
+      const state = shown.current;
+      const page = state.held;
+      if (page === undefined) {
+        return;
+      }
+      state.drawn = Math.min(count, page.items.length);
+      const draw = (): void => {
+        setLoadedSoFar({ state: "loaded", value: firstOf(page, state.drawn) });
+      };
+      if (isNow) {
+        flushSync(draw);
+      } else {
+        draw();
+      }
+    },
+    [shown, setLoadedSoFar],
+  );
+}
+
+/** A list's drawing of what it holds: whether it is under way, a way to draw it, and drawThrough. */
+interface Drawing<T> {
+  readonly isDrawing: boolean;
+  /** Draws page, the list as held now, past the items already drawn; one under way draws it itself. */
+  readonly draw: (page: Page<T>) => Promise<void>;
+  readonly drawThrough: (count: number) => void;
+}
+
+/**
+ * Draws what a list holds in pieces past the items already drawn (inPieces), its first drawing
+ * drawnAtOnce at once and what drawThrough asks for at once; whatever came while it was drawn is
+ * drawn at its end.
+ */
+function useDrawing<T>(
+  shown: RefObject<Shown<T>>,
+  setLoadedSoFar: (loadedSoFar: Resource<Page<T>>) => void,
+): Drawing<T> {
+  const [isDrawing, setIsDrawing] = useState(false);
+  const drawFirst = useDrawFirst(shown, setLoadedSoFar);
+  const draw = useCallback(
+    async (page: Page<T>): Promise<void> => {
+      const state = shown.current;
+      if (state.isDrawing) {
+        // The drawing under way draws what is held now.
+        return;
+      }
+      const from = Math.min(state.drawn, page.items.length);
+      if (page.items.length - from <= 0) {
+        drawFirst(page.items.length, false);
+        return;
+      }
+      const atOnce = from === 0 ? drawnAtOnce : 0;
+      state.isDrawing = true;
+      setIsDrawing(true);
+      await inPieces({
+        count: page.items.length - from,
+        piece: itemsPerPiece,
+        showUpTo: (count) => {
+          const upTo = Math.max(from + count, atOnce, state.drawnThrough);
+          if (upTo > state.drawn) {
+            drawFirst(upTo, true);
+          }
+        },
+        isCurrent: () => state.isMounted,
+      });
+      state.isDrawing = false;
+      if (state.isMounted) {
+        // Whatever came while it was drawn: a list read again as its kept one was drawn.
+        drawFirst(state.held?.items.length ?? 0, false);
+        setIsDrawing(false);
+      }
+    },
+    [shown, drawFirst],
+  );
+  const drawThrough = useCallback(
+    (count: number): void => {
+      const state = shown.current;
+      state.drawnThrough = Math.max(state.drawnThrough, count);
+      if (state.isDrawing && count > state.drawn) {
+        drawFirst(count, false);
+      }
+    },
+    [shown, drawFirst],
+  );
+  return { isDrawing, draw, drawThrough };
+}
+
+/** Where a list shows the pages read: what it holds, every item held, and its drawing. */
+interface ShownIn<T> {
+  readonly shown: RefObject<Shown<T>>;
+  readonly setHeld: (held: readonly T[]) => void;
+  readonly draw: (page: Page<T>) => Promise<void>;
+}
+
+/**
+ * How a list shows the pages read: merged by options' idOf, held, kept in the tab where options say
+ * so, and drawn.
+ */
+function useShow<T>(
+  { shown, setHeld, draw }: ShownIn<T>,
+  options: PagesOptions<T>,
+): (pages: ReadPage<T>[]) => Promise<unknown> {
+  // Read through a ref, so a function made anew at each render does not read the list again.
+  const idOfNow = useRef(options.idOf);
+  idOfNow.current = options.idOf;
+  const rememberedNow = useRef(options.remembered);
+  rememberedNow.current = options.remembered;
+  return useCallback(
+    async (pages: ReadPage<T>[]): Promise<unknown> => {
+      const state = shown.current;
+      const page = merged(pages, idOfNow.current);
+      state.pages = pages;
+      state.held = page;
+      state.hasFailed = false;
+      setHeld(page.items);
+      const keptIn = rememberedNow.current;
+      keptIn?.in.set(keptIn.key, pages);
+      await draw(page);
+      return undefined;
+    },
+    [shown, setHeld, draw],
+  );
+}
+
+/**
  * Reads a list from load: a page at a time, or whole where load leaves its limit out (D475). A
  * different list is a different component: key it by what load reads, so it starts again from the
  * first page. Given options' idOf, an item read twice, as a list changing between two pages' reads
@@ -414,110 +578,26 @@ export function usePages<T>(
   );
   const [held, setHeld] = useState<readonly T[] | undefined>(undefined);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isDrawing, setIsDrawing] = useState(false);
   // What is shown and whether a page more is loading, as the poll, which outlives renders, reads them.
-  const shown = useRef<Shown<T>>({
-    pages: undefined,
-    held: undefined,
-    drawn: loadedSoFar.state === "loaded" ? loadedSoFar.value.items.length : 0,
-    drawnThrough: 0,
-    isDrawing: false,
-    hasFailed: false,
-    isLoadingMore: false,
-    range: undefined,
-    isMounted: true,
-  });
-  // Read through a ref, so a function made anew at each render does not read the list again.
-  const idOfNow = useRef(options.idOf);
-  idOfNow.current = options.idOf;
-  const rememberedNow = useRef(remembered);
-  rememberedNow.current = remembered;
-  const drawFirst = useCallback((count: number, isNow: boolean): void => {
-    const state = shown.current;
-    const page = state.held;
-    if (page === undefined) {
-      return;
-    }
-    state.drawn = Math.min(count, page.items.length);
-    const draw = (): void => {
-      setLoadedSoFar({ state: "loaded", value: firstOf(page, state.drawn) });
-    };
-    if (isNow) {
-      flushSync(draw);
-    } else {
-      draw();
-    }
-  }, []);
-  const show = useCallback(
-    async (pages: ReadPage<T>[]): Promise<unknown> => {
-      const state = shown.current;
-      const page = merged(pages, idOfNow.current);
-      state.pages = pages;
-      state.held = page;
-      state.hasFailed = false;
-      setHeld(page.items);
-      const keptIn = rememberedNow.current;
-      keptIn?.in.set(keptIn.key, pages);
-      if (state.isDrawing) {
-        // The drawing under way draws what is held now.
-        return undefined;
-      }
-      const from = Math.min(state.drawn, page.items.length);
-      if (page.items.length - from <= 0) {
-        drawFirst(page.items.length, false);
-        return undefined;
-      }
-      const atOnce = from === 0 ? drawnAtOnce : 0;
-      state.isDrawing = true;
-      setIsDrawing(true);
-      await inPieces({
-        count: page.items.length - from,
-        piece: itemsPerPiece,
-        showUpTo: (count) => {
-          const upTo = Math.max(from + count, atOnce, state.drawnThrough);
-          if (upTo > state.drawn) {
-            drawFirst(upTo, true);
-          }
-        },
-        isCurrent: () => state.isMounted,
-      });
-      state.isDrawing = false;
-      if (state.isMounted) {
-        // Whatever came while it was drawn: a list read again as its kept one was drawn.
-        drawFirst(state.held?.items.length ?? 0, false);
-        setIsDrawing(false);
-      }
-      return undefined;
+  const shown = useShown<T>(loadedSoFar.state === "loaded" ? loadedSoFar.value.items.length : 0);
+  const { isDrawing, draw, drawThrough } = useDrawing(shown, setLoadedSoFar);
+  const show = useShow({ shown, setHeld, draw }, options);
+  const fail = useCallback(
+    (cause: unknown): void => {
+      shown.current.hasFailed = true;
+      setLoadedSoFar({ state: "failed", cause });
     },
-    [drawFirst],
+    [shown],
   );
-  const fail = useCallback((cause: unknown): void => {
-    shown.current.hasFailed = true;
-    setLoadedSoFar({ state: "failed", cause });
-  }, []);
-  useEffect(() => {
-    const state = shown.current;
-    state.isMounted = true;
-    return () => {
-      state.isMounted = false;
-    };
-  }, []);
-  useFirstPage(load, show, fail, kept);
+  useFirstPage({ load, show, fail }, kept);
   usePagesPolling(poller, { load, shown, show });
   const loadMore = useLoadMore({ load, shown, show, fail }, setIsLoadingMore);
-  const drawThrough = useCallback(
-    (count: number): void => {
-      const state = shown.current;
-      state.drawnThrough = Math.max(state.drawnThrough, count);
-      if (state.isDrawing && count > state.drawn) {
-        drawFirst(count, false);
-      }
+  const showRange = useCallback(
+    (first: number, last: number): void => {
+      shown.current.range = { first, last };
     },
-    [drawFirst],
+    [shown],
   );
-  const showRange = useCallback((first: number, last: number): void => {
-    shown.current.range = { first, last };
-  }, []);
   // A failure its poller reads again after says so: the poller, not the read, decides it.
   const shownSoFar =
     loadedSoFar.state === "failed" && poller !== undefined

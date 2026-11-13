@@ -33,7 +33,7 @@ export function SystemBackups(): JSX.Element {
   const [backups, reload] = useResource(
     "backups",
     async () => dataOrThrow(await api.GET("/backups")),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const [isAsked, setIsAsked] = useState(false);
   const [isAsking, setIsAsking] = useState(false);

@@ -197,11 +197,9 @@ export async function listLibraries(api: Api): Promise<Library[]> {
 export function Libraries(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [libraries, reload] = useResource(
-    "libraries",
-    () => listLibraries(api),
-    useBackgroundChangesPoller(),
-  );
+  const [libraries, reload] = useResource("libraries", () => listLibraries(api), {
+    poller: useBackgroundChangesPoller(),
+  });
   return (
     <section className="libraries" aria-labelledby="libraries-heading">
       <h1 id="libraries-heading">{t("libraries.heading")}</h1>

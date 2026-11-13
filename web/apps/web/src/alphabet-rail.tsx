@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 
 import { ButtonByRole } from "./button-by-role.tsx";
 import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
+import { useLatest } from "./latest.ts";
 import { standTabStopAt, useRovingTabStop } from "./roving-tab-stop.ts";
 import type { Pages } from "./use-pages.ts";
 
@@ -350,8 +351,9 @@ export function useLetterJump<T extends { readonly letter?: string | undefined }
   const { jump, listRef, pages } = props;
   const isZToA = props.isZToA === true;
   const showWhenDrawn = useJumpedToShown(pages, listRef);
-  const heldRef = useRef(pages.held);
-  heldRef.current = pages.held;
+  // Read through a ref, so the list read again does not jump again: only a letter, or the list's
+  // first read, does.
+  const heldRef = useLatest(pages.held);
   const isHeld = pages.held !== undefined;
   const { drawThrough } = pages;
   useEffect(() => {
@@ -363,7 +365,7 @@ export function useLetterJump<T extends { readonly letter?: string | undefined }
     const place = found < 0 ? held.length - 1 : found;
     drawThrough(place + 1 + drawnPastAJump);
     showWhenDrawn(place);
-  }, [jump, isHeld, isZToA, drawThrough, showWhenDrawn]);
+  }, [jump, isHeld, isZToA, drawThrough, showWhenDrawn, heldRef]);
 }
 
 /**

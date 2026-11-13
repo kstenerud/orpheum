@@ -31,7 +31,7 @@ export function LabSound(): JSX.Element {
           params: { path: { purpose: "soundTiming", codec: "h264-aac" } },
         }),
       ),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   return (
     <LabFrame id="lab-sound" heading={t("lab.sound.heading")}>

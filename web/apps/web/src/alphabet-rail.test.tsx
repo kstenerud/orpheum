@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import { act, useState, type JSX } from "react";
+import { act, useEffect, useState, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { lettersOf, placeOfLetter } from "./alphabet-rail.tsx";
@@ -198,7 +198,9 @@ describe("Films' whole list, read in one request (D475)", () => {
     let showList: ((isShown: boolean) => void) | undefined;
     function BackAndForth(): JSX.Element {
       const [isShown, setIsShown] = useState(true);
-      showList = setIsShown;
+      useEffect(() => {
+        showList = setIsShown;
+      }, []);
       return isShown ? <RoutedBrowse kind="film" /> : <p>A film's page</p>;
     }
     const heard: Heard[] = [];

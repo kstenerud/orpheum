@@ -61,7 +61,7 @@ export function System(): JSX.Element {
   const [report, reload] = useResource(
     "system",
     async () => dataOrThrow(await api.GET("/system")),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const retiring = useRequest((cause) => problemText(t, cause));
   const retireNode = (nodeName: string): void => {

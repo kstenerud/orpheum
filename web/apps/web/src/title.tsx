@@ -551,7 +551,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
           }),
         ),
       ),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);
   usePageInterest(props.id);

@@ -89,11 +89,9 @@ export function CodeSignIn(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const services = useServices();
-  const [shown] = useResource(
-    "pairing",
-    () => lookAtPairing(services),
-    props.poller ?? pairingPolling,
-  );
+  const [shown] = useResource("pairing", () => lookAtPairing(services), {
+    poller: props.poller ?? pairingPolling,
+  });
   return (
     <CredentialsForm heading={t("codeSignIn.heading")} onSubmit={props.onBack}>
       {shown.state === "loaded" ? <PairingView shown={shown.value} /> : null}

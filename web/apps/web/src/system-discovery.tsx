@@ -48,7 +48,7 @@ export function SystemDiscovery(): JSX.Element {
   const [standing, reload] = useResource(
     "discovery",
     async () => dataOrThrow(await api.GET("/system/discovery")),
-    useBackgroundChangesPoller(),
+    { poller: useBackgroundChangesPoller() },
   );
   const connecting = useConnecting(reload);
   const claiming = useClaim(reload);
