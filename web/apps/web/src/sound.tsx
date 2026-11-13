@@ -6,6 +6,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useSoundPart } from "./sound-panel.ts";
@@ -79,7 +80,11 @@ export function useOwnChoice(
     );
   };
   const kind = choice === "isDialogueBoostOn" ? "boost" : "levelling";
-  useSoundPart(ways.isOffered === false ? undefined : { kind, isOn }, (chosen) => {
+  // A guest receiver is refused the person's preferences it would keep (D469 §4), so its remote is
+  // offered no choice.
+  const isGuest = useIsGuestReceiver();
+  const isOffered = ways.isOffered !== false && !isGuest;
+  useSoundPart(isOffered ? { kind, isOn } : undefined, (chosen) => {
     if ("isOn" in chosen && chosen.isOn !== isOn) {
       switchTo(chosen.isOn);
     }

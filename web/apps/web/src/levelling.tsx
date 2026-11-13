@@ -14,6 +14,7 @@ import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
+import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { tenthsText } from "./number-text.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { OwnChoiceBox, useOwnChoice, type OwnChoiceState } from "./sound.tsx";
@@ -152,7 +153,9 @@ export function useMeasuredLevel(
   const [canApplyGain] = useState(pageCanSetVolume);
   const [levellings, setLevellings] = useState<readonly Levelling[] | undefined>(undefined);
   const taken = measuredLevel(level, levellings, audioTrackIndex);
-  const isWanted = canApplyGain && !taken.levelling.isMeasured;
+  // A guest receiver is refused its file's waits (D469 §4): it plays the level it was given.
+  const isGuest = useIsGuestReceiver();
+  const isWanted = canApplyGain && !taken.levelling.isMeasured && !isGuest;
   const waits = useFileWaits(fileId, isWanted);
   const said = waits?.levellings ?? undefined;
   if (said !== undefined && said !== levellings) {

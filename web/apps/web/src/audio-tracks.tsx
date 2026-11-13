@@ -5,6 +5,7 @@ import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
+import { useIsGuestReceiver } from "./guest-receiver.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
@@ -117,10 +118,12 @@ export function useAudioChoice(props: AudioChoiceWays): AudioChoice {
   const [chosenStreamId, setChosenStreamId] = useState(props.decision.startingAudioStreamId);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const tracks = useMemo(() => props.decision.audioTracks ?? [], [props.decision.audioTracks]);
+  // A guest receiver keeps no choice, its person's preferences refused it (D469 §4): it plays one.
+  const isGuest = useIsGuestReceiver();
   const choose = (track: AudioTrack): void => {
     setProblem(undefined);
     setChosenStreamId(track.streamId);
-    keepAudioChoice(api, props.fileId, track.streamId).then(
+    (isGuest ? Promise.resolve() : keepAudioChoice(api, props.fileId, track.streamId)).then(
       () => {
         props.onChosen(track);
       },
