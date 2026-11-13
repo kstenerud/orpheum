@@ -11,14 +11,13 @@ import { enWatched } from "./en-watched.ts";
 import { enOrderings } from "./en-orderings.ts";
 import { enNavigation } from "./en-navigation.ts";
 import { enUpdate } from "./en-update.ts";
-import { enCredits } from "./en-credits.ts";
 import { enFind } from "./en-find.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
  * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
- * gallery's and the settings pages' words come with their screens' code (lab-words.ts,
- * gallery-words.ts, settings-words.ts), not here.
+ * gallery's, the settings pages' and a credited person's page's words come with their screens' code
+ * (lab-words.ts, gallery-words.ts, settings-words.ts, credits-words.ts), not here.
  */
 export const en = {
   ...enTogether,
@@ -32,7 +31,6 @@ export const en = {
   ...enOrderings,
   ...enNavigation,
   ...enUpdate,
-  ...enCredits,
   ...enFind,
   waits: {
     underAMinute: "less than a minute",

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./credits.css";
+import "./credits-words.ts";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
