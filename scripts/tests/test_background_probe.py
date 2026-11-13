@@ -137,6 +137,10 @@ class BackgroundProbe(unittest.TestCase):
             bp.gate_lock.mark(other, "check")
 
             def check_ends_and_a_spot_starts(_seconds):
+                # Bounded: a probe that waits behind the spot check too would sleep here forever,
+                # each sleep instant, and hang the suite rather than fail it (check-pr, 2026-11-13).
+                if len(seen) >= 3:
+                    raise AssertionError(f"it still waits behind {seen[-1]!r} after {len(seen)} waits")
                 seen.append(bp.gate_lock.holder_kind(bp.gate_lock.holder()))
                 bp.gate_lock.mark(other, "spot")
 
