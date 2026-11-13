@@ -3489,3 +3489,69 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
 
 **Then:** technical debt (code-debt.md), a code and architecture audit (audit-checklist.md) and what
 it finds that needs no input from the owner, then research for the plans not yet fleshed out.
+
+## Audit of the 11-24 batch (2026-11-13)
+
+The batch's commits since 2026-11-12 08:00, read against audit-checklist.md's "At every commit"
+(names, comments that drifted, one way to do each job) and for the new routes' security. Fixed
+without the owner, each in its own commit: "fix(auth): the AirPlay lab's grant ends with the session
+that made it" (the grant went on serving the person's film for up to its day after a sign-out or a
+new password: it served as its session with no check that the session still lived); "fix(api): a
+guest receiver's refusal names no Google Cast device"; "refactor(player): the chunk load policy's
+names say what they decide and count"; "refactor(library): a series page's still is asked for under
+series, not swapped in". For the owner, most serious first:
+
+1. **`POST /pairings/cast` skips a typed code's check code.** `isEnteredForThemselves`
+   (`internal/core/auth/guest_receivers.go`, under `CastToPairing`) takes any code the person
+   claimed for themselves, a typed one too, whose check code D288 §3 says must be matched before a
+   device signs in; `CastToPairing` then confirms it as matched. The web offers Cast only on a
+   scanned code, which has no check code (`Checking`, `device-activation.tsx`), and D469's status
+   leaves the typed path's Cast open, but the core does not hold the line: any client of the
+   person's can make a device whose code it typed a guest receiver without the match. Both D469
+   tests (`TestCastToPairing_SignsTheDeviceInAsAGuestReceiverOfTheSender`,
+   `TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone`) cast to a typed code, so
+   closing it changes what they prove. **Proposed:** refuse a code with a check code
+   (`known.checkCode != ""`, ErrNoPairing) and move the tests to a scanned service code; with no
+   paid service, then, nothing is cast to by code. Or, if typed codes should cast, take Cast as the
+   answer to the check (`POST /pairings/check` with the match and a cast choice).
+2. **A guest receiver's page asks for routes the core refuses it** (D469 §4's page, `GuestReceiving`
+   in `app.tsx`, reusing the person's Play and ready screens): Stop casting here
+   (`stop-casting-here.tsx`, `POST /me/casts/{id}/end`, `requireSignedIn` in `endCast`,
+   `casts.go`) answers 403 "signed in for one cast alone" on the TV, so only the phone or closing
+   the page ends the cast; Up next's read once the video played (`useAroundFile`, `around-file.ts`,
+   `GET /files/{id}/up-next`); the levelling's waits (`useFileWaits`, `GET /files/{id}/waits`);
+   a sound choice (`sound.tsx`, `PUT /me/preferences`); and, before `SignedIn` sees it is a guest,
+   `GET /client-settings` and `haveBackMySessions` (`GET /me/together`) in `app.tsx`'s `SignedIn`.
+   Each fails quietly but Stop. **Proposed:** `endCast` takes a guest receiver for its own cast, as
+   `acceptCast` does (requireSignedInOrGuest, the registry holding it to that cast); `SignedIn`
+   decides a guest before its reads (the guest's page a component of its own from `GET /me` on);
+   Up next, the levelling's waits and the sound choices are not offered on a guest's page; and a
+   test renders the guest's play screen against an API that refuses each route the core refuses a
+   guest, failing on any request it makes to one.
+3. **Three wait helpers** (rule 11, already past two): `elapsed` (`google-cast.ts`, the Chromecast
+   batch), `waitFor` (`reopen.ts`, exported for D469's `device-activation.tsx`) and `waitMs`
+   (`part-load.ts`), each a `setTimeout` in a promise. **Proposed:** one, `waitMs`, the others
+   importing it; left for the owner as the rule says to stop at a third.
+4. **The RTC end message is written twice with nothing tying the two:** `rtcapi`'s `End` encodes
+   `{"end":true}` and its test compares it with a Go literal, while the SDK sends its own
+   `endMessage` (`web/packages/sdk/src/rtc-request.ts`); the test's comment says "as the SDK reads
+   it". **Proposed:** a golden file both tests read.
+5. **Names for the owner (they reach the API):** `cancelResetLink`, `DELETE
+   /users/{id}/registration-invitation`, cancels every outstanding registration link, a person's
+   first registration links too, not only a reset link (`CancelResetLink`'s comment says so); and
+   `Auth.ResetLink` gives the link's expiry, never the link (`ResetLinkExpiresAt` would read
+   right). Go's `preferences.LibrarySort` is a sort and its way, where the web's `LibrarySort`
+   (`router.ts`) is the sort alone and its pair is `SortChoice`, as the API's `SortChoiceBody` is:
+   `preferences.SortChoice` would read the same in both.
+6. **Low, for the watch list:** `lab-cast-target.tsx` reads its messages' fields with its own
+   `typeof … Reflect.get` in three functions (`pairingCodeOf`, `isTargetReady`, `refusalOf`) where
+   `cast-sdk.ts` has `at`; Up next's `NextWarm.warm.preload` (`watching.ts`) is never set for the
+   next episode since "Up next's warm-up asks the next episode's decision alone, preloading
+   nothing".
+
+Checked and sound: a guest receiver's session reaches only `GET /me` (its trimmed body), its cast's
+accept, its playback and reports, its media and the live socket, each holding it to its cast;
+`castToPairing` refuses a guest sender and a code entered for someone else; the reset link is one
+at a time, cancels the earlier in the same write, and shows only its expiry; the alphabet rail's
+letters keep Space and Enter; `Fake.AwaitArmed` wakes on every arming; no commit prints a secret or
+names a film.
