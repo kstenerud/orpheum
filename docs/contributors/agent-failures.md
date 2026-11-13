@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A74 — Listed a step as still the owner's that the lead's own commit had done the day before (2026-11-13)
+
+- **What happened:** listing the questions still open, the lead told the owner that production's
+  Chromecast receiver application ID was still theirs to make, "as far as I know". The owner had
+  made it on 2026-11-12, and the lead had committed it to Connect's production compose file the same
+  day ("build(production): connectd names production's Cast receiver application"). The list was
+  drawn from a handoff memory written before that commit, and not checked against the repository.
+- **Caught by:** the owner, giving the ID again.
+- **Gate:** none. The lesson: a list of what is open is checked against the repositories (here, a
+  `git log -S` of the value's place) before it reaches the owner; a memory says what was open when
+  it was written.
+
 ### A73 — Said a web change reached orpheum.cc with Connect's deploy alone, when the loader runs the core's client (2026-11-12)
 
 - **What happened:** after the Cast menu gained its "Show the cast log on the TV" box, the lead

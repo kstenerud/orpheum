@@ -3729,3 +3729,11 @@ them (2026-11-13). Deploys go to staging; production waits for the owner.
    node was not given is logged once when it goes missing and once when it comes back, not at every
    scan; the library's row says so ("This folder is not available to the media node"); the rest of
    the library scans as now.
+8. **Title 13's match: "Rescan everything" is enough** (the owner). A guess no person confirmed is
+   matched again under the current rules (D357 §3), once the rescan settles; old guesses are not
+   re-settled on their own, and D357 stands.
+9. **A cast target's rights** (the owner): *"if the cast-to device is capable of performing the
+   action, it should have permission to as well. Then the action can be performed by caster or
+   castee alike."* A target without input, as a Chromecast, only shows.
+10. **The operator console's WireGuard peers: the owner's laptop and phone;** the UDP port on
+    prod-api is to be opened (orpheum-connect's `docs/plans/operator-console.md` §6).
