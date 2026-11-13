@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
+import { agentHelpFiles, agentHelpSource } from "./src/agent-help";
 import { chunkModules } from "./src/chunk-modules";
 import { devAllowedHosts } from "./src/dev-hosts";
 
@@ -33,6 +34,24 @@ function recordChunkModules(directory: string | undefined, build: string): Plugi
   };
 }
 import { devServerOrigin } from "./src/dev-server";
+
+/**
+ * Writes the setup help for a person's AI agent beside the client's files, from its one source
+ * under docs/users/, and /llms.txt naming it (src/agent-help.ts): the core and the loader serve them
+ * as they serve the client's other files.
+ */
+function agentHelp(): Plugin {
+  return {
+    name: "orpheum-agent-help",
+    apply: "build",
+    generateBundle() {
+      const source = readFileSync(path.join(repoRoot, agentHelpSource), "utf8");
+      for (const file of agentHelpFiles(source)) {
+        this.emitFile({ type: "asset", fileName: file.fileName, source: file.source });
+      }
+    },
+  };
+}
 
 // The WebRTC path's service worker (src/sw.ts), built on its own into dist/sw.js beside the app: one
 // self-contained classic script, since a module worker is not run by every browser the client
@@ -65,7 +84,7 @@ export default defineConfig(({ command, mode }) => {
   }
   const target = devServerOrigin(env["ORPHEUM_DEV_SERVER"], command);
   return {
-    plugins: [react(), recordChunkModules(mapDirectory, "client")],
+    plugins: [react(), recordChunkModules(mapDirectory, "client"), agentHelp()],
     // No .env files: the configuration is what the process was given (D204).
     envDir: false,
     build: {

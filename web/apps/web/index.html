@@ -11,9 +11,23 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="help" href="/agent-setup.md" type="text/markdown" />
+    <link
+      rel="alternate"
+      href="/agent-setup.md"
+      type="text/markdown"
+      title="Setup help for an AI agent"
+    />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- For an agent that reads without running script; the client's first drawing replaces it. -->
+    <div id="root">
+      <p>
+        An AI agent setting up Orpheum for a person finds its setup help as plain text at
+        <a href="/agent-setup.md">/agent-setup.md</a>, and listed in
+        <a href="/llms.txt">/llms.txt</a>.
+      </p>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
