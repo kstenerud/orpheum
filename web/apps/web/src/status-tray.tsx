@@ -244,6 +244,7 @@ function NeedsAttentionSign(): JSX.Element | null {
     matchCount,
     seriesReadWronglyCount,
     filmsWithoutSoundCount,
+    rescansGivenUp,
   } = counts.value;
   if (
     rootCount +
@@ -252,7 +253,8 @@ function NeedsAttentionSign(): JSX.Element | null {
       unreadCount +
       matchCount +
       seriesReadWronglyCount +
-      filmsWithoutSoundCount ===
+      filmsWithoutSoundCount +
+      (rescansGivenUp?.length ?? 0) ===
       0 &&
     !hasCopyWarning(counts.value)
   ) {

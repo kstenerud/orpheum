@@ -4,11 +4,13 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 )
 
 // attentionListedAtMost bounds each list /needs-attention answers, so one library read badly makes
@@ -43,6 +45,10 @@ type NeedsAttentionOutput struct {
 		// At most 100 are listed; FilmsWithoutSoundCount is how many there are in all (D432 §4).
 		FilmsWithoutSound      []FilmWithoutSoundBody `maxItems:"100" json:"filmsWithoutSound"`
 		FilmsWithoutSoundCount int                    `json:"filmsWithoutSoundCount"`
+		// RescansGivenUp are the libraries whose rescan gave up, their files changing every time they
+		// were read, until a later rescan of each finishes (the owner, 2026-11-13). At most 100 are
+		// listed, one a library.
+		RescansGivenUp []RescanGivenUpBody `maxItems:"100" json:"rescansGivenUp,omitempty"`
 		// StoodAsideAt is when the discovery refused this server as a copy of another that serves, so
 		// that it asks no more until an admin asks again (D437 §3, §4); 0 while it asks.
 		StoodAsideAt int64 `json:"stoodAsideAt"`
@@ -58,6 +64,13 @@ type SeriesReadWronglyBody struct {
 	SeriesID      int64  `json:"seriesId"`
 	Name          string `json:"name"`
 	UnplacedCount int    `doc:"How many of its episodes have no number outside a specials or extras folder" json:"unplacedCount"` //nolint:lll // one struct tag
+}
+
+// RescanGivenUpBody is a library whose rescan gave up.
+type RescanGivenUpBody struct {
+	LibraryID int64  `json:"libraryId"`
+	Name      string `json:"name"`
+	GivenUpAt int64  `doc:"When it gave up, in Unix milliseconds" json:"givenUpAt"`
 }
 
 // FilmWithoutSoundBody is a film whose video file has no sound track.
@@ -133,7 +146,27 @@ func (server *Server) getNeedsAttention(
 		output.Body.FilmsWithoutSound = append(output.Body.FilmsWithoutSound,
 			FilmWithoutSoundBody{ItemID: film.TitleID, Name: film.Name})
 	}
+	if err := addRescansGivenUp(ctx, output, dependencies.Rescans); err != nil {
+		return nil, server.libraryError(ctx, "list the rescans given up", err)
+	}
 	return output, nil
+}
+
+// addRescansGivenUp lists into output the libraries whose rescan gave up (the owner, 2026-11-13).
+func addRescansGivenUp(ctx context.Context, output *NeedsAttentionOutput, rescans *identify.Rescans) error {
+	if rescans == nil {
+		return nil
+	}
+	given, err := rescans.GivenUp(ctx)
+	if err != nil {
+		return fmt.Errorf("list them: %w", err)
+	}
+	for _, library := range given[:min(len(given), attentionListedAtMost)] {
+		output.Body.RescansGivenUp = append(output.Body.RescansGivenUp, RescanGivenUpBody{
+			LibraryID: library.LibraryID, Name: library.LibraryName, GivenUpAt: library.GivenUpAt,
+		})
+	}
+	return nil
 }
 
 // addOneCopyWarnings puts the discovery's two warnings of D437 §4 into output, as the System page

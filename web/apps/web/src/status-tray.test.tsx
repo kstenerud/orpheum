@@ -531,6 +531,34 @@ it("tells an admin of a film whose video has no sound, leading to it (the owner,
   expect(mounted.container.textContent).toContain(": its video has no sound track");
 });
 
+it("tells an admin of a library whose rescan gave up, leading to it (the owner, 2026-11-13)", async () => {
+  const gaveUp = {
+    ...nothingWrong,
+    rescansGivenUp: [{ libraryId: 3, name: "Films", givenUpAt: 9000 }],
+  };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, gaveUp] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, gaveUp], ...noUpdate }),
+    ),
+  );
+  expect(mounted.container.querySelector('a[href="/libraries/3"]')?.textContent).toBe("Films");
+  expect(mounted.container.textContent).toContain(
+    ": its rescan gave up, because the library changed every time it was read.",
+  );
+  expect(mounted.container.textContent).not.toContain("Nothing needs your attention.");
+});
+
 it("says how many more there are than Needs attention lists (D432 §4)", async () => {
   const many = {
     ...nothingWrong,

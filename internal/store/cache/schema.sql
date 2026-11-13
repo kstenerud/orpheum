@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 51
+-- cache schema version 52
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,6 +146,12 @@ CREATE TABLE rescan (
 ) STRICT;
 -- One rescan of a scope at a time: a second press while one runs adds nothing (D357 section 5).
 CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));
+-- A library whose rescan gave up, its files changing every time the sweep read them, which Needs
+-- attention lists until a later rescan of the library finishes (the owner, 2026-11-13).
+CREATE TABLE rescan_given_up (
+  library_id  INTEGER PRIMARY KEY,       -- persistent.db's library
+  given_up_at INTEGER NOT NULL
+) STRICT;
 
 -- D357: a film or series a rescan matches again, and what its files and NFOs say it is, read once
 -- the scan was over: the fetch_metadata job that runs for it, whichever, matches it from these.

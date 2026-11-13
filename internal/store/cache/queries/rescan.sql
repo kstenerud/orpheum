@@ -69,3 +69,16 @@ FROM rescan WHERE id = sqlc.arg(id);
 -- name: DeleteRescan :exec
 -- A rescan ended: every film and series it listed was matched again.
 DELETE FROM rescan WHERE id = sqlc.arg(id);
+
+-- name: UpsertRescanGivenUp :exec
+-- A library's rescan gave up: its files changed every time they were read.
+INSERT INTO rescan_given_up (library_id, given_up_at) VALUES (sqlc.arg(library_id), sqlc.arg(given_up_at))
+ON CONFLICT (library_id) DO UPDATE SET given_up_at = excluded.given_up_at
+WHERE rescan_given_up.given_up_at IS NOT excluded.given_up_at;
+
+-- name: DeleteRescanGivenUp :exec
+-- A later rescan of the library finished.
+DELETE FROM rescan_given_up WHERE library_id = sqlc.arg(library_id);
+
+-- name: ListRescansGivenUp :many
+SELECT library_id, given_up_at FROM rescan_given_up ORDER BY library_id;

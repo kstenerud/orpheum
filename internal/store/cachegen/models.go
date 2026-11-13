@@ -80,6 +80,11 @@ type Rescan struct {
 	IsFull         int64
 }
 
+type RescanGivenUp struct {
+	LibraryID int64
+	GivenUpAt int64
+}
+
 type ResourceUse struct {
 	At          int64
 	Process     string
