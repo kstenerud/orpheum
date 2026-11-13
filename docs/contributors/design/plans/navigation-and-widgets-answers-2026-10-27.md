@@ -3641,3 +3641,57 @@ commits and test weakening passed first time. What failed, and what was done:
 6. **A gate idea for the owner:** a UI string an e2e spec waits for, removed from the catalogue,
    could fail `make check` (a lint over `web/e2e/` against the locales) rather than wait for
    check-pr's browser tier.
+
+## The 11-25 batch: the owner's answers on the 11-24 batch's questions (2026-11-13)
+
+The owner answered the questions of the three sections above, in their numbering as the lead put
+them (2026-11-13). Deploys go to staging; production waits for the owner.
+
+1. **Item 5, the hole at each switch: the lead's picks.** Every encoded rung keeps its source's time
+   base (`-enc_time_base:v -1`), its stores made again under a new store key (D392 §3), once the
+   MPEG-TS encode that ran past three minutes is understood; play waits for more than about 3 s
+   loaded when the first chunk is heavy, scaled to its size; and a second instrumented run over
+   2:30–4:00 on the testing Fire TV, with hls.js's own events, for why chunk 40 came at level 5.
+2. **Audit finding 2, a guest receiver's page: as proposed.** `SignedIn` knows a guest before its
+   reads; Up next, the levelling's waits and the sound choices are not offered on a guest's page; a
+   test fails on any request the guest's page makes to a route the core refuses a guest. The owner
+   asked whether Watch Together's guests follow the same rule, e.g. Up next shown only to a guest who
+   may go to the next or previous video. Today a guest's rights are play/pause and seek alone
+   (`nextRights`, D271 §4), and the guest's player shows no Up next, so it already holds; a right to
+   change the film would be new (amending D271), for the owner.
+3. **X2 (D469): as proposed.** The wording stays until VQ311; a typed code is never cast to.
+4. **X7 (D466):** Cancel and Renew keep their confirmation; 60 minutes stays. **New:** the page a
+   reset link opens says "Choose your new password" (a first registration's keeps "Choose your
+   password"); and **a bug:** the owner, re-using a used link, reached the password's entry before
+   any refusal. A used or voided link is to say at once, as its page opens, that it is no good.
+5. **X5 withdrawn, and in its place a list's choices are kept for the way back** (the owner:
+   *"remembering the sort order could lead to confusing UX if the person doesn't remember setting
+   the order"*; filters would have to be kept too, and a library could then open showing few or no
+   titles with no sign why). The sort kept on the account is removed. Instead, a list's filters and
+   sort are kept when the person comes back to it from what they opened from it: by Back, or up the
+   chain (episode 5 → season 2 → the series → Series). The top bar's buttons open the list at its
+   defaults.
+6. **X6:** both looks are fine.
+7. **Item 3:** the lab's words are fine.
+8. **Item 12: the lead's picks, "even if it was a large change I'd still want better UX".** Every
+   other `<button>` on a long list a key moves onto becomes a button by role; and the list's drawing
+   in 50 ms pieces, which kept the posters changing for about 40 s on the Fire TV, finishes sooner
+   or stops costing a move.
+9. **X4: agreed.** One gate change for options 2, 3, 5 and 6 (check-generated stamped, the lint
+   caches seeded, the web's static steps stamped, each step's time recorded), and the go for option
+   4 (the two browser walks split).
+10. **Audit findings 3 to 5: as proposed.** One wait helper, `waitMs`; the RTC end message in one
+    golden file both sides' tests read; the names: `Auth.ResetLink` → `ResetLinkExpiresAt`,
+    `cancelResetLink` named for what it cancels, every outstanding registration link
+    (`preferences.LibrarySort` goes with X5).
+11. **Item 8: not a matching bug, a rescan that never runs.** The owner pressed Identified
+    incorrectly, then Rescan, on staging's title 13, and it still showed the 2014 film. Staging's
+    log from 05:43 UTC: "a rescan waits for its library to stop changing … the write its last read
+    would make: clear item 112's credits" (and 183's, in turn), every 10 s: the read-only pass would
+    write those items' credits, and the filing between reads does not settle them, so library 1's
+    rescans never run. A serious bug, folded into this batch.
+12. **Connect's operator console:** the questions are §5 of orpheum-connect's
+    `docs/plans/operator-console.md`.
+13. **Item 2: on the testing Pixel**, which the owner has unlocked.
+14. **The e2e strings gate: agreed.** A UI string an e2e spec waits for, gone from the locales,
+    fails `make check`.
