@@ -3194,7 +3194,7 @@ below: "agreed. Release anyway". Found by the lead:
   again online only after a status it takes as the server's, and took the lost chunk's status 0 for
   its quality's failure; the player's load policy now asks a chunk nothing answered again twice in a
   row at its quality, 1 s and then 2 s later, on the connection up then, before hls.js tries a lower
-  one (`unansweredAsksAgain`; idiosyncrasies.md, "A chunk whose connection was lost, the browser
+  one (`unansweredAskAgainCount`; idiosyncrasies.md, "A chunk whose connection was lost, the browser
   online, is taken for its quality's failure").
 - **A cast can take a while to start playing on the Chromecast** (the owner, 2026-11-12, after VQ287
   passed: "Some of the casts can take multiple [seconds] to start playing video"). On staging's log,

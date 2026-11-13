@@ -7,7 +7,7 @@ import type { ErrorData, HlsConfig } from "hls.js";
 
 import { asksAgainAfterAtMostMs, asksAgainAfterMs } from "./abr-choice.ts";
 import { loadAgainFrom, orpheumAbr } from "./abr-controller.ts";
-import { chunkLoadPolicy, unansweredAsksAgain } from "./chunk-load-policy.ts";
+import { chunkLoadPolicy, unansweredAskAgainCount } from "./chunk-load-policy.ts";
 import type { PlaybackFailure } from "./failure.ts";
 import { failOnFatal } from "./hls.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
@@ -226,7 +226,7 @@ describe("a chunk lost with its connection, the browser online", () => {
     const { hls, failures } = playbackLoadingOn(new EventTarget(), undefined, {
       fragLoadPolicy: chunkLoadPolicy,
     });
-    for (let time = 1; time <= unansweredAsksAgain; time++) {
+    for (let time = 1; time <= unansweredAskAgainCount; time++) {
       const lost = chunkFailed(3, 7, 0);
       hls.trigger(Events.ERROR, lost);
       expect([lost.errorAction?.action, lost.errorAction?.nextAutoLevel, lost.fatal]).toEqual([
