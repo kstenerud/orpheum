@@ -28285,9 +28285,11 @@ request, every grant would have bound to the phone and refused the Mac.
    a device sharing the sender's address (behind the same NAT, away from home) is served as the
    sender is.
 
-**Status:** Decided 2026-11-13.
+**Status:** Decided 2026-11-13; built 2026-11-13: the grant keeps its sender's address from the
+POST's connection (`IssueAirPlayGrant`), and `admits` serves it before binding the first other.
 
 **Proven by:**
-- 1–3: internal/core/auth/airplay_test.go
-  (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther), internal/core/api/airplay_test.go
-  (TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders), VQ315
+- 1: internal/core/api/airplay_test.go (TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders)
+- 2: internal/core/auth/airplay_test.go (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther)
+- 3: internal/core/auth/airplay_test.go (TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther),
+  VQ315
