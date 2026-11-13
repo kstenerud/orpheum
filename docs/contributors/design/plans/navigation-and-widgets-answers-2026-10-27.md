@@ -3868,10 +3868,18 @@ largest library, at home and away, and which device the owner used.
 list with it, and the client reads the titles up to it in one request, or reads only the pages
 around it and leaves the gap above to fill as the person scrolls up.
 
-**The owner asked (2026-11-13) why the app does not keep track itself.** It holds only the pages it
-has read, and the rail's letters (`GET /items/letters`) come without places. Recommended: that
-answer gives each letter's count, from the same query, so the app knows where every letter starts
-before any press. A press then scrolls there at once; a letter already read is shown with no request,
-and one not yet read draws placeholder posters while one page `from` the letter (which `GET /items`
-already takes) fills the screen, the gap above filling as the person scrolls up. That needs the
-grid to hold pages that are not contiguous from the top.
+**The owner asked (2026-11-13) why the app does not keep track itself**, since the whole list's
+text is fetched up front (item 3 of the 11-11 answers above). What was built differs from that in
+two ways:
+
+- Films and Series read the whole list (`isReadWhole`, `browse.tsx`), but as every page in a row,
+  60 titles and then 120 a request, each waiting for the one before, not in one request. A library's
+  own page (`library-browse.tsx`) does not read it whole at all.
+- A jump never looks at what is loaded. It always asks the server for the letter's first title,
+  then waits for the reading to reach it (`loadUntil` waits on the read in flight first).
+
+**Recommended, as the owner meant it:** the whole list's text comes in one request on every list
+with a rail, a library's page included, and each title carries the letter the server files it
+under, so the client finds a letter among what it holds, in the server's order, the articles and
+the locale's collation included. A press then moves at once, with no request; the posters' images
+follow as they near the view, as now.
