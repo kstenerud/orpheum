@@ -162,13 +162,14 @@ func (server *Server) registerUsers() {
 		Extensions: callableBy(capabilityAdmin),
 	}, server.issueRegistrationInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "cancelResetLink", Method: http.MethodDelete,
-		Path:          pathRegistrationInvitation,
-		Summary:       "Cancel a person's outstanding reset password link; their password stays (D466 §4)",
+		OperationID: "cancelRegistrationLinks", Method: http.MethodDelete,
+		Path: pathRegistrationInvitation,
+		Summary: "Cancel every outstanding registration link of a person's, a reset password link among " +
+			"them; their password and sessions stay (D318 §3, D466 §4)",
 		Tags:          tags,
 		DefaultStatus: http.StatusNoContent,
 		Extensions:    callableBy(capabilityAdmin),
-	}, server.cancelResetLink)
+	}, server.cancelRegistrationLinks)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
 		Summary:    "Use an invitation or a registration link: make the account or set a new password, and sign in",
@@ -248,15 +249,17 @@ func (server *Server) issueRegistrationInvitation(
 	return &IssuedSecretOutput{Body: issuedSecretBody(invitation, dependencies.Discovery)}, nil
 }
 
-func (server *Server) cancelResetLink(ctx context.Context, input *RegistrationInvitationInput) (*struct{}, error) {
+func (server *Server) cancelRegistrationLinks(
+	ctx context.Context, input *RegistrationInvitationInput,
+) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	if err = dependencies.Auth.CancelResetLink(ctx, input.UserID); err != nil {
-		return nil, server.authError(ctx, "cancel a reset link", err)
+	if err = dependencies.Auth.CancelRegistrationLinks(ctx, input.UserID); err != nil {
+		return nil, server.authError(ctx, "cancel a person's registration links", err)
 	}
-	server.logger.InfoContext(ctx, "an admin cancelled a person's reset link", "userId", input.UserID)
+	server.logger.InfoContext(ctx, "an admin cancelled a person's registration links", "userId", input.UserID)
 	return &struct{}{}, nil
 }
 

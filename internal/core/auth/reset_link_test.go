@@ -129,7 +129,7 @@ func TestCancelResetLink_EndsItLeavingThePasswordAndSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = fixture.service.CancelResetLink(ctx, id); err != nil {
+	if err = fixture.service.CancelRegistrationLinks(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	_, err = fixture.service.Register(ctx, issued.Secret, "", "taken over", laptop)
@@ -145,7 +145,7 @@ func TestCancelResetLink_EndsItLeavingThePasswordAndSessions(t *testing.T) {
 	if _, err = fixture.service.Authenticate(ctx, session.Token); err != nil {
 		t.Errorf("the session after a cancelled reset link: %v, want it signed in still", err)
 	}
-	if err = fixture.service.CancelResetLink(ctx, 99); !errors.Is(err, ErrNoUser) {
+	if err = fixture.service.CancelRegistrationLinks(ctx, 99); !errors.Is(err, ErrNoUser) {
 		t.Errorf("cancelling no one's reset link: %v, want ErrNoUser", err)
 	}
 }

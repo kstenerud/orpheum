@@ -2667,8 +2667,8 @@ export interface paths {
         put?: never;
         /** A new registration link for a person; for one with a password, a reset link replacing the outstanding one (D466); their password works until it is used */
         post: operations["issueRegistrationInvitation"];
-        /** Cancel a person's outstanding reset password link; their password stays (D466 §4) */
-        delete: operations["cancelResetLink"];
+        /** Cancel every outstanding registration link of a person's, a reset password link among them; their password and sessions stay (D318 §3, D466 §4) */
+        delete: operations["cancelRegistrationLinks"];
         options?: never;
         head?: never;
         patch?: never;
@@ -12081,7 +12081,7 @@ export interface operations {
             };
         };
     };
-    cancelResetLink: {
+    cancelRegistrationLinks: {
         parameters: {
             query?: never;
             header?: never;

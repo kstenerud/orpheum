@@ -19253,7 +19253,7 @@
     },
     "/users/{id}/registration-invitation": {
       "delete": {
-        "operationId": "cancelResetLink",
+        "operationId": "cancelRegistrationLinks",
         "parameters": [
           {
             "in": "path",
@@ -19286,7 +19286,7 @@
             "session": []
           }
         ],
-        "summary": "Cancel a person's outstanding reset password link; their password stays (D466 §4)",
+        "summary": "Cancel every outstanding registration link of a person's, a reset password link among them; their password and sessions stay (D318 §3, D466 §4)",
         "tags": [
           "Users"
         ],

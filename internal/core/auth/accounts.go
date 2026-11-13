@@ -153,9 +153,10 @@ func (service *Service) ResetLinkExpiresAt(ctx context.Context, userID int64) (t
 	return time.UnixMilli(*expiresAt), true, nil
 }
 
-// CancelResetLink ends every outstanding registration link of the person's, a reset link among them,
-// which then sets no password (D318 §3, D466 §4); their password and sessions stay as they are.
-func (service *Service) CancelResetLink(ctx context.Context, userID int64) error {
+// CancelRegistrationLinks ends every outstanding registration link of the person's, a reset link
+// among them, which then sets no password (D318 §3, D466 §4); their password and sessions stay as
+// they are.
+func (service *Service) CancelRegistrationLinks(ctx context.Context, userID int64) error {
 	now := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if _, err := liveUser(ctx, queries, userID); err != nil {
