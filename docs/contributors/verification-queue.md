@@ -3079,6 +3079,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   chunk under the grant, all answered 200, and played. Way A fails: the iPhone's second element
   fetched and played the grant's chunks itself, and the Mac asked for nothing. At Stop the Mac
   stopped at once (a second Way B run). Open: Way A only, which the player does not need.
+  **Second run, 2026-11-13 11:40 to 12:01** (airplay.md, "The lab's second run"): films 2, 8, 13, 27
+  and 33 play with sound by Way B, seeking and pausing from the iPhone; the Mac plays on with the iPhone
+  locked or in another app, and stops as Safari comes back (unlocking, or returning to it).
 
 - [ ] **VQ311** — Cast to this device signs a device in for one cast, and it is let go as the cast
   ends (D469). On staging, open orpheum.cc on a television's browser (the TCL or the Fire TV) and
