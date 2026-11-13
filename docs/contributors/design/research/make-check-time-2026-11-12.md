@@ -173,6 +173,13 @@ run put its 1001 titles and positions at 0.5 s and its one-transaction `seedEpis
 at 34 s of its 37 s, so the longest test stays the package's wall, and the 79 s to 50 s the option
 expected needs that seeding cut too (the per-file triggers are the next place to look).
 
+**Options 2, 5 and 6, built** (2026-11-13, the owner's go): `check-generated` and the web's
+typecheck, lint and format check are stamped on what they read (`scripts/area_stamp.py`; a second
+`check-generated` on an unchanged tree went from 16 s to none), and every run of `make check`
+writes each step's time, the longest first, to `.git/gate-logs/check-verbose.steps`
+(`scripts/step_clock.sh` as make's shell under `quiet_gate.py`). Option 3 waits for its try: whether
+eslint's cache, keyed by file path, hits in another worktree.
+
 **Considered and not proposed:**
 
 - **The lock queue:** 4% of the time; nothing to win.
