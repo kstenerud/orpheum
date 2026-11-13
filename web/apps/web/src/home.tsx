@@ -6,33 +6,33 @@ import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { EntryPoster, type BrowseKind, type Entry } from "./browse.tsx";
-import { ContinueWatching } from "./continue-watching.tsx";
+import { ContinueWatching, loadHome, type HomeRows } from "./continue-watching.tsx";
 import { useLibrariesReached } from "./libraries-reached.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { PosterRow } from "./poster-row.tsx";
-import { dataOrThrow } from "./problem.ts";
 import type { Route } from "./router.ts";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { useWarmsPlay } from "./warm-play.ts";
-
-/**
- * How many of the newest films or series a home row shows, a best guess: three screens of a Fire TV's
- * row of six, the rest a list's own page away. A justified constant.
- */
-export const newestShown = 18;
 
 /**
  * Home (the owner, 2026-10-25: "an actual home page", which "should list half-finished stuff and also
  * newly added things. We'll also add more things later"): Continue Watching, then the newest films
  * and the newest series, each a row of posters. A row with nothing in it is not shown; with no library
- * at all, it says so (NoLibrariesYet). Once it has settled it warms the Play page's code under a loader
+ * at all, it says so (NoLibrariesYet). Every row comes in one read of GET /home, which one poll keeps
+ * (D476, principles §30). Once it has settled it warms the Play page's code under a loader
  * (warm-play.ts).
  */
 export function Home(): JSX.Element {
   const { t } = useTranslation();
+  const { api } = useServices();
+  const [home, readHomeAgain] = useResource(
+    "home",
+    (signal) => loadHome(api, signal),
+    useBackgroundChangesPoller(),
+  );
   useWarmsPlay();
   return (
     <section className="home" aria-labelledby="home-heading">
@@ -40,9 +40,9 @@ export function Home(): JSX.Element {
         {t("home.heading")}
       </h1>
       <NoLibrariesYet />
-      <ContinueWatching />
-      <NewestRow kind="film" />
-      <NewestRow kind="series" />
+      <ContinueWatching home={home} reload={readHomeAgain} />
+      <NewestRow kind="film" home={home} />
+      <NewestRow kind="series" home={home} />
     </section>
   );
 }
@@ -69,21 +69,21 @@ function NoLibrariesYet(): JSX.Element | null {
   );
 }
 
-/** The newest films or series, newest first, as a row of posters, each leading to its page. */
-export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | null {
+/**
+ * The newest films or series, newest first, as Home's read (home) has them from the libraries the
+ * person keeps on Home (D366 §5): a row of posters, each leading to its page.
+ */
+function NewestRow(props: {
+  readonly kind: BrowseKind;
+  readonly home: Resource<HomeRows>;
+}): JSX.Element | null {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const { kind } = props;
-  const [entries] = useResource(
-    `newest-${kind}`,
-    async () => {
-      // A row of Home: of the libraries the person keeps on Home (D366 §5).
-      const query = { kind: [kind], sort: "added" as const, limit: newestShown, home: true };
-      return dataOrThrow(await api.GET("/items", { params: { query } })).items ?? [];
-    },
-    useBackgroundChangesPoller(),
-  );
-  if (entries.state !== "loaded" || entries.value.length === 0) {
+  const { kind, home } = props;
+  if (home.state !== "loaded") {
+    return null;
+  }
+  const entries = (kind === "film" ? home.value.newestFilms : home.value.newestSeries) ?? [];
+  if (entries.length === 0) {
     return null;
   }
   const headingId = `home-newest-${kind}`;
@@ -99,7 +99,7 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
         </Link>
       </div>
       <PosterRow isArrival>
-        {entries.value.map((entry: Entry) => (
+        {entries.map((entry: Entry) => (
           <EntryPoster key={entry.id} kind={kind} entry={entry} />
         ))}
       </PosterRow>
@@ -109,7 +109,7 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
 
 /**
  * Where a newest row's See all leads (the owner, 2026-11-04): Films or Series sorted by date added,
- * which runs newest first, the row's own order, past the row's newestShown.
+ * which runs newest first, the row's own order, past the row's last.
  */
 export function newestListRoute(kind: BrowseKind): Route {
   return { screen: kind === "film" ? "films" : "series", sort: "added" };

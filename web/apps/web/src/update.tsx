@@ -7,6 +7,7 @@ import type { StringStorage } from "./browser-storage.ts";
 import { shownAndEveryPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useShellPart } from "./shell-read.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** What the server knows of an update, for its admins (GET /system/update; security-updates.md). */
@@ -53,7 +54,8 @@ const SharedUpdateContext = createContext<SharedUpdate | undefined>(undefined);
  * Reads the update state once for everything within, for an admin: again each time the page is
  * shown and every ten minutes, so the menu's mark comes without a page change (D462 §10.9). A read
  * that fails keeps what was read before, so a moment offline takes no mark away; the page's Check
- * now says a failure itself. Nothing is asked for anyone else, whom the server would refuse.
+ * now says a failure itself. Nothing is asked for anyone else, whom the server would refuse. The
+ * shell's read says it first (D476).
  */
 export function UpdateProvider(props: {
   readonly isAdmin: boolean;
@@ -62,6 +64,9 @@ export function UpdateProvider(props: {
   const { api } = useServices();
   const lastReadRef = useRef<Update>(undefined);
   const { isAdmin } = props;
+  const fromShell = useShellPart((shell) => shell.update);
+  const shellUpdate =
+    fromShell === undefined || fromShell === "waiting" ? undefined : fromShell.value;
   const [update, readAgain] = useResource(
     isAdmin ? "system-update" : "system-update-not-admin",
     async (signal) => {
@@ -73,6 +78,7 @@ export function UpdateProvider(props: {
           await api.GET("/system/update", { signal: signal ?? null }),
         );
       } catch (cause) {
+        lastReadRef.current ??= shellUpdate;
         if (lastReadRef.current === undefined) {
           throw cause;
         }
@@ -81,6 +87,7 @@ export function UpdateProvider(props: {
       return lastReadRef.current;
     },
     isAdmin ? updatePoller : undefined,
+    isAdmin ? fromShell : undefined,
   );
   const shared = useMemo(() => ({ update, readAgain }), [update, readAgain]);
   return <SharedUpdateContext value={shared}>{props.children}</SharedUpdateContext>;

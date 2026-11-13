@@ -522,7 +522,7 @@ describe("the signed-in page's start", () => {
     const rows = heard
       .filter((each) => each.methodAndPath === "GET /home" || each.methodAndPath === "GET /items")
       .map((each) => `${each.methodAndPath}${each.query ?? ""}`);
-    expect(rows.length).toBe(3);
+    expect(rows.length).toBe(1); // every row in one read of GET /home (D476)
     // Each row is asked for once, not again when the poller takes the server's waits.
     expect(new Set(rows).size).toBe(rows.length);
     mounted.unmount();

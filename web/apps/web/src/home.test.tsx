@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { Home } from "./home.tsx";
+import { LibrariesReachedContext } from "./libraries-reached.ts";
+import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import { click, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
@@ -40,13 +42,8 @@ describe("home (the owner, 2026-10-25)", () => {
                 durationMs: 1000,
               },
             ],
-          },
-        ],
-        "GET /items": [
-          200,
-          {
-            items: [{ ...entry(7, "Metropolis"), watchedPercent: 25 }, entry(8, "Nosferatu")],
-            nextCursor: "",
+            newestFilms: [{ ...entry(7, "Metropolis"), watchedPercent: 25 }, entry(8, "Nosferatu")],
+            newestSeries: [{ ...entry(9, "Test Show"), watchedPercent: 0 }],
           },
         ],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
@@ -70,7 +67,6 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [] }],
       },
       heard,
@@ -114,7 +110,6 @@ describe("home (the owner, 2026-10-25)", () => {
             ],
           },
         ],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
         "POST /playback": [200, directDecision()],
       },
@@ -133,23 +128,46 @@ describe("home (the owner, 2026-10-25)", () => {
     expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);
   });
 
-  it("asks its newest rows of the libraries the person keeps on Home (D366 §5)", async () => {
+  it("reads every row in one read of the libraries the person keeps on Home, and polls it once (D366 §5, D476)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /home": [
+          200,
+          { continueWatching: [], newestFilms: [entry(8, "Nosferatu")], newestSeries: [] },
+        ],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       heard,
       "token",
     );
-    mounted = await mount(withServices(<Home />, services));
-    const rows = heard.filter((each) => each.methodAndPath === "GET /items");
-    expect(rows.map((each) => new URLSearchParams(each.query).get("home"))).toEqual([
-      "true",
-      "true",
-    ]);
+    // The polls running, the libraries' the shell's to keep (LibrariesReachedContext).
+    let polled = 0;
+    const counting: Poller = {
+      start: () => {
+        polled += 1;
+        return () => {
+          polled -= 1;
+        };
+      },
+    };
+    mounted = await mount(
+      withServices(
+        <BackgroundChangesContext value={counting}>
+          <LibrariesReachedContext value={{ state: "loaded", value: [] }}>
+            <Home />
+          </LibrariesReachedContext>
+        </BackgroundChangesContext>,
+        services,
+      ),
+    );
+    expect(
+      mounted.container.querySelectorAll('[aria-labelledby="home-newest-film"] .poster-card'),
+    ).toHaveLength(1);
+    // Every row in one read, which the server keeps to Home's libraries (D366 §5), and one poll.
+    expect(heard.filter((each) => each.methodAndPath === "GET /home")).toHaveLength(1);
+    expect(heard.filter((each) => each.methodAndPath === "GET /items")).toEqual([]);
+    expect(polled).toBe(1);
   });
 
   it("leads each newest row's See all to its list, newest added first (the owner, 2026-11-04)", async () => {
@@ -168,9 +186,10 @@ describe("home (the owner, 2026-10-25)", () => {
                 durationMs: 1000,
               },
             ],
+            newestFilms: [entry(8, "Nosferatu")],
+            newestSeries: [entry(9, "Test Show")],
           },
         ],
-        "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
@@ -197,7 +216,6 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
@@ -212,7 +230,6 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [] }],
       },
       [],
@@ -234,7 +251,6 @@ describe("home (the owner, 2026-10-25)", () => {
     const empty = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [] }],
       },
       [],
@@ -247,7 +263,6 @@ describe("home (the owner, 2026-10-25)", () => {
     const one = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],

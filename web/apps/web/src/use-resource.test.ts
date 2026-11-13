@@ -1,14 +1,14 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { act, createElement } from "react";
+import { act, createElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { mount, refusal, servedBy } from "./test-dom.tsx";
-import { useResource, type Resource } from "./use-resource.ts";
+import { useResource, type Given, type Resource } from "./use-resource.ts";
 
 /** Where load leaves useResource, once it has settled. */
 async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unknown>> {
@@ -196,5 +196,51 @@ describe("useResource", () => {
     expect(problemText(t, new TypeError("Failed to fetch"))).toBe(
       "The server could not be reached. Check the connection and try again.",
     );
+  });
+});
+
+describe("useResource, given a value another read holds (D476)", () => {
+  it("shows it in place of its first read, asks nothing while that read is waited on, and its poller asks next", async () => {
+    const poller = handPoller();
+    let reads = 0;
+    const seen: Resource<number>[] = [];
+    let give: (given: Given<number>) => void = () => undefined;
+    let reloadNow: () => void = () => undefined;
+    function Probe(): null {
+      const [given, setGiven] = useState<Given<number>>("waiting");
+      give = setGiven;
+      const [resource, reload] = useResource(
+        "probe",
+        () => {
+          reads += 1;
+          return Promise.resolve(2);
+        },
+        poller,
+        given,
+      );
+      reloadNow = reload;
+      seen.push(resource);
+      return null;
+    }
+    const settle = async (step: () => void): Promise<void> => {
+      await act(async () => {
+        step();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+    const mounted = await mount(createElement(Probe));
+    expect(seen.at(-1)).toEqual({ state: "loading" });
+    expect([reads, poller.asks.length]).toEqual([0, 0]);
+    await settle(() => {
+      give({ value: 1 });
+    });
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    expect(reads).toBe(0);
+    expect(await pollOnce(poller)).toBe("changed"); // the poll's first ask reads
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 2 });
+    const readsBefore = reads;
+    await settle(reloadNow);
+    expect(reads).toBeGreaterThan(readsBefore); // a reload reads
+    mounted.unmount();
   });
 });

@@ -110,11 +110,17 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 	if err != nil {
 		return nil, err
 	}
+	return knownUpdateOutput(dependencies), nil
+}
+
+// knownUpdateOutput is what the server knows of an update now, as GET /system/update and an admin's
+// shell read of /me say it (D476).
+func knownUpdateOutput(dependencies *Dependencies) *UpdateOutput {
 	known := discovery.Release{Version: dependencies.Version}
 	if dependencies.Releases != nil {
 		known = dependencies.Releases.Release()
 	}
-	return updateOutput(dependencies, known), nil
+	return updateOutput(dependencies, known)
 }
 
 // errNoReleaseCheck is Check now's refusal on a server that reads no release record.

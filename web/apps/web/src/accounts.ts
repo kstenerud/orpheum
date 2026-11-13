@@ -13,12 +13,12 @@ export type Account = components["schemas"]["UserEntryBody"];
 /**
  * What signing in answers: the new session's token, the device it is on, that device's secret, the
  * proof a later sign-in resumes it by (the third audit's A8), and its locator, which a discovery finds
- * the server by (discovery-core.md K7).
+ * the server by (discovery-core.md K7), and who is signed in, with what the shell reads as it starts (D476).
  */
 export type SignInResult = Readonly<
   Pick<components["schemas"]["SessionOutputBody"], "token" | "deviceSecret" | "locator">
 > & {
-  readonly user: { readonly device?: { readonly id: number; readonly name: string } };
+  readonly user: components["schemas"]["UserBody"];
 };
 
 /**
@@ -172,7 +172,7 @@ export async function signInThisDevice(
     { ...credentials, device: thisDevice(session) },
     idempotencyKey,
   );
-  session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
+  session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator, user });
 }
 
 /**

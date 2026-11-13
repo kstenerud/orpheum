@@ -58,6 +58,16 @@ func (server *Server) getClientSettings(
 	if err != nil {
 		return nil, err
 	}
+	body, err := server.clientSettingsBody(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	return &ClientSettingsOutput{Body: body}, nil
+}
+
+// clientSettingsBody is the server settings every client reads, as GET /client-settings and the
+// shell's read of /me say them (D476).
+func (server *Server) clientSettingsBody(ctx context.Context, dependencies *Dependencies) (ClientSettingsBody, error) {
 	output := &ClientSettingsOutput{}
 	for _, read := range []struct {
 		key  settings.Key
@@ -71,7 +81,7 @@ func (server *Server) getClientSettings(
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {
-			return nil, server.settingsError(ctx, "read "+string(read.key), err)
+			return ClientSettingsBody{}, server.settingsError(ctx, "read "+string(read.key), err)
 		}
 		*read.into = value
 	}
@@ -84,9 +94,9 @@ func (server *Server) getClientSettings(
 	} {
 		value, err := dependencies.Settings.Bool(ctx, read.key)
 		if err != nil {
-			return nil, server.settingsError(ctx, "read "+string(read.key), err)
+			return ClientSettingsBody{}, server.settingsError(ctx, "read "+string(read.key), err)
 		}
 		*read.into = value
 	}
-	return output, nil
+	return output.Body, nil
 }

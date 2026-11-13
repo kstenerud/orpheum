@@ -307,6 +307,7 @@ export async function redeem(send: FetchRequest, session: Session, code: string)
     deviceId: data.user.device?.id,
     deviceSecret: data.deviceSecret,
     locator: data.locator,
+    user: data.user,
   });
 }
 

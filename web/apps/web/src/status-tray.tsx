@@ -17,6 +17,7 @@ import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
+import { useShellPart } from "./shell-read.ts";
 import { closeTrayDialog, openTrayDialog, useTrayDialog } from "./tray-dialog.ts";
 import { useMembership } from "./together-membership.ts";
 import { TogetherDialog } from "./together-dialog-code.tsx";
@@ -226,12 +227,18 @@ function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element 
   );
 }
 
-/** For an admin, the warning sign when anything needs them, leading to the page that lists it. */
+/**
+ * For an admin, the warning sign when anything needs them, leading to the page that lists it: the
+ * shell's read says it first (D476).
+ */
 function NeedsAttentionSign(): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [counts] = useResource("status-needs-attention", async () =>
-    dataOrThrow(await api.GET("/needs-attention")),
+  const [counts] = useResource(
+    "status-needs-attention",
+    async () => dataOrThrow(await api.GET("/needs-attention")),
+    undefined,
+    useShellPart((shell) => shell.needsAttention),
   );
   if (counts.state !== "loaded") {
     return null;

@@ -14,6 +14,7 @@ import { createContext, use } from "react";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useShellPart } from "./shell-read.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** A library, as the server sends it. */
@@ -44,11 +45,12 @@ const readsNothing = (): Promise<readonly LibraryBody[]> => new Promise(() => un
 
 /**
  * The reading of the libraries LibrariesReachedContext shares, or, where isNeeded is false (one is
- * shared already), none: no request and no poll.
+ * shared already), none: no request and no poll. Its first read is the shell's (D476).
  */
 export function useLibrariesRead(isNeeded = true): Resource<readonly LibraryBody[]> {
   const { api } = useServices();
   const poller = useBackgroundChangesPoller();
+  const fromShell = useShellPart((shell): readonly LibraryBody[] => shell.libraries ?? []);
   const [libraries] = useResource(
     isNeeded ? "libraries-reached" : "libraries-shared",
     isNeeded
@@ -56,6 +58,7 @@ export function useLibrariesRead(isNeeded = true): Resource<readonly LibraryBody
           dataOrThrow(await api.GET("/libraries")).libraries ?? []
       : readsNothing,
     isNeeded ? poller : undefined,
+    isNeeded ? fromShell : undefined,
   );
   return libraries;
 }

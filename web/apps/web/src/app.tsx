@@ -68,6 +68,7 @@ import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
+import { ShellReadContext, useShellPart, type ShellRead } from "./shell-read.ts";
 import { LaterScreen } from "./screen-load.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 
@@ -159,24 +160,55 @@ function LeavingForSignIn(): JSX.Element {
  */
 function SignedIn(): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
+  const { api, session } = useServices();
   const route = useRoute();
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
   // reloaded (the owner's Chrome, 2026-10-15).
-  const [meNow, readMeAgain] = useResource(`me:${String(usePathMoveCount())}`, async () =>
-    dataOrThrow(await api.GET("/me")),
+  const meKey = `me:${String(usePathMoveCount())}`;
+  // The first read is the shell's one essential read, which carries what the shell reads as it starts
+  // (D476, principles §30); after a sign-in, its answer stands for that read, and none is made.
+  const [firstMeKey] = useState(meKey);
+  const [handedUser] = useState(() => session.handedUser());
+  const isFirstRead = meKey === firstMeKey;
+  const [meNow, readMeAgain] = useResource(
+    meKey,
+    async () =>
+      dataOrThrow(
+        isFirstRead
+          ? await api.GET("/me", { params: { query: { shell: true } } })
+          : await api.GET("/me"),
+      ),
+    undefined,
+    isFirstRead && handedUser !== undefined ? { value: handedUser } : undefined,
   );
+  const [shellRead, setShellRead] = useState<ShellRead>(
+    handedUser === undefined ? { state: "waiting" } : { state: "read", shell: handedUser.shell },
+  );
+  if (shellRead.state === "waiting" && meNow.state !== "loading") {
+    setShellRead({
+      state: "read",
+      shell: meNow.state === "loaded" ? meNow.value.shell : undefined,
+    });
+  }
   // While it is read again, what it said last stays: the warning sign and the admin's places went
   // and came back at each move (the owner, 2026-10-17: "disappears for a split-second every now and
   // then").
   // Kept by this signed-in page alone, so another sign-in never starts from it.
   const [rememberedMe] = useState(() => new Remembered<components["schemas"]["UserBody"]>());
   const me = useRemembered("me", meNow, rememberedMe);
-  // Who is signed in is known before anything else is asked: a guest receiver is refused every read
-  // of a person's own, the client settings and the person's Watch Together sessions among them
-  // (D469 §4, D465 §2).
-  if (me.state === "loading") {
+  // A person's shell and screen start reading alongside the read of who is signed in, not after it
+  // (D476). A guest receiver, refused every read of a person's own, the client settings and the
+  // person's Watch Together sessions among them (D469 §4, D465 §2), starts none: a session not yet
+  // known to be a person's waits for the read, which says whose it is for the next start.
+  const knownAs = session.knownAs();
+  if (me.state === "loaded") {
+    const kind = isGuestReceiver(me) ? "guestReceiver" : "person";
+    if (kind !== knownAs) {
+      session.noteKnownAs(kind);
+    }
+  }
+  if (me.state === "loading" && knownAs !== "person") {
     return <p>{t("common.loading")}</p>;
   }
   if (isGuestReceiver(me)) {
@@ -186,12 +218,16 @@ function SignedIn(): JSX.Element {
       </IsGuestContext>
     );
   }
-  return <PersonSignedIn me={me} readMeAgain={readMeAgain} route={route} />;
+  return (
+    <ShellReadContext value={shellRead}>
+      <PersonSignedIn me={me} readMeAgain={readMeAgain} route={route} />
+    </ShellReadContext>
+  );
 }
 
 /**
  * The signed-in client of a person, not a guest receiver: its shell, its screens and what every
- * screen shares, read once who is signed in (me) is known, or could not be.
+ * screen shares, read alongside who is signed in (me), which may still be loading.
  */
 function PersonSignedIn(props: {
   readonly me: Resource<components["schemas"]["UserBody"]>;
@@ -278,8 +314,11 @@ function useReadyAheadOfTheServer(
 /** The server settings every client reads, once read. */
 function useClientSettings(): components["schemas"]["ClientSettingsBody"] | undefined {
   const { api } = useServices();
-  const [clientSettings] = useResource("client-settings", async () =>
-    dataOrThrow(await api.GET("/client-settings")),
+  const [clientSettings] = useResource(
+    "client-settings",
+    async () => dataOrThrow(await api.GET("/client-settings")),
+    undefined,
+    useShellPart((shell) => shell.clientSettings),
   );
   return clientSettings.state === "loaded" ? clientSettings.value : undefined;
 }

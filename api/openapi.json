@@ -2642,10 +2642,66 @@
               "array",
               "null"
             ]
+          },
+          "newestFilms": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "episode": "#/components/schemas/TitleEntryBody",
+                  "extra": "#/components/schemas/TitleEntryBody",
+                  "film": "#/components/schemas/TitleEntryBody",
+                  "other": "#/components/schemas/TitleEntryBody",
+                  "series": "#/components/schemas/SeriesEntryBody"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TitleEntryBody"
+                },
+                {
+                  "$ref": "#/components/schemas/SeriesEntryBody"
+                }
+              ]
+            },
+            "maxItems": 18,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "newestSeries": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "episode": "#/components/schemas/TitleEntryBody",
+                  "extra": "#/components/schemas/TitleEntryBody",
+                  "film": "#/components/schemas/TitleEntryBody",
+                  "other": "#/components/schemas/TitleEntryBody",
+                  "series": "#/components/schemas/SeriesEntryBody"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TitleEntryBody"
+                },
+                {
+                  "$ref": "#/components/schemas/SeriesEntryBody"
+                }
+              ]
+            },
+            "maxItems": 18,
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
-          "continueWatching"
+          "continueWatching",
+          "newestFilms",
+          "newestSeries"
         ],
         "type": "object"
       },
@@ -4334,7 +4390,7 @@
         ],
         "type": "object"
       },
-      "NeedsAttentionOutputBody": {
+      "NeedsAttentionBody": {
         "properties": {
           "copyRefusedAt": {
             "format": "int64",
@@ -7790,6 +7846,33 @@
         ],
         "type": "object"
       },
+      "ShellBody": {
+        "properties": {
+          "clientSettings": {
+            "$ref": "#/components/schemas/ClientSettingsBody"
+          },
+          "libraries": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "needsAttention": {
+            "$ref": "#/components/schemas/NeedsAttentionBody"
+          },
+          "update": {
+            "$ref": "#/components/schemas/UpdateBody"
+          }
+        },
+        "required": [
+          "clientSettings",
+          "libraries"
+        ],
+        "type": "object"
+      },
       "SignInInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9559,6 +9642,9 @@
           },
           "role": {
             "type": "string"
+          },
+          "shell": {
+            "$ref": "#/components/schemas/ShellBody"
           },
           "showsDebugTools": {
             "type": "boolean"
@@ -11981,7 +12067,7 @@
             "session": []
           }
         ],
-        "summary": "The home screen: what the person stopped in the middle of",
+        "summary": "The home screen: what the person stopped in the middle of, and the newest films and series",
         "tags": [
           "Browse"
         ],
@@ -14660,6 +14746,18 @@
     "/me": {
       "get": {
         "operationId": "getMe",
+        "parameters": [
+          {
+            "description": "Also what a client's shell reads as it starts (shell, D476): its first read, not a check that the session still works",
+            "explode": false,
+            "in": "query",
+            "name": "shell",
+            "schema": {
+              "description": "Also what a client's shell reads as it starts (shell, D476): its first read, not a check that the session still works",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -15568,7 +15666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NeedsAttentionOutputBody"
+                  "$ref": "#/components/schemas/NeedsAttentionBody"
                 }
               }
             },
