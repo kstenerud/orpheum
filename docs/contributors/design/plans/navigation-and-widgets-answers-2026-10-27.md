@@ -3853,6 +3853,19 @@ its check-pr runs again anyway.
 - **Next batch: the other merged parts are looked at the same way** (`en-play.ts`, `en-cast.ts`,
   `en-devices.ts`, `en-together.ts`, …): a part asked for only by its own area's modules moves; one
   asked for everywhere (navigation, status) stays in `en.ts`.
+  - **Built: two moved.** `en-credits.ts` (`credits-words.ts`, imported by `credits.tsx` alone) and
+    `en-devices.ts` (`devices-words.ts`, imported by `this-device.tsx`, `your-devices.tsx` and
+    `sound-delay.tsx`); none of those loads at start, and the first-page test lists both parts.
+  - **The rest stay, as a module the first page loads asks for each:** `en-play.ts`
+    (`reload-when-outdated.tsx`, in `app.tsx`), `en-cast.ts` (`cast-start.tsx` and `live.tsx`, through
+    `google-cast.ts`), `en-together.ts` (`together-voice.tsx`'s `HostVoiceProvider`, in `app.tsx`),
+    `en-orderings.ts` (`episode-place.ts`, on Home's continue watching), `en-update.ts`
+    (`security-update-note.tsx`, in the shell), `en-watched.ts` and `en-warning.ts` (the poster
+    cues on Home, `warning-sign.tsx` in `app.tsx`), `en-find.ts` (`browse.tsx`'s listing tools),
+    `en-discovery.ts` (`client-main.tsx`, `loader-main.tsx`), `en-status.ts` (`status-tray.tsx`) and
+    `en-navigation.ts` (`poster-row.tsx` on Home). Moving one of these would load its words at start
+    anyway and leave revert-red's reach nearly as wide; a part whose one start-time key moved out
+    (`play.updateAfterFilm`, `cast.start.*`) could move after it, for the owner to choose.
 
 ## The alphabet rail's slow jump, next batch (the owner, 2026-11-13)
 
