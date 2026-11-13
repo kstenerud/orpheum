@@ -23,13 +23,6 @@ FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis;
 
--- name: ListPreferencesOfAxisAtScope :many
--- A person's preference of one axis at each place of a scope: the sort they list each library in.
-SELECT scope_id, value_json
-FROM preference
-WHERE user_id = sqlc.arg(user_id) AND scope = sqlc.arg(scope) AND axis = sqlc.arg(axis)
-ORDER BY scope_id;
-
 -- name: GetWorkOfFile :one
 -- The work a live file is of (D230): the series its title is an episode of, or the title itself,
 -- a film or an episode in no series, as the item that names it.

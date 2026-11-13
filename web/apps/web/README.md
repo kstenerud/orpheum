@@ -532,14 +532,6 @@ The web client: the browser and phone interface, served embedded by the core. MP
   first; films and series sort by release date too (§1); the Libraries page keeps the way in its
   address (`order`, named only when not the sort's own). `src/library-browse.test.tsx`,
   `src/alphabet-rail.test.tsx`, `src/router.test.ts`.
-- **A library's sort is kept on the person's account** (X5, the owner, 2026-11-12): a sort chosen
-  in one library's Sort and filter is kept for that library (`PUT /libraries/{id}/preferences`),
-  and `GET /libraries` gives it back as the library's `sortChoice`, read again at once
-  (`readAgain`), so the library opened with no sort in its address opens so on every device; an
-  address naming a sort wins, so Back and a shared link show what they showed, and a kept sort the
-  library's kind no longer offers falls to the kind's default. All libraries keeps none, and Films
-  and Series keep theirs in the address alone. `src/library-browse.tsx`;
-  `src/library-browse.test.tsx`.
 - **A person configures each library for themselves on its own list** (the owner, 2026-10-27): a
   library's Configure on the Libraries page, for everyone, opens a dialog of their own choices, kept
   on their account, the one place they are made: Show on Home (D366 §5), every library on Home until

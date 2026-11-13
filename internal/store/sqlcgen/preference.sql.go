@@ -133,48 +133,6 @@ func (q *Queries) ListPreferencesAtScope(ctx context.Context, arg ListPreference
 	return items, nil
 }
 
-const listPreferencesOfAxisAtScope = `-- name: ListPreferencesOfAxisAtScope :many
-SELECT scope_id, value_json
-FROM preference
-WHERE user_id = ?1 AND scope = ?2 AND axis = ?3
-ORDER BY scope_id
-`
-
-type ListPreferencesOfAxisAtScopeParams struct {
-	UserID int64
-	Scope  string
-	Axis   string
-}
-
-type ListPreferencesOfAxisAtScopeRow struct {
-	ScopeID   int64
-	ValueJSON string
-}
-
-// A person's preference of one axis at each place of a scope: the sort they list each library in.
-func (q *Queries) ListPreferencesOfAxisAtScope(ctx context.Context, arg ListPreferencesOfAxisAtScopeParams) ([]ListPreferencesOfAxisAtScopeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPreferencesOfAxisAtScope, arg.UserID, arg.Scope, arg.Axis)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListPreferencesOfAxisAtScopeRow{}
-	for rows.Next() {
-		var i ListPreferencesOfAxisAtScopeRow
-		if err := rows.Scan(&i.ScopeID, &i.ValueJSON); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const moveFilePreferencesToFile = `-- name: MoveFilePreferencesToFile :exec
 UPDATE preference SET scope_id = ?1
 WHERE preference.scope = 'file' AND preference.scope_id = ?2

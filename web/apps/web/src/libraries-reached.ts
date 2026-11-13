@@ -9,7 +9,7 @@
  */
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use, useMemo } from "react";
+import { createContext, use } from "react";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -24,29 +24,16 @@ export function sortedLibraries(loaded: readonly LibraryBody[]): LibraryBody[] {
   return [...loaded].sort((first, second) => first.name.localeCompare(second.name));
 }
 
-/** A reading of the libraries the person reaches, and how to ask them again at once. */
-export interface LibrariesRead {
-  readonly libraries: Resource<readonly LibraryBody[]>;
-  /**
-   * Asks them again now, what is shown kept meanwhile: after a choice of the person's that the list
-   * carries, a library's sort (PUT /libraries/{id}/preferences), which no poll would hear soon.
-   */
-  readonly readAgain: () => void;
-}
-
 /**
  * The one reading of the libraries every reader under it shares; the shell provides it
  * (useLibrariesRead). Where none is provided, a reader reads them itself.
  */
-export const LibrariesReachedContext = createContext<LibrariesRead | undefined>(undefined);
+export const LibrariesReachedContext = createContext<Resource<readonly LibraryBody[]> | undefined>(
+  undefined,
+);
 
 /** The libraries the person reaches, as the server lists them, read again as the server changes. */
 export function useLibrariesReached(): Resource<readonly LibraryBody[]> {
-  return useLibrariesReachedRead().libraries;
-}
-
-/** The shared reading of the libraries (useLibrariesReached), with its readAgain. */
-export function useLibrariesReachedRead(): LibrariesRead {
   const shared = use(LibrariesReachedContext);
   const own = useLibrariesRead(shared === undefined);
   return shared ?? own;
@@ -59,10 +46,10 @@ const readsNothing = (): Promise<readonly LibraryBody[]> => new Promise(() => un
  * The reading of the libraries LibrariesReachedContext shares, or, where isNeeded is false (one is
  * shared already), none: no request and no poll.
  */
-export function useLibrariesRead(isNeeded = true): LibrariesRead {
+export function useLibrariesRead(isNeeded = true): Resource<readonly LibraryBody[]> {
   const { api } = useServices();
   const poller = useBackgroundChangesPoller();
-  const [libraries, readAgain] = useResource(
+  const [libraries] = useResource(
     isNeeded ? "libraries-reached" : "libraries-shared",
     isNeeded
       ? async (): Promise<readonly LibraryBody[]> =>
@@ -70,5 +57,5 @@ export function useLibrariesRead(isNeeded = true): LibrariesRead {
       : readsNothing,
     isNeeded ? poller : undefined,
   );
-  return useMemo(() => ({ libraries, readAgain }), [libraries, readAgain]);
+  return libraries;
 }
