@@ -6,27 +6,9 @@
  * logged. Safari alone has the picker; elsewhere each step says it is missing.
  */
 
-import type { Api } from "@orpheum/sdk";
 import { failureText } from "@orpheum/sdk";
 
-import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { dataOrThrow } from "./problem.ts";
-import type { PathMoves } from "./services.tsx";
-
-/** A line for the page's log. */
-export type Log = (line: string) => void;
-
-/** The grant made for a playback: its master playlist's whole address, and when it ends. */
-export interface AirPlayGrant {
-  readonly url: string;
-  readonly expiresAt: string;
-}
-
-/** What a step is given: the server, and the log it writes each step to. */
-export interface AirPlayDoing {
-  readonly api: Api;
-  readonly log: Log;
-}
+import type { AirPlayGrant, Log } from "./airplay.ts";
 
 /** A media element with Safari's AirPlay picker (WebKit's own, in no standard's DOM types). */
 interface WebKitAirPlay {
@@ -39,64 +21,6 @@ function hasPicker(video: HTMLVideoElement): video is HTMLVideoElement & WebKitA
     "webkitShowPlaybackTargetPicker" in video &&
     typeof video.webkitShowPlaybackTargetPicker === "function"
   );
-}
-
-/**
- * The origin the grant's address is resolved on, the one the receiver must reach the core at
- * (plans/airplay.md item 2): on the core's own origin, where pathMoves names no direct origin, the
- * page's, pageOrigin; under a discovery's loader, the core's name the page's requests reach it at,
- * never the page's, the client origin, which serves no media to a player running none of the page's
- * code (the owner's staging test, 2026-11-13: the Mac fetched nothing). Undefined, the reason
- * logged, where the core is reached over WebRTC alone, which no receiver can fetch through, or the
- * loader is too old to say which name it reached.
- */
-export function grantOriginOf(
-  pathMoves: Pick<PathMoves, "directOrigin" | "isOverWebrtc"> | undefined,
-  pageOrigin: string,
-  log: Log,
-): string | undefined {
-  if (pathMoves?.directOrigin === undefined) {
-    return pageOrigin;
-  }
-  const origin = pathMoves.directOrigin();
-  if (origin === undefined) {
-    log(
-      pathMoves.isOverWebrtc()
-        ? "the core is reached over WebRTC alone: a receiver cannot reach it, so AirPlay cannot work here (airplay.md item 2); no grant asked for"
-        : "the loader does not say which of the core's names it reached (older than its minor 6): no address a receiver reaches; no grant asked for",
-    );
-  }
-  return origin;
-}
-
-/**
- * Asks for the AirPlay lab's grant for the playback mediaToken names, its address resolved on
- * origin, the address the receiver is handed and must reach itself.
- */
-export async function makeAirPlayGrant(
-  doing: AirPlayDoing,
-  mediaToken: string,
-  origin: string,
-): Promise<AirPlayGrant> {
-  doing.log("asking for the grant (POST /airplay/grants)");
-  // Each ask is one click's (a way's button, or the menu opening for way B), under its own key (D244 §4).
-  const made = dataOrThrow(
-    await doing.api.POST("/airplay/grants", {
-      body: { mediaToken },
-      ...idempotent(newIdempotencyKey()),
-    }),
-  );
-  const grant = { url: new URL(made.masterPath, origin).href, expiresAt: made.expiresAt };
-  doing.log(`grant fetched: ${grant.url}, until ${grant.expiresAt}`);
-  return grant;
-}
-
-/** Revokes the session's AirPlay grants, as Stop does, and says how many were revoked. */
-export async function revokeAirPlayGrants(doing: AirPlayDoing): Promise<number> {
-  doing.log("revoking the grants (DELETE /airplay/grants)");
-  const { revoked } = dataOrThrow(await doing.api.DELETE("/airplay/grants", {}));
-  doing.log(`revocation answered: ${String(revoked)} revoked`);
-  return revoked;
 }
 
 /** Shows Safari's AirPlay picker for video, within the press it is called in; false where missing. */

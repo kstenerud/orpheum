@@ -5,7 +5,7 @@ import type { PlayedLevel } from "@orpheum/player";
 import { playerSwitchedQualityEvent } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { followChunkedPlayback } from "./film-player.tsx";
+import { followChunkedPlayback } from "./ladder-playback.ts";
 
 afterEach(() => {
   vi.useRealTimers();
