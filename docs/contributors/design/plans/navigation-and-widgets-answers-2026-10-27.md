@@ -3742,3 +3742,26 @@ them (2026-11-13). Deploys go to staging; production waits for the owner.
    castee alike."* A target without input, as a Chromecast, only shows.
 10. **The operator console's WireGuard peers: the owner's laptop and phone;** the UDP port on
     prod-api is to be opened (orpheum-connect's `docs/plans/operator-console.md` §6).
+
+## Help for a person's own AI agent at orpheum.cc, next batch (the owner, 2026-11-13)
+
+The owner: "a user tells his agent 'I want to set up orpheum, which is at orpheum.cc'. The agent then
+goes there, sees the agent metadata, and quickly knows what to ask the user to help him set up";
+"If we require the user to point them to orpheum.cc/agent-help, that's special knowledge they likely
+won't have. We'll put this in the next batch." The GitHub repository is public (the owner,
+2026-11-13), so the help may point into its documentation.
+
+- **Found from the bare `orpheum.cc`.** An agent that fetches the apex gets the loader's page, which
+  without its script says nothing. That page itself names the help, in what an agent reads without
+  running a script: a `<link rel="help">` and an `alternate` `text/markdown` link in its head, and a
+  short plain-text paragraph in the page's body for one that reads only the text, saying where the
+  setup help for an agent is, hidden from a person once the client draws. `/llms.txt`, the
+  convention some agents look for, points to the same.
+- **One source.** The help is a Markdown file beside `docs/users/install.md`, so it cannot drift from
+  the guide: what to ask the person (the machine and its system, a NAS's make, Docker, x86 or arm64;
+  where the films and series are and how they are arranged; a graphics card for hardware encoding;
+  watching away from home, which needs an invitation), which section of the install guide each
+  answer leads to, and the rules for the agent (it never asks for a password; an invitation link is
+  a secret, not pasted into a chat it shares).
+- **Served by connectd** at `orpheum.cc` (its `internal/webclient`, which serves the loader), as
+  plain text; a core's own client page may name it too.
