@@ -579,6 +579,76 @@ func TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt(t *testi
 	}
 }
 
+// A library folder its node was not given is logged once, at info, when it goes and once when a hello
+// names it again, which asks for the scan that brings it back; hellos between say nothing more. Its
+// warning was logged at every scan, about every 16 minutes, for ever (staging, 2026-11-13).
+func TestScans_AFolderTheNodeWasNotGivenIsLoggedOnceWhenItGoesAndOnceWhenItComesBack(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
+	logged := &testutil.Log{}
+	bench.scans = NewScans(ScansParts{
+		Cache: bench.cache, Ingester: bench.ingester, Jobs: bench.jobs, Assigner: bench.sent,
+		Settings: bench.settings, Clock: bench.clock, Logger: slog.New(slog.NewTextHandler(logged, nil)),
+	})
+	lines := func(event string) []string { return linesOfEvent(logged, event) }
+	bench.markRootNamed()
+	if got := lines("folderGivenAgain"); len(got) != 0 {
+		t.Errorf("a folder always given logged %q; want nothing", got)
+	}
+	for range 3 {
+		bench.markRootNotNamed()
+	}
+	gone := lines("folderNotGiven")
+	if len(gone) != 1 || !strings.Contains(gone[0], "level=INFO") {
+		t.Errorf("three hellos not naming the folder logged %q; want one line at info", gone)
+	}
+	scansBefore := len(bench.jobs.requests)
+	bench.markRootNamed()
+	back := lines("folderGivenAgain")
+	if len(back) != 1 || !strings.Contains(back[0], "level=INFO") {
+		t.Errorf("a hello naming the folder again logged %q; want one line at info", back)
+	}
+	if len(bench.jobs.requests) != scansBefore+1 || bench.jobs.requests[scansBefore].Kind != jobs.KindScan {
+		t.Fatalf("a hello naming the folder again queued %+v; want its scan", bench.jobs.requests[scansBefore:])
+	}
+	bench.list(listedFile("Arkon.mkv", 5, 1))
+	bench.markRootNamed()
+	if back := lines("folderGivenAgain"); len(back) != 1 {
+		t.Errorf("a hello after the folder's scan read it logged %q; want the one line still", back)
+	}
+	bench.markRootNotNamed()
+	if gone := lines("folderNotGiven"); len(gone) != 2 {
+		t.Errorf("the folder gone a second time logged %q; want a second line", gone)
+	}
+}
+
+// linesOfEvent are the lines of a text log that name event.
+func linesOfEvent(logged *testutil.Log, event string) []string {
+	var found []string
+	for line := range strings.Lines(logged.String()) {
+		if strings.Contains(line, "logEvent="+event+" ") {
+			found = append(found, line)
+		}
+	}
+	return found
+}
+
+// markRootNamed and markRootNotNamed are a hello that names, or does not name, the bench's root.
+func (bench *scanBench) markRootNamed() {
+	bench.t.Helper()
+	if err := bench.scans.MarkRootNamed(bench.t.Context(), bench.nodeID, root); err != nil {
+		bench.t.Fatal(err)
+	}
+}
+
+func (bench *scanBench) markRootNotNamed() {
+	bench.t.Helper()
+	if err := bench.scans.MarkRootNotNamed(bench.t.Context(), bench.nodeID, root); err != nil {
+		bench.t.Fatal(err)
+	}
+}
+
 // inProgressOf is the scan of the bench's root in progress, as InProgress shows it, and whether
 // there is one.
 func (bench *scanBench) inProgressOf() (ScanProgress, bool) {

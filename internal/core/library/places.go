@@ -151,14 +151,41 @@ func (scans *Scans) BringBackRoot(
 }
 
 // MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
-// already was: plays of what is under it fail at once and say so, and nothing is removed on the
-// absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
+// already was: plays of what is under it fail at once and say so, nothing is removed on the absence,
+// and the schedule asks no scan of it, which its node could only refuse; a hello that names it again
+// asks for its scan, which brings it back (D241 §2, MarkRootNamed). It is logged once, at info, when
+// it goes: a library can keep such a folder on purpose, and its warning at every scan, about every 16
+// minutes, said nothing new (the owner, 2026-11-13).
 func (scans *Scans) MarkRootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
+	notGiven, err := notGivenFolders(ctx, scans.ingester.database.Read())
+	if err != nil {
+		return err
+	}
+	if notGiven[ScanRoot{NodeID: nodeID, RootPath: rootPath}] {
+		return nil
+	}
 	since, err := scans.ingester.MarkPlaceUnavailable(ctx, nodeID, rootPath, rootPath, causeNotNamed)
 	if err != nil {
 		return err
 	}
-	scans.logger.WarnContext(ctx, "a node no longer names a library root; it is unavailable until it does",
-		"nodeId", nodeID, "rootPath", rootPath, "since", since)
+	scans.logger.InfoContext(ctx, "a library folder is not available to its node: no root its hello names "+
+		"holds it; it is not scanned until one does",
+		slogx.EventKey, "folderNotGiven", "nodeId", nodeID, "rootPath", rootPath, "since", since)
 	return nil
+}
+
+// MarkRootNamed is the core's answer to a hello that names a root holding a library folder: one its
+// node was not given until now (MarkRootNotNamed) is logged once, at info, and its scan asked for,
+// which brings it back; any other is left as it is.
+func (scans *Scans) MarkRootNamed(ctx context.Context, nodeID int64, rootPath string) error {
+	notGiven, err := notGivenFolders(ctx, scans.ingester.database.Read())
+	if err != nil {
+		return err
+	}
+	if !notGiven[ScanRoot{NodeID: nodeID, RootPath: rootPath}] {
+		return nil
+	}
+	scans.logger.InfoContext(ctx, "a library folder is available to its node again; its scan brings it back",
+		slogx.EventKey, "folderGivenAgain", "nodeId", nodeID, "rootPath", rootPath)
+	return scans.RequestOnHello(ctx, nodeID, rootPath)
 }

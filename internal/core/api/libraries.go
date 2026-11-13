@@ -33,6 +33,9 @@ type RootBody struct {
 	// Watch is whether the root's node watches it for changes, absent until the node has said
 	// (D272 §9).
 	Watch *RootWatchBody `json:"watch,omitempty"`
+	// IsNotGivenToNode is a folder its node was not given: no root the node names holds it, so it is
+	// not scanned until one does (D241 §2).
+	IsNotGivenToNode bool `doc:"Whether the folder's node was not given it: no root the node names holds it, so it is not scanned until one does (D241 §2)" json:"isNotGivenToNode,omitempty"` //nolint:lll // one struct tag
 }
 
 // RootWatchBody is whether a node watches a root's folders for changes, and when it does not, why.
@@ -405,6 +408,7 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 					LastScanAt:      ptr.ValueOrZero(root.LastScanAt),
 					WithheldReason:  ptr.ValueOrZero(root.WithheldReason), MissingMountPaths: root.MissingMountPaths,
 					Scan: scanBodyOf(root.Scan), Watch: watchBodyOf(root.Watch),
+					IsNotGivenToNode: root.IsNotGivenToNode,
 				})
 			}
 		}

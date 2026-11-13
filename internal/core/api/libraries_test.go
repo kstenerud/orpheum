@@ -665,6 +665,28 @@ func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *test
 	}
 }
 
+// A library folder its node was not given says so on its row, for the Libraries page to show
+// (the owner, 2026-11-13); a folder its node holds says nothing of it.
+func TestLibraries_AFolderItsNodeWasNotGivenSaysSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/m")
+	librarytest.LibraryOn(t, harness.database, 1,
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
+	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if listed.status != http.StatusOK || strings.Contains(listed.body, "isNotGivenToNode") {
+		t.Fatalf("GET /libraries = %d %s; want the folder its node holds to say nothing of it", listed.status,
+			listed.body)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		VALUES (1, '/m', '/m', 1, 'not_named')`)
+	listed = harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"rootPath":"/m",`) || !strings.Contains(listed.body, `"isNotGivenToNode":true`) {
+		t.Errorf("GET /libraries = %d %s; want /m to say its node was not given it", listed.status, listed.body)
+	}
+}
+
 func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

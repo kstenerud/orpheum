@@ -75,6 +75,36 @@ describe("the admin's Libraries pages (D361)", () => {
     expect(buttonWithText(page, "Rescan everything")).toBeDefined();
   });
 
+  it("says on its row when a folder is not available to its media node", async () => {
+    // A library can keep a folder no root of its node holds, on purpose (the owner, 2026-11-13).
+    const notGiven = {
+      ...films,
+      roots: [
+        {
+          nodeName: "nas",
+          rootPath: "/srv/elsewhere",
+          lastScanOutcome: "",
+          missingMountPaths: [],
+          isNotGivenToNode: true,
+        },
+        { nodeName: "nas", rootPath: "/tank/media/more-films", lastScanOutcome: "complete" },
+      ],
+    };
+    const services = servedBy({ "GET /libraries": [200, { libraries: [notGiven] }] });
+    mounted = await mount(withServices(<Libraries />, services));
+    const row = mounted.container.querySelector("li.libraries__library");
+    const signs = row?.querySelectorAll(".warning-sign") ?? [];
+    expect(signs).toHaveLength(1);
+    const folder = signs[0]?.closest("li");
+    expect(folder?.textContent).toContain("nas: /srv/elsewhere");
+    const button = signs[0]?.querySelector("button");
+    expect(button?.getAttribute("aria-label")).toBe(
+      "What is wrong: This folder is not available to the media node",
+    );
+    await click(button);
+    expect(signs[0]?.textContent).toContain("This folder is not available to the media node");
+  });
+
   it("leads to creating a library, and to each library's own page", async () => {
     const services = servedBy({ "GET /libraries": [200, { libraries: [films] }] });
     mounted = await mount(withServices(<Libraries />, services));

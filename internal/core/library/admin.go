@@ -217,6 +217,9 @@ type RootSummary struct {
 	// Watch is whether the root's node watches it for changes, absent until the node has said
 	// (D272 §9).
 	Watch *nodeproto.RootWatch
+	// IsNotGivenToNode is a library folder its node was not given: no root its hello names holds it,
+	// so it is not scanned until one does (notGivenFolders).
+	IsNotGivenToNode bool
 }
 
 // List is every live library reach reaches, by name (D243 §4).
@@ -230,6 +233,10 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 	if err != nil {
 		return nil, err
 	}
+	notGiven, err := notGivenFolders(ctx, queries)
+	if err != nil {
+		return nil, err
+	}
 	summaries := make([]Summary, 0, len(libraries))
 	for _, library := range libraries {
 		if !reach.Reaches(&library.ID) {
@@ -239,18 +246,8 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 		if err != nil {
 			return nil, err
 		}
-		for index, root := range roots {
-			scanned := ScanRoot{NodeID: root.NodeID, RootPath: root.ScanRootPath}
-			if progress, isScanning := scanning[scanned]; isScanning {
-				roots[index].Scan = &progress
-			}
-			watches := admin.nodes.RootWatches(root.NodeID)
-			if watch, isSaid := watchOf(watches, root.RootPath); isSaid {
-				roots[index].Watch = &watch
-			} else if watch, isSaid := watchOf(watches, root.ScanRootPath); isSaid {
-				// Watched within a folder of another library's above it (D363 §2).
-				roots[index].Watch = &watch
-			}
+		for index := range roots {
+			admin.sayHowRootIs(&roots[index], scanning, notGiven)
 		}
 		counts, err := queries.CountLibraryFilings(ctx, library.ID)
 		if err != nil {
@@ -263,6 +260,22 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 		summaries = append(summaries, Summary{ListLibrariesRow: library, Roots: roots, FileCountByFiling: filings})
 	}
 	return summaries, nil
+}
+
+// sayHowRootIs fills in a root's scan in progress, whether its node was not given it, and whether its
+// node watches it.
+func (admin *Admin) sayHowRootIs(root *RootSummary, scanning map[ScanRoot]ScanProgress, notGiven map[ScanRoot]bool) {
+	if progress, isScanning := scanning[ScanRoot{NodeID: root.NodeID, RootPath: root.ScanRootPath}]; isScanning {
+		root.Scan = &progress
+	}
+	root.IsNotGivenToNode = notGiven[ScanRoot{NodeID: root.NodeID, RootPath: root.RootPath}]
+	watches := admin.nodes.RootWatches(root.NodeID)
+	if watch, isSaid := watchOf(watches, root.RootPath); isSaid {
+		root.Watch = &watch
+	} else if watch, isSaid := watchOf(watches, root.ScanRootPath); isSaid {
+		// Watched within a folder of another library's above it (D363 §2).
+		root.Watch = &watch
+	}
 }
 
 // rootSummaries are a library's roots, each with its missing mounts.

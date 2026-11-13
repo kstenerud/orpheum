@@ -6887,6 +6887,10 @@
       },
       "RootBody": {
         "properties": {
+          "isNotGivenToNode": {
+            "description": "Whether the folder's node was not given it: no root the node names holds it, so it is not scanned until one does (D241 §2)",
+            "type": "boolean"
+          },
           "lastScanAt": {
             "format": "int64",
             "type": "integer"

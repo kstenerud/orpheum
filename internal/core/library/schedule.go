@@ -58,11 +58,17 @@ func NewScanSchedule(
 }
 
 // QueueDue asks for a scan of every root that is due one, with no person waiting for it, and says
-// how many it asked for. A root whose scan runs already is not asked again.
+// how many it asked for. A root whose scan runs already is not asked again, nor is a library folder
+// its node was not given (notGivenFolders), whose listing the node could only refuse: it was refused,
+// and warned of twice by the node and once by the core, about every 16 minutes (staging, 2026-11-13).
 func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 	rows, err := schedule.database.Read().ListCheckedRoots(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list the roots libraries check: %w", err)
+	}
+	notGiven, err := notGivenFolders(ctx, schedule.database.Read())
+	if err != nil {
+		return 0, err
 	}
 	watchedEvery, err := schedule.settings.Duration(ctx, settings.WatchedLibraryScanEveryHours)
 	if err != nil {
@@ -74,7 +80,7 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 	}
 	asked := 0
 	for _, root := range dueRoots(rows, watchedEvery, schedule.clock.Now()) {
-		if _, isRunning := running[root]; isRunning {
+		if _, isRunning := running[root]; isRunning || notGiven[root] {
 			continue
 		}
 		err := schedule.scans.RequestUnder(ctx, root.NodeID, root.RootPath, wholeRoot, jobs.PriorityBackground)
@@ -93,9 +99,11 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 // one, of its node, and brings back those that answer; it asks for a scan of the root of one that
 // does not come back, unless its disk is not answering, a scan of the root is running, or its last
 // scan ended unavailableRootRescanSeconds ago or less. It says how many it brought back or asked
-// for (D233 §10, D327 §3, D328). A stall asked for a scan at once, and nothing asked again once the
-// share came back, so its films stayed unavailable until a restart of the node happened to (staging,
-// 2026-10-21, the production NAS off).
+// for (D233 §10, D327 §3, D328). A library folder its node was not given, and what is inside it, is
+// neither asked nor scanned: only a hello that names it brings it back (D241 §2, Scans.MarkRootNamed).
+// A stall asked for a scan at once, and nothing asked again once the share came back, so its films
+// stayed unavailable until a restart of the node happened to (staging, 2026-10-21, the production NAS
+// off).
 func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error) {
 	places, err := schedule.database.Read().ListUnavailablePlaces(ctx)
 	if err != nil {
@@ -110,8 +118,12 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 		return 0, err
 	}
 	now, asked, scanned := schedule.clock.Now(), 0, map[ScanRoot]bool{}
+	notGiven := notGivenAmong(places)
 	for _, place := range places {
 		root := ScanRoot{NodeID: place.NodeID, RootPath: place.RootPath}
+		if notGiven[root] {
+			continue
+		}
 		// Its node asked first, outside every queue (D327 §3): one back is brought back at once, with
 		// a scan behind it, and one not answering is not scanned, which would only wait on its disk.
 		probe, isBack, err := schedule.scans.ProbeAndBringBack(ctx, place.NodeID, place.Path)

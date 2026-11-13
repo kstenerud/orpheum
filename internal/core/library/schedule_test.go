@@ -296,3 +296,44 @@ func TestScanSchedule_ProbesAnUnavailableRootBeforeScanningIt(t *testing.T) {
 			requests.asked, want)
 	}
 }
+
+// A library folder its node was not given is neither due a scan nor swept as unavailable, while the
+// library's other folders are: its node could only refuse the listing, which it did, warned of three
+// times, about every 16 minutes (staging, 2026-11-13). A hello that names it again asks its scan.
+func TestScanSchedule_AsksNoScanOfAFolderItsNodeWasNotGiven(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	made := NewLibrary{
+		Name: "Partly", ChangeDetection: "watch", Kind: "movie", MetadataSource: "nfo", NodeID: world.nodeID,
+		Roots: []string{"/media/given", "/media/elsewhere", "/media/away"},
+	}
+	if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+		t.Fatal(err)
+	}
+	long := world.clock.Now().UnixMilli() - 2*60_000
+	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(`INSERT INTO unavailable_place
+		(node_id, path, root_path, since, cause) VALUES
+		(%[1]d, '/media/elsewhere', '/media/elsewhere', %[2]d, 'not_named'),
+		(%[1]d, '/media/away', '/media/away', %[2]d, 'unread')`, world.nodeID, long))
+	due := &scheduledRequests{}
+	schedule := NewScanSchedule(world.database, due, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	if _, err := schedule.QueueDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []ScanRoot{
+		{NodeID: world.nodeID, RootPath: "/media/away"}, {NodeID: world.nodeID, RootPath: "/media/given"},
+	}; !slices.Equal(due.asked, want) {
+		t.Errorf("the due scans asked: %v; want %v, not the folder the node was not given", due.asked, want)
+	}
+	swept := &scheduledRequests{priority: jobs.PriorityBringsBack}
+	schedule = NewScanSchedule(world.database, swept, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	if _, err := schedule.RescanUnavailable(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"/media/away"}; !slices.Equal(swept.probed, want) {
+		t.Errorf("the sweep probed %q; want %q, not the folder the node was not given", swept.probed, want)
+	}
+	if want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/away"}}; !slices.Equal(swept.asked, want) {
+		t.Errorf("the sweep asked scans of %v; want %v alone", swept.asked, want)
+	}
+}

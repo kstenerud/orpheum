@@ -291,6 +291,11 @@ func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
 		t.Errorf("roots made unavailable: %q; want /media/films, once, when the second hello named it no more",
 			scans.notNamed)
 	}
+	// Each root a hello names is said to be named, though the hello scans none: one named again after a
+	// hello that did not is brought back by its scan (D241 §2).
+	if want := []string{"/media/films", "/media/shows", "/media/shows"}; !slices.Equal(scans.named, want) {
+		t.Errorf("roots said named: %q; want %q", scans.named, want)
+	}
 }
 
 // Library folders inside a root the hello names are its: a hello asks for their scans and leaves them
@@ -335,6 +340,7 @@ type recordingScans struct {
 	mutex    sync.Mutex
 	roots    []string
 	notNamed []string
+	named    []string
 	stalled  []string
 	// broughtBack are root@device, with /mount for a mount point.
 	broughtBack []string
@@ -364,6 +370,13 @@ func (scans *recordingScans) MarkRootNotNamed(_ context.Context, _ int64, root s
 	scans.mutex.Lock()
 	defer scans.mutex.Unlock()
 	scans.notNamed = append(scans.notNamed, root)
+	return nil
+}
+
+func (scans *recordingScans) MarkRootNamed(_ context.Context, _ int64, root string) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	scans.named = append(scans.named, root)
 	return nil
 }
 
