@@ -28332,3 +28332,54 @@ and letter, measured 2026-11-13): 1000 entries are about 235 KB, about 47 KB gzi
   web/apps/web/src/use-pages.test.ts (a list read whole)
 - 3: web/apps/web/src/alphabet-rail.test.tsx (drawn from the tab's memory on Back),
   web/apps/web/src/use-pages.test.ts (drawn from the tab's memory as it mounts again)
+
+## D476 — The shell's first read carries what it reads as it starts, and Home answers its rows in one read
+
+**Decided** (2026-11-13), by the lead, on the owner's order of the client-server audit's fixes
+(findings 3 and 4), applying [principles §30](../principles/README.md). The owner to confirm.
+Amends nothing; D237's polls and D366 §5's Home libraries stand.
+
+The client-server audit found the shell waited on GET /me before it asked anything else, then read
+the client settings, the libraries, what needs an admin and the update state apart, and only then let
+the screen read; a sign-in's answer said who is signed in and the shell read it again. Home read
+Continue Watching, the newest films and the newest series in three requests, each polled apart.
+
+1. **The shell's one essential read is GET /me?shell=true.** Its answer carries `shell`: the client
+   settings, the libraries the person reaches and, where the person administers here
+   (`administersHere`), what needs them and the update state, each as its own endpoint answers it.
+   Someone who does not administer is told none of the admin's: no counts, no update state. A guest
+   receiver's carries no shell. A plain GET /me (the minute's session check, a path move, the
+   account pages) carries none: the admin's counts are queries the server would make every minute.
+2. **A sign-in's answer carries the same user, shell and all** (sign-in, registration, a device
+   code, a hand-off's redeem): the first screen after it makes no read of /me. The client keeps it
+   with the session for the page's life.
+3. **A screen's own read starts alongside /me, not after it.** The shell and the screen are drawn
+   while who is signed in is read; a refusal still signs out (signed-out-watch.ts). Whose the session
+   is, a person's or a guest receiver's, is kept with it from its sign-in or its last /me: one not yet
+   known to be a person's waits for /me as before, so a guest receiver starts none of a person's reads.
+4. **Each part is kept fresh at its own endpoint, as before:** the shell's part stands for that
+   endpoint's first read (useResource's `given`), and its poll, when it has one, asks next at its
+   first wait. When the shell carries none (the server could not read a part; it logs why), each part
+   is read at its endpoint. No endpoint is removed: every one still has its poll or its page.
+5. **Left out: the person's Watch Together sessions** (GET /me/together). Each read of it mints a new
+   membership credential, a secret, for every session the person is in: folded into /me it would
+   mint them on every check. It starts alongside /me instead, needing only the token.
+6. **GET /home answers every row of Home**: Continue Watching, and the newest films and the newest
+   series of the libraries kept on Home (D366 §5), at most 18 each. Home makes one read and runs one
+   poll. GET /items?home=true is kept; Home no longer calls it (the owner to decide its future).
+
+**Status:** decided.
+
+**Proven by:**
+- 1: internal/core/api/me_shell_test.go (TestMe_TheShellsReadCarriesWhatTheShellReadsApart,
+  TestMe_TheShellOfSomeoneWhoDoesNotAdministerCarriesNoAdminsData)
+- 2: internal/core/api/me_shell_test.go (TestMe_TheShellsReadCarriesWhatTheShellReadsApart),
+  web/apps/web/src/app-shell-read.test.tsx ("is not made after a sign-in, whose answer stands for it")
+- 3: web/apps/web/src/app-shell-read.test.tsx ("does not hold back the screen's own read, which starts
+  alongside it")
+- 4: web/apps/web/src/app-shell-read.test.tsx ("is GET /me with what the shell reads as it starts, and
+  the shell asks none of those apart"), web/apps/web/src/use-resource.test.ts ("shows it in place of
+  its first read, asks nothing while that read is waited on, and its poller asks next")
+- 6: internal/core/api/home_test.go (TestHome_AnswersItsThreeRowsInOneRead),
+  web/apps/web/src/home.test.tsx ("reads every row in one read of the libraries the person keeps on
+  Home, and polls it once (D366 §5, D476)")

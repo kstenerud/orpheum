@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -377,6 +378,20 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 	if err != nil {
 		return nil, err
 	}
+	libraries, err := server.librariesBody(ctx, dependencies, principal)
+	if err != nil {
+		return nil, err
+	}
+	output := &LibrariesOutput{}
+	output.Body.Libraries = libraries
+	return output, nil
+}
+
+// librariesBody is the libraries the person reaches, as GET /libraries and the shell's read of /me
+// say them (D476): their roots and scans only where an admin administers.
+func (server *Server) librariesBody(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
+) ([]LibraryBody, error) {
 	summaries, err := dependencies.Libraries.List(ctx, principal.Reach)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list libraries", err)
@@ -387,8 +402,7 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 			return nil, server.logInternalError(ctx, "list the rescans", err)
 		}
 	}
-	output := &LibrariesOutput{}
-	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
+	libraries := make([]LibraryBody, 0, len(summaries))
 	for _, summary := range summaries {
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: saidKind(summary.Kind),
@@ -412,9 +426,9 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 				})
 			}
 		}
-		output.Body.Libraries = append(output.Body.Libraries, body)
+		libraries = append(libraries, body)
 	}
-	return output, nil
+	return libraries, nil
 }
 
 // watchBodyOf is a root's watch as the API says it, or nil before its node has said.

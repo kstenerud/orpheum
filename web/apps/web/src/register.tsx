@@ -241,7 +241,7 @@ function useRegistration(secret: string): {
         // The secret rode in the fragment so no request carried it (D218 §1, the one exception
         // to D154's rule). It is spent now, and Films takes its page's place, so it stays in
         // neither the address nor the history, and Back leaves the app.
-        session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
+        session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator, user });
         navigation.replace({ screen: "home" });
       } catch (cause: unknown) {
         setRefusalText(fieldProblemText(t, cause, registerWords(t)));

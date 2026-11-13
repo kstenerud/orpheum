@@ -11,22 +11,23 @@ import { useTranslation } from "react-i18next";
 
 import { MoreActions } from "./more-actions.tsx";
 import { StatusTray } from "./status-cues.tsx";
-import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { PosterRow } from "./poster-row.tsx";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { placeCode, type OrderingPlace } from "./episode-place.ts";
 
 /** One row of Continue Watching, as the server sends it. */
 export type ContinueWatchingRow = components["schemas"]["InProgressBody"];
 
-/** Reads the person's Continue Watching. */
-export async function loadContinueWatching(api: Api): Promise<ContinueWatchingRow[]> {
-  const home = dataOrThrow(await api.GET("/home"));
-  return home.continueWatching ?? [];
+/** Home's rows, as the server sends them, every one in one answer (D476, principles §30). */
+export type HomeRows = components["schemas"]["HomeOutputBody"];
+
+/** Reads Home's rows: Continue Watching, the newest films and the newest series. */
+export async function loadHome(api: Api, signal?: AbortSignal): Promise<HomeRows> {
+  return dataOrThrow(await api.GET("/home", { signal: signal ?? null }));
 }
 
 /** Hides a work from Continue Watching when isHidden, or brings it back (D188). */
@@ -244,18 +245,20 @@ function ContinueWatchingRowView(props: {
   );
 }
 
-/** Continue Watching, loaded from the server, with hide and undo. */
-export function ContinueWatching(): JSX.Element | null {
+/**
+ * Continue Watching, of Home's read (home), with hide and undo; a hide or an undo reads Home again
+ * (reload).
+ */
+export function ContinueWatching(props: {
+  readonly home: Resource<HomeRows>;
+  readonly reload: () => void;
+}): JSX.Element | null {
   const { api } = useServices();
-  const [rows, reload] = useResource(
-    "continue-watching",
-    () => loadContinueWatching(api),
-    useBackgroundChangesPoller(),
-  );
+  const { home, reload } = props;
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
   // A refusal shows the rows as the server has them, as success does.
   const hiding = useRequest(() => "");
-  if (rows.state !== "loaded") {
+  if (home.state !== "loaded") {
     return null; // the lists below say when the server cannot be reached
   }
   const setRowHidden = (row: ContinueWatchingRow, isHidden: boolean): void => {
@@ -271,7 +274,7 @@ export function ContinueWatching(): JSX.Element | null {
   return (
     <BusyGroup isBusy={hiding.isBusy}>
       <ContinueWatchingView
-        rows={rows.value}
+        rows={home.value.continueWatching ?? []}
         hiddenName={hiddenRow?.name}
         onHide={(row) => {
           setRowHidden(row, true);

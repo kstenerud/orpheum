@@ -528,7 +528,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The home screen: what the person stopped in the middle of */
+        /** The home screen: what the person stopped in the middle of, and the newest films and series */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -3617,6 +3617,8 @@ export interface components {
         };
         HomeOutputBody: {
             continueWatching: components["schemas"]["InProgressBody"][] | null;
+            newestFilms: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
+            newestSeries: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
         };
         HostBody: {
             codename?: string;
@@ -4226,7 +4228,7 @@ export interface components {
         MyTogetherOutputBody: {
             sessions: components["schemas"]["MyTogetherBody"][] | null;
         };
-        NeedsAttentionOutputBody: {
+        NeedsAttentionBody: {
             /** Format: int64 */
             copyRefusedAt: number;
             copyRefusedFrom: string;
@@ -5414,6 +5416,12 @@ export interface components {
             /** @description No one can sign in until the first admin is made with the setup code */
             isRequired: boolean;
         };
+        ShellBody: {
+            clientSettings: components["schemas"]["ClientSettingsBody"];
+            libraries: components["schemas"]["LibraryBody"][] | null;
+            needsAttention?: components["schemas"]["NeedsAttentionBody"];
+            update?: components["schemas"]["UpdateBody"];
+        };
         SignedOutDetailBody: {
             /** @enum {string} */
             reason: "sessionEnded" | "sessionExpired" | "noSession";
@@ -6019,6 +6027,7 @@ export interface components {
             isGuestReceiver?: boolean;
             name: string;
             role: string;
+            shell?: components["schemas"]["ShellBody"];
             showsDebugTools: boolean;
         };
         UserEntryBody: {
@@ -8867,7 +8876,10 @@ export interface operations {
     };
     getMe: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also what a client's shell reads as it starts (shell, D476): its first read, not a check that the session still works */
+                shell?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9526,7 +9538,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NeedsAttentionOutputBody"];
+                    "application/json": components["schemas"]["NeedsAttentionBody"];
                 };
             };
             /** @description Error */

@@ -43,7 +43,7 @@ function useNewerVersion(): Update | undefined {
 }
 
 /** What needs the admin, as the server counts and lists it. */
-type AttentionCounts = components["schemas"]["NeedsAttentionOutputBody"];
+type AttentionCounts = components["schemas"]["NeedsAttentionBody"];
 
 /** The pages that have each kind of what needs the admin, with what fixes it. */
 function ToPages(): JSX.Element {

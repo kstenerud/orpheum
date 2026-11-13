@@ -67,7 +67,7 @@ async function lookAtPairing(
     forgetPairing(storage);
     // A television signed in by code starts at home, not wherever the address last was.
     navigation.go({ screen: "home" });
-    session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
+    session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator, user });
     return { kind: "signingIn" };
   }
   if (state.state === "ended") {

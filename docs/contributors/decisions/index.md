@@ -481,6 +481,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab — *revisited by D474*
 - [D474](working-notes.md#d474--an-airplay-grant-serves-its-senders-address-always-and-binds-to-the-first-other) An AirPlay grant serves its sender's address always and binds to the first other
 - [D475](working-notes.md#d475--a-list-a-client-may-read-whole-comes-in-one-answer-its-limit-left-out) A list a client may read whole comes in one answer, its limit left out
+- [D476](working-notes.md#d476--the-shells-first-read-carries-what-it-reads-as-it-starts-and-home-answers-its-rows-in-one-read) The shell's first read carries what it reads as it starts, and Home answers its rows in one read
 
 ## Archived
 

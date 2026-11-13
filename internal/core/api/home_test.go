@@ -156,3 +156,43 @@ func TestContinueWatching_AWorkThatCannotBeReadNowSaysWhy(t *testing.T) {
 		t.Errorf("Continue Watching while its node is away = %+v; want the pilot marked, its node away", rows)
 	}
 }
+
+// GET /home answers every row of Home in one read (D476, principles §30): Continue Watching, and the
+// newest films and the newest series of the libraries kept on Home, as GET /items?sort=added&home=true
+// lists each (D366 §5), so the rows come together and one poll keeps them.
+func TestHome_AnswersItsThreeRowsInOneRead(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.setPositionReadAt(t, 1, 60_000, 100)
+
+	answer := harness.do(t, http.MethodGet, "/home", admin, nil)
+	var home struct {
+		ContinueWatching []json.RawMessage `json:"continueWatching"`
+		NewestFilms      json.RawMessage   `json:"newestFilms"`
+		NewestSeries     json.RawMessage   `json:"newestSeries"`
+	}
+	if err := json.Unmarshal([]byte(answer.body), &home); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("GET /home = %d %s", answer.status, answer.body)
+	}
+	if len(home.ContinueWatching) != 1 {
+		t.Errorf("GET /home's Continue Watching = %v; want the one partway alone", home.ContinueWatching)
+	}
+	for _, row := range []struct {
+		name, kind string
+		got        json.RawMessage
+	}{{"newestFilms", "film", home.NewestFilms}, {"newestSeries", "series", home.NewestSeries}} {
+		listed := harness.do(t, http.MethodGet, "/items?kind="+row.kind+"&sort=added&limit=18&home=true", admin, nil)
+		var items struct {
+			Items json.RawMessage `json:"items"`
+		}
+		if err := json.Unmarshal([]byte(listed.body), &items); err != nil {
+			t.Fatal(err)
+		}
+		if string(row.got) != string(items.Items) || string(row.got) == "[]" {
+			t.Errorf("GET /home's %s = %s; want the newest of Home's libraries, as /items lists them: %s",
+				row.name, row.got, items.Items)
+		}
+	}
+}

@@ -18,45 +18,48 @@ import (
 // saying how many there are in all (D432 §4).
 const attentionListedAtMost = 100
 
-// NeedsAttentionOutput counts what needs an admin: library folders and disks offline, scans whose
+// NeedsAttentionOutput is GET /needs-attention's answer.
+type NeedsAttentionOutput struct {
+	Body NeedsAttentionBody
+}
+
+// NeedsAttentionBody counts what needs an admin: library folders and disks offline, scans whose
 // removals wait for them, and what scans could not read (D231 §7, D277 §2–§3). The status tray's
 // warning sign shows while any is counted, and leads to the page that lists them (D280).
-type NeedsAttentionOutput struct {
-	Body struct {
-		// RootCount and DiskCount are how many library folders, and disks mounted inside one, are
-		// offline, as the System page lists them.
-		RootCount int `json:"rootCount"`
-		DiskCount int `json:"diskCount"`
-		// WaitingRootCount is how many library folders' scans wait for the admin before removing
-		// files; UnreadCount how many files and folders scans could not read (D277).
-		WaitingRootCount int `json:"waitingRootCount"`
-		UnreadCount      int `json:"unreadCount"`
-		// MatchCount is how many films and series wait for the admin to choose their match, among
-		// several or after none was found, as "Needs a match" lists them (the owner, 2026-10-13:
-		// "Needs a match should show up as one of the things under the exclamation point tray icon").
-		MatchCount int `json:"matchCount"`
-		// SeriesReadWrongly are the series some of whose episodes have no number though no specials
-		// or extras folder holds them: their files' names were likely read wrongly (D306 §6). At most
-		// 100 are listed; SeriesReadWronglyCount is how many there are in all (D432 §4).
-		SeriesReadWrongly      []SeriesReadWronglyBody `maxItems:"100" json:"seriesReadWrongly"`
-		SeriesReadWronglyCount int                     `json:"seriesReadWronglyCount"`
-		// FilmsWithoutSound are the films whose video file holds no sound track, a video-only download
-		// (the owner, 2026-11-02: "videos without sound should be included in the list of problem films").
-		// At most 100 are listed; FilmsWithoutSoundCount is how many there are in all (D432 §4).
-		FilmsWithoutSound      []FilmWithoutSoundBody `maxItems:"100" json:"filmsWithoutSound"`
-		FilmsWithoutSoundCount int                    `json:"filmsWithoutSoundCount"`
-		// RescansGivenUp are the libraries whose rescan gave up, their files changing every time they
-		// were read, until a later rescan of each finishes (the owner, 2026-11-13). At most 100 are
-		// listed, one a library.
-		RescansGivenUp []RescanGivenUpBody `maxItems:"100" json:"rescansGivenUp,omitempty"`
-		// StoodAsideAt is when the discovery refused this server as a copy of another that serves, so
-		// that it asks no more until an admin asks again (D437 §3, §4); 0 while it asks.
-		StoodAsideAt int64 `json:"stoodAsideAt"`
-		// CopyRefusedFrom and CopyRefusedAt are where and when a copy of this server last tried to
-		// start, refused because this one serves (D437 §4); empty and 0 while none has.
-		CopyRefusedFrom string `json:"copyRefusedFrom"`
-		CopyRefusedAt   int64  `json:"copyRefusedAt"`
-	}
+type NeedsAttentionBody struct {
+	// RootCount and DiskCount are how many library folders, and disks mounted inside one, are
+	// offline, as the System page lists them.
+	RootCount int `json:"rootCount"`
+	DiskCount int `json:"diskCount"`
+	// WaitingRootCount is how many library folders' scans wait for the admin before removing
+	// files; UnreadCount how many files and folders scans could not read (D277).
+	WaitingRootCount int `json:"waitingRootCount"`
+	UnreadCount      int `json:"unreadCount"`
+	// MatchCount is how many films and series wait for the admin to choose their match, among
+	// several or after none was found, as "Needs a match" lists them (the owner, 2026-10-13:
+	// "Needs a match should show up as one of the things under the exclamation point tray icon").
+	MatchCount int `json:"matchCount"`
+	// SeriesReadWrongly are the series some of whose episodes have no number though no specials
+	// or extras folder holds them: their files' names were likely read wrongly (D306 §6). At most
+	// 100 are listed; SeriesReadWronglyCount is how many there are in all (D432 §4).
+	SeriesReadWrongly      []SeriesReadWronglyBody `maxItems:"100" json:"seriesReadWrongly"`
+	SeriesReadWronglyCount int                     `json:"seriesReadWronglyCount"`
+	// FilmsWithoutSound are the films whose video file holds no sound track, a video-only download
+	// (the owner, 2026-11-02: "videos without sound should be included in the list of problem films").
+	// At most 100 are listed; FilmsWithoutSoundCount is how many there are in all (D432 §4).
+	FilmsWithoutSound      []FilmWithoutSoundBody `maxItems:"100" json:"filmsWithoutSound"`
+	FilmsWithoutSoundCount int                    `json:"filmsWithoutSoundCount"`
+	// RescansGivenUp are the libraries whose rescan gave up, their files changing every time they
+	// were read, until a later rescan of each finishes (the owner, 2026-11-13). At most 100 are
+	// listed, one a library.
+	RescansGivenUp []RescanGivenUpBody `maxItems:"100" json:"rescansGivenUp,omitempty"`
+	// StoodAsideAt is when the discovery refused this server as a copy of another that serves, so
+	// that it asks no more until an admin asks again (D437 §3, §4); 0 while it asks.
+	StoodAsideAt int64 `json:"stoodAsideAt"`
+	// CopyRefusedFrom and CopyRefusedAt are where and when a copy of this server last tried to
+	// start, refused because this one serves (D437 §4); empty and 0 while none has.
+	CopyRefusedFrom string `json:"copyRefusedFrom"`
+	CopyRefusedAt   int64  `json:"copyRefusedAt"`
 }
 
 // SeriesReadWronglyBody is a series some of whose episodes' file names were likely read wrongly.
@@ -95,6 +98,12 @@ func (server *Server) getNeedsAttention(
 	if err != nil {
 		return nil, err
 	}
+	return server.needsAttention(ctx, dependencies)
+}
+
+// needsAttention is what needs an admin, as GET /needs-attention and an admin's shell read of /me
+// say it (D476).
+func (server *Server) needsAttention(ctx context.Context, dependencies *Dependencies) (*NeedsAttentionOutput, error) {
 	offline, err := dependencies.Libraries.Offline(ctx)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list what is offline", err)

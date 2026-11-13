@@ -7,7 +7,14 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
+
+// homeNewestShown is how many of the newest films or series a row of Home shows, a best guess: three
+// screens of a Fire TV's row of six, the rest a list's own page away. A justified constant.
+const homeNewestShown = 18
 
 // InProgressBody is one row of Continue Watching: a work, and the file of it the person was most
 // recently partway through.
@@ -26,10 +33,16 @@ type InProgressBody struct {
 	IsWatched   bool             `doc:"Whether the person watched it before, and watches it again (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 }
 
-// HomeOutput is the home screen (D188): Continue Watching first. Next Up comes after M3.
+// HomeOutput is the home screen (D188): every row of it in one answer, so the rows come together and
+// one poll keeps them (D476, principles §30). Continue Watching first, then the newest films and the
+// newest series, each of the libraries the person keeps on Home (D366 §5). Next Up comes after M3.
 type HomeOutput struct {
 	Body struct {
 		ContinueWatching []InProgressBody `json:"continueWatching"`
+		// NewestFilms and NewestSeries are the newest films and series, newest first, at most 18 of
+		// each, as GET /items?sort=added lists them.
+		NewestFilms  []ItemEntryBody `maxItems:"18" json:"newestFilms"`
+		NewestSeries []ItemEntryBody `maxItems:"18" json:"newestSeries"`
 	}
 }
 
@@ -42,7 +55,8 @@ type HideInput struct {
 func (server *Server) registerHome() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getHome", Method: http.MethodGet, Path: "/home",
-		Summary: "The home screen: what the person stopped in the middle of", Tags: []string{"Browse"},
+		Summary:    "The home screen: what the person stopped in the middle of, and the newest films and series",
+		Tags:       []string{"Browse"},
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.getHome)
 	huma.Register(server.humaAPI, huma.Operation{
@@ -85,7 +99,33 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 			IsWatched: row.IsWatched,
 		})
 	}
+	output.Body.NewestFilms, err = server.homeNewest(ctx, dependencies, principal, reach, library.ListFilms)
+	if err != nil {
+		return nil, err
+	}
+	output.Body.NewestSeries, err = server.homeNewest(ctx, dependencies, principal, reach, library.ListSeries)
+	if err != nil {
+		return nil, err
+	}
 	return output, nil
+}
+
+// homeNewest is a row of Home's newest of kind, ListFilms or ListSeries, of the libraries reach holds.
+func (server *Server) homeNewest(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, reach auth.Reach, kind string,
+) ([]ItemEntryBody, error) {
+	page, err := dependencies.Browser.List(ctx, library.ListQuery{
+		Kinds: []string{kind}, Sort: library.SortAdded, Limit: homeNewestShown, Reach: reach, UserID: principal.UserID,
+	})
+	if err != nil {
+		return nil, server.libraryError(ctx, "list Home's newest "+kind, err)
+	}
+	nodeName := server.nodeNamer(ctx, dependencies)
+	entries := make([]ItemEntryBody, 0, len(page.Entries))
+	for _, entry := range page.Entries {
+		entries = append(entries, itemEntryBody(entry, nodeName))
+	}
+	return entries, nil
 }
 
 func (server *Server) markHidden(ctx context.Context, input *HideInput) (*struct{}, error) {

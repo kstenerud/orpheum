@@ -64,6 +64,23 @@ type UserBody struct {
 	// IsGuestReceiver is a guest receiver's session (D465 §2), signed in for one cast: its page shows
 	// that cast alone (D469 §4), and the body says nothing else of the person.
 	IsGuestReceiver bool `json:"isGuestReceiver,omitempty"`
+	// Shell is what a client's shell reads as it starts, beside who is signed in, so its first screen
+	// waits on one request (D476, principles §30): in a sign-in's answer, and in GET /me?shell=true.
+	// Absent for a guest receiver, elsewhere, and when a part of it could not be read, the reason
+	// logged: the client then reads each part at its own endpoint, as it keeps each fresh there.
+	Shell *ShellBody `json:"shell,omitempty"`
+}
+
+// ShellBody is what a client's shell reads as it starts (D476).
+type ShellBody struct {
+	// ClientSettings is GET /client-settings's answer.
+	ClientSettings ClientSettingsBody `json:"clientSettings"`
+	// Libraries is GET /libraries' list: the libraries the person reaches, for the banner's menu.
+	Libraries []LibraryBody `json:"libraries"`
+	// NeedsAttention is GET /needs-attention's answer, and Update GET /system/update's: only where the
+	// person administers (isAdmin), as those endpoints refuse anyone else.
+	NeedsAttention *NeedsAttentionBody `json:"needsAttention,omitempty"`
+	Update         *UpdateBody         `json:"update,omitempty"`
 }
 
 // CurrentDeviceBody is the device a session is on; a client keeps its id to resume it (D221).
@@ -353,6 +370,10 @@ func (server *Server) newSessionOutput(
 		slogx.EventKey, "sessionBegan",
 		"userId", principal.UserID, "deviceId", principal.DeviceID,
 		"path", pathOf(ctx), "isAdmin", body.IsAdmin)
+	if !principal.IsGuestReceiver() {
+		// The first screen after a sign-in starts from its answer, with no read of /me (D476).
+		body.Shell = server.shellBody(ctx, dependencies, principal)
+	}
 	output := &SessionOutput{SetCookie: mediaCookies(issued.Token, isOverTLS)}
 	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body
 	output.Body.Locator = issued.Locator
@@ -383,6 +404,12 @@ func (input *MeInput) Resolve(ctx huma.Context) []error {
 	return nil
 }
 
+// GetMeInput asks who a session belongs to, and, for a client's shell, what it reads as it starts.
+type GetMeInput struct {
+	MeInput
+	IsShell bool `doc:"Also what a client's shell reads as it starts (shell, D476): its first read, not a check that the session still works" query:"shell"` //nolint:lll // one struct tag
+}
+
 // MeOutput is who the session belongs to, and the media cookie set again for it.
 type MeOutput struct {
 	SetCookie []http.Cookie `header:"Set-Cookie"`
@@ -392,7 +419,7 @@ type MeOutput struct {
 // getMe answers who a session belongs to, and sets the media cookie to that session again: a
 // client asks at start, so a browser whose cookie is missing, from an older path, or from
 // another session gets the right one before it fetches an image or a video (D154, D216).
-func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, error) {
+func (server *Server) getMe(ctx context.Context, input *GetMeInput) (*MeOutput, error) {
 	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -401,7 +428,50 @@ func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, err
 	if err != nil {
 		return nil, err
 	}
+	if input.IsShell && !principal.IsGuestReceiver() {
+		body.Shell = server.shellBody(ctx, dependencies, principal)
+	}
 	return &MeOutput{SetCookie: mediaCookies(bearerToken(input.Authorization), input.isOverTLS), Body: body}, nil
+}
+
+// shellBody is what a client's shell reads as it starts (D476), or nil, logged, when a part of it
+// cannot be read: the session's answer still comes, and the shell reads each part at its own endpoint.
+// Never for a guest receiver, whom every one of those endpoints refuses.
+func (server *Server) shellBody(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
+) *ShellBody {
+	shell, err := server.readShell(ctx, dependencies, principal)
+	if err != nil {
+		server.logger.WarnContext(ctx,
+			"what the shell reads was left out of who is signed in; it reads each part itself", "err", err)
+		return nil
+	}
+	return shell
+}
+
+// readShell is the client settings and the libraries reached, and where the person administers, what
+// needs them and the update state.
+func (server *Server) readShell(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
+) (*ShellBody, error) {
+	settings, err := server.clientSettingsBody(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	libraries, err := server.librariesBody(ctx, dependencies, principal)
+	if err != nil {
+		return nil, err
+	}
+	shell := &ShellBody{ClientSettings: settings, Libraries: libraries}
+	if !administersHere(ctx, principal) {
+		return shell, nil
+	}
+	attention, err := server.needsAttention(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	shell.NeedsAttention, shell.Update = &attention.Body, &knownUpdateOutput(dependencies).Body
+	return shell, nil
 }
 
 // userBody is who a session belongs to, and the device it is on. A guest receiver's says it is one and
