@@ -209,7 +209,7 @@ export const enSystem = {
         grace:
           "The subscription has lapsed; clients can still find this server for a few more days.",
         frozen:
-          "The subscription has ended: clients cannot find this server through the discovery until it is renewed.",
+          "Remote access is paused. Devices that already know this server keep working until its address changes. Renew it with the discovery's operator.",
         released:
           "The discovery has let this server go. Leave it, and connect again to start over.",
         disabled: "The discovery has turned this server off. Its operator can say why.",

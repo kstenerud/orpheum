@@ -442,6 +442,19 @@ it("says a password that isn't the admin's was refused, and that the key still w
   );
 });
 
+it("tells a frozen server that remembered devices still reach it, in the spec's words (§3.10, U7)", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      { ...pendingAtTheService, state: "frozen", claimCode: undefined },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).toContain(
+    "Remote access is paused. Devices that already know this server keep working until its address changes. Renew it with the discovery's operator.",
+  );
+});
+
 it("tells a server removed from its account that another took its place (D312 §15)", async () => {
   const services = servedBy({
     "GET /system/discovery": [
