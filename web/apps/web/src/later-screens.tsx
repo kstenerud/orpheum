@@ -205,7 +205,8 @@ export type LoadedAhead = "play" | "film-and-series";
  */
 export function useLoadsAhead(ahead: LoadedAhead | undefined): void {
   useEffect(() => {
-    const screens = ahead === undefined ? [] : ahead === "play" ? [play] : [title, series];
+    const screens =
+      ahead === undefined ? [] : { play: [play], "film-and-series": [title, series] }[ahead];
     const toLoad = screens.filter((screen) => !screen.isLoaded());
     if (toLoad.length === 0) {
       return undefined;

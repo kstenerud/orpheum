@@ -363,19 +363,11 @@ function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | un
 
 /** The screens whose code loads ahead while route shows: those it leads to. */
 function loadedAheadOn(route: Route): LoadedAhead | undefined {
-  switch (route.screen) {
-    case "title":
-    case "series-page":
-      return "play";
-    case "home":
-    case "films":
-    case "series":
-    case "browse":
-    case "person":
-      return "film-and-series";
-    default:
-      return undefined;
+  if (route.screen === "title" || route.screen === "series-page") {
+    return "play";
   }
+  const listsFilmsAndSeries = ["home", "films", "series", "browse", "person"];
+  return listsFilmsAndSeries.includes(route.screen) ? "film-and-series" : undefined;
 }
 
 /** The screen a route names. */
