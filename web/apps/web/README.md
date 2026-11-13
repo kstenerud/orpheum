@@ -660,7 +660,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   says AirPlay cannot work where the core is reached over WebRTC alone (`grantOriginOf`, the
   loader's `directOriginInUse`, its minor 6), so way B's press shows Safari's picker within its
   gesture; way A gives a second
-  element the grant, way B the page's own once hls.js lets go of it; Stop ends both and shows the
+  element the grant, way B the page's own once hls.js lets go of it, by the player's own hand-over
+  (`playOnAirPlay`, the product's, D473); Stop ends both and shows the
   revocation's answer, every step in its log (`src/lab-airplay.test.tsx`). The sound timing test (`src/lab-sound.tsx`, the owner, 2026-11-06) has
   no Send: what it finds is kept as the device's sound offset, by the control under a film. Its
   beeps, a WAV made in the page (`src/lab-tone.ts`), play through a video element as a film's sound
