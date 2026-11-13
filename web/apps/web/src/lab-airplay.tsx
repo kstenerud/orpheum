@@ -2,6 +2,7 @@
 
 import "./lab-words.ts";
 
+import type { AirPlaying } from "@orpheum/player";
 import { failureText } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -291,6 +292,7 @@ function useWays(props: ControlsProps, secondRef: RefObject<HTMLVideoElement | n
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [grant, fetchGrant, forgetGrant] = useGrant(log);
   const [stop, setStop] = useState<StopState>({ state: "unpressed" });
+  const wayBRef = useRef<AirPlaying | undefined>(undefined);
   const wayA = async (): Promise<void> => {
     const main = props.video();
     if (main === null || secondRef.current === null || props.mediaToken === undefined) {
@@ -309,6 +311,7 @@ function useWays(props: ControlsProps, secondRef: RefObject<HTMLVideoElement | n
   };
   const stopAll = async (): Promise<void> => {
     setStop({ state: "stopping" });
+    wayBRef.current?.stop();
     endEveryPlaying(props, secondRef.current);
     try {
       setStop({ state: "answered", revoked: await revokeAirPlayGrants({ api, log }) });
@@ -333,7 +336,7 @@ function useWays(props: ControlsProps, secondRef: RefObject<HTMLVideoElement | n
       void wayA();
     },
     wayB: () => {
-      wayB(props, grant);
+      wayBRef.current = wayB(props, grant);
     },
     stopAll: () => {
       void stopAll();
@@ -342,16 +345,16 @@ function useWays(props: ControlsProps, secondRef: RefObject<HTMLVideoElement | n
 }
 
 /** Way B's press: the page's element given the grant fetched as the menu opened, if it was. */
-function wayB(props: ControlsProps, grant: AirPlayGrant | undefined): void {
+function wayB(props: ControlsProps, grant: AirPlayGrant | undefined): AirPlaying | undefined {
   const main = props.video();
   if (main === null) {
-    return;
+    return undefined;
   }
   if (grant === undefined) {
     props.log("way B: the grant is not fetched yet; open the menu and wait for it");
-    return;
+    return undefined;
   }
-  airPlayFromTheSameElement({ main, grant, log: props.log }, props.letGoOfHls);
+  return airPlayFromTheSameElement({ main, grant, log: props.log }, props.letGoOfHls);
 }
 
 /** Stop's ending of what plays: hls.js and the page's element, and way A's second element. */

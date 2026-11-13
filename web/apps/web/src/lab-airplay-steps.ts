@@ -6,6 +6,7 @@
  * logged. Safari alone has the picker; elsewhere each step says it is missing.
  */
 
+import { playOnAirPlay, type AirPlaying } from "@orpheum/player";
 import { failureText } from "@orpheum/sdk";
 
 import type { AirPlayGrant, Log } from "./airplay.ts";
@@ -95,22 +96,32 @@ export function airPlayFromSecondElement(way: AirPlayWay, toSecond: HTMLVideoEle
 }
 
 /**
- * Way B: the page's element let go of by hls.js, whose disableRemotePlayback is taken off, and given
- * the grant fetched before the press at its position, its picker shown within the press.
+ * Way B, the product's (D473): the player's own hand-over (playOnAirPlay), the page's element let go
+ * of by hls.js and given the grant fetched before the press at its position, its picker shown within
+ * the press; its end, at Stop or as the target stops being wireless, is logged. Returns the playing,
+ * whose stop ends it.
  */
-export function airPlayFromTheSameElement(way: AirPlayWay, letGoOfHls: () => void): void {
-  const { main } = way;
-  const position = main.currentTime;
-  letGoOfHls();
-  main.disableRemotePlayback = false;
-  main.src = way.grant.url;
-  main.currentTime = position;
-  main.setAttribute("x-webkit-airplay", "allow");
-  way.log(
-    `way B: the page's element given the grant at ${position.toFixed(1)} s, hls.js let go of`,
+export function airPlayFromTheSameElement(way: AirPlayWay, letGoOfHls: () => void): AirPlaying {
+  const { main, log } = way;
+  log(
+    `way B: the page's element given the grant at ${main.currentTime.toFixed(1)} s, hls.js let go of`,
   );
-  showPicker(main, way.log);
-  playOn(main, "way B", way.log);
+  if (!hasPicker(main)) {
+    log("no webkitShowPlaybackTargetPicker here: AirPlay's picker is Safari's");
+  }
+  const ended = { isSo: false }; // at once where the picker throws
+  const playing = playOnAirPlay(main, way.grant.url, {
+    letGoOfHls,
+    onEnded: (left) => {
+      ended.isSo = true;
+      const how = left.wasPaused ? "paused" : "playing";
+      log(`way B: ended at ${left.positionS.toFixed(1)} s, ${how}; the element emptied`);
+    },
+  });
+  if (hasPicker(main) && !ended.isSo) {
+    log("picker shown");
+  }
+  return playing;
 }
 
 /** Plays video, logging a refusal under the way's name. */

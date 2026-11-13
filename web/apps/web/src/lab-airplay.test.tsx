@@ -162,6 +162,23 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     expect(logOf(page)).toContain("revocation answered: 1 revoked");
   });
 
+  it("Stop ends way B by the player's own hand-over, which logs where it stood and empties this player (D473)", async () => {
+    const { page, main } = await mountControls(
+      {
+        "POST /airplay/grants": [200, made],
+        "DELETE /airplay/grants": [200, { revoked: 1 }],
+      },
+      [],
+    );
+    await click(buttonNamed(page.container, "AirPlay menu"));
+    await settleUntil(() => page.container.textContent.includes("Grant: "));
+    await click(buttonNamed(page.container, "Way B: this player"));
+    await click(buttonNamed(page.container, "Stop"));
+    await settleUntil(() => page.container.textContent.includes("Stop answered"));
+    expect(logOf(page)).toContain("way B: ended at 42.0 s, playing; the element emptied");
+    expect(main.hasAttribute("src")).toBe(false);
+  });
+
   it("under a discovery's loader, puts the grant on the core's name the page reaches, not the client origin it is at (the owner's staging test, 2026-11-13)", async () => {
     const lanName = "https://192-168-1-2.k7xq2.orpheum-core.com:8443";
     const { page, main } = await mountControls({ "POST /airplay/grants": [200, made] }, [], {
