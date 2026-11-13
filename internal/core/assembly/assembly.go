@@ -277,6 +277,36 @@ func newTogether(dependencies *api.Dependencies, parts Parts) *together.Hub {
 	return together.NewHub(parts.Clock, parts.Random, mayPlay, parts.Logger)
 }
 
+// neighbourFor is the film a Watch Together next or previous puts on (D471 §2): the episode after or
+// before, in the ordering the host watches its series in, as their own Up next and ⏮ play it, from
+// where they are partway through it; none that cannot be read now.
+func neighbourFor(dependencies *api.Dependencies) together.Neighbour {
+	return func(ctx context.Context, userID, fileID int64, isNext bool) (int64, int64, bool) {
+		reach, err := dependencies.Auth.ReachOfUser(ctx, userID)
+		if err != nil {
+			return 0, 0, false
+		}
+		neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, userID, fileID)
+		if err != nil {
+			return 0, 0, false
+		}
+		neighbour := neighbours.Previous
+		if isNext && neighbours.Next != nil {
+			neighbour = &neighbours.Next.NextUp
+		} else if isNext {
+			neighbour = nil
+		}
+		if neighbour == nil || neighbour.Unreadable != nil {
+			return 0, 0, false
+		}
+		var positionMs int64
+		if neighbour.IsPartway {
+			positionMs = neighbour.PartwayAtMs
+		}
+		return neighbour.FileID, positionMs, true
+	}
+}
+
 // openJobs builds the outbound client, the job queue, the outside hosts' provider services, the
 // identification pass and its matcher, and the subtitler, and returns the jobs a crash left running
 // to the queue.
@@ -354,6 +384,7 @@ func (services *Services) libraryAdmin(parts Parts) *library.Admin {
 func (services *Services) wireJobsInto(parts Parts) error {
 	dependencies := &services.API
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
+	dependencies.Together.MovesAlongBy(neighbourFor(dependencies))
 	// Which of each person's devices are open now, and the casts between them (D337).
 	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential, parts.Clock)
 	// A cast's receiver plays the Watch Together session its person hosts, if any (D364 §11).

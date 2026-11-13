@@ -206,6 +206,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",
+		// What plays after a viewer's session's film is read with its host's reach
+		// (TestTogether_AGuestWithTheRightSeesUpNextAndPutsItOn).
+		"getTogetherUpNext",
 		// A cast's film is reach-checked as its sender casts it
 		// (TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow).
 		"startCast",

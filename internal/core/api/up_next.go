@@ -63,6 +63,58 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 	return output, nil
 }
 
+// TogetherUpNextInput asks what plays after the session a viewer's membership is in plays.
+type TogetherUpNextInput struct {
+	AuthorizationHeader
+}
+
+// getTogetherUpNext is what plays after the session's film and before it, in its host's ordering, as
+// the host's own player offers it, for a viewer whose link gives canNext (D471 §3); refused to one
+// whose link does not, who is not shown Up next. A neighbour that cannot be read now is left out, as
+// a guest is never told why the host's file cannot be read, and so is where the host stands in it.
+func (server *Server) getTogetherUpNext(ctx context.Context, input *TogetherUpNextInput) (*UpNextOutput, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	viewer, isViewer := dependencies.Together.ViewerOf(bearerToken(input.Authorization))
+	if !isViewer || viewer.FileID == 0 {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "nothing plays for you in a session now")
+	}
+	if !viewer.Rights.CanNext {
+		return nil, newError(http.StatusForbidden, CodeForbidden, "your link does not let you put on another episode")
+	}
+	reach, err := dependencies.Auth.ReachOfUser(ctx, viewer.HostUserID)
+	if err != nil {
+		return nil, server.logInternalError(ctx, "read a host's reach", err)
+	}
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, viewer.HostUserID, viewer.FileID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read what plays after a session's film and before it", err)
+	}
+	output := &UpNextOutput{}
+	if next := neighbours.Next; next != nil && next.Unreadable == nil {
+		output.Body.UpNext = &UpNextBody{
+			Episode: guestsNextUpBody(next.NextUp), Ordering: next.Ordering,
+			IsOnlyGroup: next.IsOnlyGroup, StillSha256: next.StillSha256,
+		}
+	}
+	if previous := neighbours.Previous; previous != nil && previous.Unreadable == nil {
+		body := guestsNextUpBody(*previous)
+		output.Body.Previous = &body
+	}
+	return output, nil
+}
+
+// guestsNextUpBody is a member as a session's viewer is told of it: what it is, and nothing of where
+// its host stands in it.
+func guestsNextUpBody(next library.NextUp) NextUpBody {
+	return NextUpBody{
+		ItemID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
+		GroupName: next.GroupName, FileID: next.FileID,
+	}
+}
+
 // nextUpBody is a member as the API offers it to play.
 func (server *Server) nextUpBody(ctx context.Context, dependencies *Dependencies, next library.NextUp) NextUpBody {
 	return NextUpBody{

@@ -270,7 +270,7 @@ func TestHub_OnlyTheHostControlsPlayback(t *testing.T) {
 // their rights as they attach, so their player offers only those.
 func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 	t.Parallel()
-	for _, rights := range []Rights{{CanPlayPause: true}, {CanSeek: true}} {
+	for _, rights := range []Rights{{CanPlayPause: true}, {CanSeek: true}, {CanNext: true}} {
 		stage := newStage(t)
 		host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 		stage.command(t, host, CommandChangeItem, 7)
@@ -288,6 +288,7 @@ func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 		}
 		for command, isAllowed := range map[CommandKind]bool{
 			CommandPause: rights.CanPlayPause, CommandPlay: rights.CanPlayPause, CommandSeek: rights.CanSeek,
+			CommandNext: rights.CanNext, CommandPrevious: rights.CanNext,
 			CommandChangeItem: false, CommandStop: false, CommandRate: false,
 		} {
 			before := len(guestBox.messages)
@@ -304,6 +305,98 @@ func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 			}
 		}
 	}
+}
+
+// A guest whose link gives canNext puts on the episode after or before the session's film, the one
+// the host's ordering has there, from where the host is partway through it, whatever film the
+// command names; one without it is refused and the film stays on; a next with none after it is not
+// found; and one found from a film that has since changed is stale (D471 §2).
+func TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	stage.hub.MovesAlongBy(neighbourOneAlong(stage.owner.UserID))
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, host, CommandChangeItem, 7)
+	guestOf := func(rights Rights) (Attachment, *inbox) { return stage.guestWith(t, rights) }
+	refusal := refusalSince
+	withheld, withheldBox := guestOf(Rights{CanPlayPause: true, CanSeek: true})
+	stage.command(t, withheld, CommandNext, 0)
+	if code := refusal(withheldBox, 0); code != codeForbidden || stage.filmOn(stage.opened.SessionID) != 7 {
+		t.Errorf("a guest without canNext moved on: refused %q, film %d; want forbidden, 7", code,
+			stage.filmOn(stage.opened.SessionID))
+	}
+	given, givenBox := guestOf(Rights{CanNext: true})
+	stage.command(t, given, CommandNext, 99)
+	if film := stage.filmOn(stage.opened.SessionID); film != 8 {
+		t.Errorf("a guest's next, naming 99, put on %d; want 8, the host's next after 7", film)
+	}
+	stage.command(t, given, CommandPrevious, 0)
+	if film, at := stage.filmOn(stage.opened.SessionID), stage.groupPositionMs(stage.opened.SessionID); film != 7 ||
+		at != 120_000 {
+		t.Errorf("a guest's previous put on %d at %d ms; want 7 at 120000, where the host is partway", film, at)
+	}
+	stage.command(t, host, CommandChangeItem, 20)
+	before := len(givenBox.messages)
+	stage.command(t, given, CommandNext, 0)
+	if code := refusal(givenBox, before); code != codeNotFound || stage.filmOn(stage.opened.SessionID) != 20 {
+		t.Errorf("a next after the last: refused %q, film %d; want not found, 20", code,
+			stage.filmOn(stage.opened.SessionID))
+	}
+	before = len(givenBox.messages)
+	stage.hub.Handle(t.Context(), given, Inbound{Type: MessageCommand, Command: CommandNext, movedFrom: 7})
+	if code := refusal(givenBox, before); code != codeNotFound {
+		t.Errorf("a next found afresh refused %q; want not found: its film is the session's, found again", code)
+	}
+	before = len(givenBox.messages)
+	session := stage.hub.sessions[stage.opened.SessionID]
+	stage.hub.mutex.Lock()
+	session.command(stage.clock.Now(), session.members[given.MemberID],
+		session.members[given.MemberID].devices[given.DeviceID],
+		Inbound{Type: MessageCommand, Command: CommandNext, FileID: 8, movedFrom: 7})
+	stage.hub.mutex.Unlock()
+	if code := refusal(givenBox, before); code != codeStale || stage.filmOn(stage.opened.SessionID) != 20 {
+		t.Errorf("a next found from 7 while 20 is on: refused %q, film %d; want stale, 20", code,
+			stage.filmOn(stage.opened.SessionID))
+	}
+}
+
+// neighbourOneAlong is a host's ordering in which the film after each is the next id and the one
+// before the last, from two minutes in, with none after or before 20; another user has none.
+func neighbourOneAlong(hostUserID int64) Neighbour {
+	return func(_ context.Context, userID, fileID int64, isNext bool) (int64, int64, bool) {
+		switch {
+		case userID != hostUserID || fileID == 20:
+			return 0, 0, false
+		case isNext:
+			return fileID + 1, 0, true
+		default:
+			return fileID - 1, 120_000, true
+		}
+	}
+}
+
+// guestWith is a guest joined by a link giving rights, attached with its video.
+func (stage sessionStage) guestWith(t *testing.T, rights Rights) (Attachment, *inbox) {
+	t.Helper()
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin", rights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := stage.hub.Join(made.Secret, "Cousin", nil, Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stage.attach(t, joined.MembershipCredential, RoleVideo)
+}
+
+// refusalSince is the code of the first refusal box was sent after its first before messages, or "".
+func refusalSince(box *inbox, before int) string {
+	for _, message := range box.messages[before:] {
+		if message.Type == MessageRejected {
+			return message.Code
+		}
+	}
+	return ""
 }
 
 // Each link starts with the rights of the last one made, the first with every right (D271 §4).

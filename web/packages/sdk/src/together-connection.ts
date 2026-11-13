@@ -99,6 +99,9 @@ export type GroupCommand =
   | { readonly command: "pause" }
   | { readonly command: "seek"; readonly positionMs: number }
   | { readonly command: "changeItem"; readonly fileId: number; readonly positionMs: number }
+  /** The episode after or before the session's film, which the server finds (D471 §2). */
+  | { readonly command: "next" }
+  | { readonly command: "previous" }
   | { readonly command: "stop" };
 
 /** A device's connection to its session (cut-a §5.1). */

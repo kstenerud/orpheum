@@ -9121,6 +9121,10 @@
       "TogetherRightsBody": {
         "additionalProperties": false,
         "properties": {
+          "canNext": {
+            "description": "Put on the next or previous episode for everyone, and see Up next; absent, withheld",
+            "type": "boolean"
+          },
           "canPlayPause": {
             "description": "Play and pause for everyone",
             "type": "boolean"
@@ -18270,6 +18274,43 @@
           }
         ],
         "summary": "A viewer's playback of what the session plays now (D246 §3)",
+        "tags": [
+          "Watch Together"
+        ],
+        "x-orpheum-capability": "member"
+      }
+    },
+    "/together/up-next": {
+      "get": {
+        "operationId": "getTogetherUpNext",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpNextOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
+        "summary": "What plays after the session's film and before it, in the ordering its host watches its series in: a viewer's whose link lets them put it on (D471 §3)",
         "tags": [
           "Watch Together"
         ],

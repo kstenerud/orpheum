@@ -172,10 +172,12 @@ export const enTogether = {
     noteExample: "Grandma",
     mayPlayPause: "They may play and pause for everyone",
     maySeek: "They may move the position for everyone",
+    mayNext: "They may put on the next or previous episode for everyone",
     rights: {
       both: "may play, pause and move the position",
       playPause: "may play and pause",
       seek: "may move the position",
+      next: "may put on the next or previous episode",
       none: "watches only",
     },
     makeLink: "Make a link",

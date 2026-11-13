@@ -101,6 +101,11 @@ const (
 	CommandChangeItem CommandKind = "changeItem"
 	// CommandStop ends what plays: everyone's screen goes back to black (D246 §5).
 	CommandStop CommandKind = "stop"
+	// CommandNext and CommandPrevious put on the episode after or before the session's film, in the
+	// ordering its host watches its series in, as their Up next and ⏮ would: a guest's whose link
+	// gives canNext (D471 §2). They carry no film; the hub finds it (Handle).
+	CommandNext     CommandKind = "next"
+	CommandPrevious CommandKind = "previous"
 )
 
 // SuspendReason is why a device detaches from the group for a while (watch-together.md, Sync).
@@ -471,9 +476,10 @@ type Inbound struct {
 	RemembersPlace bool        `json:"remembersPlace,omitempty"`
 	Command        CommandKind `json:"command,omitempty"`
 	Rate           float64     `json:"rate,omitempty"`
-	// FileID is a changeItem's film to put on; in a state, the film the device's player has
-	// loaded, 0 when it has none: its player gone, its film handed to a cast's receiver, or not yet
-	// loaded. Only a device whose player has the session's film contends for the lead (D374 §1).
+	// FileID is a changeItem's film to put on (a next's or a previous's, found by the hub); in a
+	// state, the film the device's player has loaded, 0 when it has none: its player gone, its film
+	// handed to a cast's receiver, or not yet loaded. Only a device whose player has the session's
+	// film contends for the lead (D374 §1).
 	FileID     int64         `json:"fileId,omitempty"`
 	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
 	Reason     SuspendReason `json:"reason,omitempty"`
@@ -492,6 +498,12 @@ type Inbound struct {
 	// finds it before it is held (Handle); never on the wire.
 	keyframeMs      int64
 	isKeyframeKnown bool
+	// movedFrom is the film a next or previous was found from, which must still be on as it is
+	// applied: the hub finds the film before it is held (Handle); never on the wire.
+	movedFrom int64
+	// movedToMs is where the film a next or previous found starts: where the host is partway
+	// through it, else its start.
+	movedToMs int64
 }
 
 // Outbound is one message the server sends.
@@ -641,14 +653,16 @@ const (
 )
 
 // Rights are what a guest may do to playback, each given or withheld by the host in their link
-// (D271 §4). Changing what plays, stopping it and its rate stay the host's.
+// (D271 §4): play and pause, the position, and the episode after or before (D471 §2). Putting on
+// another film, stopping it and its rate stay the host's.
 type Rights struct {
 	CanPlayPause bool `json:"canPlayPause"`
 	CanSeek      bool `json:"canSeek"`
+	CanNext      bool `json:"canNext"`
 }
 
-// everyRight is the host's rights, and what a session's first link starts with (D271 §4).
-func everyRight() Rights { return Rights{CanPlayPause: true, CanSeek: true} }
+// everyRight is the host's rights, and what a session's first link starts with (D271 §4, D471 §2).
+func everyRight() Rights { return Rights{CanPlayPause: true, CanSeek: true, CanNext: true} }
 
 // MemberView is one member in the roster: a person, with their devices.
 type MemberView struct {
