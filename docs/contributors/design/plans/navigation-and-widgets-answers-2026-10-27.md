@@ -3765,3 +3765,15 @@ won't have. We'll put this in the next batch." The GitHub repository is public (
   a secret, not pasted into a chat it shares).
 - **Served by connectd** at `orpheum.cc` (its `internal/webclient`, which serves the loader), as
   plain text; a core's own client page may name it too.
+
+## AirPlay out of the lab, next batch (the owner, 2026-11-13, D473)
+
+Once VQ310 shows AirPlay plays from the lab:
+
+- **D154 §6's exception** (D473 §1), its test asserting the one exception under `/g/`.
+- **The grant among the person's devices with a Revoke**, ending also with its sign-in (D473 §2).
+- **The player offers AirPlay** as the element's alternative source, the lab's setting removed
+  (D473 §4).
+- **The lab page's own fixes**, found in its first runs: it says when the lab is off; its ways stay
+  off until a grant is held; after Stop, way B fetches a new grant instead of needing the menu
+  reopened.

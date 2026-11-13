@@ -159,7 +159,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D151](working-notes.md#d151--withdrawn-notifications-a-media-server-has-nothing-you-are-waiting-for-and-its-ui-is-the-notification) Withdrawn: notifications. A media server has nothing you are waiting for, and its UI is the notification — *revisited by D152*
 - [D152](working-notes.md#d152--reachability-is-three-questions-with-three-observers-and-all-three-are-already-in-place) Reachability is three questions with three observers, and all three are already in place
 - [D153](working-notes.md#d153--a-ranked-feature-register-ordered-by-demand-and-annotated-by-retrofit-cost-because-those-are-different-numbers) A ranked feature register, ordered by demand and annotated by retrofit cost, because those are different numbers
-- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL — *revisited by D216, D217*
+- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL — *revisited by D216, D217, D473*
 - [D155](working-notes.md#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional) EIDR checked against its own schema: the levels are right, the citation was a proposal, and Edition must be optional — *revisited by D156*
 - [D156](working-notes.md#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one) A position is stored at the Version and resolved at the Edition; the Title never holds one — *revisited by D157*
 - [D157](working-notes.md#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does) A position belongs to the File. Completion rolls up; the position never does — *revisited by D158*
@@ -478,6 +478,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D470](working-notes.md#d470--a-lists-sort-and-filters-are-kept-for-the-way-back-to-it-in-its-address-alone-the-banner-opens-it-at-its-defaults) A list's sort and filters are kept for the way back to it, in its address alone; the banner opens it at its defaults
 - [D471](working-notes.md#d471--a-client-sends-only-what-its-rights-allow-a-guests-link-may-give-next-and-previous) A client sends only what its rights allow; a guest's link may give next and previous
 - [D472](working-notes.md#d472--connects-operator-console-before-the-beta-its-actions-a-fresh-passkey-touch-before-each-that-destroys-over-wireguard) Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
+- [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, and AirPlay leaves the lab
 
 ## Archived
 
