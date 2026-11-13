@@ -500,9 +500,11 @@ func TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt(t
 	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
 	rescan.library()
 	line := sweepUntilGivenUp(t, rescan, &logged)
+	// Its cause says the library kept changing and no more: the rescan it ends does not try again.
 	for _, want := range []string{
 		`level=ERROR`, `libraryId=` + strconv.FormatInt(lib.libraryID, 10),
-		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
+		`the library changed each time it was read; the write its last read would make: name title ` +
+			strconv.FormatInt(titleID, 10),
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("the line it gave up with lacks %s: %s", want, line)

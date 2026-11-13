@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -127,6 +128,35 @@ func TestNeedsAttention_ListsTheFilmsWhoseFileHasNoSound(t *testing.T) {
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
 	if !strings.Contains(got.body, `"filmsWithoutSound":[{"itemId":11,"name":"Mister 517"}]`) {
 		t.Errorf("GET /needs-attention = %d %s; want only Mister 517 listed as without sound", got.status, got.body)
+	}
+}
+
+// The owner, 2026-11-13: a rescan that gave up, its library's files changing every time they were
+// read, puts its library on Needs attention, named, with when it gave up; nothing is listed while no
+// rescan has given up. That a later finished rescan takes it away is identify's
+// (TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt).
+func TestNeedsAttention_ListsTheLibrariesWhoseRescanGaveUp(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	if before := harness.do(t, http.MethodGet, "/needs-attention", admin, nil); before.status != http.StatusOK ||
+		strings.Contains(before.body, `"rescansGivenUp"`) {
+		t.Fatalf("GET /needs-attention with no rescan given up = %d %s; want none listed", before.status,
+			before.body)
+	}
+	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		return queries.UpsertRescanGivenUp(t.Context(), cachegen.UpsertRescanGivenUpParams{
+			LibraryID: 1, GivenUpAt: 7000,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	if !strings.Contains(got.body, `"rescansGivenUp":[{"libraryId":1,"name":"Films","givenUpAt":7000}]`) {
+		t.Errorf("GET /needs-attention = %d %s; want library 1, Films, listed as given up at 7000", got.status,
+			got.body)
 	}
 }
 
