@@ -330,6 +330,66 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     ]);
   });
 
+  it("offers Up next near the film's end to a viewer whose link lets them put it on, and puts it on for everyone; none to one whose link does not (D471 §2)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const upNext = {
+      episode: { itemId: 9, name: "Bag", groupNumber: 1, numberInGroup: 3, fileId: 6 },
+      ordering: "aired",
+      isOnlyGroup: false,
+    };
+    const shown: string[] = [];
+    for (const canNext of [true, false]) {
+      const { services, heard, server } = viewerServices("/together", {
+        "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+        "GET /together/up-next": [200, { upNext }],
+      });
+      const mounted = await mount(withServices(<TogetherViewer />, services));
+      await click(buttonWithText(mounted.container, "Tap to continue"));
+      await server.accept();
+      await server.say({ ...welcome, rights: { canPlayPause: true, canSeek: true, canNext } });
+      await server.say({
+        type: "group",
+        seq: 2,
+        group: {
+          state: "paused",
+          positionMs: 1_185_000,
+          rate: 1,
+          fileId: 5,
+          event: "paused",
+          byMemberId: 1,
+        },
+      });
+      const video = mounted.container.querySelector("video");
+      if (video !== null) {
+        Object.defineProperty(video, "duration", { configurable: true, get: () => 1200 });
+        video.currentTime = 1185;
+      }
+      await fire(video, new Event("timeupdate"));
+      const offer =
+        mounted.container.querySelector<HTMLButtonElement>(".up-next__play") ?? undefined;
+      expect(offer?.textContent ?? "· Bag").toContain("· Bag");
+      shown.push(
+        `canNext ${String(canNext)}: offered ${String(offer !== undefined)}, asked ${String(
+          heard.some((each) => each.methodAndPath === "GET /together/up-next"),
+        )}`,
+      );
+      if (offer !== undefined) {
+        await click(offer);
+      }
+      expect(server.heard.filter((message) => message["type"] === "command")).toEqual(
+        canNext ? [expect.objectContaining({ type: "command", command: "next" })] : [],
+      );
+      mounted.unmount();
+    }
+    expect(shown).toEqual([
+      "canNext true: offered true, asked true",
+      "canNext false: offered false, asked false",
+    ]);
+  });
+
   it("offers the sound at a tap when the browser would only play the film muted", async () => {
     window.localStorage.setItem(
       "orpheum.together.viewer",

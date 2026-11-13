@@ -33,6 +33,8 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 			return
 		}
 		current.changeItem(now, sender, from, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
+	case CommandNext, CommandPrevious:
+		current.moveAlong(now, sender, from, message, refuse)
 	case CommandStop:
 		current.group.fileID, current.group.position = 0, 0
 		current.filmChanged(now) // nothing on, no one leads (D374 §1)
@@ -57,6 +59,8 @@ func (each *member) may(command CommandKind) bool {
 		return rights.CanPlayPause
 	case CommandSeek:
 		return rights.CanSeek
+	case CommandNext, CommandPrevious:
+		return rights.CanNext
 	case CommandChangeItem, CommandStop, CommandRate:
 		return each.isHost
 	default:
@@ -96,7 +100,25 @@ func (current *session) transport(
 		current.group.position, current.group.at = current.positionAt(now), now
 		current.group.rate = message.Rate
 		current.change(now, current.group.state, EventChangedRate, sender.id)
-	case CommandChangeItem, CommandStop:
+	case CommandChangeItem, CommandStop, CommandNext, CommandPrevious:
+	}
+}
+
+// moveAlong puts on the episode after or before the session's film that the hub found (Handle), as
+// the host's Up next or ⏮ would (D471 §2): refused where nothing is on, as stale where another film
+// was put on since it was found, and where none plays next or before.
+func (current *session) moveAlong(
+	now time.Time, sender *member, from *device, message Inbound, refuse func(code string),
+) {
+	switch {
+	case current.group.fileID == 0:
+		refuse(codeInvalid)
+	case message.movedFrom != current.group.fileID:
+		refuse(codeStale)
+	case message.FileID == 0:
+		refuse(codeNotFound)
+	default:
+		current.changeItem(now, sender, from, message.FileID, time.Duration(message.movedToMs)*time.Millisecond)
 	}
 }
 

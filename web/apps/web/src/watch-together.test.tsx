@@ -35,10 +35,10 @@ function WatchTogether(): JSX.Element {
 }
 
 const karl = { id: 1, name: "Karl", isHost: true };
-/** A link's rights, every one (D271 §4). */
-const allRights = { canPlayPause: true, canSeek: true };
-/** A link's rights with moving the position withheld. */
-const pauseOnly = { canPlayPause: true, canSeek: false };
+/** A link's rights, every one (D271 §4, D471 §2). */
+const allRights = { canPlayPause: true, canSeek: true, canNext: true };
+/** A link's rights with moving the position and the episode withheld. */
+const pauseOnly = { canPlayPause: true, canSeek: false, canNext: false };
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -93,11 +93,16 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
     await click(buttonWithText(mounted.container, "Invite someone"));
     await enter(mounted.container.querySelector(".watch-together__dialog input"), "Grandma");
-    // The first link starts with every right; the host withholds moving the position (D271 §4).
-    const [mayPause, maySeek] =
+    // The first link starts with every right; the host withholds moving the position, and the
+    // next or previous episode (D271 §4, D471 §2).
+    const [mayPause, maySeek, mayNext] =
       mounted.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    expect([mayPause?.checked, maySeek?.checked]).toEqual([true, true]);
+    expect([mayPause?.checked, maySeek?.checked, mayNext?.checked]).toEqual([true, true, true]);
+    expect(mayNext?.parentElement?.textContent).toContain(
+      "They may put on the next or previous episode for everyone",
+    );
     await click(maySeek);
+    await click(mayNext);
     await submit(mounted.container.querySelector(".watch-together__dialog form"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "POST /together",
@@ -239,6 +244,31 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     const mounted = await mount(withServices(<WatchTogether />, services));
     expect(rowStarting(mounted.container, "A link for Grandma")?.textContent).toBe(
       `A link for Grandma, not used yet, may play and pause, good until ${timeText(expiresAt, i18n.language)}`,
+    );
+    mounted.unmount();
+  });
+
+  it("names the next or previous episode among what each waiting link gives (D471 §2)", async () => {
+    hostSession();
+    const links = [
+      { id: 4, rights: allRights, hostNote: "Grandma" },
+      {
+        id: 5,
+        rights: { canPlayPause: false, canSeek: false, canNext: true },
+        hostNote: "a cousin",
+      },
+    ];
+    const services = servedBy(
+      { "GET /together/3": [200, { sessionId: 3, nextRights: allRights, links, members: [karl] }] },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    expect(rowStarting(mounted.container, "A link for Grandma")?.textContent).toContain(
+      "may play, pause and move the position; may put on the next or previous episode",
+    );
+    expect(rowStarting(mounted.container, "A link for a cousin")?.textContent).toContain(
+      "not used yet, may put on the next or previous episode",
     );
     mounted.unmount();
   });

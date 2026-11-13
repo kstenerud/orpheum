@@ -70,7 +70,10 @@ export function commandOfEvent(
     : undefined;
 }
 
-/** Whether rights let a player send command: play and pause by one, a seek by the other. */
+/**
+ * Whether rights let a player send command: play and pause by one, a seek by another, the episode
+ * after or before by a third (D471 §2).
+ */
 export function mayLead(command: GroupCommand, rights: PlaybackRights): boolean {
   switch (command.command) {
     case "play":
@@ -78,6 +81,9 @@ export function mayLead(command: GroupCommand, rights: PlaybackRights): boolean 
       return rights.canPlayPause;
     case "seek":
       return rights.canSeek;
+    case "next":
+    case "previous":
+      return rights.canNext;
     case "changeItem":
     case "stop":
       return false;

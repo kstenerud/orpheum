@@ -232,26 +232,32 @@ export const startingTuning: SyncTuning = {
 };
 
 /**
- * What a member may do to playback (D271 §4): the host everything, a guest what their link gives,
- * play and pause, and changing the position, each its own.
+ * What a member may do to playback (D271 §4, D471 §2): the host everything, a guest what their link
+ * gives, play and pause, changing the position, and the episode after or before, each its own.
  */
 export interface PlaybackRights {
   readonly canPlayPause: boolean;
   readonly canSeek: boolean;
+  /** Whether they may put on the next or previous episode, and so are shown Up next (D471 §2). */
+  readonly canNext: boolean;
 }
 
 /** The host's rights: every one. */
-export const everyRight: PlaybackRights = { canPlayPause: true, canSeek: true };
+export const everyRight: PlaybackRights = { canPlayPause: true, canSeek: true, canNext: true };
 
 /** No right: what a device has before its welcome says. */
-export const noRight: PlaybackRights = { canPlayPause: false, canSeek: false };
+export const noRight: PlaybackRights = { canPlayPause: false, canSeek: false, canNext: false };
 
 /** A welcome's rights; one that says none gives none. */
 function parseRights(value: unknown): PlaybackRights {
   const record = recordOf(value);
   return record === undefined
     ? noRight
-    : { canPlayPause: record["canPlayPause"] === true, canSeek: record["canSeek"] === true };
+    : {
+        canPlayPause: record["canPlayPause"] === true,
+        canSeek: record["canSeek"] === true,
+        canNext: record["canNext"] === true,
+      };
 }
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */

@@ -6,6 +6,7 @@ import { everyRight } from "./together.ts";
 import { browserPauseWindowMs, checkDriftEveryMs, scrubPauseWindowMs } from "./together-follow.ts";
 import { playerMovedItselfEvent } from "./together-player-events.ts";
 import { ownMarkLastsMs } from "./together-own-moves.ts";
+import { mayLead } from "./together-lead.ts";
 import {
   FakeMedia,
   FakePage,
@@ -26,6 +27,29 @@ beforeEach(() => {
 afterEach(() => {
   stopEveryFollower();
   vi.useRealTimers();
+});
+
+describe("what a member's rights let them send (D271 §4, D471 §2)", () => {
+  it("lets the episode after or before be sent by canNext alone, and another film or a stop by none", () => {
+    const sent = (rights: typeof everyRight): string[] =>
+      (
+        [
+          { command: "play" },
+          { command: "seek", positionMs: 0 },
+          { command: "next" },
+          { command: "previous" },
+          { command: "changeItem", fileId: 3, positionMs: 0 },
+          { command: "stop" },
+        ] as const
+      )
+        .filter((command) => mayLead(command, rights))
+        .map((command) => command.command);
+    expect(sent({ canPlayPause: false, canSeek: false, canNext: true })).toEqual([
+      "next",
+      "previous",
+    ]);
+    expect(sent({ canPlayPause: true, canSeek: true, canNext: false })).toEqual(["play", "seek"]);
+  });
 });
 
 describe("a leading player's person's moves", () => {
@@ -60,7 +84,7 @@ describe("a leading player's person's moves", () => {
     const pausing = fakeConnection(paused);
     followGroup(pausingGuest, pausing.connection, {
       fileId: 5,
-      leads: { canPlayPause: true, canSeek: false },
+      leads: { canPlayPause: true, canSeek: false, canNext: false },
       monotonicMs,
     });
     pausingGuest.fire("seeked"); // the follower's own seek to the group's position
@@ -79,7 +103,7 @@ describe("a leading player's person's moves", () => {
     const seeking = fakeConnection(paused);
     followGroup(seekingGuest, seeking.connection, {
       fileId: 5,
-      leads: { canPlayPause: false, canSeek: true },
+      leads: { canPlayPause: false, canSeek: true, canNext: false },
       monotonicMs,
     });
     seekingGuest.fire("seeked");

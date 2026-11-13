@@ -2517,6 +2517,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/up-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What plays after the session's film and before it, in the ordering its host watches its series in: a viewer's whose link lets them put it on (D471 §3) */
+        get: operations["getTogetherUpNext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -5840,6 +5857,8 @@ export interface components {
             name: string;
         };
         TogetherRightsBody: {
+            /** @description Put on the next or previous episode for everyone, and see Up next; absent, withheld */
+            canNext?: boolean;
             /** @description Play and pause for everyone */
             canPlayPause: boolean;
             /** @description Change the position for everyone */
@@ -11646,6 +11665,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartPlaybackOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTogetherUpNext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpNextOutputBody"];
                 };
             };
             /** @description Error */

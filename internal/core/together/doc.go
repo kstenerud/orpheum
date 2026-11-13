@@ -132,11 +132,14 @@
 //     sound's is, to their own other devices that play it, and to no one else's; a picture or a
 //     choice past the bounds is refused (D440 §5). Enforced by
 //     TestCast_TheRemoteChoosesTheReceiversPicture and TestHub_TheRosterSaysWhatEachPlayerShows.
-//   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
-//     stopping it and its rate are the host's alone; each link starts with the last one's rights
-//     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed
-//     is refused as stale (D246 §5, §8). Enforced by TestHub_OnlyTheHostControlsPlayback,
+//   - A guest plays and pauses, changes the position, and puts on the episode after or before, only
+//     as their link allows; any other film, stopping it and its rate are the host's alone; each link
+//     starts with the last one's rights (D271 §4, D471 §2). A next or a previous names no film: the
+//     hub finds it in the host's ordering, one the host may play, and refuses one found from a film
+//     since changed as stale. Stopping leaves nothing on; a seek made against a group another seek
+//     has changed is refused as stale (D246 §5, §8). Enforced by TestHub_OnlyTheHostControlsPlayback,
 //     TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows, TestHub_ANewLinkStartsWithTheLastOnesRights,
+//     TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight,
 //     TestHub_TheHostStoppingLeavesNothingPlaying and TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.
 //   - A new link for a guest gives their place: they stay in until it is used, whoever joins by it
 //     takes the place over, the devices they came in on cut off, and the place's other links end;
@@ -228,6 +231,7 @@
 //   - D117, D119, D122, D125: the session, its link and its guests, as D246 revised them.
 //   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control, as D271 §4 revised
 //     it: a guest's rights.
+//   - D471: who may take each action and where it is only shown: a guest's next and previous.
 //   - D371: a session's leader plays as a device plays alone; everyone else catches up to it, and a
 //     cast takes its sender's part. It revises D250 §2–§3 (no sync points but the leader's) and
 //     D247 §4 (no group waits for a stalled viewer).

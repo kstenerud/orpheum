@@ -69,11 +69,19 @@ describe("a device's hello and welcome (cut-a §5.1)", () => {
     connection.open();
     sockets.opened[0]!.onOpen();
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
-    expect(connection.snapshot().rights).toEqual({ canPlayPause: false, canSeek: false });
+    expect(connection.snapshot().rights).toEqual({
+      canPlayPause: false,
+      canSeek: false,
+      canNext: false,
+    });
     sockets.opened[0]!.onMessage(
-      JSON.stringify({ ...welcome, rights: { canPlayPause: true, canSeek: false } }),
+      JSON.stringify({ ...welcome, rights: { canPlayPause: true, canSeek: false, canNext: true } }),
     );
-    expect(connection.snapshot().rights).toEqual({ canPlayPause: true, canSeek: false });
+    expect(connection.snapshot().rights).toEqual({
+      canPlayPause: true,
+      canSeek: false,
+      canNext: true,
+    });
   });
 
   it("says version 3 in its hello, and ends, connecting no more, when the core refuses it for its version (cut-a §5.1)", () => {

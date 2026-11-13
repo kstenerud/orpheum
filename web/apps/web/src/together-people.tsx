@@ -49,13 +49,23 @@ export function togetherUrl(origin: string, issued: Pick<Issued, "secret" | "lin
 
 /** What rights give, in a few words for the host's list of people. */
 function rightsText(t: (key: string) => string, rights: Rights): string {
+  const playback = playbackRightsText(t, rights);
+  if (!rights.canNext) {
+    return playback ?? t("watchTogether.rights.none");
+  }
+  const next = t("watchTogether.rights.next");
+  return playback === undefined ? next : `${playback}; ${next}`;
+}
+
+/** What rights give over the film playing, in a few words; undefined where they give nothing. */
+function playbackRightsText(t: (key: string) => string, rights: Rights): string | undefined {
   if (rights.canPlayPause && rights.canSeek) {
     return t("watchTogether.rights.both");
   }
   if (rights.canPlayPause) {
     return t("watchTogether.rights.playPause");
   }
-  return t(rights.canSeek ? "watchTogether.rights.seek" : "watchTogether.rights.none");
+  return rights.canSeek ? t("watchTogether.rights.seek") : undefined;
 }
 
 /**
@@ -135,6 +145,16 @@ export function MakeLink(props: {
           }}
         />{" "}
         {t("watchTogether.maySeek")}
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={rights.canNext}
+          onChange={(event) => {
+            setRights({ ...rights, canNext: event.target.checked });
+          }}
+        />{" "}
+        {t("watchTogether.mayNext")}
       </label>
       <button type="submit">{t("watchTogether.makeLink")}</button>
     </FormRow>

@@ -62,6 +62,11 @@ type MayPlay func(ctx context.Context, userID, fileID int64) bool
 // start of the chunk holding it, and whether the file is cut so it is known (D285 §1).
 type KeyframeAtOrBefore func(ctx context.Context, fileID, positionMs int64) (int64, bool)
 
+// Neighbour is the film after fileID (isNext) or before it in the ordering userID watches its
+// series in, and where userID is partway through it, else 0; false where none plays there or none
+// can be read now (D407 §2, D471 §2).
+type Neighbour func(ctx context.Context, userID, fileID int64, isNext bool) (neighbourID, positionMs int64, found bool)
+
 // Hub holds the live sessions, in memory: they end with the process (D119).
 type Hub struct {
 	clock   clock.Clock
@@ -69,6 +74,9 @@ type Hub struct {
 	mayPlay MayPlay
 	// keyframeAtOrBefore, when set, snaps a long seek back to a keyframe (SnapSeeksBy).
 	keyframeAtOrBefore KeyframeAtOrBefore
+	// neighbour, when set, finds the film a next or a previous puts on (MovesAlongBy); unset, none
+	// is found.
+	neighbour Neighbour
 	// logger hears every change of each session's group (the owner, 2026-10-06).
 	logger *slog.Logger
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
@@ -457,6 +465,8 @@ type Viewer struct {
 	HostUserID int64
 	// FileID is what the session plays now, or 0 while nothing does.
 	FileID int64
+	// Rights are what the viewer may do to playback, their link's (D271 §4).
+	Rights Rights
 }
 
 // ViewerOf is the viewer a membership credential names, while the membership lasts; false for an
@@ -470,6 +480,7 @@ func (hub *Hub) ViewerOf(credential string) (Viewer, bool) {
 	}
 	return Viewer{
 		SessionID: viewed.id, MemberID: viewing.id, HostUserID: viewed.hostUserID, FileID: viewed.group.fileID,
+		Rights: viewing.rightsHeld(),
 	}, true
 }
 
@@ -555,14 +566,20 @@ func (hub *Hub) SnapSeeksBy(keyframeAtOrBefore KeyframeAtOrBefore) {
 	hub.keyframeAtOrBefore = keyframeAtOrBefore
 }
 
+// MovesAlongBy has a next or a previous find the film it puts on by neighbour (D471 §2).
+func (hub *Hub) MovesAlongBy(neighbour Neighbour) {
+	hub.neighbour = neighbour
+}
+
 // Handle takes one message from an attached device. A change of what plays is checked against
-// what the host may play, and a seek's keyframe found, before the hub is held, since they read the
-// store.
+// what the host may play, a next's or a previous's film found, and a seek's keyframe found, before
+// the hub is held, since they read the store.
 func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbound) {
 	if message.Type == MessageCommand && message.Command == CommandChangeItem &&
 		!hub.mayPlay(ctx, hub.hostOf(attachment.SessionID), message.FileID) {
 		message.FileID = 0 // refused below, as one the host may not play
 	}
+	hub.findNeighbour(ctx, attachment, &message)
 	hub.findKeyframe(ctx, attachment, &message)
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -746,6 +763,26 @@ func (hub *Hub) findKeyframe(ctx context.Context, attachment Attachment, message
 	}
 	if fileID := hub.fileOf(attachment.SessionID); fileID != 0 {
 		message.keyframeMs, message.isKeyframeKnown = hub.keyframeAtOrBefore(ctx, fileID, message.PositionMs)
+	}
+}
+
+// findNeighbour finds, for a next or a previous, the film after or before the session's in its
+// host's ordering, one the host may play, and where the host is partway through it; FileID stays 0
+// where there is none, which the command refuses.
+func (hub *Hub) findNeighbour(ctx context.Context, attachment Attachment, message *Inbound) {
+	isNext := message.Command == CommandNext
+	if message.Type != MessageCommand || (!isNext && message.Command != CommandPrevious) {
+		return
+	}
+	message.FileID = 0 // a next or a previous names no film of its own
+	message.movedFrom = hub.fileOf(attachment.SessionID)
+	if message.movedFrom == 0 || hub.neighbour == nil {
+		return
+	}
+	host := hub.hostOf(attachment.SessionID)
+	neighbourID, positionMs, found := hub.neighbour(ctx, host, message.movedFrom, isNext)
+	if found && hub.mayPlay(ctx, host, neighbourID) {
+		message.FileID, message.movedToMs = neighbourID, positionMs
 	}
 }
 

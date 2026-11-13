@@ -28081,3 +28081,85 @@ address (`router.ts`, `browse.tsx`'s `useBrowseCriteria` replacing the entry) an
 - 2: web/apps/web/src/upward.test.ts, web/apps/web/src/list-chips.test.tsx
 - 3: web/apps/web/src/upward.test.ts, web/apps/web/src/up-trail.test.tsx
 - 4: web/apps/web/src/upward.test.ts, web/apps/web/src/app-shell.test.tsx
+
+## D471 — A client sends only what its rights allow; a guest's link may give next and previous
+
+**Decided** (2026-11-13), by the owner, answering the 11-25 batch's report on Watch Together's Up
+next: *"Yes, we should add prev/next permission. Clients should only send and be allowed to send
+requests they have permission for. A watch together guest will have a reduced set of permissions
+compared to the host, and a cast target will have a subset of the caster's permissions, depending on
+its capabilities and where it makes the most sense to do the actions (or in the case of
+caster/castee, the action may be doable from both sides, or only one side). For example a chromecast
+target may not have a remote, so while it would make sense to show the 'next up' pop-up onscreen, the
+user in that case would only be able to select 'next up' from the caster device."* A guest with the
+right to put on the next or previous episode sees Up next; one without it does not. On the cast's
+side, the same day: *"if the cast-to device is capable of performing the action, it should have
+permission to as well. Then the action can be performed by caster or castee alike. This makes sense
+since they would have control over both devices."* **Amends**
+[D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)
+§4, whose guest rights were play and pause, and the position: a third joins them.
+
+1. **A client offers and sends only what its rights allow, and the core refuses anything else.** A
+   guest's rights are a subset of their host's, given in their link. A cast target holds its
+   caster's rights for every action it can take, and never one its caster lacks; the caster keeps
+   them all, so each such action is taken on either. Where an action suits a screen that cannot take
+   it, that screen shows it, and the action is taken where it can be.
+2. **A guest's link may give `canNext`: the episode after or before the session's film, for
+   everyone,** given or withheld by the host beside the other two, and starting as the last link's
+   did (the first with every right, D271 §4). A `next` or `previous` command names no film: the core
+   finds it in the ordering the host watches its series in, one the host may play, at the place the
+   host is partway through it, as the host's own Up next and ⏮ would (D407 §2). It is refused
+   without the right, where nothing plays after or before, and as stale where the session's film
+   changed after the neighbour was found. Putting on any other film, and stopping, stay the host's.
+3. **A guest with `canNext` is shown Up next near the film's end, and pressing it puts it on for
+   everyone; a guest without it is shown nothing and asks for nothing.** It is read from
+   `GET /together/up-next`, a member's call, refused without the right, which names the episode
+   alone, nothing of where the host stands in it, and leaves out one the host cannot read now. The
+   guest's offer does not count down (the open question below).
+
+**Who takes each action, and where it is only shown.** "Takes" is pressed there and carried out;
+"shows" is drawn there, taken elsewhere; a question is not decided, and is not built.
+
+- **Watch Together host:** takes every action (D246 §5).
+- **Watch Together guest:** play and pause, by `canPlayPause`; the position, by `canSeek`; Up next,
+  by `canNext` (§2, §3); stop, never (D271 §4). *Questions:* ⏮ and ⏭ for a guest with `canNext`,
+  which no guest's player draws now (recommended: beside Full screen, as the host's player has them);
+  and their sound and subtitles (recommended: chosen on their own device for themselves alone, never
+  the group's).
+- **Caster** (the remote on the person's phone, D440): takes every action: play and pause, the
+  position, Up next and ⏮, sound and subtitles, and Stop casting.
+- **An Orpheum tab or TV receiving, with a remote** (D364, D434): takes every action it can, as its
+  caster does (§1, the owner): play and pause, the position, sound and subtitles; Up next shows
+  there, counts and is taken there, moving the cast on; ⏮ and ⏭ too. *Not built:* the receiver draws
+  no ⏮ or ⏭ now. Stop is the caster's (nothing pressed on the receiver ends the cast, D364); whether
+  the receiver may end the cast is the one cell the owner's words leave to the reading that it can
+  (recommended: kept the caster's, as leaving the receiver's page already leaves the cast running).
+- **A Google Cast device without a remote** (D465): shows what plays; takes nothing. Up next shows
+  on its screen and is chosen on the caster, as the owner's example has it. *Not built:* the device
+  draws no Up next now, and a guest receiver is refused `GET /files/{id}/up-next`; it needs that read
+  opened to a receiver for its cast's film, and an offer drawn on the device without a button.
+- **A guest receiver with a remote** (a device signed in by a code, D469): as an Orpheum TV, taking
+  Up next and ⏮ and ⏭ for its cast (§1, the owner). *Not built:* it is refused
+  `GET /files/{id}/up-next` and `POST /me/casts/{id}/next`, so its count today falls back to telling
+  its caster it is ready for the next; those two open to a receiver for its own cast's film.
+
+**Open, for the owner, each with what is recommended:**
+
+- **Who counts down for a session.** Two players counting at once would each move the group on.
+  Recommended: the host's alone, as now; a guest's offer is pressed, never counted.
+- **Whether a guest may ever stop.** Recommended: no, as D271 §4 has it.
+- **Whether the first link gives `canNext`.** Built as yes, D271 §4's first link holding every right;
+  the host unticks it.
+
+**Status:** Decided 2026-11-13. §1 to §3 are in the commit "feat(together): a guest's link may give
+the next and previous episode, and a guest given it is offered Up next", to be read back against
+the code by a later commit. The cells above marked not built, and the questions, are not built.
+
+**Proven by:**
+- 1: internal/core/together/hub_test.go (TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows),
+  web/packages/sdk/src/together-lead.test.ts
+- 2: internal/core/together/hub_test.go
+  (TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight), internal/core/api/together_test.go
+  (TestTogether_ALinkCarriesTheRightsTheHostGaveIt), web/apps/web/src/watch-together.test.tsx
+- 3: internal/core/api/together_test.go (TestTogether_AGuestWithTheRightSeesUpNextAndPutsItOn),
+  web/apps/web/src/together-viewer.test.tsx

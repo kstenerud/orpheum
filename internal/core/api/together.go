@@ -50,10 +50,11 @@ type TogetherLinkBody struct {
 }
 
 // TogetherRightsBody is what a guest may do to playback, each given or withheld in their link
-// (D271 §4).
+// (D271 §4, D471 §2).
 type TogetherRightsBody struct {
 	CanPlayPause bool `doc:"Play and pause for everyone" json:"canPlayPause"`
 	CanSeek      bool `doc:"Change the position for everyone" json:"canSeek"`
+	CanNext      bool `doc:"Put on the next or previous episode for everyone, and see Up next; absent, withheld" json:"canNext" required:"false"` //nolint:lll // one struct tag
 }
 
 // TogetherMemberBody is one member, as the host sees them.
@@ -273,6 +274,12 @@ func (server *Server) registerTogetherMembers(tags []string) {
 		Extensions: callableBy(capabilityMember),
 	}, server.playTogether)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getTogetherUpNext", Method: http.MethodGet, Path: "/together/up-next", Tags: tags,
+		Summary: "What plays after the session's film and before it, in the ordering its host watches its " +
+			"series in: a viewer's whose link lets them put it on (D471 §3)",
+		Extensions: callableBy(capabilityMember),
+	}, server.getTogetherUpNext)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTogetherICE", Method: http.MethodGet, Path: "/together/{id}/ice", Tags: tags,
 		Summary:    "A member's voice relay credentials, which end with the membership (D243 §8)",
 		Extensions: callableBy(capabilityMember),
@@ -389,7 +396,7 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 	}
 	server.logger.InfoContext(ctx, "watch together: the host made a link",
 		"sessionId", input.SessionID, "linkId", made.LinkID, "hostNote", input.Body.HostNote,
-		"mayPlayPause", rights.CanPlayPause, "maySeek", rights.CanSeek)
+		"mayPlayPause", rights.CanPlayPause, "maySeek", rights.CanSeek, "mayNext", rights.CanNext)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
 	output.Body.Link = togetherLink(dependencies, made.Secret)

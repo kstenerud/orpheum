@@ -51,7 +51,8 @@ import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
-import { requestTogetherPlayback } from "./together-playback.ts";
+import { requestTogetherPlayback, requestTogetherUpNext } from "./together-playback.ts";
+import { UpNextOffer } from "./up-next.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
 import {
@@ -637,14 +638,50 @@ function GuestStalls(props: FilmParts): JSX.Element {
 }
 
 /**
- * Over the guest's film: the video following the group, and Tap for sound and Full screen, which stays
- * the stage's.
+ * Over the guest's film: the video following the group, Tap for sound and Full screen, which stays
+ * the stage's, and Up next where their link lets them put it on (D471 §2).
  */
 function FollowingGroup(props: FilmParts): JSX.Element {
   const { fileId, following, isVoiceWaiting } = useGuestFilm();
   const muted = useFollowing(props.videoRef, fileId, following);
   useFullScreenOnTheStage(props.videoRef);
-  return <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />;
+  // A link's rights never change, and are known by the time a film is on.
+  const { canNext } = following.connection.snapshot().rights;
+  return (
+    <>
+      <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />
+      {canNext ? <GuestUpNext videoRef={props.videoRef} /> : null}
+    </>
+  );
+}
+
+/**
+ * The episode after the group's film, offered near its end as the host's own player offers it, which
+ * puts it on for everyone (D471 §2, §3). It does not count down: whose autoplay moves the group on
+ * is not decided (D471's open question), and the host's own still does.
+ */
+function GuestUpNext(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}): JSX.Element | null {
+  const { fileId, following, headers } = useGuestFilm();
+  const { api } = useServices();
+  const [around] = useResource(`together-up-next/${String(fileId)}`, () =>
+    requestTogetherUpNext(api, headers),
+  );
+  const upNext = around.state === "loaded" ? around.value : undefined;
+  if (upNext === undefined) {
+    return null;
+  }
+  return (
+    <UpNextOffer
+      upNext={upNext}
+      isAutoplayOn={false}
+      videoRef={props.videoRef}
+      onPlay={() => {
+        following.connection.command({ command: "next" });
+      }}
+    />
+  );
 }
 
 /** A ladder's word that even its lowest quality cannot keep up, told the group (D247 §8). */
@@ -727,7 +764,8 @@ function useFollowing(
     video.addEventListener(playedMutedEvent, onPlayedMuted);
     const stopFollowing = followGroup(video, connection, {
       fileId,
-      leads: { canPlayPause, canSeek },
+      // A player's own presses never move to another episode: that is the Up next offer's.
+      leads: { canPlayPause, canSeek, canNext: false },
       monotonicMs,
       page: pageThatPausesWhenHidden(),
     });
