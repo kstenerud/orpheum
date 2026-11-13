@@ -31,8 +31,8 @@ func TestResetLink_ANewOneCancelsTheOutstandingOne(t *testing.T) {
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("the reset link a new one replaced: %v, want ErrBadInvitation", err)
 	}
-	if expiresAt, isOutstanding, readErr := fixture.service.ResetLink(ctx, id); readErr != nil || !isOutstanding ||
-		!expiresAt.Equal(second.ExpiresAt) {
+	if expiresAt, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, id); readErr != nil ||
+		!isOutstanding || !expiresAt.Equal(second.ExpiresAt) {
 		t.Errorf("the outstanding reset link = %v, %v, %v; want the new one's end, %v",
 			expiresAt, isOutstanding, readErr, second.ExpiresAt)
 	}
@@ -71,7 +71,7 @@ func TestResetLink_LastsAsLongAsItsOwnSettingSays(t *testing.T) {
 	if _, err = fixture.service.Register(ctx, set.Secret, "", "late", laptop); !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a reset link past its life: %v, want ErrBadInvitation", err)
 	}
-	if _, isOutstanding, readErr := fixture.service.ResetLink(ctx, id); readErr != nil || isOutstanding {
+	if _, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, id); readErr != nil || isOutstanding {
 		t.Errorf("an ended reset link reads as outstanding: %v, %v; want none", isOutstanding, readErr)
 	}
 }
@@ -83,33 +83,33 @@ func TestResetLink_IsOutstandingUntilUsedOrCancelled(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "forgotten", RoleUser)
-	if _, isOutstanding, err := fixture.service.ResetLink(ctx, id); err != nil || isOutstanding {
+	if _, isOutstanding, err := fixture.service.ResetLinkExpiresAt(ctx, id); err != nil || isOutstanding {
 		t.Errorf("before any reset link: %v, %v; want none outstanding", isOutstanding, err)
 	}
 	issued, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if expiresAt, isOutstanding, readErr := fixture.service.ResetLink(ctx, id); readErr != nil || !isOutstanding ||
-		!expiresAt.Equal(issued.ExpiresAt) {
+	if expiresAt, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, id); readErr != nil ||
+		!isOutstanding || !expiresAt.Equal(issued.ExpiresAt) {
 		t.Errorf("a reset link just made reads as %v, %v, %v; want outstanding until %v",
 			expiresAt, isOutstanding, readErr, issued.ExpiresAt)
 	}
 	if _, err = fixture.service.Register(ctx, issued.Secret, "", "remembered", laptop); err != nil {
 		t.Fatal(err)
 	}
-	if _, isOutstanding, readErr := fixture.service.ResetLink(ctx, id); readErr != nil || isOutstanding {
+	if _, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, id); readErr != nil || isOutstanding {
 		t.Errorf("a used reset link reads as outstanding: %v, %v; want none", isOutstanding, readErr)
 	}
 	newcomer := fixture.createUnregistered(t, "newcomer")
 	if _, err = fixture.service.IssueRegistrationInvitation(ctx, newcomer); err != nil {
 		t.Fatal(err)
 	}
-	if _, isOutstanding, readErr := fixture.service.ResetLink(ctx, newcomer); readErr != nil || isOutstanding {
+	if _, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, newcomer); readErr != nil || isOutstanding {
 		t.Errorf("a person with no password reads as having a reset link: %v, %v; want none",
 			isOutstanding, readErr)
 	}
-	if _, _, readErr := fixture.service.ResetLink(ctx, 99); !errors.Is(readErr, ErrNoUser) {
+	if _, _, readErr := fixture.service.ResetLinkExpiresAt(ctx, 99); !errors.Is(readErr, ErrNoUser) {
 		t.Errorf("the reset link of no one: %v, want ErrNoUser", readErr)
 	}
 }
@@ -136,7 +136,7 @@ func TestCancelResetLink_EndsItLeavingThePasswordAndSessions(t *testing.T) {
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a cancelled reset link: %v, want ErrBadInvitation", err)
 	}
-	if _, isOutstanding, readErr := fixture.service.ResetLink(ctx, id); readErr != nil || isOutstanding {
+	if _, isOutstanding, readErr := fixture.service.ResetLinkExpiresAt(ctx, id); readErr != nil || isOutstanding {
 		t.Errorf("a cancelled reset link reads as outstanding: %v, %v; want none", isOutstanding, readErr)
 	}
 	if _, err = fixture.service.SignIn(ctx, "partner", "kept", "192.0.2.1", laptop); err != nil {

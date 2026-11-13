@@ -391,7 +391,7 @@ func (server *Server) getUser(ctx context.Context, input *UserInput) (*UserPageO
 	if hasOwnLink {
 		output.Body.OwnLinkExpiresAt = own.ExpiresAt.UnixMilli()
 	}
-	resetExpiresAt, hasResetLink, err := dependencies.Auth.ResetLink(ctx, input.UserID)
+	resetExpiresAt, hasResetLink, err := dependencies.Auth.ResetLinkExpiresAt(ctx, input.UserID)
 	if err != nil {
 		return nil, server.authError(ctx, "read a person's reset link", err)
 	}
