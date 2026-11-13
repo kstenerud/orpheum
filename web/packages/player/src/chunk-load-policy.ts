@@ -35,7 +35,7 @@ export const chunkAskAgainCount = 90;
  * 252 ms stand-still (staging, 2026-11-12). Offline, hls.js asks again itself once the browser is
  * back.
  */
-export const unansweredAsksAgain = 2;
+export const unansweredAskAgainCount = 2;
 
 /** The core's statuses after which a chunk is never asked for again, whatever hls.js would do. */
 const neverAskedAgain: ReadonlySet<number> = new Set([
@@ -48,12 +48,12 @@ const neverAskedAgain: ReadonlySet<number> = new Set([
 
 /**
  * Whether a chunk's load is tried again: as hls.js would, after the core's 425 too, and after a load
- * nothing answered for the first unansweredAsksAgain times in a row, count being hls.js's own (the
+ * nothing answered for the first unansweredAskAgainCount times in a row, count being hls.js's own (the
  * playback's chunks failed since a chunk of their quality last buffered); never after the core's
  * 404, 429 or 503, which asking again does not change.
  */
 // eslint-disable-next-line max-params -- hls.js's own signature for shouldRetry
-function retriesTooEarly(
+function isChunkAskedAgain(
   _config: unknown,
   count: number,
   _timedOut: unknown,
@@ -64,7 +64,7 @@ function retriesTooEarly(
   if (code !== undefined && neverAskedAgain.has(code)) {
     return false;
   }
-  if (code === unansweredStatus && count < unansweredAsksAgain) {
+  if (code === unansweredStatus && count < unansweredAskAgainCount) {
     return true; // its connection was lost: asked again on the next, at its quality
   }
   return isRetry || code === tooEarlyStatus;
@@ -73,7 +73,9 @@ function retriesTooEarly(
 /**
  * How a chunked playback loads its chunks: waiting as long as the core may hold one being made,
  * and asking again after the core's 425, "being made", every second or two for chunkAskAgainCount
- * times; hls.js's own defaults give up after ten seconds, and never ask again after a 425.
+ * times, and after a load nothing answered unansweredAskAgainCount times in a row, at its quality
+ * (isChunkAskedAgain); hls.js's own defaults give up after ten seconds, and never ask again after a
+ * 425.
  */
 export const chunkLoadPolicy: LoadPolicy = {
   default: {
@@ -84,7 +86,7 @@ export const chunkLoadPolicy: LoadPolicy = {
       maxNumRetry: chunkAskAgainCount,
       retryDelayMs: 1000,
       maxRetryDelayMs: 2000,
-      shouldRetry: retriesTooEarly,
+      shouldRetry: isChunkAskedAgain,
     },
   },
 };

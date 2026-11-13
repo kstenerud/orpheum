@@ -1966,10 +1966,10 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   player's paths a status 0 is a load nothing answered: XMLHttpRequest's for a request the service
   worker's relay or the network failed, and `fetchLoader`'s for a fetch that failed.
 - **What we do:** `chunkLoadPolicy`'s `shouldRetry` asks a chunk nothing answered
-  (`unansweredStatus`) again `unansweredAsksAgain` (2) times in a row at its quality, 1 s and then
+  (`unansweredStatus`) again `unansweredAskAgainCount` (2) times in a row at its quality, 1 s and then
   2 s later, on whatever connection the transport has up then; after that, hls.js tries a lower
   quality as before. The core's own words (404, 422, 429, 503) are untouched
-  (`web/packages/player/src/chunk-load-policy.ts`, `retriesTooEarly`; `load-again.test.ts`).
+  (`web/packages/player/src/chunk-load-policy.ts`, `isChunkAskedAgain`; `load-again.test.ts`).
 - **Evidence:** [staging] 2026-11-12, the owner's Firefox; **[source]** hls.js 1.7.3,
   `src/controller/error-controller.ts` (`getFragRetryOrSwitchAction`), `src/utils/error-helper.ts`.
   **[web]** no report found of this case (searched 2026-11-12); hls.js's own design notes say a
