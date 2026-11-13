@@ -40,6 +40,8 @@ export interface KeptPath {
   readonly onPathMove: (listener: (to: string) => void) => () => void;
   /** The kind of path the requests and the media go over now. */
   readonly pathInUse: () => Reached["kind"];
+  /** The core's name the requests go to now, its origin, when the path in use is one; else undefined. */
+  readonly directOriginInUse: () => string | undefined;
   /** What carries the load of a media url now, for a stuck chunk's log (the SDK's mediaCarrierOf). */
   readonly mediaCarrierOf: (url: string) => string;
   /**
@@ -189,6 +191,7 @@ export function keepPath(
       return () => moveListeners.delete(listener);
     },
     pathInUse: () => inUse.kind,
+    directOriginInUse: () => (inUse.kind === "direct" ? inUse.origin : undefined),
     mediaCarrierOf,
     onPathBack: used.onPathBack,
     onPathRefused: used.onPathRefused,

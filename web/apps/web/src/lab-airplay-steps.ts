@@ -11,6 +11,7 @@ import { failureText } from "@orpheum/sdk";
 
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow } from "./problem.ts";
+import type { PathMoves } from "./services.tsx";
 
 /** A line for the page's log. */
 export type Log = (line: string) => void;
@@ -38,6 +39,34 @@ function hasPicker(video: HTMLVideoElement): video is HTMLVideoElement & WebKitA
     "webkitShowPlaybackTargetPicker" in video &&
     typeof video.webkitShowPlaybackTargetPicker === "function"
   );
+}
+
+/**
+ * The origin the grant's address is resolved on, the one the receiver must reach the core at
+ * (plans/airplay.md item 2): on the core's own origin, where pathMoves names no direct origin, the
+ * page's, pageOrigin; under a discovery's loader, the core's name the page's requests reach it at,
+ * never the page's, the client origin, which serves no media to a player running none of the page's
+ * code (the owner's staging test, 2026-11-13: the Mac fetched nothing). Undefined, the reason
+ * logged, where the core is reached over WebRTC alone, which no receiver can fetch through, or the
+ * loader is too old to say which name it reached.
+ */
+export function grantOriginOf(
+  pathMoves: Pick<PathMoves, "directOrigin" | "isOverWebrtc"> | undefined,
+  pageOrigin: string,
+  log: Log,
+): string | undefined {
+  if (pathMoves?.directOrigin === undefined) {
+    return pageOrigin;
+  }
+  const origin = pathMoves.directOrigin();
+  if (origin === undefined) {
+    log(
+      pathMoves.isOverWebrtc()
+        ? "the core is reached over WebRTC alone: a receiver cannot reach it, so AirPlay cannot work here (airplay.md item 2); no grant asked for"
+        : "the loader does not say which of the core's names it reached (older than its minor 6): no address a receiver reaches; no grant asked for",
+    );
+  }
+  return origin;
 }
 
 /**

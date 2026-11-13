@@ -265,6 +265,7 @@ export function loaderOver(
     openTogetherSocket: kept.openTogetherSocket,
     onPathMove: kept.onPathMove,
     pathInUse: kept.pathInUse,
+    directOriginInUse: kept.directOriginInUse,
     mediaCarrierOf: kept.mediaCarrierOf,
     onPathBack: kept.onPathBack,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
