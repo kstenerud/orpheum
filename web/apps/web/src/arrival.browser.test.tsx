@@ -30,12 +30,15 @@ import {
   type WalkAnswers,
 } from "./test-walk.tsx";
 
-/** The server's answers every signed-in page reads. */
+/**
+ * The server's answers every signed-in page reads: Home's rows in its one read, the newest films six
+ * (D476 §6), and the films' list whole in one answer (D475).
+ */
 const signedIn: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
-  "GET /home": { continueWatching: [] },
-  "GET /items": { items: films(6), nextCursor: "" },
+  "GET /home": { continueWatching: [], newestFilms: films(6), newestSeries: [] },
+  "GET /items": { items: films(6) },
 };
 
 /** An administrator's answers, for the pages only they reach: Libraries, Users, a library's files. */
@@ -245,6 +248,8 @@ describe("a page's arrival", () => {
                 durationMs: 1000,
               },
             ],
+            newestFilms: films(6),
+            newestSeries: [],
           },
         },
         "/",

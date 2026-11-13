@@ -21,6 +21,7 @@ import {
   films,
   focusedTile,
   isDrawn,
+  letteredFilms,
   mountApp,
   viewer,
   walkServices,
@@ -97,7 +98,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       walkServices({ ...filmsOnly, "GET /items": { items: lettered, nextCursor: "" } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    // The rail's letters come from their own request, and are taken into its one Tab stop after
+    // The rail's letters come with the list's entries, and are taken into its one Tab stop after
     // they are drawn: a letter not yet taken in cannot be stood at, and a loaded run met it so.
     const takenIn = (): string[] =>
       [...document.querySelectorAll(`.alphabet-rail__letter[${rovingAttribute}]`)].map(
@@ -222,7 +223,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     await page.viewport(960, 480);
     walking?.unmount();
     walking = await mountApp(
-      walkServices({ ...filmsOnly, "GET /items": { items: films(60), nextCursor: "" } }),
+      walkServices({ ...filmsOnly, "GET /items": { items: letteredFilms(60) } }),
     );
     await expect.poll(() => document.querySelectorAll(".poster-grid > li").length).toBe(60);
     window.scrollTo(0, document.documentElement.scrollHeight);
@@ -274,10 +275,12 @@ function boxOf(selector: string): DOMRect {
   return element.getBoundingClientRect();
 }
 
-/** The films' page: twelve films, nothing partway. */
+/**
+ * The films' page: 27 films, the list whole in one answer and each film under a
+ * letter of its own, so the rail beside it has every letter (D475 §2).
+ */
 const filmsOnly = {
   "GET /me": viewer,
   "GET /client-settings": {},
-  "GET /home": { continueWatching: [] },
-  "GET /items": { items: films(12), nextCursor: "" },
+  "GET /items": { items: letteredFilms(27) },
 };

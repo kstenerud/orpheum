@@ -39,6 +39,17 @@ function partway(id: number, name: string): Record<string, unknown> {
   return { id, name, libraryId: 1, fileId: id * 10, positionMs: 500_000, durationMs: 1_000_000 };
 }
 
+/** The newest films and the newest series, twelve each, as GET /home carries them beside Continue Watching (D476 §6). */
+const newestRows = {
+  newestFilms: films(12),
+  newestSeries: films(12).map((film, index) => ({
+    ...film,
+    id: 401 + index,
+    kind: "series",
+    name: `Series ${String(index + 1)}`,
+  })),
+};
+
 /** Home with three films partway watched, over the newest films and series, twelve each. */
 const withContinueWatching: WalkAnswers = {
   "GET /me": viewer,
@@ -49,14 +60,14 @@ const withContinueWatching: WalkAnswers = {
       partway(202, "Nosferatu"),
       partway(203, "Sunrise"),
     ],
+    ...newestRows,
   },
-  "GET /items": { items: films(12), nextCursor: "" },
 };
 
 /**
- * Continue Watching as the server has it once it has heard each hide: the rows less those whose
- * PUT /items/<id>/hidden is in heard. Read at each request, so a background poll before the hide
- * still finds the row, and its card's open "…" stays.
+ * Home as the server has it once it has heard each hide: Continue Watching's rows less those whose
+ * PUT /items/<id>/hidden is in heard, over the newest rows. Read at each request, so a background poll
+ * before the hide still finds the row, and its card's open "…" stays.
  */
 function homeLessHidden(
   rows: readonly Record<string, unknown>[],
@@ -66,6 +77,7 @@ function homeLessHidden(
     get continueWatching() {
       return rows.filter((row) => !heard.includes(`PUT /items/${String(row["id"])}/hidden`));
     },
+    ...newestRows,
   };
 }
 
