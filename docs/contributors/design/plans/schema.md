@@ -1309,6 +1309,10 @@ CREATE TABLE rescan (                                      -- D357: an admin's r
   changed_count, unchanged_count, left_alone_count, unsettled_count, failed_count  -- INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));  -- one a scope at a time
+CREATE TABLE rescan_given_up (                             -- a library whose rescan gave up, for Needs attention
+  library_id  INTEGER PRIMARY KEY,       -- persistent.db's library; gone once a later rescan of it finishes
+  given_up_at INTEGER NOT NULL
+);
 CREATE TABLE rematch (                                     -- D357: a film or series a rescan matches again
   item_id     INTEGER PRIMARY KEY,       -- persistent.db's film or series
   rescan_id   INTEGER NOT NULL REFERENCES rescan(id) ON DELETE CASCADE,

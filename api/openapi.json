@@ -4365,6 +4365,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "rescansGivenUp": {
+            "items": {
+              "$ref": "#/components/schemas/RescanGivenUpBody"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "rootCount": {
             "format": "int64",
             "type": "integer"
@@ -6516,6 +6526,28 @@
         "required": [
           "location",
           "message"
+        ],
+        "type": "object"
+      },
+      "RescanGivenUpBody": {
+        "properties": {
+          "givenUpAt": {
+            "description": "When it gave up, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libraryId",
+          "name",
+          "givenUpAt"
         ],
         "type": "object"
       },

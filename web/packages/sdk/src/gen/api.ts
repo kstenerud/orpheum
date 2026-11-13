@@ -4237,6 +4237,7 @@ export interface components {
             filmsWithoutSoundCount: number;
             /** Format: int64 */
             matchCount: number;
+            rescansGivenUp?: components["schemas"]["RescanGivenUpBody"][] | null;
             /** Format: int64 */
             rootCount: number;
             seriesReadWrongly: components["schemas"]["SeriesReadWronglyBody"][] | null;
@@ -4965,6 +4966,16 @@ export interface components {
             /** @description Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong */
             location: string;
             message: string;
+        };
+        RescanGivenUpBody: {
+            /**
+             * Format: int64
+             * @description When it gave up, in Unix milliseconds
+             */
+            givenUpAt: number;
+            /** Format: int64 */
+            libraryId: number;
+            name: string;
         };
         RescanOutputBody: {
             isScanning: boolean;

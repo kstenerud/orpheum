@@ -447,6 +447,37 @@ func (rescans *Rescans) Progress(ctx context.Context) (map[int64]RescanProgress,
 	return progress, nil
 }
 
+// RescanGivenUp is a library whose last rescan gave up, its files changing every time they were
+// read, and when.
+type RescanGivenUp struct {
+	LibraryID   int64
+	LibraryName string
+	GivenUpAt   int64 // Unix milliseconds
+}
+
+// GivenUp are the libraries whose rescan gave up and no later rescan of which has finished, which
+// Needs attention lists (the owner, 2026-11-13), by library id; a library deleted since is not.
+func (rescans *Rescans) GivenUp(ctx context.Context) ([]RescanGivenUp, error) {
+	rows, err := rescans.matcher.cache.Read().ListRescansGivenUp(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the rescans given up: %w", err)
+	}
+	given := make([]RescanGivenUp, 0, len(rows))
+	for _, row := range rows {
+		named, err := store.OrNotFound(rescans.matcher.database.Read().GetLibrary(ctx, row.LibraryID))
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read library %d: %w", row.LibraryID, err)
+		}
+		given = append(given, RescanGivenUp{
+			LibraryID: row.LibraryID, LibraryName: named.Name, GivenUpAt: row.GivenUpAt,
+		})
+	}
+	return given, nil
+}
+
 // pendingRematch is what an item's files say it is, when a rescan waits to match it again.
 func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cachegen.GetRematchRow, bool, error) {
 	if isRunning, err := matcher.isRescanRunning(ctx); err != nil || !isRunning {
@@ -545,31 +576,17 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 // endRescan ends a rescan that is done, or, given why it gave up, one that is not, and logs its
 // totals: a rescan given up as an error, with why.
 func (matcher *Matcher) endRescan(ctx context.Context, rescanID int64, givenUp error) error {
-	var ended cachegen.Rescan
-	isEnded := false
 	matcher.rescans.mutex.Lock()
 	if err := matcher.countRescansLocked(ctx); err != nil {
 		matcher.rescans.mutex.Unlock()
 		return err
 	}
+	var ended cachegen.Rescan
+	isEnded := false
 	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		rescan, err := store.OrNotFound(queries.GetRescan(ctx, rescanID))
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read it: %w", err)
-		}
-		waiting, err := queries.CountRematchesOfRescan(ctx, rescanID)
-		if err != nil {
-			return fmt.Errorf("count what it waits on: %w", err)
-		}
-		// A rescan gives up before it is listed, so waits on nothing.
-		if givenUp == nil && (waiting > 0 || rescan.ListedAt == nil) {
-			return nil
-		}
-		ended, isEnded = rescan, true
-		return queries.DeleteRescan(ctx, rescanID)
+		var err error
+		ended, isEnded, err = matcher.deleteEndedRescan(ctx, queries, rescanID, givenUp)
+		return err
 	})
 	if err == nil && isEnded {
 		matcher.rescans.running--
@@ -578,19 +595,60 @@ func (matcher *Matcher) endRescan(ctx context.Context, rescanID int64, givenUp e
 	if err != nil {
 		return fmt.Errorf("end rescan %d: %w", rescanID, err)
 	}
-	switch {
-	case !isEnded:
-	case givenUp != nil:
-		matcher.logger.ErrorContext(ctx, "a rescan gave up: its library changed every time it was read",
-			append([]any{slogx.EventKey, "rescanGaveUp", "cause", givenUp.Error()}, rescanTotals(ended)...)...)
-	default:
-		matcher.logger.InfoContext(ctx, "a rescan ended",
-			append([]any{slogx.EventKey, "rescanEnded"}, rescanTotals(ended)...)...)
-		if ended.IsFull != 0 {
-			matcher.pass.OwePass(ended.LibraryID) // which queues the images asked for again (D392 §4)
-		}
+	if isEnded {
+		matcher.logRescanEnded(ctx, ended, givenUp)
 	}
 	return nil
+}
+
+// deleteEndedRescan deletes the rescan if it is ended, and answers it and true, or false while it still waits.
+// One given up puts its library on Needs attention until a later rescan of it finishes.
+func (matcher *Matcher) deleteEndedRescan(
+	ctx context.Context, queries *cachegen.Queries, rescanID int64, givenUp error,
+) (cachegen.Rescan, bool, error) {
+	rescan, err := store.OrNotFound(queries.GetRescan(ctx, rescanID))
+	if errors.Is(err, store.ErrNotFound) {
+		return cachegen.Rescan{}, false, nil
+	}
+	if err != nil {
+		return cachegen.Rescan{}, false, fmt.Errorf("read it: %w", err)
+	}
+	waiting, err := queries.CountRematchesOfRescan(ctx, rescanID)
+	if err != nil {
+		return cachegen.Rescan{}, false, fmt.Errorf("count what it waits on: %w", err)
+	}
+	// A rescan gives up before it is listed, so waits on nothing.
+	if givenUp == nil && (waiting > 0 || rescan.ListedAt == nil) {
+		return cachegen.Rescan{}, false, nil
+	}
+	if err = queries.DeleteRescan(ctx, rescanID); err != nil {
+		return cachegen.Rescan{}, false, fmt.Errorf("delete it: %w", err)
+	}
+	if givenUp != nil {
+		err = queries.UpsertRescanGivenUp(ctx, cachegen.UpsertRescanGivenUpParams{
+			LibraryID: rescan.LibraryID, GivenUpAt: matcher.clock.Now().UnixMilli(),
+		})
+	} else {
+		err = queries.DeleteRescanGivenUp(ctx, rescan.LibraryID)
+	}
+	if err != nil {
+		return cachegen.Rescan{}, false, fmt.Errorf("record its library's give-up: %w", err)
+	}
+	return rescan, true, nil
+}
+
+// logRescanEnded logs an ended rescan's totals, and owes a full one's library its pass.
+func (matcher *Matcher) logRescanEnded(ctx context.Context, ended cachegen.Rescan, givenUp error) {
+	if givenUp != nil {
+		matcher.logger.ErrorContext(ctx, "a rescan gave up: its library changed every time it was read",
+			append([]any{slogx.EventKey, "rescanGaveUp", "cause", givenUp.Error()}, rescanTotals(ended)...)...)
+		return
+	}
+	matcher.logger.InfoContext(ctx, "a rescan ended",
+		append([]any{slogx.EventKey, "rescanEnded"}, rescanTotals(ended)...)...)
+	if ended.IsFull != 0 {
+		matcher.pass.OwePass(ended.LibraryID) // which queues the images asked for again (D392 §4)
+	}
 }
 
 // rescanTotals are a rescan's totals as its log line says them.

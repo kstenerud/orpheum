@@ -261,6 +261,7 @@ func wholeReadsAllowed() map[string]string {
 		"DeleteSortKeysOfOtherLocales": "runs once, when the sort locale changes",
 		"cache.ListArtServed":          "the artwork ceiling's sweep reads when every image was served, once a day",
 		"cache.ListNodeAttempts":       few + "nodes' attempts",
+		"cache.ListRescansGivenUp":     few + "libraries, and only those whose rescan gave up",
 		"cache.ListScans":              few + "scans at a time, one per root",
 		"cache.ListRescans":            few + "rescans at a time, one per library or item an admin pressed (D357)",
 		"cache.ListRematches": "the rescans' sweep queues every film and series they wait on, which a rescan's " +

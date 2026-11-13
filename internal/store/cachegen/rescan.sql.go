@@ -89,6 +89,16 @@ func (q *Queries) DeleteRescan(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteRescanGivenUp = `-- name: DeleteRescanGivenUp :exec
+DELETE FROM rescan_given_up WHERE library_id = ?1
+`
+
+// A later rescan of the library finished.
+func (q *Queries) DeleteRescanGivenUp(ctx context.Context, libraryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteRescanGivenUp, libraryID)
+	return err
+}
+
 const getRematch = `-- name: GetRematch :one
 SELECT rematch.item_id, rematch.rescan_id, rematch.name, rematch.year, rematch.ids_json, rescan.is_full
 FROM rematch JOIN rescan ON rescan.id = rematch.rescan_id
@@ -302,6 +312,33 @@ func (q *Queries) ListRescans(ctx context.Context) ([]ListRescansRow, error) {
 	return items, nil
 }
 
+const listRescansGivenUp = `-- name: ListRescansGivenUp :many
+SELECT library_id, given_up_at FROM rescan_given_up ORDER BY library_id
+`
+
+func (q *Queries) ListRescansGivenUp(ctx context.Context) ([]RescanGivenUp, error) {
+	rows, err := q.db.QueryContext(ctx, listRescansGivenUp)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RescanGivenUp{}
+	for rows.Next() {
+		var i RescanGivenUp
+		if err := rows.Scan(&i.LibraryID, &i.GivenUpAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setRescanListed = `-- name: SetRescanListed :exec
 UPDATE rescan SET listed_at = ?1, item_count = ?2
 WHERE id = ?3
@@ -316,5 +353,22 @@ type SetRescanListedParams struct {
 // A rescan's scan over, and its films and series listed to match again.
 func (q *Queries) SetRescanListed(ctx context.Context, arg SetRescanListedParams) error {
 	_, err := q.db.ExecContext(ctx, setRescanListed, arg.ListedAt, arg.ItemCount, arg.ID)
+	return err
+}
+
+const upsertRescanGivenUp = `-- name: UpsertRescanGivenUp :exec
+INSERT INTO rescan_given_up (library_id, given_up_at) VALUES (?1, ?2)
+ON CONFLICT (library_id) DO UPDATE SET given_up_at = excluded.given_up_at
+WHERE rescan_given_up.given_up_at IS NOT excluded.given_up_at
+`
+
+type UpsertRescanGivenUpParams struct {
+	LibraryID int64
+	GivenUpAt int64
+}
+
+// A library's rescan gave up: its files changed every time they were read.
+func (q *Queries) UpsertRescanGivenUp(ctx context.Context, arg UpsertRescanGivenUpParams) error {
+	_, err := q.db.ExecContext(ctx, upsertRescanGivenUp, arg.LibraryID, arg.GivenUpAt)
 	return err
 }

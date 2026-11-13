@@ -58,8 +58,8 @@ function ToPages(): JSX.Element {
 }
 
 /**
- * The series likely read wrongly (D306 §6) and the films without sound (the owner, 2026-11-02),
- * each leading to its page; the server lists at most 100 of each, and how many more there are is
+ * The series likely read wrongly (D306 §6), the films without sound (the owner, 2026-11-02) and
+ * the libraries whose rescan gave up (the owner, 2026-11-13), each leading to its page; the server lists at most 100 of each, and how many more there are is
  * said after them (D432 §4).
  */
 function ProblemTitles(props: { readonly value: AttentionCounts }): JSX.Element {
@@ -88,6 +88,13 @@ function ProblemTitles(props: { readonly value: AttentionCounts }): JSX.Element 
         <li key={`film-${String(film.itemId)}`}>
           <WarningIcon /> <Link to={{ screen: "title", itemId: film.itemId }}>{film.name}</Link>
           {t("needsAttention.filmWithoutSound")}
+        </li>
+      ))}
+      {(value.rescansGivenUp ?? []).map((library) => (
+        <li key={`rescan-${String(library.libraryId)}`}>
+          <WarningIcon />{" "}
+          <Link to={{ screen: "library", libraryId: library.libraryId }}>{library.name}</Link>
+          {t("needsAttention.rescanGaveUp")}
         </li>
       ))}
       {value.filmsWithoutSoundCount > withoutSound.length ? (
@@ -157,7 +164,11 @@ export function NeedsAttention(): JSX.Element {
             { count: value.unreadCount, key: "needsAttention.unreadPaths" },
             { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
-          return lines.length + value.seriesReadWronglyCount + value.filmsWithoutSoundCount === 0 &&
+          return lines.length +
+            value.seriesReadWronglyCount +
+            value.filmsWithoutSoundCount +
+            (value.rescansGivenUp?.length ?? 0) ===
+            0 &&
             newer === undefined &&
             !hasCopyWarning(value) ? (
             <p>{t("needsAttention.nothing")}</p>

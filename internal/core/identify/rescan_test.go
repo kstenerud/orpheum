@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
@@ -487,12 +488,49 @@ func TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt(t
 	titleID := lib.titlesByPath()[crowdFile].WorkID
 	takeAway := `DELETE FROM sort_key WHERE item_id = ` + strconv.FormatInt(titleID, 10)
 	storetest.ExecRaw(t, lib.database.Path(), takeAway)
+	var keepsChanging atomic.Bool
+	keepsChanging.Store(true)
 	lib.pass.AfterPass(func(context.Context, identify.Report) {
-		storetest.ExecRaw(t, lib.database.Path(), takeAway) //nolint:contextcheck // it writes with the test's context
+		if keepsChanging.Load() {
+			//nolint:contextcheck // it writes with the test's context
+			storetest.ExecRaw(t, lib.database.Path(), takeAway)
+		}
 	})
 	var logged bytes.Buffer
 	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
 	rescan.library()
+	line := sweepUntilGivenUp(t, rescan, &logged)
+	for _, want := range []string{
+		`level=ERROR`, `libraryId=` + strconv.FormatInt(lib.libraryID, 10),
+		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the line it gave up with lacks %s: %s", want, line)
+		}
+	}
+	progress, err := rescan.rescans.Progress(t.Context())
+	if err != nil || len(progress) != 0 {
+		t.Errorf("rescans after giving up: %+v, %v; want none", progress, err)
+	}
+	// Needs attention lists the library, named, while no later rescan of it has finished.
+	wantGivenUp(t, rescan, lib.libraryID, "given up", 1)
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.Rescan)
+	if err != nil || !isStarted {
+		t.Errorf("RescanLibrary after giving up = %t, %v; want a new rescan", isStarted, err)
+	}
+	wantGivenUp(t, rescan, lib.libraryID, "a later rescan running", 1)
+	keepsChanging.Store(false)
+	rescan.run()
+	if progress, err := rescan.rescans.Progress(t.Context()); err != nil || len(progress) != 0 {
+		t.Fatalf("the later rescan: %+v, %v; want it finished", progress, err)
+	}
+	wantGivenUp(t, rescan, lib.libraryID, "a later rescan finished", 0)
+}
+
+// sweepUntilGivenUp advances the rescan until it gives up, after a few sweeps and fewer than 20,
+// and answers the line it gave up with.
+func sweepUntilGivenUp(t *testing.T, rescan *rescanning, logged *bytes.Buffer) string {
+	t.Helper()
 	gaveUp := slogx.EventKey + `=rescanGaveUp`
 	sweeps := 0
 	for ; sweeps < 20 && !strings.Contains(logged.String(), gaveUp); sweeps++ {
@@ -509,21 +547,17 @@ func TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt(t
 			line = candidate
 		}
 	}
-	for _, want := range []string{
-		`level=ERROR`, `libraryId=` + strconv.FormatInt(lib.libraryID, 10),
-		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
-	} {
-		if !strings.Contains(line, want) {
-			t.Errorf("the line it gave up with lacks %s: %s", want, line)
-		}
-	}
-	progress, err := rescan.rescans.Progress(t.Context())
-	if err != nil || len(progress) != 0 {
-		t.Errorf("rescans after giving up: %+v, %v; want none", progress, err)
-	}
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.Rescan)
-	if err != nil || !isStarted {
-		t.Errorf("RescanLibrary after giving up = %t, %v; want a new rescan", isStarted, err)
+	return line
+}
+
+// wantGivenUp checks that want libraries are listed as given up, the one being libraryID, named.
+func wantGivenUp(t *testing.T, rescan *rescanning, libraryID int64, when string, want int) {
+	t.Helper()
+	given, err := rescan.rescans.GivenUp(t.Context())
+	if err != nil || len(given) != want || want == 1 &&
+		(given[0].LibraryID != libraryID || given[0].LibraryName != "Library" || given[0].GivenUpAt == 0) {
+		t.Errorf("%s: the rescans given up are %+v, %v; want %d of library %d, named", when, given, err, want,
+			libraryID)
 	}
 }
 
