@@ -48,6 +48,8 @@ it("registers with the link's secret, and leaves it in neither the address nor t
   });
   expect(services.session.token()).toBe("new-token");
   expect(services.session.deviceProof()).toBe("phone-secret");
+  // The answer's user stands for the shell's first read, so the shell does not ask for it (D476).
+  expect(services.session.handedUser()).toEqual({ device: { id: 9, name: "Phone" } });
   expect(services.navigation.route()).toEqual({ screen: "home" });
   expect(place.addresses).toEqual(["/"]);
 });
