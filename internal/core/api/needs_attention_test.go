@@ -140,16 +140,37 @@ func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
 	harness.shelve(t)
 	names := make([]string, 0, silentFilms)
 	for index := range silentFilms {
-		id := int64(1000 + index)
-		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Year: 1950, AddedAt: 3})
-		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 3})
-		librarytest.File(t, harness.database, librarytest.FileSpec{
-			ID: id, LibraryID: 1, NodeID: 1, Path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), SizeBytes: 1000,
-			PayloadHash: []byte{byte(index), 0xf0}, Filing: "listed", VersionID: id,
-		})
-		librarytest.Stream(t, harness.database,
-			librarytest.StreamSpec{BytesFile: id, StreamIndex: 0, Kind: "video", Codec: "h264"})
-		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", id, index))
+		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", 1000+index, index))
+	}
+	seedTitles(t, harness.databasePath, titleRows{
+		firstID: 1000, count: silentFilms, kind: "movie", state: "identified", year: 1950, addedAt: 3,
+	})
+	library, err := harness.database.Read().GetLibraryForIdentify(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for index := range silentFilms {
+			id := int64(1000 + index)
+			fileID, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
+				workID: id, path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), sizeBytes: 1000,
+				payloadHash: []byte{byte(index), 0xf0}, placeIndex: index, versionCreatedAt: 3,
+			})
+			if seedErr != nil {
+				return seedErr
+			}
+			streamIndex := int64(0)
+			seedErr = queries.UpsertStream(t.Context(), sqlcgen.UpsertStreamParams{
+				FileID: fileID, StreamIndex: &streamIndex, Kind: "video", Codec: new("h264"),
+			})
+			if seedErr != nil {
+				return fmt.Errorf("stream %d: %w", index, seedErr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("films: %v", err)
 	}
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES "+
@@ -173,12 +194,11 @@ func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing
 	harness.shelve(t)
 	places := make([]string, 0, episodes)
 	for index := range episodes {
-		id := int64(100 + index)
-		librarytest.Title(t, harness.database, librarytest.TitleSpec{
-			ID: id, Library: 1, Kind: "episode", IdentificationState: "unidentified", AddedAt: 2,
-		})
-		places = append(places, fmt.Sprintf(`(1, %d, 0, NULL, %d)`, id, 20000+index))
+		places = append(places, fmt.Sprintf(`(1, %d, 0, NULL, %d)`, 100+index, 20000+index))
 	}
+	seedTitles(t, harness.databasePath, titleRows{
+		firstID: 100, count: episodes, kind: "episode", state: "unidentified", addedAt: 2,
+	})
 	storetest.ExecRaw(t, harness.databasePath, storetest.Positions(strings.Join(places, ", ")))
 	seedEpisodeFiles(t, harness.database, 100, episodes, filesEach)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
@@ -188,6 +208,34 @@ func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing
 		t.Errorf("GET /needs-attention = %d %.400s; want Brass Arena's %d unplaced files counted", got.status,
 			got.body, unplaced)
 	}
+}
+
+// titleRows is count titles of one kind in library 1 (an item and its work each), numbered from
+// firstID; year 0 is none.
+type titleRows struct {
+	firstID, count int64
+	kind, state    string
+	year, addedAt  int64
+}
+
+// seedTitles writes the titles as librarytest.Title writes one, the items in one statement and the
+// works in another: a transaction or two per title, a thousand of them, took most of a minute.
+func seedTitles(t *testing.T, databasePath string, rows titleRows) {
+	t.Helper()
+	year := "NULL"
+	if rows.year != 0 {
+		year = fmt.Sprint(rows.year)
+	}
+	items := make([]string, 0, rows.count)
+	works := make([]string, 0, rows.count)
+	for id := rows.firstID; id < rows.firstID+rows.count; id++ {
+		items = append(items, fmt.Sprintf("(%d, '%s', 1, %d, %s, '%s')", id, rows.kind, rows.addedAt, year, rows.state))
+		works = append(works, fmt.Sprintf("(%d, '%s')", id, rows.kind))
+	}
+	storetest.ExecRaw(t, databasePath,
+		"INSERT INTO item (id, kind, filing_library_id, added_at, year, identification_state) VALUES "+
+			strings.Join(items, ", "),
+		"INSERT INTO work (id, kind) VALUES "+strings.Join(works, ", "))
 }
 
 // seedEpisodeFiles gives each of the episodes from firstID a version holding filesEach files, as
@@ -201,8 +249,11 @@ func seedEpisodeFiles(t *testing.T, database *store.Database, firstID int64, epi
 	}
 	err = database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		for index := range episodes * filesEach {
-			episodeID := firstID + int64(index/filesEach)
-			if seedErr := seedEpisodeFile(t.Context(), queries, library.Kind, episodeID, index); seedErr != nil {
+			_, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
+				workID: firstID + int64(index/filesEach), path: fmt.Sprintf("/m/BB/Brass Arena - part %d.mkv", index),
+				sizeBytes: 10, placeIndex: index, versionCreatedAt: 2,
+			})
+			if seedErr != nil {
 				return seedErr
 			}
 		}
@@ -213,39 +264,53 @@ func seedEpisodeFiles(t *testing.T, database *store.Database, firstID int64, epi
 	}
 }
 
-// seedEpisodeFile writes the index'th file, read and listed, in a new version of the episode.
-func seedEpisodeFile(
-	ctx context.Context, queries *sqlcgen.Queries, libraryKind string, episodeID int64, index int,
-) error {
-	path := fmt.Sprintf("/m/BB/Brass Arena - part %d.mkv", index)
-	sizeBytes := int64(10)
+// listedFile is a file seedListedFile writes: at path, in a new version of title workID.
+type listedFile struct {
+	workID           int64
+	path             string
+	sizeBytes        int64
+	payloadHash      []byte // nil: the path's bytes
+	placeIndex       int    // the file's number in its test, for the errors
+	versionCreatedAt int64
+}
+
+// seedListedFile writes file, read and listed, in a new version of its title, and returns its id.
+func seedListedFile(
+	ctx context.Context, queries *sqlcgen.Queries, libraryKind string, file listedFile,
+) (int64, error) {
+	index := file.placeIndex
+	payloadHash := file.payloadHash
+	if payloadHash == nil {
+		payloadHash = []byte(file.path)
+	}
 	id, err := queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		SizeBytes: &sizeBytes, PayloadHash: []byte(path),
+		SizeBytes: &file.sizeBytes, PayloadHash: payloadHash,
 	})
 	if err != nil {
-		return fmt.Errorf("file %d: %w", index, err)
+		return 0, fmt.Errorf("file %d: %w", index, err)
 	}
 	err = queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
-		FileID: id, NodeID: 1, Path: path, ReportedPathRaw: []byte(path), Filing: "read", SeenAt: 1,
+		FileID: id, NodeID: 1, Path: file.path, ReportedPathRaw: []byte(file.path), Filing: "read", SeenAt: 1,
 	})
 	if err != nil {
-		return fmt.Errorf("place %d: %w", index, err)
+		return 0, fmt.Errorf("place %d: %w", index, err)
 	}
 	err = queries.UpsertFileFiling(ctx, sqlcgen.UpsertFileFilingParams{
 		FileID: id, LibraryKind: libraryKind, Filing: "listed",
 	})
 	if err != nil {
-		return fmt.Errorf("filing %d: %w", index, err)
+		return 0, fmt.Errorf("filing %d: %w", index, err)
 	}
-	versionID, err := queries.InsertVersion(ctx, sqlcgen.InsertVersionParams{WorkID: episodeID, CreatedAt: 2})
+	versionID, err := queries.InsertVersion(ctx,
+		sqlcgen.InsertVersionParams{WorkID: file.workID, CreatedAt: file.versionCreatedAt})
 	if err != nil {
-		return fmt.Errorf("version %d: %w", index, err)
+		return 0, fmt.Errorf("version %d: %w", index, err)
 	}
 	err = queries.SetFileVersionAndIdentifiedPath(ctx, sqlcgen.SetFileVersionAndIdentifiedPathParams{
 		LibraryKind: libraryKind, VersionID: &versionID, FileID: id,
 	})
 	if err != nil {
-		return fmt.Errorf("file %d's version: %w", index, err)
+		return 0, fmt.Errorf("file %d's version: %w", index, err)
 	}
-	return nil
+	return id, nil
 }
