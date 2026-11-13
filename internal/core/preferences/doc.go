@@ -52,6 +52,9 @@
 //     two choices, each none until made, and one leaves nothing out of the other's place (D349 §8,
 //     D366 §5). Enforced by TestBrowse_ALibraryLeftOutOfFilmsAndSeries and
 //     TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows (internal/core/api).
+//   - A list's sort is kept nowhere here: it lives in the list's address alone (D470 §1), and a
+//     library's sort stored before X5 was withdrawn is read by nothing, so a row left is harmless.
+//     Enforced by TestPreferences_AWithdrawnLibrarySortStoredIsHarmless.
 //
 // # Read before changing
 //
