@@ -48,7 +48,8 @@ the TV when the person chooses AirPlay; without one, remote playback stays off.
 
    This amends D154 §6 to: "No endpoint reads a token from a query string or path segment, except
    the media endpoints under `/g/`, which accept only a `link` grant", its test changed to assert
-   that one exception. The amendment is the owner's decision, as a new D-number.
+   that one exception. The owner made the amendment as D473 (2026-11-13): a day's grant, not bound
+   to an address, and the lab's setting goes.
 4. **Formats Apple's player takes:** H.264 or HEVC video, AAC or AC-3/E-AC-3 sound, fMP4 or TS
    chunks. Subtitles go in the playlist as WebVTT renditions, since our own rendering stays on the
    sender.

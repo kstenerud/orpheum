@@ -28186,3 +28186,36 @@ the code by a later commit. The cells above marked not built, and the questions,
 
 **Status:** Decided 2026-11-13. Its work is in orpheum-connect: the pages first, then the address (§3).
 
+
+## D473 — AirPlay's grant may be in the media's path, for a day, and AirPlay leaves the lab
+
+**Decided** (2026-11-13), by the owner, after the AirPlay lab's first runs on staging. Amends
+[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)
+§6; settles [airplay.md](../design/plans/airplay.md) item 3.
+
+The worst a stolen AirPlay grant gives is that one film watched elsewhere until the grant ends: no
+browsing, no account, no other film. The owner: *"the worst case scenario (someone else able to
+watch the video) hardly seems worth getting worked up about"*, and *"The only path where grants are
+included in the URL are from airplay, and that's never passed through humans anyway."* The sender
+hands the URL to the TV itself; no person copies, pastes or sends it.
+
+1. **D154 §6 becomes:** "No endpoint reads a token from a query string or path segment, except the
+   media endpoints under `/g/`, which accept only an AirPlay grant." Its test asserts that one
+   exception.
+2. **The grant lasts about a day** (24 hours, so a paused film keeps it), for one film and all its
+   renditions, and ends sooner at Stop, at a Revoke from the person's devices, or when the sign-in
+   that made it ends.
+3. **It is not bound to the network address that first uses it.** A leaked link works from anywhere
+   until it ends; that is accepted, as above.
+4. **The lab's setting goes.** `shouldOfferAirPlayLab` keeps the path grant off production only
+   until this amendment; with it, AirPlay is offered wherever the TV can reach the core: its LAN name
+   at home, its public address away. A core reached only through Connect's relay cannot AirPlay
+   (airplay.md item 2), and the page says so.
+
+**Not taken:** binding the grant to the first address that fetches with it (a TV that changes
+networks mid-film would lose the stream, against a risk the owner judges small); a lease shorter
+than the film, renewed while the sender's page is open (an iPhone suspends a page in the
+background).
+
+**Status:** Decided 2026-11-13; not built. The next batch builds it, after the lab's VQ310 shows
+AirPlay plays at all.
