@@ -47,6 +47,14 @@ export const replaceMostMs = 10_000;
 export const requestsPerConnection = 12;
 
 /**
+ * The most of each connection's rooms the cosmetic rung's requests (images, interest notes) hold at
+ * once, together, across the connections up (principles §30): half, so the other half is always free for what
+ * a person waits on, a list's read or a press's request, which never waits behind a screenful of
+ * posters, and the posters still go six to a connection, twenty-four across four, about a screenful.
+ */
+export const cosmeticRoomsPerConnection = 6;
+
+/**
  * How long a channel the client closed holds its room at most: its close event, which comes once the
  * core has closed its end too, gives the room back; this is the backstop for a browser that never
  * sends it.

@@ -9,6 +9,7 @@
  * sends each request on the one with the fewest under way; making them is rtc-connect.ts.
  */
 
+import { apiPrefix, artPathPrefix } from "./client.ts";
 import { reportFailure } from "./problem.ts";
 import type { CandidatePairSeen } from "./rtc-pairs.ts";
 import {
@@ -24,6 +25,7 @@ import { abortReason, sendOnChannel, silentAtMostMs, type ChannelLike } from "./
 import {
   clientConnections,
   closingHoldsMs,
+  cosmeticRoomsPerConnection,
   countedChannel,
   fewestUnderWay,
   growWhenEachCarries,
@@ -41,6 +43,7 @@ import {
 export {
   clientConnections,
   closingHoldsMs,
+  cosmeticRoomsPerConnection,
   growWhenEachCarries,
   idleClosesAfterMs,
   replaceFirstMs,
@@ -53,6 +56,40 @@ export {
 
 /** How many requests the transport ended itself it remembers, by URL, for carrierOf. */
 const endedKept = 32;
+
+/**
+ * The rung a request waits for room on (principles §30): "cosmetic" for what the page works
+ * without, an image and an interest note; "waited-on" for every other, what a person waits on: an
+ * API read, a press's request, a film's bytes. A waited-on request is given a freed room before any
+ * cosmetic one, and the cosmetic ones hold cosmeticRoomsPerConnection of each connection's rooms at
+ * most.
+ */
+export type Rung = "waited-on" | "cosmetic";
+
+/** The rungs, the highest first: the order the requests waiting are given rooms in. */
+const rungsHighestFirst: readonly Rung[] = ["waited-on", "cosmetic"];
+
+/**
+ * Where a cosmetic request's path begins: an image's (artUrl, the service worker's loads of an
+ * <img>), and the notes of what the person is looking at (PUT and DELETE /interest/tiles and
+ * /interest/page), which tell the core what to ready and are never waited on.
+ */
+const cosmeticPaths: readonly string[] = [artPathPrefix, `${apiPrefix}/interest/`];
+
+/** The rung the request for url waits on, read from its path. */
+export function rungOf(url: string): Rung {
+  const { pathname } = new URL(url);
+  return cosmeticPaths.some((prefix) => pathname.startsWith(prefix)) ? "cosmetic" : "waited-on";
+}
+
+/**
+ * A request waiting for room: its rung, and how it is given the room claimed for it, or told, with
+ * none, to look again (the transport closed, or was refused for good).
+ */
+interface Waiter {
+  readonly rung: Rung;
+  readonly give: (link: Link | undefined) => void;
+}
 
 /**
  * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
@@ -96,7 +133,10 @@ export class RtcTransport {
   private readonly refusedListeners = new Set<(refusal: Error) => void>();
   private readonly stopHearingOnline: () => void;
   private isClosed = false;
-  private readonly waiting: (() => void)[] = [];
+  /** The requests waiting for room, in the order they came. */
+  private readonly waiting: Waiter[] = [];
+  /** How many rooms the cosmetic rung's requests hold, across the connections. */
+  private cosmeticUnderWay = 0;
   /** The connection carrying each request under way, by its URL, the latest asked for of each. */
   private readonly carrying = new Map<string, Link>();
   /** The requests it ended itself, as carrierOf says them, by URL, the latest endedKept. */
@@ -159,23 +199,28 @@ export class RtcTransport {
   /**
    * Sends a request to the core and resolves with its response. A request whose signal has aborted
    * fails with its reason, as fetch does: at once and opening nothing when it aborted before, out of
-   * the queue when it aborts waiting for room, and with its channel closed once it has one.
+   * the queue when it aborts waiting for room, and with its channel closed once it has one. It waits
+   * for room on its rung (rungOf), the waited-on given rooms before the cosmetic, first-come within
+   * each.
    */
   readonly fetch = async (request: Request): Promise<Response> => {
-    const { signal } = request;
+    const { signal, url } = request;
     if (signal.aborted) {
       throw abortReason(signal);
     }
-    // Chosen at once while one has room, so requests made together spread across the connections.
-    const link = this.claimNow() ?? (await this.claim(signal));
+    const rung = rungOf(url);
+    // Chosen at once while one has room, so requests made together spread across the connections. A
+    // request waits only while there is no room it may take, so one taken here passes none of its
+    // rung or above.
+    const link = this.claimNow(rung) ?? (await this.claim(signal, rung));
     this.grow();
-    const { url } = request;
     let opened: ChannelLike;
     try {
       opened = link.peer.createDataChannel("request");
     } catch (problem: unknown) {
       // A connection that opens no channel carries nothing more: it is replaced, and its room given back.
       link.underWay -= 1;
+      this.rungGivenBack(rung);
       this.gone(link, "it opened no channel");
       this.wakeWaiting();
       throw problem;
@@ -186,6 +231,7 @@ export class RtcTransport {
       opened,
       () => {
         link.underWay -= 1;
+        this.rungGivenBack(rung);
         if (this.carrying.get(url) === link) {
           this.carrying.delete(url);
         }
@@ -301,9 +347,7 @@ export class RtcTransport {
       link.peer.close();
     }
     // A request waiting for a connection fails now rather than waiting for good.
-    for (const wake of this.waiting.splice(0)) {
-      wake();
-    }
+    this.wakeWaiting();
   }
 
   /**
@@ -516,36 +560,71 @@ export class RtcTransport {
     }
   }
 
-  /** Wakes every request waiting for a connection with room, to look again. */
+  /**
+   * Gives the rooms free to the requests waiting, the highest rung first and first-come within each
+   * (principles §30): a freed room goes to a waiting read, never to a poster that came before it. Each room is
+   * claimed for its request here, in the same step as it is found, so one freed room lets one request
+   * through: woken together to look again, each saw the same room free, and one freed room sent the
+   * whole queue past the core's 16 on one connection, which refused them (staging, 2026-10-20). Once
+   * the transport is closed or refused for good, every request waiting is told, to fail.
+   */
   private wakeWaiting(): void {
-    for (const wake of this.waiting.splice(0)) {
-      wake();
+    if (this.isClosed || this.refusal !== undefined) {
+      for (const waiter of this.waiting.splice(0)) {
+        waiter.give(undefined);
+      }
+      return;
+    }
+    for (const rung of rungsHighestFirst) {
+      for (const waiter of this.waiting.filter((each) => each.rung === rung)) {
+        const link = this.claimNow(rung);
+        if (link === undefined) {
+          break;
+        }
+        this.waiting.splice(this.waiting.indexOf(waiter), 1);
+        waiter.give(link);
+      }
     }
   }
 
   /**
-   * A room on the connection with the fewest under way, taken at once, when one is up and has room.
-   * Taken in the same step as it is found: every request waiting is woken together when a room frees,
-   * and one that only found it, to take it after an await, let each of them see the same room free,
-   * so one freed room sent the whole queue past the core's 16 on one connection, which refused them
-   * (staging, 2026-10-20).
+   * A room for a request of rung on the connection with the fewest under way, taken at once, when one
+   * is up and has room, and, for a cosmetic one, while the cosmetic hold fewer than
+   * cosmeticRoomsPerConnection for each connection up.
    */
-  private claimNow(): Link | undefined {
+  private claimNow(rung: Rung): Link | undefined {
+    if (
+      rung === "cosmetic" &&
+      this.cosmeticUnderWay >= cosmeticRoomsPerConnection * this.links.length
+    ) {
+      return undefined;
+    }
     const link = fewestUnderWay(this.links.filter((each) => each.underWay < requestsPerConnection));
     if (link !== undefined) {
       link.underWay += 1;
       link.stopIdle();
+      if (rung === "cosmetic") {
+        this.cosmeticUnderWay += 1;
+      }
     }
     return link;
   }
 
+  /** Gives back to its rung's count the room a request of rung held; its connection's is given back beside. */
+  private rungGivenBack(rung: Rung): void {
+    if (rung === "cosmetic") {
+      this.cosmeticUnderWay -= 1;
+    }
+  }
+
   /**
-   * A room claimNow takes, waiting for one while none is up or has room, until signal aborts: the
-   * request then leaves the queue and fails with its reason.
+   * A room for a request of rung, taken at once, else given it as one frees (wakeWaiting), waiting
+   * while none is up or has room it may take, until signal aborts: the request then leaves the queue
+   * and fails with its reason.
    */
-  private async claim(signal: AbortSignal): Promise<Link> {
+  private async claim(signal: AbortSignal, rung: Rung): Promise<Link> {
     for (;;) {
-      const link = this.claimNow();
+      const link = this.claimNow(rung);
       if (link !== undefined) {
         return link;
       }
@@ -558,22 +637,28 @@ export class RtcTransport {
       if (signal.aborted) {
         throw abortReason(signal);
       }
-      await new Promise<void>((resolve, reject) => {
-        const wake = (): void => {
-          signal.removeEventListener("abort", aborted);
-          resolve();
+      const given = await new Promise<Link | undefined>((resolve, reject) => {
+        const waiter: Waiter = {
+          rung,
+          give: (room) => {
+            signal.removeEventListener("abort", aborted);
+            resolve(room);
+          },
         };
         const aborted = (): void => {
-          const index = this.waiting.indexOf(wake);
+          const index = this.waiting.indexOf(waiter);
           if (index >= 0) {
             this.waiting.splice(index, 1);
           }
           reject(abortReason(signal));
         };
-        this.waiting.push(wake);
+        this.waiting.push(waiter);
         signal.addEventListener("abort", aborted, { once: true });
         this.grow();
       });
+      if (given !== undefined) {
+        return given;
+      }
     }
   }
 }

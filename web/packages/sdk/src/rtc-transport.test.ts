@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { artUrl } from "./client.ts";
 import {
   endMessage,
   grantEvery,
@@ -12,11 +13,13 @@ import {
 } from "./rtc-request.ts";
 import {
   closingHoldsMs,
+  cosmeticRoomsPerConnection,
   growWhenEachCarries,
   idleClosesAfterMs,
   replaceFirstMs,
   requestsPerConnection,
   RtcTransport,
+  rungOf,
   settledAfterMs,
   SwitchableFetch,
   type PeerLike,
@@ -693,5 +696,103 @@ describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", (
     await vi.advanceTimersByTimeAsync(0);
     expect(opened).toHaveLength(3);
     expect(transport.size).toBe(1);
+  });
+});
+
+// Away from home, a Films page's posters and the list's read waited in one queue, each freed room
+// going to whichever came first, and a read waited behind a screenful of posters (the client-server
+// audit of 2026-11-13, finding 6; principles §30).
+describe("the rungs a request waits for room on (principles §30)", () => {
+  const read = (name: string): string => `https://app.example/api/v1/items?${name}`;
+  const image = (name: string): string =>
+    new URL(artUrl(name, "portrait-m"), "https://app.example").href;
+
+  /** Sends a request for url on transport that no one answers, so it stays under way or waiting. */
+  function send(transport: RtcTransport, url: string): void {
+    transport.fetch(new Request(url)).catch(() => undefined);
+  }
+
+  /** The paths of the requests sent on peer's channels, in the order they were opened. */
+  function pathsOn(peer: FakePeer): unknown[] {
+    return peer.channels.map((channel) => (channel.sentHead() as { path?: unknown }).path);
+  }
+
+  /** Ends the request on peer's index-th channel, as the core closing it, freeing its room. */
+  async function free(peer: FakePeer, index: number): Promise<void> {
+    peer.channel(index).closeFromTheCore();
+    await settle();
+  }
+
+  it("ranks an image and an interest note below every other request, by its path", () => {
+    expect(rungOf(image("abc"))).toBe("cosmetic");
+    expect(rungOf("https://app.example/api/v1/interest/tiles")).toBe("cosmetic");
+    expect(rungOf("https://app.example/api/v1/interest/page?item=1")).toBe("cosmetic");
+    expect(rungOf(read("cursor=x"))).toBe("waited-on");
+    expect(rungOf("https://app.example/api/v1/me?shell=true")).toBe("waited-on");
+    expect(rungOf("https://app.example/api/v1/bytes/media/chunks/t/master.m3u8")).toBe("waited-on");
+  });
+
+  it("gives a freed room to a waiting read before the images that came before it, first-come within each", async () => {
+    const peer = new FakePeer();
+    const transport = new RtcTransport([peer]);
+    for (let index = 0; index < requestsPerConnection; index += 1) {
+      send(transport, read(`held=${String(index)}`));
+    }
+    send(transport, image("first"));
+    send(transport, read("a"));
+    send(transport, image("second"));
+    send(transport, read("b"));
+    await settle();
+    expect(peer.channels).toHaveLength(requestsPerConnection);
+    for (let index = 0; index < 4; index += 1) {
+      await free(peer, index);
+    }
+    expect(pathsOn(peer).slice(requestsPerConnection)).toEqual([
+      "/api/v1/items?a",
+      "/api/v1/items?b",
+      new URL(image("first")).pathname,
+      new URL(image("second")).pathname,
+    ]);
+  });
+
+  it("lets images hold at most cosmeticRoomsPerConnection of a connection's rooms, the rest kept for reads", async () => {
+    const peer = new FakePeer();
+    const transport = new RtcTransport([peer]);
+    for (let index = 0; index < 20; index += 1) {
+      send(transport, image(`poster${String(index)}`));
+    }
+    await settle();
+    expect(peer.channels).toHaveLength(cosmeticRoomsPerConnection);
+    // A read finds a room at once, every room the images may not take free for it.
+    const reads = requestsPerConnection - cosmeticRoomsPerConnection;
+    for (let index = 0; index < reads; index += 1) {
+      send(transport, read(`r${String(index)}`));
+    }
+    await settle();
+    expect(peer.channels).toHaveLength(requestsPerConnection);
+    // Every room held, a read waiting: an image's freed room goes to it, and the images, below their
+    // share now, take no room while it waits.
+    send(transport, read("waiting"));
+    await free(peer, 0);
+    expect(pathsOn(peer).at(-1)).toBe("/api/v1/items?waiting");
+    // A read's freed room, none waiting, goes to the next image, up to their share, and no further.
+    await free(peer, cosmeticRoomsPerConnection);
+    expect(pathsOn(peer).at(-1)).toBe(new URL(image("poster6")).pathname);
+    const opened = peer.channels.length;
+    await free(peer, cosmeticRoomsPerConnection + 1);
+    expect(peer.channels).toHaveLength(opened);
+  });
+
+  it("gives the images their share of each connection up", async () => {
+    const peers = [new FakePeer(), new FakePeer()];
+    const transport = new RtcTransport(peers);
+    for (let index = 0; index < 30; index += 1) {
+      send(transport, image(`poster${String(index)}`));
+    }
+    await settle();
+    expect(peers.map((peer) => peer.channels.length)).toEqual([
+      cosmeticRoomsPerConnection,
+      cosmeticRoomsPerConnection,
+    ]);
   });
 });

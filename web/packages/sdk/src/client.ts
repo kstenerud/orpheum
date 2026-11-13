@@ -112,6 +112,9 @@ export type ArtSize =
   | "logo-s"
   | "logo-m";
 
+/** Where every image's address begins (artUrl), which the WebRTC transport ranks below a read (principles §30). */
+export const artPathPrefix = `${apiPrefix}/bytes/art/`;
+
 /**
  * The address of one size of an image, by the source SHA-256 a title's artwork names. An <img> sends the
  * media cookie sign-in set, never a token in the address (D154).
@@ -121,5 +124,5 @@ export function artUrl(
   size: ArtSize,
   format: "webp" | "jpeg" = "webp",
 ): string {
-  return `${apiPrefix}/bytes/art/${encodeURIComponent(sourceSha256)}/${size}.${format}`;
+  return `${artPathPrefix}${encodeURIComponent(sourceSha256)}/${size}.${format}`;
 }
