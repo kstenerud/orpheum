@@ -153,7 +153,7 @@ func (browser *Browser) withNoPosterStill(ctx context.Context, itemID int64, isS
 	}
 	films, series := []int64{itemID}, []int64(nil)
 	if isSeries {
-		films, series = nil, films
+		films, series = nil, []int64{itemID}
 	}
 	stills, err := noPosterStills(ctx, browser.database.Read(), films, series)
 	if err != nil {
