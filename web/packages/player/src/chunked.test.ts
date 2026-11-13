@@ -91,6 +91,14 @@ describe("loading a chunk the core is making (D250 §5)", () => {
   });
 });
 
+describe("a chunk lost with its connection", () => {
+  it("is asked for again at its quality by the settings a chunked playback gives hls.js (staging, 2026-11-12)", () => {
+    // Online, hls.js itself does not ask again after a load nothing answered (isRetry false).
+    const retry = chunkedHlsConfig({ startPositionS: 0 }).fragLoadPolicy?.default.errorRetry;
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00457.m4s", code: 0 }, false)).toBe(true);
+  });
+});
+
 describe("a chunk of a playback the core no longer has", () => {
   it("is not asked for again after a 404, where a Mac's Chrome asked once a second for 11 hours (staging, 2026-11-12)", () => {
     const retry = chunkLoadPolicy.default.errorRetry;
