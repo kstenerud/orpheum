@@ -293,6 +293,7 @@ export { waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export { isAskedToPlay, loadedAheadMsOf, startGateOf } from "./start-gate.ts";
 export {
+  heavyChunkLoadKbps,
   readyAheadOf,
   refillAfterStallOf,
   runAfterStallMs,

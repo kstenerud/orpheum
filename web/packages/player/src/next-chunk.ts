@@ -86,7 +86,8 @@ export interface NextChunkLink {
 /**
  * Tells the SDK, for video, how long its next chunk is expected to take to load and what that rests
  * on (tellNextChunkLoadMs): the wait for its first byte plus its bits over the link nextChunkLink
- * names, its controller's next-chunk bound (Choosing.nextChunkLink); with the film it plays, whether
+ * names, its controller's next-chunk bound (Choosing.nextChunkLink); with its bits, which a heavy
+ * chunk is waited for by too (heavyChunkLoadKbps), the film it plays, whether
  * it is of the lowest quality hls.js may load, and the most it loads ahead, which a refill after a
  * stall reads (refillAfterStallOf, D414 §2). Returns the end of it.
  */
@@ -106,6 +107,7 @@ export function tellNextChunkLoad(
           loadMs: over.firstByteMs + next.bits / over.kbps,
           from: over.from,
           filmMs: next.filmMs,
+          bits: next.bits,
           isLowestQuality: listing.loadLevel <= listing.minAutoLevel,
           loadsAheadAtMostMs: Math.min(maxBufferLength, maxMaxBufferLength) * 1000,
         };

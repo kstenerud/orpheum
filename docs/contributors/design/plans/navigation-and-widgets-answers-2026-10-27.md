@@ -3409,6 +3409,14 @@ owner; X1 to X4 are the owner's. Deploys go to staging only; production waits fo
       `;encode=sourceTimeBase` (`internal/core/chunks/streams.go`, D392 §3), so every encoded
       store is made again once, at its next play; the copies' and sounds' keys are kept. The
       hardware encoders at the source's time base are untested here: VQ314.
+    - **Built (the 11-25 batch's item 5): a heavy first chunk is waited for by its size.** The
+      start gate's wait, margin × the next chunk's reckoned load, is the floor; where more, it
+      waits for the next chunk's bits over 20 Mb/s (`heavyChunkLoadKbps`, a little under the
+      22 Mb/s the 24.4 MB chunk 1 came at), never more than `refillAheadMs` (10 s) nor what hls.js
+      loads ahead: 24.4 MB waits 9.8 s, 10 MB 4 s, 2.4 MB 1 s, under the bound's wait for most.
+      It is in the SDK's `readyAheadOf`, so a seek, a follower's refill and a refill after a stall
+      take it too (`web/packages/sdk/src/ready-ahead.ts`). It amends the start gate's rule (the
+      owner, 2026-10-28; D352 §5): the wait no longer rests on the bound alone.
 - **9.** Up next warms the next episode, without releasing the playing film's tokens.
 
 - **X7. A password reset link from a person's page (D466), wanted by 2026-11-13** (the owner,
