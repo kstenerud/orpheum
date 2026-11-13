@@ -28373,6 +28373,11 @@ Continue Watching, the newest films and the newest series in three requests, eac
 **Amended 2026-11-13** (the owner: "Go ahead with the moves and removals"): `GET /items?home=true`
 and `GET /items/letters` are removed, neither having a caller left after this decision and D475
 ("refactor(api)!: GET /items/letters and GET /items' home parameter are gone").
+§3 is narrowed the same night (the owner: "It shouldn't be necessary to render the admin things
+separately. The client should have all of that info from the account in the initial info data"):
+the screen still starts its read alongside `/me`, but the banner keeps its room, empty and inert,
+until the first read answers, and then draws whole, the admin's places with the rest ("fix(web): the
+banner draws once the shell's first read answers, the admin's places with the rest").
 
 **Proven by:**
 - 1: internal/core/api/me_shell_test.go (TestMe_TheShellsReadCarriesWhatTheShellReadsApart,
