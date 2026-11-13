@@ -190,7 +190,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   at 28 Mb/s on a 9.6 Mb/s link started it with 1 s loaded, and two samples outvoting a link
   remembered at 17 Mb/s started one on 753 kb/s, staging, 2026-10-28; P5), each start's and seek's
   wait saying which it rested on (`nextChunkLoadFrom`) (`src/next-chunk.ts`); one with nothing
-  remembered and nothing measured waits for `refillAheadMs`. The
+  remembered and nothing measured waits for `refillAheadMs`. A heavy next chunk is waited for by
+  its size too, its bits over `heavyChunkLoadKbps` (20 Mb/s) where that is more, never more than
+  `refillAheadMs` nor what hls.js loads ahead: the testing Fire TV started with 3.2 s loaded, its
+  24.4 MB next chunk reckoned at 2 s took 8.8 s, and it stood 1.3 s (staging, 2026-11-12; the
+  11-25 batch's item 5). The
   wait comes before the `play()`, never as a play, a pause and a play: the page's video has no
   autoplay attribute, and its start gate plays it (the SDK's `start-gate.ts`), pausing a playing
   video as it seeks to where too little is loaded, before it can play there. A Fire TV played at

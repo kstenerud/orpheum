@@ -8,7 +8,8 @@
  * chunk loaded, or playing a file as it is. One rule for every player: a follower after a seek
  * (together-refill.ts), and one alone, a cast's receiver or a session's leader at its start and
  * after a seek (start-gate.ts). A Fire TV resumed with 1.4 s loaded ahead, its next chunk 10.4 s of
- * film taking 2.3 s, and ran dry (the owner's cast, staging, 2026-10-28).
+ * film taking 2.3 s, and ran dry (the owner's cast, staging, 2026-10-28). A heavy next chunk is
+ * waited for by its size too (heavyChunkLoadKbps).
  */
 
 import type { components } from "./gen/api.ts";
@@ -33,6 +34,8 @@ export interface NextChunkLoad {
   readonly from: Exclude<NextChunkLoadFrom, "none">;
   /** How much film the chunk plays, in ms. */
   readonly filmMs?: number;
+  /** The chunk's size, in bits: a heavy one is waited for by its size too (heavyChunkLoadKbps). */
+  readonly bits?: number;
   /** Whether the chunk is of the lowest quality its player may load: no lower one can keep up. */
   readonly isLowestQuality?: boolean;
   /** The most film its player loads ahead, in ms: a refill waiting for more would never end. */
@@ -55,6 +58,18 @@ export function setReadyAheadPercent(percent: number): void {
     marginPercent = percent;
   }
 }
+
+/**
+ * The link a next chunk is never reckoned to load faster than, in kbit/s, where its player says its
+ * size: the film loaded ahead before a player plays is at least the chunk's bits over it, never
+ * more than refillAheadMs nor the most its player loads ahead, so a heavy chunk is waited for by its
+ * size however fast its player reckons its link, and a light one, under the bound's wait, changes
+ * nothing. The testing Fire TV started with 3.2 s loaded on a bound that reckoned its 24.4 MB next
+ * chunk in about 2 s; it took 8.8 s, 22 Mb/s, and the film stood 1.3 s at 0:03 (staging,
+ * 2026-11-12; the owner's pick, the 11-25 batch's item 5). A little under that 22 Mb/s: 24.4 MB
+ * waits 9.8 s, 10 MB 4 s, 2.4 MB 1 s. Low confidence, one run's, until a second.
+ */
+export const heavyChunkLoadKbps = 20_000;
 
 /** Each element's word on how long its next chunk is expected to take to load, from its player. */
 const nextChunkLoads = new WeakMap<object, () => NextChunkLoad | undefined>();
@@ -85,14 +100,26 @@ export interface ReadyAhead {
   readonly nextChunkLoadFrom: NextChunkLoadFrom;
 }
 
-/** What media is ready to play on now, by the rule above. */
+/**
+ * What media is ready to play on now, by the rule above: margin × its next chunk's expected load,
+ * or, where more, its size over heavyChunkLoadKbps.
+ */
 export function readyAheadOf(media: object): ReadyAhead {
   const told = nextChunkLoads.get(media)?.();
   if (told === undefined || !Number.isFinite(told.loadMs) || told.loadMs < 0) {
     return { aheadMs: refillAheadMs, nextChunkLoadFrom: "none" };
   }
+  // A kilobit a second is a bit a millisecond.
+  const bySizeMs =
+    told.bits === undefined || !Number.isFinite(told.bits) || told.bits <= 0
+      ? 0
+      : Math.min(
+          told.bits / heavyChunkLoadKbps,
+          refillAheadMs,
+          told.loadsAheadAtMostMs ?? Infinity,
+        );
   return {
-    aheadMs: Math.round((told.loadMs * marginPercent) / 100),
+    aheadMs: Math.round(Math.max((told.loadMs * marginPercent) / 100, bySizeMs)),
     nextChunkLoadMs: Math.round(told.loadMs),
     nextChunkLoadFrom: told.from,
   };

@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  heavyChunkLoadKbps,
   readyAheadOfNextChunkPercent,
   setReadyAheadPercent,
   tellNextChunkLoadMs,
@@ -133,6 +134,31 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     media.loaded = [[30, 30 + (readyOnMs + 1) / 1000]];
     vi.advanceTimersByTime(startCheckEveryMs);
     expect(play.plays()).toBe(1);
+  });
+
+  it("waits for a heavy first chunk by its size, past what its reckoned load asks (the 11-25 batch's item 5)", () => {
+    // Staging, 2026-11-12, the testing Fire TV: play began with 3.2 s loaded, its next chunk 24.4 MB
+    // reckoned at about 2 s, and it took 8.8 s: the film stood 1.3 s at 0:03.
+    const media = new FakeMedia();
+    media.currentTime = 0;
+    media.loaded = [[0, 3.2]];
+    media.readyState = 4;
+    tellNextChunkLoadMs(media, () => ({ loadMs: 2055, from: "confident", bits: 195_200_000 }));
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    expect(play.plays()).toBe(0);
+    media.loaded = [[0, 9.7]];
+    media.fire(playerLoadedChunkEvent);
+    expect(play.plays()).toBe(0);
+    media.loaded = [[0, 13.6]];
+    media.fire(playerLoadedChunkEvent);
+    expect(play.plays()).toBe(1);
+    expect(gate.lastWait()).toEqual({
+      waitedForAheadMs: 195_200_000 / heavyChunkLoadKbps,
+      nextChunkLoadMs: 2055,
+      nextChunkLoadFrom: "confident",
+    });
   });
 
   it("waits by the server's margin once the page sets it", () => {

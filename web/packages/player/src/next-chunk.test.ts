@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { loadedAheadMsOf, readyAheadOf, refillAfterStallOf } from "@orpheum/sdk";
+import {
+  heavyChunkLoadKbps,
+  loadedAheadMsOf,
+  readyAheadOf,
+  refillAfterStallOf,
+} from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -131,5 +136,45 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     expect(loadedAheadMsOf(video)).toBe(1070);
     expect(ready.aheadMs).toBeGreaterThan(1070); // the 1.07 s it had loaded does not start it
     stop();
+  });
+
+  it("waits for a heavy next chunk by its size, however fast the link is reckoned (the 11-25 batch's item 5)", () => {
+    // Staging, 2026-11-12, the testing Fire TV: it started with 3.2 s loaded, its next chunk 24.4 MB,
+    // which took 8.8 s, and stood 1.3 s at 0:03. On a link reckoned at 95 Mb/s the bound's wait is
+    // 3.1 s; by its size at heavyChunkLoadKbps, 9.76 s.
+    const video = resumedVideo();
+    const fast = (): NextChunkLink => ({ kbps: 95_000, firstByteMs: 0, from: "confident" });
+    const heavy = tellNextChunkLoad(listing(7_700_000, [0, 24_400_000]), video, fast);
+    expect(heavyChunkLoadKbps).toBe(20_000);
+    expect(readyAheadOf(video)).toEqual({
+      aheadMs: 9760,
+      nextChunkLoadMs: 2055,
+      nextChunkLoadFrom: "confident",
+    });
+    heavy();
+    // A light one, 2.4 MB, waits as the bound says, its size's 0.96 s under it.
+    const light = tellNextChunkLoad(listing(7_700_000, [0, 2_400_000]), video, () => ({
+      kbps: 9_600,
+      firstByteMs: 300,
+      from: "confident",
+    }));
+    expect(readyAheadOf(video).aheadMs).toBe(Math.round(((300 + 19_200_000 / 9_600) * 150) / 100));
+    light();
+  });
+
+  it("waits for a heavy next chunk by its size no more than refillAheadMs, nor than hls.js loads ahead", () => {
+    const video = resumedVideo();
+    const fast = (): NextChunkLink => ({ kbps: 95_000, firstByteMs: 0, from: "confident" });
+    // 40 MB: 16 s by its size, 10 s at most, what a player knowing nothing waits.
+    const stop = tellNextChunkLoad(listing(7_700_000, [0, 40_000_000]), video, fast);
+    expect(readyAheadOf(video).aheadMs).toBe(10_000);
+    stop();
+    const shortAhead = {
+      ...listing(7_700_000, [0, 40_000_000]),
+      config: { maxBufferLength: 6, maxMaxBufferLength: 30 },
+    };
+    const stopShort = tellNextChunkLoad(shortAhead, video, fast);
+    expect(readyAheadOf(video).aheadMs).toBe(6000);
+    stopShort();
   });
 });
