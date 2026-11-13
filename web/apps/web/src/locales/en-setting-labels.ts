@@ -60,7 +60,6 @@ export const enSettingLabels = {
     destinationLongestProbeDelaySeconds: "Longest wait before probing a destination (seconds)",
     deviceCodeRevealWaitSeconds: "Wait before showing a device code (seconds)",
     discoveryAddressCheckEverySeconds: "Check the server's address every (seconds)",
-    discoveryAnotherCopyCheckEverySeconds: "Check for another copy of the server every (seconds)",
     discoveryEndedCheckEverySeconds: "Check an ended listing every (seconds)",
     discoveryPendingCheckEverySeconds: "Check a pending listing every (seconds)",
     discoveryRetryFirstSeconds: "First discovery retry wait (seconds)",

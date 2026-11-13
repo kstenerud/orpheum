@@ -251,8 +251,6 @@ export const enSettingsCatalogue = {
       "How long entering a device's code waits for the device to answer.",
     discoveryAddressCheckEverySeconds:
       "How often the server checks whether its addresses changed, telling the discovery service when they did.",
-    discoveryAnotherCopyCheckEverySeconds:
-      "How often a server refused as a copy of another asks again.",
     discoveryEndedCheckEverySeconds:
       "How often a server whose discovery service has ended asks again.",
     discoveryPendingCheckEverySeconds:
