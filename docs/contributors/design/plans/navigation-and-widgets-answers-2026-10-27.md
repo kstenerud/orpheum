@@ -3820,8 +3820,13 @@ Once VQ310 shows AirPlay plays from the lab:
 Built this batch: the System page's frozen line takes U7's words (connect's spec §3.10) without
 its steps, ending "Renew it with the discovery's operator."
 
-- **Next batch:** a user guide to running one's own discovery, which frozen's line then points to
-  as U7's `<steps>`.
+- **Waits for the self-hosted discovery (E-10), not next batch** (the lead, 2026-11-13): a user
+  guide to running one's own discovery, which frozen's line then points to as U7's `<steps>`. No
+  household can run one from public parts today: only `orpheum dev discovery` serves
+  `discovery/single`, in development builds alone; `orpheum discovery` (discovery-mode.md W4b.8),
+  the web client at the household's domain (W4b.5), its own STUN (W4b.3) and the home core sending
+  its signed files to the VPS (D394 §2) are not built. The frozen line keeps "Renew it with the
+  discovery's operator." until then, so it offers nothing no one can do.
 - **With billing:** the admins' banner in grace ("Discovery ends on <date>") and a client's own
   message for a paused server none of whose direct paths answers. In the beta nothing lapses by
   date and only the owner lapses a server, by hand, so neither has a date or a case to show.
