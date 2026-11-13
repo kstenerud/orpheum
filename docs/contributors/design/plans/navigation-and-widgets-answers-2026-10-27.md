@@ -4002,3 +4002,16 @@ staging, production waits.
 - **check-pr took 522 s** against its 300 s budget, most of it the browser tier and its revert-red:
   find the step that grew (standards/makefile.md).
 - **AirPlay out of the lab** waits for VQ310, which is not yet ticked.
+
+**The owner's word on the open items (2026-11-13, night):** "Go ahead with the moves and removals.
+It shouldn't be necessary to render the admin things separately. The client should have all of that
+info from the account in the initial info data." And: "continue doing batches until you can't
+continue without my input."
+
+- **The two catalogue moves:** `play.updateAfterFilm` and the four `cast.start.*` keys go into the
+  shared list, so `en-play.ts` and `en-cast.ts` move to their areas' words modules.
+- **The two removals:** `GET /items/letters` and `GET /items?home=true` have no caller since D475 and
+  D476; they go, with their mocks, their tests' reliance on them and the comments that name them
+  (`list-filters.ts`).
+- **The admin's menu items and signs draw with the rest of the shell:** the account in the first
+  answer says the person is an admin, so the items need not wait for a second part to arrive.
