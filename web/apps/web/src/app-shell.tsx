@@ -4,6 +4,7 @@ import "./app-shell.css";
 
 import {
   createContext,
+  use,
   useEffect,
   useRef,
   useState,
@@ -38,6 +39,7 @@ import { LinkCapBadge } from "./link-debug-tools.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
+import { ShellReadContext } from "./shell-read.ts";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
 
@@ -246,7 +248,7 @@ export interface AppShellProps {
  * destinations under Manage, shown to an admin only, the person's own places, Device tests among them
  * while the admin offers them, and Sign out. Watch Together and Cast are no places here:
  * their signs in the status tray are their entry points (D364 §12). The server refuses a destination
- * to anyone else whatever the menu shows.
+ * to anyone else whatever the menu shows. The banner's places, signs and menu draw once the shell's first read has answered (BannerNav).
  */
 export function AppShell(props: AppShellProps): JSX.Element {
   const { t } = useTranslation();
@@ -278,7 +280,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
             data-focus-container=""
             data-focus-covers-top=""
           >
-            <nav className="app-shell__nav" aria-label={t("nav.label")}>
+            <BannerNav>
               <WatchingPlaces isHome={props.currentScreen === "home"}>
                 {links("watching")}
               </WatchingPlaces>
@@ -293,7 +295,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
                 <MenuSection heading={t("nav.develop")} places={links("develop")} />
                 {links("own")}
               </BannerEnd>
-            </nav>
+            </BannerNav>
           </header>
           <ShellMain isAdmin={props.isAdmin}>
             {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
@@ -304,6 +306,27 @@ export function AppShell(props: AppShellProps): JSX.Element {
         </div>
       </SharesLibrariesReached>
     </UpdateProvider>
+  );
+}
+
+/**
+ * The banner's places, signs and menu, drawn once the shell's first read has answered, all in one
+ * draw from it (D476): who is signed in, whether they administer here and the admin's signs come in
+ * that answer, and drawn before it, the admin's places and signs came a moment after the rest (the
+ * owner, 2026-11-13: "It shouldn't be necessary to render the admin things separately"). Meanwhile
+ * they keep their room, hidden and inert, and the screen below draws and reads as it would.
+ */
+function BannerNav(props: { readonly children: ReactNode }): JSX.Element {
+  const { t } = useTranslation();
+  const isFirstReadWaited = use(ShellReadContext).state === "waiting";
+  return (
+    <nav
+      className={isFirstReadWaited ? "app-shell__nav app-shell__nav--waiting" : "app-shell__nav"}
+      aria-label={t("nav.label")}
+      inert={isFirstReadWaited}
+    >
+      {props.children}
+    </nav>
   );
 }
 

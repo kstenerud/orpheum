@@ -90,6 +90,12 @@
   min-width: 0;
 }
 
+/* While the shell's first read is waited on, the banner keeps its room and draws none of its
+   places, signs or menu: they draw together once it answers (app-shell.tsx's AppShell, D476). */
+.app-shell__nav--waiting {
+  visibility: hidden;
+}
+
 .app-shell__nav ul {
   margin: 0;
   padding: 0;
