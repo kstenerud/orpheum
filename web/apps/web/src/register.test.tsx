@@ -104,7 +104,10 @@ it("says as it opens that a link no longer works, and offers nothing to fill in 
   };
   const mounted = await mount(withServices(<Register />, services));
   expect(mounted.container.querySelector("h1")?.textContent).toBe("This link no longer works");
-  expect(mounted.container.textContent).toContain("This link does not work: it was used");
+  // A link the admin cancelled is refused as one used or replaced is (D466): the reason names it.
+  expect(mounted.container.textContent).toContain(
+    "This link does not work: it was used, cancelled, replaced by a newer one, or has expired.",
+  );
   expect(mounted.container.querySelector("input")).toBeNull();
   expect(mounted.container.querySelector("button")).toBeNull();
   mounted.unmount();
