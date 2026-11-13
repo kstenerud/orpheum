@@ -5,6 +5,15 @@
 
 SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
+# Under quiet_gate.py, which names the file in STEP_CLOCK, each recipe line runs through
+# step_clock.sh, which records its target's time there: the gate says how long each step took
+# (gate-throughput G0; the owner, 2026-11-13, make-check-time-2026-11-12.md option 6).
+ifneq ($(STEP_CLOCK),)
+ifneq ($(wildcard $(CURDIR)/scripts/step_clock.sh),)
+SHELL := $(CURDIR)/scripts/step_clock.sh
+.SHELLFLAGS = $@ -eu -o pipefail -c
+endif
+endif
 .DEFAULT_GOAL := help
 MAKEFLAGS += --no-print-directory
 .DELETE_ON_ERROR:
@@ -220,8 +229,16 @@ go-speculative: ## Fail on declarations whose only callers are tests
 	@$(PYTHON) scripts/lint_speculative_api.py
 
 .PHONY: check-generated
-check-generated: ## Fail if committed generated code differs from what its source generates
-	@$(PYTHON) scripts/check_generated.py
+check-generated: ## Fail if committed generated code differs from what its source generates; not again while nothing it reads changed since it passed
+	@$(PYTHON) scripts/area_stamp.py check-generated $(GENERATED_READ) -- $(PYTHON) scripts/check_generated.py
+
+# What make generate reads, and the generated files themselves (a hand edit fails): the Go that
+# `go run ./cmd/orpheum` builds, with what it embeds (no test file is built), the queries and
+# schemas, sqlc's and the SDK generator's pins, and how both run. 37 s of CPU on every run, most of
+# a short run's floor (make-check-time-2026-11-12.md option 2, the owner's go, 2026-11-13).
+GENERATED_READ := cmd internal pkg api deploy go.mod go.sum sqlc.yaml Makefile scripts/check_generated.py \
+  scripts/fetch_tools.py web/package.json web/package-lock.json web/packages/sdk \
+  ':(exclude,glob)**/*_test.go' ':(exclude,glob)**/testdata/**' ':(exclude,glob)**/*.md'
 
 .PHONY: check-web check-web-parallel
 check-web: check-web-parallel ## Typecheck, lint, format, dependency rules and tests for web/, the browser-mode tests last
@@ -232,13 +249,15 @@ check-web-parallel: web-deps ## check-web but its browser-mode tests, at once: m
 # The web checks, each one of web/package.json's scripts. check-web runs them at once: one after
 # another they took 16 s, the longest step of make check (2026-10-01).
 .PHONY: web-typecheck web-lint web-format-check web-deps-check web-test web-test-browser web-test-browser-run
+# These four not again while nothing they read changed since they passed (scripts/area_stamp.py):
+# web/ alone, and for prettier the root .editorconfig too; on a Go-only turn they cost 23 s of CPU
+# (make-check-time-2026-11-12.md option 5, the owner's go, 2026-11-13).
 web-typecheck:
-	@npm --prefix web run --silent typecheck
+	@$(PYTHON) scripts/area_stamp.py web-typecheck web -- npm --prefix web run --silent typecheck
 web-lint:
-	@npm --prefix web run --silent lint
+	@$(PYTHON) scripts/area_stamp.py web-lint web -- npm --prefix web run --silent lint
 web-format-check:
-	@npm --prefix web run --silent format:check
-# The two not again while nothing under web/ changed since they passed (scripts/area_stamp.py).
+	@$(PYTHON) scripts/area_stamp.py web-format-check web .editorconfig -- npm --prefix web run --silent format:check
 web-deps-check:
 	@$(PYTHON) scripts/area_stamp.py web-deps-check web -- npm --prefix web run --silent deps:check
 web-test:

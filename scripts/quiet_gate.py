@@ -19,6 +19,12 @@ summary, kept in the log. `make check-pr` runs without it: it records every step
 A failed run's output is also kept as `<target>.failed.log`, which only the next failure
 replaces: a hang's diagnostic once went into the log that the passing re-run then overwrote, and
 the evidence was lost (audit-2026-09-30 §5, settled 2026-10-01).
+
+Each run says how long each of its steps took, in `<target>.steps` beside the log, the longest
+first: the run names a file in STEP_CLOCK, the Makefile then runs every recipe line through
+`step_clock.sh`, which records its target's start and end there, and a step's time is its first
+line's start to its last line's end. Without it no cut to the gate could be ranked by measurement
+(gate-throughput G0; the owner, 2026-11-13).
 """
 
 from __future__ import annotations
@@ -102,12 +108,44 @@ def log_path(target: str) -> Path:
     return directory / f"{target}.log"
 
 
-def run_make(make_args: list[str], fail_fast: bool) -> tuple[int, str, str]:
+def step_times(clock: str) -> list[tuple[str, float, float, bool]]:
+    """Each target step_clock.sh recorded, as (target, seconds from the run's first start, its
+    seconds, whether a line of it failed), the longest first. A malformed line is left out."""
+    spans: dict[str, list[float]] = {}
+    failed: dict[str, bool] = {}
+    for line in clock.splitlines():
+        fields = line.split("\t")
+        if len(fields) != 4:
+            continue
+        target, start_text, end_text, code = fields
+        try:
+            start, end = float(start_text), float(end_text)
+        except ValueError:
+            continue
+        span = spans.setdefault(target, [start, end])
+        span[0], span[1] = min(span[0], start), max(span[1], end)
+        failed[target] = failed.get(target, False) or code != "0"
+    if not spans:
+        return []
+    first = min(start for start, _ in spans.values())
+    times = [(target, start - first, end - start, failed[target]) for target, (start, end) in spans.items()]
+    return sorted(times, key=lambda time: (-time[2], time[0]))
+
+
+def steps_report(label: str, clock: str) -> str:
+    """How long each step took, for `<target>.steps`: seconds, when it started, and its name."""
+    lines = [f"{label}: each step's time, the longest first (seconds; started, from the run's start)"]
+    lines += [f"{seconds:8.1f}  +{began:6.1f}  {target}{'  (failed)' if failed else ''}"
+              for target, began, seconds, failed in step_times(clock)]
+    return "\n".join(lines) + "\n"
+
+
+def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     """Runs make: its exit code, its whole output, and the part a summary reads, which with
     fail_fast ends at the first failed step, whose stopping ends the run."""
     process = subprocess.Popen(
         ["make", "--no-print-directory", *make_args], stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, start_new_session=True,
+        stderr=subprocess.STDOUT, text=True, start_new_session=True, env=env,
     )
 
     def stop(sig: int) -> None:
@@ -149,8 +187,12 @@ def main(argv: list[str]) -> int:
     if os.environ.get("VERBOSE") == "1":
         return subprocess.run(["make", "--no-print-directory", *make_args], check=False).returncode
     log = log_path(make_args[0])
-    code, output, read = run_make(make_args, fail_fast)
+    clock = log.with_name(f"{make_args[0]}.clock")
+    clock.write_text("", encoding="utf-8")
+    code, output, read = run_make(make_args, fail_fast, {**os.environ, "STEP_CLOCK": str(clock)})
     log.write_text(output, encoding="utf-8")
+    log.with_name(f"{make_args[0]}.steps").write_text(
+        steps_report(label, clock.read_text(encoding="utf-8")), encoding="utf-8")
     if code == 0:
         last = next((line for line in reversed(output.splitlines()) if line.strip()), "")
         for line in shown_on_a_pass(output):

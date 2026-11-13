@@ -55,6 +55,31 @@ class Summary(unittest.TestCase):
         self.assertIn("… 7 more lines", shown)
 
 
+STEP_CLOCK_SH = Path(__file__).resolve().parent.parent / "step_clock.sh"
+REPO = Path(__file__).resolve().parents[2]
+
+
+class StepTimes(unittest.TestCase):
+    """Gate-throughput G0 (the owner, 2026-11-13): each step's time, from step_clock.sh's lines."""
+
+    def test_a_steps_time_runs_from_its_first_lines_start_to_its_last_lines_end_the_longest_first(self):
+        clock = "a\t100.0\t101.0\t0\na\t101.0\t104.5\t0\nb\t100.5\t102.0\t1\nbroken line\n"
+        self.assertEqual(qg.step_times(clock), [("a", 0.0, 4.5, False), ("b", 0.5, 1.5, True)])
+
+    def test_the_report_names_each_step_and_its_failure(self):
+        report = qg.steps_report("make gate", "lint\t10.0\t12.0\t2\n")
+        self.assertIn("lint  (failed)", report)
+        self.assertIn("     2.0  +   0.0  lint", report)
+
+    def test_the_projects_makefile_runs_its_recipes_through_the_clock_only_when_asked(self):
+        def shell(env: dict[str, str]) -> str:
+            done = subprocess.run(["make", "-pn", "help"], cwd=REPO, capture_output=True, text=True, check=False,
+                                  env={k: v for k, v in env.items() if not k.startswith("MAKE")})
+            return next(line for line in done.stdout.splitlines() if line.startswith("SHELL :="))
+        self.assertTrue(shell({**os.environ, "STEP_CLOCK": "/dev/null"}).endswith("scripts/step_clock.sh"))
+        self.assertEqual(shell({k: v for k, v in os.environ.items() if k != "STEP_CLOCK"}), "SHELL := bash")
+
+
 class Running(unittest.TestCase):
     def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None,
                  fail_fast: bool = False) -> tuple[int, str, Path]:
@@ -135,6 +160,16 @@ class Running(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("slow step finished", log.read_text())
         self.assertNotIn(qg.STOPPED_NOTE, printed)
+
+    def test_a_run_says_how_long_each_step_took_its_parse_time_shell_unclocked(self):
+        makefile = (f"SHELL := {STEP_CLOCK_SH}\n.SHELLFLAGS = $@ -eu -o pipefail -c\nPARSED := $(shell echo parsed)\n"
+                    "gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n\t@echo 'make gate: $(PARSED)'\n"
+                    "fast:\n\t@true\nslow:\n\t@sleep 0.4\n\t@set -o | grep -q 'pipefail.*on'\n")
+        code, printed, log = self.run_gate(makefile)
+        self.assertEqual((code, printed.strip()), (0, "make gate: parsed"))
+        steps = log.with_name("gate.steps").read_text().splitlines()
+        self.assertEqual([line.split()[-1] for line in steps[1:]], ["gate", "slow", "fast"])
+        self.assertGreaterEqual(float(steps[2].split()[0]), 0.4)
 
     def test_verbose_prints_everything(self):
         code, _, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n", verbose=True)
