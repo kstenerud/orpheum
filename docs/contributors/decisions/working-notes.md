@@ -28238,11 +28238,15 @@ off); a lease shorter
 than the film, renewed while the sender's page is open (an iPhone suspends a page in the
 background).
 
-**Status:** Decided 2026-11-13; part built 2026-11-13. Built: §1–4's core (the grant's route and
+**Status:** Decided 2026-11-13; built 2026-11-13. Built: §1–4's core (the grant's route and
 `/g/` paths the product's, the lab setting gone, D154 §6's test asserting the one exception, the
 day's life, the revocations, the address binding), a receiver gone logged as gone, and the
-player's playing on as a phone's page hides while on a receiver (VQ315). Not built: the Cast
-menu's AirPlay entry and the player's hand-over to AirPlay and back.
+player's playing on as a phone's page hides while on a receiver (VQ315). Built too: AirPlay in
+Cast's menu, where Safari offers it and the page reaches the core at a name a receiver can reach,
+not over the relay alone (§4). The player hands its element to AirPlay and back: hls.js lets go
+and takes the film again where AirPlay left it, paused if it was, at Stop, as the target stops
+being wireless, or when no receiver is picked within 30 s; the grant is revoked then. The lab's
+way B is the same hand-over.
 
 **Proven by:**
 - 1: internal/core/api/airplay_test.go (TestAirPlay_OnlyTheMediaUnderGTakesACredentialInThePath,
@@ -28255,4 +28259,6 @@ menu's AirPlay entry and the player's hand-over to AirPlay and back.
   TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64), internal/core/api/airplay_test.go
   (TestAirPlay_AGrantIsBoundToTheConnectionsAddressAndNoHeaders), VQ315
 - 4: VQ315, internal/core/api/airplay_test.go
-  (TestAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential)
+  (TestAirPlay_AGrantInThePathServesItsPlaybackToAReceiverWithNoCredential),
+  web/apps/web/src/airplay-entry.test.tsx, web/apps/web/src/ladder-playback.test.tsx,
+  web/packages/player/src/airplay.test.ts

@@ -5,13 +5,17 @@
 
 # AirPlay
 
-- **Status:** PART BUILT — 2026-11-04, findings added 2026-11-12, the spike's lab built 2026-11-12
+- **Status:** BUILT — 2026-11-04, findings added 2026-11-12, the spike's lab built 2026-11-12
   (X3, below); **D473's core built 2026-11-13**: the grant is the product's (POST and DELETE
   `/airplay/grants`, no lab setting), for a day, bound to the receiver's address, revoked at Stop, at
   a device's revoke and as its sign-in ends, and a request whose receiver went away is logged as gone
   (VQ315). The player plays on as the phone's page hides while its film is on an AirPlay receiver.
-  **Not built yet:** the Cast menu's AirPlay entry, and the player's own hand-over to AirPlay and
-  back; until then the lab (debug tools) is the way to try it. What is open is named under "Open".
+  **Cast's menu's AirPlay built 2026-11-13** (way B, the product's): offered where Safari offers it
+  and the page reaches the core at a name a receiver can reach, its grant asked for as the menu
+  opens; the player hands its element over (`playOnAirPlay`) and back to hls.js where AirPlay left
+  the film, paused if it was, at Stop, as the target stops being wireless, or after 30 s with no
+  receiver picked, revoking the grant. The lab's way B is the same hand-over. What is open is
+  named under "Open".
 - **Depends on:** [cast-to-device.md](cast-to-device.md) (casting to one's own devices, the other
   route to a TV), [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md) (the LAN name the TV reaches
   at home).
@@ -118,7 +122,8 @@ beside the core's log of every request under the grant:**
   iPhone's own element fetched the grant's chunks itself and was answered 425 on q2000k540p and
   q3000k720p, so as AirPlay ended the element went on loading the grant's playlist on the phone. The
   player's AirPlay is to hand the element back to hls.js as `webkitCurrentPlaybackTargetIsWireless`
-  goes false, and revoke the grant, so the phone does not (not built yet).
+  goes false, and revoke the grant, so the phone does not (built 2026-11-13: the element is emptied
+  as AirPlay ends).
 - **For the build (D473):** a request the client gives up on is answered and logged as an internal
   error (500, "a request's client went away … context canceled") and should be logged as gone, not
   as a fault; a chunk or init not made yet still came back 425 under the grant, twice to the Mac
