@@ -537,6 +537,19 @@ func TestPlayback_APlaybackAskedForOnceItsFilmIsBackSaysSo(t *testing.T) {
 	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"mediaBack"`)
 }
 
+// Up next's warm-up of the next episode asks saying so, which the core takes and the log keeps: a
+// cause the core did not know was refused, and the warm-up with it.
+func TestPlayback_UpNextsWarmUpSaysSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	asked := chrome(2)
+	asked["cause"] = "upNext"
+	harness.play(t, user, asked)
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"upNext"`)
+}
+
 // A cast's remote playing here from where its receiver stood asks saying so, and from where, which
 // the log keeps: a Play here mid-film played from 0:00, and its line said only cause=playPage
 // resumePositionMs=0 (staging, 2026-10-27).
