@@ -10,6 +10,9 @@
  * Only a handheld's: a computer's hidden tab is one of several open beside the film, which plays on
  * as a computer's video does elsewhere (the owner, Firefox, 2026-10-25: "Browser shouldn't auto-pause
  * playback when you switch to another tab").
+ * A film playing on an AirPlay receiver (D473) plays on too: it is watched on the television, the
+ * phone only its remote; if the browser pauses it as it goes to the background, it is played again as
+ * the page is shown.
  */
 
 /** The page a film is on: whether it is hidden, its picture-in-picture video, and its events. */
@@ -20,9 +23,14 @@ export interface HiddenPage {
   removeEventListener(type: "visibilitychange", listener: () => void): void;
 }
 
-/** The film: whether it plays, Safari's presentation mode where it has one, and pausing it. */
-export type PausedFilm = Pick<HTMLMediaElement, "paused" | "pause"> & {
+/**
+ * The film: whether it plays, Safari's presentation mode and whether it plays on a wireless target
+ * where it has them, and pausing and playing it.
+ */
+export type PausedFilm = Pick<HTMLMediaElement, "paused" | "pause" | "play"> & {
   readonly webkitPresentationMode?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
+  readonly webkitCurrentPlaybackTargetIsWireless?: boolean;
 };
 
 /** What says whether the browser is a handheld's: its pointer, and its touch points. */
@@ -43,7 +51,8 @@ export function isHandheld(signs: HandheldSigns): boolean {
 
 /**
  * On a handheld (isHandheld), pauses media each time page is hidden while it plays, unless it is in
- * picture-in-picture; elsewhere does nothing. Returns the stopping.
+ * picture-in-picture or on a wireless target (AirPlay); one playing on a wireless target as the page
+ * was hidden and paused when it is shown is played again. Elsewhere does nothing. Returns the stopping.
  */
 export function pauseWhenHidden(
   media: PausedFilm,
@@ -53,11 +62,21 @@ export function pauseWhenHidden(
   if (!isOnHandheld) {
     return () => undefined;
   }
+  let wasPlayingOnTarget = false;
   const onVisibility = (): void => {
+    if (page.visibilityState !== "hidden") {
+      if (wasPlayingOnTarget && media.paused) {
+        media.play().catch(() => undefined);
+      }
+      wasPlayingOnTarget = false;
+      return;
+    }
+    const isOnTarget = media.webkitCurrentPlaybackTargetIsWireless === true;
+    wasPlayingOnTarget = isOnTarget && !media.paused;
     const isPictureInPicture =
       Object.is(page.pictureInPictureElement, media) ||
       media.webkitPresentationMode === "picture-in-picture";
-    if (page.visibilityState === "hidden" && !media.paused && !isPictureInPicture) {
+    if (!media.paused && !isPictureInPicture && !isOnTarget) {
       media.pause();
     }
   };

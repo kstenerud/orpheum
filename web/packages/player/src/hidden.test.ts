@@ -31,11 +31,20 @@ class FakeFilm {
   // eslint-disable-next-line @typescript-eslint/naming-convention -- HTMLMediaElement's own name
   paused = false;
   webkitPresentationMode = "inline";
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
+  webkitCurrentPlaybackTargetIsWireless = false;
   pauses = 0;
+  plays = 0;
 
   pause(): void {
     this.paused = true;
     this.pauses += 1;
+  }
+
+  async play(): Promise<void> {
+    this.paused = false;
+    this.plays += 1;
+    await Promise.resolve();
   }
 }
 
@@ -52,6 +61,30 @@ describe("a film whose page is hidden (D287)", () => {
     film.paused = false;
     page.show("hidden");
     expect(film.pauses).toBe(1);
+  });
+
+  it("plays on while on an AirPlay receiver, and plays again as shown if the browser paused it (D473)", () => {
+    const page = new FakePage();
+    const film = new FakeFilm();
+    film.webkitCurrentPlaybackTargetIsWireless = true;
+    pauseWhenHidden(film, page, true);
+    page.show("hidden");
+    expect(film.pauses).toBe(0);
+    film.paused = true; // iOS's own pause as Safari goes to the background
+    page.show("visible");
+    expect(film.plays).toBe(1);
+    expect(film.paused).toBe(false);
+  });
+
+  it("does not play again as shown a film on an AirPlay receiver that was paused as it was hidden", () => {
+    const page = new FakePage();
+    const film = new FakeFilm();
+    film.webkitCurrentPlaybackTargetIsWireless = true;
+    film.paused = true;
+    pauseWhenHidden(film, page, true);
+    page.show("hidden");
+    page.show("visible");
+    expect(film.plays).toBe(0);
   });
 
   it("plays on in picture-in-picture, where it is still watched", () => {
