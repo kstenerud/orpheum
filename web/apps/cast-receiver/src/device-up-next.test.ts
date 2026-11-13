@@ -6,12 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastDevice } from "./device.ts";
 
-// What is tested is the Up next the receiver shows, not the player: a film "starts" at once.
-vi.mock("@orpheum/player", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@orpheum/player")>()),
-  playChunked: () => ({ destroy: () => undefined }),
-}));
-
 /** A cast of film 7 handed on the live connection, as the core sends it. */
 const receiveFilm7 = JSON.stringify({
   type: "receive",
