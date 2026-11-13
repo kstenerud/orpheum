@@ -477,6 +477,56 @@ func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *te
 	}
 }
 
+// A library that keeps changing however often the sweep reads it is a bug, which waiting does not
+// fix (the owner, 2026-11-13): its rescan waits some sweeps, then gives up, ending, with an error
+// that names the write that kept changing the library and the item it was filing, and a rescan
+// asked for after it starts again.
+func TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	titleID := lib.titlesByPath()[crowdFile].WorkID
+	takeAway := `DELETE FROM sort_key WHERE item_id = ` + strconv.FormatInt(titleID, 10)
+	storetest.ExecRaw(t, lib.database.Path(), takeAway)
+	lib.pass.AfterPass(func(context.Context, identify.Report) {
+		storetest.ExecRaw(t, lib.database.Path(), takeAway) //nolint:contextcheck // it writes with the test's context
+	})
+	var logged bytes.Buffer
+	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
+	rescan.library()
+	gaveUp := slogx.EventKey + `=rescanGaveUp`
+	sweeps := 0
+	for ; sweeps < 20 && !strings.Contains(logged.String(), gaveUp); sweeps++ {
+		if _, err := rescan.rescans.Advance(t.Context()); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+	}
+	if sweeps < 2 || sweeps == 20 {
+		t.Fatalf("the rescan gave up after %d sweeps; want after a few:\n%s", sweeps, logged.String())
+	}
+	var line string
+	for candidate := range strings.Lines(logged.String()) {
+		if strings.Contains(candidate, gaveUp) {
+			line = candidate
+		}
+	}
+	for _, want := range []string{
+		`level=ERROR`, `libraryId=` + strconv.FormatInt(lib.libraryID, 10),
+		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the line it gave up with lacks %s: %s", want, line)
+		}
+	}
+	progress, err := rescan.rescans.Progress(t.Context())
+	if err != nil || len(progress) != 0 {
+		t.Errorf("rescans after giving up: %+v, %v; want none", progress, err)
+	}
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.Rescan)
+	if err != nil || !isStarted {
+		t.Errorf("RescanLibrary after giving up = %t, %v; want a new rescan", isStarted, err)
+	}
+}
+
 // D357 §2: a film whose search now settles on none is left as a first match leaves one, its old
 // match forgotten: unidentified, not found, named from its file again.
 func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.T) {
