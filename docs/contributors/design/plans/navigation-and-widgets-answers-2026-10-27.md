@@ -3611,3 +3611,31 @@ accept, its playback and reports, its media and the live socket, each holding it
 at a time, cancels the earlier in the same write, and shows only its expiry; the alphabet rail's
 letters keep Space and Enter; `Fake.AwaitArmed` wakes on every arming; no commit prints a secret or
 names a film.
+
+## The 11-24 batch's check-pr (2026-11-13)
+
+`make check-pr`, based at the 11-23 batch's last passing commit ("docs(plan): check-pr's time, two
+gate changes for the next batch"), over the batch's 62 commits. Lint, integration, acceptance,
+commits and test weakening passed first time. What failed, and what was done:
+
+1. **The browser tier: three cast tests.** `web/e2e/cast.spec.ts` still waited for the receiver's
+   question D468 took away ("wants to use this device for playback", Asking, Use); `make check`
+   runs no browser spec, so it showed first here. Fixed by "test(e2e): a cast between two devices
+   asks the receiver nothing, as D468 has it"; the tier now passes (34 and 4).
+2. **Revert-red, `internal/core/api/playback.go`:** Up next's new `upNext` cause had no test, and
+   without it the core refuses every Up next warm-up with a 422. Fixed by "test(api): Up next's
+   warm-up cause is one the core takes and logs", red on revert.
+3. **Revert-red, `web/apps/web/src/cast-dialog.tsx`:** D468 changed only its comment; claimed
+   `Refactor-Only:` on the cast-spec commit.
+4. **Revert-red, `web/apps/cast-receiver/src/reach.ts` (D467) and `web/packages/player/src/chunked.ts`
+   (the lost chunk asked again):** each wiring has no test of its own (the policy it wires does).
+   An agent is writing the two tests.
+5. **For the owner, a gate: `scripts/background_probe.py` cannot settle.** With it reverted, its
+   test `test_a_pass_waits_behind_the_gates_own_run_and_goes_beside_a_spot_check` waits for ever
+   (the old probe waits behind any holder of the lock, the test holding it as a spot check), so
+   revert-red runs past its 900 s twice, the second time alone. The test needs a bounded wait
+   that fails, which is a gate edit (`scripts/tests/`): proposed, not made. Until then check-pr
+   fails on this file alone.
+6. **A gate idea for the owner:** a UI string an e2e spec waits for, removed from the catalogue,
+   could fail `make check` (a lint over `web/e2e/` against the locales) rather than wait for
+   check-pr's browser tier.
