@@ -7,15 +7,17 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  airPlayFromSecondElement,
-  airPlayFromTheSameElement,
-  endPlaying,
   grantOriginOf,
   makeAirPlayGrant,
   revokeAirPlayGrants,
-  watchTarget,
   type AirPlayGrant,
   type Log,
+} from "./airplay.ts";
+import {
+  airPlayFromSecondElement,
+  airPlayFromTheSameElement,
+  endPlaying,
+  watchTarget,
 } from "./lab-airplay-steps.ts";
 import { receiverPlaybackOf, useFilms } from "./lab-cast.tsx";
 import { LabFrame } from "./lab-frame.tsx";

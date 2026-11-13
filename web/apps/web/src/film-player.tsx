@@ -7,23 +7,14 @@ import {
   pauseWhenHidden,
   mediaErrorFailure,
   meterBufferGrowth,
-  playChunked,
   shapeChunkLoads,
-  watchStalls,
-  type ChunkedPlayback,
   type LinkMeter,
   type PlaybackFailed,
   type PlaybackFailure,
   type PlayedLevel,
   type SoundChoiceCause,
 } from "@orpheum/player";
-import {
-  healPageAudio,
-  playerSwitchedQualityEvent,
-  startGateOf,
-  type CannotKeepUp,
-  type PlaybackReport,
-} from "@orpheum/sdk";
+import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -47,8 +38,9 @@ import {
   ladderStartingAudio,
 } from "./ladder-sound.ts";
 import { ForTesters } from "./for-testers.tsx";
-import { startOn, type LadderOffer } from "./moving-down.ts";
+import type { LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
+import { useChunkedPlayback } from "./ladder-playback.ts";
 import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
@@ -167,9 +159,16 @@ export function FilmPlayer(props: {
 }): JSX.Element {
   const { decision, moved, composition } = props;
   const onLadder = decision.onLadder ?? undefined;
+  // AirPlay is the person's own player's, the one with controls (D473), never a film page's hidden one.
+  const airPlayToken = composition.hasControls ? decision.mediaToken : undefined;
   if (moved?.mediaToken === decision.mediaToken) {
     return (
-      <ChunkedFilm offer={moved.offer} positionMs={moved.positionMs} composition={composition} />
+      <ChunkedFilm
+        offer={moved.offer}
+        positionMs={moved.positionMs}
+        composition={composition}
+        mediaToken={airPlayToken}
+      />
     );
   }
   const sound = playingSoundOf(decision);
@@ -179,6 +178,7 @@ export function FilmPlayer(props: {
         offer={onLadder}
         positionMs={props.ladderStartMs}
         composition={composition}
+        mediaToken={airPlayToken}
         isOnLadder
         tracks={decision.tracks}
         sound={sound}
@@ -470,6 +470,8 @@ function ChunkedFilm(props: {
   readonly positionMs: number;
   readonly isOnLadder?: boolean;
   readonly composition: FilmComposition;
+  /** The playback's media token, which AirPlay's grant is asked for by (D473); none offers no AirPlay. */
+  readonly mediaToken?: string | undefined;
   /** What the film on its ladder may play, which its tracks are named from as its level moves. */
   readonly tracks?: PlaybackDecision["tracks"] | undefined;
   readonly sound?: PlayingSound | undefined;
@@ -490,9 +492,10 @@ function ChunkedFilm(props: {
   const { tracks } = props;
   // A playback's own start on its ladder starts by the link its device remembers (D381).
   const shouldStartByRememberedLink = props.isOnLadder === true && !isStartThePages(offer);
+  const starting = { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink };
   const { playbackRef, playing, cannotKeepUp, sound, heardLevel, playSound } = useLadderPlayback(
     videoRef,
-    { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink },
+    { ...starting, mediaToken: props.mediaToken },
     onFailed,
   );
   const height = playing?.height ?? offer.height;
@@ -542,6 +545,7 @@ function useLadderPlayback(
     readonly tracks: PlaybackDecision["tracks"] | undefined;
     readonly sound: PlayingSound | undefined;
     readonly shouldStartByRememberedLink: boolean;
+    readonly mediaToken: string | undefined;
   },
   onFailed: PlaybackFailed,
 ): ReturnType<typeof useChunkedPlayback> & {
@@ -549,14 +553,14 @@ function useLadderPlayback(
   readonly heardLevel: SoundLevel | undefined;
   readonly playSound: (sound: PlayingSound, cause: SoundChoiceCause) => boolean;
 } {
-  const { offer, positionMs, tracks, shouldStartByRememberedLink } = starting;
+  const { offer, positionMs, tracks, shouldStartByRememberedLink, mediaToken } = starting;
   useShapedByTheTabsLink();
   const [sound, setSound] = useState(starting.sound);
   const [heard, setHeard] = useState(starting.sound);
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
   const chunked = useChunkedPlayback(
     videoRef,
-    { offer, positionMs, startAudioRef, shouldStartByRememberedLink },
+    { offer, positionMs, startAudioRef, shouldStartByRememberedLink, mediaToken },
     onFailed,
   );
   const { playbackRef } = chunked;
@@ -607,33 +611,6 @@ export function useBufferMeter(
 }
 
 /**
- * The link an offer says its device last measured on its network (D257 §1), with its spread and how
- * many samples it counts as (bandwidth-sampling-2026-10-29.md P2), and whether the player starts by
- * it (D381), one object while they stay the same, so a playback is not started again for a new offer
- * that says the same.
- */
-function useRememberedLink(
-  offer: Pick<LadderOffer, "rememberedLinkKbps" | "rememberedLinkSpread" | "rememberedLinkSamples">,
-  shouldStartByRememberedLink: boolean | undefined,
-): {
-  readonly rememberedLinkKbps: number | undefined;
-  readonly rememberedLinkSpread: number | undefined;
-  readonly rememberedLinkSamples: number | undefined;
-  readonly shouldStartByRememberedLink: boolean | undefined;
-} {
-  const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
-  return useMemo(
-    () => ({
-      rememberedLinkKbps,
-      rememberedLinkSpread,
-      rememberedLinkSamples,
-      shouldStartByRememberedLink,
-    }),
-    [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples, shouldStartByRememberedLink],
-  );
-}
-
-/**
  * Has the tab's chunk loads shaped by its debug link, its cap and its drop (D380), where the page
  * has one: handed to the player here, with the player, so the home page loads no player for it.
  */
@@ -642,103 +619,6 @@ function useShapedByTheTabsLink(): void {
   useEffect(() => {
     shapeChunkLoads(linkDebug);
   }, [linkDebug]);
-}
-
-/**
- * Follows playback in video: the quality playing, read as it starts and at each switch the player
- * tells (playerSwitchedQualityEvent), never on a timer (efficiency audit, 2026-10-28); and, at each
- * stall, whether even its lowest quality is beyond the link (D247 §8). Returns the end of it.
- */
-export function followChunkedPlayback(
-  video: HTMLVideoElement,
-  playback: Pick<ChunkedPlayback, "playing" | "beyondTheLink">,
-  tell: {
-    readonly setPlaying: (playing: PlayedLevel | undefined) => void;
-    readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp) => void;
-  },
-): () => void {
-  const switched = (): void => {
-    tell.setPlaying(playback.playing());
-  };
-  switched();
-  video.addEventListener(playerSwitchedQualityEvent, switched);
-  const stopWatching = watchStalls(video, () => {
-    const beyond = playback.beyondTheLink();
-    if (beyond !== undefined) {
-      tell.setCannotKeepUp(beyond);
-    }
-  });
-  return () => {
-    video.removeEventListener(playerSwitchedQualityEvent, switched);
-    stopWatching();
-  };
-}
-
-/**
- * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
- * and, once its lowest quality stalls, that the link cannot keep up (D247 §8). Each playback starts
- * with the audio rendition startAudioRef holds as it starts, the playlist's default when none.
- */
-export function useChunkedPlayback(
-  videoRef: RefObject<HTMLVideoElement | null>,
-  starting: {
-    readonly offer: LadderOffer;
-    readonly positionMs: number;
-    readonly startAudioRef?: RefObject<number | undefined>;
-    /** Whether it chooses its first quality from the link its device remembers (D381). */
-    readonly shouldStartByRememberedLink?: boolean;
-  },
-  onFailed: PlaybackFailed,
-): {
-  readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
-  readonly playing: PlayedLevel | undefined;
-  readonly cannotKeepUp: CannotKeepUp | undefined;
-} {
-  const { positionMs, startAudioRef } = starting;
-  const { url, startAtBps, linkSharePercent, steadiness } = starting.offer;
-  const remembered = useRememberedLink(starting.offer, starting.shouldStartByRememberedLink);
-  const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
-  const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
-  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) {
-      return undefined;
-    }
-    const startAudioRenditionIndex = startAudioRef?.current;
-    const playback = playChunked(video, url, {
-      onFailed,
-      ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
-      ...startOn(
-        {
-          startAtBps,
-          linkSharePercent,
-          steadiness,
-          ...remembered,
-        },
-        positionMs,
-      ),
-      monotonicMs,
-    });
-    playbackRef.current = playback;
-    const stopFollowing = followChunkedPlayback(video, playback, { setPlaying, setCannotKeepUp });
-    return () => {
-      stopFollowing();
-      playback.destroy();
-      playbackRef.current = undefined;
-    };
-  }, [
-    videoRef,
-    url,
-    startAtBps,
-    linkSharePercent,
-    steadiness,
-    remembered,
-    positionMs,
-    onFailed,
-    startAudioRef,
-  ]);
-  return { playbackRef, playing, cannotKeepUp };
 }
 
 /** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
