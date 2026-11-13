@@ -16,6 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
+import { ShellReadContext } from "./shell-read.ts";
 import { PosterGrid, type Entry } from "./browse.tsx";
 import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -72,6 +73,39 @@ function expectPlacesLikeTheTray(container: Element): void {
 }
 
 describe("the shell, laid out by a real browser", () => {
+  // The owner, 2026-11-13: "It shouldn't be necessary to render the admin things separately." While
+  // the first read is waited on, the banner keeps its room and shows none of its places (D476 §3).
+  it("keeps the banner's room while the first read is waited on, drawing none of its places", async () => {
+    const shell = (read: "waiting" | "read") => (
+      <ShellReadContext value={{ state: read, shell: undefined }}>
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="home"
+          onSignOut={() => undefined}
+          signedInAs={{ name: "owner", deviceName: undefined }}
+        >
+          <p>screen</p>
+        </AppShell>
+      </ShellReadContext>
+    );
+    let drawnHeight = 0;
+    await drawn(shell("read"), ({ container }) => {
+      const nav = container.querySelector("nav.app-shell__nav");
+      expect(nav === null ? "" : getComputedStyle(nav).visibility).toBe("visible");
+      drawnHeight = boxOf(nav).height;
+    });
+    await drawn(shell("waiting"), ({ container }) => {
+      const nav = container.querySelector("nav.app-shell__nav");
+      const link = nav?.querySelector("a");
+      expect(link === null || link === undefined ? "" : getComputedStyle(link).visibility).toBe(
+        "hidden",
+      );
+      expect(boxOf(nav).height).toBeGreaterThan(0);
+      expect(boxOf(nav).height).toBeCloseTo(drawnHeight, 0);
+    });
+  });
+
   it("draws the logo as one link home, exactly the logo's size", async () => {
     const shell = (
       <AppShell
