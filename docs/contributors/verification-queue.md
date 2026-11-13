@@ -3118,13 +3118,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   fallen back to x264, and an MPEG-TS film's encoded quality plays as well.
   (`internal/node/chunks/arguments.go`, `encodeTimeBase`; idiosyncrasies.md, "The `segment` muxer
   repeats each picture once a tick of an encoder given the source's time base")
-- [ ] **VQ315** — D473's grant plays on an AirPlay receiver with no lab setting, from the receiver's
-  address alone, and a receiver that gives up is logged as gone. On staging, after the deploy, with
-  debug tools shown, open the AirPlay lab on the iPhone and play a film on the MacBook by Way B; seek
-  and pause from the iPhone, then let it wait 10 minutes. Passes when it plays with no setting
-  turned on; the core's log shows each `airPlayRequest` from the Mac's address alone, with no grant
+- [ ] **VQ315** — D473's AirPlay, from Cast's menu, plays on an AirPlay receiver with no lab
+  setting, from the receiver's address alone, and comes back to the phone; a receiver that gives up
+  is logged as gone. On staging, after the deploy, on the iPhone in Safari, play a film, open Cast
+  and press AirPlay, and pick the MacBook; seek and pause from the iPhone, then let it wait 10
+  minutes. Then play it again on the Mac, open Cast and press Stop AirPlay; then AirPlay again and
+  choose the iPhone in the picker. Passes when it plays with no setting turned on; at Stop AirPlay
+  and at choosing the iPhone, the film plays on in the iPhone's page from where the Mac stood,
+  paused if it was paused, and the core's log shows no more requests under the grant from the
+  iPhone; after Apple's idle drop the iPhone's page holds the film where it stood; the core's log shows each `airPlayRequest` from the Mac's address alone, with no grant
   in it; a chunk not made yet is answered once made or after the 30 s hold, never 425 in under it;
   and a request the Mac gave up on is logged `clientGone`, not as answered 425 or 500. Then present
   the grant's master from another machine on the LAN: it is answered not found.
   (`internal/core/auth/airplay.go`, `admits`; `internal/core/api/airplay.go`, `loggingAirPlay`;
-  `internal/core/api/chunks.go`, `relayChunkFile`)
+  `internal/core/api/chunks.go`, `relayChunkFile`; `web/packages/player/src/airplay.ts`,
+  `playOnAirPlay`; `web/apps/web/src/airplay-entry.tsx`, `web/apps/web/src/ladder-playback.ts`)
