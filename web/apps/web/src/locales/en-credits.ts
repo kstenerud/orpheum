@@ -2,7 +2,7 @@
 
 /**
  * The English catalogue's credits part: a title's people and a credited person's page, added as
- * credits.tsx loads (credits-words.ts), never with the first page.
+ * credits.tsx loads (credits-words.ts), never with the first page (home-imports.test.ts holds it).
  */
 export const enCredits = {
   credits: {

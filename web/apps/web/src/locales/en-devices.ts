@@ -3,7 +3,7 @@
 /**
  * The English catalogue's device part: the This device page (thisDevice) and the person's list of
  * devices (devices), added as the first of their modules loads (devices-words.ts), never with the
- * first page.
+ * first page (home-imports.test.ts holds it).
  */
 export const enDevices = {
   thisDevice: {
