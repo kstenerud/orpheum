@@ -20,7 +20,10 @@ export const maxMessageBytes = 64 * 1024;
 const endHeader = "x-orpheum-end";
 const endInText = "text";
 
-/** The text message that ends a response its head asked to end in it: rtcapi.EndMessage. */
+/**
+ * The text message that ends a response its head asked to end in it: rtcapi.End, as the golden file
+ * internal/core/rtcapi/testdata/end.json both sides' tests read has it.
+ */
 export const endMessage = '{"end":true}';
 
 /** What a channel says, to the one request it carries. */
