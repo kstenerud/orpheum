@@ -121,6 +121,38 @@ func TestGuestReceiver_ReachesItsCastAlone(t *testing.T) {
 		http.StatusForbidden, api.CodeForbidden)
 }
 
+// A guest receiver ends its own cast, Stop casting here on its page (D469 §3), and saying where it
+// stood, but not another of its person's casts, which goes on (D465 §2).
+func TestGuestReceiver_EndsItsOwnCastAloneAsAReceiverDoes(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	ours := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	theirs := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, laptopToken))).Body
+	ourSocket := harness.dialLive(t, ours.Token)
+	ourSocket.awaitConnected()
+	theirSocket := harness.dialLive(t, theirs.Token)
+	theirSocket.awaitConnected()
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
+	ourCast := startedCast(t, harness.startCast(t, phoneToken, ours.DeviceID, 0))
+	theirCast := startedCast(t, harness.startCast(t, laptopToken, theirs.DeviceID, 0))
+	takenBack := map[string]string{"reason": "takenBack"}
+	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", theirCast.CastID), ours.Token,
+		takenBack), http.StatusNotFound, api.CodeNotFound)
+	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", ourCast.CastID), ours.Token, takenBack)
+	if ended.status != http.StatusOK || !strings.Contains(ended.body, `"positionMs":`) {
+		t.Errorf("the guest receiver's Stop casting here = %d %s; want where it stood", ended.status, ended.body)
+	}
+	if again := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", theirCast.CastID), theirs.Token,
+		takenBack); again.status != http.StatusOK {
+		t.Errorf("the other guest receiver's own end = %d %s; want its cast still on, ended by it", again.status,
+			again.body)
+	}
+}
+
 // A guest receiver plays its cast's film by its own session: it fetches the film's bytes, and
 // reports where it plays, as a paired TV does (D465 §2).
 func TestGuestReceiver_FetchesAndReportsOnItsCastsFilm(t *testing.T) {
