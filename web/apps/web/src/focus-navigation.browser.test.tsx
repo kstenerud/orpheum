@@ -258,3 +258,53 @@ describe("Down from a grid's last row while its next page loads (the owner, 2026
     expect(document.activeElement?.textContent).toBe("Y");
   });
 });
+
+/**
+ * A shell's banner across the top, its place straight above a list's alphabet rail, whose letter B
+ * is where an arrow entering the rail goes (entryAttribute), as a poster focused beside it stands it
+ * there; and the list's tools left of the rail, in the page, which remembers what last had focus.
+ */
+const railUnderTheBannerPage = (
+  <div style={{ position: "relative", height: "460px" }}>
+    <header data-focus-container="">
+      <a href="#home" style={placedAt(800, 0)}>
+        home
+      </a>
+    </header>
+    <main data-focus-memory="">
+      <button type="button" style={placedAt(600, 80)}>
+        search
+      </button>
+      <ol data-focus-container="">
+        <li style={placedAt(800, 80, 40)}>
+          <button type="button">A</button>
+        </li>
+        <li style={placedAt(800, 130, 40)}>
+          <button type="button" data-focus-entry="">
+            B
+          </button>
+        </li>
+      </ol>
+    </main>
+  </div>
+);
+
+describe("an arrow entering the page from the banner over the alphabet rail", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("goes back to the list's tools it left, and only an arrow entering the rail goes to its letter", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(railUnderTheBannerPage));
+    document.querySelector<HTMLElement>("main > button")?.focus();
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.textContent).toBe("home");
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement?.textContent).toBe("search");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement?.textContent).toBe("B");
+  });
+});

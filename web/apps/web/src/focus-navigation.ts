@@ -288,9 +288,14 @@ function destinationOf(
   if (entered === undefined) {
     return next;
   }
-  const entry = entered.querySelector<HTMLElement>(`[${entryAttribute}]`);
+  // An entry is its own container's, the nearest that remembers around it: the alphabet rail's
+  // letter is where an arrow entering the rail goes, not one entering the page around the rail,
+  // which goes back to what last had focus in the page (the list's tools, left for the banner).
+  const entry = [...entered.querySelectorAll<HTMLElement>(`[${entryAttribute}]`)].find(
+    (each) => rememberingAround(each, region)[0] === entered,
+  );
   return (
-    (entry !== null && isFocusTarget(entry) ? entry : undefined) ??
+    (entry !== undefined && isFocusTarget(entry) ? entry : undefined) ??
     moving.memory.rememberedIn(entered) ??
     next
   );
