@@ -3556,6 +3556,12 @@ series, not swapped in". For the owner, most serious first:
    (`known.checkCode != ""`, ErrNoPairing) and move the tests to a scanned service code; with no
    paid service, then, nothing is cast to by code. Or, if typed codes should cast, take Cast as the
    answer to the check (`POST /pairings/check` with the match and a cast choice).
+   **Fixed 2026-11-13** as proposed, in "fix(auth): a typed code is cast to by no one, its check code
+   Claim's": `isEnteredForThemselves` refuses a claim with a check code (ErrNoPairing), so only a
+   scanned code is cast to, and `CastToPairing`'s branch for the core's own codes, unreachable since,
+   is gone. Both D469 tests claim by the scanned path, the device's session taken by the service's
+   hand-off, their assertions kept; `TestCastToPairing_RefusesATypedCodeWhoseCheckCodeIsClaims` casts
+   to a typed code and wants it refused and still answered by Claim.
 2. **A guest receiver's page asks for routes the core refuses it** (D469 §4's page, `GuestReceiving`
    in `app.tsx`, reusing the person's Play and ready screens): Stop casting here
    (`stop-casting-here.tsx`, `POST /me/casts/{id}/end`, `requireSignedIn` in `endCast`,
@@ -3570,6 +3576,12 @@ series, not swapped in". For the owner, most serious first:
    Up next, the levelling's waits and the sound choices are not offered on a guest's page; and a
    test renders the guest's play screen against an API that refuses each route the core refuses a
    guest, failing on any request it makes to one.
+   **Stop fixed 2026-11-13** as proposed, in "fix(api): a guest receiver ends its own cast, Stop
+   casting here": `endCast` takes a guest receiver through `requireSignedInOrGuest`, its operation
+   callable by `signedInOrGuest`, the registry's `End` holding it to the one cast it receives
+   (`TestGuestReceiver_EndsItsOwnCastAloneAsAReceiverDoes`). The rest stays the owner's: `SignedIn`'s
+   reads before it sees a guest, and whether Up next, the levelling's waits and the sound choices are
+   offered on a guest's page.
 3. **Three wait helpers** (rule 11, already past two): `elapsed` (`google-cast.ts`, the Chromecast
    batch), `waitFor` (`reopen.ts`, exported for D469's `device-activation.tsx`) and `waitMs`
    (`part-load.ts`), each a `setTimeout` in a promise. **Proposed:** one, `waitMs`, the others
