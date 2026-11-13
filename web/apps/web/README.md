@@ -381,6 +381,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
   `loader-sweep.test.ts`, `sw.test.ts`, `worker-bypassed-note.test.tsx`, and the SDK's
   `discovery.test.ts`, `rtc-media.test.ts` and `worker-control.test.ts`.
+- **The page names the setup help for a person's own AI agent to one that runs no script** (the
+  plan's "Help for a person's own AI agent at orpheum.cc"): a `<link rel="help">` and an `alternate`
+  `text/markdown` link in its head, and in its root a plain paragraph naming `/agent-setup.md` and
+  `/llms.txt`, which the client's first drawing replaces, so neither a person nor a screen reader
+  meets it once the page is drawn. The build writes the help from its one source,
+  `docs/users/agent-setup.md`, its relative links made the public repository's, and `/llms.txt`
+  naming it (`src/agent-help.ts`, the `orpheum-agent-help` plugin in `vite.config.ts`).
+  `agent-help.test.ts`, `agent-help-page.test.tsx`.
 - **A loader whose path is lost waits it out; a refusal stays a refusal** (principles §28; the owner's
   train, 2026-11-13, where one channel lost mid-manifest ended the page for good): a try that fails
   for no known cause and is no refusal (`isLoaderPathLost`: not `ClientRefused`, `HandOffRefused` or
