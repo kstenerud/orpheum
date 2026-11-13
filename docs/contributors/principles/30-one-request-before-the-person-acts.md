@@ -22,8 +22,12 @@ The rule:
 **The ideal: one page, one "essential data" fetch** (the owner, 2026-11-13: "Ideally one page does
 one \"essential data\" fetch, and then other fetches for the rest as matches the situation."). A
 page's first request answers everything the person needs to act on it; every other request follows
-as the situation calls for it (images nearing the view, a menu opened, a section scrolled to), and
-nothing a person acts on waits for those.
+as the situation calls for it (images nearing the view, a section scrolled to), and nothing a
+person acts on waits for those. **A menu's contents come with the page's essential data**, not
+with a fetch when it opens (the owner, 2026-11-13: "Even a menu's contents rarely require a fetch
+just to know what its contents should be. That should be the exception, not the norm."): a menu
+that must ask the server what it holds is the exception, and says why (a list that changes by the
+second, such as the devices a cast can reach).
 
 What that asks:
 
