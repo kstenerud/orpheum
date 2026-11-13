@@ -3725,3 +3725,7 @@ them (2026-11-13). Deploys go to staging; production waits for the owner.
    a person; the guest's page knows it is a guest before any other read.
 6. **The link page's words: agreed.** "This link no longer works", and the reason names a cancelled
    link too.
+7. **The missing root's warning: the lead's pick** (the owner, 2026-11-13). A library folder the
+   node was not given is logged once when it goes missing and once when it comes back, not at every
+   scan; the library's row says so ("This folder is not available to the media node"); the rest of
+   the library scans as now.
