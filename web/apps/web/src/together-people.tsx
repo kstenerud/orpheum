@@ -50,7 +50,7 @@ export function togetherUrl(origin: string, issued: Pick<Issued, "secret" | "lin
 /** What rights give, in a few words for the host's list of people. */
 function rightsText(t: (key: string) => string, rights: Rights): string {
   const playback = playbackRightsText(t, rights);
-  if (!rights.canNext) {
+  if (rights.canNext !== true) {
     return playback ?? t("watchTogether.rights.none");
   }
   const next = t("watchTogether.rights.next");
