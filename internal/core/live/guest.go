@@ -19,13 +19,16 @@ const GuestByCodeWaitsAfter = 3 * time.Minute
 // minutes).
 const GuestIdleAfter = 30 * time.Minute
 
-// guest is a guest receiver (D465 §1): a Google Cast device running the receiver for one cast from
-// the device that sent it its grant, which no other device of the person's sees or casts to.
+// guest is a guest receiver, signed in for one cast from senderDeviceID, which no other device of the
+// person's sees or casts to: a Google Cast device running the receiver under the grant its sender
+// sent it (D465 §1), or a device whose code its sender's person answered by casting to it (D469 §1).
 type guest struct {
 	senderDeviceID int64
-	// name is the Cast device's name, as its sender's Cast menu showed it.
+	// name is the device's name: a Cast device's as its sender's Cast menu showed it, or the name its
+	// code was answered under.
 	name string
-	// since is when its grant was traded: one never cast to is ended UnansweredAfter it (EndGuests).
+	// since is when its grant was traded or its code answered: one never cast to is ended waitsFor
+	// after it (EndGuests).
 	since time.Time
 	// hasReceived is whether its one cast started: once it ends, it is no one's target (D465 §1).
 	hasReceived bool

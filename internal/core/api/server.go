@@ -394,9 +394,10 @@ func (server *Server) requireSignedIn(
 }
 
 // errGuestReceiver is a guest receiver's session at a route of a person's: it may receive its cast and
-// play its films, and nothing else (D465 §2).
+// play its films, and nothing else (D465 §2). Its words name no kind of device: a guest receiver is a
+// Google Cast device (D465) or any device whose code was answered by casting to it (D469).
 var errGuestReceiver = newError(http.StatusForbidden, CodeForbidden,
-	"this Google Cast device is signed in for its cast alone")
+	"this device is signed in for one cast alone")
 
 // requireSignedInOrGuest is requireSignedIn that takes a guest receiver's session too, for a route its
 // cast needs (D465 §2); its handler holds the guest to that cast.
