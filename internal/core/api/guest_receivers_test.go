@@ -214,6 +214,12 @@ func TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone(t *test
 	if strings.Contains(listed.body, "Upstairs TV") {
 		t.Errorf("GET /me/devices lists the guest receiver: %s", listed.body)
 	}
+	// A route of the person's is refused it in words that fit any device, this one no Google Cast's.
+	refused := harness.do(t, http.MethodGet, "/me/devices", guestToken, nil)
+	wantError(t, refused, http.StatusForbidden, api.CodeForbidden)
+	if strings.Contains(refused.body, "Google Cast") {
+		t.Errorf("GET /me/devices for a guest by code = %s; want words that name no kind of device", refused.body)
+	}
 	guestSocket := harness.dialLive(t, guestToken)
 	guestSocket.awaitConnected()
 	phoneSocket := harness.dialLive(t, phoneToken)
