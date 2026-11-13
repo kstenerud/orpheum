@@ -90,7 +90,6 @@ export function SeriesView(props: {
   const { series } = props;
   const seasons = series.seasons ?? [];
   const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
-  const shown = shownSeasonOf(series, props.season);
   // One that cannot be played now is said among the notes; one that can, the actions row's first.
   const { nextUpPlay, isNextUpPlayable, warmsUp } = useNextUpPlay(series, seasons.length === 1);
   return (
@@ -128,9 +127,7 @@ export function SeriesView(props: {
         }
         overview={series.overview}
       />
-      {shown === undefined || seasons.length === 1 ? null : (
-        <SeasonRow series={series} shown={shown} />
-      )}
+      <ChosenSeasonRow series={series} season={props.season} />
       <SeriesSeasons
         series={series}
         season={props.season}
@@ -486,7 +483,20 @@ function seasonPosterOf(series: SeriesDetail, season: Season): string | undefine
  * view of the series, which replaces the history's entry (D379 §2, D367 §9). The row is one focus
  * container: a remote's Left and Right move along it, Down leaves it for the season's episodes (D379
  * §3).
+ *
+ * Drawn where the series has more than one season, at the season chosen (shownSeasonOf).
  */
+function ChosenSeasonRow(props: {
+  readonly series: SeriesDetail;
+  readonly season: number | undefined;
+}): JSX.Element | null {
+  const shown = shownSeasonOf(props.series, props.season);
+  return shown === undefined || (props.series.seasons ?? []).length === 1 ? null : (
+    <SeasonRow series={props.series} shown={shown} />
+  );
+}
+
+/** The row of seasons ChosenSeasonRow draws, the season shown marked current in it. */
 function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Season }): JSX.Element {
   const { t } = useTranslation();
   const { series, shown } = props;

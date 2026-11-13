@@ -372,8 +372,7 @@ function useFirstPage<T>(
       // After this commit: show draws its first piece at once, and its others as commits of their own.
       void Promise.resolve().then(() => (isCurrent ? show([...before]) : undefined));
     }
-    const firstRead =
-      given !== undefined && given.load === load ? Promise.resolve(given.page) : load("");
+    const firstRead = given?.load === load ? Promise.resolve(given.page) : load("");
     firstRead.then(
       (first) => {
         if (isCurrent) {

@@ -112,8 +112,7 @@ export function TitleView(props: {
   const { t } = useTranslation();
   const { title } = props;
   const fileId = firstPlayableFile(title);
-  // An episode's next, which its Next episode plays, as its own read carries it (D477 §2).
-  const nextEpisode = title.upNext?.episode;
+  const nextEpisode = nextEpisodeOf(title);
   return (
     <article className="title">
       <TitleHead
@@ -504,6 +503,11 @@ function useEpisodeReached(title: TitleDetail | undefined): void {
 
 /** The titles' pages this tab has shown. */
 const rememberedTitles = rememberedInTheTab<TitleDetail>();
+
+/** An episode's next, which its Next episode plays, as its own read carries it (D477 §2). */
+function nextEpisodeOf(title: TitleDetail): components["schemas"]["NextUpBody"] | undefined {
+  return title.upNext?.episode;
+}
 
 /**
  * Where a title's Play resumes, its first playable file's resume position as its own read carries
