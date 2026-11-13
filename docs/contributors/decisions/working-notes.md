@@ -28164,5 +28164,25 @@ the code by a later commit. The cells above marked not built, and the questions,
 - 2: internal/core/together/hub_test.go
   (TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight), internal/core/api/together_test.go
   (TestTogether_ALinkCarriesTheRightsTheHostGaveIt), web/apps/web/src/watch-together.test.tsx
-- 3: internal/core/api/together_test.go (TestTogether_AGuestWithTheRightSeesUpNextAndPutsItOn),
+- 3: internal/core/api/together_next_test.go (TestTogether_AGuestWithTheRightSeesUpNextAndPutsItOn),
   web/apps/web/src/together-viewer.test.tsx
+
+## D472 — Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
+
+**Decided** (2026-11-13), by the owner, answering orpheum-connect's `docs/plans/operator-console.md`
+§5 (its §6 records the answers). Amends [D312](#d312--the-accounts-security-for-the-closed-beta-the-account-steers-a-households-sign-ins-so-it-is-guarded-as-the-households-own-key) §4.
+
+1. **Before the beta, the console does the plan's §2 rows in bold, deleting an account included**,
+   with the Overview and the Activity record, and whatever helps the owner debug the service from
+   its logs. Every action writes its Activity event in the same transaction as the change.
+2. **A fresh passkey touch before each action that destroys**: deleting an account, removing a
+   server, removing an operator. The session alone is not enough for them (amending D312 §4, which
+   asked a passkey at sign-in only). Deleting an account also asks its address typed.
+3. **It is reached over WireGuard alone, at a name of its own now** (the plan's B and C):
+   `operator.orpheum-app.com` for production, `operator.orpheum.dev` for staging, each resolving to
+   a tunnel address; the owner's laptop and phone are its peers. D312 §4's "over the WireGuard
+   network only" stands.
+4. **Its look is the account pages'**, one stylesheet serving both.
+
+**Status:** Decided 2026-11-13. Its work is in orpheum-connect: the pages first, then the address (§3).
+
