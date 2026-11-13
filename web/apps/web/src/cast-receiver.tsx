@@ -45,6 +45,7 @@ import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
 import { showNotice } from "./notice.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
+import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { onTheFilmsStage } from "./together-over-the-film.tsx";
 import { SoundPanelContext } from "./sound-panel.ts";
@@ -559,7 +560,8 @@ function useBackStaysHere(navigation: Navigation): void {
 
 /**
  * Pauses or plays the video a mouse's click lands on (pauseOrPlayAtAClick); a click a key made
- * (detail 0), or one following OK as the same press, is the player's OK, not a click.
+ * (detail 0), a finger's or a pen's (touches), or one following OK as the same press, is not a
+ * mouse's click.
  */
 function useClicksPauseOrPlay(): void {
   useEffect(() => {
@@ -573,15 +575,22 @@ function useClicksPauseOrPlay(): void {
       },
       { isCapture: true },
     );
+    const touches = new TouchClock();
     const onClick = (event: MouseEvent): void => {
-      if (event.detail === 0 || performance.now() - lastSelectAt <= samePressWithinMs) {
+      if (performance.now() - lastSelectAt <= samePressWithinMs) {
         return;
       }
-      pauseOrPlayAtAClick(event);
+      pauseOrPlayAtAClick(event, touches);
     };
+    for (const name of touchClockEvents) {
+      window.addEventListener(name, touches.heard, { capture: true, passive: true });
+    }
     window.addEventListener("click", onClick, true);
     return () => {
       stopCommands();
+      for (const name of touchClockEvents) {
+        window.removeEventListener(name, touches.heard, { capture: true });
+      }
       window.removeEventListener("click", onClick, true);
     };
   }, []);
@@ -591,11 +600,13 @@ function useClicksPauseOrPlay(): void {
  * Pauses or plays the video a mouse's click lands on, as a click on an ordinary page's video does,
  * whose browser controls answer it; the receiver's video has a television's controls instead (D338
  * §5), and a video with no browser controls does nothing at a click (the owner, Chrome, 2026-10-27).
- * A tap opens the controls alone, as an ordinary page's on a phone does.
+ * A tap opens the controls alone, as an ordinary page's on a phone does: only a click known to be a
+ * mouse's (isAMousesClick), as the player has it, since a tap's click may carry a mouse's pointerType
+ * or none (idiosyncrasies.md).
  */
-function pauseOrPlayAtAClick(event: MouseEvent): void {
+function pauseOrPlayAtAClick(event: MouseEvent, touches: TouchClock): void {
   const { target } = event;
-  if (target instanceof HTMLVideoElement && pressOf(event) === "click") {
+  if (target instanceof HTMLVideoElement && isAMousesClick(event, touches)) {
     answerPlayerCommand(target, "playPause");
   }
 }

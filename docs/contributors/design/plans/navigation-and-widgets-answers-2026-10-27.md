@@ -3995,6 +3995,8 @@ staging, production waits.
 - **The cast receiver pauses on a tap.** `pauseOrPlayAtAClick` (`cast-receiver.tsx`) still uses
   `pressOf(event) === "click"`, the check the phone's player gave up this batch; it takes the
   player's mouse-only rule (`TouchClock`, `player-taps.ts`).
+  **Built:** `isAMousesClick` moved beside `TouchClock` in `player-taps.ts`, and the receiver's click
+  takes it (`cast-receiver.test.tsx`, a tap's click that says a mouse made it).
 - **The scrub bar's stray seeks** on a phone, with the player's layout on phones (the tap section
   above).
 - **The browser walks' stand-in servers** answer `/me?shell=true` without its shell (D476), so the

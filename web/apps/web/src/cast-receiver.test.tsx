@@ -139,6 +139,32 @@ describe("the receiver's controlled mode (D338 §6; the owner, 2026-11-07)", () 
     expect(isPaused).toBe(false);
     video.remove();
   });
+
+  // A tap's click may carry a mouse's pointerType, or none, as on the phone's player this batch
+  // (the owner, 2026-11-13: half the phone's taps paused; idiosyncrasies.md).
+  it("leaves a tap's click alone when it says a mouse made it", async () => {
+    await controlled();
+    const video = document.createElement("video");
+    document.body.append(video);
+    const pause = vi.spyOn(video, "pause").mockImplementation(() => undefined);
+    const play = vi.spyOn(video, "play").mockImplementation(() => Promise.resolve());
+    act(() => {
+      video.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+      video.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch" }));
+      video.dispatchEvent(
+        new PointerEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          detail: 1,
+          pointerType: "mouse",
+        }),
+      );
+      video.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    });
+    expect(pause).not.toHaveBeenCalled();
+    expect(play).not.toHaveBeenCalled();
+    video.remove();
+  });
 });
 
 /** A cast handed to this device: file 4 from 61 s, cast from the Pixel. */

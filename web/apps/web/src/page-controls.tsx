@@ -17,7 +17,7 @@ import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
-import { TouchClock, touchClockEvents } from "./player-taps.ts";
+import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
 import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -206,16 +206,6 @@ function useDownFromTheFilm(
     },
     { isCapture: true },
   );
-}
-
-/**
- * Whether a click is known to be a mouse's: a PointerEvent a mouse made (pointerType "mouse"), with
- * a count (a key's click has none), and no finger or pen on the screen just before, as some browsers
- * give a tap's click a mouse's pointerType or none (idiosyncrasies.md).
- */
-function isAMousesClick(event: MouseEvent, touches: TouchClock): boolean {
-  const isMouse = "pointerType" in event && event.pointerType === "mouse";
-  return isMouse && event.detail > 0 && !touches.isATouchsClick(event);
 }
 
 /**

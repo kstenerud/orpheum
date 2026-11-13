@@ -69,6 +69,16 @@ export class TouchClock {
   }
 }
 
+/**
+ * Whether a click is known to be a mouse's: a PointerEvent a mouse made (pointerType "mouse"), with
+ * a count (a key's click has none), and no finger or pen on the screen just before (touches), as
+ * some browsers give a tap's click a mouse's pointerType or none (idiosyncrasies.md).
+ */
+export function isAMousesClick(event: MouseEvent, touches: TouchClock): boolean {
+  const isMouse = "pointerType" in event && event.pointerType === "mouse";
+  return isMouse && event.detail > 0 && !touches.isATouchsClick(event);
+}
+
 /** What a tap is on, in the player: the overlay, or a control the page draws over the film. */
 const controlSelector = "[data-player-controls], button, a, input, select, textarea, [role='menu']";
 
