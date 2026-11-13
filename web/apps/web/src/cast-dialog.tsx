@@ -38,7 +38,9 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   return (
     <ModalDialog label={t("cast.page")} onClose={props.onClose}>
       {!isSendingKnown ? <p>{t("common.loading")}</p> : null}
-      {isSendingKnown && taken === undefined ? <CastTargets film={film} /> : null}
+      {isSendingKnown && taken === undefined ? (
+        <CastTargets film={film} onAirPlayStarted={props.onClose} />
+      ) : null}
       {taken === undefined ? null : (
         <CastOn sent={taken} isOnItsPage={fileId === taken.fileId} onClose={props.onClose} />
       )}
