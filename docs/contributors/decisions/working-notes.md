@@ -28122,18 +28122,16 @@ since they would have control over both devices."* **Amends**
 
 - **Watch Together host:** takes every action (D246 §5).
 - **Watch Together guest:** play and pause, by `canPlayPause`; the position, by `canSeek`; Up next,
-  by `canNext` (§2, §3); stop, never (D271 §4). *Questions:* ⏮ and ⏭ for a guest with `canNext`,
-  which no guest's player draws now (recommended: beside Full screen, as the host's player has them);
-  and their sound and subtitles (recommended: chosen on their own device for themselves alone, never
-  the group's).
+  by `canNext` (§2, §3); stop, never (D271 §4); ⏮ and ⏭ with `canNext`, beside Full screen (*not
+  built*); their sound and subtitles on their own device for themselves alone (the owner's answers
+  below).
 - **Caster** (the remote on the person's phone, D440): takes every action: play and pause, the
   position, Up next and ⏮, sound and subtitles, and Stop casting.
 - **An Orpheum tab or TV receiving, with a remote** (D364, D434): takes every action it can, as its
   caster does (§1, the owner): play and pause, the position, sound and subtitles; Up next shows
   there, counts and is taken there, moving the cast on; ⏮ and ⏭ too. *Not built:* the receiver draws
-  no ⏮ or ⏭ now. Stop is the caster's (nothing pressed on the receiver ends the cast, D364); whether
-  the receiver may end the cast is the one cell the owner's words leave to the reading that it can
-  (recommended: kept the caster's, as leaving the receiver's page already leaves the cast running).
+  no ⏮ or ⏭ now. Stop casting is the caster's; the receiver may leave the cast (the owner's answers
+  below), as it already can.
 - **A Google Cast device without a remote** (D465): shows what plays; takes nothing. Up next shows
   on its screen and is chosen on the caster, as the owner's example has it. *Not built:* the device
   draws no Up next now, and a guest receiver is refused `GET /files/{id}/up-next`; it needs that read
@@ -28143,13 +28141,18 @@ since they would have control over both devices."* **Amends**
   `GET /files/{id}/up-next` and `POST /me/casts/{id}/next`, so its count today falls back to telling
   its caster it is ready for the next; those two open to a receiver for its own cast's film.
 
-**Open, for the owner, each with what is recommended:**
+**The owner's answers (2026-11-13), which settle every question above:**
 
-- **Who counts down for a session.** Two players counting at once would each move the group on.
-  Recommended: the host's alone, as now; a guest's offer is pressed, never counted.
-- **Whether a guest may ever stop.** Recommended: no, as D271 §4 has it.
-- **Whether the first link gives `canNext`.** Built as yes, D271 §4's first link holding every right;
-  the host unticks it.
+- **Who counts down for a session: the host alone.** A guest with `canNext` picks Up next and
+  presses it; only the host's player counts down.
+- **⏮ and ⏭ for a guest with `canNext`: yes**, beside Full screen. *Not built.*
+- **A guest's sound and subtitles:** chosen on their own device, for themselves alone.
+- **A guest may pause and resume** (`canPlayPause`), as now, **and never stop** so that the film goes
+  away (D271 §4).
+- **The receiving device may leave a cast**, so that no one is left before it with no way to end
+  it when the caster forgets; Orpheum's receivers already do. A Chromecast and AirPlay do as is
+  standard for them.
+- **The first link gives `canNext`: yes**, as built.
 
 **Status:** Decided 2026-11-13. §1 to §3 are in the commit "feat(together): a guest's link may give
 the next and previous episode, and a guest given it is offered Up next", to be read back against
