@@ -3118,3 +3118,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   fallen back to x264, and an MPEG-TS film's encoded quality plays as well.
   (`internal/node/chunks/arguments.go`, `encodeTimeBase`; idiosyncrasies.md, "The `segment` muxer
   repeats each picture once a tick of an encoder given the source's time base")
+- [ ] **VQ315** — D473's grant plays on an AirPlay receiver with no lab setting, from the receiver's
+  address alone, and a receiver that gives up is logged as gone. On staging, after the deploy, with
+  debug tools shown, open the AirPlay lab on the iPhone and play a film on the MacBook by Way B; seek
+  and pause from the iPhone, then let it wait 10 minutes. Passes when it plays with no setting
+  turned on; the core's log shows each `airPlayRequest` from the Mac's address alone, with no grant
+  in it; a chunk not made yet is answered once made or after the 30 s hold, never 425 in under it;
+  and a request the Mac gave up on is logged `clientGone`, not as answered 425 or 500. Then present
+  the grant's master from another machine on the LAN: it is answered not found.
+  (`internal/core/auth/airplay.go`, `admits`; `internal/core/api/airplay.go`, `loggingAirPlay`;
+  `internal/core/api/chunks.go`, `relayChunkFile`)

@@ -5,9 +5,13 @@
 
 # AirPlay
 
-- **Status:** SKETCH — 2026-11-04, findings added 2026-11-12; **the spike's lab built 2026-11-12**
-  (X3, below), for the owner to try on staging. The requirements below are known from the research;
-  what is open is named under "Open".
+- **Status:** PART BUILT — 2026-11-04, findings added 2026-11-12, the spike's lab built 2026-11-12
+  (X3, below); **D473's core built 2026-11-13**: the grant is the product's (POST and DELETE
+  `/airplay/grants`, no lab setting), for a day, bound to the receiver's address, revoked at Stop, at
+  a device's revoke and as its sign-in ends, and a request whose receiver went away is logged as gone
+  (VQ315). The player plays on as the phone's page hides while its film is on an AirPlay receiver.
+  **Not built yet:** the Cast menu's AirPlay entry, and the player's own hand-over to AirPlay and
+  back; until then the lab (debug tools) is the way to try it. What is open is named under "Open".
 - **Depends on:** [cast-to-device.md](cast-to-device.md) (casting to one's own devices, the other
   route to a TV), [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md) (the LAN name the TV reaches
   at home).
@@ -78,14 +82,13 @@ page's element and gives it the grant fetched as the AirPlay menu opened, so the
 press's gesture. Every step is logged. Stop ends both and revokes the grant, showing the answer.
 
 - **The grant** is in the media's path, `https://<core>/api/v1/bytes/media/g/<grant>/master.m3u8`
-  (POST `/lab/airplay/grants` with the playback's media token), its stream playlists and chunks
-  under it by the playlists' relative URIs. It stands for that playback's film alone, for 24 hours,
-  kept in memory as its hash (a restart revokes it), and DELETE `/lab/airplay/grants` (Stop) revokes
-  the session's. A master or chunk not made yet is held up to 30 s under it, as AVPlayer does not
+  (POST `/airplay/grants` with the playback's media token, `/lab/airplay/grants` until D473), its
+  stream playlists and chunks under it by the playlists' relative URIs. It stands for that
+  playback's film alone, for 24 hours, kept in memory as its hash (a restart revokes it), and DELETE
+  `/airplay/grants` (Stop) revokes the session's. A master or chunk not made yet is held up to 30 s under it, as AVPlayer does not
   honour the 425.
-- **The gate** is the admin setting `shouldOfferAirPlayLab` (Diagnostics, Offer the AirPlay lab), off
-  by default: off, every path of the lab answers not found, so D154 §6 is not widened beyond the lab.
-  Staging's admin turns it on; production keeps it off.
+- **The gate** was the admin setting `shouldOfferAirPlayLab` (Diagnostics, Offer the AirPlay lab), off
+  by default, until D473 made the grant the product's and removed it (2026-11-13).
 - **Not settled by it:** the playback token's own idle expiry still ends a paused playback before
   the grant's day; the master is not filtered to the sound codecs Apple's player takes; the grant is
   not among the person's devices. The device check is VQ310.
@@ -111,12 +114,20 @@ beside the core's log of every request under the grant:**
   lab's element), so the stop at Safari's return is Safari's or the page's own, not yet told apart. The player's AirPlay must not pause its element when the page is
   hidden while it plays on a wireless target, as D287 does today for a handheld.
 - **A long pause** was not measured: both the iPhone and the Mac locked themselves while the film
-  waited, and when it stopped is not known.
+  waited. The core's log shows the Mac's last request at 12:04:59 UTC; at about 12:12:57 the
+  iPhone's own element fetched the grant's chunks itself and was answered 425 on q2000k540p and
+  q3000k720p, so as AirPlay ended the element went on loading the grant's playlist on the phone. The
+  player's AirPlay is to hand the element back to hls.js as `webkitCurrentPlaybackTargetIsWireless`
+  goes false, and revoke the grant, so the phone does not (not built yet).
 - **For the build (D473):** a request the client gives up on is answered and logged as an internal
   error (500, "a request's client went away … context canceled") and should be logged as gone, not
   as a fault; a chunk or init not made yet still came back 425 under the grant, twice to the Mac
   and repeatedly to the iPhone after about 1 to 12 s held, not after the 30 s hold; and the lab's
-  film list stops after about 40 films, so most of the library cannot be picked there.
+  film list stops after about 40 films, so most of the library cannot be picked there. Read from
+  the log as D473 was built: the hold never ended early. Each of the 57 425s under the grant was
+  logged as `chunkWaited` `playerGone`: the receiver gave up during the hold, and the relay then
+  answered 425 to no one. Each 500 was the same, a client gone during a node's read. Both are now
+  logged as gone (`clientGone`, 499, which reaches no one), not as answered.
 
 ## Testing devices
 
