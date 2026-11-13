@@ -12,7 +12,14 @@ import "./i18n.ts";
 import { apiPrefix } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { filmDetail, mountApp, viewer, walkServices, type Walking } from "./test-walk.tsx";
+import {
+  filmDetail,
+  mountApp,
+  viewer,
+  walkAnswer,
+  walkServices,
+  type Walking,
+} from "./test-walk.tsx";
 import { testServices } from "./test-services.tsx";
 import type { Services } from "./services.tsx";
 
@@ -49,12 +56,10 @@ function heldOnItem(id: number, path: string, heard: string[]): Services {
     if (url.pathname === held) {
       return await new Promise<never>(() => undefined);
     }
-    const answer = (signedIn as Record<string, unknown>)[
-      `${request.method} ${url.pathname.slice(apiPrefix.length)}`
-    ];
+    const answer = walkAnswer(signedIn, request);
     return answer === undefined
       ? Response.json({ error: { code: "notFound", message: "none" } }, { status: 404 })
-      : Response.json(answer, { status: 200 });
+      : Response.json(answer.body, { status: 200 });
   });
 }
 

@@ -7,7 +7,7 @@
  * every background read is answered at once and none reaches the network (AGENTS.md rule 16).
  */
 
-import { apiPrefix, waitMs } from "@orpheum/sdk";
+import { apiPrefix, waitMs, type components } from "@orpheum/sdk";
 import { act } from "react";
 import type { expect as vitestExpect } from "vitest";
 import { createRoot } from "react-dom/client";
@@ -31,6 +31,7 @@ import "./ui-gallery.tsx";
 import "./watch-together.tsx";
 import { resetLazyScreensOnMount } from "./screen-load.tsx";
 import { ServicesContext, type Services } from "./services.tsx";
+import type { ShellBody } from "./shell-read.ts";
 import { testServices } from "./test-services.tsx";
 import { closeTrayDialog } from "./tray-dialog.ts";
 
@@ -87,9 +88,84 @@ export function filmDetail(id: number, name: string): Record<string, unknown> {
   };
 }
 
+/** The client settings a core gives by default, as GET /client-settings has them. */
+const clientSettings: components["schemas"]["ClientSettingsBody"] = {
+  screenRefreshFirstWaitSeconds: 2,
+  screenRefreshLongestWaitSeconds: 30,
+  screenRefreshFailedWaitSeconds: 5,
+  interestSaidEverySeconds: 15,
+  shouldShowDeveloperPages: false,
+  shouldOfferDeviceTests: false,
+  readyAheadOfNextChunkPercent: 150,
+};
+
+/** What GET /needs-attention says when nothing needs an admin. */
+const nothingNeedsAttention: components["schemas"]["NeedsAttentionBody"] = {
+  copyRefusedAt: 0,
+  copyRefusedFrom: "",
+  diskCount: 0,
+  filmsWithoutSound: [],
+  filmsWithoutSoundCount: 0,
+  matchCount: 0,
+  rootCount: 0,
+  seriesReadWrongly: [],
+  seriesReadWronglyCount: 0,
+  stoodAsideAt: 0,
+  unreadCount: 0,
+  waitingRootCount: 0,
+};
+
+/** A server with no newer release, as GET /system/update has it. */
+const noUpdate: components["schemas"]["UpdateBody"] = { checkedAt: 0, version: "dev" };
+
 /**
- * Services whose server answers answers by path, and every other request as not found; each request
- * is added to heard as "METHOD /path".
+ * What the shell reads as it starts (D476), made from what the walk serves for those reads apart,
+ * shaped by the SDK's type so the compiler holds it to the real core's: the client settings the walk
+ * gives over the defaults, its libraries, and, for an admin, what needs one and the update state.
+ */
+export function shellOf(answers: WalkAnswers, isAdmin: boolean): ShellBody {
+  const listed: unknown = Reflect.get(objectOf(answers["GET /libraries"]), "libraries");
+  const shell: ShellBody = {
+    clientSettings: { ...clientSettings, ...objectOf(answers["GET /client-settings"]) },
+    libraries: Array.isArray(listed) ? listed : [],
+  };
+  if (isAdmin) {
+    shell.needsAttention = {
+      ...nothingNeedsAttention,
+      ...objectOf(answers["GET /needs-attention"]),
+    };
+    shell.update = { ...noUpdate, ...objectOf(answers["GET /system/update"]) };
+  }
+  return shell;
+}
+
+/** A walk's answer as an object to spread over a default, or an empty one when it is none. */
+function objectOf(answer: unknown): object {
+  return typeof answer === "object" && answer !== null && !Array.isArray(answer) ? answer : {};
+}
+
+/**
+ * What a walk's server answers a request, or undefined for the not found: the answer the walk gives
+ * for "METHOD /path", and, to GET /me?shell=true, the shell's parts with it as the core says them
+ * (D476) and not apart, as a real core makes them.
+ */
+export function walkAnswer(answers: WalkAnswers, request: Request): { body: unknown } | undefined {
+  const url = new URL(request.url);
+  const methodAndPath = `${request.method} ${url.pathname.slice(apiPrefix.length)}`;
+  if (!(methodAndPath in answers)) {
+    return undefined;
+  }
+  const body = answers[methodAndPath];
+  if (methodAndPath === "GET /me" && url.searchParams.get("shell") === "true" && body !== null) {
+    const user = objectOf(body);
+    return { body: { ...user, shell: shellOf(answers, Reflect.get(user, "isAdmin") === true) } };
+  }
+  return { body };
+}
+
+/**
+ * Services whose server answers answers by path (walkAnswer), and every other request as not found;
+ * each request is added to heard as "METHOD /path".
  */
 export function walkServices(
   answers: WalkAnswers,
@@ -99,18 +175,17 @@ export function walkServices(
   return testServices("token", path, async (request) => {
     await Promise.resolve();
     const url = new URL(request.url);
-    const methodAndPath = `${request.method} ${url.pathname.slice(apiPrefix.length)}`;
-    heard.push(methodAndPath);
-    if (!(methodAndPath in answers)) {
+    heard.push(`${request.method} ${url.pathname.slice(apiPrefix.length)}`);
+    const answer = walkAnswer(answers, request);
+    if (answer === undefined) {
       return Response.json(
         { error: { code: "notFound", message: "the walk serves no such thing" } },
         { status: 404 },
       );
     }
-    const body = answers[methodAndPath];
-    return body === null
+    return answer.body === null
       ? new Response(null, { status: 204 })
-      : Response.json(body, { status: 200 });
+      : Response.json(answer.body, { status: 200 });
   });
 }
 
