@@ -3782,3 +3782,6 @@ Once VQ310 shows AirPlay plays from the lab:
 - **The lab page's own fixes**, found in its first runs: it says when the lab is off; its ways stay
   off until a grant is held; after Stop, way B fetches a new grant instead of needing the menu
   reopened.
+- **A request whose client went away under a grant is answered 500** and logged "internal error"
+  (staging, 2026-11-13: the grant's session lookup sees the cancelled context); it should be logged
+  as the client gone, as other handlers do.

@@ -90,6 +90,13 @@ press's gesture. Every step is logged. Stop ends both and revokes the grant, sho
   the grant's day; the master is not filtered to the sound codecs Apple's player takes; the grant is
   not among the person's devices. The device check is VQ310.
 
+**The lab's first passing run (2026-11-13, VQ310):** Way B, the page's own element given the grant
+after hls.js lets go of it, AirPlays to a Mac at home: the Mac fetched everything under the grant
+from the core's LAN name, all answered 200. Way A, a second element, did not: the iPhone played the
+grant itself and the Mac asked for nothing. The player's AirPlay is therefore Way B's: the element
+that plays hands the TV the grant. Two runs before it failed: the lab was off (every grant
+answered not found), then the grant was on the client's origin, which serves no media.
+
 ## Testing devices
 
 - **For the spike and the build:** the owner's MacBook (2018 or later, macOS 12 or newer) as the
