@@ -3948,3 +3948,23 @@ tried: none".
 - Only a click known to come from a mouse plays or pauses, and only a mouse's double click goes full screen; a touch never does either.
 - A mouse click still pauses, as the common web players do (D407 §9 narrowed to a mouse, as D415 §4 has it).
 - The scrub bar's stray seeks go to the next batch's player layout on phones.
+
+## The core's data link goes quiet on a lossy network, this batch (the owner, 2026-11-13)
+
+**What the owner saw.** On the same train at about 18:00 UTC, playback stopped and the page would not load again. Other sites loaded, slowly.
+
+**What the core's log shows.**
+- From 17:55, every connection from the owner's phone carried about 25 KB in about 50 s, through Tailscale and without it, and was then given up by the phone.
+- Each ended with its SCTP send window at one packet (`cwndBytes=1191`). The round trip was 100–200 ms, so small packets passed and nearly every full-size one was lost.
+
+**Orpheum's part in it.**
+- The core never set SCTP's retransmission timeout ceiling, so pion's default of 60 s applies (`rtcapi.go`, `newSettingEngine`).
+- On a lossy link each lost packet doubles the wait before the next resend: 1, 2, 4 … 60 s.
+- The core then goes quiet past the client's 40 s silence limit, and the client gives up the connection.
+
+**The fix the owner chose this batch** ("This batch", 2026-11-13):
+- Cap the core's SCTP retransmission timeout at a short ceiling.
+- Keep its send window from collapsing below a few packets (`SetSCTPRTOMax`, `SetSCTPMinCwnd`).
+- Both are tested.
+
+A network that throttles UDP itself still needs a TCP path. This train is evidence for the household relay that D438 defers until the beta's data asks for it.
