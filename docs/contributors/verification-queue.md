@@ -2461,6 +2461,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   and Right on the film seek, OK plays and pauses, Down reaches ▶; ⤢ returns to full screen; and,
   out of full screen, the next Back goes to the film's page. Note what each Back did.
   (`web/apps/web/src/page-controls.tsx`, `up-next.tsx`, `play.tsx`)
+  **The owner, 2026-11-14, on the Android phone:** on its side the film fills the window with the
+  overlay over it, as in full screen, "and as it should be, so that the maximal space is used for
+  playback"; that is what passes on its side now. But a tap there only brought the overlay up and
+  never took it down, as it does in full screen and upright: the overlay's box, in a window 308 px
+  tall with the browser's bar showing, lay over three quarters of the film and a tap on it counted
+  as one on a control. Now its ground is the picture's (D415 §1). Owed: on its side, a tap on the
+  middle of the film hides the overlay and the next shows it.
 - [ ] **VQ250** — a pop-up is not a dialog: no ✕, sized to what it holds, its list showing context
   (D408 §2–§3). On the Fire TV in Silk, play a film with several subtitle tracks and open the
   overlay's 💬, 🎧, ⁝ and 🔈 in turn, then the banner's menu, a library's sort and a title's ⁝.
@@ -2650,6 +2657,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   (4) arrows and the overlay's controls work in full screen as before, and a dialog opened over the
   film (Watch Together's, a menu) shows over it. (`web/apps/web/src/film-fullscreen.ts`'s
   `fillTheScreen`; `play-next-full-screen.browser.test.tsx`)
+  **The owner, 2026-11-14, on the Android phone:** full screen holds through Next and Previous, "but
+  whenever it switches to the next or previous video I see a brief flash of the orpheum top bar".
+  Open until that flash is gone (plans' Next batch).
 - [x] **VQ268** — A TCL TV in TV Bro that cannot decode a film's own HEVC picture plays the film on
   H.264 instead of failing (the owner's test, staging, 2026-11-06: "Failed to execute 'appendBuffer'
   on 'SourceBuffer': The HTMLMediaElement.error attribute is not null" on Sync HEVC Opus and Sync HEVC

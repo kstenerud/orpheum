@@ -25976,6 +25976,11 @@ open) stands. Research:
 
 1. **A tap on the picture hides the overlay where it is up**, paused or playing: a tap not on the
    overlay, a button, a link or a field. It is how a viewer clears the overlay off a paused frame.
+   The overlay's own ground, its scrim and the room between its rows, is the picture's (added
+   2026-11-14; the owner, 2026-11-14, VQ249: on a phone on its side outside the browser's full screen
+   "tapping the screen only brings the overlay up, it doesn't dismiss it"): in a window that short the
+   overlay's box lay over three quarters of the film, so only a button, a link, a field or a menu
+   keeps a tap.
 2. **A tap on the picture shows it where it is hidden, and does not pause.** What shows is all of
    it, as a mouse's move shows it. A hide by tap leaves no state: shown again while the film is
    paused, the overlay stays up (D407 §6), because that hold reads whether the film is paused when
@@ -26001,7 +26006,7 @@ open) stands. Research:
    fade. Its text is the catalogue's `playerControls.seekedForward` and `seekedBack`.
 
 **Proven by:**
-- 1–3: web/apps/web/src/player-overlay-state.test.ts, web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx
+- 1–3: web/apps/web/src/player-overlay-state.test.ts, web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx; 1's ground, web/apps/web/src/player-taps.test.tsx; on a phone on its side, VQ249
 - 4: web/apps/web/src/player-overlay.test.tsx; on a phone, VQ263
 - 6: web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx; on a phone, VQ263
 

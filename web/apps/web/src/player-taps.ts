@@ -18,7 +18,7 @@ import {
  * A tap that was not a drag: where it fell on the page, and whether it fell on a control.
  */
 export interface PictureTap {
-  /** Whether it fell on the overlay or on a button, link or field, which a tap answers as it did. */
+  /** Whether it fell on a button, link, field or menu (controlSelector), which a tap answers as it did. */
   readonly isOnControl: boolean;
   readonly x: number;
   /** When it lifted, the clock of an event's timeStamp. */
@@ -79,8 +79,14 @@ export function isAMousesClick(event: MouseEvent, touches: TouchClock): boolean 
   return isMouse && event.detail > 0 && !touches.isATouchsClick(event);
 }
 
-/** What a tap is on, in the player: the overlay, or a control the page draws over the film. */
-const controlSelector = "[data-player-controls], button, a, input, select, textarea, [role='menu']";
+/**
+ * What a tap answers as a control's, in the player: a button, a link, a field or a menu, the overlay's
+ * or one the page draws over the film. The overlay's own ground, its scrim and the room between its
+ * rows, is the picture's: in a window as short as a phone's on its side with the browser's bar
+ * showing, it lies over three quarters of the film, and a tap there must hide it as one above it does
+ * (the owner, 2026-11-14, VQ249).
+ */
+const controlSelector = "button, a, input, select, textarea, [role='menu']";
 
 interface TouchDown {
   readonly id: number;
