@@ -517,4 +517,119 @@ describe("a transport whose page is hidden (D482)", () => {
     expect(unreachedRetryMs).toBeLessThan(hiddenTryEveryMs);
     transport.close();
   });
+
+  /**
+   * A transport on a page, as connectRtc makes one, whose connection goes and whose tries hang until
+   * the test answers them; returns each try's signal and the answering of the last.
+   */
+  async function hangingOn(shown: ReturnType<typeof testPage>): Promise<{
+    readonly transport: RtcTransport;
+    readonly signals: AbortSignal[];
+    readonly answer: () => void;
+  }> {
+    const first = new LostPeer();
+    const signals: AbortSignal[] = [];
+    let answer = (): void => undefined;
+    const transport = new RtcTransport(
+      [first],
+      {
+        open: (signal) => {
+          signals.push(signal);
+          return new Promise<PeerLike>((resolve) => {
+            answer = () => {
+              resolve(new LostPeer());
+            };
+          });
+        },
+        size: 4,
+        onOnline: onWayBack(shown.page),
+        hidden: { page: shown.page },
+      },
+      () => Date.now(),
+    );
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("its ICE failed");
+    await vi.advanceTimersByTimeAsync(0);
+    return {
+      transport,
+      signals,
+      answer: () => {
+        answer();
+      },
+    };
+  }
+
+  // On flapping mobile data a page shown more often than one 6–8 s connect takes never connected:
+  // each show gave up the try under way (the slow-link war game, 2026-11-14; D484 §2).
+  it("keeps a try under way when its page is shown again, so the try connects", async () => {
+    const shown = testPage();
+    const { transport, signals, answer } = await hangingOn(shown);
+    expect(signals).toHaveLength(1);
+    for (let flap = 0; flap < 3; flap += 1) {
+      await vi.advanceTimersByTimeAsync(1_000);
+      shown.turn("hidden");
+      await vi.advanceTimersByTimeAsync(500);
+      shown.turn("visible");
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signals).toHaveLength(1);
+    expect(signals[0]?.aborted).toBe(false);
+    answer();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.size).toBe(1);
+    transport.close();
+  });
+
+  // A phone hands a page back from the background with a try begun before it froze: once the clock
+  // says it ran past its own deadline, though its timer has not yet run, the show gives it up and makes
+  // another at once (the owner's phone, staging, 2026-11-14; VQ317).
+  it("gives up a try under way that a frozen page held past openTryMostMs, and tries again at once", async () => {
+    const shown = testPage();
+    const { transport, signals } = await hangingOn(shown);
+    shown.turn("hidden");
+    vi.setSystemTime(Date.now() + openTryMostMs); // frozen: the clock moves, no timer runs
+    shown.turn("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals).toHaveLength(2);
+    expect(signals[1]?.aborted).toBe(false);
+    transport.close();
+  });
+
+  it("still gives up a try under way when the browser comes back online, however young", async () => {
+    const shown = testPage();
+    const online = onlineEvent();
+    const first = new LostPeer();
+    const signals: AbortSignal[] = [];
+    const transport = new RtcTransport(
+      [first],
+      {
+        open: (signal) => {
+          signals.push(signal);
+          return new Promise<PeerLike>(() => undefined);
+        },
+        size: 4,
+        onOnline: (listener) => {
+          const stopShown = onWayBack(shown.page)(listener);
+          const stopOnline = online.onOnline(() => {
+            listener("back");
+          });
+          return () => {
+            stopShown();
+            stopOnline();
+          };
+        },
+        hidden: { page: shown.page },
+      },
+      () => Date.now(),
+    );
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("its ICE failed");
+    await vi.advanceTimersByTimeAsync(1_000);
+    online.fire();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals).toHaveLength(2);
+    transport.close();
+  });
 });

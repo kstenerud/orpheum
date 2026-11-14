@@ -17,6 +17,7 @@ import {
   BackOnline,
   HiddenPace,
   isRefusedForGood,
+  openTryMostMs,
   isUnreached,
   unreachedRetryMs,
   withinOpenTry,
@@ -94,6 +95,12 @@ interface Waiter {
 }
 
 /**
+ * Why the way to the core may work again (whenShownOrBack): its page was shown again ("shown"), or the
+ * browser came back online ("back"); a mere show keeps a try under way (D484 §2).
+ */
+export type WayBack = "shown" | "back";
+
+/**
  * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
  * how many it keeps at most, hearing the browser come back online (the window's online event)
  * or its page shown again (connectRtc's onWayBack), which tries at once, returning the end of
@@ -102,7 +109,7 @@ interface Waiter {
 export interface Growth {
   readonly open: (signal: AbortSignal) => Promise<PeerLike>;
   readonly size: number;
-  readonly onOnline?: ((listener: () => void) => () => void) | undefined;
+  readonly onOnline?: ((listener: (why?: WayBack) => void) => () => void) | undefined;
   readonly hidden?: HiddenPacing | undefined;
 }
 
@@ -131,6 +138,8 @@ export class RtcTransport {
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   /** The try to open a connection under way, to give up when the browser comes back online. */
   private trying: AbortController | undefined;
+  /** When the try under way (trying) began, on nowMs's clock. */
+  private triedAtMs = 0;
   /** Since when, and why, it has had no connection; undefined while it has one. */
   private without: Without | undefined;
   private readonly backListeners = new Set<() => void>();
@@ -168,8 +177,8 @@ export class RtcTransport {
       this.add(peer);
     }
     this.stopHearingOnline =
-      growth?.onOnline?.(() => {
-        this.backOnline();
+      growth?.onOnline?.((why) => {
+        this.backOnline(why);
       }) ?? ((): void => undefined);
   }
 
@@ -478,6 +487,7 @@ export class RtcTransport {
   private async openOne(growth: Growth): Promise<void> {
     const trying = new AbortController();
     this.trying = trying;
+    this.triedAtMs = this.nowMs();
     try {
       const peer = await withinOpenTry(growth.open(trying.signal), trying);
       this.opening -= 1;
@@ -557,14 +567,19 @@ export class RtcTransport {
   }
 
   /**
-   * The browser came back online: a try under way, begun on the network that went, is given up and
-   * one made anew, a wait under way cut short, and the wait starts over from replaceFirstMs; the
-   * session connection is told (onBack).
+   * The browser came back online, or its page was shown again (why, "back" where not told): a try
+   * under way, begun on the network that went, is given up and one made anew; a wait under way is
+   * cut short, and the wait starts over from replaceFirstMs; the session connection is told (onBack).
+   * A mere show keeps a try under way that has not run past its own deadline (openTryMostMs) by the
+   * clock (D484 §2): on flapping mobile data a page shown more often than one 6–8 s connect takes
+   * would never connect (the slow-link war game, 2026-11-14), while one a frozen page held past its
+   * deadline, its timer not yet run, is given up as on online (the owner's phone, staging, 2026-11-14).
    */
-  private backOnline(): void {
+  private backOnline(why: WayBack = "back"): void {
     if (this.isClosed || this.refusal !== undefined) {
       return;
     }
+    const isTryKept = why === "shown" && this.nowMs() - this.triedAtMs < openTryMostMs;
     this.retryMs = replaceFirstMs;
     if (this.retryTimer !== undefined) {
       clearTimeout(this.retryTimer);
@@ -572,7 +587,9 @@ export class RtcTransport {
       this.opening -= 1;
     }
     // Its failure makes the next try at once (openOne).
-    this.trying?.abort(new BackOnline());
+    if (!isTryKept) {
+      this.trying?.abort(new BackOnline());
+    }
     this.grow();
     this.tellBack();
   }

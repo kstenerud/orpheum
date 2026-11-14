@@ -10,7 +10,13 @@ import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
-import { clientConnections, RtcTransport, type Growth, type PeerLike } from "./rtc-transport.ts";
+import {
+  clientConnections,
+  RtcTransport,
+  type Growth,
+  type PeerLike,
+  type WayBack,
+} from "./rtc-transport.ts";
 import { whenShownOrBack, type ShownPage } from "./shown-page.ts";
 import { noteStep } from "./steps.ts";
 
@@ -238,16 +244,19 @@ function onBrowserOnline(listener: () => void): () => void {
 }
 
 /**
- * Has listener told each time a connection may open again where it could not: the browser came back
- * online, or page is shown again, where there is one. A phone hands a page back from the background
- * with a try to connect begun before it froze, hung on a network it no longer has: given up then,
- * and another made at once, rather than after openTryMostMs (the owner's phone back from another
- * app, staging, 2026-11-14; idiosyncrasies.md, a page frozen in the background). Returns the end.
+ * Has listener told each time a connection may open again where it could not, and why: the browser
+ * came back online ("back"), or page is shown again ("shown"), where there is one. A phone hands a
+ * page back from the background with a try to connect begun before it froze, hung on a network it no
+ * longer has (the owner's phone back from another app, staging, 2026-11-14; idiosyncrasies.md, a page
+ * frozen in the background); the transport gives such a try up and makes another at once once it has
+ * run past openTryMostMs, and keeps a younger one a mere show finds under way (D484 §2). Returns the end.
  */
-export function onWayBack(page: ShownPage | undefined): (listener: () => void) => () => void {
+export function onWayBack(
+  page: ShownPage | undefined,
+): (listener: (why: WayBack) => void) => () => void {
   return (listener) =>
-    whenShownOrBack(page, onBrowserOnline, () => {
-      listener();
+    whenShownOrBack(page, onBrowserOnline, (why) => {
+      listener(why);
     });
 }
 

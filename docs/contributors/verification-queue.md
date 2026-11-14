@@ -3175,6 +3175,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   compositor shows the fault; the browser test checks the canvas's opacity
   (`web/apps/web/src/film-stage.browser.test.tsx`; idiosyncrasies.md, "Chrome on Android draws a playing
   video black under a fully opaque canvas over it")
+- [ ] **VQ320** — A try to connect survives the page being shown again (D484 §2), and VQ317 still
+  holds. On the Android phone, Chrome, on mobile data with a weak signal (or the netem flap profile),
+  after the deploy, over the core's WebRTC path: make the core drop the page's connection, and while
+  the page tries again switch to another app and back every few seconds for half a minute. Passes when
+  the page's steps show a connection up within one connect's time of the drop, not a run of tries
+  failed with "the browser came back online, or its page was shown again"; then VQ317's steps pass
+  as before. Only a real phone's freezing and showing of a page plays both together; the unit tests
+  play each apart (`web/packages/sdk/src/rtc-network-loss.test.ts`; `rtc-transport.ts`, `backOnline`).
 - [ ] **VQ325** — On a link that is up and carries nothing, the loader's page opens as kept within
   about 2.5 s (D486). On the Pixel 3a, Chrome, open a household's link under staging's loader once
   on Wi-Fi, so its worker keeps the page; then on a link that drops every packet but stays up (the
