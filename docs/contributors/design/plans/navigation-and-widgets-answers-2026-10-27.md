@@ -4042,6 +4042,14 @@ continue without my input."
   `POST /together` answers the session's details.
 - **Built, 11:** a film's and a series' pages' code loads ahead on idle from Home and the lists
   (`useLoadsAhead`), as Play's does from them.
-- **Building:** 9 (menus) and 10 (admin pages).
+- **Built, 9 (D480):** a menu's or a dialog's contents come with the page's essential data: a list's
+  first page names its genres for the chips (`GET /genres` has no web caller left; whether to retire
+  it is the owner's), `/me` carries the person's choices and the device's sound offset, the Cast menu
+  and the role dialog read nothing on opening. On one library's page the genre chip offers that
+  library's genres alone (it offered every library of the kind): the owner to confirm.
+- **Built, 10 (D481):** a System, Users or a user's page waits on one first read carrying what its
+  other sections read; each section still polls its own endpoint. The discovery, invitations and
+  secrets stay their own reads, since a gzipped answer carries no credential (D342), so Settings is
+  not folded: an uncompressed page read would fold them, the owner's call.
 - **Waits on a device:** 7 (playback's chain of media requests) is measured first.
 - **The owner's:** 12 (polls that read whole answers) is D237's.
