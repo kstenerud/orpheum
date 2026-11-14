@@ -86,9 +86,14 @@ export function rememberAnswer(key: string, value: unknown): void {
   keep(key, value, true);
 }
 
-/** The answer the tab holds for key, read or handed, if any. */
-export function heldAnswer(key: string): unknown {
-  return answers.get(key)?.value;
+/**
+ * The answer the tab holds for key, read or handed, if any, as the type its readers load: one key
+ * names one read (D478), so asking for it as another reader's type is asking for that read.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- its caller names the type its key reads
+export function heldAnswer<T = unknown>(key: string): T | undefined {
+  const held = answers.get(key);
+  return held === undefined ? undefined : asRead<T>(held.value);
 }
 
 /** An answer as the JSON a reader compares it by, to say whether it changed. */

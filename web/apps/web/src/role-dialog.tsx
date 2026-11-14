@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
-import { type Library } from "./libraries.tsx";
+import type { Library } from "./libraries.tsx";
 import { useLibrariesReached } from "./libraries-reached.ts";
 import { Loaded } from "./loaded.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -26,7 +26,7 @@ import {
 import { Checklist, DeleteRole, NameField, holdersText, roleWords } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest, type RequestState } from "./use-request.ts";
-import { type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**

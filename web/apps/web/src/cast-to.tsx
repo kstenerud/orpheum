@@ -535,7 +535,7 @@ function TargetList(props: {
  */
 function useDevicesOpen(connectedDeviceIds: readonly number[]): Resource<Device[]> {
   const { api } = useServices();
-  const held = heldAnswer(myDevicesKey) as readonly Device[] | undefined;
+  const held = heldAnswer<readonly Device[]>(myDevicesKey);
   const isEveryOneNamed =
     held !== undefined && connectedDeviceIds.every((id) => held.some((each) => each.id === id));
   const [listed] = useResource(myDevicesKey, () => listMyDevices(api), {

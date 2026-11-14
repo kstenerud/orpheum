@@ -66,13 +66,15 @@ const signedIn = {
 
 /**
  * A library's Configure, opened, over a stand-in server that hears what is sent; an admin's if isAdmin.
- * Drawn alone it reads who is signed in itself; within the shell's reading (inShell), it reads nothing.
+ * Drawn alone it reads who is signed in itself; within the shell's reading (isInShell), it reads nothing.
  */
 async function configured(
   of: LibraryBody,
   heard: Heard[] = [],
-  isAdmin = false,
-  inShell = false,
+  {
+    isAdmin = false,
+    isInShell = false,
+  }: { readonly isAdmin?: boolean; readonly isInShell?: boolean } = {},
 ): Promise<HTMLElement> {
   const configure = (
     <IsAdminContext value={isAdmin}>
@@ -82,7 +84,7 @@ async function configured(
   const me = { state: "loaded", value: signedIn } as const;
   mounted = await mount(
     withServices(
-      inShell ? (
+      isInShell ? (
         <MeContext value={{ me, readMeAgain: () => undefined }}>{configure}</MeContext>
       ) : (
         configure
@@ -167,7 +169,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
   });
 
   it("leads an admin to the library's own page, to manage it, and offers no one else the way (the owner, 2026-11-08)", async () => {
-    const admins = await configured(library(7, "Films", "film"), [], true);
+    const admins = await configured(library(7, "Films", "film"), [], { isAdmin: true });
     const manage = admins.querySelector<HTMLAnchorElement>("dialog a");
     expect(manage?.textContent).toBe("Manage this library");
     expect(manage?.getAttribute("href")).toBe("/libraries/7");
@@ -179,7 +181,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
 
   it("takes the person's choices from who the shell read as signed in, asking for nothing on opening (D480 §2)", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(2, "Kids' films", "film"), heard, false, true);
+    const page = await configured(library(2, "Kids' films", "film"), heard, { isInShell: true });
     expect(choices(page)).toEqual(["Show in Films:false", "Show on Home:true"]);
     expect(heard).toEqual([]);
   });
