@@ -28679,3 +28679,23 @@ schedule while needed, and shown as before); "how a WebRTC transport on a page g
 (rtc-connect.test.ts); "a connection through the discovery (D482)" (core-target.test.ts);
 web/apps/web/src/hidden-need.test.tsx, the cast remote's mark in cast-remote.test.tsx,
 transport-choice.test.tsx, kept-path.test.ts and discovery-gate-hidden.test.tsx.
+
+## D483 — Reserved: Compression over WebRTC
+
+**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+
+## D484 — Reserved: A WebRTC connection's steps timed, and a reconnect kept when the page is shown
+
+**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+
+## D485 — Reserved: The service worker keeps content-addressed images
+
+**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+
+## D486 — Reserved: A deadline on the loader's page and the client floor
+
+**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+
+## D487 — Reserved: A film loads deeper ahead once the link has dropped
+
+**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.

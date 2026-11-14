@@ -488,6 +488,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D480](working-notes.md#d480--a-menus-or-a-dialogs-contents-come-with-the-pages-essential-data-not-a-read-on-opening) A menu's or a dialog's contents come with the page's essential data, not a read on opening
 - [D481](working-notes.md#d481--an-admin-pages-first-read-carries-what-its-other-sections-read) An admin page's first read carries what its other sections read
 - [D482](working-notes.md#d482--a-hidden-pages-webrtc-transport-tries-to-connect-every-10-s-for-two-minutes-then-not-until-shown) A hidden page's WebRTC transport tries to connect every 10 s for two minutes, then not until shown
+- [D483](working-notes.md#d483--reserved-compression-over-webrtc) Reserved: Compression over WebRTC
+- [D484](working-notes.md#d484--reserved-a-webrtc-connections-steps-timed-and-a-reconnect-kept-when-the-page-is-shown) Reserved: A WebRTC connection's steps timed, and a reconnect kept when the page is shown
+- [D485](working-notes.md#d485--reserved-the-service-worker-keeps-content-addressed-images) Reserved: The service worker keeps content-addressed images
+- [D486](working-notes.md#d486--reserved-a-deadline-on-the-loaders-page-and-the-client-floor) Reserved: A deadline on the loader's page and the client floor
+- [D487](working-notes.md#d487--reserved-a-film-loads-deeper-ahead-once-the-link-has-dropped) Reserved: A film loads deeper ahead once the link has dropped
 
 ## Archived
 
