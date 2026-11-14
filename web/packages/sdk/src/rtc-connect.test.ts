@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   connected,
+  connectingStepsOf,
   connectRtc,
   connectTimeoutMs,
   gatherAfterReflexiveMs,
@@ -21,6 +22,7 @@ import {
   TurnedAway,
   verdictOf,
   verdictWaitMs,
+  whenIceThrough,
   type ConnectingPeer,
   type GatheringPeer,
 } from "./rtc-connect.ts";
@@ -233,6 +235,129 @@ describe("slowConnection", () => {
       "a WebRTC connection took 12404 ms: gathering its candidates 10004 ms, the core's answer 2100 ms, " +
         "connecting 300 ms",
     );
+  });
+
+  // A connection that took 6.5 s said only that 5.4 s went connecting, which could have been ICE's
+  // pacing, DTLS's retransmits or the verdict's wait (the slow-link war game, 2026-11-14; D484 §1).
+  it("says how connecting went, step by step, in the same sentence", () => {
+    const timings = { gathering: 1_000, answer: 100, connecting: 5_448 };
+    expect(
+      slowConnection({
+        ...timings,
+        steps: { ice: 400, secure: 4_000, channel: 48, verdict: 1_000 },
+      }),
+    ).toBe(
+      "a WebRTC connection took 6548 ms: gathering its candidates 1000 ms, the core's answer 100 ms, " +
+        "connecting 5448 ms (ICE 400 ms, DTLS 4000 ms, SCTP and the channel 48 ms, the core's verdict 1000 ms)",
+    );
+    expect(
+      slowConnection({
+        ...timings,
+        steps: { ice: undefined, secure: 4_400, channel: 48, verdict: 1_000 },
+      }),
+    ).toBe(
+      "a WebRTC connection took 6548 ms: gathering its candidates 1000 ms, the core's answer 100 ms, " +
+        "connecting 5448 ms (ICE and DTLS 4400 ms, SCTP and the channel 48 ms, the core's verdict 1000 ms)",
+    );
+  });
+});
+
+describe("connectingStepsOf (D484 §1)", () => {
+  it("is each step's time, from when each ended", () => {
+    expect(
+      connectingStepsOf({
+        answeredAt: 100,
+        iceAt: 500,
+        connectedAt: 4_500,
+        channelAt: 4_548,
+        heldAt: 5_548,
+      }),
+    ).toEqual({ ice: 400, secure: 4_000, channel: 48, verdict: 1_000 });
+  });
+
+  it("gives a step whose end went unseen, or was heard out of order, none, its time in the next", () => {
+    // No ICE state told: its time goes with DTLS's.
+    expect(
+      connectingStepsOf({
+        answeredAt: 100,
+        iceAt: undefined,
+        connectedAt: 4_500,
+        channelAt: 4_548,
+        heldAt: 5_548,
+      }),
+    ).toEqual({ ice: undefined, secure: 4_400, channel: 48, verdict: 1_000 });
+    // The channel's open told before the connection's state, and no channel seen at all.
+    expect(
+      connectingStepsOf({
+        answeredAt: 100,
+        iceAt: 500,
+        connectedAt: 4_500,
+        channelAt: 4_400,
+        heldAt: 5_000,
+      }),
+    ).toEqual({ ice: 400, secure: 4_000, channel: 0, verdict: 500 });
+    expect(
+      connectingStepsOf({
+        answeredAt: 100,
+        iceAt: 50,
+        connectedAt: 4_500,
+        channelAt: undefined,
+        heldAt: 5_000,
+      }),
+    ).toEqual({ ice: 0, secure: 4_400, channel: 0, verdict: 500 });
+  });
+});
+
+describe("whenIceThrough (D484 §1)", () => {
+  it("is when ICE first had a pair that answered, and nothing before", () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    try {
+      const listeners: (() => void)[] = [];
+      const peer = {
+        iceConnectionState: "checking" as RTCIceConnectionState,
+        addEventListener: (_type: "iceconnectionstatechange", listener: () => void): void => {
+          listeners.push(listener);
+        },
+      };
+      const tell = (state: RTCIceConnectionState): void => {
+        peer.iceConnectionState = state;
+        listeners.forEach((listener) => {
+          listener();
+        });
+      };
+      const iceAt = whenIceThrough(peer);
+      const startedAt = performance.now();
+      tell("checking");
+      expect(iceAt()).toBeUndefined();
+      vi.advanceTimersByTime(400);
+      tell("connected");
+      vi.advanceTimersByTime(100);
+      tell("completed");
+      expect(iceAt()).toBe(startedAt + 400);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("the core's verdict, timed (D484 §1)", () => {
+  it("says when its channel opened, once", async () => {
+    vi.useFakeTimers();
+    try {
+      const told = new FakeChannel();
+      let opened = 0;
+      const held = verdictOf(told, () => {
+        opened += 1;
+      });
+      expect(opened).toBe(0);
+      told.open();
+      told.open();
+      expect(opened).toBe(1);
+      told.answer(JSON.stringify({ isHeld: true }));
+      await expect(held).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
