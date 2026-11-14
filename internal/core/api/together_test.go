@@ -136,6 +136,34 @@ func (harness testHarness) joinByLink(
 	return membership
 }
 
+// Opening a session answers its details as reading them does, so the session's page draws them
+// without asking (D478; the client-server audit of 2026-11-13, finding 8).
+func TestTogether_OpeningASessionAnswersItsDetails(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	read := harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", opened.Body.SessionID), admin, nil)
+	var details api.TogetherDetailsOutput
+	if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil || read.status != http.StatusOK {
+		t.Fatalf("GET /together/%d = %d %s", opened.Body.SessionID, read.status, read.body)
+	}
+	answered, err := json.Marshal(opened.Body.Details)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wanted, err := json.Marshal(details.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(answered) != string(wanted) {
+		t.Errorf("POST /together's details = %s; GET /together/%d = %s", answered, opened.Body.SessionID, wanted)
+	}
+	if len(opened.Body.Details.Members) != 1 || !opened.Body.Details.Members[0].IsHost {
+		t.Errorf("POST /together's members = %+v; want the host alone", opened.Body.Details.Members)
+	}
+}
+
 // putOn has the host's device put fileID on and say it plays it, as the host's player, the session's
 // leader, does (D371 §1), and waits until the viewer's device hears it playing.
 func putOn(host, viewer socket, fileID int64) {

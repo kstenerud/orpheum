@@ -4416,6 +4416,7 @@ export interface components {
             rootPath: string;
         };
         OpenTogetherOutputBody: {
+            details: components["schemas"]["TogetherDetailsOutputBody"];
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;

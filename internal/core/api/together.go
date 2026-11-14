@@ -22,11 +22,13 @@ import (
 const tagTogether = "Watch Together"
 
 // OpenTogetherOutput is the host's session, started now, nothing playing, and a membership
-// credential their devices say hello with (D246 §5).
+// credential their devices say hello with (D246 §5). It carries the session's details, as GET
+// /together/{id} answers them, so the session's page draws them without asking again (D478).
 type OpenTogetherOutput struct {
 	Body struct {
-		SessionID            int64  `json:"sessionId"`
-		MembershipCredential string `json:"membershipCredential"`
+		SessionID            int64                     `json:"sessionId"`
+		MembershipCredential string                    `json:"membershipCredential"`
+		Details              TogetherDetailsOutputBody `json:"details"`
 	}
 }
 
@@ -68,17 +70,21 @@ type TogetherMemberBody struct {
 // TogetherDetailsOutput is a session as its host sees it: its links and members, with the host's
 // notes, and what plays.
 type TogetherDetailsOutput struct {
-	Body struct {
-		SessionID int64                `json:"sessionId"`
-		Links     []TogetherLinkBody   `json:"links"`
-		Members   []TogetherMemberBody `json:"members"`
-		FileID    int64                `doc:"What plays; absent while nothing does" json:"fileId,omitempty"`
-		// TitleName and DurationMs are what plays, for the remote on the session's page (D364 §15).
-		TitleName  string `doc:"The name of what plays; absent while nothing does" json:"titleName,omitempty"`
-		DurationMs int64  `doc:"How long what plays lasts, in ms; absent when unknown" json:"durationMs,omitempty"`
-		// NextRights are what a new link starts with: the last one's, every right for the first.
-		NextRights TogetherRightsBody `json:"nextRights"`
-	}
+	Body TogetherDetailsOutputBody
+}
+
+// TogetherDetailsOutputBody is a session's details, as GET /together/{id} answers them and POST
+// /together carries them for the session it opened (D478).
+type TogetherDetailsOutputBody struct {
+	SessionID int64                `json:"sessionId"`
+	Links     []TogetherLinkBody   `json:"links"`
+	Members   []TogetherMemberBody `json:"members"`
+	FileID    int64                `doc:"What plays; absent while nothing does" json:"fileId,omitempty"`
+	// TitleName and DurationMs are what plays, for the remote on the session's page (D364 §15).
+	TitleName  string `doc:"The name of what plays; absent while nothing does" json:"titleName,omitempty"`
+	DurationMs int64  `doc:"How long what plays lasts, in ms; absent when unknown" json:"durationMs,omitempty"`
+	// NextRights are what a new link starts with: the last one's, every right for the first.
+	NextRights TogetherRightsBody `json:"nextRights"`
 }
 
 // TogetherLinkInput makes one person's link, with the host's note of who it is for (D246 §3).
@@ -327,6 +333,11 @@ func (server *Server) openTogether(ctx context.Context, input *AuthorizationHead
 	}
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = opened.SessionID, opened.MembershipCredential
+	// Read after a receiver took the host's part, so the details name it among the members.
+	output.Body.Details, err = server.togetherDetails(ctx, dependencies, principal, opened.SessionID)
+	if err != nil {
+		return nil, err
+	}
 	return output, nil
 }
 
@@ -335,35 +346,47 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	if err != nil {
 		return nil, err
 	}
-	details, err := dependencies.Together.DetailsOf(input.SessionID, principal.UserID)
-	if err != nil {
-		return nil, server.togetherError(ctx, "read a session", err)
-	}
 	output := &TogetherDetailsOutput{}
-	output.Body.SessionID, output.Body.FileID = details.SessionID, details.Group.FileID
+	output.Body, err = server.togetherDetails(ctx, dependencies, principal, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
+}
+
+// togetherDetails is the session sessionID as its host, principal, sees it.
+func (server *Server) togetherDetails(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, sessionID int64,
+) (TogetherDetailsOutputBody, error) {
+	var body TogetherDetailsOutputBody
+	details, err := dependencies.Together.DetailsOf(sessionID, principal.UserID)
+	if err != nil {
+		return body, server.togetherError(ctx, "read a session", err)
+	}
+	body.SessionID, body.FileID = details.SessionID, details.Group.FileID
 	if details.Group.FileID != 0 {
 		// What plays is the host's, in a library they reach; one not read now leaves its name out.
 		work, workErr := dependencies.Browser.WorkOfFile(ctx, principal.Reach, details.Group.FileID)
 		if workErr == nil {
-			output.Body.TitleName, output.Body.DurationMs = work.Name, work.DurationMs
+			body.TitleName, body.DurationMs = work.Name, work.DurationMs
 		}
 	}
-	output.Body.NextRights = TogetherRightsBody(details.NextRights)
-	output.Body.Links = make([]TogetherLinkBody, 0, len(details.Links))
+	body.NextRights = TogetherRightsBody(details.NextRights)
+	body.Links = make([]TogetherLinkBody, 0, len(details.Links))
 	for _, each := range details.Links {
-		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
+		body.Links = append(body.Links, TogetherLinkBody{
 			ID: each.ID, HostNote: each.HostNote, Secret: each.Secret, UsedByMemberID: each.UsedBy,
 			Rights: TogetherRightsBody(each.Rights), Link: togetherLink(dependencies, each.Secret),
 			ExpiresAt: waitingUntil(each),
 		})
 	}
-	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
+	body.Members = make([]TogetherMemberBody, 0, len(details.Members))
 	for _, each := range details.Members {
-		output.Body.Members = append(output.Body.Members, TogetherMemberBody{
+		body.Members = append(body.Members, TogetherMemberBody{
 			ID: each.ID, Name: each.Name, HostNote: each.HostNote, IsHost: each.IsHost,
 		})
 	}
-	return output, nil
+	return body, nil
 }
 
 // waitingUntil is when a link stops admitting anyone, in Unix milliseconds, while it waits; 0 once used.
