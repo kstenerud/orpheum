@@ -36,10 +36,14 @@ type FilingReportsInput struct {
 
 // FilingReportsOutput is a page of the reports, newest first.
 type FilingReportsOutput struct {
-	Body struct {
-		Reports    []FilingReportEntryBody `json:"reports"`
-		NextCursor string                  `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"` //nolint:lll // one struct tag
-	}
+	Body FilingReportsOutputBody
+}
+
+// FilingReportsOutputBody is FilingReportsOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type FilingReportsOutputBody struct {
+	Reports    []FilingReportEntryBody `json:"reports"`
+	NextCursor string                  `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"` //nolint:lll // one struct tag
 }
 
 // FilingReportEntryBody is one report in the list.
@@ -98,6 +102,13 @@ func (server *Server) listFilingReports(ctx context.Context, input *FilingReport
 	if err != nil {
 		return nil, err
 	}
+	return server.filingReportsPage(ctx, dependencies, input.PageInput)
+}
+
+// filingReportsPage is a page of GET /filing-reports' answer, as input asks for it.
+func (server *Server) filingReportsPage(
+	ctx context.Context, dependencies *Dependencies, input PageInput,
+) (*FilingReportsOutput, error) {
 	// The cursor is the last report's name and when it was written, Unix nanoseconds: the reports
 	// are files, listed whole and paged here, newest first and by name backwards among equals.
 	afterName, afterWritten, err := decodeCursor(input.Cursor)

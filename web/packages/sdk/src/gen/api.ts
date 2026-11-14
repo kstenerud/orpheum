@@ -5757,9 +5757,18 @@ export interface components {
             offline: components["schemas"]["OfflineBody"][] | null;
             providers: components["schemas"]["ProviderBody"][] | null;
             queue: components["schemas"]["QueueKindBody"][] | null;
+            sections?: components["schemas"]["SystemSectionsBody"];
             server: components["schemas"]["ServerBody"];
             unread: components["schemas"]["UnreadBody"][] | null;
             waiting: components["schemas"]["WaitingBody"][] | null;
+        };
+        SystemSectionsBody: {
+            backups: components["schemas"]["BackupsOutputBody"];
+            filingReports: components["schemas"]["FilingReportsOutputBody"];
+            network?: components["schemas"]["NetworkStateBody"];
+            nowPlaying: components["schemas"]["NowPlayingOutputBody"];
+            resourceUse: components["schemas"]["ResourceUseOutputBody"];
+            unusedSettings: components["schemas"]["UnusedOutputBody"];
         };
         SystemVideoBody: {
             /** @description The video and audio codecs it is in */
@@ -6054,6 +6063,7 @@ export interface components {
              * @description Unix milliseconds
              */
             resetLinkExpiresAt?: number;
+            sections?: components["schemas"]["UserSectionsBody"];
             user: components["schemas"]["UserEntryBody"];
             watchStats: components["schemas"]["WatchStatsBody"];
         };
@@ -6061,10 +6071,18 @@ export interface components {
             /** @description The role's name */
             role: string;
         };
+        UserSectionsBody: {
+            devices: components["schemas"]["DevicesOutputBody"];
+            roles: components["schemas"]["RolesOutputBody"];
+        };
         UsersOutputBody: {
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
+            sections?: components["schemas"]["UsersSectionsBody"];
             users: components["schemas"]["UserEntryBody"][] | null;
+        };
+        UsersSectionsBody: {
+            roles: components["schemas"]["RolesOutputBody"];
         };
         VersionBody: {
             files: components["schemas"]["FileDetailBody"][] | null;
@@ -10775,7 +10793,10 @@ export interface operations {
     };
     getSystem: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls */
+                sections?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11748,6 +11769,8 @@ export interface operations {
                 /** @description From the previous page's nextCursor; absent for the first page */
                 cursor?: string;
                 limit: number;
+                /** @description Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls */
+                sections?: boolean;
             };
             header?: never;
             path?: never;
@@ -11810,7 +11833,10 @@ export interface operations {
     };
     getUser: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls */
+                sections?: boolean;
+            };
             header?: never;
             path: {
                 id: number;

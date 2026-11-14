@@ -22,10 +22,14 @@ type BackupBody struct {
 
 // BackupsOutput lists the backups directory, newest first, and says where it is.
 type BackupsOutput struct {
-	Body struct {
-		Directory string       `doc:"Where the backups are, on the server's machine" json:"directory"`
-		Backups   []BackupBody `json:"backups"`
-	}
+	Body BackupsOutputBody
+}
+
+// BackupsOutputBody is BackupsOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type BackupsOutputBody struct {
+	Directory string       `doc:"Where the backups are, on the server's machine" json:"directory"`
+	Backups   []BackupBody `json:"backups"`
 }
 
 // MakeBackupInput asks for a backup now.
@@ -65,6 +69,11 @@ func (server *Server) listBackups(ctx context.Context, input *AuthorizationHeade
 	if err != nil {
 		return nil, err
 	}
+	return server.backupsListed(ctx, dependencies)
+}
+
+// backupsListed is GET /backups' answer: where the backups are, and each one.
+func (server *Server) backupsListed(ctx context.Context, dependencies *Dependencies) (*BackupsOutput, error) {
 	files, err := dependencies.Backups.List()
 	if err != nil {
 		return nil, server.logInternalError(ctx, "list the backups", err)

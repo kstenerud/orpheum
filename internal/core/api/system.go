@@ -116,6 +116,9 @@ type SystemOutput struct {
 		// Queue is how each kind of job is doing: queued, the oldest waiting, and failed in the last
 		// day (D233 §8).
 		Queue []QueueKindBody `json:"queue"`
+		// Sections is what the System page's other sections read, for its first read alone
+		// (sections=true); absent otherwise, and when a part could not be read, the reason logged.
+		Sections *SystemSectionsBody `json:"sections,omitempty"`
 	}
 }
 
@@ -415,7 +418,7 @@ func (server *Server) changeReaderLimit(
 	return &struct{}{}, nil
 }
 
-func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader) (*SystemOutput, error) {
+func (server *Server) getSystem(ctx context.Context, input *SystemInput) (*SystemOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -470,6 +473,9 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 		}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
+	output.Body.Sections = withSections(ctx, server, input.IsSections, func() (*SystemSectionsBody, error) {
+		return server.systemSections(ctx, dependencies)
+	})
 	return output, nil
 }
 

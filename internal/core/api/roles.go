@@ -31,10 +31,14 @@ type RoleBody struct {
 
 // RolesOutput is every role, and the capabilities a role may have.
 type RolesOutput struct {
-	Body struct {
-		Roles        []RoleBody `json:"roles"`
-		Capabilities []string   `doc:"The closed set a role's capabilities come from" json:"capabilities"`
-	}
+	Body RolesOutputBody
+}
+
+// RolesOutputBody is RolesOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type RolesOutputBody struct {
+	Roles        []RoleBody `json:"roles"`
+	Capabilities []string   `doc:"The closed set a role's capabilities come from" json:"capabilities"`
 }
 
 // RoleChangeBody is a role as the admin describes it: its libraries are taken as given, and one
@@ -119,6 +123,11 @@ func (server *Server) listRoles(ctx context.Context, input *AuthorizationHeader)
 	if err != nil {
 		return nil, err
 	}
+	return server.rolesListed(ctx, dependencies)
+}
+
+// rolesListed is GET /roles' answer: every role, and the capabilities a role's come from.
+func (server *Server) rolesListed(ctx context.Context, dependencies *Dependencies) (*RolesOutput, error) {
 	roles, err := dependencies.Auth.ListRoles(ctx)
 	if err != nil {
 		return nil, server.authError(ctx, "list roles", err)

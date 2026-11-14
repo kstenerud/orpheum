@@ -32,9 +32,13 @@ type NowPlayingBody struct {
 
 // NowPlayingOutput is every playback heard from lately, oldest first.
 type NowPlayingOutput struct {
-	Body struct {
-		Playbacks []NowPlayingBody `json:"playbacks"`
-	}
+	Body NowPlayingOutputBody
+}
+
+// NowPlayingOutputBody is NowPlayingOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type NowPlayingOutputBody struct {
+	Playbacks []NowPlayingBody `json:"playbacks"`
 }
 
 // StopPlaybackInput is the admin stopping a playback, with a message its player shows.
@@ -65,6 +69,11 @@ func (server *Server) getNowPlaying(ctx context.Context, input *AuthorizationHea
 	if err != nil {
 		return nil, err
 	}
+	return server.nowPlaying(ctx, dependencies)
+}
+
+// nowPlaying is GET /now-playing's answer: every playback running now, with whose it is.
+func (server *Server) nowPlaying(ctx context.Context, dependencies *Dependencies) (*NowPlayingOutput, error) {
 	accounts, err := dependencies.Auth.Accounts(ctx)
 	if err != nil {
 		return nil, server.authError(ctx, "list accounts", err)

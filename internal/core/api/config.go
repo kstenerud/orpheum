@@ -61,9 +61,13 @@ type UnusedBody struct {
 
 // UnusedOutput lists the unused rows.
 type UnusedOutput struct {
-	Body struct {
-		UnusedSettings []UnusedBody `json:"unusedSettings"`
-	}
+	Body UnusedOutputBody
+}
+
+// UnusedOutputBody is UnusedOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type UnusedOutputBody struct {
+	UnusedSettings []UnusedBody `json:"unusedSettings"`
 }
 
 // DeleteUnusedInput names one unused row.
@@ -163,6 +167,11 @@ func (server *Server) getUnusedConfig(ctx context.Context, input *AuthorizationH
 	if err != nil {
 		return nil, err
 	}
+	return server.unusedSettings(ctx, dependencies)
+}
+
+// unusedSettings is GET /config/unused's answer: the setting rows this release does not read.
+func (server *Server) unusedSettings(ctx context.Context, dependencies *Dependencies) (*UnusedOutput, error) {
 	unused, err := dependencies.Settings.Unused(ctx)
 	if err != nil {
 		return nil, server.settingsError(ctx, "list unused settings", err)

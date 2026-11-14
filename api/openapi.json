@@ -8915,6 +8915,9 @@
               "null"
             ]
           },
+          "sections": {
+            "$ref": "#/components/schemas/SystemSectionsBody"
+          },
           "server": {
             "$ref": "#/components/schemas/ServerBody"
           },
@@ -8947,6 +8950,36 @@
           "waiting",
           "unread",
           "queue"
+        ],
+        "type": "object"
+      },
+      "SystemSectionsBody": {
+        "properties": {
+          "backups": {
+            "$ref": "#/components/schemas/BackupsOutputBody"
+          },
+          "filingReports": {
+            "$ref": "#/components/schemas/FilingReportsOutputBody"
+          },
+          "network": {
+            "$ref": "#/components/schemas/NetworkStateBody"
+          },
+          "nowPlaying": {
+            "$ref": "#/components/schemas/NowPlayingOutputBody"
+          },
+          "resourceUse": {
+            "$ref": "#/components/schemas/ResourceUseOutputBody"
+          },
+          "unusedSettings": {
+            "$ref": "#/components/schemas/UnusedOutputBody"
+          }
+        },
+        "required": [
+          "nowPlaying",
+          "resourceUse",
+          "backups",
+          "unusedSettings",
+          "filingReports"
         ],
         "type": "object"
       },
@@ -9750,6 +9783,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "sections": {
+            "$ref": "#/components/schemas/UserSectionsBody"
+          },
           "user": {
             "$ref": "#/components/schemas/UserEntryBody"
           },
@@ -9778,11 +9814,29 @@
         ],
         "type": "object"
       },
+      "UserSectionsBody": {
+        "properties": {
+          "devices": {
+            "$ref": "#/components/schemas/DevicesOutputBody"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/RolesOutputBody"
+          }
+        },
+        "required": [
+          "devices",
+          "roles"
+        ],
+        "type": "object"
+      },
       "UsersOutputBody": {
         "properties": {
           "nextCursor": {
             "description": "The next page's cursor; absent on the last",
             "type": "string"
+          },
+          "sections": {
+            "$ref": "#/components/schemas/UsersSectionsBody"
           },
           "users": {
             "items": {
@@ -9796,6 +9850,17 @@
         },
         "required": [
           "users"
+        ],
+        "type": "object"
+      },
+      "UsersSectionsBody": {
+        "properties": {
+          "roles": {
+            "$ref": "#/components/schemas/RolesOutputBody"
+          }
+        },
+        "required": [
+          "roles"
         ],
         "type": "object"
       },
@@ -17472,6 +17537,18 @@
     "/system": {
       "get": {
         "operationId": "getSystem",
+        "parameters": [
+          {
+            "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+            "explode": false,
+            "in": "query",
+            "name": "sections",
+            "schema": {
+              "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -18848,6 +18925,16 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+            "explode": false,
+            "in": "query",
+            "name": "sections",
+            "schema": {
+              "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -18981,6 +19068,16 @@
               "format": "int64",
               "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+            "explode": false,
+            "in": "query",
+            "name": "sections",
+            "schema": {
+              "description": "Also what the page's other sections read, each as its own endpoint answers it (sections): the page's first read, not their polls",
+              "type": "boolean"
             }
           }
         ],

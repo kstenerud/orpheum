@@ -75,6 +75,7 @@ func discoveryLink(status discovery.Status, page, secret string) string {
 type UsersInput struct {
 	AuthorizationHeader
 	PageInput
+	SectionsInput
 }
 
 // UsersOutput is a page of everyone, by name.
@@ -82,6 +83,9 @@ type UsersOutput struct {
 	Body struct {
 		Users      []UserEntryBody `json:"users"`
 		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
+		// Sections is what the Users page's other sections read, for its first read alone
+		// (sections=true).
+		Sections *UsersSectionsBody `json:"sections,omitempty"`
 	}
 }
 
@@ -213,6 +217,9 @@ func (server *Server) listUsers(ctx context.Context, input *UsersInput) (*UsersO
 	for _, account := range accounts {
 		output.Body.Users = append(output.Body.Users, userEntryBody(account))
 	}
+	output.Body.Sections = withSections(ctx, server, input.IsSections, func() (*UsersSectionsBody, error) {
+		return server.usersSections(ctx, dependencies)
+	})
 	return output, nil
 }
 
@@ -309,6 +316,8 @@ type UserPageOutput struct {
 		// ResetLinkExpiresAt is when the person's outstanding reset password link stops working; absent
 		// when they have none. The link itself is never sent again: a new one replaces it (D466 §4).
 		ResetLinkExpiresAt int64 `doc:"Unix milliseconds" json:"resetLinkExpiresAt,omitempty"`
+		// Sections is what the page's other sections read, for its first read alone (sections=true).
+		Sections *UserSectionsBody `json:"sections,omitempty"`
 	}
 }
 
@@ -361,8 +370,8 @@ func (server *Server) revokeOwnLink(ctx context.Context, input *UserInput) (*str
 	return &struct{}{}, nil
 }
 
-func (server *Server) getUser(ctx context.Context, input *UserInput) (*UserPageOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+func (server *Server) getUser(ctx context.Context, input *UserPageInput) (*UserPageOutput, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -401,6 +410,9 @@ func (server *Server) getUser(ctx context.Context, input *UserInput) (*UserPageO
 	if hasResetLink {
 		output.Body.ResetLinkExpiresAt = resetExpiresAt.UnixMilli()
 	}
+	output.Body.Sections = withSections(ctx, server, input.IsSections, func() (*UserSectionsBody, error) {
+		return server.userSections(ctx, dependencies, input.UserID, principal)
+	})
 	return output, nil
 }
 

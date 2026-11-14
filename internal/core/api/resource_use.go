@@ -46,10 +46,14 @@ type ResourceUseHourBody struct {
 
 // ResourceUseOutput is what the core and each node used of their machines.
 type ResourceUseOutput struct {
-	Body struct {
-		Summaries []ResourceUseSummaryBody `json:"summaries"`
-		Hours     []ResourceUseHourBody    `doc:"The last day's hours, the core's first, newest first" json:"hours"`
-	}
+	Body ResourceUseOutputBody
+}
+
+// ResourceUseOutputBody is ResourceUseOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type ResourceUseOutputBody struct {
+	Summaries []ResourceUseSummaryBody `json:"summaries"`
+	Hours     []ResourceUseHourBody    `doc:"The last day's hours, the core's first, newest first" json:"hours"`
 }
 
 func (server *Server) registerResourceUse() {
@@ -67,6 +71,11 @@ func (server *Server) getResourceUse(ctx context.Context, input *AuthorizationHe
 	if err != nil {
 		return nil, err
 	}
+	return server.resourceUse(ctx, dependencies)
+}
+
+// resourceUse is GET /system/resource-use's answer: what the core and each node used.
+func (server *Server) resourceUse(ctx context.Context, dependencies *Dependencies) (*ResourceUseOutput, error) {
 	report, err := dependencies.ResourceUse.Report(ctx)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "read what the core and nodes used", err)

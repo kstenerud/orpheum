@@ -32,9 +32,13 @@ type DeviceBody struct {
 
 // DevicesOutput is a person's devices, most recently used first.
 type DevicesOutput struct {
-	Body struct {
-		Devices []DeviceBody `json:"devices"`
-	}
+	Body DevicesOutputBody
+}
+
+// DevicesOutputBody is DevicesOutput's body, which a page's first read carries too (the client-server
+// audit's finding 10).
+type DevicesOutputBody struct {
+	Devices []DeviceBody `json:"devices"`
 }
 
 // DeviceInput names one of the asker's devices.
