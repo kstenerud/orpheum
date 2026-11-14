@@ -86,6 +86,22 @@ export interface StillJudged {
  */
 export class StandingStill {
   #still: ({ -readonly [Fact in keyof StillAt]: StillAt[Fact] } & { isNoted: boolean }) | undefined;
+  readonly #onLinkLost: ((why: string) => void) | undefined;
+
+  /** onLinkLost is told each linkLost (ChoosingOptions.linkLost, D487). */
+  constructor(onLinkLost?: (why: string) => void) {
+    this.#onLinkLost = onLinkLost;
+  }
+
+  /**
+   * Its loads did not arrive because the link was lost, for why (a chunk failed or stuck, its loading
+   * stopped, the browser offline): as linkFailed, and onLinkLost is told. A chunk given up for its
+   * slowness is the link's speed, and only linkFailed.
+   */
+  linkLost(why: string): void {
+    this.linkFailed(why);
+    this.#onLinkLost?.(why);
+  }
 
   /** A chunk of picture loaded while it may stand still. */
   chunkLoaded(): void {

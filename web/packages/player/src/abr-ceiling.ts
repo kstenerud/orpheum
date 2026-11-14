@@ -318,7 +318,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     // again, aborted for hls.js to load it again, no sample and lowering nothing (P3).
     const stuck = this.#onItsWay.stuck(judged, () => this.#carrierText(chunk));
     if (stuck !== undefined) {
-      this.#still.linkFailed("a chunk stuck on its way");
+      this.#still.linkLost("a chunk stuck on its way");
       this.#options.noteLink?.(stuck.note);
     }
     if (stuck?.isAskedAgain === true) {
@@ -448,7 +448,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   lookAtPlaying(): void {
     const nowMs = this.#options.monotonicMs();
     if (this.#options.isOffline?.() === true) {
-      this.#still.linkFailed("the browser offline");
+      this.#still.linkLost("the browser offline");
     }
     const level = this.#hls.loadLevel;
     if (this.#still.look(this.#hls.media, nowMs) === undefined || level <= this.#hls.minAutoLevel) {

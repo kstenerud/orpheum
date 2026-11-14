@@ -106,6 +106,8 @@ export interface Scene {
   spreadsNoted: number[];
   /** The notes on the link for the play report, in order. */
   linkNotes: string[];
+  /** Each sign that the link was lost the choosing told (ChoosingOptions.linkLost), in order. */
+  linkLost: string[];
   /** Each load's first piece, its first progress, by URL (D382 §2); a load not here says none. */
   firstPieces: Map<string, FirstPiece>;
   /** Tells the choosing of a long task of the page, as the browser would (D382 §3). */
@@ -123,6 +125,7 @@ export const scene: Scene = {
   steadinessNoted: [],
   spreadsNoted: [],
   linkNotes: [],
+  linkLost: [],
   firstPieces: new Map<string, FirstPiece>(),
   longTask: () => undefined,
 };
@@ -149,6 +152,7 @@ export function useScene(vitest: {
     scene.steadinessNoted = [];
     scene.spreadsNoted = [];
     scene.linkNotes = [];
+    scene.linkLost = [];
     scene.firstPieces = new Map<string, FirstPiece>();
     scene.longTask = () => undefined;
   });
@@ -229,6 +233,7 @@ export function choosingFrom(
       noteSteadiness: (level) => scene.steadinessNoted.push(level),
       noteLinkSpread: (spread) => scene.spreadsNoted.push(spread),
       noteLink: (note) => scene.linkNotes.push(note),
+      linkLost: (why) => scene.linkLost.push(why),
       carrierOf: (url) => `WebRTC connection 2 for ${url}`,
     },
     {

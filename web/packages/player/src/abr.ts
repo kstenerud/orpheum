@@ -57,7 +57,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   readonly isAwaitingTheCore = (): boolean => this.#onItsWay.isAwaitingTheCore();
   /** Asks again after a load hls.js stopped, counted with the chunks stuck (loadOnAfterFailures). */
   readonly askingAgain = (): AskingAgain => {
-    this.#still.linkFailed("its loading stopped");
+    this.#still.linkLost("its loading stopped");
     return this.#onItsWay.askingAgain();
   };
   /** The pace each paced chunk was asked to arrive at, bits a second. */
@@ -75,7 +75,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** How long the video has played. */
   readonly #played = new PlayedTime();
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
-  readonly #still = new StandingStill();
+  readonly #still: StandingStill;
   /** The page's long tasks, which excuse a chunk from measuring the link or being given up (D382 §3). */
   readonly #busy: BusyPage;
   /** The ceiling and choice state this playback's quality is decided from (abr-ceiling.ts). */
@@ -85,6 +85,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
     this.#hls = hls;
     this.#options = options;
+    this.#still = new StandingStill(options.linkLost);
     this.#estimate = new LinkEstimate(options.rememberedLink);
     this.#busy = new BusyPage(options.longTasks);
     const prior = this.#estimate.prior();
@@ -181,7 +182,7 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture's load failed or timed out, the core's 425 aside (ChunkOnItsWay.failed). */
   failed(chunk: Chunk, details: string): void {
-    this.#still.linkFailed(`a chunk failed (${details})`);
+    this.#still.linkLost(`a chunk failed (${details})`);
     this.#options.noteLink?.(
       this.#onItsWay.failed(
         chunk,

@@ -71,6 +71,12 @@ export interface ChoosingOptions {
    * the device cannot play (D266); absent where nothing says.
    */
   readonly isOffline?: () => boolean;
+  /**
+   * Told each sign that the link was lost, for why: a chunk of picture failed, a chunk stuck on its
+   * way, its loading stopped, the browser offline, never a chunk given up for its slowness, which is
+   * the link's speed (LinkOutages, D487); absent where nothing listens.
+   */
+  readonly linkLost?: ((why: string) => void) | undefined;
   /** Whether it plays in a Watch Together group, which keeps the film's own picture (D286 §2). */
   readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */
