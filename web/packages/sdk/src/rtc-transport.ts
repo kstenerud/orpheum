@@ -58,7 +58,7 @@ export {
 const endedKept = 32;
 
 /**
- * The rung a request waits for room on (principles §30): "cosmetic" for what the page works
+ * The rung a request waits for room on (D479): "cosmetic" for what the page works
  * without, an image and an interest note; "waited-on" for every other, what a person waits on: an
  * API read, a press's request, a film's bytes. A waited-on request is given a freed room before any
  * cosmetic one, and the cosmetic ones hold cosmeticRoomsPerConnection of each connection's rooms at
@@ -562,7 +562,7 @@ export class RtcTransport {
 
   /**
    * Gives the rooms free to the requests waiting, the highest rung first and first-come within each
-   * (principles §30): a freed room goes to a waiting read, never to a poster that came before it. Each room is
+   * (D479): a freed room goes to a waiting read, never to a poster that came before it. Each room is
    * claimed for its request here, in the same step as it is found, so one freed room lets one request
    * through: woken together to look again, each saw the same room free, and one freed room sent the
    * whole queue past the core's 16 on one connection, which refused them (staging, 2026-10-20). Once

@@ -192,7 +192,7 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   owner's Chrome, throttled and unthrottled, staging, 2026-10-29; VQ125).
   `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
 - **A WebRTC transport gives a freed room to what a person waits on before what is cosmetic**
-  (principles §30; the client-server audit of 2026-11-13, finding 6): a request's rung is read from its path (`rungOf`), an image
+  (D479; the client-server audit of 2026-11-13, finding 6): a request's rung is read from its path (`rungOf`), an image
   (`artPathPrefix`) and an interest note (`/interest/`) on the cosmetic rung, every other request,
   an API read, a press's, a film's bytes, above it. A freed room goes to the highest rung waiting,
   first-come within each; the cosmetic hold `cosmeticRoomsPerConnection` (6 of 12) of each

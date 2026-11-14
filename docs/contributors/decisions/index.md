@@ -484,6 +484,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D476](working-notes.md#d476--the-shells-first-read-carries-what-it-reads-as-it-starts-and-home-answers-its-rows-in-one-read) The shell's first read carries what it reads as it starts, and Home answers its rows in one read
 - [D477](working-notes.md#d477--a-series-an-episodes-a-films-and-a-persons-page-each-wait-on-one-read) A series', an episode's, a film's and a person's page each wait on one read
 - [D478](working-notes.md#d478--a-client-keeps-each-reads-latest-answer-for-the-tab-by-key-and-asks-for-nothing-it-already-holds) A client keeps each read's latest answer for the tab, by key, and asks for nothing it already holds
+- [D479](working-notes.md#d479--over-webrtc-what-a-person-waits-on-is-given-a-freed-room-before-images-and-interest-notes) Over WebRTC, what a person waits on is given a freed room before images and interest notes
 
 ## Archived
 

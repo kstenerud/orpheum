@@ -112,7 +112,7 @@ export type ArtSize =
   | "logo-s"
   | "logo-m";
 
-/** Where every image's address begins (artUrl), which the WebRTC transport ranks below a read (principles §30). */
+/** Where every image's address begins (artUrl), which the WebRTC transport ranks below a read (D479). */
 export const artPathPrefix = `${apiPrefix}/bytes/art/`;
 
 /**

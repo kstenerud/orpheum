@@ -48,7 +48,7 @@ export const requestsPerConnection = 12;
 
 /**
  * The most of each connection's rooms the cosmetic rung's requests (images, interest notes) hold at
- * once, together, across the connections up (principles §30): half, so the other half is always free for what
+ * once, together, across the connections up (D479): half, so the other half is always free for what
  * a person waits on, a list's read or a press's request, which never waits behind a screenful of
  * posters, and the posters still go six to a connection, twenty-four across four, about a screenful.
  */

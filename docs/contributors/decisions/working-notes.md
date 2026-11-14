@@ -28491,3 +28491,46 @@ page drew loading, then the same answer.
 - 1, 2, 3, 4: web/apps/web/src/use-resource.test.ts ("useResource's answers, kept for the tab by key
   (D478)")
 - 3: internal/core/api/together_test.go (TestTogether_OpeningASessionAnswersItsDetails)
+
+
+## D479 — Over WebRTC, what a person waits on is given a freed room before images and interest notes
+
+**Decided** (2026-11-13), by the lead, on the owner's order of the client-server audit's fixes
+(finding 6, "the batch after": *"Do your recommended ones in the next batch, and then the rest in the
+batch after"*), applying [principles §30](../principles/README.md). The owner to confirm. Amends
+nothing; D273 §8's channel per request and the core's credit stand.
+
+The client-server audit found that away from home, each visible poster's `<img>` (through the
+service worker to the page's transport) and the list's read waited in one queue: the transport gave
+a freed room to whichever request claimed it first, API reads and images alike, so a read waited
+behind a screenful of posters. The browser's `fetchPriority = "low"` on a poster does not reach that
+queue. The interest notes (`PUT /interest/tiles`, `PUT /interest/page`) rode the same queue.
+
+1. **The page's WebRTC transport ranks each request on one of two rungs**, read from its path
+   (`rungOf`), not passed by its caller: an image (`/api/v1/bytes/art/`, `artPathPrefix`) and an
+   interest note (`/api/v1/interest/`) are **cosmetic**; every other request, an API read, a press's
+   request, a film's bytes, is **waited on**. The path says it wherever the request came from, the
+   API client or the service worker's relay, so no caller and no message between the page and its
+   worker changes.
+2. **A freed room goes to the highest rung waiting**, first-come within each: a waiting read is given
+   the next room even when posters came before it. The room is claimed for the request as it is
+   given, so one freed room still lets one request through.
+3. **The cosmetic rung holds at most half of each connection's rooms** (`cosmeticRoomsPerConnection`,
+   6 of `requestsPerConnection`'s 12), together across the connections up, whether or not a read
+   waits: a read arriving finds a room at once unless reads hold the other half, and posters still
+   go six to a connection, twenty-four across four. A cosmetic request waiting for its share counts
+   as one waiting, so the transport grows as before.
+4. **Left for later: a rung on the core's side of the channel** (its credit, D273 §8), the audit's
+   later step, if measurement shows the core's sending, not the client's queue, is where the reads
+   and the posters meet.
+
+**Status:** decided (the owner to confirm).
+
+**Proven by:**
+- 1: web/packages/sdk/src/rtc-transport.test.ts ("ranks an image and an interest note below every
+  other request, by its path")
+- 2: web/packages/sdk/src/rtc-transport.test.ts ("gives a freed room to a waiting read before the
+  images that came before it, first-come within each")
+- 3: web/packages/sdk/src/rtc-transport.test.ts ("lets images hold at most
+  cosmeticRoomsPerConnection of a connection's rooms, the rest kept for reads", "gives the images
+  their share of each connection up")
