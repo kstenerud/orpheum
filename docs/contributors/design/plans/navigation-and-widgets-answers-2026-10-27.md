@@ -4052,4 +4052,8 @@ continue without my input."
   secrets stay their own reads, since a gzipped answer carries no credential (D342), so Settings is
   not folded: an uncompressed page read would fold them, the owner's call.
 - **Waits on a device:** 7 (playback's chain of media requests) is measured first.
+- **Next batch:** a Watch Together guest's group film read (together-playback.ts's
+  useGroupFilmDecision) is single-use (D478) with no test that a page come back to never plays an
+  earlier visit's decision; revert-red counts the file only as load-bearing at compile time, as the
+  function moved there. The test is test-dom's mountToRevisit's shape.
 - **The owner's:** 12 (polls that read whole answers) is D237's.
