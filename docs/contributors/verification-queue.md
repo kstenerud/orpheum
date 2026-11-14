@@ -2450,7 +2450,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   where none was chosen. (`web/apps/web/src/player-commands.ts`, `player-menus.tsx`,
   `player-overlay.tsx`)
 
-- [ ] **VQ249** — outside full screen the controls lie under the film, nothing over it (D407 §9;
+- [x] **VQ249** — outside full screen the controls lie under the film, nothing over it (D407 §9;
   plans/player-overlay.md step 11). On staging, on a phone held upright and then on its side, open
   a film's Play page without full screen. Passes when: nothing covers the picture but subtitles;
   under it are the timeline, then ⏪ ▶ ⏩ (⏮ ⏭ around them in a series) and ⤢, then "Ends 9:41" or
@@ -2467,7 +2467,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   never took it down, as it does in full screen and upright: the overlay's box, in a window 308 px
   tall with the browser's bar showing, lay over three quarters of the film and a tap on it counted
   as one on a control. Now its ground is the picture's (D415 §1). Owed: on its side, a tap on the
-  middle of the film hides the overlay and the next shows it.
+  middle of the film hides the overlay and the next shows it. **Confirmed** by the owner, 2026-11-14,
+  on the Android phone: "works".
 - [ ] **VQ250** — a pop-up is not a dialog: no ✕, sized to what it holds, its list showing context
   (D408 §2–§3). On the Fire TV in Silk, play a film with several subtitle tracks and open the
   overlay's 💬, 🎧, ⁝ and 🔈 in turn, then the banner's menu, a library's sort and a title's ⁝.
