@@ -39,7 +39,7 @@ import {
 } from "./router.ts";
 import { LibraryConfigure } from "./library-configure.tsx";
 import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
-import type { ChipsKind } from "./list-chips.tsx";
+import type { ChipsKind, Genre } from "./list-chips.tsx";
 import {
   chipsOf,
   criteriaKey,
@@ -287,6 +287,8 @@ function useLibraryCriteria(
     (next) => {
       navigation.replace(routeFor(fromAddress, criteriaOverrides(next, resolved)));
     },
+    // The library's own genres, as its list names them (D480 §1), not another library's.
+    `${String(chipsKind)}/${String(resolved.libraryId)}`,
   );
   const { listed } = criteria;
   return {
@@ -330,6 +332,7 @@ function LibraryBrowseLayout(props: {
             jump={showsRail ? jump : undefined}
             listRef={listRef}
             onLetters={onLetters}
+            onGenres={criteria.chipsKind === undefined ? undefined : criteria.onGenres}
           />
         </div>
         {showsRail ? (
@@ -404,6 +407,8 @@ function LibraryBrowseBody(props: {
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
   readonly onLetters: (letters: readonly string[] | undefined) => void;
+  /** Told the genres the list's first page names, for its chips; undefined where it has none. */
+  readonly onGenres: ((genres: readonly Genre[]) => void) | undefined;
 }): JSX.Element {
   const { state, resolved } = props;
   if (resolved.view === "folders" && state.query === "" && resolved.libraryId !== undefined) {
@@ -432,6 +437,7 @@ function LibraryBrowseBody(props: {
       key={listKey}
       listKey={listKey}
       onLetters={props.onLetters}
+      onGenres={props.onGenres}
       kind={resolved.kind}
       library={resolved.libraryId}
       search={state.query}
@@ -492,9 +498,10 @@ function useTitlesPages(list: {
   readonly filters: ListFilters;
   readonly choice: SortChoice;
   readonly listKey: string;
+  readonly onGenres: ((genres: readonly Genre[]) => void) | undefined;
 }): Pages<Entry> {
   const { api } = useServices();
-  const { kind, library, search, filters } = list;
+  const { kind, library, search, filters, onGenres } = list;
   const { sort, order } = list.choice;
   const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
@@ -510,10 +517,19 @@ function useTitlesPages(list: {
         },
         cursor,
       );
-      const titlesPage = dataOrThrow(await api.GET("/items", { params: { query } }));
+      // The first page names the chips' genres, which read none of their own (D480 §1).
+      const isNamingGenres = onGenres !== undefined && cursor === "";
+      const titlesPage = dataOrThrow(
+        await api.GET("/items", {
+          params: { query: isNamingGenres ? { ...query, genres: true } : query },
+        }),
+      );
+      if (isNamingGenres && titlesPage.genres != null) {
+        onGenres(titlesPage.genres);
+      }
       return { items: titlesPage.items ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
+    [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly, onGenres],
   );
   return usePages(loadPage, useBackgroundChangesPoller(), {
     idOf: entryId,
@@ -540,6 +556,8 @@ function LibraryGrid(props: {
   readonly listKey: string;
   /** Says the rail letters its entries are under, as it reads them. */
   readonly onLetters: (letters: readonly string[] | undefined) => void;
+  /** Told the genres its first page names, for the chips (D480 §1); undefined where it has none. */
+  readonly onGenres: ((genres: readonly Genre[]) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { search, filters } = props;

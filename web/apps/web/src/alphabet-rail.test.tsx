@@ -65,7 +65,7 @@ const wholeList = page(sixFilms);
 
 /** The films' list, by name, with the rail beside it, answered by answers. */
 async function mountFilms(answers: Answer | readonly Answer[], heard: Heard[]): Promise<Mounted> {
-  const services = servedBy({ "GET /items": answers, "GET /genres": [200, { genres: [] }] }, heard);
+  const services = servedBy({ "GET /items": answers }, heard);
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(<RoutedBrowse kind="film" />, services)}
@@ -204,10 +204,7 @@ describe("Films' whole list, read in one request (D475)", () => {
       return isShown ? <RoutedBrowse kind="film" /> : <p>A film's page</p>;
     }
     const heard: Heard[] = [];
-    const services = servedBy(
-      { "GET /items": [wholeList, unanswered], "GET /genres": [200, { genres: [] }] },
-      heard,
-    );
+    const services = servedBy({ "GET /items": [wholeList, unanswered] }, heard);
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
         {withServices(<BackAndForth />, services)}
@@ -251,10 +248,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
 
   it("shows no rail sorted newest first", async () => {
     const heard: Heard[] = [];
-    const services = servedBy(
-      { "GET /items": [wholeList, wholeList], "GET /genres": [200, { genres: [] }] },
-      heard,
-    );
+    const services = servedBy({ "GET /items": [wholeList, wholeList] }, heard);
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
         {withServices(<RoutedBrowse kind="series" />, services)}
@@ -280,7 +274,6 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     const services = servedBy(
       {
         "GET /items": [wholeList, page([film(4, "Hearthstead")])],
-        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -320,7 +313,6 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
   it("puts a search and a sort chosen in the address", async () => {
     const services = servedBy({
       "GET /items": [wholeList, page([film(4, "Hearthstead")]), page([film(4, "Hearthstead")])],
-      "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -344,7 +336,6 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     const services = servedBy(
       {
         "GET /items": [page([film(4, "Hearthstead")])],
-        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -379,7 +370,6 @@ describe("the rail follows a name sort's direction (D366 ยง4)", () => {
     const services = servedBy(
       {
         "GET /items": [wholeList, page([...sixFilms].reverse())],
-        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );

@@ -39,6 +39,7 @@ import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
+import type { Genre } from "./list-chips.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
 import { EndOfList, useAskedWhenNear } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -435,6 +436,7 @@ export function Browse(props: {
             listRef={listRef}
             listKey={listKey}
             onLetters={onLetters}
+            onGenres={criteria.onGenres}
           />
         </div>
         {isNamed ? (
@@ -491,9 +493,11 @@ function BrowsePages(props: {
   readonly listKey: string;
   /** Says the rail letters its entries are under, as it reads them. */
   readonly onLetters: (letters: readonly string[] | undefined) => void;
+  /** Told the genres its first page names, for the chips (D480 §1). */
+  readonly onGenres: (genres: readonly Genre[]) => void;
 }): JSX.Element {
   const { api } = useServices();
-  const { kind, search, filters, listKey } = props;
+  const { kind, search, filters, listKey, onGenres } = props;
   const { sort, order } = props.choice;
   const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
@@ -506,12 +510,16 @@ function BrowsePages(props: {
         // posters' images coming as they near the view (the owner, 2026-11-11).
         ...(search === "" ? {} : { query: search }),
         ...filtersQuery({ genre, decade, isUnwatchedOnly }),
-        ...(cursor === "" ? {} : { cursor }),
+        // The first page names the chips' genres, which read none of their own (D480 §1).
+        ...(cursor === "" ? { genres: true } : { cursor }),
       };
       const got = dataOrThrow(await api.GET("/items", { params: { query } }));
+      if (got.genres != null) {
+        onGenres(got.genres);
+      }
       return { items: got.items ?? [], nextCursor: got.nextCursor ?? "", total: got.total };
     },
-    [api, kind, sort, order, search, genre, decade, isUnwatchedOnly],
+    [api, kind, sort, order, search, genre, decade, isUnwatchedOnly, onGenres],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), {
     idOf: entryId,

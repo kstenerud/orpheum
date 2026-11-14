@@ -44,6 +44,12 @@ const metropolis: Entry = {
 };
 const titles: Answer = [200, { items: [metropolis] }];
 
+/** The genres a films list's first page names, with genres asked (D480 §1). */
+const twoGenres = [
+  { id: 18, name: "Drama", titleCount: 3 },
+  { id: 80, name: "Crime", titleCount: 2 },
+];
+
 /** The query of each GET /items heard, in order. */
 function titlesAsked(heard: readonly Heard[]): URLSearchParams[] {
   return heard
@@ -62,16 +68,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items": [titles, titles, titles, titles],
-        "GET /genres": [
-          200,
-          {
-            genres: [
-              { id: 18, name: "Drama", titleCount: 3 },
-              { id: 80, name: "Crime", titleCount: 2 },
-            ],
-          },
-        ],
+        "GET /items": [[200, { items: [metropolis], genres: twoGenres }], titles, titles, titles],
       },
       heard,
     );
@@ -82,15 +79,11 @@ describe("Films' chips (search-by-more §4.3)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => titlesAsked(heard).length >= 1);
-    expect(heard.some((each) => each.methodAndPath === "GET /genres")).toBe(false);
+    // The list's first page names the genres, searched or not (D480 §1).
+    expect(titlesAsked(heard)[0]?.get("genres")).toBe("true");
 
-    // In the list's Sort and filter (D417), which asks the genres as it opens.
+    // In the list's Sort and filter (D417), the genres its first page named.
     await chooseInCriteria(mounted.container, "Genre", "Crime");
-    expect(
-      new URLSearchParams(heard.find((each) => each.methodAndPath === "GET /genres")?.query).get(
-        "kind",
-      ),
-    ).toBe("film");
     // The choice closes the Genre's list alone, the Sort and filter left open for the next.
     expect(criteriaPopUp(mounted.container)?.querySelectorAll("dialog")).toHaveLength(0);
     expect(criteriaPopUp(mounted.container)).not.toBeNull();
@@ -119,14 +112,49 @@ describe("Films' chips (search-by-more §4.3)", () => {
       last?.get("decade"),
       last?.get("unwatched"),
     ]).toEqual(["metro", "80", "1990", "true"]);
+    // Each new list's first page names them again, a later one's not asked to.
+    expect(titlesAsked(heard).map((each) => each.get("genres"))).toEqual(
+      titlesAsked(heard).map(() => "true"),
+    );
+  });
+
+  it("offer the genres the list's first page names, reading none of their own (D480 §1)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items": [
+          [200, { items: [metropolis], genres: twoGenres }],
+          // A list a chip narrows names the same: the list's before its search and filters.
+          [200, { items: [metropolis], genres: twoGenres }],
+        ],
+      },
+      heard,
+    );
+    services.navigation.replace({ screen: "films" });
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<RoutedFilms />, services)}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => titlesAsked(heard).length >= 1);
+    await chooseInCriteria(mounted.container, "Genre", "Crime");
+    await settleUntil(() => titlesAsked(heard).length >= 2);
+    // Narrowed to Crime, the chip still offers every genre, and names the one chosen.
+    await chooseInCriteria(mounted.container, "Genre", "Drama");
+    await closeCriteria(mounted.container);
+
+    expect(services.navigation.route()).toEqual({ screen: "films", genre: 18 });
+    expect(heard.filter((each) => each.methodAndPath === "GET /genres")).toHaveLength(0);
   });
 
   it("show the chips the address names, the genre by its name, as Back returns to them", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /items": [titles],
-        "GET /genres": [200, { genres: [{ id: 18, name: "Drama", titleCount: 3 }] }],
+        "GET /items": [
+          [200, { items: [metropolis], genres: [{ id: 18, name: "Drama", titleCount: 3 }] }],
+          titles,
+        ],
       },
       heard,
     );

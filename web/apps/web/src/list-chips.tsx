@@ -1,53 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { allPages, type components, reportFailure } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import type { components } from "@orpheum/sdk";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ButtonByRole } from "./button-by-role.tsx";
 import { chipsOf, decades } from "./list-filters.ts";
-import { dataOrThrow } from "./problem.ts";
 import { ActionChooser } from "./route-chooser.tsx";
 import type { ListFilters } from "./router.ts";
-import { useServices } from "./services.tsx";
 
-/** A genre the chip offers, as GET /genres names it. */
+/** A genre the chip offers, as a list's first page names it (GET /items' genres, D480 §1). */
 export type Genre = components["schemas"]["GenreBody"];
 
 /** The kinds of list that have genres to choose among: films and series. */
 export type ChipsKind = "film" | "series";
-
-/**
- * The genres GET /genres names for a list's kind, asked for once wanted (isWanted): the list's pop-up
- * opened, or a genre named by the address, whose name its button shows; not each time the list shows,
- * as most visits never open it. None while unread, and for a list with no chips (kind undefined).
- */
-export function useGenres(kind: ChipsKind | undefined, isWanted: boolean): readonly Genre[] {
-  const { api } = useServices();
-  const [genres, setGenres] = useState<readonly Genre[]>([]);
-  useEffect(() => {
-    if (!isWanted || kind === undefined) {
-      return undefined;
-    }
-    let isCurrent = true;
-    allPages(async (query) => {
-      const page = dataOrThrow(
-        await api.GET("/genres", { params: { query: { kind: [kind], ...query } } }),
-      );
-      return { entries: page.genres ?? [], nextCursor: page.nextCursor };
-    })
-      .then((every) => {
-        if (isCurrent) {
-          setGenres(every);
-        }
-      })
-      .catch(reportFailure);
-    return () => {
-      isCurrent = false;
-    };
-  }, [api, kind, isWanted]);
-  return genres;
-}
 
 /**
  * A list's chips (search-by-more §4.3), in its pop-up (D417): a genre from those the list's titles
@@ -99,7 +65,7 @@ export function ListChips(props: {
   );
 }
 
-/** The genre chip: the list's kind's genres (useGenres), and Any genre first. */
+/** The genre chip: the genres the list's first page names (useListCriteria), and Any genre first. */
 function GenreChip(props: {
   readonly genres: readonly Genre[];
   readonly genre: number | undefined;

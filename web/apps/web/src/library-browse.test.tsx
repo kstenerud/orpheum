@@ -82,8 +82,7 @@ async function mountBrowse(
   answers: Record<string, Answer | readonly Answer[]>,
   heard: Heard[] = [],
 ): Promise<Mounted> {
-  // A films' or a series' library asks its genres as its Sort and filter opens (list-chips.tsx).
-  const services = servedBy({ "GET /genres": [200, { genres: [] }], ...answers }, heard);
+  const services = servedBy(answers, heard);
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(
@@ -315,7 +314,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /genres": [200, { genres: [] }],
     });
     services.navigation.replace({ screen: "browse", library: 1 });
     mounted = await mount(
@@ -372,7 +370,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /genres": [200, { genres: [] }],
     });
     services.navigation.replace({ screen: "browse", library: 1 });
     mounted = await mount(
@@ -582,7 +579,6 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /items": titlesPage(),
-      "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -701,7 +697,6 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );

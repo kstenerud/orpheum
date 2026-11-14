@@ -36,8 +36,8 @@ const filmsList: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /home": { continueWatching: [] },
-  "GET /items": { items: films(3), nextCursor: "" },
-  "GET /genres": { genres: [{ id: 2, name: "Drama" }] },
+  // The list's first page names the genres its chips offer (D480 §1).
+  "GET /items": { items: films(3), nextCursor: "", genres: [{ id: 2, name: "Drama" }] },
 };
 
 /** The list's Sort and filter button, on its bar. */

@@ -189,7 +189,6 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             nextCursor: "",
           },
           "GET /items/102": filmDetail(102, "Metropols"),
-          "GET /genres": { genres: [] },
         },
         "/browse?library=1",
       ),
@@ -242,8 +241,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       walkServices(
         {
           ...signedIn,
-          "GET /items": { items: films(3), nextCursor: "" },
-          "GET /genres": {
+          // The list's first page names the genres its chips offer (D480 §1).
+          "GET /items": {
+            items: films(3),
+            nextCursor: "",
             genres: [
               { id: 2, name: "Drama" },
               { id: 3, name: "Heist" },

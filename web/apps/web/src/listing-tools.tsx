@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { ButtonByRole } from "./button-by-role.tsx";
 import { SortArrowIcon, SortIcon } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
-import { ListChips, useGenres, type ChipsKind, type Genre } from "./list-chips.tsx";
+import { ListChips, type ChipsKind, type Genre } from "./list-chips.tsx";
 import {
   clearedCriteria,
   criteriaKey,
@@ -50,8 +50,16 @@ export interface ShownCriteria {
   readonly onOpenChange: (isOpen: boolean) => void;
   /** The kind whose genres the chips offer; undefined for a list with no chips. */
   readonly chipsKind: ChipsKind | undefined;
-  /** The chips' genres (useGenres): read once the pop-up opens or the address names a genre. */
+  /**
+   * The chips' genres, as the list's first page last named them (D480 §1): none until one answers,
+   * and none another scope's (useHeldGenres).
+   */
   readonly genres: readonly Genre[];
+  /**
+   * Told the genres a first page of the list names, asked for with GET /items' genres, so the chips
+   * read none of their own (D480 §1).
+   */
+  readonly onGenres: (genres: readonly Genre[]) => void;
 }
 
 /**
@@ -66,9 +74,10 @@ export function useListCriteria(
   fromAddress: ListCriteria,
   chipsKind: ChipsKind | undefined,
   write: (criteria: ListCriteria) => void,
+  /** Whose genres the chips offer: the kind and, on one library's page, the library (useHeldGenres). */
+  chipsScope: string | undefined = chipsKind,
 ): ShownCriteria {
   const [held, setHeld] = useState<ListCriteria | undefined>(undefined);
-  const [isOpened, setIsOpened] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const heldRef = useRef<ListCriteria | undefined>(undefined);
   const isOpenRef = useRef(false);
@@ -97,7 +106,6 @@ export function useListCriteria(
       isOpenRef.current = isOpen;
       setIsOpen(isOpen);
       if (isOpen) {
-        setIsOpened(true);
         return;
       }
       const now = heldRef.current;
@@ -115,9 +123,40 @@ export function useListCriteria(
   );
   const shown = held ?? fromAddress;
   const listed = useRestedText(shown, isOpen);
-  const genres = useGenres(chipsKind, isOpened || shown.filters.genre !== undefined);
-  return { shown, listed, change, onOpenChange, chipsKind, genres };
+  const { genres, onGenres } = useHeldGenres(chipsKind === undefined ? undefined : chipsScope);
+  return { shown, listed, change, onOpenChange, chipsKind, genres, onGenres };
 }
+
+/**
+ * The genres a list's chips offer, as its first page names them (D480 §1), held for the chips'
+ * scope: their kind and, on one library's page, the library, whose genres are its own. Those told
+ * for another scope, a list's answer arriving after the page moved on, are let go, so another kind's
+ * or library's never show. A search or a chip changed keeps the scope: the genres held show until
+ * the new first page names them again, the same, as they are the list's before its search and
+ * filters, as GET /genres named them before (D480 §1).
+ */
+function useHeldGenres(scope: string | undefined): {
+  readonly genres: readonly Genre[];
+  readonly onGenres: (genres: readonly Genre[]) => void;
+} {
+  const [held, setHeld] = useState<{ readonly scope: string; readonly genres: readonly Genre[] }>();
+  const scopeRef = useLatest(scope);
+  const onGenres = useCallback(
+    (genres: readonly Genre[]) => {
+      if (scope !== undefined && scopeRef.current === scope) {
+        setHeld({ scope, genres });
+      }
+    },
+    [scope, scopeRef],
+  );
+  return {
+    genres: held !== undefined && held.scope === scope ? held.genres : noGenres,
+    onGenres,
+  };
+}
+
+/** The genres of chips whose list has not yet named them. */
+const noGenres: readonly Genre[] = [];
 
 /**
  * How long typing in a list's Sort and filter rests before the list is asked for what is typed: each
