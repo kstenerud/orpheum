@@ -121,6 +121,40 @@ export function pathChoiceOf(race: FirstRace): PathChoice {
  */
 export const pairsSettleMs = 5_000;
 
+/** How a page was opened, as its navigation's type names it: the API's ClientPathBody.pageOpened. */
+export type PageOpened = "navigate" | "reload" | "back_forward" | "prerender";
+
+/** Each type of navigation the API names, which a page tells. */
+const pageOpenedTypes: readonly string[] = [
+  "navigate",
+  "reload",
+  "back_forward",
+  "prerender",
+] satisfies readonly PageOpened[];
+
+/** The page's navigation entries, or none where the browser keeps none. */
+function navigationEntries(): readonly { readonly type?: unknown }[] {
+  return typeof performance === "undefined" || typeof performance.getEntriesByType !== "function"
+    ? []
+    : performance.getEntriesByType("navigation");
+}
+
+/**
+ * How this page was opened, from its navigation's entry (`performance.getEntriesByType("navigation")`):
+ * a link or the address bar, a reload, Back or Forward, or a prerender; undefined where the browser
+ * gives no entry or a type the API does not name. The owner saw a page replaced just after leaving
+ * the player, and the log could not say whether it was a reload or a Back that loaded the page again
+ * (staging, 2026-11-14; D484 §4).
+ */
+export function pageOpenedOf(
+  entries: readonly { readonly type?: unknown }[] = navigationEntries(),
+): PageOpened | undefined {
+  const type = entries[0]?.type;
+  return typeof type === "string" && pageOpenedTypes.includes(type)
+    ? (type as PageOpened)
+    : undefined;
+}
+
 /** What reportPathChoice tells: the choice, over WebRTC the transport whose pairs go with it. */
 export interface PathChoiceTold {
   /** The session's token once the wait is over; nothing is sent without one. */
@@ -132,12 +166,14 @@ export interface PathChoiceTold {
   readonly choice: () => PathChoice | undefined;
   readonly transport?:
     { readonly candidatePairs: () => Promise<readonly CandidatePairSeen[]> } | undefined;
+  /** How the page was opened (pageOpenedOf), on its first report alone; absent on a later one's. */
+  readonly pageOpened?: PageOpened | undefined;
 }
 
 /**
  * Tells the core's log how the page chose its path, once pairsSettleMs have passed, sent over send
- * with the session's token then: over WebRTC with the candidate pairs of the transport's connection.
- * Nothing is sent from a page with no session by then, or no choice; a failure to send is the caller's
+ * with the session's token then: over WebRTC with the candidate pairs of the transport's connection,
+ * and how the page was opened where told says. Nothing is sent from a page with no session by then, or no choice; a failure to send is the caller's
  * to drop.
  */
 export async function reportPathChoice(
@@ -158,6 +194,7 @@ export async function reportPathChoice(
       ...choice,
       names: [...choice.names],
       ...(webrtcPairs.length === 0 ? {} : { webrtcPairs: [...webrtcPairs] }),
+      ...(told.pageOpened === undefined ? {} : { pageOpened: told.pageOpened }),
     },
   });
 }

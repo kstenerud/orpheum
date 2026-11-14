@@ -94,3 +94,40 @@ func TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs(t *test
 		t.Errorf("a path's name longer than 300 characters was taken: %d", answer.status)
 	}
 }
+
+// A page's first report of its path says how the page was opened, as the browser's navigation names
+// it, and a report that says nothing logs no pageOpened; a type the API does not name is refused: the
+// owner saw a page replaced just after leaving the player, and the log could not say whether it was a
+// reload or a Back that loaded it again (staging, 2026-11-14; D484 §4).
+func TestClientPaths_APagesFirstReportSaysHowThePageWasOpened(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	report := func(reached string, pageOpened ...string) map[string]any {
+		body := map[string]any{
+			"browser": "chrome", "isLanNameUsed": true, "localNetwork": "granted", "directOffered": 0,
+			"lanOffered": 0, "reached": reached, "names": []map[string]any{},
+		}
+		for _, how := range pageOpened {
+			body["pageOpened"] = how
+		}
+		return body
+	}
+	answer := harness.do(t, http.MethodPost, "/client-paths", user, report("webrtc", "back_forward"))
+	if answer.status != http.StatusNoContent {
+		t.Fatalf("POST /client-paths with pageOpened = %d %s", answer.status, answer.body)
+	}
+	harness.logs.AwaitEvent(t, "pagePathChosen", `"reached":"webrtc"`, `"pageOpened":"back_forward"`)
+	if answer = harness.do(t, http.MethodPost, "/client-paths", user, report("direct later")); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("POST /client-paths with no pageOpened = %d %s", answer.status, answer.body)
+	}
+	if later := harness.logs.AwaitEvent(t, "pagePathChosen", `"reached":"direct later"`); strings.Contains(later,
+		"pageOpened") {
+		t.Errorf("a report that said nothing of how its page was opened logged it: %s", later)
+	}
+	if answer = harness.do(t, http.MethodPost, "/client-paths", user, report("webrtc", "teleported")); answer.status !=
+		http.StatusUnprocessableEntity {
+		t.Errorf("a pageOpened the API does not name was taken: %d", answer.status)
+	}
+}

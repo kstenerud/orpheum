@@ -27,7 +27,7 @@ import {
 } from "@orpheum/sdk";
 
 import type { Reached, Reaching } from "./discovery-start.ts";
-import { reportPathChoice, type PathChoice } from "./path-choice.ts";
+import { pageOpenedOf, reportPathChoice, type PathChoice } from "./path-choice.ts";
 import { pathName } from "./transport-wanted.ts";
 
 /** What a page keeps of the paths to its core. */
@@ -113,7 +113,8 @@ export const failuresBeforeGivingUp = 2;
  * Tells the core's log how the page chose its path, over send's fetch, with the pairs of transport
  * where it is WebRTC's (D354 §5): for the first path, and again for each WebRTC transport moved to
  * later, once each, as a page whose LAN name failed moves to WebRTC (D300 §4) and nothing said
- * whether its pairs worked (code debt, 2026-10-27). A failure to tell it is dropped: it is for the
+ * whether its pairs worked (code debt, 2026-10-27); the first says how the page was opened (D484 §4).
+ * A failure to tell it is dropped: it is for the
  * log alone. The choice is read when told, its race over (D414 §4).
  */
 function choiceTeller(
@@ -121,11 +122,16 @@ function choiceTeller(
   session: { readonly token: () => string | undefined },
   reaching: { readonly choice?: PathChoice },
 ): (transport: RtcTransport | undefined) => void {
+  let isFirst = true;
   return (transport) => {
+    // How the page was opened goes with its first report alone, not a later transport's (D484 §4).
+    const pageOpened = isFirst ? pageOpenedOf() : undefined;
+    isFirst = false;
     reportPathChoice(send(), {
       token: session.token,
       choice: () => reaching.choice,
       transport,
+      pageOpened,
     }).catch(() => undefined);
   };
 }

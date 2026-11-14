@@ -462,6 +462,59 @@ describe("the kept path", () => {
     globalThis.fetch = realFetch;
     expect(pairsAsked).toEqual({ a: 1, b: 1 });
   });
+
+  // The owner saw a page replaced just after leaving the player, and the log could not say whether
+  // it was a reload or a Back that loaded the page again (staging, 2026-11-14; D484 §4).
+  it("says how the page was opened on its first report of its path alone, not on a later transport's", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+      { type: "back_forward" },
+    ] as unknown as PerformanceEntryList);
+    const told: Record<string, unknown>[] = [];
+    // Every request but a report fails, so the page moves from a to b once.
+    const recording = async (request: Request): Promise<Response> => {
+      if (!request.url.endsWith("/api/v1/client-paths")) {
+        throw new TypeError("Failed to fetch");
+      }
+      told.push((await request.json()) as Record<string, unknown>);
+      return new Response(null, { status: 204 });
+    };
+    const transportRecording = (): RtcTransport => {
+      const transport = new RtcTransport([
+        { ...closingPeer(), candidatePairs: () => Promise.resolve([]) },
+      ]);
+      Object.defineProperty(transport, "fetch", { value: recording });
+      return transport;
+    };
+    const a: Reached = { kind: "webrtc", transport: transportRecording() };
+    const b: Reached = { kind: "webrtc", transport: transportRecording() };
+    const choice: PathChoice = {
+      browser: "chrome",
+      isLanNameUsed: true,
+      localNetwork: "granted",
+      directOffered: 0,
+      lanOffered: 0,
+      names: [],
+      reached: "webrtc",
+    };
+    const kept = keepPath(
+      {
+        first: a,
+        choice,
+        another: (failed) => Promise.resolve(failed === a ? b : a),
+        better: () => Promise.resolve(undefined),
+        onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
+      },
+      { token: () => "a-token" },
+    );
+    kept.carried.catch(() => undefined);
+    await kept.fetch(new Request("https://core.example/api/v1/library")).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(pairsSettleMs);
+    kept.close();
+    vi.restoreAllMocks();
+    expect(told.map((each) => each.pageOpened)).toEqual(["back_forward", undefined]);
+  });
 });
 
 /** A peer connection that only says whether it was closed. */

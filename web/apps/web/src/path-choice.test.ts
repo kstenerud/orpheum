@@ -7,6 +7,7 @@ import type { Target } from "@orpheum/sdk";
 import { reachCore } from "./discovery-start.ts";
 import {
   browserFamily,
+  pageOpenedOf,
   pairsSettleMs,
   pathChoiceOf,
   reportPathChoice,
@@ -194,5 +195,32 @@ describe("telling the core how the page chose its path", () => {
       now,
     );
     expect(sent.map((each) => each.body)).toEqual([{ ...choice, reached: `direct ${ipv6}` }]);
+  });
+
+  it("says how the page was opened where it is told, and nothing of it where it is not (D484 §4)", async () => {
+    const sent: { path: string; authorization: string | null; body: unknown }[] = [];
+    const now = (): Promise<void> => Promise.resolve();
+    await reportPathChoice(
+      keeping(sent),
+      { token: () => "a-token", choice: () => choice, pageOpened: "reload" },
+      now,
+    );
+    await reportPathChoice(keeping(sent), { token: () => "a-token", choice: () => choice }, now);
+    expect(sent.map((each) => each.body)).toEqual([{ ...choice, pageOpened: "reload" }, choice]);
+  });
+});
+
+describe("how a page was opened (D484 §4)", () => {
+  it("is its navigation's type, as the browser gives it", () => {
+    expect(pageOpenedOf([{ type: "navigate" }])).toBe("navigate");
+    expect(pageOpenedOf([{ type: "reload" }])).toBe("reload");
+    expect(pageOpenedOf([{ type: "back_forward" }])).toBe("back_forward");
+    expect(pageOpenedOf([{ type: "prerender" }])).toBe("prerender");
+  });
+
+  it("is nothing where the browser gives no entry, or a type the API does not name", () => {
+    expect(pageOpenedOf([])).toBeUndefined();
+    expect(pageOpenedOf([{}])).toBeUndefined();
+    expect(pageOpenedOf([{ type: "teleported" }])).toBeUndefined();
   });
 });

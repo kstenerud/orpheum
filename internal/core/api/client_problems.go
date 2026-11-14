@@ -82,6 +82,9 @@ type ClientPathBody struct {
 	Reached       string              `doc:"What the page reached the core by: \"webrtc\", or \"direct\" and the name's origin" json:"reached" maxLength:"300" minLength:"1"`                                                 //nolint:lll // one struct tag
 	Names         []RacedNameBody     `doc:"Each of the core's names the page raced or left out, with what came of it" json:"names" maxItems:"16"`                                                                            //nolint:lll // one struct tag
 	WebRTCPairs   []CandidatePairBody `doc:"Over WebRTC, its first connection's candidate pairs, the selected one and those to the core's host candidates first" json:"webrtcPairs,omitempty" maxItems:"16" required:"false"` //nolint:lll // one struct tag
+	// PageOpened says whether a page replaced just after a player was a reload or a Back that loaded
+	// it again, which the log could not tell (the owner, staging, 2026-11-14; D484 §4).
+	PageOpened string `doc:"How the page was opened, its navigation's type as the browser gives it, on its first report alone" enum:"navigate,reload,back_forward,prerender" json:"pageOpened,omitempty" required:"false"` //nolint:lll // one struct tag
 }
 
 // RacedNameBody is one of the core's names and what came of it in the page's first race.
@@ -139,6 +142,9 @@ func (server *Server) reportClientPath(ctx context.Context, input *ClientPathInp
 			}
 		}
 		attributes = append(attributes, "selectedPair", selected, "otherPairs", strings.Join(others, "; "))
+	}
+	if body.PageOpened != "" {
+		attributes = append(attributes, "pageOpened", body.PageOpened)
 	}
 	server.logger.InfoContext(ctx, "a page chose its path to the core",
 		append(attributes, slogx.EventKey, "pagePathChosen")...)

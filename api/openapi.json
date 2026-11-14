@@ -737,6 +737,16 @@
               "null"
             ]
           },
+          "pageOpened": {
+            "description": "How the page was opened, its navigation's type as the browser gives it, on its first report alone",
+            "enum": [
+              "navigate",
+              "reload",
+              "back_forward",
+              "prerender"
+            ],
+            "type": "string"
+          },
           "reached": {
             "description": "What the page reached the core by: \"webrtc\", or \"direct\" and the name's origin",
             "maxLength": 300,
