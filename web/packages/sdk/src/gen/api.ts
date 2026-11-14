@@ -2949,10 +2949,10 @@ export interface components {
             /** @description Each of the core's names the page raced or left out, with what came of it */
             names: components["schemas"]["RacedNameBody"][] | null;
             /**
-             * @description How the page was opened, its navigation's type as the browser gives it, on its first report alone
+             * @description How the page was opened, its navigation's type (the browser's back_forward as backForward), on its first report alone
              * @enum {string}
              */
-            pageOpened?: "navigate" | "reload" | "back_forward" | "prerender";
+            pageOpened?: "navigate" | "reload" | "backForward" | "prerender";
             /** @description What the page reached the core by: "webrtc", or "direct" and the name's origin */
             reached: string;
             /** @description Over WebRTC, its first connection's candidate pairs, the selected one and those to the core's host candidates first */

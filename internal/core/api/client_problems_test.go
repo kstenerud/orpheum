@@ -113,11 +113,11 @@ func TestClientPaths_APagesFirstReportSaysHowThePageWasOpened(t *testing.T) {
 		}
 		return body
 	}
-	answer := harness.do(t, http.MethodPost, "/client-paths", user, report("webrtc", "back_forward"))
+	answer := harness.do(t, http.MethodPost, "/client-paths", user, report("webrtc", "backForward"))
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /client-paths with pageOpened = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitEvent(t, "pagePathChosen", `"reached":"webrtc"`, `"pageOpened":"back_forward"`)
+	harness.logs.AwaitEvent(t, "pagePathChosen", `"reached":"webrtc"`, `"pageOpened":"backForward"`)
 	if answer = harness.do(t, http.MethodPost, "/client-paths", user, report("direct later")); answer.status !=
 		http.StatusNoContent {
 		t.Fatalf("POST /client-paths with no pageOpened = %d %s", answer.status, answer.body)

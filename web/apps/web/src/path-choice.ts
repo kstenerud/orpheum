@@ -121,11 +121,19 @@ export function pathChoiceOf(race: FirstRace): PathChoice {
  */
 export const pairsSettleMs = 5_000;
 
-/** How a page was opened, as its navigation's type names it: the API's ClientPathBody.pageOpened. */
-export type PageOpened = "navigate" | "reload" | "back_forward" | "prerender";
+/**
+ * How a page was opened, its navigation's type in the API's camelCase (D459): the API's
+ * ClientPathBody.pageOpened. The browser's own name for Back or Forward is "back_forward".
+ */
+export type PageOpened = "navigate" | "reload" | "backForward" | "prerender";
 
-/** Each type of navigation the API names, which a page tells. */
-const pageOpenedTypes: readonly PageOpened[] = ["navigate", "reload", "back_forward", "prerender"];
+/** Each type of navigation the API names, by the browser's name for it. */
+const pageOpenedByType: ReadonlyMap<unknown, PageOpened> = new Map([
+  ["navigate", "navigate"],
+  ["reload", "reload"],
+  ["back_forward", "backForward"],
+  ["prerender", "prerender"],
+]);
 
 /** The page's navigation entries, or none where the browser keeps none. */
 function navigationEntries(): readonly { readonly type?: unknown }[] {
@@ -146,8 +154,7 @@ function navigationEntries(): readonly { readonly type?: unknown }[] {
 export function pageOpenedOf(
   entries: readonly { readonly type?: unknown }[] = navigationEntries(),
 ): PageOpened | undefined {
-  const type = entries[0]?.type;
-  return pageOpenedTypes.find((each) => each === type);
+  return pageOpenedByType.get(entries[0]?.type);
 }
 
 /** What reportPathChoice tells: the choice, over WebRTC the transport whose pairs go with it. */

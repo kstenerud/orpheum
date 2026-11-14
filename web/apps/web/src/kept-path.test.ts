@@ -513,7 +513,7 @@ describe("the kept path", () => {
     await vi.advanceTimersByTimeAsync(pairsSettleMs);
     kept.close();
     vi.restoreAllMocks();
-    expect(told.map((each) => each["pageOpened"])).toEqual(["back_forward", undefined]);
+    expect(told.map((each) => each["pageOpened"])).toEqual(["backForward", undefined]);
   });
 });
 

@@ -214,7 +214,7 @@ describe("how a page was opened (D484 §4)", () => {
   it("is its navigation's type, as the browser gives it", () => {
     expect(pageOpenedOf([{ type: "navigate" }])).toBe("navigate");
     expect(pageOpenedOf([{ type: "reload" }])).toBe("reload");
-    expect(pageOpenedOf([{ type: "back_forward" }])).toBe("back_forward");
+    expect(pageOpenedOf([{ type: "back_forward" }])).toBe("backForward");
     expect(pageOpenedOf([{ type: "prerender" }])).toBe("prerender");
   });
 

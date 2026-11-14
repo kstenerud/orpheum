@@ -738,11 +738,11 @@
             ]
           },
           "pageOpened": {
-            "description": "How the page was opened, its navigation's type as the browser gives it, on its first report alone",
+            "description": "How the page was opened, its navigation's type (the browser's back_forward as backForward), on its first report alone",
             "enum": [
               "navigate",
               "reload",
-              "back_forward",
+              "backForward",
               "prerender"
             ],
             "type": "string"
