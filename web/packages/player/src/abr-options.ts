@@ -77,6 +77,14 @@ export interface ChoosingOptions {
    * the link's speed (LinkOutages, D487); absent where nothing listens.
    */
   readonly linkLost?: ((why: string) => void) | undefined;
+  /**
+   * The device's data cap now (D488): the highest rate, kbit/s, its sound's with it, a quality it
+   * chooses or loads may have, never the film's own picture under one (underDataCap); undefined for
+   * none, and absent where nothing caps it. Read at each choice, so a cap chosen, or one for the kind
+   * of network it moved to, lowers the ceiling at the next chunk, and one lifted is climbed back by
+   * the step-up.
+   */
+  readonly dataCapKbps?: (() => number | undefined) | undefined;
   /** Whether it plays in a Watch Together group, which keeps the film's own picture (D286 §2). */
   readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */

@@ -599,6 +599,33 @@ export function ownPictureLevel(levels: readonly ChoiceLevel[]): number {
 }
 
 /**
+ * The quality level comes to under the device's data cap (D488), capKbps, a rate with its sound's in
+ * kbit/s: the highest at or below level that is not the film's own picture and whose average rate,
+ * its sound's with it, is at most capKbps; else the lowest the core made, a cap under every quality
+ * being the lowest; level itself with no cap, or where the core made none. A capped device never
+ * plays the film's own picture, however low its rate: the person chose a converted rung (the
+ * owner, 2026-11-14).
+ */
+export function underDataCap(
+  levels: readonly ChoiceLevel[],
+  level: number,
+  capKbps: number | undefined,
+): number {
+  if (capKbps === undefined) {
+    return level;
+  }
+  const own = ownPictureLevel(levels);
+  const under = levels.findLastIndex(
+    (each, index) => index <= level && index !== own && each.averageBitrate <= capKbps * 1000,
+  );
+  if (under >= 0) {
+    return under;
+  }
+  const lowest = levels.findIndex((_, index) => index !== own);
+  return lowest >= 0 ? lowest : level;
+}
+
+/**
  * The film's own picture, when a player in a Watch Together group keeps it: while its link carries
  * the picture's average rate, whatever share the controller keeps back for voice or a growing
  * buffer. Such a player stepped down to a quality the server made for it, adding an encode the

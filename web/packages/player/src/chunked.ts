@@ -60,6 +60,7 @@ import { skipChunksNotMade } from "./skip-unmade.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { stepOverHoles } from "./holes.ts";
+import { tellOfferedRungs } from "./offered-rungs.ts";
 import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
@@ -547,7 +548,8 @@ function stepAndLinkNoter(
  * group, telling the page of a quality unplayable here (D266), and keeping each of its choices, with
  * why, among the video's steps, and its steadiness level and its link's spread for its play reports;
  * its estimate of the link starting from what its offer says its device remembers (P2); and telling
- * the page's outages, where given, each sign that its link was lost (D487).
+ * the page's outages, where given, each sign that its link was lost (D487); under the device's data
+ * cap, where given (D488).
  */
 export function choosingOptionsOf(
   video: HTMLVideoElement,
@@ -557,10 +559,12 @@ export function choosingOptionsOf(
     readonly linkSharePercent?: number | undefined;
     readonly startSteadiness?: number | undefined;
     readonly outages?: LinkOutages | undefined;
+    readonly dataCapKbps?: (() => number | undefined) | undefined;
   } & RememberedOffer,
 ): ChoosingOptions {
   const { outages, monotonicMs } = options;
   return {
+    dataCapKbps: options.dataCapKbps,
     linkLost:
       outages === undefined
         ? undefined
@@ -695,6 +699,11 @@ export function playChunked(
      * (pageLinkOutages, D487); absent, it never does, as a film page's hidden player and a lab's.
      */
     readonly outages?: LinkOutages | undefined;
+    /**
+     * The device's data cap now, kbit/s, its sound's with it (ChoosingOptions.dataCapKbps, D488);
+     * absent, or undefined, for none.
+     */
+    readonly dataCapKbps?: (() => number | undefined) | undefined;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
     readonly authorization?: string | undefined;
     /** The fetch every load is made by, where the page gives one (chunkedHlsConfig). */
@@ -727,6 +736,7 @@ export function playChunked(
   const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
+  stops.push(tellOfferedRungs(hls, video));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

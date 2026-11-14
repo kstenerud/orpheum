@@ -16,6 +16,7 @@ import {
   startingSamples,
   steadyLevel,
   underCeiling,
+  underDataCap,
   voiceCeiling,
 } from "./abr-choice.ts";
 import type {
@@ -133,6 +134,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
 
   /** The quality the first chunk is of. */
   firstLevel(): number {
+    this.#lowerToDataCap();
     return this.#choose(this.#clamped(this.#ceilingNow()), () => this.#ceilingWhy);
   }
 
@@ -149,6 +151,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     if (this.#forced !== undefined) {
       return this.#choose(this.#forced, () => "forced by hls.js");
     }
+    this.#lowerToDataCap();
     const linkBps = this.#linkBps();
     const inTheGroup = this.#groupsChoice(linkBps);
     if (inTheGroup !== undefined) {
@@ -269,9 +272,16 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     return this.#isStarting;
   }
 
-  /** The highest quality it may ever load: the top, below any unplayable here (D266); no ceiling of the moment. */
+  /**
+   * The highest quality it may ever load: the top, below any unplayable here (D266) and under the
+   * device's data cap (D488); no ceiling of the moment.
+   */
   topLevel(): number {
-    return Math.min(this.#hls.maxAutoLevel, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
+    return Math.min(
+      this.#hls.maxAutoLevel,
+      (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1,
+      this.#dataCapTop(),
+    );
   }
 
   /**
@@ -505,7 +515,11 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       headroom: this.#steadiness.headroom(),
       isOneAtATime: this.#steadiness.climbsOneAtATime() || !this.#estimate.agrees(),
     });
-    const allowed = Math.min(raised, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
+    const allowed = Math.min(
+      raised,
+      (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1,
+      this.#dataCapTop(),
+    );
     if (allowed > ceiling) {
       this.#ceilingWhy = `stepped up; ${this.#stateText()}`;
       this.#options.noteStep?.(
@@ -728,7 +742,38 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       return level;
     }
     const highest = Math.min(maxAutoLevel, underCeiling(levels, this.#serverCeilingKbps));
-    return Math.max(Math.min(level, highest), minAutoLevel);
+    return underDataCap(
+      levels,
+      Math.max(Math.min(level, highest), minAutoLevel),
+      this.#options.dataCapKbps?.(),
+    );
+  }
+
+  /**
+   * The highest quality the device's data cap lets it load (underDataCap, D488); every quality's
+   * with no cap, or before the levels are known.
+   */
+  #dataCapTop(): number {
+    const { levels } = this.#hls;
+    const capKbps = this.#options.dataCapKbps?.();
+    return capKbps === undefined || levels.length === 0
+      ? Number.POSITIVE_INFINITY
+      : underDataCap(levels, levels.length - 1, capKbps);
+  }
+
+  /**
+   * Lowers the ceiling to the device's data cap where it stands above it (D488): a cap chosen or
+   * met mid-film, as on moving to mobile data, takes the next chunk down, and the step-up climbs
+   * back from there once it is lifted, as after any step down.
+   */
+  #lowerToDataCap(): void {
+    const top = this.#dataCapTop();
+    if (top < this.#ceilingNow()) {
+      this.#lower(
+        top,
+        () => `the device's data cap, ${String(this.#options.dataCapKbps?.())} kb/s`,
+      );
+    }
   }
 
   /** The link's estimate, every choice's (D352 §2); undefined before a chunk measured it. */

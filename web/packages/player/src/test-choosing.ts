@@ -112,6 +112,8 @@ export interface Scene {
   firstPieces: Map<string, FirstPiece>;
   /** Tells the choosing of a long task of the page, as the browser would (D382 §3). */
   longTask: (startMs: number, durationMs: number) => void;
+  /** The device's data cap, kbit/s, its sound's with it (D488); undefined for none. */
+  dataCapKbps: number | undefined;
 }
 
 export const scene: Scene = {
@@ -128,6 +130,7 @@ export const scene: Scene = {
   linkLost: [],
   firstPieces: new Map<string, FirstPiece>(),
   longTask: () => undefined,
+  dataCapKbps: undefined,
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -155,6 +158,7 @@ export function useScene(vitest: {
     scene.linkLost = [];
     scene.firstPieces = new Map<string, FirstPiece>();
     scene.longTask = () => undefined;
+    scene.dataCapKbps = undefined;
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -234,6 +238,7 @@ export function choosingFrom(
       noteLinkSpread: (spread) => scene.spreadsNoted.push(spread),
       noteLink: (note) => scene.linkNotes.push(note),
       linkLost: (why) => scene.linkLost.push(why),
+      dataCapKbps: () => scene.dataCapKbps,
       carrierOf: (url) => `WebRTC connection 2 for ${url}`,
     },
     {
