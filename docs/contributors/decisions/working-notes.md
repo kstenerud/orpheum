@@ -25980,7 +25980,10 @@ open) stands. Research:
    2026-11-14; the owner, 2026-11-14, VQ249: on a phone on its side outside the browser's full screen
    "tapping the screen only brings the overlay up, it doesn't dismiss it"): in a window that short the
    overlay's box lay over three quarters of the film, so only a button, a link, a field or a menu
-   keeps a tap.
+   keeps a tap. A button by role (`button-by-role.tsx`, the subtitle and settings pop-ups' openers)
+   is a button, and anything inside an open pop-up is the pop-up's (added 2026-11-14; the owner,
+   2026-11-14: the subtitle pop-up opened and closed and the page took no tap until Back, the open
+   pop-up hidden with the overlay but still modal).
 2. **A tap on the picture shows it where it is hidden, and does not pause.** What shows is all of
    it, as a mouse's move shows it. A hide by tap leaves no state: shown again while the film is
    paused, the overlay stays up (D407 §6), because that hold reads whether the film is paused when

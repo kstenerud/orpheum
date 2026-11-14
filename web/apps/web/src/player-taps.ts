@@ -18,7 +18,7 @@ import {
  * A tap that was not a drag: where it fell on the page, and whether it fell on a control.
  */
 export interface PictureTap {
-  /** Whether it fell on a button, link, field or menu (controlSelector), which a tap answers as it did. */
+  /** Whether it fell on a control (controlSelector): a button, link, field, menu or open pop-up. */
   readonly isOnControl: boolean;
   readonly x: number;
   /** When it lifted, the clock of an event's timeStamp. */
@@ -80,13 +80,17 @@ export function isAMousesClick(event: MouseEvent, touches: TouchClock): boolean 
 }
 
 /**
- * What a tap answers as a control's, in the player: a button, a link, a field or a menu, the overlay's
- * or one the page draws over the film. The overlay's own ground, its scrim and the room between its
- * rows, is the picture's: in a window as short as a phone's on its side with the browser's bar
- * showing, it lies over three quarters of the film, and a tap there must hide it as one above it does
- * (the owner, 2026-11-14, VQ249).
+ * What a tap answers as a control's, in the player: a button, a button by role (button-by-role.tsx,
+ * which opens the subtitle and settings pop-ups), a link, a field, a menu, or anything inside an open
+ * pop-up, the overlay's or one the page draws over the film. The overlay's own ground, its scrim and
+ * the room between its rows, is the picture's: in a window as short as a phone's on its side with the
+ * browser's bar showing, it lies over three quarters of the film, and a tap there must hide it as one
+ * above it does (the owner, 2026-11-14, VQ249). A tap on a button by role counted as the picture's
+ * hid the overlay a moment after it opened its pop-up, and the pop-up, still modal but drawn nowhere,
+ * held the whole page until Back closed it (the owner, 2026-11-14).
  */
-const controlSelector = "button, a, input, select, textarea, [role='menu']";
+const controlSelector =
+  "button, [role='button'], a, input, select, textarea, [role='menu'], dialog";
 
 interface TouchDown {
   readonly id: number;
