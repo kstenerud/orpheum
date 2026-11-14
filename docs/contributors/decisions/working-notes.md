@@ -28534,3 +28534,54 @@ queue. The interest notes (`PUT /interest/tiles`, `PUT /interest/page`) rode the
 - 3: web/packages/sdk/src/rtc-transport.test.ts ("lets images hold at most
   cosmeticRoomsPerConnection of a connection's rooms, the rest kept for reads", "gives the images
   their share of each connection up")
+
+## D480 — A menu's or a dialog's contents come with the page's essential data, not a read on opening
+
+**Decided** (2026-11-14), by the lead, on the owner's order of the client-server audit's fixes
+(finding 9, "the batch after": *"Do your recommended ones in the next batch, and then the rest in the
+batch after"*), applying D476 and D478. The owner to confirm. Amends nothing.
+
+The client-server audit found menus and dialogs that fetched on opening to learn what they list,
+though the page held it or could have carried it. The rule: a menu's contents come with the page's
+essential data, and a fetch on opening is the exception, kept for contents that change by the second
+or come from outside. The rows the audit found justified stand.
+
+1. **A list of films or series names its genres** when asked (`GET /items?genres=true`), on the page
+   asked with no cursor alone: each genre with a title of the list's kinds in its libraries, before
+   its search and filters, with how many, as `GET /genres` answers them. The genre chip is to take
+   them from the list's first page, not from a `GET /genres` of its own. The server's side is built;
+   the web's side is not yet (see Status). `GET /genres` stays.
+2. **`/me` carries the person's own choices** (`preferences`, as `GET /me/preferences` answers them),
+   on the shell's first read and every read after. A library's Configure shows them from who is
+   signed in (`useMe`) and reads `/me` again once one is changed; it reads none of its own.
+3. **The Cast menu draws from the list of the person's devices the tab holds**, under the one key the
+   account's list and this device's page read it by (`myDevicesKey`), which the live connection's ids
+   pick from. Opening it asks nothing while that list names every device the live connection says is
+   connected; a device connected that it does not name, or no list held, reads the list again. The
+   live connection names only devices' ids, so a device renamed, or joining the person's Watch
+   Together session, while connected shows as the held list last said until a read. The menu fully
+   fetch-free would need the live connection's `devices` message to carry each device's name, last
+   use and Watch Together membership: for the owner to decide.
+4. **The role dialog ticks the shell's reading of the libraries** (`useLibrariesReached`), the one
+   the admin's pages hold, not a `GET /libraries` of its own on opening.
+5. **`/me`'s device carries its sound offset** (`device.soundOffsetMs`). A Watch Together guest's
+   sound timing starts from it, and reads no `GET /me/devices`.
+
+**Status:** decided (the owner to confirm); 1's web side left for the next batch: the Films' and
+Series' list asking `genres=true` on its first page and handing them to the genre chip, and the tests
+serving `GET /genres` changed to serve them in the list.
+
+**Proven by:**
+- 1: internal/core/api/people_test.go (`TestBrowse_AListsFirstPageNamesItsGenresWhenAsked`)
+- 2: internal/core/api/preferences_test.go (`TestMe_CarriesThePersonsOwnChoices`);
+  web/apps/web/src/library-configure.test.tsx ("takes the person's choices from who the shell read
+  as signed in, asking for nothing on opening (D480 §2)", "drawn alone, takes them from GET /me, and
+  reads no choices of its own")
+- 3: web/apps/web/src/cast-to.test.tsx ("asks for no list of devices on opening while the one the
+  tab holds names each device connected, and reads it again for one it does not (D480 §3)")
+- 4: web/apps/web/src/roles-section.test.tsx ("offers the libraries the shell holds to tick, asking
+  for none on opening (D480 §4)")
+- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysItsSoundOffset`);
+  web/apps/web/src/together-viewer-sound.test.tsx ("takes that offset from who the shell read as
+  signed in, asking for no list of devices (D480 §5)", "drawn alone, takes it from GET /me's device,
+  still asking for no list of devices")
