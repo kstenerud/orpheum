@@ -147,7 +147,7 @@ it("says how a loader's worker answered a screen's chunk, from the browser's own
     workerStart: 50,
     transferSize: 0,
   } as unknown as PerformanceEntry;
-  expect(workerAnswerOf("title", 0, [kept])).toBe("the service worker answered from what it kept");
+  expect(workerAnswerOf("title", 0, [kept])).toBe("the service worker answered it");
 
   const fetched = {
     name: "https://c.example/assets/title-ABC123.js",

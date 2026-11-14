@@ -137,11 +137,13 @@ function isScreensChunk(entry: PerformanceEntry, screen: string, sinceMs: number
 
 /**
  * How a loader's service worker answered screen's chunk, read from the browser's own record of its
- * load (PerformanceResourceTiming), the entry of it loaded at sinceMs or after: answered from what
- * the worker kept, with no bytes sent for it over the network, else how many it sent for; undefined
- * where the browser says nothing of it, or no worker intercepted its load at all. A best effort,
- * never the worker's own word (the simplest reliable one; a worker's note would need a new message
- * for it, kept to sw.ts's own job).
+ * load (PerformanceResourceTiming), the entry of it loaded at sinceMs or after: answered, and how
+ * many bytes the browser counted over the network for it when it counted any; undefined where the
+ * browser says nothing of it, or no worker intercepted its load at all. No bytes counted says
+ * nothing of whether the worker answered from what it kept: Chromium counts none for any answer a
+ * worker built, fetched over the page's path too (idiosyncrasies.md, Resource Timing in Chromium,
+ * for a load a service worker answered with a `Response` it built). A best effort, never the
+ * worker's own word, which would need a new message for it.
  */
 export function workerAnswerOf(
   screen: string,
@@ -154,7 +156,7 @@ export function workerAnswerOf(
   }
   const transferSize = numberFieldOf(latest, "transferSize") ?? 0;
   return transferSize === 0
-    ? "the service worker answered from what it kept"
+    ? "the service worker answered it"
     : `the service worker answered, ${String(transferSize)} bytes over the network`;
 }
 
