@@ -3169,3 +3169,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   minutes hidden. The wiring in `web/apps/web/src/client-main.tsx` (createHiddenNeed handed to the
   transport on the core's own origin and to the loader through setNeededHidden) runs as the module
   loads, with no seam a test can pass a fake through without mocking the app's own modules.
+- [ ] **VQ319** — Subtitles leave the film showing on an Android phone. On the Android phone, Chrome,
+  after the deploy: play a film with subtitles on, the overlay hidden, and wait for a subtitle. Passes
+  when the film stays drawn under the subtitle, not black with a line of it showing. Only the phone's
+  compositor shows the fault; the browser test checks the canvas's opacity
+  (`web/apps/web/src/film-stage.browser.test.tsx`; idiosyncrasies.md, "Chrome on Android draws a playing
+  video black under a fully opaque canvas over it")

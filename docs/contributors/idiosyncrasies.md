@@ -97,6 +97,7 @@ User-Agent (D263; the User-Agent is logged only).
 | `element.volume = x` is ignored. | [iOS: an element's volume is read-only to the page, and Web Audio output follows the ring/silent switch](#ios-an-elements-volume-is-read-only-to-the-page-and-web-audio-output-follows-the-ringsilent-switch) |
 | IPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain | [iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain](#iphone-safaris-native-hls-cannot-be-routed-through-web-audio-so-it-cannot-be-given-a-gain) |
 | Voice goes silent after getUserMedia. | [iOS suspends the AudioContext as the microphone opens](#ios-suspends-the-audiocontext-as-the-microphone-opens) |
+| Chrome on an Android phone drew the film black, one line of it left, as soon as a subtitle came up with the overlay hidden; the overlay brought it back. | [Chrome on Android draws a playing video black under a fully opaque canvas over it](#chrome-on-android-draws-a-playing-video-black-under-a-fully-opaque-canvas-over-it) |
 | Subtitles drawn by JASSUB over the video vanished in fullscreen ("they stop showing when I switch to full screen mode"). | [iPhone video fullscreen is not the Fullscreen API, and it leaves page overlays behind](#iphone-video-fullscreen-is-not-the-fullscreen-api-and-it-leaves-page-overlays-behind) |
 | A Watch Together guest on Firefox for Android pressed full screen and got Android's own full screen, none of our controls. | [A video's own controls put the video itself full screen, and Firefox cannot hide that button](#a-videos-own-controls-put-the-video-itself-full-screen-and-firefox-cannot-hide-that-button) |
 | Safari's native HLS starts on the first variant listed, whatever start hint is given | [Safari's native HLS starts on the first variant listed, whatever start hint is given](#safaris-native-hls-starts-on-the-first-variant-listed-whatever-start-hint-is-given) |
@@ -1452,6 +1453,32 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   WebCrypto has no Ed25519".
 - **Evidence:** the receiver's screen and the core's log on production, 2026-11-12; the user agent
   staging's log holds for the same Chromecast.
+
+### Chrome on Android draws a playing video black under a fully opaque canvas over it
+
+- **Technology:** Chrome on Android (seen on the Pixel 3a, Android's own Chrome, 2026-11-14), a playing
+  `<video>` with JASSUB's canvas (an `OffscreenCanvas` drawn by its worker) absolutely placed over its
+  picture.
+- **Symptom:** with the overlay hidden, as soon as a subtitle came up the picture went black, the
+  subtitle drawn on black and only a line of the film left below the canvas (the canvas was 212 px tall
+  over a picture 212.06 px tall). Bringing the overlay up showed the film again ("as soon as the subtitle
+  appears the video shrinks to 1 line", the owner, 2026-11-14).
+- **Cause, as far as seen:** not confirmed in Chromium's source. The canvas's box and the video's were
+  right throughout, so it is the compositor: Chrome on Android hands a video with little over it to the
+  system as its own surface (an overlay or underlay plane), and a fully opaque layer over it seems to
+  make it punch the picture out where the canvas lies. The overlay's scrim, translucent, over the film
+  changes how it is composited, which is why bringing it up showed the film.
+- **What we do:** the canvas is drawn at `opacity: 0.99` (`.film-player__stage .JASSUB`,
+  `web/apps/web/src/film-player.css`). Tried live on the phone: 0.99 shows the film with the subtitle;
+  back to 1 the picture is black again; `will-change: transform` changes nothing. The 1% is not visible
+  in the subtitles.
+- **Evidence:** the owner, 2026-11-14 (title 10 played from its resume point); reproduced on the Pixel
+  3a over CDP; VQ319. **[web]** A search found no report of this exact case (2026-11-14); the nearest are
+  [a Galaxy S21 WebView green video](https://lovemewithoutall.github.io/it/android-webview-video-green-screen-eng/),
+  put down to the video's hardware overlay plane, and [Mozilla bug
+  1921168](https://bugzilla.mozilla.org/show_bug.cgi?id=1921168), where an element over a video at
+  opacity 0.98 is the workaround.
+
 
 ## Web platform, all browsers
 

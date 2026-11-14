@@ -53,4 +53,29 @@ describe("the player's stage, laid out by a real browser", () => {
       mounted.unmount();
     }
   });
+
+  // The owner, 2026-11-14: Chrome on an Android phone drew the film black, a line of it left, as soon
+  // as a subtitle came up with the overlay hidden; the subtitles' canvas at opacity 0.99 keeps the
+  // picture, at 1 it is lost (VQ319 confirms it on the phone).
+  it("draws JASSUB's subtitles a little short of opaque over the film", async () => {
+    const mounted = await mount(
+      <div className="film-player__stage">
+        <video className="film-player__video">
+          <track kind="captions" />
+        </video>
+        <canvas className="JASSUB" />
+      </div>,
+    );
+    try {
+      const subtitles = mounted.container.querySelector<HTMLCanvasElement>(".JASSUB");
+      if (subtitles === null) {
+        throw new Error("no subtitles drawn");
+      }
+      const opacity = Number(getComputedStyle(subtitles).opacity);
+      expect(opacity).toBeLessThan(1);
+      expect(opacity).toBeGreaterThanOrEqual(0.99);
+    } finally {
+      mounted.unmount();
+    }
+  });
 });

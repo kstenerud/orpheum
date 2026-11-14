@@ -22,6 +22,14 @@
   background: var(--color-video-background);
 }
 
+/* JASSUB's subtitle layer is never quite opaque. Chrome on Android, with nothing but that layer over
+   a playing video, drew the picture black under it and only a line of the film below it, until the
+   overlay came up (the owner, 2026-11-14); 0.99 keeps the picture, 1 loses it (idiosyncrasies.md,
+   "Chrome on Android draws a playing video black under a fully opaque canvas over it"). */
+.film-player__stage .JASSUB {
+  opacity: 0.99;
+}
+
 /* The slot a page's kept video is placed in, which lays out as the video alone. */
 .film-player__kept {
   display: contents;
