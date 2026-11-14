@@ -186,6 +186,10 @@ export function CreditedPerson(props: { readonly id: number }): JSX.Element {
     const crediting = loadAgain(async (cursor) => {
       const query = {
         person: props.id,
+        // The kinds a list by release date may name: an other video has no release date, and a
+        // list naming none names every kind, which the server refuses in that order (the owner,
+        // 2026-11-14: "The server could not accept that" on the phone).
+        kind: ["film", "series"] satisfies ("film" | "series")[],
         sort: "released" as const,
         limit: creditedPageSize,
         ...(cursor === "" ? {} : { cursor }),

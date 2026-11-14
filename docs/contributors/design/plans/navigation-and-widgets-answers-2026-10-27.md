@@ -4056,4 +4056,8 @@ continue without my input."
   useGroupFilmDecision) is single-use (D478) with no test that a page come back to never plays an
   earlier visit's decision; revert-red counts the file only as load-bearing at compile time, as the
   function moved there. The test is test-dom's mountToRevisit's shape.
+- **Next batch:** in full screen, Next and Previous show the app's top bar for a moment as the
+  next episode's Play page draws (the owner, 2026-11-14, VQ267 on the Android phone: "whenever it
+  switches to the next or previous video I see a brief flash of the orpheum top bar"). Full screen
+  itself holds. Likely the shell's bar showing while no stage fills the window between the pages.
 - **The owner's:** 12 (polls that read whole answers) is D237's.

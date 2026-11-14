@@ -167,4 +167,27 @@ describe("a credited person's page", () => {
     await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /items"));
     expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /people/50", "GET /items"]);
   });
+
+  // The owner, 2026-11-14: a person's page said "The server could not accept that", as its list by
+  // release date named no kind, so every kind, and an other video has no release date.
+  it("asks for their titles by release date of the kinds that have one", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <CreditedPerson id={50} />,
+        servedBy({ "GET /people/50": [unanswered], "GET /items": [200, { items: [] }] }, heard),
+      ),
+    );
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /items"));
+    const asked = new URLSearchParams(
+      heard.find((each) => each.methodAndPath === "GET /items")?.query,
+    );
+    expect(asked.get("sort")).toBe("released");
+    expect(
+      asked
+        .getAll("kind")
+        .flatMap((kinds) => kinds.split(","))
+        .sort(),
+    ).toEqual(["film", "series"]);
+  });
 });
