@@ -1042,7 +1042,9 @@ coming back online does (`onWayBack`, `web/packages/sdk/src/rtc-connect.ts`). A 
 connection is asked again on the next one (`ChannelClosedError`, `isUnanswered`), and a polled screen
 keeps what it drew meanwhile (`web/apps/web/src/use-resource.ts`). A page throttled but not frozen
 (a hidden tab's timers slowed to once a minute) could cross the gap too: the cost is one connection
-replaced. VQ317.
+replaced. VQ317. While hidden and before any freeze, a page with no film playing and no cast's
+remote tries to connect at most every 10 s, and after two minutes hidden not at all until shown
+(D482): the try on being shown is the one that counts.
 
 **Sources:** [Page Lifecycle API](https://developer.chrome.com/docs/web-platform/page-lifecycle-api);
 [Intent to Ship: Page Lifecycle, system-initiated discarding and freezing](https://groups.google.com/a/chromium.org/g/blink-dev/c/Na7aTFJOpWs/m/_tpdtav8CAAJ)

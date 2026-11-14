@@ -273,22 +273,38 @@ function rankOf(target: Target, path: Reached): number {
 }
 
 /**
+ * How reachCore reaches its core: the browser's local-network permission (the browser's own where
+ * absent), whether the page needs its WebRTC connection while hidden (D482), and what connects
+ * through the discovery, connectThrough where absent, a test's fake otherwise.
+ */
+export interface ReachWays {
+  readonly localNetwork?: LocalNetwork | undefined;
+  readonly isNeededHidden?: (() => boolean) | undefined;
+  readonly connect?: typeof connectThrough | undefined;
+}
+
+/**
  * Reaches the target: at the first of its published names to answer, else over WebRTC through the
  * discovery (the protocol's §3.3; W2c, which races the names and then falls back), started
  * webrtcAfterMs into the race where no name has answered by then (D414 §4). Its WebRTC
  * connection, once made, serves every later move to WebRTC. The LAN name is tried as the browser's
  * local-network permission allows (W2c item 1): never once denied, and while the browser is still to
  * ask, asked once to raise the prompt, the race never waiting on it (raced); the look for a better
- * path leaves it out until the person answers.
+ * path leaves it out until the person answers. Its WebRTC connection's tries are paced while the
+ * page is hidden unless isNeededHidden says it needs them (D482).
  */
 export async function reachCore(
   client: DiscoveryClient,
   target: Target,
-  localNetwork: LocalNetwork = browserLocalNetwork(),
+  {
+    localNetwork = browserLocalNetwork(),
+    isNeededHidden,
+    connect = connectThrough,
+  }: ReachWays = {},
 ): Promise<Reaching> {
   const notLan = (urls: readonly string[]): readonly string[] =>
     urls.filter((url) => !target.lanUrls.includes(url));
-  const webrtc = webrtcThrough(client, target);
+  const webrtc = webrtcThrough(client, target, { isNeededHidden, connect });
   const direct = async (urls: readonly string[]): Promise<Reached | undefined> => {
     const origin = await firstDirectPath(urls, client.fetch);
     return origin === undefined ? undefined : { kind: "direct", origin };
@@ -351,11 +367,15 @@ export async function reachCore(
 function webrtcThrough(
   client: DiscoveryClient,
   target: Target,
+  through: {
+    readonly isNeededHidden: (() => boolean) | undefined;
+    readonly connect: typeof connectThrough;
+  },
 ): { readonly connect: () => Promise<Reached>; readonly drop: () => void } {
   let webrtc: Promise<Reached> | undefined;
   return {
     connect: () => {
-      webrtc ??= connectThrough(client, target).then(
+      webrtc ??= through.connect(client, target, { isNeededHidden: through.isNeededHidden }).then(
         (transport): Reached => ({ kind: "webrtc", transport }),
         (problem: unknown) => {
           webrtc = undefined;

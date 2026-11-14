@@ -89,9 +89,11 @@ describe("why a page took its path to the core (local-path-2026-10-27.md §4 ite
       },
       target,
       {
-        state: () => Promise.resolve("denied"),
-        onGranted: () => () => undefined,
-        onAsking: () => () => undefined,
+        localNetwork: {
+          state: () => Promise.resolve("denied"),
+          onGranted: () => () => undefined,
+          onAsking: () => () => undefined,
+        },
       },
     );
     expect(reaching.choice).toMatchObject({

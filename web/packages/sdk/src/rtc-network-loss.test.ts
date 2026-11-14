@@ -9,7 +9,15 @@ import {
   watchGone,
   type StatesPeer,
 } from "./rtc-peer.ts";
-import { openTryMostMs, RefusedForGood, Unreached, unreachedRetryMs } from "./rtc-reopen.ts";
+import { onWayBack } from "./rtc-connect.ts";
+import {
+  hiddenTriesForMs,
+  hiddenTryEveryMs,
+  openTryMostMs,
+  RefusedForGood,
+  Unreached,
+  unreachedRetryMs,
+} from "./rtc-reopen.ts";
 import type { ChannelLike } from "./rtc-request.ts";
 import { forgetSteps, stepsSoFar } from "./steps.ts";
 import {
@@ -380,5 +388,133 @@ describe("a transport whose network went", () => {
     transport.close();
     again.close();
     expect(online.hearing()).toBe(0);
+  });
+});
+
+describe("a transport whose page is hidden (D482)", () => {
+  /** A page the test hides and shows, telling its visibilitychange listeners. */
+  function testPage(): {
+    readonly page: {
+      visibilityState: DocumentVisibilityState;
+      addEventListener: (type: "visibilitychange", listener: () => void) => void;
+      removeEventListener: (type: "visibilitychange", listener: () => void) => void;
+    };
+    readonly turn: (to: DocumentVisibilityState) => void;
+  } {
+    const listeners = new Set<() => void>();
+    const page = {
+      visibilityState: "visible" as DocumentVisibilityState,
+      addEventListener: (_type: "visibilitychange", listener: () => void) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (_type: "visibilitychange", listener: () => void) => {
+        listeners.delete(listener);
+      },
+    };
+    return {
+      page,
+      turn: (to) => {
+        page.visibilityState = to;
+        for (const listener of listeners) {
+          listener();
+        }
+      },
+    };
+  }
+
+  /**
+   * A transport on a page, as connectRtc makes one, whose connection goes and whose every try
+   * after reaches no server, as on a phone with no network; returns when each try began.
+   */
+  async function lostOn(
+    shown: ReturnType<typeof testPage>,
+    isNeededHidden?: () => boolean,
+  ): Promise<{ readonly transport: RtcTransport; readonly triedAtMs: number[] }> {
+    const first = new LostPeer();
+    const triedAtMs: number[] = [];
+    const transport = new RtcTransport(
+      [first],
+      {
+        open: () => {
+          triedAtMs.push(Date.now());
+          return Promise.reject(new Unreached(new TypeError("Failed to fetch")));
+        },
+        size: 4,
+        onOnline: onWayBack(shown.page),
+        hidden: { page: shown.page, isNeededHidden },
+      },
+      () => Date.now(),
+    );
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("its page went unrun for 40000 ms, longer than the core holds a silent one");
+    return { transport, triedAtMs };
+  }
+
+  /** The waits between the tries begun at triedAtMs. */
+  function waitsOf(triedAtMs: readonly number[]): number[] {
+    return triedAtMs.slice(1).map((atMs, index) => atMs - (triedAtMs[index] ?? 0));
+  }
+
+  it("tries every hiddenTryEveryMs for its first hiddenTriesForMs hidden, then none until shown, when it tries at once", async () => {
+    const shown = testPage();
+    shown.turn("hidden");
+    const hiddenAtMs = Date.now();
+    const { transport, triedAtMs } = await lostOn(shown);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(triedAtMs[0]).toBe(hiddenAtMs + settledAfterMs); // the first at once
+    expect(new Set(waitsOf(triedAtMs))).toEqual(new Set([hiddenTryEveryMs]));
+    expect(triedAtMs.at(-1)).toBeLessThan(hiddenAtMs + hiddenTriesForMs);
+    expect(triedAtMs.at(-1)).toBeGreaterThanOrEqual(
+      hiddenAtMs + hiddenTriesForMs - hiddenTryEveryMs,
+    );
+    const tries = triedAtMs.length;
+    shown.turn("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(triedAtMs).toHaveLength(tries + 1);
+    expect(triedAtMs.at(-1)).toBe(Date.now());
+    await vi.advanceTimersByTimeAsync(60_000); // shown, the shown schedule again
+    expect(new Set(waitsOf(triedAtMs.slice(tries)))).toEqual(new Set([unreachedRetryMs]));
+    transport.close();
+  });
+
+  it("hidden again after being shown, counts its hiddenTriesForMs from the new hiding", async () => {
+    const shown = testPage();
+    shown.turn("hidden");
+    const { transport, triedAtMs } = await lostOn(shown);
+    await vi.advanceTimersByTimeAsync(hiddenTriesForMs * 2);
+    shown.turn("visible");
+    await vi.advanceTimersByTimeAsync(unreachedRetryMs * 3);
+    shown.turn("hidden");
+    const hiddenAgainAtMs = Date.now();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    const sinceHidden = triedAtMs.filter((atMs) => atMs > hiddenAgainAtMs);
+    expect(new Set(waitsOf(sinceHidden))).toEqual(new Set([hiddenTryEveryMs]));
+    expect(sinceHidden.at(-1)).toBeLessThan(hiddenAgainAtMs + hiddenTriesForMs);
+    expect(sinceHidden.length).toBeGreaterThanOrEqual(hiddenTriesForMs / hiddenTryEveryMs - 1);
+    transport.close();
+  });
+
+  it("keeps the shown schedule while hidden for as long as its app says it needs its connection: a film playing, a cast's remote", async () => {
+    const shown = testPage();
+    shown.turn("hidden");
+    let isNeeded = true;
+    const { transport, triedAtMs } = await lostOn(shown, () => isNeeded);
+    await vi.advanceTimersByTimeAsync(hiddenTriesForMs * 2);
+    expect(new Set(waitsOf(triedAtMs))).toEqual(new Set([unreachedRetryMs]));
+    expect(triedAtMs.at(-1)).toBeGreaterThan(Date.now() - hiddenTryEveryMs);
+    isNeeded = false; // the film paused, long hidden: no more tries
+    const tries = triedAtMs.length;
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(triedAtMs.length).toBeLessThanOrEqual(tries + 1);
+    transport.close();
+  });
+
+  it("shown, keeps its schedule as before", async () => {
+    const shown = testPage();
+    const { transport, triedAtMs } = await lostOn(shown);
+    await vi.advanceTimersByTimeAsync(hiddenTriesForMs * 2);
+    expect(new Set(waitsOf(triedAtMs))).toEqual(new Set([unreachedRetryMs]));
+    expect(unreachedRetryMs).toBeLessThan(hiddenTryEveryMs);
+    transport.close();
   });
 });

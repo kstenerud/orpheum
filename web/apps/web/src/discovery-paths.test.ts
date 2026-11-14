@@ -66,7 +66,7 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
       });
       return isAsking;
     };
-    const refused = await reachCore(client, target, asking("denied"));
+    const refused = await reachCore(client, target, { localNetwork: asking("denied") });
     expect(refused.first).toEqual({ kind: "direct", origin: ipv6 });
     expect(tried).not.toContain(lan);
     tried.length = 0;
@@ -76,7 +76,7 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     expect(isToldAsking(refused)).toBe(false);
     // Still to ask: the first race tries it, which is what has the browser ask; the look does not.
     tried.length = 0;
-    const waiting = await reachCore(client, target, asking("prompt"));
+    const waiting = await reachCore(client, target, { localNetwork: asking("prompt") });
     expect(tried).toContain(lan);
     tried.length = 0;
     expect(await waiting.better({ kind: "direct", origin: ipv6 })).toBeUndefined();
@@ -89,7 +89,7 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
         lanUrls: [],
         directUrls: target.directUrls.filter((url) => !url.startsWith(lan)),
       },
-      asking("prompt"),
+      { localNetwork: asking("prompt") },
     );
     expect(isToldAsking(noLan)).toBe(false);
   });
@@ -107,9 +107,11 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     // Waiting on the LAN name, the race would hold the public one for betterPathGraceMs (1 s).
     const reaching = await Promise.race([
       reachCore({ clientApi: "https://discovery.example/client/v1", fetch: fetched }, target, {
-        state: () => Promise.resolve("prompt"),
-        onGranted: () => () => undefined,
-        onAsking: () => () => undefined,
+        localNetwork: {
+          state: () => Promise.resolve("prompt"),
+          onGranted: () => () => undefined,
+          onAsking: () => () => undefined,
+        },
       }),
       new Promise<"waited">((resolve) =>
         setTimeout(() => {
@@ -219,7 +221,7 @@ describe("WebRTC beside the first race (D414 §4; RFC 8305's Happy Eyeballs)", (
     const reaching = reachCore(
       { clientApi: "https://discovery.example/client/v1", fetch: fetched },
       target,
-      granted,
+      { localNetwork: granted },
     );
     reaching.catch(() => undefined);
     try {
@@ -279,7 +281,7 @@ describe("the discovery's IPv6 probe in the first race (D398 §7)", () => {
     const reaching = await reachCore(
       client(true, asked),
       targetOf({ ipv6Probe: probe, tellIpv6Probe }),
-      granted,
+      { localNetwork: granted },
     );
     expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
     expect(asked).toContain(`${probe} no-cors no-store`);
@@ -293,7 +295,7 @@ describe("the discovery's IPv6 probe in the first race (D398 §7)", () => {
     const reaching = await reachCore(
       client(false, []),
       targetOf({ ipv6Probe: probe, tellIpv6Probe }),
-      granted,
+      { localNetwork: granted },
     );
     expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
     expect(tellIpv6Probe).not.toHaveBeenCalled();
@@ -301,7 +303,7 @@ describe("the discovery's IPv6 probe in the first race (D398 §7)", () => {
 
   it("fetches nothing more when the discovery named no probe", async () => {
     const asked: string[] = [];
-    await reachCore(client(true, asked), targetOf({}), granted);
+    await reachCore(client(true, asked), targetOf({}), { localNetwork: granted });
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.every((each) => each.startsWith(`${ipv6}/`))).toBe(true);
   });

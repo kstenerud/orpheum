@@ -175,7 +175,27 @@ export function signallerOf(client: DiscoveryClient, target: Target): Signaller 
   });
 }
 
-/** Connects to the target through the discovery, its offers proven and its answers checked. */
-export function connectThrough(client: DiscoveryClient, target: Target): Promise<RtcTransport> {
-  return connectRtc(signallerOf(client, target), { iceServers: target.iceServers });
+/**
+ * Connects to the target through the discovery, its offers proven and its answers checked; its
+ * tries paced while the page is hidden unless isNeededHidden says otherwise (connectRtc, D482).
+ */
+export function connectThrough(
+  client: DiscoveryClient,
+  target: Target,
+  { isNeededHidden, connect = connectRtc }: ThroughOptions = {},
+): Promise<RtcTransport> {
+  return connect(
+    signallerOf(client, target),
+    { iceServers: target.iceServers },
+    { isNeededHidden },
+  );
+}
+
+/**
+ * How connectThrough connects: its tries paced while the page is hidden unless isNeededHidden says
+ * it needs its connection (D482), made by connect, connectRtc where absent, a test's fake otherwise.
+ */
+export interface ThroughOptions {
+  readonly isNeededHidden?: (() => boolean) | undefined;
+  readonly connect?: typeof connectRtc | undefined;
 }

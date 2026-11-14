@@ -18,6 +18,7 @@ import { noOverlay, RemoteMenus, useRemotePrevious } from "./cast-remote-choices
 import { listMyCasts, moveCastOn, myCastsKey } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
+import { useShowsARemote } from "./hidden-need.ts";
 import type { PlayerControl, PlayerSource } from "./player-controls.tsx";
 import { OverlayRowsOf, SignsOverTheFilm } from "./player-overlay.tsx";
 import { useLatest } from "./latest.ts";
@@ -57,6 +58,8 @@ export function CastRemote(props: {
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
   useLeavesFullScreen();
+  // Its page hidden, it keeps connecting as when shown, so the receiver's controls stay at hand (D482 §3).
+  useShowsARemote();
   const sent = useHeldCast(props.castId);
   if (sent === undefined) {
     return null;

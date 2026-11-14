@@ -10,7 +10,7 @@ import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
-import { clientConnections, RtcTransport, type PeerLike } from "./rtc-transport.ts";
+import { clientConnections, RtcTransport, type Growth, type PeerLike } from "./rtc-transport.ts";
 import { whenShownOrBack, type ShownPage } from "./shown-page.ts";
 import { noteStep } from "./steps.ts";
 
@@ -187,19 +187,48 @@ export function onWayBack(page: ShownPage | undefined): (listener: () => void) =
  * Connects to the core through signaller: resolves once one peer connection is up, each with every
  * candidate gathered before its offer is sent, and opens the rest up to `count` behind it, replacing
  * any that is gone, and trying at once when the browser comes back online or the page is shown again
- * (plans/webrtc-transport.md W2d, onWayBack).
+ * (plans/webrtc-transport.md W2d, onWayBack). While the page is hidden its tries are paced (D482)
+ * unless isNeededHidden, which its app gives, says it needs its connection as when shown: a film
+ * playing in it, or a cast's remote shown.
  */
 export async function connectRtc(
   signaller: Signaller,
   rtcConfig: RTCConfiguration = {},
-  count: number = clientConnections,
+  options: RtcConnectOptions = {},
 ): Promise<RtcTransport> {
   const open = (signal: AbortSignal): Promise<PeerLike> => connectOne(signaller, rtcConfig, signal);
-  return new RtcTransport([await open(new AbortController().signal)], {
+  const page = typeof document === "undefined" ? undefined : document;
+  return new RtcTransport(
+    [await open(new AbortController().signal)],
+    growthOn(page, open, options),
+  );
+}
+
+/**
+ * How a WebRTC transport grows: to count connections (clientConnections where absent), its tries
+ * paced while its page is hidden unless isNeededHidden says it needs its connection then (D482).
+ */
+export interface RtcConnectOptions {
+  readonly count?: number | undefined;
+  readonly isNeededHidden?: (() => boolean) | undefined;
+}
+
+/**
+ * How a transport on page grows to options.count connections, each opened by open: tried again at once when
+ * the browser is back online or the page shown again (onWayBack), and paced while the page is hidden
+ * unless options.isNeededHidden says it needs its connection (D482). Where there is no page, nothing paces.
+ */
+export function growthOn(
+  page: ShownPage | undefined,
+  open: (signal: AbortSignal) => Promise<PeerLike>,
+  { count = clientConnections, isNeededHidden }: RtcConnectOptions,
+): Growth {
+  return {
     open,
     size: count,
-    onOnline: onWayBack(typeof document === "undefined" ? undefined : document),
-  });
+    onOnline: onWayBack(page),
+    hidden: page === undefined ? undefined : { page, isNeededHidden },
+  };
 }
 
 /** What offerWith asks of a peer connection: RTCPeerConnection's. */

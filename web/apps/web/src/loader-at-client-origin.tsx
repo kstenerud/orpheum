@@ -16,7 +16,7 @@ import {
   type FetchRequest,
   type KeptCore,
 } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useRef, type JSX } from "react";
 
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import {
@@ -31,6 +31,7 @@ import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import { ClientFailedPage, clientFailedText } from "./loader-client-failed.tsx";
 import { PathRefusedNote } from "./loader-path-refused.tsx";
+import { isFilmPlayingOn } from "./page-freezes.ts";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
 import {
@@ -254,9 +255,11 @@ export function loaderOver(
     readonly session: Session;
     readonly kept: KeptPath;
     readonly reaching: Reaching;
+    /** Takes the client's word on what its page needs while hidden (D482). */
+    readonly setNeededHidden: (isNeeded: () => boolean) => void;
   },
 ): OrpheumLoader {
-  const { core, session, kept, reaching } = reached;
+  const { core, session, kept, reaching, setNeededHidden } = reached;
   return {
     major: loaderMajor,
     minor: loaderMinor,
@@ -272,6 +275,7 @@ export function loaderOver(
     willLeaveWhenSignedOut: leavesWhenSignedOut(core, at.config.hasRealms),
     session,
     setMediaCredentials: kept.setMediaCredentials,
+    setNeededHidden,
     switchHousehold: () => {
       goBy(
         switchAddress(at.loaderOrigin, {
@@ -440,17 +444,35 @@ function holdingsOf(sessionOfCore: () => Session): Pick<GateParts, "sessionOf" |
   };
 }
 
+/**
+ * Whether the page needs its WebRTC connection while hidden (D482): a film playing in it, until the
+ * client says more by setNeededHidden (OrpheumLoader.setNeededHidden).
+ */
+function useNeededHidden(): {
+  readonly isNeededHidden: () => boolean;
+  readonly setNeededHidden: (isNeeded: () => boolean) => void;
+} {
+  const neededHiddenRef = useRef<() => boolean>(() => isFilmPlayingOn(document));
+  return {
+    isNeededHidden: () => neededHiddenRef.current(),
+    setNeededHidden: (isNeeded) => {
+      neededHiddenRef.current = isNeeded;
+    },
+  };
+}
+
 /** The page a client origin opens on until the core's client runs. */
-export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.Element {
-  const { at } = props;
+export function AtClientOriginPage({ at }: { readonly at: AtClientOrigin }): JSX.Element {
   const start = startAtClient(at);
   const sessionOfCore = (): Session => createSession(at.storage, corePrefix(at.coreId));
   const takeHandOff = start.kind === "handoff" ? redeemOnce(start.handOff.code) : undefined;
+  const { isNeededHidden, setNeededHidden } = useNeededHidden();
   const parts: GateParts = {
     client: { clientApi: at.config.clientApi },
     hasRealms: false,
     realmStorage: undefined,
     isPathLost: isLoaderPathLost,
+    reachWays: { isNeededHidden },
     ...holdingsOf(sessionOfCore),
     forgetCore: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
@@ -492,7 +514,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
         at.unmount();
         leaveWhenSignedOut(session, { core, at, go: goBy });
         showWhenPathRefused(kept, { at, core });
-        run(loaderOver(at, { core, session, kept, reaching }));
+        run(loaderOver(at, { core, session, kept, reaching, setNeededHidden }));
       } catch (cause: unknown) {
         await failedToRun(cause, kept, session);
       }

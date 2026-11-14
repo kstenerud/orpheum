@@ -2,11 +2,13 @@
 
 /**
  * A WebRTC transport's tries to make a connection again (rtc-transport.ts): each bounded, given up
- * when the browser comes back online, and the time the transport had none said once one is back;
- * and the failure no later try mends (RefusedForGood).
+ * when the browser comes back online, paced while its page is hidden (HiddenPace, D482), and the
+ * time the transport had none said once one is back; and the failure no later try mends
+ * (RefusedForGood).
  */
 
 import { abortReason } from "./rtc-request.ts";
+import { whenVisibilityChanges, type ShownPage } from "./shown-page.ts";
 
 /**
  * How long a try to make a connection may take before it is given up and tried again after the
@@ -155,6 +157,84 @@ export async function reaching<Posted>(posting: Promise<Posted>): Promise<Posted
 /** Whether problem, or any cause or alternative behind it, is a try whose offer reached no server. */
 export function isUnreached(problem: unknown): boolean {
   return isOrBehind(problem, Unreached);
+}
+
+/**
+ * The least time between the starts of two tries to connect while the page is hidden (D482 §1),
+ * where shown they come every unreachedRetryMs or sooner: a page switched away from a moment, to
+ * answer a text, is still back within seconds of its network, and one left for good makes a peer
+ * connection a sixth as often.
+ */
+export const hiddenTryEveryMs = 10_000;
+
+/**
+ * How long a hidden page tries to connect at all (D482 §2): after this long hidden it tries no
+ * more until it is shown again, when it tries at once (onWayBack). The owner: "When the browser is
+ * put in the bg, it either means the user is switching away momentarily (up to a minute or so to
+ * answer a text for example), or for a long time."
+ */
+export const hiddenTriesForMs = 120_000;
+
+/**
+ * What paces a transport's tries while its page is hidden (D482): the page, and whether it needs
+ * its connection as much as when shown, a film playing in it or a cast's remote shown (D482 §3),
+ * which its app says: then its tries keep the shown schedule.
+ */
+export interface HiddenPacing {
+  readonly page: ShownPage;
+  readonly isNeededHidden?: (() => boolean) | undefined;
+}
+
+/**
+ * The pace of a transport's tries while its page is hidden (D482): none held back while it is
+ * shown or needed (HiddenPacing.isNeededHidden); within hiddenTriesForMs of its hiding, a try
+ * hiddenTryEveryMs after the last began at the soonest; after that none until it is shown again.
+ */
+export class HiddenPace {
+  private hiddenSinceMs: number | undefined;
+  private lastTryMs: number | undefined;
+  private readonly stopHearing: () => void;
+
+  constructor(
+    private readonly pacing: HiddenPacing,
+    private readonly nowMs: () => number,
+  ) {
+    if (pacing.page.visibilityState === "hidden") {
+      this.hiddenSinceMs = nowMs();
+    }
+    this.stopHearing = whenVisibilityChanges(pacing.page, (isHidden) => {
+      this.hiddenSinceMs = isHidden ? nowMs() : undefined;
+    });
+  }
+
+  /** Notes a try begun now. */
+  tried(): void {
+    this.lastTryMs = this.nowMs();
+  }
+
+  /**
+   * How long from now before a try may begin: 0 for at once, Infinity for not until the page is
+   * shown again.
+   */
+  waitMs(): number {
+    const { page, isNeededHidden } = this.pacing;
+    if (page.visibilityState !== "hidden" || isNeededHidden?.() === true) {
+      return 0;
+    }
+    const nowMs = this.nowMs();
+    // Read from the page itself, so a try asked for in the same event that showed it is not held.
+    this.hiddenSinceMs ??= nowMs;
+    if (nowMs - this.hiddenSinceMs >= hiddenTriesForMs) {
+      return Infinity;
+    }
+    const sinceTriedMs = this.lastTryMs === undefined ? Infinity : nowMs - this.lastTryMs;
+    return Math.max(0, hiddenTryEveryMs - sinceTriedMs);
+  }
+
+  /** Stops hearing the page. */
+  stop(): void {
+    this.stopHearing();
+  }
 }
 
 /** Whether problem, or any cause or alternative behind it, is a kind. */

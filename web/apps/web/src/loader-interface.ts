@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 6;
+export const loaderMinor = 7;
 
 /** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
 export type LoaderPathKind = "direct" | "webrtc";
@@ -95,6 +95,13 @@ export interface OrpheumLoader {
    * token by default, and a Watch Together viewer's membership beside it once the client says.
    */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
+  /**
+   * Takes from the client whether its page needs its WebRTC connection while hidden as when shown, a
+   * film playing in it or a cast's remote shown (hidden-need.ts): otherwise the loader's transport
+   * paces its tries while the page is hidden (D482). Until the client says, a film playing alone
+   * is the need. Since minor 7: an older loader has none, and paces nothing.
+   */
+  readonly setNeededHidden?: (isNeeded: () => boolean) => void;
   /** Goes to the discovery's list of households, this one among them (D308 §8). */
   readonly switchHousehold: () => void;
 }

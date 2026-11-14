@@ -223,7 +223,12 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   and on `online`; the session connection, given it as `pathBack`, connects again at once, as when
   its page is shown again. The owner's Firefox never connected again after a minute without Wi-Fi,
   and Chrome's session waited 28 s more, out of step (staging, 2026-10-29; VQ130).
-  `src/rtc-network-loss.test.ts`, `src/together-connection-shown.test.ts`.
+  While its page is hidden, the transport's tries are paced (`HiddenPace`, `src/rtc-reopen.ts`;
+  D482): one every `hiddenTryEveryMs` (10 s) at the soonest for `hiddenTriesForMs` (2 minutes),
+  then none until the page is shown, when one is made at once; a page whose app says it needs its
+  connection hidden (`isNeededHidden`, given to `connectRtc` or `connectThrough`) keeps the shown
+  schedule. `src/rtc-network-loss.test.ts`, `src/together-connection-shown.test.ts`,
+  `src/rtc-connect.test.ts`, `src/core-target.test.ts`.
 - **A page's main-thread freezes are found one way** (`src/main-thread-freezes.ts`,
   `watchFreezes`): a long task of `mainThreadStallAtLeastMs` (1 s) or more where the browser
   reports them, else a timer's lateness on a page shown as it was set and as it ran. The player's

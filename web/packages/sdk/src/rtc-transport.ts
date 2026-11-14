@@ -15,10 +15,12 @@ import type { CandidatePairSeen } from "./rtc-pairs.ts";
 import {
   backAfter,
   BackOnline,
+  HiddenPace,
   isRefusedForGood,
   isUnreached,
   unreachedRetryMs,
   withinOpenTry,
+  type HiddenPacing,
   type Without,
 } from "./rtc-reopen.ts";
 import { abortReason, sendOnChannel, silentAtMostMs, type ChannelLike } from "./rtc-request.ts";
@@ -93,13 +95,15 @@ interface Waiter {
 
 /**
  * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
- * how many it keeps at most, and hearing the browser come back online (the window's online event)
- * or its page shown again (connectRtc's onWayBack), which tries at once; returns the end of hearing.
+ * how many it keeps at most, hearing the browser come back online (the window's online event)
+ * or its page shown again (connectRtc's onWayBack), which tries at once, returning the end of
+ * hearing; and, where there is a page, the pace of its tries while the page is hidden (D482).
  */
 export interface Growth {
   readonly open: (signal: AbortSignal) => Promise<PeerLike>;
   readonly size: number;
   readonly onOnline?: ((listener: () => void) => () => void) | undefined;
+  readonly hidden?: HiddenPacing | undefined;
 }
 
 /**
@@ -111,7 +115,9 @@ export interface Growth {
  * it is still wanted, retrying each failure, a refusal included, and each try that takes longer than
  * openTryMostMs, after a wait that doubles up to replaceMostMs, one whose offer reached no server
  * (Unreached) after unreachedRetryMs, and at once when the browser comes back online, a try under
- * way then given up (plans/webrtc-transport.md W2d); a try refused for good
+ * way then given up (plans/webrtc-transport.md W2d); while its page is hidden, and not needed as
+ * when shown, a try at most every hiddenTryEveryMs, and none after hiddenTriesForMs hidden until it
+ * is shown again (D482); a try refused for good
  * (RefusedForGood) ends the tries, and is told (onRefused). `fetch` is what the API client sends
  * requests with; while no connection is up, a request waits for one, and fails once one is refused
  * for good.
@@ -132,6 +138,8 @@ export class RtcTransport {
   private refusal: Error | undefined;
   private readonly refusedListeners = new Set<(refusal: Error) => void>();
   private readonly stopHearingOnline: () => void;
+  /** The pace of its tries while its page is hidden (D482); undefined with no page. */
+  private readonly hiddenPace: HiddenPace | undefined;
   private isClosed = false;
   /** The requests waiting for room, in the order they came. */
   private readonly waiting: Waiter[] = [];
@@ -154,6 +162,8 @@ export class RtcTransport {
     }
     this.nowMs = nowMs;
     this.growth = growth;
+    this.hiddenPace =
+      growth?.hidden === undefined ? undefined : new HiddenPace(growth.hidden, nowMs);
     for (const peer of peers) {
       this.add(peer);
     }
@@ -340,6 +350,7 @@ export class RtcTransport {
   close(): void {
     this.isClosed = true;
     this.stopHearingOnline();
+    this.hiddenPace?.stop();
     clearTimeout(this.retryTimer);
     this.trying?.abort();
     for (const link of this.links.splice(0)) {
@@ -442,13 +453,26 @@ export class RtcTransport {
     );
   }
 
-  /** Opens another connection when one is wanted. */
+  /**
+   * Opens another connection when one is wanted, unless its page is hidden and its pace holds the
+   * try back (D482): then it looks again once the pace allows one, or, past hiddenTriesForMs
+   * hidden, when the page is shown again (backOnline, through onWayBack).
+   */
   private grow(): void {
     const growth = this.growth;
-    if (growth !== undefined && this.wantsAnother(growth)) {
-      this.opening += 1;
-      void this.openOne(growth);
+    if (growth === undefined || !this.wantsAnother(growth)) {
+      return;
     }
+    const heldMs = this.hiddenPace?.waitMs() ?? 0;
+    if (heldMs > 0) {
+      if (Number.isFinite(heldMs)) {
+        this.retryLater(heldMs);
+      }
+      return;
+    }
+    this.opening += 1;
+    this.hiddenPace?.tried();
+    void this.openOne(growth);
   }
 
   private async openOne(growth: Growth): Promise<void> {

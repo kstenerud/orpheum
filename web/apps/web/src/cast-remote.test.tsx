@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CastRemote } from "./cast-remote.tsx";
 import { startCast } from "./cast.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
+import { createHiddenNeed } from "./hidden-need.ts";
 import { LiveProvider } from "./live.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
 import {
@@ -187,6 +188,32 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const asked = heard.map((each) => each.methodAndPath);
     expect(asked).toContain("POST /me/casts");
     expect(asked).not.toContain("GET /me/casts");
+  });
+
+  it("marks its page as needing its connection while hidden for as long as it is up, no film playing here (D482 §3)", async () => {
+    const hiddenNeed = createHiddenNeed(document);
+    const services = servedBy(
+      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}] },
+      [],
+      "token",
+    );
+    const sockets = liveAndSession();
+    expect(hiddenNeed.isNeeded()).toBe(false);
+    mounted = await mount(
+      withServices(
+        <CastSignOverTheFilmContext value={() => null}>
+          <LiveProvider>
+            <CastRemote castId={9} fileId={4} onPlayHere={vi.fn()} />
+          </LiveProvider>
+        </CastSignOverTheFilmContext>,
+        { ...services, openTogetherSocket: sockets.openSocket, hiddenNeed },
+      ),
+    );
+    expect(mounted.container.querySelector("video")).toBeNull();
+    expect(hiddenNeed.isNeeded()).toBe(true);
+    mounted.unmount();
+    mounted = undefined;
+    expect(hiddenNeed.isNeeded()).toBe(false);
   });
 
   it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {

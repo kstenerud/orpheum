@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { targetOfGuestGrant, type HeldSession } from "./core-target.ts";
+import {
+  connectThrough,
+  targetOfGuestGrant,
+  type HeldSession,
+  type Target,
+} from "./core-target.ts";
 import { guestGrantOfferKey, sessionOfferKey, type DiscoveryClient } from "./discovery.ts";
 
 const core = { coreId: "k7xq2", fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw" };
@@ -49,5 +54,29 @@ describe("a Google Cast device's target, holding a grant for one cast (D465 §2)
     await expect(
       targetOfGuestGrant(discoveryOf("other", []), held, () => undefined),
     ).rejects.toThrow("another server");
+  });
+});
+
+describe("a connection through the discovery (D482)", () => {
+  it("hands its transport what says the page needs its connection while hidden", async () => {
+    const isNeededHidden = (): boolean => false;
+    const target: Target = {
+      coreId: "k7xq2",
+      fingerprint: core.fingerprint,
+      held: { bootstrapToken: "a-bootstrap-token" },
+      key: new Uint8Array(32),
+      iceServers: [{ urls: ["stun:stun.example:3478"] }],
+      directUrls: [],
+      lanUrls: [],
+    };
+    const handed: unknown[][] = [];
+    const connect = (...given: unknown[]): Promise<never> => {
+      handed.push(given.slice(1));
+      return Promise.reject(new Error("no connection in this test"));
+    };
+    await expect(
+      connectThrough(discoveryOf("k7xq2", []), target, { isNeededHidden, connect }),
+    ).rejects.toThrow("no connection in this test");
+    expect(handed).toEqual([[{ iceServers: target.iceServers }, { isNeededHidden }]]);
   });
 });

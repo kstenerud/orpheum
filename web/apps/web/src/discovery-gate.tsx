@@ -55,6 +55,7 @@ import {
   targetOfHandOff,
   targetOfLink,
   targetOfRealm,
+  type ReachWays,
   type Reaching,
   type Start,
 } from "./discovery-start.ts";
@@ -135,6 +136,12 @@ export interface GateParts {
    * train, 2026-11-13). A refusal is never one. Absent, every dead end is the end.
    */
   readonly isPathLost?: (problem: unknown) => boolean;
+  /**
+   * How the core is reached (reachCore): above all whether the page needs its WebRTC connection while
+   * hidden as when shown, its tries paced otherwise (D482), the client's word once it runs
+   * (OrpheumLoader.setNeededHidden). Absent, they are paced while hidden.
+   */
+  readonly reachWays?: Pick<ReachWays, "isNeededHidden" | "connect"> | undefined;
 }
 
 /**
@@ -271,7 +278,7 @@ async function reachFound(
   const raced = racedHeard();
   const target = { ...withLatest(parts, core, withoutLanIfSkipped(parts, found)), ...raced.told };
   try {
-    return await reachCore(parts.client, target);
+    return await reachCore(parts.client, target, parts.reachWays);
   } catch (problem: unknown) {
     const heldBack = realmHeldBackBy(problem);
     if (heldBack !== undefined) {
@@ -373,7 +380,7 @@ async function reach(
       ...withLatest(parts, core, withoutLanIfSkipped(parts, await find())),
       ...raced.told,
     };
-    const reaching = await reachCore(parts.client, target);
+    const reaching = await reachCore(parts.client, target, parts.reachWays);
     noteStep(`reached the core over ${reaching.first.kind}`);
     await parts.onConnected(core, reaching);
     return undefined;

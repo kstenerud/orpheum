@@ -28649,3 +28649,33 @@ equals its endpoint's answer, the plain read carries none, a non-admin is refuse
 `TestArch_NoCompressedOperationAnswersWithACredential`; web: "the System page's first read carries
 what its sections read, so it asks for nothing more" (system.test.tsx), "a person's page asks
 once…" and "the Users page's first read carries the roles…" (remove-and-reach.test.tsx).
+
+## D482 — A hidden page's WebRTC transport tries to connect every 10 s for two minutes, then not until shown
+
+**Decided** (2026-11-14), by the project owner, on the lead's proposal. Amends nothing; paces the
+WebRTC transport's tries to connect again (VQ139's `unreachedRetryMs`, its replacement's back-off)
+while the page is hidden. The owner: "When the browser is put in the bg, it either means the user
+is switching away momentarily (up to a minute or so to answer a text for example), or for a long
+time." On the lead's proposal of a try every 2 s for two minutes hidden, then none: "Ok, that
+sounds good. Does it really need to refresh every 2 seconds? Would 10 seconds work?"
+
+1. **For its first two minutes hidden, a try at most every 10 s** (`hiddenTryEveryMs`), counted
+   from the start of the last try, or after the shown schedule's wait where that is longer.
+2. **After two minutes hidden, no try** (`hiddenTriesForMs`) until the page is shown again. A page
+   hidden again after being shown counts its two minutes from the new hiding.
+3. **Shown again, a try at once**, giving up one under way (`onWayBack`, as before).
+4. **A page that needs its connection hidden keeps the shown schedule:** while a film plays in it
+   (`isFilmPlayingOn`) or a cast's remote is shown on it (`CastRemote`, `SessionRemote`), which the
+   app tells the transport through one predicate (`isNeededHidden`; web/apps/web's
+   `createHiddenNeed`), read at each try. Under a loader, the client hands it over with
+   `setNeededHidden` (the loader interface's minor 7); until then, or from an older client, the
+   loader reads whether a film plays alone.
+5. **Shown, nothing changes.** Every try begins in the transport's one place for it (`grow`), so
+   the pace holds for a replacement, a retry, a try on `online` and the transport's growth alike.
+
+**Proven by:** "a transport whose page is hidden (D482)" (web/packages/sdk/src/rtc-network-loss.test.ts:
+tries every 10 s for two minutes then none until shown, a new hiding counted anew, the shown
+schedule while needed, and shown as before); "how a WebRTC transport on a page grows (D482)"
+(rtc-connect.test.ts); "a connection through the discovery (D482)" (core-target.test.ts);
+web/apps/web/src/hidden-need.test.tsx, the cast remote's mark in cast-remote.test.tsx,
+transport-choice.test.tsx, kept-path.test.ts and discovery-gate-hidden.test.tsx.

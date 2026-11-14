@@ -14,6 +14,7 @@ import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useShowsARemote } from "./hidden-need.ts";
 import { PlayerControls, type PlayerSource, type SequenceMoves } from "./player-controls.tsx";
 import { useSeekAhead, type SeekAhead } from "./seek-ahead.ts";
 import { monotonicMs } from "./use-together.ts";
@@ -40,6 +41,8 @@ export function SessionRemote(props: {
   readonly moves?: SequenceMoves | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
+  // Its page hidden, it keeps connecting as when shown, so the group's controls stay at hand (D482 §3).
+  useShowsARemote();
   const source = useRemoteSource(props);
   const status = props.snapshot?.status;
   return (

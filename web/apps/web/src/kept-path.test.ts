@@ -287,6 +287,7 @@ describe("the kept path", () => {
     const session = createSession(undefined);
     const kept = keepPath(reaching, session);
     kept.carried.catch(() => undefined);
+    const neededHidden: (() => boolean)[] = [];
     const loader = loaderOver(
       {
         loaderOrigin: "https://app.orpheum-app.com",
@@ -297,8 +298,15 @@ describe("the kept path", () => {
         session,
         kept,
         reaching,
+        setNeededHidden: (isNeeded) => {
+          neededHidden.push(isNeeded);
+        },
       },
     );
+    // What the client's page needs while hidden reaches the loader's transport (D482).
+    const isNeeded = (): boolean => true;
+    loader.setNeededHidden?.(isNeeded);
+    expect(neededHidden).toEqual([isNeeded]);
     // A household reached by a link alone signs out to the discovery's sign-in where it has one (the
     // owner, 2026-10-30), and the client is told so.
     expect(loader.willLeaveWhenSignedOut).toBe(true);

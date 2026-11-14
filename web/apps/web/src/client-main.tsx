@@ -38,6 +38,7 @@ import { followPressesOfPlay } from "./video-pressed-for-play.ts";
 import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
+import { createHiddenNeed } from "./hidden-need.ts";
 import { isFilmPlayingOn, reportPageFreezes } from "./page-freezes.ts";
 import { notePolicyViolations } from "./policy-violations.ts";
 import { newerClientOver, reportReloadNote, watchForNewerClient } from "./newer-client.ts";
@@ -71,6 +72,12 @@ reportPageFreezes({
   screen: () => navigation.route().screen,
   isFilmPlaying: () => isFilmPlayingOn(document),
 });
+
+/**
+ * Whether the page needs its WebRTC connection while hidden as when shown, a film playing or a cast's
+ * remote shown; its tries are paced otherwise (D482).
+ */
+const hiddenNeed = createHiddenNeed(document);
 
 /**
  * The tab's debug link (D380): its cap kept in the tab's session storage, a drop timed on the page's
@@ -144,6 +151,7 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
     onPathBack: reaches.onPathBack,
     linkDebug,
     liveOpen,
+    hiddenNeed,
   };
   mountedOn.render(
     <StrictMode>
@@ -195,6 +203,7 @@ function mountOnOwnOrigin(): void {
               openTogetherSocket = open;
             },
             pathMoves,
+            isNeededHidden: hiddenNeed.isNeeded,
           },
           reportFailure,
         );
@@ -212,6 +221,8 @@ function mountOnOwnOrigin(): void {
  */
 function mountUnderLoader(loader: OrpheumLoader): void {
   loader.setMediaCredentials(mediaCredentialsOf(loader.session));
+  // The loader's WebRTC transport paces its tries while the page is hidden unless it needs them (D482).
+  loader.setNeededHidden?.(hiddenNeed.isNeeded);
   takeMediaCarriers(loader);
   mountApp(loader.session, reachesUnderLoader(loader, document), root);
 }

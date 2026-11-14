@@ -9,6 +9,7 @@ import {
   gatherAfterReflexiveMs,
   gatherForRelayMs,
   gathered,
+  growthOn,
   hasRelayServer,
   isSecureUnfinished,
   isTurnedAway,
@@ -324,7 +325,7 @@ describe("the steps of a WebRTC connection", () => {
   it("are told up to the one that failed, and why, for what happened", async () => {
     vi.stubGlobal("RTCPeerConnection", RefusingPeer);
     await expect(
-      connectRtc(() => Promise.resolve({ type: "answer", sdp: "v=0" }), {}, 1),
+      connectRtc(() => Promise.resolve({ type: "answer", sdp: "v=0" }), {}, { count: 1 }),
     ).rejects.toThrow("the answer does not fit the offer");
     expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
       "WebRTC: offer sent",
@@ -424,5 +425,26 @@ describe("a WebRTC connection that never connects", () => {
     const connecting = connected(peer);
     peer.moves("connected");
     await expect(connecting).resolves.toBeUndefined();
+  });
+});
+
+describe("how a WebRTC transport on a page grows (D482)", () => {
+  const open = (): Promise<never> => Promise.reject(new Error("no connection in this test"));
+  const page = {
+    visibilityState: "hidden" as const,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  };
+
+  it("is paced while its page is hidden, as its app says it needs its connection then", () => {
+    const isNeededHidden = (): boolean => true;
+    const growth = growthOn(page, open, { count: 3, isNeededHidden });
+    expect(growth.size).toBe(3);
+    expect(growth.hidden).toEqual({ page, isNeededHidden });
+    expect(growth.onOnline).toBeDefined();
+  });
+
+  it("is not paced where there is no page", () => {
+    expect(growthOn(undefined, open, { count: 1 }).hidden).toBeUndefined();
   });
 });

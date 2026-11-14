@@ -77,6 +77,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `pageFreezeReportEveryMs` (5 s), those within it told together at its end. A Fire TV's focus stuck
   on a series' season row for many presses and nothing said whether the page had frozen (the owner,
   staging, 2026-10-30; VQ198). `src/page-freezes.test.ts`.
+- **A hidden page needs its WebRTC connection as when shown only while a film plays in it or a
+  cast's remote is shown** (`src/hidden-need.ts`, D482 §3): one `createHiddenNeed` in
+  `client-main.tsx`, which the remotes mark through `Services.hiddenNeed` and which the transport
+  reads at each try, on the core's own origin (`transport-choice.ts`) and under a loader
+  (`OrpheumLoader.setNeededHidden`, since its minor 7; an older client leaves the loader reading
+  whether a film plays alone). Otherwise the SDK paces its tries while hidden. `src/hidden-need.test.tsx`,
+  `src/cast-remote.test.tsx`, `src/transport-choice.test.tsx`, `src/kept-path.test.ts`,
+  `src/discovery-gate-hidden.test.tsx`.
 - **A security fix the server's version lacks is a banner above every page, an admin's alone**
   (security-updates.md Part B; `src/security-update-note.tsx`): what it fixes, the command that
   installs it and the way to How to update (`/update`). It is never dismissed while pending; Snooze

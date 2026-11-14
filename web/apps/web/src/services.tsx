@@ -119,6 +119,12 @@ export interface Services {
    * while it is (signed-out-watch.ts); undefined where nothing checks, as in a test that gives none.
    */
   readonly liveOpen?: Pick<LiveOpenMark, "mark"> | undefined;
+  /**
+   * Marked with each cast's remote shown on the page, which then needs its WebRTC connection while
+   * hidden as when shown (hidden-need.ts, D482 §3); returns the mark's removal. Undefined where
+   * nothing paces a connection, as in a test that gives none.
+   */
+  readonly hiddenNeed?: { readonly remoteShown: () => () => void } | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

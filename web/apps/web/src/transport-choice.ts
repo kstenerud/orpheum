@@ -32,13 +32,14 @@ export function directSignaller(api: Api): Signaller {
 export interface WebrtcWays {
   readonly connect: (
     signaller: Signaller,
+    isNeededHidden: () => boolean,
   ) => Promise<Pick<RtcTransport, "fetch" | "openChannel" | "carrierOf">>;
   readonly tellMediaCarriers: typeof tellMediaCarriers;
   readonly carryMediaOver: typeof carryMediaOver;
 }
 
 const sdkWebrtcWays: WebrtcWays = {
-  connect: (signaller) => connectRtc(signaller),
+  connect: (signaller, isNeededHidden) => connectRtc(signaller, {}, { isNeededHidden }),
   tellMediaCarriers,
   carryMediaOver,
 };
@@ -59,6 +60,11 @@ export function moveToWebrtcWhenSignedIn(
     readonly switchTogetherSocket: (open: OpenTogetherSocket) => void;
     /** Told once the media are carried over, so PathMoves.isOverWebrtc says so (services.tsx). */
     readonly pathMoves: { readonly carriedOverWebrtc: () => void };
+    /**
+     * Whether the page needs its connection while hidden as when shown, its tries paced otherwise
+     * (hidden-need.ts, D482).
+     */
+    readonly isNeededHidden: () => boolean;
   },
   report: (problem: unknown) => void,
   ways: WebrtcWays = sdkWebrtcWays,
@@ -71,7 +77,7 @@ export function moveToWebrtcWhenSignedIn(
     }
     isStarted = true;
     ways
-      .connect(directSignaller(api))
+      .connect(directSignaller(api), app.isNeededHidden)
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));

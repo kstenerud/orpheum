@@ -3161,3 +3161,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   a few seconds. (`web/packages/sdk/src/rtc-peer.ts`, `coreHoldsSilentMs`;
   `web/packages/sdk/src/rtc-connect.ts`, `onWayBack`; idiosyncrasies.md, "A phone freezes a page in
   the background")
+- [ ] **VQ318** — D482's exception reaches the transport from the app's own start. On the Android
+  phone, Chrome, after the deploy, over the core's WebRTC path: with a film playing, then with the
+  cast remote on screen, put the page in the background for over two minutes while the core drops
+  its connection, and come back. Passes when the page's steps show tries on the shown schedule
+  throughout, where the same page on Home shows tries 10 s apart and none after its first two
+  minutes hidden. The wiring in `web/apps/web/src/client-main.tsx` (createHiddenNeed handed to the
+  transport on the core's own origin and to the loader through setNeededHidden) runs as the module
+  loads, with no seam a test can pass a fake through without mocking the app's own modules.

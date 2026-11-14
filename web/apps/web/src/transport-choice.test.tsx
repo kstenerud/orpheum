@@ -42,17 +42,23 @@ const film: TitleDetail = {
 function heldWebrtcWays(): WebrtcWays & {
   readonly isCarrying: () => boolean;
   readonly endCarrying: () => void;
+  /** What each connection was told the page needs while hidden (D482). */
+  readonly neededHidden: (() => boolean)[];
 } {
   let end: (() => void) | undefined;
+  const neededHidden: (() => boolean)[] = [];
   return {
-    connect: () =>
-      Promise.resolve({
+    neededHidden,
+    connect: (_signaller, isNeededHidden) => {
+      neededHidden.push(isNeededHidden);
+      return Promise.resolve({
         fetch: () => Promise.reject(new Error("the test sends nothing over WebRTC")),
         openChannel: () => {
           throw new Error("the test opens no channel");
         },
         carrierOf: () => undefined,
-      }),
+      });
+    },
     tellMediaCarriers: () => undefined,
     carryMediaOver: () =>
       new Promise<void>((resolve) => {
@@ -94,6 +100,7 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
     );
     const pathMoves = createPathMoves();
     const ways = heldWebrtcWays();
+    const isNeededHidden = (): boolean => false;
     moveToWebrtcWhenSignedIn(
       {
         session: services.session,
@@ -101,6 +108,7 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
         routed: new SwitchableFetch(),
         switchTogetherSocket: () => undefined,
         pathMoves,
+        isNeededHidden,
       },
       (problem) => {
         throw problem;
@@ -108,6 +116,8 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
       ways,
     );
     await settleUntil(ways.isCarrying);
+    // Its connection paces its tries while the page is hidden as the app says it needs them (D482).
+    expect(ways.neededHidden).toEqual([isNeededHidden]);
     expect(pathMoves.isOverWebrtc()).toBe(false);
     await act(async () => {
       ways.endCarrying();
