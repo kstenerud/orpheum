@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "@orpheum/sdk";
 import { prerender } from "react-dom/static";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { act } from "react";
 
@@ -524,6 +524,42 @@ describe("the signed-in page's start", () => {
     // Each row is asked for once, not again when the poller takes the server's waits.
     expect(new Set(rows).size).toBe(rows.length);
     mounted.unmount();
+  });
+});
+
+// The owner, 2026-11-14, on the phone: Play's ‹ to the episode's page, then a tap there, showed a
+// page full screen, as the whole page's full screen outlived the player (VQ267).
+describe("full screen, a film's alone", () => {
+  function pageFullScreen(): ReturnType<typeof vi.fn> {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => document.documentElement,
+    });
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    return exitFullscreen;
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(document, "fullscreenElement");
+    Reflect.deleteProperty(document, "exitFullscreen");
+  });
+
+  it("is left on a page with no film, and kept on a receiver's ready page between films", async () => {
+    const exitFullscreen = pageFullScreen();
+    const ready = await mount(
+      withServices(<Screen route={{ screen: "cast-ready" }} />, testServices("token")),
+    );
+    expect(exitFullscreen).not.toHaveBeenCalled();
+    ready.unmount();
+    const title = await mount(
+      withServices(<Screen route={{ screen: "title", itemId: 1 }} />, testServices("token")),
+    );
+    expect(exitFullscreen).toHaveBeenCalledOnce();
+    title.unmount();
   });
 });
 

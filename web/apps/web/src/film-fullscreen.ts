@@ -216,17 +216,19 @@ export function leaveFullScreenAsked(page: Document): void {
 }
 
 /**
- * Leaves full screen, at the page's own asking, as the component calling it is drawn: the cast's
- * remote, a page and no film, which a cast started from full screen leaves it for (D440 §5). The Play
- * page's player puts the whole page full screen (fillTheScreen, keepFillingTheWindow), which outlives
- * the player the remote takes the place of, so the remote would show full screen unless left.
+ * Leaves full screen, at the page's own asking, as the component calling it is drawn, and again each
+ * time isLeft turns true: the cast's remote, a page and no film, which a cast started from full screen
+ * leaves it for (D440 §5), and any screen but a film's, which Play's ‹ or a link leads to (the owner,
+ * 2026-11-14: a person's page full screen on the phone). The Play page's player puts the whole page
+ * full screen (fillTheScreen, keepFillingTheWindow) so that it outlives one Play page for the next
+ * (VQ267), and so it outlives the player for any other page too unless left.
  */
-export function useLeavesFullScreen(): void {
+export function useLeavesFullScreen(isLeft = true): void {
   useEffect(() => {
-    if (document.fullscreenElement instanceof Element) {
+    if (isLeft && document.fullscreenElement instanceof Element) {
       leaveFullScreenAsked(document);
     }
-  }, []);
+  }, [isLeft]);
 }
 
 /** Whether the full screen being left now is one the page asked to leave (leaveFullScreenAsked). */

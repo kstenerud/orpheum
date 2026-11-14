@@ -16,6 +16,7 @@ import { LiveProvider } from "./live.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { castSignOverTheFilm } from "./status-tray.tsx";
 import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
+import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import {
   About,
   Account,
@@ -388,12 +389,18 @@ function loadedAheadOn(route: Route): LoadedAhead | undefined {
   return listsFilmsAndSeries.includes(route.screen) ? "film-and-series" : undefined;
 }
 
+/** The screens full screen stays on, as the film's (Screen). */
+const holdsFullScreen: readonly Route["screen"][] = ["play", "cast-ready"];
+
 /** The screen a route names. */
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
   // A film's and a series' pages lead to Play, and the lists to them: their code loads ahead there
   // (later-screens.tsx).
   useLoadsAhead(loadedAheadOn(props.route));
+  // Full screen is a film's: the next one's Play page, or a receiver's ready page between films
+  // (D364 §5), keeps it; any other screen leaves it.
+  useLeavesFullScreen(!holdsFullScreen.includes(props.route.screen));
   return (
     <LaterScreen resetKey={JSON.stringify(props.route)}>
       {viewerScreen(props.route) ?? nonLibraryScreen(props.route) ?? adminScreen(props.route) ?? (
