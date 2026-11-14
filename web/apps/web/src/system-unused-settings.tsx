@@ -12,6 +12,7 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 
 type Unused = components["schemas"]["UnusedBody"];
 
@@ -22,8 +23,14 @@ type Unused = components["schemas"]["UnusedBody"];
 export function SystemUnusedSettings(): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [unused, reload] = useResource("unused-settings", async () =>
-    dataOrThrow(await api.GET("/config/unused")),
+  const [unused, reload] = useResource(
+    "unused-settings",
+    async () => dataOrThrow(await api.GET("/config/unused")),
+    {
+      given: useSectionGiven(SystemSectionsContext, (sections) => ({
+        value: sections.unusedSettings,
+      })),
+    },
   );
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const remove = (key: string): void => {

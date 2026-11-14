@@ -14,6 +14,7 @@ import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 
 /** One playback heard from lately. */
 type Playing = components["schemas"]["NowPlayingBody"];
@@ -28,7 +29,12 @@ export function NowPlaying(): JSX.Element {
   const [playing, reload] = useResource(
     "now-playing",
     async () => dataOrThrow(await api.GET("/now-playing")).playbacks ?? [],
-    { poller: useBackgroundChangesPoller() },
+    {
+      poller: useBackgroundChangesPoller(),
+      given: useSectionGiven(SystemSectionsContext, (sections) => ({
+        value: sections.nowPlaying.playbacks ?? [],
+      })),
+    },
   );
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const stop = (playbackId: number, message: string): void => {

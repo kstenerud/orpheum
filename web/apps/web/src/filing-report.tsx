@@ -13,6 +13,7 @@ import { useServices } from "./services.tsx";
 import { copyToClipboard } from "./clipboard.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven, wholeListOf } from "./page-sections.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 type Report = components["schemas"]["FilingReportBody"];
@@ -102,7 +103,12 @@ export function SystemFilingReports(): JSX.Element {
         const page = dataOrThrow(await api.GET("/filing-reports", { params: { query } }));
         return { entries: page.reports ?? [], nextCursor: page.nextCursor };
       }),
-    { poller: useBackgroundChangesPoller() },
+    {
+      poller: useBackgroundChangesPoller(),
+      given: useSectionGiven(SystemSectionsContext, (sections) =>
+        wholeListOf(sections.filingReports.reports, sections.filingReports.nextCursor),
+      ),
+    },
   );
   return (
     <section aria-labelledby="system-filing-reports">

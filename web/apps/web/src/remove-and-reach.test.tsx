@@ -17,11 +17,13 @@ import {
   mount,
   servedBy,
   submit,
+  type Answer,
   type Answers,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import type { Services } from "./services.tsx";
+import { MeContext, type SignedInMe } from "./signed-in-me.ts";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -266,4 +268,64 @@ it("shows a person's five latest devices with All devices, their actions in a ro
   expect(heard.find((each) => each.methodAndPath === "PUT /users/5/admin-note")?.body).toEqual({
     adminNote: "my brother",
   });
+});
+
+it("a person's page asks once: its first read carries their devices and the roles, and who is signed in is the shell's (the client-server audit's finding 10)", async () => {
+  const heard: Heard[] = [];
+  const dan = {
+    user: { id: 5, name: "Dan", role: "user", hasPassword: true },
+    watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+  };
+  const person = (query: URLSearchParams): Answer =>
+    query.get("sections") === "true"
+      ? [200, { ...dan, sections: { devices: { devices: [] }, roles } }]
+      : [200, dan];
+  const services = servedBy({ "GET /users/5": person }, heard);
+  const signedIn: SignedInMe["me"] = {
+    state: "loaded",
+    value: {
+      id: 1,
+      name: "someone",
+      role: "admin",
+      isAdmin: true,
+      canManageAccount: true,
+      canHostWatchTogether: true,
+      hasNoLibrary: false,
+      showsDebugTools: false,
+    },
+  };
+  mounted = await mount(
+    withServices(
+      <MeContext value={{ me: signedIn, readMeAgain: ignore }}>
+        <UserPage userId={5} />
+      </MeContext>,
+      services,
+    ),
+  );
+  expect(mounted.container.textContent).toContain("Has a password");
+  expect(mounted.container.textContent).toContain(noLibraryChosen);
+  expect(heard.map((each) => `${each.methodAndPath}${each.query ?? ""}`)).toEqual([
+    "GET /users/5?sections=true",
+  ]);
+});
+
+it("the Users page's first read carries the roles, so it asks for the accounts and the invitations alone (the client-server audit's finding 10)", async () => {
+  const heard: Heard[] = [];
+  const everyone = (query: URLSearchParams): Answer =>
+    query.get("sections") === "true"
+      ? [200, { users: [], sections: { roles } }]
+      : [200, { users: [] }];
+  const answers = {
+    "GET /users": everyone,
+    "GET /libraries": [200, { libraries: [] }],
+    "GET /invitations": [200, { invitations: [] }],
+  } as const;
+  mounted = await mount(withServices(<Users />, servedBy(answers, heard)));
+  expect(mounted.container.textContent).toContain("Can watch");
+  expect(
+    heard
+      .map((each) => `${each.methodAndPath}${each.query ?? ""}`)
+      .filter((each) => !each.startsWith("GET /libraries"))
+      .sort(),
+  ).toEqual(["GET /invitations?limit=500", "GET /users?limit=500&sections=true"]);
 });

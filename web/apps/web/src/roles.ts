@@ -24,7 +24,14 @@ export interface RolesListed {
 export async function listRoles(
   api: Api,
 ): Promise<{ readonly roles: Role[]; readonly capabilities: string[] }> {
-  const listed = dataOrThrow(await api.GET("/roles"));
+  return rolesListedOf(dataOrThrow(await api.GET("/roles")));
+}
+
+/** GET /roles' answer as listRoles reads it, wherever it came: its own read or a page's first. */
+export function rolesListedOf(listed: components["schemas"]["RolesOutputBody"]): {
+  readonly roles: Role[];
+  readonly capabilities: string[];
+} {
   return { roles: listed.roles ?? [], capabilities: listed.capabilities ?? [] };
 }
 

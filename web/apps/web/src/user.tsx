@@ -2,12 +2,14 @@
 
 import "./people-words.ts";
 
-import { useState, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
   cancelRegistrationLinks,
   getUser,
+  getUserPage,
+  personOf,
   issueRegistrationInvitation,
   listUserDevices,
   removeUser,
@@ -28,7 +30,15 @@ import { IssuedInvitationView, type IssuedInvitation } from "./users.tsx";
 import { personWords, registrationText } from "./person-words.ts";
 import { fieldProblemText } from "./problem.ts";
 import { useMe } from "./signed-in-me.ts";
-import { listRoles, roleLabel, setUserRole } from "./roles.ts";
+import { listRoles, roleLabel, rolesListedOf, setUserRole } from "./roles.ts";
+import {
+  ownGiven,
+  pageReadOf,
+  sectionGiven,
+  useSectionGiven,
+  UserSectionsContext,
+  type UserSections,
+} from "./page-sections.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -49,43 +59,60 @@ export function UserPage(props: { readonly userId: number }): JSX.Element {
   const { api } = useServices();
   const { me } = useMe();
   const isRemovable = me.state === "loaded" && me.value.id !== props.userId;
-  const [person, reloadUser] = useResource(`user/${String(props.userId)}`, () =>
-    getUser(api, props.userId),
+  // The page's first read carries their devices and the roles to choose from, and stands for each
+  // one's first read and the person's (the client-server audit's finding 10); good once, as the
+  // System page's, so a page opened again reads it anew. Who is signed in is the shell's (D478).
+  const [first] = useResource(
+    `user-page/${String(props.userId)}`,
+    () => getUserPage(api, props.userId),
+    { isSingleUse: true },
   );
-  const [devices, reloadDevices] = useResource(`person-devices/${String(props.userId)}`, () =>
-    listUserDevices(api, props.userId),
+  const read = useMemo(() => pageReadOf<UserSections>(first), [first]);
+  const [person, reloadUser] = useResource(
+    `user/${String(props.userId)}`,
+    () => getUser(api, props.userId),
+    {
+      given: ownGiven(first, (value) => ({ value: personOf(value) })),
+    },
+  );
+  const [devices, reloadDevices] = useResource(
+    `person-devices/${String(props.userId)}`,
+    () => listUserDevices(api, props.userId),
+    { given: sectionGiven(read, (sections) => ({ value: sections.devices.devices ?? [] })) },
   );
   const { actions, issued, isBusy, problem } = usePersonActions(props.userId, {
     reloadUser,
     reloadDevices,
   });
   return (
-    <BusyGroup isBusy={isBusy}>
-      <section className="person">
-        <Loaded
-          resource={person}
-          render={(value) => (
-            <>
-              <PersonHead
-                person={value}
-                actions={actions}
-                isRemovable={isRemovable}
-                onActivated={reloadDevices}
-              />
-              <OwnLink person={value} onRevoke={actions.revokeOwnLink} />
-              <ResetLink person={value} actions={actions} />
-            </>
-          )}
-        />
-        {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
-        {problem === undefined ? null : <p role="alert">{problem}</p>}
-        <h2>{t("person.devices")}</h2>
-        <Loaded
-          resource={devices}
-          render={(list) => <RecentDevices devices={list} onRemove={actions.remove} />}
-        />
-      </section>
-    </BusyGroup>
+    <UserSectionsContext value={read}>
+      <BusyGroup isBusy={isBusy}>
+        <section className="person">
+          <Loaded
+            resource={person}
+            render={(value) => (
+              <>
+                <PersonHead
+                  person={value}
+                  actions={actions}
+                  isRemovable={isRemovable}
+                  onActivated={reloadDevices}
+                />
+                <OwnLink person={value} onRevoke={actions.revokeOwnLink} />
+                <ResetLink person={value} actions={actions} />
+              </>
+            )}
+          />
+          {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
+          {problem === undefined ? null : <p role="alert">{problem}</p>}
+          <h2>{t("person.devices")}</h2>
+          <Loaded
+            resource={devices}
+            render={(list) => <RecentDevices devices={list} onRemove={actions.remove} />}
+          />
+        </section>
+      </BusyGroup>
+    </UserSectionsContext>
   );
 }
 
@@ -329,7 +356,11 @@ function RoleChoice(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [roles] = useResource("person-roles", () => listRoles(api));
+  const [roles] = useResource("person-roles", () => listRoles(api), {
+    given: useSectionGiven(UserSectionsContext, (sections) => ({
+      value: rolesListedOf(sections.roles),
+    })),
+  });
   const [role, setRole] = useState(props.current);
   const { state, save } = useSaveState();
   const names =

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { allPages, type Api, type components, readLinkFragment } from "@orpheum/sdk";
+import { allPages, type Api, type components, pageLimitMax, readLinkFragment } from "@orpheum/sdk";
 
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { thisDevice, type NewDevice } from "./device.ts";
@@ -43,6 +43,18 @@ export function secretFromHash(hash: string): string | undefined {
   }
   const secret = hash.startsWith("#") ? hash.slice(1) : hash;
   return secret === "" ? undefined : secret;
+}
+
+/**
+ * The Users page's first read: the accounts' first page, as listAccounts asks it, with what the
+ * page's other sections read, the roles (the client-server audit's finding 10).
+ */
+export async function listAccountsPage(
+  api: Api,
+): Promise<components["schemas"]["UsersOutputBody"]> {
+  return dataOrThrow(
+    await api.GET("/users", { params: { query: { limit: pageLimitMax, sections: true } } }),
+  );
 }
 
 /** Everyone, for the admin: every page of them. */
@@ -357,6 +369,25 @@ export type UserPageBody = components["schemas"]["UserPageOutputBody"];
 /** A person's page. */
 export async function getUser(api: Api, userId: number): Promise<UserPageBody> {
   return dataOrThrow(await api.GET("/users/{id}", { params: { path: { id: userId } } }));
+}
+
+/**
+ * A person's page's first read: the person, with what the page's other sections read, their devices
+ * and the roles to choose from (the client-server audit's finding 10).
+ */
+export async function getUserPage(api: Api, userId: number): Promise<UserPageBody> {
+  return dataOrThrow(
+    await api.GET("/users/{id}", {
+      params: { path: { id: userId }, query: { sections: true } },
+    }),
+  );
+}
+
+/** A person as GET /users/{id} answers them, without what a page's first read carried besides. */
+export function personOf(read: UserPageBody): UserPageBody {
+  const person = { ...read };
+  delete person.sections;
+  return person;
 }
 
 /** Renames a person. */

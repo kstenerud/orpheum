@@ -12,6 +12,7 @@ import { ApiProblem, dataOrThrow, isRefusedAt, problemText, throwIfRefused } fro
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 
 type NetworkState = components["schemas"]["NetworkStateBody"];
 type Network = components["schemas"]["NetworkBody"];
@@ -26,17 +27,23 @@ type Setting = keyof Network;
  */
 export function SystemNetwork(): JSX.Element | null {
   const { api } = useServices();
-  const [state, reload] = useResource("system-network", async (signal) => {
-    try {
-      return dataOrThrow(await api.GET("/system/network", { signal: signal ?? null }));
-    } catch (cause) {
-      // A server that keeps no network settings says so with a conflict: show it no section.
-      if (cause instanceof ApiProblem && cause.code === "conflict") {
-        return undefined;
+  const [state, reload] = useResource(
+    "system-network",
+    async (signal) => {
+      try {
+        return dataOrThrow(await api.GET("/system/network", { signal: signal ?? null }));
+      } catch (cause) {
+        // A server that keeps no network settings says so with a conflict: show it no section.
+        if (cause instanceof ApiProblem && cause.code === "conflict") {
+          return undefined;
+        }
+        throw cause;
       }
-      throw cause;
-    }
-  });
+    },
+    // Absent from the page's first read where the server keeps no network settings, as the endpoint
+    // refuses then: no section.
+    { given: useSectionGiven(SystemSectionsContext, (sections) => ({ value: sections.network })) },
+  );
   if (state.state !== "loaded" || state.value === undefined) {
     return null;
   }

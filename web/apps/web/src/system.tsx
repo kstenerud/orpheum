@@ -4,7 +4,7 @@ import "./system-words.ts";
 
 import type { TFunction } from "i18next";
 import type { components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useMemo, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
@@ -41,6 +41,12 @@ import { useServices } from "./services.tsx";
 import { WhatWaits } from "./system-waiting.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
+import {
+  pageReadOf,
+  ownGiven,
+  SystemSectionsContext,
+  type SystemSections,
+} from "./page-sections.ts";
 
 /** Everything the server knows about itself and each machine, as the System page shows it (D225). */
 export type SystemReport = components["schemas"]["SystemOutputBody"];
@@ -58,10 +64,23 @@ type Offline = components["schemas"]["OfflineBody"];
 export function System(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
+  // The page's first read carries what its other sections read, and stands for each one's first
+  // read and the report's (the client-server audit's finding 10). It is good once: each section keeps
+  // its own answer for the tab and fresh at its own endpoint, so a page opened again reads it anew,
+  // its sections showing their own answers meanwhile, rather than given what the tab held of it.
+  const [first] = useResource(
+    "system-page",
+    async () => dataOrThrow(await api.GET("/system", { params: { query: { sections: true } } })),
+    { isSingleUse: true },
+  );
+  const read = useMemo(() => pageReadOf<SystemSections>(first), [first]);
   const [report, reload] = useResource(
     "system",
     async () => dataOrThrow(await api.GET("/system")),
-    { poller: useBackgroundChangesPoller() },
+    {
+      poller: useBackgroundChangesPoller(),
+      given: ownGiven(first, (value) => ({ value: reportOf(value) })),
+    },
   );
   const retiring = useRequest((cause) => problemText(t, cause));
   const retireNode = (nodeName: string): void => {
@@ -76,7 +95,7 @@ export function System(): JSX.Element {
     });
   };
   return (
-    <>
+    <SystemSectionsContext value={read}>
       {retiring.problem === undefined ? null : <p role="alert">{retiring.problem}</p>}
       <BusyGroup isBusy={retiring.isBusy}>
         <Loaded
@@ -98,8 +117,15 @@ export function System(): JSX.Element {
       <DebugTool>
         <SystemVideos />
       </DebugTool>
-    </>
+    </SystemSectionsContext>
   );
+}
+
+/** The report as GET /system answers it, without what the page's first read carried besides. */
+function reportOf(read: SystemReport): SystemReport {
+  const report = { ...read };
+  delete report.sections;
+  return report;
 }
 
 /**

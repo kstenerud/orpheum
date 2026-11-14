@@ -6,7 +6,16 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { System, type SystemNode, type SystemReport } from "./system.tsx";
-import { click, mount, politeNotices, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
+import {
+  click,
+  mount,
+  politeNotices,
+  servedBy,
+  settleUntil,
+  type Answer,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
@@ -520,3 +529,56 @@ it("the System page opens with a contents row whose links focus their sections' 
   expect(document.activeElement).toBe(container?.querySelector("#system-node-local"));
   expect(location.hash).toBe("");
 });
+
+it("the System page's first read carries what its sections read, so it asks for nothing more (the client-server audit's finding 10)", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <System />,
+      servedBy(
+        {
+          "GET /system": systemPage,
+          "GET /system/discovery": noDiscovery,
+          "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+        },
+        heard,
+      ),
+    ),
+  );
+  await settleUntil(() => mounted?.container.textContent.includes("kept-backups") === true);
+  const headings = [...mounted.container.querySelectorAll("h2")].map((each) => each.textContent);
+  expect(headings).toContain("The house's network");
+  expect(headings).toContain("Resource use");
+  expect(heard.map((each) => `${each.methodAndPath}${each.query ?? ""}`).sort()).toEqual([
+    "GET /system/discovery",
+    "GET /system/update",
+    "GET /system?sections=true",
+  ]);
+});
+
+/** GET /system: the System page's first read, sections=true, carries what its sections read. */
+function systemPage(query: URLSearchParams): Answer {
+  const home = { httpsPort: 8444, webrtcPort: 8444, router: "" };
+  return query.get("sections") === "true"
+    ? [
+        200,
+        {
+          ...report(connected),
+          sections: {
+            nowPlaying: { playbacks: [] },
+            resourceUse: noResourceUse[1],
+            backups: { directory: "/srv/orpheum/kept-backups", backups: [] },
+            unusedSettings: { unusedSettings: [] },
+            filingReports: { reports: [] },
+            network: {
+              kept: home,
+              running: home,
+              fellBack: [],
+              pending: false,
+              appliedBy: "restart",
+            },
+          },
+        },
+      ]
+    : [200, report(connected)];
+}

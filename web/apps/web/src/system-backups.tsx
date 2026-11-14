@@ -19,6 +19,7 @@ import { Loaded } from "./loaded.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 
 type Backups = components["schemas"]["BackupsOutputBody"];
 
@@ -33,7 +34,10 @@ export function SystemBackups(): JSX.Element {
   const [backups, reload] = useResource(
     "backups",
     async () => dataOrThrow(await api.GET("/backups")),
-    { poller: useBackgroundChangesPoller() },
+    {
+      poller: useBackgroundChangesPoller(),
+      given: useSectionGiven(SystemSectionsContext, (sections) => ({ value: sections.backups })),
+    },
   );
   const [isAsked, setIsAsked] = useState(false);
   const [isAsking, setIsAsking] = useState(false);

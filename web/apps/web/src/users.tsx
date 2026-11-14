@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   listAccounts,
+  listAccountsPage,
   listInvitations,
   registrationUrl,
   type Account,
@@ -21,7 +22,14 @@ import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { CreateAccountDialog, InviteDialog, type RoleChoices } from "./people-dialogs.tsx";
 import { QrCode } from "./qr-code.tsx";
-import { listRoles, roleLabel, type RolesListed } from "./roles.ts";
+import { listRoles, roleLabel, rolesListedOf, type RolesListed } from "./roles.ts";
+import {
+  ownGiven,
+  pageReadOf,
+  sectionGiven,
+  wholeListOf,
+  type UsersSections,
+} from "./page-sections.ts";
 import { RoleDialog } from "./role-dialog.tsx";
 import { RolesSection } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
@@ -77,6 +85,33 @@ function Makers(props: { readonly onOpen: (open: DialogState) => void }): JSX.El
 }
 
 /**
+ * The Users page's three lists. The accounts' first page carries the roles too, and stands for both
+ * lists' first reads (the client-server audit's finding 10); good once, so a page opened again reads
+ * it anew. The invitations carry their links, which a gzipped answer never does (D342): they read
+ * their own.
+ */
+function usePeopleReads(): {
+  readonly accounts: Resource<Account[]>;
+  readonly reloadAccounts: () => void;
+  readonly invitations: Resource<Invitation[]>;
+  readonly reloadInvitations: () => void;
+  readonly roles: Resource<RolesListed>;
+  readonly reloadRoles: () => void;
+} {
+  const { api } = useServices();
+  const [first] = useResource("people-page", () => listAccountsPage(api), { isSingleUse: true });
+  const read = pageReadOf<UsersSections>(first);
+  const [accounts, reloadAccounts] = useResource("accounts", () => listAccounts(api), {
+    given: ownGiven(first, (value) => wholeListOf(value.users, value.nextCursor)),
+  });
+  const [invitations, reloadInvitations] = useResource("invitations", () => listInvitations(api));
+  const [roles, reloadRoles] = useResource("people-roles", () => listRoles(api), {
+    given: sectionGiven(read, (sections) => ({ value: rolesListedOf(sections.roles) })),
+  });
+  return { accounts, reloadAccounts, invitations, reloadInvitations, roles, reloadRoles };
+}
+
+/**
  * The household, for the admin (D399, revising D218 and D246 §2): three buttons, Create Role,
  * Create Account and Invite Someone, each opening a dialog with its controls; then three sections:
  * the invitations, each opening its dialog; the accounts, each leading to the person's page; and
@@ -85,10 +120,8 @@ function Makers(props: { readonly onOpen: (open: DialogState) => void }): JSX.El
  */
 export function Users(): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const [accounts, reloadAccounts] = useResource("accounts", () => listAccounts(api));
-  const [invitations, reloadInvitations] = useResource("invitations", () => listInvitations(api));
-  const [roles, reloadRoles] = useResource("people-roles", () => listRoles(api));
+  const { accounts, reloadAccounts, invitations, reloadInvitations, roles, reloadRoles } =
+    usePeopleReads();
   const roleList = roles.state === "loaded" ? roles.value.roles : undefined;
   const choices = { roleNames: roleList?.map((role) => role.name) ?? ["user"], roles: roleList };
   const [open, setOpen] = useState<DialogState | undefined>(undefined);

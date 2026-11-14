@@ -18,6 +18,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 
 type ResourceUse = components["schemas"]["ResourceUseOutputBody"];
 type Summary = components["schemas"]["ResourceUseSummaryBody"];
@@ -34,7 +35,12 @@ export function SystemResourceUse(): JSX.Element {
   const [use] = useResource(
     "resource-use",
     async () => dataOrThrow(await api.GET("/system/resource-use")),
-    { poller: useBackgroundChangesPoller() },
+    {
+      poller: useBackgroundChangesPoller(),
+      given: useSectionGiven(SystemSectionsContext, (sections) => ({
+        value: sections.resourceUse,
+      })),
+    },
   );
   return (
     <section aria-labelledby="system-resource-use">
