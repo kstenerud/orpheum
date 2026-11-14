@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { failureText, SilentRequestError, waitMs } from "@orpheum/sdk";
-
-import { ApiProblem } from "./problem.ts";
+// ApiProblem from the SDK itself, not problem.ts, which tells an unanswered request by isUnanswered.
+import {
+  ApiProblem,
+  ChannelClosedError,
+  failureText,
+  SilentRequestError,
+  waitMs,
+} from "@orpheum/sdk";
 
 /**
  * Where a playback the server lost was, and whether its person had it paused: where the one opened
@@ -39,20 +44,28 @@ export function mayPass(cause: unknown): boolean {
   return cause instanceof TypeError; // fetch's own failure: no answer at all
 }
 
-/** The name a SilentRequestError of any copy of the SDK carries. */
-const silentRequestErrorName = new SilentRequestError("").name;
+/** The names a SilentRequestError and a ChannelClosedError of any copy of the SDK carry. */
+const unansweredNames: ReadonlySet<string> = new Set([
+  new SilentRequestError("").name,
+  new ChannelClosedError("", "closed").name,
+]);
 
 /**
- * Whether a request failed for hearing nothing from the core for silentAtMostMs over WebRTC
- * (SilentRequestError), the failure itself or what a path's naming of it wraps: its connection is
- * replaced then, so asked again it goes on a new one. Known by its name too: under a discovery's
- * loader the request is carried, and fails, in the loader's own copy of the SDK, whose class is not
- * this copy's where the two are of different builds, as a client origin's loader and its core's
- * client are across a deploy of either.
+ * Whether a request over WebRTC went unanswered, the failure itself or what a path's naming of it
+ * wraps: it heard nothing from the core for silentAtMostMs (SilentRequestError), whose connection is
+ * replaced then, or its channel closed or failed before its answer ended (ChannelClosedError), its
+ * connection gone under it; asked again, it goes on a new one. Known by its name too: under a
+ * discovery's loader the request is carried, and fails, in the loader's own copy of the SDK, whose
+ * class is not this copy's where the two are of different builds, as a client origin's loader and
+ * its core's client are across a deploy of either.
  */
 export function isUnanswered(cause: unknown): boolean {
   for (let each: unknown = cause; each instanceof Error; each = each.cause) {
-    if (each instanceof SilentRequestError || each.name === silentRequestErrorName) {
+    if (
+      each instanceof SilentRequestError ||
+      each instanceof ChannelClosedError ||
+      unansweredNames.has(each.name)
+    ) {
       return true;
     }
   }
@@ -131,8 +144,9 @@ export async function askUntilAnswered<T>(
 
 /**
  * How many times a request the core answered nothing for is asked in all (askWhileUnanswered): each
- * unanswered ask takes silentAtMostMs, 40 s, so three keep a page waiting two minutes at most before
- * it says it failed, and the second goes on a new connection, the silent one replaced.
+ * unanswered ask takes silentAtMostMs, 40 s, at most (one whose channel closed under it fails at
+ * once), so three keep a page waiting two minutes at most before it says it failed, and the second
+ * goes on a new connection, the silent or gone one replaced.
  */
 export const unansweredAsksAtMost = 3;
 

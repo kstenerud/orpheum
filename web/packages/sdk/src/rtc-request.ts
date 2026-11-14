@@ -174,6 +174,25 @@ export class SilentRequestError extends Error {
 }
 
 /**
+ * What a request over WebRTC fails with when its channel closed, or failed, before its response
+ * ended: its connection went under it, as a phone's does when the core ended it while the page was
+ * frozen in the background, and asked again it goes on the connection made in its place. A plain
+ * Error, it was told as a failure this app does not expect, the drawn screen replaced by those words,
+ * where one the core answered nothing for (SilentRequestError) was asked again (the owner's Android
+ * phone back from another app, staging, 2026-11-14).
+ */
+export class ChannelClosedError extends Error {
+  constructor(path: string, how: "closed" | "failed") {
+    super(
+      how === "closed"
+        ? `the channel for ${path} closed before its response ended`
+        : `the channel for ${path} failed`,
+    );
+    this.name = "ChannelClosedError";
+  }
+}
+
+/**
  * Sends one request on a channel of its own, and resolves with the response once its head arrives,
  * its body streamed as its messages do. The channel closes when the body ends or is cancelled, or
  * when the request's signal aborts: the request then fails, or its body does, with the signal's
@@ -494,10 +513,10 @@ function listenForAnswer(
       }
     },
     close: () => {
-      answer.end(new Error(`the channel for ${path} closed before its response ended`));
+      answer.end(new ChannelClosedError(path, "closed"));
     },
     error: () => {
-      answer.end(new Error(`the channel for ${path} failed`));
+      answer.end(new ChannelClosedError(path, "failed"));
     },
   });
 }

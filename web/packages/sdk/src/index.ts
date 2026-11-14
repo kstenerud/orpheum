@@ -71,7 +71,7 @@ export {
 export type { HeldGuestGrant, HeldSession, KeptCore, Target } from "./core-target.ts";
 export { isUnreached, reaching, unreachedRetryMs } from "./rtc-reopen.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
-export { SilentRequestError } from "./rtc-request.ts";
+export { ChannelClosedError, SilentRequestError } from "./rtc-request.ts";
 export {
   directFetch,
   directPathWaitMs,

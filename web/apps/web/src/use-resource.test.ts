@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import { ChannelClosedError } from "@orpheum/sdk";
 import { act, createElement, Fragment, useState, type JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -109,6 +110,53 @@ describe("useResource", () => {
     expect(seen.at(-1)).toMatchObject({ state: "failed", willAskAgain: true });
     isServerUp = true;
     expect(await pollOnce(poller)).toBe("changed");
+    mounted.unmount();
+    written.mockRestore();
+  });
+
+  it("reads again at once a read whose connection went under it, and shows its answer, not a failure (the owner's phone, 2026-11-14)", async () => {
+    // Back from another app, GET /api/v1/items/8's channel closed as the connection the core had
+    // ended went, and the film's page said a failure this app does not expect.
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cutOff = [new ChannelClosedError("/api/v1/items/8", "closed")];
+    let asked = 0;
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource("probe", () => {
+        asked += 1;
+        const cut = cutOff.shift();
+        return cut === undefined ? Promise.resolve(8) : Promise.reject(cut);
+      });
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(asked).toBe(2);
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 8 });
+    expect(seen.some((each) => each.state === "failed")).toBe(false);
+    mounted.unmount();
+    written.mockRestore();
+  });
+
+  it("asks a single-use read once, its connection gone under it or not: the core may have made its answer", async () => {
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let asked = 0;
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource(
+        "probe",
+        () => {
+          asked += 1;
+          return Promise.reject(new ChannelClosedError("/api/v1/playback", "closed"));
+        },
+        { isSingleUse: true },
+      );
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(asked).toBe(1);
+    expect(seen.at(-1)).toMatchObject({ state: "failed" });
     mounted.unmount();
     written.mockRestore();
   });

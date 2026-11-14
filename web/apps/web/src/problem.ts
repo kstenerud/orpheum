@@ -6,6 +6,7 @@ import type { TFunction } from "i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
+import { isUnanswered } from "./reopen.ts";
 
 // A refusal and its reading are the SDK's (cut-a §5.2); the app puts it in the viewer's words.
 export { ApiProblem, dataOrThrow, throwIfRefused } from "@orpheum/sdk";
@@ -44,8 +45,9 @@ export function problemText(
     }
     return t(`problem.${code}`, { defaultValue: t("problem.unknown") });
   }
-  if (cause instanceof TypeError) {
-    return t("problem.unreachable"); // fetch's own failure: no answer at all
+  if (cause instanceof TypeError || isUnanswered(cause)) {
+    // Fetch's own failure, or a WebRTC request's connection silent or gone under it: no answer at all.
+    return t("problem.unreachable");
   }
   return t("problem.unknown");
 }

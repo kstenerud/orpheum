@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { artUrl } from "./client.ts";
 import {
+  ChannelClosedError,
   endMessage,
   grantEvery,
   maxMessageBytes,
@@ -221,6 +222,7 @@ describe("the WebRTC transport", () => {
     await settle();
     closed.closeFromTheCore();
     await expect(cut).rejects.toThrow("closed before its response ended");
+    await expect(cut).rejects.toMatchObject(new ChannelClosedError("/api/v1/x", "closed")); // asked again
 
     const garbled = new FakeChannel();
     garbled.readyState = "open";

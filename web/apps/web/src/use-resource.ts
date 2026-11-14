@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AskOutcome, Poller } from "./polling.ts";
 import { rememberedInTheTab } from "./remembered.ts";
+import { askWhileUnanswered } from "./reopen.ts";
 import type { Resource } from "./resource.ts";
 import { resetOnEachTestMount } from "./screen-load.tsx";
 
@@ -155,20 +156,33 @@ interface Reader<T> {
   readonly isSingleUse: boolean;
 }
 
+/**
+ * What load reads, asked again at once on a new connection while the core answered nothing over
+ * WebRTC or the connection went under it (askWhileUnanswered): a read cut off as a phone comes back
+ * from another app is read again, never told as a failure this app does not expect (the owner's
+ * Android phone, staging, 2026-11-14). A single-use answer is asked once: the core may have made it.
+ */
+async function askedOf<T>(reader: Reader<T>, signal: AbortSignal | undefined): Promise<T> {
+  const { load } = reader;
+  return reader.isSingleUse
+    ? await load(signal)
+    : await askWhileUnanswered(() => load(signal), reportFailure);
+}
+
 /** A read of the reader's key, as how says; a poll's (signal) is its own, so its give-up aborts no one else's. */
 async function readOf<T>(
   reader: Reader<T>,
   asked: { readonly signal: AbortSignal | undefined; readonly how: ReadHow },
 ): Promise<unknown> {
-  const { key, load } = reader;
+  const { key } = reader;
   if (asked.how === "own" || asked.signal !== undefined) {
-    return await load(asked.signal);
+    return await askedOf(reader, asked.signal);
   }
   const underway = readsUnderway.get(key);
   if (asked.how === "join" && underway !== undefined) {
     return await underway;
   }
-  const started = load();
+  const started = askedOf(reader, undefined);
   readsUnderway.set(key, started);
   const settled = (): void => {
     if (readsUnderway.get(key) === started) {

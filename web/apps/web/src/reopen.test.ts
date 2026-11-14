@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { SilentRequestError } from "@orpheum/sdk";
+import { ChannelClosedError, SilentRequestError } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
@@ -132,6 +132,25 @@ describe("opening a lost playback again", () => {
       true,
     );
     expect(isUnanswered(new TypeError("Failed to fetch"))).toBe(false);
+  });
+
+  it("knows a request whose channel closed before its answer, its connection gone under it, by its class and by the loader's name", () => {
+    // The owner's Android phone back from another app: GET /api/v1/home's channel closed as the
+    // connection the core had ended went, and the page said a failure it does not expect (2026-11-14).
+    const closed = new ChannelClosedError("/api/v1/home", "closed");
+    expect(isUnanswered(closed)).toBe(true);
+    expect(isUnanswered(new ChannelClosedError("/api/v1/items/8", "failed"))).toBe(true);
+    class LoadersChannelClosedError extends Error {
+      constructor() {
+        super("the channel for /api/v1/home closed before its response ended");
+        this.name = "ChannelClosedError";
+      }
+    }
+    const loaders = new LoadersChannelClosedError();
+    expect(isUnanswered(new Error(`${loaders.message} (over WebRTC)`, { cause: loaders }))).toBe(
+      true,
+    );
+    expect(isUnanswered(new Error(closed.message))).toBe(false); // known by its kind, not its words
   });
 
   it("knows a lost playback, and the failures that pass, by the server's code", () => {

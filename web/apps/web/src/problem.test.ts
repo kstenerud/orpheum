@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { ChannelClosedError, SilentRequestError } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
@@ -19,6 +20,15 @@ function refusedAt(...locations: string[]): ApiProblem {
 }
 
 const fields = { "body.name": "Name", "body.rootPaths": "Folders this library reads" };
+
+describe("problemText", () => {
+  it("tells a WebRTC request its connection left unanswered as the server not reached, never as a failure the app does not expect (2026-11-14)", () => {
+    const unreachable = problemText(t, new TypeError("Failed to fetch"));
+    expect(problemText(t, new ChannelClosedError("/api/v1/items/8", "closed"))).toBe(unreachable);
+    expect(problemText(t, new SilentRequestError("/api/v1/home"))).toBe(unreachable);
+    expect(problemText(t, new Error("something else"))).toBe(t("problem.unknown"));
+  });
+});
 
 describe("fieldProblemText", () => {
   it("names the field the server refused in the form's own words (D188 §1)", () => {
