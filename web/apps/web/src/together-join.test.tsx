@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { MeContext } from "./signed-in-me.ts";
 import { JoinForm } from "./together-join.tsx";
 import {
   buttonWithText,
@@ -78,6 +79,44 @@ describe("joining by a link", () => {
     expect(name?.getAttribute("aria-describedby")).toBe(line?.id);
     await enter(name, "Granny");
     expect(name?.hasAttribute("aria-invalid")).toBe(false);
+    mounted.unmount();
+  });
+});
+
+describe("joining by a link while signed in", () => {
+  it("fills the name in with who the shell read is signed in, asking no GET /me of its own (D478)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /together/join/check": [204, undefined],
+        "GET /me": [200, { id: 3, name: "someone else", role: "user", isAdmin: false }],
+      },
+      heard,
+      "token",
+    );
+    const me = {
+      state: "loaded",
+      value: {
+        id: 2,
+        name: "partner",
+        role: "user",
+        isAdmin: false,
+        canManageAccount: true,
+        canHostWatchTogether: false,
+        hasNoLibrary: false,
+        showsDebugTools: false,
+      },
+    } as const;
+    const mounted = await mount(
+      withServices(
+        <MeContext value={{ me, readMeAgain: () => undefined }}>
+          <JoinForm secret="a-secret" onSubmitted={() => undefined} onJoined={() => undefined} />
+        </MeContext>,
+        services,
+      ),
+    );
+    expect(mounted.container.querySelector("input")?.value).toBe("partner");
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /together/join/check"]);
     mounted.unmount();
   });
 });

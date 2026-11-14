@@ -8,7 +8,15 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { CodeSignIn } from "./code-sign-in.tsx";
 import type { Ask, Poller } from "./polling.ts";
-import { mount, servedBy, type Answer, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  mount,
+  mountToRevisit,
+  servedBy,
+  unanswered,
+  type Answer,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -101,5 +109,20 @@ describe("a device signing in by the code it shows (D288)", () => {
     await nextLook(poller);
     expect(mounted.container.textContent).toContain("jkmn-pqrs");
     expect(mounted.container.textContent).toContain("The last code ended");
+  });
+
+  it("never shows the code from an earlier visit to the page, only what its own look at the pairing answers (D478)", async () => {
+    const services = servedBy({
+      "POST /pairings": pairing("s1", "abcd-efgh"),
+      "POST /pairings/state": [unanswered],
+    });
+    const page = await mountToRevisit(
+      withServices(<CodeSignIn onBack={() => undefined} poller={handPoller()} />, services),
+    );
+    mounted = page;
+    expect(page.container.textContent).toContain("abcd-efgh");
+    await page.leave();
+    await page.comeBack();
+    expect(page.container.textContent).not.toContain("abcd-efgh");
   });
 });

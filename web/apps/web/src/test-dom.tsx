@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { apiPrefix } from "@orpheum/sdk";
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { Services } from "./services.tsx";
@@ -244,6 +244,44 @@ export async function mount(tree: ReactNode): Promise<Mounted> {
       });
       container.remove();
       failOnUnexpectedRequests();
+    },
+  };
+}
+
+/**
+ * A mounted tree a test takes away and shows again, as a person leaves a page and comes back to it
+ * in the same tab: what the tab remembers of its pages stays between (D478), which a second mount
+ * would forget as a new tab does.
+ */
+export interface Revisitable extends Mounted {
+  /** Takes the tree away, and lets what that sets off settle. */
+  readonly leave: () => Promise<void>;
+  /** Shows the tree again, and lets its requests answer. */
+  readonly comeBack: () => Promise<void>;
+}
+
+/** Renders a tree as mount does, to be left and come back to within the one mount. */
+export async function mountToRevisit(tree: ReactNode): Promise<Revisitable> {
+  let showOrHide: (isShown: boolean) => void = () => undefined;
+  function Shown(): ReactNode {
+    const [isShown, setIsShown] = useState(true);
+    showOrHide = setIsShown;
+    return isShown ? tree : null;
+  }
+  const mounted = await mount(<Shown />);
+  const show = async (isShown: boolean): Promise<void> => {
+    await act(async () => {
+      showOrHide(isShown);
+      await settleAnswers();
+    });
+  };
+  return {
+    ...mounted,
+    leave: async () => {
+      await show(false);
+    },
+    comeBack: async () => {
+      await show(true);
     },
   };
 }

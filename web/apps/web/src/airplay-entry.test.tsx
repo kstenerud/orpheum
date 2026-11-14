@@ -3,12 +3,24 @@
 
 import "./i18n.ts";
 
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { offerAirPlayHere, type AirPlayHere } from "./airplay.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  mountToRevisit,
+  servedBy,
+  unanswered,
+  type Answers,
+  type Heard,
+  type Mounted,
+  type Revisitable,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
 import type { Services } from "./services.tsx";
@@ -44,19 +56,18 @@ describe("AirPlay in Cast's menu (D473)", () => {
   /** Cast's menu mounted on services, closed by a note in closed; and the requests it made. */
   async function openMenu(
     more: Partial<Services> = {},
+    grants: Answers[string] = [201, { masterPath: grantPath, expiresAt: "2026-11-14T12:00:00Z" }],
+    mountTree: (tree: ReactNode) => Promise<Mounted> = mount,
   ): Promise<{ readonly heard: Heard[]; readonly closed: string[] }> {
     const heard: Heard[] = [];
     const closed: string[] = [];
     const services = servedBy(
-      {
-        "GET /me/devices": [200, { devices: [] }],
-        "POST /airplay/grants": [201, { masterPath: grantPath, expiresAt: "2026-11-14T12:00:00Z" }],
-      },
+      { "GET /me/devices": [200, { devices: [] }], "POST /airplay/grants": grants },
       heard,
       "token",
     );
     const server = fakeTogetherServer();
-    mounted = await mount(
+    mounted = await mountTree(
       withServices(
         <LiveProvider>
           <CastTargets
@@ -108,5 +119,21 @@ describe("AirPlay in Cast's menu (D473)", () => {
     const { heard } = await openMenu({ pathMoves });
     expect(mounted?.container.textContent).not.toContain("AirPlay");
     expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /airplay/grants");
+  });
+
+  it("asks a grant of its own each time the menu opens, never pressable on an earlier opening's (D473, D478)", async () => {
+    unoffer = offerAirPlayHere(fakeHere());
+    let menu: Revisitable | undefined;
+    const granted = [201, { masterPath: grantPath, expiresAt: "2026-11-14T12:00:00Z" }] as const;
+    await openMenu({}, [granted, unanswered], async (tree) => {
+      menu = await mountToRevisit(tree);
+      return menu;
+    });
+    const airPlay = (): HTMLElement | undefined =>
+      buttonWithText(mounted?.container ?? document.body, "AirPlay");
+    expect(airPlay()?.hasAttribute("disabled")).toBe(false);
+    await menu?.leave();
+    await menu?.comeBack();
+    expect(airPlay()?.hasAttribute("disabled")).toBe(true);
   });
 });

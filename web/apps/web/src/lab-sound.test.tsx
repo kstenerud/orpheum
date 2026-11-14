@@ -9,7 +9,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LabSound } from "./lab-sound.tsx";
 import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
 import { routeHref } from "./router.ts";
-import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  mount,
+  mountToRevisit,
+  servedBy,
+  settleUntil,
+  unanswered,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -76,5 +84,27 @@ describe("the sound timing test (D435 §6)", () => {
       "GET /system-videos/soundTiming/h264-aac",
       "GET /system-videos/soundTiming/h264-aac",
     ]);
+  });
+
+  it("plays the clip its own read answers, never one an earlier visit to the page read (D478)", async () => {
+    const services = servedBy({
+      "GET /system-videos/soundTiming/h264-aac": [[200, clip(true)], unanswered],
+    });
+    services.session.signIn("token");
+    const byHand: Poller = { start: () => () => undefined };
+    const page = await mountToRevisit(
+      withServices(
+        <BackgroundChangesContext value={byHand}>
+          <LabSound />
+        </BackgroundChangesContext>,
+        services,
+      ),
+    );
+    mounted = page;
+    await settleUntil(() => page.container.querySelector("a.lab__button") !== null);
+    await page.leave();
+    await page.comeBack();
+    expect(page.container.querySelector("#lab-sound-heading")).not.toBeNull();
+    expect(page.container.querySelector("a.lab__button")).toBeNull();
   });
 });

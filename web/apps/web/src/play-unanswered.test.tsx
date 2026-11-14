@@ -9,9 +9,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Play } from "./play.tsx";
 import {
   mount,
+  mountToRevisit,
   playbackCauses,
   servedBy,
   settleUntil,
+  unanswered,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -125,5 +127,28 @@ describe("the Play page's playback, timed from the first ask", () => {
     mounted = await mount(withServices(<Play fileId={2} />, services));
     await settleUntil(() => mounted?.container.querySelector("video") !== null);
     expect(sent).toEqual([]);
+  });
+});
+
+describe("a Play page come back to in the same tab", () => {
+  it("plays only the playback it opened itself, never the one an earlier visit opened, with its media tokens (D478)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [[200, directDecision({ resumePositionMs: 0 })], unanswered],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    const page = await mountToRevisit(withServices(<Play fileId={2} />, services));
+    mounted = page;
+    await settleUntil(() => page.container.querySelector("video") !== null);
+    await page.leave();
+    await page.comeBack();
+    expect(playbackCauses(heard)).toEqual(["playPage", "playPage"]);
+    expect(page.container.querySelector("video")).toBeNull();
   });
 });
