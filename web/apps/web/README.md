@@ -457,7 +457,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   server's, from `/client-settings`, through `useBackgroundChanges`. An ask with no answer within
   `askAnswersWithinMs` (60 s) is given up as failed, aborted by its signal and reported, and the poll
   asks again after the failed wait, so one request that never answers cannot stop it for good (the
-  owner, 2026-10-24). One way to poll:
+  owner, 2026-10-24). A read its WebRTC connection left unanswered (`isUnanswered`: silent, or its
+  channel closed under it) is asked again at once on the next connection (`askWhileUnanswered`),
+  unless its answer is single-use, and a poll's that still fails leaves the answer drawn in place (the
+  owner's phone back from another app, 2026-11-14). One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
   `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
 - **One key names one read, and the tab keeps its latest answer** (D478): a reader of a key the tab

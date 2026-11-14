@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AskOutcome, Poller } from "./polling.ts";
 import { rememberedInTheTab } from "./remembered.ts";
-import { askWhileUnanswered } from "./reopen.ts";
+import { askWhileUnanswered, isUnanswered } from "./reopen.ts";
 import type { Resource } from "./resource.ts";
 import { resetOnEachTestMount } from "./screen-load.tsx";
 
@@ -127,6 +127,18 @@ function keep(key: string, value: unknown, isRead: boolean): void {
   }
 }
 
+/**
+ * Whether the answer a reader shows, lastAnswer, stays through a read that failed with cause: one its
+ * WebRTC connection left unanswered (isUnanswered), while a poller asks again.
+ */
+function keepsAnswerThrough(
+  reader: { readonly willAskAgain: boolean },
+  lastAnswer: string | undefined,
+  cause: unknown,
+): boolean {
+  return reader.willAskAgain && lastAnswer !== undefined && isUnanswered(cause);
+}
+
 /** Has hear told every answer a reader of key has, until the returned function is called. */
 function listen(key: string, hear: Hear): () => void {
   const readers = readersOf.get(key) ?? new Set<Hear>();
@@ -221,7 +233,10 @@ interface KeyReads<T> {
  * The reads of one key by one reader, each shown as show says unless stopped since or its answer is
  * unchanged; what another reader of the key reads is shown too. A failure says willAskAgain where a
  * poller asks again. A read its poll gave up is dropped, its failure already reported, so the screen
- * keeps what it shows.
+ * keeps what it shows; so is one its connection left unanswered (isUnanswered) while an answer shows
+ * and a poller asks again: Home, its rows drawn, went blank on the owner's phone back from another
+ * app until the next poll's answer, some 7 s on, the read cut off as the connection the core had
+ * ended went (staging, 2026-11-14).
  */
 function keyReads<T>(reader: Reader<T>): KeyReads<T> {
   const { key, show, isSingleUse } = reader;
@@ -258,8 +273,9 @@ function keyReads<T>(reader: Reader<T>): KeyReads<T> {
       (cause: unknown) => {
         if (signal?.aborted !== true) {
           reportFailure(cause);
-          lastAnswer = undefined;
-          if (isCurrent) {
+          const isKept = keepsAnswerThrough(reader, lastAnswer, cause);
+          lastAnswer = isKept ? lastAnswer : undefined;
+          if (isCurrent && !isKept) {
             show(failedWith(cause, reader.willAskAgain));
           }
           answered?.("failed");

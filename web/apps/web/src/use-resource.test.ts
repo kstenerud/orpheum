@@ -138,6 +138,67 @@ describe("useResource", () => {
     written.mockRestore();
   });
 
+  it("keeps the answer it shows through a poll its connection left unanswered, and shows the next (the owner's phone, 2026-11-14)", async () => {
+    // Home's rows, drawn, went blank on the owner's phone back from another app, until a later
+    // poll answered: the poll's read was cut off as the connection the core had ended went.
+    const poller = handPoller();
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let isCutOff = false;
+    let answer = 1;
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource(
+        "probe",
+        () =>
+          isCutOff
+            ? Promise.reject(new ChannelClosedError("/api/v1/home", "closed"))
+            : Promise.resolve(answer),
+        { poller },
+      );
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    const shownBefore = seen.length;
+    isCutOff = true;
+    expect(await pollOnce(poller)).toBe("failed"); // each of its asks cut off: the poll asks again
+    expect(seen.slice(shownBefore).every((each) => each.state === "loaded")).toBe(true);
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    isCutOff = false;
+    answer = 2;
+    expect(await pollOnce(poller)).toBe("changed");
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 2 });
+    mounted.unmount();
+    written.mockRestore();
+  });
+
+  it("says a poll's failure that is not its connection's, a drawn answer or not", async () => {
+    const poller = handPoller();
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let isRefused = false;
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource(
+        "probe",
+        () =>
+          isRefused
+            ? Promise.reject(new ApiProblem({ code: "internal", message: "a note for developers" }))
+            : Promise.resolve(1),
+        { poller },
+      );
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    isRefused = true;
+    expect(await pollOnce(poller)).toBe("failed");
+    expect(seen.at(-1)).toMatchObject({ state: "failed", willAskAgain: true });
+    mounted.unmount();
+    written.mockRestore();
+  });
+
   it("asks a single-use read once, its connection gone under it or not: the core may have made its answer", async () => {
     const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let asked = 0;
