@@ -1186,11 +1186,17 @@
           },
           "name": {
             "type": "string"
+          },
+          "soundOffsetMs": {
+            "description": "How far the device moves its sound from its picture, in ms: later when positive",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "soundOffsetMs"
         ],
         "type": "object"
       },
@@ -4128,6 +4134,16 @@
       },
       "ListItemsOutputBody": {
         "properties": {
+          "genres": {
+            "description": "With genres, on the page asked with no cursor: the genres with a title of the list's kinds in its libraries, by name, each with how many; absent otherwise",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "items": {
             "items": {
               "discriminator": {
@@ -9668,6 +9684,9 @@
           "name": {
             "type": "string"
           },
+          "preferences": {
+            "$ref": "#/components/schemas/MyPreferencesBody"
+          },
           "role": {
             "type": "string"
           },
@@ -12537,6 +12556,16 @@
               "maximum": 500,
               "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "description": "Also the genres with a title of the list's kinds in its libraries, before its search and filters, each with how many: for its genre chip, on the page asked with no cursor alone",
+            "explode": false,
+            "in": "query",
+            "name": "genres",
+            "schema": {
+              "description": "Also the genres with a title of the list's kinds in its libraries, before its search and filters, each with how many: for its genre chip, on the page asked with no cursor alone",
+              "type": "boolean"
             }
           },
           {

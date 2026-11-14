@@ -3084,6 +3084,11 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+            /**
+             * Format: int64
+             * @description How far the device moves its sound from its picture, in ms: later when positive
+             */
+            soundOffsetMs: number;
         };
         DatabaseBody: {
             /** @enum {string} */
@@ -4141,6 +4146,8 @@ export interface components {
             name?: string;
         };
         ListItemsOutputBody: {
+            /** @description With genres, on the page asked with no cursor: the genres with a title of the list's kinds in its libraries, by name, each with how many; absent otherwise */
+            genres?: components["schemas"]["GenreBody"][] | null;
             items: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
@@ -6021,6 +6028,7 @@ export interface components {
             isAdmin: boolean;
             isGuestReceiver?: boolean;
             name: string;
+            preferences?: components["schemas"]["MyPreferencesBody"];
             role: string;
             shell?: components["schemas"]["ShellBody"];
             showsDebugTools: boolean;
@@ -7600,6 +7608,8 @@ export interface operations {
                 from?: string;
                 /** @description Only the titles in this genre, by its id from GET /genres */
                 genre?: number;
+                /** @description Also the genres with a title of the list's kinds in its libraries, before its search and filters, each with how many: for its genre chip, on the page asked with no cursor alone */
+                genres?: boolean;
                 /** @description Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library */
                 identification?: "identified" | "ambiguous" | "unidentified" | "confirmed";
                 /** @description The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1) */

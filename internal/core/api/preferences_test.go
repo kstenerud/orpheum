@@ -4,9 +4,11 @@ package api_test
 
 import (
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -126,6 +128,34 @@ func TestPreferences_SwitchingTheSoundsLevellingIsLogged(t *testing.T) {
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}
+
+// GET /me carries the person's own choices, as GET /me/preferences answers them, so a library's
+// choices read none of their own (D480 §2).
+func TestMe_CarriesThePersonsOwnChoices(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	if put := harness.do(t, http.MethodPut, "/me/preferences", admin, map[string]any{
+		"leftOutLibraryIds": []int64{1}, "leftOutOfHomeLibraryIds": []int64{1}, "isAutoplayOn": true,
+	}); put.status != http.StatusNoContent {
+		t.Fatalf("PUT /me/preferences = %d %s", put.status, put.body)
+	}
+	var mine api.MyPreferencesBody
+	harness.readJSON(t, "/me/preferences", admin, &mine)
+	if !mine.IsAutoplayOn || len(mine.LeftOutLibraryIDs) != 1 || len(mine.LeftOutOfHomeLibraryIDs) != 1 {
+		t.Fatalf("GET /me/preferences = %+v; want what was put", mine)
+	}
+	for _, path := range []string{"/me", "/me?shell=true"} {
+		var me struct {
+			Preferences *api.MyPreferencesBody `json:"preferences"`
+		}
+		harness.readJSON(t, path, admin, &me)
+		if me.Preferences == nil || !reflect.DeepEqual(*me.Preferences, mine) {
+			t.Errorf("GET %s's preferences = %+v; want GET /me/preferences' %+v", path, me.Preferences, mine)
 		}
 	}
 }

@@ -154,14 +154,14 @@ func liveDevice(
 }
 
 // DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
-// where.
+// where, with the sound offset kept with it.
 func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
 	known, err := liveDevice(ctx, service.database.Read(), userID, deviceID)
 	if err != nil {
 		return Device{}, err
 	}
 	return Device{
-		ID: known.ID, Name: known.Name, Platform: known.Platform,
+		ID: known.ID, Name: known.Name, Platform: known.Platform, SoundOffsetMs: known.SoundOffsetMs,
 		IsSignedIn: true,
 	}, nil
 }

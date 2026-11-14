@@ -154,7 +154,10 @@ type ListItemsInput struct {
 	// A list of films, series or other videos may be read whole in one answer, its limit left out
 	// (D475); a list by identification is read a page at a time.
 	PageOrWholeInput
-	Query string `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	// WithGenres asks the first page to name the genres the list's kinds have in its libraries, for
+	// its genre chip, so the chip reads no list of its own (D480 §1).
+	WithGenres bool   `doc:"Also the genres with a title of the list's kinds in its libraries, before its search and filters, each with how many: for its genre chip, on the page asked with no cursor alone" query:"genres"`                                                                                                                                                                                                                                      //nolint:lll // one struct tag
+	Query      string `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
 }
 
@@ -163,7 +166,9 @@ type ListItemsOutput struct {
 	Body struct {
 		Items      []ItemEntryBody `json:"items"`
 		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
-		Total      int64           `doc:"How many items the whole list holds, so a client can size it before its other pages come and see where its end now is; on every page but one asked with from, and absent for an empty list and a list by identification" json:"total,omitempty"` //nolint:lll // one struct tag
+		// Genres are what genres asked for, by name (D480 §1).
+		Genres []GenreBody `doc:"With genres, on the page asked with no cursor: the genres with a title of the list's kinds in its libraries, by name, each with how many; absent otherwise" json:"genres,omitempty"`                                                             //nolint:lll // one struct tag
+		Total  int64       `doc:"How many items the whole list holds, so a client can size it before its other pages come and see where its end now is; on every page but one asked with from, and absent for an empty list and a list by identification" json:"total,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -214,12 +219,29 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 	}
 	output.Body.NextCursor = page.NextCursor
 	output.Body.Total = page.Total
-	if input.Person != 0 {
-		if err := server.addCredits(ctx, dependencies, input.Person, output.Body.Items); err != nil {
-			return nil, err
-		}
+	if err := server.addAsked(ctx, dependencies, input, reach, output); err != nil {
+		return nil, err
 	}
 	return output, nil
+}
+
+// addAsked puts on a list's page what its input asks besides the items: the genres, on the page asked
+// with no cursor (D480 §1), and in a list by person, their credit on each item (D425 §7).
+func (server *Server) addAsked(
+	ctx context.Context, dependencies *Dependencies, input *ListItemsInput, reach auth.Reach,
+	output *ListItemsOutput,
+) error {
+	if input.WithGenres && input.Cursor == "" {
+		genres, err := server.genresOf(ctx, dependencies, reach, input.Kinds)
+		if err != nil {
+			return err
+		}
+		output.Body.Genres = genres
+	}
+	if input.Person != 0 {
+		return server.addCredits(ctx, dependencies, input.Person, output.Body.Items)
+	}
+	return nil
 }
 
 // addCredits puts the person's credit on each of the items a list by person found (D425 §7).

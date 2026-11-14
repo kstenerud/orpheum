@@ -61,6 +61,10 @@ type UserBody struct {
 	// until they turn it on (PUT /me/preferences): said here, which every page reads as it starts,
 	// so the tools show with no read of their own.
 	ShowsDebugTools bool `json:"showsDebugTools"`
+	// Preferences are the person's own choices, as GET /me/preferences answers them, so a screen that
+	// shows one, as a library's choices do, reads none of its own (D480 §2). Absent for a guest
+	// receiver.
+	Preferences *MyPreferencesBody `json:"preferences,omitempty"`
 	// IsGuestReceiver is a guest receiver's session (D465 §2), signed in for one cast: its page shows
 	// that cast alone (D469 §4), and the body says nothing else of the person.
 	IsGuestReceiver bool `json:"isGuestReceiver,omitempty"`
@@ -87,6 +91,10 @@ type ShellBody struct {
 type CurrentDeviceBody struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+	// SoundOffsetMs is how far the device moves its sound from its picture, later when positive, so a
+	// tab no playback gives it to, a Watch Together guest's, starts from it with no read of its own
+	// (D480 §5).
+	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
 }
 
 // UserOutput answers with a user.
@@ -493,6 +501,11 @@ func (server *Server) userBody(
 		return UserBody{}, server.logInternalError(ctx, "read the person's own switches", err)
 	}
 	body.ShowsDebugTools = switches.ShowsDebugTools
+	preferences, err := server.myPreferencesBody(ctx, dependencies, principal.UserID)
+	if err != nil {
+		return UserBody{}, err
+	}
+	body.Preferences = &preferences
 	if dependencies.Discovery != nil {
 		if status := dependencies.Discovery.Status(); status.IsHomeAddressReady {
 			body.HomeAddresses = status.HomeAddresses
@@ -504,7 +517,7 @@ func (server *Server) userBody(
 			return UserBody{}, server.logInternalError(ctx, "read the session's device", err)
 		}
 		if err == nil {
-			body.Device = &CurrentDeviceBody{ID: device.ID, Name: device.Name}
+			body.Device = &CurrentDeviceBody{ID: device.ID, Name: device.Name, SoundOffsetMs: device.SoundOffsetMs}
 		}
 	}
 	return body, nil

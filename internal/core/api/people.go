@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
@@ -197,13 +198,29 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 		last := genres[len(genres)-1]
 		return library.EncodeCursor([]byte(last.Name), last.ID)
 	})
-	output.Body.Genres = make([]GenreBody, 0, len(genres))
-	for _, genre := range genres {
-		output.Body.Genres = append(output.Body.Genres, GenreBody{
-			ID: genre.ID, Name: genre.Name, TitleCount: genre.TitleCount,
-		})
-	}
+	output.Body.Genres = genreBodies(genres)
 	return output, nil
+}
+
+// genresOf is every genre with a title of kinds in reach, by name, as a list's genre chip offers
+// them (D480 §1).
+func (server *Server) genresOf(
+	ctx context.Context, dependencies *Dependencies, reach auth.Reach, kinds []string,
+) ([]GenreBody, error) {
+	genres, err := dependencies.Browser.GenresAfter(ctx, reach, kinds, "", 0, library.WholeList)
+	if err != nil {
+		return nil, server.libraryError(ctx, "list the genres", err)
+	}
+	return genreBodies(genres), nil
+}
+
+// genreBodies are genres as the API shows them.
+func genreBodies(genres []library.Genre) []GenreBody {
+	bodies := make([]GenreBody, 0, len(genres))
+	for _, genre := range genres {
+		bodies = append(bodies, GenreBody{ID: genre.ID, Name: genre.Name, TitleCount: genre.TitleCount})
+	}
+	return bodies
 }
 
 func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {

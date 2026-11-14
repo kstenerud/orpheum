@@ -214,8 +214,30 @@ func TestPlayback_ADevicesSoundOffsetIsKeptAndComesWithItsPlaybacks(t *testing.T
 	}
 }
 
-// A Watch Together viewer's playback carries no offset, so its page reads the device's from the
-// person's list of devices (the owner, 2026-11-06: "Put a control in watch together").
+// GET /me's device says its sound offset, so a Watch Together guest's control starts from it with
+// no read of the person's devices (D480 §5).
+func TestMe_TheSessionsDeviceSaysItsSoundOffset(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
+	if set := harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": 350}); set.status !=
+		http.StatusNoContent {
+		t.Fatalf("PUT soundOffsetMs: %d", set.status)
+	}
+	var signedIn struct {
+		Device *struct {
+			SoundOffsetMs int64 `json:"soundOffsetMs"`
+		} `json:"device"`
+	}
+	harness.readJSON(t, "/me", user, &signedIn)
+	if signedIn.Device == nil || signedIn.Device.SoundOffsetMs != 350 {
+		t.Errorf("GET /me's device = %+v; want its sound offset, 350 ms", signedIn.Device)
+	}
+}
+
+// The person's list of devices says each one's sound offset (the owner, 2026-11-06: "Put a control
+// in watch together").
 func TestDevices_ListEachDevicesSoundOffset(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

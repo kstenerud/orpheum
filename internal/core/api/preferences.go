@@ -110,22 +110,34 @@ func (server *Server) getMyPreferences(ctx context.Context, input *Authorization
 	if err != nil {
 		return nil, err
 	}
-	switches, err := dependencies.Preferences.Switches(ctx, principal.UserID)
+	body, err := server.myPreferencesBody(ctx, dependencies, principal.UserID)
 	if err != nil {
-		return nil, server.playbackError(ctx, "read a person's own choices", err)
+		return nil, err
 	}
-	leftOut, err := dependencies.Preferences.LeftOutLibraries(ctx, principal.UserID)
+	return &MyPreferencesOutput{Body: body}, nil
+}
+
+// myPreferencesBody is a person's own choices, as GET /me/preferences answers them and GET /me
+// carries them (D480 §2).
+func (server *Server) myPreferencesBody(
+	ctx context.Context, dependencies *Dependencies, userID int64,
+) (MyPreferencesBody, error) {
+	switches, err := dependencies.Preferences.Switches(ctx, userID)
 	if err != nil {
-		return nil, server.playbackError(ctx, "read the libraries a person left out", err)
+		return MyPreferencesBody{}, server.playbackError(ctx, "read a person's own choices", err)
 	}
-	leftOutOfHome, err := dependencies.Preferences.LeftOutOfHome(ctx, principal.UserID)
+	leftOut, err := dependencies.Preferences.LeftOutLibraries(ctx, userID)
 	if err != nil {
-		return nil, server.playbackError(ctx, "read the libraries a person left out of Home", err)
+		return MyPreferencesBody{}, server.playbackError(ctx, "read the libraries a person left out", err)
 	}
-	return &MyPreferencesOutput{Body: MyPreferencesBody{
+	leftOutOfHome, err := dependencies.Preferences.LeftOutOfHome(ctx, userID)
+	if err != nil {
+		return MyPreferencesBody{}, server.playbackError(ctx, "read the libraries a person left out of Home", err)
+	}
+	return MyPreferencesBody{
 		IsDialogueBoostOn: switches.IsDialogueBoostOn, IsLevellingOn: switches.IsLevellingOn,
 		IsAutoplayOn: switches.IsAutoplayOn, LeftOutLibraryIDs: leftOut, LeftOutOfHomeLibraryIDs: leftOutOfHome,
-	}}, nil
+	}, nil
 }
 
 func playbackPreferencesBody(prefs preferences.Preferences) PlaybackPreferencesBody {

@@ -3,7 +3,9 @@
 package api_test
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -88,6 +90,45 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodGet, "/search?query=a&limit=501", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+}
+
+// A list asked with genres names, on its first page, the genres its kinds have in its libraries
+// before its search and filters, for its genre chip; asked without, or for a later page, it names
+// none (D480 §1).
+func TestBrowse_AListsFirstPageNamesItsGenresWhenAsked(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelvePeople(t)
+	crime := `"genres":[{"id":1,"name":"Crime","titleCount":1}]`
+	drama := `"genres":[{"id":2,"name":"Drama","titleCount":1}]`
+	for path, want := range map[string]string{
+		"/items?kind=film&sort=name&genres=true":                   crime,
+		"/items?kind=series&sort=name&genres=true":                 drama,
+		"/items?kind=film&sort=name&genres=true&genre=2":           crime,
+		"/items?kind=film&sort=name&genres=true&query=nothingsuch": crime,
+	} {
+		if got := harness.do(t, http.MethodGet, path, admin, nil); got.status != http.StatusOK ||
+			!strings.Contains(got.body, want) {
+			t.Errorf("%s = %d %s; want %s", path, got.status, got.body, want)
+		}
+	}
+	first := harness.do(t, http.MethodGet, "/items?kind=film,series,other&sort=name&limit=1&genres=true", admin, nil)
+	var page struct {
+		NextCursor string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal([]byte(first.body), &page); err != nil || page.NextCursor == "" {
+		t.Fatalf("the first page of one = %d %s; want a cursor", first.status, first.body)
+	}
+	for _, path := range []string{
+		"/items?kind=film&sort=name",
+		"/items?kind=film,series,other&sort=name&limit=1&genres=true&cursor=" + url.QueryEscape(page.NextCursor),
+	} {
+		if got := harness.do(t, http.MethodGet, path, admin, nil); got.status != http.StatusOK ||
+			strings.Contains(got.body, `"genres"`) {
+			t.Errorf("%s = %d %s; want no genres", path, got.status, got.body)
+		}
+	}
 }
 
 // wantSearchPagesPeopleByCursor checks that a search's people come a page at a time, each page after
