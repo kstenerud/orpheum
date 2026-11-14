@@ -7,6 +7,7 @@
  */
 
 import {
+  pageLinkOutages,
   playChunked,
   watchStalls,
   type ChunkedPlayback,
@@ -123,6 +124,7 @@ export function useChunkedPlayback(
       ...startAudioOf(startAudioRef),
       ...startOn({ startAtBps, linkSharePercent, steadiness, ...remembered }, startMs),
       monotonicMs,
+      outages: pageLinkOutages, // loads deeper after its link was out, in this film or the next (D487)
     });
     const following = { playbackRef, letGoRef, setPlaying, setCannotKeepUp };
     letGoRef.current = holdPlayback(video, playback, following);

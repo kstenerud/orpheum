@@ -240,6 +240,19 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   lower, kept in the browser's storage for its user agent alone. Each step-down is noted, and said
   as why its quality was chosen. The sound's buffer is as above. `src/picture-room.ts`;
   `picture-room.test.ts`, `forward-buffer.test.ts`; only a device shows the whole: VQ300.
+- **A film loads deeper ahead once its link was out** (D487): the page's outages
+  (`pageLinkOutages`, which the web app gives each film's playback) run from the first sign that
+  the link was lost (a chunk of picture failed or stuck on its way, hls.js's loading stopped, the
+  browser offline; never a chunk given up for its slowness) to the next chunk of picture buffered
+  or the end of the playback that waited. After one of `deeperAfterOutageAtLeastMs` (10 s) or more,
+  every playback of the page loads `loadsAheadAfterOutageS` (480 s) ahead, at any quality, but no
+  further than lets all it holds, the 30 s behind and a chunk with it, fit in
+  `deeperShareOfBufferLimit` (two thirds) of the picture's memory and of the sound's, never less
+  than it would have, and still lowered by the room, hls.js's cut, the runway and the page; until
+  its link has stayed good `deeperForMs` (10 min), an outage under way stopping that count. It
+  chooses no quality for depth. Its notes on its link say when it went deeper, for which outage,
+  and when it came back. `src/link-outage.ts`; `link-outage.test.ts`, `forward-buffer.test.ts`,
+  `abr-link-lost.test.ts`; only a device on a real dead zone shows the whole: VQ330–VQ333.
 - **A chunked playback notes each stall of its page's main thread of `mainThreadStallAtLeastMs`
   (1 s) or more**, with its linkNotes, naming the player's last events before it (a seek, a quality
   or sound begun, a buffer flushed or run full), at most `mainThreadStallNotesAtMost` a playback:
@@ -290,7 +303,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 [D265](../../../docs/contributors/decisions/working-notes.md) and
 [D352](../../../docs/contributors/decisions/working-notes.md) for choosing a quality;
 [forward-buffer-2026-10-29.md](../../../docs/contributors/design/research/forward-buffer-2026-10-29.md)
-for how far ahead it loads;
+for how far ahead it loads, and [D487](../../../docs/contributors/decisions/working-notes.md)
+for how far after its link was out;
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §1, §3;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 

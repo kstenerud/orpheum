@@ -14,9 +14,13 @@ import {
   soundLimitBytes,
   videoLimitBytes,
   bufferLimitKindOf,
+  deeperShareOfBufferLimit,
+  keptBehindS,
+  loadsAheadAfterOutageS,
   type AheadHls,
   type DeviceFacts,
 } from "./forward-buffer.ts";
+import { deeperAfterOutageAtLeastMs, deeperForMs, LinkOutages } from "./link-outage.ts";
 import { HlsEvents } from "./test-hls.ts";
 
 /** A quality at averageMbps, its peak half again. */
@@ -318,5 +322,120 @@ describe("loading ahead by the picture's room (D464 §4)", () => {
     hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
     expect(hls.config.maxBufferLength).toBe(loadsAheadAtLeastS);
     expect(notes.at(-1)).toMatch(/^loads ahead 20\.0 s .*, by floor: level 2 /u);
+  });
+});
+
+// The owner's phone, out 6.4 minutes mid-film, held 30 s ahead and stalled (staging, 2026-11-14).
+describe("loading deeper ahead once the link was out (D487)", () => {
+  const desktop = videoLimitBytes.ordinary;
+  /** What a buffer of limitBytes holds ahead loading deeper at rateBps, the rest beside it. */
+  const deeperS = (limitBytes: number, rateBps: number): number =>
+    (limitBytes * deeperShareOfBufferLimit * 8) / rateBps - keptBehindS - 10;
+
+  it("loads loadsAheadAfterOutageS ahead at a quality whose bytes fit, at the top or below it", () => {
+    const below = { level: levelAt(0.7), isTop: false, limitBytes: desktop, isDeeper: true };
+    expect(aheadTargetOf(below)).toEqual({ aheadS: loadsAheadAfterOutageS, by: "deeper" });
+    expect(aheadTargetOf({ ...below, isTop: true })).toEqual({
+      aheadS: loadsAheadAfterOutageS,
+      by: "deeper",
+    });
+    expect([loadsAheadAfterOutageS, deeperShareOfBufferLimit]).toEqual([480, 2 / 3]);
+  });
+
+  it("holds all it loads, the 30 s behind and a chunk to two thirds of the picture's memory and of the sound's", () => {
+    const top = { level: levelAt(9), isTop: true, limitBytes: desktop, isDeeper: true };
+    const byPicture = aheadTargetOf(top);
+    expect(byPicture.by).toBe("deeper bytes");
+    expect(byPicture.aheadS).toBeCloseTo(deeperS(desktop, 9e6));
+    const sound = { rateBps: 256_000, limitBytes: soundLimitBytes.ordinary };
+    const bySound = aheadTargetOf({ ...top, level: levelAt(0.7), sound });
+    expect(bySound.by).toBe("deeper sound bytes");
+    expect(bySound.aheadS).toBeCloseTo(deeperS(soundLimitBytes.ordinary, 256_000));
+  });
+
+  it("never loads less than it would have, as a 1 GB Fire TV's top would", () => {
+    const fireTvTop = { level: levelAt(9), isTop: true, limitBytes: videoLimitBytes.lowMemory };
+    expect(aheadTargetOf({ ...fireTvTop, isDeeper: true })).toEqual(aheadTargetOf(fireTvTop));
+  });
+
+  it("is lowered by its group's runway, hls.js's own cut, the page's own and the picture's room", () => {
+    const deeper = { level: levelAt(0.7), isTop: false, limitBytes: desktop, isDeeper: true };
+    expect(aheadTargetOf(deeper, { runwayS: 10 })).toEqual({ aheadS: 10, by: "runway" });
+    expect(aheadTargetOf(deeper, { cutS: 35 })).toEqual({ aheadS: 35, by: "cut" });
+    expect(aheadTargetOf(deeper, { atMostS: 10 })).toEqual({ aheadS: 10, by: "page" });
+    expect(aheadTargetOf(deeper, { roomS: 12 })).toEqual({ aheadS: 12, by: "room" });
+  });
+
+  /** A forward buffer on a desktop whose page's outages are outages, read by the returned clock. */
+  function keptWith(outages: LinkOutages): {
+    readonly hls: FakeHls;
+    readonly notes: string[];
+    readonly stop: () => void;
+    readonly clock: { nowMs: number };
+  } {
+    const hls = new FakeHls();
+    const notes: string[] = [];
+    const clock = { nowMs: 0 };
+    const { stop } = keepForwardBuffer(hls as unknown as Parameters<typeof keepForwardBuffer>[0], {
+      device: { userAgent: desktopChrome, deviceMemoryGb: 8 },
+      isTop: (level) => level >= 2,
+      note: (note) => notes.push(note),
+      outages: { memory: outages, monotonicMs: () => clock.nowMs },
+    });
+    return { hls, notes, stop, clock };
+  }
+
+  it("loads deeper from the first chunk of picture after the outage, saying why, until the link stays good deeperForMs, saying so", () => {
+    const outages = new LinkOutages();
+    const { hls, notes, clock } = keptWith(outages);
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
+    expect(hls.config.maxBufferLength).toBe(loadsAheadBelowTopS);
+    outages.lost("its loading stopped", 0);
+    clock.nowMs = 381_300;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
+    expect(hls.config).toEqual({
+      maxBufferLength: loadsAheadAfterOutageS,
+      maxMaxBufferLength: loadsAheadAfterOutageS,
+    });
+    expect(notes.slice(-2)).toEqual([
+      "loads deeper ahead: its link was out 381.3 s (its loading stopped), back 0.0 s ago; until it stays good 10 min",
+      "loads ahead 480.0 s (30.0 MB), by deeper: level 0 of 0-2, 750/500 kb/s; cap 104.9 MB",
+    ]);
+    clock.nowMs = 381_300 + deeperForMs;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
+    expect(hls.config.maxBufferLength).toBe(loadsAheadBelowTopS);
+    expect(notes.slice(-2)).toEqual([
+      "loads ahead as before: its link good 10 min since it was out 381.3 s (its loading stopped)",
+      "loads ahead 30.0 s (1.9 MB), by below top: level 0 of 0-2, 750/500 kb/s; cap 52.4 MB",
+    ]);
+  });
+
+  it("ends an outage its playback waited through as it stops, so the playback opened again loads deeper", () => {
+    const outages = new LinkOutages();
+    const gone = keptWith(outages);
+    gone.hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
+    outages.lost("a chunk failed (fragLoadError)", 0);
+    gone.clock.nowMs = 20_000;
+    gone.stop();
+    const opened = keptWith(outages);
+    opened.clock.nowMs = 22_000;
+    opened.hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
+    expect(opened.hls.config.maxBufferLength).toBe(loadsAheadAfterOutageS);
+    expect(opened.notes.at(-2)).toBe(
+      "loads deeper ahead: its link was out 20.0 s (a chunk failed (fragLoadError)), back 2.0 s ago; until it stays good 10 min",
+    );
+  });
+
+  it("loads as before after an outage shorter than deeperAfterOutageAtLeastMs, and without the page's outages", () => {
+    const outages = new LinkOutages();
+    const { hls, clock } = keptWith(outages);
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
+    outages.lost("its loading stopped", 0);
+    clock.nowMs = deeperAfterOutageAtLeastMs - 1;
+    hls.trigger(Hls.Events.FRAG_BUFFERED, { frag: { type: "main" } });
+    expect(hls.config.maxBufferLength).toBe(loadsAheadBelowTopS);
+    const without = keptOn({ userAgent: desktopChrome, deviceMemoryGb: 8 });
+    without.hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
+    expect(without.hls.config.maxBufferLength).toBe(loadsAheadBelowTopS);
   });
 });

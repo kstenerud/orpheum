@@ -18,6 +18,7 @@ import Hls, {
 } from "hls.js";
 
 import { holdsQualityAheadS } from "./abr.ts";
+import { deeperForMs, outageText, type LinkOutages, type Outage } from "./link-outage.ts";
 import {
   browserStorage,
   limitMemoryIn,
@@ -59,6 +60,48 @@ export const loadsAheadAtLeastS = holdsQualityAheadS;
  * the owner's (2026-10-29).
  */
 export const aheadShareOfBufferLimit = 1 / 3;
+
+/**
+ * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
+ * in seconds: three of the player's 10 s steps back (seekStepMs) and a Watch Together follower's
+ * jump back of a second or less, its chunk of up to 10 s (99% are, D414 §5) kept with it, so a step back plays
+ * at once. hls.js keeps everything played by default (Infinity), so a device would hold a film's
+ * played minutes up to the browser's memory for a page's picture, and then evict at every append
+ * (the efficiency audit's finding 5, web-client-efficiency-audit-2026-10-28.md). That memory is
+ * Chromium's 150 MiB on a desktop, which a film's own picture at 20 Mb/s reaches in a minute; on an
+ * Android device of 1 GB, as a Fire TV Stick is, Chromium's own source gives 30 MiB, which 30 s
+ * behind at 9 Mb/s alone fills, though whether Silk takes that limit is not shown: a staging log had
+ * the stick holding more (forward-buffer-2026-10-29.md §3.3; VQ121, its test T4). Lowering it where
+ * the limit is 30 MiB is the owner's call (the report's P2). A justified constant.
+ */
+export const keptBehindS = 30;
+
+/**
+ * How far ahead a playback loads, at any quality, once its link has been out long enough
+ * (LinkOutages, D487), in seconds: eight minutes, the 6.4 minutes the owner's phone was out mid-film
+ * (staging, 2026-11-14), with a minute and a half to spare; at 700 kb/s of picture and 100 kb/s of
+ * sound, about 48 MB. The memory bounds it
+ * first where it holds less (deeperShareOfBufferLimit). A justified constant, the lead's (D487 §3).
+ */
+export const loadsAheadAfterOutageS = 480;
+
+/**
+ * The share of the browser's memory for a page's picture, and of its memory for its sound, that all
+ * a playback loading deeper holds at once may take (D487 §3): what is loaded ahead, the keptBehindS
+ * behind it and one chunk being appended (heldBesideAheadS). The other third is for what the
+ * average rate misses: a chunk's peak above it, a sound's rate read only from its chunks so far, a
+ * device whose memory is less than its kind's (a Fire TV's sound, not yet shown: VQ121). The
+ * picture's room (D464) still holds each chunk of picture to roomShareOfBufferLimit, and hls.js's cut
+ * after a refusal still lowers it, kept for the playback, so a refusal is not met again. A justified
+ * constant, the lead's.
+ */
+export const deeperShareOfBufferLimit = 2 / 3;
+
+/**
+ * What a playback loading deeper holds besides what is loaded ahead, in seconds: keptBehindS and a
+ * chunk of up to 10 s being appended, as 99% are (D414 §5).
+ */
+const heldBesideAheadS = keptBehindS + 10;
 
 const mebibyte = 1024 * 1024;
 
@@ -172,7 +215,8 @@ export interface AheadLevel {
 
 /**
  * What bounds the target in force: the quality, the picture's bytes, the sound's bytes, the floor
- * either's bytes were held to, the next chunk's room, a group's runway, hls.js's cut, the page.
+ * either's bytes were held to, loading deeper after an outage and its picture's or sound's bytes
+ * (D487), the next chunk's room, a group's runway, hls.js's cut, the page.
  */
 export type AheadBound =
   | "below top"
@@ -181,6 +225,9 @@ export type AheadBound =
   | "sound bytes"
   | "floor"
   | "sound floor"
+  | "deeper"
+  | "deeper bytes"
+  | "deeper sound bytes"
   | "room"
   | "runway"
   | "cut"
@@ -214,7 +261,8 @@ export interface AheadSound {
  * The target for loading level ahead (P1, P2): loadsAheadAtTopS at the top, loadsAheadBelowTopS
  * below it; no more than aheadShareOfBufferLimit of limitBytes at the level's average rate, nor of
  * the sound's limitBytes at the sound's own rate where it is known, but not below loadsAheadAtLeastS
- * for either; then no more than each of limits.
+ * for either; loading deeper (isDeeper, D487), the deeper target where it is further (deeperOf);
+ * then no more than each of limits.
  */
 export function aheadTargetOf(
   loading: {
@@ -222,19 +270,21 @@ export function aheadTargetOf(
     readonly isTop: boolean;
     readonly limitBytes: number;
     readonly sound?: AheadSound | undefined;
+    /** Whether it loads deeper, its link having been out (LinkOutages, D487). */
+    readonly isDeeper?: boolean | undefined;
   },
   limits: AheadLimits = {},
 ): AheadTarget {
   let target: AheadTarget = loading.isTop
     ? { aheadS: loadsAheadAtTopS, by: "top" }
     : { aheadS: loadsAheadBelowTopS, by: "below top" };
-  target = cappedByBytes(
-    target,
-    { limitBytes: loading.limitBytes, rateBps: rateOf(loading.level) },
-    ["bytes", "floor"],
-  );
+  const picture = { limitBytes: loading.limitBytes, rateBps: rateOf(loading.level) };
+  target = cappedByBytes(target, picture, ["bytes", "floor"]);
   if (loading.sound !== undefined) {
     target = cappedByBytes(target, loading.sound, ["sound bytes", "sound floor"]);
+  }
+  if (loading.isDeeper === true) {
+    target = deeperOf(target, { picture, sound: loading.sound });
   }
   const lower: readonly [number | undefined, AheadBound][] = [
     [limits.roomS, "room"],
@@ -271,9 +321,59 @@ function cappedByBytes(
     : { aheadS: bytesS, by: bounds[0] };
 }
 
+/**
+ * The target loading deeper after an outage (D487 §3), where it is further than target, today's:
+ * loadsAheadAfterOutageS, no more than all held at once fits in deeperShareOfBufferLimit of the
+ * picture's memory at its rate, nor of the sound's at its own where it is known. Today's where the
+ * picture's rate is not yet known, before a quality loads: its bytes would bound nothing.
+ */
+function deeperOf(
+  target: AheadTarget,
+  buffers: {
+    readonly picture: { readonly limitBytes: number; readonly rateBps: number };
+    readonly sound: AheadSound | undefined;
+  },
+): AheadTarget {
+  if (buffers.picture.rateBps <= 0) {
+    return target;
+  }
+  let deeper = heldWithin(
+    { aheadS: loadsAheadAfterOutageS, by: "deeper" },
+    buffers.picture,
+    "deeper bytes",
+  );
+  if (buffers.sound !== undefined) {
+    deeper = heldWithin(deeper, buffers.sound, "deeper sound bytes");
+  }
+  return deeper.aheadS > target.aheadS ? deeper : target;
+}
+
+/**
+ * target, no further than lets what is loaded ahead, with the heldBesideAheadS beside it, fit in
+ * deeperShareOfBufferLimit of a buffer's limitBytes at rateBps, bounded by by.
+ */
+function heldWithin(
+  target: AheadTarget,
+  buffer: { readonly limitBytes: number; readonly rateBps: number },
+  by: AheadBound,
+): AheadTarget {
+  if (buffer.rateBps <= 0) {
+    return target;
+  }
+  const aheadS =
+    (buffer.limitBytes * deeperShareOfBufferLimit * 8) / buffer.rateBps - heldBesideAheadS;
+  return aheadS < target.aheadS ? { aheadS, by } : target;
+}
+
 /** A level's rate as its bytes fill memory: its average, the sound's with it, else its peak. */
 function rateOf(level: AheadLevel): number {
   return level.averageBitrate > 0 ? level.averageBitrate : level.bitrate;
+}
+
+/** The page's outages as a playback's target reads them, by its own monotonic clock (D487). */
+export interface AheadOutages {
+  readonly memory: Pick<LinkOutages, "back" | "deeperAt">;
+  readonly monotonicMs: () => number;
 }
 
 /** What keeping the target needs of hls.js. */
@@ -318,6 +418,9 @@ export class ForwardBuffer {
   #noted: AheadTarget | undefined;
   /** The sound loading, by its playlist, and the highest rate its chunks loaded at, bits a second. */
   #sound: { readonly playlist: string; rateBps: number } | undefined;
+  readonly #outages: AheadOutages | undefined;
+  /** The outage it was last noted to load deeper for (D487); undefined while it loads as before. */
+  #deeperFor: Outage | undefined;
 
   constructor(
     hls: AheadHls,
@@ -329,6 +432,8 @@ export class ForwardBuffer {
       readonly atMostS?: number | undefined;
       /** Its picture's room, whose limit is the picture's and which paces it (D464); undefined for none. */
       readonly room?: BufferRoom | undefined;
+      /** The page's outages, by which it loads deeper (D487); undefined for a playback that never does. */
+      readonly outages?: AheadOutages | undefined;
     },
   ) {
     this.#hls = hls;
@@ -336,6 +441,7 @@ export class ForwardBuffer {
     this.#note = options.note;
     this.#atMostS = options.atMostS;
     this.#room = options.room;
+    this.#outages = options.outages;
     const kind = bufferLimitKindOf(options.device);
     this.#limitBytes = videoLimitBytes[kind];
     this.#soundLimitBytes = soundLimitBytes[kind];
@@ -363,6 +469,7 @@ export class ForwardBuffer {
         isTop: this.#level >= 0 && this.#isTop(this.#level),
         limitBytes: this.#pictureLimitBytes(),
         sound: this.#soundOf(),
+        isDeeper: this.#deeperNow() !== undefined,
       },
       {
         roomS: this.#level >= 0 ? this.#room?.aheadS(this.#level) : undefined,
@@ -410,9 +517,29 @@ export class ForwardBuffer {
     this.#keep();
   }
 
-  /** A chunk of picture buffered: the next chunk's room is read again. */
+  /** The outage that has it load deeper now (LinkOutages.deeperAt); undefined for none. */
+  #deeperNow(): Outage | undefined {
+    const outages = this.#outages;
+    return outages?.memory.deeperAt(outages.monotonicMs());
+  }
+
+  /**
+   * A chunk of picture buffered: its link is back, which ends an outage under way (LinkOutages.back),
+   * and the next chunk's room is read again.
+   */
   pictureBuffered(): void {
+    this.#linkBack();
     this.#keep();
+  }
+
+  /** The playback ends: an outage it waited through ends with it, as for a playback opened again. */
+  ended(): void {
+    this.#linkBack();
+  }
+
+  #linkBack(): void {
+    const outages = this.#outages;
+    outages?.memory.back(outages.monotonicMs());
   }
 
   /**
@@ -447,9 +574,10 @@ export class ForwardBuffer {
     this.#keep();
   }
 
-  /** Sets hls.js's target to the one in force, noting it when it changed. */
+  /** Sets hls.js's target to the one in force, noting it when it changed, after a change of loading deeper. */
   #keep(): void {
     this.#takeCut();
+    this.#noteDeeper();
     const target = this.target();
     const { config } = this.#hls;
     config.maxBufferLength = target.aheadS;
@@ -460,6 +588,32 @@ export class ForwardBuffer {
     if (isMoved || this.#noted?.by !== target.by) {
       this.#noted = target;
       this.#note(this.#targetText(target));
+    }
+  }
+
+  /**
+   * Notes each change of the outage it loads deeper for (D487): "loads deeper ahead: its link was out
+   * 381.3 s (its loading stopped), back 2.0 s ago; until it stays good 10 min", or, after it,
+   * "loads ahead as before: its link good 10 min since it was out 381.3 s (its loading stopped)".
+   */
+  #noteDeeper(): void {
+    const deeper = this.#deeperNow();
+    const was = this.#deeperFor;
+    if (deeper === was) {
+      return;
+    }
+    this.#deeperFor = deeper;
+    const goodText = `${String(deeperForMs / 60_000)} min`;
+    if (deeper !== undefined) {
+      const agoS = ((this.#outages?.monotonicMs() ?? deeper.endedAtMs) - deeper.endedAtMs) / 1000;
+      this.#note(
+        `loads deeper ahead: its link was ${outageText(deeper)}, back ${agoS.toFixed(1)} s ago;` +
+          ` until it stays good ${goodText}`,
+      );
+    } else if (was !== undefined) {
+      this.#note(
+        `loads ahead as before: its link good ${goodText} since it was ${outageText(was)}`,
+      );
     }
   }
 
@@ -490,7 +644,7 @@ export class ForwardBuffer {
       sound === undefined
         ? ""
         : `; sound ${String(Math.round(sound.rateBps / 1000))} kb/s,` +
-          ` cap ${megabytes(sound.limitBytes * aheadShareOfBufferLimit)}`;
+          ` cap ${megabytes(sound.limitBytes * capShareOf(target))}`;
     const [floorRateBps, floorLimitBytes] =
       target.by === "sound floor" && sound !== undefined
         ? [sound.rateBps, sound.limitBytes]
@@ -502,11 +656,19 @@ export class ForwardBuffer {
         : "";
     return (
       `loads ahead ${target.aheadS.toFixed(1)} s (${megabytes((target.aheadS * rateBps) / 8)})` +
-      `, by ${target.by}: ${levelText}; cap ${megabytes(this.#pictureLimitBytes() * aheadShareOfBufferLimit)}` +
+      `, by ${target.by}: ${levelText}; cap ${megabytes(this.#pictureLimitBytes() * capShareOf(target))}` +
       soundText +
       overflowText
     );
   }
+}
+
+/**
+ * The share of a buffer's memory a target's note says its cap is: all held at once loading deeper
+ * (deeperShareOfBufferLimit), else what is loaded ahead (aheadShareOfBufferLimit).
+ */
+function capShareOf(target: AheadTarget): number {
+  return target.by.startsWith("deeper") ? deeperShareOfBufferLimit : aheadShareOfBufferLimit;
 }
 
 /** What media holds loaded behind and ahead of where it plays, in seconds; undefined where nothing is loaded there. */
@@ -562,6 +724,7 @@ export function keepForwardBuffer(
   return {
     buffer,
     stop: () => {
+      buffer.ended();
       hls.off(Hls.Events.LEVEL_SWITCHING, onSwitching);
       hls.off(Hls.Events.FRAG_LOADED, onLoaded);
       hls.off(Hls.Events.FRAG_BUFFERED, onBuffered);

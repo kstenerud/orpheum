@@ -3175,3 +3175,26 @@ An item is ticked only by the person who did it, and only with what they saw.
   compositor shows the fault; the browser test checks the canvas's opacity
   (`web/apps/web/src/film-stage.browser.test.tsx`; idiosyncrasies.md, "Chrome on Android draws a playing
   video black under a fully opaque canvas over it")
+- [ ] **VQ330** — D487 on a real dead zone. On the Android phone, Chrome, after the deploy, over
+  mobile data: play a film at the quality the link chooses, then take the phone where it has no
+  signal (or turn mobile data off) for a minute, and back. Passes when the play report's notes on its
+  link say "loads deeper ahead: its link was out …" with the outage's length and its first sign, then
+  targets "by deeper" or "by deeper bytes" well past 30 s, and the stats show the buffer ahead
+  growing past a minute while the film plays on; and when a second outage of a few minutes soon
+  after plays through what was loaded, or stalls only once that runs out. The tests fake hls.js and
+  the clock; only a phone shows the browser keeping the bytes and the link bringing them.
+- [ ] **VQ331** — D487 holds within a 1 GB Fire TV's memory. On the Fire TV Stick, after the deploy:
+  play a film, pull the network for 20 s and restore it, and play on for ten minutes. Passes when no
+  "buffer full" note follows the "loads deeper ahead" note, or, if one does, one alone, its cut kept
+  after, with no stall from it; the notes show the target the sound's memory allows (its limit,
+  unshown, VQ121).
+- [ ] **VQ332** — D487's ten minutes on a journey. On the Android phone over mobile data, on a train
+  or car journey through known dead zones: play a film for half an hour. Passes when the notes show
+  each "loads deeper ahead" after an outage and "loads ahead as before" only after ten minutes with
+  none, and the person tells whether a dead zone came back within those ten minutes or after them,
+  which says whether `deeperForMs` is long enough.
+- [ ] **VQ333** — The node keeps up with a deep player. On staging, after the deploy, a film not yet
+  made at the quality chosen: from the Android phone, drop its link for 20 s mid-film and restore it.
+  Passes when the core's log shows the node's run following the player's requests past its usual 60 s
+  ahead (chunkLookaheadSeconds), with no chunk answered 425 for long, and the player's notes show the
+  target reached; if the node falls behind, the player waits on 425s where it should have loaded.

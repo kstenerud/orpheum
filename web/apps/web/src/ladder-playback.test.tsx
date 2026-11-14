@@ -1,7 +1,12 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import type { ChunkedPlayback, PlaybackFailed, playChunked } from "@orpheum/player";
+import {
+  pageLinkOutages,
+  type ChunkedPlayback,
+  type PlaybackFailed,
+  type playChunked,
+} from "@orpheum/player";
 import { act, useRef, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,11 +16,12 @@ import type { LadderOffer } from "./moving-down.ts";
 import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
-const played = { starts: [] as number[], destroyed: 0 };
+const played = { starts: [] as number[], outages: [] as unknown[], destroyed: 0 };
 
-/** The player's chunked playback, faked: it notes where each playback starts and its ending. */
+/** The player's chunked playback, faked: it notes where each playback starts, its outages, its ending. */
 const fakePlayChunked = ((_video, _url, options): ChunkedPlayback => {
   played.starts.push(options.startPositionS);
+  played.outages.push(options.outages);
   return {
     setAudioRendition: () => undefined,
     canSwitchSoundInPlace: false,
@@ -70,6 +76,7 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
 
   beforeEach(() => {
     played.starts.length = 0;
+    played.outages.length = 0;
     played.destroyed = 0;
     vi.stubGlobal("WebKitPlaybackTargetAvailabilityEvent", Event);
     Object.defineProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker", {
@@ -99,6 +106,11 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     }
     return { video, heard };
   }
+
+  it("gives each playback the page's outages, so a film loads deeper after its link was out (D487)", async () => {
+    await mountLadder();
+    expect(played.outages).toEqual([pageLinkOutages]);
+  });
 
   it("lets hls.js go and gives the element the grant at its place, starting no playback while on AirPlay", async () => {
     const { video } = await mountLadder();

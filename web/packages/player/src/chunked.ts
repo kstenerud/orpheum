@@ -41,10 +41,13 @@ import {
 import {
   deviceFactsOf,
   keepForwardBuffer,
+  keptBehindS,
   loadsAheadBelowTopS,
   pictureRoomOf,
+  type AheadOutages,
   type ForwardBuffer,
 } from "./forward-buffer.ts";
+import type { LinkOutages } from "./link-outage.ts";
 import {
   longTasksOf,
   watchMainThread,
@@ -62,20 +65,7 @@ import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate
 import { stepUpHeadroom } from "./step-up.ts";
 import { bufferRoomOf, type PictureRoom } from "./picture-room.ts";
 
-/**
- * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
- * in seconds: three of the player's 10 s steps back (seekStepMs) and a Watch Together follower's
- * jump back of a second or less, its chunk of up to 10 s (99% are, D414 §5) kept with it, so a step back plays
- * at once. hls.js keeps everything played by default (Infinity), so a device would hold a film's
- * played minutes up to the browser's memory for a page's picture, and then evict at every append
- * (the efficiency audit's finding 5, web-client-efficiency-audit-2026-10-28.md). That memory is
- * Chromium's 150 MiB on a desktop, which a film's own picture at 20 Mb/s reaches in a minute; on an
- * Android device of 1 GB, as a Fire TV Stick is, Chromium's own source gives 30 MiB, which 30 s
- * behind at 9 Mb/s alone fills, though whether Silk takes that limit is not shown: a staging log had
- * the stick holding more (forward-buffer-2026-10-29.md §3.3; VQ121, its test T4). Lowering it where
- * the limit is 30 MiB is the owner's call (the report's P2). A justified constant.
- */
-export const keptBehindS = 30;
+export { keptBehindS };
 
 /**
  * The event a chunked playback's video is sent when it gives up a quality as one this device
@@ -363,8 +353,24 @@ export function tellStalls(
 }
 
 /**
+ * What a playback's ForwardBuffer is given of its options: how far ahead it loads at most, and the
+ * page's outages, read by its clock (undefined for none).
+ */
+function aheadOptionsOf(options: {
+  readonly loadsAheadAtMostS?: number;
+  readonly outages?: LinkOutages | undefined;
+  readonly monotonicMs: () => number;
+}): { readonly atMostS: number | undefined; readonly outages: AheadOutages | undefined } {
+  const { outages, monotonicMs } = options;
+  return {
+    atMostS: options.loadsAheadAtMostS,
+    outages: outages === undefined ? undefined : { memory: outages, monotonicMs },
+  };
+}
+
+/**
  * What a chunked playback follows of its video once hls.js plays it: how far ahead it loads
- * (keepForwardBuffer, at most atMostS where given, its top its controller's, its notes for the play
+ * (keepForwardBuffer, at most atMostS where given, deeper after its link was out by outages, its top its controller's, its notes for the play
  * report), its group (obeyGroup), its sound's shift, its stalls (tellStalls), and its page's main
  * thread's stalls (watchMainThread, for the same notes), and its stall at the end, which it ends
  * (endAtTheLastFrame). Returns each stopping.
@@ -377,6 +383,7 @@ function followAheadGroupSoundAndStalls(
     readonly room: PictureRoom;
     readonly soundShift: SoundShift;
     readonly atMostS: number | undefined;
+    readonly outages: AheadOutages | undefined;
   },
 ): readonly (() => void)[] {
   const ahead = keepForwardBuffer(hls, {
@@ -385,6 +392,7 @@ function followAheadGroupSoundAndStalls(
     note: linkNoter(video),
     atMostS: by.atMostS,
     room: bufferRoomOf(hls, by.room, by.abr.chosenLevel),
+    outages: by.outages,
   });
   return [
     ahead.stop,
@@ -538,7 +546,8 @@ function stepAndLinkNoter(
  * startAtBps at the steadiness level its offer says (D352 Q2), giving way to live voice and to its
  * group, telling the page of a quality unplayable here (D266), and keeping each of its choices, with
  * why, among the video's steps, and its steadiness level and its link's spread for its play reports;
- * its estimate of the link starting from what its offer says its device remembers (P2).
+ * its estimate of the link starting from what its offer says its device remembers (P2); and telling
+ * the page's outages, where given, each sign that its link was lost (D487).
  */
 export function choosingOptionsOf(
   video: HTMLVideoElement,
@@ -547,9 +556,17 @@ export function choosingOptionsOf(
     readonly monotonicMs: () => number;
     readonly linkSharePercent?: number | undefined;
     readonly startSteadiness?: number | undefined;
+    readonly outages?: LinkOutages | undefined;
   } & RememberedOffer,
 ): ChoosingOptions {
+  const { outages, monotonicMs } = options;
   return {
+    linkLost:
+      outages === undefined
+        ? undefined
+        : (why) => {
+            outages.lost(why, monotonicMs());
+          },
     startAtBps: options.startAtBps,
     shouldStartByRememberedLink: options.shouldStartByRememberedLink === true,
     shareForQuality: shareForQualityOf(options.linkSharePercent),
@@ -673,6 +690,11 @@ export function playChunked(
      * hidden player fills only its first buffer, so it does not hold a phone's link as one browses.
      */
     readonly loadsAheadAtMostS?: number;
+    /**
+     * The page's outages during its films, by which it loads deeper ahead after its link was out
+     * (pageLinkOutages, D487); absent, it never does, as a film page's hidden player and a lab's.
+     */
+    readonly outages?: LinkOutages | undefined;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
     readonly authorization?: string | undefined;
     /** The fetch every load is made by, where the page gives one (chunkedHlsConfig). */
@@ -702,7 +724,7 @@ export function playChunked(
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, () => choosingOf(abr));
-  const follow = { abr, room, soundShift, atMostS: options.loadsAheadAtMostS };
+  const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);

@@ -28696,6 +28696,46 @@ transport-choice.test.tsx, kept-path.test.ts and discovery-gate-hidden.test.tsx.
 
 **Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
 
-## D487 — Reserved: A film loads deeper ahead once the link has dropped
+## D487 — A film loads deeper ahead once the link has dropped
 
-**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-14), by the project owner, on the lead's proposal (the owner: *"Ok go with your
+recommendations"*), after the slow-link war game. Amends forward-buffer-2026-10-29.md's P1 and P2
+(the owner, 2026-10-29: 30 s below the top, 60 s at it, a third of the browser's memory) for a
+playback after its link was out; keeps D464's room, D285 §2's runway, hls.js's kept cut and the
+film page's preload as bounds on it. The owner's phone lost its link mid-film for 6.4 minutes; it
+held about 30 s ahead and stalled (staging, 2026-11-14).
+
+1. **An outage is the page's, from the first sign the link was lost to the next chunk of picture
+   buffered** (`LinkOutages`, `pageLinkOutages`): a chunk of picture that failed or stuck on its
+   way, hls.js's loading stopped, the browser offline (`ChoosingOptions.linkLost`); never a chunk
+   given up for its slowness, which is the link's speed. The end of the playback that waited ends
+   it too, so a playback opened again after it (playbackGone) and the next film know of it. One of
+   `deeperAfterOutageAtLeastMs`, 10 s, or more makes a playback load deeper: longer than a WebRTC
+   connection's replacement and hls.js's asks again, and a third of the 30 s held below the top.
+2. **It loads deeper until its link has stayed good `deeperForMs`, 10 minutes,** an outage under
+   way stopping the count and any that ends while deeper starting it afresh: a dead zone on a
+   journey comes back within minutes; a phone home on Wi-Fi is back to its 30 s within an episode.
+   The lead's judgement, of low confidence until VQ332.
+3. **Deeper is `loadsAheadAfterOutageS`, 480 s, at any quality,** no further than lets all it holds
+   (the 30 s behind and a chunk of 10 s with it) fit in `deeperShareOfBufferLimit`, two thirds, of
+   the picture's memory at its rate and of the sound's at its own, and never less than today's. The
+   other third is for a chunk's peak above its average, a sound's rate read from its chunks so far
+   and a device holding less than its kind; the room (D464) and hls.js's cut after a refusal stay,
+   so a refusal is not met again. On a 1 GB Fire TV at its top, or an iPhone's ManagedMediaSource
+   (about 30 s), it gains nothing.
+4. **It chooses no quality for depth.** A lower rung that would buy more minutes in the same memory
+   is the owner's to decide, not built.
+5. **Its notes on its link say it:** "loads deeper ahead: its link was out 381.3 s (its loading
+   stopped), back 0.0 s ago; until it stays good 10 min", each target after it by `deeper`,
+   `deeper bytes` or `deeper sound bytes`, and "loads ahead as before: …" when it ends.
+6. **Constants, not settings** (lead.md §7): each is a judgement of the device's memory and the
+   link's ways, no person's preference. Only the web app's film playback gives the page's outages;
+   a film page's hidden player and a lab never load deeper.
+
+**Proven by:** "the page's outages (D487)" (web/packages/player/src/link-outage.test.ts); "loading
+deeper ahead once the link was out (D487)" (forward-buffer.test.ts: 480 s where its bytes fit, two
+thirds of the picture's and the sound's memory, never less than before, lowered by runway, cut, page
+and room, its notes in and out, an outage ended by the playback's stop); "a choosing tells each sign
+that its link was lost (D487)" (abr-link-lost.test.ts, a chunk given up told nothing); the web
+app's "gives each playback the page's outages" (web/apps/web/src/ladder-playback.test.tsx). Only a
+device on a real dead zone shows the whole: VQ330–VQ333.
