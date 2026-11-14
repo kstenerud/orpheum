@@ -125,18 +125,15 @@ export const pairsSettleMs = 5_000;
 export type PageOpened = "navigate" | "reload" | "back_forward" | "prerender";
 
 /** Each type of navigation the API names, which a page tells. */
-const pageOpenedTypes: readonly string[] = [
-  "navigate",
-  "reload",
-  "back_forward",
-  "prerender",
-] satisfies readonly PageOpened[];
+const pageOpenedTypes: readonly PageOpened[] = ["navigate", "reload", "back_forward", "prerender"];
 
 /** The page's navigation entries, or none where the browser keeps none. */
 function navigationEntries(): readonly { readonly type?: unknown }[] {
   return typeof performance === "undefined" || typeof performance.getEntriesByType !== "function"
     ? []
-    : performance.getEntriesByType("navigation");
+    : performance
+        .getEntriesByType("navigation")
+        .map((entry) => ({ type: "type" in entry ? entry.type : undefined }));
 }
 
 /**
@@ -150,9 +147,7 @@ export function pageOpenedOf(
   entries: readonly { readonly type?: unknown }[] = navigationEntries(),
 ): PageOpened | undefined {
   const type = entries[0]?.type;
-  return typeof type === "string" && pageOpenedTypes.includes(type)
-    ? (type as PageOpened)
-    : undefined;
+  return pageOpenedTypes.find((each) => each === type);
 }
 
 /** What reportPathChoice tells: the choice, over WebRTC the transport whose pairs go with it. */
