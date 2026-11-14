@@ -4060,4 +4060,13 @@ continue without my input."
   next episode's Play page draws (the owner, 2026-11-14, VQ267 on the Android phone: "whenever it
   switches to the next or previous video I see a brief flash of the orpheum top bar"). Full screen
   itself holds. Likely the shell's bar showing while no stage fills the window between the pages.
+- **Next batch, the owner's request (2026-11-14, "a button to deliberately drop to a bandwidth
+  rung for people on limited usage plans"):** data-timeliness.md C6 already decided (the owner,
+  2026-10-22) a per-device "Mobile data" setting (Automatic, Save data, Unrestricted) that caps
+  quality visibly and liftably and stops the client's prefetch ahead, built "only if cheap" for the
+  beta; none of it is built. The ladder's rungs (registry.go `chunkQualities`) run from
+  400k@360p (about 180 MB an hour) to 3000k@720p, or 6000k@1080p with hardware (about 2.7 GB an
+  hour). Open for the owner: where the control lives (the player, the device's settings, or both),
+  whether it holds per device or per film, which rung Save data caps at, and whether it also turns
+  off D487's deeper load after a drop, which spends data a person may not watch.
 - **The owner's:** 12 (polls that read whole answers) is D237's.
