@@ -28585,3 +28585,50 @@ serving `GET /genres` changed to serve them in the list.
   web/apps/web/src/together-viewer-sound.test.tsx ("takes that offset from who the shell read as
   signed in, asking for no list of devices (D480 §5)", "drawn alone, takes it from GET /me's device,
   still asking for no list of devices")
+
+## D481 — An admin page's first read carries what its other sections read
+
+**Decided** (2026-11-14), by the lead, on the owner's order of the client-server audit's fixes (finding 10). The
+owner to confirm. Amends nothing; applies D476 §4's shape (a first read stands for its parts' first
+reads) to the admin pages, within D342 and D237.
+
+1. **One first read per page.** GET /system, GET /users/{id} and GET /users take `sections=true`,
+   asked for by a page's first read alone, and then carry, under `sections`, what the page's other
+   sections read, each part as its own endpoint answers it (the same named body type):
+   - System: now playing, resource use, backups, unused settings, the filing reports' first page
+     (limit 500, with its nextCursor), and the network settings (absent where the config file keeps
+     them, where GET /system/network refuses with a conflict).
+   - A user's page: their devices and the roles to choose theirs from. Who is signed in is the
+     shell's (D478): the page asks no /me.
+   - Users: the roles; the accounts are the read's own first page (limit 500).
+2. **Credentials stay apart (D342).** GET /system and GET /users are gzipped, and a gzipped answer
+   never carries a credential, so the discovery (claim code, root keys), the invitations (their
+   links) and the secrets' state are not folded: each stays its own, uncompressed read, and GET
+   /config carries nothing more. `TestArch_NoCompressedOperationAnswersWithACredential` holds it.
+3. **Each section stays fresh at its own endpoint (D237).** The first read stands for each
+   section's first read only; each section's poll asks its own endpoint at its first wait, backing
+   off on its own, and a write's refresh reads there. One aggregate poll was not chosen: it would
+   fall back to its shortest wait whenever any part changed (now playing moves at every poll),
+   re-send every part each time, and poll parts that have no poll (unused settings, the network).
+4. **The first read is good once.** It is not kept for the tab (useResource's isSingleUse): each
+   section keeps its own answer (D478), so a page opened again reads its first read anew, its
+   sections showing their own kept answers meanwhile, never a stale aggregate.
+5. **A failure falls back.** A part the server cannot read leaves `sections` out, logged at warn;
+   a first read that carried none, or failed, leaves each section to read its own endpoint. A list
+   whose first page is not the whole list (a nextCursor) reads itself page by page, as before.
+6. **Left as their own reads:** the reachability check (asked for as the admin asks), the
+   discovery, the invitations, the secrets, the update section and the debug-only system videos.
+7. **Authorization is unchanged.** Each endpoint keeps its admin check; a non-admin is refused the
+   sections read with 403.
+
+**Status:** decided (the owner to confirm). Settings is not folded (its only other read is the
+secrets', a credential's under D342); an uncompressed page-read operation would fold it and the
+credential parts, and is the owner's call.
+
+**Proven by:** `TestSystem_ThePagesFirstReadCarriesWhatItsSectionsReadApart`,
+`TestUser_ThePagesFirstReadCarriesTheirDevicesAndTheRolesToChoose`,
+`TestUsers_ThePagesFirstReadCarriesTheRoles` (internal/core/api/page_sections_test.go: each part
+equals its endpoint's answer, the plain read carries none, a non-admin is refused),
+`TestArch_NoCompressedOperationAnswersWithACredential`; web: "the System page's first read carries
+what its sections read, so it asks for nothing more" (system.test.tsx), "a person's page asks
+once…" and "the Users page's first read carries the roles…" (remove-and-reach.test.tsx).

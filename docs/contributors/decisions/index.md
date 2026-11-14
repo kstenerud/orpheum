@@ -486,6 +486,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D478](working-notes.md#d478--a-client-keeps-each-reads-latest-answer-for-the-tab-by-key-and-asks-for-nothing-it-already-holds) A client keeps each read's latest answer for the tab, by key, and asks for nothing it already holds
 - [D479](working-notes.md#d479--over-webrtc-what-a-person-waits-on-is-given-a-freed-room-before-images-and-interest-notes) Over WebRTC, what a person waits on is given a freed room before images and interest notes
 - [D480](working-notes.md#d480--a-menus-or-a-dialogs-contents-come-with-the-pages-essential-data-not-a-read-on-opening) A menu's or a dialog's contents come with the page's essential data, not a read on opening
+- [D481](working-notes.md#d481--an-admin-pages-first-read-carries-what-its-other-sections-read) An admin page's first read carries what its other sections read
 
 ## Archived
 
