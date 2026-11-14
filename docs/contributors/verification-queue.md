@@ -2602,7 +2602,7 @@ An item is ticked only by the person who did it, and only with what they saw.
     says to beat. Left open for the owner: the item's figures need restating before a rerun. Also seen:
     the follower's pong took 7–15 s on the full link, and the page said "Connection lost. Reconnecting…"
     while the film played.
-- [ ] **VQ263** — A finger's taps in full screen behave as D415 says: a tap on the picture clears the
+- [x] **VQ263** — A finger's taps in full screen behave as D415 says: a tap on the picture clears the
   overlay, a tap brings it back, a double tap on a side seeks. The rules and their timing are tested
   with synthetic pointer events; whether a real finger's tap is told from a drag, whether the double-tap
   wait of 250 ms feels right, and whether Chrome on Android zooms or scrolls the page on a double tap are
@@ -2618,7 +2618,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   animations" on it appears and goes with no fade. Note whether it is big and quick enough to read
   without hiding the picture. Note whether the wait before a lone tap on a side shows or hides feels
   slow. (`web/apps/web/src/player-taps.ts`'s `useAnswersPictureTaps`;
-  `doubleTapWaitMs`)
+  `doubleTapWaitMs`) — done 2026-11-14 by the owner, on an Android phone against staging: "Vq263 confirmed".
 - [ ] **VQ264** — a game controller's held stick and held fast-forward trigger seek like a held remote
   arrow (the owner, 2026-11-04; starts-chunks-remote-2026-10-29.md §3.1). A controller's seek buttons
   (the triggers, 6 and 7 in the standard mapping) repeat while held at the stick's delay and interval,
