@@ -12,7 +12,7 @@ import {
   isPathQueryMessage,
   type PortLike,
 } from "@orpheum/sdk";
-import { vi } from "vitest";
+import type { vi as Vi } from "vitest";
 
 /** The client origin the worker serves, as a loader's core's would be (D308). */
 export const origin = "https://abc.client.example";
@@ -101,12 +101,30 @@ export function pageOf(
   };
 }
 
+/**
+ * The test file's own vitest, which the test calls useVitest with once: production code may not
+ * import vitest, and this file is not a test file (web/.dependency-cruiser.cjs, as test-choosing.ts).
+ */
+let vitest: typeof Vi | undefined;
+
+/** Hands this file the test file's vi, before startWorker or settledOver. */
+export function useVitest(vi: typeof Vi): void {
+  vitest = vi;
+}
+
+function vi(): typeof Vi {
+  if (vitest === undefined) {
+    throw new Error("useVitest(vi) was not called by the test file");
+  }
+  return vitest;
+}
+
 export type Listener = (event: unknown) => void;
 
 /** The worker, started against a scope of fakes: its listeners, and what each load was answered. */
 export interface Worker {
   readonly listeners: Map<string, Listener>;
-  readonly network: ReturnType<typeof vi.fn<(request: Request) => Promise<Response>>>;
+  readonly network: ReturnType<typeof Vi.fn<(request: Request) => Promise<Response>>>;
   readonly kept: Promise<unknown>[];
 }
 
@@ -116,19 +134,19 @@ export async function startWorker(
   network: Worker["network"],
 ): Promise<Worker> {
   const listeners = new Map<string, Listener>();
-  vi.stubGlobal("clients", {
+  vi().stubGlobal("clients", {
     get: (id: string) => Promise.resolve(pages.find((page) => page.id === id)),
     matchAll: () => Promise.resolve(pages),
     claim: () => Promise.resolve(),
   });
-  vi.stubGlobal("caches", cachesOf(stores));
-  vi.stubGlobal("location", { origin });
-  vi.stubGlobal("skipWaiting", () => Promise.resolve());
-  vi.stubGlobal("addEventListener", (type: string, listener: Listener) => {
+  vi().stubGlobal("caches", cachesOf(stores));
+  vi().stubGlobal("location", { origin });
+  vi().stubGlobal("skipWaiting", () => Promise.resolve());
+  vi().stubGlobal("addEventListener", (type: string, listener: Listener) => {
     listeners.set(type, listener);
   });
-  vi.stubGlobal("fetch", network);
-  vi.resetModules();
+  vi().stubGlobal("fetch", network);
+  vi().resetModules();
   await import("./sw.ts");
   return { listeners, network, kept: [] };
 }
@@ -259,7 +277,7 @@ export async function settledOver<T>(
     await new Promise<void>((resolve) => {
       setImmediate(resolve);
     });
-    await vi.advanceTimersByTimeAsync(step);
+    await vi().advanceTimersByTimeAsync(step);
   }
   if (failure !== undefined) {
     throw failure.cause;

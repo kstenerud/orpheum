@@ -25,7 +25,10 @@ import {
   type FakeCache,
   type FakePage,
   type Worker,
+  useVitest,
 } from "./test-service-worker.ts";
+
+useVitest(vi);
 
 describe("the service worker under a loader (D308 §6)", () => {
   let stores: Map<string, FakeCache>;
