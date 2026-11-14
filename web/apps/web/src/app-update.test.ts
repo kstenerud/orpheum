@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { builtScriptOf, createUpdateWatch, ownScriptOf } from "./app-update.ts";
+import { takeReloadNote } from "./reload-note.ts";
 
 describe("a page out of date", () => {
   it("is one whose own script an answer names otherwise, and only then", () => {
@@ -66,6 +67,10 @@ describe("a page that reloaded for a client", () => {
     before.noteServed("index-connect.js", "index-core.js");
     expect(before.isOutdated()).toBe(true);
     before.beforeReload();
+    // Told by the page that loads next, as a screen's code reloading is (reload-note.ts).
+    expect(takeReloadNote(storage())).toBe(
+      "the page reloaded, once: the core serves a newer client, index-core.js, than the page's own, index-connect.js",
+    );
     const after = createUpdateWatch(storage);
     after.noteServed("index-connect.js", "index-core.js");
     expect(after.isOutdated()).toBe(false);

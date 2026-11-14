@@ -4,6 +4,7 @@ import type { Api } from "@orpheum/sdk";
 
 import { tabStorage, type StringStorage } from "./browser-storage.ts";
 import { discoveryClientApiOf } from "./discovery-page.ts";
+import { leaveReloadNote } from "./reload-note.ts";
 
 /** A watcher of every request and answer the API makes. */
 type Middleware = Parameters<Api["use"]>[0];
@@ -56,7 +57,8 @@ export interface UpdateWatch {
    * Notes that the page reloads for the script that made it out of date, so the page that loads
    * next is not out of date for that script again: where a reload cannot bring it, as on a
    * discovery's page, whose client the discovery serves and not the core, the page would otherwise
-   * reload forever (2026-10-14).
+   * reload forever (2026-10-14). Leaves the page that loads next a note of why, for the core's log
+   * (reload-note.ts): a reload for an update was told nowhere.
    */
   readonly beforeReload: () => void;
 }
@@ -67,7 +69,7 @@ const reloadedForKey = "orpheum.reloadedForClient";
 /** A watch of whether a page is out of date; storage is the tab's, where it keeps what it reloaded for. */
 export function createUpdateWatch(storage: () => StringStorage = tabStorage): UpdateWatch {
   let isOutdated = false;
-  let outdatedBy: string | undefined;
+  let outdatedBy: { readonly served: string; readonly own: string } | undefined;
   const listeners = new Set<() => void>();
   const noteServed = (ownScript: string | undefined, served: string | null): void => {
     if (
@@ -80,7 +82,7 @@ export function createUpdateWatch(storage: () => StringStorage = tabStorage): Up
       return;
     }
     isOutdated = true;
-    outdatedBy = served;
+    outdatedBy = { served, own: ownScript };
     for (const listener of listeners) {
       listener();
     }
@@ -102,7 +104,11 @@ export function createUpdateWatch(storage: () => StringStorage = tabStorage): Up
     }),
     beforeReload: () => {
       if (outdatedBy !== undefined) {
-        storage().setItem(reloadedForKey, outdatedBy);
+        storage().setItem(reloadedForKey, outdatedBy.served);
+        leaveReloadNote(
+          storage(),
+          `the page reloaded, once: the core serves a newer client, ${outdatedBy.served}, than the page's own, ${outdatedBy.own}`,
+        );
       }
     },
   };
