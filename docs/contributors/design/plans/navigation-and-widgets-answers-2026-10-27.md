@@ -4066,7 +4066,13 @@ continue without my input."
   quality visibly and liftably and stops the client's prefetch ahead, built "only if cheap" for the
   beta; none of it is built. The ladder's rungs (registry.go `chunkQualities`) run from
   400k@360p (about 180 MB an hour) to 3000k@720p, or 6000k@1080p with hardware (about 2.7 GB an
-  hour). Open for the owner: where the control lives (the player, the device's settings, or both),
-  whether it holds per device or per film, which rung Save data caps at, and whether it also turns
-  off D487's deeper load after a drop, which spends data a person may not watch.
+  hour). **Decided** (the owner, 2026-11-14):
+  - The control is in the player's **⋯ menu**, and the choice **holds per device**.
+  - It offers a list of **GB per hour** to choose from, "which is what people will understand
+    since they want to optimize how much they can view in a month in their 20gb plan"; each entry
+    is a rung's video and sound together.
+  - **D487's deeper load after a drop stays**: "that's a different problem from a data quota".
+  - Still to settle when it is built: the list's entries (one per rung of the ladder the core
+    offers, or rounded figures), what the entry with no cap is called, and whether C6's stopping
+    of prefetch ahead still applies, which by the same reasoning as D487 it may not.
 - **The owner's:** 12 (polls that read whole answers) is D237's.
