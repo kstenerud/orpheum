@@ -69,6 +69,7 @@ function AirPlayStart(props: {
   const [grant] = useResource(
     `airplay-grant/${here.mediaToken}`,
     async () => await makeAirPlayGrant({ api, log: noLog }, here.mediaToken, origin),
+    { isSingleUse: true },
   );
   return (
     <>

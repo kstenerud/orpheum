@@ -28,8 +28,8 @@ import { keepMembership, type Membership } from "./together-storage.ts";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useTogether } from "./use-together.ts";
-import { useResource } from "./use-resource.ts";
-import { detailsOf, knownDetailsOf } from "./hosted-details.ts";
+import { handAnswer, useResource } from "./use-resource.ts";
+import { detailsOf, hostedDetailsKey } from "./hosted-details.ts";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherPlays } from "./together-plays.tsx";
 
@@ -119,6 +119,8 @@ function StartSession(props: {
         onClick={() => {
           runRequest(async (idempotencyKey) => {
             const opened = dataOrThrow(await api.POST("/together", idempotent(idempotencyKey)));
+            // Its details come with it, so the session's page draws them asking nothing (D478).
+            handAnswer(hostedDetailsKey(opened.sessionId), opened.details);
             props.onStarted({
               sessionId: opened.sessionId,
               credential: opened.membershipCredential,
@@ -150,14 +152,12 @@ function HostedSession(props: {
 }): JSX.Element | null {
   const { api } = useServices();
   const { sessionId } = props.membership;
-  const [asked, reload] = useResource(
-    `together/${String(sessionId)}`,
+  // The tab's last answer shows at once; the one POST /together handed stands for the first read.
+  const [details, reload] = useResource(
+    hostedDetailsKey(sessionId),
     async () => await detailsOf(api, sessionId),
     { poller: useBackgroundChangesPoller() },
   );
-  const known = knownDetailsOf(sessionId);
-  const details: typeof asked =
-    asked.state === "loading" && known !== undefined ? { state: "loaded", value: known } : asked;
   const isOver = details.state === "failed" && isSessionOver(details.cause);
   const { onOver } = props;
   useEffect(() => {

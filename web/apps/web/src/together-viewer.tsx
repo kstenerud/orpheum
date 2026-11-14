@@ -55,7 +55,7 @@ import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
-import { requestTogetherAround, requestTogetherPlayback } from "./together-playback.ts";
+import { requestTogetherAround, useGroupFilmDecision } from "./together-playback.ts";
 import { UpNextOffer } from "./up-next.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
@@ -512,18 +512,6 @@ function GroupFilm(props: {
       }}
     />
   );
-}
-
-/** How the group's film plays for this guest, as the server decides, asked for once per film. */
-function useGroupFilmDecision(film: {
-  readonly fileId: number;
-  readonly credential: string;
-}): ReturnType<typeof useResource<PlaybackDecision>>[0] {
-  const { api, playableFormats } = useServices();
-  const [decision] = useResource(`together-play/${String(film.fileId)}`, () =>
-    requestTogetherPlayback(api, film.credential, { playableFormats: playableFormats() }),
-  );
-  return decision;
 }
 
 /** What the guest's pieces of the player need of its page: the film, the group, the membership. */

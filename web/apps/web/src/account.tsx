@@ -17,7 +17,8 @@ import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { HomeAddress } from "./home-address.tsx";
 import { useFieldMarks } from "./field-marks.ts";
-import { dataOrThrow, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { useMe } from "./signed-in-me.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
@@ -39,7 +40,7 @@ export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
-  const [me, reloadMe] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const { me, readMeAgain: reloadMe } = useMe();
   const canManage = me.state === "loaded" && me.value.canManageAccount;
   return (
     <section className="account" aria-labelledby="account-heading">

@@ -480,9 +480,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D472](working-notes.md#d472--connects-operator-console-before-the-beta-its-actions-a-fresh-passkey-touch-before-each-that-destroys-over-wireguard) Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
 - [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab — *revisited by D474*
 - [D474](working-notes.md#d474--an-airplay-grant-serves-its-senders-address-always-and-binds-to-the-first-other) An AirPlay grant serves its sender's address always and binds to the first other
-- [D475](working-notes.md#d475--a-list-a-client-may-read-whole-comes-in-one-answer-its-limit-left-out) A list a client may read whole comes in one answer, its limit left out
+- [D475](working-notes.md#d475--a-list-a-client-may-read-whole-comes-in-one-answer-its-limit-left-out) A list a client may read whole comes in one answer, its limit left out — *revisited by D478*
 - [D476](working-notes.md#d476--the-shells-first-read-carries-what-it-reads-as-it-starts-and-home-answers-its-rows-in-one-read) The shell's first read carries what it reads as it starts, and Home answers its rows in one read
 - [D477](working-notes.md#d477--a-series-an-episodes-a-films-and-a-persons-page-each-wait-on-one-read) A series', an episode's, a film's and a person's page each wait on one read
+- [D478](working-notes.md#d478--a-client-keeps-each-reads-latest-answer-for-the-tab-by-key-and-asks-for-nothing-it-already-holds) A client keeps each read's latest answer for the tab, by key, and asks for nothing it already holds
 
 ## Archived
 

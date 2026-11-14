@@ -62,7 +62,8 @@ import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
 import { rememberedInTheTab } from "./remembered.ts";
 import { itemsToCome, usePages, type Page, type ReadPage } from "./use-pages.ts";
-import { useResource, type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
+import { useMe } from "./signed-in-me.ts";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
 import { usePostersFilledAhead, type ArtAhead } from "./posters-filled-ahead.ts";
 
@@ -585,8 +586,7 @@ export function BrowseView(props: {
  */
 function EmptyList(props: { readonly search: string; readonly isNarrowed: boolean }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const { me } = useMe();
   const isGivenNoLibrary = me.state === "loaded" && me.value.hasNoLibrary;
   if (props.search !== "") {
     return <p className="browse__empty">{t("search.none", { query: props.search })}</p>;

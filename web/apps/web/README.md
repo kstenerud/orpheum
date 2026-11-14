@@ -458,6 +458,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   owner, 2026-10-24). One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
   `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
+- **One key names one read, and the tab keeps its latest answer** (D478): a reader of a key the tab
+  read before shows that answer at once and reads again behind it; readers starting together share
+  one request; every mounted reader of a key shows what any of them reads; the tab forgets every
+  answer as the session changes. Two readers of a key load the same thing; an answer good once (a
+  playback opened, a pairing, a grant) is its reader's alone (`isSingleUse`). A page asks for
+  nothing the client holds: the shell's person (`MeContext`) and libraries, the page's roles, the
+  tray's counts, and what a write answered (`handAnswer`).
+  `src/use-resource.test.ts`, `src/remembered.test.ts`, `src/account.test.tsx`,
+  `src/library-pages.test.tsx`, `src/roles-section.test.tsx`, `src/status-tray.test.tsx`,
+  `src/cast-remote.test.tsx`, `src/watch-together.test.tsx`.
 - **Back is the history; Up goes to the page's parent and never adds to it** (D367): no page shows a
   Back of its own on a computer or a phone, the browser's, the gesture's and the remote's being the
   history's; a television's player overlay keeps one, beside its Up (TV Bro keeps its remote's Back

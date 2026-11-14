@@ -9,45 +9,40 @@ import { useEffect } from "react";
 
 import { tabStorage } from "./browser-storage.ts";
 import { dataOrThrow } from "./problem.ts";
-import { resetOnEachTestMount } from "./screen-load.tsx";
 import { useServices } from "./services.tsx";
 import { useMembership } from "./together-membership.ts";
 import type { SessionDetails } from "./together-people.tsx";
+import { heldAnswer, rememberAnswer } from "./use-resource.ts";
 
 /**
- * The last details of each session this tab hosts, by its id: the session's page shows them the
- * moment it opens, and the server's answer replaces them as it comes. Opened, it waited for the
- * server first, and the owner found it slow: "Ideally that should be instantaneous" (2026-10-12).
+ * The key the details of the session sessionId are read by (useResource): the tab holds their last
+ * answer, so the session's page shows them the moment it opens and the server's answer replaces them
+ * as it comes (D478). Opened, it waited for the server first, and the owner found it slow: "Ideally
+ * that should be instantaneous" (2026-10-12).
  */
-const knownDetails = new Map<number, SessionDetails>();
+export function hostedDetailsKey(sessionId: number): string {
+  return `together/${String(sessionId)}`;
+}
 
-// A tab's memory, forgotten at each test's mount as a new tab would start (resetOnEachTestMount).
-resetOnEachTestMount(() => {
-  knownDetails.clear();
-});
-
-/** Asks for a session's details, and keeps them as its last known. */
+/** Asks for a session's details. */
 export async function detailsOf(api: Api, sessionId: number): Promise<SessionDetails> {
-  const details = dataOrThrow(
-    await api.GET("/together/{id}", { params: { path: { id: sessionId } } }),
-  );
-  knownDetails.set(sessionId, details);
-  return details;
+  return dataOrThrow(await api.GET("/together/{id}", { params: { path: { id: sessionId } } }));
 }
 
-/** The last details known of the session sessionId, or undefined. */
-export function knownDetailsOf(sessionId: number): SessionDetails | undefined {
-  return knownDetails.get(sessionId);
-}
-
-/** Has the details of the session this tab hosts at hand before its page opens (knownDetails). */
+/** Has the details of the session this tab hosts at hand before its page opens (hostedDetailsKey). */
 export function usePrefetchedHostedDetails(): void {
   const { api } = useServices();
   const membership = useMembership(tabStorage, "host");
   const sessionId = membership?.sessionId;
   useEffect(() => {
-    if (sessionId !== undefined && !knownDetails.has(sessionId)) {
-      detailsOf(api, sessionId).catch(() => undefined); // the controls ask again as they open
+    if (sessionId === undefined || heldAnswer(hostedDetailsKey(sessionId)) !== undefined) {
+      return;
     }
+    detailsOf(api, sessionId).then(
+      (details) => {
+        rememberAnswer(hostedDetailsKey(sessionId), details);
+      },
+      () => undefined, // the controls ask again as they open
+    );
   }, [api, sessionId]);
 }

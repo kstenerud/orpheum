@@ -298,7 +298,12 @@ it("starts a session from the sign over the film, as the tray does, the dialog s
     {
       "POST /together": [
         200,
-        { sessionId: 3, membershipCredential: "host-credential", isNew: true },
+        {
+          sessionId: 3,
+          membershipCredential: "host-credential",
+          isNew: true,
+          details: hostedSession,
+        },
       ],
       "GET /together/3": [200, hostedSession],
     },

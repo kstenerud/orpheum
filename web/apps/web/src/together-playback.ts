@@ -6,7 +6,9 @@ import type { AroundFile } from "./around-file.ts";
 import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
 import type { Session } from "./session.ts";
+import { useServices } from "./services.tsx";
 import { membershipHeaders } from "./together-storage.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 
 /**
  * Asks how the film the host has on plays for a viewer, by their membership credential (D246 §3):
@@ -58,4 +60,21 @@ export function viewerForMedia(): string | undefined {
 /** What the page's media loads are signed with, read at each load: its session, and its viewer's. */
 export function mediaCredentialsOf(session: Pick<Session, "token">): () => MediaCredentials {
   return () => ({ token: session.token(), viewer: viewerForMedia() });
+}
+
+/**
+ * How the group's film plays for this guest, as the server decides, asked for once per film: a
+ * playback opened is this guest's alone, kept for no other reader (D478).
+ */
+export function useGroupFilmDecision(film: {
+  readonly fileId: number;
+  readonly credential: string;
+}): Resource<PlaybackDecision> {
+  const { api, playableFormats } = useServices();
+  const [decision] = useResource(
+    `together-play/${String(film.fileId)}`,
+    () => requestTogetherPlayback(api, film.credential, { playableFormats: playableFormats() }),
+    { isSingleUse: true },
+  );
+  return decision;
 }

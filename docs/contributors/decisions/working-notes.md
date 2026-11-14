@@ -28448,3 +28448,46 @@ No endpoint is removed: the season's, up-next's and the warm-up's each keep thei
   warm-up unanswered, and offers Start over beside it")
 - 4: web/apps/web/src/credits.test.tsx ("asks for their titles as it asks for their name, neither
   waiting on the other (D477 §4)")
+
+## D478 — A client keeps each read's latest answer for the tab, by key, and asks for nothing it already holds
+
+**Decided** (2026-11-13), by the lead, on the owner's order of the client-server audit's fixes
+("Do your recommended ones in the next batch, and then the rest in the batch after"; finding 8,
+docs/contributors/design/research/client-server-audit-2026-11-13.md), applying
+[principles §30](../principles/README.md). The owner to confirm. Amends D475's tab memory
+(`rememberedInTheTab`), which now bounds what it holds by size too; D237's polls and D476 stand.
+
+The audit found pages asking for what the client already held: GET /me read again by four pages
+while the shell held it; the Libraries page polling GET /libraries beside the shell's own poll; the
+cast remote listing GET /me/casts just after POST /me/casts answered the cast; the role dialog
+reading GET /roles the Users page had just read; the Needs attention page reading what the tray's
+sign had; and the Watch Together page reading GET /together/{id} just after POST /together. Each
+page drew loading, then the same answer.
+
+1. **useResource keeps each key's latest answer for the tab** (remembered.ts's `rememberedInTheTab`,
+   at most 200 keys and about 4 MB of JSON, the oldest going first): a reader of a key the tab read
+   before shows that answer from its first draw and reads again behind it; readers starting while a
+   read of the key is under way join it, one request for all; and every mounted reader of a key shows
+   what any of them reads. One key names one read: two readers of a key load the same thing.
+2. **The tab forgets every answer as the session changes** (sign-in, sign-out, a session ended), so
+   no one's answers show to the next person.
+3. **A write that answers what a read would hands its answer to the read's key** (`handAnswer`):
+   the next reader shows it and asks nothing, its poll asking at its first wait. POST /together
+   answers the session's details (`details`, as GET /together/{id} answers them), and the session's
+   page asks nothing as it opens; POST /me/casts's answer stands for the cast remote's GET /me/casts,
+   read only by a page loaded anew.
+4. **An answer good once is its reader's alone** (`isSingleUse`: a playback opened, an AirPlay grant,
+   a pairing, a guest's playback, the sound lab's clip): it is neither kept nor shared.
+5. **A page shows what the shell holds rather than reading it again:** the signed-in person
+   (`MeContext`, from the shell's GET /me) on Account, a person's page, the empty Browse list and
+   the Watch Together join form; the libraries (`LibrariesReachedContext`, its one poll) on the
+   Libraries page; the Users page's roles in the role dialog; the tray's counts on Needs attention,
+   which shows them at once and reads again behind them, so the page never stands at the counts the
+   shell started with.
+
+**Status:** decided.
+
+**Proven by:**
+- 1, 2, 3, 4: web/apps/web/src/use-resource.test.ts ("useResource's answers, kept for the tab by key
+  (D478)")
+- 3: internal/core/api/together_test.go (TestTogether_OpeningASessionAnswersItsDetails)

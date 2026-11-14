@@ -124,25 +124,29 @@ export function useOpenedPlayback(
   // was opened again, on the page's clock.
   const reopenRef = useRef<Reopening | undefined>(undefined);
   const [held, setHeld] = useState<Opened | undefined>(undefined);
-  const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
-    const cause = nextCauseRef.current;
-    const askedAt = nextAtRef.current;
-    nextCauseRef.current = "playPage";
-    nextAtRef.current = undefined;
-    const reopen = reopenRef.current;
-    reopenRef.current = undefined;
-    if (reopen === undefined) {
-      setHeld(undefined);
-    }
-    return await openPlayback({
-      watching: watchingOf(api),
-      fileId,
-      playableFormats: playableFormats(),
-      cause,
-      askedAt,
-      reopen,
-    });
-  });
+  const [opened, reload] = useResource(
+    `play/${String(fileId)}`,
+    async (): Promise<Opened> => {
+      const cause = nextCauseRef.current;
+      const askedAt = nextAtRef.current;
+      nextCauseRef.current = "playPage";
+      nextAtRef.current = undefined;
+      const reopen = reopenRef.current;
+      reopenRef.current = undefined;
+      if (reopen === undefined) {
+        setHeld(undefined);
+      }
+      return await openPlayback({
+        watching: watchingOf(api),
+        fileId,
+        playableFormats: playableFormats(),
+        cause,
+        askedAt,
+        reopen,
+      });
+    },
+    { isSingleUse: true },
+  ); // a playback opened is this page's alone, never the tab's (D478)
   const decideAgain = useCallback(
     (cause: DecideAgainCause, at?: ReopenAt) => {
       nextCauseRef.current = cause;

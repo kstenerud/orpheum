@@ -26,7 +26,8 @@ import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
 import { IssuedInvitationView, type IssuedInvitation } from "./users.tsx";
 import { personWords, registrationText } from "./person-words.ts";
-import { dataOrThrow, fieldProblemText } from "./problem.ts";
+import { fieldProblemText } from "./problem.ts";
+import { useMe } from "./signed-in-me.ts";
 import { listRoles, roleLabel, setUserRole } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
@@ -46,7 +47,7 @@ import { RecentDevices } from "./your-devices.tsx";
 export function UserPage(props: { readonly userId: number }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const { me } = useMe();
   const isRemovable = me.state === "loaded" && me.value.id !== props.userId;
   const [person, reloadUser] = useResource(`user/${String(props.userId)}`, () =>
     getUser(api, props.userId),

@@ -6,7 +6,8 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, expect, it } from "vitest";
 
-import { knownDetailsOf } from "./hosted-details.ts";
+import { hostedDetailsKey } from "./hosted-details.ts";
+import { heldAnswer } from "./use-resource.ts";
 import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { currentNotice } from "./notice.ts";
@@ -335,7 +336,9 @@ it("has the hosted session's details at hand as the sign shows, so its page show
     ),
   );
   expect(heard.map((each) => each.methodAndPath)).toContain("GET /together/17");
-  expect(knownDetailsOf(17)?.sessionId).toBe(17);
+  expect((heldAnswer(hostedDetailsKey(17)) as { sessionId: number } | undefined)?.sessionId).toBe(
+    17,
+  );
   window.sessionStorage.clear();
 });
 
@@ -350,11 +353,11 @@ it("forgets, at each test's mount, the hosted details an earlier test's tray fet
       servedBy({ "GET /together/17": [200, { ...hostedSession, sessionId: 17 }] }),
     ),
   );
-  expect(knownDetailsOf(17)).toBeDefined();
+  expect(heldAnswer(hostedDetailsKey(17))).toBeDefined();
   mounted.unmount();
   window.sessionStorage.clear();
   mounted = await mount(withServices(<p>{"next test"}</p>));
-  expect(knownDetailsOf(17)).toBeUndefined();
+  expect(heldAnswer(hostedDetailsKey(17))).toBeUndefined();
 });
 
 it("turns Cast's sign blue while this device casts, naming the receiver and what plays, its dialog saying so, with the way back to the film and Stop casting (D364 §7; D384 §2)", async () => {
@@ -477,6 +480,24 @@ it("the page of what needs the admin counts each kind, a placeholder until it is
   expect(text).toContain("1 library folders' scans wait for you");
   expect(text).toContain("2 files or folders could not be read.");
   expect(text).not.toContain("offline");
+});
+
+it("reads what needs the admin once for the tray's sign and the page of it together (D478)", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <>
+        <StatusTray isAdmin canHostWatchTogether={false} />
+        <NeedsAttention />
+      </>,
+      servedBy({ "GET /needs-attention": [200, somethingWrong], ...noUpdate }, heard),
+    ),
+  );
+  expect(mounted.container.textContent).toContain("2 files or folders could not be read.");
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  expect(heard.filter((each) => each.methodAndPath === "GET /needs-attention")).toHaveLength(1);
 });
 
 it("tells an admin of a series whose episodes were likely read wrongly, leading to it (D306 §6)", async () => {

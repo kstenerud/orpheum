@@ -5,7 +5,10 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { JSX } from "react";
+
 import { CreateLibraryPage } from "./create-library.tsx";
+import { LibrariesReachedContext, useLibrariesRead } from "./libraries-reached.ts";
 import { Libraries } from "./libraries.tsx";
 import {
   buttonWithText,
@@ -55,7 +58,24 @@ const films = {
   ],
 } as const;
 
+/** The Libraries page under the shell's reading of the libraries, as the shell draws it (D478). */
+function UnderTheShellsReading(): JSX.Element {
+  return (
+    <LibrariesReachedContext value={useLibrariesRead()}>
+      <Libraries />
+    </LibrariesReachedContext>
+  );
+}
+
 describe("the admin's Libraries pages (D361)", () => {
+  it("lists the shell's reading of the libraries, reading and polling them no more (D478)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /libraries": [200, { libraries: [films] }] }, heard);
+    mounted = await mount(withServices(<UnderTheShellsReading />, services));
+    expect(mounted.container.querySelector("li.libraries__library h2")?.textContent).toBe("Films");
+    expect(heard.filter((each) => each.methodAndPath === "GET /libraries")).toHaveLength(1);
+  });
+
   it("lists each library at a glance, leading to its own page to manage it", async () => {
     const services = servedBy({ "GET /libraries": [200, { libraries: [films] }] });
     mounted = await mount(withServices(<Libraries />, services));

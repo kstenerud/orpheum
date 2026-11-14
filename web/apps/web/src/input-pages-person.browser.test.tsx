@@ -27,6 +27,14 @@ const { press, pressUntil, drawn, unreachedInMain, unreachedIn } = remoteWalk({
   },
 });
 
+/** The session the walk starts, as POST /together and GET /together/3 answer it. */
+const hostedSession = {
+  sessionId: 3,
+  nextRights: { canPlayPause: true, canSeek: true },
+  links: [{ id: 4, rights: { canPlayPause: true, canSeek: false }, hostNote: "Grandma" }],
+  members: [{ id: 1, name: "Karl", isHost: true }],
+};
+
 describe.each(screens)("the pages by a remote's keys, on $name", ({ width, height }) => {
   let walking: Walking | undefined;
   afterEach(() => {
@@ -119,13 +127,14 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         {
           ...signedIn,
           "GET /me/together": { sessions: [] },
-          "POST /together": { sessionId: 3, membershipCredential: "host-credential", isNew: true },
-          "GET /together/3": {
+          // POST /together answers the session's details, which GET /together/3 reads again (D478).
+          "POST /together": {
             sessionId: 3,
-            nextRights: { canPlayPause: true, canSeek: true },
-            links: [{ id: 4, rights: { canPlayPause: true, canSeek: false }, hostNote: "Grandma" }],
-            members: [{ id: 1, name: "Karl", isHost: true }],
+            membershipCredential: "host-credential",
+            isNew: true,
+            details: hostedSession,
           },
+          "GET /together/3": hostedSession,
         },
         "/watch-together",
       ),

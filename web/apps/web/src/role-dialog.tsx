@@ -16,7 +16,7 @@ import {
   createRole,
   deleteRole,
   isWithoutLibrary,
-  listRoles,
+  type RolesListed,
   roleLabel,
   updateRole,
   type Role,
@@ -25,7 +25,7 @@ import {
 import { Checklist, DeleteRole, NameField, holdersText, roleWords } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest, type RequestState } from "./use-request.ts";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**
@@ -34,15 +34,18 @@ import { WarningSign } from "./warning-sign.tsx";
  * role, each change to its capabilities and libraries saved at once as it is made (D399, revising
  * D243 §4's Save button), its name once the field is left, and Delete, offered only while no one has
  * the role and never for a built-in one, which closes it. onClose is told however it closes, for
- * the page to list the roles again.
+ * the page to list the roles again. The roles are the page's (roles), read again by it as each
+ * change saves (onSaved), not read by the dialog a second time (D478).
  */
 export function RoleDialog(props: {
   readonly roleId?: number | undefined;
+  readonly roles: Resource<RolesListed>;
+  readonly onSaved: () => void;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [roles, reload] = useResource("role-dialog-roles", () => listRoles(api));
+  const { roles, onSaved: reload } = props;
   const [libraries] = useResource("role-dialog-libraries", () => listLibraries(api));
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, roleWords(t)),
@@ -82,7 +85,7 @@ export function RoleDialog(props: {
 /** The dialog's content once the roles and libraries are loaded: the role asked for, or a new one. */
 function RoleLoaded(props: {
   readonly roleId: number | undefined;
-  readonly listed: { readonly roles: readonly Role[]; readonly capabilities: readonly string[] };
+  readonly listed: RolesListed;
   readonly libraries: readonly Library[];
   readonly runRequest: RequestState["runRequest"];
   readonly onSaved: () => void;

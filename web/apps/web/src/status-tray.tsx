@@ -14,7 +14,7 @@ import { Link } from "./link.tsx";
 import { hasCopyWarning } from "./copy-warning.ts";
 import { useEndsTheCastSessionWithItsCast } from "./google-cast.ts";
 import { useLive } from "./live.tsx";
-import { dataOrThrow } from "./problem.ts";
+import { readNeedsAttention, needsAttentionKey } from "./needs-attention-read.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useShellPart } from "./shell-read.ts";
@@ -234,11 +234,9 @@ function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element 
 function NeedsAttentionSign(): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [counts] = useResource(
-    "status-needs-attention",
-    async () => dataOrThrow(await api.GET("/needs-attention")),
-    { given: useShellPart((shell) => shell.needsAttention) },
-  );
+  const [counts] = useResource(needsAttentionKey, async () => await readNeedsAttention(api), {
+    given: useShellPart((shell) => shell.needsAttention),
+  });
   if (counts.state !== "loaded") {
     return null;
   }

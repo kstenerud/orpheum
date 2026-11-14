@@ -46,4 +46,17 @@ describe("a page this tab showed before", () => {
     expect(remembered.get("title/0")).toBeUndefined();
     expect(remembered.get("title/50")).toBe(50);
   });
+
+  it("forgets the oldest while what it keeps is larger than its bound, and keeps nothing larger than it (D478)", () => {
+    const remembered = new Remembered<string>(50, 10);
+    remembered.set("a", "first", 4);
+    remembered.set("b", "second", 4);
+    remembered.set("c", "third", 4);
+    expect(remembered.get("a")).toBeUndefined();
+    expect(remembered.get("b")).toBe("second");
+    expect(remembered.get("c")).toBe("third");
+    remembered.set("d", "too large", 11);
+    expect(remembered.get("d")).toBeUndefined();
+    expect(remembered.get("c")).toBe("third");
+  });
 });

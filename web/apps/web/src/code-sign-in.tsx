@@ -91,6 +91,7 @@ export function CodeSignIn(props: {
   const services = useServices();
   const [shown] = useResource("pairing", () => lookAtPairing(services), {
     poller: props.poller ?? pairingPolling,
+    isSingleUse: true, // a pairing is this page's alone (D478)
   });
   return (
     <CredentialsForm heading={t("codeSignIn.heading")} onSubmit={props.onBack}>

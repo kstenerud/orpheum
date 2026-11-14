@@ -66,19 +66,21 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
       {
         "POST /together": [
           200,
-          { sessionId: 3, membershipCredential: "host-credential", isNew: true },
+          {
+            sessionId: 3,
+            membershipCredential: "host-credential",
+            isNew: true,
+            details: { sessionId: 3, nextRights: allRights, links: [], members: [karl] },
+          },
         ],
         "GET /together/3": [
-          [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl] }],
-          [
-            200,
-            {
-              sessionId: 3,
-              nextRights: allRights,
-              links: [{ id: 4, rights: pauseOnly, hostNote: "Grandma" }],
-              members: [karl],
-            },
-          ],
+          200,
+          {
+            sessionId: 3,
+            nextRights: allRights,
+            links: [{ id: 4, rights: pauseOnly, hostNote: "Grandma" }],
+            members: [karl],
+          },
         ],
         "POST /together/3/links": [201, { linkId: 4, secret: "s3cret" }],
       },
@@ -104,13 +106,13 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     await click(maySeek);
     await click(mayNext);
     await submit(mounted.container.querySelector(".watch-together__dialog form"));
+    // The session's details came with its start: its page asks for none as it opens (D478).
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "POST /together",
-      "GET /together/3",
       "POST /together/3/links",
       "GET /together/3",
     ]);
-    expect(heard[2]?.body).toEqual({ hostNote: "Grandma", rights: pauseOnly });
+    expect(heard[1]?.body).toEqual({ hostNote: "Grandma", rights: pauseOnly });
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#s3cret",
     );

@@ -13,13 +13,12 @@ import { arrivalMark } from "./focus-navigation.ts";
 import { RootWarning } from "./root-warning.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
-import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
-import { useResource } from "./use-resource.ts";
+import { useLibrariesReachedRead } from "./libraries-reached.ts";
 
 /** A library, as an admin sees it. */
 export type Library = components["schemas"]["LibraryBody"];
@@ -196,10 +195,8 @@ export async function listLibraries(api: Api): Promise<Library[]> {
  */
 export function Libraries(): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const [libraries, reload] = useResource("libraries", () => listLibraries(api), {
-    poller: useBackgroundChangesPoller(),
-  });
+  // The shell's reading, polled once for the page and the banner alike (D478).
+  const { libraries, readAgain: reload } = useLibrariesReachedRead();
   return (
     <section className="libraries" aria-labelledby="libraries-heading">
       <h1 id="libraries-heading">{t("libraries.heading")}</h1>

@@ -202,6 +202,13 @@ it("says in a role's dialog how many hold it, one as a person", async () => {
   expect(holders()).toContain("0 people");
 });
 
+it("opens a role's dialog from the roles the page read, asking for them no more (D478)", async () => {
+  const heard: Heard[] = [];
+  mounted = await mountRole(2, heard);
+  expect(mounted.container.querySelector("dialog")?.textContent).toContain("1 person");
+  expect(heard.filter((each) => each.methodAndPath === "GET /roles")).toHaveLength(1);
+});
+
 it("makes a role with the capabilities and libraries ticked in the same dialog (D403)", async () => {
   const heard: Heard[] = [];
   mounted = await mountPeople(heard);

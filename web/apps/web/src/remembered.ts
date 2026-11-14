@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { resetOnEachTestMount } from "./screen-load.tsx";
-import type { Resource } from "./use-resource.ts";
+import type { Resource } from "./resource.ts";
 
 /**
  * How many pages' last values a tab remembers of one kind: a few dozen films or series, each a few
@@ -13,30 +13,52 @@ const rememberedAtMost = 50;
 
 /** The last value each of a kind of page loaded in this tab, by its resource key, the latest last. */
 export class Remembered<T> {
-  readonly #values = new Map<string, T>();
+  readonly #values = new Map<string, { readonly value: T; readonly size: number }>();
   readonly #atMost: number;
+  readonly #sizeAtMost: number;
+  #size = 0;
 
-  /** atMost: how many it keeps, rememberedAtMost unless a kind's values are larger. */
-  constructor(atMost = rememberedAtMost) {
+  /**
+   * atMost: how many it keeps, rememberedAtMost unless a kind's values are larger; sizeAtMost: how
+   * large they may be together, as set measures each (a tab's answers by their characters, D478).
+   */
+  constructor(atMost = rememberedAtMost, sizeAtMost = Number.POSITIVE_INFINITY) {
     this.#atMost = atMost;
+    this.#sizeAtMost = sizeAtMost;
   }
 
   get(key: string): T | undefined {
-    return this.#values.get(key);
+    return this.#values.get(key)?.value;
   }
 
-  set(key: string, value: T): void {
-    this.#values.delete(key);
-    this.#values.set(key, value);
-    const oldest = this.#values.keys().next();
-    if (this.#values.size > this.#atMost && oldest.done !== true) {
-      this.#values.delete(oldest.value);
+  /** Keeps value as key's latest, size its measure; the oldest go while too many or too large. */
+  set(key: string, value: T, size = 0): void {
+    this.#forget(key);
+    if (size > this.#sizeAtMost) {
+      return; // larger than all it may keep: kept, it would push out everything else
+    }
+    this.#values.set(key, { value, size });
+    this.#size += size;
+    for (const oldest of this.#values.keys()) {
+      if (this.#values.size <= this.#atMost && this.#size <= this.#sizeAtMost) {
+        break;
+      }
+      this.#forget(oldest);
     }
   }
 
   /** Forgets every value. */
   clear(): void {
     this.#values.clear();
+    this.#size = 0;
+  }
+
+  #forget(key: string): void {
+    const held = this.#values.get(key);
+    if (held !== undefined) {
+      this.#size -= held.size;
+      this.#values.delete(key);
+    }
   }
 }
 
@@ -46,8 +68,8 @@ export class Remembered<T> {
  * never shows, while it loads, the details an earlier test in its file left under the same id (the
  * series agent's tests in Firefox, 2026-11-04).
  */
-export function rememberedInTheTab<T>(atMost?: number): Remembered<T> {
-  const remembered = new Remembered<T>(atMost);
+export function rememberedInTheTab<T>(atMost?: number, sizeAtMost?: number): Remembered<T> {
+  const remembered = new Remembered<T>(atMost, sizeAtMost);
   resetOnEachTestMount(() => {
     remembered.clear();
   });

@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Account } from "./account.tsx";
+import { MeContext } from "./signed-in-me.ts";
 import {
   click,
   enter,
@@ -55,6 +56,45 @@ async function accountOf(
 }
 
 describe("your account", () => {
+  it("knows what the session may do from the shell's reading of who is signed in, asking no more (D478)", async () => {
+    const heard: Heard[] = [];
+    const me = {
+      state: "loaded",
+      value: {
+        id: 1,
+        name: "owner",
+        role: "user",
+        isAdmin: false,
+        canManageAccount: true,
+        canHostWatchTogether: false,
+        hasNoLibrary: false,
+        showsDebugTools: false,
+      },
+    } as const;
+    mounted = await mount(
+      withServices(
+        <MeContext value={{ me, readMeAgain: () => undefined }}>
+          <Account />
+        </MeContext>,
+        servedBy(
+          {
+            "GET /me/devices": [200, { devices: [television()] }],
+            "GET /me/own-link": refusal(404, "notFound"),
+            "GET /me/preferences": [
+              200,
+              { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+            ],
+            "GET /libraries": [200, { libraries: [] }],
+          },
+          heard,
+        ),
+      ),
+    );
+    await settleUntil(() => mounted?.container.querySelector("#playing-heading") !== null);
+    expect(mounted.container.textContent).toContain("Change password");
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me");
+  });
+
   it("is ordered by how often each part is used, Testing last (ui-audit-2026-11-04.md §3)", async () => {
     const page = await accountOf(true);
     await settleUntil(() => page.querySelector("#playing-heading") !== null);

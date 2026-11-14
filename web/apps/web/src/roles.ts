@@ -14,6 +14,12 @@ export type Role = components["schemas"]["RoleBody"];
 /** A role as the admin describes it: its libraries are taken as given. */
 export type RoleChange = components["schemas"]["RoleChangeBody"];
 
+/** Every role, and the capabilities a role may have, as listRoles reads them. */
+export interface RolesListed {
+  readonly roles: readonly Role[];
+  readonly capabilities: readonly string[];
+}
+
 /** Every role, and the capabilities a role may have. */
 export async function listRoles(
   api: Api,

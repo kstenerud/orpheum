@@ -71,7 +71,8 @@ import { HostVoiceProvider } from "./together-voice.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
 import { ShellReadContext, useShellPart, type ShellRead } from "./shell-read.ts";
 import { LaterScreen } from "./screen-load.tsx";
-import { useResource, type Resource } from "./use-resource.ts";
+import { MeContext } from "./signed-in-me.ts";
+import { forgetEveryAnswer, useResource, type Resource } from "./use-resource.ts";
 
 /**
  * The client: sign-in until there is a session, then the shell and the route's screen, every one
@@ -93,6 +94,7 @@ export function App(): JSX.Element {
 /** The screen route names, signed in or not. */
 function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.Element {
   const token = useToken();
+  useAnswersForgottenAsTheSessionChanges(token);
   const isLeavingForTheDiscovery = useIsLeavingForTheDiscovery(token);
   usePreloadsSignIn(token === undefined);
   if (props.route.screen === "register") {
@@ -131,6 +133,18 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
       <SignIn />
     </LaterScreen>
   );
+}
+
+/**
+ * Has the tab forget every answer it holds (useResource's, D478) as its session changes: signed out,
+ * or signed in anew, so no one's page draws what an earlier session read.
+ */
+function useAnswersForgottenAsTheSessionChanges(token: string | undefined): void {
+  const [answersOf, setAnswersOf] = useState(token);
+  if (token !== answersOf) {
+    forgetEveryAnswer();
+    setAnswersOf(token);
+  }
 }
 
 /**
@@ -257,6 +271,8 @@ function PersonSignedIn(props: {
     signOutHere(api, session);
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
+  // Who is signed in, for every screen that needs to know, read once here (D478).
+  const signedInMe = useMemo(() => ({ me, readMeAgain }), [me, readMeAgain]);
   const debugTools = useDebugToolsOf(me, readMeAgain);
   const clientSettings = useClientSettings();
   const poller = useServersPoller(clientSettings);
@@ -288,7 +304,9 @@ function PersonSignedIn(props: {
                     onSignOut={signOut}
                   >
                     <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                      <Screen route={route} />
+                      <MeContext value={signedInMe}>
+                        <Screen route={route} />
+                      </MeContext>
                     </DeviceTestsOfferedContext>
                   </AppShell>
                 </InterestSaidEveryContext>

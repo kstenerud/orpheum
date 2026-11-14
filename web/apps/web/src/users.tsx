@@ -21,12 +21,12 @@ import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { CreateAccountDialog, InviteDialog, type RoleChoices } from "./people-dialogs.tsx";
 import { QrCode } from "./qr-code.tsx";
-import { listRoles, roleLabel } from "./roles.ts";
+import { listRoles, roleLabel, type RolesListed } from "./roles.ts";
 import { RoleDialog } from "./role-dialog.tsx";
 import { RolesSection } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 
 /** What the admin last issued, to pass on: a person's link or a device's code. */
 export interface IssuedInvitation {
@@ -128,6 +128,7 @@ export function Users(): JSX.Element {
       <OpenDialog
         open={open}
         choices={choices}
+        roles={roles}
         onClose={close}
         onOpen={setOpen}
         onChanged={{ reloadAccounts, reloadInvitations, reloadRoles }}
@@ -140,6 +141,8 @@ export function Users(): JSX.Element {
 function OpenDialog(props: {
   readonly open: DialogState | undefined;
   readonly choices: RoleChoices;
+  /** The page's roles, which the role dialog shows: it reads none of its own (D478). */
+  readonly roles: Resource<RolesListed>;
   readonly onClose: () => void;
   readonly onOpen: (open: DialogState) => void;
   readonly onChanged: {
@@ -153,6 +156,8 @@ function OpenDialog(props: {
       {props.open?.kind === "role" ? (
         <RoleDialog
           roleId={props.open.roleId}
+          roles={props.roles}
+          onSaved={props.onChanged.reloadRoles}
           onClose={() => {
             props.onClose();
             props.onChanged.reloadRoles();

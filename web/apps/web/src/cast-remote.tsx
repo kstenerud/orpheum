@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
 import { noOverlay, RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
-import { listMyCasts, moveCastOn } from "./cast.ts";
+import { listMyCasts, moveCastOn, myCastsKey } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import type { PlayerControl, PlayerSource } from "./player-controls.tsx";
@@ -244,7 +244,8 @@ function useCastSession(castId: number): {
 } {
   const { api } = useServices();
   const token = useToken();
-  const [casts] = useResource(`my-casts/${String(castId)}`, async () => await listMyCasts(api));
+  // The cast started here handed its answer; only a page loaded anew asks (D478).
+  const [casts] = useResource(myCastsKey(castId), async () => await listMyCasts(api));
   const own =
     casts.state === "loaded"
       ? casts.value.find((each) => each.castId === castId && each.isSender)

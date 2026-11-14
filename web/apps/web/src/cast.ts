@@ -12,6 +12,7 @@ import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ApiProblem, dataOrThrow } from "./problem.ts";
 import { readMembership } from "./together-storage.ts";
+import { handAnswer } from "./use-resource.ts";
 
 /** A cast as one of its devices sees it, with this device's credential for its session of one. */
 export type Cast = components["schemas"]["CastBody"];
@@ -59,7 +60,8 @@ function filmFields(film: CastFilm | undefined): { readonly fileId?: number; pos
  * with it (D364), playing film, the video playing here as it starts (§1), or nothing for undefined.
  * A page that is a Watch Together guest's, hosting nothing, says its membership, whose part the
  * receiver takes, following the group (D371 §4): the person's own device joined as a guest of the
- * session they host casts as its guest, not as their host's player (VQ193).
+ * session they host casts as its guest, not as their host's player (VQ193). The cast's answer, with
+ * its credential, is handed to its remote (myCastsKey), which so asks nothing to join it (D478).
  */
 export async function startCast(
   api: Api,
@@ -70,7 +72,7 @@ export async function startCast(
     readMembership(tabStorage(), "host") === undefined
       ? readMembership(browserStorage(), "viewer")
       : undefined;
-  return dataOrThrow(
+  const started = dataOrThrow(
     await api.POST("/me/casts", {
       body: {
         toDeviceId,
@@ -81,6 +83,16 @@ export async function startCast(
       ...idempotent(newIdempotencyKey()),
     }),
   );
+  handAnswer(myCastsKey(started.castId), [started]);
+  return started;
+}
+
+/**
+ * The key the remote of the cast castId reads this device's casts by (useResource): a cast started
+ * here hands its answer to it, and only a page loaded anew lists the casts (D478).
+ */
+export function myCastsKey(castId: number): string {
+  return `my-casts/${String(castId)}`;
 }
 
 /**

@@ -10,7 +10,7 @@ import { i18n } from "./i18n.ts";
 import { hasCopyWarning } from "./copy-warning.ts";
 import { WarningIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
-import { dataOrThrow } from "./problem.ts";
+import { needsAttentionKey, readNeedsAttention } from "./needs-attention-read.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
@@ -146,9 +146,8 @@ function OneCopyItems(props: { readonly value: AttentionCounts }): JSX.Element {
 export function NeedsAttention(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [counts] = useResource("needs-attention", async () =>
-    dataOrThrow(await api.GET("/needs-attention")),
-  );
+  // The tray's answer shows at once, read again behind it (D478).
+  const [counts] = useResource(needsAttentionKey, async () => await readNeedsAttention(api));
   const newer = useNewerVersion();
   return (
     <section aria-labelledby="needs-attention-heading">

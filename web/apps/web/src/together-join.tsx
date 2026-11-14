@@ -19,9 +19,9 @@ import {
   type FormWords,
 } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
+import { useMe } from "./signed-in-me.ts";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
-import { useResource } from "./use-resource.ts";
 
 /** An address with no link in it, and no session this tab is in: only what to do instead. */
 export function NoLink(): JSX.Element {
@@ -305,11 +305,8 @@ function useLinkState(secret: string, isJoinShown: boolean): LinkState {
  * else the signed-in person's own; a late answer about who is signed in never replaces either.
  */
 function useJoinName(): [string, Dispatch<SetStateAction<string | undefined>>] {
-  const { api } = useServices();
-  const token = useToken();
+  // Signed out, no one is asked about; signed in, the shell has read who (D478).
+  const { me } = useMe(useToken() !== undefined);
   const [typedName, setTypedName] = useState<string | undefined>(undefined);
-  const [me] = useResource(`join-name:${token ?? ""}`, async () =>
-    token === undefined ? undefined : dataOrThrow(await api.GET("/me")),
-  );
-  return [typedName ?? (me.state === "loaded" ? me.value?.name : undefined) ?? "", setTypedName];
+  return [typedName ?? (me.state === "loaded" ? me.value.name : undefined) ?? "", setTypedName];
 }

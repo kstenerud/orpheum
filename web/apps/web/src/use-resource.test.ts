@@ -1,14 +1,20 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { act, createElement, useState } from "react";
+import { act, createElement, Fragment, useState, type JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { mount, refusal, servedBy } from "./test-dom.tsx";
-import { useResource, type Given, type Resource } from "./use-resource.ts";
+import {
+  forgetEveryAnswer,
+  handAnswer,
+  useResource,
+  type Given,
+  type Resource,
+} from "./use-resource.ts";
 
 /** Where load leaves useResource, once it has settled. */
 async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unknown>> {
@@ -242,6 +248,141 @@ describe("useResource, given a value another read holds (D476)", () => {
     const readsBefore = reads;
     await settle(reloadNow);
     expect(reads).toBeGreaterThan(readsBefore); // a reload reads
+    mounted.unmount();
+  });
+});
+
+/** The readers a test of the tab's answers mounts. */
+type Name = "a" | "b" | "c";
+
+/**
+ * Readers of "shared" a test mounts and unmounts by hand, all in one mount (each mount forgets the
+ * tab's answers, as a new tab would): each keeps what it showed, and can reload.
+ */
+function sharedReaders(load: () => Promise<number>, options: { readonly isSingleUse?: boolean }) {
+  const seen: Partial<Record<Name, Resource<number>[]>> = {};
+  const reloads: Partial<Record<Name, () => void>> = {};
+  let show: (names: readonly Name[]) => void = () => undefined;
+  function Reader(props: { readonly name: Name }): null {
+    const [resource, reload] = useResource("shared", load, options);
+    (seen[props.name] ??= []).push(resource);
+    reloads[props.name] = reload;
+    return null;
+  }
+  function Readers(): JSX.Element {
+    const [names, setNames] = useState<readonly Name[]>([]);
+    show = setNames;
+    return createElement(
+      Fragment,
+      null,
+      names.map((name) => createElement(Reader, { key: name, name })),
+    );
+  }
+  const settle = async (step: () => void): Promise<void> => {
+    await act(async () => {
+      step();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  };
+  return {
+    seen,
+    tree: createElement(Readers),
+    showOnly: async (...names: Name[]): Promise<void> => {
+      await settle(() => {
+        show(names);
+      });
+    },
+    reload: async (name: Name): Promise<void> => {
+      await settle(() => {
+        reloads[name]?.();
+      });
+    },
+  };
+}
+
+/** A load counting its reads, each answering the count so far. */
+function counted(): { readonly load: () => Promise<number>; readonly reads: () => number } {
+  let reads = 0;
+  return {
+    load: () => {
+      reads += 1;
+      return Promise.resolve(reads);
+    },
+    reads: () => reads,
+  };
+}
+
+describe("useResource's answers, kept for the tab by key (D478)", () => {
+  it("has two readers of one key mounted together share one request, and each shows its answer", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, {});
+    const mounted = await mount(readers.tree);
+    await readers.showOnly("a", "b");
+    expect(reads()).toBe(1);
+    expect(readers.seen.a?.at(-1)).toEqual({ state: "loaded", value: 1 });
+    expect(readers.seen.b?.at(-1)).toEqual({ state: "loaded", value: 1 });
+    mounted.unmount();
+  });
+
+  it("shows a later reader the key's last answer from its first draw, reads again behind it, and tells every reader the newer one", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, {});
+    const mounted = await mount(readers.tree);
+    await readers.showOnly("a");
+    await readers.showOnly();
+    await readers.showOnly("b");
+    expect(readers.seen.b?.[0]).toEqual({ state: "loaded", value: 1 }); // never loading
+    expect(reads()).toBe(2);
+    expect(readers.seen.b?.at(-1)).toEqual({ state: "loaded", value: 2 });
+    await readers.showOnly("b", "c");
+    expect(reads()).toBe(3);
+    await readers.reload("b"); // a reload reads anew, and the other reader of its key hears it
+    expect(reads()).toBe(4);
+    expect(readers.seen.c?.at(-1)).toEqual({ state: "loaded", value: 4 });
+    mounted.unmount();
+  });
+
+  it("forgets every answer as the person signs out, so the next reader waits for its own read", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, {});
+    const mounted = await mount(readers.tree);
+    await readers.showOnly("a");
+    await readers.showOnly();
+    forgetEveryAnswer();
+    await readers.showOnly("b");
+    expect(readers.seen.b?.[0]).toEqual({ state: "loading" });
+    expect(reads()).toBe(2);
+    mounted.unmount();
+  });
+
+  it("shows the answer a write handed it, asking nothing, and the reader after it reads again behind it", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, {});
+    const mounted = await mount(readers.tree);
+    handAnswer("shared", 7);
+    await readers.showOnly("a");
+    expect(readers.seen.a?.every((shown) => shown.state === "loaded" && shown.value === 7)).toBe(
+      true,
+    );
+    expect(reads()).toBe(0);
+    await readers.showOnly();
+    await readers.showOnly("b");
+    expect(readers.seen.b?.[0]).toEqual({ state: "loaded", value: 7 });
+    expect(reads()).toBe(1);
+    mounted.unmount();
+  });
+
+  it("keeps a single-use answer its reader's alone: none is shared, and no later reader is shown it", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, { isSingleUse: true });
+    const mounted = await mount(readers.tree);
+    handAnswer("shared", 7);
+    await readers.showOnly("a", "b");
+    expect(reads()).toBe(2);
+    await readers.showOnly();
+    await readers.showOnly("c");
+    expect(readers.seen.c?.[0]).toEqual({ state: "loading" });
+    expect(readers.seen.c?.at(-1)).toEqual({ state: "loaded", value: 3 });
     mounted.unmount();
   });
 });

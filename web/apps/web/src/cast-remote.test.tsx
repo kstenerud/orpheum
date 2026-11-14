@@ -4,11 +4,12 @@
 import "./i18n.ts";
 
 import { tellNextChunkLoadMs } from "@orpheum/sdk";
-import { act, type JSX, type ReactNode } from "react";
+import { act, useState, type JSX, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Screen } from "./app.tsx";
 import { CastRemote } from "./cast-remote.tsx";
+import { startCast } from "./cast.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { LiveProvider } from "./live.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
@@ -22,11 +23,13 @@ import {
   mount,
   playbackCauses,
   servedBy,
+  settleAnswers,
   settleUntil,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
+import { useServices } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
@@ -64,6 +67,25 @@ const cast = {
   receiverName: "Fire TV",
   membershipCredential: "remote",
 };
+
+/** A cast started from this page, its remote drawn once starting it answered, as Play draws it. */
+function StartedHere(): JSX.Element {
+  const { api } = useServices();
+  const [isStarted, setIsStarted] = useState(false);
+  if (isStarted) {
+    return <CastRemote castId={9} fileId={4} onPlayHere={() => undefined} />;
+  }
+  const start = (): void => {
+    void startCast(api, 2, undefined).then(() => {
+      setIsStarted(true);
+    });
+  };
+  return (
+    <button type="button" onClick={start}>
+      Start the cast
+    </button>
+  );
+}
 
 /** The remote's welcome, the receiver's film paused at a minute. */
 const welcome = {
@@ -141,6 +163,37 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await sockets.session.say(welcome);
     return { services, sockets, onPlayHere };
   }
+
+  it("opens on what starting the cast answered, asking for this device's casts no more (D478)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      { "POST /me/casts": [200, cast], "GET /files/4/up-next": [200, {}] },
+      heard,
+      "token",
+    );
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <CastSignOverTheFilmContext value={() => null}>
+          <LiveProvider>
+            <StartedHere />
+          </LiveProvider>
+        </CastSignOverTheFilmContext>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await click(buttonWithText(mounted.container, "Start the cast"));
+    await settleUntil(() => buttonWithText(mounted!.container, "Start the cast") === undefined);
+    await sockets.live.accept();
+    await sockets.live.say({ type: "sending", sending });
+    await settleUntil(
+      () => mounted?.container.querySelector(".cast-remote") instanceof HTMLElement,
+    );
+    await settleAnswers();
+    const asked = heard.map((each) => each.methodAndPath);
+    expect(asked).toContain("POST /me/casts");
+    expect(asked).not.toContain("GET /me/casts");
+  });
 
   it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {
     const { sockets } = await casting({});

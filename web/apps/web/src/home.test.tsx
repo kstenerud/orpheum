@@ -154,7 +154,9 @@ describe("home (the owner, 2026-10-25)", () => {
     mounted = await mount(
       withServices(
         <BackgroundChangesContext value={counting}>
-          <LibrariesReachedContext value={{ state: "loaded", value: [] }}>
+          <LibrariesReachedContext
+            value={{ libraries: { state: "loaded", value: [] }, readAgain: () => undefined }}
+          >
             <Home />
           </LibrariesReachedContext>
         </BackgroundChangesContext>,
