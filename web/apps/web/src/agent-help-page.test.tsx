@@ -35,6 +35,21 @@ describe("the page's naming of the setup help for a person's AI agent", () => {
     ).toEqual([`/${agentHelpFile}`, `/${llmsTxtFile}`]);
   });
 
+  it("shows a person none of it while the script starts, as a phone shows each page on the way to its core (the owner, 2026-11-14)", () => {
+    const served = parsedPage();
+    document.head.innerHTML = [...served.head.querySelectorAll("style")]
+      .map((style) => style.outerHTML)
+      .join("");
+    document.body.innerHTML = served.getElementById("root")?.outerHTML ?? "";
+    const note = document.querySelector("#root p");
+    if (note === null) {
+      throw new Error("the page's root has no note");
+    }
+    expect(getComputedStyle(note).visibility).toBe("hidden");
+    document.head.innerHTML = "";
+    document.body.innerHTML = "";
+  });
+
   it("is gone once the client draws, for a person and a screen reader alike", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
     // The page's root as it is served, without the script, which happy-dom would try to load.

@@ -18,11 +18,19 @@
       type="text/markdown"
       title="Setup help for an AI agent"
     />
+    <!-- The note below is for an agent that reads the page's text, which takes no style: a person,
+    whose phone shows each page of the way to its core while its script starts, sees none of it, nor
+    does a screen reader. -->
+    <style>
+      .for-agents {
+        visibility: hidden;
+      }
+    </style>
   </head>
   <body>
     <!-- For an agent that reads without running script; the client's first drawing replaces it. -->
     <div id="root">
-      <p>
+      <p class="for-agents">
         An AI agent setting up Orpheum for a person finds its setup help as plain text at
         <a href="/agent-setup.md">/agent-setup.md</a>, and listed in
         <a href="/llms.txt">/llms.txt</a>.

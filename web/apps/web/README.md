@@ -389,7 +389,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   plan's "Help for a person's own AI agent at orpheum.cc"): a `<link rel="help">` and an `alternate`
   `text/markdown` link in its head, and in its root a plain paragraph naming `/agent-setup.md` and
   `/llms.txt`, which the client's first drawing replaces, so neither a person nor a screen reader
-  meets it once the page is drawn. The build writes the help from its one source,
+  meets it once the page is drawn. Until then the page's own style hides it (`.for-agents`), as a
+  phone shows each page on the way to its core while the script starts (the owner, 2026-11-14); an
+  agent reading the text takes no style. The build writes the help from its one source,
   `docs/users/agent-setup.md`, its relative links made the public repository's, and `/llms.txt`
   naming it (`src/agent-help.ts`, the `orpheum-agent-help` plugin in `vite.config.ts`).
   `agent-help.test.ts`, `agent-help-page.test.tsx`.
