@@ -388,6 +388,22 @@ describe("App", () => {
     );
   });
 
+  it("forgets the images its worker kept as it signs out (D485)", async () => {
+    const forgotten: string[] = [];
+    vi.stubGlobal("caches", {
+      delete: (name: string) => {
+        forgotten.push(name);
+        return Promise.resolve(true);
+      },
+    });
+    try {
+      expect(await noticeAfterSigningOut([204, undefined])).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(forgotten).toEqual(["orpheum-images"]);
+  });
+
   // The owner's Fire TV, 2026-10-29: "When I sign out, it goes to the core's sign-in page for a while
   // and then switches to the discovery's sign-in page. That would be confusing for a user."
   it("signed out under a discovery's loader through a realm, draws no server's sign-in while the loader leaves", async () => {

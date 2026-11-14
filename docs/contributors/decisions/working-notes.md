@@ -28688,9 +28688,38 @@ transport-choice.test.tsx, kept-path.test.ts and discovery-gate-hidden.test.tsx.
 
 **Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
 
-## D485 — Reserved: The service worker keeps content-addressed images
+## D485 — The service worker keeps the core's content-addressed images, and answers them from there
 
-**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-14), by the project owner, on the lead's proposal (the owner: *"Ok go with your
+recommendations"*), after the slow-link war game. Amends nothing: it widens what the worker does
+for a page (D308 §6) to the core's images, and leaves D479's order of a freed room as it is. Over
+WebRTC the worker builds each image's answer from what its page fetched, so neither the browser's
+own cache nor any other kept it, and the core's year-long `immutable` answer did nothing there:
+every page opened fetched Home's posters again, some 1.8 MB, 48 s on a link of 300 kbit/s.
+
+1. **Only an image whose address names its content is kept**: artUrl's
+   `/api/v1/bytes/art/<source SHA-256>/<size>.<webp|jpeg>`, the hash 64 hex digits and the size
+   one of D212's closed set (`isContentAddressedImage`). Kept by its path alone: a poster asked for
+   again after a failure carries `?again=`, and is the same image.
+2. **Only the image itself is kept**: a 200 of an image that the page fetched over its path to the
+   very address asked for. Never the core's 307 to the nearest size (D212 §5), never an answer a
+   followed redirect brought (a direct path's fetch follows that 307, and the page now says so,
+   `isRedirected`, read with `isAnsweredUnredirected`; a page of a release before says nothing,
+   and nothing it answers is kept), never a failure, and never the network's own answer, which the
+   browser's cache already keeps.
+3. **Answered from there**, on either path and under a loader too, before the page is asked; where
+   the browser refuses the cache the image is fetched as before.
+4. **At most 1500 images** (`keptImagesMost`, a stated constant): Home's rows and the poster grid
+   of about a thousand titles, some 50–75 MB, well inside what Chromium and Firefox give an origin.
+   Past it the oldest kept go first, a tenth at a time.
+5. **Forgotten as the session changes** (`forgetKeptImages`, with the tab's answers, D478), so no
+   one's page draws an image an earlier session reached and this one may not (D243 §4).
+
+**Proven by:** "the service worker's kept images (D485)" (web/apps/web/src/sw.test.ts: kept and
+answered from there, a worker started again and `?again=` too; under a loader; no 307, followed
+redirect, failure or address without its hash kept; the bound); "forgets the images its worker
+kept as it signs out (D485)" (app.test.tsx); "says whether the page's answer came by a redirect it
+followed …" (web/packages/sdk/src/rtc-media.test.ts).
 
 ## D486 — Reserved: A deadline on the loader's page and the client floor
 

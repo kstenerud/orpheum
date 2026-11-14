@@ -75,8 +75,9 @@ export interface FetchMessage {
 
 /**
  * What the page sends back on a load's port. Its head says, in `relay`, that the page sends the body
- * as the worker grants it room; a page of a release before says nothing, and sends a piece for each
- * "pull".
+ * as the worker grants it room, and in `isRedirected` whether its answer came by a redirect it
+ * followed (a direct path's fetch follows the core's 307 to an image's nearest size, D212 §5); a page
+ * of a release before says neither, and sends a piece for each "pull".
  */
 export type ReplyMessage =
   | {
@@ -84,6 +85,7 @@ export type ReplyMessage =
       readonly status: number;
       readonly headers: readonly (readonly [string, string])[];
       readonly relay?: "credit";
+      readonly isRedirected?: boolean;
     }
   | { readonly kind: "chunk"; readonly data: ArrayBuffer }
   | { readonly kind: "end" }
@@ -363,6 +365,7 @@ export async function answerLoad(
     status: response.status,
     headers: replied,
     relay: "credit",
+    isRedirected: response.redirected,
   } satisfies ReplyMessage);
 }
 
@@ -468,6 +471,18 @@ function movableBufferOf(piece: Uint8Array): ArrayBuffer {
   return piece.slice().buffer;
 }
 
+/** The answers responseFromPort made whose page said it followed no redirect for them. */
+const answeredUnredirected = new WeakSet<Response>();
+
+/**
+ * Whether response, as responseFromPort made it, answers the very address asked for: its page said
+ * it followed no redirect to it. A page of a release before says nothing, and its answer is not
+ * known to (D485: only such an answer is kept under the address asked for).
+ */
+export function isAnsweredUnredirected(response: Response): boolean {
+  return answeredUnredirected.has(response);
+}
+
 /**
  * The service worker's side: the response a load's port carries, resolved at its head, its body a
  * stream that grants the page room for `relayedAheadBytes` ahead of its reader when its head says it
@@ -501,12 +516,14 @@ export function responseFromPort(port: PortLike, signal?: AbortSignal): Promise<
               ? creditedBody(port, setDeliver)
               : pulledBody(port, setDeliver);
         }
-        resolve(
-          new Response(body, {
-            status: reply.status,
-            headers: reply.headers.map(([name, value]) => [name, value]),
-          }),
-        );
+        const response = new Response(body, {
+          status: reply.status,
+          headers: reply.headers.map(([name, value]) => [name, value]),
+        });
+        if (reply.isRedirected === false) {
+          answeredUnredirected.add(response);
+        }
+        resolve(response);
         return;
       }
       if (reply.kind === "error" && deliver === undefined) {
@@ -662,6 +679,10 @@ function asHead(data: object): ReplyMessage | undefined {
     kind: "head",
     status: data.status,
     headers: headers.filter(isHeaderPair),
+    // A page of a release before says nothing of a redirect, and its answer is not known to follow none.
+    ...("isRedirected" in data && typeof data.isRedirected === "boolean"
+      ? { isRedirected: data.isRedirected }
+      : {}),
   } as const;
   // A page of a release before says nothing of how it sends, and is pulled from.
   return "relay" in data && data.relay === "credit" ? { ...head, relay: "credit" } : head;

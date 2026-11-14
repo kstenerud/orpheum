@@ -393,6 +393,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
   `loader-sweep.test.ts`, `sw.test.ts`, `worker-bypassed-note.test.tsx`, and the SDK's
   `discovery.test.ts`, `rtc-media.test.ts` and `worker-control.test.ts`.
+- **The service worker keeps the core's images whose address names their content, and answers them
+  from there** (D485): an image is kept by its path alone (`isContentAddressedImage`, artUrl's
+  64-hex SHA-256 and size), only as the page's 200 of an image to the very address asked for, never
+  a 307 to the nearest size, an answer a followed redirect brought, a failure or the network's own;
+  at most `keptImagesMost`, the oldest kept going first; and all forgotten as the session changes.
+  `sw.test.ts` ("the service worker's kept images (D485)"), `app.test.tsx`, and the SDK's
+  `rtc-media.test.ts`.
 - **The page names the setup help for a person's own AI agent to one that runs no script** (the
   plan's "Help for a person's own AI agent at orpheum.cc"): a `<link rel="help">` and an `alternate`
   `text/markdown` link in its head, and in its root a plain paragraph naming `/agent-setup.md` and

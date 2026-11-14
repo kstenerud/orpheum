@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   answerLoad,
   askPathOf,
+  isAnsweredUnredirected,
   isPathMessage,
   isPathQueryMessage,
   responseFromPort,
@@ -148,6 +149,32 @@ describe("media over the WebRTC path", () => {
     // A viewer's membership beside the page's own sign-in, which no cookie reaches across origins.
     expect(heard[0]?.headers.get("Orpheum-Viewer")).toBe("v");
     port1.close();
+  });
+
+  it("says whether the page's answer came by a redirect it followed, and knows nothing of one from a page that does not say (D485)", async () => {
+    const answered = async (response: Response): Promise<boolean> => {
+      const { port1, port2 } = new MessageChannel();
+      void answerLoad(aLoad, port2, {
+        send: () => Promise.resolve(response),
+        token: undefined,
+        viewer: undefined,
+      });
+      const carried = await responseFromPort(port1);
+      port1.close();
+      return isAnsweredUnredirected(carried);
+    };
+    expect(await answered(new Response("the size asked for"))).toBe(true);
+    // A direct path's fetch follows the core's 307 to an image's nearest size.
+    const followed = new Response("the nearest size");
+    Object.defineProperty(followed, "redirected", { value: true });
+    expect(await answered(followed)).toBe(false);
+
+    const { port1, port2 } = new MessageChannel();
+    const carried = responseFromPort(port1);
+    port2.postMessage({ kind: "head", status: 200, headers: [] }); // a page of a release before
+    expect(isAnsweredUnredirected(await carried)).toBe(false);
+    port1.close();
+    port2.close();
   });
 
   it("sends a body ahead of the worker's reader, not a piece for each message the busy page answers", async () => {

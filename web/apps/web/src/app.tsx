@@ -73,6 +73,7 @@ import { Remembered, useRemembered } from "./remembered.ts";
 import { ShellReadContext, useShellPart, type ShellRead } from "./shell-read.ts";
 import { LaterScreen } from "./screen-load.tsx";
 import { MeContext } from "./signed-in-me.ts";
+import { forgetKeptImages } from "./kept-images.ts";
 import { forgetEveryAnswer, useResource, type Resource } from "./use-resource.ts";
 
 /**
@@ -137,13 +138,15 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
 }
 
 /**
- * Has the tab forget every answer it holds (useResource's, D478) as its session changes: signed out,
- * or signed in anew, so no one's page draws what an earlier session read.
+ * Has the tab forget every answer it holds (useResource's, D478) and the images its worker kept
+ * (D485) as its session changes: signed out, or signed in anew, so no one's page draws what an
+ * earlier session read.
  */
 function useAnswersForgottenAsTheSessionChanges(token: string | undefined): void {
   const [answersOf, setAnswersOf] = useState(token);
   if (token !== answersOf) {
     forgetEveryAnswer();
+    void forgetKeptImages();
     setAnswersOf(token);
   }
 }

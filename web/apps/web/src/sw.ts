@@ -11,7 +11,9 @@
  * of them, fetched by the page over its path and answered only when its SHA-256 is the one the
  * core's signed manifest names, kept by that hash; and it keeps the loader's own page and files, so
  * a page opens with no load to its origin at all, which another core's cookies cannot stop (§7). At a
- * core's own origin no loader ever names them, and those loads go as they would.
+ * core's own origin no loader ever names them, and those loads go as they would. Either way, an image
+ * whose address names its content it keeps as its page fetched it, and answers from there (D485,
+ * kept-images.ts).
  */
 
 import {
@@ -35,6 +37,7 @@ import {
   keptClientFiles,
   sha256Of,
 } from "./client-files.ts";
+import { imageAsKept, isContentAddressedImage } from "./kept-images.ts";
 
 /** A load the worker is asked to answer. */
 interface FetchEventLike {
@@ -153,9 +156,26 @@ if (isWorkerScope(scope)) {
     ) {
       return;
     }
-    event.respondWith(
-      onWebrtc.has(event.clientId) ? throughThePage(scope, event) : askedFirst(scope, event),
-    );
+    event.respondWith(mediaAnswer(scope, event, url));
+  });
+}
+
+/**
+ * A page's media load: through the page when it said it carries its path, else asked first; an image
+ * whose address names its content as kept, else so and kept behind (D485).
+ */
+function mediaAnswer(worker: WorkerScope, event: FetchEventLike, url: URL): Promise<Response> {
+  const answered = (): Promise<Response> =>
+    onWebrtc.has(event.clientId) ? throughThePage(worker, event) : askedFirst(worker, event);
+  if (event.request.method !== "GET" || !isContentAddressedImage(url.pathname)) {
+    return answered();
+  }
+  return imageAsKept(worker.caches, {
+    request: event.request,
+    fetched: answered,
+    keepBehind: (work) => {
+      event.waitUntil(work);
+    },
   });
 }
 

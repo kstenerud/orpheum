@@ -12,6 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sha256Of } from "./client-files.ts";
+import { keptImagesCache, keptImagesMost } from "./kept-images.ts";
 
 /** The client origin the worker serves, as a loader's core's would be (D308). */
 const origin = "https://abc.orpheum-client.com";
@@ -19,28 +20,36 @@ const origin = "https://abc.orpheum-client.com";
 /** One cache of the worker's, keyed by path. */
 type FakeCache = Map<string, Response>;
 
-/** A cache's key as the worker names it: a path. */
+/** A cache's key as the worker names it: a path, as a request at the worker's own origin names it too. */
 function keyOf(key: RequestInfo | URL): string {
   if (typeof key === "string") {
     return key;
   }
-  return key instanceof URL ? key.href : key.url;
+  const url = key instanceof URL ? key : new URL(key.url);
+  return url.origin === origin ? `${url.pathname}${url.search}` : url.href;
 }
 
-/** The worker's caches, kept across a worker started again, as the browser keeps them. */
+/**
+ * The worker's caches, kept across a worker started again, as the browser keeps them: each lists its
+ * entries in the order they were kept, one kept again last.
+ */
 function cachesOf(stores: Map<string, FakeCache>): Pick<CacheStorage, "open"> {
   return {
     open: (name: string) => {
       const store = stores.get(name) ?? new Map<string, Response>();
       stores.set(name, store);
-      const cache: Pick<Cache, "match" | "put"> = {
+      const cache: Pick<Cache, "match" | "put" | "keys" | "delete"> = {
         match: (key: RequestInfo | URL) => Promise.resolve(store.get(keyOf(key))?.clone()),
         put: (key: RequestInfo | URL, response: Response) => {
+          store.delete(keyOf(key));
           store.set(keyOf(key), response);
           return Promise.resolve();
         },
+        keys: () =>
+          Promise.resolve([...store.keys()].map((key) => new Request(new URL(key, origin)))),
+        delete: (key: RequestInfo | URL) => Promise.resolve(store.delete(keyOf(key))),
       };
-      // The worker uses only match and put.
+      // The worker uses only these.
       return Promise.resolve(cache as Cache);
     },
   };
@@ -643,5 +652,132 @@ describe("the service worker at a core's own origin", () => {
     const next = await settledOver(load(worker, chunk, { by: "p" }), askWaitMs);
     expect(await next?.text()).toBe("a chunk");
     expect(network).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the service worker's kept images (D485)", () => {
+  /** An image's address that names its content, as artUrl makes it. */
+  const poster = `/api/v1/bytes/art/${"ab".repeat(32)}/portrait-m.webp`;
+  const posterBytes = new Uint8Array([82, 73, 70, 70]);
+
+  function image(status = 200): Response {
+    return new Response(status === 200 ? posterBytes : null, {
+      status,
+      headers: { "Content-Type": "image/webp" },
+    });
+  }
+
+  /** What a page's load of path is answered, read whole, once whatever it kept behind is kept. */
+  async function loaded(
+    worker: Worker,
+    path: string,
+  ): Promise<{ readonly status: number; readonly bytes: Uint8Array } | undefined> {
+    const answered = await load(worker, path, { by: "p" });
+    const bytes = new Uint8Array((await answered?.arrayBuffer()) ?? new ArrayBuffer(0));
+    await Promise.all(worker.kept);
+    return answered === undefined ? undefined : { status: answered.status, bytes };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps an image the page fetched over its path by its address, and answers it from there, a worker started again too", async () => {
+    const stores = new Map<string, FakeCache>();
+    const page = pageOf("p", "webrtc", () => Promise.resolve(image()));
+    const network = vi.fn<(request: Request) => Promise<Response>>();
+    const worker = await startWorker(stores, [page], network);
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+
+    for (const asked of [poster, poster, `${poster}?again=2`]) {
+      expect((await loaded(worker, asked))?.bytes).toEqual(posterBytes);
+    }
+    const again = await startWorker(stores, [page], network);
+    expect((await loaded(again, poster))?.bytes).toEqual(posterBytes);
+
+    expect(page.asked).toEqual([poster]);
+    expect([...(stores.get(keptImagesCache)?.keys() ?? [])]).toEqual([poster]);
+    expect(network).not.toHaveBeenCalled();
+  });
+
+  it("keeps an image under a loader too, fetched through the page carrying its path", async () => {
+    const stores = new Map<string, FakeCache>();
+    const page = pageOf("p", "webrtc", () => Promise.resolve(image()));
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    const sha256 = await sha256Of(script.slice().buffer);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    expect((await loaded(worker, poster))?.bytes).toEqual(posterBytes);
+    expect((await loaded(worker, poster))?.bytes).toEqual(posterBytes);
+    expect(page.asked).toEqual([poster]);
+  });
+
+  it("keeps no redirect to the nearest size, no answer a redirect brought, no failure and no image its address does not name", async () => {
+    const stores = new Map<string, FakeCache>();
+    // A direct path's fetch follows the 307 to the nearest size, and answers that one's 200.
+    const followed = (): Response => {
+      const answer = image();
+      Object.defineProperty(answer, "redirected", { value: true });
+      return answer;
+    };
+    const answers = new Map<string, () => Response>([
+      [
+        poster,
+        () =>
+          new Response(null, {
+            status: 307,
+            headers: [["Location", poster.replace("portrait-m", "portrait-s")]],
+          }),
+      ],
+      [poster.replace("portrait-m", "landscape-s"), followed],
+      [poster.replace("portrait-m", "logo-s"), () => image(404)],
+      ["/api/v1/bytes/art/a1/portrait-m.webp", () => image()],
+    ]);
+    const page = pageOf("p", "webrtc", (request) =>
+      Promise.resolve(answers.get(new URL(request.url).pathname)?.() ?? image(404)),
+    );
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+
+    for (const asked of answers.keys()) {
+      await loaded(worker, asked);
+      await loaded(worker, asked);
+    }
+    expect(page.asked).toEqual([...answers.keys()].flatMap((asked) => [asked, asked]));
+    expect(stores.get(keptImagesCache)?.size ?? 0).toBe(0);
+  });
+
+  it("keeps at most keptImagesMost images, the oldest kept going first", async () => {
+    const stores = new Map<string, FakeCache>();
+    const imageAt = (index: number): string =>
+      `/api/v1/bytes/art/${index.toString(16).padStart(64, "0")}/portrait-s.webp`;
+    // Kept by a worker before this one, which knows nothing of how many.
+    stores.set(
+      keptImagesCache,
+      new Map(Array.from({ length: keptImagesMost }, (_, index) => [imageAt(index), image()])),
+    );
+    const page = pageOf("p", "webrtc", () => Promise.resolve(image()));
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+
+    const newest = imageAt(keptImagesMost);
+    expect((await loaded(worker, newest))?.status).toBe(200);
+    const kept = [...(stores.get(keptImagesCache)?.keys() ?? [])];
+    expect(kept.length).toBeLessThan(keptImagesMost);
+    expect(kept.at(-1)).toBe(newest);
+    expect(kept).not.toContain(imageAt(0));
+    expect(kept[0]).toBe(imageAt(keptImagesMost + 1 - kept.length));
   });
 });

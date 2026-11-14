@@ -10,7 +10,7 @@
  * connection and a player following its group (plans/cut-a.md §3, §5).
  */
 
-export { apiPrefix, artUrl, createApi } from "./client.ts";
+export { apiPrefix, artPathPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { allPages, pageLimitMax } from "./pages.ts";
@@ -162,6 +162,7 @@ export {
   answerLoad,
   askPathOf,
   carryMediaOver,
+  isAnsweredUnredirected,
   isClaimMessage,
   isFetchMessage,
   isPathMessage,
