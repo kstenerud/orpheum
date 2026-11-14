@@ -28681,13 +28681,61 @@ schedule while needed, and shown as before); "how a WebRTC transport on a page g
 web/apps/web/src/hidden-need.test.tsx, the cast remote's mark in cast-remote.test.tsx,
 transport-choice.test.tsx, kept-path.test.ts and discovery-gate-hidden.test.tsx.
 
-## D483 — Reserved: Compression over WebRTC
+## D483 — Compression over WebRTC
 
-**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-14), by the project owner, on the lead's proposal (the owner: *"Ok go with your
+recommendations"*), after the slow-link war game. Amends nothing; extends D342's compression, which
+served HTTP alone in practice, to the WebRTC path. Over HTTP the browser asks for gzip and inflates
+the answer itself; over WebRTC the SDK's request head asked for nothing, so every JSON answer of the
+core came whole, a library's list three to ten times its gzipped size, on the slow links that take
+the WebRTC path most.
 
-## D484 — Reserved: A WebRTC connection's steps timed, and a reconnect kept when the page is shown
+1. **A read over WebRTC asks for gzip** (`isGzipAsked`, web/packages/sdk/src/rtc-request.ts): a GET,
+   naming no encoding of its own and asking for no byte range (the webclient serves a range of the
+   gzipped bytes), where the browser has `DecompressionStream`. A browser without it asks for none
+   and gets every answer whole, as before.
+2. **A gzipped answer is inflated before the page reads it** (`inflated`): piped through a
+   `DecompressionStream`, its Content-Encoding and Content-Length taken off, so the page reads it as
+   over HTTP; a channel closed midway fails the read as an answer sent whole does.
+3. **The core is unchanged.** Its data channels serve the same handler as HTTP, with D342's
+   compressor and the webclient's gzip; an answer that carries a credential is still never gzipped
+   (D342), over a channel as over HTTP.
 
-**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+**Proven by:** "a gzipped answer over WebRTC (D483)" (web/packages/sdk/src/rtc-request-gzip.test.ts);
+`TestRTCOffer_AReadOverADataChannelIsGzippedWhereTheClientAsks` (internal/core/api/rtc_test.go).
+Confirmed on devices by VQ321.
+
+## D484 — A WebRTC connection's steps timed, and a reconnect kept when the page is shown
+
+**Decided** (2026-11-14), by the project owner, on the lead's proposal (the owner: *"Ok go with your
+recommendations"*), after the slow-link war game. Amends D482 §3 ("Shown again, a try at once,
+giving up one under way"). The war game found a slow connection's report said only "connecting"
+for the whole of a slow connect, and that a phone flapping its page's visibility gave up each try
+under way as it was shown again, so on a slow link no try lived long enough to connect.
+
+1. **A slow connection's report says how its connecting went** (`connectingStepsOf`,
+   `slowConnection`; web/packages/sdk/src/rtc-connect.ts): from the answer to ICE's first answering
+   pair (`whenIceThrough`), then DTLS to the connection's connected state, then SCTP and the channel
+   to the channel's opening, then the core's verdict, each in milliseconds in the same sentence; a
+   step whose end went unseen gives its time to the next ("ICE and DTLS …"). No threshold is new.
+2. **Shown again, a try under way is kept** (`backOnline`, rtc-transport.ts; amends D482 §3),
+   unless it has run past its own deadline (`openTryMostMs`) by the clock, as a page frozen while
+   hidden leaves it; then it is given up and a try begins at once, as before.
+3. **Back online, a try under way is still given up**, however young: a new network makes the old
+   try's candidates stale (the war game: "abort only on `online` or a network change").
+4. **A page's first report of its path says how the page was opened** (`pageOpened`: navigate,
+   reload, back_forward or prerender, from the browser's navigation entry; web/apps/web's
+   path-choice.ts and kept-path.ts; the core logs it, client_problems.go), on the first report
+   alone, so that a slow first load is told from a reload or a return.
+
+**Proven by:** "connectingStepsOf (D484 §1)", "whenIceThrough (D484 §1)", "the core's verdict, timed
+(D484 §1)" and "says how connecting went, step by step, in the same sentence"
+(web/packages/sdk/src/rtc-connect.test.ts); "keeps a try under way when its page is shown again, so
+the try connects", "gives up a try under way that a frozen page held past openTryMostMs, and tries
+again at once" and "still gives up a try under way when the browser comes back online, however
+young" (rtc-network-loss.test.ts); "how a page was opened (D484 §4)" (web/apps/web/src/path-choice.test.ts),
+kept-path.test.ts, and `TestClientPaths_APagesFirstReportSaysHowThePageWasOpened`
+(internal/core/api/client_problems_test.go). §2 is confirmed on a phone by VQ320.
 
 ## D485 — The service worker keeps the core's content-addressed images, and answers them from there
 

@@ -347,7 +347,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D339](working-notes.md#d339--up-next-keeps-its-30-s-lead-until-credits-are-detected-a-run-of-three-autoplays-with-no-press-asks-still-watching-and-a-hosts-autoplay-moves-their-group-on) Up next keeps its 30 s lead until credits are detected, a run of three autoplays with no press asks Still watching, and a host's autoplay moves their group on
 - [D340](working-notes.md#d340--a-videos-text-subtitle-tracks-are-extracted-by-one-job-from-one-read-of-it-and-a-failed-track-alone-is-tried-again-when-next-played) A video's text subtitle tracks are extracted by one job from one read of it, and a failed track alone is tried again when next played
 - [D341](working-notes.md#d341--reserved-a-hidden-tabs-interest) Reserved: A hidden tab's interest
-- [D342](working-notes.md#d342--api-answers-that-carry-no-credential-are-gzipped-an-answer-that-carries-one-never-is) API answers that carry no credential are gzipped; an answer that carries one never is
+- [D342](working-notes.md#d342--api-answers-that-carry-no-credential-are-gzipped-an-answer-that-carries-one-never-is) API answers that carry no credential are gzipped; an answer that carries one never is — *revisited by D483*
 - [D343](working-notes.md#d343--the-replay-nonce-is-one-public-building-block-discoveryproofs-nonces-which-both-discoveries-use) The replay nonce is one public building block, discovery/proof's Nonces, which both discoveries use
 - [D344](working-notes.md#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had) The whole-film prepare is retired: every playback the device cannot play as it is plays from its ladder, cut on time where its keyframes cannot be had
 - [D345](working-notes.md#d345--reserved-sweeps-as-job-kinds) Reserved: Sweeps as job kinds
@@ -487,9 +487,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D479](working-notes.md#d479--over-webrtc-what-a-person-waits-on-is-given-a-freed-room-before-images-and-interest-notes) Over WebRTC, what a person waits on is given a freed room before images and interest notes
 - [D480](working-notes.md#d480--a-menus-or-a-dialogs-contents-come-with-the-pages-essential-data-not-a-read-on-opening) A menu's or a dialog's contents come with the page's essential data, not a read on opening
 - [D481](working-notes.md#d481--an-admin-pages-first-read-carries-what-its-other-sections-read) An admin page's first read carries what its other sections read
-- [D482](working-notes.md#d482--a-hidden-pages-webrtc-transport-tries-to-connect-every-10-s-for-two-minutes-then-not-until-shown) A hidden page's WebRTC transport tries to connect every 10 s for two minutes, then not until shown
-- [D483](working-notes.md#d483--reserved-compression-over-webrtc) Reserved: Compression over WebRTC
-- [D484](working-notes.md#d484--reserved-a-webrtc-connections-steps-timed-and-a-reconnect-kept-when-the-page-is-shown) Reserved: A WebRTC connection's steps timed, and a reconnect kept when the page is shown
+- [D482](working-notes.md#d482--a-hidden-pages-webrtc-transport-tries-to-connect-every-10-s-for-two-minutes-then-not-until-shown) A hidden page's WebRTC transport tries to connect every 10 s for two minutes, then not until shown — *revisited by D484*
+- [D483](working-notes.md#d483--compression-over-webrtc) Compression over WebRTC
+- [D484](working-notes.md#d484--a-webrtc-connections-steps-timed-and-a-reconnect-kept-when-the-page-is-shown) A WebRTC connection's steps timed, and a reconnect kept when the page is shown
 - [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there
 - [D486](working-notes.md#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without) The loader's page and the client floor are waited on for 2.5 s, then gone on without
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
