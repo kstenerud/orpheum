@@ -115,6 +115,8 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
  * declares the body's length and asks for its response to end in endMessage, for a browser that
  * cannot send or take an empty message; and it carries the browser's user agent, as a request over HTTP does: a Request's headers never hold it,
  * and every playback over WebRTC was logged with userAgent="" (local-path-2026-10-27.md §4 item 7).
+ * It asks for a gzipped answer, as the browser does over HTTP, where the page can inflate one
+ * (isGzipAsked, D483).
  */
 export async function requestMessages(
   request: Request,
@@ -129,6 +131,9 @@ export async function requestMessages(
   if (headers["user-agent"] === undefined && userAgent !== "") {
     headers["user-agent"] = [userAgent];
   }
+  if (isGzipAsked(request.method, headers)) {
+    headers["accept-encoding"] = ["gzip"];
+  }
   headers["content-length"] = [String(body?.byteLength ?? 0)];
   headers[endHeader] = [endInText];
   const head: RequestHead = { method: request.method, path: url.pathname + url.search, headers };
@@ -138,6 +143,41 @@ export async function requestMessages(
   }
   messages.push(new ArrayBuffer(0));
   return messages;
+}
+
+/**
+ * Whether a request of this method and these headers asks for a gzipped answer (D483): over HTTP the
+ * browser asks for one itself, and over WebRTC nothing did, so each JSON answer of the core came
+ * whole, a library's list three to ten times its gzipped size, on the links that can least carry it
+ * (the slow-link war game, 2026-11-14). Only a GET, as every answer the core gzips is a read's (its
+ * compressedOperations and the client's files); not where the request names its own encodings, nor
+ * for a byte range, which the core would serve of the gzipped bytes (webclient's gzip), nor where the
+ * browser has no DecompressionStream to inflate the answer with.
+ */
+function isGzipAsked(method: string, headers: Readonly<Record<string, string[]>>): boolean {
+  return (
+    method === "GET" &&
+    headers["accept-encoding"] === undefined &&
+    headers["range"] === undefined &&
+    "DecompressionStream" in globalThis
+  );
+}
+
+/**
+ * The body of an answer whose headers are these, inflated where the core gzipped it (D483), as the
+ * browser inflates one over HTTP: its Content-Encoding and Content-Length, the gzipped body's, are
+ * taken from the headers, so that nothing reading it inflates it again.
+ */
+function inflated(
+  stream: ReadableStream<Uint8Array<ArrayBuffer>>,
+  headers: Headers,
+): ReadableStream<Uint8Array<ArrayBuffer>> {
+  if (headers.get("content-encoding")?.trim().toLowerCase() !== "gzip") {
+    return stream;
+  }
+  headers.delete("content-encoding");
+  headers.delete("content-length");
+  return stream.pipeThrough(new DecompressionStream("gzip"));
 }
 
 /**
@@ -347,7 +387,7 @@ class SilenceWatch {
  * silence is watched.
  */
 class BodyQueue {
-  private readonly queued: Uint8Array[] = [];
+  private readonly queued: Uint8Array<ArrayBuffer>[] = [];
   private waiting: (() => void) | undefined;
   private isFinished = false;
   private failure: Error | undefined;
@@ -358,7 +398,7 @@ class BodyQueue {
     private readonly silence: SilenceWatch,
   ) {}
 
-  push(chunk: Uint8Array): void {
+  push(chunk: Uint8Array<ArrayBuffer>): void {
     this.queued.push(chunk);
     this.wake();
   }
@@ -375,8 +415,8 @@ class BodyQueue {
   }
 
   /** The body as a stream its reader pulls from, each message only when asked for. */
-  stream(onCancel: () => void): ReadableStream<Uint8Array> {
-    return new ReadableStream<Uint8Array>(
+  stream(onCancel: () => void): ReadableStream<Uint8Array<ArrayBuffer>> {
+    return new ReadableStream<Uint8Array<ArrayBuffer>>(
       {
         pull: async (controller) => {
           const isWaiting = this.queued.length === 0 && !this.isFinished;
@@ -537,16 +577,16 @@ function responseOf(
     end(error instanceof Error ? error : new Error(String(error)));
     return undefined;
   }
+  const headers = toHeaders(answered.headers);
   const stream = bodylessStatuses.has(answered.status)
     ? null
-    : body.stream(() => {
-        end();
-      });
-  return new ChannelResponse(
-    stream,
-    { status: answered.status, headers: toHeaders(answered.headers) },
-    () => body.failedWith,
-  );
+    : inflated(
+        body.stream(() => {
+          end();
+        }),
+        headers,
+      );
+  return new ChannelResponse(stream, { status: answered.status, headers }, () => body.failedWith);
 }
 
 /**
@@ -560,7 +600,7 @@ function responseOf(
  */
 class ChannelResponse extends Response {
   constructor(
-    body: ReadableStream<Uint8Array> | null,
+    body: ReadableStream<Uint8Array<ArrayBuffer>> | null,
     init: ResponseInit,
     private readonly bodyFailure: () => Error | undefined,
   ) {
