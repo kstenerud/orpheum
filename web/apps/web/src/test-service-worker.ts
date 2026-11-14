@@ -15,7 +15,7 @@ import {
 import { vi } from "vitest";
 
 /** The client origin the worker serves, as a loader's core's would be (D308). */
-export const origin = "https://abc.orpheum-client.com";
+export const origin = "https://abc.client.example";
 
 /** One cache of the worker's, keyed by path. */
 export type FakeCache = Map<string, Response>;
