@@ -30,6 +30,15 @@ afterEach(() => {
   mounted = undefined;
 });
 
+/** The person's own choices, as GET /me carries them (D480 §2). */
+const preferences = {
+  isDialogueBoostOn: false,
+  isLevellingOn: true,
+  isAutoplayOn: true,
+  leftOutLibraryIds: [],
+  leftOutOfHomeLibraryIds: [],
+};
+
 /** The account page for a session that may, or may not, change the account's security. */
 async function accountOf(
   canManageAccount: boolean,
@@ -41,12 +50,11 @@ async function accountOf(
       <Account />,
       servedBy({
         "GET /me/devices": [200, { devices: [television()] }],
-        "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false, canManageAccount }],
-        "GET /me/own-link": ownLink,
-        "GET /me/preferences": [
+        "GET /me": [
           200,
-          { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+          { id: 1, name: "owner", role: "user", isAdmin: false, canManageAccount, preferences },
         ],
+        "GET /me/own-link": ownLink,
         "GET /libraries": [200, { libraries: [] }],
         ...more,
       }),
@@ -69,6 +77,7 @@ describe("your account", () => {
         canHostWatchTogether: false,
         hasNoLibrary: false,
         showsDebugTools: false,
+        preferences,
       },
     } as const;
     mounted = await mount(
@@ -80,10 +89,6 @@ describe("your account", () => {
           {
             "GET /me/devices": [200, { devices: [television()] }],
             "GET /me/own-link": refusal(404, "notFound"),
-            "GET /me/preferences": [
-              200,
-              { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
-            ],
             "GET /libraries": [200, { libraries: [] }],
           },
           heard,
@@ -124,13 +129,10 @@ describe("your account", () => {
               canManageAccount: true,
               adminAway: "never",
               homeAddresses: ["https://192-168-1-250.k7xq2.orpheum-core.com:8443"],
+              preferences,
             },
           ],
           "GET /me/own-link": [200, { secret: "a-links-secret", expiresAt: 2 }],
-          "GET /me/preferences": [
-            200,
-            { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
-          ],
           "GET /libraries": [200, { libraries: [] }],
         }),
       ),
@@ -246,7 +248,6 @@ describe("your account", () => {
             },
           ],
           "GET /me/own-link": refusal(404, "notFound"),
-          "GET /me/preferences": refusal(404, "notFound"),
           "GET /libraries": [200, { libraries: [] }],
         }),
       ),
@@ -298,7 +299,6 @@ describe("an admin's administering from away (D302)", () => {
               ],
             ],
             "GET /me/own-link": refusal(404, "notFound"),
-            "GET /me/preferences": refusal(404, "notFound"),
             "GET /libraries": [200, { libraries: [] }],
             "PUT /me/admin-away": [204, {}],
           },

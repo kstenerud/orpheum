@@ -5,23 +5,24 @@ import "./play-words.ts";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import { useMe } from "./signed-in-me.ts";
 
 /**
  * The person's own Playing settings on their account: whether the next episode plays by itself as
- * one ends, after Up next's countdown (plans/up-next.md), on until they turn it off. A change is kept
- * on the server at once, and a refusal said beside it.
+ * one ends, after Up next's countdown (plans/up-next.md), on until they turn it off. It shows the
+ * person's choices as who is signed in carries them (GET /me's preferences, D480 §2), reading none
+ * of its own; a change is kept on the server at once, who is signed in read again after it, and a
+ * refusal said beside it.
  */
 export function AutoplaySetting(): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [preferences, reload] = useResource("my-preferences", async () =>
-    dataOrThrow(await api.GET("/me/preferences")),
-  );
+  const { me, readMeAgain } = useMe();
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  if (preferences.state !== "loaded") {
+  const preferences = me.state === "loaded" ? me.value.preferences : undefined;
+  if (preferences === undefined) {
     return null;
   }
   return (
@@ -31,14 +32,14 @@ export function AutoplaySetting(): JSX.Element | null {
       <label>
         <input
           type="checkbox"
-          checked={preferences.value.isAutoplayOn}
+          checked={preferences.isAutoplayOn}
           onChange={(event) => {
             setProblem(undefined);
             const isAutoplayOn = event.target.checked;
             api
               .PUT("/me/preferences", { body: { isAutoplayOn } })
               .then(throwIfRefused)
-              .then(reload, (cause: unknown) => {
+              .then(readMeAgain, (cause: unknown) => {
                 setProblem(problemText(t, cause));
               });
           }}

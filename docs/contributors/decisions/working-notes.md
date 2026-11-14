@@ -28549,11 +28549,15 @@ or come from outside. The rows the audit found justified stand.
 1. **A list of films or series names its genres** when asked (`GET /items?genres=true`), on the page
    asked with no cursor alone: each genre with a title of the list's kinds in its libraries, before
    its search and filters, with how many, as `GET /genres` answers them. The genre chip is to take
-   them from the list's first page, not from a `GET /genres` of its own. The server's side is built;
-   the web's side is not yet (see Status). `GET /genres` stays.
+   them from the list's first page, not from a `GET /genres` of its own. Films, Series and a films'
+   or a series' library ask `genres=true` on each first page; a library's are its own. A search or a
+   chip changed asks a new first page, which names the same genres, and the chip shows those held
+   until it answers, every genre of the list before its search and filters, as before. `GET /genres`
+   stays; whether to retire it, now no screen of the web asks it, is the owner's.
 2. **`/me` carries the person's own choices** (`preferences`, as `GET /me/preferences` answers them),
-   on the shell's first read and every read after. A library's Configure shows them from who is
-   signed in (`useMe`) and reads `/me` again once one is changed; it reads none of its own.
+   on the shell's first read and every read after. A library's Configure and the account's autoplay
+   setting show them from who is signed in (`useMe`) and read `/me` again once one is changed; they
+   read none of their own.
 3. **The Cast menu draws from the list of the person's devices the tab holds**, under the one key the
    account's list and this device's page read it by (`myDevicesKey`), which the live connection's ids
    pick from. Opening it asks nothing while that list names every device the live connection says is
@@ -28567,16 +28571,21 @@ or come from outside. The rows the audit found justified stand.
 5. **`/me`'s device carries its sound offset** (`device.soundOffsetMs`). A Watch Together guest's
    sound timing starts from it, and reads no `GET /me/devices`.
 
-**Status:** decided (the owner to confirm); 1's web side left for the next batch: the Films' and
-Series' list asking `genres=true` on its first page and handing them to the genre chip, and the tests
-serving `GET /genres` changed to serve them in the list.
+**Status:** decided (the owner to confirm), and built.
 
 **Proven by:**
-- 1: internal/core/api/people_test.go (`TestBrowse_AListsFirstPageNamesItsGenresWhenAsked`)
+- 1: internal/core/api/people_test.go (`TestBrowse_AListsFirstPageNamesItsGenresWhenAsked`);
+  web/apps/web/src/list-chips.test.tsx ("offer the genres the list's first page names, reading none
+  of their own (D480 §1)"); web/apps/web/src/library-browse-genres.test.tsx ("offers the genres its
+  list's first page names for the library, reading none of its own (D480 §1)", "asks an other
+  library's list for no genres, as it has no chips")
 - 2: internal/core/api/preferences_test.go (`TestMe_CarriesThePersonsOwnChoices`);
   web/apps/web/src/library-configure.test.tsx ("takes the person's choices from who the shell read
   as signed in, asking for nothing on opening (D480 §2)", "drawn alone, takes them from GET /me, and
-  reads no choices of its own")
+  reads no choices of its own"); web/apps/web/src/autoplay-setting.test.tsx ("takes the person's
+  choices from who the shell read as signed in, asking for nothing to show them, and has it read
+  again after a change (D480 §2)", "shows the server's setting and keeps a change there, drawn again
+  from its answer")
 - 3: web/apps/web/src/cast-to.test.tsx ("asks for no list of devices on opening while the one the
   tab holds names each device connected, and reads it again for one it does not (D480 §3)")
 - 4: web/apps/web/src/roles-section.test.tsx ("offers the libraries the shell holds to tick, asking
