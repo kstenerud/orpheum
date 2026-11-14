@@ -5,7 +5,7 @@ import "./devices-words.ts";
 import { use, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { listMyDevices, renameMyDevice } from "./accounts.ts";
+import { listMyDevices, myDevicesKey, renameMyDevice } from "./accounts.ts";
 import { chooseOk, okChoices, useOkChoice } from "./controller-choice.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
@@ -85,7 +85,7 @@ function DeviceTests(): JSX.Element | null {
 export function ThisDevice(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [devices] = useResource("my-devices", () => listMyDevices(api));
+  const [devices] = useResource(myDevicesKey, () => listMyDevices(api));
   const { problem, runRequest } = useRequest((cause) => problemText(t, cause));
   // The name last kept, shown in the one read's place: reading the list again would draw it anew,
   // taking focus from Rename. Said Saved, as the page has no Save (ui-audit-2026-11-04.md Q5).

@@ -3,9 +3,10 @@
 
 import "./i18n.ts";
 
-import { act } from "react";
+import { act, useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { myDevicesKey } from "./accounts.ts";
 import { castTakenWithinMs } from "./cast.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
@@ -15,11 +16,13 @@ import {
   mount,
   refusal,
   servedBy,
+  settleUntil,
   type Heard,
   type Mounted,
   pressToStartTheCast,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import { forgetEveryAnswer, rememberAnswer } from "./use-resource.ts";
 import { fakeTogetherServer, liveAndSession, type FakeTogetherServer } from "./test-together.ts";
 
 /** The hello a signed-in page opens its live channel with (D416 §11). */
@@ -64,6 +67,23 @@ function device(id: number, name: string, isThisDevice = false): Record<string, 
 }
 
 /** The film playing here as the casting page was reached: film 4, at 61 s. */
+/** The Cast menu, opened by a press after the page is drawn, as a person opens it. */
+function OpenedLater(): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  return isOpen ? (
+    <CastTargets film={playingHere} />
+  ) : (
+    <button
+      type="button"
+      onClick={() => {
+        setIsOpen(true);
+      }}
+    >
+      Open the menu
+    </button>
+  );
+}
+
 const playingHere = (): { fileId: number; positionMs: number } => ({
   fileId: 4,
   positionMs: 61_000,
@@ -283,6 +303,40 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("asks for no list of devices on opening while the one the tab holds names each device connected, and reads it again for one it does not (D480 §3)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          { devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(4, "Phone")] },
+        ],
+      },
+      heard,
+      "token",
+    );
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <OpenedLater />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    // The list as the account page, or the menu opened before, left it in the tab.
+    rememberAnswer(myDevicesKey, [device(1, "Laptop", true), device(2, "Fire TV")]);
+    await click(buttonWithText(mounted.container, "Open the menu"));
+    expect(mounted.container.textContent).toContain("Fire TV");
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/devices");
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2, 4] });
+    await settleUntil(() => mounted?.container.textContent.includes("Phone") === true);
+    expect(heard.map((each) => each.methodAndPath)).toContain("GET /me/devices");
+    forgetEveryAnswer();
   });
 
   it("says none is open when no other device is", async () => {

@@ -7,6 +7,7 @@ import {
   changePassword,
   getOwnLink,
   listMyDevices,
+  myDevicesKey,
   registrationUrl,
   setAdminAway,
 } from "./accounts.ts";
@@ -39,7 +40,7 @@ import { YourDevices } from "./your-devices.tsx";
 export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
+  const [devices, reload] = useResource(myDevicesKey, () => listMyDevices(api));
   const { me, readMeAgain: reloadMe } = useMe();
   const canManage = me.state === "loaded" && me.value.canManageAccount;
   return (

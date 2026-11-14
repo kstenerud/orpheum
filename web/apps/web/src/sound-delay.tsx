@@ -21,14 +21,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { listMyDevices, setMyDeviceSoundOffset } from "./accounts.ts";
+import { setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
 import { Cluster, Stack } from "./layout.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { useSoundPart } from "./sound-panel.ts";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import { useMe } from "./signed-in-me.ts";
 
 /** How much each press moves the sound, in milliseconds. */
 export const soundOffsetStepMs = 50;
@@ -159,16 +159,14 @@ export function DeviceSoundOffsetControl(props: {
   return <SoundOffsetControl videoRef={props.videoRef} initialMs={useThisDeviceSoundOffsetMs()} />;
 }
 
-/** The sound offset kept with the device this tab is signed in on; 0 for none, or until read. */
+/**
+ * The sound offset kept with the device this tab is signed in on, as who is signed in says it (GET
+ * /me's device, D480 §5), read for no list of devices; 0 for none, or until read.
+ */
 function useThisDeviceSoundOffsetMs(): number {
-  const { api, session } = useServices();
-  const deviceId = session.deviceId();
-  const [devices] = useResource(`my-devices-sound/${String(deviceId)}`, async () =>
-    deviceId === undefined ? [] : await listMyDevices(api),
-  );
-  return devices.state === "loaded"
-    ? (devices.value.find((each) => each.id === deviceId)?.soundOffsetMs ?? 0)
-    : 0;
+  const { session } = useServices();
+  const { me } = useMe(session.deviceId() !== undefined);
+  return me.state === "loaded" ? (me.value.device?.soundOffsetMs ?? 0) : 0;
 }
 
 /**

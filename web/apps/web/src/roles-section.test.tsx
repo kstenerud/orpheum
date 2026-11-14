@@ -5,6 +5,8 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
+import type { Library } from "./libraries.tsx";
+import { LibrariesReachedContext } from "./libraries-reached.ts";
 import { Users } from "./users.tsx";
 import { UserPage } from "./user.tsx";
 import {
@@ -266,6 +268,28 @@ it("saves each change to a role's libraries at once, with no Save button (D243 ย
   expect(changesTo(heard, "PUT /roles/2")).toEqual([
     { name: "user", capabilities: ["hostWatchTogether"], libraries: [{ libraryId: 1 }] },
   ]);
+});
+
+it("offers the libraries the shell holds to tick, asking for none on opening (D480 ยง4)", async () => {
+  const heard: Heard[] = [];
+  const held = {
+    libraries: { state: "loaded", value: libraries.libraries as unknown as readonly Library[] },
+    readAgain: () => undefined,
+  } as const;
+  mounted = await mount(
+    withServices(
+      <LibrariesReachedContext value={held}>
+        <Users />
+      </LibrariesReachedContext>,
+      servedBy(answers, heard),
+    ),
+  );
+  await openRole(mounted, 2);
+  const labels = [...mounted.container.querySelectorAll("dialog label")].map(
+    (label) => label.textContent,
+  );
+  expect(labels.some((label) => label.includes("Private"))).toBe(true);
+  expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /libraries");
 });
 
 it("saves a capability ticked at once, and a rename once the name is left (D399)", async () => {

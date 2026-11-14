@@ -306,6 +306,12 @@ export async function setAdminAway(api: Api, adminAway: "never" | "always"): Pro
 /** One of a person's devices. */
 export type Device = components["schemas"]["DeviceBody"];
 
+/**
+ * The key the tab keeps one's own devices by: the account's list, this device's and the Cast menu's
+ * are one read (D480 §3).
+ */
+export const myDevicesKey = "my-devices";
+
 /** One's own devices, most recently used first. */
 export async function listMyDevices(api: Api): Promise<Device[]> {
   return dataOrThrow(await api.GET("/me/devices")).devices ?? [];

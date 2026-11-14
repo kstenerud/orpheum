@@ -7,6 +7,7 @@ import type { components } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LibraryConfigure } from "./library-configure.tsx";
+import { MeContext } from "./signed-in-me.ts";
 import {
   click,
   fire,
@@ -50,19 +51,45 @@ const preferences = {
   leftOutOfHomeLibraryIds: [3],
 };
 
-/** A library's Configure, opened, over a stand-in server that hears what is sent; an admin's if isAdmin. */
+/** Who is signed in, carrying the person's choices (D480 §2). */
+const signedIn = {
+  id: 1,
+  name: "owner",
+  role: "user",
+  isAdmin: false,
+  canManageAccount: true,
+  canHostWatchTogether: false,
+  hasNoLibrary: false,
+  showsDebugTools: false,
+  preferences,
+} as const;
+
+/**
+ * A library's Configure, opened, over a stand-in server that hears what is sent; an admin's if isAdmin.
+ * Drawn alone it reads who is signed in itself; within the shell's reading (inShell), it reads nothing.
+ */
 async function configured(
   of: LibraryBody,
   heard: Heard[] = [],
   isAdmin = false,
+  inShell = false,
 ): Promise<HTMLElement> {
+  const configure = (
+    <IsAdminContext value={isAdmin}>
+      <LibraryConfigure library={of} />
+    </IsAdminContext>
+  );
+  const me = { state: "loaded", value: signedIn } as const;
   mounted = await mount(
     withServices(
-      <IsAdminContext value={isAdmin}>
-        <LibraryConfigure library={of} />
-      </IsAdminContext>,
+      inShell ? (
+        <MeContext value={{ me, readMeAgain: () => undefined }}>{configure}</MeContext>
+      ) : (
+        configure
+      ),
       servedBy(
         {
+          "GET /me": [200, signedIn],
           "GET /me/preferences": [200, preferences],
           "PUT /me/preferences": [204, {}],
         },
@@ -148,6 +175,19 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     const someones = await configured(library(7, "Films", "film"));
     expect(someones.querySelector("dialog a")).toBeNull();
     expect(someones.textContent).not.toContain("Manage this library");
+  });
+
+  it("takes the person's choices from who the shell read as signed in, asking for nothing on opening (D480 §2)", async () => {
+    const heard: Heard[] = [];
+    const page = await configured(library(2, "Kids' films", "film"), heard, false, true);
+    expect(choices(page)).toEqual(["Show in Films:false", "Show on Home:true"]);
+    expect(heard).toEqual([]);
+  });
+
+  it("drawn alone, takes them from GET /me, and reads no choices of its own", async () => {
+    const heard: Heard[] = [];
+    await configured(library(1, "Films", "film"), heard);
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/preferences");
   });
 
   it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {

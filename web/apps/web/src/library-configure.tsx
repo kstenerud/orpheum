@@ -11,9 +11,9 @@ import { IconButton } from "./icon-button.tsx";
 import { GearIcon } from "./icons.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import { useMe } from "./signed-in-me.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 /** A library, as the server sends it. */
@@ -81,20 +81,22 @@ function ManageThisLibrary(props: { readonly libraryId: number }): JSX.Element |
   );
 }
 
-/** The dialog's choices for library, once the person's choices are read. */
+/**
+ * The dialog's choices for library, from the person's choices as who is signed in carries them (GET
+ * /me's preferences, D480 §2), read again once one is changed: the dialog reads none of its own.
+ */
 function LibraryChoices(props: { readonly library: LibraryBody }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
   const { library } = props;
-  const [preferences, reload] = useResource("library-configure-preferences", async () =>
-    dataOrThrow(await api.GET("/me/preferences")),
-  );
+  const { me, readMeAgain } = useMe();
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  if (preferences.state !== "loaded") {
+  const preferences = me.state === "loaded" ? me.value.preferences : undefined;
+  if (preferences === undefined) {
     return null;
   }
   const setShown = (field: LeaveOutField, isShown: boolean): void => {
-    const next = new Set(leftOutOf(preferences.value, field));
+    const next = new Set(leftOutOf(preferences, field));
     if (isShown) {
       next.delete(library.id);
     } else {
@@ -104,12 +106,12 @@ function LibraryChoices(props: { readonly library: LibraryBody }): JSX.Element |
     api
       .PUT("/me/preferences", { body: { [field]: [...next] } })
       .then(throwIfRefused)
-      .then(reload, (cause: unknown) => {
+      .then(readMeAgain, (cause: unknown) => {
         setProblem(problemText(t, cause));
       });
   };
   const isShownIn = (field: LeaveOutField): boolean =>
-    !leftOutOf(preferences.value, field).includes(library.id);
+    !leftOutOf(preferences, field).includes(library.id);
   const gathered = gatheredWords(t, library.kind);
   return (
     <>

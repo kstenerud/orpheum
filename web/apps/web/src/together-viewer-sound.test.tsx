@@ -7,7 +7,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
-import { buttonWithText, click, mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
+import { MeContext } from "./signed-in-me.ts";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision, television } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
@@ -34,17 +43,41 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-/** The group's film on a guest's page, signed in on device 7 when deviceId says so. */
-async function groupFilm(deviceId: number | undefined): Promise<Mounted> {
+/**
+ * Who the shell read as signed in (MeContext), on device 7 at -200 ms; a page drawn without it reads
+ * GET /me, which says the same.
+ */
+const signedInOnDevice7 = {
+  id: 1,
+  name: "Gran",
+  role: "user",
+  isAdmin: false,
+  canManageAccount: true,
+  canHostWatchTogether: false,
+  hasNoLibrary: false,
+  showsDebugTools: false,
+  device: { id: 7, name: "Living room TV", soundOffsetMs: -200 },
+};
+
+/**
+ * The group's film on a guest's page, signed in on device 7 when deviceId says so, within the shell's
+ * reading of who is signed in unless isAlone; every request it makes in heard.
+ */
+async function groupFilm(
+  deviceId: number | undefined,
+  heard: Heard[] = [],
+  isAlone = false,
+): Promise<Mounted> {
   const devices = [television({ id: 7, isThisDevice: true, soundOffsetMs: -200 })];
   const services = {
     ...servedBy(
       {
         "POST /together/playback": [200, directDecision({})],
+        "GET /me": [200, signedInOnDevice7],
         "GET /me/devices": [200, { devices }],
         "GET /me/together": [200, { sessions: [] }],
       },
-      [],
+      heard,
       "token",
     ),
     navigation: createNavigation(fakePlace("/play/5")),
@@ -53,11 +86,19 @@ async function groupFilm(deviceId: number | undefined): Promise<Mounted> {
     services.session.signIn("token", { deviceId });
   }
   const sockets = liveAndSession(2); // the page's session opens first, its live connection after
+  const page = (
+    <LiveProvider>
+      <GroupFilmPage {...viewer} />
+    </LiveProvider>
+  );
+  const me = { state: "loaded", value: signedInOnDevice7 } as const;
   const mounted = await mount(
     withServices(
-      <LiveProvider>
-        <GroupFilmPage {...viewer} />
-      </LiveProvider>,
+      isAlone || deviceId === undefined ? (
+        page
+      ) : (
+        <MeContext value={{ me, readMeAgain: () => undefined }}>{page}</MeContext>
+      ),
       { ...services, openTogetherSocket: sockets.openSocket },
     ),
   );
@@ -75,6 +116,28 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
       mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
     );
     expect(buttonWithText(mounted.container, "Sound 50 ms earlier")).toBeDefined();
+    mounted.unmount();
+  });
+
+  it("takes that offset from who the shell read as signed in, asking for no list of devices (D480 §5)", async () => {
+    const heard: Heard[] = [];
+    const mounted = await groupFilm(7, heard);
+    await settleUntil(() =>
+      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
+    );
+    const asked = heard.map((each) => each.methodAndPath);
+    expect(asked).not.toContain("GET /me/devices");
+    expect(asked).not.toContain("GET /me");
+    mounted.unmount();
+  });
+
+  it("drawn alone, takes it from GET /me's device, still asking for no list of devices", async () => {
+    const heard: Heard[] = [];
+    const mounted = await groupFilm(7, heard, true);
+    await settleUntil(() =>
+      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
+    );
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/devices");
     mounted.unmount();
   });
 

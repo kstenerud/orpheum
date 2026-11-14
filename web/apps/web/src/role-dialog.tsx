@@ -7,7 +7,8 @@ import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
-import { listLibraries, type Library } from "./libraries.tsx";
+import { type Library } from "./libraries.tsx";
+import { useLibrariesReached } from "./libraries-reached.ts";
 import { Loaded } from "./loaded.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { fieldProblemText } from "./problem.ts";
@@ -25,7 +26,7 @@ import {
 import { Checklist, DeleteRole, NameField, holdersText, roleWords } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest, type RequestState } from "./use-request.ts";
-import { useResource, type Resource } from "./use-resource.ts";
+import { type Resource } from "./use-resource.ts";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**
@@ -35,7 +36,9 @@ import { WarningSign } from "./warning-sign.tsx";
  * D243 §4's Save button), its name once the field is left, and Delete, offered only while no one has
  * the role and never for a built-in one, which closes it. onClose is told however it closes, for
  * the page to list the roles again. The roles are the page's (roles), read again by it as each
- * change saves (onSaved), not read by the dialog a second time (D478).
+ * change saves (onSaved), not read by the dialog a second time (D478); the libraries to tick are
+ * the shell's reading of them, which the admin's pages hold already, not a read of the dialog's own
+ * on opening (D480 §4).
  */
 export function RoleDialog(props: {
   readonly roleId?: number | undefined;
@@ -44,9 +47,8 @@ export function RoleDialog(props: {
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const { roles, onSaved: reload } = props;
-  const [libraries] = useResource("role-dialog-libraries", () => listLibraries(api));
+  const libraries = useLibrariesReached();
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, roleWords(t)),
   );

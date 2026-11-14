@@ -5,10 +5,10 @@ import "./cast-words.ts";
 
 import type { CastSending, TogetherEndReason } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { listMyDevices, type Device } from "./accounts.ts";
+import { listMyDevices, myDevicesKey, type Device } from "./accounts.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark } from "./cast-kind.tsx";
@@ -39,7 +39,7 @@ import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
-import { useResource, type Resource } from "./use-resource.ts";
+import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
 
@@ -65,13 +65,10 @@ interface CastTargetsProps {
  */
 export function CastTargets(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
     useLive();
   const guest = useGuestCast();
-  const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
-    otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
-  );
+  const devices = useDevicesOpen(connectedDeviceIds);
   const [asking, setAsking] = useState<Asking | undefined>(undefined);
   const [answered, setAnswered] = useState<string | undefined>(undefined);
   const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
@@ -527,6 +524,29 @@ function TargetList(props: {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The person's other devices open now, from the list of their devices the tab holds (one key with
+ * the account's, "my-devices"), which the live connection's ids pick from: opening the menu asks
+ * nothing while that list names every device connected (D480 §3). A device connected that it does
+ * not name, or no list held, reads the list again, behind what it holds.
+ */
+function useDevicesOpen(connectedDeviceIds: readonly number[]): Resource<Device[]> {
+  const { api } = useServices();
+  const held = heldAnswer(myDevicesKey) as readonly Device[] | undefined;
+  const isEveryOneNamed =
+    held !== undefined && connectedDeviceIds.every((id) => held.some((each) => each.id === id));
+  const [listed] = useResource(myDevicesKey, () => listMyDevices(api), {
+    given: isEveryOneNamed ? { value: held } : undefined,
+  });
+  return useMemo(
+    () =>
+      listed.state === "loaded"
+        ? { state: "loaded", value: otherDevicesOpen(listed.value, connectedDeviceIds) }
+        : listed,
+    [listed, connectedDeviceIds],
   );
 }
 
