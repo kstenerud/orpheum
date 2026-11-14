@@ -18,6 +18,7 @@
 
 import {
   askPathOf,
+  discoveryWaitMs,
   isClaimMessage,
   isPathMessage,
   isWorkerProbe,
@@ -25,6 +26,7 @@ import {
   mediaPathPrefix,
   networkFetch,
   responseFromPort,
+  waitMs,
   workerProbeResponse,
   type PathNoteMessage,
 } from "@orpheum/sdk";
@@ -456,12 +458,15 @@ async function fetchedForClient(
 }
 
 /**
- * The loader's page as the origin answers it now, or as kept when the origin fails: another core's
- * cookies, set for the whole site, can make every load to it fail, and the kept page still opens
- * (D308 §7). Kept first, the visit after an update ran the page before it, which for a household
- * whose server had gone said "This link no longer finds its server" until a reload (the production NAS,
- * 2026-10-19); the owner took the wait of one load on opening instead. Its files, named by their
- * content, come as kept, the origin asked for them again behind.
+ * The loader's page as the origin answers it now, or as kept when the origin fails or has not
+ * answered within discoveryWaitMs, its answer then still kept behind for the next visit: another
+ * core's cookies, set for the whole site, can make every load to it fail, and the kept page still
+ * opens (D308 §7). Kept first, the visit after an update ran the page before it, which for a
+ * household whose server had gone said "This link no longer finds its server" until a reload (the
+ * production NAS, 2026-10-19); the owner took the wait of one load on opening instead, a short one:
+ * on a link that cannot answer, the browser showed a white page for as long as it waited (D486).
+ * With nothing kept, the origin is waited out. Its files, named by their content, come as kept, the
+ * origin asked for them again behind.
  */
 async function keptLoaderFile(
   worker: WorkerScope,
@@ -479,11 +484,7 @@ async function keptLoaderFile(
     () => undefined,
   );
   if (key === "/") {
-    const answered = await fresh;
-    if (answered?.ok === true) {
-      return answered;
-    }
-    return (await cache.match(key)) ?? answered ?? Response.error();
+    return await loaderPage(event, { fresh, kept: () => cache.match(key) });
   }
   const kept = await cache.match(key);
   if (kept !== undefined) {
@@ -491,4 +492,34 @@ async function keptLoaderFile(
     return kept;
   }
   return (await fresh) ?? Response.error();
+}
+
+/**
+ * The loader's page, as keptLoaderFile answers it (D486): the origin's when it answers it within
+ * discoveryWaitMs; else as kept, the origin's answer kept behind; else, with nothing kept, the
+ * origin's, however late, or its refusal.
+ */
+async function loaderPage(
+  event: FetchEventLike,
+  page: {
+    readonly fresh: Promise<Response | undefined>;
+    readonly kept: () => Promise<Response | undefined>;
+  },
+): Promise<Response> {
+  // Undefined when the origin has not answered by the wait's end.
+  const inTime = await Promise.race([
+    page.fresh.then((answered) => ({ answered })),
+    waitMs(discoveryWaitMs).then(() => undefined),
+  ]);
+  if (inTime?.answered?.ok === true) {
+    return inTime.answered;
+  }
+  const kept = await page.kept();
+  if (kept !== undefined) {
+    if (inTime === undefined) {
+      event.waitUntil(page.fresh);
+    }
+    return kept;
+  }
+  return (inTime === undefined ? await page.fresh : inTime.answered) ?? Response.error();
 }

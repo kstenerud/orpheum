@@ -3175,6 +3175,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   compositor shows the fault; the browser test checks the canvas's opacity
   (`web/apps/web/src/film-stage.browser.test.tsx`; idiosyncrasies.md, "Chrome on Android draws a playing
   video black under a fully opaque canvas over it")
+- [ ] **VQ325** — On a link that is up and carries nothing, the loader's page opens as kept within
+  about 2.5 s (D486). On the Pixel 3a, Chrome, open a household's link under staging's loader once
+  on Wi-Fi, so its worker keeps the page; then on a link that drops every packet but stays up (the
+  router's firewall dropping the phone's traffic to the discovery, or Android's network shaping at
+  100% loss), open the link again. Passes when the connecting screen shows within about 3 s, not a
+  white page, and once the link is back, the visit after opens the page the origin answered late.
+  Only a real browser's navigation and worker lifetime show it; `sw.test.ts` checks the race
+  (`web/apps/web/src/sw.ts`, `loaderPage`)
 - [ ] **VQ330** — D487 on a real dead zone. On the Android phone, Chrome, after the deploy, over
   mobile data: play a film at the quality the link chooses, then take the phone where it has no
   signal (or turn mobile data off) for a minute, and back. Passes when the play report's notes on its

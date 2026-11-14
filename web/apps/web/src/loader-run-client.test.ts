@@ -94,6 +94,33 @@ describe("the core's client, as the loader runs it (D308 §6)", () => {
     expect(heard.told).toEqual([]);
   });
 
+  it("asks the discovery's floor alongside the manifest, not once it has come (D486)", async () => {
+    const heard = { told: [] as ClientFilesMessage[], mounted: [] as (readonly ClientPart[])[] };
+    const served = await coreServing(clientPage);
+    const happened: string[] = [];
+    const send: FetchRequest = async (request) => {
+      const isManifest = new URL(request.url).pathname === "/api/v1/client-manifest";
+      if (isManifest) {
+        happened.push("manifest asked");
+      }
+      const answered = await served.send(request);
+      if (isManifest) {
+        happened.push("manifest answered");
+      }
+      return answered;
+    };
+    const parts: RunParts = {
+      ...partsOf({ ...served, send }, heard),
+      refusedVersions: () => {
+        happened.push("floor asked");
+        return Promise.resolve([]);
+      },
+    };
+    await checkedClient(parts);
+    expect(happened.indexOf("floor asked")).toBeGreaterThanOrEqual(0);
+    expect(happened.indexOf("floor asked")).toBeLessThan(happened.indexOf("manifest answered"));
+  });
+
   it("tells a script of the client's that did not load by its address, never leaving the page blank (the owner's Mac, 2026-10-29)", async () => {
     const failed: string[] = [];
     const loader = { major: 1 } as unknown as OrpheumLoader;

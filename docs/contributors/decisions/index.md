@@ -313,7 +313,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D305](working-notes.md#d305--removing-a-person-deletes-what-was-theirs-backups-are-hourly-thinned-by-counts-the-config-holds) Removing a person deletes what was theirs; backups are hourly, thinned by counts the config holds
 - [D306](working-notes.md#d306--the-scanner-is-tested-on-names-of-our-own-places-an-unnumbered-episode-by-a-guessed-title-match-and-keeps-watching-by-title-and-edition) The scanner is tested on names of our own, places an unnumbered episode by a guessed title match, and keeps watching by title and edition — *revisited by D350*
 - [D307](working-notes.md#d307--a-work-released-under-another-name-is-guessed-from-the-providers-search-a-series-with-unplaced-episodes-has-every-season-fetched) A work released under another name is guessed from the provider's search; a series with unplaced episodes has every season fetched — *revisited by D401*
-- [D308](working-notes.md#d308--apporpheum-appcom-serves-a-small-loader-and-each-core-serves-its-own-client) app.orpheum-app.com serves a small loader, and each core serves its own client — *revisited by D319, D467, D485*
+- [D308](working-notes.md#d308--apporpheum-appcom-serves-a-small-loader-and-each-core-serves-its-own-client) app.orpheum-app.com serves a small loader, and each core serves its own client — *revisited by D319, D467, D485, D486*
 - [D309](working-notes.md#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops) A player says which quality it wants and from where, and a run no player wants stops — *revisited by D353, D355*
 - [D310](working-notes.md#d310--the-closed-beta-runs-on-the-paid-service-free-an-account-gives-one-key-for-one-core-the-cores-admin-enters-it-at-home-and-the-household-then-uses-the-services-app) The closed beta runs on the paid service, free: an account gives one key for one core, the core's admin enters it at home, and the household then uses the service's app — *revisited by D311, D317, D448*
 - [D311](working-notes.md#d311--a-code-establishes-an-entitlement-it-expires-its-issuer-sees-it-and-what-it-made-and-a-new-code-for-the-same-entitlement-moves-it-to-whoever-redeems-it) A code establishes an entitlement: it expires, its issuer sees it and what it made, and a new code for the same entitlement moves it to whoever redeems it — *revisited by D318*
@@ -491,7 +491,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D483](working-notes.md#d483--reserved-compression-over-webrtc) Reserved: Compression over WebRTC
 - [D484](working-notes.md#d484--reserved-a-webrtc-connections-steps-timed-and-a-reconnect-kept-when-the-page-is-shown) Reserved: A WebRTC connection's steps timed, and a reconnect kept when the page is shown
 - [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there
-- [D486](working-notes.md#d486--reserved-a-deadline-on-the-loaders-page-and-the-client-floor) Reserved: A deadline on the loader's page and the client floor
+- [D486](working-notes.md#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without) The loader's page and the client floor are waited on for 2.5 s, then gone on without
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
 
 ## Archived

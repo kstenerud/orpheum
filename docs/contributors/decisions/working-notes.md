@@ -20609,6 +20609,7 @@ scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
 
 ## D308 — app.orpheum-app.com serves a small loader, and each core serves its own client
 
+> **§7 amended by [D486](#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without)** (2026-11-14): the kept loader's page opens too when the origin has not answered within 2.5 s, and the client floor is asked alongside the manifest and waited on as long.
 > **Amended by [D467](#d467--a-cast-receiver-at-the-loaders-origin-calls-its-cores-api-on-the-cores-own-names-as-it-does-over-webrtc)** (2026-11-12): the loader's origin, where a Cast receiver runs, may call the API, not only the health and the hand-off.
 > **Revised by [D319](#d319--stagings-client-origins-are-orpheum-client-testcom-behind-one-wildcard-on-stagings-tunnel)** (2026-10-19): staging's client origins are `<core id>.orpheum-client-test.com`, behind one wildcard on staging's tunnel.
 
@@ -28721,9 +28722,33 @@ redirect, failure or address without its hash kept; the bound); "forgets the ima
 kept as it signs out (D485)" (app.test.tsx); "says whether the page's answer came by a redirect it
 followed …" (web/packages/sdk/src/rtc-media.test.ts).
 
-## D486 — Reserved: A deadline on the loader's page and the client floor
+## D486 — The loader's page and the client floor are waited on for 2.5 s, then gone on without
 
-**Reserved** (2026-11-14) for the slow-link batch (the owner: *"Ok go with your recommendations"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-14), by the project owner, on the lead's proposal (the owner: *"Ok go with your
+recommendations"*), after the slow-link war game. It amends D308 §7's amendment of 2026-10-19, under
+which the kept loader's page opens only when the origin fails (*"I don't mind a short wait on
+initial load"*): on a link that is up and carries nothing, the origin never fails, it only never
+answers, and the browser showed a white page for as long as it waited, up to minutes. The wait the
+owner took was a short one; this bounds it.
+
+1. **The loader's page is waited on for at most `discoveryWaitMs`, 2.5 s** (web/packages/sdk's
+   discovery.ts, a stated constant): a fresh connection's three round trips, TCP, TLS and the
+   request, on the worst link that still works in the war game, 800 ms each, fit in it. Past it the
+   worker answers the page it kept, and the connecting screen shows; the origin's answer, when it
+   comes, is kept behind for the next visit.
+2. **What still holds of §7's amendment:** an origin that answers within the wait opens its own
+   page, so the visit after an update runs the update; an origin that fails opens the kept page at
+   once; and with nothing kept, a first visit, the origin is waited out, however long.
+3. **The client floor (`/client-floor`, D308 §6) is asked alongside the core's manifest**, not
+   after it, and **waited on for the same 2.5 s**, past which it is taken as not reached and its ask
+   given up, as a discovery that cannot be reached always was: no version refused. A floor is the
+   discovery's word on versions to stop; a network that can delay it could already block it.
+
+**Proven by:** "opens the loader's page as kept when its origin has not answered within
+discoveryWaitMs …" and "waits out a late origin for the loader's page when it has none kept"
+(web/apps/web/src/sw.test.ts), with "opens the loader's page as its origin answers now, and as kept
+when the origin fails" still green; "asks the discovery's floor alongside the manifest …"
+(loader-run-client.test.ts); "the discovery's client floor (D486)" (web/packages/sdk/src/discovery.test.ts).
 
 ## D487 — A film loads deeper ahead once the link has dropped
 

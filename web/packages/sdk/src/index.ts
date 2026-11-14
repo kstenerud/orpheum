@@ -130,6 +130,7 @@ export {
   offerKey,
   pathsOf,
   CoreOffline,
+  discoveryWaitMs,
   coreNotConnectedRefusal,
   isCoreOffline,
   isKeyRefused,

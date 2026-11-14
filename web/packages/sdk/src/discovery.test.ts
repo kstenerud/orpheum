@@ -23,6 +23,8 @@ import {
   isKeyRefused,
   KeyRefused,
   locatedOf,
+  discoveryWaitMs,
+  refusedClientVersions,
 } from "./discovery.ts";
 import { isUnreached } from "./rtc-reopen.ts";
 
@@ -408,5 +410,63 @@ describe("the paths a discovery's answer names", () => {
       locatedOf({ coreId: "k7xq2", ipv6Probe: "http://v6probe.zone.example/" }).ipv6Probe,
     ).toBeUndefined();
     expect(locatedOf({ coreId: "k7xq2", ipv6Probe: 6 }).ipv6Probe).toBeUndefined();
+  });
+});
+
+describe("the discovery's client floor (D486)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const floor = (): Response => Response.json({ refusedVersions: ["0.3.1", 7] });
+
+  it("reads the versions the discovery refuses, and none where it answers none", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    expect(
+      await refusedClientVersions({ clientApi: "/api", fetch: () => Promise.resolve(floor()) }),
+    ).toEqual(["0.3.1"]);
+    for (const answer of [new Response(null, { status: 404 }), Response.json({})]) {
+      expect(
+        await refusedClientVersions({ clientApi: "/api", fetch: () => Promise.resolve(answer) }),
+      ).toEqual([]);
+    }
+    const offline = (): Promise<Response> => Promise.reject(new Error("offline"));
+    expect(await refusedClientVersions({ clientApi: "/api", fetch: offline })).toEqual([]);
+  });
+
+  it("takes a discovery that has not answered within discoveryWaitMs as not reached, and gives its ask up", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let signal: AbortSignal | undefined;
+    const late = (_url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      signal = init?.signal ?? undefined;
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(floor());
+        }, discoveryWaitMs * 2);
+      });
+    };
+    let refused: readonly string[] | undefined;
+    void refusedClientVersions({ clientApi: "/api", fetch: late }).then((versions) => {
+      refused = versions;
+    });
+
+    await vi.advanceTimersByTimeAsync(discoveryWaitMs - 1);
+    expect(refused).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(refused).toEqual([]);
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("waits out a slow discovery that answers within discoveryWaitMs", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const slow = (): Promise<Response> =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(floor());
+        }, discoveryWaitMs - 100);
+      });
+    const refused = refusedClientVersions({ clientApi: "/api", fetch: slow });
+    await vi.advanceTimersByTimeAsync(discoveryWaitMs);
+    expect(await refused).toEqual(["0.3.1"]);
   });
 });

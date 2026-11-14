@@ -171,8 +171,13 @@ export function mountClient(
  */
 export async function checkedClient(parts: RunParts): Promise<(loader: OrpheumLoader) => void> {
   noteStep("loading the core's client");
-  const manifest = await checkedManifest(parts.send, parts.fingerprint);
-  if ((await parts.refusedVersions()).includes(manifest.version)) {
+  // The floor is asked alongside the manifest, not after it: on a slow link each is a round trip
+  // or more the page waits on (D486).
+  const [manifest, refused] = await Promise.all([
+    checkedManifest(parts.send, parts.fingerprint),
+    parts.refusedVersions(),
+  ]);
+  if (refused.includes(manifest.version)) {
     throw new ClientRefused(
       "refusedVersion",
       `the discovery refuses the server's client, ${manifest.version}`,

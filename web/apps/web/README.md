@@ -384,7 +384,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   through a page carrying its path, waited for patiently, or is answered 502 saying none does; a
   worker keeps a page's answer on its path, never its silence, and tells the page, which tells the
   core's log, where it sent its media and why; a page no worker controls once it found its core
-  reloads once in its tab. A page a worker controls under a loader asks it, once, for an address
+  reloads once in its tab. The loader's page and the discovery's floor are waited on for at most
+  `discoveryWaitMs` (D486): past it the worker opens the page it kept, and the floor, asked
+  alongside the manifest, is taken as not reached. A page a worker controls under a loader asks it, once, for an address
   only the worker answers (`workerProbePath`); answered by the network, or not at all, developer
   tools bypass the worker, and the page says so above every screen, "Developer tools are bypassing
   the service worker; media won't load", and tells the core's log once (`worker-bypassed-note.tsx`;
