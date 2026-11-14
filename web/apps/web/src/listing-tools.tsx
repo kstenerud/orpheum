@@ -72,11 +72,14 @@ export interface ShownCriteria {
  */
 export function useListCriteria(
   fromAddress: ListCriteria,
-  chipsKind: ChipsKind | undefined,
+  /**
+   * The chips' kind, none for a list with no chips, and whose genres they offer (useHeldGenres): the
+   * kind's, or on one library's page the library's scope.
+   */
+  chips: { readonly kind: ChipsKind | undefined; readonly scope?: string },
   write: (criteria: ListCriteria) => void,
-  /** Whose genres the chips offer: the kind and, on one library's page, the library (useHeldGenres). */
-  chipsScope: string | undefined = chipsKind,
 ): ShownCriteria {
+  const { kind: chipsKind, scope: chipsScope = chipsKind } = chips;
   const [held, setHeld] = useState<ListCriteria | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
   const heldRef = useRef<ListCriteria | undefined>(undefined);

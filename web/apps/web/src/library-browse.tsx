@@ -283,12 +283,11 @@ function useLibraryCriteria(
       choice: { sort: resolved.sort, order: resolved.order },
       filters: chipsKind === undefined ? {} : (fromAddress.filters ?? {}),
     },
-    chipsKind,
+    // The library's own genres, as its list names them (D480 §1), not another library's.
+    { kind: chipsKind, scope: `${String(chipsKind)}/${String(resolved.libraryId)}` },
     (next) => {
       navigation.replace(routeFor(fromAddress, criteriaOverrides(next, resolved)));
     },
-    // The library's own genres, as its list names them (D480 §1), not another library's.
-    `${String(chipsKind)}/${String(resolved.libraryId)}`,
   );
   const { listed } = criteria;
   return {
@@ -524,7 +523,7 @@ function useTitlesPages(list: {
           params: { query: isNamingGenres ? { ...query, genres: true } : query },
         }),
       );
-      if (isNamingGenres && titlesPage.genres != null) {
+      if (isNamingGenres && titlesPage.genres !== undefined && titlesPage.genres !== null) {
         onGenres(titlesPage.genres);
       }
       return { items: titlesPage.items ?? [], nextCursor: titlesPage.nextCursor ?? "" };

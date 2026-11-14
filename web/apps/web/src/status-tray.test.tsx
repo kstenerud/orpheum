@@ -336,9 +336,7 @@ it("has the hosted session's details at hand as the sign shows, so its page show
     ),
   );
   expect(heard.map((each) => each.methodAndPath)).toContain("GET /together/17");
-  expect((heldAnswer(hostedDetailsKey(17)) as { sessionId: number } | undefined)?.sessionId).toBe(
-    17,
-  );
+  expect(heldAnswer<{ sessionId: number }>(hostedDetailsKey(17))?.sessionId).toBe(17);
   window.sessionStorage.clear();
 });
 

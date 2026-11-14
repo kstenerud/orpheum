@@ -382,7 +382,7 @@ function useBrowseCriteria(kind: BrowseKind, state: ListState): ShownCriteria {
       choice: browseChoiceOf(state),
       filters: chipsOf(state),
     },
-    kind,
+    { kind },
     (next) => {
       navigation.replace({
         screen: kind === "film" ? "films" : "series",
@@ -479,6 +479,30 @@ export function listStateOf(criteria: ListCriteria): ListState {
 /** An entry's id, by which a list shows an entry read twice once, and its tile says it is in view. */
 const entryId = (entry: Entry): number => entry.id;
 
+/** GET /items' query for one page of a list, from its criteria, and the page's cursor ("" for the first). */
+function listQuery(
+  kind: BrowseKind,
+  criteria: {
+    readonly choice: SortChoice;
+    readonly search: string;
+    readonly filters: Parameters<typeof filtersQuery>[0];
+  },
+  cursor: string,
+) {
+  const { choice, search, filters } = criteria;
+  return {
+    kind: [kind],
+    sort: choice.sort,
+    ...orderQuery(choice),
+    // No limit: the whole list in one answer (D475), its text all there at once, and only its
+    // posters' images coming as they near the view (the owner, 2026-11-11).
+    ...(search === "" ? {} : { query: search }),
+    ...filtersQuery(filters),
+    // The first page names the chips' genres, which read none of their own (D480 §1).
+    ...(cursor === "" ? { genres: true } : { cursor }),
+  };
+}
+
 /** One list in one order, read whole, moved to a letter as the alphabet rail asks. */
 function BrowsePages(props: {
   readonly kind: BrowseKind;
@@ -502,19 +526,13 @@ function BrowsePages(props: {
   const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = {
-        kind: [kind],
-        sort,
-        ...orderQuery({ sort, order }),
-        // No limit: the whole list in one answer (D475), its text all there at once, and only its
-        // posters' images coming as they near the view (the owner, 2026-11-11).
-        ...(search === "" ? {} : { query: search }),
-        ...filtersQuery({ genre, decade, isUnwatchedOnly }),
-        // The first page names the chips' genres, which read none of their own (D480 §1).
-        ...(cursor === "" ? { genres: true } : { cursor }),
-      };
+      const query = listQuery(
+        kind,
+        { choice: { sort, order }, search, filters: { genre, decade, isUnwatchedOnly } },
+        cursor,
+      );
       const got = dataOrThrow(await api.GET("/items", { params: { query } }));
-      if (got.genres != null) {
+      if (got.genres !== undefined && got.genres !== null) {
         onGenres(got.genres);
       }
       return { items: got.items ?? [], nextCursor: got.nextCursor ?? "", total: got.total };
