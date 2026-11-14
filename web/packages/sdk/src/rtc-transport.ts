@@ -93,8 +93,8 @@ interface Waiter {
 
 /**
  * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
- * how many it keeps at most, and hearing the browser come back online (the window's online event),
- * which tries at once; returns the end of hearing.
+ * how many it keeps at most, and hearing the browser come back online (the window's online event)
+ * or its page shown again (connectRtc's onWayBack), which tries at once; returns the end of hearing.
  */
 export interface Growth {
   readonly open: (signal: AbortSignal) => Promise<PeerLike>;

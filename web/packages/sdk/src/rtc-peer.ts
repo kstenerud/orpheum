@@ -24,6 +24,16 @@ export const disconnectedGraceMs = 5000;
  */
 export const peerLookEveryMs = 1000;
 
+/**
+ * How long a page may go unrun, its looks at a connection's states stopped, before the connection
+ * counts as gone: the core ends one it hears nothing from after pion's ICE waits, 5 s disconnected
+ * and then 25 s failed, and a phone that froze the page in the background (Android Chrome and
+ * Firefox, idiosyncrasies.md) hands it back still saying connected. Judged on the first look after
+ * the page runs again, it is replaced at once rather than after disconnectedGraceMs, its requests
+ * otherwise lost on it (the owner's phone back from another app, staging, 2026-11-14).
+ */
+export const coreHoldsSilentMs = 30_000;
+
 /** What watchGone needs of a peer connection: its states, and their events. */
 export interface StatesPeer {
   readonly connectionState: RTCPeerConnectionState;
@@ -46,11 +56,17 @@ const watchedStates = [
  * Tells listener once, with why, when peer is gone: its connection or its ICE failed or closed, its
  * signalling closed (the browser closed it), or either stayed disconnected for disconnectedGraceMs.
  * Its states are judged at each of their events and every peerLookEveryMs besides, the connection's
- * and the ICE's apart, since browsers do not move them together (idiosyncrasies.md, Firefox).
- * Returns the end of watching.
+ * and the ICE's apart, since browsers do not move them together (idiosyncrasies.md, Firefox). One
+ * whose page went unrun for coreHoldsSilentMs between two looks, the core having ended it meanwhile,
+ * is gone too, the times read from nowMs. Returns the end of watching.
  */
-export function watchGone(peer: StatesPeer, listener: (why: string) => void): () => void {
+export function watchGone(
+  peer: StatesPeer,
+  listener: (why: string) => void,
+  nowMs: () => number = () => Date.now(),
+): () => void {
   let isGone = false;
+  const unrunFor = sinceLast(nowMs);
   let grace: ReturnType<typeof setTimeout> | undefined;
   const stop = (): void => {
     clearTimeout(grace);
@@ -92,12 +108,33 @@ export function watchGone(peer: StatesPeer, listener: (why: string) => void): ()
       grace = undefined;
     }
   };
-  const looking = setInterval(judge, peerLookEveryMs);
+  const looking = setInterval(() => {
+    lookAfter(unrunFor(), judge, gone);
+  }, peerLookEveryMs);
   for (const type of watchedStates) {
     peer.addEventListener(type, judge);
   }
   judge();
   return stop;
+}
+
+/** How long it has been since it was last called, or made, the times read from nowMs. */
+function sinceLast(nowMs: () => number): () => number {
+  let lastMs = nowMs();
+  return () => {
+    const sinceMs = nowMs() - lastMs;
+    lastMs += sinceMs;
+    return sinceMs;
+  };
+}
+
+/** Says gone once its page went unrun for coreHoldsSilentMs, for unrunMs; judges otherwise. */
+function lookAfter(unrunMs: number, judge: () => void, gone: (why: string) => void): void {
+  if (unrunMs >= coreHoldsSilentMs) {
+    gone(`its page went unrun for ${String(unrunMs)} ms, longer than the core holds a silent one`);
+  } else {
+    judge();
+  }
 }
 
 /**

@@ -2,7 +2,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { disconnectedGraceMs, peerLookEveryMs, watchGone, type StatesPeer } from "./rtc-peer.ts";
+import {
+  coreHoldsSilentMs,
+  disconnectedGraceMs,
+  peerLookEveryMs,
+  watchGone,
+  type StatesPeer,
+} from "./rtc-peer.ts";
 import { openTryMostMs, RefusedForGood, Unreached, unreachedRetryMs } from "./rtc-reopen.ts";
 import type { ChannelLike } from "./rtc-request.ts";
 import { forgetSteps, stepsSoFar } from "./steps.ts";
@@ -98,6 +104,21 @@ describe("a connection's states, watched for its going", () => {
     expect(told).toEqual([`it stayed disconnected for ${String(disconnectedGraceMs)} ms`]);
     vi.advanceTimersByTime(disconnectedGraceMs * 4);
     expect(told).toHaveLength(1); // once
+  });
+
+  it("is gone on its first look once its page ran again after the core ended it, still saying connected (the owner's phone, 2026-11-14)", () => {
+    const peer = new SilentStates();
+    const told: string[] = [];
+    watchGone(peer, (why) => told.push(why));
+    vi.advanceTimersByTime(peerLookEveryMs * 3);
+    vi.setSystemTime(Date.now() + coreHoldsSilentMs - peerLookEveryMs * 2); // a short freeze
+    vi.advanceTimersByTime(peerLookEveryMs);
+    expect(told).toEqual([]);
+    vi.setSystemTime(Date.now() + 219_768); // frozen in the background, no look run meanwhile
+    vi.advanceTimersByTime(peerLookEveryMs);
+    expect(told).toEqual([
+      `its page went unrun for ${String(219_768 + peerLookEveryMs)} ms, longer than the core holds a silent one`,
+    ]);
   });
 
   it("is not gone when it comes back within the grace", () => {

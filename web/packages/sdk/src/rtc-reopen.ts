@@ -18,10 +18,13 @@ import { abortReason } from "./rtc-request.ts";
  */
 export const openTryMostMs = 25_000;
 
-/** Why a try to connect was given up: the browser came back online, and it is tried anew at once. */
+/**
+ * Why a try to connect was given up: the browser came back online, or its page was shown again
+ * (onWayBack), and it is tried anew at once.
+ */
 export class BackOnline extends Error {
   constructor() {
-    super("the browser came back online");
+    super("the browser came back online, or its page was shown again");
     this.name = "BackOnline";
   }
 }

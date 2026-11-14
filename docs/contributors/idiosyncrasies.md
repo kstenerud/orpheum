@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| Back in the browser on a phone after another app: a moment of the page, about 7 s of black, then drawn again; a film page said a failure the app does not expect. | [A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected](#a-phone-freezes-a-page-in-the-background-and-hands-it-back-with-its-webrtc-connection-still-saying-connected) |
 | On a phone in the player, about half the taps on the film paused it, though a touch's click was meant to do nothing there. | [Some mobile browsers give a tap's click a mouse's pointerType, or none](#some-mobile-browsers-give-a-taps-click-a-mouses-pointertype-or-none) |
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
@@ -1018,6 +1019,36 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Chrome and Android (getUserMedia and audio)
+
+### A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected
+
+**Symptom:** on Android Chrome and Firefox, back in the browser after another app, the page showed
+for a moment, then about 7 s of black, then drew again; a film's page showed the words for a
+failure the app does not expect. The core had ended the page's connection some 40 s after the page
+went still ("ice failed: the browser stopped answering"), and the page, run again, still held it as
+up: its requests on it were cut off, and a try to connect begun before the freeze hung to its 25 s
+limit (the owner's phone, staging, mobile data, 2026-11-14).
+
+**Cause:** a phone freezes a page in the background: its timers and tasks stop until it is shown
+again, and run then, late (the Page Lifecycle API's frozen state; Chrome on Android freezes
+background pages, and Firefox stops them too though it implements no `freeze` event). Nothing ran to
+see the connection go, and pion's ICE waits, 5 s disconnected and then 25 s failed, had long passed.
+
+**Workaround:** the page's look at a connection's states, every second, measures the time since the
+last: a gap of `coreHoldsSilentMs` (30 s) or more says the page was frozen past what the core holds,
+and the connection is taken as gone at once (`watchGone`, `web/packages/sdk/src/rtc-peer.ts`). The
+page shown again gives up a try to connect under way and makes another at once, as the browser
+coming back online does (`onWayBack`, `web/packages/sdk/src/rtc-connect.ts`). A read cut off with its
+connection is asked again on the next one (`ChannelClosedError`, `isUnanswered`), and a polled screen
+keeps what it drew meanwhile (`web/apps/web/src/use-resource.ts`). A page throttled but not frozen
+(a hidden tab's timers slowed to once a minute) could cross the gap too: the cost is one connection
+replaced. VQ317.
+
+**Sources:** [Page Lifecycle API](https://developer.chrome.com/docs/web-platform/page-lifecycle-api);
+[Intent to Ship: Page Lifecycle, system-initiated discarding and freezing](https://groups.google.com/a/chromium.org/g/blink-dev/c/Na7aTFJOpWs/m/_tpdtav8CAAJ)
+(Chrome on Android freezes background pages);
+[Freezing on Energy Saver](https://developer.chrome.com/blog/freezing-on-energy-saver) (a page with a
+peer connection is not frozen on the desktop, which is why a desktop browser does not show this).
 
 ### Chrome reports no long task for code run from DevTools' console
 

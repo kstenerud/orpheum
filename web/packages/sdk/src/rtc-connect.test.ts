@@ -13,6 +13,7 @@ import {
   isSecureUnfinished,
   isTurnedAway,
   offerWith,
+  onWayBack,
   RtcUnconnected,
   slowConnection,
   slowConnectMs,
@@ -231,6 +232,34 @@ describe("slowConnection", () => {
       "a WebRTC connection took 12404 ms: gathering its candidates 10004 ms, the core's answer 2100 ms, " +
         "connecting 300 ms",
     );
+  });
+});
+
+describe("onWayBack", () => {
+  it("tells each time the page is shown again, never as it is hidden, until stopped (the owner's phone, 2026-11-14)", () => {
+    const listeners = new Set<() => void>();
+    const page = {
+      visibilityState: "hidden" as DocumentVisibilityState,
+      addEventListener: (_type: "visibilitychange", listener: () => void) =>
+        listeners.add(listener),
+      removeEventListener: (_type: "visibilitychange", listener: () => void) =>
+        listeners.delete(listener),
+    };
+    const turn = (to: DocumentVisibilityState): void => {
+      page.visibilityState = to;
+      for (const listener of listeners) {
+        listener();
+      }
+    };
+    let told = 0;
+    const stop = onWayBack(page)(() => (told += 1));
+    turn("hidden");
+    expect(told).toBe(0);
+    turn("visible");
+    expect(told).toBe(1);
+    stop();
+    turn("visible");
+    expect(told).toBe(1);
   });
 });
 

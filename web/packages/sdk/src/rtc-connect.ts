@@ -11,6 +11,7 @@ import { channelOf, type ChannelLike } from "./rtc-request.ts";
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
 import { clientConnections, RtcTransport, type PeerLike } from "./rtc-transport.ts";
+import { whenShownOrBack, type ShownPage } from "./shown-page.ts";
 import { noteStep } from "./steps.ts";
 
 /** How long a connection may take to gather its candidates and connect. */
@@ -169,10 +170,24 @@ function onBrowserOnline(listener: () => void): () => void {
 }
 
 /**
+ * Has listener told each time a connection may open again where it could not: the browser came back
+ * online, or page is shown again, where there is one. A phone hands a page back from the background
+ * with a try to connect begun before it froze, hung on a network it no longer has: given up then,
+ * and another made at once, rather than after openTryMostMs (the owner's phone back from another
+ * app, staging, 2026-11-14; idiosyncrasies.md, a page frozen in the background). Returns the end.
+ */
+export function onWayBack(page: ShownPage | undefined): (listener: () => void) => () => void {
+  return (listener) =>
+    whenShownOrBack(page, onBrowserOnline, () => {
+      listener();
+    });
+}
+
+/**
  * Connects to the core through signaller: resolves once one peer connection is up, each with every
  * candidate gathered before its offer is sent, and opens the rest up to `count` behind it, replacing
- * any that is gone, and trying at once when the browser comes back online (plans/webrtc-transport.md
- * W2d).
+ * any that is gone, and trying at once when the browser comes back online or the page is shown again
+ * (plans/webrtc-transport.md W2d, onWayBack).
  */
 export async function connectRtc(
   signaller: Signaller,
@@ -183,7 +198,7 @@ export async function connectRtc(
   return new RtcTransport([await open(new AbortController().signal)], {
     open,
     size: count,
-    onOnline: onBrowserOnline,
+    onOnline: onWayBack(typeof document === "undefined" ? undefined : document),
   });
 }
 

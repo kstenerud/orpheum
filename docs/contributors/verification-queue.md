@@ -3152,3 +3152,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   of 4764 or more. (`internal/core/rtcapi/rtcapi.go`, `sctpResendCeiling`, `sctpLeastWindowBytes`;
   idiosyncrasies.md, "pion's SCTP backs its resends off to 60 s and narrows its window to one
   packet")
+- [ ] **VQ317** — A phone's page back from another app draws at once. On the Android phone, Chrome
+  and then Firefox, on mobile data, after the deploy: open Home over the core's WebRTC path, switch
+  to another app for over a minute, and come back; then the same on a film's page. Passes when the
+  page stays drawn, with no black and no "something went wrong that this app doesn't expect", and
+  the page's steps say a connection gone because "its page went unrun for … ms" and another up within
+  a few seconds. (`web/packages/sdk/src/rtc-peer.ts`, `coreHoldsSilentMs`;
+  `web/packages/sdk/src/rtc-connect.ts`, `onWayBack`; idiosyncrasies.md, "A phone freezes a page in
+  the background")
