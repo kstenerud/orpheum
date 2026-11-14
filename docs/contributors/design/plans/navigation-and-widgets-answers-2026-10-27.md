@@ -4027,3 +4027,21 @@ continue without my input."
   (`list-filters.ts`).
 - **The admin's menu items and signs draw with the rest of the shell:** the account in the first
   answer says the person is an admin, so the items need not wait for a second part to arrive.
+  **Built:** the banner stays empty and inert until the shell's first read answers, then draws
+  whole (D476 §3, as amended); the batch passed check-pr and went to staging.
+
+### The client-server audit's findings 5–12 (the owner, 2026-11-13: "the batch after")
+
+- **Built, 5 (D477):** a series', an episode's, a film's and a person's page each wait on one read:
+  the series' answer carries its shown season's first page, an episode's its next and previous, each
+  file its resume position; a person's two reads start together.
+- **Built, 6 (D479):** over WebRTC a freed room goes to a read before the posters, and images and
+  interest notes hold at most half of a connection's rooms. The owner to confirm the half.
+- **Built, 8 (D478):** a read's latest answer is kept for the tab by key; `/me`'s readers, the
+  libraries, the role dialog, Needs attention and the cast remote ask for nothing the client holds;
+  `POST /together` answers the session's details.
+- **Built, 11:** a film's and a series' pages' code loads ahead on idle from Home and the lists
+  (`useLoadsAhead`), as Play's does from them.
+- **Building:** 9 (menus) and 10 (admin pages).
+- **Waits on a device:** 7 (playback's chain of media requests) is measured first.
+- **The owner's:** 12 (polls that read whole answers) is D237's.
