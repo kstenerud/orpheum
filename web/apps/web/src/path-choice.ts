@@ -12,6 +12,7 @@
 import {
   createApi,
   type CandidatePairSeen,
+  type components,
   type DirectOutcome,
   type FetchRequest,
   waitMs,
@@ -125,7 +126,7 @@ export const pairsSettleMs = 5_000;
  * How a page was opened, its navigation's type in the API's camelCase (D459): the API's
  * ClientPathBody.pageOpened. The browser's own name for Back or Forward is "back_forward".
  */
-export type PageOpened = "navigate" | "reload" | "backForward" | "prerender";
+export type PageOpened = NonNullable<components["schemas"]["ClientPathBody"]["pageOpened"]>;
 
 /** Each type of navigation the API names, by the browser's name for it. */
 const pageOpenedByType: ReadonlyMap<unknown, PageOpened> = new Map([
