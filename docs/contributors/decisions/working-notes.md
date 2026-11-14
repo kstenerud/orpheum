@@ -28841,3 +28841,7 @@ and room, its notes in and out, an outage ended by the playback's stop); "a choo
 that its link was lost (D487)" (abr-link-lost.test.ts, a chunk given up told nothing); the web
 app's "gives each playback the page's outages" (web/apps/web/src/ladder-playback.test.tsx). Only a
 device on a real dead zone shows the whole: VQ330–VQ333.
+
+## D488 — Reserved: A data cap per device, chosen in GB per hour
+
+**Reserved** (2026-11-14) for the data cap (the owner: *"Yes I'm going to bed so go ahead with it and then a check pr"*); its branch replaces this entry with the decision.
