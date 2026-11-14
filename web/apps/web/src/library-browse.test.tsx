@@ -493,7 +493,21 @@ describe("the Libraries page (D349)", () => {
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
         "GET /items": titlesPage(),
-        "GET /me/preferences": [200, { isDialogueBoostOn: false, isLevellingOn: true }],
+        // Configure takes the person's choices from who is signed in (D480 §2).
+        "GET /me": [
+          200,
+          {
+            id: 1,
+            name: "owner",
+            role: "user",
+            isAdmin: false,
+            canManageAccount: true,
+            canHostWatchTogether: false,
+            hasNoLibrary: false,
+            showsDebugTools: false,
+            preferences: { isDialogueBoostOn: false, isLevellingOn: true },
+          },
+        ],
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
