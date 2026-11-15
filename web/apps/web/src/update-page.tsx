@@ -4,7 +4,7 @@ import { ApiProblem } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { copyToClipboard } from "./clipboard.ts";
+import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { idempotent } from "./idempotent.ts";
 import { Link } from "./link.tsx";
@@ -207,7 +207,15 @@ function NewerComposeFile(props: {
         <>
           <p>{t("update.composeFileKeepCopy")}</p>
           <p>{t(pasteStepOf(installRoute))}</p>
-          <CopyText text={file.file} />
+          <p>
+            <CopyButton
+              text={file.file}
+              label={t("update.copy")}
+              copiedNote={t("update.copied")}
+              refusedNote={t("update.copyRefused")}
+              isNoteSpaced
+            />
+          </p>
           <pre>
             <code>{file.file}</code>
           </pre>
@@ -227,32 +235,6 @@ function pasteStepOf(
   return installRoute === "synology"
     ? "update.composeFilePasteSynology"
     : "update.composeFilePaste";
-}
-
-/** Copy, for text to paste, saying when the browser refused it, the text still there to select. */
-function CopyText(props: { readonly text: string }): JSX.Element {
-  const { t } = useTranslation();
-  const [copied, setCopied] = useState<"copied" | "copyRefused" | undefined>(undefined);
-  return (
-    <p>
-      <button
-        type="button"
-        onClick={() => {
-          copyToClipboard(props.text).then(
-            () => {
-              setCopied("copied");
-            },
-            () => {
-              setCopied("copyRefused");
-            },
-          );
-        }}
-      >
-        {t("update.copy")}
-      </button>{" "}
-      {copied === undefined ? null : <output>{t(`update.${copied}`)}</output>}
-    </p>
-  );
 }
 
 /**

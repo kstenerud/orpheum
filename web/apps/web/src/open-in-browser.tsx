@@ -10,7 +10,7 @@
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { copyToClipboard } from "./clipboard.ts";
+import { CopyButton } from "./copy-button.tsx";
 import { CredentialsForm } from "./credentials-form.tsx";
 
 /** The browser a phone opens links in: Safari on an iPhone or iPad, Chrome on Android. */
@@ -84,9 +84,8 @@ interface OpenInBrowserProps {
  */
 export function OpenInBrowser(props: OpenInBrowserProps): JSX.Element {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState<"copied" | "refused" | undefined>(undefined);
+  const [isRefused, setIsRefused] = useState(false);
   const address = props.address ?? globalThis.location.href;
-  const copy = props.copy ?? copyToClipboard;
   const place = browserPlaceOf(props.userAgent ?? globalThis.navigator.userAgent);
   if (!place.isInApp) {
     return (
@@ -112,25 +111,17 @@ export function OpenInBrowser(props: OpenInBrowserProps): JSX.Element {
           : t("discovery.noWorker.inApp.namedApp", { app: place.app })}
       </output>
       <p>{t("discovery.noWorker.inApp.how", { browser })}</p>
-      <button
-        type="button"
-        onClick={() => {
-          copy(address).then(
-            () => {
-              setCopied("copied");
-            },
-            () => {
-              setCopied("refused");
-            },
-          );
+      <CopyButton
+        text={address}
+        copy={props.copy}
+        label={t("discovery.noWorker.inApp.copy")}
+        copiedNote={t("discovery.noWorker.inApp.copied", { browser })}
+        refusedNote={t("discovery.noWorker.inApp.refused", { browser })}
+        onRefused={() => {
+          setIsRefused(true);
         }}
-      >
-        {t("discovery.noWorker.inApp.copy")}
-      </button>
-      {copied === undefined ? null : (
-        <output>{t(`discovery.noWorker.inApp.${copied}`, { browser })}</output>
-      )}
-      {copied === "refused" ? (
+      />
+      {isRefused ? (
         <input
           type="text"
           readOnly

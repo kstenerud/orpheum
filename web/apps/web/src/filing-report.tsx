@@ -4,13 +4,13 @@ import { allPages, type components } from "@orpheum/sdk";
 import { use, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { copyToClipboard } from "./clipboard.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven, wholeListOf } from "./page-sections.ts";
@@ -61,17 +61,6 @@ export function FilingReportButton(props: { readonly itemId: number }): JSX.Elem
 export function ReportText(props: { readonly report: Report }): JSX.Element {
   const { t } = useTranslation();
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const copy = (): void => {
-    const area = textRef.current;
-    // Where the clipboard is not, as at the owner's plain-HTTP LAN address, the text is selected to copy.
-    copyToClipboard(props.report.markdown).then(
-      () => {
-        setIsCopied(true);
-      },
-      () => area?.select(),
-    );
-  };
   return (
     <div className="filing-report__text">
       {props.report.path === undefined ? null : (
@@ -84,10 +73,13 @@ export function ReportText(props: { readonly report: Report }): JSX.Element {
         value={props.report.markdown}
         aria-label={t("filingReport.text")}
       />
-      <button type="button" onClick={copy}>
-        {t("filingReport.copy")}
-      </button>
-      {isCopied ? <output>{t("filingReport.copied")}</output> : null}
+      <CopyButton
+        text={props.report.markdown}
+        label={t("filingReport.copy")}
+        copiedNote={t("filingReport.copied")}
+        // Where the clipboard is not, as at the owner's plain-HTTP LAN address, the text is selected to copy.
+        onRefused={() => textRef.current?.select()}
+      />
     </div>
   );
 }

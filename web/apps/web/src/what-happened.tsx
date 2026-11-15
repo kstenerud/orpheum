@@ -3,8 +3,10 @@
 import "./what-happened.css";
 
 import { stepsSoFar } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
+
+import { CopyButton } from "./copy-button.tsx";
 
 /**
  * What happened when a device could not reach its server, for a tester to send whoever runs it
@@ -86,30 +88,20 @@ export function CopyWhatHappened(props: {
   readonly copy: (text: string) => Promise<void>;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState<"copied" | "refused" | undefined>(undefined);
   const { text } = props;
   if (text === undefined) {
     return null;
   }
   return (
     <div className="what-happened">
-      <button
-        type="button"
+      <CopyButton
+        text={text}
+        copy={props.copy}
         className="quiet"
-        onClick={() => {
-          props.copy(text).then(
-            () => {
-              setCopied("copied");
-            },
-            () => {
-              setCopied("refused");
-            },
-          );
-        }}
-      >
-        {t("whatHappened.copy")}
-      </button>
-      {copied === undefined ? null : <output>{t(`whatHappened.${copied}`)}</output>}
+        label={t("whatHappened.copy")}
+        copiedNote={t("whatHappened.copied")}
+        refusedNote={t("whatHappened.refused")}
+      />
       <details>
         <summary>{t("whatHappened.show")}</summary>
         <pre>{text}</pre>

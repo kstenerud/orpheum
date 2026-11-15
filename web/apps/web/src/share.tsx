@@ -3,10 +3,10 @@
 import "./share.css";
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { copyToClipboard } from "./clipboard.ts";
+import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 
 /**
@@ -21,7 +21,6 @@ export function Share(props: {
   readonly invitation: components["schemas"]["IssuedSecretBody"] | undefined;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const [copied, setCopied] = useState<"copied" | "copyRefused" | undefined>(undefined);
   return (
     <div className="share">
       <output className="share__link">{props.text}</output>
@@ -33,22 +32,13 @@ export function Share(props: {
             })}
       </p>
       <p>
-        <button
-          type="button"
-          onClick={() => {
-            copyToClipboard(props.text).then(
-              () => {
-                setCopied("copied");
-              },
-              () => {
-                setCopied("copyRefused");
-              },
-            );
-          }}
-        >
-          {t("share.copy")}
-        </button>{" "}
-        {copied === undefined ? null : <output>{t(`share.${copied}`)}</output>}
+        <CopyButton
+          text={props.text}
+          label={t("share.copy")}
+          copiedNote={t("share.copied")}
+          refusedNote={t("share.copyRefused")}
+          isNoteSpaced
+        />
       </p>
     </div>
   );

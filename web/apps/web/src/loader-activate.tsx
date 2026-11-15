@@ -7,10 +7,10 @@
  * that is signed in, or a sign-in here that carries on to Activate a device.
  */
 
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { copyToClipboard } from "./clipboard.ts";
+import { CopyButton } from "./copy-button.tsx";
 import { CredentialsForm } from "./credentials-form.tsx";
 import type { Household } from "./loader-households.ts";
 import { routeHref, type Scanned } from "./router.ts";
@@ -58,7 +58,6 @@ export function ActivateWhere(props: {
   readonly onSignInHere: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState<"copied" | "refused" | undefined>(undefined);
   if (props.listed.length > 0) {
     return (
       <CredentialsForm heading={t("loader.activate.whichRealm")} onSubmit={props.onSignInHere}>
@@ -82,22 +81,12 @@ export function ActivateWhere(props: {
       <p>
         <code className="loader-activate__link">{props.link}</code>
       </p>
-      <button
-        type="button"
-        onClick={() => {
-          copyToClipboard(props.link).then(
-            () => {
-              setCopied("copied");
-            },
-            () => {
-              setCopied("refused");
-            },
-          );
-        }}
-      >
-        {t("loader.activate.copy")}
-      </button>
-      {copied === undefined ? null : <output>{t(`loader.activate.${copied}`)}</output>}
+      <CopyButton
+        text={props.link}
+        label={t("loader.activate.copy")}
+        copiedNote={t("loader.activate.copied")}
+        refusedNote={t("loader.activate.refused")}
+      />
       <button type="submit">{t("loader.activate.signInHere")}</button>
     </CredentialsForm>
   );
