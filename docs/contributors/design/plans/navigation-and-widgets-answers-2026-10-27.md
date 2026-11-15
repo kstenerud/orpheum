@@ -4166,3 +4166,13 @@ failed; which, the owner's. Filed, not folded in: a reload mends it.
 The owner: "Yes have the home page reload": the home page asks again by itself when the connection
 is back. (Its rows come in one read, GET /home, over the connection to the core, after the page's
 code; the libraries reached are a read of their own.)
+
+## The 11-27 batch (the owner, 2026-11-15: "Go ahead")
+
+1. The home page left empty by a network hiccup asks again when the connection is back ("The home
+   page left empty by a network hiccup").
+2. The original chosen on a link measured short of it starts on the highest rung the link carries
+   and moves up to the original by itself; with no measure yet, it tries the original first ("The
+   original chosen on a link too slow for it").
+
+End: make check-pr, then staging, where the owner checks each VQ item.
