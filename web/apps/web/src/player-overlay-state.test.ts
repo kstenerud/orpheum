@@ -302,7 +302,7 @@ describe("play, pause and the seeking keys, the player's in every state", () => 
 });
 
 describe("when the overlay hides (D407 §6)", () => {
-  const playing = { isPaused: false, isMenuOpen: false };
+  const playing = { isPaused: false, isMenuOpen: false, isScrubHeld: false };
   const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
 
   it("hides all of it 3 s after the last press while playing, however it was shown (D411)", () => {
@@ -321,6 +321,15 @@ describe("when the overlay hides (D407 §6)", () => {
 
   it("holds all of it while a menu is open", () => {
     expect(hideAfter(full, { ...playing, isMenuOpen: true })).toBeUndefined();
+  });
+
+  // The owner, 2026-11-15: "The hide timer should not be running while I'm holding the scrubber bar".
+  it("holds whatever shows the scrub bar while it is held down, playing or paused", () => {
+    const held = { ...playing, isScrubHeld: true };
+    expect(hideAfter(full, held)).toBeUndefined();
+    expect(hideAfter(byPointer, held)).toBeUndefined();
+    expect(hideAfter(scrub, held)).toBeUndefined();
+    expect(hideAfter(paused, { ...held, isPaused: true })).toBeUndefined();
   });
 
   it("hides the scrub bar after 1.5 s, the pause sign after 3 s, and nothing hidden", () => {
@@ -420,8 +429,12 @@ describe("a tap on the picture (D415)", () => {
   it("leaves a hide that a later show does not read as playing: a paused film's shown overlay stays", () => {
     const hiddenByTap = afterPictureTap(full);
     const shownAgain = afterPictureTap(hiddenByTap);
-    expect(hideAfter(shownAgain, { isPaused: true, isMenuOpen: false })).toBeUndefined();
-    expect(hideAfter(shownAgain, { isPaused: false, isMenuOpen: false })).toBeDefined();
+    expect(
+      hideAfter(shownAgain, { isPaused: true, isMenuOpen: false, isScrubHeld: false }),
+    ).toBeUndefined();
+    expect(
+      hideAfter(shownAgain, { isPaused: false, isMenuOpen: false, isScrubHeld: false }),
+    ).toBeDefined();
   });
 
   it("tells the thirds of the picture", () => {

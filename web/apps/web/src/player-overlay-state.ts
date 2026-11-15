@@ -314,15 +314,25 @@ export interface HidingContext {
   readonly isPaused: boolean;
   /** Whether one of the overlay's menus is open. */
   readonly isMenuOpen: boolean;
+  /** Whether a finger, a pen or a mouse is held down on the scrub bar (useHeldDown). */
+  readonly isScrubHeld: boolean;
 }
 
 /**
  * How long after the last press the overlay hides, in ms, or undefined where it stays (D407 §6;
  * plans/player-overlay.md §2.4): the whole overlay never while the film is paused or a menu is open,
  * however it was shown and wherever focus is (D411, amending D407 §6 and D409); the scrub bar alone
- * after scrubShownForMs.
+ * after scrubShownForMs. Whatever shows the scrub bar never hides while it is held: a slow drag on a
+ * phone lost the overlay from under the finger (the owner, 2026-11-15: "The hide timer should not be
+ * running while I'm holding the scrubber bar").
  */
 export function hideAfter(state: OverlayState, context: HidingContext): number | undefined {
+  // A held scrub bar holds whatever shows; one hidden has nothing to hide.
+  return context.isScrubHeld ? undefined : unheldHideAfter(state, context);
+}
+
+/** How long after the last press the overlay hides with the scrub bar not held (hideAfter). */
+function unheldHideAfter(state: OverlayState, context: HidingContext): number | undefined {
   switch (state.shown) {
     case "scrub":
       return scrubShownForMs;

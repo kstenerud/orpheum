@@ -58,6 +58,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A Tab under load put focus on the overlay's button with no focus ring: not `:focus-visible` in Firefox. | [Firefox counts a script's focus as a key's only when focus was already shown](#firefox-counts-a-scripts-focus-as-a-keys-only-when-focus-was-already-shown) |
 | A Tab stopped on a tall dialog's body, focus drawn round nothing. | [A box that scrolls is a Tab stop of its own, in Chromium and Firefox](#a-box-that-scrolls-is-a-tab-stop-of-its-own-in-chromium-and-firefox) |
 | The browser test file after one that went full screen could not size the window. | [A real full-screen window outlasts its test file](#a-real-full-screen-window-outlasts-its-test-file) |
+| On a phone, a slow drag on the player's scrub bar lost the overlay from under the finger. | [Chrome on Android ends a touch drag on a range with pointerup, never pointercancel, and its seeks land only as the drag rests](#chrome-on-android-ends-a-touch-drag-on-a-range-with-pointerup-never-pointercancel-and-its-seeks-land-only-as-the-drag-rests) |
 | On a Fire TV in Silk, OK on a sign-in's checkbox signed in, as though Sign in had been pressed. | [Enter on a focused checkbox submits its form, and does not tick it](#enter-on-a-focused-checkbox-submits-its-form-and-does-not-tick-it) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
@@ -1066,6 +1067,29 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   logged. [repro] headless Chromium (Playwright), 2026-11-01: `page.evaluate` of a 1.5 s loop (the
   console's way, `Runtime.evaluate`) gave no entry; the same loop in a `setTimeout` gave one of
   1500 ms.
+
+### Chrome on Android ends a touch drag on a range with pointerup, never pointercancel, and its seeks land only as the drag rests
+
+- **Symptom:** the owner held the player's scrub bar on an Android phone and dragged slowly; the
+  overlay hid under the finger a few seconds in (2026-11-15, staging).
+- **Cause:** a drag noted nothing the overlay's time counts. A touch on the scrub bar, a native
+  `<input type=range>` whose `touchstart` the page cancels (`useTouchAnywhere`, so the page does not
+  scroll), sends `pointerdown` and `touchstart` on it, `gotpointercapture`, a `pointermove` and a
+  `touchmove` for each move, and at the lift `pointerup`, `lostpointercapture`, `pointerout` and
+  `touchend`, in that order; no `pointercancel`, no `pointerleave` while captured, the same in the
+  browser's full screen and with the stage filling the window. Each move seeks, and a seek begun
+  while another is under way ends it with no `seeked` (the media element's seeking algorithm): a
+  steady drag sends `seeking` after `seeking` and one `seeked` only once the finger rests or lifts.
+  The start gate also pauses a playing film at a seek to where too little is loaded and plays it on
+  once enough is (`start-gate.ts`), so the film reads paused through much of a drag.
+- **What we do:** the scrub bar's own hold (`held-down.ts`, `useHeldDown`) runs from its
+  `pointerdown` to that pointer's `pointerup` or `pointercancel` heard on the window, or a `touchend`
+  that leaves no finger on the screen; while it is down the overlay does not hide (`hideAfter`), and
+  its lift and a seek's landing, paused or not, start the overlay's time again (VQ352).
+- **Evidence:** [repro] the Pixel 3a, Chrome 157, staging's build, 2026-11-15: an event log put on
+  the page over CDP, a slow drag by `adb shell input motionevent DOWN/MOVE/UP` for 6 to 11 s, in the
+  browser's full screen and not; the overlay hid 0.3 s after a seek landed mid-drag, and with the
+  link throttled to 1.5 Mb/s the film stood paused 8.5 s after the lift before playing on by itself.
 
 ### A step through the history cancels a link's navigation that has begun
 

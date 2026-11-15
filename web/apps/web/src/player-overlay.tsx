@@ -21,6 +21,7 @@ import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
+import { useHeldDown } from "./held-down.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
@@ -166,6 +167,7 @@ function useOverlay(
     setState,
     isPaused: source.isPaused,
     isMenuOpen,
+    isScrubHeld: useHeldDown(refs.scrubRef),
     ...refs,
   });
   const stateRef = useLatest(state);
@@ -701,14 +703,18 @@ const hidingCheckMs = 250;
  * Hides the overlay its time after the last press (hideAfter), a seek landing counting as one, so the
  * scrub bar stays its time after the film shows the new place; as it hides, focus in the overlay
  * moves to the offer in its convenience area, or else the video, so no hidden control holds it
- * (useFocusLeavesWhatHides). A menu open holds it (D407 §6). Returns what notes a press, which
- * renews the time.
+ * (useFocusLeavesWhatHides). A menu open holds it (D407 §6), and so does the scrub bar held down
+ * (hideAfter). A seek lands whether the film is held or not: the start gate pauses a playing film at
+ * a seek to where too little is loaded and plays it on once enough is (start-gate.ts in the SDK), and
+ * a landing heard only while the time ran left the overlay to hide as the picture came back. Returns
+ * what notes a press, which renews the time.
  */
 function useOverlayHiding({
   state,
   setState,
   isPaused,
   isMenuOpen,
+  isScrubHeld,
   overlayRef,
   videoRef,
   convenienceRef,
@@ -717,34 +723,40 @@ function useOverlayHiding({
   readonly setState: (state: OverlayState) => void;
   readonly isPaused: boolean;
   readonly isMenuOpen: boolean;
+  readonly isScrubHeld: boolean;
 }): () => void {
   const lastPressAtRef = useRef(0);
-  const afterMs = hideAfter(state, { isPaused, isMenuOpen });
-  // A menu closing counts as a press: the overlay's time starts again from it.
+  const afterMs = hideAfter(state, { isPaused, isMenuOpen, isScrubHeld });
+  // A menu closing and the scrub bar's lift count as a press: the overlay's time starts again from it.
+  const isHeld = isMenuOpen || isScrubHeld;
   useEffect(() => {
-    if (!isMenuOpen) {
+    if (!isHeld) {
       lastPressAtRef.current = performance.now();
     }
-  }, [isMenuOpen]);
+  }, [isHeld]);
   useEffect(() => {
-    if (afterMs === undefined) {
-      return undefined;
-    }
     const video = videoRef.current;
     const landed = (): void => {
       lastPressAtRef.current = performance.now();
     };
     video?.addEventListener("seeked", landed);
+    return () => {
+      video?.removeEventListener("seeked", landed);
+    };
+  }, [videoRef]);
+  useEffect(() => {
+    if (afterMs === undefined) {
+      return undefined;
+    }
     const timer = setInterval(() => {
       if (performance.now() - lastPressAtRef.current >= afterMs) {
         setState({ ...state, shown: "hidden" });
       }
     }, hidingCheckMs);
     return () => {
-      video?.removeEventListener("seeked", landed);
       clearInterval(timer);
     };
-  }, [afterMs, state, setState, videoRef]);
+  }, [afterMs, state, setState]);
   useFocusLeavesWhatHides(state, { overlayRef, videoRef, convenienceRef });
   return () => {
     lastPressAtRef.current = performance.now();
