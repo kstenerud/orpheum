@@ -28599,10 +28599,10 @@ or come from outside. The rows the audit found justified stand.
   tab holds names each device connected, and reads it again for one it does not (D480 §3)")
 - 4: web/apps/web/src/roles-section.test.tsx ("offers the libraries the shell holds to tick, asking
   for none on opening (D480 §4)")
-- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysItsSoundOffset`);
-  web/apps/web/src/together-viewer-sound.test.tsx ("takes that offset from who the shell read as
-  signed in, asking for no list of devices (D480 §5)", "drawn alone, takes it from GET /me's device,
-  still asking for no list of devices")
+- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysTheSoundOffsetKeptForItBefore`,
+  the carry-over alone since D492 §1, the device keeping its own offset);
+  web/apps/web/src/together-viewer-sound.test.tsx ("starts from the offset this device's browser
+  keeps, asking the core for none (D492 §1)")
 
 ## D481 — An admin page's first read carries what its other sections read
 
@@ -29083,6 +29083,76 @@ phone's move between networks: VQ340, VQ341.
 - A track or the boost chosen while the original plays under a cap asks again under the cap, which
   prefers the ladder (D488 §4), as only "Play the original file" asks for the own file.
 
-## D492 — Reserved: A device's settings and memories kept on the device
+## D492 — A device's sound delay and the own pictures it gave up are kept on the device
 
-**Reserved** (2026-11-15) for moving the core's per-device records to the device (the owner: *"We should also move any existing per device records to the device"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-15), by the project owner, on D489 §3: *"if a device forgets the server
+(delete all data about orpheum.cc) and reconnects, can we even associate it with the same device
+records we have from before? If not, then storing per-device data server side makes no sense."*
+Then: *"We should also move any existing per device records to the device"*, and of the lead's
+list (the sound offset, the remembered link, the own picture given up; the device itself, its
+grants, positions and history staying on the core): *"Yes those sound good"*. Amends D266's and
+D323 §2's memory of an own picture given up, and the sound offset's keeping (the owner, 2026-10-24
+and 2026-11-06).
+
+A device is known to the core only by the id and proof its browser keeps (session.ts): one whose
+site data is cleared signs in as a new device, which nothing ties to the old, so what the core kept
+for the old one is lost exactly when the browser's is.
+
+1. **A device keeps its own sound delay.** The browser keeps it (`orpheum.sound.offsetMs`,
+   web/apps/web/src/sound-offset.ts, over the never-throwing storage D488's caps use), and every
+   control drawn shows and applies the one value (D407 §8): the player's, ⁝'s, a Watch Together
+   viewer's with or without a device of its own, and the one a cast's remote moves, which the
+   receiver keeps. The core neither keeps nor hands one out: `PUT /me/devices/{id}` renames alone,
+   the devices list and a start's answer no longer carry it, and a start says the device's own
+   (`soundOffsetMs`), bounded as before, for the core's log alone. **Carried over once:** `GET /me`
+   still says the delay the core kept for the session's device (`device.sound_offset_ms`, read
+   there alone), and the shell keeps it in the browser where the browser keeps none and the core's
+   is not in step, so the owner's TV keeps the delay set on it; one the browser keeps, in step
+   among them, stands. Nothing else read or set another device's delay; the `PUT` could set any of
+   the person's own devices', which no page used.
+2. **The remembered link stays on the core for now** (`link_memory`, D257 §1): its move, which this
+   branch did not build, is under Open.
+3. **A device keeps the films whose own picture its player gave up** (D266), as file ids
+   (`orpheum.ownPicturesGivenUp`, web/apps/web/src/own-pictures-given-up.ts), at most 64, the one
+   given up longest ago dropped first, and says so (`hasGivenUpOwnPicture`) on every start of one,
+   so it is offered the twin at once (D323 §2); it keeps one as its page asks again at the twin
+   (the start's cause `ownPictureGivenUp`). The core
+   remembers none: its memory, per player and film for the server's life, is gone, and a report's
+   unplayable own picture is logged, not kept. Kept on the device, the memory now outlives a
+   restart of the core and ends with the browser's site data.
+
+**Proven by:** "this device's own sound offset (D492 §1)" (web/apps/web/src/sound-offset.test.ts:
+kept, bounded, carried over only where none is kept); the App's carry-over test
+(web/apps/web/src/app.test.tsx); "this device's sound timing" (web/apps/web/src/sound-delay.test.tsx:
+kept by the browser, asking the core nothing, a remote's choice kept by the receiver); "a Watch
+Together viewer's sound timing" (web/apps/web/src/together-viewer-sound.test.tsx);
+TestPlayback_ADevicesSoundOffsetIsItsOwnAndItsPlaybacksLogIt and
+TestMe_TheSessionsDeviceSaysTheSoundOffsetKeptForItBefore (internal/core/api/sound_test.go); "the
+films whose own picture this device gave up (D492 §3)" and "a start of a film whose own picture this
+device gave up" (web/apps/web/src/own-pictures-given-up.test.ts);
+TestChunks_AFilmsOwnPictureGivenUpIsLeftOutOnlyWhereTheStartSaysSo (internal/core/api/chunks_test.go).
+Only the owner's TV holds the delay the core kept: VQ342.
+
+**Open, for the owner:**
+
+- **Dropping the column.** `device.sound_offset_ms` is read for the carry-over alone; once the
+  owner's devices have carried theirs over, a migration may drop it and `GET /me`'s field. The
+  schema is unchanged here (migrations are live).
+- **The remembered link** (point 2), proposed: the core names the network to the browser as an
+  opaque label, a keyed hash of `clientnet.Of` (a key the core keeps across restarts, or the
+  memory restarts with it); the browser keeps an entry per label (the speed, its spread, when, the
+  steadiness and when), at most eight networks, the oldest dropped, and sends the **small set**
+  with each start, since it cannot know its network's label before the core has named it and a
+  phone moves between networks; the core picks the entry whose label matches, keeps it with the
+  playback's token, merges each report into it as speeds.go does now, and hands the entry back in
+  the report's answer for the browser to keep. The report's mid-playback steadiness
+  (`lowerQualitySteadiness`) reads the token's copy. `link_memory` would then go unread, to be
+  dropped as the column is.
+- **File ids are per core.** On a discovery origin a browser reaches several cores, and the own
+  pictures given up are kept for the browser, not per core: a film of another core with the same id
+  starts at its twin, which plays, rather than its own picture.
+- **A give-up said only in a report** is no longer kept: a page whose player gave the own picture
+  up without asking again at the twin (none does today; a Watch Together viewer reports no
+  unplayable on a ladder, and its start says nothing given up) would be offered it again.
+- `PUT /me/devices/{id}`'s body now needs its `name`; a client sending only the old
+  `soundOffsetMs` is refused, as the strict decoder refuses a field it does not know.

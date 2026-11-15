@@ -271,7 +271,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D263](working-notes.md#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr) The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
 - [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is — *revisited by D268*
 - [D265](working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs) The chunked player chooses its quality with a bitrate controller of its own, inside hls.js — *revisited by D266, D352*
-- [D266](working-notes.md#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up) A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up — *revisited by D323, D413*
+- [D266](working-notes.md#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up) A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up — *revisited by D323, D413, D492*
 - [D267](working-notes.md#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices) A Watch Together membership is kept by the browser that joined, or by the account of whoever is signed in, and one member may be on several devices — *revisited by D372, D399, D442*
 - [D268](working-notes.md#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls — *revisited by D271, D282, D371*
 - [D269](working-notes.md#d269--a-film-with-no-keyframe-index-is-cut-on-time-and-plays-encoded-at-once-its-original-picture-is-copied-once-a-read-through-has-found-its-keyframes) A film with no keyframe index is cut on time and plays encoded at once; its original picture is copied once a read-through has found its keyframes — *revisited by D344*
@@ -497,7 +497,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D489](working-notes.md#d489--a-capped-device-plays-a-film-with-no-ladder-as-it-is-and-moves-a-playing-one-to-its-ladder) A capped device plays a film with no ladder as it is, and moves a playing one to its ladder
 - [D490](working-notes.md#d490--submenus-in-the-players-) Submenus in the player's ⋯
 - [D491](working-notes.md#d491--the-films-own-picture-is-one-more-rung-under-a-data-cap) The film's own picture is one more rung under a data cap
-- [D492](working-notes.md#d492--reserved-a-devices-settings-and-memories-kept-on-the-device) Reserved: A device's settings and memories kept on the device
+- [D492](working-notes.md#d492--a-devices-sound-delay-and-the-own-pictures-it-gave-up-are-kept-on-the-device) A device's sound delay and the own pictures it gave up are kept on the device
 
 ## Archived
 
