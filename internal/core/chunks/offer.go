@@ -184,6 +184,8 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
 		}
 	}
+	hasLower := len(offered.pictures) > len(top)
+	offered.pictures = append(offered.pictures, atOwnHeight(all, height, averageBps, hasLower)...)
 	// A picture too small for a twin, which the player cannot decode, has nothing above or below it:
 	// it is offered the one quality, as a film cut on time is, so its playback has a picture (D344 §4).
 	if len(offered.pictures) == 0 && len(all) > 0 {
@@ -255,6 +257,28 @@ func (service *Service) IsTooSlowToEncode(ctx context.Context, nodeID int64) (bo
 		return false, fmt.Errorf("read %s: %w", settings.ChunkRunSlowestSpeedPercent, err)
 	}
 	return int64(measured) < slowestPercent, nil
+}
+
+// atOwnHeight is what a film no quality is shorter than is offered below its own picture: each
+// quality of a lower rate than its own, averageBps, made at its own height, even, so a data cap or a
+// slow link has a rung under the picture (staging, 2026-11-15: a film 302 lines high, its picture at
+// 1199 kbit/s, played over a cap of 496, every quality being 360 lines or more). None where a quality
+// is offered below it already (hasLower), where its height or rate is not known, or where its picture
+// is too small for a quality (D344 §4, onlyQuality). The qualities are chunkQualities, highest first.
+func atOwnHeight(all []qualities.Quality, height int, averageBps int64, hasLower bool) []Stream {
+	ownHeight := height &^ 1
+	if hasLower || ownHeight < qualities.MinHeight || averageBps <= 0 {
+		return nil
+	}
+	var pictures []Stream
+	for _, quality := range all {
+		if int64(quality.Kbps)*1000 < averageBps {
+			pictures = append(pictures, Stream{
+				Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: quality.Kbps, Height: ownHeight},
+			})
+		}
+	}
+	return pictures
 }
 
 // onlyQuality is the one quality a film cut on time is offered when none is below its own picture,

@@ -29074,6 +29074,13 @@ TestChunksPlaybackOf_ACappedDevicesLadderKeepsTheFilmsOwnPicture
 (internal/core/playback/chunks_test.go). Only a device shows which picture hls.js loads and a
 phone's move between networks: VQ340, VQ341.
 
+**A film shorter than every quality** (the owner, 2026-11-15, *"Ok put in this batch"*): a film
+no quality is shorter than, such as one 302 lines high when the lowest quality is 360, was offered
+only its own picture, so a cap under it had nothing to drop to (staging, 2026-11-15: 1199 kbit/s
+under a cap of 496). It is offered each quality of a lower rate than its own, made at its own height
+(`atOwnHeight`, `TestStartOnLadder_AFilmShorterThanEveryQualityHasRungsAtItsOwnHeight`), with a cap
+or without; a picture too small for any quality keeps D344 §4's one.
+
 **Open, for the owner:**
 
 - The own picture's figure is labelled as the others are; it could say it is the original's

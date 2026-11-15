@@ -78,6 +78,22 @@ func TestStartOnLadder_APictureTooSmallForATwinIsOfferedOneQuality(t *testing.T)
 	}
 }
 
+// A film shorter than every quality is offered the qualities of a lower rate than its own at its own
+// height, so a device capped under its picture starts under the cap (staging, 2026-11-15: a film 302
+// lines high played at 1199 kbit/s under a cap of 496).
+func TestStartOnLadder_AFilmShorterThanEveryQualityHasRungsAtItsOwnHeight(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	storetest.ExecRaw(t, service.database.Path(), `UPDATE file_probe SET probe_json = replace(replace(`+
+		`probe_json, '"height":1080', '"height":303'), '"width":1920', '"width":720') WHERE file_id = 1`)
+	playback := Playback{FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true, StartAtMostKbps: 496}
+	offer, err := service.StartOnLadder(t.Context(), playback, 0, 0)
+	if err != nil || offer.Quality != (qualities.Quality{Kbps: 400, Height: 302}) {
+		t.Errorf("a picture 303 lines high capped at 496 kbit/s starts at %+v, %v; want 400 kbit/s at 302 lines",
+			offer, err)
+	}
+}
+
 // A run asked for on the time grid of a film whose keyframes cannot cut it, FFmpeg having failed to
 // read it through, is made on that grid (D344 §2).
 func TestHandleMakeChunks_ARunOfAFilmItsKeyframesCannotCutIsMadeOnTime(t *testing.T) {
