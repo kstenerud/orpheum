@@ -28,6 +28,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     },
     resumePositionMs: 0,
     mediaToken: "t",
+    soundOffsetMs: 0,
     levelling: unlevelled.levelling,
     fileBitRateKbps: 2400,
     tracks: {
@@ -61,6 +62,7 @@ export function television(changes: Partial<Device> = {}): Device {
     isSignedIn: true,
     isByCode: false,
     isThisDevice: false,
+    soundOffsetMs: 0,
     ...changes,
   };
 }

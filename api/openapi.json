@@ -606,11 +606,15 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          },
+          "soundOffsetMs": {
+            "description": "How far the device moves its sound from its picture, in ms: later when positive, earlier when negative",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
           }
         },
-        "required": [
-          "name"
-        ],
         "type": "object"
       },
       "ChangePasswordInputBody": {
@@ -1194,7 +1198,7 @@
             "type": "string"
           },
           "soundOffsetMs": {
-            "description": "The sound offset the core kept for the device before the device kept its own, in ms, for it to carry over once",
+            "description": "How far the device moves its sound from its picture, in ms: later when positive",
             "format": "int64",
             "type": "integer"
           }
@@ -1312,6 +1316,11 @@
           },
           "platform": {
             "type": "string"
+          },
+          "soundOffsetMs": {
+            "description": "How far the device moves its sound from its picture, in ms: later when positive",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -1322,7 +1331,8 @@
           "lastUsedAt",
           "isSignedIn",
           "isByCode",
-          "isThisDevice"
+          "isThisDevice",
+          "soundOffsetMs"
         ],
         "type": "object"
       },
@@ -8268,13 +8278,6 @@
             ],
             "type": "string"
           },
-          "soundOffsetMs": {
-            "description": "How far this device moves its sound from its picture, in ms, as it keeps it, for the log",
-            "format": "int64",
-            "maximum": 2000,
-            "minimum": -2000,
-            "type": "integer"
-          },
           "startsAtMs": {
             "description": "Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position",
             "format": "int64",
@@ -8355,6 +8358,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "soundOffsetMs": {
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          },
           "startingAudioStreamId": {
             "format": "int64",
             "type": "integer"
@@ -8388,6 +8397,7 @@
           "preferences",
           "resumePositionMs",
           "mediaToken",
+          "soundOffsetMs",
           "levelling",
           "fileBitRateKbps",
           "tracks"

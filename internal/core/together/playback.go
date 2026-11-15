@@ -82,7 +82,7 @@ const (
 	soundTrackCommentary = "commentary"
 	soundTrackDescribed  = "described"
 	// The furthest a device's sound moves from its picture either way, as a
-	// device keeps its own (sound-offset.ts, D492 §1) and says it in a start.
+	// device's own setting is bounded (PUT /me/devices/{id}).
 	soundOffsetMostMs = 2000
 )
 

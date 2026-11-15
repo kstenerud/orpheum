@@ -58,10 +58,6 @@ const clientKeys = new Set([
   "orpheum.cast.receiving",
   // The latency of this device's sound through Web Audio, as last measured (sound-latency.ts).
   "orpheum.sound.latencyMs",
-  // How far this device moves its sound from its picture (sound-offset.ts, D492 §1).
-  "orpheum.sound.offsetMs",
-  // The films whose own picture this device's player gave up (own-pictures-given-up.ts, D492 §3).
-  "orpheum.ownPicturesGivenUp",
   // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).
   "orpheum.localNetwork.noteDismissed",
   // Until when, and for which fix, the admin snoozed the security update's banner (update.tsx

@@ -10,8 +10,6 @@ import type { LadderOffer } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
-import { isOwnPictureGivenUp, keepOwnPictureGivenUp } from "./own-pictures-given-up.ts";
-import { deviceSoundOffsetMs } from "./sound-offset.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
@@ -77,9 +75,6 @@ export async function requestPlayback(
 ): Promise<PlaybackDecision> {
   const askedMs = performance.now();
   pageStarts.count += 1;
-  if (asked.cause === "ownPictureGivenUp") {
-    keepOwnPictureGivenUp(fileId);
-  }
   const decision = dataOrThrow(
     await api.POST("/playback", {
       body: {
@@ -87,15 +82,11 @@ export async function requestPlayback(
         playableFormats: asked.playableFormats,
         cause: asked.cause,
         pageStarts: pageStarts.count,
-        // This device's player gave the film's own picture up, now or before, which the device keeps
-        // and the core does not, so it starts at the twin (D323 §2, D492 §3).
-        ...(isOwnPictureGivenUp(fileId) ? { hasGivenUpOwnPicture: true } : {}),
+        // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
+        ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
         // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
         // wants is its ladder's sound's (D436).
         ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
-        // How far this device moves its sound from its picture, which it keeps itself, for the
-        // core's log alone (D492 §1).
-        soundOffsetMs: deviceSoundOffsetMs(),
         // A device under a data cap plays a rung of its ladder (D488), or the film's own file its
         // person chose where the cap is at or above its rate (D491).
         ...preferredDeliveryOf(asked.cause, deviceDataCapKbps(), fileRatesKbps.get(fileId) ?? 0),

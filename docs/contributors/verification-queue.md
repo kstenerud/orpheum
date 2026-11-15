@@ -3270,15 +3270,3 @@ An item is ticked only by the person who did it, and only with what they saw.
   file of the same length). Passes when ⋯ offers its "Play the original file" (debug tools shown),
   which plays its own file with no move; then, Wi-Fi turned off, the film plays on from where it
   stood on its ladder at the 700k rung or lower.
-- [ ] **VQ342** — The owner's TV keeps its sound delay once the device keeps its own (D492 §1). On
-  the TCL TV, TV Bro, after the deploy, with the delay the core kept for it before: open Orpheum and
-  play a film. Passes when the control under the film says the same delay as before the deploy and
-  the sound is in step; then move it by a step, reload the page, and the film starts at the moved
-  delay. From the phone casting to the TV, a step moved in the cast's remote moves the TV's delay,
-  and the TV keeps it for its next film. Only the owner's TV holds the value the core kept.
-- [ ] **VQ343** — A film's own picture given up stays given up on the device (D492 §3). In Firefox
-  on the Mac, after the deploy, play a film whose own picture it gives up (D266): the page asks
-  again and plays on at the twin. Then play the film again from its page, after a restart of the
-  core too. Passes when each later playback starts at the twin at once, with no give-up and no
-  second start in its log, and Chrome on the same Mac is still offered the own picture. Only a
-  browser that cannot play a film's picture gives one up; the tests fake the give-up.

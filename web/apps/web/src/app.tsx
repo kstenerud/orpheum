@@ -74,7 +74,6 @@ import { ShellReadContext, useShellPart, type ShellRead } from "./shell-read.ts"
 import { LaterScreen } from "./screen-load.tsx";
 import { MeContext } from "./signed-in-me.ts";
 import { forgetKeptImages } from "./kept-images.ts";
-import { carrySoundOffsetOver } from "./sound-offset.ts";
 import { forgetEveryAnswer, useResource, type Resource } from "./use-resource.ts";
 
 /**
@@ -284,12 +283,6 @@ function PersonSignedIn(props: {
   useReadyAheadOfTheServer(clientSettings);
   // The session this tab hosts, whose voice every screen shares (D281 §5).
   const hostMembership = useMembership(tabStorage, "host");
-  const coreSoundOffsetMs = me.state === "loaded" ? me.value.device?.soundOffsetMs : undefined;
-  useEffect(() => {
-    // The sound offset the core kept for this device before the device kept its own, kept by the
-    // device where it has none (D492 §1).
-    carrySoundOffsetOver(coreSoundOffsetMs);
-  }, [coreSoundOffsetMs]);
   useEffect(() => {
     // A session this person is in follows them to this device (D267 §2); one not had back is
     // offered again by the screens that start or join one.

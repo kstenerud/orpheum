@@ -29085,6 +29085,15 @@ phone's move between networks: VQ340, VQ341.
 
 ## D492 — A device's sound delay and the own pictures it gave up are kept on the device
 
+**Reverted** (2026-11-15), by the project owner, before it was released: *"maybe it's actually
+better to keep the settings server side than. We keep a copy on the phone so it doesn't need to keep
+asking the server, and the server has a copy so that the client doesn't need to remember to keep
+sending it for every part where the value is relevant"*, and of the lead's plan (revert, the core
+keeps a device's settings and the browser a copy, the data cap and the own pictures given up kept
+by the core too): *"Yes agreed. Go ahead."* A device whose site data is cleared is still a new one;
+its old record is left unused, which loses nothing the browser's keeping would have kept. The
+reverted text stays below as the record; the next decision says what replaces it.
+
 **Decided** (2026-11-15), by the project owner, on D489 §3: *"if a device forgets the server
 (delete all data about orpheum.cc) and reconnects, can we even associate it with the same device
 records we have from before? If not, then storing per-device data server side makes no sense."*

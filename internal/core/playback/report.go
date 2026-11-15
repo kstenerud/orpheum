@@ -165,6 +165,9 @@ func (service *Service) Report(
 			}
 		}
 		service.tokens.keepPosition(token, report.PositionMs, playback.hasPlayed)
+		if report.IsOwnPictureUnplayable {
+			service.unplayablePictures.remember(playerOf(playback.deviceID, playback.sessionKey), playback.fileID)
+		}
 	}
 	answer := Answer{StopMessage: playback.stopMessage, IsRepeat: !isNew}
 	if playback.stopMessage != nil {

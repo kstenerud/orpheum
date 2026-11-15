@@ -2901,7 +2901,12 @@ export interface components {
             checkEveryHours?: number;
         };
         ChangeDeviceInputBody: {
-            name: string;
+            name?: string;
+            /**
+             * Format: int64
+             * @description How far the device moves its sound from its picture, in ms: later when positive, earlier when negative
+             */
+            soundOffsetMs?: number;
         };
         ChangePasswordInputBody: {
             currentPassword: string;
@@ -3086,7 +3091,7 @@ export interface components {
             name: string;
             /**
              * Format: int64
-             * @description The sound offset the core kept for the device before the device kept its own, in ms, for it to carry over once
+             * @description How far the device moves its sound from its picture, in ms: later when positive
              */
             soundOffsetMs: number;
         };
@@ -3135,6 +3140,11 @@ export interface components {
             lastUsedAt: number;
             name: string;
             platform: string;
+            /**
+             * Format: int64
+             * @description How far the device moves its sound from its picture, in ms: later when positive
+             */
+            soundOffsetMs: number;
         };
         DeviceReaderLimitInputBody: {
             deviceKey: string;
@@ -5550,11 +5560,6 @@ export interface components {
             preferredDelivery?: "direct" | "hls";
             /**
              * Format: int64
-             * @description How far this device moves its sound from its picture, in ms, as it keeps it, for the log
-             */
-            soundOffsetMs?: number;
-            /**
-             * Format: int64
              * @description Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position
              */
             startsAtMs?: number;
@@ -5575,6 +5580,8 @@ export interface components {
             profile?: "remux" | "h264";
             /** Format: int64 */
             resumePositionMs: number;
+            /** Format: int64 */
+            soundOffsetMs: number;
             /** Format: int64 */
             startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
