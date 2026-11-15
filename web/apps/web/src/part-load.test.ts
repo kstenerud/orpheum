@@ -13,9 +13,12 @@ import {
   partAskCapMs,
   partNoteAfterMs,
   partRetryMs,
+  shellLoadingText,
+  shellNote,
   type PartLoadParts,
   type WaitingNote,
 } from "./part-load.ts";
+import { en } from "./locales/en.ts";
 import { takeReloadNote } from "./reload-note.ts";
 
 function tabOf(kept: Map<string, string>): StringStorage {
@@ -46,6 +49,7 @@ function pageOf(
       await Promise.resolve();
     },
     importAt,
+    note: quiet,
   };
 }
 
@@ -432,5 +436,66 @@ describe("loadOwnPart", () => {
     await settled();
 
     expect(page.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the shell's note while it waits for its part's code (the owner's \"Untranslated is fine\", 2026-11-15)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A core's page as index.html is: its root holding the note for agents. */
+  function shellPage(): Document {
+    const page = document.implementation.createHTMLDocument("client");
+    const root = page.createElement("div");
+    root.id = "root";
+    const forAgents = page.createElement("p");
+    forAgents.className = "for-agents";
+    forAgents.textContent =
+      "An AI agent setting up Orpheum finds its setup help at /agent-setup.md.";
+    root.append(forAgents);
+    page.body.append(root);
+    return page;
+  }
+
+  it("is common.loading's English, as the shell loads no translation", () => {
+    expect(shellLoadingText).toBe(en.common.loading);
+  });
+
+  it("shows Loading… alone in the root once the client's code has been waited for partNoteAfterMs, and takes it away as the code comes", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const page = shellPage();
+    const client = comingRole();
+    const waited = loadOwnPart(
+      { window: {}, document: page },
+      { loader: async () => await Promise.resolve({}), client: client.load },
+      { ...pageOf(tabOf(new Map())), note: shellNote(page) },
+    );
+    const root = page.getElementById("root");
+    vi.advanceTimersByTime(partNoteAfterMs - 1);
+    expect(root?.textContent).not.toContain(shellLoadingText);
+    vi.advanceTimersByTime(1);
+    expect([...(root?.children ?? [])].map((shown) => [shown.tagName, shown.textContent])).toEqual([
+      ["P", shellLoadingText],
+    ]);
+
+    client.come();
+    await waited;
+    expect(root?.textContent).not.toContain(shellLoadingText);
+  });
+
+  it("never shows it when the client's code comes at once", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const page = shellPage();
+    await loadOwnPart(
+      { window: {}, document: page },
+      {
+        loader: async () => await Promise.resolve({}),
+        client: async () => await Promise.resolve({}),
+      },
+      { ...pageOf(tabOf(new Map())), note: shellNote(page) },
+    );
+    vi.advanceTimersByTime(10 * partNoteAfterMs);
+    expect(page.getElementById("root")?.textContent).not.toContain(shellLoadingText);
   });
 });

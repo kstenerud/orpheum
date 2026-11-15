@@ -94,6 +94,9 @@ function tabOf(kept: Map<string, string>): StringStorage {
   };
 }
 
+/** The note the pages show while they wait, which this test does not look at. */
+const quiet: WaitingNote = { show: () => () => undefined };
+
 /** What loadRole is given in a page: its import, no real pause, and a reload the test counts. */
 function partsOf(
   tab: StringStorage,
@@ -110,11 +113,9 @@ function partsOf(
       await Promise.resolve();
     },
     importAt,
+    note: quiet,
   };
 }
-
-/** The note the pages show while they wait, which this test does not look at. */
-const quiet: WaitingNote = { show: () => () => undefined };
 
 /** The role's module, as the page uses it. */
 interface RoleModule {

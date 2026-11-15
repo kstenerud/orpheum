@@ -17,7 +17,7 @@ import { removeUnownedKeys } from "./browser-storage.ts";
 import { clearCookies } from "./loader-sweep.ts";
 import type * as AtClientOriginRole from "./loader-at-client-origin.tsx";
 import type * as AtLoaderOriginRole from "./loader-at-loader-origin.tsx";
-import { exportingFunction, importModuleAt, loadRole, type RoleLoadParts } from "./part-load.ts";
+import { exportingFunction, importModuleAt, loadRole, type PartLoadParts } from "./part-load.ts";
 
 /** The keys the loader owns at its own origin: the household list, and the remembered realm. */
 const ownedAtLoaderOrigin = new Set(["orpheum.loader.households", "orpheum.discovery.realm"]);
@@ -52,7 +52,7 @@ async function tellWorker(message: ClientFilesMessage): Promise<void> {
  * the page shows while it waits for it, a screen's Loading… (screen-load.tsx ScreenLoading), drawn
  * by the loader's own bundle in its root, which the role's page then takes.
  */
-const roleLoadParts: RoleLoadParts = {
+const roleLoadParts: PartLoadParts = {
   tab: tabStorage(),
   reload: () => {
     window.location.reload();

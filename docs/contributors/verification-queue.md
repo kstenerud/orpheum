@@ -3321,4 +3321,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   shows the reload's note, as in VQ349), it shows "Loading…" within about two seconds of opening
   and while it waits, not a black page, and the note goes as the client shows, leaving nothing of it
   on the client's page. A page that comes at once shows no note, nor a flash of one (`part-load.ts`
-  loadRole, `partNoteAfterMs`).
+  loadRole, `partNoteAfterMs`). The same holds for the page's own first code, the loader's or the
+  client's, which the shell waits for (`loadPart`, `shellNote`): with the core's own address
+  opened in a second tab before the update, reload that tab after it; should it wait for its code
+  (the core's log shows the reload's note for its part), it shows "Loading…" in English, whatever
+  the page's language (the owner, 2026-11-15: "Untranslated is fine"), within about two seconds and
+  while it waits, and the note goes as the page draws.

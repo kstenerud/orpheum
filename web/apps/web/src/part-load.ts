@@ -20,11 +20,13 @@
  * staging, the 11-26 batch's item 1). It asks again by itself, each pause twice the one before up to
  * partAskCapMs, until the code comes, and never reloads again, so it cannot loop.
  *
- * While a loader's page waits for its role's code it shows a note, Loading…, drawn by what has
- * loaded already (loader-main.tsx), never by the code it waits for: the page was black for up to
- * half a minute while it asked on, and the owner chose "show loading" (the plan's "The black page's
- * wait, this batch", 2026-11-15). The note comes only once the wait has lasted partNoteAfterMs, and
- * goes as the code comes, before the page draws.
+ * While a page waits for its part's code, or a loader's page for its role's, it shows a note,
+ * Loading…, drawn by what has loaded already, never by the code it waits for: the page was black for
+ * up to half a minute while it asked on, and the owner chose "show loading" (the plan's "The black
+ * page's wait, this batch", 2026-11-15). The note comes only once the wait has lasted
+ * partNoteAfterMs, and goes as the code comes, before the page draws. The loader's page draws it
+ * with its own bundle (loader-main.tsx), the shell with shellNote, untranslated (the owner,
+ * 2026-11-15: "Untranslated is fine"), as the shell loads no translation.
  */
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -54,6 +56,8 @@ const reloadedForRoleKey = "orpheum.main.reloadedForRole";
 
 /** What loadPart needs of the page. */
 export interface PartLoadParts {
+  /** The note the page shows while it waits for the code. */
+  readonly note: WaitingNote;
   /** This tab's storage, which says whether it reloaded for this before. */
   readonly tab: StringStorage;
   readonly reload: () => void;
@@ -113,7 +117,8 @@ function isAnyPart(loaded: unknown): loaded is unknown {
 /**
  * Loads part, named for the note, by load: asked again once after partRetryMs when it fails, then
  * reloading the page once in the tab; the page reloaded for it asks on until it comes. A page that
- * reloads never settles.
+ * reloads never settles. Waiting partNoteAfterMs for it, the page shows its note, until the code
+ * comes.
  */
 export async function loadPart(
   part: string,
@@ -133,38 +138,53 @@ export interface RoleCode<Loaded> {
 /**
  * Loads the loader's role, the code of the origin it is served at, as loadPart loads a part, after
  * it (loader-main.tsx): its own mark in the tab, as the part's loading clears the part's, and a role
- * failing in the page reloaded for it would reload it again, each time. Waiting partNoteAfterMs
- * for it, the page shows its note, until the role's code comes.
+ * failing in the page reloaded for it would reload it again, each time. Its note is the loader's
+ * page's own.
  */
 export async function loadRole<Loaded>(
   role: string,
   code: RoleCode<Loaded>,
-  parts: RoleLoadParts,
+  parts: PartLoadParts,
 ): Promise<Loaded> {
-  const takeNoteAway = noteAfterWaiting(parts.note);
-  try {
-    return await loadMarked(
-      { mark: reloadedForRoleKey, part: role, isLoaded: code.isRole },
-      code.load,
-      parts,
-    );
-  } finally {
-    takeNoteAway();
-  }
+  return await loadMarked(
+    { mark: reloadedForRoleKey, part: role, isLoaded: code.isRole },
+    code.load,
+    parts,
+  );
 }
 
 /**
- * The note a page shows while it waits for its role's code, Loading…: drawn by what has loaded
- * already, never by the code it waits for.
+ * The note a page shows while it waits for its part's or its role's code, Loading…: drawn by what
+ * has loaded already, never by the code it waits for.
  */
 export interface WaitingNote {
   /** Shows the note, handing back what takes it away. */
   readonly show: () => () => void;
 }
 
-/** What loadRole needs of the page: loadPart's, and the note it shows while it waits. */
-export interface RoleLoadParts extends PartLoadParts {
-  readonly note: WaitingNote;
+/**
+ * The shell's Loading…: common.loading's English (locales/en.ts), written again here, as the shell's
+ * entry loads no translation so the page's first bytes stay small (shellWaitMs); the owner took it
+ * untranslated (2026-11-15, "Untranslated is fine").
+ */
+export const shellLoadingText = "Loading…";
+
+/**
+ * The note the shell shows while it waits for its part's code: a plain paragraph of
+ * shellLoadingText in the page's root, as the loader's page draws a screen's Loading… there, taking
+ * the place of the root's note for agents, which the part's first drawing replaces anyway.
+ */
+export function shellNote(page: Pick<Document, "getElementById" | "createElement">): WaitingNote {
+  return {
+    show: () => {
+      const note = page.createElement("p");
+      note.textContent = shellLoadingText;
+      page.getElementById("root")?.replaceChildren(note);
+      return () => {
+        note.remove();
+      };
+    },
+  };
 }
 
 /**
@@ -189,8 +209,22 @@ interface Marked<Loaded> {
   readonly isLoaded: (loaded: unknown) => loaded is Loaded;
 }
 
-/** Loads part by load as loadPart says, the tab's reload for it marked at mark. */
+/** Loads part by load as loadPart says, the tab's reload for it marked at mark, its note shown while it waits. */
 async function loadMarked<Loaded>(
+  marked: Marked<Loaded>,
+  load: () => Promise<Loaded>,
+  parts: PartLoadParts,
+): Promise<Loaded> {
+  const takeNoteAway = noteAfterWaiting(parts.note);
+  try {
+    return await askedUntilLoaded(marked, load, parts);
+  } finally {
+    takeNoteAway();
+  }
+}
+
+/** Loads part by load as loadPart says, asking on until it comes, or reloading the page for it. */
+async function askedUntilLoaded<Loaded>(
   marked: Marked<Loaded>,
   load: () => Promise<Loaded>,
   parts: PartLoadParts,

@@ -391,7 +391,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   While the loader's page waits for its role's code past `partNoteAfterMs`, it shows a screen's
   Loading… (`common.loading`), drawn by the loader's own bundle, never by the code it waits for, and
   takes it away as the code comes, before the role's page draws; a role that comes sooner never
-  shows it (the owner's "show loading", 2026-11-15). The loader's page and the discovery's floor are waited on for at most
+  shows it (the owner's "show loading", 2026-11-15). The shell waiting for the page's own part, the
+  loader or the client, shows the same note the same way, its English written again
+  (`shellLoadingText`, held to `common.loading` by `part-load.test.ts`), as the shell loads no
+  translation (the owner, 2026-11-15: "Untranslated is fine"). The loader's page and the discovery's floor are waited on for at most
   `discoveryWaitMs` (D486): past it the worker opens the page it kept, and the floor, asked
   alongside the manifest, is taken as not reached. A page a worker controls under a loader asks it, once, for an address
   only the worker answers (`workerProbePath`); answered by the network, or not at all, developer
