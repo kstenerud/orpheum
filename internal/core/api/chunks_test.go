@@ -329,10 +329,11 @@ func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
 		`"wantedChunk":1,`)
 }
 
-// A player that gave up the film's own picture as one its device cannot play is not offered it at
-// its next playback of the film; another player, here another session, still is (D266): Firefox on
-// a Mac gave Flow's up anew at every playback (the owner's test, 2026-10-12).
-func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *testing.T) {
+// The core keeps no film whose own picture a player gave up (D492 §3): a report saying one is logged,
+// and the player's next playback is still offered the picture, unless its start says it gave it up,
+// as the device that keeps the film says on each start of it (D266; Firefox on a Mac gave a film's up
+// anew at every playback, the owner's test, 2026-10-12).
+func TestChunks_AFilmsOwnPictureGivenUpIsLeftOutOnlyWhereTheStartSaysSo(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -344,18 +345,19 @@ func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *t
 	if answer := harness.report(t, user, first, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
-	next := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/master.m3u8"
-	if master := harness.getBytePath(t, next, user, true, ""); master.status != http.StatusOK ||
-		strings.Contains(master.body, "picture/stream.m3u8") || !strings.Contains(master.body, "q2000k540p") {
-		t.Errorf("the next playback's master playlist offers the picture given up, or nothing:\n%s", master.body)
-	}
-	other := harness.signIn(t, "owner", "owner-password")
-	elsewhere := api.Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
-	if master := harness.getBytePath(t, elsewhere, other, true, ""); !strings.Contains(master.body,
-		"picture/stream.m3u8") {
-		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
-	}
 	harness.logs.AwaitEvent(t, "qualityUnplayable", `"isFilmsOwnPicture":true`)
+	master := func(asked map[string]any) string {
+		path := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, asked).MediaToken + "/master.m3u8"
+		return harness.getBytePath(t, path, user, true, "").body
+	}
+	if next := master(chrome(1)); !strings.Contains(next, "picture/stream.m3u8") {
+		t.Errorf("the next playback, its start saying nothing given up, lost the picture:\n%s", next)
+	}
+	saying := chrome(1)
+	saying["hasGivenUpOwnPicture"] = true
+	if next := master(saying); strings.Contains(next, "picture/stream.m3u8") || !strings.Contains(next, "q2000k540p") {
+		t.Errorf("a start saying the picture was given up is offered it, or nothing:\n%s", next)
+	}
 }
 
 // A page asking again because its player gave the film's own picture up starts at the twin, H.264 at

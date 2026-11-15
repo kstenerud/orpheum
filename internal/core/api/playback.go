@@ -67,8 +67,8 @@ type StartPlaybackInput struct {
 		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,upNext,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,boostChosen,raiseWanted,dataCapStarted,playbackGone,ownPictureGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
 		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                                                  //nolint:lll // one struct tag
 		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
-		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
-		// keeps it before it decides, whether or not the player's report reached it first.
+		// unplayable on this device (D266), so the playback starts at its twin (D323 §2): the device
+		// keeps the films it gave up and says so on each start of one; the core keeps none (D492 §3).
 		HasGivenUpOwnPicture bool `doc:"Whether the player gave the film's own picture up as unplayable here" json:"hasGivenUpOwnPicture,omitempty" required:"false"` //nolint:lll // one struct tag
 		// IsWebAudioLate is the player's word that its device's sound through Web Audio plays later
 		// than D436's bound, so a sound levelling raises plays from the film's ladder, whose sound

@@ -97,8 +97,8 @@ type tokenPlayback struct {
 	// isSoundUnmeasured is whether its film's sounds were first offered to it before its loudness was
 	// measured: none is made as loud as its track's own sound, to its end (chunks.Playback).
 	isSoundUnmeasured bool
-	// isOwnPictureUnplayable is whether its player, on an earlier playback of the film, gave up the
-	// film's own picture as one its device cannot play (D266): it is not offered (unplayablePictures).
+	// isOwnPictureUnplayable is whether its player said, as it started, that it gave up the film's own
+	// picture as one its device cannot play (D266), which the device keeps (D492 §3): it is not offered.
 	isOwnPictureUnplayable bool
 	// ownSoundTracks are its film's audio tracks, by place, its device plays as they are: the top of
 	// its ladder, the film's own picture, plays them copied (D368 §1).

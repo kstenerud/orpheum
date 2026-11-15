@@ -107,8 +107,6 @@ type Service struct {
 	absences    *library.Absences
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
-	// unplayablePictures are the films whose own picture each player gave up as unplayable.
-	unplayablePictures *unplayablePictures
 	// sendAway sends away the newest Watch Together member with a player (SendAwayBy); nil sends
 	// no one.
 	sendAway SendAway
@@ -130,8 +128,7 @@ func NewService(parts Parts) *Service {
 		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, absences: parts.Absences,
-		speeds:             newLinkSpeeds(parts.Database),
-		unplayablePictures: newUnplayablePictures(),
+		speeds: newLinkSpeeds(parts.Database),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
 	if parts.Chunks != nil {
@@ -151,7 +148,7 @@ type Request struct {
 	// for the player is kept by (D257 §1).
 	ClientAddress string
 	// HasGivenUpOwnPicture is the player's word that it gave the film's own picture up as unplayable
-	// on its device (D266): kept before the playback is decided, so it starts at the twin (D323 §2).
+	// on its device (D266), which the device keeps (D492 §3), so it starts at the twin (D323 §2).
 	HasGivenUpOwnPicture bool
 	// IsWebAudioLate is the player's word that its device's sound through Web Audio plays later than
 	// D436's bound, so it raises no sound itself: a sound levelling raises is the ladder's (D436).
@@ -263,7 +260,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryIDs: place.LibraryIDs,
 		deviceID: request.DeviceID, decision: decision,
-		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
+		isOwnPictureUnplayable: request.HasGivenUpOwnPicture,
 		ownSoundTracks:         ownSoundTracksOf(probe, request.PlayableFormats),
 		// A person who plays without levelling hears the film's sound unlevelled, carrying no gain
 		// for the player to take back out through Web Audio, whose latency, half a second on an
@@ -324,17 +321,6 @@ func ownSoundTracksOf(probe nodeproto.Probe, formats decide.PlayableFormats) []i
 		}
 	}
 	return tracks
-}
-
-// isOwnPictureUnplayable is whether the asking player gave fileID's own picture up as unplayable on
-// its device (D266): on an earlier playback, as its report said, or as this request says, which is
-// kept first, so a page asking again at once is offered the twin (D323 §2).
-func (service *Service) isOwnPictureUnplayable(holder Holder, request Request, fileID int64) bool {
-	player := playerOf(request.DeviceID, holder.SessionKey)
-	if request.HasGivenUpOwnPicture {
-		service.unplayablePictures.remember(player, fileID)
-	}
-	return service.unplayablePictures.has(player, fileID)
 }
 
 // issued is started with its tracks named and its media token issued, which an idle playback loses
