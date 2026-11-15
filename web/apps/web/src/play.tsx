@@ -67,6 +67,7 @@ import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { PlayOrSendOn, type PlayedHereFrom } from "./cast-to.tsx";
 import { WhoseFilm } from "./together-guest-play.tsx";
+import { useIsOpenedOverAFilm, WindowHeldForTheFilm } from "./play-window-held.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
 import type { Opened } from "./play-start-timing.ts";
 import {
@@ -691,6 +692,8 @@ export function Play(props: {
 function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFrom }): JSX.Element {
   const { t } = useTranslation();
   const receiving = useReceiving(props.fileId);
+  // Next, Previous and Up next draw the Play page again: the window stays covered meanwhile.
+  const isOpenedOverAFilm = useIsOpenedOverAFilm();
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
     useOpenedPlayback(props.fileId, firstAskOf(receiving, props.from));
   const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
@@ -711,13 +714,17 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
   // owner's test, 2026-10-18: "the page should hold the video open if it can while it tries to
   // reconnect").
   const shown = shownOf(opened, held);
-  if (shown === undefined) {
-    return <Loaded resource={opened} render={render} />;
-  }
   return (
     <>
-      {opened.state === "loaded" ? null : <output>{t("play.reopening")}</output>}
-      {render(shown)}
+      {isOpenedOverAFilm ? <WindowHeldForTheFilm isFailed={opened.state === "failed"} /> : null}
+      {shown === undefined ? (
+        <Loaded resource={opened} render={render} />
+      ) : (
+        <>
+          {opened.state === "loaded" ? null : <output>{t("play.reopening")}</output>}
+          {render(shown)}
+        </>
+      )}
     </>
   );
 }

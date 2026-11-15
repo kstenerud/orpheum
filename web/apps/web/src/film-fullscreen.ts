@@ -53,9 +53,12 @@ export function followFillsWindow(listener: () => void): () => void {
   };
 }
 
-/** Whether a player's stage on the page fills the window, where full screen was refused. */
-export function isAStageFillingTheWindow(page: Document): boolean {
-  return page.querySelector(`.${fillsWindowClass}`) !== null;
+/**
+ * Whether a player's stage on the page fills the window, where full screen was refused; besides
+ * given, one other than it.
+ */
+export function isAStageFillingTheWindow(page: Document, besides?: Element): boolean {
+  return [...page.querySelectorAll(`.${fillsWindowClass}`)].some((stage) => stage !== besides);
 }
 
 /**

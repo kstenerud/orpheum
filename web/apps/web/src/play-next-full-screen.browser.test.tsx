@@ -17,6 +17,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
+import { followFillsWindow } from "./film-fullscreen.ts";
 import { directDecision } from "./test-fixtures.ts";
 import {
   filmDetail,
@@ -45,7 +46,10 @@ const filmToPlay: WalkAnswers = {
 
 describe("the Play page in full screen, as Next or Previous plays another file", () => {
   let walking: Walking | undefined;
+  let stopFollowing: (() => void) | undefined;
   afterEach(() => {
+    stopFollowing?.();
+    stopFollowing = undefined;
     walking?.unmount();
     walking = undefined;
     vi.restoreAllMocks();
@@ -75,5 +79,32 @@ describe("the Play page in full screen, as Next or Previous plays another file",
     expect(stage?.isConnected).toBe(false);
     expect(asked[0]?.isConnected).toBe(true);
     expect(asked[0]).toBe(document.documentElement);
+  });
+
+  it("keeps the shell's banner hidden as the next file's Play page waits for its playback", async () => {
+    // The owner, 2026-11-14, VQ267 on the Android phone: "whenever it switches to the next or
+    // previous video I see a brief flash of the orpheum top bar".
+    await page.viewport(1280, 800);
+    const services = walkServices(filmToPlay, "/play/1030");
+    walking = await mountApp(services);
+    await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();
+    const stage = document.querySelector(".film-player__stage");
+    const banner = document.querySelector(".app-shell__banner");
+    expect(banner).not.toBeNull();
+    const isBannerShown = (): boolean =>
+      banner !== null && getComputedStyle(banner).visibility !== "hidden";
+    expect(isBannerShown()).toBe(false);
+    // At each change of what fills the window, whether the banner showed.
+    const bannerShown: boolean[] = [];
+    stopFollowing = followFillsWindow(() => {
+      bannerShown.push(isBannerShown());
+    });
+    services.navigation.replace({ screen: "play", fileId: 1040 });
+    await expect.poll(() => stage?.isConnected).toBe(false);
+    await expect.poll(() => document.querySelector("video")?.error?.code).toBeDefined();
+    await expect.poll(() => document.querySelectorAll(".film-player__stage").length).toBe(1);
+    expect(bannerShown.length).toBeGreaterThan(0);
+    expect(bannerShown).not.toContain(true);
+    expect(isBannerShown()).toBe(false);
   });
 });

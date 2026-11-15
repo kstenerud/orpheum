@@ -3294,3 +3294,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   picture to show the controls and, at once, tap the scrub bar far from where the film stands.
   Passes when the film plays on where it was; a tap on the bar a second or more after the controls
   show still jumps there, and a drag along the bar, started at once, still follows the finger.
+- [ ] **VQ348** — Next and Previous in full screen show no flash of the top bar (the owner,
+  2026-11-14, on VQ267). On the owner's Android phone, Chrome, on staging, an episode of a series
+  playing full screen: press Next, then Previous, several times. Passes when the screen stays black
+  between one episode and the next each time, with no glimpse of Orpheum's top bar, and each episode
+  plays full screen as before.
