@@ -15,7 +15,9 @@ import { guardFormsOk } from "./form-ok.ts";
 import { coreIdOfOrigin, loaderConfigOf } from "./loader-config.ts";
 import { removeUnownedKeys } from "./browser-storage.ts";
 import { clearCookies } from "./loader-sweep.ts";
-import { loadRole, type PartLoadParts } from "./part-load.ts";
+import type * as AtClientOriginRole from "./loader-at-client-origin.tsx";
+import type * as AtLoaderOriginRole from "./loader-at-loader-origin.tsx";
+import { exportingFunction, importModuleAt, loadRole, type PartLoadParts } from "./part-load.ts";
 
 /** The keys the loader owns at its own origin: the household list, and the remembered realm. */
 const ownedAtLoaderOrigin = new Set(["orpheum.loader.households", "orpheum.discovery.realm"]);
@@ -52,6 +54,7 @@ const roleLoadParts: PartLoadParts = {
     window.location.reload();
   },
   wait: waitMs,
+  importAt: importModuleAt,
 };
 
 /** Clears this origin's cookies: no page the loader serves sets one, so any here was set by another core's page (D308 §7). */
@@ -95,7 +98,10 @@ async function loaderPage(): Promise<JSX.Element | undefined> {
     unregisterTheWholeClientsWorker();
     const { startAtLoaderOrigin } = await loadRole(
       "loader's role at its own origin",
-      async () => await import("./loader-at-loader-origin.tsx"),
+      {
+        load: async () => await import("./loader-at-loader-origin.tsx"),
+        isRole: exportingFunction<typeof AtLoaderOriginRole>("startAtLoaderOrigin"),
+      },
       roleLoadParts,
     );
     return startAtLoaderOrigin({
@@ -108,7 +114,10 @@ async function loaderPage(): Promise<JSX.Element | undefined> {
   }
   const { AtClientOriginPage } = await loadRole(
     "loader's role at a client's origin",
-    async () => await import("./loader-at-client-origin.tsx"),
+    {
+      load: async () => await import("./loader-at-client-origin.tsx"),
+      isRole: exportingFunction<typeof AtClientOriginRole>("AtClientOriginPage"),
+    },
     roleLoadParts,
   );
   return (

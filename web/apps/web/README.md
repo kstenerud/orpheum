@@ -384,7 +384,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   through a page carrying its path, waited for patiently, or is answered 502 saying none does; a
   worker keeps a page's answer on its path, never its silence, and tells the page, which tells the
   core's log, where it sent its media and why; a page no worker controls once it found its core
-  reloads once in its tab. The loader's page and the discovery's floor are waited on for at most
+  reloads once in its tab. The page's part, or the loader's role, whose code does not come is asked
+  for again under an address of its own, the page reloads once in its tab, and the page reloaded
+  for it asks on, each pause longer up to `partAskCapMs`, until it comes, never reloading again
+  (`part-load.ts`; it threw there, and a deploy left the page black, the 11-26 batch's item 1). The loader's page and the discovery's floor are waited on for at most
   `discoveryWaitMs` (D486): past it the worker opens the page it kept, and the floor, asked
   alongside the manifest, is taken as not reached. A page a worker controls under a loader asks it, once, for an address
   only the worker answers (`workerProbePath`); answered by the network, or not at all, developer
@@ -393,7 +396,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   posters 404'd for an afternoon with nothing said, agent-failures A51).
   `loader-config.test.ts`, `loader-households.test.ts`,
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
-  `loader-sweep.test.ts`, `sw.test.ts`, `worker-bypassed-note.test.tsx`, and the SDK's
+  `loader-sweep.test.ts`, `part-load.test.ts`, `part-load.browser.test.ts`, `sw.test.ts`,
+  `worker-bypassed-note.test.tsx`, and the SDK's
   `discovery.test.ts`, `rtc-media.test.ts` and `worker-control.test.ts`.
 - **The service worker keeps the core's images whose address names their content, and answers them
   from there** (D485): an image is kept by its path alone (`isContentAddressedImage`, artUrl's

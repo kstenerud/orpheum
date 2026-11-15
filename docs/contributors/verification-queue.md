@@ -3299,3 +3299,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   playing full screen: press Next, then Previous, several times. Passes when the screen stays black
   between one episode and the next each time, with no glimpse of Orpheum's top bar, and each episode
   plays full screen as before.
+- [ ] **VQ349** — A deploy leaves no black page at a client origin (the 11-26 batch's item 1). On
+  the owner's Android phone, Firefox, with orpheum.dev opened on staging before: have staging
+  updated by `./staging quick`, then type orpheum.dev and go on to the core. Passes when the client
+  shows, with no reload by hand: at once, or after a black wait of up to half a minute while the new
+  release's files come. If it took the wait, the core's log should show the reload's note, "the page
+  reloaded, once: the code of its loader's role at a client's origin did not load, asked twice …";
+  a page that stays black past a minute fails it (`part-load.ts`, fix(web): the page reloaded for
+  its code asks on until it comes, under an address of its own).

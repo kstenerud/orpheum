@@ -9,9 +9,16 @@
  * one that fails on a first visit comes on the next. The part is asked again once, after a pause
  * (screen-load.tsx's screenRetryMs: Vite's preload failing, the module itself was never imported,
  * and asking again loads it); failing again, the page reloads, once in the tab, leaving a note for
- * the page that follows to tell the core's log (reload-note.ts). A second time in the tab the
- * failure is thrown, as before; a part that loads clears the tab's mark, so a later time reloads
- * again.
+ * the page that follows to tell the core's log (reload-note.ts). A part that loads clears the tab's
+ * mark, so a later time reloads again.
+ *
+ * A module that failed is asked again under an address of its own (moduleAddressOf): Chromium keeps
+ * a failed import failed for the document's life and asks nothing again for it (idiosyncrasies: "A
+ * dynamic import that failed fails again without a request"). The page reloaded for its code no
+ * longer gives up: it threw there, and the page stayed black with nothing said after a deploy, until
+ * the person reloaded it by hand (the owner's Firefox, the loader's role at a client's origin,
+ * staging, the 11-26 batch's item 1). It asks again by itself, each pause twice the one before up to
+ * partAskCapMs, until the code comes, and never reloads again, so it cannot loop.
  */
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -21,6 +28,9 @@ import { leaveReloadNote } from "./reload-note.ts";
 
 /** How long the part's code is waited for before it is asked again (screen-load.tsx screenRetryMs). */
 export const partRetryMs = 1000;
+
+/** The longest pause between the asks of a page reloaded for its part's code. */
+export const partAskCapMs = 30_000;
 
 /** The tab's key for the reload a page made because its part's code did not load. */
 const reloadedForPartKey = "orpheum.main.reloadedForPart";
@@ -35,6 +45,8 @@ export interface PartLoadParts {
   readonly reload: () => void;
   /** Waits ms; setTimeout's, but for a test. */
   readonly wait: (ms: number) => Promise<void>;
+  /** Imports the module at address: importModuleAt, but for a test. */
+  readonly importAt: (address: string) => Promise<unknown>;
 }
 
 /**
@@ -48,16 +60,60 @@ export async function shellWaitMs(ms: number): Promise<void> {
   });
 }
 
+/** Imports the module at address, a failed module's code asked for again under an address of its own. */
+export async function importModuleAt(address: string): Promise<unknown> {
+  const loaded: unknown = await import(/* @vite-ignore */ address);
+  return loaded;
+}
+
+/**
+ * The address of the module a failed import names, without its query: Chromium's "Failed to fetch
+ * dynamically imported module: …" and Firefox's "error loading dynamically imported module: …" each
+ * end with it. Undefined where the failure names none (Safari's, or Vite's failed preload of a
+ * stylesheet, which asking by the same import mends).
+ */
+export function moduleAddressOf(failure: unknown): string | undefined {
+  const reason = failure instanceof Error ? failure.message : String(failure);
+  const named = /dynamically imported module: (\S+)$/u.exec(reason)?.[1];
+  return named?.split("?")[0];
+}
+
+/**
+ * Says a module asked for again is the code that exports name, a function, as a role's module does
+ * (loader-main.tsx).
+ */
+export function exportingFunction<Module>(
+  name: keyof Module & string,
+): (loaded: unknown) => loaded is Module {
+  return (loaded: unknown): loaded is Module =>
+    typeof loaded === "object" &&
+    loaded !== null &&
+    typeof Reflect.get(loaded, name) === "function";
+}
+
+/** Whatever a part's module is: a part is loaded for what it does, not for what it hands back. */
+function isAnyPart(loaded: unknown): loaded is unknown {
+  return loaded !== undefined;
+}
+
 /**
  * Loads part, named for the note, by load: asked again once after partRetryMs when it fails, then
- * reloading the page once in the tab, else throwing why. A page that reloads never settles.
+ * reloading the page once in the tab; the page reloaded for it asks on until it comes. A page that
+ * reloads never settles.
  */
-export async function loadPart<Loaded>(
+export async function loadPart(
   part: string,
-  load: () => Promise<Loaded>,
+  load: () => Promise<unknown>,
   parts: PartLoadParts,
-): Promise<Loaded> {
-  return await loadMarked({ mark: reloadedForPartKey, part }, load, parts);
+): Promise<unknown> {
+  return await loadMarked({ mark: reloadedForPartKey, part, isLoaded: isAnyPart }, load, parts);
+}
+
+/** A loader's role's code: its import, and how a module asked for again is told for it. */
+export interface RoleCode<Loaded> {
+  readonly load: () => Promise<Loaded>;
+  /** Says a module asked for again under an address of its own is the role's (exportingFunction). */
+  readonly isRole: (loaded: unknown) => loaded is Loaded;
 }
 
 /**
@@ -67,42 +123,96 @@ export async function loadPart<Loaded>(
  */
 export async function loadRole<Loaded>(
   role: string,
-  load: () => Promise<Loaded>,
+  code: RoleCode<Loaded>,
   parts: PartLoadParts,
 ): Promise<Loaded> {
-  return await loadMarked({ mark: reloadedForRoleKey, part: role }, load, parts);
+  return await loadMarked(
+    { mark: reloadedForRoleKey, part: role, isLoaded: code.isRole },
+    code.load,
+    parts,
+  );
+}
+
+/** What loadMarked loads: its part, named for the note, the tab's mark for its reload, and how it is told. */
+interface Marked<Loaded> {
+  readonly mark: string;
+  readonly part: string;
+  readonly isLoaded: (loaded: unknown) => loaded is Loaded;
 }
 
 /** Loads part by load as loadPart says, the tab's reload for it marked at mark. */
 async function loadMarked<Loaded>(
-  { mark, part }: { readonly mark: string; readonly part: string },
+  marked: Marked<Loaded>,
   load: () => Promise<Loaded>,
   parts: PartLoadParts,
 ): Promise<Loaded> {
+  // The module that failed, once a failure names it: asked for again under addresses of its own,
+  // though a later failure (the module asked for not the part's) names none.
+  let address: string | undefined;
+  let failure: unknown;
   try {
-    const loaded = await load();
-    parts.tab.removeItem(mark);
-    return loaded;
-  } catch {
-    await parts.wait(partRetryMs);
-  }
-  try {
-    const loaded = await load();
-    parts.tab.removeItem(mark);
-    return loaded;
+    return loaded(marked, await load(), parts);
   } catch (cause: unknown) {
-    if (parts.tab.getItem(mark) !== null) {
-      throw cause;
-    }
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    parts.tab.setItem(mark, "1");
+    address = moduleAddressOf(cause);
+  }
+  await parts.wait(partRetryMs);
+  try {
+    return loaded(marked, await askedAgain(marked, { load, address, asked: 2 }, parts), parts);
+  } catch (cause: unknown) {
+    failure = cause;
+    address = moduleAddressOf(cause) ?? address;
+  }
+  if (parts.tab.getItem(marked.mark) === null) {
+    const reason = failure instanceof Error ? failure.message : String(failure);
+    parts.tab.setItem(marked.mark, "1");
     leaveReloadNote(
       parts.tab,
-      `the page reloaded, once: the code of its ${part} did not load, asked twice (${reason})`,
+      `the page reloaded, once: the code of its ${marked.part} did not load, asked twice (${reason})`,
     );
     parts.reload();
     return await new Promise<never>(() => undefined);
   }
+  let pause = partRetryMs;
+  for (let asked = 3; ; asked += 1) {
+    pause = Math.min(pause * 2, partAskCapMs);
+    await parts.wait(pause);
+    try {
+      return loaded(marked, await askedAgain(marked, { load, address, asked }, parts), parts);
+    } catch (cause: unknown) {
+      address = moduleAddressOf(cause) ?? address;
+    }
+  }
+}
+
+/** The part's code, come: the tab's mark cleared, so a later failure reloads again. */
+function loaded<Loaded>(marked: Marked<Loaded>, code: Loaded, parts: PartLoadParts): Loaded {
+  parts.tab.removeItem(marked.mark);
+  return code;
+}
+
+/**
+ * The part's code asked for again, the asked-th ask: when a failure named its module, at address
+ * under an address of its own, which a browser that keeps the failed one asks for afresh; else by
+ * load.
+ */
+async function askedAgain<Loaded>(
+  marked: Marked<Loaded>,
+  again: {
+    readonly load: () => Promise<Loaded>;
+    readonly address: string | undefined;
+    readonly asked: number;
+  },
+  parts: PartLoadParts,
+): Promise<Loaded> {
+  const { address } = again;
+  if (address === undefined) {
+    return await again.load();
+  }
+  const code = await parts.importAt(`${address}?asked=${String(again.asked)}`);
+  if (!marked.isLoaded(code)) {
+    throw new Error(`${address} is not the code of its ${marked.part}`);
+  }
+  return code;
 }
 
 /** The page's two parts, each loaded by its own import. */

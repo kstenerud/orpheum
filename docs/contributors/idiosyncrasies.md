@@ -1641,7 +1641,7 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 
 ### A dynamic import that failed fails again without a request
 
-- **Technology:** ES module loading, `import()` (measured in Chromium 153).
+- **Technology:** ES module loading, `import()` (measured in Chromium 153; Firefox does fetch again).
 - **Symptom:** a screen whose code is loaded as it is first shown failed to load once, and asking
   again at once or a second later failed the same way, `Failed to fetch dynamically imported
   module: …`, with no request for the file.
@@ -1650,10 +1650,20 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 - **What we do:** a screen's code is asked for once more after a second, for a browser that does
   fetch it again, and then the page says it could not load, with Reload, which makes a new document
   (`web/apps/web/src/screen-load.tsx`). A different address would fetch the file again, but the
-  chunks it imports in turn, which failed with it, would not.
+  chunks it imports in turn, which failed with it, would not. A page's part or a loader's role,
+  whose failure leaves the page black, is asked for again under an address of its own (the failed
+  module's, read from the failure, with `?asked=N`), since a failed module's own fetch is what
+  failed and its imports were never asked for; the page reloaded for it asks on so until it comes
+  (`web/apps/web/src/part-load.ts` moduleAddressOf; `part-load.browser.test.ts`, the 11-26 batch's
+  item 1).
 - **Evidence:** **[measured]** 2026-10-29, Chromium 153 under Playwright against a local server: a
   module that 404'd, then was made, imported again from the same page failed again, and the server
-  saw no second request for it.
+  saw no second request for it. **[measured]** 2026-11-15, Chromium and Firefox under Playwright,
+  the build's loader at a client's origin against a local server that refused its role's module a
+  few times: Chromium's second ask sent no request and the page reloaded for it, refused once more,
+  stayed black; Firefox asked again each time (`error loading dynamically imported module: …`),
+  and went black only once its asks were spent; with the module asked for under `?asked=N`, both
+  fetched it again and the role ran.
 
 ### A cast receiver is started by a message, so the browser gives it neither sound nor full screen
 
