@@ -28599,10 +28599,10 @@ or come from outside. The rows the audit found justified stand.
   tab holds names each device connected, and reads it again for one it does not (D480 §3)")
 - 4: web/apps/web/src/roles-section.test.tsx ("offers the libraries the shell holds to tick, asking
   for none on opening (D480 §4)")
-- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysItsSoundOffset`);
-  web/apps/web/src/together-viewer-sound.test.tsx ("takes that offset from who the shell read as
-  signed in, asking for no list of devices (D480 §5)", "drawn alone, takes it from GET /me's device,
-  still asking for no list of devices")
+- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysItsSoundOffset`, the core
+  keeping it again since D492's revert, D493 §1);
+  web/apps/web/src/together-viewer-sound.test.tsx ("starts from the offset kept with the device the
+  viewer is signed in on, as the server gives a guest's playback none")
 
 ## D481 — An admin page's first read carries what its other sections read
 
@@ -29092,7 +29092,7 @@ sending it for every part where the value is relevant"*, and of the lead's plan 
 keeps a device's settings and the browser a copy, the data cap and the own pictures given up kept
 by the core too): *"Yes agreed. Go ahead."* A device whose site data is cleared is still a new one;
 its old record is left unused, which loses nothing the browser's keeping would have kept. The
-reverted text stays below as the record; the next decision says what replaces it.
+reverted text stays below as the record; D493 replaces it.
 
 **Decided** (2026-11-15), by the project owner, on D489 §3: *"if a device forgets the server
 (delete all data about orpheum.cc) and reconnects, can we even associate it with the same device
@@ -29165,3 +29165,81 @@ Only the owner's TV holds the delay the core kept: VQ342.
   unplayable on a ladder, and its start says nothing given up) would be offered it again.
 - `PUT /me/devices/{id}`'s body now needs its `name`; a client sending only the old
   `soundOffsetMs` is refused, as the strict decoder refuses a field it does not know.
+
+## D493 — A device's settings are kept by the core, with a copy in its browser
+
+**Decided** (2026-11-15), by the project owner, reverting D492 before it was released: *"maybe
+it's actually better to keep the settings server side than. We keep a copy on the phone so it
+doesn't need to keep asking the server, and the server has a copy so that the client doesn't need
+to remember to keep sending it for every part where the value is relevant"*; and of the lead's plan
+(the core keeps a device's settings and the browser a copy, one `PUT` changing both; the data cap
+and the own pictures given up kept by the core too): *"Yes agreed. Go ahead."* Replaces D492.
+Amends D488 §4 and §6 and D489 §3, which kept the caps in the browser and had it ask for the
+ladder.
+
+1. **The core keeps a device's settings, and its browser a copy.** A change updates both through
+   `PUT /me/devices/{id}`; the copy is refreshed from `GET /me`'s `device`, at each read of who is
+   signed in, so no page asks the core for a setting. The core acts on its own record at every
+   point a setting matters; a request says only what only the device knows. The sound offset is
+   kept as before D492 (`device.sound_offset_ms`, the shell's `GET /me` its copy, written through
+   `latestWrite`).
+2. **The data caps are kept with the device** (step 0088: `device.data_cap_wifi_kbps`,
+   `data_cap_mobile_kbps`, `data_cap_unknown_kbps`, NULL for No limit; `auth.DataCaps`), still one
+   for each kind of network D488 §5 names. `PUT /me/devices/{id}` takes `dataCaps`, the three in
+   one, a kind left out No limit; `GET /me` and the devices list say them.
+3. **A start says the kind of network it is on** (`networkKind`: `wifi`, `mobile` or `unknown`,
+   from `navigator.connection` as D488 §5 reads it), and the core applies that kind's cap itself
+   (`deliveryUnderCap`): under any cap the film plays from its ladder, a wish (`userChoice`), but
+   for its own file chosen (`preferredDelivery: "direct"`, cause `originalChosen`) where the file's
+   whole rate is within the cap, as D491 §4 has it; a film with no ladder plays as it is, as
+   D489 §1 has it (`directForWishesOffTheLadder`). **The start is capped too:** a start on the
+   ladder begins on the highest rung under the cap (`withinDataCap` on
+   `chunks.Playback.StartAtMostKbps`, held as an upload's hold is), where a capped phone began at
+   the top and made the own picture's chunks while the player dropped (staging, 2026-11-15:
+   `startsOnLadderKbps=2109` under a cap of 0.4 GB per hour). The browser no longer sends
+   `preferredDelivery: "hls"`; `preferredDeliveryOf` and the file rates it kept are gone. A start
+   that says no kind, a cast's receiver's or AirPlay's, is uncapped, as D489 §4 has it.
+4. **The browser's copy stays where it was** (`orpheum.dataCaps`, data-cap.ts), read by hls.js's
+   ceiling (`dataCapKbps`), ⋯'s choices and the re-ask a cap starting to hold makes (D489 §2, cause
+   `dataCapStarted`, `useWhenTheCapFallsUnder`). A choice keeps the copy at once and the core's
+   after, one write at a time in the order chosen (`DataCaps.choose`, `settleWithCore`); a start
+   waits for the writes before it (`DataCaps.written`), so the re-ask is decided by the cap just
+   chosen. A write that fails is reported and the copy kept; the next read of who is signed in
+   then takes the core's. **Carried over once:** where the core keeps no cap for the device and
+   the browser some, chosen under D488, the shell keeps the browser's on the core, and the core's
+   are the truth from then on (`useDataCapsSettledWithTheCore`).
+5. **The own pictures a device gave up are kept by the core in the store** (`own_picture_given_up`,
+   by device and file, deleted with either), replacing the core's memory of them for its life
+   (D266, D323 §2), so a restart keeps them. A report's give-up is kept before the report, so a
+   report whose keeping fails has kept nothing and may be sent again; a start that says it gave
+   up (`hasGivenUpOwnPicture`) is kept too.
+6. **`link_memory` stays as it is** (D257 §1), and so does everything else D492 §2 left on the
+   core.
+
+**Proven by:** TestDevices_ADevicesDataCapsAreKeptByTheCoreAndToldWithWhoIsSignedIn,
+TestPlayback_ACappedDeviceStartsOnItsLadderUnderItsCap and
+TestChunks_AnOwnPictureGivenUpOutlivesTheCoreThatHeardIt (internal/core/api/data_cap_test.go);
+TestSetDataCaps_AreKeptOnTheDeviceAndOnlyItsOwnerSetsThem (internal/core/auth);
+TestDeliveryUnderCap_IsTheLadderButForAnOriginalChosenWithinTheCap and
+TestWithinDataCap_IsTheLowerOfTheUploadLeftAndTheCap (internal/core/playback);
+TestMigrate_FreshSchemaEqualsTheGolden's v0088 golden and the backup test's fixture (internal/store); "a device's data caps, the core's with
+a copy in its browser (D493)" (web/apps/web/src/data-cap.test.ts); "a playback asked for on a
+device under a data cap (D488, D493)" (web/apps/web/src/watching.test.ts); the App's carry-over
+test (web/apps/web/src/app.test.tsx). Only a phone shows the start's rung and a restart's keeping:
+VQ343 to VQ346.
+
+**Open, for the owner:**
+
+- **A device-less session keeps nothing on the core.** A Watch Together guest with no device of
+  its own has no record to keep a cap or a give-up on: its cap holds in its browser's ceiling alone,
+  its start is not capped, and a give-up holds for the playback that said it. Proposed: leave it, a
+  guest watching rarely on mobile data.
+- **The give-ups are kept with no bound but the device's and the file's.** A device gives up few
+  films (one row each); proposed: no expiry, as D266 had none for the server's life.
+- **A cast's or AirPlay's start says no kind** and stays uncapped (D489 §4); a cast from a capped
+  phone plays the TV's own way.
+- **A cap and the D491 rule now live on both sides.** The core decides the delivery; the browser
+  still judges whether ⋯ offers "Play the original file" (`isWithinCap`) and when a cap starting to
+  hold asks again. Proposed: leave it, the browser's being what it draws.
+- **VQ numbers:** D492's reverted text names VQ342, which its revert removed from the queue; this
+  decision's start at VQ343 so the number is not reused.

@@ -3270,3 +3270,22 @@ An item is ticked only by the person who did it, and only with what they saw.
   file of the same length). Passes when ⋯ offers its "Play the original file" (debug tools shown),
   which plays its own file with no move; then, Wi-Fi turned off, the film plays on from where it
   stood on its ladder at the 700k rung or lower.
+- [ ] **VQ343** — A capped phone starts a new film on a rung under its cap (D493 §3). On the Android
+  phone, Chrome, on mobile data with ⋯'s data use on mobile data at 0.4 GB per hour, debug tools
+  shown: play a film not played on it before, whose ladder is ready. Passes when the stats show its
+  first chunks at the 700k rung or lower from the start, not the top first, and the core's log's
+  `playbackStarted` says `networkKind=mobile`, `dataCapKbps` the cap and a `ladderQuality` under
+  it. Only a phone's own network says it is on mobile data; the tests fake it.
+- [ ] **VQ344** — A cap holds after a reload and a core restart (D493 §2, §4). On the Android phone,
+  Chrome, with a cap chosen on mobile data: reload the page, then have the core restarted (staging),
+  and play a film on mobile data. Passes when ⋯'s data use shows the cap chosen, and the film starts
+  under it as VQ343 has it. Then, on a browser whose cap was chosen before D493 (one kept only in
+  its storage), the first sign-in page after the update keeps it on the core: the devices' list
+  (or the log's `dataCapsSet`) shows it.
+- [ ] **VQ345** — The TV's sound delay survives (D493 §1). On the owner's TCL TV, whose sound delay
+  was set before D492's revert: open a film. Passes when the player's and ⁝'s sound timing show the
+  delay set on it, and the sound plays that much later, as before.
+- [ ] **VQ346** — An own picture given up survives a core restart (D493 §5). On a device whose
+  player gives a film's own picture up (the Fire TV on an HEVC film, say), debug tools shown: play
+  the film until it moves to the twin, then have the core restarted (staging), and play it again.
+  Passes when the stats show the twin's picture from the start, with no give-up again.
