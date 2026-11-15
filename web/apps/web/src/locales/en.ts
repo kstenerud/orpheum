@@ -547,6 +547,12 @@ export const en = {
     label: "More actions",
     close: "Close",
   },
+  listBox: {
+    submenu: {
+      entry: "{{name}}: {{value}}",
+      back: "Back to {{name}}",
+    },
+  },
   common: {
     loading: "Loading…",
     back: "Back",

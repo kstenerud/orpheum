@@ -17,6 +17,7 @@ import { ButtonByRole } from "./button-by-role.tsx";
 import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
 import { caretOf } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
+import { commandEventName } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { useModalLayer, type ModalLayerTold } from "./modal-layer.tsx";
@@ -35,6 +36,18 @@ export interface OpenerNaming {
  * for the next press.
  */
 export const keepsOpenAttribute = "data-keeps-open";
+
+/** The DOM event telling a pop-up what it holds changed in its place (tellPopoverContentChanged). */
+const contentChangedEvent = "orpheum-popover-content-changed";
+
+/**
+ * Tells the pop-up from is in that what it holds changed in its place, a submenu's list taking its
+ * list's (list-box.tsx's ListSubmenu, D490), or going: the pop-up is laid at its button again, as it
+ * was at its opening (usePlacedAtOpener), so a taller list stays inside the screen.
+ */
+export function tellPopoverContentChanged(from: Element | null): void {
+  from?.dispatchEvent(new Event(contentChangedEvent, { bubbles: true }));
+}
 
 /** What has focus inside dialog, other than dialog itself; undefined for nothing. */
 function focusedIn(dialog: HTMLDialogElement): HTMLElement | undefined {
@@ -212,7 +225,8 @@ function layAtOpener(
 
 /**
  * Lays the open pop-up at the button that opened it (layAtOpener), as it opens, after what it holds
- * has focused its current choice, and again as the screen changes size. The dialog's `data-placed`
+ * has focused its current choice, and again as the screen changes size and as what it holds changes
+ * in its place (tellPopoverContentChanged). The dialog's `data-placed`
  * says how: `at` a big screen's button, `over` a phone's, or `grown` out of it (layPartOverOpener).
  */
 function usePlacedAtOpener(
@@ -233,8 +247,10 @@ function usePlacedAtOpener(
     };
     lay();
     window.addEventListener("resize", lay);
+    dialog.addEventListener(contentChangedEvent, lay);
     return () => {
       window.removeEventListener("resize", lay);
+      dialog.removeEventListener(contentChangedEvent, lay);
     };
   }, [ref, openerRef, isFromItsTop, partOverOpener]);
 }
@@ -256,7 +272,9 @@ function focusedDescribed(popover: Element | null): string {
  * with focus on a place, where Chromium and Firefox close it by the same key (2026-10-28;
  * idiosyncrasies.md). It says which key came, whether something had
  * taken it before the app heard it and after, and where focus was, so the next check on the device
- * shows which layer kept it. isClosingRef says it was told to close, which it does a render later.
+ * shows which layer kept it. isClosingRef says it was told to close, which it does a render later;
+ * one that something in the pop-up took as its command, a submenu's opening or return (D490), kept
+ * nothing.
  */
 function useStuckArrowTold(
   ref: RefObject<HTMLElement | null>,
@@ -264,6 +282,14 @@ function useStuckArrowTold(
 ): void {
   useEffect(() => {
     const checks = new Set<ReturnType<typeof setTimeout>>();
+    let takenWithin = 0;
+    const commanded = (event: Event): void => {
+      if (event.defaultPrevented) {
+        takenWithin += 1;
+      }
+    };
+    const content = ref.current;
+    content?.addEventListener(commandEventName, commanded);
     const heard = (event: KeyboardEvent): void => {
       const direction = directionOfKey(event.key, keyCodeOf(event));
       // A text field keeps Left and Right, the pop-up open (isTakenInPopUp).
@@ -272,9 +298,10 @@ function useStuckArrowTold(
       }
       const isTakenBefore = event.defaultPrevented;
       const focused = focusedDescribed(ref.current);
+      const takenBefore = takenWithin;
       const check = setTimeout(() => {
         checks.delete(check);
-        if (!isClosingRef.current) {
+        if (!isClosingRef.current && takenWithin === takenBefore) {
           reportFailure(
             new Error(
               `a drop-down stayed open at ${direction}: key ${event.key}, keyCode ${String(keyCodeOf(event))}, code ${event.code}, taken before the app ${String(isTakenBefore)}, taken after ${String(event.defaultPrevented)}, focus on ${focused}`,
@@ -287,6 +314,7 @@ function useStuckArrowTold(
     // At the window, capturing: before the app's input layer and anything else of the page.
     globalThis.addEventListener("keydown", heard, true);
     return () => {
+      content?.removeEventListener(commandEventName, commanded);
       globalThis.removeEventListener("keydown", heard, true);
       for (const check of checks) {
         clearTimeout(check);

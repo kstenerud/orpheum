@@ -8,7 +8,7 @@ import { act, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DropDown } from "./drop-down.tsx";
-import { ListEntry } from "./list-box.tsx";
+import { ListEntry, ListOption, ListSubmenu } from "./list-box.tsx";
 import { fire, mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -82,6 +82,42 @@ describe("a drop-down", () => {
     );
     await pressLeft();
     expect(mounted.container.querySelector("dialog")).toBeNull();
+    expect(sent).toEqual([]);
+    mounted.unmount();
+  });
+
+  it("tells nothing of a Left that returned from a submenu, the list open (D490)", async () => {
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const mounted = await mount(
+      withServices(
+        <DropDown
+          label="Which"
+          opener="Open"
+          openerClassName="opener"
+          openerNaming={{}}
+          isFromItsTop
+        >
+          <ListSubmenu name="Kind" value="One">
+            <ListOption isCurrent onChoose={() => undefined}>
+              One
+            </ListOption>
+          </ListSubmenu>
+        </DropDown>,
+      ),
+    );
+    await fire(
+      mounted.container.querySelector(".opener"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    await fire(
+      mounted.container.querySelector(".list-box__submenu-entry"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    expect(document.activeElement?.textContent).toBe("One");
+    await pressLeft();
+    expect(mounted.container.querySelector("dialog")).not.toBeNull();
+    expect(document.activeElement?.textContent).toBe("Kind: One›");
     expect(sent).toEqual([]);
     mounted.unmount();
   });

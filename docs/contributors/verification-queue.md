@@ -3245,6 +3245,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   on from where it stood (not from its start) on its ladder at the 700k rung or lower, and ⋯ lists
   the caps again. Then play a film added minutes ago, before its ladder is ready, on mobile data:
   passes when it plays (its own file) rather than saying it cannot be converted.
+- [ ] **VQ338** — ⋯'s Data use submenu on the TV's D-pad (D490). On the Fire TV, Silk, a film
+  playing on its ladder: open ⋯, move to "Data use: No limit ›" and press OK. Passes when ⋯'s list
+  is replaced by "‹ Data use", No limit and the rungs, with the highlight on the current choice and
+  the whole list inside the screen; Left, then the remote's Back (which Silk sends as the browser's
+  Back), each return to ⋯'s own list with the highlight on "Data use: …", ⋯ still open and the film's
+  page not left; Right on the entry opens it again. A choice of a rung closes ⋯, and the entry then
+  reads "Data use: 0.6 GB per hour ›" (or the rung chosen).
+- [ ] **VQ339** — ⋯'s Data use submenu on a phone and a laptop (D490). On the Android phone, Chrome,
+  and on a laptop's browser, a film playing on its ladder: tap or click "Data use: … ›" in ⋯. Passes
+  when the submenu's list takes ⋯'s place inside the screen, its "‹ Data use" row returns to ⋯'s
+  list, and on the phone the system Back returns from the submenu to ⋯ rather than closing ⋯ or
+  leaving the film; Escape on the laptop closes ⋯ whole.
 - [ ] **VQ340** — The film's own picture played under a cap at or above its rate (D491). On a laptop
   over Wi-Fi, debug tools shown, a film whose own picture the browser plays (an H.264 MP4, say) on its
   ladder: open ⋯'s data use. Passes when its list's first figure after No limit is the own picture's

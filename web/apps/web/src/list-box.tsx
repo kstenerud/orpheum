@@ -2,13 +2,29 @@
 
 import "./list-box.css";
 
-import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { useTranslation } from "react-i18next";
 
 import { ButtonByRole } from "./button-by-role.tsx";
-import { firstFocusTargetIn, isFocusTarget } from "./focus-engine.ts";
+import { caretOf, firstFocusTargetIn, isFocusTarget } from "./focus-engine.ts";
+import { useCommands } from "./input-layer.tsx";
+import { useLatest } from "./latest.ts";
 import { Link } from "./link.tsx";
-import { keepsOpenAttribute } from "./popover.tsx";
+import { keepsOpenAttribute, tellPopoverContentChanged } from "./popover.tsx";
 import type { Route } from "./router.ts";
+import { ServicesContext } from "./services.tsx";
 
 /**
  * Brings a focused entry of the list into its view with the context its scroll padding keeps, an
@@ -47,14 +63,47 @@ const currentSelector = '[aria-current]:not([aria-current="false"])';
 function useCurrentEntryFocused(ref: RefObject<HTMLElement | null>, isFromItsTop: boolean): void {
   useEffect(() => {
     const list = ref.current;
-    if (list === null) {
-      return;
+    if (list !== null) {
+      focusCurrentEntryIn(list, isFromItsTop);
     }
-    const current = isFromItsTop ? null : list.querySelector<HTMLElement>(currentSelector);
-    const onCurrent =
-      current === null || isFocusTarget(current) ? current : firstFocusTargetIn(current);
-    (onCurrent ?? firstFocusTargetIn(list))?.focus({ preventScroll: true });
   }, [ref, isFromItsTop]);
+}
+
+/** Focuses list's current entry, else, and always where isFromItsTop, its first (useCurrentEntryFocused). */
+function focusCurrentEntryIn(list: HTMLElement, isFromItsTop: boolean): void {
+  const current = isFromItsTop ? null : list.querySelector<HTMLElement>(currentSelector);
+  const onCurrent =
+    current === null || isFocusTarget(current) ? current : firstFocusTargetIn(current);
+  (onCurrent ?? firstFocusTargetIn(list))?.focus({ preventScroll: true });
+}
+
+/**
+ * Which submenu (ListSubmenu) holds its list's place, by its id, undefined for none, and the way to
+ * open one or return from it: each list's own, and each open submenu's for its entries.
+ */
+interface SubmenuShown {
+  readonly openId: string | undefined;
+  readonly setOpenId: (id: string | undefined) => void;
+}
+
+const SubmenuShownContext = createContext<SubmenuShown>({
+  openId: undefined,
+  setOpenId: () => undefined,
+});
+
+/**
+ * Whether an entry is hidden, a submenu of its list holding the list's place (ListSubmenu, D490):
+ * hidden, not taken away, so a stepper's or a switch's state stays as it was when the list returns.
+ */
+function useIsUnderASubmenu(): boolean {
+  return use(SubmenuShownContext).openId !== undefined;
+}
+
+/** The entries (children) of a list or of an open submenu, one of whose submenus may hold their place. */
+function SubmenuScope(props: { readonly children: ReactNode }): JSX.Element {
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
+  const shown = useMemo(() => ({ openId, setOpenId }), [openId]);
+  return <SubmenuShownContext value={shown}>{props.children}</SubmenuShownContext>;
 }
 
 /**
@@ -63,8 +112,9 @@ function useCurrentEntryFocused(ref: RefObject<HTMLElement | null>, isFromItsTop
  * them, and keeps an entry either side of the one focused as the arrows move (D408 §3: the owner,
  * 2026-11-03, "showing the current value under the highlight, and at least 1 entry below and 1 entry
  * above"), scrolling within itself where it is taller than the room it is given. Its entries are
- * ListOption, a choice drawn as one; ListEntry, which holds a control of its own; and ListNote, a
- * line that only informs. It styles nothing else inside them.
+ * ListOption, a choice drawn as one; ListEntry, which holds a control of its own; ListNote, a line
+ * that only informs; and ListSubmenu, an entry whose list takes the list's place (D490). It styles
+ * nothing else inside them.
  */
 export function ListBox(props: {
   /** Whether it opens on its first entry, a menu's, which has no current choice. */
@@ -76,7 +126,7 @@ export function ListBox(props: {
   useCurrentEntryFocused(ref, props.isFromItsTop);
   return (
     <ul ref={ref} className="list-box">
-      {props.children}
+      <SubmenuScope>{props.children}</SubmenuScope>
     </ul>
   );
 }
@@ -100,8 +150,9 @@ export function ListOption(
   props: ListOptionTold &
     ({ readonly to: Route; readonly isReplacing?: boolean } | { readonly onChoose: () => void }),
 ): JSX.Element {
+  const isHidden = useIsUnderASubmenu();
   return (
-    <li className="list-box__entry">
+    <li className="list-box__entry" hidden={isHidden}>
       {"to" in props ? (
         <Link
           to={props.to}
@@ -139,10 +190,15 @@ export function ListEntry(props: {
   readonly isInsetAsChoices?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
+  const isHidden = useIsUnderASubmenu();
   const classes =
     props.isInsetAsChoices === true ? "list-box__entry list-box__entry--inset" : "list-box__entry";
   return (
-    <li className={classes} {...(props.isKeptOpen === true ? { [keepsOpenAttribute]: "" } : {})}>
+    <li
+      className={classes}
+      hidden={isHidden}
+      {...(props.isKeptOpen === true ? { [keepsOpenAttribute]: "" } : {})}
+    >
       {props.children}
     </li>
   );
@@ -155,5 +211,141 @@ export function ListEntry(props: {
  * Its look beyond that is its user's, on an element of its own inside it (app-shell.tsx's who).
  */
 export function ListNote(props: { readonly children: ReactNode }): JSX.Element {
-  return <li className="list-box__note">{props.children}</li>;
+  const isHidden = useIsUnderASubmenu();
+  return (
+    <li className="list-box__note" hidden={isHidden}>
+      {props.children}
+    </li>
+  );
+}
+
+/** What a press that keeps the pop-up open carries: a submenu's entry's and its back row's (popover.tsx). */
+const keepsOpen = { [keepsOpenAttribute]: "" } as const;
+
+/**
+ * An entry of a list (ListBox) whose own list takes the list's place (D490; the owner, 2026-11-15:
+ * "Putting everything at the top level is a time bomb"): it shows what it sets and its value now,
+ * "Data use: 0.6 GB per hour ›", and opens at a press, OK or a click, or at Right. Its list's first
+ * row is a back row, "‹ Data use", which returns, as Left and Back do, the remote's and the
+ * browser's (OpenSubmenu), focus back on the entry. Its list opens on its current choice, else on
+ * its back row, as a chooser's does (D408 §3). Opening and returning keep the pop-up open, laid at
+ * its button again (popover.tsx's tellPopoverContentChanged); a choice in it closes the pop-up, as
+ * any choice does. Its entries are the list's own kinds, a submenu among them.
+ */
+export function ListSubmenu(props: {
+  /** What it sets, in the person's words: "Data use". */
+  readonly name: string;
+  /** Its value now, as its list's current choice says it: "0.6 GB per hour". */
+  readonly value: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const id = useId();
+  const { openId, setOpenId } = use(SubmenuShownContext);
+  const isOpen = openId === id;
+  const entryRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(false);
+  useLayoutEffect(() => {
+    if (wasOpenRef.current === isOpen) {
+      return;
+    }
+    wasOpenRef.current = isOpen;
+    if (!isOpen) {
+      entryRef.current?.focus({ preventScroll: true });
+    }
+    tellPopoverContentChanged(entryRef.current);
+  }, [isOpen]);
+  useCommands(entryRef, (detail, event) => {
+    if (detail.command === "right") {
+      event.preventDefault();
+      setOpenId(id);
+    }
+  });
+  return (
+    <li className="list-box__entry" hidden={openId !== undefined && !isOpen}>
+      <ButtonByRole
+        ref={entryRef}
+        className="list-box__option list-box__submenu-entry"
+        hidden={isOpen}
+        {...keepsOpen}
+        onClick={() => {
+          setOpenId(id);
+        }}
+      >
+        <span>{t("listBox.submenu.entry", { name: props.name, value: props.value })}</span>
+        <span className="list-box__submenu-mark" aria-hidden="true">
+          ›
+        </span>
+      </ButtonByRole>
+      {isOpen ? (
+        <OpenSubmenu
+          name={props.name}
+          onBack={() => {
+            setOpenId(undefined);
+          }}
+        >
+          {props.children}
+        </OpenSubmenu>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * A submenu's list in its list's place (ListSubmenu): its back row, then its entries, focused on its
+ * current choice as it opens, else on the back row. Left, but in a text field, where it is the
+ * caret's, and Back return from it, a remote's Back and the browser's alike: an entry held in the
+ * history while it is open, as a dialog's is (modal-layer.tsx), takes the browser's Back, which Silk
+ * on a Fire TV sends for its remote's.
+ */
+function OpenSubmenu(props: {
+  readonly name: string;
+  readonly onBack: () => void;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLUListElement>(null);
+  const onBackRef = useLatest(props.onBack);
+  useLayoutEffect(() => {
+    if (ref.current !== null) {
+      focusCurrentEntryIn(ref.current, false);
+    }
+  }, []);
+  useCommands(ref, (detail, event) => {
+    const focused = document.activeElement;
+    const isLeft =
+      detail.command === "left" && (focused === null || caretOf(focused) === undefined);
+    if (detail.command === "back" || isLeft) {
+      event.preventDefault();
+      onBackRef.current();
+    }
+  });
+  const navigation = use(ServicesContext)?.navigation;
+  useEffect(
+    () =>
+      navigation?.holdBack(() => {
+        onBackRef.current();
+      }),
+    [navigation, onBackRef],
+  );
+  return (
+    <ul ref={ref} className="list-box__submenu" aria-label={props.name}>
+      <SubmenuScope>
+        <li className="list-box__entry">
+          <ButtonByRole
+            className="list-box__option list-box__submenu-back"
+            aria-label={t("listBox.submenu.back", { name: props.name })}
+            {...keepsOpen}
+            onClick={props.onBack}
+          >
+            <span className="list-box__submenu-mark" aria-hidden="true">
+              ‹
+            </span>
+            <span>{props.name}</span>
+          </ButtonByRole>
+        </li>
+        {props.children}
+      </SubmenuScope>
+    </ul>
+  );
 }

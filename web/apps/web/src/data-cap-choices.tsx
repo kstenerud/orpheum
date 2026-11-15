@@ -13,7 +13,7 @@ import {
   rungUnderCap,
   type DataCaps,
 } from "./data-cap.ts";
-import { ListNote, ListOption } from "./list-box.tsx";
+import { ListOption, ListSubmenu } from "./list-box.tsx";
 
 /**
  * The rungs of the film the video in videoRef plays on its ladder (offeredRungsOf), drawn again as
@@ -51,11 +51,11 @@ function useCapNow(caps: DataCaps): {
 }
 
 /**
- * ⁝'s data use (D488): a line naming the cap, for the network the device is on where its browser
- * says which, then No limit and one choice per rung the core offers the film, highest first, the
- * film's own picture among them (D491), each its video's and sound's GB per hour, the one the cap
- * plays marked. Nothing while the film plays
- * its own file, which offers no rungs: a cap is chosen on a film on its ladder.
+ * ⁝'s data use (D488), a submenu (D490): its entry names the cap, for the network the device is on
+ * where its browser says which, and what it plays, "Data use: 0.6 GB per hour ›"; its list No limit
+ * and one choice per rung the core offers the film, highest first, each its video's and sound's GB
+ * per hour, the film's own picture among them (D491), the one the cap plays marked. Nothing while the film plays its own file, which offers no
+ * rungs: a cap is chosen on a film on its ladder.
  */
 export function DataCapChoices(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -69,9 +69,13 @@ export function DataCapChoices(props: {
     return null;
   }
   const playing = rungUnderCap(rungs, capKbps);
+  const perHourOf = (rung: number): string =>
+    t("play.dataCap.perHour", { gb: gbPerHourOf(rung).toFixed(1) });
   return (
-    <>
-      <ListNote>{t(`play.dataCap.heading.${kind}`)}</ListNote>
+    <ListSubmenu
+      name={t(`play.dataCap.heading.${kind}`)}
+      value={playing === undefined ? t("play.dataCap.noLimit") : perHourOf(playing)}
+    >
       <ListOption
         isCurrent={playing === undefined}
         onChoose={() => {
@@ -88,10 +92,10 @@ export function DataCapChoices(props: {
             caps.choose(rung);
           }}
         >
-          {t("play.dataCap.perHour", { gb: gbPerHourOf(rung).toFixed(1) })}
+          {perHourOf(rung)}
         </ListOption>
       ))}
-    </>
+    </ListSubmenu>
   );
 }
 

@@ -14,6 +14,8 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { DropDown } from "./drop-down.tsx";
+import { ListOption, ListSubmenu } from "./list-box.tsx";
 import { ActionChooser } from "./route-chooser.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -384,5 +386,50 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     expect(isMeeting(listBox, boxOf(opener))).toBe(true);
     await userEvent.keyboard("{Escape}");
     expect(document.querySelector("dialog")).toBeNull();
+  });
+});
+
+describe.each(screens)("a submenu taking its list's place on $name (D490)", ({ width, height }) => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("is laid at the button again, inside the screen, from a short list at the screen's bottom", async () => {
+    await page.viewport(width, height);
+    mounted = await mount(
+      withServices(
+        <div style={{ position: "fixed", left: "40%", top: "calc(100% - 3rem)" }}>
+          <DropDown
+            label="Settings"
+            opener="Settings"
+            openerClassName="test-opener"
+            openerNaming={{}}
+            isFromItsTop
+          >
+            <ListOption onChoose={() => undefined}>Start over</ListOption>
+            <ListSubmenu name="Order" value="Choice 7">
+              {sorts.map((sort) => (
+                <ListOption key={sort.key} isCurrent={sort.isCurrent} onChoose={sort.onChoose}>
+                  {sort.label}
+                </ListOption>
+              ))}
+            </ListSubmenu>
+          </DropDown>
+        </div>,
+      ),
+    );
+    await userEvent.click(mounted.container.querySelector(".test-opener") ?? document.body);
+    await userEvent.click(document.querySelector(".list-box__submenu-entry") ?? document.body);
+    const listBox = boxOf(document.querySelector("dialog"));
+    expect(document.activeElement?.textContent).toBe("Choice 7");
+    expect(listBox.top).toBeGreaterThanOrEqual(screenEdgeRoomPx - roundingPx);
+    expect(listBox.bottom).toBeLessThanOrEqual(height - screenEdgeRoomPx + roundingPx);
+    await userEvent.click(document.querySelector(".list-box__submenu-back") ?? document.body);
+    expect(document.activeElement?.textContent).toBe("Order: Choice 7›");
+    const back = boxOf(document.querySelector("dialog"));
+    expect(back.bottom).toBeLessThanOrEqual(height - screenEdgeRoomPx + roundingPx);
+    expect(back.height).toBeLessThan(listBox.height);
   });
 });

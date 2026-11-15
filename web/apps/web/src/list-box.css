@@ -68,3 +68,35 @@
 .list-box__option[aria-current="page"] {
   color: var(--color-accent);
 }
+
+/* A submenu's list in its list's place (ListSubmenu, D490): its rows as the list's, the list
+   scrolling for both. */
+.list-box__submenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A submenu's entry and its back row: the mark that it opens or returns at the row's end or start. */
+.list-box__submenu-entry,
+.list-box__submenu-back {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.list-box__submenu-entry {
+  justify-content: space-between;
+}
+
+.list-box__submenu-mark {
+  color: var(--color-muted);
+}
+
+/* What a submenu holding the list's place hides (ListSubmenu), above the display an entry sets. */
+.list-box [hidden] {
+  display: none;
+}

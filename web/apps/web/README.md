@@ -694,6 +694,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/app-shell.browser.test.tsx`, `src/drop-down.browser.test.tsx`, `src/drop-down.test.tsx`,
   `src/modal-dialog.browser.test.tsx`, `src/player-menus.browser.test.tsx`,
   `src/popover.browser.test.tsx`; on devices, VQ97, VQ250, VQ251, VQ252.
+- **A list nests another only as a submenu** (`ListSubmenu` in `src/list-box.tsx`, D490): its
+  entry names it and its current value, "Data use: 0.6 GB per hour ›"; OK, Right, a tap or a click
+  puts its list in the list's place, a back row first, focused on its current choice; the back
+  row, Left, Back or the browser's Back returns, the pop-up open, focus on the entry; the list's
+  other lines are hidden, not unmounted, and the pop-up is laid at its button again
+  (`tellPopoverContentChanged`), inside the screen. ⋯'s data use is one. `src/player-menus.test.tsx`,
+  `src/drop-down.test.tsx`, `src/drop-down.browser.test.tsx`; on devices, VQ338, VQ339.
 - **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
   takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
   no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a

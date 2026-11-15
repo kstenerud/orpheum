@@ -13,6 +13,7 @@ import { DataCaps, dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { commandEventName } from "./input-commands.ts";
 import { ListBox } from "./list-box.tsx";
+import type { Navigation } from "./navigation.ts";
 import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
@@ -20,7 +21,7 @@ import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import type { SubtitleTrack, TrackKey } from "./subtitles.tsx";
 import { fire, mount, type Mounted } from "./test-dom.tsx";
 import { FakeConnection, heldStorage } from "./test-data-cap.ts";
-import { withServices } from "./test-services.tsx";
+import { testServices, withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -112,11 +113,14 @@ async function opened(on: Mounted, name: string): Promise<void> {
   await fire(opener, new MouseEvent("click", { bubbles: true }));
 }
 
-/** The places of the open list, by their text. */
+/**
+ * The places of the open list shown, by their text: not those an open submenu hides, nor the place
+ * that holds it, whose own places are listed in its stead (D490).
+ */
 function places(on: Mounted): string[] {
-  return [...on.container.querySelectorAll("dialog .list-box li")].map(
-    (place) => place.textContent,
-  );
+  return [...on.container.querySelectorAll("dialog .list-box li")]
+    .filter((place) => !place.hasAttribute("hidden") && place.querySelector("li") === null)
+    .map((place) => place.textContent);
 }
 
 /** Presses the open list's place whose text is text. */
@@ -399,28 +403,30 @@ describe("⁝'s data use (D488)", () => {
       ),
     );
     await opened(mounted, "Settings");
+    expect(places(mounted)).toContain("Play the original file");
+    await choosing(mounted, "Data use: No limit›");
     const perHour = ["2.7", "1.4", "0.9", "0.6", "0.4", "0.2"].map((gb) => `${gb} GB per hour`);
-    expect(places(mounted)).toEqual(expect.arrayContaining(["Data use", "No limit", ...perHour]));
+    expect(places(mounted)).toEqual(expect.arrayContaining(["‹Data use", "No limit", ...perHour]));
     const listed = places(mounted);
-    expect(listed.slice(listed.indexOf("Data use"), listed.indexOf("Data use") + 8)).toEqual([
-      "Data use",
+    expect(listed.slice(listed.indexOf("‹Data use"), listed.indexOf("‹Data use") + 8)).toEqual([
+      "‹Data use",
       "No limit",
       ...perHour,
     ]);
     expect(currentPlaces(mounted)).toContain("No limit");
-    expect(places(mounted)).toContain("Play the original file");
     await choosing(mounted, "0.6 GB per hour");
     expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 1296 });
     await opened(mounted, "Settings");
-    expect(currentPlaces(mounted)).toEqual(["0.6 GB per hour"]);
     // A capped device plays a rung, never the film's own file (the owner, 2026-11-14).
     expect(places(mounted)).not.toContain("Play the original file");
+    await choosing(mounted, "Data use: 0.6 GB per hour›");
+    expect(currentPlaces(mounted)).toEqual(["0.6 GB per hour"]);
   });
 
   it("offers nothing while the film plays no ladder, its own file", async () => {
     await drawn(tracksNoting({ subtitles: [], audio: [] }));
     await opened(mounted!, "Settings");
-    expect(places(mounted!)).not.toContain("No limit");
+    expect(places(mounted!).filter((place) => place.startsWith("Data use"))).toEqual([]);
   });
 
   it("names the network its cap is for where the browser says which, and follows the device's move", async () => {
@@ -433,18 +439,25 @@ describe("⁝'s data use (D488)", () => {
         <DataCapChoices videoRef={videoOnTheDefaultLadder()} caps={caps} />
       </ListBox>,
     );
+    const entry = (): string | null | undefined =>
+      mounted?.container.querySelector(".list-box__submenu-entry")?.textContent;
     const heading = (): string | null | undefined =>
-      mounted?.container.querySelector(".list-box__note")?.textContent;
+      mounted?.container.querySelector(".list-box__submenu-back")?.textContent;
     const current = (): (string | null)[] =>
       [...(mounted?.container.querySelectorAll('[aria-current="true"]') ?? [])].map(
         (place) => place.textContent,
       );
-    expect(heading()).toBe("Data use on mobile data");
+    expect(entry()).toBe("Data use on mobile data: 0.2 GB per hour›");
+    await fire(
+      mounted.container.querySelector(".list-box__submenu-entry"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    expect(heading()).toBe("‹Data use on mobile data");
     expect(current()).toEqual(["0.2 GB per hour"]);
     act(() => {
       connection.moveTo("wifi");
     });
-    expect(heading()).toBe("Data use on Wi-Fi");
+    expect(heading()).toBe("‹Data use on Wi-Fi");
     expect(current()).toEqual(["No limit"]);
   });
 
@@ -467,6 +480,7 @@ describe("⁝'s data use (D488)", () => {
       ),
     );
     await opened(mounted, "Settings");
+    await choosing(mounted, "Data use: No limit›");
     const listed = places(mounted);
     // The own picture's 8000 kb/s, its sound's with it, is 3.6 GB an hour.
     expect(listed.slice(listed.indexOf("No limit"), listed.indexOf("No limit") + 3)).toEqual([
@@ -477,13 +491,108 @@ describe("⁝'s data use (D488)", () => {
     await choosing(mounted, "3.6 GB per hour");
     expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 8000 });
     await opened(mounted, "Settings");
-    expect(currentPlaces(mounted)).toEqual(["3.6 GB per hour"]);
     // The file's own 9096 kb/s, every track of it, is over the cap.
     expect(places(mounted)).not.toContain("Play the original file");
+    await choosing(mounted, "Data use: 3.6 GB per hour›");
+    expect(currentPlaces(mounted)).toEqual(["3.6 GB per hour"]);
+    await choosing(mounted, "‹Data use");
     act(() => {
       deviceDataCaps().choose(9096);
     });
     expect(places(mounted)).toContain("Play the original file");
+  });
+});
+
+/** ⁝ over a film on the core's default rungs, over services (by default a test's own). */
+async function drawnOnTheLadder(services = testServices()): Promise<Mounted> {
+  mounted = await mount(
+    withServices(
+      <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+        <PlayerMenusContext value={ways}>
+          <PlayerMenus
+            videoRef={videoOnTheDefaultLadder()}
+            shown={everyMenu}
+            onOpenChange={() => undefined}
+          />
+        </PlayerMenusContext>
+      </PlayerTracksContext>,
+      services,
+    ),
+  );
+  return mounted;
+}
+
+/** The text of what has focus. */
+function focusedText(): string | null | undefined {
+  return document.activeElement?.textContent;
+}
+
+describe("⁝'s submenus (D490)", () => {
+  afterEach(() => {
+    window.localStorage.removeItem(dataCapsKey);
+  });
+
+  it("names Data use and its value on one entry, its list taking ⁝'s place at a click, the back row first, on its choice", async () => {
+    const on = await drawnOnTheLadder();
+    await opened(on, "Settings");
+    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Data use: No limit›"]));
+    expect(places(on)).not.toContain("No limit");
+    await choosing(on, "Data use: No limit›");
+    expect(places(on)[0]).toBe("‹Data use");
+    expect(places(on)).not.toContain("Start over");
+    expect(focusedText()).toBe("No limit");
+    expect(on.container.querySelector(".list-box__submenu-back")?.getAttribute("aria-label")).toBe(
+      "Back to Data use",
+    );
+    await choosing(on, "‹Data use");
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Data use: No limit›"]));
+    expect(places(on)).not.toContain("‹Data use");
+    expect(focusedText()).toBe("Data use: No limit›");
+  });
+
+  it("takes a TV's keys: OK or Right on the entry opens it, Left or Back in it returns to the entry, ⁝ open", async () => {
+    const on = await drawnOnTheLadder();
+    await opened(on, "Settings");
+    const entry = on.container.querySelector<HTMLElement>(".list-box__submenu-entry");
+    act(() => {
+      entry?.focus();
+    });
+    await fire(entry, new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(places(on)[0]).toBe("‹Data use");
+    expect(focusedText()).toBe("No limit");
+    expect(offered(document.activeElement, "left")).toBe(true);
+    expect(places(on)).toContain("Start over");
+    expect(document.activeElement).toBe(entry);
+    expect(offered(entry, "right")).toBe(true);
+    expect(focusedText()).toBe("No limit");
+    expect(offered(document.activeElement, "back")).toBe(true);
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    expect(places(on)).toContain("Start over");
+    expect(document.activeElement).toBe(entry);
+  });
+
+  // Silk on a Fire TV sends its remote's Back as the browser's, never a key (modal-layer.tsx).
+  it("returns at the browser's Back, held over ⁝'s own while its list is open", async () => {
+    const services = testServices();
+    const holds: (() => void)[] = [];
+    const navigation: Navigation = {
+      ...services.navigation,
+      holdBack: (onBack) => {
+        holds.push(onBack);
+        return services.navigation.holdBack(onBack);
+      },
+    };
+    const on = await drawnOnTheLadder({ ...services, navigation });
+    await opened(on, "Settings");
+    await choosing(on, "Data use: No limit›");
+    expect(holds).toHaveLength(2);
+    act(() => {
+      holds[1]?.();
+    });
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    expect(places(on)).toContain("Start over");
+    expect(focusedText()).toBe("Data use: No limit›");
   });
 });
 
