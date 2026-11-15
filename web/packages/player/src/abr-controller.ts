@@ -224,6 +224,7 @@ class OrpheumAbrController extends AbrController {
     this.room.picture.buffered(
       {
         sn: frag.sn,
+        level: frag.level,
         startS: frag.start,
         endS: frag.start + frag.duration,
         bytes: frag.stats.loaded,

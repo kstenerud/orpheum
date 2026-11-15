@@ -141,6 +141,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A Watch Together host broadcast hls.js's own gap steps as user seeks ("each such step became a jump for everyone"). | [hls.js moves the playhead itself (gap jumps, stall nudges), and the browser reports each as a seek](#hlsjs-moves-the-playhead-itself-gap-jumps-stall-nudges-and-the-browser-reports-each-as-a-seek) |
 | An episode stood a frame short of its end for good, never "ended", and no next episode came (Fire TV, 2026-11-02). | [hls.js never ends a stream with a hole behind the playhead](#hlsjs-never-ends-a-stream-with-a-hole-behind-the-playhead) |
 | A Fire TV stood still for good 0.12 s short of its next picture, after the browser refused a chunk as its buffer was full (2026-11-11). | [hls.js leaves a hole a flush made](#hlsjs-leaves-a-hole-a-flush-made) |
+| After a step-down, a switch up loaded again, at 22.8 MB, the chunk already held (Fire TV, 2026-11-15). | [On a switch of quality, hls.js loads again the chunk the buffer ends in, however near its end](#on-a-switch-of-quality-hlsjs-loads-again-the-chunk-the-buffer-ends-in-however-near-its-end) |
 | "Both players held at 0 with 0.04 s to 60 s loaded … held the group up for good." | [A paused player is never stepped over a gap at the start, so it never becomes ready](#a-paused-player-is-never-stepped-over-a-gap-at-the-start-so-it-never-becomes-ready) |
 | After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s | [After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s](#after-an-audio-track-switch-the-audio-already-decoded-in-the-old-mix-plays-on-for-2-4-s) |
 | A phone reported its link as 500, then 5000 kb/s (hls.js's starting values), and the core remembered that. | [Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"](#before-any-measurement-bandwidthestimate-returns-its-configured-default-with-no-unknown) |
@@ -2617,6 +2618,32 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   **[web]** no report of this exact check found; near ones: [hls.js#5631](https://github.com/video-dev/hls.js/issues/5631)
   (Chrome stalls after a ~0.07 s gap), [#4975](https://github.com/video-dev/hls.js/issues/4975),
   [#6331](https://github.com/video-dev/hls.js/issues/6331) (checked 2026-11-02).
+
+### On a switch of quality, hls.js loads again the chunk the buffer ends in, however near its end
+
+- **Technology:** hls.js 1.7.3, `fragment-finders.ts` (`findFragmentByPTS`, `fragmentWithinToleranceTest`),
+  `base-stream-controller.ts` (`getFragmentAtPosition`).
+- **Symptom:** on a Fire TV, a step-down gave chunk 40 a lower quality; its picture ended at 200.77 s in the
+  buffer, where the playlist put its end at 200.784. At the next switch up, hls.js asked for chunk 40 again at
+  the higher quality, 22.8 MB over a picture already held, and play stalled 6.7 s soon after (file 1504,
+  2026-11-15).
+- **Cause:** `findFragmentByPTS` takes the chunk after the one it last buffered (`fragPrevious`) only on that
+  one's own quality: there within the 0.25 s `maxFragLookUpTolerance`, and else its search finds the chunk it
+  last loaded and it takes the one after. On another quality the shortcut is skipped and it searches that
+  quality's chunks, whose test first accepts an exact match with no tolerance (`start <= bufferEnd < end`),
+  so a buffer ending even 14 ms short of a chunk's playlist end lies in that chunk. The fragment tracker keys
+  chunks by quality, so the copy held at the lower one does not count as loaded, and it is loaded again
+  [source]. A chunk just after the buffer's end also passes the test within the tolerance, so which of the two
+  the bisection returns depends on where it lands [source; the measured switch took the held chunk].
+- **What we do:** the step-down judges each quality by the chunk hls.js loads next at it: the one the picture
+  loaded ends in, and the one after on the quality of the chunk last buffered (`nextChunkOf`,
+  `web/packages/player/src/picture-room.ts`, D464 §3). It still loads again a held chunk where that fits.
+- **Evidence:** [measured] 2026-11-15, the Fire TV over remote debugging, hls.js's own events: chunk 40 asked
+  at level 5 at 190.42 (190.357–200.784) after level 4's buffered to 200.77. [source] hls.js 1.7.3 as above.
+  **[web]** no report of this case found (searched 2026-11-15); near ones: [PR
+  #5013](https://github.com/video-dev/hls.js/pull/5013) (a loop re-trying a loaded fragment with no tolerance),
+  and a maintainer's "does not reload media that is already buffered" ([discussion
+  #5217](https://github.com/video-dev/hls.js/discussions/5217)), which holds on one quality only.
 
 ---
 

@@ -26,12 +26,19 @@ export const roomShareOfBufferLimit = 0.9;
  */
 export const madeBufferS = 2;
 
-/** How far past the buffer's end a chunk must run to be the next: hls.js's own look-up tolerance. */
-const nextChunkToleranceS = 0.25;
+/**
+ * hls.js's own look-up tolerance (maxFragLookUpTolerance): a chunk ending no further than it past
+ * the start of the picture loaded is no longer held before the next.
+ */
+const lookUpToleranceS = 0.25;
 
-/** A chunk of picture as the room keeps it: its place on the grid, its span, its bytes as loaded. */
+/**
+ * A chunk of picture as the room keeps it: its place on the grid, the quality it was loaded at, its
+ * span, its bytes as loaded.
+ */
 export interface HeldChunk {
   readonly sn: number;
+  readonly level: number;
   readonly startS: number;
   readonly endS: number;
   readonly bytes: number;
@@ -131,6 +138,7 @@ export class PictureRoom {
   #hasLearnt = false;
   #mostHeldBytes = 0;
   readonly #held = new Map<number, HeldChunk>();
+  #last: HeldChunk | undefined;
 
   constructor(options: {
     readonly assumedBytes: number;
@@ -159,6 +167,7 @@ export class PictureRoom {
    */
   buffered(chunk: HeldChunk, span: HeldSpan | null): void {
     this.#held.set(chunk.sn, chunk);
+    this.#last = chunk;
     if (span === null) {
       return;
     }
@@ -193,12 +202,17 @@ export class PictureRoom {
     );
   }
 
+  /** The chunk of picture last buffered, hls.js's last loaded (its fragPrevious); undefined before any. */
+  last(): HeldChunk | undefined {
+    return this.#last;
+  }
+
   /** The chunks held just before chunk sn, still in span, nearest first. */
   heldBefore(sn: number, span: HeldSpan): readonly HeldChunk[] {
     const before: HeldChunk[] = [];
     for (let at = sn - 1; ; at -= 1) {
       const chunk = this.#held.get(at);
-      if (chunk === undefined || chunk.endS <= span.start + nextChunkToleranceS) {
+      if (chunk === undefined || chunk.endS <= span.start + lookUpToleranceS) {
         return before;
       }
       before.push(chunk);
@@ -229,17 +243,35 @@ export function bufferRoomOf(
   };
 }
 
-/** The chunk hls.js loads next: the first on the grid that runs past the picture loaded. */
-export function nextChunkOf(hls: RoomHls): (GridChunk & { readonly sn: number }) | undefined {
+/**
+ * The chunk hls.js loads next at level, last being the chunk of picture it last buffered, as hls.js
+ * 1.7.3's findFragmentByPTS finds it: the chunk the picture loaded ends in, an exact match, which
+ * its search of a quality takes first, with no tolerance; but on last's own quality, where that is
+ * last, the chunk after it (its next-chunk shortcut, within its look-up tolerance, and else its
+ * search finding the chunk it last loaded). A chunk whose picture ends short of its playlist's end
+ * is so the next again on every quality but its own, and hls.js loads it again there: a made
+ * quality's chunk 40, its picture ending at 200.77 s and its playlist at 200.784, was loaded again
+ * at the quality above, 22.8 MB, where the room had judged chunk 41 (file 1504 on the Fire TV,
+ * 2026-11-15; idiosyncrasies.md).
+ */
+export function nextChunkOf(
+  hls: RoomHls,
+  level: number,
+  last: Pick<HeldChunk, "sn" | "level"> | undefined,
+): (GridChunk & { readonly sn: number }) | undefined {
   const span = hls.mainForwardBufferInfo;
-  const fragments = hls.levels.find((level) => level.details !== undefined)?.details?.fragments;
+  const fragments = hls.levels.find((each) => each.details !== undefined)?.details?.fragments;
   if (span === null || fragments === undefined) {
     return undefined;
   }
-  const next = fragments.find(
-    (chunk) => chunk.start + chunk.duration > span.end + nextChunkToleranceS,
-  );
-  return next === undefined || next.sn === "initSegment" ? undefined : { ...next, sn: next.sn };
+  const endsIn = fragments.find((chunk) => chunk.start + chunk.duration > span.end);
+  const isLastsOwn = last?.level === level && endsIn?.sn === last.sn;
+  return numbered(isLastsOwn ? fragments.find((chunk) => chunk.sn === last.sn + 1) : endsIn);
+}
+
+/** A chunk of picture with its number on the grid; undefined for none, or an init segment. */
+function numbered(chunk: GridChunk | undefined): (GridChunk & { readonly sn: number }) | undefined {
+  return chunk === undefined || chunk.sn === "initSegment" ? undefined : { ...chunk, sn: chunk.sn };
 }
 
 /**
@@ -271,35 +303,56 @@ export function chunkBytesAt(
 export interface PairChoice {
   readonly level: number;
   readonly chunk?: {
+    /** The chunk hls.js loads next at the quality chosen. */
     readonly sn: number;
-    /** The chunk's bytes at the quality chosen for it, and at the one it loads at. */
+    /** Its bytes at the quality chosen, and those of the chunk loaded at the one it loads at. */
     readonly chosenBytes: number;
     readonly bytes: number;
     /** The bytes of the chunk held before it. */
     readonly beforeBytes: number;
+    /**
+     * The chunk hls.js loads next at the quality it loads at, where that is not chunk sn: on the
+     * quality of the chunk last buffered, the one after it, where the quality chosen, switched to,
+     * loads chunk sn again (nextChunkOf).
+     */
+    readonly loadsSn?: number;
   };
 }
 
 /**
  * The quality the next chunk is loaded at (D464 §3): chosen, where it fits in the room beside the
- * chunk held before it; else the highest below at which it fits; else the lowest.
+ * chunk held before it; else the highest below at which it fits; else the lowest. At each quality
+ * the chunk judged is the one hls.js loads next at it (nextChunkOf).
  */
 export function pairLevel(hls: RoomHls, room: PictureRoom, chosen: number): PairChoice {
-  const next = nextChunkOf(hls);
   const span = hls.mainForwardBufferInfo;
-  if (next === undefined || span === null) {
+  if (span === null) {
     return { level: chosen };
   }
-  const beforeBytes = room.heldBefore(next.sn, span)[0]?.bytes ?? 0;
-  const roomBytes = room.roomBytes();
-  const chosenBytes = chunkBytesAt(hls.levels, chosen, next);
-  let level = chosen;
-  let bytes = chosenBytes;
-  while (level > hls.minAutoLevel && beforeBytes + bytes > roomBytes) {
-    level -= 1;
-    bytes = chunkBytesAt(hls.levels, level, next);
+  const judged = (level: number) => {
+    const next = nextChunkOf(hls, level, room.last());
+    return next === undefined
+      ? undefined
+      : {
+          sn: next.sn,
+          bytes: chunkBytesAt(hls.levels, level, next),
+          beforeBytes: room.heldBefore(next.sn, span)[0]?.bytes ?? 0,
+        };
+  };
+  const first = judged(chosen);
+  if (first === undefined) {
+    return { level: chosen };
   }
-  return { level, chunk: { sn: next.sn, chosenBytes, bytes, beforeBytes } };
+  const roomBytes = room.roomBytes();
+  let level = chosen;
+  let at = first;
+  while (level > hls.minAutoLevel && at.beforeBytes + at.bytes > roomBytes) {
+    level -= 1;
+    at = judged(level) ?? at;
+  }
+  const { sn, bytes: chosenBytes, beforeBytes } = first;
+  const chunk = { sn, chosenBytes, bytes: at.bytes, beforeBytes };
+  return { level, chunk: at.sn === sn ? chunk : { ...chunk, loadsSn: at.sn } };
 }
 
 /**
@@ -341,7 +394,9 @@ export class StepDown {
         `chunk ${String(pair.chunk.sn)} steps down from level ${String(chosen)}:` +
         ` ${megabytes(pair.chunk.chosenBytes)} beside ${megabytes(pair.chunk.beforeBytes)} held` +
         ` is over the room's ${megabytes(this.#room.roomBytes())};` +
-        ` level ${String(pair.level)}'s ${megabytes(pair.chunk.bytes)}`;
+        ` level ${String(pair.level)}'s` +
+        (pair.chunk.loadsSn === undefined ? "" : ` chunk ${String(pair.chunk.loadsSn)},`) +
+        ` ${megabytes(pair.chunk.bytes)}`;
       this.#why.set(pair.level, { why, linkSamples: "" });
       this.#note?.(why);
     }
@@ -372,7 +427,7 @@ export class StepDown {
  * it, that one chunk's length; undefined where everything held fits beside it, or nothing is held.
  */
 export function roomAheadS(hls: RoomHls, room: PictureRoom, level: number): number | undefined {
-  const next = nextChunkOf(hls);
+  const next = nextChunkOf(hls, level, room.last());
   const span = hls.mainForwardBufferInfo;
   if (next === undefined || span === null) {
     return undefined;

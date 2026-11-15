@@ -9,6 +9,7 @@ import {
   bufferRoomOf,
   chunkBytesAt,
   limitMemoryIn,
+  nextChunkOf,
   pairLevel,
   PictureRoom,
   roomAheadS,
@@ -78,7 +79,10 @@ function storageOf(isRefused = false): LimitStorage & { readonly kept: Map<strin
 
 const silk = "Mozilla/5.0 (Linux; Android 9; AFTSSS Build/PS7633) Silk/138";
 
-/** A room of 30 MB, 27 MB of it for the chunks, holding chunks 2 to 4 at megabytes each, and its notes. */
+/**
+ * A room of 30 MB, 27 MB of it for the chunks, holding chunks 2 to 4 at megabytes each, loaded at the
+ * top quality, and its notes.
+ */
 function roomHolding(
   megabytes: readonly [number, number, number],
   options: { readonly storage?: LimitStorage; readonly userAgent?: string } = {},
@@ -91,7 +95,10 @@ function roomHolding(
   });
   megabytes.forEach((each, index) => {
     const sn = index + 2;
-    room.buffered({ sn, startS: sn * 6, endS: sn * 6 + 6, bytes: each * 1e6 }, loadedTo30);
+    room.buffered(
+      { sn, level: 3, startS: sn * 6, endS: sn * 6 + 6, bytes: each * 1e6 },
+      loadedTo30,
+    );
   });
   return { room, notes };
 }
@@ -128,7 +135,10 @@ describe("the quality a chunk loads at, beside the one held before it (D464 §3)
       level: 2,
       chunk: { sn: 5, chosenBytes: 15_000_000, bytes: 4_221_000, beforeBytes: 15_000_000 },
     });
-    room.buffered({ sn: 5, startS: 30, endS: 36, bytes: 4_221_000 }, { start: 18, end: 36 });
+    room.buffered(
+      { sn: 5, level: 2, startS: 30, endS: 36, bytes: 4_221_000 },
+      { start: 18, end: 36 },
+    );
     expect(pairLevel(hlsAt({ start: 18, end: 36 }), room, 3).level).toBe(3);
   });
 
@@ -136,6 +146,53 @@ describe("the quality a chunk loads at, beside the one held before it (D464 §3)
     const { room } = roomHolding([3, 3, 26.9]);
     expect(pairLevel(hlsAt(), room, 3).level).toBe(0);
     expect(pairLevel(hlsAt(null), room, 3)).toEqual({ level: 3 });
+  });
+});
+
+describe("the chunk judged is the one hls.js loads next at each quality (hls.js 1.7.3's findFragmentByPTS)", () => {
+  /**
+   * Chunks 2 to 4 held at the top, 4 a heavy 13 MB, and chunk 5 stepped down to level 2, its picture
+   * ending 14 ms short of its playlist's 36 s, as a made quality's did (file 1504, 2026-11-15).
+   */
+  function steppedShort(): { readonly hls: RoomHls; readonly room: PictureRoom } {
+    const { room } = roomHolding([3, 3, 13]);
+    const span = { start: 12, end: 35.986 };
+    room.buffered({ sn: 5, level: 2, startS: 30, endS: 36, bytes: 4_221_000 }, span);
+    return { hls: hlsAt(span), room };
+  }
+
+  it("is, on a quality switched to, the chunk the picture's end lies in, which hls.js loads again", () => {
+    const { hls, room } = steppedShort();
+    expect(nextChunkOf(hls, 3, room.last())?.sn).toBe(5);
+    // Chunk 5 again at the top, 15 MB beside chunk 4's 13, does not fit: level 2 loads chunk 6.
+    expect(pairLevel(hls, room, 3)).toEqual({
+      level: 2,
+      chunk: {
+        sn: 5,
+        chosenBytes: 15_000_000,
+        bytes: 4_221_000,
+        beforeBytes: 13_000_000,
+        loadsSn: 6,
+      },
+    });
+    expect(roomAheadS(hls, room, 3)).toBe(6);
+    const steps: string[] = [];
+    expect(new StepDown(hls, room, (each) => steps.push(each)).level(3)).toBe(2);
+    expect(steps).toEqual([
+      "chunk 5 steps down from level 3: 15.0 MB beside 13.0 MB held is over the room's 27.0 MB;" +
+        " level 2's chunk 6, 4.2 MB",
+    ]);
+  });
+
+  it("is, on the quality of the chunk last buffered, the one after it, however short its picture ends", () => {
+    const { hls, room } = steppedShort();
+    // hls.js's next-chunk shortcut, within its 0.25 s look-up tolerance.
+    expect(nextChunkOf(hls, 2, room.last())?.sn).toBe(6);
+    // Past the tolerance, its search finds the chunk it last loaded, and it takes the one after.
+    expect(nextChunkOf(hlsAt({ start: 12, end: 35.5 }), 2, room.last())?.sn).toBe(6);
+    // A picture that reaches its playlist's end is followed by the next on every quality.
+    expect(nextChunkOf(hlsAt({ start: 12, end: 36 }), 3, room.last())?.sn).toBe(6);
+    expect(nextChunkOf(hls, 2, undefined)?.sn).toBe(5);
   });
 });
 
@@ -162,7 +219,7 @@ describe("how far ahead the picture loads for the next chunk to fit (D464 §4)",
   it("forgets a chunk played past what is loaded around where it plays", () => {
     const { room } = roomHolding([5, 5, 5]);
     const span = { start: 24, end: 36 };
-    room.buffered({ sn: 5, startS: 30, endS: 36, bytes: 2e6 }, span);
+    room.buffered({ sn: 5, level: 3, startS: 30, endS: 36, bytes: 2e6 }, span);
     expect(room.heldBefore(6, span).map((chunk) => chunk.sn)).toEqual([5, 4]);
   });
 });
@@ -177,7 +234,7 @@ describe("the buffer's limit learnt on the device (D464 §2)", () => {
     expect(notes).toEqual([
       "picture buffer refused: limit 30.0 MB lowered to 15.0 MB, the most held",
     ]);
-    room.buffered({ sn: 5, startS: 30, endS: 36, bytes: 1e6 }, { start: 24, end: 36 });
+    room.buffered({ sn: 5, level: 3, startS: 30, endS: 36, bytes: 1e6 }, { start: 24, end: 36 });
     room.refused();
     expect([room.limitBytes(), notes.length]).toEqual([15_000_000, 1]);
     expect(roomHolding([1, 1, 1], { storage }).room.limitBytes()).toBe(15_000_000);
