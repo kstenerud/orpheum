@@ -21,6 +21,12 @@ ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 
 
+def short_hash() -> str:
+    """HEAD's 8-digit hash, in the repository entered."""
+    return subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], capture_output=True, text=True,
+                          check=True).stdout.strip()
+
+
 @contextlib.contextmanager
 def repo_with_a_commit():
     """A throwaway repository with one commit, entered; yields that commit's 8-digit hash."""
@@ -30,8 +36,17 @@ def repo_with_a_commit():
         os.chdir(root)
         subprocess.run(["git", "add", "-A"], check=True, env=ENV)
         subprocess.run(["git", "commit", "-qm", "feat(a): the first thing"], check=True, env=ENV)
-        yield subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], capture_output=True,
-                             text=True, check=True).stdout.strip()
+        short = short_hash()
+        # An all-digit hash reads as a number and one with no digit as a word (candidates), so the
+        # commit is made again until its hash has both, else about one run in 40 fails.
+        attempt = 0
+        while short.isdigit() or not any(c.isdigit() for c in short):
+            attempt += 1
+            # A second later each time, so each attempt's hash differs.
+            subprocess.run(["git", "commit", "-q", "--amend", "--no-edit"], check=True,
+                           env={**ENV, "GIT_COMMITTER_DATE": f"{1_700_000_000 + attempt} +0000"})
+            short = short_hash()
+        yield short
     finally:
         os.chdir(cwd)
         shutil.rmtree(root)
