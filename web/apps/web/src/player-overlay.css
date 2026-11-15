@@ -27,6 +27,14 @@
   visibility: hidden;
 }
 
+/* Held, just shown (useOverlayHeld in player-taps.ts, VQ347), no control takes a hit: a touch falls on
+   the overlay's ground, which stops its events. In browser full screen Chromium's touchstart cannot
+   be cancelled, and the scrub bar's own slider seeked at a touch on it whatever its listener did
+   (idiosyncrasies.md). */
+.player-overlay[data-held] * {
+  pointer-events: none;
+}
+
 /* The convenience area alone (D407 §3): the offer, with nothing else of the overlay and no scrim
    over the film's end. */
 .player-overlay[data-shown="convenience"] {

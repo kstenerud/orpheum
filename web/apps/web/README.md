@@ -848,11 +848,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   computer's film plays or pauses it and its double click puts it full screen; a finger's or a pen's
   never does either, nor a click whose pointerType is not the mouse's or that comes just after a touch
   on the screen, as some phones' browsers give a tap's click (`TouchClock` in `src/player-taps.ts`,
-  idiosyncrasies.md; the owner, 2026-11-13). A finger's tap on the overlay's scrub bar does nothing
-  for half a second after the bar shows, so a second tap meant for the picture does not jump the
-  film; a tap after still seeks, and a drag follows the finger once it moves further than a tap's
-  wobble (`scrubTapHeldForMs` in `src/player-taps.ts`; the owner, 2026-11-15, option a of three;
-  `src/player-overlay-scrub.test.tsx`). `src/player-overlay.test.tsx`, `src/page-controls.test.tsx`,
+  idiosyncrasies.md; the owner, 2026-11-13). For half a second after the full-screen overlay
+  shows, none of its controls takes a finger's, a pen's or a mouse's touch, in browser full screen
+  too, so a second tap meant for the picture does not jump the film or press a button: nothing in it
+  takes a hit (`data-held`, `player-overlay.css`) and its capture-phase listener stops every event of
+  a gesture that came down in the hold, a drag to its end; a key's or a remote's press, and the click
+  a key makes, is never held (`overlayHeldForMs` and `useOverlayHeld` in `src/player-taps.ts`; the
+  owner, 2026-11-15, option a of three, widened to every control, VQ347;
+  `src/player-overlay-held.test.tsx`, `src/player-overlay-held.browser.test.tsx`). `src/player-overlay.test.tsx`, `src/page-controls.test.tsx`,
   `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
   `src/player-commands.test.tsx`, `src/player-overlay.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,

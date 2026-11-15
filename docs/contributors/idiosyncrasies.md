@@ -1479,6 +1479,31 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   1921168](https://bugzilla.mozilla.org/show_bug.cgi?id=1921168), where an element over a video at
   opacity 0.98 is the workaround.
 
+### Chromium in browser full screen sends a touchstart that cannot be cancelled, so a range slider takes the touch
+
+- **Technology:** Chromium's touch events on an element in browser full screen (`requestFullscreen`),
+  on a phone: the owner's Android phone, Chrome (2026-11-15), and Chromium with touch emulated over CDP.
+- **Symptom:** the overlay's scrub bar, held for half a second after it shows so a second tap meant for
+  the picture does not jump the film, held nothing in full screen: the film jumped to where the tap
+  landed. Out of full screen the hold worked ("it only works in non fullscreen mode", the owner,
+  2026-11-15, VQ347).
+- **Cause, as far as seen:** in full screen the trusted `touchstart` arrives with `cancelable` false
+  (its `pointerdown` and `touchend` are cancelable), so the slider's own listener's `preventDefault()`
+  does nothing, and the native `<input type="range">` sets its value and sends `input` and `change`.
+  Out of full screen the same touchstart is cancelable. Reproduced over CDP (`Input.dispatchTouchEvent`
+  with touch emulation and a mobile viewport) in Chromium; not confirmed in Chromium's source.
+- **What we do:** no listener is trusted to cancel a touch. While the overlay is held, nothing in it
+  takes a hit (`.player-overlay[data-held] *` has `pointer-events: none`, `player-overlay.css`), so the
+  touch lands on the overlay's own ground, and its capture-phase listener stops every event of a
+  gesture that came down in the hold, to its end (`useOverlayHeld` in `web/apps/web/src/player-taps.ts`).
+  `player-overlay-held.browser.test.tsx` checks the hit in Chromium and Firefox,
+  `player-overlay-held.test.tsx` the listener. VQ347.
+- **Evidence:** the owner, 2026-11-15; the CDP repro logged `touchstart cancelable=false` and a seek in
+  full screen, and no seek with the fix. **[web]** A search found no report tying it to full screen
+  (2026-11-15); Chrome's "[Intervention] Ignored attempt to cancel a touchstart event with
+  cancelable=false" is met widely ([Ionic issue 21444](https://github.com/ionic-team/ionic-framework/issues/21444),
+  [Mapbox GL JS PR 12121](https://github.com/mapbox/mapbox-gl-js/pull/12121)), put down to the browser
+  having begun its own handling of the touch.
 
 ## Web platform, all browsers
 

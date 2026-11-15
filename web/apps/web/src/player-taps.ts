@@ -27,25 +27,112 @@ export interface PictureTap {
 }
 
 /**
- * How long a tap on the overlay's scrub bar does nothing after the bar appears, in ms: on a phone a
- * second tap, meant for the picture, landed on the full-width bar the first tap had just shown and
- * jumped the film. The owner chose this hold (2026-11-15, option a of three); a tap after it still
- * seeks, and a drag is unchanged.
+ * How long the overlay's controls take no finger's, pen's or mouse's touch after the overlay appears,
+ * in ms: on a phone a second tap, meant for the picture, landed on the full-width scrub bar the first
+ * tap had just shown and jumped the film. The owner chose a hold for the scrub bar (2026-11-15,
+ * option a of three) and widened it to every control of the overlay, in full screen too (VQ347): a
+ * tap, a click or a drag that comes down in it does nothing to its end, and one after works as
+ * before. A key's or a remote's press is not held, nor the click a key makes (useOverlayHeld).
  */
-export const scrubTapHeldForMs = 500;
+export const overlayHeldForMs = 500;
+
+/** The events of a finger, a pen or a mouse on the overlay that its hold stops (useOverlayHeld). */
+const heldEvents = [
+  "pointerdown",
+  "pointermove",
+  "pointerup",
+  "pointercancel",
+  "touchstart",
+  "touchmove",
+  "touchend",
+  "touchcancel",
+  "mousedown",
+  "mousemove",
+  "mouseup",
+  "click",
+  "dblclick",
+  "contextmenu",
+] as const;
+
+/** Those of heldEvents a pointer makes by moving, which a held touch's end no longer stops. */
+const moveEvents: ReadonlySet<string> = new Set(["pointermove", "touchmove", "mousemove"]);
 
 /**
- * Whether a tap on the scrub bar now is held (scrubTapHeldForMs from the moment isShown last turned
- * true): returns what asks it, on the clock of performance.now().
+ * The last touch to come down on the overlay (its pointerdown): one that came down in the hold, still
+ * down or lifted, or one that came down outside it.
  */
-export function useScrubTapHeld(isShown: boolean): () => boolean {
-  const shownAtRef = useRef(-Infinity);
+type OverlayTouch = "held" | "heldLifted" | "free";
+
+/**
+ * Holds every control of the overlay in overlayRef for overlayHeldForMs from the moment isShown turns
+ * true; returns whether the hold is on, which the overlay marks data-held, its controls then taking
+ * no hit (player-overlay.css). In browser full screen Chromium makes a touchstart not cancelable, so
+ * the scrub bar's own slider took a held tap whatever the page's listener did (idiosyncrasies.md):
+ * a held touch falls on the overlay's ground instead, and the overlay stops each of its events
+ * (heldEvents) in its capture phase, so neither a control nor the page's tap readers take it: from
+ * its pointerdown to its lift, a drag to its end even after the hold, and after the lift its click
+ * and the mouse's events a touch makes, until the next touch comes down; a move then is no longer
+ * stopped. A touch that came down before the hold keeps its click, as the tap on an offer's button
+ * that shows the rest; a click a key makes (no count) is never held.
+ */
+export function useOverlayHeld(
+  overlayRef: RefObject<HTMLElement | null>,
+  isShown: boolean,
+): boolean {
+  const [isHeld, setIsHeld] = useState(false);
+  const touchRef = useRef<OverlayTouch>("free");
+  // A layout effect, so the frame that first shows the overlay holds it already.
   useLayoutEffect(() => {
-    if (isShown) {
-      shownAtRef.current = performance.now();
+    setIsHeld(isShown);
+    if (!isShown) {
+      return undefined;
     }
+    const timer = setTimeout(() => {
+      setIsHeld(false);
+    }, overlayHeldForMs);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [isShown]);
-  return () => performance.now() - shownAtRef.current < scrubTapHeldForMs;
+  const isHeldRef = useLatest(isHeld);
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (overlay === null) {
+      return undefined;
+    }
+    const stop = (event: Event): void => {
+      const touch = heldTouchAfter(touchRef.current, event, isHeldRef.current);
+      touchRef.current = touch;
+      const isHeldNow = touch === "held" || (touch === "heldLifted" && !moveEvents.has(event.type));
+      const isKeysClick =
+        event.type === "click" && event instanceof MouseEvent && event.detail === 0;
+      if (!isHeldNow || isKeysClick) {
+        return;
+      }
+      event.stopPropagation();
+      if (event.cancelable) {
+        event.preventDefault();
+      }
+    };
+    for (const type of heldEvents) {
+      overlay.addEventListener(type, stop, { capture: true, passive: false });
+    }
+    return () => {
+      for (const type of heldEvents) {
+        overlay.removeEventListener(type, stop, { capture: true });
+      }
+    };
+  }, [overlayRef]);
+  return isHeld;
+}
+
+/** The overlay's last touch after event, the hold on or not (isHeld). */
+function heldTouchAfter(touch: OverlayTouch, event: Event, isHeld: boolean): OverlayTouch {
+  if (event.type === "pointerdown") {
+    return isHeld ? "held" : "free";
+  }
+  const isLifted = event.type === "pointerup" || event.type === "pointercancel";
+  return touch === "held" && isLifted ? "heldLifted" : touch;
 }
 
 /** The longest a touch may rest and be a tap, in ms: a longer one is a press, which taps nothing. */

@@ -65,7 +65,7 @@ export function VolumeRange(props: {
     inputRef,
     (clientX, rect, point) =>
       isUpright ? uprightVolumeAt(point, rect, most) : volumeAt(clientX, rect, most),
-    { onTouched: onChange },
+    onChange,
   );
   return (
     <input
