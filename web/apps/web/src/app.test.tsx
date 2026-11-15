@@ -11,6 +11,7 @@ import { act } from "react";
 
 import { App, Screen } from "./app.tsx";
 import { tabStorage } from "./browser-storage.ts";
+import { dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import {
   buttonWithText,
   click,
@@ -341,6 +342,46 @@ describe("App", () => {
     expect(await offersGallery(false)).toBe(false);
     // Unread, the setting is off.
     expect(await offersGallery(undefined)).toBe(false);
+  });
+
+  it("takes the device's data caps the core keeps into this browser's copy, and carries the browser's over once where the core keeps none (D493)", async () => {
+    const signedInOn = (dataCaps: object): Answers[string] => [
+      200,
+      {
+        id: 1,
+        name: "owner",
+        role: "user",
+        isAdmin: false,
+        device: { id: 5, name: "Phone", soundOffsetMs: 0, dataCaps },
+      },
+    ];
+    const served = (dataCaps: object, heard: Heard[]): ReturnType<typeof servedBy> =>
+      servedBy(
+        {
+          ...backgroundAnswers,
+          "GET /me": signedInOn(dataCaps),
+          "GET /home": [200, { continueWatching: [] }],
+          "GET /items": [200, { items: [], nextCursor: "" }],
+          "PUT /me/devices/5": [204, null],
+        },
+        heard,
+        "token",
+      );
+    const kept = await mount(withServices(<App />, served({ mobileKbps: 496 }, [])));
+    await settleUntil(() => window.localStorage.getItem(dataCapsKey) !== null);
+    expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "{}")).toEqual({ mobile: 496 });
+    kept.unmount();
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 796 }));
+    const heard: Heard[] = [];
+    const carried = await mount(withServices(<App />, served({}, heard)));
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "PUT /me/devices/5"));
+    await deviceDataCaps().written();
+    expect(heard.find((each) => each.methodAndPath === "PUT /me/devices/5")?.body).toEqual({
+      dataCaps: { unknownKbps: 796 },
+    });
+    carried.unmount();
+    window.localStorage.removeItem(dataCapsKey);
+    deviceDataCaps().settleWithCore({}, () => Promise.resolve());
   });
 
   it("has every player wait by the server's margin on its next chunk's load (the owner, 2026-10-28)", async () => {

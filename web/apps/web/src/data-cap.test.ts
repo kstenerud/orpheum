@@ -86,6 +86,65 @@ describe("a device's data caps (D488)", () => {
   });
 });
 
+describe("a device's data caps, the core's with a copy in its browser (D493)", () => {
+  it("take the core's into the copy at each read of who is signed in, telling who listens", () => {
+    const { storage, held } = heldStorage();
+    const caps = new DataCaps(storage, new FakeConnection("cellular"));
+    caps.choose(796);
+    let told = 0;
+    caps.subscribe(() => {
+      told += 1;
+    });
+    const sent: unknown[] = [];
+    caps.settleWithCore({ mobileKbps: 496, wifiKbps: 3096 }, (kept) => {
+      sent.push(kept);
+      return Promise.resolve();
+    });
+    expect(caps.capKbps()).toBe(496);
+    expect(JSON.parse(held.get(dataCapsKey) ?? "{}")).toEqual({ wifi: 3096, mobile: 496 });
+    expect(told).toBe(1);
+    expect(sent).toEqual([]);
+    caps.settleWithCore({ mobileKbps: 496, wifiKbps: 3096 }, (kept) => {
+      sent.push(kept);
+      return Promise.resolve();
+    });
+    expect(told).toBe(1); // the same read again changes nothing
+  });
+
+  it("keep each choice on the core too, in the order chosen, once the core is known", async () => {
+    const caps = new DataCaps(heldStorage().storage, new FakeConnection("wifi"));
+    caps.choose(6096); // before the core is known: kept here alone
+    const sent: unknown[] = [];
+    caps.settleWithCore({ wifiKbps: 2096 }, async (kept) => {
+      await Promise.resolve();
+      sent.push(kept);
+    });
+    caps.choose(1296);
+    caps.choose(undefined);
+    await caps.written();
+    expect(sent).toEqual([{ wifiKbps: 1296 }, {}]);
+  });
+
+  it("carry the browser's over once where the core keeps none, and keep a failed write's choice here", async () => {
+    const caps = new DataCaps(heldStorage().storage, undefined);
+    caps.choose(796);
+    const sent: unknown[] = [];
+    caps.settleWithCore({}, (kept) => {
+      sent.push(kept);
+      return Promise.reject(new Error("the core is away"));
+    });
+    await caps.written(); // the failure is reported, never thrown
+    expect(sent).toEqual([{ unknownKbps: 796 }]);
+    expect(caps.capKbps()).toBe(796);
+    caps.settleWithCore({ unknownKbps: 796 }, (kept) => {
+      sent.push(kept);
+      return Promise.resolve();
+    });
+    await caps.written();
+    expect(sent).toHaveLength(1); // the core's are the truth now
+  });
+});
+
 describe("a cap's figures (D488)", () => {
   it("are each rung's video and sound in GB per hour, to one decimal", () => {
     expect(defaultRungsKbps.map(gbPerHourOf)).toEqual([0.2, 0.4, 0.6, 0.9, 1.4, 2.7]);

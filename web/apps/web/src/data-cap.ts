@@ -8,8 +8,12 @@
  * for the network it is on, changing with it mid-film; where the browser does not say, it keeps one.
  * Its kind is never guessed from the link's speed. Each starts at No limit (the owner, 2026-11-14).
  * The film's own picture is one more rung, and its own file plays under a cap at or above its rate
- * (D491). Kept in this browser's storage, not on the core: see D488 for why, and what is left open.
+ * (D491). The caps are the core's, kept with the device, which applies them at a start (D493); this
+ * browser keeps a copy, refreshed at each read of who is signed in, for hls.js's ceiling and ⋯'s
+ * choices, and a choice changes both.
  */
+
+import { reportFailure } from "@orpheum/sdk";
 
 import { browserStorage, type StringStorage } from "./browser-storage.ts";
 
@@ -67,18 +71,45 @@ export function isWithinCap(fileKbps: number, capKbps: number | undefined): bool
   return capKbps === undefined || (fileKbps > 0 && fileKbps <= capKbps);
 }
 
+/** A device's caps, kbit/s, by kind of network; a kind left out is No limit. */
+export type CapsByKind = Partial<Record<NetworkKind, number>>;
+
+/** A device's caps as the core keeps them (D493): a kind absent is No limit. */
+export interface CoreDataCaps {
+  readonly wifiKbps?: number;
+  readonly mobileKbps?: number;
+  readonly unknownKbps?: number;
+}
+
+/** caps as the core keeps them. */
+export function coreDataCapsOf(caps: CapsByKind): CoreDataCaps {
+  return {
+    ...(caps.wifi === undefined ? {} : { wifiKbps: caps.wifi }),
+    ...(caps.mobile === undefined ? {} : { mobileKbps: caps.mobile }),
+    ...(caps.unknown === undefined ? {} : { unknownKbps: caps.unknown }),
+  };
+}
+
+/** Keeps a device's caps on the core: a PUT of /me/devices/{id} (setMyDeviceDataCaps). */
+export type KeepOnCore = (caps: CoreDataCaps) => Promise<void>;
+
 /** The caps kept in storage, by kind; a value that is not a positive rate is none. */
-function capsIn(storage: StringStorage): Partial<Record<NetworkKind, number>> {
+function capsIn(storage: StringStorage): CapsByKind {
   let kept: unknown;
   try {
     kept = JSON.parse(storage.getItem(dataCapsKey) ?? "{}");
   } catch {
     return {};
   }
+  return positiveRatesOf(kept);
+}
+
+/** Of kept, by kind, each value that is a positive rate. */
+function positiveRatesOf(kept: unknown): CapsByKind {
   if (typeof kept !== "object" || kept === null) {
     return {};
   }
-  const caps: Partial<Record<NetworkKind, number>> = {};
+  const caps: CapsByKind = {};
   for (const kind of kinds) {
     const cap: unknown = Reflect.get(kept, kind);
     if (typeof cap === "number" && Number.isFinite(cap) && cap > 0) {
@@ -93,6 +124,9 @@ export class DataCaps {
   readonly #storage: () => StringStorage;
   readonly #connection: EventTarget | undefined;
   readonly #listeners = new Set<() => void>();
+  #keepOnCore: KeepOnCore | undefined;
+  // The writes to the core so far, one at a time in the order chosen; it never rejects.
+  #written: Promise<void> = Promise.resolve();
 
   /** The caps kept in storage, for the network connection says, where it says one. */
   constructor(storage: () => StringStorage, connection: EventTarget | undefined) {
@@ -110,14 +144,67 @@ export class DataCaps {
     return capsIn(this.#storage())[this.kind()];
   }
 
-  /** Keeps kbps as the cap for the network the device is on; undefined is No limit. */
+  /**
+   * Keeps kbps as the cap for the network the device is on, here and on the core; undefined is No
+   * limit.
+   */
   choose(kbps: number | undefined): void {
-    const caps = { ...capsIn(this.#storage()), [this.kind()]: kbps };
+    const caps = positiveRatesOf({ ...capsIn(this.#storage()), [this.kind()]: kbps });
+    this.#keepHere(caps);
+    this.#keepOnCoreToo(caps);
+  }
+
+  /**
+   * Takes the caps the core keeps for this device, core, as GET /me says them, into this browser's
+   * copy, and keeps each choice after on the core by keepOnCore (D493). Once, where the core keeps
+   * none and this browser some, chosen here before the core kept them (D488), they are kept on the
+   * core, and the core's are the truth from then on.
+   */
+  settleWithCore(core: CoreDataCaps, keepOnCore: KeepOnCore): void {
+    this.#keepOnCore = keepOnCore;
+    const kept = positiveRatesOf({
+      wifi: core.wifiKbps,
+      mobile: core.mobileKbps,
+      unknown: core.unknownKbps,
+    });
+    const here = capsIn(this.#storage());
+    if (Object.keys(kept).length === 0 && Object.keys(here).length > 0) {
+      this.#keepOnCoreToo(here);
+      return;
+    }
+    if (JSON.stringify(coreDataCapsOf(kept)) !== JSON.stringify(coreDataCapsOf(here))) {
+      this.#keepHere(kept);
+    }
+  }
+
+  /**
+   * Settles once every choice made so far is kept on the core, or failed to be: a start waits for it,
+   * so the core applies the cap just chosen (D489's re-ask, cause dataCapStarted). It never rejects.
+   */
+  written(): Promise<void> {
+    return this.#written;
+  }
+
+  /** Keeps caps as this browser's copy, and tells each listener. */
+  #keepHere(caps: CapsByKind): void {
     // JSON leaves a kind of No limit out.
     this.#storage().setItem(dataCapsKey, JSON.stringify(caps));
     for (const listener of this.#listeners) {
       listener();
     }
+  }
+
+  /** Keeps caps on the core, after the writes before it; before the core is known, nowhere. */
+  #keepOnCoreToo(caps: CapsByKind): void {
+    const keep = this.#keepOnCore;
+    if (keep === undefined) {
+      return;
+    }
+    this.#written = this.#written
+      .then(async () => {
+        await keep(coreDataCapsOf(caps));
+      })
+      .catch(reportFailure);
   }
 
   /**

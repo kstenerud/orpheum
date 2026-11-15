@@ -91,8 +91,9 @@ describe("a cap starting to hold (D489)", () => {
     });
     // Asked once: the film the core plays as it is again, its ladder not there, is not asked for again.
     expect(playbackCauses(heard)).toEqual(["playPage", "dataCapStarted"]);
+    // The core applies the cap it keeps for this kind of network (D493).
     const asked = heard.filter((each) => each.methodAndPath === "POST /playback").at(-1);
-    expect(asked?.body).toMatchObject({ preferredDelivery: "hls" });
+    expect(asked?.body).toMatchObject({ networkKind: "unknown" });
   });
 
   it("leaves a film playing its own file where the cap starting is at or above its rate (D491)", async () => {

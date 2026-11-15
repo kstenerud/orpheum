@@ -4,7 +4,7 @@ import { isWebAudioLate, type ChunkedPlayback } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
-import { deviceDataCapKbps, isWithinCap } from "./data-cap.ts";
+import { deviceDataCapKbps, deviceDataCaps } from "./data-cap.ts";
 import { noteDecisionTimes } from "./decision-times.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
@@ -40,33 +40,6 @@ export interface StartAsked {
 /** How many playbacks this page has asked for since it loaded, which the server logs beside each. */
 const pageStarts = { count: 0 };
 
-/** A person's override of how a film plays, as the API names it. */
-type PreferredDelivery = NonNullable<
-  components["schemas"]["StartPlaybackInputBody"]["preferredDelivery"]
->;
-
-/**
- * The delivery a request for a playback prefers, if any: the film's own file where the person chose
- * it and the device's data cap, capKbps, lets its file of fileKbps play (isWithinCap, D491); else the
- * ladder's under a cap (D488), whose rungs include the film's own picture; else none.
- */
-export function preferredDeliveryOf(
-  cause: StartCause,
-  capKbps: number | undefined,
-  fileKbps: number,
-): { readonly preferredDelivery?: PreferredDelivery } {
-  if (cause === "originalChosen" && isWithinCap(fileKbps, capKbps)) {
-    return { preferredDelivery: "direct" };
-  }
-  return capKbps === undefined ? {} : { preferredDelivery: "hls" };
-}
-
-/**
- * Each file's own rate, kbit/s, as the core last answered it here (fileBitRateKbps), by which a
- * choice of its original under a data cap is judged (preferredDeliveryOf).
- */
-const fileRatesKbps = new Map<number, number>();
-
 /** Asks the server how a file plays in this browser, and why it asks; nothing of where it is (D247 §11). */
 export async function requestPlayback(
   api: Api,
@@ -75,27 +48,31 @@ export async function requestPlayback(
 ): Promise<PlaybackDecision> {
   const askedMs = performance.now();
   pageStarts.count += 1;
+  const pageStart = pageStarts.count;
+  // A cap just chosen is the core's before it decides (D493): its re-ask, dataCapStarted, plays by it.
+  const caps = deviceDataCaps();
+  await caps.written();
   const decision = dataOrThrow(
     await api.POST("/playback", {
       body: {
         fileId,
         playableFormats: asked.playableFormats,
         cause: asked.cause,
-        pageStarts: pageStarts.count,
+        pageStarts: pageStart,
         // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
         ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
         // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
         // wants is its ladder's sound's (D436).
         ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
-        // A device under a data cap plays a rung of its ladder (D488), or the film's own file its
-        // person chose where the cap is at or above its rate (D491).
-        ...preferredDeliveryOf(asked.cause, deviceDataCapKbps(), fileRatesKbps.get(fileId) ?? 0),
+        // The core applies the device's data cap for this kind of network (D493): a rung of its ladder
+        // (D488), or the film's own file its person chose where the cap is at or above its rate (D491).
+        networkKind: caps.kind(),
+        ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
         ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
       },
     }),
   );
   noteDecisionTimes(decision.mediaToken, { askedMs, decidedMs: performance.now() });
-  fileRatesKbps.set(fileId, decision.fileBitRateKbps);
   return decision;
 }
 

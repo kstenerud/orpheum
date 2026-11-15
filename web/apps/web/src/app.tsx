@@ -65,6 +65,7 @@ import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
 import { InterestSaidEveryContext } from "./page-interest.ts";
+import { useDataCapsSettledWithTheCore } from "./data-cap-core.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
@@ -278,6 +279,8 @@ function PersonSignedIn(props: {
   // Who is signed in, for every screen that needs to know, read once here (D478).
   const signedInMe = useMemo(() => ({ me, readMeAgain }), [me, readMeAgain]);
   const debugTools = useDebugToolsOf(me, readMeAgain);
+  // This device's data caps, the core's, settled with this browser's copy at each read (D493).
+  useDataCapsSettledWithTheCore(me.state === "loaded" ? me.value.device : undefined);
   const clientSettings = useClientSettings();
   const poller = useServersPoller(clientSettings);
   useReadyAheadOfTheServer(clientSettings);

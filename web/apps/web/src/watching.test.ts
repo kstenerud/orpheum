@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { dataCapsKey } from "./data-cap.ts";
+import { dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import { decisionTimesOf } from "./decision-times.ts";
 import {
   bodyField,
@@ -126,53 +126,51 @@ describe("a playback asked for again because its player gave the film's own pict
   });
 });
 
-describe("a playback asked for on a device under a data cap (D488)", () => {
+describe("a playback asked for on a device under a data cap (D488, D493)", () => {
   afterEach(() => {
     window.localStorage.removeItem(dataCapsKey);
+    deviceDataCaps().settleWithCore({}, () => Promise.resolve());
   });
 
-  it("asks for the film's ladder, its own file the person chose too, and nothing where no cap holds", async () => {
+  it("says the kind of network it is on, for the core to apply the device's cap, and asks for the film's own file only where its person chose it", async () => {
     const heard: Heard[] = [];
     const { watching } = watchingServed(heard);
     await watching.decide(7, playableFormats, { cause: "originalChosen" });
     window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 1296 }));
     await watching.decide(7, playableFormats, { cause: "playPage" });
     await watching.decide(7, playableFormats, { cause: "originalChosen" });
-    window.localStorage.setItem(dataCapsKey, JSON.stringify({ wifi: 1296 }));
-    await watching.decide(7, playableFormats, { cause: "playPage" });
     const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    // The core chooses the ladder under the cap, its own file where it is within (D491 §4).
     expect(asked.map((request) => bodyField(request, "preferredDelivery"))).toEqual([
       "direct",
-      "hls",
-      "hls",
       undefined,
+      "direct",
+    ]);
+    expect(asked.map((request) => bodyField(request, "networkKind"))).toEqual([
+      "unknown",
+      "unknown",
+      "unknown",
     ]);
   });
 
-  it("asks for the film's own file its person chose where the cap is at or above the file's rate (D491)", async () => {
+  it("asks only once a cap just chosen is kept on the core, which plays it by that cap", async () => {
     const heard: Heard[] = [];
-    const { api } = servedBy(
-      {
-        "POST /playback": [decided("a", true, 1200), decided("b", true, 1200), decided("c", false)],
-        "DELETE /playback/a": [204, undefined],
-        "DELETE /playback/b": [204, undefined],
-      },
-      heard,
-    );
-    const watching = new Watching(api, () => 0, standInPreloads().start);
-    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 1296 }));
-    await watching.decide(7, playableFormats, { cause: "playPage" });
-    await watching.decide(7, playableFormats, { cause: "originalChosen" });
-    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 796 }));
-    await watching.decide(7, playableFormats, { cause: "originalChosen" });
-    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
-    // The ladder's first, its rungs the film's own picture among them; the file's 1200 kb/s within
-    // 1296, its own file; under 796, the ladder still.
-    expect(asked.map((request) => bodyField(request, "preferredDelivery"))).toEqual([
-      "hls",
-      "direct",
-      "hls",
-    ]);
+    const { watching } = watchingServed(heard);
+    const kept: { release: () => void; caps: unknown[] } = { release: () => undefined, caps: [] };
+    deviceDataCaps().settleWithCore({}, async (caps) => {
+      kept.caps.push(caps);
+      await new Promise<void>((resolve) => {
+        kept.release = resolve;
+      });
+    });
+    deviceDataCaps().choose(796);
+    const deciding = watching.decide(7, playableFormats, { cause: "dataCapStarted" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(heard.filter((request) => request.methodAndPath === "POST /playback")).toEqual([]);
+    expect(kept.caps).toEqual([{ unknownKbps: 796 }]);
+    kept.release();
+    await deciding;
+    expect(heard.filter((request) => request.methodAndPath === "POST /playback")).toHaveLength(1);
   });
 });
 
