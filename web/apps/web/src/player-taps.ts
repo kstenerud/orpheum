@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { useLatest } from "./latest.ts";
+import { tapSlopPx } from "./range-touch.ts";
 import {
   doubleTapSeekMs,
   doubleTapSeekTo,
@@ -24,12 +25,6 @@ export interface PictureTap {
   /** When it lifted, the clock of an event's timeStamp. */
   readonly atMs: number;
 }
-
-/**
- * How a touch tap is told from a drag, in px: a finger that moved further is not a tap (the width of
- * a fingertip's wobble; Android's own touch slop is 8 dp).
- */
-export const tapSlopPx = 10;
 
 /**
  * How long a tap on the overlay's scrub bar does nothing after the bar appears, in ms: on a phone a

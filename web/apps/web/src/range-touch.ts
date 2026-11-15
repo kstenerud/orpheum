@@ -2,7 +2,12 @@
 
 import { useEffect, type RefObject } from "react";
 import { useLatest } from "./latest.ts";
-import { tapSlopPx } from "./player-taps.ts";
+
+/**
+ * How a touch tap is told from a drag, in px: a finger that moved further is not a tap (the width of
+ * a fingertip's wobble; Android's own touch slop is 8 dp).
+ */
+export const tapSlopPx = 10;
 
 /** How far along a slider spanning rect a touch at clientX is: 0 at its start, 1 at its end. */
 export function fractionAlong(
