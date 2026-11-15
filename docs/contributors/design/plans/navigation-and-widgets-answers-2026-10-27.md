@@ -4182,3 +4182,19 @@ End: make check-pr, then staging, where the owner checks each VQ item.
    (useOverlayHiding counts only commands, taps and a seek landing), so the overlay hides 3 s after
    it showed, under the finger. A finger, pen or mouse held on the scrub bar holds the overlay, as a
    menu open does, and its lift counts as a press.
+
+### The 11-27 batch, folded in: a film getting ready to play shows it
+
+The owner, 2026-11-15: "when the video is first getting ready to play, put a spinner over the video so
+that the user knows we're still getting ready to play. Otherwise it's hard to tell the difference
+between a video that is paused, hasn't started yet, or is having trouble filling the initial buffer",
+then "At the moment when I start a video playing, I have a black screen. If I tap to bring up the
+overlay, it shows the play button, so it looks like it's paused. That's confusing." Folded in as
+hurting use. Built as the lead proposed, unless the owner says otherwise: one rule for a film meant
+to play but waiting for data (its start, the start gate's hold after a seek, a stall): a spinner
+over the picture, and the overlay's button says the film is playing (Pause), so a press pauses it
+for real; a pause the person asked for shows neither. VQ355.
+
+Also folded in (item 4): word that the connection cannot keep up shows for 10 s, once a playback
+(the owner: "The message should only show for 5 seconds and then never again on that playback",
+then "Actually let's make it 10 seconds"). VQ354.
