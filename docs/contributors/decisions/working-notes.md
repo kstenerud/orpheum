@@ -29016,6 +29016,11 @@ the look: VQ338, VQ339.
 - The back row reads the entry's whole name ("‹ Data use on mobile data"), and is named "Back to
   Data use on mobile data" to a screen reader.
 
+**Answered** (the owner, 2026-11-15): *"we'll decide as we go what becomes a submenu. Generally if it
+would add a lot of top level entries it should probably be a submenu. Escape closes the whole
+menu."* So no other group moves now: a group that would add many lines to ⋯'s top level is made a
+submenu when it is built or grows, and Escape closing ⋯ whole stays.
+
 ## D491 — The film's own picture is one more rung under a data cap
 
 **Decided** (2026-11-15), by the project owner, on D489's first open item. The lead proposed: *"D488
@@ -29243,3 +29248,9 @@ VQ343 to VQ346.
   hold asks again. Proposed: leave it, the browser's being what it draws.
 - **VQ numbers:** D492's reverted text names VQ342, which its revert removed from the queue; this
   decision's start at VQ343 so the number is not reused.
+
+**Answered** (the owner, 2026-11-15): *"1: agreed. 2: agreed."*, to the lead's list of this
+decision's Test-Weakened web tests (the browser no longer asks `preferredDelivery: "hls"` under a
+cap) and of the proposals above: a device-less guest keeps nothing on the core, the give-ups never
+expire, the rule stays on both sides, and the cap's write chain and the sound offset's
+`latestWrite` become one way (rule 11).
