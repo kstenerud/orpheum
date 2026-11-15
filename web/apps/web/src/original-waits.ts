@@ -64,8 +64,8 @@ export function useOriginalOnceTheLinkCarries(
     }
     let carriedMs = 0;
     const look = setInterval(() => {
-      const carries = linkCarriesTheOriginal(readLinkKbps(), fileKbps, sharePercent);
-      carriedMs = carries ? carriedMs + linkLookEveryMs : 0;
+      const isCarried = linkCarriesTheOriginal(readLinkKbps(), fileKbps, sharePercent);
+      carriedMs = isCarried ? carriedMs + linkLookEveryMs : 0;
       if (carriedMs >= originalAfterLinkCarriesMs && isWithinCap(fileKbps, caps.capKbps())) {
         clearInterval(look);
         carried();

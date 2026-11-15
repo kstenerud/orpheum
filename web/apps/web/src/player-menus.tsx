@@ -426,6 +426,28 @@ export function MoreMenuOf(props: {
 }
 
 /**
+ * ⋯'s way to the original file: the press that plays it, or, while the original chosen waits on the
+ * ladder for the link, word that it does (OriginalWaits); nothing where it is not offered.
+ */
+function OriginalOfTheMenu(props: {
+  readonly onChosen: (() => void) | undefined;
+  readonly isWaiting: boolean;
+}): JSX.Element | null {
+  if (props.onChosen === undefined) {
+    return null;
+  }
+  return props.isWaiting ? (
+    <ListNote>
+      <OriginalWaits />
+    </ListNote>
+  ) : (
+    <ListEntry>
+      <PlayOriginal onChosen={props.onChosen} />
+    </ListEntry>
+  );
+}
+
+/**
  * ⁝'s places the page offers where it may: the original (a debug tool), which a device under a data
  * cap is offered only where the cap is at or above the file's rate (D491), or word that the original
  * chosen waits for the link (OriginalWaits), and the bare player.
@@ -437,15 +459,10 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
   const onBare = props.ways?.onBare;
   return (
     <>
-      {onOriginalChosen === undefined ? null : props.ways?.isOriginalWaiting === true ? (
-        <ListNote>
-          <OriginalWaits />
-        </ListNote>
-      ) : (
-        <ListEntry>
-          <PlayOriginal onChosen={onOriginalChosen} />
-        </ListEntry>
-      )}
+      <OriginalOfTheMenu
+        onChosen={onOriginalChosen}
+        isWaiting={props.ways?.isOriginalWaiting === true}
+      />
       {onBare === undefined ? null : (
         <ListOption onChoose={onBare}>{t("play.bare.open")}</ListOption>
       )}
