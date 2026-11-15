@@ -3314,7 +3314,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-11-15 (the owner, the Android phone, Firefox, staging, after `./staging quick`):**
   "passed". The core's log holds the reload's note once in that time: the page took the reload and
   the asking after it.
-- [ ] **VQ350** — A page that waits for its code after a deploy shows Loading…, not a black page
+- [x] **VQ350** — A page that waits for its code after a deploy shows Loading…, not a black page
   (the owner, 2026-11-15: "show loading"). On the owner's Android phone, Firefox, with orpheum.dev
   opened on staging before: have staging updated by `./staging quick`, then type orpheum.dev and go
   on to the core. Passes when, should the page wait for the new release's files (the core's log
@@ -3326,4 +3326,4 @@ An item is ticked only by the person who did it, and only with what they saw.
   opened in a second tab before the update, reload that tab after it; should it wait for its code
   (the core's log shows the reload's note for its part), it shows "Loading…" in English, whatever
   the page's language (the owner, 2026-11-15: "Untranslated is fine"), within about two seconds and
-  while it waits, and the note goes as the page draws.
+  while it waits, and the note goes as the page draws. — done 2026-11-15 on the Pixel 3a in Chrome 157 by the lead, with the wait forced over CDP (a deploy of the commit staging already ran left no file missing): the note came 2.0 s into each wait, the role's and the shell's, and went as the page drew; a quick page and a recovery after one failed ask showed none. The owner: *"I'd pass it"*.
