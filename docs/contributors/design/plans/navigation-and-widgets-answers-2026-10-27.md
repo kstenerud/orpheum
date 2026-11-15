@@ -4148,3 +4148,5 @@ fine".
 
 After the hold was widened to every control and made to work in full screen: "it seems like it's
 not stopping any taps at all". Reproduced on the Pixel 3a next.
+Then, on the same build: "The overlay works, but the delay feels a little too long. Let's try
+0.3s". The hold is 0.3 s.
