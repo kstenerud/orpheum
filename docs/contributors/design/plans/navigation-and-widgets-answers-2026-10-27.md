@@ -4091,3 +4091,23 @@ the first navigation (idiosyncrasies: "A page and its service worker run differe
 a deploy"), and Firefox keeping a failed dynamic import failed ("A dynamic import that failed fails
 again without a request"), which would explain why one automatic reload did not mend it. Beta
 testers would meet it once per release.
+
+## The 11-26 batch: after v0.8.0, while the owner is away (the owner, 2026-11-15)
+
+The owner: "I'd pick a for that. Just go ahead with whatever batching makes the most sense." v0.8.0
+is released and on production (core and Connect). The batch takes the next-batch items that need no
+device of the owner's at home, each one the owner can check on the Android phone on staging:
+
+1. **The black page after a deploy** (the section above): reproduce on staging under Playwright with a
+   page and its service worker from before a deploy open, then fix what leaves the page black.
+2. **The scrub bar's stray seeks on a phone** (the tap section above). **Decided** (the owner,
+   2026-11-15, option a of three): a tap on the scrub bar does nothing for about half a second after
+   the controls appear; a tap after that still seeks, and a drag is unchanged. Not chosen: seeking
+   by drag only (b), and a thinner bar at the bottom edge (c).
+3. **Full screen's flash of the top bar on Next and Previous** (VQ267's report, the client-server
+   audit's section).
+4. **The test of a Watch Together guest's single-use group film read** (the same section).
+
+**Settled, not built:** a data cap does not stop the load ahead. D488 §3 keeps the normal load ahead
+and D487's deeper one, as the owner's "a different problem from a data quota" has it; C6's stopping
+of prefetch is not built.
