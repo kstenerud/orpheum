@@ -3,7 +3,7 @@
 import "./play-words.ts";
 
 import { offeredRungsOf, playerOfferedRungsEvent } from "@orpheum/player";
-import { useEffect, useRef, useSyncExternalStore, type JSX, type RefObject } from "react";
+import { useEffect, useEffectEvent, useSyncExternalStore, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { deviceDataCaps, gbPerHourOf, rungUnderCap, type DataCaps } from "./data-cap.ts";
@@ -98,12 +98,13 @@ export function useIsCapped(caps: DataCaps = deviceDataCaps()): boolean {
  * its own file then asks for its ladder from where it stands, which a cap plays it on (D489).
  */
 export function useWhenACapStarts(onStart: (() => void) | undefined): void {
-  const starter = useRef(onStart);
-  starter.current = onStart;
+  const started = useEffectEvent(() => {
+    onStart?.();
+  });
   useEffect(
     () =>
       deviceDataCaps().whenCapStarts(() => {
-        starter.current?.();
+        started();
       }),
     [],
   );
