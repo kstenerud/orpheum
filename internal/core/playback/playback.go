@@ -467,29 +467,6 @@ func (service *Service) startOnLadder(
 	return &offer, "", nil
 }
 
-// isOriginalWaiting is whether a start that asked for the film's own file, and kept the ask past its
-// device's data cap (deliveryUnderCap), started on its ladder instead: its link was short of the file
-// (startOnLadder), so it waits for the link to carry it.
-func isOriginalWaiting(request Request, onLadder *chunks.Offer) bool {
-	return request.PreferredDelivery == decide.Direct && onLadder != nil
-}
-
-// linkCarries is whether a link remembered at linkKbps carries a film's own file of fileKbps, by the
-// rule a start on its ladder chooses its quality by: the file within linkShareForQualityPercent of
-// the link (D247 §6, D260 §2). A link not measured, or a file whose rate is not known, is taken to, so
-// the original is tried first (the owner, 2026-11-15: "When we haven't measured, try the original
-// first").
-func (service *Service) linkCarries(ctx context.Context, fileKbps, linkKbps int64) (bool, error) {
-	if linkKbps <= 0 || fileKbps <= 0 {
-		return true, nil
-	}
-	sharePercent, err := service.settings.Int(ctx, settings.LinkShareForQualityPercent)
-	if err != nil {
-		return false, fmt.Errorf("read %s: %w", settings.LinkShareForQualityPercent, err)
-	}
-	return chunks.IsWithinShare(fileKbps, linkKbps, sharePercent), nil
-}
-
 // startWaiting starts chunked on its film's ladder from positionMs, looking again while the film has
 // no grid until waitUntil. Its keyframes not read by then, a film its device cannot play as it is,
 // isConverted, is cut on time, which needs none (D344 §2); one it can is ErrNoGrid, and plays as it
