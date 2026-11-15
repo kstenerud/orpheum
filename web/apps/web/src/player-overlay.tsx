@@ -47,7 +47,12 @@ import {
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
-import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
+import {
+  useAnswersPictureTaps,
+  useOpensAtThePointer,
+  useScrubTapHeld,
+  type SeekFeedback,
+} from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
 import { StartRefusedShown, useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
@@ -98,6 +103,7 @@ export function PlayerOverlay(
   const told = { hasOffer, isMenuOpen };
   const overlay = useOverlay(refs, told);
   const { state, source, isTv } = overlay;
+  const isScrubTapHeld = useScrubTapHeld(isScrubShown(state.shown));
   const convenience = {
     film,
     offer,
@@ -124,10 +130,16 @@ export function PlayerOverlay(
           convenience={convenience}
           moves={moves}
           onMenuOpenChange={setIsMenuOpen}
+          isScrubTapHeld={isScrubTapHeld}
         />
       </div>
     </>
   );
+}
+
+/** Whether the scrub bar shows: all of the overlay, the bar alone, or under the pause sign. */
+function isScrubShown(shown: OverlayState["shown"]): boolean {
+  return shown === "full" || shown === "scrub" || shown === "paused";
 }
 
 /**
@@ -334,6 +346,7 @@ export function OverlayRows({
   convenience,
   moves,
   onMenuOpenChange,
+  isScrubTapHeld,
 }: {
   readonly source: PlayerSource;
   readonly isTv: boolean;
@@ -341,6 +354,8 @@ export function OverlayRows({
   readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "leftMs">;
   readonly moves: SequenceMoves | undefined;
   readonly onMenuOpenChange: (isOpen: boolean) => void;
+  /** Whether a finger's tap on the scrub bar now does nothing (useScrubTapHeld). */
+  readonly isScrubTapHeld?: (() => boolean) | undefined;
 }): JSX.Element {
   const shown = useControlsShown(isTv, moves);
   const menus = { videoRef: refs.videoRef, shown, sound: source.sound };
@@ -363,6 +378,7 @@ export function OverlayRows({
       moves={moves}
       menus={<PlayerMenus {...menus} onOpenChange={onMenuOpenChange} />}
       isOverTheFilm
+      isScrubTapHeld={isScrubTapHeld}
     />
   );
 }
@@ -386,6 +402,8 @@ export function OverlayRowsOf(props: {
   readonly moves: SequenceMoves | undefined;
   readonly menus: ReactNode;
   readonly isOverTheFilm: boolean;
+  /** Whether a finger's tap on the scrub bar now does nothing (useScrubTapHeld). */
+  readonly isScrubTapHeld?: (() => boolean) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { source } = props;
@@ -404,6 +422,7 @@ export function OverlayRowsOf(props: {
           isDisabled={!source.isReady}
           hasArrowsAsCommands={props.isOverTheFilm}
           onSeek={source.seekTo}
+          isTapHeld={props.isScrubTapHeld}
         />
       </div>
       <div

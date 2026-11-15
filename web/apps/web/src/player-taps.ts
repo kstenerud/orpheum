@@ -2,7 +2,7 @@
 
 /** A finger's taps and a mouse's clicks on the player's picture (D415, D407 §6), for the overlay. */
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { useLatest } from "./latest.ts";
 import {
@@ -29,7 +29,29 @@ export interface PictureTap {
  * How a touch tap is told from a drag, in px: a finger that moved further is not a tap (the width of
  * a fingertip's wobble; Android's own touch slop is 8 dp).
  */
-const tapSlopPx = 10;
+export const tapSlopPx = 10;
+
+/**
+ * How long a tap on the overlay's scrub bar does nothing after the bar appears, in ms: on a phone a
+ * second tap, meant for the picture, landed on the full-width bar the first tap had just shown and
+ * jumped the film. The owner chose this hold (2026-11-15, option a of three); a tap after it still
+ * seeks, and a drag is unchanged.
+ */
+export const scrubTapHeldForMs = 500;
+
+/**
+ * Whether a tap on the scrub bar now is held (scrubTapHeldForMs from the moment isShown last turned
+ * true): returns what asks it, on the clock of performance.now().
+ */
+export function useScrubTapHeld(isShown: boolean): () => boolean {
+  const shownAtRef = useRef(-Infinity);
+  useLayoutEffect(() => {
+    if (isShown) {
+      shownAtRef.current = performance.now();
+    }
+  }, [isShown]);
+  return () => performance.now() - shownAtRef.current < scrubTapHeldForMs;
+}
 
 /** The longest a touch may rest and be a tap, in ms: a longer one is a press, which taps nothing. */
 const tapMaxMs = 500;

@@ -57,8 +57,10 @@ export function Timeline(props: {
   readonly hasArrowsAsCommands?: boolean | undefined;
   /** The slider, for a player that moves focus to it or asks whether it has it. */
   readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
+  /** Whether a finger's tap on it now does nothing, a drag still seeking (useTouchAnywhere). */
+  readonly isTapHeld?: (() => boolean) | undefined;
 }): JSX.Element {
-  const { label, atMs, durationMs, onSeek, isDisabled, hasArrowsAsCommands } = props;
+  const { label, atMs, durationMs, onSeek, isDisabled, hasArrowsAsCommands, isTapHeld } = props;
   const ownRef = useRef<HTMLInputElement | null>(null);
   const inputRef = props.inputRef ?? ownRef;
   const mostMs = Math.max(durationMs, 1);
@@ -66,7 +68,7 @@ export function Timeline(props: {
     inputRef,
     (clientX, rect) =>
       Math.round((fractionAlong(clientX, rect) * mostMs) / dragStepMs) * dragStepMs,
-    onSeek,
+    { onTouched: onSeek, isTapHeld },
   );
   const shownMs = durationMs > 0 ? Math.min(atMs, durationMs) : atMs;
   const [pointedFraction, setPointedFraction] = useState<number | undefined>(undefined);
