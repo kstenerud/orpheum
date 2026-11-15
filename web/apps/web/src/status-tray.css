@@ -12,11 +12,6 @@
   color: var(--color-status);
 }
 
-.status-tray__icon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
 .status-tray__button--warning .warning-icon {
   width: 1.5rem;
   height: 1.5rem;

@@ -24,13 +24,6 @@
   font: inherit;
 }
 
-.route-chooser__chevron {
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-inline-end: calc(-1 * var(--space-1));
-}
-
 .route-chooser__field {
   color: var(--color-muted);
 }

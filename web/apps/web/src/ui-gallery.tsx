@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./ui-gallery.css";
+import "./app-shell.css";
+import "./poster.css";
+import "./status-tray.css";
 
 import "./gallery-words.ts";
 

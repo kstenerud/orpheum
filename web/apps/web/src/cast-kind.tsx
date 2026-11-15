@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./icons.css";
+
 import type { JSX } from "react";
 
 import { GoogleCastIcon } from "./icons.tsx";

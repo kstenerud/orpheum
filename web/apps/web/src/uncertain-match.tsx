@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./uncertain-match.css";
-
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 

@@ -239,11 +239,6 @@
   padding-inline: var(--space-2);
 }
 
-.app-shell__menu-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
 /* The realm, under who is signed in: on a phone alone, where the banner has no room for it. */
 .app-shell__who-realm {
   display: none;

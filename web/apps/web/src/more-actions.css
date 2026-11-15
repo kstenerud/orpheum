@@ -23,12 +23,6 @@
   color: var(--color-text);
 }
 
-.more-actions__icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  fill: currentColor;
-}
-
 /* An action's dialog (match-correction.tsx, series.tsx): its heading, then what it offers, each on
    its own line, then its Close. */
 .more-actions__offers {

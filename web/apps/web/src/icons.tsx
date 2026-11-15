@@ -1,19 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./app-shell.css";
-import "./cast.css";
-import "./listing-tools.css";
-import "./more-actions.css";
-import "./poster.css";
-import "./route-chooser.css";
-import "./settings.css";
-import "./status-tray.css";
-import "./still-reading.css";
-import "./together-voice.css";
-import "./uncertain-match.css";
-import "./volume-row.css";
-import "./warning-sign.css";
-import "./watched-mark.css";
+import "./icons.css";
 
 import type { JSX } from "react";
 
@@ -24,9 +11,8 @@ import { Icon } from "./icon.tsx";
  * library"), each drawn by Icon as it was drawn beside the screen that first used it: a second
  * screen takes the drawing from here and does not draw a near copy of its own with other line
  * widths. The player's icons are player-icons.tsx; the QR code draws its own SVG (icon.tsx). Each
- * icon's class is its screen's stylesheet's, which sizes and colours it, so this file loads the
- * stylesheets of those classes; the UI gallery shows the whole set side by side
- * (ui-gallery.tsx, ui-gallery.test.tsx).
+ * icon's own size and colours are icons.css's, a screen's sheet keeping only where the screen sets
+ * one apart; the UI gallery shows the whole set side by side (ui-gallery.tsx, ui-gallery.test.tsx).
  */
 
 // ---- The banner and the menu ----

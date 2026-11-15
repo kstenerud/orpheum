@@ -5,20 +5,6 @@
   margin-inline-start: auto;
 }
 
-.listing-tools__icon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-/* A sort's arrow, before the field it sorts by, in the sort's list. */
-.listing-tools__arrow {
-  flex: none;
-  width: 1.125rem;
-  height: 1.125rem;
-  margin-inline-end: var(--space-2);
-  vertical-align: -0.2em;
-}
-
 /* A list's Sort and filter (D417): its icon, its name and, after them, what the list is narrowed to
    and sorted by, on one line, the summary cut short where the bar has no room for it. */
 .list-criteria__button {

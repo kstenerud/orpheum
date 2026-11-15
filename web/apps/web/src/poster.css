@@ -26,19 +26,6 @@
   text-align: center;
 }
 
-.poster__clapperboard {
-  width: 45%;
-  height: auto;
-  opacity: 0.45;
-}
-
-/* A poster still to come: a faded clock, still, on the card's ground (the owner, 2026-11-11). */
-.poster__clock {
-  width: 30%;
-  height: auto;
-  opacity: 0.3;
-}
-
 /* Behind a tile's image, seen until the image is drawn over it; the image's own ground is none. */
 .poster-waiting {
   display: grid;

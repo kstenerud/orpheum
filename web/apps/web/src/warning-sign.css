@@ -2,26 +2,6 @@
 
 /* D278: the warning yellow's triangle beside what has a problem, opening what is wrong. */
 
-/* Wherever it is drawn, its own region's colours: the mark on the warning yellow. */
-.warning-icon {
-  display: block;
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--color-on-warning);
-  --icon-ground: var(--color-warning);
-}
-
-.warning-icon__triangle {
-  fill: var(--icon-ground);
-  stroke: var(--color-icon-outline);
-  stroke-width: 0.6;
-  stroke-linejoin: round;
-}
-
-.warning-icon__mark {
-  fill: currentColor;
-}
-
 .warning-sign {
   position: relative;
   display: inline-flex;

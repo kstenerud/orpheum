@@ -934,7 +934,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/icon.tsx` writes each icon's SVG, the QR code's alone apart, as a scanner needs black on
   white. Each drawing is in one of two files, never beside the screen that uses it: the player's in
   `src/player-icons.tsx`, every other in `src/icons.tsx` (`src/icon.test.tsx`), so a second screen
-  takes the drawing and does not draw a near copy. Its marks are the text colour, `currentColor`; a two-tone cue's ground behind them is
+  takes the drawing and does not draw a near copy; their own sizes and colours are `src/icons.css`'s, a screen's sheet keeping only where it sets one apart. Its marks are the text colour, `currentColor`; a two-tone cue's ground behind them is
   `--icon-ground`; the region it is drawn in sets both, a status cue's its own class from its tokens.
   `src/icon.test.tsx`; the cues' colours, `src/app-shell.browser.test.tsx`; each icon together at
   `/ui-gallery`, `src/ui-gallery.test.tsx`.
