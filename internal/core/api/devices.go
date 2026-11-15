@@ -8,8 +8,6 @@ import (
 	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
-
-	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // DeviceBody is one of a person's devices (D218 §4).
@@ -22,9 +20,6 @@ type DeviceBody struct {
 	IsSignedIn   bool   `json:"isSignedIn"`
 	IsByCode     bool   `doc:"A code activated it: it neither administers nor changes the account" json:"isByCode"` //nolint:lll // one struct tag
 	IsThisDevice bool   `doc:"The device asking" json:"isThisDevice"`
-	// SoundOffsetMs is how far the device moves its sound from its picture: a Watch Together viewer
-	// signed in on it starts from it, as the server gives a guest's playback none.
-	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
 	// IsInYourWatchTogether is whether the device is in the Watch Together session the asker is in,
 	// which is never a cast target (D384 §3); told of the asker's own devices alone.
 	IsInYourWatchTogether bool `doc:"In the Watch Together session you are in, so never a cast target (D384 §3)" json:"isInYourWatchTogether,omitempty" required:"false"` //nolint:lll // one struct tag
@@ -47,17 +42,13 @@ type DeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 }
 
-// ChangeDeviceInput renames one of the asker's devices, or says how far it moves its sound from its
-// picture, or both. How it makes sound is asked of no one (D336 §4).
+// ChangeDeviceInput renames one of the asker's devices. How it makes sound is asked of no one (D336
+// §4), nor how far it moves its sound from its picture, which the device keeps itself (D492 §1).
 type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
-		Name *string `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
-		// SoundOffsetMs moves the device's sound from its picture, later when positive and earlier when
-		// negative, for a device that plays one of them late: the owner's TCL TV, in TV Bro, plays its
-		// sound half a second late (2026-10-24).
-		SoundOffsetMs *int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive, earlier when negative" json:"soundOffsetMs,omitempty" maximum:"2000" minimum:"-2000" required:"false"` //nolint:lll // one struct tag
+		Name string `json:"name" maxLength:"100" minLength:"1"`
 	}
 }
 
@@ -128,7 +119,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 			ID: device.ID, Name: device.Name, Platform: device.Platform,
 			AddedAt:    device.AddedAt.UnixMilli(),
 			LastUsedAt: device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn, IsByCode: device.IsByCode,
-			IsThisDevice: device.ID == thisDeviceID, SoundOffsetMs: device.SoundOffsetMs,
+			IsThisDevice: device.ID == thisDeviceID,
 		})
 	}
 	return output, nil
@@ -155,23 +146,7 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	if err != nil {
 		return nil, err
 	}
-	if input.Body.Name == nil && input.Body.SoundOffsetMs == nil {
-		return nil, invalidRequestAt(http.StatusBadRequest, "body", "a change names a new name or its sound offset")
-	}
-	if name := input.Body.Name; name != nil {
-		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
-	}
-	if offsetMs := input.Body.SoundOffsetMs; err == nil && offsetMs != nil {
-		err = dependencies.Auth.SetSoundOffset(ctx, principal.UserID, input.DeviceID, *offsetMs)
-		if err == nil {
-			// The owner's sound tests on the TCL TV left no trace of where they settled, so each
-			// setting is said (2026-11-06: "The logs you receive ideally should be telling you this").
-			server.logger.InfoContext(ctx, "a device's sound offset was set",
-				slogx.EventKey, "soundOffsetSet",
-				"userId", principal.UserID,
-				"deviceId", input.DeviceID, "soundOffsetMs", *offsetMs, "fromDeviceId", principal.DeviceID)
-		}
-	}
+	err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, input.Body.Name)
 	return server.deviceAnswer(ctx, "change a device", err)
 }
 

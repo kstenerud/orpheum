@@ -4,15 +4,12 @@
 import "./i18n.ts";
 
 import { act, createRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  forgetSoundOffsetSetInThisTab,
-  SoundOffsetControl,
-  soundOffsetKeptAfterMs,
-} from "./sound-delay.tsx";
+import { SoundOffsetControl } from "./sound-delay.tsx";
+import { forgetSoundOffsetSetInThisPage, soundOffsetKey } from "./sound-offset.ts";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
-import { fire, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { fire, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -20,19 +17,11 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
-  forgetSoundOffsetSetInThisTab();
-  vi.useRealTimers();
+  forgetSoundOffsetSetInThisPage();
+  window.localStorage.removeItem(soundOffsetKey);
 });
 
-/**
- * The test's clock from now on: no time passes but as the test advances it, so however slow the
- * machine, a press is never kept before the test lets the wait after it pass.
- */
-function holdTheClock(): void {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-}
-
-/** Presses the control's button whose text is text, on the test's held clock. */
+/** Presses the control's button whose text is text. */
 function press(text: string): void {
   const button = [...(mounted?.container.querySelectorAll("button") ?? [])].find(
     (each) => each.textContent === text,
@@ -45,113 +34,38 @@ function press(text: string): void {
   });
 }
 
-/** Lets byMs pass on the held clock, and what it sends be answered. */
-async function letPass(byMs: number): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(byMs);
-  });
+/** What this device's browser keeps as its sound offset. */
+function keptByTheBrowser(): unknown {
+  return JSON.parse(window.localStorage.getItem(soundOffsetKey) ?? "null");
 }
 
 describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
-  it("starts as the playback gives it, and keeps each step pressed on the device", async () => {
+  it("starts as the device's browser keeps it, and keeps each step pressed there, asking the core nothing (D492 §1)", async () => {
+    window.localStorage.setItem(soundOffsetKey, "550");
     const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
+    const services = servedBy({}, heard);
     services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={550} />, services),
-    );
-    holdTheClock();
+    mounted = await mount(withServices(<SoundOffsetControl videoRef={createRef()} />, services));
     expect(mounted.container.textContent).toContain("Sound on this device: 550 ms later");
     press("Sound 50 ms later");
     expect(mounted.container.textContent).toContain("Sound on this device: 600 ms later");
-    await letPass(soundOffsetKeptAfterMs);
-    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: 600 } }]);
-  });
-
-  it("keeps a run of presses as one write, of where it ended (the audit of 2026-10-25, W9)", async () => {
-    const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
-    services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, services),
-    );
-    holdTheClock();
-    press("Sound 50 ms later");
-    press("Sound 50 ms later");
-    press("Sound 50 ms later");
-    await letPass(soundOffsetKeptAfterMs - 1);
-    // A press within the wait starts it again.
-    press("Sound 50 ms earlier");
-    await letPass(soundOffsetKeptAfterMs - 1);
+    expect(keptByTheBrowser()).toBe(600);
     expect(heard).toEqual([]);
-    await letPass(1);
-    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: 100 } }]);
   });
 
-  it("keeps a press still waiting as the control goes", async () => {
-    const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
-    services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, services),
-    );
-    holdTheClock();
+  it("starts the next control from what was set before it, as the next film's does", async () => {
+    mounted = await mount(withServices(<SoundOffsetControl videoRef={createRef()} />));
     press("Sound 50 ms earlier");
     mounted.unmount();
-    mounted = undefined;
-    // No time passes: the wait after the press never ends, and the press is kept all the same.
-    await letPass(0);
-    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: -50 } }]);
-  });
-
-  it("says, and reports, a timing the device could not keep", async () => {
-    const reported = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const services = servedBy({
-      "PUT /me/devices/5": [refusal(503, "migrating"), [204, undefined]],
-    });
-    services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, services),
-    );
-    holdTheClock();
-    press("Sound 50 ms later");
-    await letPass(soundOffsetKeptAfterMs);
-    expect(mounted.container.textContent).toContain("This device could not keep its sound timing");
-    expect(reported).toHaveBeenCalled();
-    // The next press kept, it no longer says so.
-    press("Sound 50 ms later");
-    await letPass(soundOffsetKeptAfterMs);
-    expect(mounted.container.textContent).not.toContain("could not keep");
-  });
-
-  it("starts at what this tab last set, which a playback asked for earlier did not hear of (2026-10-24)", async () => {
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] });
-    services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={50} />, services),
-    );
-    const less = [...mounted.container.querySelectorAll("button")].find(
-      (each) => each.textContent === "Sound 50 ms earlier",
-    );
-    await fire(less ?? null, new MouseEvent("click", { bubbles: true }));
-    mounted.unmount();
-    // The next film's decision was asked for before the change, and still says 50.
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={50} />, services),
-    );
-    expect(mounted.container.textContent).toContain(
-      "Sound on this device: in step with the picture",
-    );
+    forgetSoundOffsetSetInThisPage();
+    mounted = await mount(withServices(<SoundOffsetControl videoRef={createRef()} />));
+    expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
   });
 
   it("goes earlier as well as later, and says a film playing its own file cannot play its sound earlier", async () => {
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] });
-    services.session.signIn("token", { deviceId: 5 });
     const videoRef = createRef<HTMLVideoElement>();
     (videoRef as { current: HTMLVideoElement | null }).current = document.createElement("video");
-    mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={videoRef} initialMs={0} />, services),
-    );
+    mounted = await mount(withServices(<SoundOffsetControl videoRef={videoRef} />));
     const earlier = [...mounted.container.querySelectorAll("button")].find(
       (each) => each.textContent === "Sound 50 ms earlier",
     );
@@ -162,18 +76,14 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
   });
 
   it("shows and applies the one value in every control drawn, the hidden one and the ⁝ menu's (D407 §8)", async () => {
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] });
-    services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(
       withServices(
         <>
-          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
-          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
+          <SoundOffsetControl videoRef={createRef()} />
+          <SoundOffsetControl videoRef={createRef()} />
         </>,
-        services,
       ),
     );
-    holdTheClock();
     const [first] = mounted.container.querySelectorAll("button");
     act(() => {
       first?.click();
@@ -185,43 +95,37 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
       "Sound on this device: 50 ms earlier",
       "Sound on this device: 50 ms earlier",
     ]);
-    await letPass(soundOffsetKeptAfterMs);
   });
 
-  it("is offered to a Watch Together viewer with no device, kept by its tab alone", async () => {
+  it("is offered to a Watch Together viewer with no device, kept by its browser all the same", async () => {
     // The owner, 2026-11-06: "Put a control in watch together ... so that I can adjust the sound
-    // timing": a guest's tab has no device of its own to keep it on.
+    // timing".
     const heard: Heard[] = [];
     mounted = await mount(
-      withServices(
-        <SoundOffsetControl videoRef={createRef()} initialMs={0} />,
-        servedBy({}, heard),
-      ),
+      withServices(<SoundOffsetControl videoRef={createRef()} />, servedBy({}, heard)),
     );
-    holdTheClock();
     expect(mounted.container.textContent).toContain("Sound on this device: in step");
     press("Sound 50 ms earlier");
     expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
-    await letPass(soundOffsetKeptAfterMs);
+    expect(keptByTheBrowser()).toBe(-50);
     expect(heard).toEqual([]);
   });
 
-  it("tells a cast's remote how it stands, and moves as the remote chooses, kept on the device (the owner, 2026-11-06)", async () => {
+  it("tells a cast's remote how it stands, and moves as the remote chooses, kept by the receiver (the owner, 2026-11-06)", async () => {
     // "Put a control in ... cast so that I can adjust the sound timing", from the phone that casts.
     const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
+    const services = servedBy({}, heard);
     services.session.signIn("token", { deviceId: 5 });
     const panel = newSoundPanel();
     mounted = await mount(
       withServices(
         <SoundPanelContext value={panel}>
-          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
-          <SoundOffsetControl videoRef={createRef()} initialMs={0} isInAList />
+          <SoundOffsetControl videoRef={createRef()} />
+          <SoundOffsetControl videoRef={createRef()} isInAList />
         </SoundPanelContext>,
         services,
       ),
     );
-    holdTheClock();
     expect(panel.read()?.soundOffsetMs).toBe(0);
     act(() => {
       panel.choose({ kind: "soundOffset", ms: -200 });
@@ -232,7 +136,7 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
       "Sound on this device: 200 ms earlier",
       "Sound on this device: 200 ms earlier",
     ]);
-    await letPass(soundOffsetKeptAfterMs);
-    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: -200 } }]);
+    expect(keptByTheBrowser()).toBe(-200);
+    expect(heard).toEqual([]);
   });
 });

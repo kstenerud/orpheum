@@ -51,7 +51,7 @@ import { NoSessionHere, SessionOver, usePastedLinks } from "./together-viewer-ou
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
-import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
+import { SoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
@@ -555,7 +555,7 @@ function GuestStalls(props: FilmParts): JSX.Element {
         />
       )}
       <GuestTracks {...props} {...film} />
-      <DeviceSoundOffsetControl videoRef={props.videoRef} />
+      <SoundOffsetControl videoRef={props.videoRef} />
     </>
   );
 }

@@ -18,8 +18,6 @@ import { SoundOffsetControl } from "./sound-delay.tsx";
 export function BarePlayer(props: {
   readonly url: string;
   readonly resumePositionMs: number;
-  /** How far the device moves its sound from its picture, + later (sound-delay.tsx). */
-  readonly soundOffsetMs: number;
   readonly onBack: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -45,7 +43,7 @@ export function BarePlayer(props: {
         }}
       />
       <FrameTimingNote video={video} />
-      <SoundOffsetControl videoRef={videoRef} initialMs={props.soundOffsetMs} />
+      <SoundOffsetControl videoRef={videoRef} />
       <button type="button" onClick={props.onBack}>
         {t("play.bare.back")}
       </button>

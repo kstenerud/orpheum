@@ -83,7 +83,7 @@ function tracksNoting(chosen: Chosen): PlayerTracks {
   };
 }
 
-const ways: PlayerMenusWays = { fileId: 3, soundOffsetMs: 0, onSubtitleFetched: () => undefined };
+const ways: PlayerMenusWays = { fileId: 3, onSubtitleFetched: () => undefined };
 
 const everyMenu: readonly OverlayControl[] = ["subtitles", "audio", "more"];
 

@@ -91,10 +91,10 @@ type ShellBody struct {
 type CurrentDeviceBody struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
-	// SoundOffsetMs is how far the device moves its sound from its picture, later when positive, so a
-	// tab no playback gives it to, a Watch Together guest's, starts from it with no read of its own
-	// (D480 §5).
-	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
+	// SoundOffsetMs is how far the device moved its sound from its picture, later when positive, as
+	// the core kept it before the device kept its own (D492 §1): a device with none of its own keeps
+	// this one, once, so the owner's TV keeps the delay set on it.
+	SoundOffsetMs int64 `doc:"The sound offset the core kept for the device before the device kept its own, in ms, for it to carry over once" json:"soundOffsetMs"` //nolint:lll // one struct tag
 }
 
 // UserOutput answers with a user.

@@ -26,7 +26,8 @@ type GetLiveDeviceOfUserRow struct {
 	SoundOffsetMs int64
 }
 
-// One of a person's devices, when it is theirs and has not been removed.
+// One of a person's devices, when it is theirs and has not been removed, with the sound offset the
+// core kept for it before the device kept its own (D492 section 1), which the device carries over once.
 func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUserParams) (GetLiveDeviceOfUserRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveDeviceOfUser, arg.ID, arg.UserID)
 	var i GetLiveDeviceOfUserRow
@@ -109,7 +110,7 @@ func (q *Queries) ListLiveDevicesOfSessionScope(ctx context.Context, scope strin
 }
 
 const listLiveDevicesOfUser = `-- name: ListLiveDevicesOfUser :many
-SELECT device.id, device.name, device.platform, device.added_at, device.sound_offset_ms,
+SELECT device.id, device.name, device.platform, device.added_at,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in,
   CAST(coalesce(max("grant".scope = 'device' AND "grant".revoked_at IS NULL), 0) AS INTEGER) AS is_by_code
@@ -130,21 +131,19 @@ type ListLiveDevicesOfUserParams struct {
 }
 
 type ListLiveDevicesOfUserRow struct {
-	ID            int64
-	Name          string
-	Platform      string
-	AddedAt       int64
-	SoundOffsetMs int64
-	LastUsedAt    int64
-	IsSignedIn    int64
-	IsByCode      int64
+	ID         int64
+	Name       string
+	Platform   string
+	AddedAt    int64
+	LastUsedAt int64
+	IsSignedIn int64
+	IsByCode   int64
 }
 
 // A person's devices, most recently used first: when each was last used, by the latest use of any
 // of its sessions, whether any is still live, and whether a live one a code activated (the device
-// scope), which the person's account page names (the device code audit's M4), and its sound offset,
-// which a Watch Together viewer signed in on it starts from. A guest receiver, a Google Cast device
-// signed in for one cast (D465 section 1), is no device of theirs to list.
+// scope), which the person's account page names (the device code audit's M4). A guest receiver, a
+// Google Cast device signed in for one cast (D465 section 1), is no device of theirs to list.
 func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevicesOfUserParams) ([]ListLiveDevicesOfUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveDevicesOfUser, arg.Now, arg.UserID)
 	if err != nil {
@@ -159,7 +158,6 @@ func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevices
 			&i.Name,
 			&i.Platform,
 			&i.AddedAt,
-			&i.SoundOffsetMs,
 			&i.LastUsedAt,
 			&i.IsSignedIn,
 			&i.IsByCode,
@@ -253,21 +251,5 @@ type RevokeDeviceSecretsOfDeviceParams struct {
 // The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
 func (q *Queries) RevokeDeviceSecretsOfDevice(ctx context.Context, arg RevokeDeviceSecretsOfDeviceParams) error {
 	_, err := q.db.ExecContext(ctx, revokeDeviceSecretsOfDevice, arg.RevokedAt, arg.DeviceID)
-	return err
-}
-
-const setDeviceSoundOffset = `-- name: SetDeviceSoundOffset :exec
-UPDATE device SET sound_offset_ms = ?1 WHERE id = ?2
-`
-
-type SetDeviceSoundOffsetParams struct {
-	SoundOffsetMs int64
-	ID            int64
-}
-
-// How far a device's sound is moved from its picture, in ms: later when positive, earlier when
-// negative, for a device that plays one of them late; its person sets it there.
-func (q *Queries) SetDeviceSoundOffset(ctx context.Context, arg SetDeviceSoundOffsetParams) error {
-	_, err := q.db.ExecContext(ctx, setDeviceSoundOffset, arg.SoundOffsetMs, arg.ID)
 	return err
 }

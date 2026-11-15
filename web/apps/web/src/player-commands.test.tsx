@@ -146,12 +146,7 @@ describe("the bare player's answers to a remote's commands", () => {
   it("seeks its video by Left and Right as the player does", async () => {
     const mounted = await mount(
       withServices(
-        <BarePlayer
-          url="/no-such-media"
-          resumePositionMs={0}
-          soundOffsetMs={0}
-          onBack={() => undefined}
-        />,
+        <BarePlayer url="/no-such-media" resumePositionMs={0} onBack={() => undefined} />,
       ),
     );
     const video = mounted.container.querySelector("video");

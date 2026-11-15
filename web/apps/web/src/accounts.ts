@@ -339,20 +339,6 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
   );
 }
 
-/** Keeps how far one of the person's devices moves its sound from its picture, in ms: + later. */
-export async function setMyDeviceSoundOffset(
-  api: Api,
-  deviceId: number,
-  soundOffsetMs: number,
-): Promise<void> {
-  throwIfRefused(
-    await api.PUT("/me/devices/{id}", {
-      params: { path: { id: deviceId } },
-      body: { soundOffsetMs },
-    }),
-  );
-}
-
 /** Removes one of one's devices: it is signed out at its next request (D218 §4). */
 export async function removeMyDevice(api: Api, deviceId: number): Promise<void> {
   throwIfRefused(await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } }));

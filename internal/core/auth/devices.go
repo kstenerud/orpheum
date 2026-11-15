@@ -28,7 +28,9 @@ type Device struct {
 	// IsSignedIn is whether any of its sessions is still live, and IsByCode whether a code activated
 	// one of them (the device scope).
 	IsSignedIn, IsByCode bool
-	// SoundOffsetMs is how far it moves its sound from its picture, later when positive.
+	// SoundOffsetMs is how far it moved its sound from its picture, later when positive, as the core
+	// kept it before the device kept its own (D492 §1): read for its own session alone (DeviceOf), for
+	// the device to carry over once; 0 in a list.
 	SoundOffsetMs int64
 }
 
@@ -50,7 +52,6 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 			ID: row.ID, Name: row.Name, Platform: row.Platform,
 			AddedAt:    time.UnixMilli(row.AddedAt),
 			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1, IsByCode: row.IsByCode == 1,
-			SoundOffsetMs: row.SoundOffsetMs,
 		})
 	}
 	slices.SortStableFunc(devices, func(a, b Device) int {
@@ -63,16 +64,6 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 func (service *Service) RenameDevice(ctx context.Context, userID, deviceID int64, name string) error {
 	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
 		return queries.RenameDevice(ctx, sqlcgen.RenameDeviceParams{Name: textindex.Line(name), ID: deviceID})
-	})
-}
-
-// SetSoundOffset keeps how far one of a person's devices moves its sound from its picture, in
-// milliseconds: later when positive, earlier when negative, for a device that plays one of them late.
-func (service *Service) SetSoundOffset(ctx context.Context, userID, deviceID, offsetMs int64) error {
-	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
-		return queries.SetDeviceSoundOffset(ctx, sqlcgen.SetDeviceSoundOffsetParams{
-			SoundOffsetMs: offsetMs, ID: deviceID,
-		})
 	})
 }
 
@@ -154,7 +145,7 @@ func liveDevice(
 }
 
 // DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
-// where, with the sound offset kept with it.
+// where, with the sound offset the core kept with it before D492, for the device to carry over.
 func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
 	known, err := liveDevice(ctx, service.database.Read(), userID, deviceID)
 	if err != nil {

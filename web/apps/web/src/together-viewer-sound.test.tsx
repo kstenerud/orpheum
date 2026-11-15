@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
-import { MeContext } from "./signed-in-me.ts";
+import { forgetSoundOffsetSetInThisPage, soundOffsetKey } from "./sound-offset.ts";
 import {
   buttonWithText,
   click,
@@ -17,7 +17,7 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
-import { directDecision, television } from "./test-fixtures.ts";
+import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 import { GroupFilmPage } from "./together-viewer.tsx";
@@ -41,40 +41,18 @@ const welcome = {
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  forgetSoundOffsetSetInThisPage();
 });
 
 /**
- * Who the shell read as signed in (MeContext), on device 7 at -200 ms; a page drawn without it reads
- * GET /me, which says the same.
+ * The group's film on a guest's page, signed in on device 7 when deviceId says so; every request it
+ * makes in heard.
  */
-const signedInOnDevice7 = {
-  id: 1,
-  name: "Gran",
-  role: "user",
-  isAdmin: false,
-  canManageAccount: true,
-  canHostWatchTogether: false,
-  hasNoLibrary: false,
-  showsDebugTools: false,
-  device: { id: 7, name: "Living room TV", soundOffsetMs: -200 },
-};
-
-/**
- * The group's film on a guest's page, signed in on device 7 when deviceId says so, within the shell's
- * reading of who is signed in unless isAlone; every request it makes in heard.
- */
-async function groupFilm(
-  deviceId: number | undefined,
-  heard: Heard[] = [],
-  isAlone = false,
-): Promise<Mounted> {
-  const devices = [television({ id: 7, isThisDevice: true, soundOffsetMs: -200 })];
+async function groupFilm(deviceId: number | undefined, heard: Heard[] = []): Promise<Mounted> {
   const services = {
     ...servedBy(
       {
         "POST /together/playback": [200, directDecision({})],
-        "GET /me": [200, signedInOnDevice7],
-        "GET /me/devices": [200, { devices }],
         "GET /me/together": [200, { sessions: [] }],
       },
       heard,
@@ -91,16 +69,8 @@ async function groupFilm(
       <GroupFilmPage {...viewer} />
     </LiveProvider>
   );
-  const me = { state: "loaded", value: signedInOnDevice7 } as const;
   const mounted = await mount(
-    withServices(
-      isAlone || deviceId === undefined ? (
-        page
-      ) : (
-        <MeContext value={{ me, readMeAgain: () => undefined }}>{page}</MeContext>
-      ),
-      { ...services, openTogetherSocket: sockets.openSocket },
-    ),
+    withServices(page, { ...services, openTogetherSocket: sockets.openSocket }),
   );
   await click(buttonWithText(mounted.container, "Tap to continue"));
   await sockets.live.accept();
@@ -110,34 +80,18 @@ async function groupFilm(
 }
 
 describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () => {
-  it("starts from the offset kept with the device the viewer is signed in on, as the server gives a guest's playback none", async () => {
-    const mounted = await groupFilm(7);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
-    );
-    expect(buttonWithText(mounted.container, "Sound 50 ms earlier")).toBeDefined();
-    mounted.unmount();
-  });
-
-  it("takes that offset from who the shell read as signed in, asking for no list of devices (D480 §5)", async () => {
+  it("starts from the offset this device's browser keeps, asking the core for none (D492 §1)", async () => {
+    window.localStorage.setItem(soundOffsetKey, "-200");
     const heard: Heard[] = [];
     const mounted = await groupFilm(7, heard);
     await settleUntil(() =>
       mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
     );
+    expect(buttonWithText(mounted.container, "Sound 50 ms earlier")).toBeDefined();
     const asked = heard.map((each) => each.methodAndPath);
-    expect(asked).not.toContain("GET /me/devices");
-    expect(asked).not.toContain("GET /me");
-    mounted.unmount();
-  });
-
-  it("drawn alone, takes it from GET /me's device, still asking for no list of devices", async () => {
-    const heard: Heard[] = [];
-    const mounted = await groupFilm(7, heard, true);
-    await settleUntil(() =>
-      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
-    );
-    expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/devices");
+    expect(
+      asked.filter((each) => each.startsWith("GET /me") && each !== "GET /me/together"),
+    ).toEqual([]);
     mounted.unmount();
   });
 

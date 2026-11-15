@@ -80,6 +80,10 @@ type StartPlaybackInput struct {
 		// minutes in started again from its beginning, and the log said only resumePositionMs=0
 		// (staging, 2026-10-26).
 		StartsAtMs *int64 `doc:"Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position" json:"startsAtMs,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
+		// SoundOffsetMs is for the log alone: how far the device moves its sound from its picture, as
+		// it keeps it itself (D492 §1), so a device's sound test is read in the log as before (the
+		// owner, 2026-11-06: "The logs you receive ideally should be telling you this").
+		SoundOffsetMs *int64 `doc:"How far this device moves its sound from its picture, in ms, as it keeps it, for the log" json:"soundOffsetMs,omitempty" maximum:"2000" minimum:"-2000" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -114,9 +118,6 @@ type StartPlaybackOutputBody struct {
 	ResumePositionMs int64 `json:"resumePositionMs"`
 	// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
 	MediaToken string `json:"mediaToken"`
-	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
-	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
-	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
 	// Levelling brings the starting track's sound, played as it is, to the level; each sound in
 	// Tracks says its own, which a player levels the sound it hears by (D226).
 	Levelling LevellingBody `json:"levelling"`
@@ -271,6 +272,9 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	if input.Body.StartsAtMs != nil {
 		who = append(who, "pageStartsAtMs", *input.Body.StartsAtMs)
 	}
+	if input.Body.SoundOffsetMs != nil {
+		who = append(who, "soundOffsetMs", *input.Body.SoundOffsetMs)
+	}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
@@ -343,7 +347,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 		"profile", string(started.Decision.Profile), "notDirectReasons", reasons),
 		append(ladderStart(started),
 			"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
-			"isLevellingOn", started.Preferences.IsLevellingOn, "soundOffsetMs", started.SoundOffsetMs,
+			"isLevellingOn", started.Preferences.IsLevellingOn,
 			"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
 			"rememberedLinkKbps", started.RememberedLink.Kbps,
 			"rememberedLinkLogSpread", started.RememberedLink.LogSpread,
@@ -424,7 +428,6 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.Preferences = playbackPreferencesBody(started.Preferences)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
-	output.Body.SoundOffsetMs = started.SoundOffsetMs
 	output.Body.Levelling = levellingBody(started.Levelling)
 	output.Body.Tracks = tracksBody(started.Tracks)
 	return output

@@ -24,6 +24,7 @@ import {
 } from "./test-dom.tsx";
 import { isFilmAndSeriesLoaded, isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
+import { forgetSoundOffsetSetInThisPage, soundOffsetKey } from "./sound-offset.ts";
 import { signedInMarkupAt } from "./test-app.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
@@ -373,6 +374,46 @@ describe("App", () => {
     expect(readyAheadOf(video).aheadMs).toBe(3000);
     mounted.unmount();
     setReadyAheadPercent(150);
+  });
+
+  it("keeps on this device the sound offset the core kept for it before, once, where the device keeps none (D492 §1)", async () => {
+    // The owner's TV had its delay set on the core before the device kept its own.
+    const carriedOver = async (keptBefore: string | undefined): Promise<string | null> => {
+      window.localStorage.removeItem(soundOffsetKey);
+      if (keptBefore !== undefined) {
+        window.localStorage.setItem(soundOffsetKey, keptBefore);
+      }
+      forgetSoundOffsetSetInThisPage();
+      const services = servedBy(
+        {
+          ...backgroundAnswers,
+          "GET /me": [
+            200,
+            {
+              id: 1,
+              name: "owner",
+              role: "user",
+              isAdmin: false,
+              device: { id: 7, name: "Living room TV", soundOffsetMs: 350 },
+            },
+          ],
+          "GET /home": [200, { continueWatching: [] }],
+          "GET /items": [200, { items: [], nextCursor: "" }],
+        },
+        [],
+        "token",
+      );
+      const mounted = await mount(withServices(<App />, services));
+      await settleUntil(() => mounted.container.querySelector(".app-shell") !== null);
+      mounted.unmount();
+      const kept = window.localStorage.getItem(soundOffsetKey);
+      window.localStorage.removeItem(soundOffsetKey);
+      forgetSoundOffsetSetInThisPage();
+      return kept;
+    };
+    expect(await carriedOver(undefined)).toBe("350");
+    expect(await carriedOver("0")).toBe("0");
+    expect(await carriedOver("-100")).toBe("-100");
   });
 
   it("says when an address names nothing", async () => {

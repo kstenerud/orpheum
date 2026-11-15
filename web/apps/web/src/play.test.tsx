@@ -35,8 +35,9 @@ describe("playing a file", () => {
     expect(heard).toEqual([
       {
         methodAndPath: "POST /playback",
-        // Why it asked and how many times this page has, for the server's log alone.
-        body: { fileId: 7, playableFormats, cause: "playPage", pageStarts: 1 },
+        // Why it asked, how many times this page has and the device's own sound offset, for the
+        // server's log alone (D492 §1).
+        body: { fileId: 7, playableFormats, cause: "playPage", pageStarts: 1, soundOffsetMs: 0 },
       },
     ]);
     expect(decision.delivery).toBe("direct");

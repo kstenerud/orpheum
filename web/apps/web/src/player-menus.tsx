@@ -40,13 +40,12 @@ import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 
 /**
  * What the page playing gives the overlay's menus beside the film's tracks (PlayerTracksContext):
- * the file, the device's sound timing it started with, how the film plays here (⁝'s How it plays,
+ * the file, how the film plays here (⁝'s How it plays,
  * D444), and what follows a subtitle fetched, the original chosen and the bare player asked for
  * (the last two where they are offered).
  */
 export interface PlayerMenusWays {
   readonly fileId: number;
-  readonly soundOffsetMs: number;
   /** The film's own file's rate, kbit/s, which a data cap offers its original under (D491); 0 or absent where not known. */
   readonly fileBitRateKbps?: number | undefined;
   readonly playback?: PlaybackReport | undefined;
@@ -370,7 +369,7 @@ function MoreMenu(props: {
       )}
       {ways === undefined ? null : (
         <KeptOpen>
-          <SoundOffsetControl videoRef={videoRef} initialMs={ways.soundOffsetMs} isInAList />
+          <SoundOffsetControl videoRef={videoRef} isInAList />
         </KeptOpen>
       )}
       {ways === undefined ? null : (

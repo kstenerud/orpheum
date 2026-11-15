@@ -140,7 +140,6 @@ export function PlayView(props: PlayViewProps): JSX.Element {
       <BarePlayer
         url={decision.url}
         resumePositionMs={decision.resumePositionMs}
-        soundOffsetMs={decision.soundOffsetMs}
         onBack={() => {
           setIsBare(false);
         }}
@@ -485,7 +484,7 @@ function UnderTheVideo(
           measuring={tracks.measuring}
           state={tracks.levelling}
         />
-        <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
+        <SoundOffsetControl videoRef={props.videoRef} />
       </OverlayHeld>
     </>
   );
@@ -595,7 +594,6 @@ function menusWaysOf(
 ): PlayerMenusWays {
   return {
     fileId: asked.fileId,
-    soundOffsetMs: asked.decision.soundOffsetMs,
     fileBitRateKbps: asked.decision.fileBitRateKbps,
     onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
     onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,

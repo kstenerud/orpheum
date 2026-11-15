@@ -143,8 +143,7 @@ func NewService(parts Parts) *Service {
 // Request is what a client asks to play, and what it can play (D21, D217 §1).
 type Request struct {
 	FileID int64
-	// DeviceID is the device asking, whose sound offset the playback carries; 0 for a session with
-	// no device.
+	// DeviceID is the device asking; 0 for a session with no device.
 	DeviceID          int64
 	PlayableFormats   decide.PlayableFormats
 	PreferredDelivery decide.Delivery
@@ -174,9 +173,6 @@ type Started struct {
 	Preferences preferences.Preferences
 	// ResumePositionMs is where the player starts: where the person left the file, or 0.
 	ResumePositionMs int64
-	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
-	// positive and earlier when negative; 0 for none, and for a viewer with no device.
-	SoundOffsetMs int64
 	// Levelling is what brings the starting track's sound, played as it is, to the level (D226); each
 	// of its sounds says its own beside it (Tracks), which a player levels the sound it hears by.
 	Levelling decide.Levelling
@@ -245,11 +241,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	offsetMs, err := service.soundOffsetMs(ctx, userID, request.DeviceID)
-	if err != nil {
-		return Started{}, err
-	}
-	started := Started{SoundOffsetMs: offsetMs, FileBitRateBps: probe.Format.BitRateBps}
+	started := Started{FileBitRateBps: probe.Format.BitRateBps}
 	if started.Subtitles, err = service.subtitles.Want(ctx, holder.Reach, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -571,24 +563,6 @@ func (service *Service) startingChoices(
 		}
 	}
 	return used, nil
-}
-
-// soundOffsetMs is how far a person's device moves its sound from its picture; 0 when there is no
-// device, as for a Watch Together viewer, or none the person has.
-func (service *Service) soundOffsetMs(ctx context.Context, userID, deviceID int64) (int64, error) {
-	if deviceID == 0 {
-		return 0, nil
-	}
-	device, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
-		ID: deviceID, UserID: &userID,
-	}))
-	if errors.Is(err, store.ErrNotFound) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read device %d: %w", deviceID, err)
-	}
-	return device.SoundOffsetMs, nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and

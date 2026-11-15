@@ -268,7 +268,7 @@ const subtitledTracks: PlayerTracks = {
 };
 
 /** The page's ways for ⁝: a file, no sound timing kept. */
-const ways: PlayerMenusWays = { fileId: 3, soundOffsetMs: 0, onSubtitleFetched: () => undefined };
+const ways: PlayerMenusWays = { fileId: 3, onSubtitleFetched: () => undefined };
 
 /** An English subtitle track, its stream streamId. */
 function subtitleTrack(streamId: number): SubtitleTrack {

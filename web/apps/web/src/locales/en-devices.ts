@@ -13,7 +13,6 @@ export const enDevices = {
     elsewhere: "Your other devices are on your account page.",
     notListed: "This browser is not one of your devices: sign in again to name it.",
     nameSaved: "Saved",
-    soundOffsetNotKept: "This device could not keep its sound timing: {{problem}}",
     deviceTests: {
       heading: "For testers",
       open: "Device tests",

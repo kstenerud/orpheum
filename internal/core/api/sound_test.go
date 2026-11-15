@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // shelveSurroundFilm adds file 4 to shelveFilms' library: an MP4 whose sound is 5.1 AAC, which a
@@ -167,64 +169,47 @@ func TestDevices_NothingTheAPIDocumentsAsksHowADeviceMakesSound(t *testing.T) {
 	}
 }
 
-// A device's sound offset is its own, kept by the core: set on the device, it comes with every
-// playback the device asks for, later or earlier, and within 2 s either way (the owner's TCL TV,
-// 2026-10-24).
-func TestPlayback_ADevicesSoundOffsetIsKeptAndComesWithItsPlaybacks(t *testing.T) {
+// A device's sound offset is its own, kept by the device and by no core (D492 §1): the core takes no
+// setting of it and gives none with a playback, and a playback's start says the one its device
+// sends, within 2 s either way, for a device's test to be read in the log (the owner, 2026-11-06).
+func TestPlayback_ADevicesSoundOffsetIsItsOwnAndItsPlaybacksLogIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
-	offsetOf := func() int64 {
-		t.Helper()
-		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(1))
-		var answered struct {
-			SoundOffsetMs int64 `json:"soundOffsetMs"`
-		}
-		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil || answer.status != http.StatusOK {
-			t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
-		}
-		return answered.SoundOffsetMs
-	}
-	setOffset := func(ms int64) int {
-		return harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": ms}).status
-	}
-	if got := offsetOf(); got != 0 {
-		t.Errorf("a device that set none: %d ms, want 0", got)
+	if set := harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": 600}); set.status < 400 ||
+		set.status >= 500 {
+		t.Errorf("PUT soundOffsetMs = %d, want refused: the device keeps its own", set.status)
 	}
 	for _, kept := range []int64{600, -450} {
-		if status := setOffset(kept); status != http.StatusNoContent {
-			t.Fatalf("PUT soundOffsetMs %d: %d", kept, status)
+		asked := chrome(1)
+		asked["soundOffsetMs"] = kept
+		answer := harness.do(t, http.MethodPost, "/playback", user, asked)
+		if answer.status != http.StatusOK || strings.Contains(answer.body, `"soundOffsetMs"`) {
+			t.Fatalf("POST /playback = %d %s; want a start that gives no sound offset", answer.status, answer.body)
 		}
-		if got := offsetOf(); got != kept {
-			t.Errorf("after the device set %d ms: %d ms", kept, got)
-		}
-		// each setting and each playback's offset are in the log, for a device's test to be read
-		// there (the owner, 2026-11-06)
-		harness.logs.AwaitEvent(t, "soundOffsetSet",
-			`"soundOffsetMs":`+strconv.FormatInt(kept, 10))
 		harness.logs.AwaitEvent(t, "playbackStarted", `"isLevellingOn":`,
 			`"soundOffsetMs":`+strconv.FormatInt(kept, 10))
 	}
 	for _, refused := range []int64{-2050, 2050} {
-		if status := setOffset(refused); status < 400 || status >= 500 {
-			t.Errorf("an offset of %d ms: %d, want refused", refused, status)
+		asked := chrome(1)
+		asked["soundOffsetMs"] = refused
+		answer := harness.do(t, http.MethodPost, "/playback", user, asked)
+		if answer.status < 400 || answer.status >= 500 {
+			t.Errorf("an offset of %d ms: %d, want refused", refused, answer.status)
 		}
 	}
 }
 
-// GET /me's device says its sound offset, so a Watch Together guest's control starts from it with
-// no read of the person's devices (D480 §5).
-func TestMe_TheSessionsDeviceSaysItsSoundOffset(t *testing.T) {
+// GET /me's device says the sound offset the core kept for it before the device kept its own, for the
+// device to carry over once (D492 §1): the owner's TV keeps the delay set on it.
+func TestMe_TheSessionsDeviceSaysTheSoundOffsetKeptForItBefore(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
-	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
-	if set := harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": 350}); set.status !=
-		http.StatusNoContent {
-		t.Fatalf("PUT soundOffsetMs: %d", set.status)
-	}
+	storetest.ExecRaw(t, harness.databasePath,
+		"UPDATE device SET sound_offset_ms = 350 WHERE id = "+strconv.FormatInt(harness.thisDeviceID(t, user), 10))
 	var signedIn struct {
 		Device *struct {
 			SoundOffsetMs int64 `json:"soundOffsetMs"`
@@ -232,36 +217,6 @@ func TestMe_TheSessionsDeviceSaysItsSoundOffset(t *testing.T) {
 	}
 	harness.readJSON(t, "/me", user, &signedIn)
 	if signedIn.Device == nil || signedIn.Device.SoundOffsetMs != 350 {
-		t.Errorf("GET /me's device = %+v; want its sound offset, 350 ms", signedIn.Device)
+		t.Errorf("GET /me's device = %+v; want the sound offset kept for it, 350 ms", signedIn.Device)
 	}
-}
-
-// The person's list of devices says each one's sound offset (the owner, 2026-11-06: "Put a control
-// in watch together").
-func TestDevices_ListEachDevicesSoundOffset(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	user := harness.createAdminAndSignIn(t)
-	id := harness.thisDeviceID(t, user)
-	device := "/me/devices/" + strconv.FormatInt(id, 10)
-	set := harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": -200})
-	if set.status != http.StatusNoContent {
-		t.Fatalf("PUT soundOffsetMs: %d", set.status)
-	}
-	answer := harness.do(t, http.MethodGet, "/me/devices", user, nil)
-	var listed struct {
-		Devices []struct {
-			ID            int64 `json:"id"`
-			SoundOffsetMs int64 `json:"soundOffsetMs"`
-		} `json:"devices"`
-	}
-	if err := json.Unmarshal([]byte(answer.body), &listed); err != nil || answer.status != http.StatusOK {
-		t.Fatalf("GET /me/devices = %d %s", answer.status, answer.body)
-	}
-	for _, each := range listed.Devices {
-		if each.ID == id && each.SoundOffsetMs == -200 {
-			return
-		}
-	}
-	t.Errorf("devices = %+v; want device %d at -200 ms", listed.Devices, id)
 }
