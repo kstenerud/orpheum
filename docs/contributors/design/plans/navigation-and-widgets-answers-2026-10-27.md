@@ -4111,3 +4111,19 @@ device of the owner's at home, each one the owner can check on the Android phone
 **Settled, not built:** a data cap does not stop the load ahead. D488 §3 keeps the normal load ahead
 and D487's deeper one, as the owner's "a different problem from a data quota" has it; C6's stopping
 of prefetch is not built.
+
+### The original chosen on a link too slow for it, next batch (the owner, 2026-11-15)
+
+VQ337's run on staging, the owner's Android phone on a station's Wi-Fi of about 1.9 Mbps: "Play the
+original file" on a file of 1.7 Mbps loaded nothing for 8 s, the player was offered a lower quality
+and moved to its 360p rung, and the picture came back 23 s after the choice; the owner saw "blank
+for 10s before showing the film again". The owner: "it shouldn't blank for that long. Better to start
+on a lower rung and then go back up later."
+
+The start of a film already does this (D230 §5): one the browser can play as it is starts on its
+ladder where the link known is short of the file (`startsOnLadderKbps`). The choice of the original
+forces the file (`preferredDelivery: "direct"`), whatever the link. **Proposed, not decided:** the
+original chosen where the link known is short of its file's rate starts on the highest rung the link
+carries, says so in ⋯, and moves to the original once the link has carried the file's rate for a
+while, from where the film stands. Open for the owner: whether it moves up by itself or the person
+is offered the move, and what a link with no measure yet does.
