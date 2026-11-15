@@ -28842,6 +28842,82 @@ that its link was lost (D487)" (abr-link-lost.test.ts, a chunk given up told not
 app's "gives each playback the page's outages" (web/apps/web/src/ladder-playback.test.tsx). Only a
 device on a real dead zone shows the whole: VQ330–VQ333.
 
-## D488 — Reserved: A data cap per device, chosen in GB per hour
+## D488 — A data cap per device, chosen in GB per hour
 
-**Reserved** (2026-11-14) for the data cap (the owner: *"Yes I'm going to bed so go ahead with it and then a check pr"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-14), by the project owner, in navigation-and-widgets-answers-2026-10-27.md's
+C6: the control is in the player's ⋯ menu, holds per device, and offers a list of GB per hour,
+"which is what people will understand since they want to optimize how much they can view in a
+month in their 20gb plan", each entry a rung's video and sound together; D487's deeper load after a
+drop stays ("that's a different problem from a data quota"). Of Wi-Fi and mobile data: *"If we can
+detect Wi-Fi vs phone network, it would be nice to offer settings for each."* Of where each starts:
+*"Both start no limit."* Built on the lead's brief (the owner: *"Yes I'm going to bed so go ahead
+with it and then a check pr"*). Adds a ceiling to D286 §5's server ceiling and the qualities a
+device cannot play (D266); changes neither.
+
+1. **The list is the film's own rungs.** ⋯ lists "No limit" first, then one choice per rung the
+   core offers the film, highest first, each its average rate with its sound's in GB per hour to
+   one decimal (`gbPerHourOf`): read from the master playlist as hls.js parsed it
+   (`offeredRungsOf`, `playerOfferedRungsEvent`), never a list of the client's, so a change of
+   chunkQualities or chunkSoundKbps changes it. On the GPU node's default ladder (6000k@1080p down
+   to 400k@360p, 96 kb/s sound) the figures are 2.7, 1.4, 0.9, 0.6, 0.4 and 0.2 GB per hour; on the
+   software ladder the first is gone. The brief's 0.3 and 0.5 were the pictures' rates alone: with
+   their sound, 700k and 1200k use 0.4 and 0.6.
+2. **The cap is kept as the chosen rung's rate, kbit/s,** and each film plays the highest of its own
+   rungs within it, or its lowest where none is (`underDataCap`, `rungUnderCap`); ⋯ marks that one
+   as current. A film with fewer rungs, or another ladder, is held under the same rate.
+3. **It is one more ceiling of the chunked player's choosing** (`ChoosingOptions.dataCapKbps`, read
+   at each choice): the first quality, each next one, the step-up's top and `topLevel` (the forward
+   buffer's isTop) all stay within it, so no rung above it is chosen or loaded, the film page's
+   hidden preload included. A cap chosen mid-film, or the move to a network with a lower one, lowers
+   the ceiling at the next chunk, with its own step note ("the device's data cap, 600 kb/s"); one
+   lifted is climbed back by the step-up as any lowered ceiling is. D487's deeper load and the
+   normal load ahead are unchanged.
+4. **No limit is the only choice that plays the film's own file.** A capped device asks for the
+   film's ladder (`preferredDelivery: "hls"`, the core's notDirectReasons `userChoice`), never plays
+   the film's own picture on it, its rate within the cap or not, in a Watch Together group too
+   (which otherwise keeps it, D286 §2), and is not offered "Play the original file", in ⋯ or under
+   the film. A film playing its own file offers no list: the cap is chosen on a film on its ladder.
+5. **Two caps where the browser says the network, one where it does not.** Where
+   `navigator.connection.type` says it (Chrome on Android in practice), "cellular" is mobile data and
+   "wifi" or "ethernet" is Wi-Fi; each has its cap, ⋯'s line names the one it sets ("Data use on
+   mobile data", "Data use on Wi-Fi"), and its `change` event moves the playback to the other's at
+   the next chunk. Anything else, or no API, is a third cap of its own, "Data use". The kind is
+   never guessed from the link's speed. All three start at No limit (the owner, 2026-11-14).
+6. **Kept in the browser's storage, not on the core** (`orpheum.dataCaps`, data-cap.ts), against
+   the brief's preference and D103's keeping of a device's choices by its id, as the sound offset
+   is: a column on the device needs a migration, now append-only (D272 §5), and a new schema golden,
+   which is a gate file needing the owner's `Gate-Changed:` trailer, while the owner was asleep
+   before the batch's check-pr. It costs the cap where the browser's storage is cleared, and a
+   second browser on the same device keeps its own. Moving it to the core is open (below).
+7. **In Watch Together each device's cap is its own playback's**; the group's other members are
+   untouched, as the group's ceiling never followed one member's link.
+
+**Proven by:** "the device's data cap (D488)" and "the rungs offered for a cap (D488)"
+(web/packages/player/src/abr-data-cap.test.ts: the first chunk, the lowest where the cap is under
+every rung, the step-up held, a cap chosen mid-film taken at the next chunk and climbed back once
+lifted, the film's own picture never played under a cap); "the kind of network a device is on
+(D488)", "a device's data caps (D488)" and "a cap's figures (D488)" (web/apps/web/src/data-cap.test.ts,
+navigator.connection faked: two caps and the move between them, No limit first, the default ladder's
+figures); "⁝'s data use (D488)" (player-menus.test.tsx: the list, its current mark, the choice kept,
+the original withdrawn, nothing on a film's own file, the line naming the network and following the
+move); "a playback asked for on a device under a data cap (D488)" (watching.test.ts); "chooses each
+chunk under the device's data cap as it is then" (ladder-playback.test.tsx); "is not offered under
+the film on a device under a data cap" (play-original.test.tsx). Only devices show the data a film
+uses and a phone's move between networks: VQ334–VQ336.
+
+**Open, for the owner:**
+
+- Casting: a Chromecast's receiver and AirPlay play uncapped, as the brief left them; a phone that
+  casts uses its own data only for the remote.
+- A phone on another phone's hotspot reads as Wi-Fi, and its Wi-Fi cap applies; the browser does
+  not say more.
+- Moving the caps to the core, a device's column beside the sound offset, given the owner's
+  `Gate-Changed:` for the golden.
+- A browser without Media Source Extensions plays the ladder natively (`playWithoutHlsJs`), whose
+  choice of quality is the browser's: no cap holds there.
+- A film playing its own file on Wi-Fi with No limit plays on uncapped when the phone moves to
+  mobile data with a cap: the cap holds from its next playback, as nothing moves a playing file to
+  its ladder yet.
+- The labels ("Data use", "No limit", "0.6 GB per hour") and the list's place in ⋯, between the
+  dialogue boost and the original: ⋯ has no submenu, so the cap's seven lines lengthen it; two
+  rungs whose figures round alike would show the same figure twice.

@@ -493,7 +493,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there
 - [D486](working-notes.md#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without) The loader's page and the client floor are waited on for 2.5 s, then gone on without
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
-- [D488](working-notes.md#d488--reserved-a-data-cap-per-device-chosen-in-gb-per-hour) Reserved: A data cap per device, chosen in GB per hour
+- [D488](working-notes.md#d488--a-data-cap-per-device-chosen-in-gb-per-hour) A data cap per device, chosen in GB per hour
 
 ## Archived
 
