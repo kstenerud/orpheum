@@ -4133,7 +4133,9 @@ while, from where the film stands. Open for the owner: whether it moves up by it
 is offered the move, and what a link with no measure yet does.
 
 **Decided in part** (the owner, 2026-11-15): "it should do it automatically": the move up to the
-original is the player's own, unasked. Still open: what a link with no measure yet does.
+original is the player's own, unasked. Then, of a link with no measure yet: "When we haven't
+measured, try the original first": the original plays as chosen, and the player moves down only as
+it does today, when the link proves short.
 
 ### The black page's wait, this batch (the owner, 2026-11-15)
 
