@@ -4104,6 +4104,10 @@ device of the owner's at home, each one the owner can check on the Android phone
    2026-11-15, option a of three): a tap on the scrub bar does nothing for about half a second after
    the controls appear; a tap after that still seeks, and a drag is unchanged. Not chosen: seeking
    by drag only (b), and a thinner bar at the bottom edge (c).
+   **Widened** (the owner, 2026-11-15, VQ347 on the Android phone): "it only works in non
+   fullscreen mode. Also: it should stop all interaction with all overlay controls for 0.5s, not just
+   the scrub bar." Every control of the overlay over the film does nothing for half a second after
+   the overlay appears, and the hold must work in full screen.
 3. **Full screen's flash of the top bar on Next and Previous** (VQ267's report, the client-server
    audit's section).
 4. **The test of a Watch Together guest's single-use group film read** (the same section).
