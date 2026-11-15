@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from check_media_names import REGISTRY, find, read_registry
+from check_media_names import REGISTRY, find, machine_library, read_registry
 from commit_hashes import cited_commits, subject_of
 
 # The type set, from yoloAI's settled convention, with Conventional Commits' `style` for a change
@@ -181,7 +181,7 @@ def check_media_names(c: Commit) -> list[Problem]:
     return [Problem(c.sha, c.subject, "media-name",
                     f"names {f.text!r} ({f.rule}), which {REGISTRY} does not list. Name a film by its id "
                     "or as \"the owner's film\"")
-            for f in find(c.subject + "\n" + c.body, registry, None)]
+            for f in find(c.subject + "\n" + c.body, registry, None, machine_library(registry))]
 
 
 def read_commits(base: str, head: str) -> list[Commit]:

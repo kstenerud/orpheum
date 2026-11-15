@@ -4,7 +4,9 @@
 #
 # Every unlisted name here is invented ("Blue Gannet", "Quarry Lamps"): a test of this gate never
 # names a real film, which would put it in the repository the gate keeps such names out of.
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -190,6 +192,61 @@ class Files(unittest.TestCase):
     def test_a_skipped_file_named_on_the_command_line_is_skipped_still(self):
         # This file names unlisted films on purpose: spot names it when it changes.
         self.assertEqual(cmn.find_in_files(["scripts/tests/test_check_media_names.py"], registry()), [])
+
+
+class Library(unittest.TestCase):
+    """A title of the owner's library, where the machine has it, written as a title fails; the
+    library here is a folder of invented names, as a test never reads the real one."""
+
+    def setUp(self):
+        self.root = tempfile.TemporaryDirectory()
+        self.addCleanup(self.root.cleanup)
+        root = Path(self.root.name)
+        for name in [
+            "Quarry Lamps (1987)/Quarry Lamps (1987) 1080p BluRay.mkv",
+            "Blue Gannet/Season 1/Blue Gannet S01E01.mkv",
+            "Blue Gannet/Behind The Scenes/x.mkv",
+            "Blue Gannet/Subs/5_English.srt",
+            "Lantern.mkv",
+            "Velvet Static (1999).mkv",
+            "Fire TV.mkv",
+        ]:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("")
+        self.library = cmn.read_library((str(root),), registry())
+
+    def titles(self, text: str) -> list[str]:
+        return [f.text for f in cmn.find(text, registry(), "docs/x.md", self.library) if f.rule == "library-title"]
+
+    def test_a_library_title_written_as_a_title_fails(self):
+        self.assertEqual(self.titles("It stalled on Quarry Lamps at 3:30."), ["Quarry Lamps"])
+        self.assertEqual(self.titles("Cast Blue Gannet to the TV."), ["Blue Gannet"])
+
+    def test_a_title_broken_across_lines_fails(self):
+        self.assertEqual(self.titles("on staging (Quarry\n// Lamps, 2026-11-04)"), ["Quarry Lamps"])
+
+    def test_its_words_in_prose_pass(self):
+        self.assertEqual(self.titles("the quarry lamps were lit; a blue gannet flew"), [])
+
+    def test_a_title_inside_another_starting_small_passes(self):
+        self.assertEqual(self.titles("the Quarry lamps"), [])
+
+    def test_one_word_titles_folder_kinds_tracks_and_registered_names_are_not_compared(self):
+        self.assertEqual(self.titles("Lantern, Season 1, Behind The Scenes, 5 English, Velvet Static, Fire TV"), [])
+
+    def test_no_library_folder_compares_none(self):
+        os.environ[cmn.LIBRARY_ENV] = os.pathsep.join([self.root.name + "/absent", ""])
+        self.addCleanup(os.environ.pop, cmn.LIBRARY_ENV)
+        self.assertEqual(cmn.library_roots(), ())
+
+    def test_the_commit_lint_compares_the_machines_library(self):
+        os.environ[cmn.LIBRARY_ENV] = self.root.name
+        self.addCleanup(os.environ.pop, cmn.LIBRARY_ENV)
+        cmn.machine_library.cache_clear()
+        self.addCleanup(cmn.machine_library.cache_clear)
+        problems = lint_commits.check_media_names(lint_commits.Commit("0" * 40, "fix(web): a stall", "On Blue Gannet."))
+        self.assertEqual([p.rule for p in problems], ["media-name"])
 
 
 class CommitMessages(unittest.TestCase):

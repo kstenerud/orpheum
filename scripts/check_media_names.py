@@ -22,8 +22,14 @@ What is held to it, in the tree and in commit messages:
   phrase after film, episode, series, watching, playing, cast and their kin, unless it is capitals
   and figures alone (an acronym, an item's id). The phrase, or its
   first words, is a registered name or one of the registry's [words], which are no titles: a
-  device, a format, a product. A bare title in other prose has no shape to find; AGENTS.md rule 12
-  and the commit checklist guard it.
+  device, a format, a product.
+* **A title of the owner's library, where this machine has it** (`/tank/media/video`, or the folders
+  ORPHEUM_MEDIA_LIBRARY names): a folder's or file's title of two words or more, written as a title is
+  (its words capitalised but for the small ones), across a line break too (the owner, 2026-11-15).
+  The titles are read where the gate runs and written nowhere; on a machine without the library, CI's,
+  none is compared. A one-word title, and a folder name media servers give (Season 1, Behind the
+  Scenes), is not compared: the words are ordinary ones. A bare title elsewhere has no shape to find;
+  AGENTS.md rule 12 and the commit checklist guard it.
 """
 
 from __future__ import annotations
@@ -31,6 +37,8 @@ from __future__ import annotations
 import argparse
 import bisect
 import fnmatch
+import functools
+import os
 import re
 import subprocess
 import sys
@@ -219,6 +227,94 @@ def is_acronyms(phrase: str) -> bool:
     return not re.search(r"[a-z]", phrase)
 
 
+# The owner's video library, where the machine the gate runs on mounts it (the owner's and the
+# sandboxes'): ORPHEUM_MEDIA_LIBRARY names other folders instead, split by os.pathsep, or none when
+# empty, as the gate's own tests have it (py_tests.py), which never read the real library (rule 16).
+DEFAULT_LIBRARY = "/tank/media/video"
+LIBRARY_ENV = "ORPHEUM_MEDIA_LIBRARY"
+# A word as prose writes it, an apostrophe inside it ("Three's"): a title's words are compared.
+WORD_RE = re.compile(r"[^\W_]+(?:['’][^\W_]+)*")
+# A title's words a title leaves in lower case ("Back to the Lantern").
+TITLE_SMALL_WORDS = frozenset(
+    "a an and as at but by de des du for from in into la le les nor of on or the to vs with".split()
+)
+# The words of the folders media servers and discs name (Season 1, Behind the Scenes, VIDEO_TS): a
+# library name of these and figures alone is no title.
+FOLDER_WORDS = frozenset(
+    "a and audio backup bdmv behind bonus cd certificate christmas clip clips deleted disc disk dvd extra extras "
+    "featurette featurettes feature features interview interviews making meta of other part playlist "
+    "sample samples scene scenes season series short shorts special specials stream sub subs subtitles "
+    "the theme trailer trailers ts video vol volume".split()
+)
+SUBTITLE_SUFFIXES = re.compile(r"\.(?:srt|ass|ssa|sub|idx|sup|vtt)$", re.IGNORECASE)
+LIBRARY_SUFFIXES = re.compile(r"\.(?:" + MEDIA_EXTENSIONS + r"|jpe?g|png|webp|txt|ifo|bup|m2ts|bdmv|mpls|clpi)$", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Library:
+    """The titles of the owner's library this machine has: each title's words, by its first two."""
+
+    roots: tuple[str, ...]
+    by_start: dict[tuple[str, str], tuple[tuple[str, ...], ...]]
+    count: int
+
+
+def library_roots() -> tuple[str, ...]:
+    """The library's folders this machine has: ORPHEUM_MEDIA_LIBRARY's, else the owner's."""
+    named = os.environ.get(LIBRARY_ENV)
+    roots = (named.split(os.pathsep) if named else []) if named is not None else [DEFAULT_LIBRARY]
+    return tuple(root for root in roots if root and Path(root).is_dir())
+
+
+def library_title(name: str) -> tuple[str, ...]:
+    """The words of the title a library folder's or file's name carries, as the registry reads it."""
+    return tuple(WORD_RE.findall(media_title(LIBRARY_SUFFIXES.sub("", name))))
+
+
+def read_library(roots: tuple[str, ...], registry: Registry) -> Library:
+    """Every title of two words or more under roots, but a registered one and a folder's kind."""
+    titles: set[tuple[str, ...]] = set()
+    for root in roots:
+        for _, folders, files in os.walk(root):
+            # A subtitle's file is named for its language or its video ("5_English.srt"), and a
+            # hidden one (.DS_Store) for no film.
+            kept = [f for f in files if not SUBTITLE_SUFFIXES.search(f)]
+            for name in folders + kept:
+                if name.startswith("."):
+                    continue
+                words = library_title(name)
+                # A figure and one word is a track's or a disc's ("5 English"), not a title.
+                named = words[1:] if words and words[0].isdigit() else words
+                if len(named) < 2 or all(w in FOLDER_WORDS or w.isdigit() for w in words):
+                    continue
+                if " ".join(words) in registry.names or " ".join(words) in registry.words:
+                    continue
+                titles.add(words)
+    by_start: dict[tuple[str, str], list[tuple[str, ...]]] = {}
+    for words in sorted(titles, key=len, reverse=True):  # the longest first: it is the one quoted
+        by_start.setdefault((words[0], words[1]), []).append(words)
+    return Library(roots, {start: tuple(found) for start, found in by_start.items()}, len(titles))
+
+
+@functools.cache
+def machine_library(registry: Registry) -> Library | None:
+    """The library this machine has, read once a run; None where it has none."""
+    roots = library_roots()
+    return read_library(roots, registry) if roots else None
+
+
+def written_as_a_title(words: list[str]) -> bool:
+    """Whether words are written as a title is: the first and each after capitalised or a figure,
+    a small word after the first aside, and one at least capitalised. A title's lower-case start
+    (\"Who Stole the Lighthouse\") is inside another's."""
+    def big(word: str) -> bool:
+        return word[0].isupper() or word[0].isdigit()
+
+    return any(w[0].isupper() for w in words) and big(words[0]) and all(
+        big(w) or w.casefold() in TITLE_SMALL_WORDS for w in words[1:]
+    )
+
+
 @dataclass(frozen=True)
 class Finding:
     where: str
@@ -226,9 +322,10 @@ class Finding:
     text: str
 
 
-def find(text: str, registry: Registry, path: str | None) -> list[Finding]:
-    """What in text names a film, series or media file the registry does not list. Each rule runs
-    over the whole text, none of its patterns crossing a line, and a match's line is found after."""
+def find(text: str, registry: Registry, path: str | None, library: Library | None = None) -> list[Finding]:
+    """What in text names a film, series or media file the registry does not list, or a title of
+    library. Each rule runs over the whole text, none of its patterns but a library title's crossing
+    a line, and a match's line is found after."""
     starts = [0] + [m.end() for m in re.finditer("\n", text)]
 
     def where(offset: int) -> str:
@@ -273,7 +370,27 @@ def find(text: str, registry: Registry, path: str | None) -> list[Finding]:
             phrase = re.split(r"\.(?= )", m.group(1))[0]  # a sentence ends it
             if not is_acronyms(phrase) and not registry.knows(phrase):
                 add(m.start(), "named-in-prose", m.group(0))
+    if library is not None:
+        for start, quoted in library_titles_in(text, library):
+            add(start, "library-title", quoted)
     return [f for _, f in sorted(found, key=lambda pair: pair[0])]
+
+
+def library_titles_in(text: str, library: Library) -> list[tuple[int, str]]:
+    """Each title of library text writes as a title, with where it starts."""
+    words = list(WORD_RE.finditer(unicodedata.normalize("NFC", text)))
+    folded = [w.group(0).casefold() for w in words]
+    found: list[tuple[int, str]] = []
+    i = 0
+    while i < len(words) - 1:
+        for title in library.by_start.get((folded[i], folded[i + 1]), ()):
+            end = i + len(title)
+            if tuple(folded[i:end]) == title and written_as_a_title([w.group(0) for w in words[i:end]]):
+                found.append((words[i].start(), " ".join(w.group(0) for w in words[i:end])))
+                i = end - 1
+                break
+        i += 1
+    return found
 
 
 def tracked_files() -> list[str]:
@@ -284,7 +401,7 @@ def tracked_files() -> list[str]:
     return [p for p in out.splitlines() if p not in SKIPPED and not p.endswith(SKIPPED_SUFFIXES)]
 
 
-def find_in_files(paths: list[str], registry: Registry) -> list[Finding]:
+def find_in_files(paths: list[str], registry: Registry, library: Library | None = None) -> list[Finding]:
     out: list[Finding] = []
     for path in paths:
         if path in SKIPPED or path.endswith(SKIPPED_SUFFIXES):  # a path spot names, as make check skips it
@@ -295,7 +412,7 @@ def find_in_files(paths: list[str], registry: Registry) -> list[Finding]:
             continue
         if b"\0" in data[:8192]:
             continue
-        out.extend(find(data.decode("utf-8", errors="replace"), registry, path))
+        out.extend(find(data.decode("utf-8", errors="replace"), registry, path, library))
     return out
 
 
@@ -306,6 +423,20 @@ HINT = (
 )
 
 
+def compared(library: Library | None) -> str:
+    """What the library rule compared, for the gate's last line."""
+    if library is None:
+        return f"no library here to compare titles with ({DEFAULT_LIBRARY} or {LIBRARY_ENV})"
+    return f"none of the {library.count} titles of the library at {', '.join(library.roots)} is written"
+
+
+def unlisted(f: Finding) -> str:
+    """Why a finding fails."""
+    if f.rule == "library-title":
+        return "is a title of the owner's library, written as a title"
+    return f"is not in {REGISTRY}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("paths", nargs="*", help="files to check (default: every tracked file)")
@@ -313,19 +444,20 @@ def main() -> int:
     ap.add_argument("--report", action="store_true", help="count the unlisted names, most first")
     args = ap.parse_args()
     registry = read_registry(REGISTRY.read_text(encoding="utf-8"))
+    library = machine_library(registry)
     if args.message_file:
-        found = find(Path(args.message_file).read_text(encoding="utf-8"), registry, None)
+        found = find(Path(args.message_file).read_text(encoding="utf-8"), registry, None, library)
     else:
-        found = find_in_files(args.paths or tracked_files(), registry)
+        found = find_in_files(args.paths or tracked_files(), registry, library)
     if args.report:
         for (rule, text), count in Counter((f.rule, f.text) for f in found).most_common():
             print(f"{count:5d} [{rule}] {text}")
         return 0
     if not found:
-        print("check_media_names: every film, series and media file named is listed")
+        print(f"check_media_names: every film, series and media file named is listed; {compared(library)}")
         return 0
     for f in found:
-        print(f"{f.where}: [{f.rule}] {f.text!r} is not in {REGISTRY}", file=sys.stderr)
+        print(f"{f.where}: [{f.rule}] {f.text!r} {unlisted(f)}", file=sys.stderr)
     print(f"\ncheck_media_names: {len(found)} name(s) unlisted. {HINT}", file=sys.stderr)
     return 1
 

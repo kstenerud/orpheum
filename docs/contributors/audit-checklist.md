@@ -27,8 +27,9 @@ checks to catch things you miss."* Before committing, check the diff against ite
 11 below, against item 19 when the commit claims to finish a decision, and against item 23 when it
 touches a query, a write, a table or an index (D303). Read every diff, its commit message too,
 for a film, a series or an episode the owner has, named anywhere, a quote of the owner's
-included: `make check-media-names` sees file names, years, episode markers and a few phrases,
-not a bare title in prose (AGENTS.md rule 12; agent-failures A70). A finding is fixed in the same
+included: `make check-media-names` sees file names, years, episode markers, a few phrases and,
+where the machine mounts the library, its titles of two words or more written as titles; not a
+one-word title, nor one in lower case (AGENTS.md rule 12; agent-failures A70). A finding is fixed in the same
 commit; one that reaches a migration, the API or a setting key goes to the owner first.
 
 ## The milestone

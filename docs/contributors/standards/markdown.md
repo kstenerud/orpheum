@@ -138,8 +138,9 @@ why they are banned.
 
 **Enforced by:** **review-only**, except the owner's library: `make check-media-names` refuses a
 media file's name, a "Title (Year)", an episode marker and a title after "the owner's", "playing"
-and their like that the registry does not list; a bare title in prose is the audit's (the audit
-checklist's "At every commit"). `.editorconfig` keeps trailing whitespace in Markdown, where it
+and their like that the registry does not list, and, where the machine mounts the owner's library,
+a title of it of two words or more written as a title; any other bare title in prose is the
+audit's (the audit checklist's "At every commit"). `.editorconfig` keeps trailing whitespace in Markdown, where it
 can be a line break.
 
 ## 8. Filenames and placement

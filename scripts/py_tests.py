@@ -34,8 +34,10 @@ TESTS = Path("scripts/tests")
 PASSED_THROUGH = ("PATH",)
 # No bytecode cache: Python reuses one by its source's size and mtime, so a revert-red probe that
 # restored a file of the same size within a second ran the reverted code (2026-10-26).
+# No media library: the media-name gate compares none of the owner's titles, as a test never reads
+# the real library (AGENTS.md rule 16); a test of that rule names a library of its own.
 HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
-            "PYTHONDONTWRITEBYTECODE": "1"}
+            "PYTHONDONTWRITEBYTECODE": "1", "ORPHEUM_MEDIA_LIBRARY": ""}
 
 
 # A test that runs Go builds with the machine's module and build caches, and never fetches: each home

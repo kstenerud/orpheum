@@ -553,7 +553,9 @@ cast and hls | a study's subject, before a year
 continue watching and watchlist | a feature compared, before a year
 
 [words]
-# Not titles: what "the owner's …", "playing …" and "cast …" are said of in the docs.
+# Not titles: what "the owner's …", "playing …" and "cast …" are said of in the docs, and the
+# phrases a title of the owner's library is too (check_media_names.py's library rule).
+the wire | a phrase: an article's "JSX Over The Wire"
 fire tv | a device
 fire tvs | a device
 tcl | a device's maker
