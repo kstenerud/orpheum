@@ -600,29 +600,22 @@ export function ownPictureLevel(levels: readonly ChoiceLevel[]): number {
 
 /**
  * The quality level comes to under the device's data cap (D488), capKbps, a rate with its sound's in
- * kbit/s: the highest at or below level that is not the film's own picture and whose average rate,
- * its sound's with it, is at most capKbps; else the lowest the core made, a cap under every quality
- * being the lowest; level itself with no cap, or where the core made none. A capped device never
- * plays the film's own picture, however low its rate: the person chose a converted rung (the
- * owner, 2026-11-14).
+ * kbit/s: the highest at or below level whose average rate, its sound's with it, is at most capKbps,
+ * the film's own picture among them as one more rung (D491); else the lowest, a cap under every
+ * quality being the lowest; level itself with no cap, or where the core made none.
  */
 export function underDataCap(
   levels: readonly ChoiceLevel[],
   level: number,
   capKbps: number | undefined,
 ): number {
-  if (capKbps === undefined) {
+  if (capKbps === undefined || levels.length === 0) {
     return level;
   }
-  const own = ownPictureLevel(levels);
   const under = levels.findLastIndex(
-    (each, index) => index <= level && index !== own && each.averageBitrate <= capKbps * 1000,
+    (each, index) => index <= level && each.averageBitrate <= capKbps * 1000,
   );
-  if (under >= 0) {
-    return under;
-  }
-  const lowest = levels.findIndex((_, index) => index !== own);
-  return lowest >= 0 ? lowest : level;
+  return Math.max(under, 0);
 }
 
 /**

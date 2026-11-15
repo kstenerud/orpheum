@@ -9,7 +9,7 @@ import { choosingFrom, levels, loadAt, pastStarting, scene, useScene } from "./t
 
 /**
  * The device's data cap (D488): a ceiling no choice of the chunked player's passes, at its start,
- * at each chunk and at the step-up, which never plays the film's own picture.
+ * at each chunk and at the step-up, the film's own picture one more rung under it (D491).
  */
 
 useScene({ beforeEach, afterEach, vi });
@@ -72,29 +72,35 @@ describe("the device's data cap (D488)", () => {
     expect(scene.steps.at(-1)).toMatch(/^ceiling 0 to 3: stepped up; /u);
   });
 
-  it("never plays the film's own picture under a cap, its rate within it or not", () => {
+  it("plays the film's own picture as one more rung: under a cap at or above its rate, never one below (D491)", () => {
     const uncapped = choosingFrom(40_000_000);
     uncapped.hls.levels = withOwnPictureLow;
     expect(underDataCap(withOwnPictureLow, 1, undefined)).toBe(1);
-    scene.dataCapKbps = 1000; // the own picture's 900 is within it; 360p is the rung that is
+    scene.dataCapKbps = 900; // the own picture's 900, its sound's with it, is within it
     const capped = choosingFrom(40_000_000);
     capped.hls.levels = withOwnPictureLow;
-    expect(capped.choosing.firstLevel()).toBe(0);
+    expect(capped.choosing.firstLevel()).toBe(1);
+    expect(capped.choosing.topLevel()).toBe(1);
+    scene.dataCapKbps = 899; // under it: 360p is the rung that is within it
+    expect(capped.choosing.nextLevel()).toBe(0);
+    expect(scene.steps.at(-1)).toBe("ceiling 1 to 0: the device's data cap, 899 kb/s");
     scene.isInAGroup = true; // a group keeps the film's own picture where its link carries it (D286 §2)
     loadAt(capped.choosing, 0, { mbps: 40 });
     expect(capped.choosing.nextLevel()).toBe(0);
+    expect(underDataCap(withOwnPictureLow, 3, 1000)).toBe(1);
     expect(underDataCap(withOwnPictureLow, 3, 100)).toBe(0);
     const ownPictureLowest = [
       { bitrate: 400_000, averageBitrate: 300_000, uri: "picture/stream.m3u8" },
       ...levels.slice(1),
     ];
-    expect(underDataCap(ownPictureLowest, 0, 100)).toBe(1);
+    // A cap under every rung plays the lowest, the film's own picture where it is the lowest.
+    expect(underDataCap(ownPictureLowest, 3, 100)).toBe(0);
   });
 });
 
 describe("the rungs offered for a cap (D488)", () => {
-  it("are the qualities the core made, each with its sound, lowest first, the film's own picture left out", () => {
-    expect(rungsOf([...withOwnPictureLow].reverse())).toEqual([496, 1296, 3096]);
+  it("are the qualities the core made and the film's own picture, each with its sound, lowest first (D491)", () => {
+    expect(rungsOf([...withOwnPictureLow].reverse())).toEqual([496, 900, 1296, 3096]);
     expect(rungsOf(levels)).toEqual([496, 1296, 3096, 5117]);
   });
 });

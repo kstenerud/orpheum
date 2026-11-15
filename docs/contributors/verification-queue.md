@@ -3245,3 +3245,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   on from where it stood (not from its start) on its ladder at the 700k rung or lower, and ⋯ lists
   the caps again. Then play a film added minutes ago, before its ladder is ready, on mobile data:
   passes when it plays (its own file) rather than saying it cannot be converted.
+- [ ] **VQ340** — The film's own picture played under a cap at or above its rate (D491). On a laptop
+  over Wi-Fi, debug tools shown, a film whose own picture the browser plays (an H.264 MP4, say) on its
+  ladder: open ⋯'s data use. Passes when its list's first figure after No limit is the own picture's
+  (above the 6000k rung's 2.7 GB per hour, for a film of a higher rate), and, that figure chosen, the
+  stats show the film's own picture playing again within a minute or so; the next figure down
+  chosen, the next chunk is the 6000k rung's or lower. Only a browser's own playback shows which
+  picture hls.js loads; the tests fake it.
+- [ ] **VQ341** — A phone playing a film's own file within a cap, moving to a lower one (D491). On
+  the Android phone, Chrome, with a cap of 0.4 GB per hour on mobile data: on Wi-Fi, choose ⋯'s
+  highest figure on a film of a high rate, then play a film whose file is of a lower rate (a smaller
+  file of the same length). Passes when ⋯ offers its "Play the original file" (debug tools shown),
+  which plays its own file with no move; then, Wi-Fi turned off, the film plays on from where it
+  stood on its ladder at the 700k rung or lower.

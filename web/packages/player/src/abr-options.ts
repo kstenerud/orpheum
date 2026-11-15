@@ -79,7 +79,7 @@ export interface ChoosingOptions {
   readonly linkLost?: ((why: string) => void) | undefined;
   /**
    * The device's data cap now (D488): the highest rate, kbit/s, its sound's with it, a quality it
-   * chooses or loads may have, never the film's own picture under one (underDataCap); undefined for
+   * chooses or loads may have, the film's own picture among them (underDataCap, D491); undefined for
    * none, and absent where nothing caps it. Read at each choice, so a cap chosen, or one for the kind
    * of network it moved to, lowers the ceiling at the next chunk, and one lifted is climbed back by
    * the step-up.

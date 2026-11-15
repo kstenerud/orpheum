@@ -256,7 +256,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **No choice passes the device's data cap** (D488): `ChoosingOptions.dataCapKbps`, read at each
   choice, holds the first quality, each next one, the step-up's top and `topLevel` to the highest
   rung whose average rate, its sound's with it, is within it, or the lowest where none is
-  (`underDataCap`), and never gives the film's own picture under a cap. A cap that appears mid-film
+  (`underDataCap`), the film's own picture one more rung (D491). A cap that appears mid-film
   lowers the ceiling at the next chunk with its step note; one lifted is climbed back by the
   step-up. The rungs a cap is chosen from are the master playlist's (`offeredRungsOf`,
   `playerOfferedRungsEvent`). `src/abr-ceiling.ts`, `src/offered-rungs.ts`; `abr-data-cap.test.ts`;
@@ -313,7 +313,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 [forward-buffer-2026-10-29.md](../../../docs/contributors/design/research/forward-buffer-2026-10-29.md)
 for how far ahead it loads, and [D487](../../../docs/contributors/decisions/working-notes.md)
 for how far after its link was out; [D488](../../../docs/contributors/decisions/working-notes.md)
-for the device's data cap;
+for the device's data cap, and [D491](../../../docs/contributors/decisions/working-notes.md) for
+the film's own picture under it;
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §1, §3;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 

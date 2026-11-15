@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The rungs the core made for a chunked playback's film, as its master playlist offers them, for the
- * device's data cap to be chosen from (D488): one entry per rung, never a list of its own, as the
+ * The rungs the core offers for a chunked playback's film, as its master playlist offers them, the
+ * film's own picture among them (D491), for the device's data cap to be chosen from (D488): one
+ * entry per rung, never a list of its own, as the
  * ladder is the owner's setting (chunkQualities) and a film below a rung is offered fewer.
  */
 
 import Hls from "hls.js";
 
-import { ownPictureLevel, type ChoiceLevel } from "./abr-choice.ts";
+import type { ChoiceLevel } from "./abr-choice.ts";
 
 /** The event a chunked playback's video is told its film's rungs with, as offeredRungsOf says them. */
 export const playerOfferedRungsEvent = "orpheumplayerofferedrungs";
 
 /**
- * The rates of the qualities the core made among levels, kbit/s, each its average with its sound's,
- * lowest first: the film's own picture left out, which no cap plays (underDataCap).
+ * The rates of the rungs among levels, kbit/s, each its average with its sound's, lowest first: the
+ * qualities the core made and the film's own picture, one more rung a cap may play (D491).
  */
 export function rungsOf(levels: readonly ChoiceLevel[]): readonly number[] {
-  const own = ownPictureLevel(levels);
   return levels
-    .filter((_, index) => index !== own)
     .map((level) => Math.round(level.averageBitrate / 1000))
     .sort((one, other) => one - other);
 }
