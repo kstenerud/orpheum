@@ -30,8 +30,11 @@ afterEach(failOnUnexpectedRequests);
 
 const playableFormats = testServices().playableFormats();
 
-/** A decision naming its media token, on its film's ladder unless isCut is false, as POST /playback answers. */
-function decided(mediaToken: string, isCut = true): Answer {
+/**
+ * A decision naming its media token, on its film's ladder unless isCut is false, as POST /playback
+ * answers, its file's own rate fileBitRateKbps where given.
+ */
+function decided(mediaToken: string, isCut = true, fileBitRateKbps?: number): Answer {
   const onLadder = {
     url: `/api/v1/bytes/media/chunks/${mediaToken}/master.m3u8`,
     startAtBps: 4_000_000,
@@ -51,6 +54,7 @@ function decided(mediaToken: string, isCut = true): Answer {
       mediaToken,
       resumePositionMs: 40_000,
       ...(isCut ? { onLadder } : {}),
+      ...(fileBitRateKbps === undefined ? {} : { fileBitRateKbps }),
     },
   ];
 }
@@ -142,6 +146,32 @@ describe("a playback asked for on a device under a data cap (D488)", () => {
       "hls",
       "hls",
       undefined,
+    ]);
+  });
+
+  it("asks for the film's own file its person chose where the cap is at or above the file's rate (D491)", async () => {
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("a", true, 1200), decided("b", true, 1200), decided("c", false)],
+        "DELETE /playback/a": [204, undefined],
+        "DELETE /playback/b": [204, undefined],
+      },
+      heard,
+    );
+    const watching = new Watching(api, () => 0, standInPreloads().start);
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 1296 }));
+    await watching.decide(7, playableFormats, { cause: "playPage" });
+    await watching.decide(7, playableFormats, { cause: "originalChosen" });
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 796 }));
+    await watching.decide(7, playableFormats, { cause: "originalChosen" });
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    // The ladder's first, its rungs the film's own picture among them; the file's 1200 kb/s within
+    // 1296, its own file; under 796, the ladder still.
+    expect(asked.map((request) => bodyField(request, "preferredDelivery"))).toEqual([
+      "hls",
+      "direct",
+      "hls",
     ]);
   });
 });

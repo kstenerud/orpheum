@@ -4,7 +4,7 @@ import { isWebAudioLate, type ChunkedPlayback } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
-import { deviceDataCapKbps } from "./data-cap.ts";
+import { deviceDataCapKbps, isWithinCap } from "./data-cap.ts";
 import { noteDecisionTimes } from "./decision-times.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
@@ -46,18 +46,26 @@ type PreferredDelivery = NonNullable<
 >;
 
 /**
- * The delivery a request for a playback prefers, if any: the ladder's under a data cap (D488),
- * which no choice of the original lifts, else the film's own file where the person chose it.
+ * The delivery a request for a playback prefers, if any: the film's own file where the person chose
+ * it and the device's data cap, capKbps, lets its file of fileKbps play (isWithinCap, D491); else the
+ * ladder's under a cap (D488), whose rungs include the film's own picture; else none.
  */
 export function preferredDeliveryOf(
   cause: StartCause,
   capKbps: number | undefined,
+  fileKbps: number,
 ): { readonly preferredDelivery?: PreferredDelivery } {
-  if (capKbps !== undefined) {
-    return { preferredDelivery: "hls" };
+  if (cause === "originalChosen" && isWithinCap(fileKbps, capKbps)) {
+    return { preferredDelivery: "direct" };
   }
-  return cause === "originalChosen" ? { preferredDelivery: "direct" } : {};
+  return capKbps === undefined ? {} : { preferredDelivery: "hls" };
 }
+
+/**
+ * Each file's own rate, kbit/s, as the core last answered it here (fileBitRateKbps), by which a
+ * choice of its original under a data cap is judged (preferredDeliveryOf).
+ */
+const fileRatesKbps = new Map<number, number>();
 
 /** Asks the server how a file plays in this browser, and why it asks; nothing of where it is (D247 §11). */
 export async function requestPlayback(
@@ -79,14 +87,15 @@ export async function requestPlayback(
         // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
         // wants is its ladder's sound's (D436).
         ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
-        // A device under a data cap plays a rung of its ladder, never the film's own file (D488);
-        // else the person chose the film's own file over its ladder.
-        ...preferredDeliveryOf(asked.cause, deviceDataCapKbps()),
+        // A device under a data cap plays a rung of its ladder (D488), or the film's own file its
+        // person chose where the cap is at or above its rate (D491).
+        ...preferredDeliveryOf(asked.cause, deviceDataCapKbps(), fileRatesKbps.get(fileId) ?? 0),
         ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
       },
     }),
   );
   noteDecisionTimes(decision.mediaToken, { askedMs, decidedMs: performance.now() });
+  fileRatesKbps.set(fileId, decision.fileBitRateKbps);
   return decision;
 }
 

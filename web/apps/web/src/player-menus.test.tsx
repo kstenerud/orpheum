@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
 import { DataCapChoices } from "./data-cap-choices.tsx";
-import { DataCaps, dataCapsKey } from "./data-cap.ts";
+import { DataCaps, dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { commandEventName } from "./input-commands.ts";
 import { ListBox } from "./list-box.tsx";
@@ -343,14 +343,24 @@ describe("🔈 (D407 §10, Q11)", () => {
   });
 });
 
-/** A video whose player told it the core's default rungs, each with its 96 kb/s sound (D488). */
-function videoOnTheDefaultLadder(): RefObject<HTMLVideoElement | null> {
+/**
+ * A video whose player told it the core's default rungs, each with its 96 kb/s sound (D488), and,
+ * given ownPictureKbps, the film's own picture above them at that rate with its sound (D491).
+ */
+function videoOnTheDefaultLadder(ownPictureKbps?: number): RefObject<HTMLVideoElement | null> {
   const video = document.createElement("video");
   const levels = [400, 700, 1200, 2000, 3000, 6000].map((kbps) => ({
     bitrate: kbps * 1500,
     averageBitrate: (kbps + 96) * 1000,
     uri: `q${String(kbps)}k/stream.m3u8`,
   }));
+  if (ownPictureKbps !== undefined) {
+    levels.push({
+      bitrate: ownPictureKbps * 3000,
+      averageBitrate: ownPictureKbps * 1000,
+      uri: "picture/stream.m3u8",
+    });
+  }
   let parsed: (() => void) | undefined = undefined;
   tellOfferedRungs(
     {
@@ -436,6 +446,44 @@ describe("⁝'s data use (D488)", () => {
     });
     expect(heading()).toBe("Data use on Wi-Fi");
     expect(current()).toEqual(["No limit"]);
+  });
+
+  it("lists the film's own picture as one more rung, and offers its original under a cap at or above the file's rate (D491)", async () => {
+    mounted = await mount(
+      withServices(
+        <DebugToolsContext value={{ isShown: true, onChanged: () => undefined }}>
+          <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+            <PlayerMenusContext
+              value={{ ...ways, fileBitRateKbps: 9096, onOriginalChosen: () => undefined }}
+            >
+              <PlayerMenus
+                videoRef={videoOnTheDefaultLadder(8000)}
+                shown={everyMenu}
+                onOpenChange={() => undefined}
+              />
+            </PlayerMenusContext>
+          </PlayerTracksContext>
+        </DebugToolsContext>,
+      ),
+    );
+    await opened(mounted, "Settings");
+    const listed = places(mounted);
+    // The own picture's 8000 kb/s, its sound's with it, is 3.6 GB an hour.
+    expect(listed.slice(listed.indexOf("No limit"), listed.indexOf("No limit") + 3)).toEqual([
+      "No limit",
+      "3.6 GB per hour",
+      "2.7 GB per hour",
+    ]);
+    await choosing(mounted, "3.6 GB per hour");
+    expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 8000 });
+    await opened(mounted, "Settings");
+    expect(currentPlaces(mounted)).toEqual(["3.6 GB per hour"]);
+    // The file's own 9096 kb/s, every track of it, is over the cap.
+    expect(places(mounted)).not.toContain("Play the original file");
+    act(() => {
+      deviceDataCaps().choose(9096);
+    });
+    expect(places(mounted)).toContain("Play the original file");
   });
 });
 

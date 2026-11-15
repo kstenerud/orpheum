@@ -38,7 +38,7 @@ import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-devic
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
-import { useIsCapped, useWhenACapStarts } from "./data-cap-choices.tsx";
+import { useIsWithinCap, useWhenTheCapFallsUnder } from "./data-cap-choices.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import {
   ForTesters,
@@ -528,9 +528,10 @@ function PlayUnderOfPage(props: FilmParts): JSX.Element {
 function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): JSX.Element {
   const ways = use(PlayContext);
   const { ladder, videoRef, children } = props;
-  // A film playing its own file, a cap starting to hold, asks for its ladder from where it stands
-  // (D489): its own file is not a rung a cap can choose under.
-  useWhenACapStarts(
+  // A film playing its own file, the cap falling under the file's rate, asks for its ladder from
+  // where it stands (D489, D491): its own file is no rung a cap can choose under.
+  useWhenTheCapFallsUnder(
+    ways?.decision.fileBitRateKbps ?? 0,
     ways === undefined || ladder !== undefined
       ? undefined
       : decideAgainFor({ ...ways, videoRef }, "dataCapStarted"),
@@ -595,6 +596,7 @@ function menusWaysOf(
   return {
     fileId: asked.fileId,
     soundOffsetMs: asked.decision.soundOffsetMs,
+    fileBitRateKbps: asked.decision.fileBitRateKbps,
     onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
     onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,
     onBare: asked.onBare,
@@ -627,7 +629,7 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
 }
 
 /**
- * Under the film on its ladder: the original's offer, where no data cap holds (D488), and its lowest quality's word that it cannot
+ * Under the film on its ladder: the original's offer, where the data cap lets its file play (D491), and its lowest quality's word that it cannot
  * keep up, which goes to a host's session (D247 §8).
  */
 function LadderUnder(
@@ -646,9 +648,9 @@ function LadderUnder(
   const playOriginal = decideAgainFor(props, "originalChosen");
   // A cast's remote offers the original too, carried out here as this offer's press (D440 §5).
   useOriginalOfferedToARemote(playOriginal);
-  // A device under a data cap plays a rung, never the film's own file (D488).
-  const isCapped = useIsCapped();
-  return isCapped ? null : <PlayOriginal onChosen={playOriginal} />;
+  // A device under a data cap plays its own file only where the cap is at or above its rate (D491).
+  const isOffered = useIsWithinCap(props.decision.fileBitRateKbps);
+  return isOffered ? <PlayOriginal onChosen={playOriginal} /> : null;
 }
 
 /**

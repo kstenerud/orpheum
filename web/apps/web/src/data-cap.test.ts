@@ -7,6 +7,7 @@ import {
   DataCaps,
   dataCapsKey,
   gbPerHourOf,
+  isWithinCap,
   networkKindOf,
   rungUnderCap,
 } from "./data-cap.ts";
@@ -95,5 +96,16 @@ describe("a cap's figures (D488)", () => {
     expect(rungUnderCap(defaultRungsKbps, 1296)).toBe(1296);
     expect(rungUnderCap(defaultRungsKbps, 2000)).toBe(1296);
     expect(rungUnderCap([2096, 3096], 1296)).toBe(2096);
+  });
+});
+
+describe("a film's own file under a cap (D491)", () => {
+  it("plays with no cap, or one at or above its rate, never one below or where its rate is not known", () => {
+    expect(isWithinCap(2400, undefined)).toBe(true);
+    expect(isWithinCap(0, undefined)).toBe(true);
+    expect(isWithinCap(2400, 2400)).toBe(true);
+    expect(isWithinCap(2400, 3096)).toBe(true);
+    expect(isWithinCap(2400, 2399)).toBe(false);
+    expect(isWithinCap(0, 6096)).toBe(false);
   });
 });

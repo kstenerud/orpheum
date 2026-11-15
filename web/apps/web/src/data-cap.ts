@@ -7,7 +7,8 @@
  * Android in practice) keeps two caps, one for Wi-Fi and one for mobile data, and plays by the one
  * for the network it is on, changing with it mid-film; where the browser does not say, it keeps one.
  * Its kind is never guessed from the link's speed. Each starts at No limit (the owner, 2026-11-14).
- * Kept in this browser's storage, not on the core: see D488 for why, and what is left open.
+ * The film's own picture is one more rung, and its own file plays under a cap at or above its rate
+ * (D491). Kept in this browser's storage, not on the core: see D488 for why, and what is left open.
  */
 
 import { browserStorage, type StringStorage } from "./browser-storage.ts";
@@ -55,6 +56,15 @@ export function rungUnderCap(
     return undefined;
   }
   return rungs.filter((rung) => rung <= capKbps).at(-1) ?? rungs[0];
+}
+
+/**
+ * Whether a film's own file, of fileKbps (the core's fileBitRateKbps, every track of it), plays under
+ * capKbps (D491): with no cap, or where its rate, known, is within it; one whose rate is not known,
+ * 0, is over every cap.
+ */
+export function isWithinCap(fileKbps: number, capKbps: number | undefined): boolean {
+  return capKbps === undefined || (fileKbps > 0 && fileKbps <= capKbps);
 }
 
 /** The caps kept in storage, by kind; a value that is not a positive rate is none. */
@@ -124,17 +134,18 @@ export class DataCaps {
   }
 
   /**
-   * Tells onStart each time a cap starts to hold where none did, by a choice or a change of network,
-   * which a film playing its own file moves to its ladder at (D489); returns the stopping.
+   * Tells onFall each time the cap falls under fileKbps where it was not (isWithinCap), by a choice or
+   * a change of network: a cap starting to hold under it, or one lowered under it, at which a film
+   * playing its own file of that rate moves to its ladder (D489, D491); returns the stopping.
    */
-  whenCapStarts(onStart: () => void): () => void {
-    let wasCapped = this.capKbps() !== undefined;
+  whenCapFallsUnder(fileKbps: number, onFall: () => void): () => void {
+    let wasWithin = isWithinCap(fileKbps, this.capKbps());
     return this.subscribe(() => {
-      const isCapped = this.capKbps() !== undefined;
-      if (isCapped && !wasCapped) {
-        onStart();
+      const isWithin = isWithinCap(fileKbps, this.capKbps());
+      if (wasWithin && !isWithin) {
+        onFall();
       }
-      wasCapped = isCapped;
+      wasWithin = isWithin;
     });
   }
 }

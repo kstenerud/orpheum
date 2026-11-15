@@ -81,6 +81,22 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     }
   });
 
+  it("is offered under the film where the device's cap is at or above its file's rate (D491)", async () => {
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 2400 })); // the file's own
+    try {
+      mounted = await onItsLadder(true);
+      expect(mounted.container.textContent).toContain("Play the original file");
+      // ⁝'s too, told the file's rate by the page.
+      await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+      const inTheMenu = [...menuOpen(mounted).querySelectorAll('button, [role="button"]')].map(
+        (each) => each.textContent,
+      );
+      expect(inTheMenu).toContain("Play the original file");
+    } finally {
+      window.localStorage.removeItem(dataCapsKey);
+    }
+  });
+
   it("is a debug tool, offered only to a person who shows them (the owner, 2026-10-29)", async () => {
     mounted = await onItsLadder(false);
     expect(mounted.container.textContent).not.toContain("Play the original file");

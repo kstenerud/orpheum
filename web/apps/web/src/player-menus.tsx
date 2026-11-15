@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
-import { DataCapChoices, useIsCapped } from "./data-cap-choices.tsx";
+import { DataCapChoices, useIsWithinCap } from "./data-cap-choices.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
@@ -47,6 +47,8 @@ import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 export interface PlayerMenusWays {
   readonly fileId: number;
   readonly soundOffsetMs: number;
+  /** The film's own file's rate, kbit/s, which a data cap offers its original under (D491); 0 or absent where not known. */
+  readonly fileBitRateKbps?: number | undefined;
   readonly playback?: PlaybackReport | undefined;
   readonly onSubtitleFetched: () => void;
   readonly onOriginalChosen?: (() => void) | undefined;
@@ -420,12 +422,12 @@ export function MoreMenuOf(props: {
 
 /**
  * ⁝'s places the page offers where it may: the original (a debug tool), which a device under a data
- * cap is not offered (D488), and the bare player.
+ * cap is offered only where the cap is at or above the file's rate (D491), and the bare player.
  */
 function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): JSX.Element {
   const { t } = useTranslation();
-  const isCapped = useIsCapped();
-  const onOriginalChosen = isCapped ? undefined : props.ways?.onOriginalChosen;
+  const isOffered = useIsWithinCap(props.ways?.fileBitRateKbps ?? 0);
+  const onOriginalChosen = isOffered ? props.ways?.onOriginalChosen : undefined;
   const onBare = props.ways?.onBare;
   return (
     <>

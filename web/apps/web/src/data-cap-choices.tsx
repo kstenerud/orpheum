@@ -6,7 +6,13 @@ import { offeredRungsOf, playerOfferedRungsEvent } from "@orpheum/player";
 import { useEffect, useEffectEvent, useSyncExternalStore, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { deviceDataCaps, gbPerHourOf, rungUnderCap, type DataCaps } from "./data-cap.ts";
+import {
+  deviceDataCaps,
+  gbPerHourOf,
+  isWithinCap,
+  rungUnderCap,
+  type DataCaps,
+} from "./data-cap.ts";
 import { ListNote, ListOption } from "./list-box.tsx";
 
 /**
@@ -46,8 +52,9 @@ function useCapNow(caps: DataCaps): {
 
 /**
  * ⁝'s data use (D488): a line naming the cap, for the network the device is on where its browser
- * says which, then No limit and one choice per rung the core offers the film, highest first, each
- * its video's and sound's GB per hour, the one the cap plays marked. Nothing while the film plays
+ * says which, then No limit and one choice per rung the core offers the film, highest first, the
+ * film's own picture among them (D491), each its video's and sound's GB per hour, the one the cap
+ * plays marked. Nothing while the film plays
  * its own file, which offers no rungs: a cap is chosen on a film on its ladder.
  */
 export function DataCapChoices(props: {
@@ -88,24 +95,28 @@ export function DataCapChoices(props: {
   );
 }
 
-/** Whether this device's cap holds now, which plays no film's own file (D488). */
-export function useIsCapped(caps: DataCaps = deviceDataCaps()): boolean {
-  return useCapNow(caps).capKbps !== undefined;
+/**
+ * Whether this device's cap now lets a film's own file of fileKbps play (isWithinCap): the original is
+ * offered only then (D488 §4, D491).
+ */
+export function useIsWithinCap(fileKbps: number, caps: DataCaps = deviceDataCaps()): boolean {
+  return isWithinCap(fileKbps, useCapNow(caps).capKbps);
 }
 
 /**
- * Calls onStart, where given, when this device's cap starts to hold where none did: a film playing
- * its own file then asks for its ladder from where it stands, which a cap plays it on (D489).
+ * Calls onFall, where given, when this device's cap falls under fileKbps where it was not: a film
+ * playing its own file of that rate then asks for its ladder from where it stands, which a cap
+ * plays it on (D489, D491).
  */
-export function useWhenACapStarts(onStart: (() => void) | undefined): void {
-  const started = useEffectEvent(() => {
-    onStart?.();
+export function useWhenTheCapFallsUnder(fileKbps: number, onFall: (() => void) | undefined): void {
+  const fell = useEffectEvent(() => {
+    onFall?.();
   });
   useEffect(
     () =>
-      deviceDataCaps().whenCapStarts(() => {
-        started();
+      deviceDataCaps().whenCapFallsUnder(fileKbps, () => {
+        fell();
       }),
-    [],
+    [fileKbps],
   );
 }
