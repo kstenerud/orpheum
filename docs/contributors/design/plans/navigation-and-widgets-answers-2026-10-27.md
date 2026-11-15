@@ -4076,3 +4076,18 @@ continue without my input."
     offers, or rounded figures), what the entry with no cap is called, and whether C6's stopping
     of prefetch ahead still applies, which by the same reasoning as D487 it may not.
 - **The owner's:** 12 (polls that read whole answers) is D237's.
+
+## A black page once at the client origin after a deploy, next batch (the lead, 2026-11-15)
+
+Filed under the batching rule: a reload mends it. After `./staging quick` at 10:50 restarted the
+core and rebuilt Connect staging's web client, the owner closed Firefox's tab on the phone (device
+139), typed orpheum.dev, was handed to the client origin and saw a black page; a later reload worked.
+Neither Connect nor the core saw a request from the device until 11:27:22, when the page reported
+*"the page reloaded, once: the code of its loader's role at a client's origin did not load, asked
+twice (error loading dynamically imported module: …/assets/loader-at-client-origin-D4tYUb8s.js)"*.
+The file was served (200) when fetched afterwards, and a fresh sign-in in Chromium and Firefox under
+Playwright loaded each time. Suspects to look at first: the worker before the deploy still holding
+the first navigation (idiosyncrasies: "A page and its service worker run different releases across
+a deploy"), and Firefox keeping a failed dynamic import failed ("A dynamic import that failed fails
+again without a request"), which would explain why one automatic reload did not mend it. Beta
+testers would meet it once per release.
