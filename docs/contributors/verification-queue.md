@@ -3303,7 +3303,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   plays full screen as before.
   **Passed 2026-11-15 (the owner, the Android phone, Chrome, staging):** "it no longer flashes the
   top bar".
-- [ ] **VQ349** — A deploy leaves no black page at a client origin (the 11-26 batch's item 1). On
+- [x] **VQ349** — A deploy leaves no black page at a client origin (the 11-26 batch's item 1). On
   the owner's Android phone, Firefox, with orpheum.dev opened on staging before: have staging
   updated by `./staging quick`, then type orpheum.dev and go on to the core. Passes when the client
   shows, with no reload by hand: at once, or after a black wait of up to half a minute while the new
@@ -3311,3 +3311,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   reloaded, once: the code of its loader's role at a client's origin did not load, asked twice …";
   a page that stays black past a minute fails it (`part-load.ts`, fix(web): the page reloaded for
   its code asks on until it comes, under an address of its own).
+  **Passed 2026-11-15 (the owner, the Android phone, Firefox, staging, after `./staging quick`):**
+  "passed". The core's log holds the reload's note once in that time: the page took the reload and
+  the asking after it.
