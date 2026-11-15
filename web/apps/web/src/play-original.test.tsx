@@ -34,12 +34,22 @@ const onLadder = {
   steadiness: 0,
 };
 
-/** The Play page of a film on its ladder, its person's debug tools shown or not. */
-async function onItsLadder(showsDebugTools: boolean, asked: string[] = []): Promise<Mounted> {
+/**
+ * The Play page of a film on its ladder, its person's debug tools shown or not; given
+ * isOriginalWaiting, the original its person chose waiting there for the link to carry it.
+ */
+async function onItsLadder(
+  showsDebugTools: boolean,
+  asked: string[] = [],
+  isOriginalWaiting = false,
+): Promise<Mounted> {
   const page: JSX.Element = (
     <PlayView
       fileId={2}
-      decision={directDecision({ onLadder })}
+      decision={directDecision({
+        onLadder,
+        ...(isOriginalWaiting ? { isOriginalWaitingForTheLink: true } : {}),
+      })}
       onDecideAgain={(cause) => asked.push(cause)}
     />
   );
@@ -134,6 +144,29 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     );
     await fire(original ?? null, new MouseEvent("click", { bubbles: true }));
     expect(asked).toEqual(["originalChosen"]);
+  });
+});
+
+// The owner, 2026-11-15: the original chosen on a link too slow for it starts on a lower rung, and
+// ⋯ says so.
+describe("the original chosen, waiting on the ladder for a link short of it", () => {
+  const waits = "Plays the original file once the link carries it";
+
+  it("says so under the film and in ⁝, in place of offering it again", async () => {
+    mounted = await onItsLadder(true, [], true);
+    expect(mounted.container.textContent).toContain(waits);
+    expect(mounted.container.textContent).not.toContain("Play the original file");
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    const inTheMenu = menuOpen(mounted);
+    expect(inTheMenu.querySelector(".list-box__note .play__original-waits")?.textContent).toBe(
+      waits,
+    );
+    expect(inTheMenu.textContent).not.toContain("Play the original file");
+  });
+
+  it("is a debug tool, as the button it answers is", async () => {
+    mounted = await onItsLadder(false, [], true);
+    expect(mounted.container.textContent).not.toContain(waits);
   });
 });
 

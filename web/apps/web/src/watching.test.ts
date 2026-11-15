@@ -126,6 +126,17 @@ describe("a playback asked for again because its player gave the film's own pict
   });
 });
 
+describe("a playback asked for again because its link now carries the original its person chose", () => {
+  it("asks for the film's own file, as the original chosen does (the owner, 2026-11-15)", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats, { cause: "linkCarriesOriginal" });
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "preferredDelivery"))).toEqual(["direct"]);
+    expect(asked.map((request) => bodyField(request, "cause"))).toEqual(["linkCarriesOriginal"]);
+  });
+});
+
 describe("a playback asked for on a device under a data cap (D488, D493)", () => {
   afterEach(() => {
     window.localStorage.removeItem(dataCapsKey);

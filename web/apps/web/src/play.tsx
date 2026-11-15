@@ -39,7 +39,8 @@ import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { useIsWithinCap, useWhenTheCapFallsUnder } from "./data-cap-choices.tsx";
-import { PlayOriginal } from "./play-original.tsx";
+import { OriginalWaits, PlayOriginal } from "./play-original.tsx";
+import { useOriginalOnceTheLinkCarries } from "./original-waits.ts";
 import {
   ForTesters,
   ForTestersContext,
@@ -537,6 +538,25 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
       ? undefined
       : decideAgainFor({ ...ways, videoRef }, "dataCapStarted"),
   );
+  // The original chosen on a link short of it starts on the ladder, and moves to the original from
+  // where the film stands once the link carries it (the owner, 2026-11-15).
+  const isOriginalWaiting =
+    ladder !== undefined && ways?.decision.isOriginalWaitingForTheLink === true;
+  useOriginalOnceTheLinkCarries(
+    isOriginalWaiting
+      ? {
+          fileKbps: ways.decision.fileBitRateKbps,
+          sharePercent: ladder.offer.linkSharePercent,
+          readLinkKbps: props.readLinkKbps,
+        }
+      : undefined,
+    () => {
+      if (ways !== undefined && ladder !== undefined) {
+        const decision = { ...ways.decision, resumePositionMs: Math.round(ladder.positionMs) };
+        decideAgainFor({ ...ways, videoRef, decision }, "linkCarriesOriginal")();
+      }
+    },
+  );
   if (ways === undefined) {
     return <>{children}</>;
   }
@@ -600,6 +620,7 @@ function menusWaysOf(
     fileBitRateKbps: asked.decision.fileBitRateKbps,
     onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
     onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,
+    isOriginalWaiting: isOnLadder && asked.decision.isOriginalWaitingForTheLink === true,
     onBare: asked.onBare,
   };
 }
@@ -630,7 +651,8 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
 }
 
 /**
- * Under the film on its ladder: the original's offer, where the data cap lets its file play (D491), and its lowest quality's word that it cannot
+ * Under the film on its ladder: the original's offer, where the data cap lets its file play (D491),
+ * or word that the original chosen waits for the link, and its lowest quality's word that it cannot
  * keep up, which goes to a host's session (D247 §8).
  */
 function LadderUnder(
@@ -651,7 +673,15 @@ function LadderUnder(
   useOriginalOfferedToARemote(playOriginal);
   // A device under a data cap plays its own file only where the cap is at or above its rate (D491).
   const isOffered = useIsWithinCap(props.decision.fileBitRateKbps);
-  return isOffered ? <PlayOriginal onChosen={playOriginal} /> : null;
+  if (!isOffered) {
+    return null;
+  }
+  // The original chosen on a link short of it waits for the link here (useOriginalOnceTheLinkCarries).
+  return props.decision.isOriginalWaitingForTheLink === true ? (
+    <OriginalWaits />
+  ) : (
+    <PlayOriginal onChosen={playOriginal} />
+  );
 }
 
 /**

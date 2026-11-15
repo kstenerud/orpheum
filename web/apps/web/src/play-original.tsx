@@ -24,3 +24,18 @@ export function PlayOriginal(props: { readonly onChosen: () => void }): JSX.Elem
     </DebugTool>
   );
 }
+
+/**
+ * Word, in place of PlayOriginal, that the original its person chose waits for the link: the film
+ * started on its ladder, its link remembered short of the file's rate, and moves to the original once
+ * the link carries it (the decision's isOriginalWaitingForTheLink; the owner, 2026-11-15). A debug
+ * tool, as the button it answers is.
+ */
+export function OriginalWaits(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <DebugTool>
+      <p className="play__original-waits">{t("play.originalWaitsForTheLink")}</p>
+    </DebugTool>
+  );
+}

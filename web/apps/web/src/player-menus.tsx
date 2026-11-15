@@ -21,10 +21,10 @@ import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
 import { DataCapChoices, useIsWithinCap } from "./data-cap-choices.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
-import { ListEntry, ListOption } from "./list-box.tsx";
+import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { PlayOriginal } from "./play-original.tsx";
+import { OriginalWaits, PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
 import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
@@ -52,6 +52,11 @@ export interface PlayerMenusWays {
   readonly playback?: PlaybackReport | undefined;
   readonly onSubtitleFetched: () => void;
   readonly onOriginalChosen?: (() => void) | undefined;
+  /**
+   * Whether the original chosen waits on the ladder for the link to carry it (the decision's
+   * isOriginalWaitingForTheLink): ⁝ then says so in place of offering it.
+   */
+  readonly isOriginalWaiting?: boolean | undefined;
   readonly onBare?: (() => void) | undefined;
 }
 
@@ -422,7 +427,8 @@ export function MoreMenuOf(props: {
 
 /**
  * ⁝'s places the page offers where it may: the original (a debug tool), which a device under a data
- * cap is offered only where the cap is at or above the file's rate (D491), and the bare player.
+ * cap is offered only where the cap is at or above the file's rate (D491), or word that the original
+ * chosen waits for the link (OriginalWaits), and the bare player.
  */
 function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): JSX.Element {
   const { t } = useTranslation();
@@ -431,7 +437,11 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
   const onBare = props.ways?.onBare;
   return (
     <>
-      {onOriginalChosen === undefined ? null : (
+      {onOriginalChosen === undefined ? null : props.ways?.isOriginalWaiting === true ? (
+        <ListNote>
+          <OriginalWaits />
+        </ListNote>
+      ) : (
         <ListEntry>
           <PlayOriginal onChosen={onOriginalChosen} />
         </ListEntry>

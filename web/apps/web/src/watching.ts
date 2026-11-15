@@ -37,6 +37,14 @@ export interface StartAsked {
   readonly startsAtMs?: number | undefined;
 }
 
+/**
+ * Whether a playback asked for cause asks for the film's own file: its person chose it, or the link
+ * a film waiting for it on its ladder was short of now carries it (the owner, 2026-11-15).
+ */
+function asksForTheOriginal(cause: StartCause): boolean {
+  return cause === "originalChosen" || cause === "linkCarriesOriginal";
+}
+
 /** How many playbacks this page has asked for since it loaded, which the server logs beside each. */
 const pageStarts = { count: 0 };
 
@@ -67,7 +75,8 @@ export async function requestPlayback(
         // The core applies the device's data cap for this kind of network (D493): a rung of its ladder
         // (D488), or the film's own file its person chose where the cap is at or above its rate (D491).
         networkKind: caps.kind(),
-        ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
+        // The original chosen, and asked for again once a link short of it carries it (asksForTheOriginal).
+        ...(asksForTheOriginal(asked.cause) ? { preferredDelivery: "direct" as const } : {}),
         ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
       },
     }),

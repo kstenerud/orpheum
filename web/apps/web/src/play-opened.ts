@@ -20,6 +20,7 @@ export type DecideAgainCause = Extract<
   | "subtitleFetched"
   | "audioChosen"
   | "originalChosen"
+  | "linkCarriesOriginal"
   | "boostChosen"
   | "raiseWanted"
   | "dataCapStarted"
