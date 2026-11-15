@@ -284,7 +284,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	decision = playback.settleRaise(&started)
+	decision = playback.settleWishes(&started)
 	service.keepStart(&playback, started.OnLadder)
 	timing := service.timingNow()
 	link := speedKey{

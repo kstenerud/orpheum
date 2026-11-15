@@ -73,17 +73,44 @@ func TestDirectForARaiseOffTheLadder_PlaysTheFilmRatherThanRefuseIt(t *testing.T
 	onlyRaise := decide.Decision{
 		Delivery: decide.HLS, Profile: decide.Remux, NotDirectReasons: []decide.Reason{decide.ReasonLevellingRaise},
 	}
-	if got := directForARaiseOffTheLadder(onlyRaise, false); got.Delivery != decide.Direct {
+	if got := directForWishesOffTheLadder(onlyRaise, false); got.Delivery != decide.Direct {
 		t.Errorf("only a raise, no ladder: %+v, want direct", got)
 	}
-	if got := directForARaiseOffTheLadder(onlyRaise, true); got.Delivery != decide.HLS {
+	if got := directForWishesOffTheLadder(onlyRaise, true); got.Delivery != decide.HLS {
 		t.Errorf("only a raise, on its ladder: %+v, want it left on the ladder", got)
 	}
 	codec := decide.Decision{
 		Delivery: decide.HLS, Profile: decide.Remux,
 		NotDirectReasons: []decide.Reason{decide.ReasonAudioCodec, decide.ReasonLevellingRaise},
 	}
-	if got := directForARaiseOffTheLadder(codec, false); got.Delivery != decide.HLS {
+	if got := directForWishesOffTheLadder(codec, false); got.Delivery != decide.HLS {
 		t.Errorf("a codec the device cannot play as well: %+v, want it left converted", got)
+	}
+}
+
+// A film converted only for the ladder a device's data cap asks for, alone or with a raise, finding
+// no ladder, plays as it is rather than refused; one with a codec its device cannot play is left to
+// be refused, and one on its ladder stays there (D489).
+func TestDirectForWishesOffTheLadder_ACappedDevicePlaysAFilmWithNoLadderAsItIs(t *testing.T) {
+	t.Parallel()
+	capped := []decide.Reason{decide.ReasonUserChoice}
+	cappedAndRaised := []decide.Reason{decide.ReasonLevellingRaise, decide.ReasonUserChoice}
+	cappedAndCodec := []decide.Reason{decide.ReasonVideoCodec, decide.ReasonUserChoice}
+	cases := []struct {
+		name       string
+		reasons    []decide.Reason
+		isOnLadder bool
+		want       decide.Delivery
+	}{
+		{"capped, no ladder", capped, false, decide.Direct},
+		{"capped and raised, no ladder", cappedAndRaised, false, decide.Direct},
+		{"capped, on its ladder", capped, true, decide.HLS},
+		{"capped, a codec it cannot play", cappedAndCodec, false, decide.HLS},
+	}
+	for _, each := range cases {
+		decision := decide.Decision{Delivery: decide.HLS, Profile: decide.Remux, NotDirectReasons: each.reasons}
+		if got := directForWishesOffTheLadder(decision, each.isOnLadder); got.Delivery != each.want {
+			t.Errorf("%s: %+v, want %s", each.name, got, each.want)
+		}
 	}
 }
