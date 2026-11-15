@@ -3289,13 +3289,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   player gives a film's own picture up (the Fire TV on an HEVC film, say), debug tools shown: play
   the film until it moves to the twin, then have the core restarted (staging), and play it again.
   Passes when the stats show the twin's picture from the start, with no give-up again.
-- [ ] **VQ347** — No control of the overlay just shown takes a tap, in full screen too (the owner,
+- [x] **VQ347** — No control of the overlay just shown takes a tap, in full screen too (the owner,
   2026-11-15, option a, widened to every control: "it only works in non fullscreen mode"). On the
   owner's Android phone, Chrome, on staging, a film playing full screen: tap the picture to show the
   controls and, at once, tap the scrub bar far from where the film stands; again with Play/Pause,
   Next, Forward, the ⋯ menu, the volume and Full screen; and drag along the bar at once. Passes when
   for 0.2 s after the controls show none of them does anything, the drag begun in it moves
-  nothing to its end, and a tap or a drag on any of them a second or more after works as before.
+  nothing to its end, and a tap or a drag on any of them a second or more after works as before. — done 2026-11-15 by the owner, on their Android phone at 0.2 s: *"0.2s feels right"*.
 - [x] **VQ348** — Next and Previous in full screen show no flash of the top bar (the owner,
   2026-11-14, on VQ267). On the owner's Android phone, Chrome, on staging, an episode of a series
   playing full screen: press Next, then Previous, several times. Passes when the screen stays black
