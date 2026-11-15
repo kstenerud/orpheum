@@ -4151,3 +4151,13 @@ not stopping any taps at all". Reproduced on the Pixel 3a next.
 Then, on the same build: "The overlay works, but the delay feels a little too long. Let's try
 0.3s". The hold is 0.3 s.
 Then, on the shield at 0.3 s: "Let's try 0.2s". The hold is 0.2 s.
+
+### The home page left empty by a network hiccup, next batch (the owner, 2026-11-15)
+
+On VQ350's run (staging, the owner's Android phone, Firefox 160, device 139), a reload of the core's
+own address over a link that kept dropping drew the home page's title alone, no rows and no
+message, and it stayed so until the owner reloaded by hand: "It stayed empty, then I reloaded and
+it worked". The core's log from 16:23 to 16:24 UTC shows its WebRTC connections slow (the core's
+answer up to 4 s, a connection back after 56 s with none) and four ended by ICE failing at 16:24:40.
+A home page whose rows' asks failed should ask again when the connection is back, or say what
+failed; which, the owner's. Filed, not folded in: a reload mends it.
