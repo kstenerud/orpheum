@@ -493,10 +493,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there
 - [D486](working-notes.md#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without) The loader's page and the client floor are waited on for 2.5 s, then gone on without
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
-- [D488](working-notes.md#d488--a-data-cap-per-device-chosen-in-gb-per-hour) A data cap per device, chosen in GB per hour — *revisited by D489*
+- [D488](working-notes.md#d488--a-data-cap-per-device-chosen-in-gb-per-hour) A data cap per device, chosen in GB per hour — *revisited by D489, D491*
 - [D489](working-notes.md#d489--a-capped-device-plays-a-film-with-no-ladder-as-it-is-and-moves-a-playing-one-to-its-ladder) A capped device plays a film with no ladder as it is, and moves a playing one to its ladder
 - [D490](working-notes.md#d490--reserved-submenus-in-the-players-) Reserved: Submenus in the player's ⋯
-- [D491](working-notes.md#d491--reserved-the-films-own-picture-is-one-more-rung-under-a-data-cap) Reserved: The film's own picture is one more rung under a data cap
+- [D491](working-notes.md#d491--the-films-own-picture-is-one-more-rung-under-a-data-cap) The film's own picture is one more rung under a data cap
 - [D492](working-notes.md#d492--reserved-a-devices-settings-and-memories-kept-on-the-device) Reserved: A device's settings and memories kept on the device
 
 ## Archived

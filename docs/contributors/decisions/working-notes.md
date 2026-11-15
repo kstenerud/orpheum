@@ -28971,9 +28971,72 @@ where it stands, preferring the ladder, once); TestDirectForWishesOffTheLadder_A
 
 **Reserved** (2026-11-15) for submenus in ⋯ (the owner: *"we need support for submenus. Putting everything at the top level is a time bomb."*, and of the lead's proposal: *"Yes those sound good"*); its branch replaces this entry with the decision.
 
-## D491 — Reserved: The film's own picture is one more rung under a data cap
+## D491 — The film's own picture is one more rung under a data cap
 
-**Reserved** (2026-11-15) for the own picture within a cap (the owner, of the lead's proposal: *"Yes those sound good"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-15), by the project owner, on D489's first open item. The lead proposed: *"D488
+§4 keeps a capped device off the film's own picture even where its rate is within the cap; it
+should count as one more rung."* The owner: *"Yes those sound good"*. Amends D488 §1, §2 and §4 and
+D489 §2; settles D489's first open item.
+
+1. **The own picture is a rung like any other.** A cap at or above its average rate, its sound's
+   with it as the master playlist says it (AVERAGE-BANDWIDTH, the picture's own average and the
+   sound the ladder's top plays, as each rung's is), may play it; a cap below plays the highest rung
+   under it (`underDataCap`, `ChoosingOptions.dataCapKbps`): at the first chunk, each next one, the
+   step-up's top and `topLevel`, in a Watch Together group too. A cap under every rung plays the
+   lowest, which the own picture never is on a ladder the core cuts below it.
+2. **⋯ lists its figure.** The rungs a cap is chosen from are every picture the master playlist
+   offers, the own picture's among them, highest first (`rungsOf`), so a film whose top is its own
+   picture lists one figure more than D488 §1's six; choosing it keeps its rate as the cap (D488
+   §2). Its label is a figure like the others'.
+3. **A capped device still asks for the ladder** (`preferredDelivery: "hls"`, D488 §4). It does not
+   hide the own picture: the core converts the film for that wish alone, copying its picture where
+   the device decodes it (`decide.Remux`), and such a ladder tops with the film's own picture
+   (`chunksPlaybackOf`'s `IsSourcePictureDecodable`, topOf's first case), as a direct playback's
+   does. Left to the core, a film with no grid yet would play its own file at any rate, where the
+   ask has it cut on time and capped (D344 §2); one the core still has no ladder for plays its own
+   file as D489 §1 has it.
+4. **"Play the original file" is offered under a cap at or above the file's own rate,** in ⋯ and
+   under the film, and chosen, it asks for the film's own file (`preferredDelivery: "direct"`); under
+   a cap below, or a file whose rate the core does not know (`fileBitRateKbps` 0), it is not offered
+   and a choice of it, a cast's remote's included, asks for the ladder still (`isWithinCap`,
+   `preferredDeliveryOf`). The file's rate is its whole file's (`fileBitRateKbps`), every track it
+   holds, which the device loads playing it as it is; it is mostly above the own picture's figure,
+   which counts one sound, so the original is offered mostly under a cap chosen on a film of a
+   higher rate.
+5. **A film playing its own file asks again only when the cap falls under its rate** (D489 §2): a
+   cap starting to hold, or one lowered, under `fileBitRateKbps`, by a choice or a change of network
+   (`DataCaps.whenCapFallsUnder`, `useWhenTheCapFallsUnder`, the cause `dataCapStarted` still); a
+   cap starting at or above it leaves the film playing. A file whose rate is not known asks at any
+   cap, as D489 did.
+
+**Proven by:** "plays the film's own picture as one more rung: under a cap at or above its rate,
+never one below (D491)" and "are the qualities the core made and the film's own picture, each with
+its sound, lowest first (D491)" (web/packages/player/src/abr-data-cap.test.ts); "a film's own file
+under a cap (D491)" (web/apps/web/src/data-cap.test.ts); "is told once each time the cap falls under
+the file's rate, by a change of network or a choice (D491)", "is told of any cap where the file's
+rate is not known" and "leaves a film playing its own file where the cap starting is at or above its
+rate (D491)" (data-cap-start.test.tsx); "lists the film's own picture as one more rung, and offers
+its original under a cap at or above the file's rate (D491)" (player-menus.test.tsx); "is offered
+under the film where the device's cap is at or above its file's rate (D491)"
+(play-original.test.tsx); "asks for the film's own file its person chose where the cap is at or
+above the file's rate (D491)" (watching.test.ts);
+TestChunksPlaybackOf_ACappedDevicesLadderKeepsTheFilmsOwnPicture
+(internal/core/playback/chunks_test.go). Only a device shows which picture hls.js loads and a
+phone's move between networks: VQ340, VQ341.
+
+**Open, for the owner:**
+
+- The own picture's figure is labelled as the others are; it could say it is the original's
+  picture. Where it rounds to the top converted rung's figure, ⋯ shows the same figure twice (D488's
+  open item).
+- The original is judged by its whole file's rate, every track, not the own picture's figure: a
+  cap chosen at the own picture's figure plays the own picture on its ladder but does not offer the
+  original. Judging the original by the own picture's figure instead would load more than the cap
+  where the file holds several sound tracks.
+- A film playing its own file under a cap within its rate offers no list (D488 §4): lowering the cap
+  there needs the film on its ladder first.
+- A track or the boost chosen while the original plays under a cap asks again under the cap, which
+  prefers the ladder (D488 §4), as only "Play the original file" asks for the own file.
 
 ## D492 — Reserved: A device's settings and memories kept on the device
 
