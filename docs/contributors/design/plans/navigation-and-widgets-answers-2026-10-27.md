@@ -2843,6 +2843,15 @@ TV's sluggishness goes into the web app's architecture audit the owner ordered t
   `:focus-visible` did not match the focused tile (line 278, expected false to be true). The file
   passed three runs in a row alone, both browsers. Find why focus-visible is sometimes missed after a
   pad move; don't add a retry.
+  - **Covered (2026-11-15), by reading:** by "fix(web): each browser test's frame takes back the
+    focus a new Firefox page takes", made the day after this failure (item 10 of the answers below).
+    The failure is what that fix's cause shows: `focusedTile` (`test-walk.tsx`) reads
+    `document.activeElement`, which named Film 2, while `:focus-visible` did not match it, as in a
+    Firefox frame whose focus a page opened beside it took. The fix's setup file
+    (`e2e/frame-focus-setup.ts`) is in `vitest.browser.config.ts`'s `setupFiles`, so it runs in this
+    file's frames. The file then passed six runs in a row alone, both browsers (24 tests each); as item 10 says, a
+    run alone cannot reproduce the flake, which needs Chromium's files ending beside Firefox's, so a
+    Firefox failure of this test in a full run is a new cause.
 
 - **Done (2026-11-11): the Fire TV's slow and runaway presses.** The measurement is
   `/yoloai/files/focus-trace/fire-tv.md`. All built in the order the owner approved ("ok go ahead"),
