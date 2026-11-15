@@ -6,15 +6,16 @@ import "./i18n.ts";
 import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { overlayHeldForMs, overlayShieldClass } from "./overlay-shield.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
-import { overlayHeldForMs } from "./player-taps.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 // The scrub bar's stray seeks on a phone (the owner, 2026-11-15, option a): a second tap meant for
 // the picture landed on the bar the first had just shown. Widened to every control of the overlay
-// (the owner, 2026-11-15, VQ347); the test DOM has no hit test, so what the overlay's capture stops
-// is what this sees (player-overlay-held.browser.test.tsx has the hit test).
+// (the owner, 2026-11-15, VQ347), and made a shield in front of them (the owner's "a second overlay
+// on front that swallows all taps"). The test DOM has no hit test, so a touch here is sent to what a
+// hit lands on, the shield while it is up (player-overlay-held.browser.test.tsx has the hit test).
 describe("a finger on the full-screen overlay just shown", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
@@ -82,32 +83,50 @@ describe("a finger on the full-screen overlay just shown", () => {
     return scrub;
   }
 
-  /** A finger coming down on the scrub bar at clientX: its pointerdown and touchstart. */
+  /** The overlay's shield, up just after it shows (OverlayShield), or null. */
+  function shield(): HTMLElement | null {
+    return (
+      mounted?.container.querySelector<HTMLElement>(`.player-overlay .${overlayShieldClass}`) ??
+      null
+    );
+  }
+
+  /** What a touch lands on where target is drawn: the shield while it is up, else target. */
+  function hitAt(target: HTMLElement): HTMLElement {
+    return shield() ?? target;
+  }
+
+  /** A finger coming down where the scrub bar is drawn, at clientX: its pointerdown and touchstart. */
   function touchDownOnScrub(clientX: number): void {
-    const scrub = scrubBar();
+    const hit = hitAt(scrubBar());
     act(() => {
-      scrub.dispatchEvent(
+      hit.dispatchEvent(
         new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", pointerId: 8 }),
       );
     });
-    touchOnScrub("touchstart", clientX);
+    touchOnScrub("touchstart", clientX, hit);
   }
 
-  /** A finger's touch on the scrub bar at clientX, of the test DOM's events, which have no Touch. */
-  function touchOnScrub(type: "touchstart" | "touchmove", clientX: number): void {
-    const scrub = scrubBar();
+  /**
+   * A finger's touch at clientX, of the test DOM's events, which have no Touch, sent to what it came
+   * down on (a touch's events go to its first target to its end).
+   */
+  function touchOnScrub(
+    type: "touchstart" | "touchmove",
+    clientX: number,
+    downOn: HTMLElement,
+  ): void {
     const event = new Event(type, { bubbles: true, cancelable: true });
     Object.defineProperty(event, "touches", { value: [{ clientX, clientY: 20 }] });
     act(() => {
-      scrub.dispatchEvent(event);
+      downOn.dispatchEvent(event);
     });
   }
 
-  /** A finger lifting from the scrub bar: its pointerup. */
-  function liftFromScrub(): void {
-    const scrub = scrubBar();
+  /** A finger lifting from what it came down on: its pointerup. */
+  function liftFrom(downOn: HTMLElement): void {
     act(() => {
-      scrub.dispatchEvent(
+      downOn.dispatchEvent(
         new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 8 }),
       );
     });
@@ -124,13 +143,14 @@ describe("a finger on the full-screen overlay just shown", () => {
     return button;
   }
 
-  /** A finger's tap on button: its pointerdown, pointerup and click. */
+  /** A finger's tap where button is drawn: its pointerdown, pointerup and click, on what it hits. */
   function tapOn(button: HTMLButtonElement): void {
+    const hit = hitAt(button);
     const init = { bubbles: true, pointerType: "touch", pointerId: 9 };
     act(() => {
-      button.dispatchEvent(new PointerEvent("pointerdown", init));
-      button.dispatchEvent(new PointerEvent("pointerup", init));
-      button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+      hit.dispatchEvent(new PointerEvent("pointerdown", init));
+      hit.dispatchEvent(new PointerEvent("pointerup", init));
+      hit.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
     });
   }
 
@@ -140,32 +160,43 @@ describe("a finger on the full-screen overlay just shown", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     tapThePicture();
     expect(overlay()?.getAttribute("data-shown")).toBe("full");
-    expect(overlay()?.hasAttribute("data-held")).toBe(true);
+    expect(shield()?.getAttribute("aria-hidden")).toBe("true");
     tapOn(forward());
     expect(atS()).toBe(100);
-    // A key's click (no count) is a remote's or a keyboard's press, never held.
+    // The shield swallows the tap: the overlay does not take it for one on the picture, and stays.
+    expect(overlay()?.getAttribute("data-shown")).toBe("full");
+    // A key's click (no count) is a remote's or a keyboard's press, on the focused control, never held.
     act(() => {
       forward().dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
     });
     expect(atS()).toBe(110);
+    const downOn = hitAt(scrubBar());
     touchDownOnScrub(500); // the half of the film, had it seeked
-    touchOnScrub("touchmove", 600); // a drag that came down in the hold
+    touchOnScrub("touchmove", 600, downOn); // a drag that came down in the hold
     expect(atS()).toBe(110);
     act(() => {
       vi.advanceTimersByTime(overlayHeldForMs - 1);
     });
-    expect(overlay()?.hasAttribute("data-held")).toBe(true);
+    expect(shield()).not.toBeNull();
     act(() => {
       vi.advanceTimersByTime(1);
     });
-    expect(overlay()?.hasAttribute("data-held")).toBe(false);
-    touchOnScrub("touchmove", 700); // the drag that came down in the hold, still held to its end
+    // The drag that came down in the hold keeps the shield, held to its end.
+    expect(shield()).not.toBeNull();
+    touchOnScrub("touchmove", 700, downOn);
     expect(atS()).toBe(110);
-    liftFromScrub();
+    liftFrom(downOn);
+    // The lift's click, which a browser sends at what is under the finger, still meets the shield.
+    expect(shield()).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(shield()).toBeNull();
     touchDownOnScrub(250);
     expect(atS()).toBe(150);
-    liftFromScrub();
+    liftFrom(scrubBar());
     tapOn(forward());
     expect(atS()).toBe(160);
+    expect(overlay()?.getAttribute("data-shown")).toBe("full");
   });
 });

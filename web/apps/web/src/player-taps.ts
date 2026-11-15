@@ -2,9 +2,10 @@
 
 /** A finger's taps and a mouse's clicks on the player's picture (D415, D407 §6), for the overlay. */
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { useLatest } from "./latest.ts";
+import { overlayShieldClass } from "./overlay-shield.tsx";
 import { tapSlopPx } from "./range-touch.ts";
 import {
   doubleTapSeekMs,
@@ -24,115 +25,6 @@ export interface PictureTap {
   readonly x: number;
   /** When it lifted, the clock of an event's timeStamp. */
   readonly atMs: number;
-}
-
-/**
- * How long the overlay's controls take no finger's, pen's or mouse's touch after the overlay appears,
- * in ms: on a phone a second tap, meant for the picture, landed on the full-width scrub bar the first
- * tap had just shown and jumped the film. The owner chose a hold for the scrub bar (2026-11-15,
- * option a of three) and widened it to every control of the overlay, in full screen too (VQ347): a
- * tap, a click or a drag that comes down in it does nothing to its end, and one after works as
- * before. A key's or a remote's press is not held, nor the click a key makes (useOverlayHeld).
- */
-export const overlayHeldForMs = 500;
-
-/** The events of a finger, a pen or a mouse on the overlay that its hold stops (useOverlayHeld). */
-const heldEvents = [
-  "pointerdown",
-  "pointermove",
-  "pointerup",
-  "pointercancel",
-  "touchstart",
-  "touchmove",
-  "touchend",
-  "touchcancel",
-  "mousedown",
-  "mousemove",
-  "mouseup",
-  "click",
-  "dblclick",
-  "contextmenu",
-] as const;
-
-/** Those of heldEvents a pointer makes by moving, which a held touch's end no longer stops. */
-const moveEvents: ReadonlySet<string> = new Set(["pointermove", "touchmove", "mousemove"]);
-
-/**
- * The last touch to come down on the overlay (its pointerdown): one that came down in the hold, still
- * down or lifted, or one that came down outside it.
- */
-type OverlayTouch = "held" | "heldLifted" | "free";
-
-/**
- * Holds every control of the overlay in overlayRef for overlayHeldForMs from the moment isShown turns
- * true; returns whether the hold is on, which the overlay marks data-held, its controls then taking
- * no hit (player-overlay.css). In browser full screen Chromium makes a touchstart not cancelable, so
- * the scrub bar's own slider took a held tap whatever the page's listener did (idiosyncrasies.md):
- * a held touch falls on the overlay's ground instead, and the overlay stops each of its events
- * (heldEvents) in its capture phase, so neither a control nor the page's tap readers take it: from
- * its pointerdown to its lift, a drag to its end even after the hold, and after the lift its click
- * and the mouse's events a touch makes, until the next touch comes down; a move then is no longer
- * stopped. A touch that came down before the hold keeps its click, as the tap on an offer's button
- * that shows the rest; a click a key makes (no count) is never held.
- */
-export function useOverlayHeld(
-  overlayRef: RefObject<HTMLElement | null>,
-  isShown: boolean,
-): boolean {
-  const [isHeld, setIsHeld] = useState(false);
-  const touchRef = useRef<OverlayTouch>("free");
-  // A layout effect, so the frame that first shows the overlay holds it already.
-  useLayoutEffect(() => {
-    setIsHeld(isShown);
-    if (!isShown) {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      setIsHeld(false);
-    }, overlayHeldForMs);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [isShown]);
-  const isHeldRef = useLatest(isHeld);
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (overlay === null) {
-      return undefined;
-    }
-    const stop = (event: Event): void => {
-      const touch = heldTouchAfter(touchRef.current, event, isHeldRef.current);
-      touchRef.current = touch;
-      const isHeldNow = touch === "held" || (touch === "heldLifted" && !moveEvents.has(event.type));
-      const isKeysClick =
-        event.type === "click" && event instanceof MouseEvent && event.detail === 0;
-      if (!isHeldNow || isKeysClick) {
-        return;
-      }
-      event.stopPropagation();
-      if (event.cancelable) {
-        event.preventDefault();
-      }
-    };
-    for (const type of heldEvents) {
-      overlay.addEventListener(type, stop, { capture: true, passive: false });
-    }
-    return () => {
-      for (const type of heldEvents) {
-        overlay.removeEventListener(type, stop, { capture: true });
-      }
-    };
-  }, [overlayRef]);
-  return isHeld;
-}
-
-/** The overlay's last touch after event, the hold on or not (isHeld). */
-function heldTouchAfter(touch: OverlayTouch, event: Event, isHeld: boolean): OverlayTouch {
-  if (event.type === "pointerdown") {
-    return isHeld ? "held" : "free";
-  }
-  const isLifted = event.type === "pointerup" || event.type === "pointercancel";
-  return touch === "held" && isLifted ? "heldLifted" : touch;
 }
 
 /** The longest a touch may rest and be a tap, in ms: a longer one is a press, which taps nothing. */
@@ -321,6 +213,9 @@ class PointerReader {
     }
     this.lastTapAtMs = event.timeStamp;
     const target = event.target instanceof Element ? event.target : null;
+    if (isOnTheShield(target)) {
+      return;
+    }
     const isOnControl = target?.closest(controlSelector) instanceof Element;
     const answers = this.touch();
     if (answers === undefined || isOnControl) {
@@ -336,10 +231,16 @@ class PointerReader {
 
   readonly clicked = (event: MouseEvent): void => {
     const isTapsClick = isWithinATapsClick(event, this.lastTapAtMs);
-    if (event.detail > 0 && !isTapsClick) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (event.detail > 0 && !isTapsClick && !isOnTheShield(target)) {
       this.open();
     }
   };
+}
+
+/** Whether a touch fell on the shield of the overlay just shown (OverlayShield), which swallows it. */
+function isOnTheShield(target: Element | null): boolean {
+  return target?.closest(`.${overlayShieldClass}`) instanceof Element;
 }
 
 /** How long a double-tap seek's indicator stays after the last tap, in ms, before it fades (D415 §5). */

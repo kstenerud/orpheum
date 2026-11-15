@@ -1492,12 +1492,18 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   does nothing, and the native `<input type="range">` sets its value and sends `input` and `change`.
   Out of full screen the same touchstart is cancelable. Reproduced over CDP (`Input.dispatchTouchEvent`
   with touch emulation and a mobile viewport) in Chromium; not confirmed in Chromium's source.
-- **What we do:** no listener is trusted to cancel a touch. While the overlay is held, nothing in it
-  takes a hit (`.player-overlay[data-held] *` has `pointer-events: none`, `player-overlay.css`), so the
-  touch lands on the overlay's own ground, and its capture-phase listener stops every event of a
-  gesture that came down in the hold, to its end (`useOverlayHeld` in `web/apps/web/src/player-taps.ts`).
+  On the Pixel 3a, Chrome 157, the page full screen (2026-11-15, real touches by `adb shell input`):
+  a touchstart on the video was `cancelable` false, and one on the overlay's own ground true, in the
+  same full screen, so what decides it is more likely where the touch lands (whether a blocking
+  listener is under it) than full screen itself.
+- **What we do:** no listener is trusted to cancel a touch. While the overlay is held, a transparent
+  shield lies in front of all its controls (`OverlayShield`, `web/apps/web/src/overlay-shield.tsx`, the
+  owner's "a second overlay on front that swallows all taps"), so the touch lands on the shield and no
+  control sees it, cancelable or not; a touch that came down on it keeps it to its lift and its click.
   `player-overlay-held.browser.test.tsx` checks the hit in Chromium and Firefox,
-  `player-overlay-held.test.tsx` the listener. VQ347.
+  `player-overlay-held.test.tsx` what a touch on the shield does. VQ347. On the Pixel 3a, the shield
+  build served to Chrome over the DevTools protocol, every event of a second touch 150 ms and 300 ms
+  after the first (Forward, the scrub bar) went to the shield.
 - **Evidence:** the owner, 2026-11-15; the CDP repro logged `touchstart cancelable=false` and a seek in
   full screen, and no seek with the fix. **[web]** A search found no report tying it to full screen
   (2026-11-15); Chrome's "[Intervention] Ignored attempt to cancel a touchstart event with

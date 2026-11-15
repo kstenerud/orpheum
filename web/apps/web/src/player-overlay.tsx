@@ -47,12 +47,8 @@ import {
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
-import {
-  useAnswersPictureTaps,
-  useOpensAtThePointer,
-  useOverlayHeld,
-  type SeekFeedback,
-} from "./player-taps.ts";
+import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
+import { OverlayShield } from "./overlay-shield.tsx";
 import { PlayerTracksContext } from "./player-tracks.tsx";
 import { StartRefusedShown, useStartRefused } from "./start-refused-shown.tsx";
 import { StopCastingHere } from "./stop-casting-here.tsx";
@@ -103,7 +99,6 @@ export function PlayerOverlay(
   const told = { hasOffer, isMenuOpen };
   const overlay = useOverlay(refs, told);
   const { state, source, isTv } = overlay;
-  const isHeld = useOverlayHeld(overlayRef, isRowsShown(state.shown));
   const convenience = {
     film,
     offer,
@@ -120,7 +115,6 @@ export function PlayerOverlay(
         className="player-overlay"
         data-shown={shownWith(state.shown, hasOffer)}
         data-offer={hasOffer ? "" : undefined}
-        data-held={isHeld ? "" : undefined}
         data-focus-container=""
         data-player-controls=""
       >
@@ -132,13 +126,14 @@ export function PlayerOverlay(
           moves={moves}
           onMenuOpenChange={setIsMenuOpen}
         />
+        <OverlayShield isShown={isRowsShown(state.shown)} />
       </div>
     </>
   );
 }
 
 /**
- * Whether the overlay's rows show, which its hold starts from (useOverlayHeld): all of it, the scrub
+ * Whether the overlay's rows show, which its shield's hold starts from (OverlayShield): all of it, the scrub
  * bar alone, or under the pause sign; not the offer alone, whose own tap shows the rest.
  */
 function isRowsShown(shown: OverlayState["shown"]): boolean {
