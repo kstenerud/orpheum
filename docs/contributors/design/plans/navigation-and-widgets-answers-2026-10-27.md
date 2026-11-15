@@ -4131,3 +4131,17 @@ original chosen where the link known is short of its file's rate starts on the h
 carries, says so in ⋯, and moves to the original once the link has carried the file's rate for a
 while, from where the film stands. Open for the owner: whether it moves up by itself or the person
 is offered the move, and what a link with no measure yet does.
+
+**Decided in part** (the owner, 2026-11-15): "it should do it automatically": the move up to the
+original is the player's own, unasked. Still open: what a link with no measure yet does.
+
+### The black page's wait, this batch (the owner, 2026-11-15)
+
+Item 1's fix leaves the page black for up to about half a minute while it asks again for its code.
+The owner, of a "Loading…" note, a Reload button or neither: "show loading". The page shows a
+loading note while it waits.
+
+### VQ347's second run (the owner, 2026-11-15)
+
+After the hold was widened to every control and made to work in full screen: "it seems like it's
+not stopping any taps at all". Reproduced on the Pixel 3a next.
