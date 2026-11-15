@@ -56,7 +56,8 @@ func TestPacketLines_KeepTheKeyframesInOrderOnceAndTheBytesOfEachSecond(t *testi
 
 // A keyframe an MP4's edit shows before the film's start, flagged discarded (F=0x5), is the film's
 // first keyframe at its start when no other is at or before it, since the film's first pictures are
-// decoded from it; one discarded after the start, or with a keyframe at the start, is not (the owner's film, staging, 2026-11-04).
+// decoded from it; one discarded after the start, or with a keyframe at the start, is not (the
+// owner's film, staging, 2026-11-04).
 func TestPacketLines_AKeyframeDiscardedBeforeTheStartIsTheFilmsFirstAtItsStart(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

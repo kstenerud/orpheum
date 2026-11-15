@@ -773,7 +773,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   not be read, its message saying it is encrypted. (`internal/node/disc`,
   `internal/node/execx/disc.go`) *2026-11-02, by the agent in Chrome, with the musicals library's
   concert DVD:* it reads with the main feature's 2:27:45 and its English AC-3 track,
-  and plays from the start; it is not identified, its file name (DISC_NTSC_V2) naming no film.
+  and plays from the start; it is not identified, its file name, a disc's label, naming no film.
   A seek to the middle failed: the title's clock starts again at 1:28:39 (D404). Re-run the seek,
   to before and after 1:28:39, once D404 is on staging.
   *Re-run 2026-11-02 in Chrome, with D404 and D405 on staging ("fix(disc): a DVD title's clock is checked at every VOBU, with a frame's slack"):* seeks to 1:13:52, 1:50:48

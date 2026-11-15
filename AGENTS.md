@@ -94,8 +94,9 @@ done. *Standards: makefile.md §4.*
     its id ("film 1504") or as "the owner's film", in code, docs, commit messages and quotes alike:
     a title in the owner's words becomes "[the film]" (standards: markdown.md §7). A test takes a
     name `scripts/media_names.allow` lists (agent-failures A70). *forbidigo; the M1 canary test;
-    `make check-media-names`, which sees file names, years and episode markers but not a bare
-    title in prose.*
+    `make check-media-names`, which sees file names, years and episode markers, and, where the
+    machine mounts the library, any title of two words or more of it written as a title; not a
+    one-word title, nor one in lower case.*
 13. **Commits:** subject `type(scope): summary` (`feat`, `fix`, `docs`, `test`, `refactor`,
     `build`, `ci`, `chore`, `perf`, `style` for formatting alone; `!` marks a break); `feat`/`fix`/`refactor`/`perf` carry a
     prose body saying what was wrong and why this fixes it; AI work ends with

@@ -137,7 +137,8 @@ func TestKeyframesMs_MP4SyncSamplesAreThePicturesKeyframes(t *testing.T) {
 
 // An MP4 whose edit starts its media after its first sync sample, as a rip cut by copying is, counts
 // that sample at the film's start, since its first pictures are decoded from it; its next is where
-// it is: sample 1 shown 80 ms before the edit's start counts at 0, and sample 6 at 120 ms (the owner's film, staging, 2026-11-04).
+// it is: sample 1 shown 80 ms before the edit's start counts at 0, and sample 6 at 120 ms (the
+// owner's film, staging, 2026-11-04).
 func TestKeyframesMs_AnMP4sSyncSampleBeforeItsEditsStartIsAtTheStart(t *testing.T) {
 	t.Parallel()
 	got, err := keyframesOf(t, mp4FileEditedFrom(2048, fullBox("stss", 2, 1, 6)), 1)

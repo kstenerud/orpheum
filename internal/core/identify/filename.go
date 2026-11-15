@@ -302,7 +302,8 @@ func isBonusFolder(name string) bool {
 // its contents to be classified as films"). A marker in the file name places it as ParsePath does;
 // else "Show - 01 - Its Name", "E01" or "Episode 1" numbers it, in the season its folders name or
 // the first; else, or in a specials or extras folder, it is a special of season 0, its name the
-// file's, placed by its path: a featurette, or a film made of the series (Show's "The Salt Road"), which its series' listing of specials may name.
+// file's, placed by its path: a featurette, or a film made of the series (Show's "The Salt
+// Road"), which its series' listing of specials may name.
 func ParseEpisodePath(relative string) ParsedPath {
 	parsed := ParsePath(relative)
 	if parsed.Kind == library.TitleKindEpisode {

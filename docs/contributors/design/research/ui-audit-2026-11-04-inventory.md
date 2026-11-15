@@ -154,7 +154,8 @@
   Season 2 as watched** at the far right (x 1735); the episodes as a list, one row each (87 px).
   1951 px tall. Play S2E1 at y 277, above the fold everywhere (Pixel y 390).
 - The season shown is the one in progress; `?season=n` changes the list, not the page's top.
-- Mark as watched's visible label is "Mark as watched"; its accessible name is "Mark all of Show as watched".
+- Mark as watched's visible label is "Mark as watched"; its accessible name is "Mark all of [the
+  series] as watched".
 - **Focus on load:** body. **Back into the page** from an episode: focus returns to that episode.
 - **Fire TV walk** (`series-page-tv-1.png`, `season-tv-1.png`): Down → "‹ Shows" → Down goes to
   the first season card, **past Play S2E1 and Mark as watched** (confirms item 13). Down then
