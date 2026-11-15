@@ -232,5 +232,6 @@
 //     Continue Watching, which library's home.go lists. choices.go: a person's choices in a file,
 //     kept through internal/core/preferences, a file's audio tracks, and the subtitle tracks
 //     internal/core/subtitles offers. data_cap.go: what a device's data cap chooses (D493).
+//     device_settings.go: what a start reads from the device it is for (D493).
 //     unplayable.go: the own pictures each device gave up, kept in the store. Next Up comes after M3.
 package playback
