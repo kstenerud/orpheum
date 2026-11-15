@@ -28599,10 +28599,10 @@ or come from outside. The rows the audit found justified stand.
   tab holds names each device connected, and reads it again for one it does not (D480 §3)")
 - 4: web/apps/web/src/roles-section.test.tsx ("offers the libraries the shell holds to tick, asking
   for none on opening (D480 §4)")
-- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysTheSoundOffsetKeptForItBefore`,
-  the carry-over alone since D492 §1, the device keeping its own offset);
-  web/apps/web/src/together-viewer-sound.test.tsx ("starts from the offset this device's browser
-  keeps, asking the core for none (D492 §1)")
+- 5: internal/core/api/sound_test.go (`TestMe_TheSessionsDeviceSaysItsSoundOffset`);
+  web/apps/web/src/together-viewer-sound.test.tsx ("takes that offset from who the shell read as
+  signed in, asking for no list of devices (D480 §5)", "drawn alone, takes it from GET /me's device,
+  still asking for no list of devices")
 
 ## D481 — An admin page's first read carries what its other sections read
 
