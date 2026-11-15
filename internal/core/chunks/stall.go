@@ -25,8 +25,8 @@ func (service *Service) linkSharePercent(ctx context.Context) (int64, error) {
 	return percent, nil
 }
 
-// isWithinShare is whether a quality of kbps fits within sharePercent of a link of linkKbps.
-func isWithinShare(kbps, linkKbps, sharePercent int64) bool {
+// IsWithinShare is whether a quality of kbps fits within sharePercent of a link of linkKbps.
+func IsWithinShare(kbps, linkKbps, sharePercent int64) bool {
 	return kbps*100 <= linkKbps*sharePercent
 }
 
@@ -216,7 +216,7 @@ func chooseQuality(lower []Stream, linkKbps, sharePercent int64) (int, bool) {
 		return lowest, false
 	}
 	for index, quality := range lower {
-		if isWithinShare(int64(quality.Quality.Kbps), linkKbps, sharePercent) {
+		if IsWithinShare(int64(quality.Quality.Kbps), linkKbps, sharePercent) {
 			return index, false
 		}
 	}

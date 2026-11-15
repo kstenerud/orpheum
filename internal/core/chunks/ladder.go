@@ -71,7 +71,7 @@ func (film cutFilm) startingPicture(pictures []Stream, linkKbps, sharePercent in
 	}
 	for index, picture := range pictures {
 		kbps := film.qualityOf(picture).Kbps
-		if kbps > 0 && isWithinShare(int64(kbps), linkKbps, sharePercent) {
+		if kbps > 0 && IsWithinShare(int64(kbps), linkKbps, sharePercent) {
 			return index, false
 		}
 	}
