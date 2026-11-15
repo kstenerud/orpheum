@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { tellNextChunkLoadMs } from "@orpheum/sdk";
 import { act, createElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { spinnerAfterMs } from "./film-waits.tsx";
 import { commandEventName } from "./input-commands.ts";
@@ -191,13 +191,35 @@ async function pressOk(): Promise<void> {
 
 describe("a film getting ready to play shows it (the owner, 2026-11-15)", () => {
   it("opened from its film's page, shows Pause at once and the spinner after a moment, until its first frame plays", async () => {
-    const video = await openedFromTheFilmsPage("start");
-    const film = fakeFilm(video);
-    await fire(video, "loadstart"); // the start gate waits: 2 s loaded, its next chunk 2.3 s away
+    // The spinner's wait passes as the test lets it, from the page's mount, not as a loaded
+    // machine drags out the run's (a full gate's run showed it before the first look).
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let video: HTMLVideoElement;
+    let film: FakeFilm;
+    try {
+      let mountedMs = 0;
+      let opened: HTMLVideoElement | undefined;
+      void openedFromTheFilmsPage("start").then((shown) => (opened = shown));
+      while (opened === undefined) {
+        await vi.advanceTimersByTimeAsync(5);
+        mountedMs += 5;
+      }
+      video = opened;
+      film = fakeFilm(video);
+      act(() => {
+        video.dispatchEvent(new Event("loadstart")); // the start gate waits: 2 s loaded, its next chunk 2.3 s away
+      });
+      expect(mountedMs).toBeLessThan(spinnerAfterMs);
+      expect(isSpinnerShown()).toBe(false); // a quick start shows none
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(spinnerAfterMs);
+      });
+      expect(isSpinnerShown()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
     expect(film.plays()).toBe(0);
     expect(await shownPlayLabel()).toBe("Pause");
-    expect(isSpinnerShown()).toBe(false); // a quick start shows none
-    await waitMs(spinnerAfterMs + 50);
     expect(isSpinnerShown()).toBe(true);
     expect(await shownPlayLabel()).toBe("Pause");
     expect(mounted?.container.querySelector('[aria-label="Getting ready to play"]')).not.toBeNull();
