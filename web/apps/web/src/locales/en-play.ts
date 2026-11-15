@@ -29,6 +29,7 @@ export const enPlay = {
   playerControls: {
     play: "Play",
     pause: "Pause",
+    gettingReady: "Getting ready to play",
     back: "Back 10 s",
     forward: "Forward 10 s",
     previous: "Previous episode",

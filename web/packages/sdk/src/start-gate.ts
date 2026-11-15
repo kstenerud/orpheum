@@ -29,6 +29,13 @@ import { playerLoadedChunkEvent, playerMovedItselfEvent } from "./together-playe
  */
 export const startCheckEveryMs = 250;
 
+/**
+ * The event the start gate fires at its element as a play starts or stops waiting for enough to be
+ * loaded ahead (StartGate.isWaiting): the film is meant to play and gets ready to, which its page
+ * shows (the owner, 2026-11-15: a film waiting to start looked paused).
+ */
+export const startGateWaitChangedEvent = "orpheumstartgatewaitchanged";
+
 /** The part of a video or audio element the start gate reads and plays. */
 export type GatedMedia = Pick<
   FollowedMedia,
@@ -44,6 +51,7 @@ export type GatedMedia = Pick<
   | "pause"
   | "addEventListener"
   | "removeEventListener"
+  | "dispatchEvent"
 >;
 
 /**
@@ -198,7 +206,7 @@ export class StartGate {
 
   /** Gives up a play that waits, and a seek's hold: the element stays paused. */
   cancel(): void {
-    this.#pending = undefined;
+    this.#setPending(undefined);
     this.#isHolding = false;
     this.#stopChecking();
   }
@@ -267,8 +275,17 @@ export class StartGate {
   }
 
   #waitToPlay(how: () => void): void {
-    this.#pending = how;
+    this.#setPending(how);
     this.#checker ??= setInterval(this.#lookAgain, startCheckEveryMs);
+  }
+
+  /** Keeps how as the play that waits, telling the element as one starts or stops waiting. */
+  #setPending(how: (() => void) | undefined): void {
+    const wasWaiting = this.#pending !== undefined;
+    this.#pending = how;
+    if (wasWaiting !== (how !== undefined)) {
+      this.#media.dispatchEvent(new Event(startGateWaitChangedEvent));
+    }
   }
 
   #playNow(how: () => void): void {
@@ -291,10 +308,12 @@ export class StartGate {
     if (!this.#media.paused || !this.#isReady(ready)) {
       return;
     }
-    this.#pending = undefined;
     this.#stopChecking();
     this.#wait = waitOf(ready);
+    // Played before the wait is told over, so its hearers find the element playing, not paused.
+    this.#pending = undefined;
     this.#playNow(how);
+    this.#media.dispatchEvent(new Event(startGateWaitChangedEvent));
   };
 
   #stopChecking(): void {
@@ -346,7 +365,7 @@ export class StartGate {
       return;
     }
     if (this.#pending !== undefined) {
-      this.#pending = undefined;
+      this.#setPending(undefined);
       this.#wait = undefined;
       this.#stopChecking();
     }
@@ -370,6 +389,14 @@ const gates = new WeakMap<object, StartGate>();
  */
 export function isAskedToPlay(media: object): boolean {
   return gates.get(media)?.isAskedToPlay() ?? false;
+}
+
+/**
+ * Whether media, paused, waits to play once enough is loaded ahead (StartGate.isWaiting), told at
+ * each startGateWaitChangedEvent. An element with no start gate waits for nothing.
+ */
+export function isWaitingToPlay(media: object): boolean {
+  return gates.get(media)?.isWaiting() ?? false;
 }
 
 /** The element's start gate: one for each element, shared by its page and its session's leader. */

@@ -3365,3 +3365,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when it goes about 10 s later and, however often the film stalls after, does not come back
   in that playback; a new film, or the same one opened again, may say it once more
   (`film-player.tsx`'s useSaidOnce, `cannotKeepUpSaidForMs`).
+- [ ] **VQ355** — A film getting ready to play shows Pause and a spinner, not ▶ (the owner,
+  2026-11-15: "when I go from the info page to playing, it should show the pause button, not the
+  play button, because it's trying to play ... We use the spinner to communicate that it's trying
+  to play but can't yet"). On the owner's Android phone, Chrome, on staging, mobile data held slow
+  enough that a start takes a few seconds: on a film's page press Play. Passes when, from the Play
+  page's opening until the first frame plays, a turning ring shows in the middle of the picture
+  (after about half a second) and a tap shows the overlay with Pause, not ▶; the ring goes as the
+  picture moves. Then: pressing Pause while it is getting ready leaves it paused for good (▶
+  shown, no ring, and it does not start by itself once loaded); a jump along the scrub bar to a
+  place not yet loaded shows the ring and Pause until it plays on there; a stall mid-film shows
+  the ring until it plays again; a pause asked for shows ▶ and no ring (`film-waits.tsx`,
+  `start-gate.ts`'s startGateWaitChangedEvent).

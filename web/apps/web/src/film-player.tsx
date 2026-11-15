@@ -38,6 +38,7 @@ import {
   ladderSoundLevelOf,
   ladderStartingAudio,
 } from "./ladder-sound.ts";
+import { FilmWaitsSpinner } from "./film-waits.tsx";
 import { ForTesters } from "./for-testers.tsx";
 import type { LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
@@ -276,6 +277,7 @@ function Stage(
         ) : (
           <KeptVideo {...props} video={props.keptVideo} />
         )}
+        <FilmWaitsSpinner videoRef={videoRef} isFailed={failure !== undefined} />
         {Over === undefined ? null : <Over {...parts} />}
       </div>
       {Under === undefined ? null : <Under {...parts} />}

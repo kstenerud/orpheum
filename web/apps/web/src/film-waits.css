@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The spinner over a film meant to play that waits for data (film-waits.tsx), in the middle of the
+   picture, where the pause sign would be, which never shows with it; under the overlay's rows. The
+   lead's proposal, awaiting the owner (2026-11-15): a white ring a quarter lit, turning once a
+   second, on the film's control ground so a bright picture does not hide it. */
+.film-waits {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.film-waits[hidden] {
+  display: none;
+}
+
+.film-waits__spinner {
+  box-sizing: border-box;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0.375rem solid var(--color-video-control);
+  border-top-color: var(--color-on-video);
+  border-radius: 50%;
+  background: var(--color-video-card);
+  animation: film-waits-turn 1s linear infinite;
+}
+
+@keyframes film-waits-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Asked for less motion, the ring stands still, its lit quarter still saying it waits. */
+@media (prefers-reduced-motion: reduce) {
+  .film-waits__spinner {
+    animation: none;
+  }
+}

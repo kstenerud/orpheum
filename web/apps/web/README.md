@@ -144,6 +144,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   player's README; the owner, 2026-10-28), by the server's `readyAheadOfNextChunkPercent`, which the
   page sets from its client settings; its start's and its seeks' reports say what it waited for
   (`src/seek-timing.ts`). `src/start-gate-play.test.ts`, `src/app.test.tsx`.
+- **A film meant to play that cannot yet shows Pause, and a spinner over it after
+  `spinnerAfterMs`** (the owner, 2026-11-15): from the Play page's opening until its first frame
+  plays, while a seek's hold waits, and in a stall. Its start gate tells its waiting by an event
+  (`startGateWaitChangedEvent`, the SDK's), never guessed by the page; a press of Pause or OK then
+  gives the gate's play up, the film staying paused once enough is loaded. A pause asked for and a
+  start the browser refused show ▶ and no spinner (`src/film-waits.tsx`'s isPausedAsAsked).
+  `src/film-waits.test.tsx`.
 - **A playback the page asks for again goes on from where its video stands** (D230 §5, D336 §3):
   another audio track, a fetched subtitle, the original chosen or the boost turned on asks with its
   cause and where the video is, which the page starts from in place of the resume position

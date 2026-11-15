@@ -4,10 +4,12 @@ import "./player-controls.css";
 import "./play-words.ts";
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
+import { startGateWaitChangedEvent } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FullScreenButton } from "./full-screen-button.tsx";
+import { isPausedAsAsked } from "./film-waits.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
@@ -386,6 +388,7 @@ const standingEvents = [
   "pause",
   "seeked",
   seekAimedEvent,
+  startGateWaitChangedEvent,
 ];
 
 /** The events at which a shown bar reads where the film stands: its hidden ones and each timeupdate. */
@@ -396,7 +399,8 @@ function barStandingOf(standing: VideoStanding, video: HTMLVideoElement): Standi
   return {
     atMs: seekAheadOf(video).shownMs(standing.atMs),
     durationMs: standing.durationMs,
-    isPaused: standing.isPaused,
+    // A film meant to play that waits for enough to be loaded shows Pause (isPausedAsAsked).
+    isPaused: standing.isPaused && isPausedAsAsked(video),
   };
 }
 

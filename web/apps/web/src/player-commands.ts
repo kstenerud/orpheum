@@ -12,6 +12,7 @@
  */
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
+import { isWaitingToPlay, startGateOf } from "@orpheum/sdk";
 import { useEffect, type RefObject } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
@@ -22,10 +23,16 @@ import type { Command } from "./input-buttons.ts";
 import type { CommandHold, CommandSource, MediaTracks } from "./input-commands.ts";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
 
-/** Plays video where it is paused, else pauses it, making a seek being chosen first. */
+/**
+ * Plays video where it is paused as asked (isPausedAsAsked in film-waits.tsx), else pauses it, making
+ * a seek being chosen first. A film meant to play that waits for enough to be loaded shows Pause, and
+ * a press pauses it for good: its start gate's play is given up (the owner, 2026-11-15).
+ */
 function playOrPause(video: HTMLVideoElement): void {
   seekAheadOf(video).land();
-  if (video.paused) {
+  if (isWaitingToPlay(video)) {
+    startGateOf(video).cancel();
+  } else if (video.paused) {
     video.play().catch(() => undefined);
   } else {
     video.pause();

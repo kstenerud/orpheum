@@ -8,7 +8,13 @@ import {
   setReadyAheadPercent,
   tellNextChunkLoadMs,
 } from "./ready-ahead.ts";
-import { isAskedToPlay, startCheckEveryMs, startGateOf } from "./start-gate.ts";
+import {
+  isAskedToPlay,
+  isWaitingToPlay,
+  startCheckEveryMs,
+  startGateOf,
+  startGateWaitChangedEvent,
+} from "./start-gate.ts";
 import { everyRight, type RosterDevice, type RosterMember } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import { refillAheadMs } from "./together-media.ts";
@@ -453,5 +459,57 @@ describe("whether a paused element is asked to play, which makes its slow load a
     setGroup({ ...paused, state: "waiting" }, 0);
     unfollow();
     expect(isAskedToPlay(media)).toBe(false);
+  });
+});
+
+describe("the start gate tells its element as a play starts and stops waiting, for its page to show it (the owner, 2026-11-15)", () => {
+  /** How many times the gate told media its wait changed, and whether it waited then. */
+  function toldOf(media: FakeMedia): { readonly told: boolean[] } {
+    const told: boolean[] = [];
+    media.addEventListener(startGateWaitChangedEvent, () => {
+      told.push(isWaitingToPlay(media));
+    });
+    return { told };
+  }
+
+  it("tells it at the start's wait and at its play, the element playing by then", () => {
+    const media = resumedMedia();
+    expect(isWaitingToPlay(media)).toBe(false); // no gate yet
+    const { told } = toldOf(media);
+    const gate = startGateOf(media);
+    let wasPausedWhenTold: boolean | undefined;
+    media.addEventListener(startGateWaitChangedEvent, () => {
+      wasPausedWhenTold = media.paused;
+    });
+    gate.play(countedPlay(media).how);
+    expect(told).toEqual([true]);
+    gate.play(countedPlay(media).how); // another play in its place: still waiting, nothing told
+    expect(told).toEqual([true]);
+    media.loaded = [[1794.96, 1810.87]];
+    media.fire(playerLoadedChunkEvent);
+    expect(told).toEqual([true, false]);
+    expect(wasPausedWhenTold).toBe(false);
+  });
+
+  it("tells it as a wait is given up, and at a seek's hold and its play on", () => {
+    const media = resumedMedia();
+    const { told } = toldOf(media);
+    const gate = startGateOf(media);
+    gate.play(countedPlay(media).how);
+    gate.cancel();
+    expect(told).toEqual([true, false]);
+    expect(isWaitingToPlay(media)).toBe(false);
+    // Playing, it seeks to where nothing is loaded: held, then played on once enough is.
+    media.loaded = [[1794.96, 1810.87]];
+    gate.play(countedPlay(media).how);
+    expect(media.paused).toBe(false);
+    media.currentTime = 3000;
+    media.fire("seeking");
+    expect(media.paused).toBe(true);
+    expect(told).toEqual([true, false, true]);
+    media.loaded = [[2999, 3012]];
+    media.fire("progress");
+    expect(media.paused).toBe(false);
+    expect(told).toEqual([true, false, true, false]);
   });
 });

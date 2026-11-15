@@ -17,6 +17,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
+import { isPausedAsAsked } from "./film-waits.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
@@ -602,7 +603,7 @@ function usePlayingLeavesPlay(
     }
     const pressed = (): void => {
       const video = videoRef.current;
-      if (video?.paused === true) {
+      if (video !== null && isPausedAsAsked(video)) {
         queueMicrotask(() => {
           focusTheVideo(video);
         });
@@ -643,7 +644,7 @@ function overlayParts(
 function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolean): PressContext {
   const focused = document.activeElement;
   return {
-    isPaused: video.paused,
+    isPaused: isPausedAsAsked(video),
     isTelevision: isTv,
     isOnScrub: focused !== null && focused === parts.scrub,
     isOnButtons: parts.buttons?.contains(focused) === true,

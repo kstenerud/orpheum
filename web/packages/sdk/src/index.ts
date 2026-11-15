@@ -294,7 +294,13 @@ export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
 export { followGroup, tellsNoFilmHere } from "./together-follow-group.ts";
 export { waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
-export { isAskedToPlay, loadedAheadMsOf, startGateOf } from "./start-gate.ts";
+export {
+  isAskedToPlay,
+  isWaitingToPlay,
+  loadedAheadMsOf,
+  startGateOf,
+  startGateWaitChangedEvent,
+} from "./start-gate.ts";
 export {
   heavyChunkLoadKbps,
   readyAheadOf,
