@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
 import {
@@ -11,8 +11,10 @@ import {
   loadRole,
   moduleAddressOf,
   partAskCapMs,
+  partNoteAfterMs,
   partRetryMs,
   type PartLoadParts,
+  type WaitingNote,
 } from "./part-load.ts";
 import { takeReloadNote } from "./reload-note.ts";
 
@@ -61,6 +63,43 @@ const roleModule = { startAtClientOrigin: () => "the role" };
 
 /** Says a module is the role's, as loader-main.tsx does. */
 const isRoleModule = exportingFunction<typeof roleModule>("startAtClientOrigin");
+
+/** The note a page shows while it waits, which a test that does not look at it gives. */
+const quiet: WaitingNote = { show: () => () => undefined };
+
+/** A page's note while it waits for its role's code: how often it was shown, and whether it shows. */
+function noteOf(): WaitingNote & { readonly seen: { shown: number; isShowing: boolean } } {
+  const seen = { shown: 0, isShowing: false };
+  return {
+    seen,
+    show: () => {
+      seen.shown += 1;
+      seen.isShowing = true;
+      return () => {
+        seen.isShowing = false;
+      };
+    },
+  };
+}
+
+/** A role's code that comes when the test says. */
+function comingRole(): {
+  readonly load: () => Promise<typeof roleModule>;
+  readonly come: () => void;
+} {
+  let come: () => void = () => undefined;
+  const coming = new Promise<typeof roleModule>((resolve) => {
+    come = () => {
+      resolve(roleModule);
+    };
+  });
+  return {
+    load: async () => await coming,
+    come: () => {
+      come();
+    },
+  };
+}
 
 /** Lets loadPart's awaits run, it never settling once it reloads. */
 async function settled(): Promise<void> {
@@ -173,7 +212,7 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
       loadRole(
         "loader's role",
         { load, isRole: exportingFunction<typeof role>("startAtLoaderOrigin") },
-        page,
+        { ...page, note: quiet },
       ),
     ).resolves.toBe(role);
     expect(page.waited).toEqual([partRetryMs]);
@@ -183,7 +222,11 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
     const tab = tabOf(new Map());
     const failing = vi.fn<() => Promise<unknown>>().mockRejectedValue(preloadFailed);
     const first = pageOf(tab);
-    void loadRole("loader's role", { load: failing, isRole: isRoleModule }, first);
+    void loadRole(
+      "loader's role",
+      { load: failing, isRole: isRoleModule },
+      { ...first, note: quiet },
+    );
     await settled();
     expect(first.reload).toHaveBeenCalledTimes(1);
 
@@ -193,7 +236,11 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
     const later = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValueOnce(preloadFailed);
     later.mockRejectedValueOnce(preloadFailed).mockResolvedValue(roleModule);
     await expect(
-      loadRole("loader's role", { load: later, isRole: isRoleModule }, reloaded),
+      loadRole(
+        "loader's role",
+        { load: later, isRole: isRoleModule },
+        { ...reloaded, note: quiet },
+      ),
     ).resolves.toBe(roleModule);
     expect(reloaded.reload).not.toHaveBeenCalled();
   });
@@ -203,9 +250,9 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
     const page = pageOf(tabOf(new Map()), importAt);
     const load = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValue(roleNotFetched);
 
-    await expect(loadRole("loader's role", { load, isRole: isRoleModule }, page)).resolves.toBe(
-      roleModule,
-    );
+    await expect(
+      loadRole("loader's role", { load, isRole: isRoleModule }, { ...page, note: quiet }),
+    ).resolves.toBe(roleModule);
     expect(load).toHaveBeenCalledTimes(1);
     expect(importAt).toHaveBeenCalledWith(`${roleAddress}?asked=2`);
     expect(page.reload).not.toHaveBeenCalled();
@@ -214,7 +261,11 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
   it("asks on under a new address each time in the page reloaded for it, taking no other module for the role", async () => {
     const tab = tabOf(new Map());
     const failing = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValue(roleNotFetched);
-    void loadRole("loader's role", { load: failing, isRole: isRoleModule }, pageOf(tab));
+    void loadRole(
+      "loader's role",
+      { load: failing, isRole: isRoleModule },
+      { ...pageOf(tab), note: quiet },
+    );
     await settled();
 
     const importAt = vi
@@ -226,7 +277,11 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
       .mockResolvedValue(roleModule);
     const reloaded = pageOf(tab, importAt);
     await expect(
-      loadRole("loader's role", { load: failing, isRole: isRoleModule }, reloaded),
+      loadRole(
+        "loader's role",
+        { load: failing, isRole: isRoleModule },
+        { ...reloaded, note: quiet },
+      ),
     ).resolves.toBe(roleModule);
     expect(importAt.mock.calls.map(([address]) => address)).toEqual([
       `${roleAddress}?asked=2`,
@@ -234,6 +289,81 @@ describe("loadRole (web architecture audit, 2026-11-10)", () => {
       `${roleAddress}?asked=4`,
     ]);
     expect(reloaded.reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadRole's note while the page waits (the owner's \"show loading\", 2026-11-15)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the note in the page reloaded for the role's code once it has waited partNoteAfterMs, and takes it away as the code comes", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const tab = tabOf(new Map());
+    const failing = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValue(preloadFailed);
+    void loadRole(
+      "loader's role",
+      { load: failing, isRole: isRoleModule },
+      { ...pageOf(tab), note: quiet },
+    );
+    await settled();
+
+    // The page reloaded for it: two asks fail, and the third waits until the code comes.
+    const note = noteOf();
+    const role = comingRole();
+    const later = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValueOnce(preloadFailed);
+    later.mockRejectedValueOnce(preloadFailed).mockImplementation(role.load);
+    const waited = loadRole(
+      "loader's role",
+      { load: later, isRole: isRoleModule },
+      { ...pageOf(tab), note },
+    );
+    await settled();
+    await settled();
+    expect(later).toHaveBeenCalledTimes(3);
+    vi.advanceTimersByTime(partNoteAfterMs - 1);
+    expect(note.seen.shown).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(note.seen).toEqual({ shown: 1, isShowing: true });
+
+    role.come();
+    await expect(waited).resolves.toBe(roleModule);
+    expect(note.seen).toEqual({ shown: 1, isShowing: false });
+  });
+
+  it("shows the note while the first page's ask is slow, before any reload", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const note = noteOf();
+    const role = comingRole();
+    const page = pageOf(tabOf(new Map()));
+    const waited = loadRole(
+      "loader's role",
+      { load: role.load, isRole: isRoleModule },
+      { ...page, note },
+    );
+    vi.advanceTimersByTime(partNoteAfterMs);
+    expect(note.seen.isShowing).toBe(true);
+
+    role.come();
+    await expect(waited).resolves.toBe(roleModule);
+    expect(note.seen.isShowing).toBe(false);
+    expect(page.reload).not.toHaveBeenCalled();
+  });
+
+  it("never shows the note when the role's code comes asked again once, before partNoteAfterMs", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const note = noteOf();
+    const load = vi.fn<() => Promise<typeof roleModule>>().mockRejectedValueOnce(preloadFailed);
+    load.mockResolvedValue(roleModule);
+
+    await loadRole(
+      "loader's role",
+      { load, isRole: isRoleModule },
+      { ...pageOf(tabOf(new Map())), note },
+    );
+    vi.advanceTimersByTime(10 * partNoteAfterMs);
+
+    expect(note.seen.shown).toBe(0);
   });
 });
 

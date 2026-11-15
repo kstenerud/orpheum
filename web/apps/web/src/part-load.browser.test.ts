@@ -12,7 +12,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
-import { exportingFunction, loadRole, type PartLoadParts } from "./part-load.ts";
+import { exportingFunction, loadRole, type PartLoadParts, type WaitingNote } from "./part-load.ts";
 import { refusedRolePath } from "./test-refusing-worker.ts";
 
 /** The pages and workers a test set up, taken down after it. */
@@ -113,6 +113,9 @@ function partsOf(
   };
 }
 
+/** The note the pages show while they wait, which this test does not look at. */
+const quiet: WaitingNote = { show: () => () => undefined };
+
 /** The role's module, as the page uses it. */
 interface RoleModule {
   readonly startTheRole: () => string;
@@ -142,7 +145,11 @@ describe("loadRole across a deploy, under a worker", () => {
 
     const firstImport = await pageAt(scope);
     const first = partsOf(tab, firstImport);
-    void loadRole("loader's role", { load: roleImport(firstImport, role), isRole }, first);
+    void loadRole(
+      "loader's role",
+      { load: roleImport(firstImport, role), isRole },
+      { ...first, note: quiet },
+    );
     await vi.waitFor(() => {
       expect(first.reloads).toHaveLength(1);
     });
@@ -152,7 +159,7 @@ describe("loadRole across a deploy, under a worker", () => {
     const loaded = await loadRole(
       "loader's role",
       { load: roleImport(reloadedImport, role), isRole },
-      reloaded,
+      { ...reloaded, note: quiet },
     );
 
     expect(loaded.startTheRole()).toBe("the role");

@@ -3314,3 +3314,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-11-15 (the owner, the Android phone, Firefox, staging, after `./staging quick`):**
   "passed". The core's log holds the reload's note once in that time: the page took the reload and
   the asking after it.
+- [ ] **VQ350** — A page that waits for its code after a deploy shows Loading…, not a black page
+  (the owner, 2026-11-15: "show loading"). On the owner's Android phone, Firefox, with orpheum.dev
+  opened on staging before: have staging updated by `./staging quick`, then type orpheum.dev and go
+  on to the core. Passes when, should the page wait for the new release's files (the core's log
+  shows the reload's note, as in VQ349), it shows "Loading…" within about two seconds of opening
+  and while it waits, not a black page, and the note goes as the client shows, leaving nothing of it
+  on the client's page. A page that comes at once shows no note, nor a flash of one (`part-load.ts`
+  loadRole, `partNoteAfterMs`).

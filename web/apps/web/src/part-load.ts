@@ -19,6 +19,12 @@
  * the person reloaded it by hand (the owner's Firefox, the loader's role at a client's origin,
  * staging, the 11-26 batch's item 1). It asks again by itself, each pause twice the one before up to
  * partAskCapMs, until the code comes, and never reloads again, so it cannot loop.
+ *
+ * While a loader's page waits for its role's code it shows a note, Loading…, drawn by what has
+ * loaded already (loader-main.tsx), never by the code it waits for: the page was black for up to
+ * half a minute while it asked on, and the owner chose "show loading" (the plan's "The black page's
+ * wait, this batch", 2026-11-15). The note comes only once the wait has lasted partNoteAfterMs, and
+ * goes as the code comes, before the page draws.
  */
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -31,6 +37,14 @@ export const partRetryMs = 1000;
 
 /** The longest pause between the asks of a page reloaded for its part's code. */
 export const partAskCapMs = 30_000;
+
+/**
+ * How long a page waits for its role's code before it shows its note: twice partRetryMs, so the
+ * ordinary recovery, the code asked again once and coming at once, never flashes it, while a page
+ * that asks on, or whose asks are slow, shows it within a few seconds. A justified constant, not a
+ * setting.
+ */
+export const partNoteAfterMs = 2 * partRetryMs;
 
 /** The tab's key for the reload a page made because its part's code did not load. */
 const reloadedForPartKey = "orpheum.main.reloadedForPart";
@@ -119,18 +133,53 @@ export interface RoleCode<Loaded> {
 /**
  * Loads the loader's role, the code of the origin it is served at, as loadPart loads a part, after
  * it (loader-main.tsx): its own mark in the tab, as the part's loading clears the part's, and a role
- * failing in the page reloaded for it would reload it again, each time.
+ * failing in the page reloaded for it would reload it again, each time. Waiting partNoteAfterMs
+ * for it, the page shows its note, until the role's code comes.
  */
 export async function loadRole<Loaded>(
   role: string,
   code: RoleCode<Loaded>,
-  parts: PartLoadParts,
+  parts: RoleLoadParts,
 ): Promise<Loaded> {
-  return await loadMarked(
-    { mark: reloadedForRoleKey, part: role, isLoaded: code.isRole },
-    code.load,
-    parts,
-  );
+  const takeNoteAway = noteAfterWaiting(parts.note);
+  try {
+    return await loadMarked(
+      { mark: reloadedForRoleKey, part: role, isLoaded: code.isRole },
+      code.load,
+      parts,
+    );
+  } finally {
+    takeNoteAway();
+  }
+}
+
+/**
+ * The note a page shows while it waits for its role's code, Loading…: drawn by what has loaded
+ * already, never by the code it waits for.
+ */
+export interface WaitingNote {
+  /** Shows the note, handing back what takes it away. */
+  readonly show: () => () => void;
+}
+
+/** What loadRole needs of the page: loadPart's, and the note it shows while it waits. */
+export interface RoleLoadParts extends PartLoadParts {
+  readonly note: WaitingNote;
+}
+
+/**
+ * Shows note once partNoteAfterMs has passed, handing back what calls it off, or takes it away once
+ * shown: the page's own setTimeout, as shellWaitMs's.
+ */
+function noteAfterWaiting(note: WaitingNote): () => void {
+  let takeAway: (() => void) | undefined = undefined;
+  const timer = setTimeout(() => {
+    takeAway = note.show();
+  }, partNoteAfterMs);
+  return () => {
+    clearTimeout(timer);
+    takeAway?.();
+  };
 }
 
 /** What loadMarked loads: its part, named for the note, the tab's mark for its reload, and how it is told. */

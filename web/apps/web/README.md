@@ -387,7 +387,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   reloads once in its tab. The page's part, or the loader's role, whose code does not come is asked
   for again under an address of its own, the page reloads once in its tab, and the page reloaded
   for it asks on, each pause longer up to `partAskCapMs`, until it comes, never reloading again
-  (`part-load.ts`; it threw there, and a deploy left the page black, the 11-26 batch's item 1). The loader's page and the discovery's floor are waited on for at most
+  (`part-load.ts`; it threw there, and a deploy left the page black, the 11-26 batch's item 1).
+  While the loader's page waits for its role's code past `partNoteAfterMs`, it shows a screen's
+  Loading… (`common.loading`), drawn by the loader's own bundle, never by the code it waits for, and
+  takes it away as the code comes, before the role's page draws; a role that comes sooner never
+  shows it (the owner's "show loading", 2026-11-15). The loader's page and the discovery's floor are waited on for at most
   `discoveryWaitMs` (D486): past it the worker opens the page it kept, and the floor, asked
   alongside the manifest, is taken as not reached. A page a worker controls under a loader asks it, once, for an address
   only the worker answers (`workerProbePath`); answered by the network, or not at all, developer
