@@ -622,6 +622,46 @@ function useShapedByTheTabsLink(): void {
   }, [linkDebug]);
 }
 
+/**
+ * How long word that even the lowest quality cannot keep up shows, in ms: once in a playback, then
+ * never again in it, however often it stalls after (the owner, 2026-11-15, of a bad patch whose word
+ * never went: "The message should only show for 5 seconds and then never again on that playback").
+ */
+export const cannotKeepUpSaidForMs = 5_000;
+
+/**
+ * Whether word wanted now shows: from the render it is first wanted in a playback, for
+ * cannotKeepUpSaidForMs, and never again in that playback (playbackUrl), wanted or not.
+ */
+function useSaidOnce(isWanted: boolean, playbackUrl: string): boolean {
+  const [said, setSaid] = useState<{ readonly url: string; readonly phase: SaidPhase }>({
+    url: playbackUrl,
+    phase: "unsaid",
+  });
+  // Moved on in the render it changes in, so the frame the word is first wanted in shows it.
+  if (said.url !== playbackUrl) {
+    setSaid({ url: playbackUrl, phase: "unsaid" });
+  } else if (isWanted && said.phase === "unsaid") {
+    setSaid({ url: playbackUrl, phase: "saying" });
+  }
+  const isSaying = said.url === playbackUrl && said.phase === "saying";
+  useEffect(() => {
+    if (!isSaying) {
+      return undefined;
+    }
+    const done = setTimeout(() => {
+      setSaid({ url: playbackUrl, phase: "said" });
+    }, cannotKeepUpSaidForMs);
+    return () => {
+      clearTimeout(done);
+    };
+  }, [isSaying, playbackUrl]);
+  return isWanted && isSaying;
+}
+
+/** Where a playback's word stands: not yet shown, showing, or shown and gone for good. */
+type SaidPhase = "unsaid" | "saying" | "said";
+
 /** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
 export function LadderNotes(props: {
   readonly offer: LadderOffer;
@@ -635,6 +675,7 @@ export function LadderNotes(props: {
   const { t } = useTranslation();
   const { offer, cannotKeepUp } = props;
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
+  const isSaid = useSaidOnce(cannotKeepUp !== undefined || offer.isBelowTheLowest, offer.url);
   return (
     <>
       {props.hasTracks === true ? null : (
@@ -642,7 +683,7 @@ export function LadderNotes(props: {
           <QualityLine {...props} />
         </ForTesters>
       )}
-      {cannotKeepUp !== undefined || offer.isBelowTheLowest ? (
+      {isSaid ? (
         <p className="needs-fixing">
           <output>
             {cannotKeepUp?.linkKbps === undefined
