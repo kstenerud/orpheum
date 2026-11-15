@@ -4176,3 +4176,9 @@ code; the libraries reached are a read of their own.)
    original chosen on a link too slow for it").
 
 End: make check-pr, then staging, where the owner checks each VQ item.
+3. Folded in (it hurts using the scrub bar): the owner, 2026-11-15: "When I hold and slowly swipe the
+   scrubber bar, the overlay disappears from under me after a short delay. The hide timer should not
+   be running while I'm holding the scrubber bar". A drag on the scrub bar notes no press
+   (useOverlayHiding counts only commands, taps and a seek landing), so the overlay hides 3 s after
+   it showed, under the finger. A finger, pen or mouse held on the scrub bar holds the overlay, as a
+   menu open does, and its lift counts as a press.
