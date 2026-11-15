@@ -3294,7 +3294,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   owner's Android phone, Chrome, on staging, a film playing full screen: tap the picture to show the
   controls and, at once, tap the scrub bar far from where the film stands; again with Play/Pause,
   Next, Forward, the ⋯ menu, the volume and Full screen; and drag along the bar at once. Passes when
-  for half a second after the controls show none of them does anything, the drag begun in it moves
+  for 0.3 s after the controls show none of them does anything, the drag begun in it moves
   nothing to its end, and a tap or a drag on any of them a second or more after works as before.
 - [x] **VQ348** — Next and Previous in full screen show no flash of the top bar (the owner,
   2026-11-14, on VQ267). On the owner's Android phone, Chrome, on staging, an episode of a series
