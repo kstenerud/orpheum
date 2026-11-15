@@ -1483,7 +1483,7 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 
 - **Technology:** Chromium's touch events on an element in browser full screen (`requestFullscreen`),
   on a phone: the owner's Android phone, Chrome (2026-11-15), and Chromium with touch emulated over CDP.
-- **Symptom:** the overlay's scrub bar, held for 0.3 s (once half a second) after it shows so a second tap meant for
+- **Symptom:** the overlay's scrub bar, held for 0.2 s (once half a second, then 0.3 s) after it shows so a second tap meant for
   the picture does not jump the film, held nothing in full screen: the film jumped to where the tap
   landed. Out of full screen the hold worked ("it only works in non fullscreen mode", the owner,
   2026-11-15, VQ347).

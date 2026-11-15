@@ -10,10 +10,10 @@ import { useCallback, useLayoutEffect, useRef, useState, type JSX } from "react"
  * tap had just shown and jumped the film. The owner chose a hold for the scrub bar (2026-11-15,
  * option a of three) and widened it to every control of the overlay, in full screen too (VQ347): a
  * tap, a click or a drag that comes down in it does nothing to its end, and one after works as
- * before. A key's or a remote's press is not held (OverlayShield). Half a second felt a little long, so
- * it is 0.3 s (the owner, 2026-11-15: "Let's try 0.3s").
+ * before. A key's or a remote's press is not held (OverlayShield). Half a second felt a little long, and
+ * 0.3 s after it, so it is 0.2 s (the owner, 2026-11-15: "Let's try 0.3s", then "Let's try 0.2s").
  */
-export const overlayHeldForMs = 300;
+export const overlayHeldForMs = 200;
 
 /**
  * How long the shield stays after the last touch on it lifts, past its time, in ms, unless the

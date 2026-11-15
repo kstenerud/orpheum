@@ -855,7 +855,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   computer's film plays or pauses it and its double click puts it full screen; a finger's or a pen's
   never does either, nor a click whose pointerType is not the mouse's or that comes just after a touch
   on the screen, as some phones' browsers give a tap's click (`TouchClock` in `src/player-taps.ts`,
-  idiosyncrasies.md; the owner, 2026-11-13). For 0.3 s after the full-screen overlay
+  idiosyncrasies.md; the owner, 2026-11-13). For 0.2 s after the full-screen overlay
   shows, none of its controls takes a finger's, a pen's or a mouse's touch, in browser full screen
   too, so a second tap meant for the picture does not jump the film or press a button: nothing in it
   takes a hit (`data-held`, `player-overlay.css`) and its capture-phase listener stops every event of

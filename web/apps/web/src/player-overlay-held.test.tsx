@@ -155,8 +155,9 @@ describe("a finger on the full-screen overlay just shown", () => {
   }
 
   it("holds a tap, a drag and a button's press for half a second after it shows; after, each works, and a key's click never waits", async () => {
-    // The hold's length is the owner's (2026-11-15: "Let's try 0.3s"), down from half a second.
-    expect(overlayHeldForMs).toBe(300);
+    // The hold's length is the owner's (2026-11-15: "Let's try 0.3s", then "Let's try
+    // 0.2s"), down from half a second.
+    expect(overlayHeldForMs).toBe(200);
     const { video, atS } = pausedVideo();
     await drawnOver(video);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

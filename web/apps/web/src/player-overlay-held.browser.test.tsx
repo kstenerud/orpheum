@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The full-screen overlay's hold as a real browser hits it (VQ347): for 0.3 s after the
+ * The full-screen overlay's hold as a real browser hits it (VQ347): for 0.2 s after the
  * overlay shows, a touch, a pen or a mouse lands on none of its controls but on its shield in front
  * of them, in Chromium and Firefox; a touch that came down on the shield keeps it to its lift. The
  * hit is what holds: no listener's cancelling could hold a native range's slider (idiosyncrasies.md).
