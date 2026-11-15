@@ -602,6 +602,10 @@
       "ChangeDeviceInputBody": {
         "additionalProperties": false,
         "properties": {
+          "dataCaps": {
+            "$ref": "#/components/schemas/DataCapsBody",
+            "description": "The device's data caps, all three at once: a kind absent is No limit"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -1190,6 +1194,9 @@
       },
       "CurrentDeviceBody": {
         "properties": {
+          "dataCaps": {
+            "$ref": "#/components/schemas/DataCapsBody"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -1206,8 +1213,36 @@
         "required": [
           "id",
           "name",
-          "soundOffsetMs"
+          "soundOffsetMs",
+          "dataCaps"
         ],
+        "type": "object"
+      },
+      "DataCapsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "mobileKbps": {
+            "description": "The cap on mobile data, kbit/s; absent for No limit",
+            "format": "int64",
+            "maximum": 10000000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unknownKbps": {
+            "description": "The cap on a network the browser does not say the kind of, kbit/s; absent for No limit",
+            "format": "int64",
+            "maximum": 10000000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "wifiKbps": {
+            "description": "The cap on Wi-Fi or a wired link, kbit/s; absent for No limit",
+            "format": "int64",
+            "maximum": 10000000,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "DatabaseBody": {
@@ -1287,6 +1322,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "dataCaps": {
+            "$ref": "#/components/schemas/DataCapsBody"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -1332,7 +1370,8 @@
           "isSignedIn",
           "isByCode",
           "isThisDevice",
-          "soundOffsetMs"
+          "soundOffsetMs",
+          "dataCaps"
         ],
         "type": "object"
       },
@@ -8260,6 +8299,15 @@
           "isWebAudioLate": {
             "description": "Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself",
             "type": "boolean"
+          },
+          "networkKind": {
+            "description": "The kind of network this device is on, as its browser says, whose data cap the core applies: wifi (a wired link too), mobile, or unknown where the browser does not say",
+            "enum": [
+              "wifi",
+              "mobile",
+              "unknown"
+            ],
+            "type": "string"
           },
           "pageStarts": {
             "description": "How many playbacks the page has asked for since it loaded, this one included",
@@ -15373,7 +15421,7 @@
             "session": []
           }
         ],
-        "summary": "Rename one of one's devices, or set how far it moves its sound",
+        "summary": "Rename one of one's devices, or set how far it moves its sound, or its data caps",
         "tags": [
           "Users"
         ],

@@ -156,18 +156,11 @@ func (service *Service) Report(
 	}
 	playback.hasPlayed = hasPlayedBy(playback, report)
 	if isNew {
-		// A Watch Together viewer is nobody's: nothing it watches is recorded (D243 §2).
-		if holder.UserID != 0 {
-			keepErr := service.keepReport(ctx, playback, holder.UserID, deviceID, now.UnixMilli(), report)
-			if keepErr != nil {
-				service.tokens.returnReport(token, report.ReportSeq, playback.lastReportSeq)
-				return Answer{}, keepErr
-			}
+		if keepErr := service.keepReported(ctx, playback, holder.UserID, deviceID, now, report); keepErr != nil {
+			service.tokens.returnReport(token, report.ReportSeq, playback.lastReportSeq)
+			return Answer{}, keepErr
 		}
 		service.tokens.keepPosition(token, report.PositionMs, playback.hasPlayed)
-		if report.IsOwnPictureUnplayable {
-			service.unplayablePictures.remember(playerOf(playback.deviceID, playback.sessionKey), playback.fileID)
-		}
 	}
 	answer := Answer{StopMessage: playback.stopMessage, IsRepeat: !isNew}
 	if playback.stopMessage != nil {
@@ -283,6 +276,23 @@ func hasPlayedBy(playback tokenPlayback, report Report) bool {
 		}
 	}
 	return false
+}
+
+// keepReported keeps what a new report says: the own picture it gave up, by its device (D493), kept
+// first, so a report whose keeping fails has kept nothing and may be sent again; then, but for a
+// Watch Together viewer, who is nobody's and has nothing it watches recorded (D243 §2), the report.
+func (service *Service) keepReported(
+	ctx context.Context, playback tokenPlayback, userID, deviceID int64, now time.Time, report Report,
+) error {
+	if report.IsOwnPictureUnplayable {
+		if err := service.keepOwnPictureGivenUp(ctx, playback.deviceID, playback.fileID); err != nil {
+			return err
+		}
+	}
+	if userID == 0 {
+		return nil
+	}
+	return service.keepReport(ctx, playback, userID, deviceID, now.UnixMilli(), report)
 }
 
 // keepReport writes a new report: its events and spans to the log, and the position through the

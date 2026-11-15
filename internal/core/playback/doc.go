@@ -190,6 +190,19 @@
 //     person's totals are the same after (D306 §8). The position does not carry.
 //     TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion.
 //
+//   - A device's settings are the core's (D493): a start reads the device's sound offset and the
+//     data cap of the kind of network the start says, and under a cap plays the film from its ladder,
+//     but for its own file chosen within the cap, starting on a rung under the cap; a start that says
+//     no kind, a cast's, is uncapped. TestDeliveryUnderCap_IsTheLadderButForAnOriginalChosenWithinTheCap,
+//     TestWithinDataCap_IsTheLowerOfTheUploadLeftAndTheCap and
+//     TestPlayback_ACappedDeviceStartsOnItsLadderUnderItsCap (internal/core/api).
+//
+//   - The films whose own picture a device gave up are kept in the store, by device, so a restart
+//     keeps them, and its next playback of one is not offered the picture; a deviceless session's
+//     give-up holds for the playback that reported it alone (D266, D493).
+//     TestChunks_AnOwnPictureGivenUpOutlivesTheCoreThatHeardIt and
+//     TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback (internal/core/api).
+//
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback.
@@ -204,6 +217,8 @@
 //   - D83, D222: the dialogue boost is a person's. D336: it alone of how a person hears a film needs
 //     the sound made; how a device makes sound is asked of no one.
 //   - D226: loudness is measured by the node (internal/core/loudness) and levelled by the player.
+//   - D493: a device's settings, its sound offset and data caps, are the core's, its browser keeping
+//     a copy; D491: what a data cap chooses.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change
@@ -216,5 +231,6 @@
 //     by playing to its finish, and marked by hand with its undo (D370). hide.go: hiding a work from
 //     Continue Watching, which library's home.go lists. choices.go: a person's choices in a file,
 //     kept through internal/core/preferences, a file's audio tracks, and the subtitle tracks
-//     internal/core/subtitles offers. Next Up comes after M3.
+//     internal/core/subtitles offers. data_cap.go: what a device's data cap chooses (D493).
+//     unplayable.go: the own pictures each device gave up, kept in the store. Next Up comes after M3.
 package playback

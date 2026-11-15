@@ -56,7 +56,7 @@ const signedInOnDevice7 = {
   canHostWatchTogether: false,
   hasNoLibrary: false,
   showsDebugTools: false,
-  device: { id: 7, name: "Living room TV", soundOffsetMs: -200 },
+  device: { id: 7, name: "Living room TV", soundOffsetMs: -200, dataCaps: {} },
 };
 
 /**

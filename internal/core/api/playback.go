@@ -74,6 +74,10 @@ type StartPlaybackInput struct {
 		// than D436's bound, so a sound levelling raises plays from the film's ladder, whose sound
 		// carries the raise; the player lowers a sound by the element's own volume (D436).
 		IsWebAudioLate bool `doc:"Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself" json:"isWebAudioLate,omitempty" required:"false"` //nolint:lll // one struct tag
+		// NetworkKind is the kind of network the device's browser says it is on, which only it knows,
+		// so the core applies the device's data cap for that kind (D493); absent, as a cast's receiver
+		// sends none, plays uncapped (D489).
+		NetworkKind string `doc:"The kind of network this device is on, as its browser says, whose data cap the core applies: wifi (a wired link too), mobile, or unknown where the browser does not say" enum:"wifi,mobile,unknown" json:"networkKind,omitempty" required:"false"` //nolint:lll // one struct tag
 		// StartsAtMs is for the log alone: where the page starts the playback when it asks again from
 		// where its video stood, which it does in place of the resume position answered, so a playback
 		// asked for again says where it went on from. A film whose audio track was changed three
@@ -261,12 +265,14 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
 		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture, IsWebAudioLate: input.Body.IsWebAudioLate,
+		NetworkKind: auth.NetworkKind(input.Body.NetworkKind),
 	}
 	started, err := dependencies.Playback.Start(ctx, holder, request)
 	who := []any{
 		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "fileId", input.Body.FileID,
 		logKeyUserAgent, input.userAgent, "over", input.over, "host", input.host, "clientAddress", input.clientAddress,
 		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts, "isWebAudioLate", input.Body.IsWebAudioLate,
+		"networkKind", input.Body.NetworkKind,
 	}
 	if input.Body.StartsAtMs != nil {
 		who = append(who, "pageStartsAtMs", *input.Body.StartsAtMs)
@@ -344,6 +350,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 		append(ladderStart(started),
 			"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
 			"isLevellingOn", started.Preferences.IsLevellingOn, "soundOffsetMs", started.SoundOffsetMs,
+			"dataCapKbps", started.DataCapKbps,
 			"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
 			"rememberedLinkKbps", started.RememberedLink.Kbps,
 			"rememberedLinkLogSpread", started.RememberedLink.LogSpread,

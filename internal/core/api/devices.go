@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
@@ -25,9 +26,25 @@ type DeviceBody struct {
 	// SoundOffsetMs is how far the device moves its sound from its picture: a Watch Together viewer
 	// signed in on it starts from it, as the server gives a guest's playback none.
 	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
+	// DataCaps are the most a film may use on the device, on each kind of network (D493).
+	DataCaps DataCapsBody `json:"dataCaps"`
 	// IsInYourWatchTogether is whether the device is in the Watch Together session the asker is in,
 	// which is never a cast target (D384 §3); told of the asker's own devices alone.
 	IsInYourWatchTogether bool `doc:"In the Watch Together session you are in, so never a cast target (D384 §3)" json:"isInYourWatchTogether,omitempty" required:"false"` //nolint:lll // one struct tag
+}
+
+// DataCapsBody are a device's data caps (D488, D493): the most a film may use on each kind of
+// network its browser says it is on, kbit/s, a picture's average with its sound's; one absent is No
+// limit. The core applies the one of the kind a start says (StartPlaybackInput's networkKind).
+type DataCapsBody struct {
+	WifiKbps    int64 `doc:"The cap on Wi-Fi or a wired link, kbit/s; absent for No limit" json:"wifiKbps,omitempty" maximum:"10000000" minimum:"1" required:"false"`                             //nolint:lll // one struct tag
+	MobileKbps  int64 `doc:"The cap on mobile data, kbit/s; absent for No limit" json:"mobileKbps,omitempty" maximum:"10000000" minimum:"1" required:"false"`                                     //nolint:lll // one struct tag
+	UnknownKbps int64 `doc:"The cap on a network the browser does not say the kind of, kbit/s; absent for No limit" json:"unknownKbps,omitempty" maximum:"10000000" minimum:"1" required:"false"` //nolint:lll // one struct tag
+}
+
+// dataCapsBody is caps as the API says them.
+func dataCapsBody(caps auth.DataCaps) DataCapsBody {
+	return DataCapsBody{WifiKbps: caps.WifiKbps, MobileKbps: caps.MobileKbps, UnknownKbps: caps.UnknownKbps}
 }
 
 // DevicesOutput is a person's devices, most recently used first.
@@ -47,8 +64,8 @@ type DeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 }
 
-// ChangeDeviceInput renames one of the asker's devices, or says how far it moves its sound from its
-// picture, or both. How it makes sound is asked of no one (D336 §4).
+// ChangeDeviceInput renames one of the asker's devices, or sets how far it moves its sound from its
+// picture, or its data caps, or several at once. How it makes sound is asked of no one (D336 §4).
 type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
@@ -58,6 +75,9 @@ type ChangeDeviceInput struct {
 		// negative, for a device that plays one of them late: the owner's TCL TV, in TV Bro, plays its
 		// sound half a second late (2026-10-24).
 		SoundOffsetMs *int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive, earlier when negative" json:"soundOffsetMs,omitempty" maximum:"2000" minimum:"-2000" required:"false"` //nolint:lll // one struct tag
+		// DataCaps are the device's caps, the three at once, a kind absent No limit, as its person
+		// chose them on it; its browser keeps a copy (D493).
+		DataCaps *DataCapsBody `doc:"The device's data caps, all three at once: a kind absent is No limit" json:"dataCaps,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -85,7 +105,7 @@ func (server *Server) registerDevices() {
 	}, server.listMyDevices)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "changeMyDevice", Method: http.MethodPut, Path: "/me/devices/{id}",
-		Summary: "Rename one of one's devices, or set how far it moves its sound", Tags: tags,
+		Summary: "Rename one of one's devices, or set how far it moves its sound, or its data caps", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
 		Extensions:    callableBy(capabilitySignedIn),
 	}, server.changeMyDevice)
@@ -129,6 +149,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 			AddedAt:    device.AddedAt.UnixMilli(),
 			LastUsedAt: device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn, IsByCode: device.IsByCode,
 			IsThisDevice: device.ID == thisDeviceID, SoundOffsetMs: device.SoundOffsetMs,
+			DataCaps: dataCapsBody(device.DataCaps),
 		})
 	}
 	return output, nil
@@ -155,8 +176,9 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	if err != nil {
 		return nil, err
 	}
-	if input.Body.Name == nil && input.Body.SoundOffsetMs == nil {
-		return nil, invalidRequestAt(http.StatusBadRequest, "body", "a change names a new name or its sound offset")
+	if input.Body.Name == nil && input.Body.SoundOffsetMs == nil && input.Body.DataCaps == nil {
+		return nil, invalidRequestAt(http.StatusBadRequest, "body",
+			"a change names a new name, its sound offset or its data caps")
 	}
 	if name := input.Body.Name; name != nil {
 		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
@@ -170,6 +192,17 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 				slogx.EventKey, "soundOffsetSet",
 				"userId", principal.UserID,
 				"deviceId", input.DeviceID, "soundOffsetMs", *offsetMs, "fromDeviceId", principal.DeviceID)
+		}
+	}
+	if caps := input.Body.DataCaps; err == nil && caps != nil {
+		err = dependencies.Auth.SetDataCaps(ctx, principal.UserID, input.DeviceID, auth.DataCaps{
+			WifiKbps: caps.WifiKbps, MobileKbps: caps.MobileKbps, UnknownKbps: caps.UnknownKbps,
+		})
+		if err == nil {
+			server.logger.InfoContext(ctx, "a device's data caps were set",
+				slogx.EventKey, "dataCapsSet", "userId", principal.UserID, "deviceId", input.DeviceID,
+				"wifiKbps", caps.WifiKbps, "mobileKbps", caps.MobileKbps, "unknownKbps", caps.UnknownKbps,
+				"fromDeviceId", principal.DeviceID)
 		}
 	}
 	return server.deviceAnswer(ctx, "change a device", err)

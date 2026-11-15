@@ -63,6 +63,7 @@ export function television(changes: Partial<Device> = {}): Device {
     isByCode: false,
     isThisDevice: false,
     soundOffsetMs: 0,
+    dataCaps: {},
     ...changes,
   };
 }

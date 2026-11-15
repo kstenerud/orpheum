@@ -98,8 +98,12 @@ type tokenPlayback struct {
 	// measured: none is made as loud as its track's own sound, to its end (chunks.Playback).
 	isSoundUnmeasured bool
 	// isOwnPictureUnplayable is whether its player, on an earlier playback of the film, gave up the
-	// film's own picture as one its device cannot play (D266): it is not offered (unplayablePictures).
+	// film's own picture as one its device cannot play (D266): it is not offered
+	// (own_picture_given_up).
 	isOwnPictureUnplayable bool
+	// dataCapKbps is its device's data cap on the network its start said, which its start on the
+	// ladder keeps under (D493); 0 for none.
+	dataCapKbps int64
 	// ownSoundTracks are its film's audio tracks, by place, its device plays as they are: the top of
 	// its ladder, the film's own picture, plays them copied (D368 §1).
 	ownSoundTracks []int

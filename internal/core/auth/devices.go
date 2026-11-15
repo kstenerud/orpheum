@@ -30,6 +30,8 @@ type Device struct {
 	IsSignedIn, IsByCode bool
 	// SoundOffsetMs is how far it moves its sound from its picture, later when positive.
 	SoundOffsetMs int64
+	// DataCaps are the most a film may use on it, on each kind of network (D493).
+	DataCaps DataCaps
 }
 
 // Devices lists a person's devices, most recently used first.
@@ -51,6 +53,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 			AddedAt:    time.UnixMilli(row.AddedAt),
 			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1, IsByCode: row.IsByCode == 1,
 			SoundOffsetMs: row.SoundOffsetMs,
+			DataCaps:      DataCapsOf(row.DataCapWifiKbps, row.DataCapMobileKbps, row.DataCapUnknownKbps),
 		})
 	}
 	slices.SortStableFunc(devices, func(a, b Device) int {
@@ -154,7 +157,7 @@ func liveDevice(
 }
 
 // DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
-// where, with the sound offset kept with it.
+// where, with the settings kept with it: its sound offset and its data caps (D493).
 func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
 	known, err := liveDevice(ctx, service.database.Read(), userID, deviceID)
 	if err != nil {
@@ -162,6 +165,7 @@ func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (D
 	}
 	return Device{
 		ID: known.ID, Name: known.Name, Platform: known.Platform, SoundOffsetMs: known.SoundOffsetMs,
+		DataCaps:   DataCapsOf(known.DataCapWifiKbps, known.DataCapMobileKbps, known.DataCapUnknownKbps),
 		IsSignedIn: true,
 	}, nil
 }

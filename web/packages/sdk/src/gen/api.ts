@@ -1340,7 +1340,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Rename one of one's devices, or set how far it moves its sound */
+        /** Rename one of one's devices, or set how far it moves its sound, or its data caps */
         put: operations["changeMyDevice"];
         post?: never;
         /** Remove one of one's devices; it is signed out at its next request */
@@ -2901,6 +2901,8 @@ export interface components {
             checkEveryHours?: number;
         };
         ChangeDeviceInputBody: {
+            /** @description The device's data caps, all three at once: a kind absent is No limit */
+            dataCaps?: components["schemas"]["DataCapsBody"];
             name?: string;
             /**
              * Format: int64
@@ -3086,6 +3088,7 @@ export interface components {
             writers: components["schemas"]["CreditBody"][] | null;
         };
         CurrentDeviceBody: {
+            dataCaps: components["schemas"]["DataCapsBody"];
             /** Format: int64 */
             id: number;
             name: string;
@@ -3100,6 +3103,23 @@ export interface components {
             name: "persistent.db" | "cache.db";
             /** Format: int64 */
             sizeBytes: number;
+        };
+        DataCapsBody: {
+            /**
+             * Format: int64
+             * @description The cap on mobile data, kbit/s; absent for No limit
+             */
+            mobileKbps?: number;
+            /**
+             * Format: int64
+             * @description The cap on a network the browser does not say the kind of, kbit/s; absent for No limit
+             */
+            unknownKbps?: number;
+            /**
+             * Format: int64
+             * @description The cap on Wi-Fi or a wired link, kbit/s; absent for No limit
+             */
+            wifiKbps?: number;
         };
         DeadEndCauseBody: {
             cause: string;
@@ -3124,6 +3144,7 @@ export interface components {
              * @description Unix milliseconds
              */
             addedAt: number;
+            dataCaps: components["schemas"]["DataCapsBody"];
             /** Format: int64 */
             id: number;
             /** @description A code activated it: it neither administers nor changes the account */
@@ -5547,6 +5568,11 @@ export interface components {
             hasGivenUpOwnPicture?: boolean;
             /** @description Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself */
             isWebAudioLate?: boolean;
+            /**
+             * @description The kind of network this device is on, as its browser says, whose data cap the core applies: wifi (a wired link too), mobile, or unknown where the browser does not say
+             * @enum {string}
+             */
+            networkKind?: "wifi" | "mobile" | "unknown";
             /**
              * Format: int64
              * @description How many playbacks the page has asked for since it loaded, this one included

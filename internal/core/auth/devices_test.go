@@ -235,3 +235,29 @@ func TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter(t *testing.T) {
 		t.Errorf("the renamed device = %+v, %v; want %q", devices, err, "Phone 2")
 	}
 }
+
+// A device's data caps are kept on it, a cap of 0 as No limit, and only its owner sets them (D493).
+func TestSetDataCaps_AreKeptOnTheDeviceAndOnlyItsOwnerSetsThem(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	phoneAndTelevision(t, fixture.service, id)
+	other := fixture.createUser(t, "owner", "pw", RoleAdmin)
+	devices, err := fixture.service.Devices(ctx, id)
+	if err != nil || len(devices) == 0 {
+		t.Fatalf("devices = %+v, %v; want some", devices, err)
+	}
+	caps := DataCaps{MobileKbps: 1200, UnknownKbps: 3000}
+	if err = fixture.service.SetDataCaps(ctx, other, devices[0].ID, caps); !errors.Is(err, ErrNoDevice) {
+		t.Errorf("setting someone else's device: %v, want ErrNoDevice", err)
+	}
+	if err = fixture.service.SetDataCaps(ctx, id, devices[0].ID, caps); err != nil {
+		t.Fatal(err)
+	}
+	device, err := fixture.service.DeviceOf(ctx, id, devices[0].ID)
+	if err != nil || device.DataCaps != caps || device.DataCaps.Of(NetworkMobile) != 1200 ||
+		device.DataCaps.Of(NetworkWifi) != 0 {
+		t.Errorf("the device after = %+v, %v; want the caps %+v kept", device, err, caps)
+	}
+}

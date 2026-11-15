@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -107,8 +108,6 @@ type Service struct {
 	absences    *library.Absences
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
-	// unplayablePictures are the films whose own picture each player gave up as unplayable.
-	unplayablePictures *unplayablePictures
 	// sendAway sends away the newest Watch Together member with a player (SendAwayBy); nil sends
 	// no one.
 	sendAway SendAway
@@ -130,8 +129,7 @@ func NewService(parts Parts) *Service {
 		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, absences: parts.Absences,
-		speeds:             newLinkSpeeds(parts.Database),
-		unplayablePictures: newUnplayablePictures(),
+		speeds: newLinkSpeeds(parts.Database),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
 	if parts.Chunks != nil {
@@ -157,6 +155,10 @@ type Request struct {
 	// IsWebAudioLate is the player's word that its device's sound through Web Audio plays later than
 	// D436's bound, so it raises no sound itself: a sound levelling raises is the ladder's (D436).
 	IsWebAudioLate bool
+	// NetworkKind is the kind of network the device's browser says it is on, which only it knows:
+	// the core applies the device's data cap for that kind (D493). Empty where none is said, as a
+	// cast's receiver says none, which plays uncapped (D489).
+	NetworkKind auth.NetworkKind
 }
 
 // Started is a playback: its media token and the decision.
@@ -177,6 +179,9 @@ type Started struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative; 0 for none, and for a viewer with no device.
 	SoundOffsetMs int64
+	// DataCapKbps is the device's data cap on the network its request says, which the playback was
+	// decided and started under (D493): kbit/s, a picture's average with its sound's; 0 for none.
+	DataCapKbps int64
 	// Levelling is what brings the starting track's sound, played as it is, to the level (D226); each
 	// of its sounds says its own beside it (Tracks), which a player levels the sound it hears by.
 	Levelling decide.Levelling
@@ -245,11 +250,10 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	offsetMs, err := service.soundOffsetMs(ctx, userID, request.DeviceID)
+	started, isOwnPictureUnplayable, err := service.onDevice(ctx, userID, &request, probe, file.ID)
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{SoundOffsetMs: offsetMs, FileBitRateBps: probe.Format.BitRateBps}
 	if started.Subtitles, err = service.subtitles.Want(ctx, holder.Reach, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -270,8 +274,8 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	}
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryIDs: place.LibraryIDs,
-		deviceID: request.DeviceID, decision: decision,
-		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
+		deviceID: request.DeviceID, decision: decision, dataCapKbps: started.DataCapKbps,
+		isOwnPictureUnplayable: isOwnPictureUnplayable,
 		ownSoundTracks:         ownSoundTracksOf(probe, request.PlayableFormats),
 		// A person who plays without levelling hears the film's sound unlevelled, carrying no gain
 		// for the player to take back out through Web Audio, whose latency, half a second on an
@@ -332,17 +336,6 @@ func ownSoundTracksOf(probe nodeproto.Probe, formats decide.PlayableFormats) []i
 		}
 	}
 	return tracks
-}
-
-// isOwnPictureUnplayable is whether the asking player gave fileID's own picture up as unplayable on
-// its device (D266): on an earlier playback, as its report said, or as this request says, which is
-// kept first, so a page asking again at once is offered the twin (D323 §2).
-func (service *Service) isOwnPictureUnplayable(holder Holder, request Request, fileID int64) bool {
-	player := playerOf(request.DeviceID, holder.SessionKey)
-	if request.HasGivenUpOwnPicture {
-		service.unplayablePictures.remember(player, fileID)
-	}
-	return service.unplayablePictures.has(player, fileID)
 }
 
 // issued is started with its tracks named and its media token issued, which an idle playback loses
@@ -445,6 +438,7 @@ func (service *Service) startOnLadder(
 	if chunked.StartAtMostKbps, err = service.startAtMostKbps(ctx, holder, playback.fileID); err != nil {
 		return nil, "", err
 	}
+	chunked.StartAtMostKbps = withinDataCap(chunked.StartAtMostKbps, playback.dataCapKbps)
 	isConverted := playback.decision.Delivery == decide.HLS
 	offer, startErr := service.startWaiting(ctx, chunked, positionMs, kbps, waitUntil, isConverted)
 	switch {
@@ -573,22 +567,55 @@ func (service *Service) startingChoices(
 	return used, nil
 }
 
-// soundOffsetMs is how far a person's device moves its sound from its picture; 0 when there is no
-// device, as for a Watch Together viewer, or none the person has.
-func (service *Service) soundOffsetMs(ctx context.Context, userID, deviceID int64) (int64, error) {
+// deviceSettingsNow are the settings the core keeps for the device asking (D493): how far it moves
+// its sound from its picture, and its data caps.
+type deviceSettingsNow struct {
+	soundOffsetMs int64
+	dataCaps      auth.DataCaps
+}
+
+// deviceSettings are a person's device's settings; none when there is no device, as for a Watch
+// Together viewer, or none the person has.
+func (service *Service) deviceSettings(ctx context.Context, userID, deviceID int64) (deviceSettingsNow, error) {
 	if deviceID == 0 {
-		return 0, nil
+		return deviceSettingsNow{}, nil
 	}
 	device, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return 0, nil
+		return deviceSettingsNow{}, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("read device %d: %w", deviceID, err)
+		return deviceSettingsNow{}, fmt.Errorf("read device %d: %w", deviceID, err)
 	}
-	return device.SoundOffsetMs, nil
+	return deviceSettingsNow{
+		soundOffsetMs: device.SoundOffsetMs,
+		dataCaps:      auth.DataCapsOf(device.DataCapWifiKbps, device.DataCapMobileKbps, device.DataCapUnknownKbps),
+	}, nil
+}
+
+// onDevice is what a start takes from the device it is for, read from the core's own record of it
+// (D493): its sound offset, the data cap of the kind of network the start says, which chooses the
+// delivery the request prefers, and whether it gave the film's own picture up (D266).
+func (service *Service) onDevice(
+	ctx context.Context, userID int64, request *Request, probe nodeproto.Probe, fileID int64,
+) (Started, bool, error) {
+	device, err := service.deviceSettings(ctx, userID, request.DeviceID)
+	if err != nil {
+		return Started{}, false, err
+	}
+	started := Started{
+		SoundOffsetMs: device.soundOffsetMs, DataCapKbps: device.dataCaps.Of(request.NetworkKind),
+		FileBitRateBps: probe.Format.BitRateBps,
+	}
+	request.PreferredDelivery = deliveryUnderCap(request.PreferredDelivery, started.DataCapKbps,
+		probe.Format.BitRateBps/1000)
+	isOwnPictureUnplayable, err := service.isOwnPictureUnplayable(ctx, *request, fileID)
+	if err != nil {
+		return Started{}, false, err
+	}
+	return started, isOwnPictureUnplayable, nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and

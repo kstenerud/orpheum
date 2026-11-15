@@ -95,6 +95,9 @@ type CurrentDeviceBody struct {
 	// tab no playback gives it to, a Watch Together guest's, starts from it with no read of its own
 	// (D480 §5).
 	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
+	// DataCaps are the device's data caps, which its browser keeps a copy of, read here and refreshed
+	// at each read, so no page asks the core for them (D493).
+	DataCaps DataCapsBody `json:"dataCaps"`
 }
 
 // UserOutput answers with a user.
@@ -517,7 +520,10 @@ func (server *Server) userBody(
 			return UserBody{}, server.logInternalError(ctx, "read the session's device", err)
 		}
 		if err == nil {
-			body.Device = &CurrentDeviceBody{ID: device.ID, Name: device.Name, SoundOffsetMs: device.SoundOffsetMs}
+			body.Device = &CurrentDeviceBody{
+				ID: device.ID, Name: device.Name, SoundOffsetMs: device.SoundOffsetMs,
+				DataCaps: dataCapsBody(device.DataCaps),
+			}
 		}
 	}
 	return body, nil
