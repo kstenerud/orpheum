@@ -29083,6 +29083,8 @@ phone's move between networks: VQ340, VQ341.
   cap chosen at the own picture's figure plays the own picture on its ladder but does not offer the
   original. Judging the original by the own picture's figure instead would load more than the cap
   where the file holds several sound tracks.
+  **Answered** (the owner, 2026-11-15): *"D491: agreed."*: the whole file's rate stays the test,
+  since playing the original loads every track the file holds.
 - A film playing its own file under a cap within its rate offers no list (D488 §4): lowering the cap
   there needs the film on its ladder first.
 - A track or the boost chosen while the original plays under a cap asks again under the cap, which
