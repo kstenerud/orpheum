@@ -54,7 +54,11 @@ class ShieldHold {
  * Hears the touches on the shield, keeping it up while one is down and until its click comes; returns
  * the unbinding. A touch's lift is heard on the window, so a mouse released off the shield lifts it too.
  */
-function bindShieldTouches(shield: HTMLElement, hold: ShieldHold, lowerIfDone: () => void): () => void {
+function bindShieldTouches(
+  shield: HTMLElement,
+  hold: ShieldHold,
+  lowerIfDone: () => void,
+): () => void {
   const pressed = (event: PointerEvent): void => {
     hold.down.add(event.pointerId);
   };
