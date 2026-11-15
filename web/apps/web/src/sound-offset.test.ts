@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { longestSoundOffsetMs } from "@orpheum/player";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -8,6 +9,7 @@ import {
   deviceSoundOffsetMs,
   forgetSoundOffsetSetInThisPage,
   keepDeviceSoundOffsetMs,
+  longestKeptSoundOffsetMs,
   soundOffsetKey,
 } from "./sound-offset.ts";
 
@@ -40,6 +42,7 @@ describe("this device's own sound offset (D492 §1)", () => {
     expect(held.get(soundOffsetKey)).toBe("-450");
     keepDeviceSoundOffsetMs(2050, storage);
     expect(deviceSoundOffsetMs(storage)).toBe(2000);
+    expect(longestKeptSoundOffsetMs).toBe(longestSoundOffsetMs);
   });
 
   it("reads none from what is not an offset this device may make", () => {

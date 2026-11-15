@@ -7,10 +7,16 @@
  * its own (the owner, 2026-11-15). Every control drawn shows and applies the one value (D407 §8).
  */
 
-import { longestSoundOffsetMs } from "@orpheum/player";
 import { useSyncExternalStore } from "react";
 
 import { browserStorage, type StringStorage } from "./browser-storage.ts";
+
+/**
+ * The furthest this device's sound is moved from its picture either way, in ms: the player's
+ * longestSoundOffsetMs and the bound POST /playback takes, which a test holds equal. Not imported
+ * from the player: the shell keeps the offset, and the home page loads no player (home-imports.test.ts).
+ */
+export const longestKeptSoundOffsetMs = 2000;
 
 /** The browser's key this device's sound offset is kept under, in ms: later when positive. */
 export const soundOffsetKey = "orpheum.sound.offsetMs";
@@ -34,7 +40,7 @@ function keptIn(storage: StringStorage): number | undefined {
   }
   return typeof kept === "number" &&
     Number.isInteger(kept) &&
-    Math.abs(kept) <= longestSoundOffsetMs
+    Math.abs(kept) <= longestKeptSoundOffsetMs
     ? kept
     : undefined;
 }
@@ -54,7 +60,9 @@ export function keepDeviceSoundOffsetMs(
   ms: number,
   storage: () => StringStorage = browserStorage,
 ): void {
-  const kept = Math.round(Math.min(Math.max(ms, -longestSoundOffsetMs), longestSoundOffsetMs));
+  const kept = Math.round(
+    Math.min(Math.max(ms, -longestKeptSoundOffsetMs), longestKeptSoundOffsetMs),
+  );
   page.ms = kept;
   storage().setItem(soundOffsetKey, JSON.stringify(kept));
   for (const listener of listeners) {
