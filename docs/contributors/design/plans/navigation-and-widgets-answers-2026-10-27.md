@@ -4140,6 +4140,9 @@ original is the player's own, unasked. Still open: what a link with no measure y
 Item 1's fix leaves the page black for up to about half a minute while it asks again for its code.
 The owner, of a "Loading…" note, a Reload button or neither: "show loading". The page shows a
 loading note while it waits.
+Built for the loader's role; the shell's own first code, which loads no translations, waited black
+still. The owner, of an untranslated note there, a bigger first load or none: "Untranslated is
+fine".
 
 ### VQ347's second run (the owner, 2026-11-15)
 
