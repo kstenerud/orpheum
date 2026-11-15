@@ -5561,7 +5561,7 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "upNext" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "raiseWanted" | "dataCapStarted" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
+            cause?: "filmPage" | "upNext" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "linkCarriesOriginal" | "boostChosen" | "raiseWanted" | "dataCapStarted" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
             /** Format: int64 */
             fileId: number;
             /** @description Whether the player gave the film's own picture up as unplayable here */
@@ -5596,6 +5596,8 @@ export interface components {
             delivery: "direct" | "hls";
             /** Format: int64 */
             fileBitRateKbps: number;
+            /** @description Whether the original file, chosen, starts on the ladder because the link remembered is short of its rate, to move to it once the link carries it */
+            isOriginalWaitingForTheLink?: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "videoCodec" | "audioCodec" | "bandwidth" | "dialogueBoost" | "levellingRaise" | "audioTrack" | "userChoice")[] | null;

@@ -64,8 +64,8 @@ type StartPlaybackInput struct {
 		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
 		// has asked for since it loaded, so a playback started again by itself says what started it
 		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
-		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,upNext,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,boostChosen,raiseWanted,dataCapStarted,playbackGone,ownPictureGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
-		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                                                  //nolint:lll // one struct tag
+		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,upNext,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,linkCarriesOriginal,boostChosen,raiseWanted,dataCapStarted,playbackGone,ownPictureGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                                                                      //nolint:lll // one struct tag
 		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
 		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
 		// keeps it before it decides, whether or not the player's report reached it first.
@@ -134,6 +134,10 @@ type StartPlaybackOutputBody struct {
 	// by itself (D260); absent for a film not cut yet, or one that cannot be, which plays as Delivery
 	// says.
 	OnLadder *LadderBody `json:"onLadder,omitempty"`
+	// IsOriginalWaitingForTheLink is whether the film's own file, chosen, starts on its ladder
+	// because the link its device last measured on this network is short of the file's rate: its
+	// player moves to the original by itself once its link carries it (the owner, 2026-11-15).
+	IsOriginalWaitingForTheLink bool `doc:"Whether the original file, chosen, starts on the ladder because the link remembered is short of its rate, to move to it once the link carries it" json:"isOriginalWaitingForTheLink,omitempty" required:"false"` //nolint:lll // one struct tag
 	// Tracks are what the playback may play and what the file holds, each named original or
 	// converted, and from what.
 	Tracks TracksBody `json:"tracks"`
@@ -356,7 +360,8 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 			"rememberedLinkLogSpread", started.RememberedLink.LogSpread,
 			"rememberedLinkAgeMs", started.RememberedLink.AgeMs,
 			"rememberedLinkSamples", started.RememberedLink.CountsAsSamples,
-			"notOnLadderBecause", started.NotOnLadderBecause)...)...)
+			"notOnLadderBecause", started.NotOnLadderBecause,
+			"isOriginalWaitingForTheLink", started.IsOriginalWaitingForTheLink)...)...)
 }
 
 // ladderDelivery is how a playback started on its film's ladder is delivered, as its log line says
@@ -417,6 +422,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 		}
 	}
 	output.Body.FileBitRateKbps = started.FileBitRateBps / 1000
+	output.Body.IsOriginalWaitingForTheLink = started.IsOriginalWaitingForTheLink
 	output.Body.Subtitles = subtitleTracks(started)
 	output.Body.AudioTracks = make([]AudioTrackBody, 0, len(started.AudioTracks))
 	for _, track := range started.AudioTracks {

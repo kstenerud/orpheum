@@ -102,7 +102,7 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime(
 		}
 		started := clock.Now()
 		playback := tokenPlayback{fileID: 1, decision: decide.Decision{Delivery: wait.delivery}}
-		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, playback, 0)
+		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, playback, 0, 0)
 		isAsWanted := (offer != nil) == wait.isOnLadder && (why == "noGridYet") != wait.isOnLadder &&
 			(offer == nil || offer.IsOnTime == wait.isOnTime)
 		if err != nil || !isAsWanted {
@@ -133,7 +133,7 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 		settings: waitSettings{}, tokens: newTokens(),
 	}
 	service.tokens.playbackByToken["before"] = before
-	_, _, err := service.startOnLadder(t.Context(), Holder{}, Request{DeviceID: 4}, tokenPlayback{fileID: 1}, 0)
+	_, _, err := service.startOnLadder(t.Context(), Holder{}, Request{DeviceID: 4}, tokenPlayback{fileID: 1}, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,8 +143,9 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 	}
 }
 
-// A person who chose the original file plays it, not its film's ladder, though the film is cut
-// (web-client.md: playback is never a black box).
+// A person who chose the original file on a link not measured plays it, not its film's ladder,
+// though the film is cut (web-client.md: playback is never a black box; the owner, 2026-11-15:
+// "When we haven't measured, try the original first").
 func TestStartOnLadder_APersonWhoChoseTheOriginalPlaysIt(t *testing.T) {
 	t.Parallel()
 	clock := clocktest.NewFake(time.Date(2026, 10, 24, 20, 0, 0, 0, time.UTC))
@@ -154,7 +155,7 @@ func TestStartOnLadder_APersonWhoChoseTheOriginalPlaysIt(t *testing.T) {
 		settings: waitSettings{}, tokens: newTokens(),
 	}
 	offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{PreferredDelivery: decide.Direct},
-		tokenPlayback{fileID: 1}, 0)
+		tokenPlayback{fileID: 1}, 0, 2400)
 	if err != nil || offer != nil || why != "originalChosen" || cut.asked != 0 {
 		t.Errorf("the original chosen: %+v, %q, %v, the ladder asked %d times; want no offer, originalChosen",
 			offer, why, err, cut.asked)

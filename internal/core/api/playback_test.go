@@ -144,8 +144,10 @@ type decision struct {
 	Levelling        api.LevellingBody `json:"levelling"`
 	TitleName        string            `json:"titleName"`
 	OnLadder         *api.LadderBody   `json:"onLadder"`
-	Tracks           api.TracksBody    `json:"tracks"`
-	Plays            *api.PlaysBody    `json:"plays"`
+	// IsOriginalWaitingForTheLink is the original chosen on a link remembered short of it.
+	IsOriginalWaitingForTheLink bool           `json:"isOriginalWaitingForTheLink"`
+	Tracks                      api.TracksBody `json:"tracks"`
+	Plays                       *api.PlaysBody `json:"plays"`
 }
 
 type subtitleTrack struct {

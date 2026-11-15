@@ -8277,6 +8277,7 @@
               "subtitleFetched",
               "audioChosen",
               "originalChosen",
+              "linkCarriesOriginal",
               "boostChosen",
               "raiseWanted",
               "dataCapStarted",
@@ -8360,6 +8361,10 @@
           "fileBitRateKbps": {
             "format": "int64",
             "type": "integer"
+          },
+          "isOriginalWaitingForTheLink": {
+            "description": "Whether the original file, chosen, starts on the ladder because the link remembered is short of its rate, to move to it once the link carries it",
+            "type": "boolean"
           },
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"

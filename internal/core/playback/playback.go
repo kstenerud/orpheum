@@ -199,6 +199,11 @@ type Started struct {
 	// plays, D457) or "noLadder"; empty when it does. A film played as its decision says, with
 	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
 	NotOnLadderBecause string
+	// IsOriginalWaitingForTheLink is whether the person chose the film's own file on a link
+	// remembered short of its rate, so it starts on its ladder where that link calls for, and its
+	// player moves to the original once its link carries the file's rate (the owner, 2026-11-15:
+	// "Better to start on a lower rung and then go back up later").
+	IsOriginalWaitingForTheLink bool
 	// Steadiness is the steadiness level its player starts on the ladder at: the one its last
 	// playback on the request's network ended at, relaxed by the time since (D352 Q2); 0 for none.
 	Steadiness int
@@ -284,10 +289,11 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	}
 	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.OnLadder, started.NotOnLadderBecause, err = service.startOnLadder(ctx, holder, request, playback,
-		started.ResumePositionMs)
+		started.ResumePositionMs, started.FileBitRateBps/1000)
 	if err != nil {
 		return Started{}, err
 	}
+	started.IsOriginalWaitingForTheLink = isOriginalWaiting(request, started.OnLadder)
 	decision = playback.settleWishes(&started)
 	service.keepStart(&playback, started.OnLadder)
 	timing := service.timingNow()
@@ -407,11 +413,13 @@ const ladderLookEvery = 100 * time.Millisecond
 // film with no grid yet is waited for, up to playLadderWaitMs, while its timeline is read, then cut
 // on time where its device cannot play it as it is (D344 §2), else nil, playing as it is; one that
 // cannot be cut, or offers no picture, is nil at once. A nil
-// offer comes with why, for the log. A person who chose the original file plays it, never the ladder
-// (web-client.md: playback is never a black box). Its player's playbacks of other films are gone to
-// this one (goneToAnother).
+// offer comes with why, for the log. A person who chose the original file, of fileKbps, plays it
+// (web-client.md: playback is never a black box), but where its link is remembered short of it
+// (linkCarries): that starts on the ladder where the link calls for, as a film's own start does, and
+// its player moves to the original once its link carries it (the owner, 2026-11-15). Its player's
+// playbacks of other films are gone to this one (goneToAnother).
 func (service *Service) startOnLadder(
-	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs int64,
+	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs, fileKbps int64,
 ) (*chunks.Offer, string, error) {
 	if service.chunks == nil {
 		return nil, "noLadder", nil
@@ -419,15 +427,18 @@ func (service *Service) startOnLadder(
 	if err := service.goneToAnother(ctx, playerOf(request.DeviceID, holder.SessionKey), playback.fileID); err != nil {
 		return nil, "", err
 	}
-	if request.PreferredDelivery == decide.Direct {
-		return nil, "originalChosen", nil
-	}
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
 	speed, _, err := service.speeds.fresh(ctx, key, service.clock.Now(), service.timingNow().speedFreshFor)
 	if err != nil {
 		return nil, "", err
 	}
 	kbps := speed.kbps
+	if request.PreferredDelivery == decide.Direct {
+		carries, carriesErr := service.linkCarries(ctx, fileKbps, kbps)
+		if carriesErr != nil || carries {
+			return nil, "originalChosen", carriesErr
+		}
+	}
 	playback.positionMs = positionMs
 	waitMs, err := service.settings.Int(ctx, settings.PlayLadderWaitMs)
 	if err != nil {
@@ -454,6 +465,29 @@ func (service *Service) startOnLadder(
 		return nil, "", startErr
 	}
 	return &offer, "", nil
+}
+
+// isOriginalWaiting is whether a start that asked for the film's own file, and kept the ask past its
+// device's data cap (deliveryUnderCap), started on its ladder instead: its link was short of the file
+// (startOnLadder), so it waits for the link to carry it.
+func isOriginalWaiting(request Request, onLadder *chunks.Offer) bool {
+	return request.PreferredDelivery == decide.Direct && onLadder != nil
+}
+
+// linkCarries is whether a link remembered at linkKbps carries a film's own file of fileKbps, by the
+// rule a start on its ladder chooses its quality by: the file within linkShareForQualityPercent of
+// the link (D247 §6, D260 §2). A link not measured, or a file whose rate is not known, is taken to, so
+// the original is tried first (the owner, 2026-11-15: "When we haven't measured, try the original
+// first").
+func (service *Service) linkCarries(ctx context.Context, fileKbps, linkKbps int64) (bool, error) {
+	if linkKbps <= 0 || fileKbps <= 0 {
+		return true, nil
+	}
+	sharePercent, err := service.settings.Int(ctx, settings.LinkShareForQualityPercent)
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", settings.LinkShareForQualityPercent, err)
+	}
+	return chunks.IsWithinShare(fileKbps, linkKbps, sharePercent), nil
 }
 
 // startWaiting starts chunked on its film's ladder from positionMs, looking again while the film has

@@ -3347,3 +3347,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   Then the same with the phone turned so the film fills the window without the browser's full
   screen (`held-down.ts`, `hideAfter`; fix(web): a held scrub bar holds the overlay, and its lift
   starts the overlay's time again).
+- [ ] **VQ353** — The original chosen on a link too slow for it starts at once on a lower rung,
+  then moves to the original by itself (the 11-27 batch's item 2; the owner, 2026-11-15: "Better
+  to start on a lower rung and then go back up later"). On the owner's Android phone, Chrome, on
+  staging, with Show debug tools on, over a link slower than about 1.4 Mb/s (mobile data held to
+  it, or a throttled Wi-Fi): play staging film 279 (a 0.94 Mbps H.264 MP4) on its ladder for half
+  a minute, so the link is measured, then choose "Play the original file". Passes when there is no
+  long blank: the film goes on at once on a lower rung, under it and in ⋯ "Plays the original
+  file once the link carries it"; then, with the link freed to a few Mb/s, within about a minute
+  it moves to the original by itself from where it stands (⋯'s How it plays says the file as it
+  is). With the device's data cap set under the file's rate it stays on the ladder (D489).
