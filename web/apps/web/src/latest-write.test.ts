@@ -88,4 +88,26 @@ describe("a write of the latest value asked for (the audit of 2026-10-25, W9)", 
     writes.flush();
     expect(held.sent).toEqual([1, 2]);
   });
+
+  it("settles once what was asked for is written and none waits, at once where none is", async () => {
+    vi.useFakeTimers();
+    const held = heldSend();
+    const writes = latestWrite(held.send, 500, { kept: () => undefined, failed: () => undefined });
+    let isSettled = false;
+    await writes.settled();
+    writes.write(1);
+    void writes.settled().then(() => {
+      isSettled = true;
+    });
+    await vi.advanceTimersByTimeAsync(500);
+    writes.write(2);
+    await vi.advanceTimersByTimeAsync(500);
+    held.answer();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(held.sent).toEqual([1, 2]);
+    expect(isSettled).toBe(false);
+    held.answer(new Error("refused"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(isSettled).toBe(true);
+  });
 });

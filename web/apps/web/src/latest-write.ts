@@ -6,6 +6,12 @@ export interface LatestWrite<T> {
   readonly write: (value: T) => void;
   /** Writes what waits now, without waiting longer: as the page leaves what asked. */
   readonly flush: () => void;
+  /**
+   * Settles once every value asked for so far has been written, kept or failed, and none waits: a
+   * request that reads what was written waits for it (D493's start under a cap just chosen). It
+   * never rejects.
+   */
+  readonly settled: () => Promise<void>;
 }
 
 /** What a latest write is told of each write it sends: kept, or failed with why. */
@@ -28,6 +34,18 @@ export function latestWrite<T>(
   let waiting: { readonly value: T } | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let isSending = false;
+  let settlers: (() => void)[] = [];
+  const isIdle = (): boolean => !isSending && waiting === undefined;
+  const settleIfIdle = (): void => {
+    if (!isIdle()) {
+      return;
+    }
+    const settling = settlers;
+    settlers = [];
+    for (const settle of settling) {
+      settle();
+    }
+  };
   const sendWaiting = (): void => {
     if (isSending || waiting === undefined) {
       return;
@@ -43,6 +61,7 @@ export function latestWrite<T>(
         if (timer === undefined) {
           sendWaiting();
         }
+        settleIfIdle();
       });
   };
   const flush = (): void => {
@@ -57,5 +76,11 @@ export function latestWrite<T>(
       timer = setTimeout(flush, waitMs);
     },
     flush,
+    settled: () =>
+      isIdle()
+        ? Promise.resolve()
+        : new Promise((settle) => {
+            settlers.push(settle);
+          }),
   };
 }

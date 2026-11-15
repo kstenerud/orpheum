@@ -111,7 +111,7 @@ describe("a device's data caps, the core's with a copy in its browser (D493)", (
     expect(told).toBe(1); // the same read again changes nothing
   });
 
-  it("keep each choice on the core too, in the order chosen, once the core is known", async () => {
+  it("keep the latest choice on the core too, one write at a time, once the core is known", async () => {
     const caps = new DataCaps(heldStorage().storage, new FakeConnection("wifi"));
     caps.choose(6096); // before the core is known: kept here alone
     const sent: unknown[] = [];
@@ -120,8 +120,12 @@ describe("a device's data caps, the core's with a copy in its browser (D493)", (
       sent.push(kept);
     });
     caps.choose(1296);
+    await caps.written();
+    expect(sent).toEqual([{ wifiKbps: 1296 }]);
+    caps.choose(796);
     caps.choose(undefined);
     await caps.written();
+    // The latest asked for, as the sound offset's latestWrite keeps (D493, rule 11).
     expect(sent).toEqual([{ wifiKbps: 1296 }, {}]);
   });
 

@@ -16,6 +16,7 @@
 import { reportFailure } from "@orpheum/sdk";
 
 import { browserStorage, type StringStorage } from "./browser-storage.ts";
+import { latestWrite, type LatestWrite } from "./latest-write.ts";
 
 /** Where this browser keeps its caps, kbit/s by kind of network, as JSON. */
 export const dataCapsKey = "orpheum.dataCaps";
@@ -124,9 +125,8 @@ export class DataCaps {
   readonly #storage: () => StringStorage;
   readonly #connection: EventTarget | undefined;
   readonly #listeners = new Set<() => void>();
-  #keepOnCore: KeepOnCore | undefined;
-  // The writes to the core so far, one at a time in the order chosen; it never rejects.
-  #written: Promise<void> = Promise.resolve();
+  // Each choice kept on the core, the latest only, one write at a time; none before the core is known.
+  #writes: LatestWrite<CapsByKind> | undefined;
 
   /** The caps kept in storage, for the network connection says, where it says one. */
   constructor(storage: () => StringStorage, connection: EventTarget | undefined) {
@@ -161,7 +161,13 @@ export class DataCaps {
    * core, and the core's are the truth from then on.
    */
   settleWithCore(core: CoreDataCaps, keepOnCore: KeepOnCore): void {
-    this.#keepOnCore = keepOnCore;
+    this.#writes = latestWrite(
+      async (caps) => {
+        await keepOnCore(coreDataCapsOf(caps));
+      },
+      0,
+      { kept: () => undefined, failed: reportFailure },
+    );
     const kept = positiveRatesOf({
       wifi: core.wifiKbps,
       mobile: core.mobileKbps,
@@ -182,7 +188,7 @@ export class DataCaps {
    * so the core applies the cap just chosen (D489's re-ask, cause dataCapStarted). It never rejects.
    */
   written(): Promise<void> {
-    return this.#written;
+    return this.#writes?.settled() ?? Promise.resolve();
   }
 
   /** Keeps caps as this browser's copy, and tells each listener. */
@@ -196,15 +202,7 @@ export class DataCaps {
 
   /** Keeps caps on the core, after the writes before it; before the core is known, nowhere. */
   #keepOnCoreToo(caps: CapsByKind): void {
-    const keep = this.#keepOnCore;
-    if (keep === undefined) {
-      return;
-    }
-    this.#written = this.#written
-      .then(async () => {
-        await keep(coreDataCapsOf(caps));
-      })
-      .catch(reportFailure);
+    this.#writes?.write(caps);
   }
 
   /**
