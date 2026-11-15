@@ -3239,3 +3239,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   "Data use on mobile data" off the Wi-Fi, the next chunk drops to the 700k rung or lower with the
   step "the device's data cap", and back on Wi-Fi the line reads "Data use on Wi-Fi" and the quality
   climbs back by the step-up. Only Chrome on Android tells the kind of network; the tests fake it.
+- [ ] **VQ337** — A film playing its own file when a cap starts to hold (D489). On the Android phone,
+  Chrome, with a cap of 0.4 GB per hour on mobile data and No limit on Wi-Fi: on Wi-Fi, choose ⋯'s
+  "Play the original file", then turn Wi-Fi off. Passes when the film, after a moment's hold, plays
+  on from where it stood (not from its start) on its ladder at the 700k rung or lower, and ⋯ lists
+  the caps again. Then play a film added minutes ago, before its ladder is ready, on mobile data:
+  passes when it plays (its own file) rather than saying it cannot be converted.

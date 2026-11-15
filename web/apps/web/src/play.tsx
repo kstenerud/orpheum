@@ -38,7 +38,7 @@ import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-devic
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
-import { useIsCapped } from "./data-cap-choices.tsx";
+import { useIsCapped, useWhenACapStarts } from "./data-cap-choices.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import {
   ForTesters,
@@ -528,6 +528,13 @@ function PlayUnderOfPage(props: FilmParts): JSX.Element {
 function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): JSX.Element {
   const ways = use(PlayContext);
   const { ladder, videoRef, children } = props;
+  // A film playing its own file, a cap starting to hold, asks for its ladder from where it stands
+  // (D489): its own file is not a rung a cap can choose under.
+  useWhenACapStarts(
+    ways === undefined || ladder !== undefined
+      ? undefined
+      : decideAgainFor({ ...ways, videoRef }, "dataCapStarted"),
+  );
   if (ways === undefined) {
     return <>{children}</>;
   }

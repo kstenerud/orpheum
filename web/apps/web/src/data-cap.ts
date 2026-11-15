@@ -122,6 +122,21 @@ export class DataCaps {
       this.#connection?.removeEventListener("change", listener);
     };
   }
+
+  /**
+   * Tells onStart each time a cap starts to hold where none did, by a choice or a change of network,
+   * which a film playing its own file moves to its ladder at (D489); returns the stopping.
+   */
+  whenCapStarts(onStart: () => void): () => void {
+    let wasCapped = this.capKbps() !== undefined;
+    return this.subscribe(() => {
+      const isCapped = this.capKbps() !== undefined;
+      if (isCapped && !wasCapped) {
+        onStart();
+      }
+      wasCapped = isCapped;
+    });
+  }
 }
 
 const page: { caps: DataCaps | undefined } = { caps: undefined };

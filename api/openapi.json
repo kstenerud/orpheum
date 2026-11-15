@@ -8240,6 +8240,7 @@
               "originalChosen",
               "boostChosen",
               "raiseWanted",
+              "dataCapStarted",
               "playbackGone",
               "ownPictureGivenUp",
               "mediaBack",

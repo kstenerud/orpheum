@@ -17,7 +17,12 @@ import { watchingOf, type StartCause } from "./watching.ts";
 /** Why a playing page asks how the file plays again. */
 export type DecideAgainCause = Extract<
   StartCause,
-  "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "raiseWanted"
+  | "subtitleFetched"
+  | "audioChosen"
+  | "originalChosen"
+  | "boostChosen"
+  | "raiseWanted"
+  | "dataCapStarted"
 >;
 
 /**

@@ -3,7 +3,7 @@
 import "./play-words.ts";
 
 import { offeredRungsOf, playerOfferedRungsEvent } from "@orpheum/player";
-import { useSyncExternalStore, type JSX, type RefObject } from "react";
+import { useEffect, useRef, useSyncExternalStore, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { deviceDataCaps, gbPerHourOf, rungUnderCap, type DataCaps } from "./data-cap.ts";
@@ -91,4 +91,20 @@ export function DataCapChoices(props: {
 /** Whether this device's cap holds now, which plays no film's own file (D488). */
 export function useIsCapped(caps: DataCaps = deviceDataCaps()): boolean {
   return useCapNow(caps).capKbps !== undefined;
+}
+
+/**
+ * Calls onStart, where given, when this device's cap starts to hold where none did: a film playing
+ * its own file then asks for its ladder from where it stands, which a cap plays it on (D489).
+ */
+export function useWhenACapStarts(onStart: (() => void) | undefined): void {
+  const starter = useRef(onStart);
+  starter.current = onStart;
+  useEffect(
+    () =>
+      deviceDataCaps().whenCapStarts(() => {
+        starter.current?.();
+      }),
+    [],
+  );
 }
