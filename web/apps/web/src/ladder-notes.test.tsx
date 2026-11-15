@@ -11,6 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cannotKeepUpSaidForMs, LadderNotes } from "./film-player.tsx";
 import { politeNotices } from "./test-dom.tsx";
 
+// The owner, 2026-11-15: "Actually let's make it 10 seconds".
+const ownersSeconds = 10;
+
 const offer = {
   url: "/api/v1/bytes/media/chunks/t/master.m3u8",
   startAtBps: 1_896_000,
@@ -66,7 +69,11 @@ function wait(ms: number): void {
 const said = (): string => politeNotices(container).join(" ");
 
 describe("word that even the lowest quality cannot keep up", () => {
-  it("shows for five seconds at the first stall and never again in that playback", () => {
+  it("waits the owner's ten seconds", () => {
+    expect(cannotKeepUpSaidForMs).toBe(ownersSeconds * 1000);
+  });
+
+  it("shows for ten seconds at the first stall and never again in that playback", () => {
     draw({});
     expect(said()).toBe("");
     draw({ cannotKeepUp: stalled });
@@ -81,7 +88,7 @@ describe("word that even the lowest quality cannot keep up", () => {
     expect(said()).toBe("");
   });
 
-  it("goes after five seconds when the server said so at the start, and shows again in a new playback", () => {
+  it("goes after ten seconds when the server said so at the start, and shows again in a new playback", () => {
     act(() => {
       root.render(
         <LadderNotes

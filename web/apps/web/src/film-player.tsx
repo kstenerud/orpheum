@@ -625,9 +625,10 @@ function useShapedByTheTabsLink(): void {
 /**
  * How long word that even the lowest quality cannot keep up shows, in ms: once in a playback, then
  * never again in it, however often it stalls after (the owner, 2026-11-15, of a bad patch whose word
- * never went: "The message should only show for 5 seconds and then never again on that playback").
+ * never went: "The message should only show for 5 seconds and then never again on that playback"),
+ * then "Actually let's make it 10 seconds".
  */
-export const cannotKeepUpSaidForMs = 5_000;
+export const cannotKeepUpSaidForMs = 10_000;
 
 /**
  * Whether word wanted now shows: from the render it is first wanted in a playback, for
