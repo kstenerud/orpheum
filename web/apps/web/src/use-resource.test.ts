@@ -8,7 +8,9 @@ import { describe, expect, it, vi } from "vitest";
 import { i18n } from "./i18n.ts";
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
+import { ServicesContext } from "./services.tsx";
 import { mount, refusal, servedBy } from "./test-dom.tsx";
+import { testServices } from "./test-services.tsx";
 import {
   forgetEveryAnswer,
   handAnswer,
@@ -195,6 +197,96 @@ describe("useResource", () => {
     isRefused = true;
     expect(await pollOnce(poller)).toBe("failed");
     expect(seen.at(-1)).toMatchObject({ state: "failed", willAskAgain: true });
+    mounted.unmount();
+    written.mockRestore();
+  });
+
+  it("reads a failed read again at once as the connection to the core is back, and shows its answer (the owner's phone, 2026-11-15)", async () => {
+    // Home on a link that kept dropping: each ask of its read cut off as a connection went, it failed
+    // and drew its heading alone, and stayed so, its poll not due, once a connection was back.
+    const poller = handPoller();
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let isLinkDown = true;
+    const backListeners = new Set<() => void>();
+    const services = {
+      ...testServices("token"),
+      onPathBack: (listener: () => void) => {
+        backListeners.add(listener);
+        return () => {
+          backListeners.delete(listener);
+        };
+      },
+    };
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource(
+        "probe",
+        () =>
+          isLinkDown
+            ? Promise.reject(new ChannelClosedError("/api/v1/home", "closed"))
+            : Promise.resolve(1),
+        { poller },
+      );
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(
+      createElement(ServicesContext, { value: services }, createElement(Probe)),
+    );
+    expect(seen.at(-1)).toMatchObject({ state: "failed", willAskAgain: true });
+    isLinkDown = false;
+    await act(async () => {
+      for (const listener of backListeners) {
+        listener();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    mounted.unmount();
+    expect(backListeners.size).toBe(0);
+    written.mockRestore();
+  });
+
+  it("asks a read that shows its answer nothing as the connection is back, nor a single-use one", async () => {
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const backListeners = new Set<() => void>();
+    const services = {
+      ...testServices("token"),
+      onPathBack: (listener: () => void) => {
+        backListeners.add(listener);
+        return () => {
+          backListeners.delete(listener);
+        };
+      },
+    };
+    let shownAsked = 0;
+    let singleUseAsked = 0;
+    function Probe(): null {
+      useResource("shown", () => {
+        shownAsked += 1;
+        return Promise.resolve(1);
+      });
+      useResource(
+        "single-use",
+        () => {
+          singleUseAsked += 1;
+          return Promise.reject(new ChannelClosedError("/api/v1/playback", "closed"));
+        },
+        { isSingleUse: true },
+      );
+      return null;
+    }
+    const mounted = await mount(
+      createElement(ServicesContext, { value: services }, createElement(Probe)),
+    );
+    expect([shownAsked, singleUseAsked]).toEqual([1, 1]);
+    await act(async () => {
+      for (const listener of backListeners) {
+        listener();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect([shownAsked, singleUseAsked]).toEqual([1, 1]);
     mounted.unmount();
     written.mockRestore();
   });

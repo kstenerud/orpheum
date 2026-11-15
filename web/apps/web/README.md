@@ -488,9 +488,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   owner, 2026-10-24). A read its WebRTC connection left unanswered (`isUnanswered`: silent, or its
   channel closed under it) is asked again at once on the next connection (`askWhileUnanswered`),
   unless its answer is single-use, and a poll's that still fails leaves the answer drawn in place (the
-  owner's phone back from another app, 2026-11-14). One way to poll:
+  owner's phone back from another app, 2026-11-14). A read that failed, its answer not single-use,
+  is read again at once each time the way to the core may work again (`Services.onPathBack`: a
+  WebRTC connection up after a time with none, or the browser back online; on the core's own origin
+  the transport's word once the requests move onto it, `ownOriginPathBack`), so Home left empty by
+  a dropping link fills by itself (the owner's phone, 2026-11-15; VQ351). One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
-  `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
+  `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`,
+  `src/home.test.tsx`, `src/client-reaches.test.ts`, `src/transport-choice.test.tsx`.
 - **One key names one read, and the tab keeps its latest answer** (D478): a reader of a key the tab
   read before shows that answer at once and reads again behind it; readers starting together share
   one request; every mounted reader of a key shows what any of them reads; the tab forgets every

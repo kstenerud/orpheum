@@ -4,7 +4,7 @@
 import { mediaCarrierOf } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
-import { reachesUnderLoader, takeMediaCarriers } from "./client-reaches.ts";
+import { ownOriginPathBack, reachesUnderLoader, takeMediaCarriers } from "./client-reaches.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
 import { createSession } from "./session.ts";
 
@@ -118,6 +118,37 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
     expect(told).toBe(2);
     stop();
     window.dispatchEvent(new Event("online"));
+    expect(told).toBe(2);
+  });
+
+  it("hears the way to the core back on its own origin by the browser, then by the WebRTC transport its requests moved onto (the owner's phone, 2026-11-15)", () => {
+    let told = 0;
+    const pathBack = ownOriginPathBack();
+    const stop = pathBack.listen(() => {
+      told += 1;
+    });
+    window.dispatchEvent(new Event("online"));
+    expect(told).toBe(1);
+    const transportListeners = new Set<() => void>();
+    pathBack.moveTo({
+      onBack: (listener) => {
+        transportListeners.add(listener);
+        return () => {
+          transportListeners.delete(listener);
+        };
+      },
+    });
+    // The transport hears the browser itself: the browser's word alone is no longer told twice.
+    window.dispatchEvent(new Event("online"));
+    expect(told).toBe(1);
+    for (const listener of transportListeners) {
+      listener(); // a connection up after a time with none
+    }
+    expect(told).toBe(2);
+    stop();
+    for (const listener of transportListeners) {
+      listener();
+    }
     expect(told).toBe(2);
   });
 

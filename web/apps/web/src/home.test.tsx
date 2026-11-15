@@ -3,7 +3,9 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { ChannelClosedError } from "@orpheum/sdk";
+import { act } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { Home } from "./home.tsx";
@@ -11,7 +13,7 @@ import { LibrariesReachedContext } from "./libraries-reached.ts";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import { click, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
-import { withServices } from "./test-services.tsx";
+import { testServices, withServices } from "./test-services.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 /** A film or series as a list sends it. */
@@ -170,6 +172,58 @@ describe("home (the owner, 2026-10-25)", () => {
     expect(heard.filter((each) => each.methodAndPath === "GET /home")).toHaveLength(1);
     expect(heard.filter((each) => each.methodAndPath === "GET /items")).toEqual([]);
     expect(polled).toBe(1);
+  });
+
+  it("fills its rows by itself once the connection to the core is back, its read cut off before (the owner's phone, 2026-11-15)", async () => {
+    // A reload over a link that kept dropping drew the heading alone, and it stayed so until the
+    // owner reloaded by hand: the owner chose that Home asks again when the connection is back.
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let isLinkDown = true;
+    const send = (request: Request): Promise<Response> => {
+      if (isLinkDown) {
+        return Promise.reject(new ChannelClosedError(new URL(request.url).pathname, "closed"));
+      }
+      const rows = { continueWatching: [], newestFilms: [entry(8, "Nosferatu")], newestSeries: [] };
+      return Promise.resolve(Response.json(rows));
+    };
+    const backListeners = new Set<() => void>();
+    const services = {
+      ...testServices("token", "/", send),
+      onPathBack: (listener: () => void) => {
+        backListeners.add(listener);
+        return () => {
+          backListeners.delete(listener);
+        };
+      },
+    };
+    // A poll not due before the connection is back, as one waiting out its give-up is.
+    const notDue: Poller = { start: () => () => undefined };
+    mounted = await mount(
+      withServices(
+        <BackgroundChangesContext value={notDue}>
+          <LibrariesReachedContext
+            value={{ libraries: { state: "loaded", value: [] }, readAgain: () => undefined }}
+          >
+            <Home />
+          </LibrariesReachedContext>
+        </BackgroundChangesContext>,
+        services,
+      ),
+    );
+    const posters = (): number =>
+      mounted?.container.querySelectorAll('[aria-labelledby="home-newest-film"] .poster-card')
+        .length ?? 0;
+    expect(posters()).toBe(0);
+    isLinkDown = false;
+    await act(async () => {
+      for (const listener of backListeners) {
+        listener();
+      }
+      await Promise.resolve();
+    });
+    await settleUntil(() => posters() === 1);
+    expect(posters()).toBe(1);
+    written.mockRestore();
   });
 
   it("leads each newest row's See all to its list, newest added first (the owner, 2026-11-04)", async () => {

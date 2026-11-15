@@ -43,6 +43,48 @@ export function onBrowserOnline(listener: () => void): () => void {
   };
 }
 
+/** What tells that the way to the core may work again: RtcTransport.onBack's shape. */
+interface TellsBack {
+  readonly onBack: (listener: () => void) => () => void;
+}
+
+/** The word that the way to the core may work again on the core's own origin, and what moves it. */
+export interface OwnOriginPathBack {
+  /** Tells listener each time the way to the core may work again (Services.onPathBack). */
+  readonly listen: (listener: () => void) => () => void;
+  /** Hears the WebRTC transport the requests moved onto from now on, in place of the browser. */
+  readonly moveTo: (transport: TellsBack) => void;
+}
+
+/**
+ * When the way to the core may work again on the core's own origin: the browser back online, until
+ * the requests move onto a WebRTC transport (transport-choice.ts), then the transport's word, which
+ * hears the browser back online itself and tells a connection up after a time with none as well.
+ * Told by the browser alone, a page whose connections went on a link that kept dropping, the phone
+ * never offline, heard nothing when one was back (the owner's Android phone, staging, 2026-11-15).
+ */
+export function ownOriginPathBack(): OwnOriginPathBack {
+  const listeners = new Set<() => void>();
+  const tell = (): void => {
+    for (const listener of [...listeners]) {
+      listener();
+    }
+  };
+  let stopHearing = onBrowserOnline(tell);
+  return {
+    listen: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    moveTo: (transport) => {
+      stopHearing();
+      stopHearing = transport.onBack(tell);
+    },
+  };
+}
+
 /**
  * Where a TV asks for a code under a discovery's loader: the loader's host, from the page the loader
  * served this client in, so a remote types it (the owner, 2026-10-20: the client origin's 26

@@ -3326,4 +3326,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   opened in a second tab before the update, reload that tab after it; should it wait for its code
   (the core's log shows the reload's note for its part), it shows "Loading…" in English, whatever
   the page's language (the owner, 2026-11-15: "Untranslated is fine"), within about two seconds and
-  while it waits, and the note goes as the page draws. — done 2026-11-15 on the Pixel 3a in Chrome 157 by the lead, with the wait forced over CDP (a deploy of the commit staging already ran left no file missing): the note came 2.0 s into each wait, the role's and the shell's, and went as the page drew; a quick page and a recovery after one failed ask showed none. The owner: *"I'd pass it"*.
+  while it waits, and the note goes as the page draws. — done 2026-11-15 on the Pixel 3a in Chrome 157 by the lead, with the wait forced over CDP (a deploy of the commit staging already ran left no file missing): the note came 2.0 s into each wait, the role's and the shell's, and went as the page drew; a quick page and a recovery after one failed ask showed none. The owner: *"I'd pass it"*.- [ ] **VQ351** — Home left empty by a dropping link fills by itself once the connection is back
+  (the 11-27 batch's item 1; the owner, 2026-11-15: "Yes have the home page reload"). On the
+  owner's Android phone, Firefox, on staging, at the core's own address over WebRTC, as on VQ350's
+  run: open it at Films in a new tab, so the tab holds no answer of Home's; turn mobile data and
+  Wi-Fi off, go to Home and wait on the heading alone for about three minutes, until its read has
+  failed; then turn Wi-Fi back on and touch nothing. Passes when Home's rows draw by themselves
+  within a few seconds of the connection being back, with no reload by hand, the core's log showing
+  "a WebRTC connection to the core is back after … ms" just before. Again as on VQ350's run, mobile
+  data on: reload Home and turn Wi-Fi off and on a few times as it loads, ending on; the rows draw by
+  themselves, and once drawn stay drawn (`use-resource.ts`'s readAgainIfFailed, `client-reaches.ts`'s
+  ownOriginPathBack).

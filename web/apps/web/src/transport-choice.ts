@@ -33,7 +33,7 @@ export interface WebrtcWays {
   readonly connect: (
     signaller: Signaller,
     isNeededHidden: () => boolean,
-  ) => Promise<Pick<RtcTransport, "fetch" | "openChannel" | "carrierOf">>;
+  ) => Promise<Pick<RtcTransport, "fetch" | "openChannel" | "carrierOf" | "onBack">>;
   readonly tellMediaCarriers: typeof tellMediaCarriers;
   readonly carryMediaOver: typeof carryMediaOver;
 }
@@ -61,6 +61,11 @@ export function moveToWebrtcWhenSignedIn(
     /** Told once the media are carried over, so PathMoves.isOverWebrtc says so (services.tsx). */
     readonly pathMoves: { readonly carriedOverWebrtc: () => void };
     /**
+     * Told the transport the requests moved onto, so the way to the core back is its word
+     * (client-reaches.ts's ownOriginPathBack, Services.onPathBack).
+     */
+    readonly pathBack: { readonly moveTo: (transport: Pick<RtcTransport, "onBack">) => void };
+    /**
      * Whether the page needs its connection while hidden as when shown, its tries paced otherwise
      * (hidden-need.ts, D482).
      */
@@ -80,6 +85,7 @@ export function moveToWebrtcWhenSignedIn(
       .connect(directSignaller(api), app.isNeededHidden)
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
+        app.pathBack.moveTo(transport);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
         ways.tellMediaCarriers((url) => transport.carrierOf(url));
         await ways.carryMediaOver(transport.fetch, mediaCredentialsOf(session), pathName);

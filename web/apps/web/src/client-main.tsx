@@ -24,7 +24,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
 import {
-  onBrowserOnline,
+  ownOriginPathBack,
   reachesUnderLoader,
   takeMediaCarriers,
   type Reaches,
@@ -172,6 +172,7 @@ function mountOnOwnOrigin(): void {
   let openTogetherSocket = browserTogetherSocket(window.location.origin);
   const session = createSession(storageIfAllowed(() => window.localStorage));
   const pathMoves = createPathMoves();
+  const pathBack = ownOriginPathBack();
   const api = mountApp(
     session,
     {
@@ -179,7 +180,7 @@ function mountOnOwnOrigin(): void {
       openTogetherSocket: (listeners) => openTogetherSocket(listeners),
       pathMoves,
       ownScript: ownScriptOf(document),
-      onPathBack: onBrowserOnline,
+      onPathBack: pathBack.listen,
     },
     root,
   );
@@ -203,6 +204,7 @@ function mountOnOwnOrigin(): void {
               openTogetherSocket = open;
             },
             pathMoves,
+            pathBack,
             isNeededHidden: hiddenNeed.isNeeded,
           },
           reportFailure,

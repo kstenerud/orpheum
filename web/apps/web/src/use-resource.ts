@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 
 import type { AskOutcome, Poller } from "./polling.ts";
 import { rememberedInTheTab } from "./remembered.ts";
 import { askWhileUnanswered, isUnanswered } from "./reopen.ts";
 import type { Resource } from "./resource.ts";
 import { resetOnEachTestMount } from "./screen-load.tsx";
+import { ServicesContext } from "./services.tsx";
 
 export type { Resource } from "./resource.ts";
 
@@ -299,6 +300,38 @@ function keyReads<T>(reader: Reader<T>): KeyReads<T> {
   };
 }
 
+/** How a reader hears that the way to the core may work again (Services.onPathBack). */
+type OnPathBack = (listener: () => void) => () => void;
+
+/**
+ * Shows what a reader has by setShown, and reads again, once, each time onPathBack tells the way to
+ * the core may work again while what shows is a failure; reads undefined, a single-use answer's,
+ * which the core may have made, hears nothing, nor does a reader where nothing tells.
+ */
+function readsAgainWhenBack<T>(setShown: (resource: Resource<T>) => void): {
+  readonly show: (resource: Resource<T>) => void;
+  readonly hear: (
+    onPathBack: OnPathBack | undefined,
+    reads: Pick<KeyReads<T>, "read"> | undefined,
+  ) => (() => void) | undefined;
+} {
+  let isFailed = false;
+  return {
+    show: (resource) => {
+      isFailed = resource.state === "failed";
+      setShown(resource);
+    },
+    hear: (onPathBack, reads) =>
+      reads === undefined
+        ? undefined
+        : onPathBack?.(() => {
+            if (isFailed) {
+              reads.read(undefined, undefined, "join");
+            }
+          }),
+  };
+}
+
 /** The key and attempt a reader read, or was given a value, for. */
 interface ReadFor {
   readonly key: string;
@@ -379,6 +412,14 @@ function shownBeforeItsRead<T>(
  * asks nothing then: a poller asks next at its first wait, and a reload reads. While that read is
  * waited on ("waiting"), it asks nothing and shows loading, or the tab's answer (D476: the shell's
  * one read hands each part on).
+ *
+ * A read that failed is read again at once each time the way to the core may work again
+ * (Services.onPathBack: a WebRTC connection up after a time with none, or the browser back online),
+ * unless its answer is single-use, showing the failure until it answers. Home, each ask of its one
+ * read cut off on a link that kept dropping, failed and drew its heading alone until its person
+ * reloaded the page: nothing heard the connection back, and its poll's ask, waiting in the
+ * transport's queue for a connection, is given up only at askAnswersWithinMs and asked again after
+ * the failed wait (the owner's Android phone, staging, 2026-11-15).
  */
 export function useResource<T>(
   key: string,
@@ -387,6 +428,7 @@ export function useResource<T>(
 ): [Resource<T>, () => void] {
   const { poller, given } = options;
   const isSingleUse = options.isSingleUse === true;
+  const onPathBack = use(ServicesContext)?.onPathBack; // none in a test that renders no services
   const [held, setHeld] = useState<{ readonly key: string; readonly resource: Resource<T> }>({
     key,
     resource: { state: "loading" },
@@ -404,9 +446,10 @@ export function useResource<T>(
     if (givenState === "waiting") {
       return undefined;
     }
-    const show = (resource: Resource<T>): void => {
+    const back = readsAgainWhenBack<T>((resource) => {
       setHeld({ key, resource });
-    };
+    });
+    const { show } = back;
     const reads = keyReads({ key, load, show, willAskAgain: poller !== undefined, isSingleUse });
     const isReload = isReloadOf(readFor.current, key, attempt);
     readFor.current = { key, attempt };
@@ -420,11 +463,13 @@ export function useResource<T>(
       readFirst(reads, key, { isReload, isSingleUse, ...(poller ? {} : { showLoading }) });
     }
     const stopPolling = poller?.start(reads.read);
+    const stopHearingBack = back.hear(onPathBack, isSingleUse ? undefined : reads);
     return () => {
       reads.stop();
       stopPolling?.();
+      stopHearingBack?.();
     };
-  }, [key, attempt, poller, givenState, isSingleUse]);
+  }, [key, attempt, poller, givenState, isSingleUse, onPathBack]);
   const reload = useCallback(() => {
     setAttempt((count) => count + 1);
   }, []);

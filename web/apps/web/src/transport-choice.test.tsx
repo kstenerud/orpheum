@@ -57,6 +57,7 @@ function heldWebrtcWays(): WebrtcWays & {
           throw new Error("the test opens no channel");
         },
         carrierOf: () => undefined,
+        onBack: () => () => undefined,
       });
     },
     tellMediaCarriers: () => undefined,
@@ -101,6 +102,7 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
     const pathMoves = createPathMoves();
     const ways = heldWebrtcWays();
     const isNeededHidden = (): boolean => false;
+    const pathBackMovedTo: unknown[] = [];
     moveToWebrtcWhenSignedIn(
       {
         session: services.session,
@@ -108,6 +110,11 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
         routed: new SwitchableFetch(),
         switchTogetherSocket: () => undefined,
         pathMoves,
+        pathBack: {
+          moveTo: (transport) => {
+            pathBackMovedTo.push(transport);
+          },
+        },
         isNeededHidden,
       },
       (problem) => {
@@ -118,6 +125,8 @@ describe("a tab moved to WebRTC by ?transport=webrtc on the core's own origin", 
     await settleUntil(ways.isCarrying);
     // Its connection paces its tries while the page is hidden as the app says it needs them (D482).
     expect(ways.neededHidden).toEqual([isNeededHidden]);
+    // The way to the core back is its transport's word from now on (the owner's phone, 2026-11-15).
+    expect(pathBackMovedTo).toHaveLength(1);
     expect(pathMoves.isOverWebrtc()).toBe(false);
     await act(async () => {
       ways.endCarrying();
