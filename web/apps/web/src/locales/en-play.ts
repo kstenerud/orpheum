@@ -104,6 +104,15 @@ export const enPlay = {
     },
     startOver: "Start over",
     playOriginal: "Play the original file",
+    dataCap: {
+      heading: {
+        wifi: "Data use on Wi-Fi",
+        mobile: "Data use on mobile data",
+        unknown: "Data use",
+      },
+      noLimit: "No limit",
+      perHour: "{{gb}} GB per hour",
+    },
     soundOffset: {
       inStep: "Sound on this device: in step with the picture",
       laterBy: "Sound on this device: {{ms}} ms later",

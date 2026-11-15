@@ -374,7 +374,8 @@ function aheadOptionsOf(options: {
  * (keepForwardBuffer, at most atMostS where given, deeper after its link was out by outages, its top its controller's, its notes for the play
  * report), its group (obeyGroup), its sound's shift, its stalls (tellStalls), and its page's main
  * thread's stalls (watchMainThread, for the same notes), and its stall at the end, which it ends
- * (endAtTheLastFrame). Returns each stopping.
+ * (endAtTheLastFrame); and tells the video its film's rungs (tellOfferedRungs, D488). Returns each
+ * stopping.
  */
 function followAheadGroupSoundAndStalls(
   hls: Hls,
@@ -397,6 +398,7 @@ function followAheadGroupSoundAndStalls(
   });
   return [
     ahead.stop,
+    tellOfferedRungs(hls, video),
     obeyGroup(hls, video, { abr: by.abr, ahead: ahead.buffer }),
     by.soundShift.attach(hls, video),
     tellStalls(video, by.abr.choosing),
@@ -559,8 +561,8 @@ export function choosingOptionsOf(
     readonly linkSharePercent?: number | undefined;
     readonly startSteadiness?: number | undefined;
     readonly outages?: LinkOutages | undefined;
-    readonly dataCapKbps?: (() => number | undefined) | undefined;
-  } & RememberedOffer,
+  } & RememberedOffer &
+    Pick<ChoosingOptions, "dataCapKbps">,
 ): ChoosingOptions {
   const { outages, monotonicMs } = options;
   return {
@@ -699,16 +701,12 @@ export function playChunked(
      * (pageLinkOutages, D487); absent, it never does, as a film page's hidden player and a lab's.
      */
     readonly outages?: LinkOutages | undefined;
-    /**
-     * The device's data cap now, kbit/s, its sound's with it (ChoosingOptions.dataCapKbps, D488);
-     * absent, or undefined, for none.
-     */
-    readonly dataCapKbps?: (() => number | undefined) | undefined;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
     readonly authorization?: string | undefined;
     /** The fetch every load is made by, where the page gives one (chunkedHlsConfig). */
     readonly fetch?: FetchRequest | undefined;
-  } & RememberedOffer,
+  } & RememberedOffer &
+    Pick<ChoosingOptions, "dataCapKbps">, // the device's data cap, read at each choice (D488)
 ): ChunkedPlayback {
   const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
   if (withoutHlsJs !== undefined) {
@@ -736,7 +734,6 @@ export function playChunked(
   const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
-  stops.push(tellOfferedRungs(hls, video));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

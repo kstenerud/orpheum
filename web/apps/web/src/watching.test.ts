@@ -3,6 +3,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { dataCapsKey } from "./data-cap.ts";
 import { decisionTimesOf } from "./decision-times.ts";
 import {
   bodyField,
@@ -117,6 +118,30 @@ describe("a playback asked for again because its player gave the film's own pict
     expect(asked.map((request) => bodyField(request, "hasGivenUpOwnPicture"))).toEqual([
       undefined,
       true,
+    ]);
+  });
+});
+
+describe("a playback asked for on a device under a data cap (D488)", () => {
+  afterEach(() => {
+    window.localStorage.removeItem(dataCapsKey);
+  });
+
+  it("asks for the film's ladder, its own file the person chose too, and nothing where no cap holds", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats, { cause: "originalChosen" });
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 1296 }));
+    await watching.decide(7, playableFormats, { cause: "playPage" });
+    await watching.decide(7, playableFormats, { cause: "originalChosen" });
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ wifi: 1296 }));
+    await watching.decide(7, playableFormats, { cause: "playPage" });
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "preferredDelivery"))).toEqual([
+      "direct",
+      "hls",
+      "hls",
+      undefined,
     ]);
   });
 });

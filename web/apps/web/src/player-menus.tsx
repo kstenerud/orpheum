@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
+import { DataCapChoices, useIsCapped } from "./data-cap-choices.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
@@ -335,7 +336,7 @@ export function SubtitlesMenuOf(props: {
 
 /**
  * ⁝ (D407 §8, Q8): Start over, the subtitles' offset, the device's sound timing, levelling, the
- * dialogue boost, the original (its quality entry, D418 §4) and the bare player where they are
+ * dialogue boost, the device's data use where the film plays on its ladder (D488), the original (its quality entry, D418 §4) and the bare player where they are
  * offered, How it plays (D444), and For testers where the player gives it (item 9 of
  * ui-audit-2026-11-04.md). Its
  * steppers' presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
@@ -384,6 +385,7 @@ function MoreMenu(props: {
           <BoostBox state={boost} />
         </ListEntry>
       )}
+      {ways === undefined ? null : <DataCapChoices videoRef={videoRef} />}
       <MoreOfThePage ways={ways} />
       <HowItPlays playback={ways?.playback} />
       {props.onTesters === undefined ? null : (
@@ -416,10 +418,14 @@ export function MoreMenuOf(props: {
   );
 }
 
-/** ⁝'s places the page offers where it may: the original (a debug tool), the bare player. */
+/**
+ * ⁝'s places the page offers where it may: the original (a debug tool), which a device under a data
+ * cap is not offered (D488), and the bare player.
+ */
 function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): JSX.Element {
   const { t } = useTranslation();
-  const onOriginalChosen = props.ways?.onOriginalChosen;
+  const isCapped = useIsCapped();
+  const onOriginalChosen = isCapped ? undefined : props.ways?.onOriginalChosen;
   const onBare = props.ways?.onBare;
   return (
     <>

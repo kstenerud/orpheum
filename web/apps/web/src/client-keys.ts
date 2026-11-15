@@ -50,6 +50,8 @@ const clientKeys = new Set([
   "orpheum.lab.lanAddress",
   // Which face button of a game controller is OK on this browser (controller-choice.ts).
   "orpheum.controller.ok",
+  // This device's data caps, by kind of network (data-cap.ts, D488).
+  "orpheum.dataCaps",
   // Whether the tab sends a cast, so a film it plays goes on to its receiver (cast.ts).
   "orpheum.cast.sending",
   // That the tab receives a cast, for its page loaded again (cast-receiving-mark.ts).

@@ -18,6 +18,7 @@ import { playerSwitchedQualityEvent, startGateOf, type CannotKeepUp } from "@orp
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { useOffersAirPlay, type AirPlayHandOff } from "./airplay.ts";
+import { deviceDataCapKbps } from "./data-cap.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { noteIfStartRefused } from "./start-refused.ts";
 import { monotonicMs } from "./use-together.ts";
@@ -125,6 +126,7 @@ export function useChunkedPlayback(
       ...startOn({ startAtBps, linkSharePercent, steadiness, ...remembered }, startMs),
       monotonicMs,
       outages: pageLinkOutages, // loads deeper after its link was out, in this film or the next (D487)
+      dataCapKbps: deviceDataCapKbps, // within this device's cap, read at each chunk (D488)
     });
     const following = { playbackRef, letGoRef, setPlaying, setCannotKeepUp };
     letGoRef.current = holdPlayback(video, playback, following);

@@ -3222,3 +3222,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when the core's log shows the node's run following the player's requests past its usual 60 s
   ahead (chunkLookaheadSeconds), with no chunk answered 425 for long, and the player's notes show the
   target reached; if the node falls behind, the player waits on 425s where it should have loaded.
+- [ ] **VQ334** — D488's cap holds a phone's data use. On the Android phone, Chrome, after the
+  deploy, over mobile data: in ⋯ choose 0.6 GB per hour under "Data use on mobile data", then play a
+  film from its start for 30 minutes. Passes when the stats show it playing the 1200k rung or lower
+  throughout, never higher, its first chunk too; Android's data use for Chrome grows by about 0.3 GB
+  (no more than a little over); and "Play the original file" is not offered. The tests fake hls.js;
+  only a phone's own count shows the data a film uses.
+- [ ] **VQ335** — A cap chosen mid-film, and lifted. On a laptop over Wi-Fi, a film playing at its top
+  rung: choose the lowest figure in ⋯. Passes when the stats show the next chunk at the lowest rung
+  and the play report's steps say "the device's data cap"; then, No limit chosen, the quality climbs
+  back by the step-up within a minute or so, and "Play the original file" (debug tools shown) is
+  offered again.
+- [ ] **VQ336** — A phone moving between networks mid-film. On the Android phone, Chrome, with a cap
+  of 0.4 GB per hour on mobile data and No limit on Wi-Fi: play a film at home on Wi-Fi at its top
+  rung, then walk out of the Wi-Fi's reach (or turn Wi-Fi off) and back. Passes when ⋯'s line reads
+  "Data use on mobile data" off the Wi-Fi, the next chunk drops to the 700k rung or lower with the
+  step "the device's data cap", and back on Wi-Fi the line reads "Data use on Wi-Fi" and the quality
+  climbs back by the step-up. Only Chrome on Android tells the kind of network; the tests fake it.

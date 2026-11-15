@@ -3,17 +3,23 @@
 
 import "./i18n.ts";
 
-import { act, createRef } from "react";
+import { tellOfferedRungs } from "@orpheum/player";
+import { act, createRef, type RefObject } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
+import { DataCapChoices } from "./data-cap-choices.tsx";
+import { DataCaps, dataCapsKey } from "./data-cap.ts";
+import { DebugToolsContext } from "./debug-tools.tsx";
 import { commandEventName } from "./input-commands.ts";
+import { ListBox } from "./list-box.tsx";
 import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import type { SubtitleTrack, TrackKey } from "./subtitles.tsx";
 import { fire, mount, type Mounted } from "./test-dom.tsx";
+import { FakeConnection, heldStorage } from "./test-data-cap.ts";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -336,3 +342,106 @@ describe("🔈 (D407 §10, Q11)", () => {
     expect(openerNamed("Volume")).toBeUndefined();
   });
 });
+
+/** A video whose player told it the core's default rungs, each with its 96 kb/s sound (D488). */
+function videoOnTheDefaultLadder(): RefObject<HTMLVideoElement | null> {
+  const video = document.createElement("video");
+  const levels = [400, 700, 1200, 2000, 3000, 6000].map((kbps) => ({
+    bitrate: kbps * 1500,
+    averageBitrate: (kbps + 96) * 1000,
+    uri: `q${String(kbps)}k/stream.m3u8`,
+  }));
+  let parsed: (() => void) | undefined = undefined;
+  tellOfferedRungs(
+    {
+      levels,
+      on: (_, listener) => {
+        parsed = listener;
+      },
+    },
+    video,
+  );
+  act(() => {
+    parsed?.();
+  });
+  return { current: video };
+}
+
+describe("⁝'s data use (D488)", () => {
+  afterEach(() => {
+    window.localStorage.removeItem(dataCapsKey);
+  });
+
+  it("lists No limit, then one choice per rung the film is offered, highest first, in GB per hour", async () => {
+    mounted = await mount(
+      withServices(
+        <DebugToolsContext value={{ isShown: true, onChanged: () => undefined }}>
+          <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+            <PlayerMenusContext value={{ ...ways, onOriginalChosen: () => undefined }}>
+              <PlayerMenus
+                videoRef={videoOnTheDefaultLadder()}
+                shown={everyMenu}
+                onOpenChange={() => undefined}
+              />
+            </PlayerMenusContext>
+          </PlayerTracksContext>
+        </DebugToolsContext>,
+      ),
+    );
+    await opened(mounted, "Settings");
+    const perHour = ["2.7", "1.4", "0.9", "0.6", "0.4", "0.2"].map((gb) => `${gb} GB per hour`);
+    expect(places(mounted)).toEqual(expect.arrayContaining(["Data use", "No limit", ...perHour]));
+    const listed = places(mounted);
+    expect(listed.slice(listed.indexOf("Data use"), listed.indexOf("Data use") + 8)).toEqual([
+      "Data use",
+      "No limit",
+      ...perHour,
+    ]);
+    expect(currentPlaces(mounted)).toContain("No limit");
+    expect(places(mounted)).toContain("Play the original file");
+    await choosing(mounted, "0.6 GB per hour");
+    expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 1296 });
+    await opened(mounted, "Settings");
+    expect(currentPlaces(mounted)).toEqual(["0.6 GB per hour"]);
+    // A capped device plays a rung, never the film's own file (the owner, 2026-11-14).
+    expect(places(mounted)).not.toContain("Play the original file");
+  });
+
+  it("offers nothing while the film plays no ladder, its own file", async () => {
+    await drawn(tracksNoting({ subtitles: [], audio: [] }));
+    await opened(mounted!, "Settings");
+    expect(places(mounted!)).not.toContain("No limit");
+  });
+
+  it("names the network its cap is for where the browser says which, and follows the device's move", async () => {
+    const connection = new FakeConnection("cellular");
+    const { storage } = heldStorage();
+    const caps = new DataCaps(storage, connection);
+    caps.choose(496);
+    mounted = await mount(
+      <ListBox isFromItsTop>
+        <DataCapChoices videoRef={videoOnTheDefaultLadder()} caps={caps} />
+      </ListBox>,
+    );
+    const heading = (): string | null | undefined =>
+      mounted?.container.querySelector(".list-box__note")?.textContent;
+    const current = (): (string | null)[] =>
+      [...(mounted?.container.querySelectorAll('[aria-current="true"]') ?? [])].map(
+        (place) => place.textContent,
+      );
+    expect(heading()).toBe("Data use on mobile data");
+    expect(current()).toEqual(["0.2 GB per hour"]);
+    act(() => {
+      connection.moveTo("wifi");
+    });
+    expect(heading()).toBe("Data use on Wi-Fi");
+    expect(current()).toEqual(["No limit"]);
+  });
+});
+
+/** The places of the open list marked as its current choice, by their text. */
+function currentPlaces(on: Mounted): string[] {
+  return [...on.container.querySelectorAll('dialog .list-box [aria-current="true"]')].map(
+    (place) => place.textContent,
+  );
+}

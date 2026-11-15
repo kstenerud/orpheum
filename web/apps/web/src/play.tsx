@@ -38,6 +38,7 @@ import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-devic
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
+import { useIsCapped } from "./data-cap-choices.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import {
   ForTesters,
@@ -619,7 +620,7 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
 }
 
 /**
- * Under the film on its ladder: the original's offer, and its lowest quality's word that it cannot
+ * Under the film on its ladder: the original's offer, where no data cap holds (D488), and its lowest quality's word that it cannot
  * keep up, which goes to a host's session (D247 §8).
  */
 function LadderUnder(
@@ -627,7 +628,7 @@ function LadderUnder(
     FilmParts & {
       readonly ladder: NonNullable<FilmParts["ladder"]>;
     },
-): JSX.Element {
+): JSX.Element | null {
   const { ladder, onCannotKeepUp } = props;
   useEffect(() => {
     onCannotKeepUp(ladder.cannotKeepUp);
@@ -638,7 +639,9 @@ function LadderUnder(
   const playOriginal = decideAgainFor(props, "originalChosen");
   // A cast's remote offers the original too, carried out here as this offer's press (D440 §5).
   useOriginalOfferedToARemote(playOriginal);
-  return <PlayOriginal onChosen={playOriginal} />;
+  // A device under a data cap plays a rung, never the film's own file (D488).
+  const isCapped = useIsCapped();
+  return isCapped ? null : <PlayOriginal onChosen={playOriginal} />;
 }
 
 /**

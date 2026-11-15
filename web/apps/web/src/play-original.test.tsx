@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { JSX } from "react";
 
+import { dataCapsKey } from "./data-cap.ts";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { PlayView } from "./play.tsx";
 import { fire, mount, servedBy, type Mounted } from "./test-dom.tsx";
@@ -68,6 +69,16 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     expect(button).toBeDefined();
     await fire(button ?? null, new MouseEvent("click", { bubbles: true }));
     expect(asked).toEqual(["originalChosen"]);
+  });
+
+  it("is not offered under the film on a device under a data cap, which plays a rung (D488)", async () => {
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 796 }));
+    try {
+      mounted = await onItsLadder(true);
+      expect(mounted.container.textContent).not.toContain("Play the original file");
+    } finally {
+      window.localStorage.removeItem(dataCapsKey);
+    }
   });
 
   it("is a debug tool, offered only to a person who shows them (the owner, 2026-10-29)", async () => {

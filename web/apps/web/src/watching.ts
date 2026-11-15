@@ -4,6 +4,7 @@ import { isWebAudioLate, type ChunkedPlayback } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
+import { deviceDataCapKbps } from "./data-cap.ts";
 import { noteDecisionTimes } from "./decision-times.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
@@ -39,6 +40,25 @@ export interface StartAsked {
 /** How many playbacks this page has asked for since it loaded, which the server logs beside each. */
 const pageStarts = { count: 0 };
 
+/** A person's override of how a film plays, as the API names it. */
+type PreferredDelivery = NonNullable<
+  components["schemas"]["StartPlaybackInputBody"]["preferredDelivery"]
+>;
+
+/**
+ * The delivery a request for a playback prefers, if any: the ladder's under a data cap (D488),
+ * which no choice of the original lifts, else the film's own file where the person chose it.
+ */
+export function preferredDeliveryOf(
+  cause: StartCause,
+  capKbps: number | undefined,
+): { readonly preferredDelivery?: PreferredDelivery } {
+  if (capKbps !== undefined) {
+    return { preferredDelivery: "hls" };
+  }
+  return cause === "originalChosen" ? { preferredDelivery: "direct" } : {};
+}
+
 /** Asks the server how a file plays in this browser, and why it asks; nothing of where it is (D247 §11). */
 export async function requestPlayback(
   api: Api,
@@ -59,8 +79,9 @@ export async function requestPlayback(
         // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
         // wants is its ladder's sound's (D436).
         ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
-        // The person chose the film's own file over its ladder.
-        ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
+        // A device under a data cap plays a rung of its ladder, never the film's own file (D488);
+        // else the person chose the film's own file over its ladder.
+        ...preferredDeliveryOf(asked.cause, deviceDataCapKbps()),
         ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
       },
     }),
@@ -171,6 +192,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
         ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
         monotonicMs,
         loadsAheadAtMostS: preloadAheadS,
+        dataCapKbps: deviceDataCapKbps, // its first chunks within this device's cap (D488)
       });
       stepsOf = () => diagnosisOf(video)?.steps;
     },

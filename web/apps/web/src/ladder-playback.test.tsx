@@ -11,17 +11,24 @@ import { act, useRef, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
+import { dataCapsKey } from "./data-cap.ts";
 import { useChunkedPlayback } from "./ladder-playback.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
-const played = { starts: [] as number[], outages: [] as unknown[], destroyed: 0 };
+const played = {
+  starts: [] as number[],
+  outages: [] as unknown[],
+  dataCaps: [] as ((() => number | undefined) | undefined)[],
+  destroyed: 0,
+};
 
 /** The player's chunked playback, faked: it notes where each playback starts, its outages, its ending. */
 const fakePlayChunked = ((_video, _url, options): ChunkedPlayback => {
   played.starts.push(options.startPositionS);
   played.outages.push(options.outages);
+  played.dataCaps.push(options.dataCapKbps);
   return {
     setAudioRendition: () => undefined,
     canSwitchSoundInPlace: false,
@@ -77,6 +84,7 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
   beforeEach(() => {
     played.starts.length = 0;
     played.outages.length = 0;
+    played.dataCaps.length = 0;
     played.destroyed = 0;
     vi.stubGlobal("WebKitPlaybackTargetAvailabilityEvent", Event);
     Object.defineProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker", {
@@ -110,6 +118,16 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
   it("gives each playback the page's outages, so a film loads deeper after its link was out (D487)", async () => {
     await mountLadder();
     expect(played.outages).toEqual([pageLinkOutages]);
+  });
+
+  it("chooses each chunk under the device's data cap as it is then, chosen or lifted mid-film (D488)", async () => {
+    await mountLadder();
+    const capNow = played.dataCaps[0];
+    expect(capNow?.()).toBeUndefined();
+    window.localStorage.setItem(dataCapsKey, JSON.stringify({ unknown: 796 }));
+    expect(capNow?.()).toBe(796);
+    window.localStorage.removeItem(dataCapsKey);
+    expect(capNow?.()).toBeUndefined();
   });
 
   it("lets hls.js go and gives the element the grant at its place, starting no playback while on AirPlay", async () => {

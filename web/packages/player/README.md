@@ -253,6 +253,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   chooses no quality for depth. Its notes on its link say when it went deeper, for which outage,
   and when it came back. `src/link-outage.ts`; `link-outage.test.ts`, `forward-buffer.test.ts`,
   `abr-link-lost.test.ts`; only a device on a real dead zone shows the whole: VQ330–VQ333.
+- **No choice passes the device's data cap** (D488): `ChoosingOptions.dataCapKbps`, read at each
+  choice, holds the first quality, each next one, the step-up's top and `topLevel` to the highest
+  rung whose average rate, its sound's with it, is within it, or the lowest where none is
+  (`underDataCap`), and never gives the film's own picture under a cap. A cap that appears mid-film
+  lowers the ceiling at the next chunk with its step note; one lifted is climbed back by the
+  step-up. The rungs a cap is chosen from are the master playlist's (`offeredRungsOf`,
+  `playerOfferedRungsEvent`). `src/abr-ceiling.ts`, `src/offered-rungs.ts`; `abr-data-cap.test.ts`;
+  only a device shows the data a film uses: VQ334–VQ336.
 - **A chunked playback notes each stall of its page's main thread of `mainThreadStallAtLeastMs`
   (1 s) or more**, with its linkNotes, naming the player's last events before it (a seek, a quality
   or sound begun, a buffer flushed or run full), at most `mainThreadStallNotesAtMost` a playback:
@@ -304,7 +312,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 [D352](../../../docs/contributors/decisions/working-notes.md) for choosing a quality;
 [forward-buffer-2026-10-29.md](../../../docs/contributors/design/research/forward-buffer-2026-10-29.md)
 for how far ahead it loads, and [D487](../../../docs/contributors/decisions/working-notes.md)
-for how far after its link was out;
+for how far after its link was out; [D488](../../../docs/contributors/decisions/working-notes.md)
+for the device's data cap;
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §1, §3;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 

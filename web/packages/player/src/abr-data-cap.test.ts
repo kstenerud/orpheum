@@ -24,13 +24,14 @@ const withOwnPictureLow = [
 
 /** Climbs as far as the link lets it: a fast link measured, a full buffer, the step-up's looks. */
 function climb(chosen: ReturnType<typeof choosingFrom>, level: number): void {
-  chosen.hls.currentLevel = level;
-  chosen.hls.mainForwardBufferInfo = { len: 60 };
+  const { hls, choosing } = chosen;
+  hls.currentLevel = level;
+  hls.mainForwardBufferInfo = { len: 60 };
   for (let look = 0; look < 30; look += 1) {
-    loadAt(chosen.choosing, chosen.hls.currentLevel, { mbps: 40 });
+    loadAt(choosing, hls.currentLevel, { mbps: 40 });
     scene.nowMs += 60_000;
     vi.advanceTimersByTime(lookForStepUpEveryMs);
-    chosen.hls.currentLevel = chosen.choosing.nextLevel();
+    hls.currentLevel = choosing.nextLevel();
   }
 }
 
