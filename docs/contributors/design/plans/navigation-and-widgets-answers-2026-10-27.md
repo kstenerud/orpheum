@@ -4190,7 +4190,7 @@ that the user knows we're still getting ready to play. Otherwise it's hard to te
 between a video that is paused, hasn't started yet, or is having trouble filling the initial buffer",
 then "At the moment when I start a video playing, I have a black screen. If I tap to bring up the
 overlay, it shows the play button, so it looks like it's paused. That's confusing." Folded in as
-hurting use. Built as the lead proposed, unless the owner says otherwise: one rule for a film meant
+hurting use. Built as the lead proposed, and the owner confirmed it ("Yes it should show the spinner whenever it should be playing but can't"): one rule for a film meant
 to play but waiting for data (its start, the start gate's hold after a seek, a stall): a spinner
 over the picture, and the overlay's button says the film is playing (Pause), so a press pauses it
 for real; a pause the person asked for shows neither. VQ355.
