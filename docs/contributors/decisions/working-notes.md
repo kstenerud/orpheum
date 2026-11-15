@@ -28967,9 +28967,54 @@ where it stands, preferring the ladder, once); TestDirectForWishesOffTheLadder_A
   name to the browser) and the own picture given up (the core's memory); the device itself, its
   grants, and the person's positions and history stay on the core. Proposed to the owner.
 
-## D490 — Reserved: Submenus in the player's ⋯
+## D490 — Submenus in the player's ⋯
 
-**Reserved** (2026-11-15) for submenus in ⋯ (the owner: *"we need support for submenus. Putting everything at the top level is a time bomb."*, and of the lead's proposal: *"Yes those sound good"*); its branch replaces this entry with the decision.
+**Decided** (2026-11-15), by the project owner: *"we need support for submenus. Putting everything
+at the top level is a time bomb."* Of the lead's proposal: *"Yes those sound good"*. Answers D489's
+open item on submenus.
+
+1. **A line of a list can be a submenu's entry** (`ListSubmenu`, web/apps/web/src/list-box.tsx),
+   naming what it holds and its current value, "Data use: 0.6 GB per hour ›". It is the one way a
+   list nests another; any list box takes one, and a submenu can hold another.
+2. **Choosing the entry puts its list in the list's place,** the same pop-up, its first row a back
+   row "‹ Data use" that returns. The list's other lines are hidden, not unmounted, so a stepper or
+   a switch keeps its state; the submenu opens on its current choice, as a chooser does (D408 §3),
+   else on the back row; a return puts focus on the entry. The pop-up is laid at its button again as
+   its contents change (`tellPopoverContentChanged`, web/apps/web/src/popover.tsx), so a longer list
+   stays inside the screen, and a Left or Right the submenu took is not told to the core's log as
+   one that left the pop-up open.
+3. **On a TV,** OK or Right on the entry opens it; Left or Back in the submenu returns to the list,
+   the pop-up open. The browser's Back, which Silk sends for the remote's (idiosyncrasies), returns
+   too, through a hold of the navigation's Back (`holdBack`) while the submenu is open.
+4. **On a phone or laptop,** a tap or a click on the entry opens it, the back row or the system
+   Back returns.
+5. **A choice inside a submenu closes the pop-up,** as a choice in its list does; the entry and the
+   back row keep it open.
+6. **⋯'s data use (D488) is the first submenu,** its entry named for the network as its heading was
+   ("Data use on mobile data: No limit ›"); the heading line it had is gone. Nothing else moves
+   until the owner picks.
+
+**Proven by:** "⁝'s submenus (D490)" (web/apps/web/src/player-menus.test.tsx: a click opens on the
+current choice, the back row first and named "Back to Data use", and returns with focus on the
+entry; OK and Right open, Left and Back return, ⋯ open; the browser's Back returns); "tells nothing
+of a Left that returned from a submenu, the list open (D490)" (web/apps/web/src/drop-down.test.tsx);
+"a submenu taking its list's place on … (D490)" (web/apps/web/src/drop-down.browser.test.tsx: laid
+inside the screen from a short list at its bottom). Only a device shows the D-pad, Silk's Back and
+the look: VQ338, VQ339.
+
+**Open, for the owner:**
+
+- Which of ⋯'s other groups move into submenus. Its lines now: Start over (1); the subtitles'
+  timing (1 line of two buttons, with subtitles on); the device's sound timing (1, with its notes);
+  levelling (2: its switch and its note); the dialogue boost (1); Data use (1, now a submenu);
+  Play the original file (1, debug builds, uncapped); Play in a bare player (1); How it plays (1);
+  For testers (1). The likeliest groups: the two timings and levelling with the boost, as "Sound"
+  and "Subtitles"; the bare player, How it plays and For testers, as "For testers".
+- Escape still closes ⋯ whole, rather than returning from a submenu: the browser's own cancel of
+  the dialog, not a command.
+- Right inside a submenu closes ⋯, as in any list, rather than doing nothing.
+- The back row reads the entry's whole name ("‹ Data use on mobile data"), and is named "Back to
+  Data use on mobile data" to a screen reader.
 
 ## D491 — The film's own picture is one more rung under a data cap
 

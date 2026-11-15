@@ -495,7 +495,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
 - [D488](working-notes.md#d488--a-data-cap-per-device-chosen-in-gb-per-hour) A data cap per device, chosen in GB per hour — *revisited by D489, D491*
 - [D489](working-notes.md#d489--a-capped-device-plays-a-film-with-no-ladder-as-it-is-and-moves-a-playing-one-to-its-ladder) A capped device plays a film with no ladder as it is, and moves a playing one to its ladder
-- [D490](working-notes.md#d490--reserved-submenus-in-the-players-) Reserved: Submenus in the player's ⋯
+- [D490](working-notes.md#d490--submenus-in-the-players-) Submenus in the player's ⋯
 - [D491](working-notes.md#d491--the-films-own-picture-is-one-more-rung-under-a-data-cap) The film's own picture is one more rung under a data cap
 - [D492](working-notes.md#d492--reserved-a-devices-settings-and-memories-kept-on-the-device) Reserved: A device's settings and memories kept on the device
 
