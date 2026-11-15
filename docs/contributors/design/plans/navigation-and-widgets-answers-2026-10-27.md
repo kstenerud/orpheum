@@ -4161,3 +4161,6 @@ it worked". The core's log from 16:23 to 16:24 UTC shows its WebRTC connections 
 answer up to 4 s, a connection back after 56 s with none) and four ended by ICE failing at 16:24:40.
 A home page whose rows' asks failed should ask again when the connection is back, or say what
 failed; which, the owner's. Filed, not folded in: a reload mends it.
+The owner: "Yes have the home page reload": the home page asks again by itself when the connection
+is back. (Its rows come in one read, GET /home, over the connection to the core, after the page's
+code; the libraries reached are a read of their own.)
