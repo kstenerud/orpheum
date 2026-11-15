@@ -223,6 +223,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
 | resource_use | cache.db | TO (measured each minute, kept a month) | no | in cache.db since step 0070 (D426 §9), so the hourly backup can skip an unchanged persistent.db; lost with cache.db: the System page's hours start over |
+| own_picture_given_up (the films whose own picture each device could not play) | persistent.db | TO (a player's report) | yes | in persistent.db (step 0088, D493), so a restart keeps it, where the core's memory lost it; its rows deleted with the device or the file |
 | link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement) | yes | in persistent.db (step 0063, D427), so a release that rebuilds cache.db keeps it; it changes only when a player measures, so the hourly backup still skips an unchanged database; its rows deleted a day after their last word |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |

@@ -9,10 +9,12 @@ RETURNING id;
 -- name: ListLiveDevicesOfUser :many
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
 -- of its sessions, whether any is still live, and whether a live one a code activated (the device
--- scope), which the person's account page names (the device code audit's M4), and its sound offset,
--- which a Watch Together viewer signed in on it starts from. A guest receiver, a Google Cast device
--- signed in for one cast (D465 section 1), is no device of theirs to list.
+-- scope), which the person's account page names (the device code audit's M4), and its settings: its
+-- sound offset, which a Watch Together viewer signed in on it starts from, and its data caps (D493).
+-- A guest receiver, a Google Cast device signed in for one cast (D465 section 1), is no device of
+-- theirs to list.
 SELECT device.id, device.name, device.platform, device.added_at, device.sound_offset_ms,
+  device.data_cap_wifi_kbps, device.data_cap_mobile_kbps, device.data_cap_unknown_kbps,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in,
   CAST(coalesce(max("grant".scope = 'device' AND "grant".revoked_at IS NULL), 0) AS INTEGER) AS is_by_code
@@ -46,6 +48,25 @@ UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 -- negative, for a device that plays one of them late; its person sets it there.
 UPDATE device SET sound_offset_ms = sqlc.arg(sound_offset_ms) WHERE id = sqlc.arg(id);
 
+-- name: SetDeviceDataCaps :exec
+-- The most a film may use on each kind of network a device says it is on, kbit/s, all three at
+-- once; NULL is No limit (D493).
+UPDATE device SET data_cap_wifi_kbps = sqlc.narg(wifi_kbps), data_cap_mobile_kbps = sqlc.narg(mobile_kbps),
+  data_cap_unknown_kbps = sqlc.narg(unknown_kbps)
+WHERE id = sqlc.arg(id);
+
+-- name: KeepOwnPictureGivenUp :exec
+-- A device's player gave a film's own picture up as one it cannot play (D266): kept, when first.
+INSERT INTO own_picture_given_up (device_id, file_id, given_up_at)
+VALUES (sqlc.arg(device_id), sqlc.arg(file_id), sqlc.arg(given_up_at))
+ON CONFLICT (device_id, file_id) DO NOTHING;
+
+-- name: IsOwnPictureGivenUp :one
+-- Whether a device's player gave a film's own picture up, so its playback starts at the twin.
+SELECT CAST(EXISTS (
+  SELECT 1 FROM own_picture_given_up WHERE device_id = sqlc.arg(device_id) AND file_id = sqlc.arg(file_id)
+) AS INTEGER) AS is_given_up;
+
 -- name: RemoveDevice :exec
 -- A device revoked (D218 section 4): it leaves the list, and its sessions end.
 UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
@@ -64,7 +85,8 @@ WHERE device_id = sqlc.arg(device_id) AND kind = 'issued_secret' AND scope = 'de
 
 -- name: GetLiveDeviceOfUser :one
 -- One of a person's devices, when it is theirs and has not been removed.
-SELECT id, name, platform, sound_offset_ms FROM device
+SELECT id, name, platform, sound_offset_ms, data_cap_wifi_kbps, data_cap_mobile_kbps, data_cap_unknown_kbps
+FROM device
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
 -- name: RecordDeviceSignIn :exec

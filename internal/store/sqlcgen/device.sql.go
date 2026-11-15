@@ -10,7 +10,8 @@ import (
 )
 
 const getLiveDeviceOfUser = `-- name: GetLiveDeviceOfUser :one
-SELECT id, name, platform, sound_offset_ms FROM device
+SELECT id, name, platform, sound_offset_ms, data_cap_wifi_kbps, data_cap_mobile_kbps, data_cap_unknown_kbps
+FROM device
 WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
 `
 
@@ -20,10 +21,13 @@ type GetLiveDeviceOfUserParams struct {
 }
 
 type GetLiveDeviceOfUserRow struct {
-	ID            int64
-	Name          string
-	Platform      string
-	SoundOffsetMs int64
+	ID                 int64
+	Name               string
+	Platform           string
+	SoundOffsetMs      int64
+	DataCapWifiKbps    *int64
+	DataCapMobileKbps  *int64
+	DataCapUnknownKbps *int64
 }
 
 // One of a person's devices, when it is theirs and has not been removed.
@@ -35,6 +39,9 @@ func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUs
 		&i.Name,
 		&i.Platform,
 		&i.SoundOffsetMs,
+		&i.DataCapWifiKbps,
+		&i.DataCapMobileKbps,
+		&i.DataCapUnknownKbps,
 	)
 	return i, err
 }
@@ -65,6 +72,43 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const isOwnPictureGivenUp = `-- name: IsOwnPictureGivenUp :one
+SELECT CAST(EXISTS (
+  SELECT 1 FROM own_picture_given_up WHERE device_id = ?1 AND file_id = ?2
+) AS INTEGER) AS is_given_up
+`
+
+type IsOwnPictureGivenUpParams struct {
+	DeviceID int64
+	FileID   int64
+}
+
+// Whether a device's player gave a film's own picture up, so its playback starts at the twin.
+func (q *Queries) IsOwnPictureGivenUp(ctx context.Context, arg IsOwnPictureGivenUpParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isOwnPictureGivenUp, arg.DeviceID, arg.FileID)
+	var is_given_up int64
+	err := row.Scan(&is_given_up)
+	return is_given_up, err
+}
+
+const keepOwnPictureGivenUp = `-- name: KeepOwnPictureGivenUp :exec
+INSERT INTO own_picture_given_up (device_id, file_id, given_up_at)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (device_id, file_id) DO NOTHING
+`
+
+type KeepOwnPictureGivenUpParams struct {
+	DeviceID  int64
+	FileID    int64
+	GivenUpAt int64
+}
+
+// A device's player gave a film's own picture up as one it cannot play (D266): kept, when first.
+func (q *Queries) KeepOwnPictureGivenUp(ctx context.Context, arg KeepOwnPictureGivenUpParams) error {
+	_, err := q.db.ExecContext(ctx, keepOwnPictureGivenUp, arg.DeviceID, arg.FileID, arg.GivenUpAt)
+	return err
 }
 
 const listLiveDevicesOfSessionScope = `-- name: ListLiveDevicesOfSessionScope :many
@@ -110,6 +154,7 @@ func (q *Queries) ListLiveDevicesOfSessionScope(ctx context.Context, scope strin
 
 const listLiveDevicesOfUser = `-- name: ListLiveDevicesOfUser :many
 SELECT device.id, device.name, device.platform, device.added_at, device.sound_offset_ms,
+  device.data_cap_wifi_kbps, device.data_cap_mobile_kbps, device.data_cap_unknown_kbps,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in,
   CAST(coalesce(max("grant".scope = 'device' AND "grant".revoked_at IS NULL), 0) AS INTEGER) AS is_by_code
@@ -130,21 +175,25 @@ type ListLiveDevicesOfUserParams struct {
 }
 
 type ListLiveDevicesOfUserRow struct {
-	ID            int64
-	Name          string
-	Platform      string
-	AddedAt       int64
-	SoundOffsetMs int64
-	LastUsedAt    int64
-	IsSignedIn    int64
-	IsByCode      int64
+	ID                 int64
+	Name               string
+	Platform           string
+	AddedAt            int64
+	SoundOffsetMs      int64
+	DataCapWifiKbps    *int64
+	DataCapMobileKbps  *int64
+	DataCapUnknownKbps *int64
+	LastUsedAt         int64
+	IsSignedIn         int64
+	IsByCode           int64
 }
 
 // A person's devices, most recently used first: when each was last used, by the latest use of any
 // of its sessions, whether any is still live, and whether a live one a code activated (the device
-// scope), which the person's account page names (the device code audit's M4), and its sound offset,
-// which a Watch Together viewer signed in on it starts from. A guest receiver, a Google Cast device
-// signed in for one cast (D465 section 1), is no device of theirs to list.
+// scope), which the person's account page names (the device code audit's M4), and its settings: its
+// sound offset, which a Watch Together viewer signed in on it starts from, and its data caps (D493).
+// A guest receiver, a Google Cast device signed in for one cast (D465 section 1), is no device of
+// theirs to list.
 func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevicesOfUserParams) ([]ListLiveDevicesOfUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveDevicesOfUser, arg.Now, arg.UserID)
 	if err != nil {
@@ -160,6 +209,9 @@ func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevices
 			&i.Platform,
 			&i.AddedAt,
 			&i.SoundOffsetMs,
+			&i.DataCapWifiKbps,
+			&i.DataCapMobileKbps,
+			&i.DataCapUnknownKbps,
 			&i.LastUsedAt,
 			&i.IsSignedIn,
 			&i.IsByCode,
@@ -253,6 +305,31 @@ type RevokeDeviceSecretsOfDeviceParams struct {
 // The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
 func (q *Queries) RevokeDeviceSecretsOfDevice(ctx context.Context, arg RevokeDeviceSecretsOfDeviceParams) error {
 	_, err := q.db.ExecContext(ctx, revokeDeviceSecretsOfDevice, arg.RevokedAt, arg.DeviceID)
+	return err
+}
+
+const setDeviceDataCaps = `-- name: SetDeviceDataCaps :exec
+UPDATE device SET data_cap_wifi_kbps = ?1, data_cap_mobile_kbps = ?2,
+  data_cap_unknown_kbps = ?3
+WHERE id = ?4
+`
+
+type SetDeviceDataCapsParams struct {
+	WifiKbps    *int64
+	MobileKbps  *int64
+	UnknownKbps *int64
+	ID          int64
+}
+
+// The most a film may use on each kind of network a device says it is on, kbit/s, all three at
+// once; NULL is No limit (D493).
+func (q *Queries) SetDeviceDataCaps(ctx context.Context, arg SetDeviceDataCapsParams) error {
+	_, err := q.db.ExecContext(ctx, setDeviceDataCaps,
+		arg.WifiKbps,
+		arg.MobileKbps,
+		arg.UnknownKbps,
+		arg.ID,
+	)
 	return err
 }
 

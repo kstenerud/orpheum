@@ -831,9 +831,20 @@ CREATE TABLE device (                                      -- class A
   sound_offset_ms INTEGER NOT NULL DEFAULT 0 CHECK (sound_offset_ms BETWEEN -2000 AND 2000),  -- migration 0056 (0055's sound_delay_ms): the sound moved later (+) or earlier (-) than its picture
   added_at    INTEGER NOT NULL,
   last_signed_in_at     INTEGER NOT NULL,
-  removed_at    INTEGER
+  removed_at    INTEGER,
+  data_cap_wifi_kbps    INTEGER CHECK (data_cap_wifi_kbps > 0),     -- migration 0088 (D493): the most a film may use on each
+  data_cap_mobile_kbps  INTEGER CHECK (data_cap_mobile_kbps > 0),   -- kind of network, chosen on the device; NULL is No limit;
+  data_cap_unknown_kbps INTEGER CHECK (data_cap_unknown_kbps > 0)   -- its browser keeps a copy and says the kind at a start
 );
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;  -- a person's devices (0015)
+
+CREATE TABLE own_picture_given_up (                         -- class A (migration 0088, D493)
+  device_id   INTEGER NOT NULL REFERENCES device(id) ON DELETE CASCADE,
+  file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE CASCADE,
+  given_up_at INTEGER NOT NULL,                             -- a film whose own picture the device could not play
+  PRIMARY KEY (device_id, file_id)                          -- (D266, D323 §2): its ladder offers it no longer
+) WITHOUT ROWID, STRICT;
+CREATE INDEX own_picture_given_up_file ON own_picture_given_up(file_id);
 
 CREATE TABLE "grant" (                                     -- class A (D154)
   secret_sha256        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
@@ -1445,6 +1456,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
 | `system_library` | persistent.db | `internal/core/library` | the server's own videos' library, found by its kind (D435) |
+| `own_picture_given_up` | persistent.db | `internal/core/playback` | a device's report that it gave up a film's own picture (D266, D493) |
 | `link_memory` | persistent.db | `internal/core/playback` | what each player last said of its link on each network, kept across restarts (D257 §1, D352 Q2; `speeds.go`) |
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
@@ -1507,6 +1519,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `endedCredentialsKeptDays` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
+| Pictures given up | `own_picture_given_up` | one row a device a film whose own picture it could not play; deleted with the device or the file (D493) |
 | Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `linkSpeedFreshHours` (24) is deleted at the next player's word (D257 §1) |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 

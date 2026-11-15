@@ -20,8 +20,8 @@ INSERT INTO user (id, name, role_id, password_hash, admin_note, created_at)
          (2, 'partner', 2, NULL, 'Anna, from the bus station', 1790000000000);
 INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0);
 INSERT INTO node_unconfined_leave (node_id, accepted_by_user_id, accepted_at) VALUES (1, 1, 1790000200000);
-INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at)
-  VALUES (1, 2, 'Living room TV', 'webos', 1790000000000, 1790000100000);
+INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at, data_cap_mobile_kbps)
+  VALUES (1, 2, 'Living room TV', 'webos', 1790000000000, 1790000100000, 1200);
 
 INSERT INTO item (id, kind, filing_library_id, added_at, year, released_on, followed_source, followed_source_id,
     identification_state) VALUES
@@ -114,6 +114,7 @@ INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at,
          (X'02', 'issued_secret', NULL, 'invitation', 1790000000000, 1790600000000, NULL, NULL, NULL, X'0A0B', X'0C0D');
 INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at, steadiness, steadiness_at, said_at)
   VALUES ('device 1', '2001:db8:1:2::/64', 17000, 0.31, 1790000000000, 1, 1790000000000, 1790000000000);
+INSERT INTO own_picture_given_up (device_id, file_id, given_up_at) VALUES (1, 1, 1790000000000);
 INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (1, 'karlnas', X'0A0B', 1790000000000);
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (1, 1790000000000);
