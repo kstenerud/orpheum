@@ -27,7 +27,15 @@ const haveFutureData = 3;
  * still holds: it shows ▶, as before.
  */
 export function isPausedAsAsked(video: HTMLVideoElement): boolean {
-  return video.paused && (video.error !== null || !isWaitingToPlay(video));
+  return video.paused && !isMeantToPlay(video);
+}
+
+/**
+ * Whether video's start gate holds a play for it (isWaitingToPlay, @orpheum/sdk) that can still
+ * come: not once its load failed, which leaves the gate's play pending with nothing to fill its wait.
+ */
+export function isMeantToPlay(video: HTMLVideoElement): boolean {
+  return video.error === null && isWaitingToPlay(video);
 }
 
 /**
@@ -39,7 +47,7 @@ export function isWaitingForData(video: HTMLVideoElement): boolean {
   if (video.error !== null || video.ended) {
     return false;
   }
-  return isWaitingToPlay(video) || (!video.paused && video.readyState < haveFutureData);
+  return isMeantToPlay(video) || (!video.paused && video.readyState < haveFutureData);
 }
 
 /** The video's events at which whether it waits for data is read again. */

@@ -12,11 +12,12 @@
  */
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
-import { isWaitingToPlay, startGateOf } from "@orpheum/sdk";
+import { startGateOf } from "@orpheum/sdk";
 import { useEffect, type RefObject } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
+import { isMeantToPlay } from "./film-waits.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
@@ -30,7 +31,7 @@ import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
  */
 function playOrPause(video: HTMLVideoElement): void {
   seekAheadOf(video).land();
-  if (isWaitingToPlay(video)) {
+  if (isMeantToPlay(video)) {
     startGateOf(video).cancel();
   } else if (video.paused) {
     video.play().catch(() => undefined);
