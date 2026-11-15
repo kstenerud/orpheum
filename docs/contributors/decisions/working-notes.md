@@ -28921,3 +28921,48 @@ uses and a phone's move between networks: VQ334–VQ336.
 - The labels ("Data use", "No limit", "0.6 GB per hour") and the list's place in ⋯, between the
   dialogue boost and the original: ⋯ has no submenu, so the cap's seven lines lengthen it; two
   rungs whose figures round alike would show the same figure twice.
+
+## D489 — A capped device plays a film with no ladder as it is, and moves a playing one to its ladder
+
+**Decided** (2026-11-15), by the project owner, on D488 as built. Of a film playing its own file
+under a cap: *"why does a film playing its original file not cap when we tell it to? It's almost
+the same pathway as you'd get with real limited bandwidth."* Of where the caps are kept: *"if a
+device forgets the server (delete all data about orpheum.cc) and reconnects, can we even associate
+it with the same device records we have from before? If not, then storing per-device data server
+side makes no sense."* Of casting: *"those stay uncapped."* Amends D488 §4 and §6 and three of its
+open items; widens D436's fallback.
+
+1. **A film the core has no ladder for plays as it is on a capped device, rather than refused.**
+   D488 §4's ask for the ladder (`userChoice`) is a wish, as D436's raise is: where only wishes
+   convert a film its device could play as it is and the core finds no ladder (no grid yet, one it
+   cannot cut, no quality offered, a node too slow), it plays the film's own file
+   (`directForWishesOffTheLadder`, internal/core/playback/raise.go). Before, the core answered
+   "this file cannot be converted for this device", so a capped phone could not play a film just
+   added.
+2. **A cap that starts to hold mid-film moves a film playing its own file to its ladder,** from
+   where it stands, as a player that gives the film's own picture up does (D323 §2): the move to
+   mobile data with a cap, or a cap chosen, where none held (`DataCaps.whenCapStarts`,
+   `useWhenACapStarts`; the start's cause `dataCapStarted`). The ask prefers the ladder (D488 §4);
+   where the core still has none it plays the own file on, and nothing asks again until a cap starts
+   to hold again. A film on its ladder needs no move: its next chunk is under the cap (D488 §3).
+3. **The caps stay in the browser's storage.** A device is known to the core only by the id and
+   proof its browser keeps; one whose site data is cleared signs in as a new device, which nothing
+   ties to the old. Kept on the core, a device's settings would be lost exactly when the browser's
+   are. D488 §6's open item, moving them to the core, is dropped.
+4. **A Chromecast's receiver and AirPlay play uncapped,** as D488 left them: decided, no longer open.
+
+**Proven by:** "a cap starting to hold (D489)" (web/apps/web/src/data-cap-start.test.tsx: told once
+where none held, by a change of network or a choice; a film on its own file asked for again from
+where it stands, preferring the ladder, once); TestDirectForWishesOffTheLadder_ACappedDevicePlaysAFilmWithNoLadderAsItIs
+(internal/core/playback/raise_test.go). Only a phone moving between networks shows the move: VQ337.
+
+**Open, for the owner:**
+
+- D488 §4 keeps a capped device off the film's own picture even where its rate is within the cap;
+  the lead proposes it count as one more rung.
+- Submenus in ⋯ (the owner: *"we need support for submenus. Putting everything at the top level is
+  a time bomb."*): the lead's proposed mechanism is with the owner.
+- Moving the core's other per-device records to the device (the owner, 2026-11-15): the sound
+  offset (the device's column), the remembered link (link_memory, keyed by a network the core would
+  name to the browser) and the own picture given up (the core's memory); the device itself, its
+  grants, and the person's positions and history stay on the core. Proposed to the owner.
