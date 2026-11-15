@@ -28966,3 +28966,15 @@ where it stands, preferring the ladder, once); TestDirectForWishesOffTheLadder_A
   offset (the device's column), the remembered link (link_memory, keyed by a network the core would
   name to the browser) and the own picture given up (the core's memory); the device itself, its
   grants, and the person's positions and history stay on the core. Proposed to the owner.
+
+## D490 — Reserved: Submenus in the player's ⋯
+
+**Reserved** (2026-11-15) for submenus in ⋯ (the owner: *"we need support for submenus. Putting everything at the top level is a time bomb."*, and of the lead's proposal: *"Yes those sound good"*); its branch replaces this entry with the decision.
+
+## D491 — Reserved: The film's own picture is one more rung under a data cap
+
+**Reserved** (2026-11-15) for the own picture within a cap (the owner, of the lead's proposal: *"Yes those sound good"*); its branch replaces this entry with the decision.
+
+## D492 — Reserved: A device's settings and memories kept on the device
+
+**Reserved** (2026-11-15) for moving the core's per-device records to the device (the owner: *"We should also move any existing per device records to the device"*); its branch replaces this entry with the decision.
