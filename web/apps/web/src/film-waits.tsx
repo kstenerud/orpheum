@@ -23,10 +23,11 @@ const haveFutureData = 3;
  * person asked for, or a start the browser refused, which a press of play ends. A film its start
  * gate holds until enough is loaded, at its start or after a seek, is meant to play: its controls
  * show Pause, and a press pauses it for good (the owner, 2026-11-15: a film getting ready to play
- * showed ▶, and looked paused).
+ * showed ▶, and looked paused). A film whose load failed waits for nothing, whatever its gate
+ * still holds: it shows ▶, as before.
  */
 export function isPausedAsAsked(video: HTMLVideoElement): boolean {
-  return video.paused && !isWaitingToPlay(video);
+  return video.paused && (video.error !== null || !isWaitingToPlay(video));
 }
 
 /**

@@ -116,6 +116,7 @@ async function openedFromTheFilmsPage(token: string): Promise<HTMLVideoElement> 
         [`POST /playback/${token}/report`]: [204, undefined],
         "GET /files/2/waits": [200, {}],
         "GET /files/2/up-next": [200, {}],
+        "GET /files/2/availability": [200, {}], // a failed load asks why
         [`PUT /playback/${token}/wants`]: [204, null],
         [`DELETE /playback/${token}`]: [204, null],
       }),
@@ -258,6 +259,18 @@ describe("a film getting ready to play shows it (the owner, 2026-11-15)", () => 
     await fire(video, "pause");
     await waitMs(spinnerAfterMs + 50);
     expect(video.paused).toBe(true);
+    expect(isSpinnerShown()).toBe(false);
+    expect(await shownPlayLabel()).toBe("Play");
+  });
+
+  it("whose load failed while it got ready, shows ▶ and no spinner: it waits for nothing", async () => {
+    const video = await openedFromTheFilmsPage("failed");
+    fakeFilm(video);
+    await fire(video, "loadstart"); // the start gate waits, and its play stays pending
+    expect(await shownPlayLabel()).toBe("Pause");
+    Object.defineProperty(video, "error", { get: () => ({ code: 4 }) });
+    await fire(video, "error");
+    await waitMs(spinnerAfterMs + 50);
     expect(isSpinnerShown()).toBe(false);
     expect(await shownPlayLabel()).toBe("Play");
   });

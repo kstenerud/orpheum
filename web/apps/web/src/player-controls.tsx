@@ -379,10 +379,12 @@ export function useVideoSource(
 
 /**
  * The video's events at which a bar reads where the film stands, hidden or shown: the first as soon
- * as it knows its length, and a seek chosen on it as it moves (seekAimedEvent).
+ * as it knows its length, a seek chosen on it as it moves (seekAimedEvent), and a failed load, which
+ * ends a wait to play (isPausedAsAsked).
  */
 const standingEvents = [
   "loadedmetadata",
+  "error",
   "durationchange",
   "play",
   "pause",
