@@ -254,7 +254,7 @@ describe("the Libraries page (D349)", () => {
     expect(mounted.container.querySelector('a[href="/titles/1"]')).not.toBeNull();
   });
 
-  it("defaults an other library's sort to newest recorded, and a films library's to name", async () => {
+  it("defaults an other library's sort to name, as a films library's (D499)", async () => {
     const otherHeard: Heard[] = [];
     mounted = await mountBrowse(
       { library: 5 },
@@ -269,7 +269,7 @@ describe("the Libraries page (D349)", () => {
       otherHeard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect(otherQuery.get("kind")).toBe("other");
-    expect(otherQuery.get("sort")).toBe("recorded");
+    expect(otherQuery.get("sort")).toBe("name");
     mounted.unmount();
 
     const filmsHeard: Heard[] = [];

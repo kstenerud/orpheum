@@ -83,13 +83,14 @@ function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
 }
 
 /**
- * The sorts a kind offers, the first its default (D349 §9.1: an other library's by recorded date);
- * films and series by release date too, not every kind together (D366 §1).
+ * The sorts a kind offers, the first its default: by name for every kind, an other library's too
+ * (D499, replacing D349 §9.1's recorded date); films and series by release date too, not every kind
+ * together (D366 §1).
  */
 function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort[]] {
   switch (kind) {
     case "other":
-      return ["recorded", "name", "fileName", "added"];
+      return ["name", "recorded", "fileName", "added"];
     case "film":
     case "series":
       return ["name", "released", "added"];

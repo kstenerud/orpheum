@@ -694,8 +694,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the sort and a search query all held in its address (`/browse`), so Back and a reload return to
   it; a film library lists its films, a series library its series, a mixed one both, *All libraries*
   everything, each by name or newest first, a film or series library by release date too, each
-  either way; an other library lists its videos by recorded date (the
-  default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
+  either way; an other library lists its videos by name (the
+  default, as every kind's, D499), recorded date, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
   own, with a trail back out (D367); the view and the sort are each a focusable
   drop-down (`src/route-chooser.tsx`, over `drop-down.tsx`), since a native `<select>` is

@@ -29462,3 +29462,18 @@ poster" (*"Let's just show the regular "no poster" to keep things simple"*). Ame
 - 1: web/apps/web/src/continue-watching-art.test.tsx, TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster (internal/core/api/home_art_test.go)
 - 2: web/apps/web/src/series.test.tsx ("shows a season's own poster, else its series', else an episode's still over No poster, else No poster bare (D498 §2)")
 - 3: web/apps/web/src/series.test.tsx ("an episode's picture in its season's list (D497 §2)"), web/apps/web/src/up-next.test.tsx, web/apps/web/src/title-picture-alone.test.tsx, web/apps/web/src/browse.test.tsx
+
+## D499 — An other library lists by name by default, as films and series do
+
+**Decided** (2026-11-16), by the project owner: *"I want libraries of type "other" to default to
+alphabetic sorting like film and series do."* Amends D349 §9.1, whose other library listed newest
+recorded first by default.
+
+**Status:** decided.
+
+1. **An other library's list opens sorted by name**, in the library's locale, as a film or series
+   library's does; recorded date, file name and newest added stay its other sorts, chosen from its
+   sort control and kept in its address as before (D366). The core's own default was already name.
+
+**Proven by:**
+- 1: web/apps/web/src/library-browse.test.tsx ("defaults an other library's sort to name, as a films library's (D499)")
