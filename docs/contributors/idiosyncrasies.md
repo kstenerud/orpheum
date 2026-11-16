@@ -2663,9 +2663,10 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   chunks by quality, so the copy held at the lower one does not count as loaded, and it is loaded again
   [source]. A chunk just after the buffer's end also passes the test within the tolerance, so which of the two
   the bisection returns depends on where it lands [source; the measured switch took the held chunk].
-- **What we do:** the step-down judges each quality by the chunk hls.js loads next at it: the one the picture
-  loaded ends in, and the one after on the quality of the chunk last buffered (`nextChunkOf`,
-  `web/packages/player/src/picture-room.ts`, D464 §3). It still loads again a held chunk where that fits.
+- **What we do:** the stream controller's choice of the next chunk (its `getNextFragment`) is wrapped so a chunk
+  its fragment tracker holds buffered whole at another quality gives the one after it, at the quality it loads
+  (`loadsNoChunkAgain`, `web/packages/player/src/no-chunk-again.ts`, D503 §4); the step-down judges that next
+  chunk (`nextChunkOf`, `web/packages/player/src/picture-room.ts`, D464 §3).
 - **Evidence:** [measured] 2026-11-15, the Fire TV over remote debugging, hls.js's own events: chunk 40 asked
   at level 5 at 190.42 (190.357–200.784) after level 4's buffered to 200.77. [source] hls.js 1.7.3 as above.
   **[web]** no report of this case found (searched 2026-11-15); near ones: [PR

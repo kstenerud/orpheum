@@ -237,10 +237,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   picture, else its average, a made quality's peak over the chunk and its encoder's 2 s,
   `madeBufferS`), and a chunk loads at the quality chosen where it and the chunk held before it fit
   in `roomShareOfBufferLimit` (90%) of the picture buffer's limit, else at the highest below that
-  fits, else at the lowest, each quality judged by the chunk hls.js loads next at it: the one the
-  picture loaded ends in, which a quality it switches to loads again, and on the quality it last
-  loaded the one after (`nextChunkOf`; judged by the next chunk, a Fire TV's switch loaded a held
-  chunk again at 22.8 MB, file 1504, 2026-11-15; idiosyncrasies.md); hls.js's echo of the step-down is no quality forced (D266). The picture
+  fits, else at the lowest, each quality judged by the chunk loaded next: the one after the chunk the
+  picture loaded ends in where any quality holds that one, else it (`nextChunkOf`); a switch of
+  quality, up as well as down, loads no chunk again that it holds at another (D503 §4; a Fire
+  TV's switch loaded a held chunk again at 22.8 MB, file 1504, 2026-11-15; idiosyncrasies.md;
+  `src/no-chunk-again.ts`, `no-chunk-again.test.ts`). hls.js's echo of the step-down is no quality forced (D266). The picture
   is loaded ahead no further than lets the next chunk, at the quality chosen, fit beside what is
   held, even below the 20 s floor, read again at each chunk of picture buffered; at the browser's
   first refusal of a chunk of picture for its memory, the limit becomes the most held at once, if

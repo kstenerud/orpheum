@@ -65,6 +65,7 @@ import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 import { bufferRoomOf, type PictureRoom } from "./picture-room.ts";
+import { loadsNoChunkAgain } from "./no-chunk-again.ts";
 
 export { keptBehindS };
 
@@ -737,6 +738,8 @@ export function playChunked(
     fLoader: chunkLoader(soundShift, config.loader),
     abrController: abr.controller,
   });
+  // A switch loads no chunk of picture again that it holds at another quality (D503 §4).
+  loadsNoChunkAgain(hls);
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);

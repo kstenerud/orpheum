@@ -161,7 +161,7 @@ describe("the quality a chunk loads at, beside the one held before it (D464 §3)
   });
 });
 
-describe("the chunk judged is the one hls.js loads next at each quality (hls.js 1.7.3's findFragmentByPTS)", () => {
+describe("the chunk judged is the one after a chunk held at any quality (D503 §4)", () => {
   /**
    * Chunks 2 to 4 held at the top, 4 a heavy 13 MB, and chunk 5 stepped down to level 2, its picture
    * ending 14 ms short of its playlist's 36 s, as a made quality's did (file 1504, 2026-11-15).
@@ -173,38 +173,30 @@ describe("the chunk judged is the one hls.js loads next at each quality (hls.js 
     return { hls: hlsAt(span), room };
   }
 
-  it("is, on a quality switched to, the chunk the picture's end lies in, which hls.js loads again", () => {
+  it("is, on a quality switched to, the chunk after the one the picture's end lies in, which no switch loads again", () => {
     const { hls, room } = steppedShort();
-    expect(nextChunkOf(hls, 3, room.last())?.sn).toBe(5);
-    // Chunk 5 again at the top, 15 MB beside chunk 4's 13, does not fit: level 2 loads chunk 6.
+    expect(nextChunkOf(hls, room)?.sn).toBe(6);
+    // Chunk 6 at the top, 3 MB beside chunk 5's 4.2, fits: no step-down.
     expect(pairLevel(hls, room, 3)).toEqual({
-      level: 2,
-      chunk: {
-        sn: 5,
-        chosenBytes: 15_000_000,
-        bytes: 4_221_000,
-        beforeBytes: 13_000_000,
-        loadsSn: 6,
-      },
+      level: 3,
+      chunk: { sn: 6, chosenBytes: 3_000_000, bytes: 3_000_000, beforeBytes: 4_221_000 },
     });
-    expect(roomAheadS(hls, room, 3)).toBe(6);
+    expect(roomAheadS(hls, room, 3)).toBeUndefined();
     const steps: string[] = [];
-    expect(new StepDown(hls, room, (each) => steps.push(each)).level(3)).toBe(2);
-    expect(steps).toEqual([
-      "chunk 5 steps down from level 3: 15.0 MB beside 13.0 MB held is over the room's 27.0 MB;" +
-        " level 2's chunk 6, 4.2 MB",
-    ]);
+    expect(new StepDown(hls, room, (each) => steps.push(each)).level(3)).toBe(3);
+    expect(steps).toEqual([]);
   });
 
-  it("is, on the quality of the chunk last buffered, the one after it, however short its picture ends", () => {
+  it("is the chunk the picture's end lies in where the room holds it at no quality, or it was played past", () => {
     const { hls, room } = steppedShort();
-    // hls.js's next-chunk shortcut, within its 0.25 s look-up tolerance.
-    expect(nextChunkOf(hls, 2, room.last())?.sn).toBe(6);
-    // Past the tolerance, its search finds the chunk it last loaded, and it takes the one after.
-    expect(nextChunkOf(hlsAt({ start: 12, end: 35.5 }), 2, room.last())?.sn).toBe(6);
-    // A picture that reaches its playlist's end is followed by the next on every quality.
-    expect(nextChunkOf(hlsAt({ start: 12, end: 36 }), 3, room.last())?.sn).toBe(6);
-    expect(nextChunkOf(hls, 2, undefined)?.sn).toBe(5);
+    // Short of the chunk's end by more than hls.js's tolerance, still the one after it.
+    expect(nextChunkOf(hlsAt({ start: 12, end: 35.5 }), room)?.sn).toBe(6);
+    // A picture that reaches its playlist's end is followed by the next.
+    expect(nextChunkOf(hlsAt({ start: 12, end: 36 }), room)?.sn).toBe(6);
+    // Chunk 6 is held by no room.
+    expect(nextChunkOf(hlsAt({ start: 12, end: 37 }), room)?.sn).toBe(6);
+    expect(nextChunkOf(hls, roomHolding([3, 3, 3]).room)?.sn).toBe(5);
+    expect(nextChunkOf(hlsAt({ start: 35.9, end: 35.986 }), room)?.sn).toBe(5);
   });
 });
 
