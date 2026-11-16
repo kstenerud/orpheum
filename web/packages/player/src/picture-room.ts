@@ -83,27 +83,66 @@ export type LimitStorage = Pick<Storage, "getItem" | "setItem">;
 const limitKey = "orpheum.pictureBufferLimit";
 
 /**
- * A learnt limit kept in storage with userAgent, read back only by the same user agent: a browser
- * updated, or another on the same origin, learns its own. Storage refused or throwing keeps nothing.
+ * How long a learnt limit is kept: it only ever falls, so one learnt from a passing refusal would
+ * hold the device's buffer low for good (D494); a week on, the device learns it again.
  */
-export function limitMemoryIn(storage: LimitStorage | undefined, userAgent: string): LimitMemory {
+export const learntLimitKeptMs = 7 * 24 * 60 * 60 * 1000;
+
+/** Of a kept limit, its bytes and when it was learnt; undefined where it is not a limit. */
+function keptLimitOf(
+  kept: object,
+): { readonly bytes: number; readonly learntAtMs: number } | undefined {
+  const bytes: unknown = Reflect.get(kept, "bytes");
+  const learntAtMs: unknown = Reflect.get(kept, "learntAtMs");
+  return typeof bytes === "number" && bytes > 0 && typeof learntAtMs === "number"
+    ? { bytes, learntAtMs }
+    : undefined;
+}
+
+/**
+ * A learnt limit kept in storage with userAgent and when it was learnt, read back only by the same
+ * user agent within learntLimitKeptMs: a browser updated, or another on the same origin, learns its
+ * own. Storage refused or throwing keeps nothing. A kept value that is no limit's is said, through
+ * told, and read as none (D494).
+ */
+export function limitMemoryIn(
+  storage: LimitStorage | undefined,
+  device: {
+    readonly userAgent: string;
+    readonly nowMs: () => number;
+    readonly told: (note: string) => void;
+  },
+): LimitMemory {
+  const { userAgent, nowMs, told } = device;
   return {
     read: () => {
+      let kept: unknown;
       try {
-        const kept: unknown = JSON.parse(storage?.getItem(limitKey) ?? "null");
-        if (typeof kept !== "object" || kept === null) {
-          return undefined;
-        }
-        const bytes: unknown = Reflect.get(kept, "bytes");
-        const agent: unknown = Reflect.get(kept, "userAgent");
-        return agent === userAgent && typeof bytes === "number" && bytes > 0 ? bytes : undefined;
+        kept = JSON.parse(storage?.getItem(limitKey) ?? "null");
       } catch {
+        told("picture buffer limit: the kept one is not JSON, and is none");
         return undefined;
       }
+      if (kept === null) {
+        return undefined;
+      }
+      if (typeof kept !== "object") {
+        told("picture buffer limit: the kept one is not a limit, and is none");
+        return undefined;
+      }
+      if (Reflect.get(kept, "userAgent") !== userAgent) {
+        return undefined;
+      }
+      const limit = keptLimitOf(kept);
+      if (limit === undefined) {
+        told("picture buffer limit: the kept one is not a limit, and is none");
+        return undefined;
+      }
+      return nowMs() - limit.learntAtMs < learntLimitKeptMs ? limit.bytes : undefined;
     },
     write: (bytes) => {
       try {
-        storage?.setItem(limitKey, JSON.stringify({ userAgent, bytes }));
+        storage?.setItem(limitKey, JSON.stringify({ userAgent, bytes, learntAtMs: nowMs() }));
       } catch {
         // Nothing kept: the next playback learns again.
       }

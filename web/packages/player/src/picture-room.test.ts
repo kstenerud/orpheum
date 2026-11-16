@@ -8,6 +8,7 @@ import { orpheumAbr } from "./abr-controller.ts";
 import {
   bufferRoomOf,
   chunkBytesAt,
+  learntLimitKeptMs,
   limitMemoryIn,
   nextChunkOf,
   pairLevel,
@@ -85,13 +86,24 @@ const silk = "Mozilla/5.0 (Linux; Android 9; AFTSSS Build/PS7633) Silk/138";
  */
 function roomHolding(
   megabytes: readonly [number, number, number],
-  options: { readonly storage?: LimitStorage; readonly userAgent?: string } = {},
+  options: {
+    readonly storage?: LimitStorage;
+    readonly userAgent?: string;
+    readonly nowMs?: number;
+  } = {},
 ): { readonly room: PictureRoom; readonly notes: string[] } {
   const notes: string[] = [];
+  const told = (note: string): void => {
+    notes.push(note);
+  };
   const room = new PictureRoom({
     assumedBytes: 30_000_000,
-    memory: limitMemoryIn(options.storage ?? storageOf(), options.userAgent ?? silk),
-    note: (note) => notes.push(note),
+    memory: limitMemoryIn(options.storage ?? storageOf(), {
+      userAgent: options.userAgent ?? silk,
+      nowMs: () => options.nowMs ?? 0,
+      told,
+    }),
+    note: told,
   });
   megabytes.forEach((each, index) => {
     const sn = index + 2;
@@ -250,11 +262,27 @@ describe("the buffer's limit learnt on the device (D464 §2)", () => {
     refusing.room.refused();
     expect(refusing.room.limitBytes()).toBe(15_000_000);
     expect(roomHolding([1, 1, 1], { storage: storageOf(true) }).room.limitBytes()).toBe(30_000_000);
-    const odd = storageOf();
-    odd.kept.set("orpheum.pictureBufferLimit", "[not json");
-    expect(limitMemoryIn(odd, silk).read()).toBeUndefined();
-    odd.kept.set("orpheum.pictureBufferLimit", JSON.stringify({ userAgent: silk, bytes: "1" }));
-    expect(limitMemoryIn(odd, silk).read()).toBeUndefined();
+  });
+
+  // A limit learnt from a passing refusal only ever fell, so it held the device's buffer low for
+  // good; a kept one gone bad was read as none without a word (D494).
+  it("is learnt again a week on, and a kept one that is no limit's is said and read as none", () => {
+    const storage = storageOf();
+    roomHolding([5, 5, 5], { storage, nowMs: 1000 }).room.refused();
+    const dayBefore = roomHolding([1, 1, 1], { storage, nowMs: 1000 + learntLimitKeptMs - 1 });
+    expect(dayBefore.room.limitBytes()).toBe(15_000_000);
+    const weekOn = roomHolding([1, 1, 1], { storage, nowMs: 1000 + learntLimitKeptMs });
+    expect([weekOn.room.limitBytes(), weekOn.notes]).toEqual([30_000_000, []]);
+    for (const bad of [
+      "[not json",
+      "7",
+      JSON.stringify({ userAgent: silk, bytes: "1", learntAtMs: 0 }),
+      JSON.stringify({ userAgent: silk, bytes: 1 }),
+    ]) {
+      storage.kept.set("orpheum.pictureBufferLimit", bad);
+      const odd = roomHolding([1, 1, 1], { storage });
+      expect([odd.room.limitBytes(), odd.notes.length]).toEqual([30_000_000, 1]);
+    }
   });
 });
 
@@ -291,7 +319,11 @@ describe("the bitrate controller's step-down inside hls.js (D464 §3)", () => {
   function playing(): { readonly hls: Hls; readonly abr: ReturnType<typeof orpheumAbr> } {
     const room = new PictureRoom({
       assumedBytes: 30_000_000,
-      memory: limitMemoryIn(storageOf(), silk),
+      memory: limitMemoryIn(storageOf(), {
+        userAgent: silk,
+        nowMs: () => 0,
+        told: () => undefined,
+      }),
       note: () => undefined,
     });
     const abr = orpheumAbr(

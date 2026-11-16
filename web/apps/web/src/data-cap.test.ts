@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { sendFailuresTo } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -76,13 +77,25 @@ describe("a device's data caps (D488)", () => {
     expect(caps.capKbps()).toBeUndefined();
   });
 
-  it("read anything kept that is not a rate as none", () => {
+  // A copy gone bad was read as none without a word to the core's log (D494).
+  it("read anything kept that is not a rate as none, and tell the core's log", () => {
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
     const { storage, held } = heldStorage();
     const caps = new DataCaps(storage, undefined);
-    for (const kept of ["{", "7", "null", '{"unknown":-5}', '{"unknown":"1296"}']) {
+    const bad = ["{", "7", "null", '{"unknown":-5}', '{"unknown":"1296"}'];
+    for (const kept of bad) {
       held.set(dataCapsKey, kept);
       expect(caps.capKbps()).toBeUndefined();
+      expect(caps.capKbps()).toBeUndefined();
+      expect(held.has(dataCapsKey)).toBe(false);
     }
+    held.set(dataCapsKey, '{"unknown":1296}');
+    expect(caps.capKbps()).toBe(1296);
+    sendFailuresTo(() => undefined);
+    expect(sent.filter((text) => text.startsWith("the device's kept data caps"))).toHaveLength(
+      bad.length,
+    );
   });
 });
 

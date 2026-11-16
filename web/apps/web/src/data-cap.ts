@@ -94,15 +94,37 @@ export function coreDataCapsOf(caps: CapsByKind): CoreDataCaps {
 /** Keeps a device's caps on the core: a PUT of /me/devices/{id} (setMyDeviceDataCaps). */
 export type KeepOnCore = (caps: CoreDataCaps) => Promise<void>;
 
-/** The caps kept in storage, by kind; a value that is not a positive rate is none. */
+/**
+ * The caps kept in storage, by kind; a value that is not a positive rate is none. A copy that holds
+ * one is gone bad (D494): it is said to the core's log and dropped, so said once.
+ */
 function capsIn(storage: StringStorage): CapsByKind {
   let kept: unknown;
   try {
     kept = JSON.parse(storage.getItem(dataCapsKey) ?? "{}");
-  } catch {
+  } catch (error: unknown) {
+    // A copy gone bad reads as none until the core's settles it (D494), and is said.
+    reportFailure(
+      `the device's kept data caps are not JSON, and are none (${String(error)})`,
+      "Orpheum:",
+    );
+    storage.removeItem(dataCapsKey);
     return {};
   }
-  return positiveRatesOf(kept);
+  const caps = positiveRatesOf(kept);
+  // Only positive rates are ever kept (#keepHere), so anything else there is a copy gone bad.
+  if (
+    typeof kept !== "object" ||
+    kept === null ||
+    Object.keys(kept).length !== Object.keys(caps).length
+  ) {
+    reportFailure(
+      `the device's kept data caps hold what is no cap, read as none: ${JSON.stringify(kept)}`,
+      "Orpheum:",
+    );
+    storage.removeItem(dataCapsKey);
+  }
+  return caps;
 }
 
 /** Of kept, by kind, each value that is a positive rate. */

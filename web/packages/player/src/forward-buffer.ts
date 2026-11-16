@@ -202,7 +202,11 @@ export function bufferLimitKindOf(device: DeviceFacts): BufferLimitKind {
 export function pictureRoomOf(device: DeviceFacts, note: (note: string) => void): PictureRoom {
   return new PictureRoom({
     assumedBytes: videoLimitBytes[bufferLimitKindOf(device)],
-    memory: limitMemoryIn(browserStorage(), device.userAgent),
+    memory: limitMemoryIn(browserStorage(), {
+      userAgent: device.userAgent,
+      nowMs: Date.now,
+      told: note,
+    }),
     note,
   });
 }

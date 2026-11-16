@@ -63,9 +63,15 @@ export function newerClientOver(
         return false;
       }
       try {
-        const files = await keptClientFiles(window.caches);
+        const files = await keptClientFiles(window.caches, (note) => {
+          reportFailure(note, "Orpheum:");
+        });
         return files.size > 0 && !files.has(path);
-      } catch {
+      } catch (error: unknown) {
+        reportFailure(
+          `the client's files' kept list could not be read: ${String(error)}`,
+          "Orpheum:",
+        );
         return false;
       }
     },

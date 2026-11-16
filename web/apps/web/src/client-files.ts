@@ -36,17 +36,30 @@ export const clientFilesListKey = "/__orpheum/client-files";
  * (sw.ts); none where no loader ever named them. The page reads it too: a screen's code the list no
  * longer names is an older client's (screen-load.tsx).
  */
-export async function keptClientFiles(caches: CacheStorage): Promise<Map<string, string>> {
-  const kept = await (await caches.open(clientFilesCache)).match(clientFilesListKey);
-  const pairs: unknown = kept === undefined ? [] : await kept.json();
-  return new Map(
-    Array.isArray(pairs)
-      ? pairs.filter(
-          (pair): pair is [string, string] =>
-            Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string",
-        )
-      : [],
+export async function keptClientFiles(
+  caches: CacheStorage,
+  told: (note: string) => void,
+): Promise<Map<string, string>> {
+  const cache = await caches.open(clientFilesCache);
+  const kept = await cache.match(clientFilesListKey);
+  const pairs: unknown = kept === undefined ? [] : await kept.json().catch(() => undefined);
+  if (!Array.isArray(pairs)) {
+    // A list gone bad (D494) is dropped: as none, the files go to the network until a loader names
+    // them again.
+    await cache.delete(clientFilesListKey);
+    told("the client's files' kept list was not a list, and is dropped");
+    return new Map();
+  }
+  const files = pairs.filter(
+    (pair): pair is [string, string] =>
+      Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string",
   );
+  if (files.length !== pairs.length) {
+    told(
+      `the client's files' kept list held ${String(pairs.length - files.length)} entries that are not a file's`,
+    );
+  }
+  return new Map(files);
 }
 
 /** Where the client's files are loaded from: Vite's assets, apart from the loader's own. */

@@ -179,9 +179,7 @@ function mediaAnswer(worker: WorkerScope, event: FetchEventLike, url: URL): Prom
       event.waitUntil(work);
     },
     told: (note) => {
-      void worker.clients.get(event.clientId).then((page) => {
-        tellPage(page, note);
-      });
+      void tellAPage(worker, event.clientId, note);
     },
   });
 }
@@ -256,6 +254,18 @@ async function carriedUnderALoader(worker: WorkerScope, event: FetchEventLike): 
   );
   const { pathname } = new URL(event.request.url);
   return new Response(`${pathname} is the server's, and ${why} to fetch it over`, { status: 502 });
+}
+
+/**
+ * Tells the page that made a load, else any page of the worker's, a note for its log: a kept copy
+ * that broke what it must hold, which no page might otherwise see, is told every time (D494). A
+ * note while no page is open is lost.
+ */
+async function tellAPage(worker: WorkerScope, clientId: string, note: string): Promise<void> {
+  const page =
+    (clientId === "" ? undefined : await worker.clients.get(clientId)) ??
+    (await worker.clients.matchAll({ type: "window" }))[0];
+  tellPage(page, note);
 }
 
 /** Tells page, when there is one, a note on its media's path, for its log (PathNoteMessage). */
@@ -343,7 +353,9 @@ async function clientFilesOf(
   if (clientFiles !== undefined && !read.isReadAgain) {
     return clientFiles;
   }
-  clientFiles = await keptClientFiles(worker.caches);
+  clientFiles = await keptClientFiles(worker.caches, (note) => {
+    void tellAPage(worker, "", `the service worker: ${note}`);
+  });
   return clientFiles;
 }
 
@@ -388,7 +400,16 @@ async function clientFile(
   const key = `/__orpheum/sha256/${sha256}`;
   const kept = await cache.match(key);
   if (kept !== undefined) {
-    return kept;
+    // Kept only once its hash was right, and assumed to go bad one day all the same (D494).
+    if ((await sha256Of(await kept.clone().arrayBuffer())) === sha256) {
+      return kept;
+    }
+    await cache.delete(key);
+    await tellAPage(
+      worker,
+      event.clientId,
+      `the service worker dropped a kept client file that is no longer the one signed (${sha256}), and fetched it again`,
+    );
   }
   const { page, fetched } = await fetchedForClientAskedTwice(worker, event);
   const bytes = await fetched.arrayBuffer();
@@ -482,7 +503,14 @@ async function keptLoaderFile(
   const fresh = networkFetch(event.request).then(
     async (answer) => {
       if (answer.ok) {
-        await cache.put(key, answer.clone());
+        // A copy the browser would not keep leaves the one before, and the answer stands (D494).
+        await cache.put(key, answer.clone()).catch(async (error: unknown) => {
+          await tellAPage(
+            worker,
+            event.clientId,
+            `the service worker could not keep the loader's ${key}: ${String(error)}`,
+          );
+        });
       }
       return answer;
     },

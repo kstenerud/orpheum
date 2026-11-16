@@ -8,12 +8,13 @@ import {
 } from "@orpheum/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { sha256Of } from "./client-files.ts";
+import { clientFilesCache, clientFilesListKey, sha256Of } from "./client-files.ts";
 import { keptImagesCache, keptImagesMost } from "./kept-images.ts";
 import {
   answer,
   answeringLate,
   askWaitMs,
+  cachesOf,
   load,
   nameFiles,
   pageOf,
@@ -182,6 +183,78 @@ describe("the service worker under a loader (D308 §6)", () => {
     const kept = await load(again, "/assets/client-main.js", { by: "p" });
     expect(new Uint8Array(await (kept ?? Response.error()).arrayBuffer())).toEqual(script);
     expect(again.network).not.toHaveBeenCalled();
+  });
+
+  // A kept client file was answered as kept for good, though its bytes went bad: every load after
+  // failed the same way, and no log said why (D494).
+  it("drops a kept client file that is no longer the signed one, fetches it again and tells the page's log", async () => {
+    const page = pageOf("p", "webrtc", () => Promise.resolve(answer(script)));
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+    stores.get(clientFilesCache)?.set(`/__orpheum/sha256/${sha256}`, answer("console.log('cut"));
+
+    const afresh = await load(worker, "/assets/client-main.js", { by: "p" });
+    expect(new Uint8Array(await (afresh ?? Response.error()).arrayBuffer())).toEqual(script);
+    const keptAgain = await load(worker, "/assets/client-main.js", { by: "p" });
+    expect(new Uint8Array(await (keptAgain ?? Response.error()).arrayBuffer())).toEqual(script);
+    expect(page.asked).toEqual(["/assets/client-main.js"]);
+    expect(page.notes).toEqual([
+      `the service worker dropped a kept client file that is no longer the one signed (${sha256}), and fetched it again`,
+    ]);
+  });
+
+  // A list gone bad failed every load of the client's files, unsaid (D494).
+  it("drops a kept list of the client's files that is not a list, and tells a page's log", async () => {
+    stores.set(clientFilesCache, new Map([[clientFilesListKey, answer("[not json")]]));
+    const page = pageOf("p", "http", () => Promise.reject(new Error("no path")));
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn(() => Promise.resolve(answer("the page"))),
+    );
+
+    expect(await (await load(worker, "/assets/client-main.js", { by: "p" }))?.text()).toBe(
+      "the page",
+    );
+    await vi.waitFor(() => {
+      expect(page.notes).toEqual([
+        "the service worker: the client's files' kept list was not a list, and is dropped",
+      ]);
+    });
+    expect(stores.get(clientFilesCache)?.has(clientFilesListKey)).toBe(false);
+  });
+
+  // A put the browser refused (its storage full) failed the loader's own answer, unsaid (D494).
+  it("answers the loader's file the browser would not keep, and tells the page's log", async () => {
+    const page = pageOf("p", "http", () => Promise.reject(new Error("no path")));
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn(() => Promise.resolve(answer("body{}"))),
+    );
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    const keeping = cachesOf(stores);
+    vi.stubGlobal("caches", {
+      open: async (name: string) => {
+        const cache = await keeping.open(name);
+        cache.put = () => Promise.reject(new Error("QuotaExceededError"));
+        return cache;
+      },
+    });
+
+    expect(await (await load(worker, "/assets/loader-a1b2.css", { by: "p" }))?.text()).toBe(
+      "body{}",
+    );
+    await vi.waitFor(() => {
+      expect(page.notes).toEqual([
+        "the service worker could not keep the loader's /assets/loader-a1b2.css: Error: QuotaExceededError",
+      ]);
+    });
   });
 
   it("finds a client's file the loader named to another worker of the origin, never answering it with the discovery's 404 (the owner's Chrome, 2026-10-29)", async () => {

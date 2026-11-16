@@ -11,9 +11,6 @@ holes, [process-review-2026-10-26.md](design/research/process-review-2026-10-26.
 
 | Debt | The tax | The fix | Found |
 | --- | --- | --- | --- |
-| D494: the service worker's kept client file is answered as kept for good (`clientFile`, sw.ts): never hashed again, and a screen's or part's retry (`?asked=`) and its reload get the same copy | a kept file gone bad leaves a screen black or "failed to load" until the site's data is cleared, and nothing tells the core's log | a load with a query drops the kept file, tells the page's log (`tellPage`) and fetches and checks it afresh; `loadScreenCode` retries with a query, as `loadPart` does | 2026-11-16 |
-| D494: the loader page's fetch behind (`keptLoaderFile`/`loaderPage`, sw.ts) catches a failed fetch but not a failed `cache.put`, which rejects the race | a full or refused cache can fail the page's opening though a kept page exists (read from the code, not run) | catch the `put`, tell the page's log | 2026-11-16 |
-| D494: silent resets: corrupt `orpheum.dataCaps` reads as no caps (`capsIn`, data-cap.ts), a malformed client-files list as none (`keptClientFiles`); the learned picture-buffer limit (picture-room.ts) never expires and only falls | each heals or degrades unseen; a limit learned under memory pressure caps the device for good | `reportFailure` in each catch; an expiry for the learned limit | 2026-11-16 |
 | Revert-red cannot narrow a wiring change (`NewServer`, `assembly.Build`): every API test runs | each such probe costs the whole package | a recorded per-test coverage run, nightly or on demand (owner's call) | 2026-10-26 |
 | The locale probe trusts only literal keys; `en-settings.ts`' keys are built at run time | its probes run the whole related set (~34 s) | trust a template literal's fixed prefix | 2026-10-26 |
 | `scripts/check_revert_red.py` is at 796 of its 800 lines | the next change must split it first | move a part (the outcome reporting) to its own module | 2026-10-27 |

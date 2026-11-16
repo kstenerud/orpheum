@@ -29286,3 +29286,19 @@ image answered every load of its address, the page's asking again after a failur
    worker keeps behind its answer kept half an image. A load called off now fails its body.
 4. **The other copies are checked against §1:** one that cannot heal itself is fixed, or
    recorded in code-debt.md until it is.
+5. **Every break of what a kept copy must hold is told to the core's log, seen or not** (the
+   owner, 2026-11-16: *"We should also log every time the cache breaks an invariant, so that we
+   have a record and can fix things from the logs. Not all cache failures will be visible."*). A
+   copy that is not what was kept (a client file whose hash is no longer the signed one, a list or
+   a setting that does not parse, a value no code writes), a copy the browser refused to keep, and
+   a copy dropped for any of these each send a line to the core's log, from the page through
+   `reportFailure`, from the worker through the page it tells (`tellPage`). Each line names the
+   cache and what was wrong. A bad copy is dropped as it is told, so it is told once, not at every
+   read. A copy kept for a time is given an end: the learnt picture-buffer limit (D464 §2), which
+   only ever falls, is learnt again a week on (`learntLimitKeptMs`, picture-room.ts).
+6. **What was built for §4–5** (2026-11-16): the worker hashes a kept client file again before
+   answering it, and drops, tells and fetches afresh one that no longer matches (sw.ts
+   `clientFile`); the loader's files the browser would not keep are still answered, and told
+   (`keptLoaderFile`); a client-files list that is not a list is dropped and told
+   (client-files.ts); the device's data caps copy that is not caps is dropped and told
+   (data-cap.ts); a kept buffer limit that is not one is told, and an old one expires.
