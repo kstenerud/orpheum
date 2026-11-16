@@ -29499,3 +29499,74 @@ and the player stepped over the whole film.
 **Proven by:**
 - 1: TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyframe (internal/node/chunks/avi_integration_test.go); file 17099 played as a copy on staging (the owner, 2026-11-16, "it plays now")
 - 2: TestStartOnLadder_APictureWhoseCopyCannotBeMadeStartsAtItsTwin (internal/core/chunks), web/packages/player/src/skip-unmade.test.ts
+
+## D501 — A film started below the original its person chose moves up once, after a minute of the link at 1.3 times the file, and says so in ⋯
+
+**Decided** (2026-11-16), by the project owner, of the morning's question 2 ("Moving back up to the
+original mid-film"): take the research's rule, options 2 and 4 of
+[competitors-2026-11-16.md §2](../design/research/competitors-2026-11-16.md#2-moving-back-up-to-the-original-after-starting-low).
+Amends the 11-27 batch's move up to the original (`originalAfterLinkCarriesMs`, 30 s of the link
+carrying the file by the ladder's share), the lead's stand-in until this answer.
+
+**Status:** decided.
+
+1. **The move waits for about 60 s of the link carrying at least 1.3 times the file's average rate**
+   (the decision's `fileBitRateKbps`), with the film's buffer full; a look the link falls short at
+   starts the wait again, and a data cap under the file still holds it back (D489).
+2. **One try per film.** A try that fails (the player moves down from the original within two
+   minutes) ends the moves up for that film's playback.
+3. **⋯ says it.** While the film waits on its ladder for the original, ⋯'s line says it plays its
+   rung until the link carries the original; once moved, it says the original.
+
+## D502 — A film's start asks its requests together where they wait on one another today
+
+**Decided** (2026-11-16), by the project owner, of the morning's question 6 (the chain of requests
+from Play to the first frame, measured on the Fire TV and the Pixel on 2026-11-15): proposals (c),
+(b), (a), (d) and (e) of the measurements, in that order, (c) first.
+
+**Status:** decided.
+
+1. **(c) The master playlist's slow first byte over WebRTC (255–420 ms, where the variant playlists
+   take 36–99 ms) is found before (a) is built**: if it is the core's work, (a) moves that work into
+   the decision rather than removing it.
+2. **(b) The start asks for its first two picture chunks together** (or one first chunk long enough
+   for the start's gate), so the gate does not wait on one chunk at a time.
+3. **(a) The decision answers the master and the starting variant's playlists inline**, and the
+   player hands them to hls.js as loaded.
+4. **(d) A media request on the direct path needs no CORS preflight** (the token in the path and no
+   `Authorization` header, as the media URLs already carry one, or an `Access-Control-Max-Age` where
+   the core sends none).
+5. **(e) A Play page reached from a film page that preloaded the film takes the preload over**, not
+   loading it again from the core.
+
+## D503 — A quality switch never loads again a chunk it already holds, and a step-down is not caught by a chunk not made yet
+
+**Decided** (2026-11-16), by the project owner, of the morning's question 6's step-down proposals
+(g), (h), (i) and (f) variant 2, left after "fix(player): a step-down judges the chunk hls.js loads
+next, not one past it".
+
+**Status:** decided.
+
+1. **(g) An encoded rung's chunks end where its playlist says they do**, so a buffered end a few
+   milliseconds short of a chunk's end no longer makes the player judge the wrong chunk.
+2. **(h) A step-down does not lose its margin to a 425**: it asks for a chunk the node already has,
+   or the rung's encode starts when the step-down is foreseen, one chunk ahead.
+3. **(i) A stepped-down chunk that failed is asked again at its stepped level or lower**, never
+   higher while less than one chunk is ahead.
+4. **(f), variant 2: a switch, up as well as down, never loads again a chunk already buffered.**
+
+## D504 — A field a provider left empty is asked for again when someone looks at it, at most weekly for a recent work and monthly for an older one
+
+**Decided** (2026-11-16), by the project owner, of the morning's question 4 (D335's field-level
+part): ask only on interest, with a minimum time between asks per title, not per field; then, of
+the lead's proposed intervals, "sounds fine"; and, when asking, fetch all of the title's missing
+fields at once where one request gives them. Amends D335, whose sweeps were to fill such fields in.
+
+**Status:** decided.
+
+1. **A visit to a page that shows a title's fields asks its provider again for the ones it left
+   empty**, and nothing else does.
+2. **At most once per title per interval**: 7 days for a work less than a year old, 30 days for an
+   older one (or one of no known date).
+3. **One ask fills every missing field a single request of the provider gives**, not one ask per
+   field.
