@@ -29,6 +29,8 @@ export function PosterCard(props: {
    * (D349 §9.1), whose own Still already shows a named blank where it has none.
    */
   readonly art?: ReactNode;
+  /** Whether that art stands centred in a poster's height: a still in a row with a poster (D495 §4). */
+  readonly isArtInPosterHeight?: boolean;
   readonly name: string;
   /** The lines under the name: a year, a file's name, why it cannot play now. */
   readonly details?: ReactNode;
@@ -60,17 +62,15 @@ export function PosterCard(props: {
     actions,
     watch,
   } = props;
-  const linkClass =
-    isDimmed === true ? "poster-card__link poster-card__link--dimmed" : "poster-card__link";
   return (
     <li ref={watch} className="poster-card">
       <Link
         to={to}
-        className={linkClass}
+        className={linkClassOf(isDimmed === true)}
         isCurrent={props.isCurrent === true}
         isReplacing={props.isReplacing === true}
       >
-        <span className="poster-card__art">
+        <span className={artClassOf(props.isArtInPosterHeight === true)}>
           {art ?? (
             <Poster
               sourceSha256={posterSha256}
@@ -102,4 +102,14 @@ export function PosterDetail(props: {
       {props.children}
     </span>
   );
+}
+
+/** The class of a card's link: faded for one that cannot play now. */
+function linkClassOf(isDimmed: boolean): string {
+  return isDimmed ? "poster-card__link poster-card__link--dimmed" : "poster-card__link";
+}
+
+/** The class of a card's art: in a poster's height, a still in a row with a poster (D495 §4). */
+function artClassOf(isInPosterHeight: boolean): string {
+  return isInPosterHeight ? "poster-card__art poster-card__art--poster-height" : "poster-card__art";
 }

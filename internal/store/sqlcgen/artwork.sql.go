@@ -318,7 +318,7 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
       AND shown.source != 'frame'
       AND ((work.kind = 'movie' AND shown.kind IN ('poster', 'backdrop'))
         OR (work.kind = 'episode' AND shown.kind = 'still')
-        OR (work.kind = 'other' AND shown.kind IN ('still', 'backdrop')))
+        OR (work.kind = 'other' AND shown.kind IN ('poster', 'still', 'backdrop')))
   )
   AND NOT EXISTS (
     SELECT 1 FROM artwork held
@@ -365,7 +365,7 @@ type ListFrameStillCandidatesRow struct {
 // A library's films, episodes and other videos that show no picture of their kind, and whose every
 // other source has been tried, each with its first live file that has been read: what a frame
 // still may stand in for, D362. A film shows none with no poster and no backdrop, an episode with
-// no still, an other video with neither. A film, or an episode's series, has been tried when its
+// no still, an other video with no poster, still or backdrop (D495). A film, or an episode's series, has been tried when its
 // library reads NFO files alone, when it follows no source or its NFO, or when its source's answer
 // is stored; never while it awaits its match, is ambiguous or its fetch failed. An other video is
 // never matched. A frame still of the file's present bytes holds it: made, refused for having no

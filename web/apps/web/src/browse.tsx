@@ -67,6 +67,7 @@ import type { Resource } from "./use-resource.ts";
 import { useMe } from "./signed-in-me.ts";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
 import { usePostersFilledAhead, type ArtAhead } from "./posters-filled-ahead.ts";
+import { rowsWithPosters, useGridColumns } from "./grid-columns.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
 export type Entry =
@@ -126,6 +127,7 @@ export function PosterGrid(props: {
     gridRef,
     useMemo(() => props.entries.map(artAheadOf), [props.entries]),
   );
+  const besidePoster = useBesidePoster(gridRef, props.entries, props.toCome ?? 0);
   const loaded = props.entries.length;
   const firstToCome = useCallback(
     () => gridRef.current?.querySelector(`[${toComePlaceAttribute}="${String(loaded)}"]`) ?? null,
@@ -144,7 +146,13 @@ export function PosterGrid(props: {
         {...arrivalMark}
       >
         {props.entries.map((entry, index) => (
-          <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={tiles.watchAt(index)} />
+          <GridPoster
+            key={entry.id}
+            kind={props.kind}
+            entry={entry}
+            watch={tiles.watchAt(index)}
+            isBesidePoster={besidePoster[index] === true}
+          />
         ))}
         {Array.from({ length: props.toCome ?? 0 }, (_, offset) => (
           <PosterToCome
@@ -188,9 +196,12 @@ function useRailFollowsFocus(
   }, [gridRef, entriesRef, standRailAt]);
 }
 
-/** The art an entry's card shows, as its poster or still, to fill in ahead (EntryPoster, PosterCard). */
+/**
+ * The art an entry's card shows, as its poster or still, to fill in ahead (EntryPoster, PosterCard):
+ * an other video's poster where it has one, else its 16:9 picture (D495 §1).
+ */
 function artAheadOf(entry: Entry): ArtAhead | undefined {
-  if (entry.kind === "other") {
+  if (entry.kind === "other" && entry.posterSha256 === undefined) {
     return entry.landscapeSha256 === undefined
       ? undefined
       : { sourceSha256: entry.landscapeSha256, kind: "still" };
@@ -285,10 +296,39 @@ const GridPoster = memo(function GridPoster(props: {
   readonly kind: BrowseKind | undefined;
   readonly entry: Entry;
   readonly watch: ((element: Element | null) => void) | undefined;
+  readonly isBesidePoster: boolean;
 }): JSX.Element {
-  const { entry, kind, watch } = props;
-  return <EntryPoster kind={kind} entry={entry} watch={watch} />;
+  const { entry, kind, watch, isBesidePoster } = props;
+  return <EntryPoster kind={kind} entry={entry} watch={watch} isBesidePoster={isBesidePoster} />;
 });
+
+/**
+ * For each entry of the grid, by its place, whether its row holds an upright poster (D495 §4): a
+ * poster still to come is one, as it is drawn upright until its entry comes.
+ */
+function useBesidePoster(
+  gridRef: RefObject<HTMLElement | null>,
+  entries: readonly Entry[],
+  toCome: number,
+): readonly boolean[] {
+  const columns = useGridColumns(gridRef);
+  return useMemo(
+    () =>
+      rowsWithPosters(
+        [...entries.map(isUprightCard), ...Array.from({ length: toCome }, () => true)],
+        columns,
+      ),
+    [entries, toCome, columns],
+  );
+}
+
+/**
+ * Whether an entry's card is an upright poster: a film's and a series' always, with or without a
+ * poster, and an other video's where it has one; an other video with none is its 16:9 still (D495).
+ */
+export function isUprightCard(entry: Entry): boolean {
+  return entry.kind !== "other" || entry.posterSha256 !== undefined;
+}
 
 /**
  * A film's, a series' or an other video's poster as every list shows it: its page, its year or
@@ -299,6 +339,8 @@ export function EntryPoster(props: {
   readonly kind?: BrowseKind | undefined;
   readonly entry: Entry;
   readonly watch?: ((element: Element | null) => void) | undefined;
+  /** Whether its row holds an upright poster: a 16:9 still then stands centred in its height. */
+  readonly isBesidePoster?: boolean;
 }): JSX.Element {
   // The card's one translation: each a poster card mounts builds react-i18next a copy of the i18n
   // object, and a page of 60 cards made them about a third of its render on the Fire TV (2026-11-11).
@@ -312,10 +354,11 @@ export function EntryPoster(props: {
       posterSha256={entry.posterSha256}
       noPosterStillSha256={entry.noPosterStillSha256}
       art={
-        entry.kind === "other" ? (
+        entry.kind === "other" && entry.posterSha256 === undefined ? (
           <Still sourceSha256={entry.landscapeSha256} className="poster-card__tile" />
         ) : undefined
       }
+      isArtInPosterHeight={!isUprightCard(entry) && props.isBesidePoster === true}
       name={entry.name}
       details={entryDetails(entry, t, i18n.language)}
       isDimmed={entry.unavailable !== undefined}

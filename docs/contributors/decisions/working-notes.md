@@ -29302,3 +29302,26 @@ image answered every load of its address, the page's asking again after a failur
    (`keptLoaderFile`); a client-files list that is not a list is dropped and told
    (client-files.ts); the device's data caps copy that is not caps is dropped and told
    (data-cap.ts); a kept buffer limit that is not one is told, and an old one expires.
+
+## D495 — An other video with a poster shows it as an upright card; a row of posters centres its stills
+
+**Decided** (2026-11-16), by the project owner, after the posters they put beside the videos of
+an other library never showed: *"Show the poster as an upright card if available, otherwise a
+still. If no poster or still is available, generate a still. If all entries on a row are stills,
+the height of that row fits the stills. Otherwise it fits the height of the poster(s) and the
+stills are center-aligned."* Amends D349 §3 and §9.1 (an other video's card is its 16:9 picture
+alone) and D362 §2 (when an other video is owed a frame still).
+
+1. **An other video's card shows its poster** (any source but a frame), upright like a film's,
+   when it has one. Otherwise it shows its 16:9 picture as before: its still, else its backdrop,
+   else a frame still of its video.
+2. **The difference from films and series is intended** (the owner): *"most videos of type
+   'other' will not have .nfo files, so it wouldn't make sense to show an entire library of full
+   height posters consisting of a still and a 'no poster available' text."* An other video with
+   no poster never shows the "No poster" card; its still is its whole card.
+3. **A frame still is owed only to an other video with neither a poster, a still nor a
+   backdrop** (`pictureKindsOf`, `ListFrameStillCandidates`).
+4. **Rows:** in the browse grid (`PosterGrid`), a row of stills alone is as tall as the stills. A
+   row with a poster in it is as tall as a poster, and each still in it is centred in a poster's
+   height, so the names under the cards line up. A home row holds only the newest films or series,
+   all upright, so no still stands in one.

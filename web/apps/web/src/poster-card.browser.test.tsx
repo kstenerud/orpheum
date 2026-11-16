@@ -76,6 +76,93 @@ describe("an other video's tile, laid out by a real browser", () => {
   });
 });
 
+/** An other video in library 5, the poster's sha given where it has one. */
+function otherVideo(id: number, posterSha256?: string): Record<string, unknown> {
+  return {
+    id,
+    name: `Clip ${String(id)}`,
+    kind: "other",
+    identificationState: "identified",
+    libraryId: 5,
+    addedAt: 1,
+    ...(posterSha256 === undefined ? {} : { posterSha256 }),
+    recorded: { recordedAt: 1_700_000_000_000, from: "tag", fileName: `clip-${String(id)}.mp4` },
+  };
+}
+
+/** The other library's grid, holding items, drawn at 960 pixels wide. */
+async function otherGrid(items: readonly Record<string, unknown>[]): Promise<Mounted> {
+  const services = servedBy({
+    "GET /libraries": [200, { libraries: [{ id: 5, name: "Home movies", kind: "other" }] }],
+    "GET /items": [200, { items, nextCursor: "" }],
+  });
+  const mounted = await mount(
+    <BackgroundChangesContext value={neverAsks}>
+      <div style={{ width: "960px" }}>
+        {withServices(
+          <LibraryBrowse
+            library={5}
+            view={undefined}
+            folder={undefined}
+            sort={undefined}
+            query=""
+          />,
+          services,
+        )}
+      </div>
+    </BackgroundChangesContext>,
+  );
+  await settleUntil(
+    () => mounted.container.querySelectorAll(".poster-grid .poster-card").length === items.length,
+  );
+  return mounted;
+}
+
+/** The box of the selector's first match within the card at place, by its place in the grid. */
+function boxIn(mounted: Mounted, place: number, selector: string): DOMRect {
+  const card = mounted.container.querySelectorAll(".poster-grid .poster-card")[place];
+  const found = card?.querySelector(selector);
+  if (found === null || found === undefined) {
+    throw new Error(`card ${String(place)} has no ${selector}`);
+  }
+  return found.getBoundingClientRect();
+}
+
+describe("an other video's poster and the stills beside it (D495)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("shows a poster upright, and centres each still of its row in a poster's height", async () => {
+    mounted = await otherGrid([otherVideo(1), otherVideo(2, "ab".repeat(32)), otherVideo(3)]);
+    const poster = boxIn(mounted, 1, ".poster");
+    // Upright, as a film's poster is.
+    expect(poster.height).toBeGreaterThan(poster.width);
+    for (const place of [0, 2]) {
+      const art = boxIn(mounted, place, ".poster-card__art");
+      const tile = boxIn(mounted, place, ".poster-card__tile");
+      expect(art.height).toBeCloseTo(poster.height, 0);
+      // The still's middle is the poster's middle.
+      expect(tile.top + tile.height / 2).toBeCloseTo(poster.top + poster.height / 2, 0);
+      // So the names under the row line up.
+      expect(boxIn(mounted, place, ".poster-card__name").top).toBeCloseTo(
+        boxIn(mounted, 1, ".poster-card__name").top,
+        0,
+      );
+    }
+  });
+
+  it("keeps a row of stills alone as tall as its stills", async () => {
+    mounted = await otherGrid([otherVideo(1), otherVideo(2), otherVideo(3)]);
+    const art = boxIn(mounted, 0, ".poster-card__art");
+    const tile = boxIn(mounted, 0, ".poster-card__tile");
+    expect(art.height).toBeCloseTo(tile.height, 0);
+    expect(art.width / art.height).toBeGreaterThan(1.5);
+  });
+});
+
 describe("a poster card's status cues, over its poster (the owner, 2026-11-11)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {

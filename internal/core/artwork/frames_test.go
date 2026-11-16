@@ -189,7 +189,8 @@ func TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture(t 
 
 // An episode is given a frame still once its series was fetched and its season's listing is not
 // awaited, and the provider's still for it was looked for; an other video, never matched, once the
-// pass read what is beside it; neither where it shows a picture of its kind (D362 §2).
+// pass read what is beside it; neither where it shows a picture of its kind (D362 §2), an other
+// video's poster among them (D495).
 func TestTake_AnEpisodeAndAnOtherVideoGetAFrameStillWhenNothingElseShowsThem(t *testing.T) {
 	t.Parallel()
 	shows := newFrameWorld(t, "series", "tmdb")
@@ -218,12 +219,21 @@ func TestTake_AnEpisodeAndAnOtherVideoGetAFrameStillWhenNothingElseShowsThem(t *
 	other.store(t, withBackdrop, sqlcgen.InsertArtworkParams{
 		Kind: library.ArtBackdrop, Source: SourceLocal, SourceRef: new("file:1:1:1"), SourceSha256: []byte{9},
 	})
+	withPoster, _ := other.video(t, video)
+	other.store(t, withPoster, sqlcgen.InsertArtworkParams{
+		Kind: library.ArtPoster, Source: SourceLocal, SourceRef: new("file:2:1:1"), SourceSha256: []byte{8},
+	})
 	beside := &LocalImages{Images: []LocalImage{
 		{ItemID: withBackdrop, Kind: library.ArtBackdrop, FileID: 1, SizeBytes: 1, ModifiedAtMs: 1},
+		{ItemID: withPoster, Kind: library.ArtPoster, FileID: 2, SizeBytes: 1, ModifiedAtMs: 1},
 	}}
-	if planned := other.pass(t, Found{BesideTheMedia: beside}); !slices.Equal(planned, []int64{plain}) {
-		t.Errorf("other videos' frame stills planned for %v; want only %d, which nothing beside it shows", planned,
-			plain)
+	posterToCome, _ := other.video(t, video)
+	beside.Images = append(beside.Images,
+		LocalImage{ItemID: posterToCome, Kind: library.ArtPoster, FileID: 3, SizeBytes: 1, ModifiedAtMs: 1})
+	planned := other.pass(t, Found{BesideTheMedia: beside})
+	if !slices.Equal(planned, []int64{plain}) {
+		t.Errorf("other videos' frame stills planned for %v; want only %d, which nothing beside it shows, "+
+			"not one with a backdrop, a poster or a poster to come", planned, plain)
 	}
 }
 
@@ -351,7 +361,14 @@ func TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone(t *testing.T)
 	if rows := runFrameJob(t, world, shownID, shownFile); len(rows) != 1 || rows[0].Source != SourceLocal {
 		t.Errorf("an item showing a backdrop: held %+v; want no still taken", rows)
 	}
+	posterID, posterFile := world.video(t, otherVideo)
+	world.store(t, posterID, sqlcgen.InsertArtworkParams{
+		Kind: library.ArtPoster, Source: SourceLocal, SourceRef: new("file:2:1:1"), SourceSha256: []byte{8},
+	})
+	if rows := runFrameJob(t, world, posterID, posterFile); len(rows) != 1 || rows[0].Source != SourceLocal {
+		t.Errorf("an other video showing a poster: held %+v; want no still taken (D495 §3)", rows)
+	}
 	if sent := len(world.bench.node.sent) - sentBefore; sent != 0 {
-		t.Errorf("%d stills asked of the node for a video with no picture and an item showing one; want none", sent)
+		t.Errorf("%d stills asked of the node for a video with no picture and items showing one; want none", sent)
 	}
 }

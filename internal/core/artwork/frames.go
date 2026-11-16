@@ -29,7 +29,7 @@ const frameAtPercent = 10
 
 // pictureKindsOf are the kinds of picture that show a title of titleKind, any of which, from any
 // source but a frame, makes a still of its video needless (D362 §2): a film's poster or backdrop,
-// an episode's still, an other video's still or backdrop (D349 §3).
+// an episode's still, an other video's poster, still or backdrop (D349 §3, D495 §3).
 func pictureKindsOf(titleKind string) []string {
 	switch titleKind {
 	case library.TitleKindMovie:
@@ -37,7 +37,7 @@ func pictureKindsOf(titleKind string) []string {
 	case library.TitleKindEpisode:
 		return []string{library.ArtStill}
 	case library.TitleKindOther:
-		return []string{library.ArtStill, library.ArtBackdrop}
+		return []string{library.ArtPoster, library.ArtStill, library.ArtBackdrop}
 	}
 	return nil
 }

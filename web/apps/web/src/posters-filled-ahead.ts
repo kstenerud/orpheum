@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 
+import { columnsOf } from "./grid-columns.ts";
 import { tileArtAhead } from "./poster.tsx";
 
 /**
@@ -250,12 +251,6 @@ function letGo(kept: Held): void {
   if (!isDone) {
     image.src = "";
   }
-}
-
-/** How many posters a row of the grid holds, by its laid-out columns; one where it has none. */
-function columnsOf(grid: HTMLElement): number {
-  const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length;
-  return Math.max(1, columns);
 }
 
 /** The place in grid of the poster holding target, -1 for none. */
