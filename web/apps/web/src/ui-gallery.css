@@ -98,3 +98,99 @@
   padding-inline: var(--space-2);
   color: var(--color-muted);
 }
+
+/* A film waiting for data (FilmWaitingLooks): each look on a film's black ground, in the middle,
+   where film-waits.css draws the spinner, at its size. */
+.ui-gallery__waits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.ui-gallery__wait-look {
+  margin: 0;
+  text-align: center;
+}
+
+.ui-gallery__wait {
+  display: grid;
+  place-items: center;
+  width: 12rem;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  background: var(--color-video-background);
+}
+
+/* Today's ring, as film-waits.css draws it, turning whatever motion is asked for. */
+.ui-gallery__ring {
+  box-sizing: border-box;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0.375rem solid var(--color-video-control);
+  border-top-color: var(--color-on-video);
+  border-radius: 50%;
+  background: var(--color-video-card);
+  animation: ui-gallery-turn 1s linear infinite;
+}
+
+@keyframes ui-gallery-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* The hourglass at the ring's size, its opacity alone pulsing: fully drawn, faded to a third, back. */
+.ui-gallery__hourglass {
+  display: block;
+  animation: ui-gallery-pulse 2s ease-in-out infinite;
+}
+
+.ui-gallery__hourglass .still-reading-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+/* On the film's control ground: the ring's own colours, a white glass on its dark disc. */
+.ui-gallery__hourglass--film .still-reading-icon {
+  color: var(--color-on-video);
+  --icon-ground: var(--color-video-card);
+}
+
+@keyframes ui-gallery-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ui-gallery__hourglass--every-1-2 {
+  animation-duration: 1.2s;
+}
+
+.ui-gallery__hourglass--every-2 {
+  animation-duration: 2s;
+}
+
+.ui-gallery__hourglass--every-3 {
+  animation-duration: 3s;
+}
+
+/* The global reset (tokens.css) stops every animation under Reduce Motion; these are here to be
+   judged under it, so each keeps its length. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-gallery__ring {
+    animation-duration: 1s !important;
+  }
+
+  .ui-gallery__hourglass--every-1-2 {
+    animation-duration: 1.2s !important;
+  }
+
+  .ui-gallery__hourglass--every-2 {
+    animation-duration: 2s !important;
+  }
+
+  .ui-gallery__hourglass--every-3 {
+    animation-duration: 3s !important;
+  }
+}

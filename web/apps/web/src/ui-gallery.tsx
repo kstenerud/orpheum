@@ -464,7 +464,52 @@ function PlayerWidgets(): JSX.Element {
       </div>
       <h3>{t("gallery.barRemote")}</h3>
       <PlayerControls source={galleryFilm} controls={["play", "steps", "timeline"]} />
+      <FilmWaitingLooks />
     </section>
+  );
+}
+
+/** The pulse's lengths shown side by side, in seconds: one fade out and back in each. */
+const pulseSeconds = ["1.2", "2", "3"] as const;
+
+/**
+ * The spinner a film waiting for data shows under Reduce Motion, for the owner to choose (the owner,
+ * 2026-11-16, "Let's pulse an hourglass icon"): today's ring for comparison, then the still-reading
+ * hourglass pulsing at each of pulseSeconds, on the status blue and on the film's control ground.
+ * The pulse runs here whatever motion is asked for, so it can be judged with Reduce Motion on.
+ */
+function FilmWaitingLooks(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <h3>{t("gallery.waiting")}</h3>
+      <p>{t("gallery.waitingLead")}</p>
+      <h4>{t("gallery.waitingToday")}</h4>
+      <div className="ui-gallery__waits">
+        <span className="ui-gallery__wait">
+          <span className="ui-gallery__ring" />
+        </span>
+      </div>
+      {(["blue", "film"] as const).map((ground) => (
+        <div key={ground}>
+          <h4>{t(ground === "blue" ? "gallery.waitingBlue" : "gallery.waitingFilm")}</h4>
+          <div className="ui-gallery__waits">
+            {pulseSeconds.map((seconds) => (
+              <figure key={seconds} className="ui-gallery__wait-look">
+                <span className="ui-gallery__wait">
+                  <span
+                    className={`ui-gallery__hourglass ui-gallery__hourglass--${ground} ui-gallery__hourglass--every-${seconds.replace(".", "-")}`}
+                  >
+                    <StillReadingIcon isRinged={false} />
+                  </span>
+                </span>
+                <figcaption>{t("gallery.waitingEvery", { seconds })}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 

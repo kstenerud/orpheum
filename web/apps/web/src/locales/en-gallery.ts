@@ -56,5 +56,12 @@ export const enGallery = {
       "Each of its buttons opens its own pop-up: the volume, Subtitles, Sound track and Settings.",
     barOverFilm: "The player's bar over a film",
     barRemote: "The player's bar on a cast's remote",
+    waiting: "A film waiting for data, asked for less motion",
+    waitingLead:
+      "Today's ring turns, and stands still when less motion is asked for. In its place then, an hourglass that pulses, its opacity alone changing, at three speeds; on the status blue, and on the film's own control ground.",
+    waitingToday: "Today: the ring, turning",
+    waitingBlue: "The hourglass on the status blue",
+    waitingFilm: "The hourglass on the film's control ground",
+    waitingEvery: "Once every {{seconds}} s",
   },
 };

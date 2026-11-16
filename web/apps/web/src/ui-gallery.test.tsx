@@ -133,3 +133,32 @@ it("shows the parts the widgets are built from, a pop-up at its button and the l
     '<div class="cluster cluster--align-center layout-space-3"><button type="button">First choice',
   );
 });
+
+it("shows the film's waiting looks for the owner to choose: today's ring, then the hourglass pulsing at three lengths on two grounds (the owner, 2026-11-16)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const player = markup.slice(markup.indexOf('id="gallery-player"'));
+  expect([...player.matchAll(/class="ui-gallery__ring"/gu)]).toHaveLength(1);
+  for (const ground of ["blue", "film"]) {
+    for (const every of ["1-2", "2", "3"]) {
+      expect(player).toContain(
+        `ui-gallery__hourglass ui-gallery__hourglass--${ground} ui-gallery__hourglass--every-${every}"`,
+      );
+    }
+  }
+});
+
+it("keeps each waiting look pulsing at its length under Reduce Motion, which stops every other animation (the owner, 2026-11-16)", () => {
+  const css = readFileSync(new URL("./ui-gallery.css", import.meta.url), "utf8");
+  const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  for (const [every, seconds] of [
+    ["1-2", "1.2"],
+    ["2", "2"],
+    ["3", "3"],
+  ] as const) {
+    const rule = new RegExp(
+      String.raw`\.ui-gallery__hourglass--every-${every} \{\s*animation-duration: ${seconds.replace(".", String.raw`\.`)}s !important;`,
+      "u",
+    );
+    expect(reduced).toMatch(rule);
+  }
+});
