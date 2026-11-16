@@ -311,6 +311,12 @@ debug.
     the core admits it only with room, else offers the lowest rung already made, else says it cannot
     and the player keeps its rung and its stalls; (c) forbid. **Recommended: (b).**
 
+**The owner's answer (2026-11-16): "Accept all of the recommendations."** So: 1 (c), 2 (a), 3 (a),
+4 (b), 5 (b), 6 (a) per chunk and (c) for state changes and refusals, 7 (a), 8 (a) for now, 9 (c),
+10 (c), 11 (a), 12 (c), 13 (b). Choosing a parser for decision 6 is a separate question: the SVTA
+library would be a new dependency, and that is still the owner's call (rule 3). The design doc
+is built on these answers and records them as decisions. The edge cases below are still open.
+
 ## Unresolved edge cases
 
 1. **The shared budget (X1).** Make time and transfer time each below a chunk's length, their sum
