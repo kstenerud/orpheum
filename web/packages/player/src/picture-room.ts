@@ -84,7 +84,8 @@ const limitKey = "orpheum.pictureBufferLimit";
 
 /**
  * How long a learnt limit is kept: it only ever falls, so one learnt from a passing refusal would
- * hold the device's buffer low for good (D494); a week on, the device learns it again.
+ * hold the device's buffer low for good (D494); a week on, the device learns it again (the owner,
+ * 2026-11-16: "7 days is fine").
  */
 export const learntLimitKeptMs = 7 * 24 * 60 * 60 * 1000;
 
