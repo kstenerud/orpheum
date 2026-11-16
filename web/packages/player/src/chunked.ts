@@ -24,6 +24,7 @@ import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
 import { shapedLoader, type LoaderClass } from "./link-shaping.ts";
 import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
+import { loadedPlaylistLoader, type StartingPlaylists } from "./loaded-playlists.ts";
 import { StartReadAhead } from "./start-read-ahead.ts";
 import {
   failOnFatal,
@@ -684,16 +685,24 @@ function requestsFollowing(
   };
 }
 
-/** A playback's hls.js by config, its chunks loaded by chunkLoader, and the start's read-ahead it reads by. */
+/** A playback's hls.js by config, its start's playlists answered from options', its chunks loaded by chunkLoader, and the start's read-ahead it reads by. */
 function chunkedHls(
   config: Partial<HlsConfig>,
-  parts: { readonly soundShift: SoundShift; readonly abrController: HlsConfig["abrController"] },
+  options: { readonly loadedPlaylists?: StartingPlaylists | undefined },
+  parts: {
+    readonly soundShift: SoundShift;
+    readonly abr: { readonly controller: HlsConfig["abrController"] };
+  },
 ): { readonly hls: Hls; readonly readAhead: StartReadAhead } {
   const readAhead = new StartReadAhead();
   const hls = new Hls({
     ...config,
     fLoader: chunkLoader(parts.soundShift, readAhead, config.loader),
-    abrController: parts.abrController,
+    pLoader: loadedPlaylistLoader(
+      options.loadedPlaylists,
+      config.loader ?? Hls.DefaultConfig.loader,
+    ),
+    abrController: parts.abr.controller,
   });
   readAhead.readsOn(hls);
   loadsNoChunkAgain(hls); // a switch loads no chunk again that it holds at another (D503 §4)
@@ -739,6 +748,11 @@ export function playChunked(
     readonly authorization?: string | undefined;
     /** The fetch every load is made by, where the page gives one (chunkedHlsConfig). */
     readonly fetch?: FetchRequest | undefined;
+    /**
+     * The playlists the playback's start was answered with (its offer's playlists), handed hls.js
+     * as loaded rather than asked for (D502 §3); none, hls.js asks for each.
+     */
+    readonly loadedPlaylists?: StartingPlaylists | undefined;
   } & RememberedOffer &
     Pick<ChoosingOptions, "dataCapKbps">, // the device's data cap, read at each choice (D488)
 ): ChunkedPlayback {
@@ -755,7 +769,7 @@ export function playChunked(
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
-  const { hls, readAhead } = chunkedHls(config, { soundShift, abrController: abr.controller });
+  const { hls, readAhead } = chunkedHls(config, options, { soundShift, abr });
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);

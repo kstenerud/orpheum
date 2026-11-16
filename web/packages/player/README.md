@@ -212,6 +212,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   way or its answer kept, and an ask for another chunk gives it up. hls.js 1.7.3 has no setting
   for it, and a longer first chunk would change every film's grid and help only a start from 0.
   `start-read-ahead.test.ts`, `chunked.test.ts` ("a playback's chunk loader").
+- **The playlists a playback's start was answered with are handed hls.js as loaded** (D502 §3):
+  its playlist loader (`src/loaded-playlists.ts`) answers the master and the starting quality's
+  and sound's playlists from the offer's `playlists`, once each, and asks the core for any other,
+  so the start's first request is its first chunk's. `loaded-playlists.test.ts`.
 - **Every play report carries the frames the video showed and dropped since the last**, as its
   browser counts them (`src/frames.ts`), none where it counts none; the core logs a report that
   dropped more than 1% of them. `frames.test.ts`.

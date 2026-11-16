@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -111,7 +112,7 @@ func (server *Server) masterPlaylistOf(
 		if err != nil {
 			return nil, server.playbackError(ctx, "find a playback's chunks", err)
 		}
-		text, kept, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
+		text, err := keptMasterPlaylist(ctx, dependencies, token, holder, chunked)
 		if errors.Is(err, chunks.ErrNoGrid) && dependencies.Clock.Now().Before(giveUpAt) &&
 			dependencies.Clock.Sleep(ctx, chunkAskEvery) == nil {
 			continue
@@ -119,18 +120,31 @@ func (server *Server) masterPlaylistOf(
 		if err != nil {
 			return nil, server.chunksError(ctx, "write a master playlist of chunks", err)
 		}
-		ladder, err := dependencies.Chunks.Ladder(ctx, chunked)
-		if err != nil {
-			return nil, server.chunksError(ctx, "find a playback's ladder", err)
-		}
-		dependencies.Playback.KeepLadder(token, ladder)
-		if kept != chunked.Kept() {
-			// The playback keeps the grid it began on, though a read-through finds the film's keyframes
-			// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.
-			dependencies.Playback.Keep(token, holder, kept)
-		}
 		return playlistResponse(text), nil
 	}
+}
+
+// keptMasterPlaylist is the master playlist of chunked, the playback token names, with what the
+// playback keeps of it from then on: its ladder, the grid it began on and its sounds unlevelled.
+// ErrNoGrid while the film has no grid, as chunks.Service.MasterPlaylist says.
+func keptMasterPlaylist(
+	ctx context.Context, dependencies *Dependencies, token string, holder playback.Holder, chunked chunks.Playback,
+) (string, error) {
+	text, kept, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
+	if err != nil {
+		return "", fmt.Errorf("write a master playlist: %w", err)
+	}
+	ladder, err := dependencies.Chunks.Ladder(ctx, chunked)
+	if err != nil {
+		return "", fmt.Errorf("find a playback's ladder: %w", err)
+	}
+	dependencies.Playback.KeepLadder(token, ladder)
+	if kept != chunked.Kept() {
+		// The playback keeps the grid it began on, though a read-through finds the film's keyframes
+		// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.
+		dependencies.Playback.Keep(token, holder, kept)
+	}
+	return text, nil
 }
 
 // getChunkFile answers GET /bytes/media/chunks/{token}/{streamName}/{fileName}: a stream's playlist,

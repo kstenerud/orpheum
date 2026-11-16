@@ -3959,6 +3959,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "playlists": {
+            "$ref": "#/components/schemas/StartingPlaylistsBody"
+          },
           "qualityKbps": {
             "format": "int64",
             "type": "integer"
@@ -5444,6 +5447,23 @@
         "required": [
           "positionMs",
           "isPaused"
+        ],
+        "type": "object"
+      },
+      "PlaylistBody": {
+        "properties": {
+          "text": {
+            "description": "The playlist, as that path answers it",
+            "type": "string"
+          },
+          "url": {
+            "description": "The path its player asks for it at",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "text"
         ],
         "type": "object"
       },
@@ -8473,6 +8493,24 @@
           "levelling",
           "fileBitRateKbps",
           "tracks"
+        ],
+        "type": "object"
+      },
+      "StartingPlaylistsBody": {
+        "properties": {
+          "master": {
+            "$ref": "#/components/schemas/PlaylistBody"
+          },
+          "picture": {
+            "$ref": "#/components/schemas/PlaylistBody"
+          },
+          "sound": {
+            "$ref": "#/components/schemas/PlaylistBody"
+          }
+        },
+        "required": [
+          "master",
+          "picture"
         ],
         "type": "object"
       },

@@ -187,6 +187,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
         ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
         monotonicMs,
         loadsAheadAtMostS: preloadAheadS,
+        loadedPlaylists: offer.playlists, // the start's playlists, which hls.js need not ask for (D502 §3)
         dataCapKbps: deviceDataCapKbps, // its first chunks within this device's cap (D488)
       });
       stepsOf = () => diagnosisOf(video)?.steps;

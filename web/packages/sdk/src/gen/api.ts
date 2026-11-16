@@ -4098,6 +4098,7 @@ export interface components {
             isReady: boolean;
             /** Format: int64 */
             linkSharePercent: number;
+            playlists?: components["schemas"]["StartingPlaylistsBody"];
             /** Format: int64 */
             qualityKbps: number;
             /** Format: int64 */
@@ -4612,6 +4613,12 @@ export interface components {
             positionMs: number;
             /** @description The sound's stream, as the master playlist names it; empty keeps the one wanted */
             soundStream?: string;
+        };
+        PlaylistBody: {
+            /** @description The playlist, as that path answers it */
+            text: string;
+            /** @description The path its player asks for it at */
+            url: string;
         };
         PlaysBody: {
             /** @description An episode's series and place; absent for any other */
@@ -5562,6 +5569,11 @@ export interface components {
             toDeviceId: number;
             /** @description The membership this page holds as a Watch Together guest, whose part the receiver takes */
             togetherCredential?: string;
+        };
+        StartingPlaylistsBody: {
+            master: components["schemas"]["PlaylistBody"];
+            picture: components["schemas"]["PlaylistBody"];
+            sound?: components["schemas"]["PlaylistBody"];
         };
         StartPlaybackInputBody: {
             /**

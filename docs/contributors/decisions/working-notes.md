@@ -29536,7 +29536,7 @@ carrying the file by the ladder's share), the lead's stand-in until this answer.
 from Play to the first frame, measured on the Fire TV and the Pixel on 2026-11-15): proposals (c),
 (b), (a), (d) and (e) of the measurements, in that order, (c) first.
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **(c) The master playlist's slow first byte over WebRTC (255–420 ms, where the variant playlists
    take 36–99 ms) is found before (a) is built**: if it is the core's work, (a) moves that work into
@@ -29550,6 +29550,11 @@ from Play to the first frame, measured on the Fire TV and the Pixel on 2026-11-1
    the core sends none).
 5. **(e) A Play page reached from a film page that preloaded the film takes the preload over**, not
    loading it again from the core.
+
+**Proven by:**
+- 1: docs/contributors/design/research/start-chain-2026-11-16.md §1 (the core writes the master in 5–7 ms; the delay is the Fire TV's first round trip after the click)
+- 2: web/packages/player/src/start-read-ahead.test.ts ("a playback's start reads its second picture chunk ahead (D502 §2)"), web/packages/player/src/chunked.test.ts ("asks for the start's second picture chunk as it asks for the first")
+- 3: TestPlayback_AStartOnTheLadderCarriesItsFirstPlaylists (internal/core/api/starting_playlists_test.go), web/packages/player/src/loaded-playlists.test.ts ("the playlists a playback's start was answered with")
 
 ## D503 — A quality switch never loads again a chunk it already holds, and a step-down is not caught by a chunk not made yet
 

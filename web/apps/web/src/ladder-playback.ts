@@ -108,7 +108,7 @@ export function useChunkedPlayback(
   readonly cannotKeepUp: CannotKeepUp | undefined;
 } {
   const { startAudioRef, offer, play = playChunked } = starting;
-  const { url, startAtBps, linkSharePercent, steadiness } = offer;
+  const { url, startAtBps, linkSharePercent, steadiness, playlists } = offer;
   const remembered = useRememberedLink(offer, starting.shouldStartByRememberedLink);
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
@@ -124,6 +124,7 @@ export function useChunkedPlayback(
       onFailed,
       ...startAudioOf(startAudioRef),
       ...startOn({ startAtBps, linkSharePercent, steadiness, ...remembered }, startMs),
+      loadedPlaylists: playlists, // the start's playlists, which hls.js need not ask for (D502 §3)
       monotonicMs,
       outages: pageLinkOutages, // loads deeper after its link was out, in this film or the next (D487)
       dataCapKbps: deviceDataCapKbps, // within this device's cap, read at each chunk (D488)
@@ -139,6 +140,7 @@ export function useChunkedPlayback(
     startAtBps,
     linkSharePercent,
     steadiness,
+    playlists,
     remembered,
     startMs,
     onFailed,

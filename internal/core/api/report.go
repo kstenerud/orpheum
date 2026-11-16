@@ -310,6 +310,25 @@ type LadderBody struct {
 	// with RememberedLinkKbps.
 	RememberedLinkSpread  *float64 `json:"rememberedLinkSpread,omitempty"  minimum:"0" required:"false"`
 	RememberedLinkSamples *float64 `json:"rememberedLinkSamples,omitempty" minimum:"0" required:"false"`
+	// Playlists are, at a playback's start, its master playlist and the playlists of the quality and
+	// the sound it starts on, which its player hands hls.js as loaded rather than asking for each, one
+	// after the other (D502 §3). Absent while the film has no grid, and on a lower quality offered
+	// after a stall: its player asks for them.
+	Playlists *StartingPlaylistsBody `json:"playlists,omitempty" required:"false"`
+}
+
+// StartingPlaylistsBody are the playlists a playback's player loads first, each as it would be
+// answered asking for it.
+type StartingPlaylistsBody struct {
+	Master  PlaylistBody  `json:"master"`
+	Picture PlaylistBody  `json:"picture"`
+	Sound   *PlaylistBody `json:"sound,omitempty" required:"false"`
+}
+
+// PlaylistBody is one of a playback's playlists, as its player would be answered asking for it.
+type PlaylistBody struct {
+	URL  string `doc:"The path its player asks for it at" json:"url"`
+	Text string `doc:"The playlist, as that path answers it" json:"text"`
 }
 
 // ladderBody is a place on a film's ladder offered to the playback a media token names, by its

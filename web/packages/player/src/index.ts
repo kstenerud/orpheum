@@ -15,6 +15,7 @@ export { codecsOf, diagnosisOf } from "./diagnosis.ts";
 export { steadinessNoter, steadinessOf } from "./steadiness.ts";
 export { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
 export type { PlaybackDiagnosis } from "./diagnosis.ts";
+export type { LoadedPlaylist, StartingPlaylists } from "./loaded-playlists.ts";
 export {
   gainAfterVolume,
   ownFileGainAfterVolume,

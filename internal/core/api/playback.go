@@ -294,10 +294,56 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	if err != nil {
 		return nil, err
 	}
+	if output.Body.OnLadder != nil {
+		output.Body.OnLadder.Playlists = startingPlaylists(ctx, dependencies, holder, started)
+	}
 	if output.Body.Plays, err = server.playsBody(ctx, dependencies, principal.UserID, work); err != nil {
 		return nil, err
 	}
 	return output, nil
+}
+
+// startingPlaylists are the playlists a playback started on its film's ladder loads first (D502 §3):
+// its master playlist, written as GET …/master.m3u8 writes it, keeping what that keeps, and the
+// playlists of the quality and the sound it starts on, each at the path its player would ask for it.
+// None while the film has no grid, which its read-through is asked for meanwhile, nor where one
+// cannot be written: its player asks for them itself, and meets the error there as it did.
+func startingPlaylists(
+	ctx context.Context, dependencies *Dependencies, holder playback.Holder, started playback.Started,
+) *StartingPlaylistsBody {
+	chunked, err := dependencies.Playback.ChunksOf(ctx, started.Token, holder)
+	if err != nil {
+		return nil
+	}
+	master, err := keptMasterPlaylist(ctx, dependencies, started.Token, holder, chunked)
+	if err != nil {
+		return nil
+	}
+	// The streams' playlists follow what the master's playback keeps: its grid and its sounds' levelling.
+	if chunked, err = dependencies.Playback.ChunksOf(ctx, started.Token, holder); err != nil {
+		return nil
+	}
+	base := Prefix + "/bytes/media/chunks/" + started.Token + "/"
+	streamPlaylist := func(streamName string) (PlaylistBody, error) {
+		text, streamErr := dependencies.Chunks.MediaPlaylist(ctx, chunked, streamName)
+		if streamErr != nil {
+			return PlaylistBody{}, fmt.Errorf("write a stream's playlist: %w", streamErr)
+		}
+		return PlaylistBody{URL: base + streamName + "/" + streamPlaylistName, Text: text}, nil
+	}
+	picture, err := streamPlaylist(started.OnLadder.StreamName)
+	if err != nil {
+		return nil
+	}
+	playlists := &StartingPlaylistsBody{Master: PlaylistBody{URL: base + "master.m3u8", Text: master}, Picture: picture}
+	if started.OnLadder.SoundStreamName != "" {
+		sound, soundErr := streamPlaylist(started.OnLadder.SoundStreamName)
+		if soundErr != nil {
+			return nil
+		}
+		playlists.Sound = &sound
+	}
+	return playlists
 }
 
 // namedOutput is a playback started, as the API says it, with the name of the title it plays, and
