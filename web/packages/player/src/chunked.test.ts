@@ -15,6 +15,7 @@ import {
   beyondTheLink,
   ceilingHeader,
   chunkedHlsConfig,
+  chunkLoader,
   choosingOptionsOf,
   keptBehindS,
   paceHeader,
@@ -27,11 +28,13 @@ import {
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
+import { SoundShift } from "./audio-shift.ts";
 import { chunkLoadPolicy } from "./chunk-load-policy.ts";
 import { FirstPieces } from "./first-piece.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
+import { StartReadAhead } from "./start-read-ahead.ts";
 import { steadinessOf } from "./steadiness.ts";
 import { slowLoadAfterMs, stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
@@ -518,5 +521,42 @@ describe("a chunked playback's word that the browser is offline (D266)", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+// The start's read-ahead is in the loader every chunk of a playback is loaded by (D502 §2).
+describe("a playback's chunk loader", () => {
+  it("asks for the start's second picture chunk as it asks for the first", () => {
+    const urls: string[] = [];
+    class Recording {
+      context = null;
+      stats = { loading: {}, parsing: {}, buffering: {} };
+      load(context: LoaderContext): void {
+        urls.push(context.url);
+      }
+      abort(): void {
+        // nothing under way
+      }
+      destroy(): void {
+        // nothing held
+      }
+    }
+    const frag = (sn: number) => ({ sn, level: 0, type: "main", url: `/c/${String(sn)}.m4s` });
+    const readAhead = new StartReadAhead();
+    readAhead.readsOn({ levels: [{ details: { fragments: [frag(0), frag(1)] } }] } as never);
+    const Loading = chunkLoader(new SoundShift(), readAhead, Recording as never);
+    const context = {
+      url: "/c/0.m4s",
+      responseType: "arraybuffer",
+      rangeStart: 0,
+      rangeEnd: 0,
+      frag: frag(0),
+    };
+    new Loading(Hls.DefaultConfig).load(context as never, {} as LoaderConfiguration, {
+      onSuccess: () => undefined,
+      onError: () => undefined,
+      onTimeout: () => undefined,
+    });
+    expect(urls).toEqual(["/c/0.m4s", "/c/1.m4s"]);
   });
 });

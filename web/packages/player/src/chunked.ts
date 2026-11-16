@@ -24,6 +24,7 @@ import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
 import { shapedLoader, type LoaderClass } from "./link-shaping.ts";
 import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
+import { StartReadAhead } from "./start-read-ahead.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -640,13 +641,18 @@ export function failOrLoadOn(
 
 /**
  * The loader of a playback's chunks: carrier, hls.js's own unless the page gives a fetch, shaped by the tab's debug cap and drop, in the
- * chunk fetch so every carrier is shaped alike (D380 §2), its sound moved earlier by soundShift.
+ * chunk fetch so every carrier is shaped alike (D380 §2), its start's second picture chunk asked
+ * beside its first (readAhead, D502 §2), its sound moved earlier by soundShift.
  */
-function chunkLoader(
+export function chunkLoader(
   soundShift: SoundShift,
+  readAhead: StartReadAhead,
   carrier: LoaderClass = Hls.DefaultConfig.loader,
 ): ReturnType<typeof shiftingFragmentLoader> {
-  return shiftingFragmentLoader(shapedLoader(carrier), () => soundShift.earlierMs);
+  return shiftingFragmentLoader(
+    readAhead.loaderOf(shapedLoader(carrier)),
+    () => soundShift.earlierMs,
+  );
 }
 
 /**
@@ -678,22 +684,20 @@ function requestsFollowing(
   };
 }
 
-/**
- * hls.js for config, its chunks loaded through soundShift and its qualities chosen by
- * abrController, a switch of quality loading no chunk again that it holds at another (D503 §4).
- */
-function hlsOf(
-  config: ReturnType<typeof chunkedHlsConfig>,
-  soundShift: SoundShift,
-  abrController: Hls["config"]["abrController"],
-): Hls {
+/** A playback's hls.js by config, its chunks loaded by chunkLoader, and the start's read-ahead it reads by. */
+function chunkedHls(
+  config: Partial<HlsConfig>,
+  parts: { readonly soundShift: SoundShift; readonly abrController: HlsConfig["abrController"] },
+): { readonly hls: Hls; readonly readAhead: StartReadAhead } {
+  const readAhead = new StartReadAhead();
   const hls = new Hls({
     ...config,
-    fLoader: chunkLoader(soundShift, config.loader),
-    abrController,
+    fLoader: chunkLoader(parts.soundShift, readAhead, config.loader),
+    abrController: parts.abrController,
   });
-  loadsNoChunkAgain(hls);
-  return hls;
+  readAhead.readsOn(hls);
+  loadsNoChunkAgain(hls); // a switch loads no chunk again that it holds at another (D503 §4)
+  return { hls, readAhead };
 }
 
 /**
@@ -751,7 +755,7 @@ export function playChunked(
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
-  const hls = hlsOf(config, soundShift, abr.controller);
+  const { hls, readAhead } = chunkedHls(config, { soundShift, abrController: abr.controller });
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);
@@ -759,7 +763,7 @@ export function playChunked(
   const linkKbps = tellChunkedLoading(hls, video, () => choosingOf(abr));
   const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
   const followed = followAheadGroupSoundAndStalls(hls, video, follow);
-  const stops = [...followed.stops, seeks.stop, stopLoadingOn];
+  const stops = [...followed.stops, seeks.stop, stopLoadingOn, readAhead.stop];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);
   hls.attachMedia(video);

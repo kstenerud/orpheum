@@ -204,6 +204,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   video as it seeks to where too little is loaded, before it can play there. A Fire TV played at
   canplay with 1.6 s loaded and stalled (idiosyncrasies.md). `next-chunk.test.ts`, the SDK's
   `start-gate.test.ts`, the app's `start-gate-play.test.ts`.
+- **A playback's start asks for its second picture chunk as it asks for its first** (D502 §2):
+  hls.js loads one chunk of a kind at a time, asking for the next once the last is appended, and a
+  Fire TV's first frame waited on chunk 1, asked 115–200 ms after chunk 0 arrived
+  (start-chain-2026-11-16.md). The chunk loader's read-ahead (`src/start-read-ahead.ts`) loads the
+  chunk after the start's first on its quality, once; hls.js's next ask takes it, the load under
+  way or its answer kept, and an ask for another chunk gives it up. hls.js 1.7.3 has no setting
+  for it, and a longer first chunk would change every film's grid and help only a start from 0.
+  `start-read-ahead.test.ts`, `chunked.test.ts` ("a playback's chunk loader").
 - **Every play report carries the frames the video showed and dropped since the last**, as its
   browser counts them (`src/frames.ts`), none where it counts none; the core logs a report that
   dropped more than 1% of them. `frames.test.ts`.
