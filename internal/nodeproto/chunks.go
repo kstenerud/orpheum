@@ -68,8 +68,14 @@ type MakeChunks struct {
 	// its seek, so its first chunk starts where the run before it ended (D368 §1). A copied picture's
 	// is read so FFmpeg times the pictures shown before the run's first keyframe and decoded after it,
 	// as an open GOP has, as the film does: a run starting at that keyframe gave them wrong times and
-	// left a hole at its join (docs/contributors/idiosyncrasies.md). Zero otherwise.
+	// left a hole at its join (docs/contributors/idiosyncrasies.md). Zero for a run not led in
+	// (IsLedIn), and for one led in from a chunk at the film's start.
 	LeadInMs int64 `json:"leadInMs,omitempty"`
+	// IsLedIn says the run is led in from the chunk before FirstChunk, at LeadInMs: zero alone could
+	// not tell a lead-in from the film's start, where most films' chunk 0 starts, from none, and a
+	// copied picture's run from chunk 1, its seek past chunk 0's keyframe, was refused as seeking
+	// before its own (file 17099, staging, 2026-11-16).
+	IsLedIn bool `json:"isLedIn,omitempty"`
 	// PictureSeekMs is, for a copied picture, where FFmpeg is told to seek: past the run's first
 	// keyframe (its lead-in's, when it has one), before the next, or, with
 	// IsPictureSeekBeforeKeyframe, at or before it. FFmpeg lands

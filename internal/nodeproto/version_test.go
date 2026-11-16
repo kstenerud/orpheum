@@ -149,6 +149,10 @@ var wireShapeByVersion = map[int]string{
 	// owner, 2026-11-09): the commands, records, skip rules, error codes, stall causes, a slot, a share's
 	// wait and a refused sound; a core of 61 would read none of them.
 	62: "691c0f5dc2df05870ba16badbd323dea0f96cb7cc855decf46920e827bba7d58",
+	// 63 has MakeChunks say a run is led in (IsLedIn), as a lead-in from chunk 0 at the film's start is
+	// at zero, which alone is none: a node of 62 would read no lead-in from a core of 63's run from
+	// chunk 1 and refuse its picture's seek, as before.
+	63: "aa6bf35d50f91a42b3ca12d2b5c0b390e58ba29db575155381bc8963cb3f720b",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -161,7 +161,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		command.Stream.Sound, command.Stream.IsBoosted = &track, stream.IsBoosted
 		command.Stream.SoundKbps = stream.SoundKbps
 		if args.FirstChunk > 0 {
-			command.LeadInMs = film.grid.StartsMs[args.FirstChunk-1]
+			command.LeadInMs, command.IsLedIn = film.grid.StartsMs[args.FirstChunk-1], true
 		}
 		command.IsSoundInterleaved = isSoundInterleaved(film.probe, track.AudioTrackIndex)
 	case nodeproto.StreamSoundCopied:
@@ -171,7 +171,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		}
 		command.Stream.Sound = &track
 		if args.FirstChunk > 0 {
-			command.LeadInMs = film.grid.StartsMs[args.FirstChunk-1]
+			command.LeadInMs, command.IsLedIn = film.grid.StartsMs[args.FirstChunk-1], true
 		}
 	case nodeproto.StreamPicture:
 		command.NeedsPictureRetiming = film.picture.Video.NeedsRetiming
@@ -179,7 +179,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		// the run's first keyframe as the film does (nodeproto.MakeChunks.LeadInMs).
 		startMs := film.grid.StartsMs[args.FirstChunk]
 		if args.FirstChunk > 0 {
-			command.LeadInMs = film.grid.StartsMs[args.FirstChunk-1]
+			command.LeadInMs, command.IsLedIn = film.grid.StartsMs[args.FirstChunk-1], true
 			startMs = command.LeadInMs
 		}
 		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, startMs, film.grid.FilmDurationMs)

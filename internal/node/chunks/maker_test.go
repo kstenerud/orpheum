@@ -170,7 +170,7 @@ func TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe(t *testing.T) {
 func TestMake_DropsACopiedPicturesLeadIn(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	command.LeadInMs, command.PictureSeekMs = 88_839, 93_844
+	command.LeadInMs, command.IsLedIn, command.PictureSeekMs = 88_839, true, 93_844
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{
 			9:  rawOf(24000, fragmentOf(0, 240, 4004)),
@@ -199,12 +199,50 @@ func TestMake_DropsACopiedPicturesLeadIn(t *testing.T) {
 	}
 }
 
+// A copied picture's run from chunk 1 of a film whose chunk 0 starts at its start is led in from
+// there, its lead-in at 0 ms, and made: told only by a lead-in of zero, which is no lead-in, it
+// was refused as seeking before its own first keyframe, and chunk 1 could not be made from its own
+// run (file 17099, staging, 2026-11-16).
+func TestMake_ACopiedPictureIsLedInFromAChunkAtTheFilmsStart(t *testing.T) {
+	t.Parallel()
+	command := nodeproto.MakeChunks{
+		VideoStreamIndex: 0, VideoCodec: "h264", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+		StoreDir: "7/chunks-x/0123456789abcdef", FirstChunk: 1, BoundsMs: []int64{10_480, 13_320, 14_320},
+		IsLedIn: true, PictureSeekMs: 5_240,
+	}
+	fake := &fakeFFmpeg{
+		raw: map[int][]byte{
+			0: rawOf(24000, fragmentOf(0, 240, 2002)),
+			1: rawOf(24000, fragmentOf(0, 68, 2002)),
+			2: rawOf(24000, fragmentOf(0, 24, 2002)),
+		},
+		numbers: []int{0, 1, 2},
+	}
+	maker, shelf, directory := makerOver(t, fake)
+	var told []int
+	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
+		func(n int) { told = append(told, n) })
+	if err != nil || last != 2 || !slices.Equal(told, []int{1, 2}) {
+		t.Fatalf("the run made through %d, telling %v, %v; want 1 and 2, led in from chunk 0", last, told, err)
+	}
+	if cuts := valueOf(fake.ran.Arguments, "-segment_times"); cuts != "10.430,13.270,14.270" {
+		t.Errorf("the run cuts at %s, want 10.430,13.270,14.270: from the film's start, at chunk 1 too", cuts)
+	}
+	if shelf.HasFile(command.StoreDir, ChunkName(0)) {
+		t.Error("the lead-in was made a chunk")
+	}
+	ticks := (command.BoundsMs[0]+TimelineOffsetMs)*24000/1000 - 2002
+	if got := storedDecodeTime(t, directory, command.StoreDir, 1); got != uint64(ticks) { //nolint:gosec // positive
+		t.Errorf("chunk 1 is decoded from %d, want %d: shown at its bound", got, ticks)
+	}
+}
+
 // A sound's lead-in is dropped, and each chunk starts after the run's samples before it, from the
 // run's start less the encoder's priming (slow-links.md §10).
 func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{ChannelCount: 2}})
-	command.LeadInMs = 88_839
+	command.LeadInMs, command.IsLedIn = 88_839, true
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{
 			9:  rawOf(48000, fragmentOf(0, 470, 0)),
@@ -238,7 +276,7 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 	command := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
 	})
-	command.LeadInMs = 88_839
+	command.LeadInMs, command.IsLedIn = 88_839, true
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{
 			9:  rawOf(48000, fragmentOf(0, 470, 0)),
@@ -416,11 +454,14 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	falling.BoundsMs = []int64{5000, 4000}
 	soundless := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound})
 	leadInOnAQuality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
-	leadInOnAQuality.LeadInMs = 88_839
+	leadInOnAQuality.LeadInMs, leadInOnAQuality.IsLedIn = 88_839, true
 	leadInAtThePicturesStart := run(picture)
-	leadInAtThePicturesStart.LeadInMs = leadInAtThePicturesStart.BoundsMs[0]
+	leadInAtThePicturesStart.LeadInMs, leadInAtThePicturesStart.IsLedIn = leadInAtThePicturesStart.BoundsMs[0], true
 	seekPastTheLeadInsChunk := run(picture)
-	seekPastTheLeadInsChunk.LeadInMs = 88_839 // seeking at 103.854 s, past chunk 9, the lead-in
+	// Seeking at 103.854 s, past chunk 9, the lead-in.
+	seekPastTheLeadInsChunk.LeadInMs, seekPastTheLeadInsChunk.IsLedIn = 88_839, true
+	leadInNotSaid := run(picture)
+	leadInNotSaid.LeadInMs = 88_839
 	seekAtTheKeyframe := run(picture)
 	seekAtTheKeyframe.PictureSeekMs = seekAtTheKeyframe.BoundsMs[0]
 	seekPastTheNextChunk := run(picture)
@@ -436,6 +477,7 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 		"a sound with no track": soundless, "a lead-in on a quality": leadInOnAQuality,
 		"a picture's lead-in at its first chunk":             leadInAtThePicturesStart,
 		"a picture led in, seeking past its lead-in's chunk": seekPastTheLeadInsChunk,
+		"a lead-in on a run not led in":                      leadInNotSaid,
 		"a picture seeking at its keyframe":                  seekAtTheKeyframe,
 		"a picture seeking past its first chunk":             seekPastTheNextChunk,
 		"a quality with a picture's seek":                    seekingQuality,

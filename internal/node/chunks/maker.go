@@ -107,9 +107,8 @@ func check(command nodeproto.MakeChunks) error {
 	if err := checkSeek(command); err != nil {
 		return err
 	}
-	isLeadInWrong := !isLedIn(command.Stream.Kind) || command.FirstChunk == 0 || command.LeadInMs >= command.BoundsMs[0]
-	if command.LeadInMs != 0 && isLeadInWrong {
-		return fmt.Errorf("%w: a lead-in at %d ms", ErrBadRun, command.LeadInMs)
+	if err := checkLeadIn(command); err != nil {
+		return err
 	}
 	stream := command.Stream
 	if stream.Kind == nodeproto.StreamQuality && (stream.BitRateKbps <= 0 || stream.Height <= 0) {
@@ -118,10 +117,21 @@ func check(command nodeproto.MakeChunks) error {
 	return nil
 }
 
-// isLedIn is whether a run of kind past the film's first chunk may be led in from the chunk before
-// (nodeproto.MakeChunks.LeadInMs): a sound's or a copied picture's; never a quality's, which decodes
+// checkLeadIn refuses a run led in that may not be, from the run's first chunk or after it, and a
+// lead-in's time on a run not led in (nodeproto.MakeChunks.IsLedIn).
+func checkLeadIn(command nodeproto.MakeChunks) error {
+	isLeadInWrong := !mayBeLedIn(command.Stream.Kind) || command.FirstChunk == 0 || command.LeadInMs < 0 ||
+		command.LeadInMs >= command.BoundsMs[0]
+	if command.IsLedIn && isLeadInWrong || !command.IsLedIn && command.LeadInMs != 0 {
+		return fmt.Errorf("%w: a lead-in at %d ms", ErrBadRun, command.LeadInMs)
+	}
+	return nil
+}
+
+// mayBeLedIn is whether a run of kind past the film's first chunk may be led in from the chunk before
+// (nodeproto.MakeChunks.IsLedIn): a sound's or a copied picture's; never a quality's, which decodes
 // from its start.
-func isLedIn(kind nodeproto.ChunkStreamKind) bool {
+func mayBeLedIn(kind nodeproto.ChunkStreamKind) bool {
 	return kind.IsSound() || kind == nodeproto.StreamPicture
 }
 
@@ -132,7 +142,7 @@ func checkSeek(command nodeproto.MakeChunks) error {
 	isPicture := command.Stream.Kind == nodeproto.StreamPicture
 	seekMs := command.PictureSeekMs
 	fromMs, nextMs := command.BoundsMs[0], command.BoundsMs[1]
-	if command.LeadInMs > 0 {
+	if command.IsLedIn {
 		fromMs, nextMs = command.LeadInMs, command.BoundsMs[0]
 	}
 	isSeekRight := seekMs > fromMs && seekMs < nextMs

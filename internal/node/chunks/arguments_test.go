@@ -79,7 +79,7 @@ func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 func TestArguments_ACopiedPictureIsLedInFromTheChunkBefore(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	command.LeadInMs, command.PictureSeekMs = 88_839, 93_844
+	command.LeadInMs, command.IsLedIn, command.PictureSeekMs = 88_839, true, 93_844
 	arguments := Arguments(execx.Film{Path: "/films/a.mkv"}, "/r", command, encode.EncoderX264)
 	if start := valueOf(arguments, "-ss"); start != "93.844" {
 		t.Errorf("the run seeks to %s, want past its lead-in's keyframe, 93.844", start)
@@ -271,7 +271,7 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 		Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96,
 		Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
 	})
-	sound.LeadInMs = 88_839
+	sound.LeadInMs, sound.IsLedIn = 88_839, true
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if start := valueOf(arguments, "-ss"); start != "86.839" {
 		t.Errorf("the sound's decode starts at %s, want two seconds before its lead-in, 86.839", start)
@@ -290,6 +290,15 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	if rate := valueOf(arguments, "-b:a"); rate != "96k" {
 		t.Errorf("the sound is encoded at %s; want the run's 96k (chunkSoundKbps)", rate)
 	}
+	// From chunk 1 of a film whose chunk 0 starts at its start, the lead-in is chunk 0, at 0 ms, read
+	// unsought, not lost for a lead-in of zero.
+	sound.FirstChunk, sound.BoundsMs, sound.LeadInMs = 1, []int64{10_480, 13_320, 14_320}, 0
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-segment_start_number") != "0" ||
+		valueOf(arguments, "-segment_times") != "10.480,13.320,14.320" {
+		t.Errorf("a sound from chunk 1 is %v; want it read from the film's start unsought, its lead-in raw "+
+			"file 0, cut at chunk 1 too", arguments)
+	}
 }
 
 // A sound interleaved in super-blocks, as RealMedia's cook is, decodes from ten seconds before its
@@ -300,13 +309,13 @@ func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *t
 	sound := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
-	sound.LeadInMs, sound.IsSoundInterleaved = 88_839, true
+	sound.LeadInMs, sound.IsLedIn, sound.IsSoundInterleaved = 88_839, true, true
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "78.839" ||
 		!strings.HasPrefix(filter, "atrim=start=10.000,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %s filtered by %q; want from 78.839, dropping ten seconds", start, filter)
 	}
-	sound.LeadInMs, sound.FirstChunk, sound.BoundsMs = 0, 0, []int64{0, 3_236, 6_400}
+	sound.LeadInMs, sound.IsLedIn, sound.FirstChunk, sound.BoundsMs = 0, false, 0, []int64{0, 3_236, 6_400}
 	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "6.400" ||
 		!strings.HasPrefix(valueOf(arguments, "-filter:a"), "atrim=start=0.000,") {
@@ -378,7 +387,7 @@ func TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds(t *testing.T
 	copied := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
 	})
-	copied.LeadInMs = 88_839
+	copied.LeadInMs, copied.IsLedIn = 88_839, true
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
 	if start := valueOf(arguments, "-ss"); start != "88.839" {
 		t.Errorf("the copy reads from %s, want its lead-in, 88.839", start)

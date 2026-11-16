@@ -77,7 +77,8 @@
 //     TestMasterPlaylist_APlaybackBegunBeforeThePicturesBytesAreReadStaysOnItsKeyframesAlone.
 //
 //   - A copied picture's run past the film's first chunk is led in from the chunk before, so FFmpeg
-//     times an open GOP's pictures shown before the run's first keyframe as the film does; it seeks
+//     times an open GOP's pictures shown before the run's first keyframe as the film does, and says
+//     so (IsLedIn), as a lead-in from a chunk 0 at the film's start is at zero; it seeks
 //     past its first keyframe (its lead-in's), midway to the next, so FFmpeg lands on it; an MPEG-TS
 //     film's, which FFmpeg seeks to a frame and not a keyframe, before it, midway back to the one
 //     before or at the film's start, and says so (idiosyncrasies.md). Enforced by

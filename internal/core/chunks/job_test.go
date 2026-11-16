@@ -121,7 +121,7 @@ func TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix(t *t
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
 	want := nodeproto.SoundTrack{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: -3.5}
 	if sent == nil || sent.Stream.Sound == nil || *sent.Stream.Sound != want || !sent.Stream.IsBoosted ||
-		sent.Stream.SoundKbps != 96 || sent.LeadInMs != 10_000 ||
+		sent.Stream.SoundKbps != 96 || sent.LeadInMs != 10_000 || !sent.IsLedIn ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
 		t.Fatalf("the node was sent %+v; want the English 5.1 track boosted at 96 kb/s, levelled as a prepare "+
 			"levels it, led in from chunk 1's start", sent)
@@ -252,15 +252,24 @@ func TestHandleMakeChunks_APictureRunSeeksPastTheKeyframeOfTheChunkBeforeIt(t *t
 	gridID := mustGrid(t, fixture.service).ID()
 	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 10_000 || sent.PictureSeekMs != 15_000 ||
+	if sent == nil || sent.LeadInMs != 10_000 || !sent.IsLedIn || sent.PictureSeekMs != 15_000 ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
 		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s, read from a seek to 15 s, "+
 			"midway to the next keyframe", sent)
 	}
 	fixture.start(t, 11, testRun{"picture", gridID, runArgs{FirstChunk: 0, LastChunk: 1}})
 	sent = testutil.Receive(t, fixture.node.sent, "the first chunk's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 0 || sent.PictureSeekMs != 5_000 {
+	if sent == nil || sent.LeadInMs != 0 || sent.IsLedIn || sent.PictureSeekMs != 5_000 {
 		t.Fatalf("the node was sent %+v; want chunks 0 and 1 read from a seek to 5 s, with no lead-in", sent)
+	}
+	// Chunk 0 starts at the film's start, so a run from chunk 1 is led in from 0 ms, and says so: a
+	// lead-in of zero alone is none, and the node refused the run's seek past chunk 0's keyframe (file
+	// 17099, staging, 2026-11-16).
+	fixture.start(t, 12, testRun{"picture", gridID, runArgs{FirstChunk: 1, LastChunk: 2}})
+	sent = testutil.Receive(t, fixture.node.sent, "the second chunk's command").MakeChunks
+	if sent == nil || sent.LeadInMs != 0 || !sent.IsLedIn || sent.PictureSeekMs != 5_000 {
+		t.Fatalf("the node was sent %+v; want chunks 1 and 2 led in from the film's start, read from a seek "+
+			"to 5 s", sent)
 	}
 }
 

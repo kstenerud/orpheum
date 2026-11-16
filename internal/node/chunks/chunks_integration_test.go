@@ -197,7 +197,7 @@ func makeInTwoRuns(
 			FirstChunk: first, BoundsMs: grid[first : first+4],
 		}
 		if (stream.Kind.IsSound() || stream.Kind == nodeproto.StreamPicture) && first > 0 {
-			command.LeadInMs = grid[first-1]
+			command.LeadInMs, command.IsLedIn = grid[first-1], true
 		}
 		if stream.Kind == nodeproto.StreamPicture {
 			command.PictureSeekMs, command.IsPictureSeekBeforeKeyframe = pictureSeek(source, grid, first)
@@ -509,7 +509,7 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 	stream := nodeproto.ChunkStream{Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6}}
 	for _, command := range []nodeproto.MakeChunks{
 		{Stream: stream, StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[0:3]},
-		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], LeadInMs: grid[1]},
+		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], LeadInMs: grid[1], IsLedIn: true},
 	} {
 		wantLast := command.FirstChunk + len(command.BoundsMs) - 2
 		last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)

@@ -57,8 +57,12 @@
 //     core says: it seeks past that chunk's keyframe, cuts at the run's first chunk too and drops
 //     the lead-in's raw file uncounted, so FFmpeg times an open GOP's pictures shown before the run's
 //     first keyframe and decoded after it as the film does; begun at that keyframe, it crushes their
-//     times together and leaves a hole at the join (idiosyncrasies.md; an episode of the owner's series). Enforced
-//     by TestArguments_ACopiedPictureIsLedInFromTheChunkBefore, TestMake_DropsACopiedPicturesLeadIn,
+//     times together and leaves a hole at the join (idiosyncrasies.md; an episode of the owner's series). A
+//     run, a sound's too, is led in when the core says so (IsLedIn), from a chunk 0 at the film's
+//     start, a lead-in at 0 ms, as well; a lead-in's time on a run not said to be led in is refused.
+//     Enforced by TestArguments_ACopiedPictureIsLedInFromTheChunkBefore,
+//     TestMake_DropsACopiedPicturesLeadIn, TestMake_ACopiedPictureIsLedInFromAChunkAtTheFilmsStart,
+//     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds,
 //     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg and an open GOP's HEVC,
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes.
 //   - A sound copied is the film's own track, every channel, packet for packet: run from a lead-in,
