@@ -307,6 +307,30 @@ func TestWant_AChunkKnownMadeThatItsNodeDroppedIsMadeAgain(t *testing.T) {
 	}
 }
 
+// A store's init is the same from any run of it, so a chunk given up on refuses no init: asked for
+// from a given-up chunk 0, it starts the run from chunk 1. Refused with chunk 0, the picture's init
+// was answered 422, and its player stepped over it as a chunk not made and never asked for it again
+// (file 17137 on staging, 2026-11-16).
+func TestWant_AnInitAskedForFromAChunkGivenUpOnStartsTheRunAfterIt(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	ensured(t, service, picture, 0)
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
+	service.runs.forget(dir, 0) // the run failed
+	for range runFailuresToGiveUp {
+		service.runs.failed(dir, 0, "the first chunk was cut at 2307 ms")
+	}
+	initFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 0}
+	if err := service.Want(t.Context(), initFile); err != nil {
+		t.Fatalf("the init asked for from a given-up chunk 0 was %v; want a run started after it", err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 2 || runs[1].firstChunk != 1 {
+		t.Errorf("the runs asked for = %+v; want a second, from chunk 1, which makes the init", runs)
+	}
+}
+
 // A picture's init asked for after a jump says nothing of where the player is, and moves no sound: it
 // stands where the playback last reported, the film's start for a player that jumped before its
 // report, and started the sound from there, cutting the run the jump needed, every two seconds, while

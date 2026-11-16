@@ -56,6 +56,24 @@ func (tracker *runTracker) givenUp(dir string, chunk int) (why string, isGivenUp
 	return failure.why, true
 }
 
+// notGivenUpFrom is the first chunk of the store at dir, at or after from, that its runs have not
+// failed at often enough to give it up (givenUp), within its grid; from itself when every one is, or
+// when no player has asked for the store yet and its grid is not known.
+func (tracker *runTracker) notGivenUpFrom(dir string, from int) int {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	if known.grid == nil {
+		return from
+	}
+	for n := from; n <= known.grid.lastChunk(); n++ {
+		if failure, found := known.failureByChunk[n]; !found || failure.count < runFailuresToGiveUp {
+			return n
+		}
+	}
+	return from
+}
+
 // hasGivenUp is whether runs of the store at dir failed at any chunk often enough that no other is
 // made there (givenUp).
 func (tracker *runTracker) hasGivenUp(dir string) bool {

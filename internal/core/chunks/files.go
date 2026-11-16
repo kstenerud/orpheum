@@ -104,10 +104,11 @@ func (file StoreFile) StreamName() string { return file.stream.Name() }
 func (file StoreFile) IsSound() bool { return file.stream.Kind.IsSound() }
 
 // Want makes sure a file of a store its node does not have will be made (Ensure): from its chunk, or,
-// for the init, from the chunk the playback is at, made again if it was known made (unmade). The
-// film's runs no player wants stop first (StopUnwanted, D309 §2): its player's interest in the
-// chunk's stream moved as it asked (D355). A run the server starts for a player, as it starts or
-// stalls, stops nothing: its interest is recorded once the run is on its way.
+// for the init, from the chunk the playback is at or the first after it not given up on (givenUp),
+// made again if it was known made (unmade). The film's runs no player wants stop first
+// (StopUnwanted, D309 §2): its player's interest in the chunk's stream moved as it asked (D355). A
+// run the server starts for a player, as it starts or stalls, stops nothing: its interest is
+// recorded once the run is on its way.
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// A store's init is made by any run of it: one on its way makes it, and an init asked for from
 	// where a playback last reported, the film's start for a guest who has reported nothing, cut the
@@ -119,11 +120,20 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// The node does not have it, though the core may know it made: dropped, missing or damaged against
 	// its record (D392 §4), or evicted. It is made again as one never made; an init with the chunk it
 	// is asked from, as a run makes its store's init with its first chunk.
-	service.runs.unmade(file.storeDir, file.runFrom)
+	runFrom := file.runFrom
+	if file.isInit {
+		// An init is the same from any run of its store, so a chunk given up on is no reason to refuse
+		// it: the run starts at the first chunk from there that is not. Refused with the chunk where
+		// the playback last reported, the init of a picture whose chunk 0 was given up was answered
+		// 422, and its player, taking it for a chunk not made, stepped over it and never asked for the
+		// init again (file 17137 on staging, 2026-11-16).
+		runFrom = service.runs.notGivenUpFrom(file.storeDir, file.runFrom)
+	}
+	service.runs.unmade(file.storeDir, runFrom)
 	if err := service.StopUnwanted(ctx, file.fileID); err != nil {
 		return err
 	}
-	return service.askedFor(ctx, file.fileID, file.kind, file.stream, file.runFrom)
+	return service.askedFor(ctx, file.fileID, file.kind, file.stream, runFrom)
 }
 
 // WantAlongside makes sure sound is made from where picture is, a file of a picture asked for where

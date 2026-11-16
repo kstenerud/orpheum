@@ -272,7 +272,10 @@
 //     runs FFmpeg failed on twice at the same chunk makes no run from there again until its film is
 //     forgotten (ForgetFile): its players are refused, ErrCannotBeMade, and FFmpeg's word is logged
 //     once. Enforced by TestEnsure_AChunkWhoseRunsFailedTwiceIsNotMadeAgain; through the API, the
-//     refusal is a 422 by TestChunks_AChunkThatCannotBeMadeIsRefusedForGood (internal/core/api). A
+//     refusal is a 422 by TestChunks_AChunkThatCannotBeMadeIsRefusedForGood (internal/core/api). Its
+//     init, the same from any run of the store, is never refused for it: asked for from a chunk given
+//     up on, it starts the run from the first after it that is not. Enforced by
+//     TestWant_AnInitAskedForFromAChunkGivenUpOnStartsTheRunAfterIt. A
 //     track whose copy is so given up on is offered no more copied meanwhile: a playback started anew
 //     plays the top with the sound the server makes. Enforced by
 //     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes.
