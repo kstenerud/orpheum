@@ -30,28 +30,51 @@ interface ListedLevel {
 const bufferedWhole = "OK";
 
 /**
- * The chunk to load in place of chosen: chosen, unless it is a chunk of picture buffered whole at
- * another quality (isBufferedWhole), when the one after it on chosen's playlist, and so on; null
- * where every chunk after is held.
+ * Whether a chunk, by its number and quality, is one of picture buffered whole at another of levels
+ * (isBufferedWhole).
  */
-export function chunkNotHeld<Chunk extends ListedChunk>(
-  chosen: Chunk | null,
+function heldElsewhere(
   levels: readonly ListedLevel[],
-  playlist: readonly Chunk[],
   isBufferedWhole: (chunk: ListedChunk) => boolean,
-): Chunk | null {
-  const isHeldElsewhere = (sn: number, level: number): boolean =>
+): (sn: number, level: number) => boolean {
+  return (sn, level) =>
     levels.some((each, other) => {
       const details = each.details;
       const chunk = details?.fragments[sn - details.startSN];
       return other !== level && chunk?.sn === sn && isBufferedWhole(chunk);
     });
+}
+
+/**
+ * The chunk to load in place of chosen: chosen, unless it is one held at another quality
+ * (isHeldElsewhere, heldElsewhere), when the one after it on chosen's playlist, and so on; null where
+ * every chunk after is held.
+ */
+export function chunkNotHeld(
+  chosen: ListedChunk | null,
+  playlist: readonly ListedChunk[],
+  isHeldElsewhere: (sn: number, level: number) => boolean,
+): ListedChunk | null {
   let chunk = chosen;
   while (chunk !== null && typeof chunk.sn === "number" && isHeldElsewhere(chunk.sn, chunk.level)) {
     const after = chunk.sn + 1;
     chunk = playlist.find((each) => each.sn === after) ?? null;
   }
   return chunk;
+}
+
+/** owner's field of that name, or undefined where owner is no object. */
+function fieldOf(owner: unknown, name: string): unknown {
+  if (typeof owner !== "object" || owner === null) {
+    return undefined;
+  }
+  const value: unknown = Reflect.get(owner, name);
+  return value;
+}
+
+/** Whether value is a chunk as hls.js lists it. */
+function isListedChunk(value: unknown): value is ListedChunk {
+  return typeof fieldOf(value, "level") === "number" && fieldOf(value, "sn") !== undefined;
 }
 
 /**
@@ -61,33 +84,30 @@ export function chunkNotHeld<Chunk extends ListedChunk>(
  * hls.js flushed. hls.js renamed or reshaped is an error: its pinned version is the one tested.
  */
 export function loadsNoChunkAgain(hls: Hls): void {
-  const controller: unknown = Reflect.get(hls, "streamController");
-  const choose: unknown =
-    typeof controller === "object" && controller !== null
-      ? Reflect.get(controller, "getNextFragment")
-      : undefined;
-  const tracker: unknown =
-    typeof controller === "object" && controller !== null
-      ? Reflect.get(controller, "fragmentTracker")
-      : undefined;
-  const getState: unknown =
-    typeof tracker === "object" && tracker !== null ? Reflect.get(tracker, "getState") : undefined;
-  if (typeof choose !== "function" || typeof getState !== "function") {
+  const controller: unknown = fieldOf(hls, "streamController");
+  const choose = fieldOf(controller, "getNextFragment");
+  const tracker = fieldOf(controller, "fragmentTracker");
+  const getState = fieldOf(tracker, "getState");
+  if (
+    typeof controller !== "object" ||
+    controller === null ||
+    typeof choose !== "function" ||
+    typeof getState !== "function"
+  ) {
     throw new Error(
       "hls.js has no stream controller's getNextFragment and fragment tracker to wrap",
     );
   }
+  const isBufferedWhole = (chunk: ListedChunk): boolean =>
+    Reflect.apply(getState, tracker, [chunk]) === bufferedWhole;
   Reflect.set(
-    controller as object,
+    controller,
     "getNextFragment",
     (position: number, details: { readonly fragments: readonly ListedChunk[] }) => {
-      const chosen = Reflect.apply(choose, controller, [position, details]) as ListedChunk | null;
-      return chunkNotHeld(
-        chosen,
-        hls.levels,
-        details.fragments,
-        (chunk) => Reflect.apply(getState, tracker, [chunk]) === bufferedWhole,
-      );
+      const chosen: unknown = Reflect.apply(choose, controller, [position, details]);
+      return isListedChunk(chosen)
+        ? chunkNotHeld(chosen, details.fragments, heldElsewhere(hls.levels, isBufferedWhole))
+        : chosen;
     },
   );
 }

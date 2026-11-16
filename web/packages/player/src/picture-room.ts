@@ -438,16 +438,11 @@ export class StepDown {
    */
   #keptDown(pair: PairChoice): number | undefined {
     const stepped = this.#stepped;
-    const aheadS = this.#hls.mainForwardBufferInfo?.len;
-    const next = nextChunkOf(this.#hls, this.#room);
-    if (
-      stepped === undefined ||
-      pair.chunk?.sn !== stepped.sn ||
-      pair.level <= stepped.level ||
-      aheadS === undefined ||
-      next === undefined ||
-      aheadS >= next.duration
-    ) {
+    if (stepped === undefined || pair.chunk?.sn !== stepped.sn || pair.level <= stepped.level) {
+      return undefined;
+    }
+    const aheadS = this.#littleAheadS();
+    if (aheadS === undefined) {
       return undefined;
     }
     if (this.#keptNoted !== stepped.sn) {
@@ -458,6 +453,15 @@ export class StepDown {
       );
     }
     return stepped.level;
+  }
+
+  /** The seconds loaded ahead, where they are fewer than the next chunk's; undefined otherwise. */
+  #littleAheadS(): number | undefined {
+    const aheadS = this.#hls.mainForwardBufferInfo?.len;
+    const next = nextChunkOf(this.#hls, this.#room);
+    return aheadS !== undefined && next !== undefined && aheadS < next.duration
+      ? aheadS
+      : undefined;
   }
 
   /** The quality its controller last chose, before any step-down; undefined before it chose. */

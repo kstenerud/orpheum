@@ -679,6 +679,24 @@ function requestsFollowing(
 }
 
 /**
+ * hls.js for config, its chunks loaded through soundShift and its qualities chosen by
+ * abrController, a switch of quality loading no chunk again that it holds at another (D503 §4).
+ */
+function hlsOf(
+  config: ReturnType<typeof chunkedHlsConfig>,
+  soundShift: SoundShift,
+  abrController: Hls["config"]["abrController"],
+): Hls {
+  const hls = new Hls({
+    ...config,
+    fLoader: chunkLoader(soundShift, config.loader),
+    abrController,
+  });
+  loadsNoChunkAgain(hls);
+  return hls;
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, its
  * quality chosen by a bitrate controller of our own from startAtBps (D265); else with the element's
  * own HLS, which adapts by itself.
@@ -733,13 +751,7 @@ export function playChunked(
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
-  const hls = new Hls({
-    ...config,
-    fLoader: chunkLoader(soundShift, config.loader),
-    abrController: abr.controller,
-  });
-  // A switch loads no chunk of picture again that it holds at another quality (D503 §4).
-  loadsNoChunkAgain(hls);
+  const hls = hlsOf(config, soundShift, abr.controller);
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);

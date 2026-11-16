@@ -296,9 +296,9 @@ describe("the step-down between hls.js and the quality chosen (D464 §3)", () =>
 });
 
 describe("a stepped-down chunk asked again (D503 §3)", () => {
-  /** The ladder with the picture loaded as span says, len seconds of it ahead of where it plays. */
-  function hlsAhead(span: HeldSpan, len: number): RoomHls {
-    return { levels: ladder(), minAutoLevel: 0, mainForwardBufferInfo: { ...span, len } };
+  /** The ladder with the picture loaded as span says, aheadS seconds of it ahead of where it plays. */
+  function hlsAhead(span: HeldSpan, aheadS: number): RoomHls {
+    return { levels: ladder(), minAutoLevel: 0, mainForwardBufferInfo: { ...span, len: aheadS } };
   }
 
   it("is asked at the quality it stepped down to, never higher, while less than its length is ahead", () => {

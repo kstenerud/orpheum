@@ -5,6 +5,15 @@ import Hls, { Fragment, LevelDetails, PlaylistLevelType } from "hls.js";
 
 import { loadsNoChunkAgain } from "./no-chunk-again.ts";
 
+/** owner's field of that name, which must be an object. */
+function objectOf(owner: object, name: string): object {
+  const value: unknown = Reflect.get(owner, name);
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`no ${name}`);
+  }
+  return value;
+}
+
 /** A quality's playlist of ten 6 s chunks, as hls.js keeps it. */
 function playlistOf(level: number): LevelDetails {
   const details = new LevelDetails("");
@@ -30,16 +39,17 @@ function nextAtLevel1(isHeld: boolean): { readonly sn: unknown; readonly level: 
   const hls = new Hls();
   const playlists = [playlistOf(0), playlistOf(1)];
   Object.defineProperty(hls, "levels", { value: playlists.map((details) => ({ details })) });
-  const controller: object = Reflect.get(hls, "streamController");
-  const tracker: object = Reflect.get(controller, "fragmentTracker");
+  const controller = objectOf(hls, "streamController");
+  const tracker = objectOf(controller, "fragmentTracker");
   Reflect.set(tracker, "getState", (chunk: Fragment) =>
     isHeld && chunk.level === 0 && chunk.sn === 5 ? "OK" : "NOT_LOADED",
   );
   loadsNoChunkAgain(hls);
-  const next: unknown = Reflect.apply(Reflect.get(controller, "getNextFragment"), controller, [
-    35.986,
-    playlists[1],
-  ]);
+  const choose: unknown = Reflect.get(controller, "getNextFragment");
+  if (typeof choose !== "function") {
+    throw new Error("the stream controller has no getNextFragment");
+  }
+  const next: unknown = Reflect.apply(choose, controller, [35.986, playlists[1]]);
   hls.destroy();
   return next === null
     ? null
