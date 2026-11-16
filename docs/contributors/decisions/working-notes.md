@@ -29486,7 +29486,7 @@ on frames that are not keyframes, so a copy seeking between two keyframes starte
 Every run's first raw file was one keyframe interval long, the node refused each run at its bounds,
 and the player stepped over the whole film.
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **A copied picture's run starts at its first chunk's keyframe in any container, whatever its
    index says:** its seek no longer trusts the demuxer to land on a keyframe. It keeps the source's
@@ -29495,3 +29495,7 @@ and the player stepped over the whole film.
 2. **A copied picture whose run is refused at its bounds is encoded instead:** the playback's
    picture falls back to an encode from there, so a file that cannot be cut on its grid still plays
    rather than being stepped over (option 3).
+
+**Proven by:**
+- 1: TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyframe (internal/node/chunks/avi_integration_test.go); file 17099 played as a copy on staging (the owner, 2026-11-16, "it plays now")
+- 2: TestStartOnLadder_APictureWhoseCopyCannotBeMadeStartsAtItsTwin (internal/core/chunks), web/packages/player/src/skip-unmade.test.ts

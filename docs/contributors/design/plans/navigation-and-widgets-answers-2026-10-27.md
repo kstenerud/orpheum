@@ -4213,3 +4213,14 @@ for real; a pause the person asked for shows neither. VQ355.
 Also folded in (item 4): word that the connection cannot keep up shows for 10 s, once a playback
 (the owner: "The message should only show for 5 seconds and then never again on that playback",
 then "Actually let's make it 10 seconds"). VQ354.
+
+### A playback whose first chunk is given up fails to start, next batch (the lead, 2026-11-16)
+
+Before D500's fixes, file 17099's chunk 0 was given up (its copy cut a keyframe interval late), and
+each start after was answered 500 ("Something went wrong on the server"), the core's `start a
+playback` failing with the chunk's failure, where a start past a given-up chunk could step over it as
+a playing film does, or say the film cannot be played. D500 §2 now gives a copied picture's new
+playbacks its encode, so this is left to an encoded picture whose chunk 0 is given up. Evidence:
+staging's core log, 2026-11-16 22:09 UTC, `action="start a playback"` with `err="… chunk 0: FFmpeg
+failed on the film at this chunk each time it was made …"`.
+
