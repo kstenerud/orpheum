@@ -25,10 +25,10 @@ type InProgressBody struct {
 	Name         string `json:"name"`
 	Year         int64  `json:"year,omitempty"`
 	PosterSha256 string `json:"posterSha256,omitempty"`
-	// NoPosterStillSha256 is what its poster's place shows when it has no poster: a film's 16:9 picture
-	// above the mark of a missing poster, as its card in a list shows, and an episode's still, where
-	// neither it nor its series has a poster; an other video's 16:9 picture, shown alone (D496, D497).
-	NoPosterStillSha256 string            `doc:"A film's or an episode's 16:9 picture above the mark of a missing poster, or an other video's 16:9 picture shown alone, when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
+	// NoPosterStillSha256 is the 16:9 picture its card shows alone when it has no poster, whatever its
+	// kind: a film's as its card in a list picks it, an episode's still where neither it nor its series
+	// has a poster, an other video's picture (D497).
+	NoPosterStillSha256 string            `doc:"The 16:9 picture shown alone in its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
 	FileID              int64             `json:"fileId"`
 	PositionMs          int64             `json:"positionMs"`
 	DurationMs          int64             `doc:"0 when the file's length is unknown" json:"durationMs"`

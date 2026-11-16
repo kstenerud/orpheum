@@ -143,8 +143,8 @@ func (browser *Browser) withPostersAndFileNames(
 }
 
 // withEpisodeStills gives each episode's row that has no poster, its own nor its series'
-// (withSeriesPosters), its still as its NoPosterStillSha256, shown above the mark of a missing poster
-// as a film's is (the owner, 2026-11-16: an episode is drawn as a film; D497).
+// (withSeriesPosters), its still as its NoPosterStillSha256, which its card shows alone in its
+// poster's place (the owner, 2026-11-16: "For ALL videos"; D497).
 func (browser *Browser) withEpisodeStills(ctx context.Context, rows []InProgress) error {
 	var episodeIDs []int64
 	for _, row := range rows {
