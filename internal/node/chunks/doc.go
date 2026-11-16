@@ -104,6 +104,12 @@
 //     TestArguments_EncodeAQualityInItsSourcesTimeBase; with the pinned FFmpeg, a Matroska and an
 //     MPEG-TS clip's encodes count in their copies' timescales, every picture once, by
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes (integration tier).
+//   - Every encode of a quality is cut by the muxer at the times its keyframes were forced at: FFmpeg
+//     would move every packet later by its B-frames' first decode time below zero, as long as a gap
+//     after its first picture, and a run from the film's start of a film whose second picture is a
+//     third of a second after its first was cut past its bound and never made (idiosyncrasies.md).
+//     Enforced by TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes; with the pinned FFmpeg, by
+//     TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds (integration tier).
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, ending no
 //     more than a few frames past its bound, the run's last chunk too, and the run's last only once
 //     FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as

@@ -163,6 +163,7 @@ User-Agent (D263; the User-Agent is logged only).
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
 | An AVI's sound played half a second ahead of its picture for its first five minutes, then in step. | [An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second](#an-input-seek-to-the-start-of-an-avi-with-b-frames-lands-past-its-first-keyframe-and-its-sounds-first-half-second) |
+| An encode's chunk 0 was refused, "raw 00000.mp4 holds 0 to 2307 ms of the run, not its chunk 0's 0 to 2000 ms (… first cut at 1.950 s)", while the run from chunk 1 made every chunk. | [An encoder's B-frames move every packet later for the segment muxer by as long as its first pictures' gap](#an-encoders-b-frames-move-every-packet-later-for-the-segment-muxer-by-as-long-as-its-first-pictures-gap) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | A film's own sound copied failed its chunk 0, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not play. | [An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start](#an-mp4-whose-first-keyframe-is-before-its-start-discarded-has-its-grid-start-at-the-next-and-a-sound-copied-sought-there-reads-from-the-films-start) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
@@ -3087,6 +3088,35 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `00040.mp4,4.379000,10.927000`, a file whose cut was at 14.68 s.
   `TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds`. **[web]** no public report found (searched
   GitHub issues of Kyoo and Jellyfin, 2026-10-08).
+
+### An encoder's B-frames move every packet later for the segment muxer by as long as its first pictures' gap
+
+- **Symptom:** an encoded quality of an RV20 film in RealMedia, its run from the film's start, failed
+  every time with "raw 00000.mp4 holds 0 to 2307 ms of the run, not its chunk 0's 0 to 2000 ms (the
+  run read from 0 ms, its first cut at 1.950 s)" under `h264_vaapi`; the run from chunk 1 made all
+  its chunks (file 17137, staging, 2026-11-16).
+- **Cause:** the film's first picture is at 52 ms and its second at 388 ms, the pictures between
+  missing. An encoder with B-frames gives its first picture a decode time before its shown time by
+  as long as its next one (`h264_vaapi`) or two (x264) pictures are after it, here 336 or 347 ms, so
+  the first packet's decode time is below zero, and FFmpeg's default `-avoid_negative_ts auto` moves
+  every packet of the output that much later before the segment muxer sees it. The forced keyframe
+  was where it was asked for, at the first picture from 2 s (2.024 s), but the muxer, its clock moved
+  284 ms (VAAPI) or 347 ms (x264), cut and listed it at 2.308 or 2.371 s: past the list's tolerance.
+  A film whose pictures are evenly spaced moves only a picture or two (41 to 65 ms), which every run
+  did unnoticed, a run after a seek too. The MP4 muxer inside, which writes no edit list here,
+  starts each raw file's decode times at zero itself either way: the raw files are the same bytes.
+  Why the list's first file starts at 0.000 while its first packet is shown at 0.336 s is
+  unverified.
+- **What we do:** an encode's output is `-avoid_negative_ts disabled`, so the muxer cuts and lists
+  at the times the keyframes were forced at (`encodeCutTimes`, `internal/node/chunks/arguments.go`).
+  A copied picture keeps `make_zero`.
+- **Evidence:** **[measured]** the pinned FFmpeg 8.1.3 on staging's node, file 17137's first ten
+  seconds, chunk 0's cut at 1.950 s: `h264_vaapi` listed `00000.mp4,0.000000,2.307000` and x264
+  `2.370000`; with `-avoid_negative_ts disabled` both `2.023000`, every later file at its bound
+  within a picture, the raw files' packets unchanged; a run sought to 2 s listed its first file
+  ending at 2.044 s before and 2.003 s after. `TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds`
+  (integration tier) fails without it with "holds 0 to 2467 ms". **[web]** no report found of the
+  shift's effect on `-segment_times` (searched 2026-11-16).
 
 ### A sound copied starts before its seek, and the segment muxer times its cuts from the first packet
 

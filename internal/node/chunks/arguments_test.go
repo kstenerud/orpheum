@@ -176,6 +176,28 @@ func TestArguments_EncodeAQualityInItsSourcesTimeBase(t *testing.T) {
 	}
 }
 
+// Every encoder's quality is cut by the muxer at the times its keyframes are forced at, never moved
+// later by the B-frames' first decode time before zero, which put a run's first chunk of a film whose
+// first picture is followed by a gap past its tolerance (encodeCutTimes); a copied picture's times
+// still start at its first keyframe.
+func TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes(t *testing.T) {
+	t.Parallel()
+	for _, encoder := range []encode.Encoder{
+		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
+	} {
+		arguments := Arguments(execx.Film{Path: "/a.rm"}, "/r",
+			run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360}), encoder)
+		if shift := valueOf(arguments, "-avoid_negative_ts"); shift != "disabled" {
+			t.Errorf("%s's encode moves its times by %q before the muxer cuts them; want disabled", encoder, shift)
+		}
+	}
+	copied := Arguments(execx.Film{Path: "/a.rm"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
+		encode.EncoderX264)
+	if shift := valueOf(copied, "-avoid_negative_ts"); shift != "make_zero" {
+		t.Errorf("a copied picture's times are moved by %q; want make_zero", shift)
+	}
+}
+
 // A picture whose B-frames carry no display times, copied or encoded, is re-timed by dts2pts, a
 // copy's on the output and an encode's on its input, and read a second past its end, an
 // encode keyframed at that end too so what is read past it is cut off; an ordinary picture is not,

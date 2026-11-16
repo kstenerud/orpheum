@@ -241,6 +241,22 @@ func encodeTimeBase() []string {
 	return []string{"-enc_time_base:v", "demux", "-fps_mode:v", "vfr"}
 }
 
+// encodeCutTimes keeps the segment muxer's clock an encode's own, its pictures' times as the encoder
+// was given them, where its keyframes are forced: an encoder with B-frames, x264 and h264_vaapi
+// alike, decodes its first pictures before they are shown and gives the first a decode time before
+// zero, as far before it as the next one or two pictures are after it, and FFmpeg moves every packet
+// later by that much before the muxer sees it (avoid_negative_ts), so the muxer cut and listed every
+// raw file that much late. A picture or two at the film's rate passed the list's tolerance, but a film
+// whose first picture is followed by a gap did not: an RV20 film's second picture a third of a second
+// after its first moved a run from its start 284 ms later under VAAPI and 347 ms under x264, its
+// chunk 0 listed ending at 2,307 ms and never made (file 17137, staging, 2026-11-16;
+// idiosyncrasies.md). Unmoved, the muxer cuts and lists at the forced keyframes; the MP4 muxer,
+// which writes no edit list here, still starts each raw file's decode times at zero itself, as
+// before.
+func encodeCutTimes() []string {
+	return []string{"-avoid_negative_ts", "disabled"}
+}
+
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
 // run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
@@ -276,6 +292,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		arguments = append(arguments,
 			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command))...)
 		arguments = append(arguments, encodeTimeBase()...)
+		arguments = append(arguments, encodeCutTimes()...)
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),

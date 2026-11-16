@@ -589,3 +589,53 @@ func TestMake_AFilmWhoseFirstKeyframeIsBeforeItsStartIsCutFromItsStart(t *testin
 			times, offset)
 	}
 }
+
+// filmWithAGapAfterItsFirstPicture is a twelve-second MP4 of 15 pictures a second, a keyframe every
+// two seconds, whose second picture is shown 0.4 s after its first, the five between dropped, as an
+// RV20 film's is a third of a second after (file 17137, staging, 2026-11-16).
+func filmWithAGapAfterItsFirstPicture(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "a film with a gap after its first picture (2020).mp4")
+	testutil.GenerateMedia(t, path,
+		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=15:duration=12",
+		"-vf", `select=not(between(n\,1\,5))`, "-fps_mode", "passthrough",
+		"-c:v", "libx264", "-preset", "fast", "-bf", "0", "-g", "1000", "-sc_threshold", "0",
+		"-force_key_frames", "expr:gte(t,n_forced*2)")
+	return path
+}
+
+// An encode of a film whose first picture is followed by a gap is cut at its chunks' bounds from
+// the film's start: x264's B-frames give its first picture a decode time as far before zero as its
+// next pictures are after it, and FFmpeg, moving every packet that much later for the muxer, put the
+// cut after chunk 0 0.47 s past its bound, and the run's chunk 0 was never made (encodeCutTimes;
+// idiosyncrasies.md). Every picture of the film is in its chunks once.
+func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmWithAGapAfterItsFirstPicture(t)
+	grid := keyframeGrid(t, runner, source)
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-q400k360p/0123456789abcdef"
+	command := nodeproto.MakeChunks{
+		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:4],
+		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
+	}
+	if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != 2 {
+		t.Fatalf("the run from the film's start made through %d, %v; want its three chunks", last, err)
+	}
+	var want int
+	for _, shown := range sourceTimes(t, runner, source, "v:0", false) {
+		if shown < float64(grid[3])/1000 {
+			want++
+		}
+	}
+	if stored := packetTimes(t, runner, filepath.Join(directory, storeDir), 3); len(stored) != want {
+		t.Errorf("the chunks hold %d pictures; want the film's %d before %d ms", len(stored), want, grid[3])
+	}
+}
