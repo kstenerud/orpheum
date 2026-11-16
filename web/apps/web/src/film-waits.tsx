@@ -7,6 +7,8 @@ import { isWaitingToPlay, startGateWaitChangedEvent } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { StillReadingIcon } from "./icons.tsx";
+
 /**
  * How long a film meant to play waits for data before its spinner shows, in ms, so a quick start or
  * seek shows none. The lead's proposal, awaiting the owner (2026-11-15): half a second, a quarter of
@@ -108,7 +110,8 @@ export function useIsWaitingShown(videoRef: RefObject<HTMLVideoElement | null>):
  * The spinner over a film meant to play that waits for data (useIsWaitingShown), so its person
  * knows it is getting ready, not paused (the owner, 2026-11-15): at its start, after a seek to where
  * too little is loaded, and in a stall. None over a film that failed, whose page says why. It takes
- * no pointer, and says "Getting ready to play" to a screen reader as it shows.
+ * no pointer, and says "Getting ready to play" to a screen reader as it shows. It is a turning ring,
+ * or, asked for less motion, the still-reading hourglass pulsing (film-waits.css).
  */
 export function FilmWaitsSpinner(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -120,7 +123,12 @@ export function FilmWaitsSpinner(props: {
     // A span, not an output, which the player's page keeps for its words (the reconnecting note).
     <span className="film-waits" hidden={!isShown} aria-live="polite">
       {isShown ? (
-        <span className="film-waits__spinner" aria-label={t("playerControls.gettingReady")} />
+        <span className="film-waits__sign" role="img" aria-label={t("playerControls.gettingReady")}>
+          <span className="film-waits__spinner" />
+          <span className="film-waits__hourglass">
+            <StillReadingIcon isRinged={false} />
+          </span>
+        </span>
       ) : null}
     </span>
   );

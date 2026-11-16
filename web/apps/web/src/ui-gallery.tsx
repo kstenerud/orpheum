@@ -473,9 +473,11 @@ function PlayerWidgets(): JSX.Element {
 const pulseSeconds = ["1.2", "2", "3"] as const;
 
 /**
- * The spinner a film waiting for data shows under Reduce Motion, for the owner to choose (the owner,
+ * The spinner a film waiting for data shows under Reduce Motion, as the owner chose it (the owner,
  * 2026-11-16, "Let's pulse an hourglass icon"): today's ring for comparison, then the still-reading
  * hourglass pulsing at each of pulseSeconds, on the status blue and on the film's control ground.
+ * The film takes the one on its control ground at 3 s ("Use the 3s hourglass (white) for the
+ * video", film-waits.css).
  * The pulse runs here whatever motion is asked for, so it can be judged with Reduce Motion on.
  */
 function FilmWaitingLooks(): JSX.Element {

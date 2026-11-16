@@ -3,7 +3,8 @@
 /* The spinner over a film meant to play that waits for data (film-waits.tsx), in the middle of the
    picture, where the pause sign would be, which never shows with it; under the overlay's rows. The
    lead's proposal, awaiting the owner (2026-11-15): a white ring a quarter lit, turning once a
-   second, on the film's control ground so a bright picture does not hide it. */
+   second, on the film's control ground so a bright picture does not hide it; asked for less motion,
+   a pulsing hourglass in its place. */
 .film-waits {
   position: absolute;
   inset: 0;
@@ -33,9 +34,48 @@
   }
 }
 
-/* Asked for less motion, the ring stands still, its lit quarter still saying it waits. */
+/* The sign the ring or the hourglass stands in, one of them showing at a time. */
+.film-waits__sign {
+  display: grid;
+}
+
+.film-waits__sign > * {
+  grid-area: 1 / 1;
+}
+
+/* Asked for less motion, the hourglass shows instead of the ring (the owner, 2026-11-16, "Let's
+   pulse an hourglass icon"). */
+.film-waits__hourglass {
+  display: none;
+}
+
+/* The still-reading hourglass at the ring's size, in the ring's own colours: a white glass on the
+   film's dark disc (the owner, 2026-11-16, "the 3s hourglass (white)"). */
+.film-waits__hourglass .still-reading-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  color: var(--color-on-video);
+  --icon-ground: var(--color-video-card);
+}
+
+@keyframes film-waits-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Asked for less motion, the ring would stand still and say nothing of waiting, so the hourglass
+   takes its place, its opacity alone changing: fully drawn, faded to a third and back once every
+   3 seconds. The global reset (tokens.css) stops every animation under Reduce Motion, so this one
+   keeps its length against it. */
 @media (prefers-reduced-motion: reduce) {
   .film-waits__spinner {
-    animation: none;
+    display: none;
+  }
+
+  .film-waits__hourglass {
+    display: block;
+    animation: film-waits-pulse 3s ease-in-out infinite;
+    animation-duration: 3s !important;
   }
 }
