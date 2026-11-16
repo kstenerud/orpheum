@@ -466,20 +466,12 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
 }
 
 /**
- * The poster a season's card shows: its own (D379 §1), else, where it has no still to show in its
- * place, its series'; undefined shows its still, or a named blank where it has none either.
- */
-function seasonPosterOf(series: SeriesDetail, season: Season): string | undefined {
-  return (
-    season.posterSha256 ?? (season.stillSha256 === undefined ? series.art.posterSha256 : undefined)
-  );
-}
-
-/**
  * A series' seasons as a row of posters above the episodes (D379 §1), in the server's order, the
  * specials last; each by its name and how many episodes it holds, with the check once its person
- * watched every one (D370 §3). A season shows its own poster; one with none shows its still in its
- * poster's place (D362 §2), with no "No poster" caption, else the series' poster. Choosing one is a
+ * watched every one (D370 §3). A season shows its own poster; one with none, the "No poster" card
+ * with its still in the top half (D362 §2), else that card bare: never its series' poster (the owner,
+ * 2026-11-16: "Let's make it show "no poster". It'll eventually get resolved when a screenshot is
+ * available."; D497). Choosing one is a
  * view of the series, which replaces the history's entry (D379 §2, D367 §9). The row is one focus
  * container: a remote's Left and Right move along it, Down leaves it for the season's episodes (D379
  * §3).
@@ -525,9 +517,8 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
           to={{ screen: "series-page", collectionId: series.id, season: season.seasonNumber }}
           isCurrent={season.seasonNumber === shown.seasonNumber}
           isReplacing
-          posterSha256={seasonPosterOf(series, season)}
+          posterSha256={season.posterSha256}
           noPosterStillSha256={season.stillSha256}
-          isStillEnough
           name={seasonName(t, series, season)}
           details={
             <PosterDetail>
@@ -668,7 +659,11 @@ function EpisodeList(props: {
         >
           <Link to={{ screen: "title", itemId: episode.id }} className="series__episode">
             <span className="series__still-frame">
-              <Still sourceSha256={episode.stillSha256} className="series__still" />
+              <Still
+                sourceSha256={episode.stillSha256}
+                className="series__still"
+                isNoPosterMarked
+              />
               {episode.isWatched === true ? <WatchedRowMark /> : null}
             </span>
             <span>

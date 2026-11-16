@@ -334,6 +334,14 @@ describe("the Up next offer over the film", () => {
     expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
   });
 
+  it("shows the No poster card in a screenshot's shape where the next episode has no still (D497 §2)", async () => {
+    const container = await offer(true);
+    video.stand(1185);
+    const still = container.querySelector(".up-next__still");
+    expect(still?.classList.contains("poster--wide")).toBe(true);
+    expect(still?.textContent).toContain("No poster");
+  });
+
   it("draws nothing again while the film plays far from its end (the web client's architecture audit of 2026-11-10, Playback 8)", async () => {
     let renders = 0;
     const videoRef = createRef<HTMLVideoElement>();

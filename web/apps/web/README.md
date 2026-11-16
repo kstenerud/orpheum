@@ -564,8 +564,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `isAView`); a series' page shows the season chosen, else that of the person's next episode, else
   the first, chosen from a row of its seasons' posters above the episodes (D379, `SeasonRow`, one
   focus row a remote moves along by Left and Right and leaves by Down into the episodes; each card
-  its season's own poster, else its still, uncaptioned, else the series' poster, "No poster" only
-  where there is none of them); returned
+  its season's own poster, else the "No poster" card with its still in the top half, else that card
+  bare, never the series' poster, D497 §4; an episode's still in the list, and Up Next's, else the
+  "No poster" card in its 16:9 shape, D497 §2); returned
   to after one of its episodes' page or playing
   (`src/episode-reached.ts`), it shows that episode's season with the episode focused; opened by a
   step forward, as from a list, it shows from its top, every episode reached let go at each step

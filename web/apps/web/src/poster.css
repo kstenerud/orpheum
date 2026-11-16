@@ -28,11 +28,13 @@
 
 /* The blank in a 16:9 picture's shape, a video with nothing to show yet (D497), drawn with its
    place's class (a tile's grid), whose display it overrides. Its mark is sized by the tile's height,
-   which a phone's tile keeps short. */
+   which a phone's tile keeps short. Its words keep their line where its place sets none, as an
+   episode's still frame does (series.css). */
 .poster--blank.poster--wide {
   display: flex;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+  line-height: var(--line-height-heading);
 }
 
 .poster--wide .poster__clapperboard {

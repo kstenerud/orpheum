@@ -29375,8 +29375,9 @@ available (not full poster dimensions, not with the "no poster" part), otherwise
 screenshot dimensions."* Amends D496 §1 (an other video with nothing to show) and §4 (Continue
 Watching), D495 §2, and D379 §1 (a season's card, §4).
 
-**Status:** decided. To build: §4 (a series' season list), and Up Next and a series' episode list
-in §2.
+**Status:** decided and built, every place: Up Next's and the episode list's `Still` mark their
+blank (`isNoPosterMarked`), and a season's card drops `isStillEnough`, which no card uses now, and
+its series' poster.
 
 1. **A list's card** (Films, Series, a library's grid, Home's newest rows) and a film's or series'
    own page: a film or series shows its poster; else the full-size "No poster" card with its

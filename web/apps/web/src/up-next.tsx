@@ -403,7 +403,7 @@ function OfferWords(props: {
   const place = placeCode(t, upNext.ordering, { ...episode, isOnlyGroup: upNext.isOnlyGroup });
   return (
     <>
-      <Still sourceSha256={upNext.stillSha256} className="up-next__still" />
+      <Still sourceSha256={upNext.stillSha256} className="up-next__still" isNoPosterMarked />
       <span className="up-next__words">
         <span>{t("upNext.offer", { place, name: episode.name ?? "" })}</span>
         {secondsLeft === undefined ? null : (

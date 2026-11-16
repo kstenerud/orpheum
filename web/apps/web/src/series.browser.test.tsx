@@ -63,4 +63,44 @@ describe("a season's episodes, laid out by a real browser", () => {
     expect(mark.bottom).toBeLessThanOrEqual(still.bottom);
     mounted.unmount();
   });
+
+  it("draws an episode with no still as the No poster card at the still's size, its mark inside it (D497 §2)", async () => {
+    const mounted = await mount(
+      withServices(
+        <SeasonView
+          loadedEpisodes={{
+            state: "loaded",
+            value: {
+              items: [
+                {
+                  id: 31,
+                  seasonNumber: 1,
+                  episodeNumber: 1,
+                  name: "Episode 1",
+                  identificationState: "identified",
+                  hasLiveFile: true,
+                },
+              ],
+              nextCursor: "",
+            },
+          }}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
+    );
+    const blank = boxOf(mounted.container.querySelector(".series__still.poster--wide"));
+    // A screenshot's 7rem, at 16:9, not a poster's shape.
+    expect(blank.width).toBeCloseTo(112, 0);
+    expect(blank.width / blank.height).toBeCloseTo(16 / 9, 1);
+    for (const selector of [".poster__clapperboard", ".poster__caption"]) {
+      const mark = boxOf(mounted.container.querySelector(selector));
+      expect(mark.height).toBeGreaterThan(0);
+      expect(mark.top).toBeGreaterThanOrEqual(blank.top);
+      expect(mark.bottom).toBeLessThanOrEqual(blank.bottom);
+      expect(mark.left).toBeGreaterThanOrEqual(blank.left);
+      expect(mark.right).toBeLessThanOrEqual(blank.right);
+    }
+    mounted.unmount();
+  });
 });

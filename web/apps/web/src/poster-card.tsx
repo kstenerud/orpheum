@@ -22,8 +22,6 @@ export function PosterCard(props: {
   readonly posterSha256: string | undefined;
   /** A film's or series' still, shown in the top of its poster's place while it has no poster (D362). */
   readonly noPosterStillSha256?: string | undefined;
-  /** Whether that still stands for the poster with no "No poster" caption: a season's (D379 §1). */
-  readonly isStillEnough?: boolean;
   /**
    * Its art in place of the portrait poster made from posterSha256: an other video's 16:9 tile
    * (D349 §9.1), whose own Still already shows a named blank where it has none.
@@ -71,14 +69,7 @@ export function PosterCard(props: {
         isReplacing={props.isReplacing === true}
       >
         <span className={artClassOf(props.isArtInPosterHeight === true)}>
-          {art ?? (
-            <Poster
-              sourceSha256={posterSha256}
-              stillSha256={noPosterStillSha256}
-              isStillEnough={props.isStillEnough === true}
-              isTile
-            />
-          )}
+          {art ?? <Poster sourceSha256={posterSha256} stillSha256={noPosterStillSha256} isTile />}
           {progress === undefined ? null : (
             <progress value={progress.percent} max={100} aria-label={progress.label} />
           )}

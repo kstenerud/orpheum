@@ -38,11 +38,6 @@ export function Poster(props: {
   readonly sourceSha256: string | undefined;
   readonly stillSha256?: string | undefined;
   /**
-   * Whether a still shown in the poster's place stands for it with no "No poster" caption: a season's
-   * still is a picture of the season itself, and the caption is for a card with nothing (D379 §1).
-   */
-  readonly isStillEnough?: boolean;
-  /**
    * Whether it is drawn at a poster tile's width (posterTileSizes), so the browser picks the smallest
    * size that fills it; a title page's larger poster, not one, asks for portrait-m alone.
    */
@@ -58,7 +53,7 @@ export function Poster(props: {
       >
         {hasStill ? <Still sourceSha256={props.stillSha256} className="poster__still" /> : null}
         <Clapperboard />
-        {hasStill && props.isStillEnough === true ? null : <NoPosterCaption />}
+        <NoPosterCaption />
       </span>
     );
   }
@@ -122,13 +117,14 @@ function WideNoPoster(props: { readonly className: string }): JSX.Element {
 
 /**
  * A season's or an episode's still, or a blank of its size where there is none or its image does
- * not load, as a poster's (Poster). An other video's picture shown alone (isPictureAlone) marks its
- * blank as a missing poster, in its shape (isNoPosterMarked; WideNoPoster).
+ * not load, as a poster's (Poster). A picture shown alone in a poster's place, an other video's
+ * (isPictureAlone), a Continue Watching row's, an episode's in its season's list or Up Next's, marks
+ * its blank as a missing poster, in its shape (isNoPosterMarked; WideNoPoster; D497).
  */
 export function Still(props: {
   readonly sourceSha256: string | undefined;
   readonly className: string;
-  /** Whether its blank is the "No poster" card in the still's shape: an other video's (D497). */
+  /** Whether its blank is the "No poster" card in the still's shape: a picture shown alone (D497). */
   readonly isNoPosterMarked?: boolean;
 }): JSX.Element {
   const shown = useArtShown(props.sourceSha256, "landscape-s");

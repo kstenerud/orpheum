@@ -65,10 +65,12 @@ describe("SeriesView", () => {
     // The season shown is marked; the others are not.
     expect(cards[0]).toContain('aria-current="page"');
     expect(cards[1]).not.toContain('aria-current="page"');
-    // A season with a still shows it in its poster's place (D362 §2); one without, the series' poster.
+    // A season with a still shows it in its poster's place (D362 §2); one without, "No poster", never
+    // the series' poster (D497 §4).
     expect(cards[0]).toContain("/bytes/art/s31/landscape-s.webp");
     expect(cards[0]).not.toContain("/bytes/art/p/portrait-m.webp");
-    expect(cards[1]).toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[1]).not.toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[1]).toContain("No poster");
     // A season watched whole shows its check over its poster (D370 §3).
     expect(cards[1]).toContain("poster-card__cues");
     expect(cards[0]).not.toContain("poster-card__cues");
@@ -81,7 +83,7 @@ describe("SeriesView", () => {
     expect(chosen[0]).not.toContain('aria-current="page"');
   });
 
-  it("shows a season's own poster, and says No poster only where a season has nothing (D379 §1)", () => {
+  it("shows a season's own poster, else its still over No poster, else No poster bare, never the series' (D497 §4)", () => {
     const series: SeriesDetail = {
       id: 20,
       kind: "series",
@@ -94,22 +96,20 @@ describe("SeriesView", () => {
       ],
     };
     const cards = seasonCards(renderToStaticMarkup(withServices(<SeriesView series={series} />)));
-    // Its own poster, over its still and its series' poster.
+    // Its own poster, over its still.
     expect(cards[0]).toContain("/bytes/art/sp1/portrait-m.webp");
     expect(cards[0]).not.toContain("/bytes/art/s31/");
     expect(cards[0]).not.toContain("No poster");
-    // None of its own: its still in its poster's place, a picture of it, so no caption.
-    expect(cards[1]).toContain("/bytes/art/s41/landscape-s.webp");
-    expect(cards[1]).not.toContain("No poster");
-    // Neither: its series' poster.
-    expect(cards[2]).toContain("/bytes/art/p/portrait-m.webp");
-    expect(cards[2]).not.toContain("No poster");
-    // A series with no poster at all: the season with nothing is the one named a blank.
-    const bare = seasonCards(
-      renderToStaticMarkup(withServices(<SeriesView series={{ ...series, art: {} }} />)),
+    // None of its own: the full-size "No poster" card, an episode's still in its top half, as a
+    // film's card in a list (the owner, 2026-11-16).
+    expect(cards[1]).toContain(
+      '<img class="poster__still" src="/api/v1/bytes/art/s41/landscape-s.webp"',
     );
-    expect(bare[1]).not.toContain("No poster");
-    expect(bare[2]).toContain("No poster");
+    expect(cards[1]).toContain("No poster");
+    // Neither: the card bare, not its series' poster ("Let's make it show "no poster"").
+    expect(cards[2]).toContain("poster poster--blank");
+    expect(cards[2]).toContain("No poster");
+    expect(cards.join("")).not.toContain("/bytes/art/p/portrait-m.webp");
   });
 
   it("shows a series with no poster its list card's still in the poster's place (D362 §2)", () => {
@@ -273,10 +273,43 @@ describe("an episode watched (D370 §2)", () => {
       ...markup.matchAll(/<span class="series__still-frame">(.*?<\/span>)<\/span><span>/gu),
     ].map((frame) => frame[1] ?? "");
     expect(frames).toHaveLength(2);
-    expect(frames[0]).toContain('class="series__still"');
+    expect(frames[0]).toMatch(/class="[^"]*\bseries__still\b[^"]*"/u);
     expect(frames[0]).toContain('class="watched-row-mark"');
     expect(frames[1]).not.toContain("watched-row-mark");
     expect(markup.match(/watched-row-mark/gu)).toHaveLength(1);
+  });
+});
+
+describe("an episode's picture in its season's list (D497 §2)", () => {
+  it("is its still alone, else the No poster card in the still's 16:9 shape", () => {
+    const page = {
+      items: [
+        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillSha256: "e31" },
+        episode(32, { seasonNumber: 1, episodeNumber: 2 }),
+      ],
+      nextCursor: "",
+    };
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeasonView
+          loadedEpisodes={loaded(page)}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
+    );
+    const rows = [...markup.matchAll(/<a [^>]*class="series__episode"[^>]*>(.*?)<\/a>/gsu)].map(
+      (row) => row[1] ?? "",
+    );
+    expect(rows).toHaveLength(2);
+    // A screenshot, at a screenshot's size, with no "No poster" words.
+    expect(rows[0]).toContain(
+      '<img class="series__still" src="/api/v1/bytes/art/e31/landscape-s.webp"',
+    );
+    expect(rows[0]).not.toContain("No poster");
+    // Nothing to show: "No poster", in the screenshot's place and shape.
+    expect(rows[1]).toContain('class="poster poster--blank poster--wide series__still"');
+    expect(rows[1]).toContain("No poster");
   });
 });
 
