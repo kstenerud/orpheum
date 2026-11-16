@@ -67,7 +67,8 @@ export interface HeldSpan {
 export interface RoomHls {
   readonly levels: readonly RoomLevel[];
   readonly minAutoLevel: number;
-  readonly mainForwardBufferInfo: HeldSpan | null;
+  /** With, from hls.js, the seconds loaded ahead of where it plays (len). */
+  readonly mainForwardBufferInfo: (HeldSpan & { readonly len?: number }) | null;
 }
 
 /** Where a picture buffer's limit learnt on a device is kept, for the device's next playback. */
@@ -386,6 +387,10 @@ export class StepDown {
   #steppedTo: number | undefined;
   /** The step last noted, by its chunk and the quality it stepped down to. */
   #noted: { readonly sn: number; readonly level: number } | undefined;
+  /** The chunk last stepped down, and the quality it was stepped down to. */
+  #stepped: { readonly sn: number; readonly level: number } | undefined;
+  /** The chunk last noted kept at its step-down (keptDown). */
+  #keptNoted: number | undefined;
   readonly #why = new Map<number, ChoiceWhy>();
 
   constructor(hls: RoomHls, room: PictureRoom, note?: (step: string) => void) {
@@ -398,12 +403,18 @@ export class StepDown {
   level(chosen: number): number {
     this.#chosen = chosen;
     const pair = pairLevel(this.#hls, this.#room, chosen);
+    const kept = this.#keptDown(pair);
+    if (kept !== undefined) {
+      this.#steppedTo = kept;
+      return kept;
+    }
     if (pair.level === chosen || pair.chunk === undefined) {
       this.#steppedTo = undefined;
       this.#why.delete(chosen);
       return chosen;
     }
     this.#steppedTo = pair.level;
+    this.#stepped = { sn: pair.chunk.sn, level: pair.level };
     if (this.#noted?.sn !== pair.chunk.sn || this.#noted.level !== pair.level) {
       this.#noted = { sn: pair.chunk.sn, level: pair.level };
       const why =
@@ -415,6 +426,38 @@ export class StepDown {
       this.#note?.(why);
     }
     return pair.level;
+  }
+
+  /**
+   * The quality a chunk stepped down and asked for again, as after it failed or was not made yet,
+   * keeps while less than its length is loaded ahead, where the pair would now go higher: the
+   * quality it stepped down to (D503 §3). Its retry was judged afresh, and with the heavy chunk
+   * before it played out, chunk 41, stepped down to level 3 and answered 425, was asked again at
+   * level 5 with nothing ahead, 21.4 MB, and play stood 6.7 s (file 1504 on the Fire TV,
+   * 2026-11-15). Undefined where it does not hold.
+   */
+  #keptDown(pair: PairChoice): number | undefined {
+    const stepped = this.#stepped;
+    const aheadS = this.#hls.mainForwardBufferInfo?.len;
+    const next = nextChunkOf(this.#hls, this.#room);
+    if (
+      stepped === undefined ||
+      pair.chunk?.sn !== stepped.sn ||
+      pair.level <= stepped.level ||
+      aheadS === undefined ||
+      next === undefined ||
+      aheadS >= next.duration
+    ) {
+      return undefined;
+    }
+    if (this.#keptNoted !== stepped.sn) {
+      this.#keptNoted = stepped.sn;
+      this.#note?.(
+        `chunk ${String(stepped.sn)} asked again at level ${String(stepped.level)}, its step-down,` +
+          ` with ${aheadS.toFixed(1)} s ahead`,
+      );
+    }
+    return stepped.level;
   }
 
   /** The quality its controller last chose, before any step-down; undefined before it chose. */

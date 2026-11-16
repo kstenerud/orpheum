@@ -295,6 +295,44 @@ describe("the step-down between hls.js and the quality chosen (D464 §3)", () =>
   });
 });
 
+describe("a stepped-down chunk asked again (D503 §3)", () => {
+  /** The ladder with the picture loaded as span says, len seconds of it ahead of where it plays. */
+  function hlsAhead(span: HeldSpan, len: number): RoomHls {
+    return { levels: ladder(), minAutoLevel: 0, mainForwardBufferInfo: { ...span, len } };
+  }
+
+  it("is asked at the quality it stepped down to, never higher, while less than its length is ahead", () => {
+    const { room } = roomHolding([3, 3, 13]);
+    const steps: string[] = [];
+    let hls = hlsAhead(loadedTo30, 10);
+    const step = new StepDown(
+      {
+        get levels() {
+          return hls.levels;
+        },
+        minAutoLevel: 0,
+        get mainForwardBufferInfo() {
+          return hls.mainForwardBufferInfo;
+        },
+      },
+      room,
+      (each) => steps.push(each),
+    );
+    // Chunk 5's 15 MB beside chunk 4's 13 steps down to level 2.
+    expect(step.level(3)).toBe(2);
+    // Answered 425, chunk 4 played out: the pair fits at the top, but 0.2 s is ahead.
+    hls = hlsAhead({ start: 29.8, end: 30 }, 0.2);
+    expect(pairLevel(hls, room, 3).level).toBe(3);
+    expect(step.level(3)).toBe(2);
+    expect(step.isEcho(2)).toBe(true);
+    expect(step.level(1)).toBe(1);
+    expect(steps.at(-1)).toBe("chunk 5 asked again at level 2, its step-down, with 0.2 s ahead");
+    // With its length ahead, it is judged afresh.
+    hls = hlsAhead({ start: 29.8, end: 30 }, 6);
+    expect(step.level(3)).toBe(3);
+  });
+});
+
 /** A picture chunk of the grid as hls.js buffers it: sn, 6 s, its bytes loaded. */
 function bufferedChunk(sn: number, bytes: number): Fragment {
   const frag = new Fragment(PlaylistLevelType.MAIN, "");
