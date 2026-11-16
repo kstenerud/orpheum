@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 
+// The grid's columns are read as its layout reads them, one function for both (grid-columns.ts).
 import { columnsOf } from "./grid-columns.ts";
 import { tileArtAhead } from "./poster.tsx";
 
