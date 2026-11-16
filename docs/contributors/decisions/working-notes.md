@@ -29567,6 +29567,10 @@ next, not one past it".
    higher while less than one chunk is ahead.
 4. **(f), variant 2: a switch, up as well as down, never loads again a chunk already buffered.**
 
+**Proven by:**
+- 3: "a stepped-down chunk asked again (D503 §3)" (web/packages/player/src/picture-room.test.ts)
+- 4: "a switch of quality never loads again a chunk already buffered" (web/packages/player/src/no-chunk-again.test.ts)
+
 ## D504 — A field a provider left empty is asked for again when someone looks at it, at most weekly for a recent work and monthly for an older one
 
 **Decided** (2026-11-16), by the project owner, of the morning's question 4 (D335's field-level
