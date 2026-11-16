@@ -87,7 +87,7 @@ describe("browse", () => {
     expect(markup).toContain("No poster");
   });
 
-  it("shows an other video with no poster its picture alone, no No poster card (D496)", () => {
+  it("shows an other video with no poster its picture alone, and one with none the 16:9 No poster card (D496, D497)", () => {
     const markup = renderBrowseView({
       state: "loaded",
       value: {
@@ -108,8 +108,10 @@ describe("browse", () => {
     expect(markup).toContain(
       '<img class="poster-card__tile" src="/api/v1/bytes/art/77aa/landscape-s.webp"',
     );
-    expect(markup).not.toContain("No poster");
-    expect(markup).not.toContain("poster--blank");
+    // Only clip 14, with no picture yet, shows the No poster card, in its 16:9 shape (D497).
+    expect(markup.match(/No poster/g)).toHaveLength(1);
+    expect(markup.match(/poster--blank/g)).toHaveLength(1);
+    expect(markup).toContain('<span class="poster poster--blank poster--wide');
   });
 
   it("puts an uncertain match's cue in its poster's tray, under a warning's (D301 §4)", () => {

@@ -492,10 +492,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   blank's own mark below it, and its poster alone once it has one (D362 §2): its card in a list,
   and its own page's poster too. `src/poster.test.tsx`, `src/browse.test.tsx`, `src/title.test.tsx`,
   `src/series.test.tsx`.
-- **An other video with no poster shows its 16:9 picture alone, never the "No poster" card**,
-  wherever it is drawn: its card in a list and its own page alike, the place deciding only its
-  centring and size (`isPictureAlone`, D496). `src/browse.test.tsx`,
-  `src/title-picture-alone.test.tsx`, `src/poster-card.browser.test.tsx`.
+- **An other video with no poster shows its 16:9 picture alone, never the upright "No poster"
+  card**, wherever it is drawn: its card in a list and its own page alike, the place deciding only
+  its centring and size (`isPictureAlone`, D496). With no picture to show, or one that does not
+  load, it shows the "No poster" card in the picture's 16:9 shape, as an episode's page with no
+  still does (`WideNoPoster`, D497). `src/browse.test.tsx`, `src/title-picture-alone.test.tsx`,
+  `src/poster-card.browser.test.tsx`.
+- **A row of Continue Watching, whatever its kind, shows its poster, else its 16:9 picture alone,
+  else the 16:9 "No poster" card** (`isRowPictureAlone`, D497); a 16:9 card stands centred in a
+  poster's height where the row holds a poster, as a grid's does (D495 §4).
+  `src/continue-watching-art.test.tsx`.
 - **A grid's tiles in view say so** (`PUT /tiles/interest`) once they settle, again while the tab is
   visible, and that none is shown when the grid goes, so the work their pictures need comes first
   (D362 §4, `src/tile-interest.ts`). `src/tile-interest.test.tsx`.

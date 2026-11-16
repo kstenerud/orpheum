@@ -24,6 +24,7 @@ const nothing = (): void => undefined;
 
 const metropolis: ContinueWatchingRow = {
   id: 10,
+  kind: "movie",
   name: "Metropolis",
   fileId: 3,
   positionMs: 500_000,

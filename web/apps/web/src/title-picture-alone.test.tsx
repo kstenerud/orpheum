@@ -2,7 +2,8 @@
 
 /**
  * An other video's own page with no poster (the owner, 2026-11-16; D496): its card's 16:9 picture
- * alone in the poster's place, never the "No poster" card a film with none shows.
+ * alone in the poster's place, never the "No poster" card a film with none shows; with no picture
+ * yet, the "No poster" card in the picture's 16:9 shape (D497), as an episode's page with no still.
  */
 
 import "./i18n.ts";
@@ -33,12 +34,30 @@ describe("an other video's page with no poster (D496)", () => {
     expect(markup).not.toContain("poster--blank");
   });
 
-  it("shows no No poster card even with no picture at all", () => {
+  it("shows the No poster card in its picture's 16:9 shape with no picture at all (D497)", () => {
     const markup = renderToStaticMarkup(
       withServices(<TitleView title={{ ...beachDay, art: {} }} />),
     );
-    expect(markup).not.toContain("No poster");
-    expect(markup).not.toContain("poster--blank");
+    expect(markup).toContain('<span class="poster poster--blank poster--wide');
+    expect(markup).toContain("No poster");
+    expect(markup).not.toContain("poster--with-still");
+  });
+
+  it("shows an episode with no still the No poster card in its still's 16:9 shape (D497)", () => {
+    const episode = renderToStaticMarkup(
+      withServices(<TitleView title={{ ...beachDay, kind: "episode", art: {} }} />),
+    );
+    expect(episode).toContain('<span class="poster poster--blank poster--wide');
+    expect(episode).toContain("No poster");
+    const withStill = renderToStaticMarkup(
+      withServices(
+        <TitleView title={{ ...beachDay, kind: "episode", art: { stillSha256: "e5" } }} />,
+      ),
+    );
+    expect(withStill).toContain(
+      '<img class="title__still" src="/api/v1/bytes/art/e5/landscape-m.webp"',
+    );
+    expect(withStill).not.toContain("No poster");
   });
 
   it("shows a poster of its own upright, as D495 has it, and a film with none the No poster card", () => {

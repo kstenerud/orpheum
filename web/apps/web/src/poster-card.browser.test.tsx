@@ -72,9 +72,11 @@ describe("an other video's tile, laid out by a real browser", () => {
     expect(box.width).toBeGreaterThan(0);
     // Wider than tall, as a poster, built for a portrait shape, never is.
     expect(box.width / box.height).toBeGreaterThan(1.5);
-    expect(mounted.container.querySelector(".poster")).toBeNull();
-    // Its picture alone: no "No poster" card, nor its words (the owner, 2026-11-16; D496).
-    expect(mounted.container.querySelector(".poster-card")?.textContent).not.toContain("No poster");
+    // No upright poster card (D496); with no picture to show, the tile itself is the "No poster"
+    // card, in its 16:9 shape (the owner, 2026-11-16; D497).
+    expect(mounted.container.querySelectorAll(".poster")).toHaveLength(1);
+    expect(tile.classList.contains("poster--wide")).toBe(true);
+    expect(tile.textContent).toContain("No poster");
   });
 });
 
@@ -166,6 +168,30 @@ describe("an other video's poster and the stills beside it (D495)", () => {
         0,
       );
     }
+  });
+
+  it("draws the No poster card of one with nothing as its 16:9 tile, its mark inside it, centred beside a poster (D497)", async () => {
+    mounted = await otherGrid([otherVideo(1), otherVideo(2, "ab".repeat(32))]);
+    // Measured once the poster's image has failed and its blank is drawn, as above.
+    await settleUntil(
+      () =>
+        mounted?.container
+          .querySelectorAll(".poster-grid .poster-card")[1]
+          ?.querySelector(".poster--blank") !== null,
+    );
+    const blank = boxIn(mounted, 0, ".poster--blank.poster--wide");
+    expect(blank.width / blank.height).toBeCloseTo(16 / 9, 1);
+    const poster = boxIn(mounted, 1, ".poster");
+    expect(blank.width).toBeCloseTo(poster.width, 0);
+    expect(blank.top + blank.height / 2).toBeCloseTo(poster.top + poster.height / 2, 0);
+    // The mark and its words stand inside the tile, none of them cut off by its short height.
+    for (const selector of [".poster__clapperboard", ".poster__caption"]) {
+      const mark = boxIn(mounted, 0, selector);
+      expect(mark.height).toBeGreaterThan(0);
+      expect(mark.top).toBeGreaterThanOrEqual(blank.top);
+      expect(mark.bottom).toBeLessThanOrEqual(blank.bottom);
+    }
+    expect(boxIn(mounted, 0, ".poster-card__tile").height).toBeCloseTo(blank.height, 0);
   });
 
   it("keeps a row of stills alone as tall as its stills", async () => {

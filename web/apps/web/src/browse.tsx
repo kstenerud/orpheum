@@ -356,7 +356,11 @@ export function EntryPoster(props: {
       noPosterStillSha256={entry.noPosterStillSha256}
       art={
         isPictureAlone(entry) ? (
-          <Still sourceSha256={entry.landscapeSha256} className="poster-card__tile" />
+          <Still
+            sourceSha256={entry.landscapeSha256}
+            className="poster-card__tile"
+            isNoPosterMarked
+          />
         ) : undefined
       }
       isArtInPosterHeight={!isUprightCard(entry) && props.isBesidePoster === true}

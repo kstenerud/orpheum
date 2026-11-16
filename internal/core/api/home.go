@@ -19,15 +19,21 @@ const homeNewestShown = 18
 // InProgressBody is one row of Continue Watching: a work, and the file of it the person was most
 // recently partway through.
 type InProgressBody struct {
-	ID           int64             `json:"id"`
-	Name         string            `json:"name"`
-	Year         int64             `json:"year,omitempty"`
-	PosterSha256 string            `json:"posterSha256,omitempty"`
-	FileID       int64             `json:"fileId"`
-	PositionMs   int64             `json:"positionMs"`
-	DurationMs   int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
-	FileName     string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
-	Episode      *EpisodePlaceBody `json:"episode,omitempty"`
+	ID int64 `json:"id"`
+	// Kind is what the work is, so its card keeps the rule of an item with no poster (D496, D497).
+	Kind         string `doc:"movie, episode or other" enum:"movie,episode,other" json:"kind"`
+	Name         string `json:"name"`
+	Year         int64  `json:"year,omitempty"`
+	PosterSha256 string `json:"posterSha256,omitempty"`
+	// NoPosterStillSha256 is what its poster's place shows when it has no poster: a film's 16:9 picture
+	// above the mark of a missing poster, as its card in a list shows, and an episode's still, where
+	// neither it nor its series has a poster; an other video's 16:9 picture, shown alone (D496, D497).
+	NoPosterStillSha256 string            `doc:"A film's or an episode's 16:9 picture above the mark of a missing poster, or an other video's 16:9 picture shown alone, when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
+	FileID              int64             `json:"fileId"`
+	PositionMs          int64             `json:"positionMs"`
+	DurationMs          int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
+	FileName            string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
+	Episode             *EpisodePlaceBody `json:"episode,omitempty"`
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 	IsWatched   bool             `doc:"Whether the person watched it before, and watches it again (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
@@ -93,7 +99,8 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, row := range rows {
 		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
-			ID: row.ID, Name: row.Name, Year: row.Year, PosterSha256: row.PosterSha256,
+			ID: row.ID, Kind: row.Kind, Name: row.Name, Year: row.Year,
+			PosterSha256: row.PosterSha256, NoPosterStillSha256: row.NoPosterStillSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
 			IsWatched: row.IsWatched,

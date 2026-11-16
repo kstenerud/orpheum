@@ -384,7 +384,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D376](working-notes.md#d376--a-new-leader-that-remembers-its-place-sets-the-groups-position-else-the-cores-stands) A new leader that remembers its place sets the group's position; else the core's stands — *revisited by D377*
 - [D377](working-notes.md#d377--who-leads-a-watch-together-session-and-from-where-one-procedure) Who leads a Watch Together session, and from where: one procedure
 - [D378](working-notes.md#d378--an-unticked-verification-item-is-owed-not-a-failure-web-reds-are-kept-by-their-tests-modules) An unticked verification item is owed, not a failure; web reds are kept by their tests' modules
-- [D379](working-notes.md#d379--a-series-page-shows-its-seasons-as-a-row-of-posters) A series page shows its seasons as a row of posters
+- [D379](working-notes.md#d379--a-series-page-shows-its-seasons-as-a-row-of-posters) A series page shows its seasons as a row of posters — *revisited by D497*
 - [D380](working-notes.md#d380--a-debug-tool-caps-this-tabs-download-rate-or-drops-its-connection-for-a-while) A debug tool caps this tab's download rate, or drops its connection for a while
 - [D381](working-notes.md#d381--the-player-chooses-the-quality-it-starts-on-by-the-rule-it-plays-by) The player chooses the quality it starts on, by the rule it plays by
 - [D382](working-notes.md#d382--a-given-up-chunk-lowers-quality-only-as-far-as-the-links-estimate-carries-and-a-busy-page-or-a-first-piece-measures-nothing) A given-up chunk lowers quality only as far as the link's estimate carries, and a busy page or a first piece measures nothing
@@ -501,7 +501,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D493](working-notes.md#d493--a-devices-settings-are-kept-by-the-core-with-a-copy-in-its-browser) A device's settings are kept by the core, with a copy in its browser
 - [D494](working-notes.md#d494--a-clients-cache-is-assumed-to-fail-one-day-the-failure-is-logged-and-a-fresh-copy-fetched) A client's cache is assumed to fail one day: the failure is logged and a fresh copy fetched
 - [D495](working-notes.md#d495--an-other-video-with-a-poster-shows-it-as-an-upright-card-a-row-of-posters-centres-its-stills) An other video with a poster shows it as an upright card; a row of posters centres its stills — *revisited by D496*
-- [D496](working-notes.md#d496--an-other-video-with-no-poster-shows-its-picture-alone-wherever-it-is-drawn-a-film-or-series-keeps-its-no-poster-card) An other video with no poster shows its picture alone wherever it is drawn; a film or series keeps its No poster card
+- [D496](working-notes.md#d496--an-other-video-with-no-poster-shows-its-picture-alone-wherever-it-is-drawn-a-film-or-series-keeps-its-no-poster-card) An other video with no poster shows its picture alone wherever it is drawn; a film or series keeps its No poster card — *revisited by D497*
+- [D497](working-notes.md#d497--a-pictures-place-shows-a-poster-else-a-screenshot-else-no-poster-by-the-place-continue-watching-and-an-other-video-with-nothing-keep-it) A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it
 
 ## Archived
 

@@ -31,7 +31,8 @@ export function isPictureAlone<
  * A blank for an image that did not load asks for it again (useArtShown), and shows it once made.
  * A film or series with no poster but a still, its backdrop or a frame of its video, shows the still
  * in the blank's top half, the blank's own mark below it (the owner, 2026-10-27; D362 §2); a poster
- * shown takes its place. An other video with no poster is never drawn as one (isPictureAlone).
+ * shown takes its place. An other video with no poster is never drawn as one (isPictureAlone): with
+ * nothing to show, it shows this blank in its picture's 16:9 shape (WideNoPoster; D497).
  */
 export function Poster(props: {
   readonly sourceSha256: string | undefined;
@@ -106,16 +107,37 @@ function NoPosterCaption(): JSX.Element {
 }
 
 /**
+ * The "No poster" card in a 16:9 picture's shape, Poster's blank drawn wide: an other video's place
+ * with nothing to show yet, or whose picture does not load (the owner, 2026-11-16: *"an "other"
+ * video shows one in the shape of a screenshot"*; D497).
+ */
+function WideNoPoster(props: { readonly className: string }): JSX.Element {
+  return (
+    <span className={`poster poster--blank poster--wide ${props.className}`} aria-hidden="true">
+      <Clapperboard />
+      <NoPosterCaption />
+    </span>
+  );
+}
+
+/**
  * A season's or an episode's still, or a blank of its size where there is none or its image does
- * not load, as a poster's (Poster).
+ * not load, as a poster's (Poster). An other video's picture shown alone (isPictureAlone) marks its
+ * blank as a missing poster, in its shape (isNoPosterMarked; WideNoPoster).
  */
 export function Still(props: {
   readonly sourceSha256: string | undefined;
   readonly className: string;
+  /** Whether its blank is the "No poster" card in the still's shape: an other video's (D497). */
+  readonly isNoPosterMarked?: boolean;
 }): JSX.Element {
   const shown = useArtShown(props.sourceSha256, "landscape-s");
   if (shown.url === undefined) {
-    return <span className={props.className} aria-hidden="true" />;
+    return props.isNoPosterMarked === true ? (
+      <WideNoPoster className={props.className} />
+    ) : (
+      <span className={props.className} aria-hidden="true" />
+    );
   }
   return (
     <img
@@ -132,16 +154,19 @@ export function Still(props: {
 /**
  * A title page's wide art, its backdrop or its still, in size, and nothing while it is not made yet:
  * the page shows no broken image (the owner, 2026-10-26: "the banner is a broken link"), and the art
- * is asked for again and shown once made, as a poster is.
+ * is asked for again and shown once made, as a poster is. An other video's picture in its poster's
+ * place shows the "No poster" card in its shape instead of nothing (isNoPosterMarked; D497).
  */
 export function WideArt(props: {
   readonly sourceSha256: string | undefined;
   readonly size: ArtSize;
   readonly className: string;
+  /** Whether its blank is the "No poster" card in the art's shape: an other video's (D497). */
+  readonly isNoPosterMarked?: boolean;
 }): JSX.Element | null {
   const shown = useArtShown(props.sourceSha256, props.size);
   if (shown.url === undefined) {
-    return null;
+    return props.isNoPosterMarked === true ? <WideNoPoster className={props.className} /> : null;
   }
   return (
     <img

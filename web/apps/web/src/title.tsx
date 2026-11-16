@@ -241,16 +241,20 @@ function VersionChoice(props: {
 /**
  * A film's poster, else its list card's still in the "No poster" card (D362 §2); an other video's
  * poster, else its card's 16:9 picture alone, as an episode's still is shown (D496); an episode's
- * still.
+ * still. A 16:9 picture with none to show is the "No poster" card in its shape (D497).
  */
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode" && !isPictureAlone({ kind, posterSha256: art.posterSha256 })) {
     return <Poster sourceSha256={art.posterSha256} stillSha256={art.noPosterStillSha256} />;
   }
-  const still = kind === "episode" ? art.stillSha256 : art.noPosterStillSha256;
-  return still === undefined ? null : (
-    <WideArt sourceSha256={still} size="landscape-m" className="title__still" />
+  return (
+    <WideArt
+      sourceSha256={kind === "episode" ? art.stillSha256 : art.noPosterStillSha256}
+      size="landscape-m"
+      className="title__still"
+      isNoPosterMarked
+    />
   );
 }
 

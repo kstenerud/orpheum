@@ -439,11 +439,14 @@
 //     a film or series with no poster shows, in its poster's place, its backdrop, else a film's frame
 //     still or a series' first episode's still, read anew with each page, and its own page shows the
 //     same, picked by the same noPosterStills (D349 §3, D362 §2); an other video's own page with no
-//     poster gets its card's 16:9 picture, picked by the same landscapes, to show alone (D496).
-//     Enforced by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs,
+//     poster gets its card's 16:9 picture, picked by the same landscapes, to show alone (D496). A row
+//     of Continue Watching says its kind, and with no poster (an episode's own nor its series') carries
+//     the picture it shows alone: a film's by noPosterStills, an episode's still, an other video's by
+//     landscapes (D497). Enforced by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs,
 //     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives,
-//     TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill and
-//     TestDetail_APosterlessOtherVideosPageShowsItsCardsPicture.
+//     TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill,
+//     TestDetail_APosterlessOtherVideosPageShowsItsCardsPicture and
+//     TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster (internal/core/api).
 //
 //   - A series' aired seasons each show their own poster where one is stored, never as the series'
 //     own; another ordering's groups, discs or parts, show none (D379 §1).

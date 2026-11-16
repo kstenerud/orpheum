@@ -29353,3 +29353,59 @@ card alone; amends D349 §3 and §9.1 with it.
    (`InProgressBody`) carry a poster's hash alone, neither a kind nor a still, so a row with no
    poster shows the bare "No poster" card whatever it is; a series' page and its season cards, the
    home rows (newest films and series) and Up Next (an episode's still) draw no other video.
+
+## D497 — A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it
+
+**Decided** (2026-11-16), by the project owner, after D496 §4 found that Continue Watching could not
+keep its rule: *"yes, fix Continue Watching too. Note that every video without a supplied screenshot
+or supplied poster should have one generated as a low priority task. If there's nothing available
+to be shown at the moment, a film or episode shows a full-sized "no poster" poster, whereas an
+"other" video shows one in the shape of a screenshot. The row display to show sets of videos (the
+library list, the films list, the series list) show rows such that the tallest item in that row
+determines the row height, and everything else gets centered."* Asked what Continue Watching should
+show: *"OK, we should follow a similar pattern to the films and video: If there's a poster, show the
+poster. If not, show the screenshot. If no poster and no screenshot is available at the moment, show
+"no poster"."* And, revising that: *"Close, but not quite. For ALL videos: If a poster is ready, show
+that. Otherwise if a screenshot is available, show that. Otherwise show a screenshot-sized "no
+poster"."* And of the other places: *"Yes, for film and series in a listing, show the full sized
+combined screenshot/no poster "poster" if no poster is available. If no screenshot is available
+either, a full sized "no poster". In the season row, show the season's poster, or "no poster". In
+the episode list itself, show the same way as for "up next": A poster if available, a screenshot if
+available (not full poster dimensions, not with the "no poster" part), otherwise a "no poster" in
+screenshot dimensions."* Amends D496 §1 (an other video with nothing to show) and §4 (Continue
+Watching), D495 §2, and D379 §1 (a season's card, §4).
+
+**Status:** decided. To build: §4 (a series' season list), and Up Next and a series' episode list
+in §2.
+
+1. **A list's card** (Films, Series, a library's grid, Home's newest rows) and a film's or series'
+   own page: a film or series shows its poster; else the full-size "No poster" card with its
+   screenshot in its top half (D362 §2); else the full-size "No poster" card bare. An other video
+   keeps D496: its poster upright; else its 16:9 picture alone; else the "No poster" card in its
+   16:9 picture's shape (§3). A row of a list is as tall as its tallest card, the rest centred in
+   it (D495 §4).
+2. **Continue Watching, Up Next, a series' episode list and an episode's own page**, whatever the
+   video's kind: its poster, upright, when one is ready (an episode's own, else, in Continue
+   Watching, its series', the owner, 2026-11-01); **else its 16:9 screenshot alone**, at a
+   screenshot's size and with no "No poster" words: a film's picture as its card in a list picks it
+   (`noPosterStills`), an episode's still, an other video's 16:9 picture (`landscapes`); **else the
+   "No poster" card in a screenshot's 16:9 shape.** Continue Watching's row (`InProgressBody`) says
+   its kind and carries that picture as `noPosterStillSha256`, absent once a poster is ready; its
+   rail is as tall as its tallest card, a poster's height when it holds one with each 16:9 card
+   centred in it, else as tall as its 16:9 cards (D495 §4).
+3. **The 16:9 "No poster" card** is Poster's blank, its clapperboard and its words, drawn in a
+   screenshot's shape (`WideNoPoster`, web `poster.tsx`), also where the picture does not load. An
+   other video with nothing to show yet shows it wherever it is drawn (its card centred beside a
+   poster as its picture is); an episode's own page with no still shows it in the still's place.
+4. **A series' season list** (the row of season cards on its page) shows the season's poster; else
+   the full-size "No poster" card with a screenshot of one of its episodes in its top half, and the
+   "No poster" words, as a film's or series' card in a list (dropping D379 §1's still that stands
+   for the poster with no words); else the full-size "No poster" card bare, no longer its series'
+   poster. The owner first said *"In the season row, show the season's poster, or "no poster""*,
+   then: *"Hmm, ok maybe let's continue with the old series poster approach: If no poster
+   available, take a screenshot from an episode and show it full sized with the "no poster" thing,
+   just like in the film/series list/"* (*"sorry I mean season list"*), and of a season with neither
+   a poster nor a screenshot: *"Let's make it show "no poster". It'll eventually get resolved when a
+   screenshot is available."* Amends D379 §1.
+5. **A picture made where none is supplied** is D362's frame still, made by a background job at a
+   low priority for any video nothing else gives a picture; this decision adds no job.

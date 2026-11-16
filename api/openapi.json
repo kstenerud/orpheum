@@ -2974,7 +2974,25 @@
             "description": "Whether the person watched it before, and watches it again (D370)",
             "type": "boolean"
           },
+          "kind": {
+            "description": "movie, episode or other",
+            "enum": [
+              "movie",
+              "episode",
+              "other"
+            ],
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "episode",
+              "other"
+            ]
+          },
           "name": {
+            "type": "string"
+          },
+          "noPosterStillSha256": {
+            "description": "A film's or an episode's 16:9 picture above the mark of a missing poster, or an other video's 16:9 picture shown alone, when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
             "type": "string"
           },
           "positionMs": {
@@ -2994,6 +3012,7 @@
         },
         "required": [
           "id",
+          "kind",
           "name",
           "fileId",
           "positionMs",
