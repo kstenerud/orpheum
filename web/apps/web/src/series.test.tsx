@@ -65,12 +65,9 @@ describe("SeriesView", () => {
     // The season shown is marked; the others are not.
     expect(cards[0]).toContain('aria-current="page"');
     expect(cards[1]).not.toContain('aria-current="page"');
-    // A season with a still shows it in its poster's place (D362 §2); one without, "No poster", never
-    // the series' poster (D497 §4).
-    expect(cards[0]).toContain("/bytes/art/s31/landscape-s.webp");
-    expect(cards[0]).not.toContain("/bytes/art/p/portrait-m.webp");
-    expect(cards[1]).not.toContain("/bytes/art/p/portrait-m.webp");
-    expect(cards[1]).toContain("No poster");
+    // A season with no poster of its own shows its series' poster (D498 §2).
+    expect(cards[0]).toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[1]).toContain("/bytes/art/p/portrait-m.webp");
     // A season watched whole shows its check over its poster (D370 §3).
     expect(cards[1]).toContain("poster-card__cues");
     expect(cards[0]).not.toContain("poster-card__cues");
@@ -83,7 +80,7 @@ describe("SeriesView", () => {
     expect(chosen[0]).not.toContain('aria-current="page"');
   });
 
-  it("shows a season's own poster, else its still over No poster, else No poster bare, never the series' (D497 §4)", () => {
+  it("shows a season's own poster, else its series', else an episode's still over No poster, else No poster bare (D498 §2)", () => {
     const series: SeriesDetail = {
       id: 20,
       kind: "series",
@@ -96,20 +93,27 @@ describe("SeriesView", () => {
       ],
     };
     const cards = seasonCards(renderToStaticMarkup(withServices(<SeriesView series={series} />)));
-    // Its own poster, over its still.
+    // Its own poster, over its still and its series' poster.
     expect(cards[0]).toContain("/bytes/art/sp1/portrait-m.webp");
     expect(cards[0]).not.toContain("/bytes/art/s31/");
     expect(cards[0]).not.toContain("No poster");
-    // None of its own: the full-size "No poster" card, an episode's still in its top half, as a
-    // film's card in a list (the owner, 2026-11-16).
-    expect(cards[1]).toContain(
+    // None of its own: its series' poster, over an episode's still (the owner, 2026-11-16, "Series
+    // poster first").
+    expect(cards[1]).toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[1]).not.toContain("/bytes/art/s41/");
+    expect(cards[2]).toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards.join("")).not.toContain("No poster");
+    // A series with no poster: the full-size "No poster" card, an episode's still in its top half,
+    // as a film's card in a list; with no still either, the card bare.
+    const bare = seasonCards(
+      renderToStaticMarkup(withServices(<SeriesView series={{ ...series, art: {} }} />)),
+    );
+    expect(bare[1]).toContain(
       '<img class="poster__still" src="/api/v1/bytes/art/s41/landscape-s.webp"',
     );
-    expect(cards[1]).toContain("No poster");
-    // Neither: the card bare, not its series' poster ("Let's make it show "no poster"").
-    expect(cards[2]).toContain("poster poster--blank");
-    expect(cards[2]).toContain("No poster");
-    expect(cards.join("")).not.toContain("/bytes/art/p/portrait-m.webp");
+    expect(bare[1]).toContain("No poster");
+    expect(bare[2]).toContain('class="poster poster--blank"');
+    expect(bare[2]).toContain("No poster");
   });
 
   it("shows a series with no poster its list card's still in the poster's place (D362 §2)", () => {

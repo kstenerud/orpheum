@@ -468,10 +468,9 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
 /**
  * A series' seasons as a row of posters above the episodes (D379 §1), in the server's order, the
  * specials last; each by its name and how many episodes it holds, with the check once its person
- * watched every one (D370 §3). A season shows its own poster; one with none, the "No poster" card
- * with its still in the top half (D362 §2), else that card bare: never its series' poster (the owner,
- * 2026-11-16: "Let's make it show "no poster". It'll eventually get resolved when a screenshot is
- * available."; D497). Choosing one is a
+ * watched every one (D370 §3). A season shows its own poster, else its series', else the "No
+ * poster" card with the still of one of its episodes in the top half (D362 §2), else that card bare
+ * (the owner, 2026-11-16, "Series poster first"; D498 §2). Choosing one is a
  * view of the series, which replaces the history's entry (D379 §2, D367 §9). The row is one focus
  * container: a remote's Left and Right move along it, Down leaves it for the season's episodes (D379
  * §3).
@@ -517,7 +516,7 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
           to={{ screen: "series-page", collectionId: series.id, season: season.seasonNumber }}
           isCurrent={season.seasonNumber === shown.seasonNumber}
           isReplacing
-          posterSha256={season.posterSha256}
+          posterSha256={season.posterSha256 ?? series.art.posterSha256}
           noPosterStillSha256={season.stillSha256}
           name={seasonName(t, series, season)}
           details={

@@ -502,7 +502,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D494](working-notes.md#d494--a-clients-cache-is-assumed-to-fail-one-day-the-failure-is-logged-and-a-fresh-copy-fetched) A client's cache is assumed to fail one day: the failure is logged and a fresh copy fetched
 - [D495](working-notes.md#d495--an-other-video-with-a-poster-shows-it-as-an-upright-card-a-row-of-posters-centres-its-stills) An other video with a poster shows it as an upright card; a row of posters centres its stills — *revisited by D496*
 - [D496](working-notes.md#d496--an-other-video-with-no-poster-shows-its-picture-alone-wherever-it-is-drawn-a-film-or-series-keeps-its-no-poster-card) An other video with no poster shows its picture alone wherever it is drawn; a film or series keeps its No poster card — *revisited by D497*
-- [D497](working-notes.md#d497--a-pictures-place-shows-a-poster-else-a-screenshot-else-no-poster-by-the-place-continue-watching-and-an-other-video-with-nothing-keep-it) A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it
+- [D497](working-notes.md#d497--a-pictures-place-shows-a-poster-else-a-screenshot-else-no-poster-by-the-place-continue-watching-and-an-other-video-with-nothing-keep-it) A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it — *revisited by D498*
+- [D498](working-notes.md#d498--each-places-picture-as-the-owners-table-has-it-a-mixed-row-and-the-season-list-keep-a-posters-shape) Each place's picture as the owner's table has it: a mixed row and the season list keep a poster's shape
 
 ## Archived
 

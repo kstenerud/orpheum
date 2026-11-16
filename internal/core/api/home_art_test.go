@@ -12,10 +12,9 @@ import (
 )
 
 // A row of Continue Watching says what its work is and what its poster's place shows with no poster,
-// so its card keeps the rule a list's card keeps (D496, D497): an other video's 16:9 picture, picked
-// as its card in a list picks it (a frame still only where it has no backdrop), shown alone; a film's
-// still above the mark of a missing poster, and an episode's, where neither it nor its series has a
-// poster; neither once a poster arrives.
+// shown over the "No poster" card (D498 §1): an other video's 16:9 picture, picked as its card in a
+// list picks it (a frame still only where it has no backdrop); a film's still; an episode's, where
+// neither it nor its series has a poster; neither once a poster arrives.
 func TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

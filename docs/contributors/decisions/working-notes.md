@@ -29376,8 +29376,8 @@ screenshot dimensions."* Amends D496 §1 (an other video with nothing to show) a
 Watching), D495 §2, and D379 §1 (a season's card, §4).
 
 **Status:** decided and built, every place: Up Next's and the episode list's `Still` mark their
-blank (`isNoPosterMarked`), and a season's card drops `isStillEnough`, which no card uses now, and
-its series' poster.
+blank (`isNoPosterMarked`), and a season's card drops `isStillEnough`, which no card uses now.
+Continue Watching (§2) and the season list (§4) are amended by D498, the same day.
 
 1. **A list's card** (Films, Series, a library's grid, Home's newest rows) and a film's or series'
    own page: a film or series shows its poster; else the full-size "No poster" card with its
@@ -29415,5 +29415,50 @@ its series' poster.
 - 1: TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives (internal/core/library/art_frames_test.go), web/apps/web/src/browse.test.tsx ("shows an other video with no poster its picture alone, and one with none the 16:9 No poster card (D496, D497)")
 - 2: TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster (internal/core/api/home_art_test.go), web/apps/web/src/continue-watching-art.test.tsx, web/apps/web/src/title-picture-alone.test.tsx, web/apps/web/src/series.test.tsx ("an episode's picture in its season's list (D497 §2)"), web/apps/web/src/up-next.test.tsx ("shows the No poster card in a screenshot's shape where the next episode has no still (D497 §2)")
 - 3: web/apps/web/src/poster-card.browser.test.tsx ("draws the No poster card of one with nothing as its 16:9 tile, its mark inside it, centred beside a poster (D497)"), web/apps/web/src/series.browser.test.tsx ("draws an episode with no still as the No poster card at the still's size, its mark inside it (D497 §2)")
-- 4: web/apps/web/src/series.test.tsx ("shows a season's own poster, else its still over No poster, else No poster bare, never the series' (D497 §4)")
+- 4: web/apps/web/src/series.test.tsx ("shows a season's own poster, else its series', else an episode's still over No poster, else No poster bare (D498 §2)")
 - 5: TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs (internal/core/library/art_frames_test.go)
+
+## D498 — Each place's picture as the owner's table has it: a mixed row and the season list keep a poster's shape
+
+**Decided** (2026-11-16), by the project owner, on seeing D497 built: *"Actually, I've changed my
+mind. I think this will look best:"* with a table of each place's first, second and third choice, in
+which P is a poster (2:3), SS a screenshot (16:9), PDSS a poster-sized card with a screenshot in its
+top half and "No poster" in its bottom half, PDNP a poster-sized "No poster" and SDNP a
+screenshot-sized "No poster":
+
+| Place | 1st | 2nd | 3rd |
+| --- | --- | --- | --- |
+| A row of films, of series, or of kinds mixed | P | PDSS | PDNP |
+| A row of other videos | P | SS | SDNP |
+| The season list | P | P (the series') | PDNP |
+| The episode list, Up Next | P | SS | SDNP |
+| A film's page | P | PDSS | PDNP |
+| An episode's page, an other video's page | P | SS | SDNP |
+
+Asked what it missed, the owner answered: Continue Watching is the mixed row, an other video in it a
+poster's shape too (*"yes. Better to keep them looking consistent with the other types"*); an
+episode's poster in it is its own, else its series' (*"Yes, let's do what it does today"*); a
+series' page is as a film's; a season with no poster shows *"season poster, then season screenshot,
+then series poster, then a screenshot that we take from the first episode of that season"*, and,
+told that a season's screenshot is the first of its episodes' that has one, *"Series poster
+first"*; an episode, which never has a poster, shows its screenshot, else the plain 16:9 "No
+poster" (*"Let's just show the regular "no poster" to keep things simple"*). Amends D497 §2
+(Continue Watching) and §4 (the season list).
+
+**Status:** decided.
+
+1. **Continue Watching**, a row of kinds mixed, shows each row's poster (an episode's own, else its
+   series', D497 §2); else the full-size "No poster" card with its 16:9 picture in its top half,
+   whatever its kind, an other video's too; else that card bare. The core's row carries the
+   picture as D497 §2 has it (`noPosterStillSha256`); the web draws it as a film's card in a list
+   draws its still (D362 §2), no longer alone.
+2. **A series' season list** shows the season's poster; else its series' poster; else the
+   full-size "No poster" card with the still of one of its episodes in its top half (the season's
+   `stillSha256`, its first episode's that has one); else that card bare.
+3. **Every other place keeps D497:** a list's card and a film's or series' page as D497 §1; an
+   other video's row and page, the episode list, Up Next and an episode's page as D497 §2 and §3.
+
+**Proven by:**
+- 1: web/apps/web/src/continue-watching-art.test.tsx, TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster (internal/core/api/home_art_test.go)
+- 2: web/apps/web/src/series.test.tsx ("shows a season's own poster, else its series', else an episode's still over No poster, else No poster bare (D498 §2)")
+- 3: web/apps/web/src/series.test.tsx ("an episode's picture in its season's list (D497 §2)"), web/apps/web/src/up-next.test.tsx, web/apps/web/src/title-picture-alone.test.tsx, web/apps/web/src/browse.test.tsx

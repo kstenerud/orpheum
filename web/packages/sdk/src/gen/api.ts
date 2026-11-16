@@ -3725,7 +3725,7 @@ export interface components {
              */
             kind: "movie" | "episode" | "other";
             name: string;
-            /** @description The 16:9 picture shown alone in its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            /** @description The 16:9 picture shown in the top half of its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             noPosterStillSha256?: string;
             /** Format: int64 */
             positionMs: number;

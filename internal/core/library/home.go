@@ -100,9 +100,8 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 
 // withPostersAndFileNames gives each row its poster, or the picture shown in its place when it has
 // none (a film's as a list's card, withPosters; an episode's, withEpisodeStills; an other video's,
-// withOtherPicturesAlone), and
-// whether userID watched it before, and drops the file's name where the work has only one file
-// partway through.
+// withOtherVideoStills), and whether userID watched it before, and drops the file's name where the
+// work has only one file partway through.
 func (browser *Browser) withPostersAndFileNames(
 	ctx context.Context, reach auth.Reach, userID int64, rows []InProgress, partwayFileCountByTitle map[int64]int,
 ) ([]InProgress, error) {
@@ -135,7 +134,7 @@ func (browser *Browser) withPostersAndFileNames(
 	if err := browser.withEpisodeStills(ctx, rows); err != nil {
 		return nil, err
 	}
-	withOtherPicturesAlone(rows)
+	withOtherVideoStills(rows)
 	if rows == nil {
 		rows = []InProgress{}
 	}
@@ -143,8 +142,8 @@ func (browser *Browser) withPostersAndFileNames(
 }
 
 // withEpisodeStills gives each episode's row that has no poster, its own nor its series'
-// (withSeriesPosters), its still as its NoPosterStillSha256, which its card shows alone in its
-// poster's place (the owner, 2026-11-16: "For ALL videos"; D497).
+// (withSeriesPosters), its still as its NoPosterStillSha256, which its card shows in the top half of
+// the "No poster" card, as a film's (D498 §1).
 func (browser *Browser) withEpisodeStills(ctx context.Context, rows []InProgress) error {
 	var episodeIDs []int64
 	for _, row := range rows {
@@ -167,11 +166,10 @@ func (browser *Browser) withEpisodeStills(ctx context.Context, rows []InProgress
 	return nil
 }
 
-// withOtherPicturesAlone gives each other video's row that has no poster, as its NoPosterStillSha256,
-// the 16:9 picture its card in a list shows (landscapes), which its row shows alone in its poster's
-// place, as its own page does (D496 §1, D497): a row of Continue Watching keeps the rule a list
-// keeps.
-func withOtherPicturesAlone(rows []InProgress) {
+// withOtherVideoStills gives each other video's row that has no poster, as its NoPosterStillSha256,
+// the 16:9 picture its card in a list shows (landscapes), which its row shows in the top half of the
+// "No poster" card, as a film's: Continue Watching mixes kinds, and keeps one shape (D498 §1).
+func withOtherVideoStills(rows []InProgress) {
 	for index := range rows {
 		if rows[index].Kind == ListOther && rows[index].PosterSha256 == "" {
 			rows[index].NoPosterStillSha256 = rows[index].LandscapeSha256

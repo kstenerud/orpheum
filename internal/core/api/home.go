@@ -20,15 +20,15 @@ const homeNewestShown = 18
 // recently partway through.
 type InProgressBody struct {
 	ID int64 `json:"id"`
-	// Kind is what the work is, so its card keeps the rule of an item with no poster (D496, D497).
+	// Kind is what the work is, so its card keeps the rule of an item with no poster (D496, D498).
 	Kind         string `doc:"movie, episode or other" enum:"movie,episode,other" json:"kind"`
 	Name         string `json:"name"`
 	Year         int64  `json:"year,omitempty"`
 	PosterSha256 string `json:"posterSha256,omitempty"`
-	// NoPosterStillSha256 is the 16:9 picture its card shows alone when it has no poster, whatever its
-	// kind: a film's as its card in a list picks it, an episode's still where neither it nor its series
-	// has a poster, an other video's picture (D497).
-	NoPosterStillSha256 string            `doc:"The 16:9 picture shown alone in its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
+	// NoPosterStillSha256 is the 16:9 picture its card shows in the top half of the "No poster" card
+	// when it has no poster, whatever its kind: a film's as its card in a list picks it, an episode's
+	// still where neither it nor its series has a poster, an other video's picture (D498 §1).
+	NoPosterStillSha256 string            `doc:"The 16:9 picture shown in the top half of its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
 	FileID              int64             `json:"fileId"`
 	PositionMs          int64             `json:"positionMs"`
 	DurationMs          int64             `doc:"0 when the file's length is unknown" json:"durationMs"`

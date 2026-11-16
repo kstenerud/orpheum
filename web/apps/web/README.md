@@ -498,9 +498,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   load, it shows the "No poster" card in the picture's 16:9 shape, as an episode's page with no
   still does (`WideNoPoster`, D497). `src/browse.test.tsx`, `src/title-picture-alone.test.tsx`,
   `src/poster-card.browser.test.tsx`.
-- **A row of Continue Watching, whatever its kind, shows its poster, else its 16:9 picture alone,
-  else the 16:9 "No poster" card** (`isRowPictureAlone`, D497); a 16:9 card stands centred in a
-  poster's height where the row holds a poster, as a grid's does (D495 §4).
+- **A row of Continue Watching, whatever its kind, shows its poster (an episode's, else its
+  series'), else the full-size "No poster" card with its 16:9 picture in the top half, else that
+  card bare** (D498 §1): a row mixing kinds keeps one shape, an other video's card too.
   `src/continue-watching-art.test.tsx`.
 - **A grid's tiles in view say so** (`PUT /tiles/interest`) once they settle, again while the tab is
   visible, and that none is shown when the grid goes, so the work their pictures need comes first
@@ -564,8 +564,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `isAView`); a series' page shows the season chosen, else that of the person's next episode, else
   the first, chosen from a row of its seasons' posters above the episodes (D379, `SeasonRow`, one
   focus row a remote moves along by Left and Right and leaves by Down into the episodes; each card
-  its season's own poster, else the "No poster" card with its still in the top half, else that card
-  bare, never the series' poster, D497 §4; an episode's still in the list, and Up Next's, else the
+  its season's own poster, else its series' poster, else the "No poster" card with the still of one
+  of its episodes in the top half, else that card bare, D498 §2; an episode's still in the list, and Up Next's, else the
   "No poster" card in its 16:9 shape, D497 §2); returned
   to after one of its episodes' page or playing
   (`src/episode-reached.ts`), it shows that episode's season with the episode focused; opened by a

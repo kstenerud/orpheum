@@ -14,7 +14,6 @@ import { StatusTray } from "./status-cues.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { PosterRow } from "./poster-row.tsx";
-import { Still } from "./poster.tsx";
 import { useServices } from "./services.tsx";
 import type { Resource } from "./use-resource.ts";
 import { useWarmsUpOnPress } from "./warm-on-press.ts";
@@ -157,8 +156,6 @@ export function ContinueWatchingView(props: {
   if (rows.length === 0 && props.hiddenName === undefined) {
     return null;
   }
-  // The row is as tall as its tallest card: a poster's height when it holds one (D495 §4, D497).
-  const isBesidePoster = rows.some((row) => !isRowPictureAlone(row));
   const nameOf = (row: ContinueWatchingRow): string =>
     rowName(
       row,
@@ -186,13 +183,7 @@ export function ContinueWatchingView(props: {
       )}
       <PosterRow isArrival>
         {rows.map((row) => (
-          <ContinueWatchingRowView
-            key={row.id}
-            row={row}
-            name={nameOf(row)}
-            onHide={hide}
-            isBesidePoster={isBesidePoster}
-          />
+          <ContinueWatchingRowView key={row.id} row={row} name={nameOf(row)} onHide={hide} />
         ))}
       </PosterRow>
     </section>
@@ -208,8 +199,6 @@ function ContinueWatchingRowView(props: {
   readonly row: ContinueWatchingRow;
   readonly name: string;
   readonly onHide: (row: ContinueWatchingRow) => void;
-  /** Whether the row of cards holds an upright poster: a 16:9 picture then stands centred in its height. */
-  readonly isBesidePoster: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { row } = props;
@@ -222,7 +211,7 @@ function ContinueWatchingRowView(props: {
           : { screen: "title", itemId: row.id }
       }
       posterSha256={row.posterSha256}
-      {...pictureAloneArt(row, props.isBesidePoster)}
+      noPosterStillSha256={row.noPosterStillSha256}
       name={props.name}
       details={
         <>
@@ -255,41 +244,6 @@ function ContinueWatchingRowView(props: {
       }
     />
   );
-}
-
-/**
- * Whether a row shows its 16:9 picture alone in its poster's place: any row with no poster, whatever
- * its kind, unlike a list's card (isPictureAlone). The owner, 2026-11-16: *"For ALL videos: If a
- * poster is ready, show that. Otherwise if a screenshot is available, show that. Otherwise show a
- * screenshot-sized "no poster""* (D497). An episode's poster is its own, else its series'.
- */
-export function isRowPictureAlone(row: Pick<ContinueWatchingRow, "posterSha256">): boolean {
-  return row.posterSha256 === undefined;
-}
-
-/**
- * A row's art with no poster (isRowPictureAlone): its 16:9 picture alone, or the "No poster" card in
- * that shape while it has none (Still), centred in a poster's height when the row of cards holds an
- * upright poster, as a grid centres one beside a poster (D495 §4); none for a row with a poster,
- * whose card draws it.
- */
-function pictureAloneArt(
-  row: ContinueWatchingRow,
-  isBesidePoster: boolean,
-): { readonly art: JSX.Element; readonly isArtInPosterHeight: boolean } | undefined {
-  if (!isRowPictureAlone(row)) {
-    return undefined;
-  }
-  return {
-    art: (
-      <Still
-        sourceSha256={row.noPosterStillSha256}
-        className="poster-card__tile"
-        isNoPosterMarked
-      />
-    ),
-    isArtInPosterHeight: isBesidePoster,
-  };
 }
 
 /**

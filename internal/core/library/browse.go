@@ -103,8 +103,7 @@ type Entry struct {
 	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture shown in the top of
 	// its poster's place: its backdrop, else a film's frame still or a series' first episode's still;
 	// "" when it has a poster or none of them (D362 §2). Continue Watching's row of an episode with no
-	// poster holds its still here, and of an other video with none its LandscapeSha256, shown alone
-	// (D497).
+	// poster holds its still here, and of an other video with none its LandscapeSha256 (D498 §1).
 	NoPosterStillSha256 string
 	// Other is an other video's date and file name; nil for a film or a series.
 	Other *OtherFacts

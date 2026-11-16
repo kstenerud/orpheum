@@ -2992,7 +2992,7 @@
             "type": "string"
           },
           "noPosterStillSha256": {
-            "description": "The 16:9 picture shown alone in its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "description": "The 16:9 picture shown in the top half of its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
             "type": "string"
           },
           "positionMs": {

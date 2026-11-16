@@ -441,8 +441,9 @@
 //     same, picked by the same noPosterStills (D349 §3, D362 §2); an other video's own page with no
 //     poster gets its card's 16:9 picture, picked by the same landscapes, to show alone (D496). A row
 //     of Continue Watching says its kind, and with no poster (an episode's own nor its series') carries
-//     the picture it shows alone: a film's by noPosterStills, an episode's still, an other video's by
-//     landscapes (D497). Enforced by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs,
+//     the picture it shows over the "No poster" card: a film's by noPosterStills, an episode's still,
+//     an other video's by landscapes (D498 §1). Enforced by
+//     TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs,
 //     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives,
 //     TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill,
 //     TestDetail_APosterlessOtherVideosPageShowsItsCardsPicture and
