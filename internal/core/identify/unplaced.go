@@ -21,7 +21,8 @@ type UnplacedEpisodes struct {
 }
 
 // unplacedAtLeast is how many episodes of a series must be unplaced for it to be told: a few are an
-// unaired pilot or specials a folder does not name, which need nobody (staging, 2026-10-16: Brackenmere's three specials, each in a folder of its own).
+// unaired pilot or specials a folder does not name, which need nobody (staging, 2026-10-16:
+// Brackenmere's three specials, each in a folder of its own).
 const unplacedAtLeast = 5
 
 // unplacedFilesRead is the row limit a look gives the read of unnumbered episodes' files: none (a
