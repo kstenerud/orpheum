@@ -29445,7 +29445,7 @@ first"*; an episode, which never has a poster, shows its screenshot, else the pl
 poster" (*"Let's just show the regular "no poster" to keep things simple"*). Amends D497 §2
 (Continue Watching) and §4 (the season list).
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **Continue Watching**, a row of kinds mixed, shows each row's poster (an episode's own, else its
    series', D497 §2); else the full-size "No poster" card with its 16:9 picture in its top half,
@@ -29469,7 +29469,7 @@ poster" (*"Let's just show the regular "no poster" to keep things simple"*). Ame
 alphabetic sorting like film and series do."* Amends D349 §9.1, whose other library listed newest
 recorded first by default.
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **An other library's list opens sorted by name**, in the library's locale, as a film or series
    library's does; recorded date, file name and newest added stay its other sorts, chosen from its
@@ -29477,3 +29477,21 @@ recorded first by default.
 
 **Proven by:**
 - 1: web/apps/web/src/library-browse.test.tsx ("defaults an other library's sort to name, as a films library's (D499)")
+
+## D500 — A copied picture is cut at its keyframes however its file seeks, and is encoded where it cannot be
+
+**Decided** (2026-11-16), by the project owner, choosing *"go with 2 and 3"* of three options for
+file 17099 on staging. It is an AVI file whose picture is copied (a remux). Its demuxer's seek lands
+on frames that are not keyframes, so a copy seeking between two keyframes started at the next one.
+Every run's first raw file was one keyframe interval long, the node refused each run at its bounds,
+and the player stepped over the whole film.
+
+**Status:** decided.
+
+1. **A copied picture's run starts at its first chunk's keyframe in any container, whatever its
+   index says:** its seek no longer trusts the demuxer to land on a keyframe. It keeps the source's
+   times and drops what comes before the keyframe at the output (the owner's option 2, in place of
+   seeking past the keyframe for AVI alone, option 1).
+2. **A copied picture whose run is refused at its bounds is encoded instead:** the playback's
+   picture falls back to an encode from there, so a file that cannot be cut on its grid still plays
+   rather than being stepped over (option 3).

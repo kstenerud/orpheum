@@ -505,6 +505,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D497](working-notes.md#d497--a-pictures-place-shows-a-poster-else-a-screenshot-else-no-poster-by-the-place-continue-watching-and-an-other-video-with-nothing-keep-it) A picture's place shows a poster, else a screenshot, else No poster, by the place; Continue Watching and an other video with nothing keep it — *revisited by D498*
 - [D498](working-notes.md#d498--each-places-picture-as-the-owners-table-has-it-a-mixed-row-and-the-season-list-keep-a-posters-shape) Each place's picture as the owner's table has it: a mixed row and the season list keep a poster's shape
 - [D499](working-notes.md#d499--an-other-library-lists-by-name-by-default-as-films-and-series-do) An other library lists by name by default, as films and series do
+- [D500](working-notes.md#d500--a-copied-picture-is-cut-at-its-keyframes-however-its-file-seeks-and-is-encoded-where-it-cannot-be) A copied picture is cut at its keyframes however its file seeks, and is encoded where it cannot be
 
 ## Archived
 
