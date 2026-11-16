@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Hls, { ErrorDetails, ErrorTypes, Events } from "hls.js";
+import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } from "hls.js";
 
 import { orpheumAbr } from "./abr-controller.ts";
 import { failOrLoadOn } from "./chunked.ts";
@@ -79,6 +79,60 @@ describe("a decoding error a rebuild did not mend (D266; the owner's TCL TV, 202
     trigger();
     trigger();
     expect([failures, unplayable]).toEqual([["decode"], []]);
+    hls.destroy();
+  });
+});
+
+// File 17099's copied picture was refused at the bounds of every run, and each of its chunks was
+// stepped over in turn (staging, 2026-11-16): the copy is given up for the twin instead (D500 §2).
+describe("a chunk of the film's own picture the core cannot make (D500 §2)", () => {
+  it("gives the copy up as the device's to play no more, the page reopening at the twin", () => {
+    const unplayable: unknown[] = [];
+    const abr = orpheumAbr({
+      startAtBps: 0,
+      monotonicMs: () => scene.nowMs,
+      isVoiceLive: () => false,
+      fromCache: () => undefined,
+      onUnplayable: (quality) => unplayable.push(quality),
+    });
+    const hls = new Hls({ abrController: abr.controller });
+    const video = Object.assign(
+      new EventTarget(),
+      videoAt(7.2, { isPaused: false, readyState: 4 }),
+    );
+    Object.defineProperty(hls, "media", { value: video });
+    Object.defineProperty(hls, "loadLevel", { value: 3, writable: true });
+    Object.defineProperty(hls, "levels", {
+      value: levels.map((level, index) =>
+        index === 3 ? { ...level, uri: "picture/stream.m3u8" } : level,
+      ),
+    });
+    Object.defineProperty(hls, "minAutoLevel", { value: 0 });
+    Object.defineProperty(hls, "startLoad", { value: () => undefined });
+    Object.defineProperty(hls, "stopLoad", { value: () => undefined });
+    Object.defineProperty(hls, "recoverMediaError", { value: () => undefined });
+    const failures: string[] = [];
+    failOrLoadOn(hls, video as unknown as HTMLVideoElement, {
+      abr,
+      onFailed: (failure) => failures.push(failure),
+    });
+    const frag = new Fragment(PlaylistLevelType.MAIN, "");
+    frag.level = 3;
+    frag.sn = 4;
+    frag.start = 9.6;
+    frag.duration = 2.4;
+    hls.trigger(Events.ERROR, {
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: true,
+      frag,
+      response: { url: "", code: 422, text: "" },
+      error: new Error("HTTP Error 422"),
+    });
+    expect([failures, unplayable]).toEqual([
+      [],
+      [{ qualityKbps: 36_208, positionMs: 7200, isFilmsOwnPicture: true }],
+    ]);
     hls.destroy();
   });
 });

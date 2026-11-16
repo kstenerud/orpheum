@@ -107,7 +107,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   hls.js stopped its loading, and while the browser is offline; each quality judged unplayable, and
   each long standing still not judged, is noted with why. A minute's outage stood a video 0.07 s short
   of the end of what it held, hls.js saying 33.9 s loaded ahead, and the top quality was given up for
-  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-given-up.test.ts`, `abr-busy.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
+  good (a local reproduction, 2026-10-29; VQ135). A chunk of the film's own picture, copied, that the core
+  cannot make (422) gives the copy up so too, where a quality is below it, rather than being stepped
+  over (`skipChunksNotMade`): the core offers the twin in its place, and the page reopens there
+  (D323 §2); file 17099's copy was refused at the bounds of every run, each chunk stepped over in turn
+  (staging, 2026-11-16; D500 §2; `skip-unmade.test.ts`, `abr-decoding.test.ts`). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-given-up.test.ts`, `abr-busy.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,

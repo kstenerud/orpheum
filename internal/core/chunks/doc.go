@@ -279,7 +279,11 @@
 //     TestWant_AnInitAskedForFromAChunkGivenUpOnStartsTheRunAfterIt. A
 //     track whose copy is so given up on is offered no more copied meanwhile: a playback started anew
 //     plays the top with the sound the server makes. Enforced by
-//     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes.
+//     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes. A picture whose copy
+//     is so given up, as one its node refuses at its bounds, is encoded instead where its node encodes
+//     as fast as it plays: a playback started anew is offered its twin at the top; one offered the
+//     copy before keeps it, its player refused the chunk given up, so it gives the copy up for the
+//     twin (D500 §2). Enforced by TestStartOnLadder_APictureWhoseCopyCannotBeMadeStartsAtItsTwin.
 //
 //   - It reads the timelines and never writes them: internal/core/readthrough writes
 //     video_timeline. Enforced by TestArch_EachTableHasOneWritingPackage.

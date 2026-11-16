@@ -124,7 +124,7 @@ function skipping(video: FilmVideo): {
   const hls = new LoadingHls(video);
   const asHls = hls as unknown as Hls;
   const failures: PlaybackFailure[] = [];
-  skipChunksNotMade(asHls, video, () => undefined);
+  skipChunksNotMade(asHls, video, { note: () => undefined });
   failOnFatal(asHls, (failure) => failures.push(failure));
   const skipped: SkippedStretch[] = [];
   video.addEventListener(playerSkippedEvent, (event) => {
@@ -276,6 +276,62 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     expect(loadsFromS).toEqual([100]);
     video.playTo(2531);
     expect(skipped).toEqual([]);
+  });
+});
+
+describe("a chunk of the film's own picture the core cannot make (D500 §2)", () => {
+  /**
+   * hls.js loading quality loadLevel of a film whose own picture, copied, is level 1 above its twin,
+   * level 0, the video at positionS, its qualities' give-ups counted, at the positions given.
+   */
+  function givingUp(
+    positionS: number,
+    loadLevel: number,
+  ): {
+    readonly hls: LoadingHls;
+    readonly givenUpAtS: number[];
+    readonly failures: PlaybackFailure[];
+    readonly skipped: SkippedStretch[];
+  } {
+    const video = new FilmVideo(positionS);
+    const hls = Object.assign(new LoadingHls(video), {
+      levels: [{ uri: "q4000k1080p/stream.m3u8" }, { uri: "picture/stream.m3u8" }],
+      loadLevel,
+      hasEnoughToStart: true,
+      startPosition: -1,
+      media: video,
+    });
+    const asHls = hls as unknown as Hls;
+    const givenUpAtS: number[] = [];
+    const quality = {
+      canGiveUpLoading: () => hls.loadLevel > 0,
+      giveUpLoading: (atS: number) => {
+        givenUpAtS.push(atS);
+      },
+    };
+    const failures: PlaybackFailure[] = [];
+    skipChunksNotMade(asHls, video, { note: () => undefined, quality: () => quality });
+    failOnFatal(asHls, (failure) => failures.push(failure));
+    const skipped: SkippedStretch[] = [];
+    video.addEventListener(playerSkippedEvent, (event) => {
+      const stretch = skippedStretchOf(event);
+      if (stretch !== undefined) {
+        skipped.push(stretch);
+      }
+    });
+    return { hls, givenUpAtS, failures, skipped };
+  }
+
+  it("gives the copy up for the twin rather than stepping over it, as file 17099's was", () => {
+    const { hls, givenUpAtS, failures, skipped } = givingUp(2520, 1);
+    cannotMake(hls, 1100, { level: 1, isFatal: true });
+    expect([givenUpAtS, hls.stops, skipped, failures]).toEqual([[2520], 0, [], []]);
+  });
+
+  it("steps over a chunk of the twin: an encode the core cannot make is the file's fault", () => {
+    const { hls, givenUpAtS, skipped } = givingUp(2529.8, 0);
+    cannotMake(hls, 1100, { level: 0 });
+    expect([givenUpAtS, skipped]).toEqual([[], [{ fromMs: 2_530_000, toMs: 2_532_300 }]]);
   });
 });
 

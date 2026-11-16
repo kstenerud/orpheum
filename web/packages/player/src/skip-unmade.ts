@@ -9,8 +9,11 @@
 
 import Hls, { type ErrorData, type Fragment } from "hls.js";
 
+import { ownPictureLevel } from "./abr-choice.ts";
 import { isNotMade, loadAgainFrom, recoverFrom } from "./abr-controller.ts";
+import type { GivingUpQuality } from "./decode-recovery.ts";
 import { seekTo } from "./report.ts";
+import { resumePositionOf, type ResumingHls } from "./resume-position.ts";
 
 /** The event a video is sent each time its player steps over chunks the core cannot make. */
 export const playerSkippedEvent = "orpheumplayerskipped";
@@ -77,19 +80,44 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
  * lengthens the same stretch. A stretch that would pass skipsAtMostMs, or the film's end, fails
  * (cannotMake), the video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the
  * person's before the move is theirs: loading goes on from where they went. A chunk's init the core
- * answers so is no chunk to step over, and is left to hls.js (isInitsLoad). Returns the stopping.
+ * answers so is no chunk to step over, and is left to hls.js (isInitsLoad). A chunk of the film's
+ * own picture, copied, is not stepped over where its quality can be given up (quality): the core
+ * refuses the copy's chunks at bounds its node cannot cut, and offers the twin instead, so the copy
+ * is given up for it (D266), the page reopening at the twin (D323 §2), rather than stepped over chunk
+ * by chunk (file 17099 on staging, 2026-11-16; D500 §2). Returns the stopping.
  */
 export function skipChunksNotMade(
   hls: SkippingHls,
   video: SkippingVideo,
-  note: (note: string) => void,
+  by: {
+    readonly note: (note: string) => void;
+    /** The quality to give the film's own picture up from (a chunked playback's Choosing). */
+    readonly quality?: () => GivingUpQuality | undefined;
+  },
 ): () => void {
+  const { note, quality } = by;
   const skipping = new Skipping(hls, video, note);
   const onError = (_event: unknown, data: ErrorData): void => {
     const { frag } = data;
-    if (frag !== undefined && isNotMade(data) && !isInitsLoad(data, frag)) {
-      skipping.cannotMake(data, frag);
+    if (frag === undefined || !isNotMade(data) || isInitsLoad(data, frag)) {
+      return;
     }
+    const giving = quality?.();
+    if (
+      giving?.canGiveUpLoading() === true &&
+      frag.level === hls.loadLevel && // the quality giveUpLoading gives up
+      frag.level === ownPictureLevel(hls.levels)
+    ) {
+      recoverFrom(data);
+      const positionS = resumePositionOf(hls);
+      note(
+        `the film's own picture cannot be made at ${frag.start.toFixed(1)} s: given up for the` +
+          ` quality below it, loading again from ${positionS.toFixed(1)} s`,
+      );
+      giving.giveUpLoading(positionS);
+      return;
+    }
+    skipping.cannotMake(data, frag);
   };
   const moveIfArrived = (): void => {
     skipping.moveIfArrived();
@@ -109,11 +137,15 @@ export function skipChunksNotMade(
   };
 }
 
-/** What stepping over a chunk needs of hls.js: its errors, its loading, and loadAgainFrom's. */
+/**
+ * What stepping over a chunk needs of hls.js: its errors, its loading, and loadAgainFrom's; its
+ * qualities and where it resumes, to give its own picture up.
+ */
 type SkippingHls = Pick<
   Hls,
-  "on" | "off" | "once" | "recoverMediaError" | "startLoad" | "stopLoad"
->;
+  "on" | "off" | "once" | "recoverMediaError" | "startLoad" | "stopLoad" | "levels" | "loadLevel"
+> &
+  ResumingHls;
 
 /**
  * Whether hls.js's error is of the load of a chunk's init rather than of the chunk: hls.js 1.7.3 says

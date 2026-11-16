@@ -597,7 +597,8 @@ export function choosingOptionsOf(
 /**
  * Tells onFailed when the playback cannot go on (failOnFatal), what failed with it, and asks a load
  * that failed again instead (loadOnAfterFailures), recovers once from a fatal decoding error and
- * gives its quality up at a second (recoverFromDecodingErrors) or steps over a chunk the core cannot make (skipChunksNotMade), each
+ * gives its quality up at a second (recoverFromDecodingErrors) or steps over a chunk the core cannot make (skipChunksNotMade), the
+ * film's own picture given up there instead (D500 §2), each
  * heard first, so failOnFatal passes it by. Returns the stopping.
  */
 export function failOrLoadOn(
@@ -617,7 +618,10 @@ export function failOrLoadOn(
     carrierOf: mediaCarrierOf,
     quality: abr.choosing,
   });
-  const stopSkipping = skipChunksNotMade(hls, video, linkNoter(video));
+  const stopSkipping = skipChunksNotMade(hls, video, {
+    note: linkNoter(video),
+    quality: abr.choosing,
+  });
   failOnFatal(hls, onFailed, mediaCarrierOf);
   return () => {
     stopLoadingOn();

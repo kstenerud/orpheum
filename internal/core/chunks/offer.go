@@ -141,8 +141,10 @@ func (offered offer) has(stream Stream) bool {
 // measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1),
 // but a track whose copy FFmpeg failed on twice at one chunk (hasGivenUp), which plays the sound the
 // server makes instead, as the lower qualities do, until the film is forgotten: a copy that cannot be
-// cut leaves the film playable (a film, staging, 2026-10-28). A film whose node encodes too slowly
-// (IsTooSlowToEncode) offers no encoded picture: only its own copied, or none (D457).
+// cut leaves the film playable (a film, staging, 2026-10-28). So does a picture whose copy is so given
+// up: its twin takes its place at the top, as for a player that cannot decode it (D500 §2). A film
+// whose node encodes too slowly (IsTooSlowToEncode) offers no encoded picture: only its own copied,
+// given up or not, or none (D457).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
 	if err != nil {
@@ -162,16 +164,16 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 		isMeasured:   !playback.IsSoundUnmeasured && len(levels) > 0,
 	}
 	height := film.picture.Video.Height
-	top, averageBps := topOf(film, playback)
+	if offered.isTooSlowToEncode, err = service.IsTooSlowToEncode(ctx, film.file.NodeID); err != nil {
+		return offer{}, err
+	}
+	top, averageBps := topOf(film, playback, service.isPictureCopyGivenUp(film, offered.isTooSlowToEncode))
 	offered.pictures = append(offered.pictures, top...)
 	offered.copied = slices.DeleteFunc(copiedTracksOf(film, playback, top), func(track int) bool {
 		return service.runs.hasGivenUp(film.storeDir(Stream{
 			Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: track,
 		}))
 	})
-	if offered.isTooSlowToEncode, err = service.IsTooSlowToEncode(ctx, film.file.NodeID); err != nil {
-		return offer{}, err
-	}
 	if offered.isTooSlowToEncode {
 		// Its node would make no picture as fast as it plays: only the film's own, copied, is offered.
 		offered.pictures = slices.DeleteFunc(offered.pictures, func(picture Stream) bool {
@@ -200,10 +202,12 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 // which a copy needs (D269 §1); its twin where the player does not decode it, or where the film is
 // cut on time, so a playback on time is not held below the film's own height (D344 §3), from whose
 // rate the qualities below step down, since they are H.264 as the twin is and the original packs
-// more into a bit (D323 §1, the owner, 2026-10-20); else none, below its own picture's rate.
-func topOf(film cutFilm, playback Playback) ([]Stream, int64) {
+// more into a bit (D323 §1, the owner, 2026-10-20), and where its copy was given up (isCopyGivenUp),
+// its node failing on it twice at one chunk, so it is encoded instead (D500 §2); else none, below its
+// own picture's rate.
+func topOf(film cutFilm, playback Playback, isCopyGivenUp bool) ([]Stream, int64) {
 	switch {
-	case playback.IsSourcePictureDecodable && film.kind != OnTime:
+	case copiesPicture(film, playback) && !isCopyGivenUp:
 		return []Stream{{Kind: nodeproto.StreamPicture}}, film.pictureAverageBps()
 	case film.picture.Video.Height >= qualities.MinHeight:
 		twin := twinOf(film)
@@ -211,6 +215,20 @@ func topOf(film cutFilm, playback Playback) ([]Stream, int64) {
 	default:
 		return nil, film.pictureAverageBps()
 	}
+}
+
+// isPictureCopyGivenUp is whether the film's picture, copied, is encoded instead, its node having
+// failed on the copy twice at one chunk (hasGivenUp), as at bounds it cannot cut (D500 §2): not where
+// its node encodes too slowly (isTooSlowToEncode), the copy then all there is, its chunks not made
+// stepped over.
+func (service *Service) isPictureCopyGivenUp(film cutFilm, isTooSlowToEncode bool) bool {
+	return !isTooSlowToEncode && service.runs.hasGivenUp(film.storeDir(Stream{Kind: nodeproto.StreamPicture}))
+}
+
+// copiesPicture is whether the playback may play the film's own picture copied: its player decodes
+// it, and the film is cut on its keyframes, which a copy needs (D269 §1).
+func copiesPicture(film cutFilm, playback Playback) bool {
+	return playback.IsSourcePictureDecodable && film.kind != OnTime
 }
 
 // twinOf is the film's twin: its picture in H.264 at its own height, even, as H.264's 4:2:0 picture
@@ -568,7 +586,10 @@ func (service *Service) offeredStream(
 	if err != nil {
 		return film, stream, err
 	}
-	if offered.has(stream) {
+	// A playback offered the copy before it was given up keeps it, so its player is refused the chunk
+	// given up, ErrCannotBeMade, and gives the copy up for the twin rather than losing its playback
+	// (D500 §2); what was made of the copy plays meanwhile.
+	if offered.has(stream) || stream.Kind == nodeproto.StreamPicture && copiesPicture(film, playback) {
 		return film, stream, nil
 	}
 	// A playback offered its film before its picture's bytes in each second were known was offered

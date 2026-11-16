@@ -98,9 +98,9 @@ func (service *Service) recordFailure(ctx context.Context, dir string, chunk int
 	count := service.runs.failed(dir, chunk, why)
 	if count == runFailuresToGiveUp {
 		service.logger.WarnContext(ctx, "runs of chunks failed at the same chunk again; it is not made again "+
-			"until the film is played anew, and a sound copied is offered no more meanwhile, its playbacks "+
-			"started anew playing the sound the server makes", "storeDir", dir, "chunk", chunk, "failures", count,
-			"why", why)
+			"until the film is played anew, and a picture or sound copied is offered no more meanwhile, its "+
+			"playbacks started anew playing the picture or sound the server makes (D500 §2)",
+			"storeDir", dir, "chunk", chunk, "failures", count, "why", why)
 	}
 }
 

@@ -5,6 +5,7 @@ package chunks
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
@@ -74,6 +75,34 @@ func TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtItsTwin(t *testi
 	offer := startedOnLadder(t, service, 0, false)
 	if offer.Quality != (qualities.Quality{Kbps: 4000, Height: 1080}) || offer.StreamName != "q4000k1080p" {
 		t.Errorf("the offer = %+v; want the twin, H.264 at the picture's 1080 lines at its 4 Mb/s", offer)
+	}
+}
+
+// A picture whose copy its node failed on twice at one chunk, as file 17099's was refused at the
+// bounds of every run (staging, 2026-11-16), is encoded instead: a playback started anew starts at its
+// twin, and its master playlist names no copy; a playback offered the copy before still has it, so
+// its player is refused the chunk given up, and gives the copy up, rather than losing its playback
+// (D500 §2).
+func TestStartOnLadder_APictureWhoseCopyCannotBeMadeStartsAtItsTwin(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	copyDir := testStoreDir(t, service, Stream{Kind: nodeproto.StreamPicture}, mustGrid(t, service).ID())
+	for range runFailuresToGiveUp {
+		service.runs.failed(copyDir, 4, "raw 00000.mp4 holds 0 to 12400 ms of the run, not its chunk 4's")
+	}
+	if offer := startedOnLadder(t, service, 0, true); offer.StreamName != "q4000k1080p" {
+		t.Errorf("the offer = %+v; want the twin, H.264 at the picture's 1080 lines", offer)
+	}
+	playback := Playback{FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true}
+	playlist, _, err := service.MasterPlaylist(t.Context(), playback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(playlist, "picture/stream.m3u8") || !strings.Contains(playlist, "q4000k1080p/stream.m3u8") {
+		t.Errorf("the master playlist names the copy, or not the twin:\n%s", playlist)
+	}
+	if _, err := service.StoreFileOf(t.Context(), playback, "picture", "000003.m4s"); err != nil {
+		t.Errorf("a chunk of the copy made before the one given up is %v; want it the playback's still", err)
 	}
 }
 
