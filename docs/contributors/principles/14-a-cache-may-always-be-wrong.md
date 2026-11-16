@@ -3,6 +3,10 @@
 
 # §14 — A cache may always be wrong, so the path that ignores it is the ordinary one
 
+**Use caches, and design each one as if it has already failed.** A cache is a good and useful
+tool, and one of the hardest things to get right: *"when we use caching, we must design under the
+assumption that it will eventually fail, giving us stale or invalid data"* (the owner, 2026-11-16).
+
 **Assume every cache breaks, for a reason nobody thought of.** A local copy, a sync cursor, a
 delta stream, a memoised result — each is an optimisation that will eventually be stale,
 truncated, corrupt, or from a version that no longer exists. Design for that as the normal
@@ -33,6 +37,13 @@ Three consequences that keep showing up:
   ordering, retention and compaction. The second is a project; the first is a table.
 - **Partial is usable.** Nothing should wait for a cache to be *complete* before a person may
   interact — the copy fills in behind a product that already works.
+- **A failure met through the cache drops it, says so, and fetches afresh.** Where using a kept
+  copy fails, the copy is taken to be the cause: it is dropped, the core's log is told, and a
+  fresh copy is fetched and kept in its place. The load that follows a failure is never answered
+  by the copy that failed ([D494](../decisions/working-notes.md)). A poster kept half by the
+  service worker drew "No poster" at every load and reload, its retries answered from the same
+  copy, until the owner signed out (staging, 2026-11-16); nothing told the core, so the only
+  evidence was the owner's report.
 
 **This is [§11](11-hot-path-values-are-cached.md)'s
 other half.** §11 says what to cache and how to invalidate it; this says what must remain true
@@ -41,4 +52,6 @@ preferring cache-and-invalidate over incremental maintenance is exactly this tes
 one mechanism: *a missed invalidation is stale, a missed update is wrong.*
 
 **Bites when:** a client cannot start without a sync, an error path exists only for "cache
-unavailable", or the answer to "what if this is stale?" is a guarantee rather than a fallback.
+unavailable", a retry reaches the same kept copy as the attempt that failed, a cache is dropped or
+reset without a word to the log, or the answer to "what if this is stale?" is a guarantee rather
+than a fallback.
