@@ -148,6 +148,25 @@ func TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond(t *testing.T)
 // waits: keepAlive's, for its next ping or its pong, and watchHealth's.
 const timersOfAConnection = 2
 
+// awaitStep waits until the connection's timers are armed and, for a connection that answers its
+// pings, no ping waits for its answer, saying false if ctx ends first. The answer is looked for
+// again once the timers are armed: a ping the last step's time sent can start between the first
+// look and the timers' arming, and the step would then pass its pong's wait unanswered (make check,
+// 2026-11-16, under load).
+func awaitStep(ctx context.Context, built *world, answersPings bool) bool {
+	for {
+		for answersPings && built.service.pingsUnanswered.Load() > 0 && ctx.Err() == nil {
+			time.Sleep(time.Millisecond)
+		}
+		if !built.clock.AwaitArmed(ctx, timersOfAConnection) {
+			return false
+		}
+		if !answersPings || built.service.pingsUnanswered.Load() == 0 {
+			return true
+		}
+	}
+}
+
 // signalOverTime runs the signalling loop of a claimed core while its clock moves a second every few
 // milliseconds of real time, and is each dial's time on that clock, until stop.
 func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan time.Time, stop func()) {
@@ -184,10 +203,7 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				for answersPings && built.service.pingsUnanswered.Load() > 0 && ctx.Err() == nil {
-					time.Sleep(time.Millisecond)
-				}
-				if !built.clock.AwaitArmed(ctx, timersOfAConnection) {
+				if !awaitStep(ctx, built, answersPings) {
 					return
 				}
 				built.clock.AdvanceToNext()
