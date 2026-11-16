@@ -490,7 +490,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D482](working-notes.md#d482--a-hidden-pages-webrtc-transport-tries-to-connect-every-10-s-for-two-minutes-then-not-until-shown) A hidden page's WebRTC transport tries to connect every 10 s for two minutes, then not until shown — *revisited by D484*
 - [D483](working-notes.md#d483--compression-over-webrtc) Compression over WebRTC
 - [D484](working-notes.md#d484--a-webrtc-connections-steps-timed-and-a-reconnect-kept-when-the-page-is-shown) A WebRTC connection's steps timed, and a reconnect kept when the page is shown
-- [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there
+- [D485](working-notes.md#d485--the-service-worker-keeps-the-cores-content-addressed-images-and-answers-them-from-there) The service worker keeps the core's content-addressed images, and answers them from there — *revisited by D494*
 - [D486](working-notes.md#d486--the-loaders-page-and-the-client-floor-are-waited-on-for-25-s-then-gone-on-without) The loader's page and the client floor are waited on for 2.5 s, then gone on without
 - [D487](working-notes.md#d487--a-film-loads-deeper-ahead-once-the-link-has-dropped) A film loads deeper ahead once the link has dropped
 - [D488](working-notes.md#d488--a-data-cap-per-device-chosen-in-gb-per-hour) A data cap per device, chosen in GB per hour — *revisited by D489, D491, D493*
@@ -499,6 +499,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D491](working-notes.md#d491--the-films-own-picture-is-one-more-rung-under-a-data-cap) The film's own picture is one more rung under a data cap
 - [D492](working-notes.md#d492--a-devices-sound-delay-and-the-own-pictures-it-gave-up-are-kept-on-the-device) A device's sound delay and the own pictures it gave up are kept on the device — *revisited by D493*
 - [D493](working-notes.md#d493--a-devices-settings-are-kept-by-the-core-with-a-copy-in-its-browser) A device's settings are kept by the core, with a copy in its browser
+- [D494](working-notes.md#d494--a-clients-cache-is-assumed-to-fail-one-day-the-failure-is-logged-and-a-fresh-copy-fetched) A client's cache is assumed to fail one day: the failure is logged and a fresh copy fetched
 
 ## Archived
 

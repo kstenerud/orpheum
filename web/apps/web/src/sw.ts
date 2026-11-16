@@ -178,6 +178,11 @@ function mediaAnswer(worker: WorkerScope, event: FetchEventLike, url: URL): Prom
     keepBehind: (work) => {
       event.waitUntil(work);
     },
+    told: (note) => {
+      void worker.clients.get(event.clientId).then((page) => {
+        tellPage(page, note);
+      });
+    },
   });
 }
 

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Clapperboard, PosterClock } from "./icons.tsx";
+import { askedAgainQuery } from "./kept-images.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { suspectWorker } from "./worker-bypassed-note.tsx";
 
@@ -266,7 +267,7 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
 /** The address of an image's size, asked for again the again-th time: a new address each time. */
 function againUrl(sourceSha256: string, size: ArtSize, again: number): string {
   const url = artUrl(sourceSha256, size);
-  return again === 0 ? url : `${url}?again=${String(again)}`;
+  return again === 0 ? url : `${url}?${askedAgainQuery}=${String(again)}`;
 }
 
 /** An img's srcset of an image in each of sizes, by its width, asked for the again-th time. */

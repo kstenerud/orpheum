@@ -512,7 +512,7 @@ describe("the service worker's kept images (D485)", () => {
     const worker = await startWorker(stores, [page], network);
     await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
 
-    for (const asked of [poster, poster, `${poster}?again=2`]) {
+    for (const asked of [poster, poster]) {
       expect((await loaded(worker, asked))?.bytes).toEqual(posterBytes);
     }
     const again = await startWorker(stores, [page], network);
@@ -521,6 +521,36 @@ describe("the service worker's kept images (D485)", () => {
     expect(page.asked).toEqual([poster]);
     expect([...(stores.get(keptImagesCache)?.keys() ?? [])]).toEqual([poster]);
     expect(network).not.toHaveBeenCalled();
+  });
+
+  // A kept image is assumed to fail one day (D494): a page asks for an image again only once it failed
+  // to show, so the kept one is dropped, fetched afresh and kept anew, and the page's log is told. A
+  // half poster kept once was drawn as "No poster" at every load after (the owner's Firefox on
+  // Android, staging, 2026-11-16).
+  it("drops a kept image the page asks for again, fetches it afresh and tells the page's log", async () => {
+    const stores = new Map<string, FakeCache>();
+    const half = posterBytes.slice(0, 2);
+    const answers = [half, posterBytes];
+    const page = pageOf("p", "webrtc", () =>
+      Promise.resolve(
+        new Response(answers.shift() ?? null, { headers: { "Content-Type": "image/webp" } }),
+      ),
+    );
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+
+    expect((await loaded(worker, poster))?.bytes).toEqual(half);
+    expect((await loaded(worker, `${poster}?again=1`))?.bytes).toEqual(posterBytes);
+    expect((await loaded(worker, poster))?.bytes).toEqual(posterBytes);
+
+    expect(page.asked).toEqual([poster, poster]);
+    expect(page.notes).toEqual([
+      `the service worker dropped a kept image the page could not show, and fetched it again: ${poster}`,
+    ]);
   });
 
   it("keeps an image under a loader too, fetched through the page carrying its path", async () => {

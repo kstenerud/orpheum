@@ -40,14 +40,18 @@ export function isContentAddressedImage(pathname: string): boolean {
   return contentAddressedImage.test(pathname);
 }
 
+/** The query a page asks for an image again by, once it failed to show (poster.tsx's againUrl). */
+export const askedAgainQuery = "again";
+
 /** How many images this worker counts kept since it last read their list; unread when undefined. */
 let keptCount: number | undefined;
 
 /**
  * The answer to a load of an image by its content-addressed path: as kept, else as fetched, which
  * is kept behind it (keepBehind, the fetch event's waitUntil) when it is the image's own. Kept by its
- * path alone: a poster asked for again after a failure carries `?again=` (poster.tsx), and is the
- * same image. Where the browser refuses the cache, it is answered as fetched.
+ * path alone. A page asks for an image again, by `?again=` (poster.tsx), only once it failed to show,
+ * so a kept one asked for again is taken to be broken (D494): it is dropped, told (the page's log),
+ * and fetched and kept afresh. Where the browser refuses the cache, it is answered as fetched.
  */
 export async function imageAsKept(
   caches: Pick<CacheStorage, "open">,
@@ -55,14 +59,22 @@ export async function imageAsKept(
     readonly request: Request;
     readonly fetched: () => Promise<Response>;
     readonly keepBehind: (work: Promise<unknown>) => void;
+    readonly told: (note: string) => void;
   },
 ): Promise<Response> {
-  const { request, fetched, keepBehind } = load;
-  const key = new URL(request.url).pathname;
+  const { request, fetched, keepBehind, told } = load;
+  const url = new URL(request.url);
+  const key = url.pathname;
   const cache = await caches.open(keptImagesCache).catch(() => undefined);
   const kept = await cache?.match(key).catch(() => undefined);
-  if (kept !== undefined) {
+  if (kept !== undefined && !url.searchParams.has(askedAgainQuery)) {
     return kept;
+  }
+  if (kept !== undefined) {
+    told(
+      `the service worker dropped a kept image the page could not show, and fetched it again: ${key}`,
+    );
+    await cache?.delete(key).catch(() => false);
   }
   const answer = await fetched();
   if (cache !== undefined && isTheImageItself(answer)) {

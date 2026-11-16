@@ -371,6 +371,44 @@ describe("media over the WebRTC path", () => {
     port1.close();
   });
 
+  // A poster's load the browser called off partway, its page's read still waiting, came back to the
+  // worker as a whole answer, and the worker kept the half image for good (D485): every later load
+  // drew "No poster" (the owner's Firefox on Android, staging, 2026-11-16).
+  it("fails the body, never ends it whole, when the worker's load is called off partway", async () => {
+    const { port1, port2 } = new MessageChannel();
+    void answerLoad(aLoad, port2, {
+      // As a WebRTC request's body does: its abort fails it a turn later, its read still waiting.
+      send: (request) => {
+        const body = new ReadableStream<Uint8Array>(
+          {
+            start: (controller) => {
+              controller.enqueue(new Uint8Array(piece));
+            },
+            pull: async (controller) => {
+              await new Promise<void>((resolve) => {
+                request.signal.addEventListener("abort", () => {
+                  resolve();
+                });
+              });
+              controller.error(request.signal.reason);
+            },
+          },
+          { highWaterMark: 0 },
+        );
+        return Promise.resolve(new Response(body));
+      },
+      token: undefined,
+      viewer: undefined,
+    });
+    const calledOff = new AbortController();
+    const reader = (await responseFromPort(port1, calledOff.signal)).body?.getReader();
+    expect((await reader?.read())?.value?.byteLength).toBe(piece);
+    await settle();
+    calledOff.abort();
+    await expect(reader?.read()).rejects.toThrow();
+    port1.close();
+  });
+
   it("passes a 425 on with its body and Retry-After, its head first", async () => {
     const { port1, port2 } = new MessageChannel();
     void answerLoad(aLoad, port2, {

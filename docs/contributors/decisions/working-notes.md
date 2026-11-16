@@ -29263,3 +29263,26 @@ decision's Test-Weakened web tests (the browser no longer asks `preferredDeliver
 cap) and of the proposals above: a device-less guest keeps nothing on the core, the give-ups never
 expire, the rule stays on both sides, and the cap's write chain and the sound offset's
 `latestWrite` become one way (rule 11).
+
+## D494 — A client's cache is assumed to fail one day: the failure is logged and a fresh copy fetched
+
+**Decided** (2026-11-16), by the project owner, after a poster kept half on their Firefox on
+Android drew "No poster" at every load, a reload too (staging): *"We should be making the client
+self-healing in general, because caching will ALWAYS be a source of bugs, so we should assume that
+it will eventually fail, log the failure, and then fetch a fresh copy."* Amends D485, whose kept
+image answered every load of its address, the page's asking again after a failure too.
+
+1. **Every copy the client keeps is assumed to go bad one day,** whatever made it: the service
+   worker's kept images (D485), client files (D308) and loader page (D486), a tab's kept answers
+   (D478), a device's settings copy (D493) and any added later. Where using a kept copy fails, the
+   client tells the core's log, drops the copy and fetches a fresh one, which it keeps in its
+   place. A kept copy that failed is never the answer to the load that follows the failure.
+2. **Images:** a page asks for an image again (`?again=`, poster.tsx) only once it failed to
+   show, so the worker takes a kept one asked for again to be broken: it drops it, tells the
+   page's log (`the service worker dropped a kept image the page could not show, and fetched it
+   again: <path>`, kept-images.ts) and fetches and keeps the image afresh.
+3. **The cause found:** a load the worker called off partway, its page's read still waiting, came
+   back to the worker as a whole answer (`BodyRelay` in the SDK's rtc-media.ts), so the copy the
+   worker keeps behind its answer kept half an image. A load called off now fails its body.
+4. **The other copies are checked against §1:** one that cannot heal itself is fixed, or
+   recorded in code-debt.md until it is.

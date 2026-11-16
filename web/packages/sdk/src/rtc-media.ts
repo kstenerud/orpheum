@@ -413,12 +413,31 @@ class BodyRelay {
     void this.sendWhileAsked();
   }
 
+  /**
+   * Stops the body as the worker gave its load up, and says so: the worker's own reader is gone, but
+   * a copy of the answer it keeps behind it (D485) still reads on, and must hear the body failed, not
+   * that it ended whole (the owner's Firefox on Android, staging, 2026-11-16).
+   */
   cancel(): void {
+    if (!this.isOver) {
+      this.port.postMessage({
+        kind: "error",
+        message: "the load was called off",
+      } satisfies ReplyMessage);
+    }
     this.isOver = true;
     // A body its load's abort has failed already rejects its cancel with the abort's reason; there is
     // nothing left to stop, and left unhandled it reached the console as an uncaught AbortError (the
     // owner, the production NAS, 2026-11-01).
     this.reader.cancel().catch(() => undefined);
+  }
+
+  /** Tells the worker the body ended whole, unless it was over first: given up, or failed. */
+  private endWhole(): void {
+    if (!this.isOver) {
+      this.isOver = true;
+      this.port.postMessage({ kind: "end" } satisfies ReplyMessage);
+    }
   }
 
   private async sendWhileAsked(): Promise<void> {
@@ -428,11 +447,11 @@ class BodyRelay {
     this.isReading = true;
     try {
       while ((this.room > 0 || this.pullsOwed > 0) && !this.isOver) {
-        // A read the worker's cancel overtook ends done, or sends a piece the worker drops.
+        // A read the worker's cancel overtook ends done, which is no whole body (cancel said so), or
+        // sends a piece the worker drops.
         const { done: isDone, value } = await this.reader.read();
         if (isDone) {
-          this.isOver = true;
-          this.port.postMessage({ kind: "end" } satisfies ReplyMessage);
+          this.endWhole();
           return;
         }
         const data = movableBufferOf(value);
