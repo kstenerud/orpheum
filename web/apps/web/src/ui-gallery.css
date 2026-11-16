@@ -140,19 +140,16 @@
   }
 }
 
-/* The hourglass at the ring's size, its opacity alone pulsing: fully drawn, faded to a third, back. */
+/* The hourglass that takes the ring's place under Reduce Motion, as film-waits.css draws it: the
+   ring's own colours, a white glass on its dark disc, its opacity alone pulsing every 3 seconds. */
 .ui-gallery__hourglass {
   display: block;
-  animation: ui-gallery-pulse 2s ease-in-out infinite;
+  animation: ui-gallery-pulse 3s ease-in-out infinite;
 }
 
 .ui-gallery__hourglass .still-reading-icon {
   width: 3.5rem;
   height: 3.5rem;
-}
-
-/* On the film's control ground: the ring's own colours, a white glass on its dark disc. */
-.ui-gallery__hourglass--film .still-reading-icon {
   color: var(--color-on-video);
   --icon-ground: var(--color-video-card);
 }
@@ -163,34 +160,14 @@
   }
 }
 
-.ui-gallery__hourglass--every-1-2 {
-  animation-duration: 1.2s;
-}
-
-.ui-gallery__hourglass--every-2 {
-  animation-duration: 2s;
-}
-
-.ui-gallery__hourglass--every-3 {
-  animation-duration: 3s;
-}
-
 /* The global reset (tokens.css) stops every animation under Reduce Motion; these are here to be
-   judged under it, so each keeps its length. */
+   seen under it, so each keeps its length. */
 @media (prefers-reduced-motion: reduce) {
   .ui-gallery__ring {
     animation-duration: 1s !important;
   }
 
-  .ui-gallery__hourglass--every-1-2 {
-    animation-duration: 1.2s !important;
-  }
-
-  .ui-gallery__hourglass--every-2 {
-    animation-duration: 2s !important;
-  }
-
-  .ui-gallery__hourglass--every-3 {
+  .ui-gallery__hourglass {
     animation-duration: 3s !important;
   }
 }

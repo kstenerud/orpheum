@@ -134,31 +134,17 @@ it("shows the parts the widgets are built from, a pop-up at its button and the l
   );
 });
 
-it("shows the film's waiting looks for the owner to choose: today's ring, then the hourglass pulsing at three lengths on two grounds (the owner, 2026-11-16)", () => {
+it("shows the film's waiting looks: the ring, and the white hourglass that takes its place under Reduce Motion (the owner, 2026-11-16)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const player = markup.slice(markup.indexOf('id="gallery-player"'));
   expect([...player.matchAll(/class="ui-gallery__ring"/gu)]).toHaveLength(1);
-  for (const ground of ["blue", "film"]) {
-    for (const every of ["1-2", "2", "3"]) {
-      expect(player).toContain(
-        `ui-gallery__hourglass ui-gallery__hourglass--${ground} ui-gallery__hourglass--every-${every}"`,
-      );
-    }
-  }
+  expect([...player.matchAll(/class="ui-gallery__hourglass"/gu)]).toHaveLength(1);
+  expect(player).toContain("The hourglass, once every 3 s, asked for less motion");
 });
 
-it("keeps each waiting look pulsing at its length under Reduce Motion, which stops every other animation (the owner, 2026-11-16)", () => {
+it("keeps the ring turning and the hourglass pulsing every 3 s under Reduce Motion, which stops every other animation (the owner, 2026-11-16)", () => {
   const css = readFileSync(new URL("./ui-gallery.css", import.meta.url), "utf8");
   const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
-  for (const [every, seconds] of [
-    ["1-2", "1.2"],
-    ["2", "2"],
-    ["3", "3"],
-  ] as const) {
-    const rule = new RegExp(
-      String.raw`\.ui-gallery__hourglass--every-${every} \{\s*animation-duration: ${seconds.replace(".", String.raw`\.`)}s !important;`,
-      "u",
-    );
-    expect(reduced).toMatch(rule);
-  }
+  expect(reduced).toMatch(/\.ui-gallery__ring \{\s*animation-duration: 1s !important;/u);
+  expect(reduced).toMatch(/\.ui-gallery__hourglass \{\s*animation-duration: 3s !important;/u);
 });
