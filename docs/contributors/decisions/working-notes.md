@@ -29536,7 +29536,7 @@ carrying the file by the ladder's share), the lead's stand-in until this answer.
 from Play to the first frame, measured on the Fire TV and the Pixel on 2026-11-15): proposals (c),
 (b), (a), (d) and (e) of the measurements, in that order, (c) first.
 
-**Status:** decided and built.
+**Status:** decided.
 
 1. **(c) The master playlist's slow first byte over WebRTC (255–420 ms, where the variant playlists
    take 36–99 ms) is found before (a) is built**: if it is the core's work, (a) moves that work into
