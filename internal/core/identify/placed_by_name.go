@@ -112,7 +112,8 @@ func (filer *libraryFiler) placedByName(
 const nearEnough = 0.85
 
 // nameNearness is how near two folded names are, 1 for the same: 0.95 for a name that ends with a
-// listed one long enough not to end too many ("Show - Crowned at dawn" and "Crowned at Dawn"), else one less the share of letters that differ.
+// listed one long enough not to end too many ("Show - Crowned at dawn" and "Crowned at
+// Dawn"), else one less the share of letters that differ.
 func nameNearness(wanted, listed string) float64 {
 	switch {
 	case listed == "":

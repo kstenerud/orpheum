@@ -15,7 +15,8 @@ The owner:
 > myriad different ways people name their files and arrange their libraries. We should be prepared
 > for that. Maybe also look at our competitors to get some ideas."*
 
-What prompted it, the same day: in a series library, `Show/Show - 1x4 - Crowned at dawn.avi` was not read as S01E04, because the season-x-episode pattern wanted two episode digits.
+What prompted it, the same day: in a series library,
+`Show/Show - 1x4 - Crowned at Dawn.avi` was not read as S01E04, because the season-x-episode pattern wanted two episode digits.
 All 24 episodes became unnumbered specials, and a second bug made each pass give each special a
 new title, leaving 80,246 empty "not on disk" specials under one series (both fixed in 0f1a4829
 and 055b929d). A randomized test written that day
@@ -61,7 +62,7 @@ Read from the code unless marked *documented*.
   around "fuzzy title match") number a file by its title against the provider's listing; **Kodi
   searches every season, Sonarr and we search only season 0** (our `specialNamed`, in
   [episodes.go](../../../../internal/core/identify/episodes.go)). Had we searched every season,
-  "Crowned at dawn" would have been placed as S01E04 despite the parse failing.
+  "Crowned at Dawn" would have been placed as S01E04 despite the parse failing.
 - **Multi-episode.** Jellyfin has 10 `MultipleEpisodeExpressions` (`1x01-02`, `1x01x02`,
   `S01E01-E02-E03`, `S01E01 - S01E02`) and refuses an end below the start or one followed by
   `p`/`i` (so `S09E14-1080p` is not E14–E108). Sonarr captures repeated episodes (`S01E05E06E07`,

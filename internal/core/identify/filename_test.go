@@ -190,8 +190,8 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 			EpisodeName: "The Bells of Saint Quill",
 		}},
 		// The owner's NAS, 2026-10-16: an episode number of one digit after the season's "x".
-		{"Grey Wolf/Greywolf - 1x4 - Crowned at dawn.avi", ParsedPath{
-			Kind: "episode", Name: "Grey Wolf", Season: 1, Episode: 4, EpisodeName: "Crowned at dawn",
+		{"Grey Wolf/Greywolf - 1x4 - Crowned at Dawn.avi", ParsedPath{
+			Kind: "episode", Name: "Grey Wolf", Season: 1, Episode: 4, EpisodeName: "Crowned at Dawn",
 		}},
 		// The owner's NAS, 2026-10-16: the series' name and the episode's number, with no marker.
 		{"Cidade das Gaivotas/Cidade das Gaivotas 01 - A Coroa do Faroleiro.mkv", ParsedPath{
