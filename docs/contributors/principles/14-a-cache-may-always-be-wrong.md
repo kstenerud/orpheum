@@ -44,6 +44,11 @@ Three consequences that keep showing up:
   service worker drew "No poster" at every load and reload, its retries answered from the same
   copy, until the owner signed out (staging, 2026-11-16); nothing told the core, so the only
   evidence was the owner's report.
+- **Every broken invariant of a cache is logged, seen or not.** Not every cache failure shows:
+  a setting silently reset, a list read as empty, a limit stuck low. Each time a kept copy is found
+  not to hold what it must, or cannot be kept, the core's log is told what and where, once, as the
+  copy is dropped ([D494](../decisions/working-notes.md) §5), so the logs are the record that the
+  next fix is made from.
 
 **This is [§11](11-hot-path-values-are-cached.md)'s
 other half.** §11 says what to cache and how to invalidate it; this says what must remain true
