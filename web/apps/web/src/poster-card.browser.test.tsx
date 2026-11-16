@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LibraryBrowse } from "./library-browse.tsx";
 import { PosterCard } from "./poster-card.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
-import { mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, settleAnswers, settleUntil, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** A poller that never asks: the page's only reads are the ones the test answers. */
@@ -153,6 +153,10 @@ describe("an other video's poster and the stills beside it (D495)", () => {
           .querySelectorAll(".poster-grid .poster-card")[1]
           ?.querySelector(".poster--blank") !== null,
     );
+    // And once the page has stopped changing and its fonts are in: measured sooner, under the
+    // gate's load, a still's middle stood 2 px above the poster's (make check, 2026-11-16).
+    await document.fonts.ready;
+    await settleAnswers();
     const poster = boxIn(mounted, 1, ".poster");
     // Upright, as a film's poster is.
     expect(poster.height).toBeGreaterThan(poster.width);
