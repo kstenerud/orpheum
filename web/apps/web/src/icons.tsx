@@ -260,7 +260,19 @@ export function UncertainMatchIcon(props: { readonly isRinged: boolean }): JSX.E
  * beside words on a page. Decoration beside words that say it.
  */
 export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Element {
-  return <Hourglass name="still-reading-icon" isRinged={props.isRinged} />;
+  return (
+    <Hourglass
+      name="still-reading-icon"
+      parts={{
+        ring: "still-reading-icon__ring",
+        disc: "still-reading-icon__disc",
+        caps: "still-reading-icon__caps",
+        glass: "still-reading-icon__glass",
+        sand: "still-reading-icon__sand",
+      }}
+      isRinged={props.isRinged}
+    />
+  );
 }
 
 /**
@@ -269,28 +281,56 @@ export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Ele
  * (the owner, 2026-11-16, "Use the 3s hourglass (white) for the video").
  */
 export function WaitingIcon(): JSX.Element {
-  return <Hourglass name="waiting-icon" isRinged={false} />;
+  return (
+    <Hourglass
+      name="waiting-icon"
+      parts={{
+        disc: "waiting-icon__disc",
+        caps: "waiting-icon__caps",
+        glass: "waiting-icon__glass",
+        sand: "waiting-icon__sand",
+      }}
+      isRinged={false}
+    />
+  );
+}
+
+/**
+ * The classes of the hourglass's parts, written out whole by each icon that draws it, so a search
+ * for a stylesheet's class finds the code that draws it (shell.spec.ts).
+ */
+interface HourglassParts {
+  /** The ring's, for an icon drawn over a poster; one never ringed has none. */
+  readonly ring?: string;
+  readonly disc: string;
+  readonly caps: string;
+  readonly glass: string;
+  readonly sand: string;
 }
 
 /** The hourglass drawing both of those share, its parts named for the icon it draws. */
-function Hourglass(props: { readonly name: string; readonly isRinged: boolean }): JSX.Element {
+function Hourglass(props: {
+  readonly name: string;
+  readonly parts: HourglassParts;
+  readonly isRinged: boolean;
+}): JSX.Element {
   const size = props.isRinged ? 30 : 26;
   const centre = size / 2;
   const inset = props.isRinged ? 4.5 : 2.5;
   return (
     <Icon className={props.name} viewBox={`0 0 ${String(size)} ${String(size)}`}>
       {props.isRinged ? (
-        <circle className={`${props.name}__ring`} cx={centre} cy={centre} r={15} />
+        <circle className={props.parts.ring} cx={centre} cy={centre} r={15} />
       ) : null}
-      <circle className={`${props.name}__disc`} cx={centre} cy={centre} r={13} />
+      <circle className={props.parts.disc} cx={centre} cy={centre} r={13} />
       <g transform={`translate(${String(inset)} ${String(inset)}) scale(0.875)`}>
-        <path className={`${props.name}__caps`} d="M4.6 4h14.8M4.6 20h14.8" />
+        <path className={props.parts.caps} d="M4.6 4h14.8M4.6 20h14.8" />
         <path
-          className={`${props.name}__glass`}
+          className={props.parts.glass}
           d="M6.4 4.6c0 4.4 4.3 5.2 4.3 7.4s-4.3 3-4.3 7.4M17.6 4.6c0 4.4-4.3 5.2-4.3 7.4s4.3 3 4.3 7.4"
         />
         <path
-          className={`${props.name}__sand`}
+          className={props.parts.sand}
           d="M6.4 19.4c0-4.4 4.3-5.2 4.3-7.4h2.6c0 2.2 4.3 3 4.3 7.4z"
         />
       </g>
