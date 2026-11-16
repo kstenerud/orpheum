@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A76 — Said a Continue Watching row for an episode shows its series' poster, unread (2026-11-16)
+
+- **What happened:** asking the owner how an episode with no picture should look, the lead said
+  Continue Watching's row for an episode "shows its series' poster", and briefed an agent to keep
+  that. The row's work is the episode itself, and `withPosters` gives it the episode's own poster,
+  which an episode seldom has, so the row most likely draws the "No poster" card. The belief came
+  from what such a row ought to show, not from `withPostersAndFileNames`, which the lead read only
+  after the owner asked.
+- **Caught by:** the owner's question, "Doesn't the 'continue watching' control use a screenshot
+  rather than a poster?"
+- **Gate:** none: no check can see a claim made in chat. The rule is A75's: read the code path
+  before saying what a screen draws.
+
 ### A75 — Said the app holds only the pages it has read, when Films and Series read the whole list (2026-11-13)
 
 - **What happened:** asked why the alphabet rail's jump is not instant, the lead said the app holds
