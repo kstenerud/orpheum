@@ -15,6 +15,7 @@ import {
   videoLimitBytes,
   bufferLimitKindOf,
   deeperShareOfBufferLimit,
+  fullWithinS,
   keptBehindS,
   loadsAheadAfterOutageS,
   type AheadHls,
@@ -437,5 +438,34 @@ describe("loading deeper ahead once the link was out (D487)", () => {
     const without = keptOn({ userAgent: desktopChrome, deviceMemoryGb: 8 });
     without.hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
     expect(without.hls.config.maxBufferLength).toBe(loadsAheadBelowTopS);
+  });
+});
+
+describe("whether the buffer is full (D501 §1)", () => {
+  it("is what is loaded ahead where it plays reaching the target less a chunk, and never nothing loaded there", () => {
+    const hls = new FakeHls();
+    const { buffer } = keepForwardBuffer(
+      hls as unknown as Parameters<typeof keepForwardBuffer>[0],
+      {
+        device: { userAgent: desktopChrome, deviceMemoryGb: 8 },
+        isTop: (level) => level >= 2,
+        note: () => undefined,
+      },
+    );
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 }); // below the top: 30 s ahead
+    expect(buffer.isFull()).toBe(false); // nothing loaded yet
+    const loadedAt = (currentTime: number, endS: number): void => {
+      hls.media = {
+        currentTime,
+        buffered: { length: 1, start: () => 90, end: () => endS } as unknown as TimeRanges,
+      };
+    };
+    loadedAt(100, 100 + loadsAheadBelowTopS - fullWithinS);
+    expect(buffer.isFull()).toBe(true);
+    loadedAt(100, 100 + loadsAheadBelowTopS - fullWithinS - 0.5);
+    expect(buffer.isFull()).toBe(false);
+    loadedAt(200, 140); // a seek past what is loaded
+    expect(buffer.isFull()).toBe(false);
+    expect(fullWithinS).toBe(10);
   });
 });

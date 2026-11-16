@@ -9,6 +9,7 @@ import type { JSX } from "react";
 
 import { dataCapsKey } from "./data-cap.ts";
 import { DebugToolsContext } from "./debug-tools.tsx";
+import { OriginalTries, OriginalTriesContext } from "./original-waits.ts";
 import { PlayView } from "./play.tsx";
 import { fire, mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
@@ -36,18 +37,21 @@ const onLadder = {
 
 /**
  * The Play page of a film on its ladder, its person's debug tools shown or not; given
- * isOriginalWaiting, the original its person chose waiting there for the link to carry it.
+ * isOriginalWaiting, the original its person chose waiting there for the link to carry it; given
+ * tries, the playback's try at the original (D501 §2), and given isDirect, the film playing its own
+ * file in place of the ladder.
  */
 async function onItsLadder(
   showsDebugTools: boolean,
   asked: string[] = [],
   isOriginalWaiting = false,
+  by: { readonly tries?: OriginalTries; readonly isDirect?: boolean } = {},
 ): Promise<Mounted> {
   const page: JSX.Element = (
     <PlayView
       fileId={2}
       decision={directDecision({
-        onLadder,
+        ...(by.isDirect === true ? {} : { onLadder }),
         ...(isOriginalWaiting ? { isOriginalWaitingForTheLink: true } : {}),
       })}
       onDecideAgain={(cause) => asked.push(cause)}
@@ -56,7 +60,7 @@ async function onItsLadder(
   return await mount(
     withServices(
       <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
-        {page}
+        <OriginalTriesContext value={by.tries}>{page}</OriginalTriesContext>
       </DebugToolsContext>,
       servedBy({
         "GET /files/2/waits": [200, {}],
@@ -150,7 +154,7 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
 // The owner, 2026-11-15: the original chosen on a link too slow for it starts on a lower rung, and
 // ⋯ says so.
 describe("the original chosen, waiting on the ladder for a link short of it", () => {
-  const waits = "Plays the original file once the link carries it";
+  const waits = "Plays 480p until the link carries the original file"; // its rung (D501 §3)
 
   it("says so under the film and in ⁝, in place of offering it again", async () => {
     mounted = await onItsLadder(true, [], true);
@@ -167,6 +171,47 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
   it("is a debug tool, as the button it answers is", async () => {
     mounted = await onItsLadder(false, [], true);
     expect(mounted.container.textContent).not.toContain(waits);
+  });
+
+  it("offers the original again once the playback's try at it failed (D501 §2)", async () => {
+    const tries = new OriginalTries();
+    tries.movedUp();
+    tries.movedDown(); // within its two minutes
+    mounted = await onItsLadder(true, [], true, { tries });
+    expect(mounted.container.textContent).not.toContain(waits);
+    expect(mounted.container.textContent).toContain("Play the original file");
+  });
+});
+
+// D501 §3: once moved up, ⋯ says the film plays the original.
+describe("the original moved up to once the link carried it", () => {
+  const movedTo = "Plays the original file, which the link now carries";
+
+  it("says so in ⁝, a debug tool as the word that it waited is", async () => {
+    const tries = new OriginalTries();
+    tries.movedUp();
+    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    expect(
+      menuOpen(mounted).querySelector(".list-box__note .play__original-moved-to")?.textContent,
+    ).toBe(movedTo);
+    mounted.unmount();
+    mounted = await onItsLadder(false, [], false, { tries, isDirect: true });
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    expect(menuOpen(mounted).textContent).not.toContain(movedTo);
+  });
+
+  it("says nothing of it for a film playing its own file as chosen, or once moved down from it", async () => {
+    const tries = new OriginalTries();
+    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    expect(menuOpen(mounted).textContent).not.toContain(movedTo);
+    mounted.unmount();
+    tries.movedUp();
+    tries.movedDown();
+    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    expect(menuOpen(mounted).textContent).not.toContain(movedTo);
   });
 });
 

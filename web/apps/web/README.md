@@ -160,12 +160,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The original chosen on a link remembered short of it starts on the ladder, and moves to it by
   itself** (the owner, 2026-11-15): the core starts it on the highest rung the link carries, by
   the share a start on the ladder chooses by, and says so (`isOriginalWaitingForTheLink`); under
-  the film and in ⁝ the original's button gives way to word that it waits for the link, a debug
-  tool as the button is. Once the playback's link has carried the file's rate within that share at
-  every look for `originalAfterLinkCarriesMs` (the lead's proposal, awaiting the owner), and the
-  device's data cap lets the file play (D489), the page asks for the original from where the film
-  stands (`linkCarriesOriginal`). A link not measured plays the original at once, as before.
-  `src/original-waits.test.tsx`, `src/play-original.test.tsx`, `src/watching.test.ts`.
+  the film and in ⁝ the original's button gives way to word that the film plays its rung until the
+  link carries the original, and once moved up, ⁝ says it plays the original (D501 §3), debug tools
+  as the button is. Once the playback's link has carried at least `linkOverTheFileAtLeast` times
+  the file's rate at every look for `originalAfterLinkCarriesMs`, with the film's buffer full
+  (`ChunkedPlayback.isAheadFull`, the forward buffer's own target) and the device's data cap
+  letting the file play (D489), the page asks for the original from where the film stands
+  (`linkCarriesOriginal`, D501 §1). One try a playback (`OriginalTries`, kept by `PlayHere`): a
+  move down from the original within `triedFailsWithinMs` ends the moves up (D501 §2). A link not
+  measured plays the original at once, as before. `src/original-waits.test.tsx`,
+  `src/play-original.test.tsx`, `src/watching.test.ts`.
 - **Another audio track chosen on a film's ladder switches in place, the dialogue boost's way**
   (`playTrackChosen`, `src/ladder-sound.ts`): the picture plays on and the old sound until the new one is
   heard, the boost kept as the person left it where the track has a boosted mix; the gain changes as

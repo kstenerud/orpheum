@@ -29508,7 +29508,7 @@ original mid-film"): take the research's rule, options 2 and 4 of
 Amends the 11-27 batch's move up to the original (`originalAfterLinkCarriesMs`, 30 s of the link
 carrying the file by the ladder's share), the lead's stand-in until this answer.
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **The move waits for about 60 s of the link carrying at least 1.3 times the file's average rate**
    (the decision's `fileBitRateKbps`), with the film's buffer full; a look the link falls short at
@@ -29517,6 +29517,18 @@ carrying the file by the ladder's share), the lead's stand-in until this answer.
    minutes) ends the moves up for that film's playback.
 3. **⋯ says it.** While the film waits on its ladder for the original, ⋯'s line says it plays its
    rung until the link carries the original; once moved, it says the original.
+
+**Proven by:**
+- 1: web/apps/web/src/original-waits.test.tsx ("is the link at least 1.3 times the file, and never
+  a link not measured", "waits for the film's buffer to be full once the link has carried the file
+  for the hold"), web/packages/player/src/forward-buffer.test.ts ("is what is loaded ahead where it
+  plays reaching the target less a chunk, and never nothing loaded there")
+- 2: web/apps/web/src/original-waits.test.tsx ("ends the moves up when the player moves down from
+  the original within two minutes", "leaves them where the original held two minutes, and where no
+  move up was made"), web/apps/web/src/play-original.test.tsx ("offers the original again once the
+  playback's try at it failed (D501 §2)")
+- 3: web/apps/web/src/play-original.test.tsx ("says so under the film and in ⁝, in place of
+  offering it again", "says so in ⁝, a debug tool as the word that it waited is")
 
 ## D502 — A film's start asks its requests together where they wait on one another today
 

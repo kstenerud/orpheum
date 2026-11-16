@@ -27,15 +27,29 @@ export function PlayOriginal(props: { readonly onChosen: () => void }): JSX.Elem
 
 /**
  * Word, in place of PlayOriginal, that the original its person chose waits for the link: the film
- * started on its ladder, its link remembered short of the file's rate, and moves to the original once
- * the link carries it (the decision's isOriginalWaitingForTheLink; the owner, 2026-11-15). A debug
- * tool, as the button it answers is.
+ * plays its rung of height until the link carries the original, then moves to it (D501 §3; the
+ * decision's isOriginalWaitingForTheLink). A debug tool, as the button it answers is.
  */
-export function OriginalWaits(): JSX.Element {
+export function OriginalWaits(props: { readonly height: number }): JSX.Element {
   const { t } = useTranslation();
   return (
     <DebugTool>
-      <p className="play__original-waits">{t("play.originalWaitsForTheLink")}</p>
+      <p className="play__original-waits">
+        {t("play.originalWaitsForTheLink", { height: props.height })}
+      </p>
+    </DebugTool>
+  );
+}
+
+/**
+ * Word that the film moved up to the original its person chose, the link having carried it
+ * (D501 §3). A debug tool, as the word that it waited is.
+ */
+export function OriginalMovedTo(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <DebugTool>
+      <p className="play__original-moved-to">{t("play.originalMovedTo")}</p>
     </DebugTool>
   );
 }

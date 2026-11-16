@@ -24,7 +24,7 @@ import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { OriginalWaits, PlayOriginal } from "./play-original.tsx";
+import { OriginalMovedTo, OriginalWaits, PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
 import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
@@ -53,10 +53,13 @@ export interface PlayerMenusWays {
   readonly onSubtitleFetched: () => void;
   readonly onOriginalChosen?: (() => void) | undefined;
   /**
-   * Whether the original chosen waits on the ladder for the link to carry it (the decision's
-   * isOriginalWaitingForTheLink): ⁝ then says so in place of offering it.
+   * The height of the rung the film plays while the original chosen waits on the ladder for the link
+   * to carry it (the decision's isOriginalWaitingForTheLink): ⁝ then says so in place of offering it
+   * (D501 §3). Undefined while it does not wait.
    */
-  readonly isOriginalWaiting?: boolean | undefined;
+  readonly originalWaitsAtHeight?: number | undefined;
+  /** Whether the film moved up to the original chosen once the link carried it: ⁝ then says so (D501 §3). */
+  readonly isOnTheOriginal?: boolean | undefined;
   readonly onBare?: (() => void) | undefined;
 }
 
@@ -427,18 +430,27 @@ export function MoreMenuOf(props: {
 
 /**
  * ⋯'s way to the original file: the press that plays it, or, while the original chosen waits on the
- * ladder for the link, word that it does (OriginalWaits); nothing where it is not offered.
+ * ladder for the link, word that it plays its rung until then (OriginalWaits), and once it moved up,
+ * word that it plays the original (OriginalMovedTo, D501 §3); nothing where it is not offered.
  */
 function OriginalOfTheMenu(props: {
   readonly onChosen: (() => void) | undefined;
-  readonly isWaiting: boolean;
+  readonly waitsAtHeight: number | undefined;
+  readonly isOnTheOriginal: boolean;
 }): JSX.Element | null {
+  if (props.isOnTheOriginal) {
+    return (
+      <ListNote>
+        <OriginalMovedTo />
+      </ListNote>
+    );
+  }
   if (props.onChosen === undefined) {
     return null;
   }
-  return props.isWaiting ? (
+  return props.waitsAtHeight !== undefined ? (
     <ListNote>
-      <OriginalWaits />
+      <OriginalWaits height={props.waitsAtHeight} />
     </ListNote>
   ) : (
     <ListEntry>
@@ -461,7 +473,8 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
     <>
       <OriginalOfTheMenu
         onChosen={onOriginalChosen}
-        isWaiting={props.ways?.isOriginalWaiting === true}
+        waitsAtHeight={props.ways?.originalWaitsAtHeight}
+        isOnTheOriginal={props.ways?.isOnTheOriginal === true}
       />
       {onBare === undefined ? null : (
         <ListOption onChoose={onBare}>{t("play.bare.open")}</ListOption>

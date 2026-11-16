@@ -72,6 +72,8 @@ export interface FilmParts {
         readonly playing: PlayedLevel | undefined;
         /** Even its lowest quality's word that it cannot keep up (D247 §8). */
         readonly cannotKeepUp: CannotKeepUp | undefined;
+        /** Whether its buffer is full (ChunkedPlayback.isAheadFull, @orpheum/player; D501 §1). */
+        readonly isAheadFull: () => boolean;
         /**
          * The sound playing, on a film's ladder whose sounds its tracks name; undefined on a ladder a
          * stalled player moved to, whose sounds no decision named.
@@ -94,6 +96,11 @@ export interface FilmParts {
         readonly playSound: (sound: PlayingSound, cause: SoundChoiceCause) => boolean;
       }
     | undefined;
+}
+
+/** The height of the rung a film on its ladder plays: the one playing, else the one offered. */
+export function heightOf(ladder: NonNullable<FilmParts["ladder"]>): number {
+  return ladder.playing?.height ?? ladder.offer.height;
 }
 
 /** What a page draws over or under the video: a component, given the film's parts as its props. */
@@ -511,7 +518,16 @@ function ChunkedFilm(props: {
         videoRef={videoRef}
         readLinkKbps={() => playbackRef.current?.estimateKbps()}
         failure={failure}
-        ladder={{ offer, positionMs, playing, cannotKeepUp, sound, heardLevel, playSound }}
+        ladder={{
+          offer,
+          positionMs,
+          playing,
+          cannotKeepUp,
+          isAheadFull: () => playbackRef.current?.isAheadFull() === true,
+          sound,
+          heardLevel,
+          playSound,
+        }}
       />
       {hasTracks && sound !== undefined ? (
         <ForTesters>

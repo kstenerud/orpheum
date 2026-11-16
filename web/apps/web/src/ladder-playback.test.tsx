@@ -39,6 +39,7 @@ const fakePlayChunked = ((_video, _url, options): ChunkedPlayback => {
     settledAtBps: () => undefined,
     estimateKbps: () => undefined,
     beyondTheLink: () => undefined,
+    isAheadFull: () => false,
   };
 }) satisfies typeof playChunked;
 

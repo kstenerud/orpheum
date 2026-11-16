@@ -103,6 +103,14 @@ export const deeperShareOfBufferLimit = 2 / 3;
  */
 const heldBesideAheadS = keptBehindS + 10;
 
+/**
+ * How far short of the target in force what is loaded ahead may be for the buffer to be full, in
+ * seconds: a chunk of up to 10 s, as 99% are (D414 §5). hls.js asks for the next chunk only once what
+ * is loaded ahead falls below its target, so a full buffer stands between the target less the chunk
+ * on its way and the target and a chunk past it. A justified constant, the lead's (D501 §1).
+ */
+export const fullWithinS = 10;
+
 const mebibyte = 1024 * 1024;
 
 /**
@@ -534,6 +542,18 @@ export class ForwardBuffer {
   pictureBuffered(): void {
     this.#linkBack();
     this.#keep();
+  }
+
+  /**
+   * Whether the buffer is full: where the video plays, what is loaded ahead reaches the target in
+   * force less fullWithinS, so hls.js waits for it to play down before it asks for more. A film
+   * started below the original its person chose moves to it only with its buffer full (D501 §1).
+   * Nothing loaded where it plays is never full.
+   */
+  isFull(): boolean {
+    const media = this.#hls.media;
+    const around = media === null ? undefined : loadedAround(media);
+    return around !== undefined && around.aheadS >= this.target().aheadS - fullWithinS;
   }
 
   /** The playback ends: an outage it waited through ends with it, as for a playback opened again. */

@@ -24,6 +24,7 @@ import {
   type FilmComposition,
   type FilmParts,
   deliveryOf,
+  heightOf,
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
@@ -40,7 +41,12 @@ import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { useIsWithinCap, useWhenTheCapFallsUnder } from "./data-cap-choices.tsx";
 import { OriginalWaits, PlayOriginal } from "./play-original.tsx";
-import { useOriginalOnceTheLinkCarries } from "./original-waits.ts";
+import {
+  isWaitingForTheOriginal,
+  OriginalTries,
+  OriginalTriesContext,
+  useOriginalOnceTheLinkCarries,
+} from "./original-waits.ts";
 import {
   ForTesters,
   ForTestersContext,
@@ -160,17 +166,19 @@ export function PlayView(props: PlayViewProps): JSX.Element {
 
 /**
  * The lower quality a stalled player moved to, and where it was (D247 §2), per playback; and the way
- * to move, which keeps the first move.
+ * to move, which keeps the first move and tells the film's try at the original (D501 §2).
  */
 function useMoveToLowerQuality(
   mediaToken: string,
 ): [MovedDown | undefined, (offer: LadderOffer, positionMs: number) => void] {
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
+  const tries = use(OriginalTriesContext);
   const onLowerQuality = useCallback(
     (offer: LadderOffer, positionMs: number) => {
+      tries?.movedDown();
       setMoved((already) => already ?? { mediaToken, offer, positionMs });
     },
-    [mediaToken],
+    [mediaToken, tries],
   );
   return [moved, onLowerQuality];
 }
@@ -538,16 +546,16 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
       ? undefined
       : decideAgainFor({ ...ways, videoRef }, "dataCapStarted"),
   );
-  // The original chosen on a link short of it starts on the ladder, and moves to the original from
-  // where the film stands once the link carries it (the owner, 2026-11-15).
+  // The original chosen on a short link starts on the ladder, moving up once it carries it (D501).
+  const tries = use(OriginalTriesContext);
   const isOriginalWaiting =
-    ladder !== undefined && ways?.decision.isOriginalWaitingForTheLink === true;
+    ladder !== undefined && ways !== undefined && isWaitingForTheOriginal(ways.decision, tries);
   useOriginalOnceTheLinkCarries(
     isOriginalWaiting
       ? {
           fileKbps: ways.decision.fileBitRateKbps,
-          sharePercent: ladder.offer.linkSharePercent,
           readLinkKbps: props.readLinkKbps,
+          readIsAheadFull: ladder.isAheadFull,
         }
       : undefined,
     () => {
@@ -556,6 +564,7 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
         decideAgainFor({ ...ways, videoRef, decision }, "linkCarriesOriginal")();
       }
     },
+    { tries },
   );
   if (ways === undefined) {
     return <>{children}</>;
@@ -570,7 +579,7 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
     };
     return (
       <OwnFileTracks {...film} askAgain={askAgain}>
-        <MenusOfPage asked={asked} isOnLadder={false}>
+        <MenusOfPage asked={asked} isOnLadder={false} isOnTheOriginal={tries?.isOnTheOriginal}>
           {children}
         </MenusOfPage>
       </OwnFileTracks>
@@ -578,9 +587,10 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
   }
   const decision = { ...ways.decision, resumePositionMs: Math.round(ladder.positionMs) };
   const asked = { ...ways, videoRef, decision };
+  const waitsAtHeight = isOriginalWaiting ? heightOf(ladder) : undefined;
   return (
     <LadderTracks {...film} ladder={ladder} askAgain={decideAgainFor(asked, "audioChosen")}>
-      <MenusOfPage asked={asked} isOnLadder>
+      <MenusOfPage asked={asked} isOnLadder waitsAtHeight={waitsAtHeight}>
         {children}
       </MenusOfPage>
     </LadderTracks>
@@ -589,18 +599,26 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
 
 /**
  * Gives the overlay's menus the page's ways (menusWaysOf), around children, with how the film plays
- * here for ⁝'s How it plays (D444): converted on its ladder, else its file as it is (deliveryOf).
+ * here for ⁝'s How it plays (D444): converted on its ladder, else its file as it is (deliveryOf); and
+ * the rung the original waits at (waitsAtHeight), or that it moved up to it (isOnTheOriginal; D501 §3).
  */
 function MenusOfPage(props: {
   readonly asked: PlayProps & { readonly videoRef: RefObject<HTMLVideoElement | null> };
   readonly isOnLadder: boolean;
+  readonly waitsAtHeight?: number | undefined;
+  readonly isOnTheOriginal?: boolean | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
-  const { asked, isOnLadder } = props;
+  const { asked, isOnLadder, waitsAtHeight, isOnTheOriginal } = props;
   const playback = usePlaybackHere(asked.videoRef, isOnLadder ? "converted" : "direct");
   const ways = useMemo(
-    () => ({ ...menusWaysOf(asked, isOnLadder), playback }),
-    [asked, isOnLadder, playback],
+    () => ({
+      ...menusWaysOf(asked, isOnLadder),
+      playback,
+      originalWaitsAtHeight: waitsAtHeight,
+      isOnTheOriginal: isOnTheOriginal === true,
+    }),
+    [asked, isOnLadder, playback, waitsAtHeight, isOnTheOriginal],
   );
   return <PlayerMenusContext value={ways}>{props.children}</PlayerMenusContext>;
 }
@@ -620,7 +638,6 @@ function menusWaysOf(
     fileBitRateKbps: asked.decision.fileBitRateKbps,
     onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
     onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,
-    isOriginalWaiting: isOnLadder && asked.decision.isOriginalWaitingForTheLink === true,
     onBare: asked.onBare,
   };
 }
@@ -673,12 +690,13 @@ function LadderUnder(
   useOriginalOfferedToARemote(playOriginal);
   // A device under a data cap plays its own file only where the cap is at or above its rate (D491).
   const isOffered = useIsWithinCap(props.decision.fileBitRateKbps);
+  const tries = use(OriginalTriesContext);
   if (!isOffered) {
     return null;
   }
   // The original chosen on a link short of it waits for the link here (useOriginalOnceTheLinkCarries).
-  return props.decision.isOriginalWaitingForTheLink === true ? (
-    <OriginalWaits />
+  return isWaitingForTheOriginal(props.decision, tries) ? (
+    <OriginalWaits height={heightOf(ladder)} />
   ) : (
     <PlayOriginal onChosen={playOriginal} />
   );
@@ -726,6 +744,8 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
   const isOpenedOverAFilm = useIsOpenedOverAFilm();
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
     useOpenedPlayback(props.fileId, firstAskOf(receiving, props.from));
+  // The film's one try at the original, across the decisions asked for as it plays (D501 §2).
+  const [tries] = useState(() => new OriginalTries());
   const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
     <PlayView
       key={decision.mediaToken}
@@ -745,7 +765,7 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
   // reconnect").
   const shown = shownOf(opened, held);
   return (
-    <>
+    <OriginalTriesContext value={tries}>
       {isOpenedOverAFilm ? <WindowHeldForTheFilm isFailed={opened.state === "failed"} /> : null}
       {shown === undefined ? (
         <Loaded resource={opened} render={render} />
@@ -755,7 +775,7 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
           {render(shown)}
         </>
       )}
-    </>
+    </OriginalTriesContext>
   );
 }
 

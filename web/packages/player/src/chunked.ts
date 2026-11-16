@@ -208,6 +208,11 @@ export interface ChunkedPlayback extends HlsPlayback {
   readonly settledAtBps: () => number | undefined;
   /** Whether a stall now is beyond the link, with both numbers (beyondTheLink, D247 §8). */
   readonly beyondTheLink: () => CannotKeepUp | undefined;
+  /**
+   * Whether its buffer is full (ForwardBuffer.isFull); never where the browser loads by itself and
+   * says nothing of its target (D501 §1).
+   */
+  readonly isAheadFull: () => boolean;
 }
 
 /**
@@ -375,7 +380,7 @@ function aheadOptionsOf(options: {
  * report), its group (obeyGroup), its sound's shift, its stalls (tellStalls), and its page's main
  * thread's stalls (watchMainThread, for the same notes), and its stall at the end, which it ends
  * (endAtTheLastFrame); and tells the video its film's rungs (tellOfferedRungs, D488). Returns each
- * stopping.
+ * stopping, and its forward buffer, which says whether it is full.
  */
 function followAheadGroupSoundAndStalls(
   hls: Hls,
@@ -387,7 +392,7 @@ function followAheadGroupSoundAndStalls(
     readonly atMostS: number | undefined;
     readonly outages: AheadOutages | undefined;
   },
-): readonly (() => void)[] {
+): { readonly stops: readonly (() => void)[]; readonly ahead: ForwardBuffer } {
   const ahead = keepForwardBuffer(hls, {
     device: deviceFactsOf(globalThis.navigator),
     isTop: (level) => level >= (by.abr.choosing()?.topLevel() ?? Number.POSITIVE_INFINITY),
@@ -396,7 +401,7 @@ function followAheadGroupSoundAndStalls(
     room: bufferRoomOf(hls, by.room, by.abr.chosenLevel),
     outages: by.outages,
   });
-  return [
+  const stops = [
     ahead.stop,
     tellOfferedRungs(hls, video),
     obeyGroup(hls, video, { abr: by.abr, ahead: ahead.buffer }),
@@ -406,6 +411,7 @@ function followAheadGroupSoundAndStalls(
     endAtTheLastFrame(hls, video),
     stepOverHoles(video, linkNoter(video)),
   ];
+  return { stops, ahead: ahead.buffer };
 }
 
 /**
@@ -469,6 +475,7 @@ function playWithoutHlsJs(
     settledAtBps: () => undefined,
     estimateKbps: () => undefined,
     beyondTheLink: () => undefined,
+    isAheadFull: () => false,
   };
   if (method === "native") {
     return { ...playNative(video, url), ...unknowing };
@@ -736,7 +743,8 @@ export function playChunked(
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, () => choosingOf(abr));
   const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
-  const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
+  const followed = followAheadGroupSoundAndStalls(hls, video, follow);
+  const stops = [...followed.stops, seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -752,5 +760,6 @@ export function playChunked(
     settledAtBps: () => settledAtBps(hls),
     estimateKbps: linkKbps,
     beyondTheLink: () => beyondTheLink(hls, linkKbps()),
+    isAheadFull: () => followed.ahead.isFull(),
   };
 }

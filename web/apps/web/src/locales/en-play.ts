@@ -105,7 +105,8 @@ export const enPlay = {
     },
     startOver: "Start over",
     playOriginal: "Play the original file",
-    originalWaitsForTheLink: "Plays the original file once the link carries it",
+    originalWaitsForTheLink: "Plays {{height}}p until the link carries the original file",
+    originalMovedTo: "Plays the original file, which the link now carries",
     dataCap: {
       heading: {
         wifi: "Data use on Wi-Fi",
