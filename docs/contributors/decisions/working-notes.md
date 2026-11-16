@@ -29410,3 +29410,10 @@ its series' poster.
    screenshot is available."* Amends D379 §1.
 5. **A picture made where none is supplied** is D362's frame still, made by a background job at a
    low priority for any video nothing else gives a picture; this decision adds no job.
+
+**Proven by:**
+- 1: TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives (internal/core/library/art_frames_test.go), web/apps/web/src/browse.test.tsx ("shows an other video with no poster its picture alone, and one with none the 16:9 No poster card (D496, D497)")
+- 2: TestContinueWatching_ARowCarriesItsKindAndThePictureItShowsWithNoPoster (internal/core/api/home_art_test.go), web/apps/web/src/continue-watching-art.test.tsx, web/apps/web/src/title-picture-alone.test.tsx, web/apps/web/src/series.test.tsx ("an episode's picture in its season's list (D497 §2)"), web/apps/web/src/up-next.test.tsx ("shows the No poster card in a screenshot's shape where the next episode has no still (D497 §2)")
+- 3: web/apps/web/src/poster-card.browser.test.tsx ("draws the No poster card of one with nothing as its 16:9 tile, its mark inside it, centred beside a poster (D497)"), web/apps/web/src/series.browser.test.tsx ("draws an episode with no still as the No poster card at the still's size, its mark inside it (D497 §2)")
+- 4: web/apps/web/src/series.test.tsx ("shows a season's own poster, else its still over No poster, else No poster bare, never the series' (D497 §4)")
+- 5: TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs (internal/core/library/art_frames_test.go)
