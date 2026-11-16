@@ -123,7 +123,7 @@ export function FilmWaitsSpinner(props: {
     // A span, not an output, which the player's page keeps for its words (the reconnecting note).
     <span className="film-waits" hidden={!isShown} aria-live="polite">
       {isShown ? (
-        <span className="film-waits__sign" role="img" aria-label={t("playerControls.gettingReady")}>
+        <span className="film-waits__sign" aria-label={t("playerControls.gettingReady")}>
           <span className="film-waits__spinner" />
           <span className="film-waits__hourglass">
             <StillReadingIcon isRinged={false} />

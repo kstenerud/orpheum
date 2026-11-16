@@ -21,7 +21,9 @@ function WaitingFilm(): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
   return (
     <div style={{ position: "relative", width: "640px", height: "360px" }}>
-      <video ref={videoRef} />
+      <video ref={videoRef}>
+        <track kind="captions" />
+      </video>
       <FilmWaitsSpinner videoRef={videoRef} isFailed={false} />
     </div>
   );
@@ -49,16 +51,13 @@ async function stalledFilm(): Promise<Mounted> {
 /** The rules every stylesheet keeps for Reduce Motion, added again for every motion, as asked for less. */
 function askForLessMotion(): () => void {
   const added = document.createElement("style");
-  const rules: string[] = [];
-  for (const sheet of document.styleSheets) {
-    for (const rule of sheet.cssRules) {
-      if (rule instanceof CSSMediaRule && rule.conditionText.includes("prefers-reduced-motion")) {
-        for (const inner of rule.cssRules) {
-          rules.push(inner.cssText);
-        }
-      }
-    }
-  }
+  const rules = [...document.styleSheets]
+    .flatMap((sheet) => [...sheet.cssRules])
+    .filter(
+      (rule): rule is CSSMediaRule =>
+        rule instanceof CSSMediaRule && rule.conditionText.includes("prefers-reduced-motion"),
+    )
+    .flatMap((rule) => [...rule.cssRules].map((inner) => inner.cssText));
   added.textContent = rules.join("\n");
   document.head.append(added);
   return () => {
