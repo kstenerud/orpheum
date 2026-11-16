@@ -870,9 +870,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   Seen 2026-10-27 (the lead, on staging): the copy merged within half a second (`one file at two
   places from now on`, copy 12304 into file 12168), each library lists the sync-test clip as item 5285, the
   doctor names both paths (and found two real pairs: two episodes of an animated series are one file, and
-  two of the owner's other videos); a person whose role reached only the copy's library saw the film, no path, and
-  played it, and with the copy renamed away was refused (404) though the original stood: only the
-  reached place is read. Not seen: the fall-back to the copy. A file renamed away, or its library
+  two of the owner's other videos); a person whose role reached only the copy's library saw the
+  film, no path, and played it, and with the copy renamed away was refused (404) though the original
+  stood: only the reached place is read. Not seen: the fall-back to the copy. A file renamed away, or its library
   folder made to vanish, is not an unavailable place (only a node away, a root or disk missing or not
   answering is), so a play of the original's place answered 404 rather than reading the copy; and the
   vanished folder's scan was given up without marking the folder unavailable. Filed for the next
