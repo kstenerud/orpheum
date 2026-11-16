@@ -77,6 +77,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A 2 s busy loop typed into Chrome's console froze the page, and the page's freeze report said nothing. | [Chrome reports no long task for code run from DevTools' console](#chrome-reports-no-long-task-for-code-run-from-devtools-console) |
 | After a jump onto a chunk's very start, the players asked for the chunk before it, which no run made, for good. | [hls.js steps back to the chunk before the one a seek landed on](#hlsjs-steps-back-to-the-chunk-before-the-one-a-seek-landed-on) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
+| An init's 422 read as its chunk's; after a step-over the picture's init showed "loading" and never came. | [hls.js reports an init's failed load with the chunk it was loading, and an aborted init's late failure aborts the next chunk](#hlsjs-reports-an-inits-failed-load-with-the-chunk-it-was-loading-and-an-aborted-inits-late-failure-aborts-the-next-chunk) |
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
 | As the quality stepped down, a Fire TV kept 2.5 s of sound against 38.6 s of picture and stalled on the new sound's chunks. | [On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec](#on-a-level-in-another-audio-group-hlsjs-throws-all-the-sound-loaded-away-when-the-new-sound-differs-in-channels-or-codec) |
 | After a minute with Wi-Fi off, Firefox's page never made another WebRTC connection to the core; Chrome's did. | [Firefox's peer connection after a network loss: "disconnected" for half a minute, its states not moved together, and an old connection never comes back](#firefoxs-peer-connection-after-a-network-loss-disconnected-for-half-a-minute-its-states-not-moved-together-and-an-old-connection-never-comes-back) |
@@ -2560,6 +2561,31 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   [hls.js#2652](https://github.com/video-dev/hls.js/issues/2652) shows the same `STOPPED`, `IDLE` transitions
   around a `recoverMediaError`, and [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035) is a
   related loss of state across it.
+
+### hls.js reports an init's failed load with the chunk it was loading, and an aborted init's late failure aborts the next chunk
+
+- **Technology:** hls.js 1.7.3, `base-stream-controller.ts` (`loadInitSegmentIfNeeded`, `_loadInitSegment`,
+  `stopLoad`), any browser.
+- **Symptom:** file 17137's picture in Firefox 157 on a Mac: the core refused chunk 0 and the picture's
+  `init.mp4` (422), the player stepped over 0–4 s, and hls.js logged `frag 0/initSegment loading` and nothing
+  after. The video stood at 4.5 s, readyState 0, nothing loaded, a stall reported every 8 s.
+- **Cause:** two things, the first [source], the second derived from the source and not measured.
+  (1) An init loads beside the chunk it is for, and when the init's load fails, `loadInitSegmentIfNeeded`
+  replaces the error's `frag` with that chunk (`reason.data.frag = mediaFrag`) before it raises `ERROR`: the
+  error reads as the chunk's, with `frag.sn` a number, never `"initSegment"`. Only `response.url`, the init's
+  URL, says which load failed. (2) `stopLoad` aborts an init in flight, and the abort's rejection reaches that
+  same handler a microtask later. If `startLoad` ran in between, the state is no longer `STOPPED`, so the
+  handler calls `fragmentLoader.abort()`, aborting the chunk the restart just began. Loading it again calls
+  `_loadInitSegment`, which aborts the init the restart asked for, and that init's failure aborts the chunk in
+  turn, so the init never arrives while the server takes longer than a tick to answer it.
+- **What we do:** `skipChunksNotMade` (`web/packages/player/src/skip-unmade.ts`) tells an init's failure by its
+  response's URL against the chunk's `initSegment.url` (`isInitsLoad`) and leaves it to hls.js. A step-over
+  starts loading again through `loadAgainFrom` (`abr-controller.ts`), whose `startLoad` waits for the rebuilt
+  media source to attach, after the aborted loads have finished. The core also no longer refuses an init
+  because a chunk is given up (`Service.Want`, `internal/core/chunks/files.go`).
+- **Evidence:** [staging] 2026-11-16, file 17137, the steps above. [source] hls.js 1.7.3
+  `base-stream-controller.ts` and `loader/fragment-loader.ts` (`response: { url, ...response }`).
+  **[web]** searched 2026-11-16: no hls.js issue names either.
 
 ### hls.js's `mainForwardBufferInfo` can say tens of seconds loaded ahead while the video holds none
 

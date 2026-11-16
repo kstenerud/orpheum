@@ -9,7 +9,7 @@
 
 import Hls, { type ErrorData, type Fragment } from "hls.js";
 
-import { isNotMade, recoverFrom } from "./abr-controller.ts";
+import { isNotMade, loadAgainFrom, recoverFrom } from "./abr-controller.ts";
 import { seekTo } from "./report.ts";
 
 /** The event a video is sent each time its player steps over chunks the core cannot make. */
@@ -73,20 +73,21 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
  * (abr-controller.ts's keepTheQualityAtNotMade), a fault of the file being no reason to step down (the owner,
  * 2026-11-03). Its loading is stopped and the error marked recovered, so failOnFatal, told after,
  * passes it by; the film plays what it has up to the chunk; there it is moved into the next chunk and
- * loaded on from there, and the video is sent a playerSkippedEvent. A chunk after it that fails too
+ * loaded on from there, its decoding built anew (loadAgainFrom), and the video is sent a playerSkippedEvent. A chunk after it that fails too
  * lengthens the same stretch. A stretch that would pass skipsAtMostMs, or the film's end, fails
  * (cannotMake), the video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the
- * person's before the move is theirs: loading goes on from where they went. Returns the stopping.
+ * person's before the move is theirs: loading goes on from where they went. A chunk's init the core
+ * answers so is no chunk to step over, and is left to hls.js (isInitsLoad). Returns the stopping.
  */
 export function skipChunksNotMade(
-  hls: Pick<Hls, "on" | "off" | "startLoad" | "stopLoad">,
+  hls: SkippingHls,
   video: SkippingVideo,
   note: (note: string) => void,
 ): () => void {
   const skipping = new Skipping(hls, video, note);
   const onError = (_event: unknown, data: ErrorData): void => {
     const { frag } = data;
-    if (frag !== undefined && isNotMade(data)) {
+    if (frag !== undefined && isNotMade(data) && !isInitsLoad(data, frag)) {
       skipping.cannotMake(data, frag);
     }
   };
@@ -108,6 +109,27 @@ export function skipChunksNotMade(
   };
 }
 
+/** What stepping over a chunk needs of hls.js: its errors, its loading, and loadAgainFrom's. */
+type SkippingHls = Pick<
+  Hls,
+  "on" | "off" | "once" | "recoverMediaError" | "startLoad" | "stopLoad"
+>;
+
+/**
+ * Whether hls.js's error is of the load of a chunk's init rather than of the chunk: hls.js 1.7.3 says
+ * an init's failure with the chunk it loaded the init for (loadInitSegmentIfNeeded), the response's
+ * URL the init's (idiosyncrasies.md). Stepped over as the chunk, the init of file 17137's picture,
+ * which the core refused while its chunk 0 was given up, was never asked for again, and its player
+ * stood with nothing loaded (staging, 2026-11-16).
+ */
+function isInitsLoad(data: Pick<ErrorData, "response">, frag: Fragment): boolean {
+  if (frag.sn === "initSegment") {
+    return true;
+  }
+  const { initSegment } = frag;
+  return initSegment !== null && data.response?.url === initSegment.url;
+}
+
 /** A chunk as hls.js gives it with its error: where in the film it starts, and how long it is. */
 type ChunkSpan = Pick<Fragment, "start" | "duration">;
 
@@ -117,15 +139,11 @@ class Skipping {
   #toS: number | undefined;
   #waiting: { readonly atS: number; readonly toS: number } | undefined;
   #isOwnMove = false;
-  readonly #hls: Pick<Hls, "startLoad" | "stopLoad">;
+  readonly #hls: SkippingHls;
   readonly #video: SkippingVideo;
   readonly #note: (note: string) => void;
 
-  constructor(
-    hls: Pick<Hls, "startLoad" | "stopLoad">,
-    video: SkippingVideo,
-    note: (note: string) => void,
-  ) {
+  constructor(hls: SkippingHls, video: SkippingVideo, note: (note: string) => void) {
     this.#hls = hls;
     this.#video = video;
     this.#note = note;
@@ -169,10 +187,14 @@ class Skipping {
     this.#isOwnMove = true;
     // hls.js loads from where the video is, not where startLoad says, and goes back for the chunk
     // before where the next one's picture starts after the video (staging, 2026-11-03): moved first,
-    // into the next chunk, loading begins past the chunk not made.
+    // into the next chunk, loading begins past the chunk not made. It begins anew, its decoding
+    // rebuilt (loadAgainFrom), once the loads the stop aborted have ended: started again at once, an
+    // init the stop aborted, failing after, aborted the chunk then loading, whose next ask aborted the
+    // init asked for with it, and so on, so the init never came (idiosyncrasies.md; file 17137 on
+    // staging, 2026-11-16).
     const onS = toS + arrivedWithinS;
     seekTo(this.#video, onS * 1000);
-    this.#hls.startLoad(onS);
+    loadAgainFrom(this.#hls, onS);
     this.#tell({ fromS: this.#fromS ?? toS, toS, isWhereItStops: false });
   }
 

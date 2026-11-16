@@ -70,7 +70,15 @@ class LoadingHls extends HlsEvents {
   readonly loadsFromS: number[] = [];
   /** How many times loading was stopped. */
   stops = 0;
+  /** How many times its decoding was built anew (recoverMediaError). */
+  rebuilds = 0;
+  /**
+   * Whether a rebuild's new media source is attached at once, or only when attach says, as a
+   * browser's is once the loads the stop aborted have ended.
+   */
+  isAttachedAtOnce = true;
   readonly #video: SkippingVideo;
+  readonly #onAttached: (() => void)[] = [];
 
   constructor(video: SkippingVideo) {
     super();
@@ -83,6 +91,26 @@ class LoadingHls extends HlsEvents {
 
   stopLoad(): void {
     this.stops++;
+  }
+
+  once(event: Events, listener: () => void): void {
+    if (event === Events.MEDIA_ATTACHED) {
+      this.#onAttached.push(listener);
+    }
+  }
+
+  recoverMediaError(): void {
+    this.rebuilds++;
+    if (this.isAttachedAtOnce) {
+      this.attach();
+    }
+  }
+
+  /** Attaches a rebuild's new media source. */
+  attach(): void {
+    for (const attached of this.#onAttached.splice(0)) {
+      attached();
+    }
   }
 }
 
@@ -200,6 +228,44 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     cannotMake(hls, 1100, { level: 1 });
     expect(failures).toEqual(["cannotMake"]);
     expect(skipped).toEqual([{ fromMs: 2_530_000, toMs: 2_532_300, isWhereItStops: true }]);
+  });
+
+  it("loads on past it only once its decoding is built anew, the loads its stop aborted ended", () => {
+    // Started again at once, an init the stop aborted, failing after, aborted the chunk then loading,
+    // and the init was never loaded (file 17137 on staging, 2026-11-16; idiosyncrasies.md).
+    const video = new FilmVideo(0);
+    const { hls, loadsFromS, skipped } = skipping(video);
+    hls.isAttachedAtOnce = false;
+    cannotMake(hls, 0); // 0 s to 2.3 s, where the film starts
+    expect([hls.stops, hls.rebuilds, loadsFromS]).toEqual([1, 1, []]);
+    hls.attach();
+    expect(loadsFromS).toHaveLength(1);
+    expect(loadsFromS[0]).toBeCloseTo(2.8); // into the next chunk
+    expect(skipped).toEqual([{ fromMs: 0, toMs: 2300 }]);
+  });
+
+  it("leaves a chunk's init it cannot make to hls.js, which says it with the chunk", () => {
+    // Stepped over as chunk 0, the init of file 17137's picture was never asked for again, and its
+    // player stood with nothing loaded (staging, 2026-11-16; idiosyncrasies.md).
+    const video = new FilmVideo(0);
+    const { hls, loadsFromS, failures, skipped } = skipping(video);
+    const first = chunk(0);
+    const init = new Fragment(
+      PlaylistLevelType.MAIN,
+      "https://core.test/chunks/picture/playlist.m3u8",
+    );
+    init.sn = "initSegment";
+    init.relurl = "init.mp4";
+    first.initSegment = init;
+    hls.trigger(Events.ERROR, {
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: false,
+      frag: first, // as hls.js 1.7.3 says an init's failure: with the chunk it loaded it for
+      response: { url: init.url, code: 422, text: "" },
+      error: new Error("HTTP Error 422"),
+    });
+    expect([hls.stops, loadsFromS, skipped, failures]).toEqual([0, [], [], []]);
   });
 
   it("goes on loading from where the person went, where they seek before it is reached", () => {
