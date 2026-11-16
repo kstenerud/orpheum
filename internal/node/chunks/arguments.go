@@ -74,15 +74,15 @@ const soundSeekEarlyMs = 2_000
 // run's start (idiosyncrasies.md). Ten seconds is past two of the longest.
 const interleavedSoundSeekEarlyMs = 10_000
 
-// seekMs is where FFmpeg is told to seek: a copied picture's seek, past its first keyframe, so
-// FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); a sound's soundSeekEarlyMs before its
-// run's start, or an interleaved one's interleavedSoundSeekEarlyMs, which its filter trims to
-// (soundTrimMs); otherwise the run's start, which a decode trims to exactly, and from which a
-// sound copied copies what FFmpeg lands on, a little before it.
+// seekMs is where FFmpeg is told to seek: a copied picture's cutEarlyMs before its run's first
+// keyframe (copiedPictureStart); a sound's soundSeekEarlyMs before its run's start, or an
+// interleaved one's interleavedSoundSeekEarlyMs, which its filter trims to (soundTrimMs); otherwise
+// the run's start, which a decode trims to exactly, and from which a sound copied copies what FFmpeg
+// lands on, a little before it.
 func seekMs(command nodeproto.MakeChunks) int64 {
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
-		return command.PictureSeekMs
+		return max(0, runStartMs(command)-cutEarlyMs)
 	case nodeproto.StreamSound:
 		if command.IsSoundInterleaved {
 			return max(0, runStartMs(command)-interleavedSoundSeekEarlyMs)
@@ -92,6 +92,26 @@ func seekMs(command nodeproto.MakeChunks) int64 {
 		return runStartMs(command)
 	}
 	return runStartMs(command)
+}
+
+// copiedPictureStart starts a copied picture's run at its first keyframe whatever the demuxer's seek
+// lands on (D500 §1): the seek is a little before the keyframe (seekMs), and the copy drops every
+// packet until a keyframe shown at or after the seek (-copypriorss 0), so it starts at the run's
+// keyframe, never at the one before it or the one after. A seek lands by the file's index, and FFmpeg
+// moves one into Matroska, AVI or MPEG-TS 130 ms earlier, so a copy seeking past its keyframe landed
+// on it only where the index is true: MPEG-TS lands on any frame, and an AVI whose index marks every
+// frame a keyframe on the frame at the seek, from which a copy, starting at the first packet its
+// parser finds a keyframe, began at the next keyframe; every run of file 17099 began a keyframe late
+// and was refused at its first raw file (staging, 2026-11-16; idiosyncrasies.md). The copy's times
+// count from the seek, cutEarlyMs before the keyframe, so a keyframe at 10.009999 s is kept for one
+// at 10.010 s; they start at zero at the keyframe (-avoid_negative_ts make_zero), so the muxer's cuts
+// and list are timed from it as before. A run reading from the film's start, unsought, copies from
+// its first keyframe.
+func copiedPictureStart(command nodeproto.MakeChunks) []string {
+	if !isSeeking(command) {
+		return nil
+	}
+	return []string{"-copypriorss:v", "0"}
 }
 
 // isSeeking is whether FFmpeg is told to seek at all: not to the film's start, which a run reads from
@@ -275,12 +295,11 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
-		// make_zero: a copy's times start at its first keyframe whichever side of it the seek is. One
-		// seeking past it, as into MP4 or Matroska, starts below zero and is moved up to it anyway; one
-		// seeking before it, as into MPEG-TS, would start as far after zero as the seek was before the
-		// keyframe, and the list would time every raw file that much late (idiosyncrasies.md).
+		// make_zero: a copy's times start at its first keyframe, not as far after zero as the seek was
+		// before it, which would have the list time every raw file that much late (idiosyncrasies.md).
 		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex), "-c:v", "copy",
 			"-avoid_negative_ts", "make_zero")
+		arguments = append(arguments, copiedPictureStart(command)...)
 		if command.VideoCodec == "hevc" {
 			arguments = append(arguments, "-tag:v", "hvc1")
 		}

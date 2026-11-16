@@ -76,18 +76,19 @@ type MakeChunks struct {
 	// copied picture's run from chunk 1, its seek past chunk 0's keyframe, was refused as seeking
 	// before its own (file 17099, staging, 2026-11-16).
 	IsLedIn bool `json:"isLedIn,omitempty"`
-	// PictureSeekMs is, for a copied picture, where FFmpeg is told to seek: past the run's first
-	// keyframe (its lead-in's, when it has one), before the next, or, with
-	// IsPictureSeekBeforeKeyframe, at or before it. FFmpeg lands
-	// on the keyframe at or before a seek, and moves a seek into a Matroska file 130 ms earlier, so a
-	// seek at the keyframe itself lands on the one before it and every chunk of the run is the one
-	// before it (docs/contributors/idiosyncrasies.md).
-	// Zero for other streams.
+	// PictureSeekMs is, for a copied picture, where the core would have FFmpeg seek: past the run's
+	// first keyframe (its lead-in's, when it has one), before the next, or, with
+	// IsPictureSeekBeforeKeyframe, at or before it. The node checks it is so, and no longer seeks
+	// there: a demuxer seeking by its index lands wherever the index says a keyframe is, and an AVI
+	// marking every frame one landed between keyframes, so the node seeks a little before the run's
+	// keyframe in every container and drops what precedes it (D500 §1;
+	// docs/contributors/idiosyncrasies.md). Zero for other streams.
 	PictureSeekMs int64 `json:"pictureSeekMs,omitempty"`
-	// IsPictureSeekBeforeKeyframe says a copied picture's seek is at or before the run's first
-	// keyframe, not past it: the film is MPEG-TS, which FFmpeg seeks to the frame at or before a
+	// IsPictureSeekBeforeKeyframe says a copied picture's PictureSeekMs is at or before the run's
+	// first keyframe, not past it: the film is MPEG-TS, which FFmpeg seeks to the frame at or before a
 	// time and not to a keyframe, so a copy from past the keyframe would start at the next one
-	// (docs/contributors/idiosyncrasies.md).
+	// (docs/contributors/idiosyncrasies.md). The node checks the seek by it; its own seek is before
+	// the keyframe in every container (D500 §1).
 	IsPictureSeekBeforeKeyframe bool `json:"isPictureSeekBeforeKeyframe,omitempty"`
 	// IsSoundInterleaved says a sound run's track is interleaved in super-blocks, as RealMedia
 	// carries cook, ATRAC3, SIPR and RealAudio 28.8: FFmpeg's demuxer loses the super-block a seek

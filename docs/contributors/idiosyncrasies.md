@@ -162,6 +162,7 @@ User-Agent (D263; the User-Agent is logged only).
 | An encode given its source's time base ran at full CPU and wrote thousands of pictures for each of the film's. | [The `segment` muxer repeats each picture once a tick of an encoder given the source's time base](#the-segment-muxer-repeats-each-picture-once-a-tick-of-an-encoder-given-the-sources-time-base) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
+| An AVI's copied picture was refused at every run: "raw 00000.mp4 holds 0 to 12400 ms of the run, not its chunk 0's 0 to 10480 ms". | [An input seek into an AVI whose index marks every frame a keyframe lands between keyframes](#an-input-seek-into-an-avi-whose-index-marks-every-frame-a-keyframe-lands-between-keyframes) |
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
 | An AVI's sound played half a second ahead of its picture for its first five minutes, then in step. | [An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second](#an-input-seek-to-the-start-of-an-avi-with-b-frames-lands-past-its-first-keyframe-and-its-sounds-first-half-second) |
 | An encode's chunk 0 was refused, "raw 00000.mp4 holds 0 to 2307 ms of the run, not its chunk 0's 0 to 2000 ms (… first cut at 1.950 s)", while the run from chunk 1 made every chunk. | [An encoder's B-frames move every packet later for the segment muxer by as long as its first pictures' gap](#an-encoders-b-frames-move-every-packet-later-for-the-segment-muxer-by-as-long-as-its-first-pictures-gap) |
@@ -2966,10 +2967,14 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   without `AVFMT_SEEK_TO_PTS`, Matroska, AVI and MPEG-TS among them (MP4 has it), when any stream
   has B-frame delay, and the demuxer then lands on the keyframe at or before that. A seek exactly at
   a keyframe so lands on the one before it.
-- **What we do:** a copied picture's run seeks midway to the next keyframe, at least 131 ms past
-  its first and before the next (`chunks.PictureSeekMs` in `internal/core/chunks/job.go`;
-  `nodeproto.MakeChunks.PictureSeekMs`); the muxer's cut times stay relative to the first keyframe,
-  where the copy begins. The node also refuses a raw file whose listed span is not its chunk's
+- **What we do:** a copied picture's run seeks 50 ms before its first keyframe, onto it or one
+  before it, and the copy drops every packet until a keyframe shown at or after the seek
+  (`-copypriorss:v 0`; D500 §1, `internal/node/chunks/arguments.go`), so it begins at its own keyframe
+  wherever the demuxer lands; the muxer's cut times stay relative to that keyframe, where the copy
+  begins (`-avoid_negative_ts make_zero`). Until D500 §1 it seeked midway to the next keyframe, which
+  the core still computes and the node still checks (`chunks.PictureSeekMs` in
+  `internal/core/chunks/job.go`; `nodeproto.MakeChunks.PictureSeekMs`), and which an AVI whose index
+  marks every frame a keyframe cannot use (below). The node also refuses a raw file whose listed span is not its chunk's
   (`internal/node/chunks/listed.go`), which a whole run begun early passes when chunks are as long as
   the stretches between keyframes.
 - **Evidence:** **[measured]** on *Flow* with the pinned FFmpeg 8.1.2: `-ss 388.930`, a keyframe,
@@ -2996,10 +3001,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   before its first keyframe, so it starts at the next one. Seeking *before* the keyframe, the copy
   starts at it, but its times then start as far after zero as the seek was before the keyframe, and
   the segment muxer's list times each raw file that much late (its cuts count from the first packet).
-- **What we do:** a copied picture of an MPEG-TS film (`decide.ContainerOf`) seeks midway back to the
-  keyframe before its run's first, at least 131 ms past that one and never past its own, or to the
-  film's start for its first keyframe (`chunks.PictureSeekBeforeMs` in `internal/core/chunks/job.go`),
-  and says so (`nodeproto.MakeChunks.IsPictureSeekBeforeKeyframe`), which the node checks; every
+- **What we do:** a copied picture's run, an MPEG-TS's as any other's, seeks 50 ms before its first
+  keyframe and drops what it lands on before it (`-copypriorss:v 0`; D500 §1). The core still asks
+  an MPEG-TS film (`decide.ContainerOf`) to seek midway back to the keyframe before its run's first,
+  or to the film's start for its first keyframe (`chunks.PictureSeekBeforeMs` in
+  `internal/core/chunks/job.go`), and says so (`nodeproto.MakeChunks.IsPictureSeekBeforeKeyframe`),
+  which the node checks; every
   copied picture is written with `-avoid_negative_ts make_zero`, so its times start at its first
   keyframe whichever side the seek was (`internal/node/chunks/arguments.go`). Other demuxers seeking
   by `read_timestamp` (MPEG-PS among them) likely behave alike; unmeasured, and `decide.ContainerOf`
@@ -3048,6 +3055,36 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[source]** `libavformat/rmdec.c`, `rm_read_seek`, `ff_rm_parse_packet`. **[web]** an audio
   player built on FFmpeg met cook seeking alike and decodes from before the time, counting samples
   ([FFmpegAudioKit#2](https://github.com/enefry/FFmpegAudioKit/pull/2), 2026-10-27).
+
+### An input seek into an AVI whose index marks every frame a keyframe lands between keyframes
+
+- **Symptom:** every copied-picture run of an AVI of H.264 without B-frames was refused at its
+  bounds, "raw 00000.mp4 holds 0 to 12400 ms of the run, not its chunk 0's 0 to 10480 ms": each run
+  began at the keyframe after its own, its first raw file a keyframe interval long (file 17099,
+  staging, 2026-11-16). Its keyframes are where the grid says (0, 10.48, 13.32 s…).
+- **Cause:** the AVI demuxer seeks by its index, `idx1`, landing on the last entry flagged
+  `AVIIF_KEYFRAME` at or before the time. An index marking every frame a keyframe lands on the frame
+  at the seek. A copy's packets have their key flags from H.264's parser, not the index, so they are
+  the true keyframes, and the copy drops all before the first of them: from a seek past the run's
+  keyframe, as the core asked for every container but MPEG-TS, it starts at the next.
+- **What we do:** a copied picture's run seeks 50 ms before its first keyframe in every container and
+  drops every packet until a keyframe shown at or after the seek (`-copypriorss:v 0`, an output
+  option; D500 §1, `internal/node/chunks/arguments.go`); `-avoid_negative_ts make_zero` starts its
+  times at that keyframe, so the muxer's cuts and list are as before. The sound is untouched.
+- **Evidence:** **[measured]** with the pinned FFmpeg 8.1.3, a 20 s H.264 AVI keyframed as file 17099
+  is, its index then marking every frame a keyframe: ffprobe seeks to 3, 7 and 12 s landed on frames
+  that are no keyframe (on keyframes before the index was changed); `-ss 11.900`, a run from 10.48 s
+  led in, began at 13.32 s and listed its first file 0 to 4.32 s, where 0 to 2.84 s is its chunk;
+  `-ss 10.430 -copypriorss:v 0` began at 10.48 s and listed every chunk at its bounds.
+  `TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyframe` (integration tier)
+  fails at the bounds without it. Without `-copypriorss:v 0`, a seek before the keyframe lands, in
+  MP4 and Matroska, on the keyframe before it, where the copy then begins, and
+  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` fails. **[source]**
+  `fftools/ffmpeg_mux.c`, `of_streamcopy`: with `copy_prior_start` 0 a packet shown before the seek
+  is dropped, and one not a keyframe is dropped until the copy has begun; `libavformat/avidec.c`,
+  `avi_read_idx1` (`AVIIF_INDEX`), and `libavformat/demux.c`, where a parser's key flag replaces
+  the demuxer's. Whether file 17099's own index marks every frame a keyframe is unmeasured; its
+  symptom is this fixture's.
 
 ### An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second
 

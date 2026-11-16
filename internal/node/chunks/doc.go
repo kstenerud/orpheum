@@ -39,22 +39,28 @@
 //     TestMake_TimesASoundBySamplesAfterItsLeadIn; with the pinned FFmpeg, two runs' chunks join
 //     into one stream at the film's times, by TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes
 //     (integration tier).
-//   - A copied picture's run seeks past its first keyframe, before the next, as the core says:
-//     FFmpeg moves a seek into Matroska 130 ms earlier, so a seek at the keyframe lands on the one
-//     before it and every chunk of the run would hold the one before it. A decoded stream seeks to
-//     its start. Enforced by TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd and, with the
-//     pinned FFmpeg, TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes, whose Matroska
-//     picture's packets must be the film's. An MPEG-TS run, which FFmpeg seeks to a frame and not a
-//     keyframe, seeks at or before its first keyframe instead, as the core says, and every copied
-//     picture's times start at its first keyframe (-avoid_negative_ts make_zero), so an MPEG-TS's
-//     chunks are the film's too, its one keyframe its first included. Enforced by
+//   - A copied picture's run starts at its first keyframe in any container, whatever the demuxer's
+//     seek lands on (D500 §1): it seeks a little before the keyframe, not where the core says, and
+//     the copy drops every packet before a keyframe shown at or after the seek (-copypriorss 0). A
+//     seek lands by the file's index, and FFmpeg moves one into Matroska 130 ms earlier, onto the
+//     keyframe before; MPEG-TS lands on any frame, and an AVI whose index marks every frame a keyframe
+//     on the frame at the seek, from which a copy seeking past its keyframe began at the next and the
+//     node refused every run at its bounds (file 17099; idiosyncrasies.md). A decoded stream seeks to
+//     its start. Every copied picture's times start at its first keyframe (-avoid_negative_ts
+//     make_zero), so the muxer's cuts and list count from it; an MPEG-TS's chunks are the film's, its
+//     one keyframe its first included. Enforced by
+//     TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands,
+//     TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd,
 //     TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe,
 //     TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe,
 //     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg,
-//     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes and
+//     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes, whose MP4, Matroska, MPEG-TS and open
+//     GOP's pictures' packets must be the film's,
+//     TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyframe and
 //     TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole.
 //   - A copied picture's run past the film's first chunk is led in from the chunk before, as the
-//     core says: it seeks past that chunk's keyframe, cuts at the run's first chunk too and drops
+//     core says: it seeks a little before that chunk's keyframe, starts there (D500 §1), cuts at the
+//     run's first chunk too and drops
 //     the lead-in's raw file uncounted, so FFmpeg times an open GOP's pictures shown before the run's
 //     first keyframe and decoded after it as the film does; begun at that keyframe, it crushes their
 //     times together and leaves a hole at the join (idiosyncrasies.md; an episode of the owner's series). A
