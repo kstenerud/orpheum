@@ -68,6 +68,9 @@ GATE_LOCK_HELD = "ORPHEUM_GATE_LOCK_HELD"
 # What holds the lock when a holder does not say.
 GATE = "gate"
 PROBE = "probe"
+# A build that copies the web client into the tree the server's tests compile (Makefile's
+# EMBEDDING_BUILD): a test run beside it would find a client where its binary has none (2026-11-09).
+BUILD = "build"
 # Holders the Stop hook does not wait behind: each can take longer than its ten minutes. A holder
 # that wrote nothing (one started before holders said) counts as long, so the hook never waits on it.
 LONG = frozenset({"check", "check-pr", "revert-red", GATE, ""})
@@ -81,13 +84,13 @@ HOUR = 60 * MINUTE
 # (gate-runs.jsonl, 2026-11-04: make check at most 313 s; check-pr 2788 s; revert-red 2480 s of it), so
 # only a hung run reaches it. The probe gives way to every other run and needs none.
 LEASE_SECONDS = {"spot": 20 * MINUTE, "test": 30 * MINUTE, "check": 30 * MINUTE,
-                 "check-pr": 3 * HOUR, "revert-red": 3 * HOUR, GATE: 3 * HOUR}
+                 "check-pr": 3 * HOUR, "revert-red": 3 * HOUR, GATE: 3 * HOUR, BUILD: 15 * MINUTE}
 DEFAULT_LEASE_SECONDS = 30 * MINUTE
 # How long a group asked to end has before it is killed.
 GRACE_SECONDS = 10.0
 # What a run of each kind takes when no hold of it is recorded yet, in seconds.
 TYPICAL_SECONDS = {"spot": 60, "test": 60, "check": 120, "check-pr": 3000, "revert-red": 2500, GATE: 300,
-                   PROBE: 15}
+                   PROBE: 15, BUILD: 60}
 # A run held past every recorded hold of its kind is still expected to take this long again.
 OVERDUE_SECONDS = 60
 WAITING = "gate-waiting"

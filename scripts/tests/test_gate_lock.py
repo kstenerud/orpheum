@@ -16,6 +16,7 @@ from unittest import mock
 SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS))
 import gate_lock  # noqa: E402
+import go_test_lock  # noqa: E402
 
 HERMETIC = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
@@ -285,6 +286,20 @@ class Wiring(unittest.TestCase):
                 self.assertIn("$(GATE_LOCK)", line, line)
         self.assertIn("gate_lock.holding(", (SCRIPTS / "check_pr_snapshot.py").read_text())
 
+    def test_a_build_holds_the_lock_while_the_web_client_is_in_the_tree(self):
+        """A make check beside ./staging's build found the client copied into the tree the server's tests
+        compile, and failed (2026-11-09): every copy into it is made, built and cleared under the lock."""
+        makefile = (SCRIPTS.parent / "Makefile").read_text()
+        embedding = makefile.split("\nEMBEDDING_BUILD = ", 1)[1].split("\n\n", 1)[0]
+        self.assertTrue(embedding.startswith("$(GATE_LOCK) --as build sh -c '$(WEBCLIENT_CLEAR) && cp "), embedding)
+        self.assertIn("go build $(1); status=$$?; $(WEBCLIENT_CLEAR); exit $$status'", embedding)
+        copies = [line for line in makefile.splitlines() if "$(WEBCLIENT_DIST)/" in line and "cp " in line]
+        self.assertEqual(len(copies), 1, copies)
+        for target in ("build", "browser-tier"):
+            recipe = makefile.split(f"\n{target}:", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("$(call EMBEDDING_BUILD,", recipe, target)
+        self.assertIn(gate_lock.BUILD, gate_lock.LEASE_SECONDS)
+
 
 class ARunStartedAnyWayHoldsIt(unittest.TestCase):
     """The owner, 2026-11-07: every direct way of running tests (go, npm, npx, an editor) takes the lock
@@ -362,7 +377,34 @@ class ARunStartedAnyWayHoldsIt(unittest.TestCase):
     def test_make_setup_points_go_test_at_the_lock(self):
         makefile = (SCRIPTS.parent / "Makefile").read_text()
         self.assertRegex(makefile, r"\nsetup: [^\n]*\bgo-test-lock\b")
-        self.assertIn("-exec=$(CURDIR)/scripts/go_test_exec", makefile)
+        self.assertIn("go-test-lock: ## ", makefile)
+        self.assertIn("\t@$(PYTHON) scripts/go_test_lock.py\n", makefile)
+
+
+class GoTestLock(unittest.TestCase):
+    """make go-test-lock run in an agent's worktree wrote that worktree's go_test_exec into the
+    user-wide GOFLAGS after the main tree's; once the worktree went, every go test failed (2026-11-09)."""
+
+    def test_a_worktree_names_the_main_trees_script(self):
+        root = repository(self).resolve()
+        env = os.environ | HERMETIC | {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
+                                       "GIT_COMMITTER_EMAIL": "t@t"}
+        subprocess.run(["git", "commit", "-q", "--allow-empty", "-m", "start"], cwd=root, check=True, env=env)
+        worktree = root.parent / f"{root.name}-worktree"
+        self.addCleanup(shutil.rmtree, worktree, ignore_errors=True)
+        subprocess.run(["git", "worktree", "add", "-q", str(worktree)], cwd=root, check=True, env=env)
+        self.assertEqual(go_test_lock.main_tree(worktree), root)
+        self.assertEqual(go_test_lock.main_tree(root), root)
+
+    def test_an_older_exec_is_replaced_not_added_to(self):
+        tree = Path("/src/orpheum")
+        ours = "-exec=/src/orpheum/scripts/go_test_exec"
+        self.assertEqual(go_test_lock.flags_with_lock("", tree), ours)
+        self.assertEqual(go_test_lock.flags_with_lock(
+            f"-mod=mod -exec=/src/orpheum/.claude/worktrees/agent-a/scripts/go_test_exec {ours} -race", tree),
+            f"-mod=mod -race {ours}")
+        self.assertEqual(go_test_lock.flags_with_lock(ours, tree), ours)
+        self.assertEqual(go_test_lock.flags_with_lock("-exec=/usr/bin/other", tree), f"-exec=/usr/bin/other {ours}")
 
 
 if __name__ == "__main__":

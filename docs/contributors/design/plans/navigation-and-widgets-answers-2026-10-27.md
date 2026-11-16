@@ -2786,6 +2786,12 @@ server heads it", with production's discovery deployed after it.
    none. Passed alone afterwards. A fix: build the embed in its own tree, or have the build take the
    test lock while the copy is in place.
 
+**Fixed (the owner, 2026-11-16, "Go ahead"):** "fix(gate): go-test-lock names the main tree's script,
+and a build holds the test lock while the web client is in the tree". `make go-test-lock` is
+`scripts/go_test_lock.py`, which writes the main tree's path and replaces any older `-exec`; both
+embedding builds (`make build`, the browser tier's) copy, build and clear under the test lock, kind
+`build`.
+
 **The owner's answers (2026-11-09):**
 1. Up next in the corner with the whole overlay up too: "yes". Done: "fix(player): Up next stays in
    the film's top-right corner with the whole overlay shown", in place of D407 §1's row 0's end. Up

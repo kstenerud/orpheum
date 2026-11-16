@@ -612,9 +612,7 @@ E2E_ARGS ?=
 .PHONY: browser-tier
 browser-tier:
 	@npm --prefix web run --silent build
-	@$(WEBCLIENT_CLEAR)
-	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
-	@go build -tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum; status=$$?; $(WEBCLIENT_CLEAR); exit $$status
+	@$(call EMBEDDING_BUILD,-tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum)
 	@status=0; $(BROWSER_PASS) $(E2E_ARGS) || status=$$?; \
 	  if [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ]; then \
 	    ORPHEUM_E2E_TIMING=1 $(BROWSER_PASS) $(E2E_ARGS) || status=$$?; fi; exit $$status
@@ -636,14 +634,16 @@ BROWSER_PASS = $(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum
 # committed .keep keeps the directory, so every build compiles.
 WEBCLIENT_DIST := internal/core/webclient/dist
 WEBCLIENT_CLEAR := find $(WEBCLIENT_DIST) -mindepth 1 -maxdepth 1 ! -name .keep -exec rm -rf {} +
+# One go build ($(1) its arguments) with the web client copied in, holding the test lock while the copy is
+# there: a make check run beside ./staging's build found the client a test binary has none of, and
+# TestServe_AnswersTheClientsAddressesAtTheRoot failed (2026-11-09). Inside a gate's run it passes through.
+EMBEDDING_BUILD = $(GATE_LOCK) --as build sh -c '$(WEBCLIENT_CLEAR) && cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/ && \
+	go build $(1); status=$$?; $(WEBCLIENT_CLEAR); exit $$status'
 
 .PHONY: build
 build: web-deps ## Build the web apps into their dist/, then the server binary, with the web client in it, into bin/
 	@npm --prefix web run --silent build
-	@$(WEBCLIENT_CLEAR)
-	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
-	@go build -trimpath -ldflags "-s -w" -o bin/orpheum ./cmd/orpheum
-	@$(WEBCLIENT_CLEAR)
+	@$(call EMBEDDING_BUILD,-trimpath -ldflags "-s -w" -o bin/orpheum ./cmd/orpheum)
 
 .PHONY: deploy
 deploy: ## Deploy this checkout's commit to DIR, on this machine (MEDIA= the first time; FORCE=yes skips the question an untagged commit or a modified tree asks)
@@ -692,9 +692,8 @@ tools: ## Fetch the pinned golangci-lint and sqlc into .tools/ (make check does 
 .PHONY: setup go-test-lock
 setup: hooks go-test-lock web-deps browsers ## Set up a clone: git hooks, go test's lock, web dependencies, the browsers (check, spot, dev and check-pr do their parts)
 
-go-test-lock: ## Make `go test` typed anywhere take the repository's test lock (Go reads no repository setting: adds -exec to your GOFLAGS)
-	@flag='-exec=$(CURDIR)/scripts/go_test_exec'; current="$$(env -u GOFLAGS go env GOFLAGS)"; case " $$current " in \
-	  *" $$flag "*) ;; *) env -u GOFLAGS go env -w GOFLAGS="$$(echo $$current $$flag)" && echo "go-test-lock: $$flag";; esac
+go-test-lock: ## Make `go test` typed anywhere take the repository's test lock (Go reads no repository setting: points your GOFLAGS' -exec at the main tree's)
+	@$(PYTHON) scripts/go_test_lock.py
 
 # The git hooks, which a clone or a rebuilt sandbox lacks until set: without them a commit ran no gate,
 # and the pre-bash hook refused every commit until `make setup` was found (2026-10-23). The gates and
