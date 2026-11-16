@@ -7,7 +7,7 @@ import { isWaitingToPlay, startGateWaitChangedEvent } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { StillReadingIcon } from "./icons.tsx";
+import { WaitingIcon } from "./icons.tsx";
 
 /**
  * How long a film meant to play waits for data before its spinner shows, in ms, so a quick start or
@@ -126,7 +126,7 @@ export function FilmWaitsSpinner(props: {
         <span className="film-waits__sign" aria-label={t("playerControls.gettingReady")}>
           <span className="film-waits__spinner" />
           <span className="film-waits__hourglass">
-            <StillReadingIcon isRinged={false} />
+            <WaitingIcon />
           </span>
         </span>
       ) : null}

@@ -147,13 +147,6 @@
   animation: ui-gallery-pulse 3s ease-in-out infinite;
 }
 
-.ui-gallery__hourglass .still-reading-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  color: var(--color-on-video);
-  --icon-ground: var(--color-video-card);
-}
-
 @keyframes ui-gallery-pulse {
   50% {
     opacity: 0.35;

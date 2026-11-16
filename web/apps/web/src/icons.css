@@ -154,6 +154,38 @@
   fill: currentColor;
 }
 
+/* A film's waiting sign under Reduce Motion (WaitingIcon): the still-reading hourglass in the
+   ring's own colours, a white glass on the film's dark disc (the owner, 2026-11-16). */
+.waiting-icon {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  color: var(--color-on-video);
+}
+
+.waiting-icon__disc {
+  fill: var(--color-video-card);
+}
+
+.waiting-icon__caps {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+}
+
+.waiting-icon__glass {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.waiting-icon__sand {
+  fill: currentColor;
+}
+
 /* D301 §4: an uncertain match's cue, the owner's icon on the caution yellow. */
 
 /* Wherever it is drawn, its own region's colours: the mark and ring on the disc. */

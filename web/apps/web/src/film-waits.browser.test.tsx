@@ -103,7 +103,7 @@ describe("the sign over a film waiting for data", () => {
     // The global reset sets every animation to 0 s under Reduce Motion; this one keeps its length.
     expect(hourglass.animationDuration).toBe("3s");
     expect(hourglass.animationIterationCount).toBe("infinite");
-    const icon = one(mounted, ".film-waits__hourglass .still-reading-icon");
+    const icon = one(mounted, ".film-waits__hourglass .waiting-icon");
     // White, as the ring's lit quarter is, and at the ring's size.
     expect(getComputedStyle(icon).color).toBe(ringColour);
     const box = icon.getBoundingClientRect();

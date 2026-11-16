@@ -260,23 +260,37 @@ export function UncertainMatchIcon(props: { readonly isRinged: boolean }): JSX.E
  * beside words on a page. Decoration beside words that say it.
  */
 export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Element {
+  return <Hourglass name="still-reading-icon" isRinged={props.isRinged} />;
+}
+
+/**
+ * The film's waiting sign under Reduce Motion: the still-reading hourglass, drawn in the colours of
+ * the region it stands in, a film's control ground (film-waits.css); a sign, not a status cue
+ * (the owner, 2026-11-16, "Use the 3s hourglass (white) for the video").
+ */
+export function WaitingIcon(): JSX.Element {
+  return <Hourglass name="waiting-icon" isRinged={false} />;
+}
+
+/** The hourglass drawing both of those share, its parts named for the icon it draws. */
+function Hourglass(props: { readonly name: string; readonly isRinged: boolean }): JSX.Element {
   const size = props.isRinged ? 30 : 26;
   const centre = size / 2;
   const inset = props.isRinged ? 4.5 : 2.5;
   return (
-    <Icon className="still-reading-icon" viewBox={`0 0 ${String(size)} ${String(size)}`}>
+    <Icon className={props.name} viewBox={`0 0 ${String(size)} ${String(size)}`}>
       {props.isRinged ? (
-        <circle className="still-reading-icon__ring" cx={centre} cy={centre} r={15} />
+        <circle className={`${props.name}__ring`} cx={centre} cy={centre} r={15} />
       ) : null}
-      <circle className="still-reading-icon__disc" cx={centre} cy={centre} r={13} />
+      <circle className={`${props.name}__disc`} cx={centre} cy={centre} r={13} />
       <g transform={`translate(${String(inset)} ${String(inset)}) scale(0.875)`}>
-        <path className="still-reading-icon__caps" d="M4.6 4h14.8M4.6 20h14.8" />
+        <path className={`${props.name}__caps`} d="M4.6 4h14.8M4.6 20h14.8" />
         <path
-          className="still-reading-icon__glass"
+          className={`${props.name}__glass`}
           d="M6.4 4.6c0 4.4 4.3 5.2 4.3 7.4s-4.3 3-4.3 7.4M17.6 4.6c0 4.4-4.3 5.2-4.3 7.4s4.3 3 4.3 7.4"
         />
         <path
-          className="still-reading-icon__sand"
+          className={`${props.name}__sand`}
           d="M6.4 19.4c0-4.4 4.3-5.2 4.3-7.4h2.6c0 2.2 4.3 3 4.3 7.4z"
         />
       </g>

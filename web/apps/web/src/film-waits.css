@@ -49,15 +49,6 @@
   display: none;
 }
 
-/* The still-reading hourglass at the ring's size, in the ring's own colours: a white glass on the
-   film's dark disc (the owner, 2026-11-16, "the 3s hourglass (white)"). */
-.film-waits__hourglass .still-reading-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  color: var(--color-on-video);
-  --icon-ground: var(--color-video-card);
-}
-
 @keyframes film-waits-pulse {
   50% {
     opacity: 0.35;

@@ -36,6 +36,7 @@ import {
   StillReadingIcon,
   TogetherIcon,
   UncertainMatchIcon,
+  WaitingIcon,
   WarningIcon,
   WatchedIcon,
 } from "./icons.tsx";
@@ -491,7 +492,7 @@ function FilmWaitingLooks(): JSX.Element {
         <figure className="ui-gallery__wait-look">
           <span className="ui-gallery__wait">
             <span className="ui-gallery__hourglass">
-              <StillReadingIcon isRinged={false} />
+              <WaitingIcon />
             </span>
           </span>
           <figcaption>{t("gallery.waitingHourglass")}</figcaption>
