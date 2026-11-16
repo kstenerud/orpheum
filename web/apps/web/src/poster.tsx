@@ -264,7 +264,11 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
   };
 }
 
-/** The address of an image's size, asked for again the again-th time: a new address each time. */
+/**
+ * The address of an image's size, asked for again the again-th time: a new address each time. The
+ * service worker takes an image asked for again as one its kept copy failed to show, and fetches it
+ * afresh (D494 §2, kept-images.ts).
+ */
 function againUrl(sourceSha256: string, size: ArtSize, again: number): string {
   const url = artUrl(sourceSha256, size);
   return again === 0 ? url : `${url}?${askedAgainQuery}=${String(again)}`;
