@@ -29325,3 +29325,31 @@ alone) and D362 §2 (when an other video is owed a frame still).
    row with a poster in it is as tall as a poster, and each still in it is centred in a poster's
    height, so the names under the cards line up. A home row holds only the newest films or series,
    all upright, so no still stands in one.
+
+## D496 — An other video with no poster shows its picture alone wherever it is drawn; a film or series keeps its No poster card
+
+**Decided** (2026-11-16), by the project owner, after an other video's own page showed the "No
+poster" card where its card in a list showed its picture: *"If there's no poster, it should just
+show the screenshot in the info page (unlike for films and series, where it shows the combined no
+poster + screenshot)."* And of every place: *"basically, regardless of where it's shown: If it's a
+film or series item, it shows the combined screenshot + no poster thing if there's no poster. If
+it's type other, it displays only the screenshot if there's no poster. The context it's displayed
+under decides how it's handled (centering, sizing, etc)"*. Amends D495 §2, which said it of the
+card alone; amends D349 §3 and §9.1 with it.
+
+1. **The rule is the item's, not the place's.** A film or series (an episode where it reaches the
+   same fallback) with no poster shows the "No poster" card with its still in its top half (D362
+   §2). An other video with no poster shows its 16:9 picture alone, with no card and no words: its
+   still, else its backdrop, else a frame still of its video (D495 §1). An other video with a
+   poster shows it upright (D495 §1).
+2. **The place decides only centring and size.** A list's card shows the picture as its 16:9 tile,
+   centred in a poster's height in a row with a poster (D495 §4); a title page shows it where an
+   episode's still stands, at the art's width.
+3. **One test of the rule** (`isPictureAlone`, web `poster.tsx`), which the browse cards and the
+   title page both ask. The title page is given the picture its card shows: the core sets an other
+   video's `noPosterStillSha256` on its page, when it has no poster, by the list's own choice of its
+   16:9 picture (`landscapes`).
+4. **Where the kind is not known, the rule cannot be kept.** Continue Watching's rows
+   (`InProgressBody`) carry a poster's hash alone, neither a kind nor a still, so a row with no
+   poster shows the bare "No poster" card whatever it is; a series' page and its season cards, the
+   home rows (newest films and series) and Up Next (an episode's still) draw no other video.

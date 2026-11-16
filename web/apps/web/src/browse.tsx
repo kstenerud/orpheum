@@ -38,7 +38,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
-import { Still } from "./poster.tsx";
+import { isPictureAlone, Still } from "./poster.tsx";
 import type { Genre } from "./list-chips.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
 import { EndOfList, useAskedWhenNear } from "./end-of-list.tsx";
@@ -198,10 +198,10 @@ function useRailFollowsFocus(
 
 /**
  * The art an entry's card shows, as its poster or still, to fill in ahead (EntryPoster, PosterCard):
- * an other video's poster where it has one, else its 16:9 picture (D495 §1).
+ * an other video's poster where it has one, else its 16:9 picture (D495 §1, D496).
  */
 function artAheadOf(entry: Entry): ArtAhead | undefined {
-  if (entry.kind === "other" && entry.posterSha256 === undefined) {
+  if (isPictureAlone(entry)) {
     return entry.landscapeSha256 === undefined
       ? undefined
       : { sourceSha256: entry.landscapeSha256, kind: "still" };
@@ -324,10 +324,11 @@ function useBesidePoster(
 
 /**
  * Whether an entry's card is an upright poster: a film's and a series' always, with or without a
- * poster, and an other video's where it has one; an other video with none is its 16:9 still (D495).
+ * poster, and an other video's where it has one; an other video with none is its 16:9 still alone
+ * (D495, D496).
  */
 export function isUprightCard(entry: Entry): boolean {
-  return entry.kind !== "other" || entry.posterSha256 !== undefined;
+  return !isPictureAlone(entry);
 }
 
 /**
@@ -354,7 +355,7 @@ export function EntryPoster(props: {
       posterSha256={entry.posterSha256}
       noPosterStillSha256={entry.noPosterStillSha256}
       art={
-        entry.kind === "other" && entry.posterSha256 === undefined ? (
+        isPictureAlone(entry) ? (
           <Still sourceSha256={entry.landscapeSha256} className="poster-card__tile" />
         ) : undefined
       }

@@ -24,7 +24,7 @@ import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
-import { Poster, WideArt } from "./poster.tsx";
+import { isPictureAlone, Poster, WideArt } from "./poster.tsx";
 import { TitleHead } from "./title-head.tsx";
 import { clockText } from "./timeline.tsx";
 import { Link } from "./link.tsx";
@@ -238,14 +238,19 @@ function VersionChoice(props: {
   );
 }
 
-/** A film's poster, else its list card's still (D362 §2); an episode's still. */
+/**
+ * A film's poster, else its list card's still in the "No poster" card (D362 §2); an other video's
+ * poster, else its card's 16:9 picture alone, as an episode's still is shown (D496); an episode's
+ * still.
+ */
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
-  if (kind !== "episode") {
+  if (kind !== "episode" && !isPictureAlone({ kind, posterSha256: art.posterSha256 })) {
     return <Poster sourceSha256={art.posterSha256} stillSha256={art.noPosterStillSha256} />;
   }
-  return art.stillSha256 === undefined ? null : (
-    <WideArt sourceSha256={art.stillSha256} size="landscape-m" className="title__still" />
+  const still = kind === "episode" ? art.stillSha256 : art.noPosterStillSha256;
+  return still === undefined ? null : (
+    <WideArt sourceSha256={still} size="landscape-m" className="title__still" />
   );
 }
 

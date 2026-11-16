@@ -12,13 +12,26 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { suspectWorker } from "./worker-bypassed-note.tsx";
 
 /**
+ * Whether an item of kind with this poster shows its 16:9 picture alone in the poster's place, with
+ * no "No poster" card: an other video with no poster, wherever it is drawn, the place deciding only
+ * its centring and size. A film or series with none shows the "No poster" card with its still in it
+ * (Poster). The owner, 2026-11-16: *"If it's type other, it displays only the screenshot if there's
+ * no poster"* (D496).
+ */
+export function isPictureAlone<
+  Item extends { readonly kind: string; readonly posterSha256?: string | undefined },
+>(item: Item): item is Item & { readonly kind: "other" } {
+  return item.kind === "other" && item.posterSha256 === undefined;
+}
+
+/**
  * A poster, or a named blank where there is none, or where its image does not load: one not yet
  * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: a series'
  * seasons showed broken images while their art waited its turn). The card's own text names the item.
  * A blank for an image that did not load asks for it again (useArtShown), and shows it once made.
  * A film or series with no poster but a still, its backdrop or a frame of its video, shows the still
  * in the blank's top half, the blank's own mark below it (the owner, 2026-10-27; D362 §2); a poster
- * shown takes its place.
+ * shown takes its place. An other video with no poster is never drawn as one (isPictureAlone).
  */
 export function Poster(props: {
   readonly sourceSha256: string | undefined;

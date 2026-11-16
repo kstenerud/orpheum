@@ -87,6 +87,31 @@ describe("browse", () => {
     expect(markup).toContain("No poster");
   });
 
+  it("shows an other video with no poster its picture alone, no No poster card (D496)", () => {
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: {
+        nextCursor: "",
+        items: [
+          {
+            id: 13,
+            name: "Beach day",
+            kind: "other",
+            identificationState: "identified",
+            addedAt: 1,
+            landscapeSha256: "77aa",
+          },
+          { id: 14, name: "Clip 14", kind: "other", identificationState: "identified", addedAt: 2 },
+        ],
+      },
+    });
+    expect(markup).toContain(
+      '<img class="poster-card__tile" src="/api/v1/bytes/art/77aa/landscape-s.webp"',
+    );
+    expect(markup).not.toContain("No poster");
+    expect(markup).not.toContain("poster--blank");
+  });
+
   it("puts an uncertain match's cue in its poster's tray, under a warning's (D301 §4)", () => {
     const markup = renderBrowseView({
       state: "loaded",

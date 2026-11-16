@@ -162,3 +162,30 @@ func TestDetail_APosterlessFilmOrSeriesPageShowsItsCardsStill(t *testing.T) {
 			filmArt.NoPosterStillSha256, seriesArt.NoPosterStillSha256)
 	}
 }
+
+// An other video's own page shows in its poster's place the 16:9 picture its card in a list shows,
+// alone, when it has no poster, picked the same way: a frame still only where it has no backdrop;
+// and none once a poster arrives (the owner, 2026-11-16; D496).
+func TestDetail_APosterlessOtherVideosPageShowsItsCardsPicture(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	other := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1, Kind: "other"})
+	librarytest.Version(t, world.database, librarytest.VersionSpec{TitleID: other})
+	storeArt(t, world, other, ArtStill, ArtSourceFrame, 0x61)
+	backdrop := storeArt(t, world, other, ArtBackdrop, "local", 0x62)
+	readArt := func() Art {
+		title, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, other)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return title.Art
+	}
+	if art := readArt(); art.NoPosterStillSha256 != backdrop {
+		t.Errorf("no poster: the other video's still %q; want its card's picture, %q",
+			art.NoPosterStillSha256, backdrop)
+	}
+	storeArt(t, world, other, ArtPoster, "local", 0x63)
+	if art := readArt(); art.NoPosterStillSha256 != "" {
+		t.Errorf("with a poster: the other video's still %q; want none", art.NoPosterStillSha256)
+	}
+}

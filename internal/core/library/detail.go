@@ -93,10 +93,8 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	if detail.Kind == TitleKindMovie {
-		if detail.Art, err = browser.withNoPosterStill(ctx, titleID, false, detail.Art); err != nil {
-			return TitleDetail{}, err
-		}
+	if detail.Art, err = browser.withTitleNoPosterStill(ctx, titleID, detail.Kind, detail.Art); err != nil {
+		return TitleDetail{}, err
 	}
 	if detail.Episode, err = browser.EpisodePlaceOf(ctx, userID, titleID); err != nil {
 		return TitleDetail{}, err

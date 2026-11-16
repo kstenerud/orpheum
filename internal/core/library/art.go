@@ -19,8 +19,9 @@ type Art struct {
 	BackdropSha256 string
 	StillSha256    string
 	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture its poster's place
-	// shows above the mark of a missing poster, as its card in a list does (noPosterStills); "" for
-	// anything else.
+	// shows above the mark of a missing poster, as its card in a list does (noPosterStills); for an
+	// other video with no poster, its 16:9 picture, shown alone (landscapes, D496); "" for anything
+	// else.
 	NoPosterStillSha256 string
 }
 
@@ -224,8 +225,7 @@ func firstEpisodes(ctx context.Context, queries *sqlcgen.Queries, seriesIDs []in
 	return episodeBySeries, nil
 }
 
-// withLandscapes gives each other video its 16:9 picture: its still, else its backdrop (D349 §3),
-// and a frame still of its video only when it has neither (D362 §2).
+// withLandscapes gives each other video its 16:9 picture (landscapes).
 func (browser *Browser) withLandscapes(ctx context.Context, page Page) (Page, error) {
 	var ids []int64
 	for _, entry := range page.Entries {
@@ -236,24 +236,64 @@ func (browser *Browser) withLandscapes(ctx context.Context, page Page) (Page, er
 	if len(ids) == 0 {
 		return page, nil
 	}
-	queries := browser.database.Read()
-	stills, err := shownImages(ctx, queries, ArtStill, ids)
-	if err != nil {
-		return Page{}, err
-	}
-	backdrops, err := shownArt(ctx, queries, ArtBackdrop, ids)
+	landscapeByID, err := landscapes(ctx, browser.database.Read(), ids)
 	if err != nil {
 		return Page{}, err
 	}
 	for index := range page.Entries {
-		id := page.Entries[index].ID
+		page.Entries[index].LandscapeSha256 = landscapeByID[page.Entries[index].ID]
+	}
+	return page, nil
+}
+
+// withTitleNoPosterStill is a title's page art with the picture its poster's place shows when it has
+// no poster, by its kind: a film's (withNoPosterStill), an other video's (withOtherNoPosterStill);
+// none for an episode or an extra.
+func (browser *Browser) withTitleNoPosterStill(ctx context.Context, titleID int64, kind string, art Art) (Art, error) {
+	switch kind {
+	case TitleKindMovie:
+		return browser.withNoPosterStill(ctx, titleID, false, art)
+	case TitleKindOther:
+		return browser.withOtherNoPosterStill(ctx, titleID, art)
+	}
+	return art, nil
+}
+
+// withOtherNoPosterStill is an other video's page art with the 16:9 picture its card in a list
+// shows (landscapes) when it has no poster, which its page shows alone in the poster's place (D496).
+func (browser *Browser) withOtherNoPosterStill(ctx context.Context, itemID int64, art Art) (Art, error) {
+	if art.PosterSha256 != "" {
+		return art, nil
+	}
+	landscapeByID, err := landscapes(ctx, browser.database.Read(), []int64{itemID})
+	if err != nil {
+		return Art{}, err
+	}
+	art.NoPosterStillSha256 = landscapeByID[itemID]
+	return art, nil
+}
+
+// landscapes is, by item id, each of the other videos' 16:9 picture: its still, else its backdrop
+// (D349 §3), and a frame still of its video only when it has neither (D362 §2); none for one with
+// none of these.
+func landscapes(ctx context.Context, queries *sqlcgen.Queries, ids []int64) (map[int64]string, error) {
+	stills, err := shownImages(ctx, queries, ArtStill, ids)
+	if err != nil {
+		return nil, err
+	}
+	backdrops, err := shownArt(ctx, queries, ArtBackdrop, ids)
+	if err != nil {
+		return nil, err
+	}
+	landscapeByID := make(map[int64]string, len(ids))
+	for _, id := range ids {
 		still := stills[id]
 		if still.isFrame && backdrops[id] != "" {
 			still = shownImage{}
 		}
-		page.Entries[index].LandscapeSha256 = cmp.Or(still.sourceSha256, backdrops[id])
+		landscapeByID[id] = cmp.Or(still.sourceSha256, backdrops[id])
 	}
-	return page, nil
+	return landscapeByID, nil
 }
 
 // SeasonStillMembers are the members whose stills a series' own page shows, as Series sums its

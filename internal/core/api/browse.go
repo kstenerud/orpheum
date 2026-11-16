@@ -61,8 +61,9 @@ type ArtBody struct {
 	BackdropSha256 string `json:"backdropSha256,omitempty"`
 	StillSha256    string `doc:"An episode's frame" json:"stillSha256,omitempty"`
 	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture shown in the top of
-	// its poster's place, as its card in a list shows it (D362 §2).
-	NoPosterStillSha256 string `doc:"A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
+	// its poster's place, as its card in a list shows it (D362 §2); for an other video with no poster,
+	// its card's 16:9 picture, shown alone in the poster's place (D496).
+	NoPosterStillSha256 string `doc:"A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster; an other video's, shown alone (D496): GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
 }
 
 func artBody(art library.Art) ArtBody {

@@ -73,6 +73,8 @@ describe("an other video's tile, laid out by a real browser", () => {
     // Wider than tall, as a poster, built for a portrait shape, never is.
     expect(box.width / box.height).toBeGreaterThan(1.5);
     expect(mounted.container.querySelector(".poster")).toBeNull();
+    // Its picture alone: no "No poster" card, nor its words (the owner, 2026-11-16; D496).
+    expect(mounted.container.querySelector(".poster-card")?.textContent).not.toContain("No poster");
   });
 });
 
