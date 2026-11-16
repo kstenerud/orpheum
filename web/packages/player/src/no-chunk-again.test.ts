@@ -8,11 +8,15 @@ import { loadsNoChunkAgain } from "./no-chunk-again.ts";
 /** A quality's playlist of ten 6 s chunks, as hls.js keeps it. */
 function playlistOf(level: number): LevelDetails {
   const details = new LevelDetails("");
-  details.fragments = Array.from({ length: 10 }, (_, sn) => {
-    const chunk = new Fragment(PlaylistLevelType.MAIN, "");
-    Object.assign(chunk, { sn, level, start: sn * 6, duration: 6 });
-    return chunk as Fragment & { sn: number };
-  });
+  const fragments = Array.from({ length: 10 }, (_, sn) =>
+    Object.assign(new Fragment(PlaylistLevelType.MAIN, ""), {
+      sn,
+      level,
+      start: sn * 6,
+      duration: 6,
+    }),
+  );
+  Reflect.set(details, "fragments", fragments);
   Object.assign(details, { startSN: 0, endSN: 9, live: false });
   return details;
 }
