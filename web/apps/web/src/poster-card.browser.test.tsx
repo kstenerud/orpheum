@@ -95,6 +95,10 @@ async function otherGrid(items: readonly Record<string, unknown>[]): Promise<Mou
   const services = servedBy({
     "GET /libraries": [200, { libraries: [{ id: 5, name: "Home movies", kind: "other" }] }],
     "GET /items": [200, { items, nextCursor: "" }],
+    // The grid says which tiles are in view once the page is quiet, which a loaded machine reaches
+    // before the test ends.
+    "PUT /interest/tiles": [204, null],
+    "DELETE /interest/tiles": [204, null],
   });
   const mounted = await mount(
     <BackgroundChangesContext value={neverAsks}>
@@ -137,6 +141,14 @@ describe("an other video's poster and the stills beside it (D495)", () => {
 
   it("shows a poster upright, and centres each still of its row in a poster's height", async () => {
     mounted = await otherGrid([otherVideo(1), otherVideo(2, "ab".repeat(32)), otherVideo(3)]);
+    // The test serves no image, so the poster's ends as a blank one: measured once it has, not while
+    // the image's failure is still on its way, which a loaded machine is slow to bring.
+    await settleUntil(
+      () =>
+        mounted?.container
+          .querySelectorAll(".poster-grid .poster-card")[1]
+          ?.querySelector(".poster--blank") !== null,
+    );
     const poster = boxIn(mounted, 1, ".poster");
     // Upright, as a film's poster is.
     expect(poster.height).toBeGreaterThan(poster.width);
