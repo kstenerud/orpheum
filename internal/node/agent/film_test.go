@@ -4,6 +4,8 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -138,4 +140,56 @@ func filmsRunner(t *testing.T, isStreamed bool) *execx.Runner {
 		runner.StreamFilms()
 	}
 	return runner
+}
+
+func (filmRecordingChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+// stretchedChunkMaker is a filmRecordingChunkMaker whose every run reads stretch of its film.
+type stretchedChunkMaker struct {
+	filmRecordingChunkMaker
+
+	stretch execx.Stretch
+}
+
+func (maker stretchedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return maker.stretch }
+
+// stretchRecordingFilms makes films as its runner does, telling stretches the stretch each run's
+// film was opened for, nil for a run that reads it whole, and saying a film opened for one was cut
+// down.
+type stretchRecordingFilms struct {
+	runner    *execx.Runner
+	stretches chan *execx.Stretch
+}
+
+func (films stretchRecordingFilms) FilmOf(
+	ctx context.Context, absolutePath string, opened execx.OpenedFilm, reading execx.FilmReading,
+) (execx.Film, error) {
+	films.stretches <- opened.Stretch
+	film, err := films.runner.FilmOf(ctx, absolutePath, opened, reading)
+	if err != nil {
+		return execx.Film{}, fmt.Errorf("the film of %s: %w", absolutePath, err)
+	}
+	film.IsIndexCutDown = opened.Stretch != nil
+	return film, nil
+}
+
+// A run of chunks opens its film for the stretch its chunk maker says the run reads, to which a long
+// MP4 index is cut down, and its log line says when it was (D512).
+func TestAgent_ARunOfChunksOpensItsFilmForTheStretchItReads(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	want := execx.Stretch{FromMs: 123_000, ToMs: 456_000}
+	maker := stretchedChunkMaker{filmRecordingChunkMaker{films: make(chan filmSeen, 1)}, want}
+	films := stretchRecordingFilms{runner: filmsRunner(t, true), stretches: make(chan *execx.Stretch, 1)}
+	logs := &testutil.Log{}
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, ChunkMaker: maker, Films: films,
+	}, func(node *Agent) { node.logger = slog.New(slog.NewJSONHandler(logs, nil)) })
+	core.sendRun(1, chunkableFilm(t, root), "3/chunks-picture/0123456789abcdef")
+	if got := testutil.Receive(t, films.stretches, "the run's film's stretch"); got == nil || *got != want {
+		t.Errorf("a run of chunks opened its film for the stretch %v; want %v", got, want)
+	}
+	testutil.Receive(t, maker.films, "the run's film")
+	finalRunReport(t, core)
+	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFinished"), `"indexCutDown":true`)
 }

@@ -124,6 +124,10 @@ type Runner struct {
 	filmRuns atomic.Int64
 	// discTitles are the disc images' main titles FilmOf has read.
 	discTitles discTitles
+	// cutDownIndexes are the long-indexed MP4s' indexes FilmOf has read, laid out for cutting down.
+	cutDownIndexes cutDownIndexes
+	// cutDownFromBytes is the least movie box FilmOf cuts down: cutDownMinMoovBytes, a test's less.
+	cutDownFromBytes int64
 
 	stuck stuckProcesses
 }
@@ -147,7 +151,7 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 	return &Runner{
 		directory: directory, shim: shim, clock: clock.System{}, watchTicks: systemWatchTicks,
 		quitGrace: defaultQuitGrace, termGrace: defaultTermGrace, killGrace: defaultKillGrace,
-		sampleGroup: sampleGroup, signalRun: signalRun,
+		sampleGroup: sampleGroup, signalRun: signalRun, cutDownFromBytes: cutDownMinMoovBytes,
 		stuck: stuckProcesses{byPID: map[int]StuckProcess{}},
 	}, nil
 }

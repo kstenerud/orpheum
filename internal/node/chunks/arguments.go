@@ -234,6 +234,12 @@ func readEndMs(command nodeproto.MakeChunks) int64 {
 	return end
 }
 
+// StretchOf is the stretch of its film a run reads: from its seek to where it stops reading, to which
+// a long MP4 index is cut down (execx.OpenedFilm.Stretch, D512).
+func (*Maker) StretchOf(command nodeproto.MakeChunks) execx.Stretch {
+	return execx.Stretch{FromMs: seekMs(command), ToMs: readEndMs(command)}
+}
+
 // retimingFilter is FFmpeg's bitstream filter that rebuilds an H.264 or HEVC picture's display times
 // from its slice headers' picture order count, without decoding it.
 const retimingFilter = "dts2pts"

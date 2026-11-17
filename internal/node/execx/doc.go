@@ -101,6 +101,16 @@
 //     TestFilmOf_ADVDsSoundThatDoesNotCarryOnIsLogged.
 //   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
 //     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
+//   - A run of chunks of a streamed MP4, M4V or MOV whose movie box is at least cutDownMinMoovBytes
+//     is served the film with its index cut down to the run's stretch and a minute either side, its
+//     index read once a file; a probe, a run that reads the film whole, a smaller index and another
+//     container are served the file as it is (D512).
+//     TestFilmOf_ARunOfChunksOfALongIndexedMP4IsServedItsIndexCutDown.
+//   - An index it does not cut down is served whole and logged once a file, with why.
+//     TestFilmOf_AnMP4WhoseIndexIsNotCutDownIsLoggedOnceWithWhy.
+//   - The chunks of a run of a film served cut down are the whole film's, byte for byte, by the
+//     pinned FFmpeg: a copied picture and sound, an encoded picture and sound.
+//     TestFilmOf_AFilmServedCutDownMakesTheChunksOfTheWholeFilm.
 //
 // # Read before changing
 //
@@ -110,6 +120,7 @@
 //   - D190 §4: the fake ffmpeg fixture asserts the arguments and environment.
 //   - D233 §5, §10: a stall classified, and a process that outlives its kill.
 //   - D350: a disc image plays its main title, served through fdproxy.
+//   - D512: a chunk run of an MP4 with a long index is served the index cut down.
 //   - docs/contributors/design/plans/cut-a.md §7.
 //
 // # Where to change
@@ -118,7 +129,8 @@
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
 //     pause.go: pausing a watched run for play-driven work. film.go: a run's film, by path or
 //     served through the node (internal/node/fdproxy), and whether FFmpeg can be served one.
-//     disc.go: a disc image's main title as a run's film.
+//     disc.go: a disc image's main title as a run's film. cutdown.go: a film's index cut down to
+//     a run's stretch.
 //     proc_linux.go: reading a process group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.

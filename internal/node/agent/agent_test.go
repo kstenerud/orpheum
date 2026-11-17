@@ -767,3 +767,7 @@ func TestStatus_SaysNothingOfWhatTheNodeUsesWhenItCannotRead(t *testing.T) {
 		t.Errorf("the status's use of the machine = %+v, want none", got)
 	}
 }
+
+func (stopWatchingChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+func (releasedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }

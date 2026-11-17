@@ -43,6 +43,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Back in the browser on a phone after another app: a moment of the page, about 7 s of black, then drawn again; a film page said a failure the app does not expect. | [A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected](#a-phone-freezes-a-page-in-the-background-and-hands-it-back-with-its-webrtc-connection-still-saying-connected) |
 | On a phone in the player, about half the taps on the film paused it, though a touch's click was meant to do nothing there. | [Some mobile browsers give a tap's click a mouse's pointerType, or none](#some-mobile-browsers-give-a-taps-click-a-mouses-pointertype-or-none) |
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
+| A seek in a very long MP4 (file 15497, 45 h) waited 5–8 s before its first chunk. | [FFmpeg's MP4 demuxer parses the whole index at every open, and says a stream's bit rate from all of it](#ffmpegs-mp4-demuxer-parses-the-whole-index-at-every-open-and-says-a-streams-bit-rate-from-all-of-it) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
@@ -3561,6 +3562,23 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[web]** FFmpeg trac #1438, "Seeking in vob file with timestamp discontinuities fails"; ffmpeg-devel
   2011-03, "DVD (MPEG2 Program Stream) with resetting DTS/PTS & SCR"; `libavformat/dvdvideodec.c`
   (`ptm_discont`, `ptm_offset`).
+
+### FFmpeg's MP4 demuxer parses the whole index at every open, and says a stream's bit rate from all of it
+
+- **Technology:** FFmpeg's `mov` demuxer (8.1.3-Jellyfin, pinned).
+- **Symptom:** every run of file 15497, a 45.6 h MP4 with a 179 MB `moov` at its end, spent 4.0–4.7 s
+  on production before its first packet, the picture run and the sound run each, whatever the seek.
+- **Cause:** `mov_read_header` reads and expands every sample table of the movie box before it
+  seeks; holding the bytes in memory does not help. Some of what it then says comes from the whole
+  table: a stream's `bit_rate` is its samples' sizes added up over its whole duration (zero when all
+  are one size), which a copy writes in its init's `btrt` and `esds`; its `dts_shift` is the least
+  composition offset of every ctts entry but the last two; a ctts offset past 2^28 drops the table.
+- **What we do:** a chunk run is served the file with its index cut down to its stretch, the bytes
+  and duration cut away kept in a tail chunk no run reads, and a stretch whose least offset is not
+  the track's falls back to the whole file (D512; `internal/node/container/trim.go`).
+- **Evidence:** measured 2026-11-17 on production and in the sandbox (D512);
+  **[source]** `libavformat/mov.c` (`mov_read_trak`'s `bit_rate` from `data_size`,
+  `mov_update_dts_shift`, `mov_read_ctts`).
 
 ## Linux networking: netem, tc, loopback, BBR, iproute2
 

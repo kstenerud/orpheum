@@ -25,6 +25,14 @@ type Films interface {
 // checked, through its disk's gate, or by its path. A disc image's film is its main title, which only
 // a streamed run reads (D350). The caller calls done once the run has ended.
 func (agent *Agent) openFilm(ctx context.Context, named nodeproto.BytesFile) (film execx.Film, done func(), err error) {
+	return agent.openFilmFor(ctx, named, nil)
+}
+
+// openFilmFor is openFilm for a run that reads only stretch of the film, a run of chunks, its long
+// MP4 index cut down to it (execx.OpenedFilm.Stretch, D512); nil for a run that reads it whole.
+func (agent *Agent) openFilmFor(
+	ctx context.Context, named nodeproto.BytesFile, stretch *execx.Stretch,
+) (film execx.Film, done func(), err error) {
 	file, facts, err := agent.openNamed(ctx, named)
 	if err != nil {
 		return execx.Film{}, nil, err
@@ -43,7 +51,7 @@ func (agent *Agent) openFilm(ctx context.Context, named nodeproto.BytesFile) (fi
 	window := cmp.Or(agent.workers.OpenStallWindow, defaultOpenStallWindow)
 	film, err = agent.workers.Films.FilmOf(ctx, path, execx.OpenedFilm{
 		File: file, Facts: facts, Disks: agent.diskGate, Root: agent.gateRootOf(named.RootPath), Window: window,
-		IsDiscImage: isDiscImage,
+		IsDiscImage: isDiscImage, Stretch: stretch,
 	}, execx.ReadsWholeFilm)
 	if err != nil {
 		readonly.Close(file)

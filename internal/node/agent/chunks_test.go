@@ -200,8 +200,9 @@ func checkLogLine(t *testing.T, line string, parts ...string) {
 }
 
 // A run of chunks, however it ends, is logged with the chunks it made, the film they span, the wall
-// time it took, its speed and the time to its first chunk: whether a run keeps ahead of a player who
-// seeks into it (playback-in-practice.md §3).
+// time it took, its speed, the time to open its film and to its first chunk: whether a run keeps
+// ahead of a player who seeks into it (playback-in-practice.md §3), and how much of its start is
+// FFmpeg's (D512).
 func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
@@ -232,7 +233,8 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	receiveChunksReport(t, core)
 	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFinished"), `"level":"INFO"`, `"jobId":1,`,
 		`"storeDir":"1/chunks-picture/0123456789abcdef"`, `"firstChunk":4,`, `"lastChunk":6,`, `"chunksMade":3,`,
-		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
+		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"filmOpenedAfterMs":0,`,
+		`"firstChunkAfterMs":600`)
 	core.sendMakeChunks(2, run("1/chunks-failing/0123456789abcdef"))
 	receiveChunksReport(t, core)
 	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFailed"), `"level":"WARN"`,
@@ -278,3 +280,7 @@ func TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares(t *testin
 		t.Errorf("three runs of one unchanged film computed %d payload hashes; want 1", computed)
 	}
 }
+
+func (fakeChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }
+
+func (pacedChunkMaker) StretchOf(nodeproto.MakeChunks) execx.Stretch { return execx.Stretch{} }

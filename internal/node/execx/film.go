@@ -49,6 +49,9 @@ type Film struct {
 	// Disc, when the film is a disc image, is its main title, what the run is served of it (D350):
 	// Size is then the title's.
 	Disc *disc.Title
+	// IsIndexCutDown is that the film is served with its MP4 index cut down to its run's stretch
+	// (OpenedFilm.Stretch, D512).
+	IsIndexCutDown bool
 }
 
 // Input names the film as a run's input: by path (FileInput), or streamed (StreamedInput).
@@ -129,6 +132,9 @@ type OpenedFilm struct {
 	Window time.Duration
 	// IsDiscImage is a DVD's or a Blu-ray's image (disc.IsImageName), whose main title is the film.
 	IsDiscImage bool
+	// Stretch, set only for a run of chunks, is the stretch of the film it reads, to which a streamed
+	// MP4's long index is cut down (D512); a run that reads the whole film leaves it nil.
+	Stretch *Stretch
 }
 
 // StreamFilms has the runner stream every film to the run that reads it from now on (D330): its
@@ -139,7 +145,8 @@ func (runner *Runner) StreamFilms() { runner.streamsFilms.Store(true) }
 // as reading: served from the opened file through its disk's gate when the runner streams films, the
 // run given no path to it; by its path otherwise. A disc image's film is its main title, served from
 // the image's runs that hold it, which only a streamed run can be (ErrDiscNeedsStreaming, D350 §3);
-// an image whose title cannot be read is the error that says why. The caller closes the file once
+// an image whose title cannot be read is the error that says why. A run of chunks of a long-indexed
+// MP4 is served it with its index cut down to the run's stretch (cutDown, D512). The caller closes the file once
 // the run has ended.
 func (runner *Runner) FilmOf(ctx context.Context, path string, opened OpenedFilm, reading FilmReading) (Film, error) {
 	film := Film{Path: path, Size: opened.Facts.Size()}
@@ -158,6 +165,8 @@ func (runner *Runner) FilmOf(ctx context.Context, path string, opened OpenedFilm
 			return Film{}, err
 		}
 		film.Disc, film.Size, source = &title, title.SizeBytes(), titleSource{image: source, title: title}
+	} else if opened.Stretch != nil {
+		source, film.IsIndexCutDown = runner.cutDown(ctx, path, opened.Facts, source, *opened.Stretch)
 	}
 	film.Stream = &fdproxy.Config{
 		Run:             runner.filmRuns.Add(1),

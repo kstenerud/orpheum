@@ -18,6 +18,9 @@ import (
 // store, and returns the last it made, or -1; chunks.Maker is the real one.
 type ChunkMaker interface {
 	Make(ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int)) (int, error)
+	// StretchOf is the stretch of its film the run reads, to which the film's long index is cut down
+	// (execx.OpenedFilm.Stretch, D512).
+	StretchOf(command nodeproto.MakeChunks) execx.Stretch
 }
 
 // chunksWork is a run of chunks held until a slot of its kind is free, an encode's for a quality
@@ -53,16 +56,20 @@ func (agent *Agent) chunksWork(
 	}}
 }
 
-// chunksRunTimes are when a run of chunks started, and when it made its first chunk, zero until it
-// does.
+// chunksRunTimes are when a run of chunks started, when its film was opened and when it made its
+// first chunk, each zero until it is; and whether its film's index was cut down, which is what makes
+// a long-indexed MP4's first chunk quick (D512).
 type chunksRunTimes struct {
-	startedAt, firstChunkAt time.Time
+	startedAt, openedAt, firstChunkAt time.Time
+	isIndexCutDown                    bool
 }
 
 // chunksRunFigures are a run's numbers for its log line: the chunks it made, the film they span and
 // the wall time it took, both in ms, its speed as film made per wall time (6.2 is 6.2 times real
-// time), and how long it took to make its first chunk. Whether a run keeps ahead of a player who
-// seeks into it was found only by reading the code (playback-in-practice.md §3, 2026-10-06).
+// time), how long it took to open its film and to make its first chunk, the time between them
+// FFmpeg's to its first output, and whether its film's index was cut down (D512). Whether a run
+// keeps ahead of a player who seeks into it was found only by reading the code
+// (playback-in-practice.md §3, 2026-10-06).
 func (agent *Agent) chunksRunFigures(
 	command nodeproto.MakeChunks, report nodeproto.MakeChunksReport, times chunksRunTimes,
 ) []any {
@@ -76,8 +83,14 @@ func (agent *Agent) chunksRunFigures(
 	if filmMadeMs > 0 && wallTimeMs > 0 {
 		figures = append(figures, "speed", math.Round(float64(filmMadeMs)/float64(wallTimeMs)*10)/10)
 	}
+	if !times.openedAt.IsZero() {
+		figures = append(figures, "filmOpenedAfterMs", times.openedAt.Sub(times.startedAt).Milliseconds())
+	}
 	if !times.firstChunkAt.IsZero() {
 		figures = append(figures, "firstChunkAfterMs", times.firstChunkAt.Sub(times.startedAt).Milliseconds())
+	}
+	if times.isIndexCutDown {
+		figures = append(figures, "indexCutDown", true)
 	}
 	return figures
 }
@@ -96,7 +109,8 @@ func (agent *Agent) runChunks(
 	if agent.workers.ChunkMaker == nil {
 		return refused(errors.New("this node does not make chunks"))
 	}
-	source, closeSource, err := agent.openFilm(ctx, command.Video)
+	stretch := agent.workers.ChunkMaker.StretchOf(command)
+	source, closeSource, err := agent.openFilmFor(ctx, command.Video, &stretch)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.MakeChunksReport{State: nodeproto.RunStalled, LastChunk: -1, Stall: stall}
 	}
@@ -104,6 +118,7 @@ func (agent *Agent) runChunks(
 		return refused(err)
 	}
 	defer closeSource()
+	times.openedAt, times.isIndexCutDown = agent.clock.Now(), source.IsIndexCutDown
 	onChunk := func(n int) {
 		if times.firstChunkAt.IsZero() {
 			times.firstChunkAt = agent.clock.Now()

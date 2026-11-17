@@ -118,6 +118,8 @@
 //     its path, as before. TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt.
 //     A disc image's run is served its main title, and refused on a node that cannot stream it
 //     (D350). TestAgent_ARunOfADiscImageIsServedItsMainTitle.
+//     A run of chunks opens its film for the stretch its chunk maker says it reads, to which a long
+//     MP4 index is cut down (D512). TestAgent_ARunOfChunksOpensItsFilmForTheStretchItReads.
 //   - A frame still is taken of the video the core named, so checked and served, at the stream and
 //     place the command says; the still is hashed and re-encoded as an image beside the media is,
 //     and a video with no frame says so (D362). TestAgent_TakesAStillFromTheVideoTheCoreNamedAndReEncodesIt.
