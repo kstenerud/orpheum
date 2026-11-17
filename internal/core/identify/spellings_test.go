@@ -33,6 +33,14 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 		{"Pale and Kind", []string{"Pale & Kind", "The Pale and Kind"}},
 		{"Show & Tell", []string{"Show and Tell", "The Show & Tell"}},
 		{"Band of Brothers", []string{"The Band of Brothers"}},
+		// A "Movie" ending a name is searched without it, its "The" and dash with it; one ending a
+		// word is not the word, and a name all "Movie" keeps it (D513 §4).
+		{"Kestrel Point - The Movie", []string{"The Kestrel Point - The Movie", "Kestrel Point"}},
+		{"Kestrel Point Movie", []string{"The Kestrel Point Movie", "Kestrel Point"}},
+		{"The Kestrel Point: Movie", []string{"Kestrel Point: Movie", "The Kestrel Point"}},
+		{"Kestrel Breathe Movie", []string{"The Kestrel Breathe Movie", "Kestrel Breathe"}},
+		{"Kestrel Moviemovie", []string{"The Kestrel Moviemovie"}},
+		{"The Movie", []string{"Movie"}},
 		// A name every way changes is searched every way.
 		{"The Colour and the Shape II", []string{
 			"The Color and the Shape II", "The Colour & the Shape II", "Colour and the Shape II",
@@ -109,6 +117,42 @@ func TestMatch_ASearchInTheYearThatFindsNothingIsMadeOnceMoreWithNone(t *testing
 	}{
 		"Harbour Lantern (2004).mkv": {identify.OutcomeMatched, "41"},
 		"Velvet Static (2004).mkv":   {identify.OutcomeAmbiguous, ""},
+	}
+	var records []nodeproto.ScanRecord
+	for path := range files {
+		records = append(records, videoRecord(path))
+	}
+	lib.scan(records...)
+	for path, want := range files {
+		if outcome := lib.matchFileTitle(path); outcome != want.outcome {
+			t.Errorf("%s: outcome %s; want %s", path, outcome, want.outcome)
+		}
+		if id, _ := lib.followed(path); id != want.id {
+			t.Errorf("%s follows %q; want %q", path, id, want.id)
+		}
+	}
+}
+
+// D513 §4: a film whose file's name finds nothing is found by the name without its "Movie", as
+// staging's titles/170 is, and else by its folder's name where the folder names another work, as
+// titles/184 is; a file at the library's root has no folder to search.
+func TestMatch_AFilmItsNameFindsNotIsFoundWithoutItsMovieOrByItsFolder(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Kestrel Point", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "51", Name: "Kestrel Point", Year: 2011}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Harbour Lantern", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "52", Name: "Harbour Lantern", Year: 2013}),
+	}
+	const kestrel, harbour = "Kestrel Point", "Harbour Lantern"
+	files := map[string]struct {
+		outcome identify.Outcome
+		id      string
+	}{
+		"[OSPREY] " + kestrel + " - The Movie [BD 1080p].mkv":           {identify.OutcomeMatched, "51"},
+		harbour + "/[OSPREY] " + harbour + " Gekijouban [BD 1080p].mkv": {identify.OutcomeMatched, "52"},
+		"[OSPREY] " + harbour + " Gekijouban Two [BD 1080p].mkv":        {identify.OutcomeNoMatch, ""},
 	}
 	var records []nodeproto.ScanRecord
 	for path := range files {

@@ -29949,5 +29949,6 @@ to series.
 - 1: internal/core/identify/series_test.go (TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake)
 - 2: internal/core/identify/filename_test.go (TestParsePath_ASeriesFolderWithNoYearTakesOneFromANameBeneathIt)
 - 3: internal/core/identify/spellings_test.go (TestMatch_ASearchInTheYearThatFindsNothingIsMadeOnceMoreWithNone)
+- 4: internal/core/identify/spellings_test.go (TestMatch_AFilmItsNameFindsNotIsFoundWithoutItsMovieOrByItsFolder, TestSpellingVariants_AreTheOtherWaysANameIsWritten)
 
-**Status:** §1–§3 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`; §4–§5 not built, §5 waiting for its schema step.
+**Status:** §1–§4 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`, and "fix(identify): a film whose name finds nothing is searched without its Movie, then by its folder", at `withoutTrailingMovie` and `searchTitle`; §5 not built, waiting for its schema step.

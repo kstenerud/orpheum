@@ -91,7 +91,8 @@ func (matcher *Matcher) settledFromFiles(
 	if id != "" {
 		return settlement{chosen: Candidate{ID: id}, how: clearly, rule: settledByIDInHand}, nil
 	}
-	query, candidates, err := searchWithSpellings(ctx, provider, Query{Kind: kind, Name: said.name, Year: said.year})
+	query, candidates, err := matcher.searchTitle(ctx, provider, itemID,
+		Query{Kind: kind, Name: said.name, Year: said.year})
 	if err != nil {
 		return settlement{}, err
 	}

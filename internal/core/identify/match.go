@@ -102,7 +102,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if id != "" {
 		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identificationIdentified)
 	}
-	query, candidates, err := searchWithSpellings(ctx, provider,
+	query, candidates, err := matcher.searchTitle(ctx, provider, title.ID,
 		Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(ptr.ValueOrZero(title.Year))})
 	if err != nil {
 		return "", err

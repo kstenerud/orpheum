@@ -183,12 +183,8 @@ func (work reportedWork) markdown(version string, at time.Time, files []sqlcgen.
 
 // relative is a path below the library's folder that holds it, or the path as it is under none.
 func (work reportedWork) relative(path string) string {
-	for _, root := range work.roots {
-		if rest, isUnder := strings.CutPrefix(path, strings.TrimSuffix(root, "/")+"/"); isUnder {
-			return rest
-		}
-	}
-	return path
+	relative, _ := belowRoots(path, work.roots)
+	return relative
 }
 
 // readAs is what the parser reads from a path in the work's library, as the pass would.

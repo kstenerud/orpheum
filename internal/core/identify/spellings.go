@@ -9,23 +9,26 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // spellingVariantsAtMost is how many other spellings of a name a match searches for when the
 // provider found no work of the name itself: a request each, made only for a name already failing,
 // and one for each way spellingVariants changes a name.
-const spellingVariantsAtMost = 4
+const spellingVariantsAtMost = 5
 
 // spellingVariants are other ways a name may be written that the provider's search, which matches
 // words as they are spelled, would not find from it (the owner's staging, 2026-10-21, where TMDB has
 // the owner's series in its British spelling and a search in the American never finds it): the
 // other side of the Atlantic's spelling, its "and" as "&" or its "&" as "and", the name with its
-// leading article or without one, and its numbers as Roman or Arabic numerals. Each is the whole
-// name changed one way; none is the name.
+// leading article or without one, its numbers as Roman or Arabic numerals, and, last, the name
+// without a "Movie" ending it (withoutTrailingMovie). Each is the whole name changed one way; none
+// is the name.
 func spellingVariants(name string) []string {
 	var variants []string
 	for _, variant := range []string{
 		atlanticSpelling(name), otherConjunction(name), otherArticle(name), otherNumerals(name),
+		withoutTrailingMovie(name),
 	} {
 		if variant != "" && variant != name {
 			variants = append(variants, variant)
@@ -166,6 +169,44 @@ func otherNumerals(name string) string {
 		return ""
 	}
 	return changed
+}
+
+// withoutTrailingMovie is name without the word "Movie", "The Movie" or "- Movie" ending it, as a
+// release names a film of a series ("Kestrel Point - The Movie" is TMDB's "Kestrel Point": staging's
+// titles/170, D513 §4), or "" when no such word ends it or no name would be left.
+func withoutTrailingMovie(name string) string {
+	rest, isCut := cutLastWord(name, "movie")
+	if !isCut {
+		return ""
+	}
+	if before, isThe := cutLastWord(strings.TrimRightFunc(rest, isNameSeparator), "the"); isThe {
+		rest = before
+	}
+	rest = strings.TrimRightFunc(rest, isNameSeparator)
+	if !strings.ContainsFunc(rest, unicode.IsLetter) || strings.EqualFold(rest, "the") {
+		return ""
+	}
+	return rest
+}
+
+// cutLastWord is text before word, in any case, where word is its last word after a separator
+// (isNameSeparator), and whether it is.
+func cutLastWord(text, word string) (string, bool) {
+	if len(text) <= len(word) || !strings.EqualFold(text[len(text)-len(word):], word) {
+		return text, false
+	}
+	before := text[:len(text)-len(word)]
+	last, _ := utf8.DecodeLastRuneInString(before)
+	if !isNameSeparator(last) {
+		return text, false
+	}
+	return before, true
+}
+
+// isNameSeparator is whether a character parts a name's words: a space, a dash, a dot, a colon or an
+// underscore.
+func isNameSeparator(character rune) bool {
+	return unicode.IsSpace(character) || unicode.Is(unicode.Pd, character) || strings.ContainsRune(".:_", character)
 }
 
 // mapWords is name with each run of letters and digits replaced by change's word for it, the rest
