@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { afterFirstPiece } from "./abr-choice.ts";
 import { FirstPieces, firstPiecesKept } from "./first-piece.ts";
+import { shapeChunkLoads } from "./link-shaping.ts";
 import {
   chunkAt,
   choosingFrom,
@@ -103,5 +104,22 @@ describe("the first piece of each load (FirstPieces)", () => {
     }
     expect(pieces.of("/c/0.m4s")).toBeUndefined();
     expect(pieces.of(`/c/${String(firstPiecesKept)}.m4s`)).toEqual({ atMs: 0, bytes: 1 });
+  });
+
+  // Under the cap, a chunk's first piece came on the real link, 100–220 KB of a 1.6 MB chunk at
+  // once, and every chunk given up at 300 kb/s had too few bytes after it to measure the link, its
+  // film held at its top quality (staging, 2026-11-17).
+  it("is none while the debug cap shapes the loads: its bytes are the cap's, not the real link's", () => {
+    const pieces = new FirstPieces(() => 10);
+    const request = new Request();
+    pieces.follow(request, "/c/1.m4s");
+    request.progress(150_000);
+    shapeChunkLoads({ capKbps: () => 300, isDropped: () => false });
+    try {
+      expect(pieces.of("/c/1.m4s")).toBeUndefined();
+    } finally {
+      shapeChunkLoads(undefined);
+    }
+    expect(pieces.of("/c/1.m4s")).toEqual({ atMs: 10, bytes: 150_000 });
   });
 });

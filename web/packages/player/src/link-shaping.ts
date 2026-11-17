@@ -42,6 +42,11 @@ const link = { busyUntilMs: 0 };
 /** How often a held load's stats move on, in ms: as hls.js's own progress events would. */
 export const shapedProgressEveryMs = 100;
 
+/** Whether a cap shapes the tab's chunk loads (D380). */
+export function isLinkCapped(): boolean {
+  return shaping.capKbps() !== undefined;
+}
+
 /** Has every chunked playback of the tab shaped by given, as a debug tool sets it (D380). */
 export function shapeChunkLoads(given: LinkShaping | undefined): void {
   shaping = given ?? unshaped;

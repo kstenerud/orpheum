@@ -9,6 +9,7 @@
  */
 
 import type { FirstPiece } from "./abr-choice.ts";
+import { isLinkCapped } from "./link-shaping.ts";
 
 /** How many loads' first pieces are kept, the latest: more than hls.js has on its way at once. */
 export const firstPiecesKept = 16;
@@ -52,6 +53,13 @@ export class FirstPieces {
     request.addEventListener("progress", onProgress);
   }
 
-  /** The first piece of the latest load of url; undefined before it came, or for one not followed. */
-  readonly of = (url: string): FirstPiece | undefined => this.#pieces.get(url);
+  /**
+   * The first piece of the latest load of url; undefined before it came, for one not followed, or
+   * while the debug cap shapes the loads (isLinkCapped): the piece came on the real link and the
+   * cap's bytes come after it, and a piece of 100–220 KB of a 1.6 MB chunk left every chunk given
+   * up at 300 kb/s too few bytes after it to measure the link, its film held at its top quality
+   * (staging, 2026-11-17).
+   */
+  readonly of = (url: string): FirstPiece | undefined =>
+    isLinkCapped() ? undefined : this.#pieces.get(url);
 }
