@@ -29771,6 +29771,11 @@ widens from frame stills to every record that points into a cache.
    the cache itself is lost with it, and is made again the ordinary way.
 5. **Where the schema does not fit this, the schema changes** (a migration), rather than the healing
    being bent to fit it.
+6. **A folder only the system library covers never holds its removals for an admin** (the owner's
+   go of 2026-11-17, "OK, do both of those now.", on the lead's report): a system video removed is
+   made again, as a lost disk's films are not, whatever changed on the folder's device or mount. The
+   same go narrows the one-choice index to live rows (step 0089), so a choice retired with its lost
+   image never refuses a new one.
 
 **Proven by:**
 - 1: TestHandle_AProviderImageWhoseImageWentWhileRunningIsFetchedAgainAndNotNoted,
@@ -29787,6 +29792,8 @@ widens from frame stills to every record that points into a cache.
   held base stays)
 - 5: TestRecord_APersonsChoiceTheCacheLostIsChosenAgainWhenStoredAgain (the schema fitted: the choice
   moves to the row stored again, so no migration was needed)
+- 6: TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain (internal/core/library/systemvideos_test.go),
+  TestSchema_ARetiredChoiceDoesNotRefuseANewChoiceOfItsKind (internal/store/artwork_chosen_test.go)
 
 ## D511 — A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
 
