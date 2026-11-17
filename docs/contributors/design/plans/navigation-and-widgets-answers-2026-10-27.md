@@ -4456,3 +4456,11 @@ seek took 1.33–1.45 s, one 425 each: the chunk was ready in about half a secon
 asked again only when `Retry-After: 1` said to. With the open now this short, the second's wait is
 most of what is left of a seek; whether to answer sooner (a shorter Retry-After, or the request held
 until the chunk is ready) is the owner's question.
+
+**D512 on staging, idle (2026-11-17 21:27 UTC; the lead, by the API as lead-tests):** five seeks
+into the same file at fifteen hundredths, thirty-five, fifty-five, seventy-five and ninety-five
+hundredths, points not sought before (a first try at the earlier points found their chunks already
+made, 0.12–0.16 s, no 425), once the rescan had settled (load average 0.24). Every run was served
+its index cut down; the film opened in 6–12 ms and the first chunk came 0.22–0.59 s after the run's
+slot, the same as under load. From the client each seek took 1.25–1.37 s, one 425 each: as under
+load, the second of `Retry-After: 1` is most of a seek.
