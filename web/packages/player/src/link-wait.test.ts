@@ -26,6 +26,8 @@ interface DrivenLoad {
   readonly arrive: (bytes: number) => void;
   readonly succeed: () => void;
   readonly fail: () => void;
+  /** Its loader destroyed, its stats emptied, as hls.js's loaders do. */
+  readonly destroy: () => void;
 }
 
 /** A carrier whose loads the test drives, as hls.js's XMLHttpRequest loader keeps its stats. */
@@ -55,6 +57,9 @@ function drivenCarrier(): { readonly carrier: LoaderClass; readonly loads: Drive
         },
         fail: () => {
           callbacks.onError({ code: 425, text: "Too Early" }, context, null, stats);
+        },
+        destroy: () => {
+          Object.assign(this, { stats: null });
         },
       });
     }
@@ -172,6 +177,21 @@ describe("a wait for data, its chunks as they come over the link", () => {
     sound.head(5000, 50_000);
     clock.nowMs = 7000;
     expect(watch.read()).toEqual({ arrivedBytes: 50_000, neededBytes: 350_000, sinceHeadMs: 2000 });
+  });
+
+  // hls.js destroys a chunk's loader once it came, emptying its stats; each read threw (staging,
+  // 2026-11-17), and the bar showed no more.
+  it("reads no more the loader of a chunk all come, whose stats hls.js empties as it destroys it", () => {
+    const { waits, ask, clock } = waitsOnADrivenLink();
+    const watch = waits.watch();
+    const first = ask("/c/0.m4s", "main");
+    first.head(100, 1000);
+    first.arrive(1000);
+    first.succeed();
+    first.destroy();
+    ask("/c/1.m4s", "main").head(200, 3000);
+    clock.nowMs = 3200;
+    expect(watch.read()).toEqual({ arrivedBytes: 1000, neededBytes: 4000, sinceHeadMs: 3000 });
   });
 
   it("says nothing while one of its chunks is still being made, though another's head came", () => {

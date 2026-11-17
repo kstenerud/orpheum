@@ -126,15 +126,20 @@ function headOf(load: FollowedLoad): Head | undefined {
 export const headsKept = 32;
 
 /**
- * How much of load has come; undefined where its head has not come, or said no length. firstHead is
- * its chunk's head by an earlier load, where one came: a chunk asked again, whose wait counts from
- * that head, its own come or not (D506 §1).
+ * How much of load has come; undefined where its head has not come, or said no length. firstHeadOf
+ * says its chunk's head by an earlier load, where one came: a chunk asked again, whose wait counts
+ * from that head, its own come or not (D506 §1). It is asked only of a load on its way: one all come
+ * may have had its loader destroyed, whose stats hls.js then empties.
  */
-function arrivalOf(load: FollowedLoad, firstHead: Head | undefined): Arrival | undefined {
+function arrivalOf(
+  load: FollowedLoad,
+  firstHeadOf: (load: FollowedLoad) => Head | undefined,
+): Arrival | undefined {
   const { arrivedBytes } = load;
   if (arrivedBytes !== undefined) {
     return { arrivedBytes, neededBytes: arrivedBytes, headAtMs: Number.NEGATIVE_INFINITY };
   }
+  const firstHead = firstHeadOf(load);
   const head = headOf(load);
   const length = head?.length ?? firstHead?.length;
   const headAtMs = firstHead?.atMs ?? head?.atMs;
@@ -151,7 +156,7 @@ function linkWaitOf(
 ): LinkWait | undefined {
   let sums: Arrival = { arrivedBytes: 0, neededBytes: 0, headAtMs: Number.NEGATIVE_INFINITY };
   for (const load of loads) {
-    const arrival = arrivalOf(load, firstHeadOf(load));
+    const arrival = arrivalOf(load, firstHeadOf);
     if (arrival === undefined) {
       return undefined;
     }
