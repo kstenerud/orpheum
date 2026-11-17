@@ -4366,3 +4366,13 @@ The lead's proposals, for the owner:
 4. On the owner's sequence: the 425 is "preparing", the head is "about to send" and the bytes
    follow, so a seek already has the three. What it lacks is the dialog telling the server's
    preparing apart from the link, which (1) fixes.
+
+The owner's answers (2026-11-17): (1) and (2) are folded into the current batch ("Sure, fold them
+in"), and are on main: "the too-slow dialog counts only the link's wait, never the server's 425s"
+and "a seek made while the film is meant to play is said to the core as playing". On a faster seek
+in such a file the owner asked whether our own index could be used rather than FFmpeg reading the
+file's. The lead's options: a run served a virtual MP4 through fdproxy whose index covers only the
+stretch around the seek (as a DVD's title is served, D350, D404; `container/keyframes.go` refuses a
+`moov` over 64 MB today), or the index's bytes served from memory. "Agreed we should measure first";
+making far ahead once a run is open is not wanted until the measurement says what slows it ("I'm
+not so sure about option 2. Let's wait and see what is slowing things down").
