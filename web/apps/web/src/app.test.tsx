@@ -41,6 +41,8 @@ const backgroundAnswers: Answers = {
   "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
   // And whether failures of unknown cause pile up (unknown-failures-note.tsx): none do.
   "GET /unknown-failures/alerts": [200, { alerts: [] }],
+  // And, on Needs attention, the failures themselves (unknown-failures.tsx): none.
+  "GET /unknown-failures": [200, { at: 0, kinds: [], startId: "a start" }],
   "GET /client-settings": [
     200,
     {
