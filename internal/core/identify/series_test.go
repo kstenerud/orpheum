@@ -193,6 +193,43 @@ func TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt(t *test
 	}
 }
 
+// D513 §1: of several series of a folder's name with no year, the well-known is guessed as a film's
+// is (D412): one with ten times another's votes over an older namesake, and, votes not deciding,
+// one whose original name is the folder's over an older one so named only in translation; the
+// oldest only after (staging's series/1815, matched to an older series under a translated name with
+// no votes, the right one's 120).
+func TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake(t *testing.T) {
+	t.Parallel()
+	for _, each := range []struct {
+		name                   string
+		olderVotes, newerVotes int
+		olderOriginal, wantID  string
+		why                    string
+	}{
+		{"Copper Sound", 0, 120, "Copper Sound", "2", "the newer, ten times as voted and more"},
+		{"Copper Sound", 40, 120, "Kupferklang", "2", "the newer, its original name the folder's"},
+		{"Copper Sound", 40, 120, "Copper Sound", "1", "the older, votes and names not deciding"},
+	} {
+		lib := newTestLibrary(t, "series", "tmdb")
+		older := lib.provider.Add(identify.Metadata{
+			ID: "1", Name: each.name, OriginalName: each.olderOriginal, Year: 1994,
+		})
+		newer := lib.provider.Add(identify.Metadata{ID: "2", Name: each.name, OriginalName: each.name, Year: 2008})
+		older.Votes, newer.Votes = each.olderVotes, each.newerVotes
+		lib.provider.Searches[identifytest.SearchKey(each.name, 0)] = []identify.Candidate{older, newer}
+		lib.scanAll(each.name + "/Season 2/" + each.name + " - S02E01.mkv")
+		series := lib.onlySeries()
+		if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeMatched {
+			t.Fatalf("Match = %s, %v; want a guess", outcome, err)
+		}
+		if got := ptr.ValueOrZero(lib.onlySeries().FollowedSourceID); got != each.wantID || !lib.isGuessed(series.ID) {
+			t.Errorf("votes %d and %d, the older named %q: follows %q, guessed %t; want %s, guessed: %s",
+				each.olderVotes, each.newerVotes, each.olderOriginal, got, lib.isGuessed(series.ID), each.wantID,
+				each.why)
+		}
+	}
+}
+
 func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "series", "nfo_then_tmdb")

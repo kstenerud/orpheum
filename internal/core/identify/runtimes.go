@@ -130,7 +130,7 @@ func (matcher *Matcher) logFilmSettled(
 	if query.Kind != KindMovie || len(admitted) < 2 {
 		return
 	}
-	for _, candidate := range rankFilms(query, admitted, fit.lengths) {
+	for _, candidate := range rankCandidates(query, admitted, fit.lengths) {
 		matcher.logger.InfoContext(ctx, "a film's candidate",
 			slogx.EventKey, "filmCandidate",
 			"itemId", titleID, "candidate", candidate.ID,

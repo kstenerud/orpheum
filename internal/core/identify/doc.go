@@ -151,7 +151,10 @@
 //     candidates and is marked until a person chooses, whose choice clears it and drops a series'
 //     season listings, so its episodes are the chosen series' (D301).
 //     TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne,
-//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. A film's candidates are
+//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. A series' with no year
+//     are ranked in a film's no-year order below but for runtimes: votes by ten times, then its
+//     original name, then the oldest (D513 §1).
+//     TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake. A film's candidates are
 //     ranked otherwise (settle_film.go, D365, D412). A year in its name admits a year either side;
 //     those whose runtime fits one of its files' lengths, within the larger of 3 minutes and 3% of
 //     it, come first, then the rest, an unknown runtime ranking with a contradicted one (D412 §2);

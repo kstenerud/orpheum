@@ -29945,4 +29945,7 @@ to series.
    version a "not found" was recorded under has nowhere to live without a schema change (a column
    of item, step 0091), whose golden is the owner's.
 
-**Status:** not built (2026-11-17): §1–§4 are next, and §5 waits for its schema step.
+**Proven by:**
+- 1: internal/core/identify/series_test.go (TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake)
+
+**Status:** §1 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`; §2–§5 not built, §5 waiting for its schema step.

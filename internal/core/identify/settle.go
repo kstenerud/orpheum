@@ -31,9 +31,9 @@ const (
 // ("Show 2 The Return" is TMDB's "Show 2", 1981). One candidate in a tier is a clear
 // winner, but for a film with no year, which is a guess. Several are settled by a guess (the
 // owner's NAS, 2026-10-15, where 85 titles waited for a choice, many plain to them): with no year
-// the oldest, with one the most voted (the better-known of two same-named films from 1992), and TMDB's order
-// after. With no candidate named as the query, a work released under another name is guessed
-// (underAnotherName, D307 §1).
+// the well-known first, as a film's (likeliestSeries, D513 §1), with one the most voted (the
+// better-known of two same-named films from 1992), and TMDB's order after. With no candidate named
+// as the query, a work released under another name is guessed (underAnotherName, D307 §1).
 //
 // A film's candidates are settled otherwise (settleFilm, D365): by how their runtimes fit its files'
 // lengths, which a series' search passes none of.
@@ -80,7 +80,7 @@ func settleMatchSaying(
 		case len(found) == 1 && (query.Year != 0 || !isYearExpected):
 			return found[0], clearly, tierRules()[index]
 		case len(found) == 1 || len(found) > 1 && index != yearOffTier:
-			return likeliest(found, query.Year == 0), byGuess, tierRules()[index]
+			return likeliestSeries(query, found), byGuess, tierRules()[index]
 		case len(found) > 1:
 			// Several a year off the file's are none of its year: a person's choice (D301 §1).
 			return Candidate{}, unsettled, settledByNothing
@@ -155,6 +155,17 @@ func underAnotherName(query Query, candidates []Candidate) (Candidate, bool) {
 
 // yearOffTier is matchTiers' tier of a year one off, whose several are never guessed between.
 const yearOffTier = 1
+
+// likeliestSeries is the guess among a series' candidates whose names all match: with no year, a
+// film's no-year order but for runtimes (rankCandidates; D412, D513 §1), the well-known first by
+// votes by a wide margin, then the one whose original name is the query's, then the oldest; with
+// one, the most voted (D301).
+func likeliestSeries(query Query, found []Candidate) Candidate {
+	if query.Year == 0 {
+		return rankCandidates(query, found, nil)[0]
+	}
+	return likeliest(found, false)
+}
 
 // likeliest is the guess among candidates whose names all match (D301): the oldest when the name
 // gave no year, then the most voted, then the first in the provider's order. A candidate with no

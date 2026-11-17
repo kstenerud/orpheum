@@ -99,7 +99,7 @@ func fitOf(candidate Candidate, lengths []fileLength) runtimeFit {
 }
 
 // settleFilm is settleMatchSaying of a film (D365). The candidates its name admits (filmsToRank)
-// are ranked (rankFilms): one admitted is a clear winner, but for a film with no year, which is a
+// are ranked (rankCandidates): one admitted is a clear winner, but for a film with no year, which is a
 // guess; several are a guess, the first ranked taken, except several all a year off the file's
 // none of which fits it, which stay a person's choice as D301 §1 has them. With none admitted, a
 // work under another name may be guessed (settleByOtherNames).
@@ -110,7 +110,7 @@ func settleFilm(
 	if len(found) == 0 {
 		return settleByOtherNames(query, candidates)
 	}
-	best := rankFilms(query, found, lengths)[0]
+	best := rankCandidates(query, found, lengths)[0]
 	if query.Year != 0 && best.Year != query.Year && rule == settledByNameAndYear {
 		rule = settledByNameAndYearOff
 	}
@@ -179,14 +179,15 @@ func isAnyOfYear(found []Candidate, year int) bool {
 	return slices.ContainsFunc(found, func(candidate Candidate) bool { return candidate.Year == year })
 }
 
-// rankFilms is found, the likeliest first. With a year in the query (D365 §1–§3, D412 §2): those
+// rankCandidates is found, the likeliest first. With a year in the query (D365 §1–§3, D412 §2): those
 // whose runtime fits the film's files, then the rest, an unknown runtime as one the files
 // contradict; within each, those of the named year before those a year off, then the most voted at
 // the source. With no year (D412), the well-known first: the most voted, but only by a wide margin
 // (voteTiers); then the fit, a close one over a longer cut's over the rest; then one whose original
 // name is the query's over one named so only in translation; then the oldest, a candidate with no
-// year last, and the most voted (D301 §1). The provider's order after.
-func rankFilms(query Query, found []Candidate, lengths []fileLength) []Candidate {
+// year last, and the most voted (D301 §1). The provider's order after. A series with no year is
+// ranked so too, with no lengths, as an episode's says little of its series (D513 §1).
+func rankCandidates(query Query, found []Candidate, lengths []fileLength) []Candidate {
 	type ranking struct {
 		candidate                Candidate
 		fit, voteTier            int
