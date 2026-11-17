@@ -4284,8 +4284,10 @@ plays the ended video again. To build: a video that ends with nothing next leave
 its item's page. The owner's answers (2026-11-17): "It should leave at once. Autoplay shouldn't
 matter since there's nothing left to autoplay to (it's the last video in the set/series)." A Watch
 Together group "just brings you back to the same view you'd see if the host hasn't selected a video
-yet." Still open: what a cast's receiver does at that end. Google's design checklist for a
-non-touch receiver has it show its idle screen, promote what else the sender offers, and stop the
-receiver app after 5 minutes idle, which returns the device to its own home screen
-(developers.google.com/cast/docs/design_checklist/receiver); ours is started never to close for
-being idle (`web/apps/cast-receiver/src/main.ts`).
+yet." A cast follows Google's design checklist for a non-touch receiver
+(developers.google.com/cast/docs/design_checklist/receiver), as the lead proposed and the owner
+took ("yes sounds good", 2026-11-17): the sender goes to the item's page as a local play does; the
+receiver shows its idle screen and the cast stays connected, so something else can be cast from
+that page without connecting again; after 5 minutes with nothing playing the cast ends and the
+device goes back to its own home screen. Ours is started never to close for being idle today
+(`web/apps/cast-receiver/src/main.ts`), so the 5 minutes are new.
