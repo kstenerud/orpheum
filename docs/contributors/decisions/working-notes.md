@@ -29744,3 +29744,57 @@ questions the same day.
    (security-update-note.tsx): the kind, its count in the last hour, and the way to §4's page.
 4. **The Needs attention page (the "!" icon's) lists it too**: each kind raised, its count in the
    last hour and since start, and when it last happened.
+
+## D510 — A lookup that finds a cached thing gone retires its record, and sweeps at start and on a schedule look for them
+
+**Decided** (2026-11-17), by the project owner, on the lead's report of D507's first build (frame
+stills alone): "We already have all of the mechanisms necessary to heal a broken cache. The issue is
+how to trigger it. If we look for a cached thing and it's gone, we respond by reverting the record
+that points to that cache entry, such that the regular code we already have will treat it as not
+fetched or generated. If the item was already marked as not fetchable/generatable, then there's
+nothing to revert because we never filled the cache with that entry to begin with. To guard against
+losses while the server is active, we run periodic sweeps of the cache, checking for missing
+things. We also do one sweep at app start." The form of the revert is the lead's proposal, which the
+owner took, asking that nothing be shoe-horned to save code or schema. Amends D507 §3, which it
+widens from frame stills to every record that points into a cache.
+
+**Status:** decided; not built.
+
+1. **A lookup that finds the cached thing gone retires the record pointing to it**, so the ordinary
+   code finds nothing made and makes or fetches it as it would the first time. For artwork that is
+   the row's `removed_at`, the way a person's refresh already asks again (`RetryItemArtwork`).
+2. **A sweep at start and a sweep on a schedule** check every record that points into a cache
+   against what the cache holds, and retire each whose thing is gone, as §1.
+3. **A person's choice survives**: the record made again for the same source is chosen as the one
+   retired was.
+4. **A record of a thing that was never made has nothing to revert**; a "cannot be made" note kept in
+   the cache itself is lost with it, and is made again the ordinary way.
+5. **Where the schema does not fit this, the schema changes** (a migration), rather than the healing
+   being bent to fit it.
+
+## D511 — A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
+
+**Decided** (2026-11-17), by the project owner, on the lead's proposals under D508: "we don't want to
+be throwing information away because it just makes debugging harder. If ffmpeg gets a parse error,
+retrying will just cause the same parse error. So what we need is a way to mark things as
+unavailable on account of an unknown error that we don't know how to handle yet. We then extract
+these errors regularly from staging and prod (and eventually users) and look for ways to handle them
+intelligently. A fix would require a reboot of the server, so we could mark failures due to unknown
+problems a 'try once per boot' kind of thing." Amends D508 §2, which tried an unknown failure again
+with backoff, and D509 §1, whose unexpected errors are these.
+
+**Status:** decided; not built.
+
+1. **A failure is one of three**: a cause known to block it, kept for good (D508 §1); a cause known
+   to pass (a timeout, a stall, a provider or node not answering), tried again with backoff and never
+   kept for good; or an unknown cause.
+2. **An unknown cause is recorded with everything the failure said**: the kind of work, what it was
+   for, the error and its output in full, the server's version, when, and how many times. Nothing is
+   dropped to make the record fit.
+3. **Its thing is unavailable on account of an unknown problem**, told apart from one that cannot be
+   made, and not tried again while the server runs.
+4. **At each start, every unknown failure of an earlier start is tried once more**, since a fix
+   arrives only with a new version and so a restart. One that fails again is recorded again, its
+   count raised.
+5. **These records are what D509 counts and alerts on**, and they are taken out of staging and prod,
+   and later the users' servers, to find which can be handled.
