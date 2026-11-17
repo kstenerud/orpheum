@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import Hls, { type LoaderConfiguration, type LoaderContext } from "hls.js";
+import Hls, { LoadStats, type LoaderConfiguration, type LoaderContext } from "hls.js";
 
 import {
   catchUpSeekEvent,
@@ -15,7 +15,6 @@ import {
   beyondTheLink,
   ceilingHeader,
   chunkedHlsConfig,
-  chunkLoader,
   choosingOptionsOf,
   keptBehindS,
   paceHeader,
@@ -29,11 +28,13 @@ import {
   unplayableOf,
 } from "./chunked.ts";
 import { SoundShift } from "./audio-shift.ts";
+import { chunkLoader } from "./chunk-hls.ts";
 import { chunkLoadPolicy } from "./chunk-load-policy.ts";
 import { FirstPieces } from "./first-piece.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
+import { LinkWaits } from "./link-wait.ts";
 import { StartReadAhead } from "./start-read-ahead.ts";
 import { steadinessOf } from "./steadiness.ts";
 import { slowLoadAfterMs, stallAfterMs, type WatchedMedia } from "./stalls.ts";
@@ -544,7 +545,10 @@ describe("a playback's chunk loader", () => {
     const frag = (sn: number) => ({ sn, level: 0, type: "main", url: `/c/${String(sn)}.m4s` });
     const readAhead = new StartReadAhead();
     readAhead.readsOn({ levels: [{ details: { fragments: [frag(0), frag(1)] } }] } as never);
-    const Loading = chunkLoader(new SoundShift(), readAhead, Recording as never);
+    const Loading = chunkLoader(
+      { soundShift: new SoundShift(), readAhead, linkWaits: new LinkWaits(() => 0) },
+      Recording as never,
+    );
     const context = {
       url: "/c/0.m4s",
       responseType: "arraybuffer",
@@ -558,5 +562,38 @@ describe("a playback's chunk loader", () => {
       onTimeout: () => undefined,
     });
     expect(urls).toEqual(["/c/0.m4s", "/c/1.m4s"]);
+  });
+
+  it("follows the start's two picture chunks for a wait watched, as their heads say them (the owner, 2026-11-17)", () => {
+    class Answered {
+      context = null;
+      stats = new LoadStats();
+      load(context: LoaderContext): void {
+        // Each answered at once, its head saying its length, nothing of it come yet.
+        this.stats.loading.first = context.url === "/c/0.m4s" ? 100 : 200;
+      }
+      getResponseHeader(name: string): string | null {
+        return name === "Content-Length" ? "250000" : null;
+      }
+      abort(): void {
+        // nothing under way
+      }
+      destroy(): void {
+        // nothing held
+      }
+    }
+    const frag = (sn: number) => ({ sn, level: 0, type: "main", url: `/c/${String(sn)}.m4s` });
+    const readAhead = new StartReadAhead();
+    readAhead.readsOn({ levels: [{ details: { fragments: [frag(0), frag(1)] } }] } as never);
+    const linkWaits = new LinkWaits(() => 3200);
+    const watch = linkWaits.watch();
+    const Loading = chunkLoader({ soundShift: new SoundShift(), readAhead, linkWaits }, Answered);
+    const context = { url: "/c/0.m4s", responseType: "arraybuffer", frag: frag(0) };
+    new Loading(Hls.DefaultConfig).load(context as never, {} as LoaderConfiguration, {
+      onSuccess: () => undefined,
+      onError: () => undefined,
+      onTimeout: () => undefined,
+    });
+    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 500_000, sinceHeadMs: 3100 });
   });
 });

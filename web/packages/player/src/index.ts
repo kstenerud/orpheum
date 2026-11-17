@@ -57,6 +57,7 @@ export {
   type SkippedStretch,
 } from "./skip-unmade.ts";
 export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.ts";
+export type { LinkWait, LinkWaitWatch } from "./link-wait.ts";
 export { meterBufferGrowth } from "./link.ts";
 export type { LinkMeter, MeteredMedia } from "./link.ts";
 export { PlayReporter, ReportRefused, reportEveryMs, seekTo } from "./report.ts";

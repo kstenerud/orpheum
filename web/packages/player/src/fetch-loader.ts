@@ -35,6 +35,12 @@ function isLimit(ms: number): boolean {
   return Number.isFinite(ms) && ms > 0;
 }
 
+/** The bytes a Content-Length says, undefined where it says none or nonsense. */
+function lengthSaid(header: string | null): number | undefined {
+  const said = header?.trim() ?? "";
+  return /^\d+$/u.test(said) ? Number(said) : undefined;
+}
+
 /** The body of answer, its bytes counted to onBytes as each piece arrives. */
 async function bodyOf(answer: Response, onBytes: (loaded: number) => void): Promise<Uint8Array> {
   if (answer.body === null) {
@@ -167,6 +173,9 @@ class FetchLoader implements Loader<LoaderContext> {
       );
       const { stats } = this;
       stats.loading.first = performance.now();
+      // Its length as its head says it, as hls.js's own fetch loader takes it: a wait for data
+      // reads how much of its chunk has come against it (link-wait.ts), before any byte has.
+      stats.total = lengthSaid(answer.headers.get("Content-Length")) ?? stats.total;
       this.#timeOutAfter(maxLoadTimeMs - (stats.loading.first - stats.loading.start));
       this.#setup.answered(answer.status, (name) => answer.headers.get(name));
       if (!answer.ok) {

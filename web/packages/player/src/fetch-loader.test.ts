@@ -145,6 +145,26 @@ describe("hls.js's loads made by a given fetch (the cast receiver over WebRTC)",
     expect(arrivals).toEqual([5]);
   });
 
+  it("takes its chunk's length from the answer's head, before any of its bytes has come", async () => {
+    let totalAtHead: number | undefined;
+    const answer = new Response(new ReadableStream<Uint8Array>(), {
+      status: 200,
+      headers: { "Content-Length": "250000" },
+    });
+    const loader = loaderOf(() => Promise.resolve(answer), {
+      ...noSetup,
+      answered: () => {
+        totalAtHead = loader.stats.total;
+      },
+    });
+    loader.load(contextOf("https://core.example/c/1.m4s"), configOf(0, 0), heard().callbacks);
+    await vi.waitFor(() => {
+      expect(totalAtHead).toBe(250_000);
+    });
+    expect(loader.stats.loaded).toBe(0);
+    loader.abort();
+  });
+
   it("fails a load the server refuses with its status, as hls.js's own loaders do", async () => {
     const loader = loaderOf(() => Promise.resolve(new Response("no", { status: 404 })));
     const { callbacks, told } = heard();

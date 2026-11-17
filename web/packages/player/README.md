@@ -14,6 +14,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   dropped, each load fails as a lost network's does. Nothing shapes a tab that sets neither.
   `link-shaping.test.ts`.
 
+- **A wait for data is watched over the chunks it waits on, as they come over the link**
+  (`src/link-wait.ts`, the owner, 2026-11-17): from when the page's spinner shows, every picture
+  and sound chunk on its way then or asked for after, a start's second picture chunk among them
+  (D502 §2), its bytes come against the length its answer's head said (Content-Length), a chunk
+  all come kept, one that failed waited on no more; it says nothing while any of them has no head
+  yet, which the core holds while its node makes the chunk. `link-wait.test.ts`, `chunked.test.ts`,
+  `fetch-loader.test.ts`.
+
 - **Never imports an app.** `package-not-to-app` (`web/.dependency-cruiser.cjs`).
 - **Its play report is the API's own shape**: `PlayReport`, `PlayEvent` and `PlaySpan` are
   derived from the SDK's generated types (`src/report.ts`), so a field the API renames fails

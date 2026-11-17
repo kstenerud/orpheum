@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import Hls, { type HlsConfig } from "hls.js";
+import type Hls from "hls.js";
+import type { HlsConfig } from "hls.js";
 import type { FetchRequest } from "@orpheum/sdk";
 
-import { shiftingFragmentLoader, SoundShift } from "./audio-shift.ts";
+import { SoundShift } from "./audio-shift.ts";
 
 import {
   groupJumpedEvent,
@@ -22,10 +23,10 @@ import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
 import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
-import { shapedLoader, type LoaderClass } from "./link-shaping.ts";
 import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
-import { loadedPlaylistLoader, type StartingPlaylists } from "./loaded-playlists.ts";
-import { StartReadAhead } from "./start-read-ahead.ts";
+import type { StartingPlaylists } from "./loaded-playlists.ts";
+import { chunkedHls } from "./chunk-hls.ts";
+import { noLinkWaitWatch, type LinkWaitWatch } from "./link-wait.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -67,7 +68,6 @@ import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 import { bufferRoomOf, type PictureRoom } from "./picture-room.ts";
-import { loadsNoChunkAgain } from "./no-chunk-again.ts";
 
 export { keptBehindS };
 
@@ -216,6 +216,12 @@ export interface ChunkedPlayback extends HlsPlayback {
    * says nothing of its target (D501 §1).
    */
   readonly isAheadFull: () => boolean;
+  /**
+   * Watches a wait for data from now, its picture and sound chunks as they come over the link, for
+   * the page's bar under its spinner (LinkWaits, the owner, 2026-11-17); a watch of nothing where
+   * the browser loads by itself.
+   */
+  readonly watchLinkWait: () => LinkWaitWatch;
 }
 
 /**
@@ -479,6 +485,7 @@ function playWithoutHlsJs(
     estimateKbps: () => undefined,
     beyondTheLink: () => undefined,
     isAheadFull: () => false,
+    watchLinkWait: () => noLinkWaitWatch,
   };
   if (method === "native") {
     return { ...playNative(video, url), ...unknowing };
@@ -641,22 +648,6 @@ export function failOrLoadOn(
 }
 
 /**
- * The loader of a playback's chunks: carrier, hls.js's own unless the page gives a fetch, shaped by the tab's debug cap and drop, in the
- * chunk fetch so every carrier is shaped alike (D380 §2), its start's second picture chunk asked
- * beside its first (readAhead, D502 §2), its sound moved earlier by soundShift.
- */
-export function chunkLoader(
-  soundShift: SoundShift,
-  readAhead: StartReadAhead,
-  carrier: LoaderClass = Hls.DefaultConfig.loader,
-): ReturnType<typeof shiftingFragmentLoader> {
-  return shiftingFragmentLoader(
-    readAhead.loaderOf(shapedLoader(carrier)),
-    () => soundShift.earlierMs,
-  );
-}
-
-/**
  * How hls.js switches a chunked playback's sound in place, starting with the audio rendition at
  * startIndex and keeping it (startAndKeepAudio), each choice noted among video's link notes.
  */
@@ -683,30 +674,6 @@ function requestsFollowing(
       abr.choosing()?.obeyServer(kbps);
     },
   };
-}
-
-/** A playback's hls.js by config, its start's playlists answered from options', its chunks loaded by chunkLoader, and the start's read-ahead it reads by. */
-function chunkedHls(
-  config: Partial<HlsConfig>,
-  options: { readonly loadedPlaylists?: StartingPlaylists | undefined },
-  parts: {
-    readonly soundShift: SoundShift;
-    readonly abr: { readonly controller: HlsConfig["abrController"] };
-  },
-): { readonly hls: Hls; readonly readAhead: StartReadAhead } {
-  const readAhead = new StartReadAhead();
-  const hls = new Hls({
-    ...config,
-    fLoader: chunkLoader(parts.soundShift, readAhead, config.loader),
-    pLoader: loadedPlaylistLoader(
-      options.loadedPlaylists,
-      config.loader ?? Hls.DefaultConfig.loader,
-    ),
-    abrController: parts.abr.controller,
-  });
-  readAhead.readsOn(hls);
-  loadsNoChunkAgain(hls); // a switch loads no chunk again that it holds at another (D503 §4)
-  return { hls, readAhead };
 }
 
 /**
@@ -769,7 +736,7 @@ export function playChunked(
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
-  const { hls, readAhead } = chunkedHls(config, options, { soundShift, abr });
+  const { hls, readAhead, linkWaits } = chunkedHls(config, options, { soundShift, abr });
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);
@@ -794,5 +761,6 @@ export function playChunked(
     estimateKbps: linkKbps,
     beyondTheLink: () => beyondTheLink(hls, linkKbps()),
     isAheadFull: () => followed.ahead.isFull(),
+    watchLinkWait: () => linkWaits.watch(),
   };
 }
