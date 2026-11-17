@@ -4305,3 +4305,14 @@ unlisted live item's under pressure (`classUncovered`) or a removed item's past 
 retires it and its pass fetches it again, which under pressure is evicted again each hour. Either
 an eviction of an image's last file retires its records as it goes, or the lost sweep passes over
 images the ceiling evicted.
+
+### A focused poster's ring goes off the bottom when moving down, next batch (the owner, 2026-11-17)
+
+The owner: "When I press down, the highlight around the poster isn't fully on screen (it goes off
+the bottom). Going up it stays fully on screen." The lead's reading, not yet confirmed: the focus
+moves by `scrollIntoViewGently` (`focus-navigation.ts`), whose `block: "nearest"` brings the
+poster's own box to the window's bottom edge, and the ring is drawn outside that box; across a row
+the room is kept by `scroll-padding-inline` (`--focus-ring-room`, `poster-row.css`), and nothing
+keeps it at the bottom. At the top, clearing the banner and the header leaves room. To check first:
+on which page and device it shows, and whether a `scroll-margin-block` of the ring's room on the
+focused tile (or a `scroll-padding-block-end` on the page) is what keeps it.
