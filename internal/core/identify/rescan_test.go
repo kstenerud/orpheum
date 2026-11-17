@@ -771,3 +771,28 @@ func TestRescan_ARescanFoundAtStartIsReadByItsFetches(t *testing.T) {
 		t.Errorf("after the restart the film follows %s; want 31, matched again by the rescan", id)
 	}
 }
+
+// D513 §4: a rescan's match searches a film's folder too, where the file's own name finds nothing,
+// as the first match does: a release that names its file in its own words is found by its folder.
+func TestRescan_AFilmItsNameFindsNotIsMatchedAgainByItsFolder(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	const harbour = "Harbour Lantern"
+	const file = harbour + "/[OSPREY] " + harbour + " Gekijouban [BD 1080p].mkv"
+	lib.scan(videoRecord(file))
+	if outcome := lib.matchFileTitle(file); outcome != identify.OutcomeNoMatch {
+		t.Fatalf("first match: %s; want no match while nothing is found", outcome)
+	}
+	lib.provider.Searches[identifytest.SearchKey(harbour, 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "52", Name: harbour, Year: 2013}),
+	}
+	rescan := lib.rescanning()
+	titleID := lib.titlesByPath()[file].WorkID
+	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan); err != nil || !isStarted {
+		t.Fatalf("RescanItem = %v, %v; want it started", isStarted, err)
+	}
+	rescan.run()
+	if id, _ := lib.followed(file); id != "52" {
+		t.Errorf("after the rescan the film follows %q; want 52, found by its folder", id)
+	}
+}
