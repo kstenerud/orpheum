@@ -9,7 +9,9 @@
  * the page's spinner shows: the picture and sound chunks then on their way and each asked for after,
  * a start's second picture chunk among them (D502 §2), each kept once it has come, until the wait
  * ends; one that failed, timed out or was given up is waited on no more, and the chunk asked again
- * in its place is a load of its own.
+ * in its place is a load of its own. A chunk asked again exists, its head having come before, so its
+ * wait is the link's from that first head on, its head come or not: "retries are not the server's
+ * fault" (D506 §1).
  */
 
 import { PlaylistLevelType } from "hls.js";
@@ -33,8 +35,9 @@ export interface LinkWait {
   readonly neededBytes: number;
   /**
    * How long since the last head of the chunks on their way came, in ms: since the wait became the
-   * link's to carry, every chunk it waits on begun by the server (the owner, 2026-11-17). A chunk
-   * asked again, its head not come, makes the wait the server's again, and its head starts this anew.
+   * link's to carry, every chunk it waits on begun by the server (the owner, 2026-11-17). A new
+   * chunk, its head not come, makes the wait the server's again, and its head starts this anew; a
+   * chunk asked again counts from its first head (D506 §1).
    */
   readonly sinceHeadMs: number;
 }
@@ -55,12 +58,14 @@ export const noLinkWaitWatch: LinkWaitWatch = { read: () => undefined, stop: () 
 /** A loader as a load followed reads it: its stats, and its answer's head. */
 type FollowedLoader = Pick<Loader<LoaderContext>, "stats" | "getResponseHeader">;
 
-/** One chunk's load followed: its loader, and its bytes once all of it came. */
+/** One chunk's load followed: its URL, its loader, and its bytes once all of it came. */
 class FollowedLoad {
+  readonly url: string;
   readonly loader: FollowedLoader;
   #arrivedBytes: number | undefined;
 
-  constructor(loader: FollowedLoader) {
+  constructor(url: string, loader: FollowedLoader) {
+    this.url = url;
     this.loader = loader;
   }
 
@@ -104,28 +109,49 @@ interface Arrival {
   readonly headAtMs: number;
 }
 
-/** How much of load has come; undefined where its head has not come, or said no length. */
-function arrivalOf(load: FollowedLoad): Arrival | undefined {
+/** A chunk's first head: when it came, and the length it said. */
+interface Head {
+  readonly atMs: number;
+  readonly length: number;
+}
+
+/** load's head, where it came and said a length; undefined otherwise. */
+function headOf(load: FollowedLoad): Head | undefined {
+  const atMs = load.loader.stats.loading.first;
+  const length = lengthOf(load.loader);
+  return atMs <= 0 || length === undefined ? undefined : { atMs, length };
+}
+
+/** How many chunks' first heads a playback keeps, the latest, for the chunks asked again. */
+export const headsKept = 32;
+
+/**
+ * How much of load has come; undefined where its head has not come, or said no length. firstHead is
+ * its chunk's head by an earlier load, where one came: a chunk asked again, whose wait counts from
+ * that head, its own come or not (D506 §1).
+ */
+function arrivalOf(load: FollowedLoad, firstHead: Head | undefined): Arrival | undefined {
   const { arrivedBytes } = load;
   if (arrivedBytes !== undefined) {
     return { arrivedBytes, neededBytes: arrivedBytes, headAtMs: Number.NEGATIVE_INFINITY };
   }
-  const { stats } = load.loader;
-  const length = lengthOf(load.loader);
-  return stats.loading.first <= 0 || length === undefined
+  const head = headOf(load);
+  const length = head?.length ?? firstHead?.length;
+  const headAtMs = firstHead?.atMs ?? head?.atMs;
+  return length === undefined || headAtMs === undefined
     ? undefined
-    : {
-        arrivedBytes: Math.min(stats.loaded, length),
-        neededBytes: length,
-        headAtMs: stats.loading.first,
-      };
+    : { arrivedBytes: Math.min(load.loader.stats.loaded, length), neededBytes: length, headAtMs };
 }
 
-/** How loads come at nowMs, as LinkWaitWatch.read says it. */
-function linkWaitOf(loads: Iterable<FollowedLoad>, nowMs: number): LinkWait | undefined {
+/** How loads come at nowMs, as LinkWaitWatch.read says it, firstHeadOf their chunks' first heads. */
+function linkWaitOf(
+  loads: Iterable<FollowedLoad>,
+  firstHeadOf: (load: FollowedLoad) => Head | undefined,
+  nowMs: number,
+): LinkWait | undefined {
   let sums: Arrival = { arrivedBytes: 0, neededBytes: 0, headAtMs: Number.NEGATIVE_INFINITY };
   for (const load of loads) {
-    const arrival = arrivalOf(load);
+    const arrival = arrivalOf(load, firstHeadOf(load));
     if (arrival === undefined) {
       return undefined;
     }
@@ -145,6 +171,8 @@ function linkWaitOf(loads: Iterable<FollowedLoad>, nowMs: number): LinkWait | un
 export class LinkWaits {
   readonly #onTheirWay = new Set<FollowedLoad>();
   readonly #watched = new Set<Set<FollowedLoad>>();
+  /** Each chunk's first head, by its URL, the latest headsKept. */
+  readonly #heads = new Map<string, Head>();
   readonly #nowMs: () => number;
 
   /** nowMs is the clock hls.js times its loads by, performance.now's. */
@@ -157,7 +185,7 @@ export class LinkWaits {
     const loads = new Set(this.#onTheirWay);
     this.#watched.add(loads);
     return {
-      read: () => linkWaitOf(loads, this.#nowMs()),
+      read: () => linkWaitOf(loads, (load) => this.#firstHeadOf(load), this.#nowMs()),
       stop: () => {
         this.#watched.delete(loads);
       },
@@ -169,9 +197,9 @@ export class LinkWaits {
     return followingBy(this, carrier);
   }
 
-  /** A load by loader began: followed until it ends. */
-  began(loader: FollowedLoader): FollowedLoad {
-    const load = new FollowedLoad(loader);
+  /** A load of url by loader began: followed until it ends. */
+  began(url: string, loader: FollowedLoader): FollowedLoad {
+    const load = new FollowedLoad(url, loader);
     this.#onTheirWay.add(load);
     for (const loads of this.#watched) {
       loads.add(load);
@@ -187,6 +215,7 @@ export class LinkWaits {
     if (!this.#onTheirWay.delete(load)) {
       return;
     }
+    this.#firstHeadOf(load);
     if (isArrived) {
       load.arrived();
       return;
@@ -194,6 +223,28 @@ export class LinkWaits {
     for (const loads of this.#watched) {
       loads.delete(load);
     }
+  }
+
+  /**
+   * The first head of load's chunk, by an earlier load of it; none where load's own is its first.
+   * Kept from load's own head where none was, the latest headsKept.
+   */
+  #firstHeadOf(load: FollowedLoad): Head | undefined {
+    const kept = this.#heads.get(load.url);
+    if (kept !== undefined) {
+      return kept.atMs < load.loader.stats.loading.first || headOf(load) === undefined
+        ? kept
+        : undefined;
+    }
+    const head = headOf(load);
+    if (head !== undefined) {
+      this.#heads.set(load.url, head);
+      const [oldest] = this.#heads.keys();
+      if (this.#heads.size > headsKept && oldest !== undefined) {
+        this.#heads.delete(oldest);
+      }
+    }
+    return undefined;
   }
 }
 
@@ -265,7 +316,7 @@ class FollowingLoader implements Loader<LoaderContext> {
       this.#inner.load(context, config, callbacks);
       return;
     }
-    const load = this.#waits.began(this.#inner);
+    const load = this.#waits.began(context.url, this.#inner);
     this.#load = load;
     this.#inner.load(
       context,

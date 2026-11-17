@@ -9,7 +9,7 @@ import Hls, {
   type LoaderContext,
 } from "hls.js";
 
-import { LinkWaits } from "./link-wait.ts";
+import { headsKept, LinkWaits } from "./link-wait.ts";
 import type { LoaderClass } from "./link-shaping.ts";
 
 /**
@@ -182,7 +182,8 @@ describe("a wait for data, its chunks as they come over the link", () => {
     expect(watch.read()).toBeUndefined();
   });
 
-  it("waits no more on a chunk whose load failed; the one asked again in its place is a load of its own", () => {
+  // A retry is not the server's fault: the chunk exists (the owner, 2026-11-17).
+  it("waits no more on a chunk whose load failed; the one asked again counts from the chunk's first head (D506 §1)", () => {
     const { waits, ask, clock } = waitsOnADrivenLink();
     const watch = waits.watch();
     const failed = ask("/c/0.m4s", "main");
@@ -193,7 +194,38 @@ describe("a wait for data, its chunks as they come over the link", () => {
     const again = ask("/c/0.m4s", "main");
     again.head(2000, 300_000);
     clock.nowMs = 2500;
-    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 300_000, sinceHeadMs: 500 });
+    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 300_000, sinceHeadMs: 2400 });
+  });
+
+  it("is the link's for a chunk asked again before its head comes: its length and clock from its first head (D506 §1)", () => {
+    const { waits, ask, clock } = waitsOnADrivenLink();
+    const watch = waits.watch();
+    const givenUp = ask("/c/0.m4s", "main");
+    givenUp.head(100, 300_000);
+    clock.nowMs = 6000;
+    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 300_000, sinceHeadMs: 5900 });
+    givenUp.fail();
+    ask("/c/0.m4s", "main");
+    clock.nowMs = 6200;
+    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 300_000, sinceHeadMs: 6100 });
+  });
+
+  it("keeps the first heads of the latest chunks alone", () => {
+    const { waits, ask, clock } = waitsOnADrivenLink();
+    for (let index = 0; index <= headsKept; index += 1) {
+      const load = ask(`/c/${String(index)}.m4s`, "main");
+      load.head(10, 1000);
+      load.fail();
+    }
+    const watch = waits.watch();
+    const forgotten = ask("/c/0.m4s", "main");
+    expect(watch.read()).toBeUndefined();
+    forgotten.fail();
+    watch.stop();
+    const latest = waits.watch();
+    ask(`/c/${String(headsKept)}.m4s`, "main");
+    clock.nowMs = 510;
+    expect(latest.read()).toEqual({ arrivedBytes: 0, neededBytes: 1000, sinceHeadMs: 500 });
   });
 
   it("counts no chunk that came before the wait began, nor a load of anything but picture and sound", () => {
