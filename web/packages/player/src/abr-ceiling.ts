@@ -392,13 +392,15 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   /**
    * Gives up a chunk on its way (D265 §3), a drop (D352 §4), for the highest quality below it the
    * link's estimate carries, its own sample counted in it (#givenUpLevel, D382 §1). One that was
-   * arriving is a sample of the link, hls.js's estimator fed it too, and lowers the ceiling to that
-   * quality; one stuck is no sample, and lowers the ceiling while starting only as far as the
-   * estimate then carries, as a stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport
-   * is not a slow link, and a lower quality's chunk travels it no better. hls.js's estimator takes
-   * the sample's own time, from its first piece, as a loaded chunk's is from its first byte
-   * (arrivalMs): timed from its ask, the wait for its first byte counted, a chunk long answered read
-   * the link slower than its bytes came (code debt, 2026-10-27).
+   * arriving is a sample of the link, hls.js's estimator fed it too; one stuck is no sample
+   * (bandwidth-sampling-2026-10-29.md P3). Either lowers the ceiling to that quality, at least one
+   * below its own, down to the lowest, while starting too (D506 §2, which amends P3's "only as far
+   * as the estimate then carries"): with the link not yet measured, the estimate carried the
+   * ceiling itself, and a chunk stuck at 300 kb/s was asked again at its own quality every 6 s,
+   * never lower (staging, 2026-11-17). An estimate that carries less takes it lower, as it did.
+   * hls.js's estimator takes the sample's own time, from its first piece, as a loaded chunk's is
+   * from its first byte (arrivalMs): timed from its ask, the wait for its first byte counted, a
+   * chunk long answered read the link slower than its bytes came (code debt, 2026-10-27).
    */
   #giveUp(judged: JudgedChunk<Chunk>): void {
     const { chunk } = judged;
@@ -416,8 +418,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       ...judged,
       isSample: sample !== undefined,
     })}; ${this.#stateText()}`;
-    const isStuckStarting = sample === undefined && this.#isStarting;
-    if (!this.#lower(isStuckStarting ? this.#carriedNow() : chosen, () => why)) {
+    if (!this.#lower(chosen, () => why)) {
       this.#options.noteStep?.(why); // a give-up is always told, the ceiling lowered or not
     }
     this.#options.noteLink?.(

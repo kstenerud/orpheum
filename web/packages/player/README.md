@@ -79,8 +79,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   arriving piece), over the time from that piece to the give-up, and one stuck, or with only its
   first piece, no sample (D382 §2), and never one whose arrival a long task of the page overlapped
   (the browser's own, of 50 ms and more, where it reports them; `src/abr-busy.ts`), which is no
-  sample either, as a loaded one is not, each such chunk noted with the task's length (D382 §3), lowering the ceiling while starting no further than the
-  estimate carries, a drop either way, and noted always (P3); takes a share of the link that rises with what
+  sample either, as a loaded one is not, each such chunk noted with the task's length (D382 §3), lowering the ceiling to the quality it is given up for,
+  one below its own at least, down to the lowest, while starting too, a stuck one as one measured
+  (D506 §2, amending P3's "no further than the estimate carries"), a drop either way, and noted always; takes a share of the link that rises with what
   is loaded ahead; steps up after its steadiness level's hold with `stepUpBufferMs` loaded ahead,
   as far as the confident estimate carries at the level's headroom, several qualities at once only
   at level 0 with samples that agree (D352 §2); raises its level, which doubles the hold, at a climb

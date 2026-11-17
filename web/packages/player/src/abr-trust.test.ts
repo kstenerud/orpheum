@@ -91,7 +91,7 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(choosing.nextLevel()).toBe(0); // the step-up's to raise again
   });
 
-  it("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Aegis, P3)", () => {
+  it("a chunk given up stuck is no sample, and lowers the ceiling one quality, never to the bottom (Aegis, P3, D506 §2)", () => {
     // A Fire TV's Aegis: picture chunks at 14–18 Mb/s, then one that delivered a few kilobytes and
     // nothing more, counted as a speed of 14 kb/s; the estimate read 69 kb/s and the TV played its
     // lowest quality for 75 s (staging, 2026-10-28; bandwidth-sampling-2026-10-29.md §1.1).
@@ -111,15 +111,43 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(givenUp).toEqual([stuck]);
     expect(scene.samplesNoted.at(-1)).toBe(samplesBefore); // no speed sample
     expect(choosing.linkKbps()).toBeGreaterThan(10_000); // where it read 69
+    // One below the top, as a chunk measured would (D506 §2), never latched at the bottom.
     expect(scene.steps.at(-1)).toMatch(
-      /^gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; /u,
+      /^ceiling 3 to 2: gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; /u,
     );
     expect(choosing.isStarting()).toBe(true);
     loadAt(choosing, 3, { mbps: 15 });
-    expect(choosing.nextLevel()).toBe(3); // the top again, the ceiling never latched at the bottom
+    expect(choosing.nextLevel()).toBe(2); // the step-up's to raise again, once starting is over
     // It was a drop: a second within ten minutes makes the playback steadier (D352 §4).
     choosing.stalled();
     expect(choosing.steadiness()).toBe(1);
+  });
+
+  it("a chunk given up stuck while the link is unmeasured lowers the ceiling a quality each time, down to the lowest (D506 §2)", () => {
+    // Staging at 300 kb/s: the film's first chunk at its offered quality never came past its first
+    // bytes, given up every 6 s and asked again at the same quality, the link never measured.
+    const { choosing, givenUp } = choosingFrom(4_600_000);
+    expect(choosing.firstLevel()).toBe(2);
+    /** A chunk of level asked for, 5000 bytes of it come at once, then none: given up as stuck. */
+    const stuckAt = (level: number): void => {
+      const stuck = chunkAt(level);
+      choosing.loading(stuck);
+      stuck.stats.loaded = 5000;
+      stuck.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
+      waitMs(lookAtChunkEveryMs);
+      waitMs(5500);
+      expect(givenUp.at(-1)).toBe(stuck);
+    };
+    stuckAt(2);
+    expect(choosing.linkKbps()).toBeUndefined(); // no sample: the link is still unmeasured
+    expect(choosing.isStarting()).toBe(true);
+    expect(choosing.nextLevel()).toBe(1);
+    stuckAt(1);
+    expect(choosing.nextLevel()).toBe(0);
+    expect(scene.steps.filter((step) => step.startsWith("ceiling "))).toEqual([
+      expect.stringMatching(/^ceiling 2 to 1: gave up a chunk of 2, stuck: /u),
+      expect.stringMatching(/^ceiling 1 to 0: gave up a chunk of 1, stuck: /u),
+    ]);
   });
 
   it("a stall while starting lowers the ceiling to what the estimate chooses", () => {
