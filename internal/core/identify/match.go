@@ -719,3 +719,23 @@ func (matcher *Matcher) RecordFailure(ctx context.Context, job jobs.Job, failure
 	}
 	return nil
 }
+
+// RetryUnknownFailures tries once more the fetches an earlier start gave up for an unknown cause
+// (D511 §4), by the subjects their failures were kept under: each item's own failure is cleared, so
+// the identification sweep fetches it again, as it would one never fetched. An item gone since has
+// nothing to clear.
+func (matcher *Matcher) RetryUnknownFailures(ctx context.Context, subjects []string) error {
+	itemIDs := jobs.ItemIDsOf(subjects)
+	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		for _, itemID := range itemIDs {
+			if err := queries.ClearFetchFailure(ctx, itemID); err != nil {
+				return fmt.Errorf("clear item %d's failure: %w", itemID, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("try again the fetches an earlier start gave up: %w", err)
+	}
+	return nil
+}

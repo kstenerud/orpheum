@@ -87,6 +87,7 @@ func testParts(t *testing.T) Parts {
 		Settings: settingstest.Seeded(t, database), SecretKey: key, SetupCodes: &authtest.SetupCodes{},
 		Clock: clocktest.NewFake(time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)), Random: rand.Reader,
 		Logger: slog.New(slog.DiscardHandler), Build: build.Provenance{Version: "test"},
+		StartID: "a-test-start",
 	}
 }
 

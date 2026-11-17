@@ -319,7 +319,12 @@ func wireCore(
 	); diagnosticsErr != nil {
 		return opened, api.Dependencies{}, diagnosticsErr
 	}
+	startID, err := newStartID(rand.Reader)
+	if err != nil {
+		return opened, api.Dependencies{}, err
+	}
 	core, err := assembly.Build(ctx, assembly.Parts{
+		StartID:  startID,
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
 		SecretKey:  secretKey,
 		SetupCodes: runSetupCodes{directories: opened.directories, shown: outside.setupCodeShown},

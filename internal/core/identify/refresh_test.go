@@ -204,6 +204,27 @@ func TestRefresher_TheRollingRefreshPassesOverAnItemWithAFailureOfItsOwn(t *test
 	}
 }
 
+// TestMatcher_AFetchAnEarlierStartGaveUpForAnUnknownCauseIsSweptAgain is fetch_metadata's retry at
+// start (D511 §4): the item's own failure is cleared, so the rolling refresh queues it once more.
+func TestMatcher_AFetchAnEarlierStartGaveUpForAnUnknownCauseIsSweptAgain(t *testing.T) {
+	t.Parallel()
+	lib, titleID := matchedMetropolis(t)
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titleID}}
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB's answer was not JSON"); err != nil {
+		t.Fatal(err)
+	}
+	subjects := []string{jobs.Subject(jobs.Target{ItemID: titleID}), "item 999999", "the server"}
+	if err := lib.matcher.RetryUnknownFailures(t.Context(), subjects); err != nil {
+		t.Fatal(err)
+	}
+	lib.clock.Advance(365 * 24 * time.Hour)
+	if count, err := refresher.Sweep(t.Context()); err != nil || count != 1 {
+		t.Errorf("a year on, its failure tried again: queued %d (%v); want Metropolis fetched again", count, err)
+	}
+}
+
 // fakeImageRetrier records the items whose images a refresh asked for again.
 type fakeImageRetrier struct{ itemIDs []int64 }
 

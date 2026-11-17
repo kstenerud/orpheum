@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -37,6 +38,8 @@ type metadataParts struct {
 	// providers are a test's fakes; nil is TMDB at tmdbBaseURL.
 	providers identify.Providers
 	logger    *slog.Logger
+	// unknownFailures keep the jobs the queue gives up for an unknown cause (D511); nil keeps none.
+	unknownFailures *unexpected.Recorder
 }
 
 // metadataJobs are the job queue, the outside hosts' provider services, and the identification
@@ -54,7 +57,7 @@ type metadataJobs struct {
 func newMetadataJobs(parts metadataParts) metadataJobs {
 	queue := jobs.NewQueue(jobs.QueueParts{
 		Cache: parts.cache, Clock: parts.clock, Settings: parts.settings, Random: parts.random, Logger: parts.logger,
-		ArgsMerges: jobArgsMerges(),
+		ArgsMerges: jobArgsMerges(), UnknownFailures: parts.unknownFailures,
 	})
 	hosts := newHostProviders(queue, parts.secrets, parts.clock, parts.settings)
 	providers := parts.providers

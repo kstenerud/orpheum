@@ -32,6 +32,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -65,6 +66,9 @@ type Parts struct {
 	// Build is what this binary was built from: the outbound client names it to other hosts, and a
 	// filing report its version.
 	Build build.Provenance
+	// StartID names this start of the server, at random: a failure of unknown cause kept under an
+	// earlier one is tried once more at this start (D511 §4).
+	StartID string
 	// TMDBBaseURL and TMDBImagesBaseURL are where TMDB answers and serves its images
 	// (tmdb.BaseURL and tmdb.ImageBaseURL, or a test's fake); OpenSubtitlesBaseURL is where
 	// OpenSubtitles answers.
@@ -118,6 +122,9 @@ type Services struct {
 	// Certificates renew the HTTPS certificates; the composition root, which makes them from its
 	// config, sets them before the runners start. Nil holds none.
 	Certificates Certificates
+	// UnknownFailures keep the failures of unknown cause, and say which kinds raise the alert
+	// (D509, D511).
+	UnknownFailures *unexpected.Recorder
 
 	clock     clock.Clock
 	settings  *settings.Service
@@ -222,6 +229,9 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	if lister, isLister := nodeBytes.(library.FolderLister); isLister {
 		dependencies.Libraries.ListFoldersThrough(lister)
 	}
+	// Every kind's retry is registered: the failures an earlier start gave up for an unknown cause
+	// are tried once more, before any runner or sweep starts (D511 §4).
+	services.UnknownFailures.RetryEarlierStarts(ctx)
 	return services, nil
 }
 
@@ -315,6 +325,14 @@ func (services *Services) openJobs(ctx context.Context, parts Parts) error {
 	if err != nil {
 		return err
 	}
+	services.UnknownFailures, err = unexpected.New(ctx, unexpected.Parts{
+		Database: parts.Database, Settings: parts.Settings, Clock: parts.Clock, Logger: parts.Logger,
+		Version: parts.Build.Version, StartID: parts.StartID,
+	})
+	if err != nil {
+		return err
+	}
+	services.API.UnknownFailures = services.UnknownFailures
 	services.OutboundClient, err = outbound.NewClient(providerTimeout, parts.Build.String())
 	if err != nil {
 		return err
@@ -323,9 +341,14 @@ func (services *Services) openJobs(ctx context.Context, parts Parts) error {
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, secrets: services.API.Secrets,
 		clock: parts.Clock, random: jitterOf(parts), httpClient: services.OutboundClient,
 		tmdbBaseURL: parts.TMDBBaseURL, providers: parts.Metadata, logger: parts.Logger,
+		unknownFailures: services.UnknownFailures,
 	})
 	services.Queue, services.providerServices, services.pass = metadata.queue, metadata.hosts, metadata.pass
 	services.matcher, services.refresher = metadata.matcher, metadata.refresher
+	// Each kind that keeps its failures under a mark of its own clears it for those an earlier start
+	// gave up for an unknown cause, so its sweep queues them again (D511 §4); the others' sweeps
+	// queue them again as they are.
+	services.UnknownFailures.RegisterRetry(string(jobs.KindFetchMetadata), services.matcher.RetryUnknownFailures)
 	services.subtitler = parts.Subtitler
 	if services.subtitler == nil {
 		services.subtitler, err = opensubtitles.New(services.OutboundClient, parts.OpenSubtitlesBaseURL,

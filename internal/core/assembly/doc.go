@@ -31,6 +31,10 @@
 //     a play or a scan request; a failed job is its item's own fact where it records one (D231 §3,
 //     §4). Enforced by TestRunners_EveryKindRunsOneAtATime and
 //     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact.
+//   - The queue keeps its failures of unknown cause through one recorder, named by this start, and
+//     Build, once every kind's retry is registered, tries once more those of an earlier start: for
+//     fetch_metadata, by clearing the item's own failure (D511 §4).
+//     TestBuild_TriesOnceMoreTheFetchesAnEarlierStartGaveUpForAnUnknownCause.
 //
 // # Read before changing
 //

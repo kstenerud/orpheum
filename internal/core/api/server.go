@@ -38,6 +38,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
@@ -75,6 +76,9 @@ type Dependencies struct {
 	FilingReports *identify.FilingReports
 	// Refresher queues a person's refresh of a title or series (D213).
 	Refresher *identify.Refresher
+	// UnknownFailures are the failures of unknown cause, for the alert, the Needs attention page and
+	// the export (D509, D511).
+	UnknownFailures *unexpected.Recorder
 	// Rescans are an admin's rescans of every library of films or series, of one, or of one film or
 	// series (D357).
 	Rescans *identify.Rescans

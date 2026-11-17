@@ -315,6 +315,9 @@
 //     identification list and its page show it, and a person's refresh, "try again", clears it,
 //     as a fetch that succeeds does (D231 §4, §10).
 //     TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh.
+//     A fetch an earlier start gave up for an unknown cause has its failure cleared at the next
+//     start, so the sweeps fetch it once more (D511 §4).
+//     TestMatcher_AFetchAnEarlierStartGaveUpForAnUnknownCauseIsSweptAgain.
 //
 //   - A fetch fails for good only for a cause known to be the item's, an id its provider does not
 //     have; a job's own arguments or a rematch's ids it cannot read say nothing of the item, and

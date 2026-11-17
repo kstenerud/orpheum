@@ -570,15 +570,17 @@ func newScanner(
 }
 
 // startIDBytes is a start id's random bytes before hex: eight never repeat between two starts of a
-// node in practice.
+// node or a core in practice.
 const startIDBytes = 8
 
-// newStartID names this start of the node, from random: its hello says it until the node starts
-// again, so the core knows a node that lost the work it held in memory (D238 §3).
+// newStartID names this start of the node or the core, from random. A node's hello says it until the
+// node starts again, so the core knows a node that lost the work it held in memory (D238 §3); the
+// core keeps its failures of unknown cause under it, so the next start tries them once more
+// (D511 §4).
 func newStartID(random io.Reader) (string, error) {
 	raw, err := randbytes.Read(random, startIDBytes)
 	if err != nil {
-		return "", fmt.Errorf("name this start of the node: %w", err)
+		return "", fmt.Errorf("name this start: %w", err)
 	}
 	return hex.EncodeToString(raw), nil
 }
