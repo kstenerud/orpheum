@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, useEffect, useEffectEvent } from "react";
+import { createContext, use, useEffect, useEffectEvent } from "react";
 
 import { deviceDataCaps, isWithinCap, type DataCaps } from "./data-cap.ts";
+import type { FilmParts } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 
 /**
@@ -147,4 +148,36 @@ export function useOriginalOnceTheLinkCarries(
       clearInterval(look);
     };
   }, [isWaiting, fileKbps, caps]);
+}
+
+/**
+ * Whether the film on its ladder waits for the original its person chose (isWaitingForTheOriginal),
+ * moving up by onCarried, given where the film stands, once the link carries it
+ * (useOriginalOnceTheLinkCarries), its one try the page's OriginalTriesContext (D501).
+ */
+export function useMovesUpToTheOriginal(
+  decision: PlaybackDecision | undefined,
+  film: Pick<FilmParts, "ladder" | "readLinkKbps">,
+  onCarried: (positionMs: number) => void,
+): boolean {
+  const tries = use(OriginalTriesContext);
+  const { ladder } = film;
+  const isWaiting =
+    ladder !== undefined && decision !== undefined && isWaitingForTheOriginal(decision, tries);
+  useOriginalOnceTheLinkCarries(
+    isWaiting
+      ? {
+          fileKbps: decision.fileBitRateKbps,
+          readLinkKbps: film.readLinkKbps,
+          readIsAheadFull: ladder.isAheadFull,
+        }
+      : undefined,
+    () => {
+      if (ladder !== undefined) {
+        onCarried(ladder.positionMs);
+      }
+    },
+    { tries },
+  );
+  return isWaiting;
 }

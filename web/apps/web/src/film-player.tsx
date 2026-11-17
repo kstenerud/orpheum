@@ -468,6 +468,31 @@ function DirectFilm(props: {
 }
 
 /**
+ * What failed of a film on its ladder, in the viewer's words, and the way its playback says so, told
+ * to the server beside the page's words (usePlaybackFailure).
+ */
+function useLadderFailure(
+  composition: FilmComposition,
+  videoRef: RefObject<HTMLVideoElement | null>,
+): {
+  readonly failure: string | undefined;
+  readonly onFailed: (seen: PlaybackFailure, whatFailed?: string) => void;
+} {
+  const { t } = useTranslation();
+  const [failure, setFailure] = usePlaybackFailure(composition.askAbout, {
+    onMediaBack: composition.onMediaBack,
+    videoRef,
+  });
+  const onFailed = useCallback(
+    (seen: PlaybackFailure, whatFailed?: string) => {
+      setFailure(playbackFailureText(t, seen), whatFailed);
+    },
+    [setFailure, t],
+  );
+  return { failure, onFailed };
+}
+
+/**
  * The film on its ladder, every quality of it cut into chunks, from the one offered, stepping down
  * by itself and back up with care: from where it starts (D260), or where a stalled player moved to
  * it (D247 §2, §10). It says which quality plays, and when its lowest cannot keep up (D247 §8). On
@@ -489,16 +514,7 @@ function ChunkedFilm(props: {
   const { t } = useTranslation();
   const { offer, positionMs } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = usePlaybackFailure(props.composition.askAbout, {
-    onMediaBack: props.composition.onMediaBack,
-    videoRef,
-  });
-  const onFailed = useCallback(
-    (seen: PlaybackFailure, whatFailed?: string) => {
-      setFailure(playbackFailureText(t, seen), whatFailed);
-    },
-    [setFailure, t],
-  );
+  const { failure, onFailed } = useLadderFailure(props.composition, videoRef);
   const { tracks } = props;
   // A playback's own start on its ladder starts by the link its device remembers (D381).
   const shouldStartByRememberedLink = props.isOnLadder === true && !isStartThePages(offer);

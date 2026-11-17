@@ -53,6 +53,16 @@ function freshStats(): LoaderStats {
   };
 }
 
+/** The stats of a playlist answered from memory: loaded whole the moment it was asked for. */
+function answeredAtOnce(text: string): LoaderStats {
+  const now = performance.now();
+  const stats = freshStats();
+  stats.loading = { start: now, first: now, end: now };
+  stats.loaded = text.length;
+  stats.total = text.length;
+  return stats;
+}
+
 /**
  * The class of playlist loader that answers each of loaded, at its address, from memory the first
  * time hls.js asks for it, and loads by carrier every other ask, a playlist asked again among them.
@@ -112,11 +122,7 @@ export function loadedPlaylistLoader(
         return;
       }
       held.delete(url);
-      const now = performance.now();
-      const stats = freshStats();
-      stats.loading = { start: now, first: now, end: now };
-      stats.loaded = text.length;
-      stats.total = text.length;
+      const stats = answeredAtOnce(text);
       this.answered = stats;
       // Answered after this ask returns, as a load is.
       queueMicrotask(() => {

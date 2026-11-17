@@ -45,7 +45,7 @@ import {
   isWaitingForTheOriginal,
   OriginalTries,
   OriginalTriesContext,
-  useOriginalOnceTheLinkCarries,
+  useMovesUpToTheOriginal,
 } from "./original-waits.ts";
 import {
   ForTesters,
@@ -548,24 +548,12 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
   );
   // The original chosen on a short link starts on the ladder, moving up once it carries it (D501).
   const tries = use(OriginalTriesContext);
-  const isOriginalWaiting =
-    ladder !== undefined && ways !== undefined && isWaitingForTheOriginal(ways.decision, tries);
-  useOriginalOnceTheLinkCarries(
-    isOriginalWaiting
-      ? {
-          fileKbps: ways.decision.fileBitRateKbps,
-          readLinkKbps: props.readLinkKbps,
-          readIsAheadFull: ladder.isAheadFull,
-        }
-      : undefined,
-    () => {
-      if (ways !== undefined && ladder !== undefined) {
-        const decision = { ...ways.decision, resumePositionMs: Math.round(ladder.positionMs) };
-        decideAgainFor({ ...ways, videoRef, decision }, "linkCarriesOriginal")();
-      }
-    },
-    { tries },
-  );
+  const isOriginalWaiting = useMovesUpToTheOriginal(ways?.decision, props, (positionMs) => {
+    if (ways !== undefined) {
+      const decision = { ...ways.decision, resumePositionMs: Math.round(positionMs) };
+      decideAgainFor({ ...ways, videoRef, decision }, "linkCarriesOriginal")();
+    }
+  });
   if (ways === undefined) {
     return <>{children}</>;
   }

@@ -44,15 +44,18 @@ const onLadder = {
 async function onItsLadder(
   showsDebugTools: boolean,
   asked: string[] = [],
-  isOriginalWaiting = false,
-  by: { readonly tries?: OriginalTries; readonly isDirect?: boolean } = {},
+  by: {
+    readonly isOriginalWaiting?: boolean;
+    readonly tries?: OriginalTries;
+    readonly isDirect?: boolean;
+  } = {},
 ): Promise<Mounted> {
   const page: JSX.Element = (
     <PlayView
       fileId={2}
       decision={directDecision({
         ...(by.isDirect === true ? {} : { onLadder }),
-        ...(isOriginalWaiting ? { isOriginalWaitingForTheLink: true } : {}),
+        ...(by.isOriginalWaiting === true ? { isOriginalWaitingForTheLink: true } : {}),
       })}
       onDecideAgain={(cause) => asked.push(cause)}
     />
@@ -157,7 +160,7 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
   const waits = "Plays 480p until the link carries the original file"; // its rung (D501 §3)
 
   it("says so under the film and in ⁝, in place of offering it again", async () => {
-    mounted = await onItsLadder(true, [], true);
+    mounted = await onItsLadder(true, [], { isOriginalWaiting: true });
     expect(mounted.container.textContent).toContain(waits);
     expect(mounted.container.textContent).not.toContain("Play the original file");
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
@@ -169,7 +172,7 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
   });
 
   it("is a debug tool, as the button it answers is", async () => {
-    mounted = await onItsLadder(false, [], true);
+    mounted = await onItsLadder(false, [], { isOriginalWaiting: true });
     expect(mounted.container.textContent).not.toContain(waits);
   });
 
@@ -177,7 +180,7 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
     const tries = new OriginalTries();
     tries.movedUp();
     tries.movedDown(); // within its two minutes
-    mounted = await onItsLadder(true, [], true, { tries });
+    mounted = await onItsLadder(true, [], { isOriginalWaiting: true, tries });
     expect(mounted.container.textContent).not.toContain(waits);
     expect(mounted.container.textContent).toContain("Play the original file");
   });
@@ -190,7 +193,7 @@ describe("the original moved up to once the link carried it", () => {
   it("says so in ⁝, a debug tool as the word that it waited is", async () => {
     const tries = new OriginalTries();
     tries.movedUp();
-    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    mounted = await onItsLadder(true, [], { tries, isDirect: true });
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
     expect(
       menuOpen(mounted).querySelector(".list-box__note .play__original-moved-to")?.textContent,
@@ -203,13 +206,13 @@ describe("the original moved up to once the link carried it", () => {
 
   it("says nothing of it for a film playing its own file as chosen, or once moved down from it", async () => {
     const tries = new OriginalTries();
-    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    mounted = await onItsLadder(true, [], { tries, isDirect: true });
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
     expect(menuOpen(mounted).textContent).not.toContain(movedTo);
     mounted.unmount();
     tries.movedUp();
     tries.movedDown();
-    mounted = await onItsLadder(true, [], false, { tries, isDirect: true });
+    mounted = await onItsLadder(true, [], { tries, isDirect: true });
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
     expect(menuOpen(mounted).textContent).not.toContain(movedTo);
   });
