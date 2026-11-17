@@ -4376,3 +4376,14 @@ stretch around the seek (as a DVD's title is served, D350, D404; `container/keyf
 `moov` over 64 MB today), or the index's bytes served from memory. "Agreed we should measure first";
 making far ahead once a run is open is not wanted until the measurement says what slows it ("I'm
 not so sure about option 2. Let's wait and see what is slowing things down").
+
+Measured (2026-11-17), at the owner's go for a probe on production ("yes go ahead"): on a file of
+the same shape made in the sandbox (178 MB `moov` at the end, 4.9M picture and 7.1M sound samples),
+the pinned FFmpeg (8.1.3-Jellyfin) opens it in 0.55 s on an i3-1315U, nearly all parsing: reading
+the index cold took 0.15 s, the seek nothing measurable, the same with `+faststart`, and a 2-hour
+cut of the same shape opens in 0.05 s. On production (a Celeron J3455, 4 cores, 7 GB, ZFS ARC at
+most 3 GB, load near 6 with frame stills running), the node's `ffprobe` of file 15497 with its
+index already cached took 4.0–4.7 s (less 0.37 s for the exec), and reading the 171 MB of its index
+on the host, cached, 1.0 s. So the parse dominates, paid by the picture run and the sound run each:
+an index of only the stretch around a seek (the virtual MP4 above) is what would remove it; holding
+the index's bytes in memory would not.
