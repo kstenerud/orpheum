@@ -506,10 +506,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D498](working-notes.md#d498--each-places-picture-as-the-owners-table-has-it-a-mixed-row-and-the-season-list-keep-a-posters-shape) Each place's picture as the owner's table has it: a mixed row and the season list keep a poster's shape
 - [D499](working-notes.md#d499--an-other-library-lists-by-name-by-default-as-films-and-series-do) An other library lists by name by default, as films and series do
 - [D500](working-notes.md#d500--a-copied-picture-is-cut-at-its-keyframes-however-its-file-seeks-and-is-encoded-where-it-cannot-be) A copied picture is cut at its keyframes however its file seeks, and is encoded where it cannot be
-- [D501](working-notes.md#d501--a-film-started-below-the-original-its-person-chose-moves-up-once-after-a-minute-of-the-link-at-13-times-the-file-and-says-so-in-) A film started below the original its person chose moves up once, after a minute of the link at 1.3 times the file, and says so in ⋯
+- [D501](working-notes.md#d501--a-film-started-below-the-original-its-person-chose-moves-up-once-after-a-minute-of-the-link-at-13-times-the-file-and-says-so-in-) A film started below the original its person chose moves up once, after a minute of the link at 1.3 times the file, and says so in ⋯ — *revisited by D505*
 - [D502](working-notes.md#d502--a-films-start-asks-its-requests-together-where-they-wait-on-one-another-today) A film's start asks its requests together where they wait on one another today
 - [D503](working-notes.md#d503--a-quality-switch-never-loads-again-a-chunk-it-already-holds-and-a-step-down-is-not-caught-by-a-chunk-not-made-yet) A quality switch never loads again a chunk it already holds, and a step-down is not caught by a chunk not made yet
 - [D504](working-notes.md#d504--a-field-a-provider-left-empty-is-asked-for-again-when-someone-looks-at-it-at-most-weekly-for-a-recent-work-and-monthly-for-an-older-one) A field a provider left empty is asked for again when someone looks at it, at most weekly for a recent work and monthly for an older one
+- [D505](working-notes.md#d505--a-failed-move-up-to-the-original-is-tried-again-after-five-minutes-and-two-of-the-link-carrying-it-a-chosen-original-the-link-cannot-carry-says-why) A failed move up to the original is tried again after five minutes and two of the link carrying it; a chosen original the link cannot carry says why
 
 ## Archived
 

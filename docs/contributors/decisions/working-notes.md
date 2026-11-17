@@ -29567,7 +29567,10 @@ next, not one past it".
 1. **(g) An encoded rung's chunks end where its playlist says they do**, so a buffered end a few
    milliseconds short of a chunk's end no longer makes the player judge the wrong chunk.
 2. **(h) A step-down does not lose its margin to a 425**: it asks for a chunk the node already has,
-   or the rung's encode starts when the step-down is foreseen, one chunk ahead.
+   or the rung's encode starts when the step-down is foreseen, one chunk ahead. Of the two, the
+   owner chose the second (2026-11-17, "Ask in advance"): the player tells the core one chunk
+   ahead that it will step down, a new field of PUT `/playback/{token}/wants`, and the node makes
+   the lower rung's chunk before it is asked for.
 3. **(i) A stepped-down chunk that failed is asked again at its stepped level or lower**, never
    higher while less than one chunk is ahead.
 4. **(f), variant 2: a switch, up as well as down, never loads again a chunk already buffered.**
@@ -29591,3 +29594,21 @@ fields at once where one request gives them. Amends D335, whose sweeps were to f
    older one (or one of no known date).
 3. **One ask fills every missing field a single request of the provider gives**, not one ask per
    field.
+4. **When a title was last asked is kept in the store**, a new column and so a migration, the first
+   since v0.8.1: the owner is fine with one (2026-11-17).
+
+## D505 — A failed move up to the original is tried again after five minutes and two of the link carrying it; a chosen original the link cannot carry says why
+
+**Decided** (2026-11-17), by the project owner, of D501's questions (a) and (b): "it should be
+allowed to periodically try if conditions look favorable, as network conditions are not always
+permanent." Amends D501 §2, one try per film.
+
+**Status:** decided; not built.
+
+1. **A move up to the original that failed is tried again**: no sooner than 5 minutes after the
+   failure, and only once the link has carried the original's rate (D501 §1) for 2 minutes on end.
+   The first move waits its minute (D501 §1); each one after a failure waits its 2 minutes.
+2. **An original its person chose with "Play the original file" that the link cannot carry**
+   drops to the rung the link carries, and a dialog with an OK button says why. Its words are the
+   owner's to choose; that it cannot carry it is read as for the move up, the player moving down
+   from it within two minutes (D501 §2), the lead's reading.
