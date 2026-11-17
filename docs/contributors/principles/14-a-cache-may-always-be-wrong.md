@@ -49,6 +49,12 @@ Three consequences that keep showing up:
   not to hold what it must, or cannot be kept, the core's log is told what and where, once, as the
   copy is dropped ([D494](../decisions/working-notes.md) §5), so the logs are the record that the
   next fix is made from.
+- **What the cache held and lost is not made yet.** Where persistent state records a thing as made,
+  or as one that cannot be made, and the thing itself lived in the cache, its loss puts the record
+  back to "not generated yet", and the ordinary work heals it: the background's planning, a rescan,
+  a person's look ([D507](../decisions/working-notes.md)). A restore from backup carries no cache,
+  and prod's 1,155 frame stills, recorded as taken with no image left, were never taken again; a
+  page asking for one marked it, for good, as one that could not be made (2026-11-17).
 
 **This is [§11](11-hot-path-values-are-cached.md)'s
 other half.** §11 says what to cache and how to invalidate it; this says what must remain true
@@ -58,5 +64,5 @@ one mechanism: *a missed invalidation is stale, a missed update is wrong.*
 
 **Bites when:** a client cannot start without a sync, an error path exists only for "cache
 unavailable", a retry reaches the same kept copy as the attempt that failed, a cache is dropped or
-reset without a word to the log, or the answer to "what if this is stale?" is a guarantee rather
+reset without a word to the log, a record says a thing is made, or cannot be, when the thing lived in a cache that is gone, or the answer to "what if this is stale?" is a guarantee rather
 than a fallback.

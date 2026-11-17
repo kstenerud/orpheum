@@ -29666,3 +29666,29 @@ D247 §8's note at the bottom (§5).
 - 3: web/apps/web/src/too-slow-at-lowest.test.tsx ("is told, once it has waited 10 s at its lowest
   quality, that it probably won't play here, and goes on trying", "is told once in a playback:
   closed with its OK, a later wait at the lowest tells nothing")
+
+## D507 — Something the cache held and lost is not generated yet, and the core's own work makes it again
+
+**Decided** (2026-11-17), by the project owner, after prod's title 5296 never got its screenshot:
+prod was restored on ainas from backups on 2026-11-06, the backups carry `persistent/` and not
+`cache/`, and 1,155 of its 1,494 frame stills were recorded as taken with no image left in
+`cache/art`. A page asking for one found no size to cut it from and noted it, for good, as one that
+cannot be made. Amends D362 §1 (a still is not taken again) and D212's `.none` note where what the
+note stands on is gone, and extends principles §14.
+
+**Status:** decided; not built.
+
+1. **A general principle, not a fix for stills:** "If we had something in the cache and it's gone,
+   we change its status back to 'not generated yet' and let the passive (or active in the case of
+   rescan or interest) functionality we already have heal it" (the owner, 2026-11-17). The system
+   is resilient to the cache disappearing, in whole or in part, at start or while it runs.
+2. **No new way to make anything.** The record that says a thing was made, or cannot be made, is
+   put back to where it stood before it was made; the work that makes it then runs as it always
+   does: the background's planning, a rescan, or a person's look at it (D324).
+3. **For a frame still:** a still recorded as taken whose image the art directory does not hold is
+   retired, as one never taken, and its `.none` notes go with it; the frame-still planning then
+   takes it again. A still too small for a larger size keeps D362 §1: that is a fact of the still,
+   not of the cache.
+4. **Every other cached product is checked against this rule**: art, `cache.db`, and what the node
+   keeps; each that persistent state calls made while it may be gone gets the same treatment, and a
+   test that removes it.
