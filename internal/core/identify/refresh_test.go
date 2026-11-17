@@ -194,7 +194,7 @@ func TestRefresher_TheRollingRefreshPassesOverAnItemWithAFailureOfItsOwn(t *test
 	queue := &jobstest.Queue{}
 	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titleID}}
-	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB's answer was not JSON"); err != nil {
 		t.Fatal(err)
 	}
 	lib.clock.Advance(365 * 24 * time.Hour)
@@ -311,7 +311,7 @@ func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRef
 	lib.scan(videoRecord("Metropolis (1927).mkv"))
 	metropolisID := lib.titlesByPath()["Metropolis (1927).mkv"].WorkID
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: metropolisID}}
-	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB's answer was not JSON"); err != nil {
 		t.Fatal(err)
 	}
 	listed := lib.onlyUnidentified()
@@ -319,7 +319,7 @@ func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRef
 	if count, err := lib.chooser.WaitingForAPerson(t.Context()); err != nil || count != 1 {
 		t.Errorf("WaitingForAPerson = %d, %v; want Metropolis, whose fetch failed", count, err)
 	}
-	if failure := listed.FetchFailure; failure == nil || failure.Failure != "TMDB answered 500 five times" ||
+	if failure := listed.FetchFailure; failure == nil || failure.Failure != "TMDB's answer was not JSON" ||
 		!failure.FailedAt.Equal(lib.clock.Now()) {
 		t.Fatalf("listed %+v; want Metropolis with its failure and when, for its page to show", listed)
 	}

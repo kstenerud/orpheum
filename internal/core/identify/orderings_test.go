@@ -194,7 +194,7 @@ func TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep(t 
 	}
 	storetest.ExecRaw(t, lib.database.Path(), "DELETE FROM provider_response WHERE part = 'episode_groups'")
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID}}
-	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB's answer was not JSON"); err != nil {
 		t.Fatal(err)
 	}
 	if count, err := refresher.QueueMissing(t.Context()); err != nil || count != 0 {
