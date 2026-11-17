@@ -4319,3 +4319,50 @@ focused tile (or a `scroll-padding-block-end` on the page) is what keeps it. Whe
 on all pages that show posters (home, films, series, etc)" (the owner, 2026-11-17), so the fix
 belongs to the one way focus scrolls, not to a page. Seen "on firefox and on the fire tv" (the
 owner, 2026-11-17): a desktop browser's arrow keys as well as a TV's remote.
+
+### A seek in a long file waits 6–11 s, and the "connection isn't fast enough" dialog blames the link, next batch (the owner, 2026-11-17)
+
+The owner, playing file 15497 on production in Firefox: it "takes a long time to jump to a new
+location (admittedly, the video is long, but it's at a low bitrate). It also sometimes triggers
+'Your connection isn't fast enough for even the lowest quality playback. The player will keep
+trying.' - which is not the cause because I'm on a solid connection that plays much higher bitrate
+content without trouble." Asked what the server tells the client on a seek, the owner expects it to
+behave as a fresh start does: "I'm preparing the bytes to send you", "I'm about to send the bytes",
+then "here are some bytes", repeated.
+
+What the logs and the code show (a read-only diagnosis, plays at 18:56–18:59 UTC):
+
+- **File 15497:** an MP4 of 4.54 GB and 45.6 h (about 221 kb/s), H.264 with a keyframe every 10 s
+  and mono AAC. It has one quality only ("level 0 of 0-0"), and its index (`moov`) of 179 MB sits
+  at the end of the file.
+- **Every run of it takes 5–8 s to make its first chunk wherever it starts, then makes 30 chunks in
+  about 150 ms.** The start took 5.3 s; the seek to chunk 1823 was ready after 8.8 s and the seek
+  to chunk 5495 after 11.1 s. Other files on the same disk in the same minute took 0.5–1 s. The
+  suspected floor is FFmpeg reading the index at the end of the file before it writes anything,
+  paid by the picture run and the sound run each; not yet timed.
+- **A seek is sent as paused** (`interest.ts` sends `isPaused: video.paused` while seeking), so the
+  core wants only 30 s ahead (`chunks/interest.go`) and cuts the run there. The run is then queued
+  again a chunk later and pays the 5–8 s again. The 425's `Retry-After: 1` polling
+  (`api/playback.go`) adds about a second to each wait.
+- **The dialog counts time the spinner shows while the lowest quality loads**
+  (`too-slow-at-lowest.ts`), not the link. The player already knows a 425 wait is the server
+  making the chunk (`link-wait.ts`, `#isMaking`), but only the bar uses that. A file with one
+  quality is always at its lowest, so 11 s of 425s raised the dialog.
+- **The signals:** a fresh start's request queues the run and returns the playlists; each chunk
+  request is then answered 425 with `Retry-After: 1` while it is being made, then a 200 head with
+  its length, then the bytes. A seek skips the start request: its first chunk request queues the
+  run, then the same 425s, head and bytes follow. A seek into chunks already made gets only the
+  head and the bytes. Neither has an "about to send" of its own; the head plays that part.
+
+The lead's proposals, for the owner:
+
+1. The dialog counts only waits the link-wait puts on the link, never a 425's. Revert-red test:
+   "is not told while every chunk waited on is answered 425".
+2. A seek made while the film is meant to play is sent as playing, so its run is not cut at 30 s
+   ahead. Revert-red test in `interest.test.ts`.
+3. The node logs FFmpeg's time to its first output, so an index at the end of a file is measured
+   before it is designed for (idiosyncrasies.md when confirmed). Shortening the 425's retry for the
+   first chunk after a seek is also open.
+4. On the owner's sequence: the 425 is "preparing", the head is "about to send" and the bytes
+   follow, so a seek already has the three. What it lacks is the dialog telling the server's
+   preparing apart from the link, which (1) fixes.
