@@ -61,6 +61,9 @@ export const enStatus = {
     error: "Error",
     output: "Output",
     noOutput: "No output.",
+    copyReport: "Copy report",
+    copied: "Copied: every failure, in full.",
+    copyRefused: "This browser wouldn't copy it: select the report below instead.",
   },
   jobs: {
     heading: "Jobs",

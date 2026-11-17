@@ -3,10 +3,11 @@
 import "./unknown-failures.css";
 
 import type { Api, components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { WarningIcon } from "./icons.tsx";
@@ -35,8 +36,9 @@ export function reportedKinds(
 /**
  * The Needs attention page's failures of unknown cause (D509 §4, D511 §6), for an admin: one entry
  * per kind, with its count in the last hour and since the server started, when one last failed and
- * whether its alert is raised, each opening on its failures with the error and the output in full.
- * Nothing while there are none; a read that failed says so in their place.
+ * whether its alert is raised, each opening on its failures with the error and the output in full,
+ * and Copy report to take them all. Nothing while there are none; a read that failed says so in
+ * their place.
  */
 export function UnknownFailures(props: {
   readonly report: Resource<UnknownFailuresReport | undefined>;
@@ -54,6 +56,7 @@ export function UnknownFailures(props: {
         render={(value) => (
           <>
             <p>{t("unknownFailures.about")}</p>
+            <ReportCopy report={value} />
             <ul>
               {(value?.kinds ?? []).map((kind) => (
                 <KindEntry key={kind.kind} kind={kind} />
@@ -63,6 +66,34 @@ export function UnknownFailures(props: {
         )}
       />
     </section>
+  );
+}
+
+/**
+ * Copy report: the whole of GET /unknown-failures's answer, pretty-printed JSON, for the lead to
+ * pull from a server or a user to send (D511 §6); said once copied. A browser that refuses the copy
+ * is shown the report below it to select.
+ */
+function ReportCopy(props: { readonly report: UnknownFailuresReport | undefined }): JSX.Element {
+  const { t } = useTranslation();
+  const [isTextShown, setIsTextShown] = useState(false);
+  const text = JSON.stringify(props.report, null, 2);
+  return (
+    <>
+      <p>
+        <CopyButton
+          text={text}
+          label={t("unknownFailures.copyReport")}
+          copiedNote={t("unknownFailures.copied")}
+          refusedNote={t("unknownFailures.copyRefused")}
+          onRefused={() => {
+            setIsTextShown(true);
+          }}
+          isNoteSpaced
+        />
+      </p>
+      {isTextShown ? <pre className="unknown-failures__report">{text}</pre> : null}
+    </>
   );
 }
 

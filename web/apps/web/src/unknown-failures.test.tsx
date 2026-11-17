@@ -3,10 +3,18 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NeedsAttention } from "./needs-attention.tsx";
-import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import type { UnknownFailuresReport } from "./unknown-failures.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -16,6 +24,8 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const nothingWrong = {
@@ -157,6 +167,32 @@ describe("the Needs attention page's failures of unknown cause", () => {
     expect(failures[1]?.textContent).toContain("No output.");
     expect(failures[1]?.textContent).toContain("From an earlier start of the server.");
     expect(failures[0]?.textContent).not.toContain("From an earlier start of the server.");
+  });
+
+  // D511 §6: Copy report gives the whole of GET /unknown-failures's answer, for the lead to pull from
+  // a server and a user to send.
+  it("copies the whole report as pretty-printed JSON, and says it was copied", async () => {
+    const writes: string[] = [];
+    vi.stubGlobal("isSecureContext", true);
+    vi.spyOn(globalThis.navigator.clipboard, "writeText").mockImplementation((text: string) =>
+      Promise.resolve(void writes.push(text)),
+    );
+    mounted = await mountPage(true, report);
+    await click(buttonWithText(mounted.container, "Copy report"));
+    expect(writes).toEqual([JSON.stringify(report, null, 2)]);
+    expect(mounted.container.textContent).toContain("Copied: every failure, in full.");
+  });
+
+  it("shows the report to select when the browser refuses the copy", async () => {
+    vi.stubGlobal("isSecureContext", false);
+    mounted = await mountPage(true, report);
+    const shown = mounted;
+    expect(shown.container.querySelector(".unknown-failures__report")).toBeNull();
+    await click(buttonWithText(shown.container, "Copy report"));
+    await settleUntil(() => shown.container.textContent.includes("wouldn't copy it"));
+    expect(shown.container.querySelector(".unknown-failures__report")?.textContent).toBe(
+      JSON.stringify(report, null, 2),
+    );
   });
 
   it("is no group while there are none", async () => {
