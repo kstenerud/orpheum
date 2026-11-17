@@ -169,7 +169,7 @@ func (runner *Runner[T]) failOverdueAssigned(ctx context.Context) (bool, error) 
 	if !found {
 		return false, nil
 	}
-	overdue := fmt.Errorf("its machine did not say how it ended by %s", row.AssignedUntil.UTC().Format(time.RFC3339))
+	overdue := fmt.Errorf("%w by %s", ErrOverdue, row.AssignedUntil.UTC().Format(time.RFC3339))
 	if finishErr := runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, overdue); finishErr != nil {
 		return true, finishErr
 	}
@@ -285,10 +285,12 @@ func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed cla
 			"target", job.Target, "attemptLimit", attemptLimit)
 		runner.endProbes(ctx, claimed.probesOf, nil)
 		runner.recordItemsFailure(ctx, job, refusal)
-		return runner.record(ctx, Outcome{
+		err := runner.record(ctx, Outcome{
 			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber - 1,
 			LastFailure: refusal,
 		})
+		runner.tellUnknownFailure(ctx, job, refusal)
+		return err
 	}
 	isCancelled, answer := runner.handle(ctx, job, claimed)
 	if isCancelled {
@@ -362,7 +364,11 @@ func errorText(answer error) string {
 func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimedRow[T], answer error) error {
 	now, destination := runner.queue.clock.Now(), claimed.row.Destination
 	if answer == nil {
-		return runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
+		err := runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
+		if unknownFailures := runner.queue.unknownFailuresTold(); err == nil && unknownFailures != nil {
+			unknownFailures.Done(ctx, job)
+		}
+		return err
 	}
 	if handOff, isAssigned := errors.AsType[*assigned](answer); isAssigned {
 		err := runner.record(ctx, Outcome{
@@ -404,7 +410,7 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 	}
 	if failure, isToolFailure := errors.AsType[*toolError](answer); isToolFailure {
 		if failure.isPanic && job.PreviousAttemptToolFailed {
-			return runner.fail(ctx, job, "the tool failed on two attempts in a row: "+failure.Error())
+			return runner.failUnknown(ctx, job, "the tool failed on two attempts in a row: "+failure.Error())
 		}
 		at := now.Add(runner.queue.jittered(ctx, firstRetryDelay))
 		return runner.wait(ctx, job, Outcome{
@@ -415,7 +421,8 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 }
 
 // retryOrFail answers a job's own failure: a retry after its back-off, or, at its attempt limit, a
-// failure.
+// failure of unknown cause, unless its cause is known to pass: then a retry after the longest retry
+// delay, its attempts held under the limit, as long as it fails so (D511 §1).
 func (runner *Runner[T]) retryOrFail(
 	ctx context.Context, job Job[T], destination Destination, answer error, firstRetryDelay time.Duration,
 ) error {
@@ -423,10 +430,16 @@ func (runner *Runner[T]) retryOrFail(
 	if err != nil {
 		return err
 	}
+	if job.AttemptNumber >= attemptLimit && runner.queue.isPassingFailure(answer) {
+		runner.queue.logger.WarnContext(ctx, "a job keeps failing for a cause that passes", "kind", job.Kind,
+			"target", job.Target, "attemptCount", job.AttemptNumber, "err", answer)
+		at := runner.queue.clock.Now().Add(runner.queue.jittered(ctx, runner.queue.longestRetryDelay(ctx)))
+		return runner.wait(ctx, job, Outcome{At: at, AttemptCount: attemptLimit - 1, Destination: destination}, answer)
+	}
 	if job.AttemptNumber >= attemptLimit {
 		runner.queue.logger.WarnContext(ctx, "a job failed", "kind", job.Kind, "target", job.Target,
 			"attemptCount", job.AttemptNumber, "err", answer)
-		return runner.fail(ctx, job, answer.Error())
+		return runner.failUnknown(ctx, job, answer.Error())
 	}
 	wait := runner.queue.doubledDelay(ctx, firstRetryDelay, job.AttemptNumber-1)
 	if runner.retrySchedule != nil {
@@ -461,6 +474,20 @@ func (runner *Runner[T]) fail(ctx context.Context, job Job[T], why string) error
 	return runner.record(ctx, Outcome{
 		ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber, LastFailure: why,
 	})
+}
+
+// failUnknown fails a job for a cause neither known to block it nor known to pass, and tells the
+// queue's UnknownFailures (D511 §2).
+func (runner *Runner[T]) failUnknown(ctx context.Context, job Job[T], why string) error {
+	err := runner.fail(ctx, job, why)
+	runner.tellUnknownFailure(ctx, job, why)
+	return err
+}
+
+func (runner *Runner[T]) tellUnknownFailure(ctx context.Context, job Job[T], why string) {
+	if unknownFailures := runner.queue.unknownFailuresTold(); unknownFailures != nil {
+		unknownFailures.Failed(ctx, job, why)
+	}
 }
 
 func (runner *Runner[T]) record(ctx context.Context, outcome Outcome) error {

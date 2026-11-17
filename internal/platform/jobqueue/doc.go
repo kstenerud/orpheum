@@ -105,6 +105,13 @@
 //   - A job that fails is recorded by its kind's FailureRecorder as its item's own failure: at its
 //     attempt limit, on a permanent answer, or refused at its claim; a parked or cancelled job is
 //     not (D231 §4, §10). TestRunDue_AJobThatFailsRecordsItsItemsFailureAndOneThatParksOrIsCancelledDoesNot.
+//   - At the attempt limit, a failure Config.IsPassingFailure knows to pass is not given up: it is
+//     tried again after the longest retry delay, its attempts held under the limit, and never recorded
+//     as its item's own. Every other failure at the limit is given up and told to the queue's
+//     UnknownFailures as one of unknown cause, as are a panic on two attempts in a row and a claim's
+//     refusal past the limit; a Permanent answer is not; a job that succeeds is told done (D511 §1).
+//     TestRunDue_AFailureAtTheLimitIsKeptForGoodOnlyWhenKnownToBlockAndPassesOnlyWhenKnownToPass,
+//     TestRunDue_APanicOnTwoAttemptsInARowIsAFailureOfUnknownCause.
 //   - What became of a finished job is no fact a program derives work from: the storage lists the
 //     newest jobs for a person and the open ones for a cancel, and nothing else (D231 §3).
 //     TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory.

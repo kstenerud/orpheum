@@ -89,3 +89,16 @@ func TestStatusError_NamesA429AsARateLimitA502To504AsUnavailableAndA500AsTheRequ
 		t.Errorf("400: %v, want its status, not unavailable", err)
 	}
 }
+
+func TestStatusError_TellsAServersFailureFromARefusalOfWhatWasAsked(t *testing.T) {
+	t.Parallel()
+	for status, isServerFailure := range map[int]bool{
+		http.StatusInternalServerError: true, http.StatusNotImplemented: true, http.StatusBadRequest: false,
+		http.StatusNotFound: false,
+	} {
+		failed, isFailed := errors.AsType[*StatusFailedError](StatusError("TMDB", Answer{StatusCode: status}))
+		if !isFailed || failed.StatusCode != status || failed.IsServerFailure() != isServerFailure {
+			t.Errorf("%d: %v, want a StatusFailedError whose server failure is %t", status, failed, isServerFailure)
+		}
+	}
+}

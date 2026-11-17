@@ -51,6 +51,13 @@
 //     limit allows. TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit,
 //     TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows. Each wait is jittered
 //     by up to a tenth (D231 §10); these tests run unjittered.
+//   - At the limit a failure is one of three (D511 §1): a Permanent answer, kept for good; a cause
+//     IsPassingFailure knows to pass (a host not answering, a 429 or 5xx, a timeout, a silent node),
+//     tried again daily and never given up; or an unknown cause, kept by internal/core/unexpected
+//     under its kind and Subject, its work queued by no request until the next start.
+//     TestIsPassingFailure_KnowsTheCausesThatPassAndNoOther,
+//     TestRunDue_AJobGivenUpForAnUnknownCauseIsKeptAndNotQueuedAgainThisStart,
+//     TestSubject_NamesEachTargetAndItemIDsOfReadsTheItemsBack.
 //   - A job whose destination is down parks on it at no cost of an attempt; no job kept with a
 //     parked destination is claimed; it resumes when the destination is unparked; and the job
 //     view says what it waits for, why, since when and when it is looked at next (D231 §5, §6,
@@ -92,6 +99,7 @@
 //
 //   - internal/platform/jobqueue/doc.go: what the queue itself promises.
 //   - D231, D233: the queue's rebuild; docs/contributors/design/plans/jobs-rebuild.md.
+//   - D511: the three classes of failure; what an unknown one keeps and holds unavailable.
 //   - D193 §2: scheduling, one encode per node.
 //   - D118: the scan is incremental, prioritised and steerable.
 //   - D170: provider rate limits and back-off.
@@ -104,6 +112,7 @@
 //   - queue.go: the kinds, targets, requests, the queue's parts and the answers a handler gives.
 //     destination.go: the destinations, parking on them and their state. sweep.go: the sweeps,
 //     and cancelling what is retired.
+//     unknown.go: which failures pass, a job's subject, and the failures of unknown cause.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. readiness.go: how far work a person waits for is. Each
 //     kind's handler, runner count and argument merge are internal/core/assembly's (jobs.go,

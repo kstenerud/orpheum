@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -185,6 +186,9 @@ type QueueParts struct {
 	// ArgsMerges are the kinds whose arguments merge their own way; the others keep the queued
 	// job's (D231 §8).
 	ArgsMerges map[Kind]ArgsMerge
+	// UnknownFailures keep the jobs given up for a cause of unknown kind, and hold their work
+	// unavailable until the next start (D511); nil keeps none.
+	UnknownFailures *unexpected.Recorder
 }
 
 // Queue is the one work queue in cache.db (schema.md, cache.db): internal/platform/jobqueue
@@ -193,6 +197,9 @@ type Queue struct {
 	queue    *jobqueue.Queue[Target]
 	clock    clock.Clock
 	settings Settings
+	// unknownFailures hold unavailable the work given up for an unknown cause this start; nil holds
+	// none.
+	unknownFailures *unexpected.Recorder
 
 	reportedProgressMutex sync.Mutex
 	reportedProgress      ReportedProgress // guarded by reportedProgressMutex: nil until set
@@ -223,8 +230,12 @@ func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 		Random: parts.Random, Logger: parts.Logger, ArgsMerges: parts.ArgsMerges,
 		PersonsRequestPriority: PriorityPersonsRequest,
 		StorageDestination:     DestinationCoreStorage, IsStorageFailure: store.IsStorageFailure,
+		IsPassingFailure: IsPassingFailure,
 	})
-	return &Queue{clock: parts.Clock, settings: parts.Settings, queue: queue}
+	if parts.UnknownFailures != nil {
+		queue.TellUnknownFailures(unknownFailures{recorder: parts.UnknownFailures, logger: parts.Logger})
+	}
+	return &Queue{clock: parts.Clock, settings: parts.Settings, queue: queue, unknownFailures: parts.UnknownFailures}
 }
 
 // Enqueue queues a job, or folds it into the one already open for its kind and target
@@ -232,6 +243,9 @@ func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	if err := requireOneTarget(job.Kind, job.Target); err != nil {
 		return false, err
+	}
+	if queue.isUnavailable(job.Kind, job.Target) {
+		return false, nil
 	}
 	action, err := queue.queue.Enqueue(ctx, jobqueue.Request[Target]{
 		Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority, Reason: job.Reason,
@@ -253,10 +267,15 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 // it queued anew.
 func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, error) {
 	requests := make([]jobqueue.Request[Target], 0, len(batch))
+	available := make([]Request, 0, len(batch))
 	for _, job := range batch {
 		if err := requireOneTarget(job.Kind, job.Target); err != nil {
 			return 0, err
 		}
+		if queue.isUnavailable(job.Kind, job.Target) {
+			continue
+		}
+		available = append(available, job)
 		requests = append(requests, jobqueue.Request[Target]{
 			Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority, Reason: job.Reason,
 			RunnableAt: job.RunnableAt, Destination: job.Destination, IsDerived: job.IsDerived,
@@ -268,7 +287,7 @@ func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, err
 		if action == jobqueue.ActionInsert {
 			inserted++
 		}
-		if job := batch[index]; job.Priority >= PriorityPlayNow {
+		if job := available[index]; job.Priority >= PriorityPlayNow {
 			if keepErr := queue.KeepWanted(ctx, job.Kind, job.Target); keepErr != nil {
 				return inserted, keepErr
 			}

@@ -12,7 +12,8 @@ import (
 // FallbackLongestRetryDelay is the longest any retry waits when the policy cannot say. The policy's
 // LongestRetryDelay is where the doubling back-off stops, and no jitter takes a wait past it: a job
 // that keeps failing retries about that often until its attempt limit; the limit, not an
-// ever-longer wait, is what makes a failure final.
+// ever-longer wait, is what makes a failure final, and one whose cause is known to pass retries that
+// often past it (D511 §1).
 const FallbackLongestRetryDelay = 24 * time.Hour
 
 // jitterFraction is how far a retry's wait may move either way, so that jobs which failed

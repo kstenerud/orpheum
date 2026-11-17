@@ -64,6 +64,21 @@ type Config struct {
 	// IsStorageFailure is whether an error is the storage failing for want of space or with an
 	// I/O error; nil when StorageDestination is "".
 	IsStorageFailure func(err error) bool
+	// IsPassingFailure is whether a job's own failure is of a cause known to pass: a timeout, a
+	// provider or a machine not answering (D511 §1). Such a failure is never given up at the attempt
+	// limit: it is tried again after the longest retry delay, for as long as it keeps failing so. nil
+	// knows of none, and every failure at the limit is given up.
+	IsPassingFailure func(err error) bool
+}
+
+// UnknownFailures are told the jobs the queue gave up for a cause neither known to block them (a
+// Permanent answer) nor known to pass (IsPassingFailure), and the jobs that succeeded, so a failure
+// they keep is taken off (D511).
+type UnknownFailures[T comparable] interface {
+	// Failed is told a job given up for an unknown cause, with why, after its kind's FailureRecorder.
+	Failed(ctx context.Context, job Job[T], failure string)
+	// Done is told a job that succeeded, once its outcome is recorded.
+	Done(ctx context.Context, job Job[T])
 }
 
 // Queue is a job queue over a Storage. T is what a job works on.
@@ -79,6 +94,7 @@ type Queue[T comparable] struct {
 	personsRequestPriority int64
 	storageDestination     Destination
 	isStorageFailure       func(err error) bool
+	isPassingFailure       func(err error) bool
 
 	destinations destinations
 	sweeps       sweeps
@@ -97,6 +113,23 @@ type Queue[T comparable] struct {
 	// overdue is told each assigned job whose time ran out, by its id, once its end is recorded: its
 	// machine is told to stop the work it still holds. Guarded by mutex.
 	overdue func(ctx context.Context, id int64)
+	// unknownFailures are told each job given up for an unknown cause, and each that succeeded; nil
+	// tells nothing. Guarded by mutex.
+	unknownFailures UnknownFailures[T]
+}
+
+// TellUnknownFailures has the queue tell unknownFailures each job it gives up for an unknown cause,
+// and each that succeeds.
+func (queue *Queue[T]) TellUnknownFailures(unknownFailures UnknownFailures[T]) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.unknownFailures = unknownFailures
+}
+
+func (queue *Queue[T]) unknownFailuresTold() UnknownFailures[T] {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	return queue.unknownFailures
 }
 
 // OnOverdue has the queue tell overdue each assigned job whose time ran out, after its end is
@@ -116,18 +149,23 @@ func (queue *Queue[T]) OnCancel(cancelled func(ctx context.Context, id int64)) {
 
 // New returns a queue over storage.
 func New[T comparable](storage Storage[T], clockSource clock.Clock, config Config) *Queue[T] {
-	isStorageFailure := config.IsStorageFailure
-	if isStorageFailure == nil {
-		isStorageFailure = func(error) bool { return false }
-	}
 	return &Queue[T]{
 		storage: storage, clock: clockSource, policy: config.Policy, random: config.Random, logger: config.Logger,
 		argsMerges: config.ArgsMerges, probes: config.Probes, personsRequestPriority: config.PersonsRequestPriority,
-		storageDestination: config.StorageDestination, isStorageFailure: isStorageFailure,
+		storageDestination: config.StorageDestination, isStorageFailure: orNever(config.IsStorageFailure),
+		isPassingFailure:     orNever(config.IsPassingFailure),
 		destinations:         destinations{parkedBy: map[Destination]*parkedDestination{}},
 		sweeps:               sweeps{wake: make(chan struct{}, 1)},
 		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
 	}
+}
+
+// orNever is isFailure, or, when it is nil, one true of no error.
+func orNever(isFailure func(err error) bool) func(err error) bool {
+	if isFailure == nil {
+		return func(error) bool { return false }
+	}
+	return isFailure
 }
 
 // Enqueue queues a job, or folds the request into the job already open for its kind and target,

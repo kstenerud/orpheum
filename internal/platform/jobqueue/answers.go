@@ -138,3 +138,7 @@ type PanicError struct {
 func (failure *PanicError) Error() string {
 	return fmt.Sprintf("the handler panicked: %v", failure.Value)
 }
+
+// ErrOverdue is an assigned job whose machine did not say how it ended by its time: the job's own
+// failure, retried after its back-off.
+var ErrOverdue = errors.New("its machine did not say how it ended")

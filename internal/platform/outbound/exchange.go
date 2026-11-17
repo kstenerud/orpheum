@@ -63,7 +63,7 @@ func unanswered(request *http.Request, err error) error {
 // StatusError is what an answer that is not 200 means once its provider has read the statuses it
 // gives a meaning of its own: 429 is a RateLimitedError, 502, 503 and 504 are ErrUnavailable (a
 // gateway or the service down), and anything else, a plain 500 included, is its status: a failure
-// of what was asked (D231 §5). An error quotes the start of the body when there is one. The
+// of what was asked (D231 §5), a StatusFailedError. An error quotes the start of the body when there is one. The
 // provider is named as a person knows it: "TMDB", "OpenSubtitles".
 func StatusError(provider string, answer Answer) error {
 	switch answer.StatusCode {
@@ -80,5 +80,21 @@ func StatusError(provider string, answer Answer) error {
 	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		return fmt.Errorf("%w: %s", ErrUnavailable, said)
 	}
-	return errors.New(said)
+	return &StatusFailedError{StatusCode: answer.StatusCode, said: said}
+}
+
+// StatusFailedError is an answer whose status says the call failed, one with no meaning of its own
+// (StatusError): its status, so a caller can tell a server's failure (5xx, one that passes, D511 §1)
+// from a refusal of what was asked (4xx).
+type StatusFailedError struct {
+	StatusCode int
+	said       string
+}
+
+func (failed *StatusFailedError) Error() string { return failed.said }
+
+// IsServerFailure is whether the status is the server failing (5xx) rather than refusing what was
+// asked.
+func (failed *StatusFailedError) IsServerFailure() bool {
+	return failed.StatusCode >= http.StatusInternalServerError
 }

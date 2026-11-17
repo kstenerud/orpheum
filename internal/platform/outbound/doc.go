@@ -32,6 +32,9 @@
 //     refused, never read cut short. TestExchange_AnUnansweredRequestIsUnavailableAndDoesNotRepeatItsURL,
 //     TestExchange_ReadsTheWholeAnswerOrRefusesOneLargerThanItsBound,
 //     TestStatusError_NamesA429AsARateLimitA502To504AsUnavailableAndA500AsTheRequestsOwn.
+//   - Any other status is a StatusFailedError, which tells a server's failure (5xx), a cause that
+//     passes (D511 §1), from a refusal of what was asked (4xx).
+//     TestStatusError_TellsAServersFailureFromARefusalOfWhatWasAsked.
 //   - This package imports nothing from the module but internal/platform/bounded. Enforced by the
 //     depguard rule platform-is-a-leaf.
 //
