@@ -29906,3 +29906,43 @@ to its first packet fell from 0.58–0.72 s to 0.009–0.011 s; reading the inde
 once a file, and each cut 1.5–2 ms. Packets (framecrc) are the same at the start, middle and end of
 the 45 h file, copied and encoded, and `TestFilmOf_AFilmServedCutDownMakesTheChunksOfTheWholeFilm`
 holds a run's chunks and init to the whole film's byte for byte. Not yet measured on production.
+
+## D513 — A search that finds nothing tries the series' order, its year beneath, no year, no "Movie" and its folder, and is made again when the rules change
+
+**Decided** (2026-11-17), by the project owner, on a read-only diagnosis of eight of staging's titles
+misidentified or left unidentified (`design/plans/navigation-and-widgets-answers-2026-10-27.md`,
+"Eight titles on staging misidentified or left unidentified"): the fixes it proposed go to the next
+batch, and titles found to match nothing are searched again whenever the search rules change.
+**Amends**
+[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)'s
+"a title its provider found nothing for is not searched again", and extends
+[D412](#d412--with-no-year-a-films-well-known-candidate-is-the-likely-one-votes-by-a-wide-margin-a-close-fit-over-a-longer-cuts-its-original-name-then-the-oldest)
+to series.
+
+1. **A series with no year is ranked as a film with no year is** (D412), but for runtimes, as an
+   episode's length says little of its series: votes by ten times or more, then a candidate whose
+   original name is the folder's over one named so only in translation, then the oldest. With a year
+   it keeps D301's most voted. Staging's series/1815 had taken an older series under a translated
+   name with no votes over the right one's 120. *Left out:* a candidate lacking a season the files
+   on disk have should count against it, but a search's results carry no seasons, only each
+   candidate's details do, a request each; it waits for the owner's word on that cost.
+2. **A series' year may come from beneath its folder.** A series folder with no year takes the year
+   of a season pack's folder or an episode's file name beneath it that names the same work before
+   its marker ("Show/Show.2019.S01.COMPLETE/Show.2019.S01E01.mkv" is Show, 2019): titles/1679.
+3. **A search with a year that finds no work of the name is made once more without it**, its
+   candidates then admitted by the year either side (D365 §2) or settled as any search's are: the
+   provider's year filter is exact, and it may date a film a year after the file does (titles/130).
+4. **A name that finds nothing is tried without a trailing "Movie"**, "The Movie" or "- Movie", a
+   fallback after every other spelling, as some works' names end in it; **and a film's folder's
+   name is searched** where its file's name found nothing, the folder neither the library's root nor
+   named as the file is (titles/170, 184).
+5. **A title found to match nothing is searched again when the search rules change.** A version of
+   the search rules, a constant in identify that a change to how names are parsed or searched
+   raises, is recorded with each "not found"; one recorded under an older version, or under none,
+   is returned to its first match by a sweep a few at a time, unhurried as the missing-fetch sweep
+   is (D335 §3), and searched under the new rules. §1–§4 are such changes, and are covered by the
+   version's first value, as every "not found" recorded before it has none. *Not built:* the
+   version a "not found" was recorded under has nowhere to live without a schema change (a column
+   of item, step 0091), whose golden is the owner's.
+
+**Status:** not built (2026-11-17): §1–§4 are next, and §5 waits for its schema step.
