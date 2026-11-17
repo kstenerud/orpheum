@@ -36,7 +36,8 @@ afterEach(() => {
 });
 
 describe("a connection too slow for the lowest quality", () => {
-  it("is said politely, in the yellow: how the link stands, not a failure of anything done", async () => {
+  // The owner, 2026-11-17: the dialog at the lowest quality (D506 §3) replaces the note (D506 §5).
+  it("is no note under the film nor an alert: the dialog at the lowest quality says it (D506 §5)", async () => {
     const services = servedBy({
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
@@ -66,11 +67,9 @@ describe("a connection too slow for the lowest quality", () => {
         services,
       ),
     );
-    expect(politeNotices(mounted.container).join(" ")).toContain(
-      "is too much for this connection: it will keep pausing.",
-    );
+    expect(politeNotices(mounted.container).join(" ")).not.toContain("connection");
     const alerts = [...mounted.container.querySelectorAll('[role="alert"]')];
-    expect(alerts.map((each) => each.textContent).join(" ")).not.toContain("keep pausing");
+    expect(alerts.map((each) => each.textContent).join(" ")).not.toContain("connection");
   });
 });
 
