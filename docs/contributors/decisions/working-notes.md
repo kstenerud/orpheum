@@ -29626,7 +29626,7 @@ permanent." Amends D501 §2, one try per film.
 test was a real slow link, a poor Wi-Fi signal). Amends the link-wait bar's rule (film-waits.tsx,
 the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its level.
 
-**Status:** decided; §1 built.
+**Status:** decided and built; §3's words await the owner.
 
 1. **Once shown, the bar stays until the film has enough to play.** It hides only while a chunk
    waited on is one the server is still making. A chunk asked again, given up or failed, already
@@ -29643,3 +29643,8 @@ the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its lev
   again before its head comes: its length and clock from its first head (D506 §1)"),
   web/apps/web/src/film-waits-bar.test.tsx ("once shown, stays as new heads come, and waits its 3
   seconds again only after the server held it up (D506 §1)")
+- 2: web/packages/player/src/abr-trust.test.ts ("a chunk given up stuck while the link is
+  unmeasured lowers the ceiling a quality each time, down to the lowest (D506 §2)")
+- 3: web/apps/web/src/too-slow-at-lowest.test.tsx ("is told, once it has waited 10 s at its lowest
+  quality, that it probably won't play here, and goes on trying", "is told once in a playback:
+  closed with its OK, a later wait at the lowest tells nothing")
