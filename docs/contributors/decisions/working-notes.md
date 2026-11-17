@@ -29814,7 +29814,7 @@ intelligently. A fix would require a reboot of the server, so we could mark fail
 problems a 'try once per boot' kind of thing." Amends D508 §2, which tried an unknown failure again
 with backoff, and D509 §1, whose unexpected errors are these.
 
-**Status:** decided; §1–§5 built for the job queue's work, and the server side of the page and export: a failure past the attempt limit, a claim past it and a panic twice are kept in `unknown_failure` (step 0089) unless known to block or to pass; their work is refused this start; each start tries once more those of an earlier start, fetch_metadata by clearing its item's own failure. Not built: the web's banner, Needs attention entries and Copy report; the other kinds' retries at start beyond their sweeps; failures outside the job queue.
+**Status:** decided; §1–§5 built for the job queue's work, and the server side of the page and export: a failure past the attempt limit, a claim past it and a panic twice are kept in `unknown_failure` (step 0090) unless known to block or to pass; their work is refused this start; each start tries once more those of an earlier start, fetch_metadata by clearing its item's own failure. Not built: the web's banner, Needs attention entries and Copy report; the other kinds' retries at start beyond their sweeps; failures outside the job queue.
 
 1. **A failure is one of three**: a cause known to block it, kept for good (D508 §1); a cause known
    to pass (a timeout, a stall, a provider or node not answering), tried again with backoff and never
