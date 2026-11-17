@@ -514,6 +514,10 @@ func fullScansAllowed() map[string]string {
 			"ones, a used one dropped (D403)",
 		"ListGenresWithCounts": "a household has a few dozen genres, from TMDB and the NFOs; the list's Genre " +
 			"chip counts each once as it opens",
+		"ListUnknownFailures": "the Needs attention page and its report show every failure of unknown cause " +
+			"in full, a row each thing whose work failed so, gone once it succeeds (D511 section 6)",
+		"ListUnknownFailuresOfStartsBefore": "a start reads every failure an earlier start kept, once, to try " +
+			"each again (D511 section 4)",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
 			"once, as a short search reads every name (D48): a household's titles take milliseconds",
 	}
