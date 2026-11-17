@@ -38,15 +38,15 @@ const mostShare = 0.9;
  * chunk the server is still making, a player that loads no chunks of its own), before
  * linkWaitBarAfterMs since the last of its chunks' heads came, or once all of it has come. A bar
  * shown already, isBarShown, stays without waiting again: once shown, it shows until the film has
- * enough to play, hidden only while the server makes a chunk (D506 §1).
+ * enough to play, hidden only while the server makes a chunk (D506 §1), and full, as full as it
+ * gets, while all of its chunks have come and the next is not yet asked.
  */
 export function linkWaitShare(wait: LinkWait | undefined, isBarShown = false): number | undefined {
-  if (
-    wait === undefined ||
-    (!isBarShown && wait.sinceHeadMs < linkWaitBarAfterMs) ||
-    wait.arrivedBytes >= wait.neededBytes
-  ) {
+  if (wait === undefined || (!isBarShown && wait.sinceHeadMs < linkWaitBarAfterMs)) {
     return undefined;
+  }
+  if (wait.arrivedBytes >= wait.neededBytes) {
+    return isBarShown ? mostShare : undefined;
   }
   return Math.min(mostShare, Math.max(leastShare, wait.arrivedBytes / wait.neededBytes));
 }

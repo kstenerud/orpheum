@@ -42,7 +42,8 @@ describe("how much of the spinner's bar is filled", () => {
   it("stays once shown though a chunk's head came since, as a chunk asked again's does (D506 §1)", () => {
     expect(linkWaitShare(coming(200_000, 0), true)).toBe(0.5);
     expect(linkWaitShare(undefined, true)).toBeUndefined();
-    expect(linkWaitShare(coming(400_000), true)).toBeUndefined();
+    // All of it come, the next chunk not yet asked: the film still waits on the link.
+    expect(linkWaitShare(coming(400_000), true)).toBe(0.9);
   });
 
   it("is the bytes come against those needed, between a tenth and nine tenths", () => {

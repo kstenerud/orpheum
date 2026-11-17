@@ -194,6 +194,21 @@ describe("a wait for data, its chunks as they come over the link", () => {
     expect(watch.read()).toEqual({ arrivedBytes: 1000, neededBytes: 4000, sinceHeadMs: 3000 });
   });
 
+  // The bar, once shown, stays while the film waits for the next chunk (D506 §1).
+  it("says every chunk of it come, none since, where all came and none is on its way", () => {
+    const { waits, ask } = waitsOnADrivenLink();
+    const watch = waits.watch();
+    const only = ask("/c/0.m4s", "main");
+    only.head(100, 1000);
+    only.arrive(1000);
+    only.succeed();
+    expect(watch.read()).toEqual({
+      arrivedBytes: 1000,
+      neededBytes: 1000,
+      sinceHeadMs: Number.POSITIVE_INFINITY,
+    });
+  });
+
   it("says nothing while one of its chunks is still being made, though another's head came", () => {
     const { waits, ask } = waitsOnADrivenLink();
     const watch = waits.watch();

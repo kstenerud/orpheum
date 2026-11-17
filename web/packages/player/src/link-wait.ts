@@ -37,7 +37,8 @@ export interface LinkWait {
    * How long since the last head of the chunks on their way came, in ms: since the wait became the
    * link's to carry, every chunk it waits on begun by the server (the owner, 2026-11-17). A new
    * chunk, its head not come, makes the wait the server's again, and its head starts this anew; a
-   * chunk asked again counts from its first head (D506 §1).
+   * chunk asked again counts from its first head (D506 §1). Infinity where every chunk of the wait
+   * has come, and none is on its way: the film waits for one not asked yet.
    */
   readonly sinceHeadMs: number;
 }
@@ -45,8 +46,8 @@ export interface LinkWait {
 /** A wait watched: how its chunks come, and the end of the watching. */
 export interface LinkWaitWatch {
   /**
-   * How the wait's chunks come; undefined while none is on its way, while one has no head yet (the
-   * core still makes it), or while one's head said no length.
+   * How the wait's chunks come; undefined while it has none, while one has no head yet (the core
+   * still makes it), or while one's head said no length.
    */
   readonly read: () => LinkWait | undefined;
   readonly stop: () => void;
@@ -167,9 +168,7 @@ function linkWaitOf(
     };
   }
   const { arrivedBytes, neededBytes, headAtMs } = sums;
-  return Number.isFinite(headAtMs)
-    ? { arrivedBytes, neededBytes, sinceHeadMs: nowMs - headAtMs }
-    : undefined;
+  return neededBytes > 0 ? { arrivedBytes, neededBytes, sinceHeadMs: nowMs - headAtMs } : undefined;
 }
 
 /** A playback's chunk loads on their way, and the waits watched over them (watch). */
