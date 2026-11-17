@@ -82,20 +82,6 @@ interface Ask {
   readonly callbacks: LoaderCallbacks<LoaderContext>;
 }
 
-/** stats as from says them, its count of retries kept: hls.js's frag.stats is the object a load began with. */
-function copyStats(into: LoaderStats, from: LoaderStats): void {
-  Object.assign(into, {
-    aborted: from.aborted,
-    loaded: from.loaded,
-    total: from.total,
-    chunkCount: from.chunkCount,
-    bwEstimate: from.bwEstimate,
-  });
-  Object.assign(into.loading, from.loading);
-  Object.assign(into.parsing, from.parsing);
-  Object.assign(into.buffering, from.buffering);
-}
-
 /** A loader of hls.js's chunks by its carrier, its start's first picture chunk reading the next ahead (StartReadAhead). */
 class ReadingAheadLoader implements Loader<LoaderContext> {
   context: LoaderContext | null = null;
@@ -103,6 +89,8 @@ class ReadingAheadLoader implements Loader<LoaderContext> {
   private readonly inner: Loader<LoaderContext>;
   private taken: AheadLoad | undefined;
   private takenCallbacks: LoaderCallbacks<LoaderContext> | undefined;
+  /** The stats of the read-ahead this load took over, which count its chunk's bytes; none for its own load. */
+  private takenStats: LoaderStats | undefined;
 
   constructor(
     private readonly config: HlsConfig,
@@ -113,7 +101,7 @@ class ReadingAheadLoader implements Loader<LoaderContext> {
   }
 
   get stats(): LoaderStats {
-    return this.inner.stats;
+    return this.takenStats ?? this.inner.stats;
   }
 
   destroy(): void {
@@ -150,6 +138,7 @@ class ReadingAheadLoader implements Loader<LoaderContext> {
     callbacks: LoaderCallbacks<LoaderContext>,
   ): void {
     this.context = context;
+    this.takenStats = undefined;
     const frag = pictureChunkOf(context);
     const taken = frag === undefined ? undefined : this.reading.take(context.url);
     if (taken !== undefined && taken.ended !== "failed") {
@@ -167,14 +156,24 @@ class ReadingAheadLoader implements Loader<LoaderContext> {
     }
   }
 
-  /** Answers ask from taken: its answer, kept, or what it hears from now on. */
+  /**
+   * Answers ask from taken: its answer, kept, or what it hears from now on. Its chunk's stats are
+   * taken's from now on, as hls.js's fragment loader makes them the stats of the load it begins, so
+   * the bytes it says come as they come: copied only at its end, a start's second chunk said none
+   * of them, and was given up as stuck every 6 s, its film never starting at 300 kb/s (staging,
+   * the debug cap, 2026-11-17).
+   */
   private takeOver(taken: AheadLoad, ask: Ask): void {
     const { context, callbacks } = ask;
-    const own = this.stats;
+    const own = taken.loader.stats;
+    own.retry = this.inner.stats.retry;
+    this.takenStats = own;
+    if (context.frag !== undefined) {
+      context.frag.stats = own;
+    }
     this.taken = taken;
     this.takenCallbacks = callbacks;
     const told = (): boolean => {
-      copyStats(own, taken.loader.stats);
       const isStill = this.taken === taken;
       this.taken = undefined;
       return isStill;
@@ -207,7 +206,6 @@ class ReadingAheadLoader implements Loader<LoaderContext> {
         }
       },
       onProgress: (data, details) => {
-        copyStats(own, taken.loader.stats);
         callbacks.onProgress?.(own, context, data, details);
       },
     };

@@ -32,6 +32,8 @@ function freshStats(): LoaderStats {
 /** A load the stand-in was asked: its address, and its answer or failure when the test says. */
 interface Asked {
   readonly url: string;
+  /** Its head came at headAtMs, and bytes of it have come, all of it not yet. */
+  readonly come: (headAtMs: number, bytes: number) => void;
   readonly arrive: (bytes: number) => void;
   readonly fail: (code: number) => void;
   readonly isAborted: () => boolean;
@@ -61,6 +63,10 @@ class StandInLoader implements Loader<LoaderContext> {
     this.context = context;
     asked.push({
       url: context.url,
+      come: (headAtMs, bytes) => {
+        this.stats.loading.first = headAtMs;
+        this.stats.loaded = bytes;
+      },
       arrive: (bytes) => {
         this.stats.loaded = bytes;
         this.stats.total = bytes;
@@ -130,10 +136,16 @@ function readingAhead(): {
   return { reading, loaderClass: reading.loaderOf(StandInLoader) };
 }
 
-/** Asks for frag as hls.js does, by a loader of its own; returns what it was told. */
+/**
+ * Asks for frag as hls.js does, by a loader of its own, frag's stats then the loader's (as hls.js's
+ * fragment loader sets them); returns what it was told.
+ */
 function ask(loaderClass: ReturnType<StartReadAhead["loaderOf"]>, frag: Fragment): number[] {
   const { callbacks, answered } = told();
-  new loaderClass({} as HlsConfig).load(contextOf(frag), {} as LoaderConfiguration, callbacks);
+  const loader = new loaderClass({} as HlsConfig);
+  // eslint-disable-next-line no-param-reassign -- as hls.js's fragment loader does
+  frag.stats = loader.stats;
+  loader.load(contextOf(frag), {} as LoaderConfiguration, callbacks);
   return answered;
 }
 
@@ -158,6 +170,19 @@ describe("a playback's start reads its second picture chunk ahead (D502 §2)", (
     asked[1]?.arrive(736_297);
     await Promise.resolve();
     expect(second).toEqual([736_297]);
+  });
+
+  // A start's second chunk, taken over, said none of its bytes to hls.js until all of it came, and
+  // the player gave it up as stuck after 6 s, again and again, its film never starting at 300 kb/s
+  // (staging, the debug cap, 2026-11-17).
+  it("says to hls.js the bytes of the load under way as they come, not only once all of it came", () => {
+    const { loaderClass } = readingAhead();
+    ask(loaderClass, chunk(0));
+    const second = chunk(1);
+    ask(loaderClass, second);
+    asked[1]?.come(700, 225_000);
+    expect(second.stats.loaded).toBe(225_000);
+    expect(second.stats.loading.first).toBe(700);
   });
 
   it("answers it from the answer kept, when the chunk came before hls.js asked", async () => {
