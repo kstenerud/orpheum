@@ -4444,3 +4444,15 @@ rescanned now. D512's 16 MB threshold and minute's margin stand. For the night, 
 seek tests on staging itself, builds the next batches' UI parts on the app's patterns for the
 owner's review in the morning (each in its own commit, its strings listed), and closes each batch
 with check-pr, going on to the next while it can without the owner.
+
+**D512 on staging, under load (2026-11-17 21:17 UTC; the lead, by the API as lead-tests):** five
+seeks into file 15497's twin on staging (staging's file 18204, the same bytes) at a tenth, half,
+nine tenths, three tenths and seven tenths, during a rescan of every library (load average about 2
+on staging's four cores). Every run was served its index cut down (`indexCutDown=true`); the film
+opened in 4–30 ms once its index was read (the first open, which reads it, 236 ms), and the first
+chunk came 0.25–0.57 s after the run's slot, picture and sound alike. Before D512 staging's FFmpeg
+spent about 1.75 s of each open parsing the index alone (ffprobe, warm). Seen from the client each
+seek took 1.33–1.45 s, one 425 each: the chunk was ready in about half a second, and the client
+asked again only when `Retry-After: 1` said to. With the open now this short, the second's wait is
+most of what is left of a seek; whether to answer sooner (a shorter Retry-After, or the request held
+until the chunk is ready) is the owner's question.
