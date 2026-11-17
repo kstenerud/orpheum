@@ -242,7 +242,8 @@ describe("the bar under the spinner (the owner, 2026-11-17)", () => {
     mounted = await mount(<LadderStage watching={watching} />);
     stall(videoIn(mounted));
     await passMs(spinnerAfterMs);
-    expect(watching.begun).toBe(1);
+    // The bar's watch, and the too-slow dialog's, which counts only the link's wait (too-slow-at-lowest.ts).
+    expect(watching.begun).toBe(2);
     await passMs(250);
     expect(filled()).toBe("25%");
   });

@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import type { LinkWaitWatch } from "@orpheum/player";
 import { act, useRef, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -39,6 +40,19 @@ const offer: LadderOffer = {
 /** Whether the film's playback loads its lowest quality, as the test says. */
 const rung = { isLowest: true };
 
+/**
+ * Whether the server makes a chunk the film waits on, as the test says: its last answer a 425, the
+ * wait the server's (link-wait.ts); the link's otherwise, its bytes coming slowly.
+ */
+const server = { isMaking: false };
+
+/** A watch of the film's wait, the link's or, while server.isMaking, the server's (LinkWaits.watch). */
+const linkWaitWatch: LinkWaitWatch = {
+  read: () =>
+    server.isMaking ? undefined : { arrivedBytes: 1000, neededBytes: 400_000, linksForMs: 0 },
+  stop: () => undefined,
+};
+
 /** The player's stage, a film on its ladder in it, or, isOwnFile, a film playing its own file. */
 function FilmStage(props: { readonly isOwnFile?: boolean }): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,7 +63,7 @@ function FilmStage(props: { readonly isOwnFile?: boolean }): JSX.Element {
     cannotKeepUp: undefined,
     isAheadFull: () => false,
     isAtLowestRung: () => rung.isLowest,
-    watchLinkWait: () => undefined,
+    watchLinkWait: () => linkWaitWatch,
     sound: undefined,
     heardLevel: undefined,
     playSound: () => false,
@@ -73,6 +87,7 @@ afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
   rung.isLowest = true;
+  server.isMaking = false;
   const notice = currentNotice();
   if (notice !== undefined) {
     dismissNotice(notice);
@@ -166,6 +181,30 @@ describe("a film the lowest quality cannot carry (D506 §3)", () => {
     await passMs(spinnerAfterMs); // the spinner again
     await passMs(3 * tooSlowAtLowestAfterMs);
     expect(currentNotice()).toBeUndefined();
+  });
+
+  it("is not told while every chunk waited on is answered 425, the server making it, not the link", async () => {
+    server.isMaking = true; // a file of one quality, always at its lowest, after a seek (file 15497)
+    await stalled();
+    await passMs(3 * tooSlowAtLowestAfterMs);
+    expect(currentNotice()).toBeUndefined();
+    server.isMaking = false; // made: its bytes now come over a link too slow for them
+    await passMs(tooSlowAtLowestAfterMs - 500);
+    expect(currentNotice()).toBeUndefined(); // the link's wait counts from the chunk's making
+    await passMs(500);
+    expect(currentNotice()?.text).toBe(told);
+  });
+
+  it("counts from nothing once the server makes a chunk in the middle of the link's wait", async () => {
+    await stalled();
+    await passMs(tooSlowAtLowestAfterMs - 2000);
+    server.isMaking = true;
+    await passMs(500);
+    server.isMaking = false;
+    await passMs(tooSlowAtLowestAfterMs - 1000);
+    expect(currentNotice()).toBeUndefined();
+    await passMs(1000);
+    expect(currentNotice()?.text).toBe(told);
   });
 
   it("is never told of a film playing its own file, which has no qualities to step down", async () => {

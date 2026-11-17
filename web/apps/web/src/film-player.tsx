@@ -282,7 +282,7 @@ export function Stage(
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
   useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
-  useTellsTooSlowAtLowest(videoRef, ladder?.isAtLowestRung, ladder?.offer.url);
+  useTellsTooSlowAtLowest(videoRef, ladder);
   const parts = { videoRef, readLinkKbps, failure, ladder };
   const drawn = (
     <>
