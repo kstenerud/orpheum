@@ -3357,14 +3357,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   file once the link carries it"; then, with the link freed to a few Mb/s, within about a minute
   it moves to the original by itself from where it stands (⋯'s How it plays says the file as it
   is). With the device's data cap set under the file's rate it stays on the ladder (D489).
-- [ ] **VQ354** — Word that the connection cannot keep up shows for 10 s, once a playback (the
-  owner, 2026-11-15, of a bad patch whose word never went: "The message should only show for 5
-  seconds and then never again on that playback", then "Actually let's make it 10 seconds"). On the owner's Android phone, on staging, a film
-  playing on a link too slow for its lowest quality (under about 1 Mb/s): at its first stall "Your
-  connection carries about …" (or "Even the lowest quality … is too much") shows under the film.
-  Passes when it goes about 10 s later and, however often the film stalls after, does not come back
-  in that playback; a new film, or the same one opened again, may say it once more
-  (`film-player.tsx`'s useSaidOnce, `cannotKeepUpSaidForMs`).
+- [ ] **VQ354** — On a link too slow for even the lowest quality, a dialog says so once, and the
+  film keeps trying (D506 §3, §5: the owner, 2026-11-17, replacing the 10 s note under the film this
+  item first checked). On the owner's Android phone, on staging, a film playing on a link under its
+  lowest quality (under about 500 kb/s, or the debug cap): about 10 s after it waits at its lowest
+  quality, "Your connection isn't fast enough for even the lowest quality playback. The player will
+  keep trying." shows with OK. Passes when no note shows under the film, OK closes the dialog, the
+  spinner and its bar go on, and it does not come back in that playback
+  (`too-slow-at-lowest.ts`).
 - [ ] **VQ355** — A film getting ready to play shows Pause and a spinner, not ▶ (the owner,
   2026-11-15: "when I go from the info page to playing, it should show the pause button, not the
   play button, because it's trying to play ... We use the spinner to communicate that it's trying

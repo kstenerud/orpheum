@@ -573,7 +573,6 @@ function ChunkedFilm(props: {
       <LadderNotes
         offer={offer}
         playing={playing}
-        cannotKeepUp={cannotKeepUp}
         isOnLadder={props.isOnLadder === true}
         hasTracks={hasTracks}
       />
@@ -695,77 +694,22 @@ function useShapedByTheTabsLink(): void {
 }
 
 /**
- * How long word that even the lowest quality cannot keep up shows, in ms: once in a playback, then
- * never again in it, however often it stalls after (the owner, 2026-11-15, of a bad patch whose word
- * never went: "The message should only show for 5 seconds and then never again on that playback"),
- * then "Actually let's make it 10 seconds".
+ * What a chunked playback says: the quality playing, to testers. That even the lowest quality cannot
+ * keep up is the dialog's to say (useTellsTooSlowAtLowest, D506 §3), which replaced the note under
+ * the film (the owner, 2026-11-17; D506 §5).
  */
-export const cannotKeepUpSaidForMs = 10_000;
-
-/**
- * Whether word wanted now shows: from the render it is first wanted in a playback, for
- * cannotKeepUpSaidForMs, and never again in that playback (playbackUrl), wanted or not.
- */
-function useSaidOnce(isWanted: boolean, playbackUrl: string): boolean {
-  const [said, setSaid] = useState<{ readonly url: string; readonly phase: SaidPhase }>({
-    url: playbackUrl,
-    phase: "unsaid",
-  });
-  // Moved on in the render it changes in, so the frame the word is first wanted in shows it.
-  if (said.url !== playbackUrl) {
-    setSaid({ url: playbackUrl, phase: "unsaid" });
-  } else if (isWanted && said.phase === "unsaid") {
-    setSaid({ url: playbackUrl, phase: "saying" });
-  }
-  const isSaying = said.url === playbackUrl && said.phase === "saying";
-  useEffect(() => {
-    if (!isSaying) {
-      return undefined;
-    }
-    const done = setTimeout(() => {
-      setSaid({ url: playbackUrl, phase: "said" });
-    }, cannotKeepUpSaidForMs);
-    return () => {
-      clearTimeout(done);
-    };
-  }, [isSaying, playbackUrl]);
-  return isWanted && isSaying;
-}
-
-/** Where a playback's word stands: not yet shown, showing, or shown and gone for good. */
-type SaidPhase = "unsaid" | "saying" | "said";
-
-/** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
 export function LadderNotes(props: {
   readonly offer: LadderOffer;
   readonly playing: PlayedLevel | undefined;
-  readonly cannotKeepUp: CannotKeepUp | undefined;
   /** Whether the playback started on its film's ladder (D260), rather than moved to it after a stall (D253). */
   readonly isOnLadder?: boolean;
   /** Whether the tracks playing are named beside it, which say the quality in its place. */
   readonly hasTracks?: boolean;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { offer, cannotKeepUp } = props;
-  const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
-  const isSaid = useSaidOnce(cannotKeepUp !== undefined || offer.isBelowTheLowest, offer.url);
-  return (
-    <>
-      {props.hasTracks === true ? null : (
-        <ForTesters>
-          <QualityLine {...props} />
-        </ForTesters>
-      )}
-      {isSaid ? (
-        <p className="needs-fixing">
-          <output>
-            {cannotKeepUp?.linkKbps === undefined
-              ? t("play.cannotKeepUpUnmeasured", { lowest })
-              : t("play.cannotKeepUp", { link: rateText(cannotKeepUp.linkKbps), lowest })}
-          </output>
-        </p>
-      ) : null}
-    </>
+}): JSX.Element | null {
+  return props.hasTracks === true ? null : (
+    <ForTesters>
+      <QualityLine {...props} />
+    </ForTesters>
   );
 }
 

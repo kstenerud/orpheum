@@ -18,9 +18,9 @@ import { tooSlowAtLowestAfterMs } from "./too-slow-at-lowest.ts";
  * playback, that it probably will not play on this link, and goes on trying (D506 §3).
  */
 
-/** What the film's words say, the owner's to choose (D506 §3). */
+/** What the film's words say: the owner's, 2026-11-17 (D506 §3). */
 const told =
-  "This film probably won't play on this connection: even at its lowest quality, it can't load fast enough. It will keep trying.";
+  "Your connection isn't fast enough for even the lowest quality playback. The player will keep trying.";
 
 /** A film's offer of its ladder, as the stage's ladder carries it. */
 const offer: LadderOffer = {

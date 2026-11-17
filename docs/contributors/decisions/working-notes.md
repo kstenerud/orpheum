@@ -29624,9 +29624,10 @@ permanent." Amends D501 §2, one try per film.
 **Decided** (2026-11-17), by the project owner, of the lead's questions after the bar showed at a
 300 kb/s link for 3 s of every 6, its film given up and asked again each time (the owner's own
 test was a real slow link, a poor Wi-Fi signal). Amends the link-wait bar's rule (film-waits.tsx,
-the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its level.
+the owner, 2026-11-17), D382 P3, a stuck start's chunk asked again at its level, and
+D247 §8's note at the bottom (§5).
 
-**Status:** decided and built; §3's words await the owner.
+**Status:** decided and built.
 
 1. **Once shown, the bar stays until the film has enough to play.** It hides only while a chunk
    waited on is one the server is still making. A chunk asked again, given up or failed, already
@@ -29643,6 +29644,11 @@ the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its lev
    built §1 on the core holding a request without a word, which it has not done since D250 §5.
    A chunk answered 425 is the server's until its head comes, or 5 s pass with no 425 again
    (given up).
+5. **The dialog's words, and it replaces the note** (the owner, 2026-11-17): "Your connection
+   isn't fast enough for even the lowest quality playback. The player will keep trying." The 10 s
+   note under the film at a stall at the lowest (D247 §8, the owner, 2026-11-15) is gone; a Watch
+   Together group is still told of a member's device that cannot keep up, which the dialog, on
+   that device alone, does not say.
 
 **Proven by:**
 - 1: web/packages/player/src/link-wait.test.ts ("waits no more on a chunk whose load was lost; the
@@ -29655,6 +29661,8 @@ the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its lev
 - 4: web/packages/player/src/link-wait.test.ts ("is the link's while a chunk's answer has not come,
   the core answering at once (D506 §4)", "says nothing while the core makes a chunk of it,
   answered 425, and is the link's from that chunk's head on (D506 §4)")
+- 5: web/apps/web/src/ladder-notes.test.tsx ("is no note under the film, the server saying the
+  link is below the lowest: the dialog says it (D506 §5)"), too-slow-at-lowest.test.tsx (its words)
 - 3: web/apps/web/src/too-slow-at-lowest.test.tsx ("is told, once it has waited 10 s at its lowest
   quality, that it probably won't play here, and goes on trying", "is told once in a playback:
   closed with its OK, a later wait at the lowest tells nothing")

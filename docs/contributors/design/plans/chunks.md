@@ -103,8 +103,9 @@
 - **Stepping up** (D247 §9): hls.js is configured to step up only with about 1.5× the next
   quality's rate (`abrBandWidthUpFactor`), measured over minutes rather than seconds (its slower
   moving average), and one quality at a time.
-- **The bottom** (D247 §8): a stall at the lowest quality, or a measured speed below it, tells the
-  person it will not work, with both numbers; in Watch Together the group is told too.
+- **The bottom** (D247 §8, D506 §3 and §5): a film waiting 10 s at its lowest quality tells its
+  person, once, in a dialog with OK, that the connection is not fast enough, and goes on trying; in
+  Watch Together the group is told of a member's stall at the lowest, with both numbers.
 - **The quality playing** is shown (D247 §3).
 
 ## 5. The order it is built in

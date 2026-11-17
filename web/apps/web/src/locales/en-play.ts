@@ -73,12 +73,9 @@ export const enPlay = {
     },
     lowerQuality:
       "Playing a lower quality for your connection: {{height}}p, {{rate}}. It goes back up when the connection allows.",
-    cannotKeepUpUnmeasured:
-      "Even the lowest quality, {{lowest}}, is too much for this connection: it will keep pausing.",
-    cannotKeepUp:
-      "Your connection carries about {{link}}, and even the lowest quality needs {{lowest}}: it will keep pausing.",
+    // The owner's words, 2026-11-17 (D506 §3).
     tooSlowAtLowest:
-      "This film probably won't play on this connection: even at its lowest quality, it can't load fast enough. It will keep trying.",
+      "Your connection isn't fast enough for even the lowest quality playback. The player will keep trying.",
     failure: {
       hlsUnsupported: "this browser cannot play streamed video",
       aborted: "loading it was stopped",
