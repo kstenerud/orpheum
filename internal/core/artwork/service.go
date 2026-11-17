@@ -200,19 +200,25 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 	return holds(rows, want.source, want.ref), nil
 }
 
-// keep stores what the node made, then records it as the item's image of its kind; a refusal is
-// recorded with no hash.
+// keep stores what the node made, then records it as the item's image of its kind; the node's
+// refusal is recorded with no hash. An answer that is not one, with no size asked for or no hash to
+// store it under, is no fact of the image: the job fails and is tried again (D508 §2).
 func (service *Service) keep(
 	ctx context.Context, want wantedImage, sourceSha256Hex string, result nodeproto.ArtworkResult,
 ) error {
-	shape, _ := shapeOf(want.ref.Kind) // checked before fetching
-	images, why := storableImages(result, shape)
-	sourceSha256, err := hex.DecodeString(sourceSha256Hex)
-	if why == "" && (err != nil || len(sourceSha256) != sha256.Size) {
-		why = "the node named no source hash"
+	if result.Refusal != "" {
+		return service.recordRefusal(ctx, want, "the node refused it: "+result.Refusal)
 	}
-	if why != "" {
-		return service.recordRefusal(ctx, want, why)
+	shape, _ := shapeOf(want.ref.Kind) // checked before fetching
+	images := storableImages(result, shape)
+	sourceSha256, err := hex.DecodeString(sourceSha256Hex)
+	switch {
+	case len(images) == 0:
+		return fmt.Errorf("item %d's %s %s: the node's answer had no size that was asked for, in WebP",
+			want.itemID, want.source, want.ref.SourceRef)
+	case err != nil || len(sourceSha256) != sha256.Size:
+		return fmt.Errorf("item %d's %s %s: the node named no source hash", want.itemID, want.source,
+			want.ref.SourceRef)
 	}
 	for _, made := range images {
 		if err := service.writeArt(ctx, sourceSha256Hex, string(made.SizeName)+webpSuffix, made.WebP); err != nil {
@@ -225,12 +231,8 @@ func (service *Service) keep(
 	return service.record(ctx, want, sourceSha256, nil)
 }
 
-// storableImages is what of the node's answer may be stored: sizes asked for, in WebP. It says why
-// nothing may be.
-func storableImages(result nodeproto.ArtworkResult, shape nodeproto.Shape) ([]nodeproto.ArtImage, string) {
-	if result.Refusal != "" {
-		return nil, "the node refused it: " + result.Refusal
-	}
+// storableImages is what of the node's answer may be stored: sizes asked for, in WebP.
+func storableImages(result nodeproto.ArtworkResult, shape nodeproto.Shape) []nodeproto.ArtImage {
 	asked := fetchedSizes(shape)
 	var kept []nodeproto.ArtImage
 	for _, image := range result.Images {
@@ -238,10 +240,7 @@ func storableImages(result nodeproto.ArtworkResult, shape nodeproto.Shape) ([]no
 			kept = append(kept, image)
 		}
 	}
-	if len(kept) == 0 {
-		return nil, "the node's answer had no size that was asked for, in WebP"
-	}
-	return kept, ""
+	return kept
 }
 
 // isWebP reports whether bytes are a RIFF WebP container, as our encoder writes.

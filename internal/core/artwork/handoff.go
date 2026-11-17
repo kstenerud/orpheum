@@ -264,11 +264,15 @@ func (service *Service) takeAnswer(
 }
 
 // takeCut stores the sizes the node cut from a source. Only the image's own source can say a size
-// cannot be made; a size a base did not yield is an error, retried.
+// cannot be made, by being too small for it; a size a base did not yield, and a refusal, whose cause
+// is not one known to block the size, are errors, retried (D508).
 func (service *Service) takeCut(
 	ctx context.Context, image nodeproto.Artwork, args artworkJobArgs, isFromSource bool, made nodeproto.ArtworkResult,
 ) error {
-	if image.AbsolutePath != nil && made.Refusal == "" && made.SourceSha256 != args.SourceSha256 {
+	if made.Refusal != "" {
+		return fmt.Errorf("the node cut no %v of art %s: %s", args.SizeNames, args.SourceSha256, made.Refusal)
+	}
+	if image.AbsolutePath != nil && made.SourceSha256 != args.SourceSha256 {
 		service.parts.Logger.WarnContext(ctx, "an image beside the media changed; its sizes are not made",
 			"sourceSha256", args.SourceSha256)
 		return service.noteCannotMake(ctx, args.SourceSha256, args.SizeNames)

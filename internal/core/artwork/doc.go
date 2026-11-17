@@ -42,6 +42,13 @@
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
 //
+//   - A size is noted as one that cannot be made only for a cause known to block it: its source too
+//     small for it, gone or changed. A cut the node refused, and an answer with no size asked for in
+//     WebP or no hash to store it under, are faults: the job fails and is tried again on its retry
+//     schedule, nothing is recorded that keeps the image or size from being asked for again, and a
+//     later request asks again (D508). TestHandle_ASizeTheNodeRefusedToCutIsTriedAgainAndNotNoted,
+//     TestHandle_AnAnswerWithNothingToStoreIsTriedAgainAndNotRecordedAsRefused.
+//
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
 //
 //   - A job fetches what its images need from their providers, then gives every image it still
