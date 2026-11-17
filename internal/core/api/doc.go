@@ -137,6 +137,9 @@
 //     TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline.
 //   - An admin is told how many folders and disks are offline, wait for them or could not be read,
 //     which the status tray's warning sign shows (D280). TestNeedsAttention_CountsTheFoldersAndDisksOffline.
+//   - An admin alone reads which kinds of work raise the alert of failures of unknown cause, and
+//     every such failure by kind with all it said, for the page and the export (D509, D511).
+//     TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes.
 //   - A job waiting on a destination that is down says which, as a person reads it, why, since
 //     when, and when it is looked at next, if a check brings it back (D231 §12).
 //     TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck.

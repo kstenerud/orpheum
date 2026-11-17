@@ -245,6 +245,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerBackups()
 	server.registerFilingReports()
 	server.registerNeedsAttention()
+	server.registerUnknownFailures()
 	server.registerClientSettings()
 	server.registerPlayback()
 	server.registerPreferences()

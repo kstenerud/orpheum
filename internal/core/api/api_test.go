@@ -45,6 +45,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/turn"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -85,9 +86,10 @@ type testHarness struct {
 	// live is which devices are connected and the casts between them, the server's own (D337).
 	live *live.Registry
 	// resourceUse records what the core and nodes use, at a test's call.
-	resourceUse *resourceuse.Recorder
-	nodeBytes   *fakeNodeBytes
-	queue       *jobs.Queue
+	resourceUse     *resourceuse.Recorder
+	nodeBytes       *fakeNodeBytes
+	queue           *jobs.Queue
+	unknownFailures *unexpected.Recorder
 	// subtitler is OpenSubtitles, faked (D224).
 	subtitler *fakeSubtitler
 	// resolver takes the outcome of each job given to the node, and hands a test its answer.
@@ -243,8 +245,9 @@ func newHarness(t *testing.T) testHarness {
 		database:     database, looks: dependencies.Interest, live: dependencies.Live,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: dependencies.Backups,
-		resourceUse: dependencies.ResourceUse,
-		subtitler:   subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
+		unknownFailures: dependencies.UnknownFailures,
+		resourceUse:     dependencies.ResourceUse,
+		subtitler:       subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
 		chunks: dependencies.Chunks, reads: reads, settings: seeded,
 	}
 }

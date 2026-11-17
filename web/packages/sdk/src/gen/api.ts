@@ -2534,6 +2534,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unknown-failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every failure of unknown cause, by kind, in full: the summary and the export (D509, D511) */
+        get: operations["getUnknownFailures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unknown-failures/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The kinds of work whose failures of unknown cause raise the admin's alert (D509) */
+        get: operations["getUnknownFailureAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -5996,6 +6030,75 @@ export interface components {
             /** Format: int64 */
             acceptedAt: number;
             acceptedBy: string;
+        };
+        UnknownFailureAlertBody: {
+            kind: string;
+            /**
+             * Format: int64
+             * @description How many of its failures of unknown cause were in the last hour
+             */
+            lastHour: number;
+        };
+        UnknownFailureAlertsBody: {
+            alerts: components["schemas"]["UnknownFailureAlertBody"][] | null;
+        };
+        UnknownFailureBody: {
+            /**
+             * Format: int64
+             * @description How many times it failed
+             */
+            count: number;
+            error: string;
+            /**
+             * Format: int64
+             * @description When it first failed, in Unix milliseconds
+             */
+            firstAt: number;
+            /** @description Whether it failed since the server started */
+            isThisStart: boolean;
+            /**
+             * Format: int64
+             * @description When it last failed, in Unix milliseconds
+             */
+            lastAt: number;
+            output: string;
+            /** @description What the work was for, as "item 12" */
+            subject: string;
+            /** @description The server's version when it last failed */
+            version: string;
+        };
+        UnknownFailureKindBody: {
+            failures: components["schemas"]["UnknownFailureBody"][] | null;
+            /** @description Whether its alert is raised */
+            isRaised: boolean;
+            kind: string;
+            /**
+             * Format: int64
+             * @description When one last failed, in Unix milliseconds
+             */
+            lastAt: number;
+            /**
+             * Format: int64
+             * @description How many failed in the last hour
+             */
+            lastHour: number;
+            /**
+             * Format: int64
+             * @description How many failed since the server started
+             */
+            sinceStart: number;
+        };
+        UnknownFailuresBody: {
+            /**
+             * Format: int64
+             * @description When the report was made, in Unix milliseconds
+             */
+            at: number;
+            kinds: components["schemas"]["UnknownFailureKindBody"][] | null;
+            /** @description This start of the server */
+            startId: string;
+            /** @description The server's version */
+            version: string;
         };
         UnplayableBody: {
             audioBuffered?: string;
@@ -11804,6 +11907,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpNextOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUnknownFailures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownFailuresBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUnknownFailureAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownFailureAlertsBody"];
                 };
             };
             /** @description Error */

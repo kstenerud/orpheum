@@ -9580,6 +9580,165 @@
         ],
         "type": "object"
       },
+      "UnknownFailureAlertBody": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "lastHour": {
+            "description": "How many of its failures of unknown cause were in the last hour",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "lastHour"
+        ],
+        "type": "object"
+      },
+      "UnknownFailureAlertsBody": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownFailureAlertBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "alerts"
+        ],
+        "type": "object"
+      },
+      "UnknownFailureBody": {
+        "properties": {
+          "count": {
+            "description": "How many times it failed",
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "firstAt": {
+            "description": "When it first failed, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isThisStart": {
+            "description": "Whether it failed since the server started",
+            "type": "boolean"
+          },
+          "lastAt": {
+            "description": "When it last failed, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "output": {
+            "type": "string"
+          },
+          "subject": {
+            "description": "What the work was for, as \"item 12\"",
+            "type": "string"
+          },
+          "version": {
+            "description": "The server's version when it last failed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "error",
+          "output",
+          "version",
+          "firstAt",
+          "lastAt",
+          "count",
+          "isThisStart"
+        ],
+        "type": "object"
+      },
+      "UnknownFailureKindBody": {
+        "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownFailureBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "isRaised": {
+            "description": "Whether its alert is raised",
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "lastAt": {
+            "description": "When one last failed, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastHour": {
+            "description": "How many failed in the last hour",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sinceStart": {
+            "description": "How many failed since the server started",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "lastHour",
+          "sinceStart",
+          "lastAt",
+          "isRaised",
+          "failures"
+        ],
+        "type": "object"
+      },
+      "UnknownFailuresBody": {
+        "properties": {
+          "at": {
+            "description": "When the report was made, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownFailureKindBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "startId": {
+            "description": "This start of the server",
+            "type": "string"
+          },
+          "version": {
+            "description": "The server's version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "startId",
+          "at",
+          "kinds"
+        ],
+        "type": "object"
+      },
       "UnplayableBody": {
         "additionalProperties": false,
         "properties": {
@@ -19023,6 +19182,80 @@
           "Watch Together"
         ],
         "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/unknown-failures": {
+      "get": {
+        "operationId": "getUnknownFailures",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownFailuresBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every failure of unknown cause, by kind, in full: the summary and the export (D509, D511)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/unknown-failures/alerts": {
+      "get": {
+        "operationId": "getUnknownFailureAlerts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownFailureAlertsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The kinds of work whose failures of unknown cause raise the admin's alert (D509)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users": {
