@@ -4398,3 +4398,42 @@ again only when the background-changes poller says so, and nothing asks it to (`
 the POST. The likely fix: `onCreated` reads the shared libraries again before it moves, with a
 test that the menu lists a library made in the page. To check at the same time: a library renamed
 or deleted, whether the menu follows those either.
+
+### Eight titles on staging misidentified or left unidentified, next batch (the owner, 2026-11-17)
+
+The owner named eight of staging's titles, each with the provider's entry it should be (kept out
+of the repo): titles/1679 (an episode, matched to a 1995 series though "2019" is in its folder and
+file names), series/1815 (matched to a 1994 series under a translated name), titles/13 (still the
+2014 film of item 8 above), and titles/32, 130, 170, 180 and 184 (unidentified). A read-only
+diagnosis on staging (2026-11-17; the provider asked live, the ranking traced by hand on the real
+names, not run) found:
+
+- **Stale, a rescan fixes it: 13, 32, 180.** No rescan has matched anything again since 2026-11-02:
+  the newest `guessed_at` in staging's database is from that morning, before D412 (13's guess) and
+  before "fix(identify): a name's 'and' is also searched as '&', and its '&' as 'and'" (32 and 180,
+  each recorded as nothing found, which `matchTitle` then skips, D170). The owner's earlier Rescan
+  of 13 never ran (the pass that would not settle). Today's code settles all three clearly.
+- **A series with no year takes the oldest: 1815, and 1679's last step.** `likeliest` (settle.go)
+  still picks the oldest of a series' same-named candidates; D412's order (votes by 10×, the
+  original name over a translated one, then the oldest) was built for films alone. 1815's right
+  series has 120 votes against none; the one taken has only a first season, and the files are its
+  second.
+- **The parser drops a series' year written only beneath its folder: 1679.** `seriesName`
+  (filename.go) takes the series folder's name and its year, none here, and never reads the year in
+  the season pack's folder or the episode's name, both starting with the folder's name.
+- **The search's exact year hides a film the provider dates a year later: 130.** The file's year
+  goes to the search as the provider's year filter (providers/tmdb/works.go), which finds nothing,
+  and no search is made again without it, so `filmsToRank`'s year-either-side rule never sees the
+  film.
+- **A trailing "Movie" in the name: 170 and 184.** `cleanTitle` keeps it, the search finds nothing,
+  and `spellingVariants` has no spelling without it; 184's folder, the plain name, is not searched
+  either, since `ParsePath` takes a folder's name only when it gives a year.
+
+Proposed fixes, each with its test, the owner to choose: series take D412's order, and a season on
+disk the provider lacks counts against a candidate; `seriesName` takes a year from a name beneath
+the folder that starts with its name; a search with a year that finds nothing is made once again
+without it; a spelling without a trailing "Movie" (a fallback only: some titles end in it), and the
+folder's name searched when the file's finds nothing; and, a question for the owner, titles found
+to match nothing searched again when the search rules change. Separately, kept candidates
+(`keptCandidates`, match.go) drop the original name, which cache.db has no column for, so a settle
+from them could not apply the translated-name rule.
