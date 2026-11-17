@@ -337,7 +337,7 @@ func wireCore(
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
 	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
-	dependencies.ImageTag = config.Server.ImageTag
+	dependencies.ImageTag, dependencies.InstallDirectory = config.Server.ImageTag, config.Server.InstallDirectory
 	runsAs := strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid())
 	if dependencies.ComposeFile, err = composeFileOf(config.Server, runsAs, outside.machineZone.Name()); err != nil {
 		// The Update page then hands over no file; everything else of it stands.

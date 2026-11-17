@@ -174,7 +174,8 @@ func Write(dir string, values Values, runtime Runtime) error {
 		return err
 	}
 	values = network.Applied(values)
-	if writeErr := WriteConfigs(dir, values, Installation{Route: ByInstallScript}); writeErr != nil {
+	installation := Installation{Route: ByInstallScript, Directory: runtime.Directory}
+	if writeErr := WriteConfigs(dir, values, installation); writeErr != nil {
 		return writeErr
 	}
 	composeTemplate := directComposeTemplate
@@ -213,6 +214,7 @@ func WriteConfigs(dir string, values Values, installation Installation) error {
 	data := renderData{
 		Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(installation.Route),
 		ComposeVersion: installation.ComposeVersion, ImageTag: installation.ImageTag, ComposeMedia: []string{},
+		InstallDirectory: installation.Directory,
 	}
 	if installation.Route.IsCompose() {
 		data.ComposeMedia = values.Media.Roots
@@ -276,6 +278,9 @@ type renderData struct {
 	ImageTag string
 	// ComposeMedia are the media folders a compose file names, none for the install script's (D462 §4).
 	ComposeMedia []string
+	// InstallDirectory is the folder on the machine the install script installed the deployment in,
+	// empty when not known or for a compose file's.
+	InstallDirectory string
 }
 
 // render renders the named template; a value it names that data lacks is an error, not a blank.

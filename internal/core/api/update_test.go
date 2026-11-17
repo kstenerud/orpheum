@@ -128,6 +128,52 @@ func TestUpdate_SaysHowTheServerWasInstalled(t *testing.T) {
 	}
 }
 
+// The command names the folder the install script installed the server in, so it is right as copied
+// (the owner, 2026-11-17): plain, or quoted for the shell when it holds a space or a quote; a server
+// that does not know its folder gives the command without it, and says no folder.
+func TestUpdate_TheCommandNamesTheFolderTheServerWasInstalledIn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	dependencies, err := harness.server.ReadyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencies.Releases = &knownRelease{known: discovery.Release{Version: "v0.3.1", Latest: "v0.3.3"}}
+	dependencies.PublishedImage, dependencies.InstallRoute = "ghcr.io/example/orpheum", "script"
+	read := func() api.UpdateBody {
+		t.Helper()
+		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
+		var body api.UpdateBody
+		if err := json.Unmarshal([]byte(got.body), &body); err != nil || got.status != http.StatusOK {
+			t.Fatalf("GET /system/update = %d %s", got.status, got.body)
+		}
+		return body
+	}
+	command := "docker run --rm ghcr.io/example/orpheum:v0.3.3 install-script | sh"
+	if told := read(); told.Command != command || told.InstallDirectory != "" {
+		t.Errorf("a server that does not know its folder: command %q, installDirectory %q; want %q and none",
+			told.Command, told.InstallDirectory, command)
+	}
+	for folder, want := range map[string]string{
+		"/srv/orpheum":            command + " -s -- --dir /srv/orpheum",
+		"/home/a b/orpheum":       command + ` -s -- --dir '/home/a b/orpheum'`,
+		"/home/it's/orpheum":      command + ` -s -- --dir '/home/it'\''s/orpheum'`,
+		"/volume1/$HOME/orpheum~": command + ` -s -- --dir '/volume1/$HOME/orpheum~'`,
+	} {
+		dependencies.InstallDirectory = folder
+		if told := read(); told.Command != want || told.InstallDirectory != folder {
+			t.Errorf("installed in %q: command %q, installDirectory %q; want %q and the folder",
+				folder, told.Command, told.InstallDirectory, want)
+		}
+	}
+	dependencies.Releases = &knownRelease{known: discovery.Release{Version: "v0.3.3"}}
+	if told := read(); told.Command != "" || told.InstallDirectory != "" {
+		t.Errorf("the latest running: command %q, installDirectory %q; want neither",
+			told.Command, told.InstallDirectory)
+	}
+}
+
 // A server a compose file started is told of a newer compose file and what each version after its
 // own brings, oldest first; one started from the newest, or by no compose file, is told of none
 // (D461 §3).

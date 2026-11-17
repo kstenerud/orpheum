@@ -6042,6 +6042,8 @@ export interface components {
             composeFile?: components["schemas"]["ComposeFileBody"];
             /** @description The newest release's image digest, sha256:..., for the admin to check */
             digest?: string;
+            /** @description The folder on the server's machine the install script installed it in, which the command names; absent when unknown */
+            installDirectory?: string;
             /**
              * @description How the server was installed: script (the install script) or the route of the compose file it runs; absent when unknown, when every route's steps apply
              * @enum {string}

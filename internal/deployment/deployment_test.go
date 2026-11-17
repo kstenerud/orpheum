@@ -580,21 +580,27 @@ func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
 	values := filledValues(t, Staging)
-	if err := Write(dir, values, runtime); err != nil {
+	installedIn := runtime
+	installedIn.Directory = "/srv/orpheum"
+	if err := Write(dir, values, installedIn); err != nil {
 		t.Fatal(err)
 	}
 	server := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
-	if server["install_route"] != "script" || server["compose_version"] != int64(0) {
-		t.Errorf("written by the install script's Write, the core's server.install_route is %v and "+
-			"compose_version %v; want script and 0", server["install_route"], server["compose_version"])
+	if server["install_route"] != "script" || server["compose_version"] != int64(0) ||
+		server["install_directory"] != "/srv/orpheum" {
+		t.Errorf("written by the install script's Write in /srv/orpheum, the core's server.install_route is %v, "+
+			"compose_version %v and install_directory %v; want script, 0 and the folder, which the Update "+
+			"page's command names", server["install_route"], server["compose_version"], server["install_directory"])
 	}
 	if err := WriteConfigs(dir, values, Installation{Route: BySynology, ComposeVersion: 2}); err != nil {
 		t.Fatal(err)
 	}
 	server = decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
-	if server["install_route"] != "synology" || server["compose_version"] != int64(2) {
-		t.Errorf("written for a version 2 Synology compose file's start, the core's server.install_route is %v "+
-			"and compose_version %v; want synology and 2", server["install_route"], server["compose_version"])
+	if server["install_route"] != "synology" || server["compose_version"] != int64(2) ||
+		server["install_directory"] != "" {
+		t.Errorf("written for a version 2 Synology compose file's start, the core's server.install_route is %v, "+
+			"compose_version %v and install_directory %v; want synology, 2 and none",
+			server["install_route"], server["compose_version"], server["install_directory"])
 	}
 }
 

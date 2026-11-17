@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -45,6 +46,9 @@ type UpdateBody struct {
 	// ComposeFile is a newer compose file than the one that started the server, which the household
 	// takes by pasting it (D461 §3); absent when it runs the newest or no compose file started it.
 	ComposeFile *ComposeFileBody `json:"composeFile,omitempty"`
+	// InstallDirectory is the folder the install script installed the server in, which Command names
+	// with --dir; absent when the server does not know it, when the page says how to name it.
+	InstallDirectory string `doc:"The folder on the server's machine the install script installed it in, which the command names; absent when unknown" json:"installDirectory,omitempty"` //nolint:lll // one struct tag
 	// PinnedTag is the version the compose file pins in place of latest, so the NAS's own update
 	// button pulls the same one until the household changes it (D462 §10.7); absent with latest.
 	PinnedTag string `doc:"The image tag the compose file pins in place of latest, which its update button keeps pulling until it is changed; absent with latest" json:"pinnedTag,omitempty"` //nolint:lll // one struct tag
@@ -151,6 +155,12 @@ func updateOutput(dependencies *Dependencies, known discovery.Release) *UpdateOu
 		body = updateBody(known, dependencies.PublishedImage)
 	}
 	body.InstallRoute = dependencies.InstallRoute
+	// The script's folder written out, so the command is right as copied (the owner, 2026-11-17):
+	// without it the script installs over ~/orpheum, which a server elsewhere is not.
+	if body.Command != "" && dependencies.InstallDirectory != "" {
+		body.Command += " -s -- --dir " + shellWord(dependencies.InstallDirectory)
+		body.InstallDirectory = dependencies.InstallDirectory
+	}
 	body.ComposeFile = newerComposeFile(dependencies.ComposeFile)
 	if tag := dependencies.ImageTag; tag != "" && tag != latestTag {
 		body.PinnedTag = tag
@@ -189,4 +199,16 @@ func updateBody(known discovery.Release, image string) UpdateBody {
 		body.Command = "docker run --rm " + image + ":" + target + " install-script | sh"
 	}
 	return body
+}
+
+// plainShellCharacters are the characters a POSIX shell reads as part of a word wherever they are.
+const plainShellCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-+:@,="
+
+// shellWord is s as one word of a POSIX shell's command line: as it is when every character is
+// plain, else in single quotes, each quote of its own closed, escaped and opened again.
+func shellWord(s string) string {
+	if s != "" && strings.Trim(s, plainShellCharacters) == "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

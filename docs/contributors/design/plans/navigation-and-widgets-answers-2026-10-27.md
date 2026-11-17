@@ -4248,3 +4248,27 @@ run the ceremony first", and left an empty folder behind. Proposed: only `ceremo
 folder; `sign-release` and the other commands refuse a folder with no `ceremony.json`, before
 asking anything, naming the path they were given.
 
+
+### Production updated to v0.8.2 by the Update page's command (the lead, 2026-11-17)
+
+On the owner's word ("Deploy prod using the official method so that we can see it in action"),
+production on ainas was updated by the command the Update page gave, as the user who installed it,
+with `-s -- --dir /srv/orpheum` added: the script pulled the image, wrote the deployment again (its
+`.env` now names the image by the signed record's digest in place of the image built there),
+restarted both services and pruned nothing it should not. The core was ready, claimed and signalling
+in under ten seconds. It went without a fault; the one rough edge was step 3, which said in words
+where `--dir` goes. Now the page shows the command written out with it, for a server in
+`/srv/orpheum` (the owner, 2026-11-17).
+
+### The Update page names the server's own folder (the owner, 2026-11-17)
+
+The core never learned the folder on the machine that holds its deployment: `write-deployment` was
+given it (`--directory`, the install script's `$dir`) but handed it to no service, so the page could
+only say where `--dir` goes. The owner: "Can we pass in the server-side paths so that we can give
+them an exact command?" Built: `write-deployment` writes the folder into the core's config
+(`server.install_directory`), and the update's command ends with `-s -- --dir <folder>`, quoted for
+the shell when it needs it, so it is right as copied; the page then shows no step to change it. A
+deployment written before this names no folder until its next install-script run, so its page keeps
+the step, with the command written out for `/srv/orpheum` as an example. The first update that
+shows the exact command is the one after the next release, since the command comes from the version
+running.

@@ -16,6 +16,12 @@ import { useServices } from "./services.tsx";
 import { composeUpdateCommand, useReadUpdateAgain, useUpdate, type Update } from "./update.tsx";
 import { useRequest } from "./use-request.ts";
 
+/**
+ * The folder the script's step names to show `--dir` written out, for a server that does not know its
+ * own: one whose deployment was written before the core was told it.
+ */
+const exampleFolder = "/srv/orpheum";
+
 /** The way the server was installed, as the server says it (D450 §2, D462 §9). */
 type InstallRoute = Update["installRoute"];
 
@@ -151,6 +157,7 @@ export function HowToUpdateView(props: {
       {update.command === undefined ? null : (
         <RouteSteps
           command={update.command}
+          isCommandExact={update.installDirectory !== undefined}
           installRoute={update.installRoute}
           version={update.version}
         />
@@ -241,16 +248,19 @@ function pasteStepOf(
 
 /**
  * The steps of the way the server was installed; every way's, each saying which it is for, while the
- * server does not know (D450 §2).
+ * server does not know (D450 §2). The script's command names the server's folder when the server
+ * knows it; when not, a step says how to name it, with the command written out for one.
  */
 function RouteSteps(props: {
   readonly command: string;
+  readonly isCommandExact: boolean;
   readonly installRoute: InstallRoute;
   readonly version: string;
 }): JSX.Element {
   const { t } = useTranslation();
   const { command, installRoute } = props;
   const isRouteUnknown = installRoute === undefined;
+  const commandInExampleFolder = command + " -s -- --dir " + exampleFolder;
   return (
     <>
       {isRouteUnknown ? <p>{t("update.scriptIf")}</p> : null}
@@ -263,7 +273,14 @@ function RouteSteps(props: {
               <code>{command}</code>
             </pre>
           </li>
-          <li>{t("update.step3")}</li>
+          {props.isCommandExact ? null : (
+            <li>
+              {t("update.step3", { folder: exampleFolder })}
+              <pre>
+                <code>{commandInExampleFolder}</code>
+              </pre>
+            </li>
+          )}
         </ol>
       )}
       {isRouteUnknown ? <p>{t("update.composeIf")}</p> : null}

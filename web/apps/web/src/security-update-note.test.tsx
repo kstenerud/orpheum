@@ -188,7 +188,11 @@ describe("How to update", () => {
     const commands = [...mounted.container.querySelectorAll("pre code")].map(
       (each) => each.textContent,
     );
-    expect(commands).toEqual([command, "docker compose pull && docker compose up -d"]);
+    expect(commands).toEqual([
+      command,
+      `${command} -s -- --dir /srv/orpheum`,
+      "docker compose pull && docker compose up -d",
+    ]);
   });
 
   it("gives only the way the server was installed, when it knows it (D450 §2)", async () => {
@@ -209,6 +213,7 @@ describe("How to update", () => {
     const byScript = mounted.container;
     expect([...byScript.querySelectorAll("pre code")].map((each) => each.textContent)).toEqual([
       command,
+      `${command} -s -- --dir /srv/orpheum`,
     ]);
     expect(byScript.textContent).toContain("Open a terminal on the machine the server runs on");
     expect(byScript.textContent).not.toContain(

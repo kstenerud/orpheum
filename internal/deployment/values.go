@@ -118,11 +118,13 @@ const ByInstallScript InstallRoute = "script"
 
 // Installation is how a deployment was installed, which its core's config names: the route, and for
 // a compose file the version it says it is (D461 §3), 0 for the install script's, and the image tag
-// it runs (D462 §10.7), empty for the install script's.
+// it runs (D462 §10.7), empty for the install script's; and for the install script the folder on the
+// machine it installed in, which the Update page's command names, empty for a compose file's.
 type Installation struct {
 	Route          InstallRoute
 	ComposeVersion int
 	ImageTag       string
+	Directory      string
 }
 
 // ComposeFileVersion is the version of the compose files this release sends households to paste

@@ -160,7 +160,34 @@ describe("the steps of each way", () => {
     const container = await mountView(newer);
     expect(container.textContent).toContain("press Pull, then Up.");
     expect(container.textContent).toContain("press Stop, then Build.");
-    expect(codes(container)).toEqual([command, "docker compose pull && docker compose up -d"]);
+    expect(codes(container)).toEqual([
+      command,
+      `${command} -s -- --dir /srv/orpheum`,
+      "docker compose pull && docker compose up -d",
+    ]);
+  });
+
+  // The owner, 2026-11-17: the step said in words where --dir goes; it shows the command with it.
+  it("gives the script's command, and the same with --dir for a server in another folder", async () => {
+    const container = await mountView({ ...newer, installRoute: "script" });
+    expect(container.textContent).toContain(
+      "add -s -- --dir and that folder after sh. For a server in /srv/orpheum:",
+    );
+    expect(codes(container)).toEqual([command, `${command} -s -- --dir /srv/orpheum`]);
+  });
+
+  // The owner, 2026-11-17: a server that knows its folder gives the command exact, with no step to
+  // change it.
+  it("gives a server that knows its folder the command as the server says it, and no step to name one", async () => {
+    const exact = `${command} -s -- --dir '/volume1/my server'`;
+    const container = await mountView({
+      ...newer,
+      command: exact,
+      installDirectory: "/volume1/my server",
+      installRoute: "script",
+    });
+    expect(codes(container)).toEqual([exact]);
+    expect(container.textContent).not.toContain("--dir and that folder");
   });
 });
 

@@ -23,7 +23,7 @@ export const enUpdate = {
     step2:
       "Run this command. It fetches the new version, writes the server's setup again and restarts it; your libraries, people and settings are kept. Anything playing stops for a minute.",
     step3:
-      "If you installed the server somewhere other than the orpheum folder in your home folder, add -s -- --dir and that folder after sh.",
+      "If you installed the server somewhere other than the orpheum folder in your home folder, add -s -- --dir and that folder after sh. For a server in {{folder}}:",
     composeIf:
       "If you run the server from its compose file, as OpenMediaVault's Compose page does:",
     composeIntro: "The server's compose file follows the latest release: pull it and start again.",

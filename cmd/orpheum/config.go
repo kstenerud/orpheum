@@ -94,6 +94,10 @@ type ServerConfig struct {
 	// route, as the deployment writes it, or empty when unknown (a config written by hand). The Update
 	// page shows only that route's steps, and every one when unknown (D450 §2, D462 §9).
 	InstallRoute string `toml:"install_route"`
+	// InstallDirectory is the folder on the machine the install script installed the server in, as
+	// the deployment writes it, which the Update page's command names; empty when unknown or for a
+	// compose file's server.
+	InstallDirectory string `toml:"install_directory"`
 	// ComposeVersion is the compose file's version, 0 for any other install: the Update page says
 	// when a newer one brings something (D461 §3).
 	ComposeVersion int `toml:"compose_version"`

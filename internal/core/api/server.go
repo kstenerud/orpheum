@@ -109,6 +109,9 @@ type Dependencies struct {
 	// InstallRoute is how the server was installed, "script" or a compose file's route, as its deployment wrote
 	// in its config; empty when unknown (D450 §2).
 	InstallRoute string
+	// InstallDirectory is the folder on the server's machine the install script installed it in, as
+	// its deployment wrote in its config, which the update's command names; empty when unknown.
+	InstallDirectory string
 	// ComposeFile is the version of the compose file that started the server and the newest, from
 	// its config and this build (D461 §3).
 	ComposeFile ComposeFile

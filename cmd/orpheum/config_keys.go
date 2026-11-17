@@ -68,6 +68,11 @@ func serverConfigKeys() []configKey {
 				"synology, portainer, casaos, docker), which the deployment writes: the Update page shows only " +
 				"its steps; empty shows every one (D450 §2, D462 §9)",
 		},
+		{
+			tableServer, "install_directory", `""`,
+			"the folder on the machine the install script installed the server in, which the deployment " +
+				"writes: the Update page's command names it; empty names none",
+		},
 		{tableServer, "compose_version", "0", "the version of the compose file that started the server (D461 §3)"},
 		{tableServer, "image_tag", `""`, "the image tag the compose file runs, a pinned one said (D462 §10.7)"},
 		{tableServer, "compose_media", "[]", "the compose file's media folders, filled into a newer one (D462 §4)"},
