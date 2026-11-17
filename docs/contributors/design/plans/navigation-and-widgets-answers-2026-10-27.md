@@ -4437,3 +4437,10 @@ folder's name searched when the file's finds nothing; and, a question for the ow
 to match nothing searched again when the search rules change. Separately, kept candidates
 (`keptCandidates`, match.go) drop the original name, which cache.db has no column for, so a settle
 from them could not apply the translated-name rule.
+
+**The owner's answers (2026-11-17, at night):** the eight titles' fixes go to the next batch;
+titles found to match nothing are searched again whenever the search rules change; staging is
+rescanned now. D512's 16 MB threshold and minute's margin stand. For the night, the lead runs the
+seek tests on staging itself, builds the next batches' UI parts on the app's patterns for the
+owner's review in the morning (each in its own commit, its strings listed), and closes each batch
+with check-pr, going on to the next while it can without the owner.

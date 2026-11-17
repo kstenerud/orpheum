@@ -21,7 +21,7 @@ type Stretch struct{ FromMs, ToMs int64 }
 
 // cutDownMinMoovBytes is the least movie box a film's index is cut down from (D512): FFmpeg parses
 // the whole of it at every open, 4 to 5 s for 179 MB on production's Celeron, 0.05 s for a
-// two-hour film's. The lead's default, awaiting the owner.
+// two-hour film's. The owner kept the lead's default (2026-11-17).
 const cutDownMinMoovBytes = 16 << 20
 
 // cutDownMarginMs is how much of the film either side of its run's stretch a cut-down index keeps,

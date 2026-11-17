@@ -29833,8 +29833,8 @@ with backoff, and D509 §1, whose unexpected errors are these.
 **Decided** (2026-11-17), by the project owner, on the measurement in
 `design/plans/navigation-and-widgets-answers-2026-10-27.md` (opening file 15497 is spent parsing its
 index): the pinned FFmpeg parses an MP4's whole movie box at every open, 4.0–4.7 s on production for
-file 15497's 179 MB, paid by the picture run and the sound run of every seek. Thresholds and margins
-below marked *lead's default* are the lead's, awaiting the owner.
+file 15497's 179 MB, paid by the picture run and the sound run of every seek. The 16 MB threshold and the minute's margin, the lead's defaults, were kept by the owner
+(2026-11-17).
 
 **Proven by:**
 - 1: internal/node/execx/cutdown_test.go (TestFilmOf_ARunOfChunksOfALongIndexedMP4IsServedItsIndexCutDown), internal/node/agent/film_test.go (TestAgent_ARunOfChunksOpensItsFilmForTheStretchItReads)
@@ -29847,10 +29847,10 @@ below marked *lead's default* are the lead's, awaiting the owner.
 
 1. **A run of chunks of a seekable window is served, through fdproxy, the film with its index cut
    down**: the file's bytes, but in the movie box's place a movie box whose tracks keep only the
-   samples of the run's stretch, a minute either side (*lead's default*), and the first 10 s, then
+   samples of the run's stretch, a minute either side, and the first 10 s, then
    a `free` box to the old size. Chunk offsets are not rebased; nothing moves. Probes, read-throughs
    and any other run get the file as it is (at `execx.FilmOf`, as a DVD title is served).
-2. **Only an MP4, M4V or MOV, streamed, whose movie box is at least 16 MB** (*lead's default*):
+2. **Only an MP4, M4V or MOV, streamed, whose movie box is at least 16 MB**:
    smaller indexes open fast enough.
 3. **The cut-down index is the file's**: each kept sample at its decode time, with its composition
    offset, size, offset and sync; the picture from the sync sample at or before the stretch; edits
