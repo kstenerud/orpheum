@@ -4315,4 +4315,6 @@ poster's own box to the window's bottom edge, and the ring is drawn outside that
 the room is kept by `scroll-padding-inline` (`--focus-ring-room`, `poster-row.css`), and nothing
 keeps it at the bottom. At the top, clearing the banner and the header leaves room. To check first:
 on which page and device it shows, and whether a `scroll-margin-block` of the ring's room on the
-focused tile (or a `scroll-padding-block-end` on the page) is what keeps it.
+focused tile (or a `scroll-padding-block-end` on the page) is what keeps it. Where: "It happens
+on all pages that show posters (home, films, series, etc)" (the owner, 2026-11-17), so the fix
+belongs to the one way focus scrolls, not to a page.
