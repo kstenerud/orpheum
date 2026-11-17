@@ -29785,6 +29785,8 @@ widens from frame stills to every record that points into a cache.
 - 4: TestLoadHoldings_AnImageOfAnySourceRecordedAsStoredWithNoImageHeldIsMadeAgain (its lost .none note
   is gone and the image made again), TestHandle_AFrameStillTooSmallForALargerSizeIsNotedSo (a note on a
   held base stays)
+- 5: TestRecord_APersonsChoiceTheCacheLostIsChosenAgainWhenStoredAgain (the schema fitted: the choice
+  moves to the row stored again, so no migration was needed)
 
 ## D511 — A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
 
