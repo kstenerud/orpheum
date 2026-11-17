@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { focusContainerAttribute, geometricFocus, nextInContainers } from "./focus-engine.ts";
-import { arrivalMark, startIn } from "./focus-navigation.ts";
+import { arrivalMark, focusAndShow, startIn } from "./focus-navigation.ts";
 
 /** A grid of rows of four links, each in an item the browser skips while it is off screen. */
 function gridOf(rows: number): HTMLElement {
@@ -81,5 +81,26 @@ describe("an arrow's search over items the browser skips (content-visibility: au
     const rectsRead = vi.spyOn(Element.prototype, "getClientRects");
     expect(startIn(document.body)).toBe(links[0]);
     expect(rectsRead.mock.contexts.filter((element) => element !== links[0])).toEqual([]);
+  });
+});
+
+describe("a control focused far down a list whose items the browser skips (content-visibility: auto)", () => {
+  // The rows a scroll brings into view are laid out at their own size a frame after it, and moved
+  // the film past the window's bottom (the v0.8.2 tag's CI, 2026-11-17).
+  it("is kept in view as the rows the scroll brings into view are laid out taller than guessed", async () => {
+    await page.viewport(960, 480);
+    const grid = gridOf(40);
+    for (const link of grid.querySelectorAll("a")) {
+      link.style.height = "400px";
+    }
+    await framesPassed();
+    const far = grid.querySelectorAll("a")[4 * 30];
+    if (far === undefined || far.checkVisibility({ contentVisibilityAuto: true })) {
+      throw new Error("no skipped tile far down");
+    }
+    focusAndShow(far, true);
+    await framesPassed();
+    await framesPassed();
+    expect(far.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight + 1);
   });
 });

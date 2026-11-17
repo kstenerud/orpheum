@@ -233,6 +233,69 @@ export function scrollIntoViewGently(element: HTMLElement): void {
   if (typeof element.scrollIntoView !== "function") {
     return;
   }
+  scrollClear(element);
+  keepClearAsItsListIsLaidOut(element);
+}
+
+/** Ends the watch keepClearAsItsListIsLaidOut keeps for the element last scrolled to, if one is kept. */
+let endWatch: (() => void) | undefined;
+
+/** How many frames after a scroll its list's rows are watched being laid out. */
+const settlingFrames = 3;
+
+/**
+ * In a list whose items the browser skips laying out while they are off screen
+ * (content-visibility: auto, the films' grid), a scroll goes by the skipped rows' guessed size, and
+ * the rows it brings into view are laid out at their own size a frame later, moving element: on a
+ * slow machine, past the window's edge (a desktop's window, 43 px, the v0.8.2 tag's CI, 2026-11-17).
+ * As the list is laid out over the next few frames, element is scrolled into view again while it has
+ * focus; never after, where a scroll of the reader's own would be undone.
+ */
+function keepClearAsItsListIsLaidOut(element: HTMLElement): void {
+  endWatch?.();
+  const list = skippedItemAround(element)?.parentElement;
+  if (list === null || list === undefined || typeof ResizeObserver === "undefined") {
+    return;
+  }
+  let frame = 0;
+  const watching = new ResizeObserver(() => {
+    if (document.activeElement === element) {
+      scrollClear(element);
+    }
+  });
+  const end = (): void => {
+    watching.disconnect();
+    cancelAnimationFrame(frame);
+    if (endWatch === end) {
+      endWatch = undefined;
+    }
+  };
+  let framesLeft = settlingFrames;
+  const countFrame = (): void => {
+    framesLeft -= 1;
+    if (framesLeft <= 0) {
+      end();
+    } else {
+      frame = requestAnimationFrame(countFrame);
+    }
+  };
+  endWatch = end;
+  watching.observe(list);
+  frame = requestAnimationFrame(countFrame);
+}
+
+/** The nearest of element's containers the browser may skip laying out (content-visibility: auto). */
+function skippedItemAround(element: Element): Element | undefined {
+  for (let at = element.parentElement; at !== null; at = at.parentElement) {
+    if (getComputedStyle(at).contentVisibility === "auto") {
+      return at;
+    }
+  }
+  return undefined;
+}
+
+/** Scrolls element into view no further than it must be, and clear of a banner (scrollIntoViewGently). */
+function scrollClear(element: HTMLElement): void {
   element.scrollIntoView({ block: "nearest", inline: "nearest" });
   const cover = document.querySelector(`[${coversTopAttribute}]`);
   if (cover === null || cover.contains(element) || element.closest("dialog[open]") !== null) {

@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A78 — Called the tag's failing walk a known flake, not a release problem, without running it (2026-11-17)
+
+- **What happened:** the v0.8.2 tag's CI failed on the Firefox walk "keeps the focused film in
+  view". The lead told the owner it was a known flaky test and to re-run it, from the plan's entry
+  for one failure under load, without running the test. The owner re-ran it twice and it failed
+  both times. It had a real cause in the app, the films' grid's skipped rows laid out a frame after
+  the scroll (idiosyncrasies.md, "Firefox scrolls by a skipped item's guessed size"), which a slow
+  device meets too. Main's passing push had not run the test.
+- **Caught by:** the owner: "It continues to fail. I've re-run twice and it failed twice."
+- **Gate:** the test now fails without the fix, deterministically
+  (`focus-engine-skipped.browser.test.tsx`). The rule: a failure is a flake only after it is run
+  under the failing run's conditions and passes. A green run elsewhere proves nothing when that
+  run may not have run the test (`scripts/web_tests.py --due`).
+
 ### A77 — Built the link-wait bar on the core holding a chunk's request, which it stopped doing at D250 §5 (2026-11-17)
 
 - **What happened:** the lead built the bar's rule that a chunk whose answer's head has not come

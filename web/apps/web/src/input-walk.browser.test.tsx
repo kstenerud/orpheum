@@ -119,7 +119,9 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
     for (let step = 0; step < 6; step += 1) {
       await userEvent.keyboard("{ArrowDown}");
-      expect(isFocusInView()).toBe(true);
+      // A row the browser skipped is laid out a frame after the press, and focus is scrolled to it
+      // again then (scrollIntoViewGently).
+      await expect.poll(isFocusInView).toBe(true);
       const banner = document.querySelector(".app-shell__banner")?.getBoundingClientRect();
       const box = document.activeElement?.getBoundingClientRect();
       expect(box?.top).toBeGreaterThanOrEqual(banner?.bottom ?? 0);

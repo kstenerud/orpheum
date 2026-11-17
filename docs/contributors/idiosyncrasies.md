@@ -270,6 +270,22 @@ User-Agent (D263; the User-Agent is logged only).
 
 ## Firefox
 
+### Firefox scrolls by a skipped item's guessed size, and the item's own size moves the target after
+
+- **Symptom:** an arrow down the films' grid on a desktop's window left the focused film partly
+  below the window's bottom (43 px), on a slow machine: the v0.8.2 tag's CI, 3 runs of 3, and 6 of 10
+  runs here on two CPUs (2026-11-17). Nothing moved it back: 300 ms later it was still there.
+- **Cause:** the grid's rows are `content-visibility: auto` with `contain-intrinsic-size: auto
+  18rem`. `scrollIntoView` scrolls by the size the skipped rows are guessed at; the rows the scroll
+  brings into view are laid out at their own size at the next rendering update, which moves what
+  is below them, the focused film among them. A fast machine lays them out in time; under load the
+  scroll and the layout land in different frames. Chromium kept the film in view in the same test.
+- **What we do:** `scrollIntoViewGently` (`web/apps/web/src/focus-navigation.ts`) watches the list
+  around the skipped item with a `ResizeObserver` for three frames after it scrolls, and scrolls
+  the focused control into view again as the list's size changes; never later, where it would undo
+  the reader's own scroll. `focus-engine-skipped.browser.test.tsx`'s "is kept in view as the rows the
+  scroll brings into view are laid out taller than guessed" fails without it.
+
 
 ### Firefox's inhibit through the desktop portal does not stop MATE's screensaver
 

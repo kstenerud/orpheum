@@ -3063,6 +3063,14 @@ The owner's answers:
   after the press (the grid's columns read by a ResizeObserver, `grid-columns.ts`) and the banner's
   height (`--banner-height`, read by one too, `app-shell.tsx`); not it: D495 §4's row shapes, as every
   film's card is upright.
+  **Found and fixed (2026-11-17):** it failed on every run of the tag's CI (3 of 3), not now and
+  then. The grid's rows are skipped while off screen (`content-visibility: auto`, guessed
+  `18rem` tall, browse.css). Firefox scrolls by the guessed size, and the rows the scroll brings into
+  view are laid out at their own size a frame later, moving the focused film past the window's
+  bottom (43 px, the desktop's 6 columns' cards being taller than the guess). On two CPUs here
+  the walk failed 6 of 10 runs, and 0 of 10 once `scrollIntoViewGently` scrolled again as the list was
+  laid out over the next three frames (idiosyncrasies.md, "Firefox scrolls by a skipped item's
+  guessed size"). Main's push had passed because its CI ran no browser test the change reached.
 
 ## The 11-23 batch: Chromecast (the owner, 2026-11-11)
 
