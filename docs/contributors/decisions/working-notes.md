@@ -29692,3 +29692,25 @@ note stands on is gone, and extends principles §14.
 4. **Every other cached product is checked against this rule**: art, `cache.db`, and what the node
    keeps; each that persistent state calls made while it may be gone gets the same treatment, and a
    test that removes it.
+
+## D508 — Nothing is marked as one that cannot be made but for a cause known to block it; an unknown failure is tried again
+
+**Decided** (2026-11-17), by the project owner, on reading how prod's frame stills were marked as
+ones that cannot be made (D507): "If we can't explicitly identify an issue as really being a
+blocker to something being made, we shouldn't be setting such a field. Defaulting to that for
+unknown errors means that every bug we have will permanently mark things unusable." Amends every
+rule that records a thing as not to be tried again (a `.none` note, a refused or missing-at-source
+artwork row, a permanent job failure, and any like them), across the core and the node.
+
+**Status:** decided; not built.
+
+1. **A lasting "cannot be made" needs a named cause known to block it**: a video with no picture
+   stream, a source that answered that the thing is gone, a file no longer there. The record keeps
+   that cause.
+2. **Every other failure is one to try again**: an error not recognised, a refusal not classified,
+   a panic, a timeout, a bug. It is logged with what failed, and tried again by the ordinary
+   retrying, with its backoff, never set aside for good.
+3. **A permanent mark never stands on the absence of something kept in a cache** (D507): an absence
+   is "not generated yet".
+4. **Every place that records a thing as not to be tried again is checked against this rule**; each
+   that sets it for an unknown cause is changed, with a test that fails when the change is reverted.
