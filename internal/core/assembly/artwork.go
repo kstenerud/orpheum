@@ -25,10 +25,7 @@ func (services *Services) openArtwork(ctx context.Context, parts Parts) error {
 		Settings: parts.Settings,
 		Fetchers: map[string]artwork.Fetcher{"tmdb": images},
 		Clock:    parts.Clock, Logger: parts.Logger,
-		// An image the art directory lost is made again by its library's pass (D510 §1).
-		OwePass: func(_ context.Context, libraryID int64) { services.pass.OwePass(libraryID) },
-		// A look that finds one gone asks for the sweep that retires it, writing nothing (D303).
-		OnNothingHeld: func() { services.Queue.RequestSweeps(sweepLostArtwork) },
+		OwePass: owePassOfLostImage(services.pass), OnNothingHeld: askForTheLostArtworkSweep(services.Queue),
 	})
 	if err := service.LoadHoldings(ctx); err != nil {
 		return err
@@ -39,6 +36,17 @@ func (services *Services) openArtwork(ctx context.Context, parts Parts) error {
 	services.matcher.SetImageRetrier(service)
 	services.artwork = service
 	return nil
+}
+
+// owePassOfLostImage has an image the art directory lost made again by its library's pass (D510 §1).
+func owePassOfLostImage(pass *identify.Pass) func(context.Context, int64) {
+	return func(_ context.Context, libraryID int64) { pass.OwePass(libraryID) }
+}
+
+// askForTheLostArtworkSweep has a look that finds an image gone ask for the sweep that retires it,
+// as a look writes nothing (D303, D510 §1).
+func askForTheLostArtworkSweep(sweeps sweepRequester) func() {
+	return func() { sweeps.RequestSweeps(sweepLostArtwork) }
 }
 
 // foundImages is what a pass or a match found of items' images, as the artwork service takes it.

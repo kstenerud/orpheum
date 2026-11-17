@@ -288,6 +288,13 @@ func openAndWire(
 	return opened, nil
 }
 
+// tellTheUpdatePage hands the Update page how the server was installed, as its config says: the
+// route, the image and its pinned tag, and the install script's folder, which its command names.
+func tellTheUpdatePage(dependencies *api.Dependencies, server ServerConfig) {
+	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, server.InstallRoute
+	dependencies.ImageTag, dependencies.InstallDirectory = server.ImageTag, server.InstallDirectory
+}
+
 // wireCore seeds the settings, loads the secret key, has the core's services assembled (D351), makes
 // sure a server with no users has a setup code, and makes what the config alone makes beside them:
 // the debug endpoints, the certificates, the discovery, port mapping, the reachability check and the
@@ -336,8 +343,7 @@ func wireCore(
 	dependencies.Discovery, dependencies.PortMapping = opened.discovery, opened.portMapping
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
-	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
-	dependencies.ImageTag, dependencies.InstallDirectory = config.Server.ImageTag, config.Server.InstallDirectory
+	tellTheUpdatePage(&dependencies, config.Server)
 	runsAs := strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid())
 	if dependencies.ComposeFile, err = composeFileOf(config.Server, runsAs, outside.machineZone.Name()); err != nil {
 		// The Update page then hands over no file; everything else of it stands.

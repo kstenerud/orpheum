@@ -140,3 +140,23 @@ func TestHoldSlowReadsForQuickPasses_ABackgroundReadThroughWaitsForTheScansQuick
 		t.Errorf("a background read-through on tank during its quick pass was answered %v; want it waiting", answer)
 	}
 }
+
+// An image the art directory lost owes its own library a pass, which makes it again; a look that
+// finds one gone asks for the sweep that retires it (D510 §1).
+func TestLostArtworkHooks_ALostImageOwesItsLibraryAPassAndALookAsksForTheSweep(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	_, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media/films"})
+	fakeClock := clocktest.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC))
+	pass := identify.NewPass(database, fakeClock, slog.New(slog.DiscardHandler), nil, settingstest.Seeded(t, database))
+	owePassOfLostImage(pass)(t.Context(), libraryID)
+	if passed, err := pass.IdentifyOwed(t.Context()); err != nil || passed != 1 {
+		t.Errorf("a lost image left %d owed passes, %v; want its library's", passed, err)
+	}
+	sweeps := &requestedSweeps{}
+	askForTheLostArtworkSweep(sweeps)()
+	if !slices.Equal(sweeps.names, []string{sweepLostArtwork}) {
+		t.Errorf("a look finding an image gone asked for %v, want the %q sweep", sweeps.names, sweepLostArtwork)
+	}
+}
