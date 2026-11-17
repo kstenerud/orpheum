@@ -29733,7 +29733,7 @@ counting errors that we don't expect, marking them as such when we log them, and
 we're getting a lot of them." Its surface and threshold are the owner's answers to the lead's
 questions the same day.
 
-**Status:** decided; not built.
+**Status:** decided; §1, §2 and the server side of §3 and §4 built: each failure of unknown cause is logged marked unexpected with its kind, counted by kind a minute at a time, and the alert past `unknownFailuresAlertPerHour` (20) raised and cleared after an hour under, read from `GET /unknown-failures/alerts` and `GET /unknown-failures`; the web's banner and Needs attention entries are not built.
 
 1. **An error not recognised is marked as unexpected where it is logged**: the failures D508 §2
    tries again, each logged with the same mark and the kind of work that failed (a frame still, a
@@ -29744,6 +29744,14 @@ questions the same day.
    (security-update-note.tsx): the kind, its count in the last hour, and the way to §4's page.
 4. **The Needs attention page (the "!" icon's) lists it too**: each kind raised, its count in the
    last hour and since start, and when it last happened.
+
+**Proven by:**
+- 1: TestRecord_LogsTheFailureMarkedUnexpectedWithItsKind (internal/core/unexpected/recorder_test.go)
+- 2: TestAlerts_AKindPastTheSettingInAnHourRaisesItAndItClearsAfterAnHourUnder
+  (internal/core/unexpected/recorder_test.go)
+- 3, 4 (the server's side):
+  TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes
+  (internal/core/api/unknown_failures_test.go)
 
 ## D510 — A lookup that finds a cached thing gone retires its record, and sweeps at start and on a schedule look for them
 
@@ -29806,7 +29814,7 @@ intelligently. A fix would require a reboot of the server, so we could mark fail
 problems a 'try once per boot' kind of thing." Amends D508 §2, which tried an unknown failure again
 with backoff, and D509 §1, whose unexpected errors are these.
 
-**Status:** decided; not built.
+**Status:** decided; §1–§5 built for the job queue's work, and the server side of the page and export: a failure past the attempt limit, a claim past it and a panic twice are kept in `unknown_failure` (step 0089) unless known to block or to pass; their work is refused this start; each start tries once more those of an earlier start, fetch_metadata by clearing its item's own failure. Not built: the web's banner, Needs attention entries and Copy report; the other kinds' retries at start beyond their sweeps; failures outside the job queue.
 
 1. **A failure is one of three**: a cause known to block it, kept for good (D508 §1); a cause known
    to pass (a timeout, a stall, a provider or node not answering), tried again with backoff and never
@@ -29827,6 +29835,27 @@ with backoff, and D509 §1, whose unexpected errors are these.
    prod and for a user to send.
 7. **A person sees the thing as unavailable the way that kind shows it today**; only an admin, on
    the Needs attention page, sees that the cause is unknown.
+
+**Proven by:**
+- 1: TestRunDue_AFailureAtTheLimitIsKeptForGoodOnlyWhenKnownToBlockAndPassesOnlyWhenKnownToPass
+  (internal/platform/jobqueue/unknown_test.go), TestIsPassingFailure_KnowsTheCausesThatPassAndNoOther
+  (internal/core/jobs/unknown_test.go), TestStatusError_TellsAServersFailureFromARefusalOfWhatWasAsked
+  (internal/platform/outbound/exchange_test.go)
+- 2: TestRecord_KeepsEverythingTheFailureSaidAndHoldsItsSubjectUnavailableThisStart
+  (internal/core/unexpected/recorder_test.go), TestRunDue_APanicOnTwoAttemptsInARowIsAFailureOfUnknownCause
+  (internal/platform/jobqueue/unknown_test.go)
+- 3: TestRunDue_AJobGivenUpForAnUnknownCauseIsKeptAndNotQueuedAgainThisStart (internal/core/jobs/unknown_test.go)
+- 4: TestNew_AFailureOfAnEarlierStartIsTriedOnceByItsKindsRetryAndAvailableAgain,
+  TestRetryEarlierStarts_AKindsRetryThatFailsLeavesTheOthersTried, TestResolved_TakesTheFailureOffAndItsSubjectIsAvailable
+  (internal/core/unexpected/recorder_test.go), TestBuild_TriesOnceMoreTheFetchesAnEarlierStartGaveUpForAnUnknownCause
+  (internal/core/assembly/unknown_test.go), TestMatcher_AFetchAnEarlierStartGaveUpForAnUnknownCauseIsSweptAgain
+  (internal/core/identify/refresh_test.go)
+- 5: TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes
+  (internal/core/api/unknown_failures_test.go)
+- 6: TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes (the server's side)
+- 7: TestRunDue_AFailureAtTheLimitIsKeptForGoodOnlyWhenKnownToBlockAndPassesOnlyWhenKnownToPass (the
+  kind's own recorder is called first, so the thing shows as its kind shows it),
+  TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh
 
 ## D512 — A chunk run of an MP4 with a long index is served the index cut down to its stretch
 
