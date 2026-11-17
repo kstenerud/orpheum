@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { isWebAudioLate, type ChunkedPlayback } from "@orpheum/player";
+import { isWebAudioLate, type ChunkedPlayback, type playChunked } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
 import { deviceDataCapKbps, deviceDataCaps } from "./data-cap.ts";
 import { noteDecisionTimes } from "./decision-times.ts";
-import type { LadderOffer } from "./moving-down.ts";
+import type { LadderOffer, startOn } from "./moving-down.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
@@ -159,6 +159,26 @@ function startedAsThisBrowserStarts(answered: PlaybackDecision): PlaybackDecisio
 export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
 
 /**
+ * What a hidden preload starts its player with: offer's start from positionMs, by start (moving-down.ts,
+ * imported with the player as the preload starts), loading no further ahead than a preload does.
+ */
+export function preloadOptionsOf(
+  offer: LadderOffer,
+  positionMs: number,
+  start: typeof startOn,
+): Parameters<typeof playChunked>[2] {
+  return {
+    onFailed: () => undefined,
+    // A playback's own start, as the Play page's player starts it (D381).
+    ...start({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
+    monotonicMs,
+    loadsAheadAtMostS: preloadAheadS,
+    loadedPlaylists: offer.playlists, // the start's playlists, which hls.js need not ask for (D502 §3)
+    dataCapKbps: deviceDataCapKbps, // its first chunks within this device's cap (D488)
+  };
+}
+
+/**
  * A Preload in a muted video the page never shows: hls.js loads the first buffer from the offered
  * quality and steps down by itself if the link cannot fill it, and the chunks it loads are kept by
  * the browser for the Play page's player. One that fails is the Play page's to try again. The player
@@ -181,15 +201,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
       if (isStopped) {
         return;
       }
-      playback = playChunked(video, offer.url, {
-        onFailed: () => undefined,
-        // A playback's own start, as the Play page's player starts it (D381).
-        ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
-        monotonicMs,
-        loadsAheadAtMostS: preloadAheadS,
-        loadedPlaylists: offer.playlists, // the start's playlists, which hls.js need not ask for (D502 §3)
-        dataCapKbps: deviceDataCapKbps, // its first chunks within this device's cap (D488)
-      });
+      playback = playChunked(video, offer.url, preloadOptionsOf(offer, positionMs, startOn));
       stepsOf = () => diagnosisOf(video)?.steps;
     },
     // A player that did not load preloads nothing: the Play page loads it again as it shows.

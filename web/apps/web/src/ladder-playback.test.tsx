@@ -21,6 +21,7 @@ const played = {
   starts: [] as number[],
   outages: [] as unknown[],
   dataCaps: [] as ((() => number | undefined) | undefined)[],
+  loadedPlaylists: [] as unknown[],
   destroyed: 0,
 };
 
@@ -29,6 +30,7 @@ const fakePlayChunked = ((_video, _url, options): ChunkedPlayback => {
   played.starts.push(options.startPositionS);
   played.outages.push(options.outages);
   played.dataCaps.push(options.dataCapKbps);
+  played.loadedPlaylists.push(options.loadedPlaylists);
   return {
     setAudioRendition: () => undefined,
     canSwitchSoundInPlace: false,
@@ -54,6 +56,10 @@ const offer: LadderOffer = {
   filmPictureKbps: 9_900,
   linkSharePercent: 70,
   steadiness: 0,
+  playlists: {
+    master: { url: "/api/v1/bytes/media/chunks/t/master.m3u8", text: "#EXTM3U\n" },
+    picture: { url: "/api/v1/bytes/media/chunks/t/v2/index.m3u8", text: "#EXTM3U\n" },
+  },
 };
 
 const grant = "https://core.example/api/v1/bytes/media/g/grant/master.m3u8";
@@ -86,6 +92,7 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     played.starts.length = 0;
     played.outages.length = 0;
     played.dataCaps.length = 0;
+    played.loadedPlaylists.length = 0;
     played.destroyed = 0;
     vi.stubGlobal("WebKitPlaybackTargetAvailabilityEvent", Event);
     Object.defineProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker", {
@@ -119,6 +126,11 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
   it("gives each playback the page's outages, so a film loads deeper after its link was out (D487)", async () => {
     await mountLadder();
     expect(played.outages).toEqual([pageLinkOutages]);
+  });
+
+  it("hands hls.js the playlists its start was answered with, so it need not ask for them (D502 §3)", async () => {
+    await mountLadder();
+    expect(played.loadedPlaylists).toEqual([offer.playlists]);
   });
 
   it("chooses each chunk under the device's data cap as it is then, chosen or lifted mid-film (D488)", async () => {
