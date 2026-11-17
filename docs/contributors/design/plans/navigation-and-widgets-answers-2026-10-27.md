@@ -4291,3 +4291,17 @@ receiver shows its idle screen and the cast stays connected, so something else c
 that page without connecting again; after 5 minutes with nothing playing the cast ends and the
 device goes back to its own home screen. Ours is started never to close for being idle today
 (`web/apps/cast-receiver/src/main.ts`), so the 5 minutes are new.
+
+### Production on v0.8.3; the lost-artwork sweep against the ceiling's evictions, next batch (the lead, 2026-11-17)
+
+Production was updated to v0.8.3 by the install script at 18:46 UTC, at the owner's go ("Once that
+is done, I want to deploy to prod to see if it handles this"; "Go ahead when ready"). Step 0089
+migrated; the config names `/srv/orpheum`. The start sweep (D510 §2) found 6164 images recorded as
+stored with no WebP in the art directory, on 6203 items: the cache was made again on 2026-11-16 and
+held 1447 images. It retired them, and the passes queued 4321 artwork fetches and 63 frame stills
+in the first minute. To look at: an image a sweep of the ceiling (`ceiling.go`) evicts whole, an
+unlisted live item's under pressure (`classUncovered`) or a removed item's past its grace
+(`classRemoved`), is then recorded as stored with nothing held, so the hourly lost-artwork sweep
+retires it and its pass fetches it again, which under pressure is evicted again each hour. Either
+an eviction of an image's last file retires its records as it goes, or the lost sweep passes over
+images the ceiling evicted.
