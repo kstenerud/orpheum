@@ -26,6 +26,7 @@ import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
 import { Still } from "./poster.tsx";
@@ -36,6 +37,7 @@ import {
   useIsAskingStillWatching,
 } from "./still-watching.tsx";
 import { useServices } from "./services.tsx";
+import { parentOf } from "./upward.ts";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { watchingOf } from "./watching.ts";
 
@@ -78,6 +80,8 @@ function useHasPlayed(video: HTMLVideoElement | null, fileId: number): boolean {
 export interface UpNextOffered {
   readonly upNext: UpNext | undefined;
   readonly previous?: Previous | undefined;
+  /** Whether what plays next and before is known: the server answered, or it cannot be read. */
+  readonly isNextKnown?: boolean;
   readonly isAutoplayOn: boolean;
   readonly receiving?: Receiving | undefined;
 }
@@ -94,17 +98,83 @@ export const UpNextContext = createContext<UpNextOffered | undefined>(undefined)
 export function useUpNextOffered(
   fileId: number,
   video: HTMLVideoElement | null,
-  playing: Omit<UpNextOffered, "upNext" | "previous">,
+  playing: Omit<UpNextOffered, "upNext" | "previous" | "isNextKnown">,
 ): UpNextOffered {
   const { isAutoplayOn, receiving } = playing;
   // A guest receiver asks it of its cast's film, the one it plays, which the core opens to it (D471 §1).
   const around = useAroundFile(fileId, useHasPlayed(video, fileId));
   const upNext = around?.upNext;
   const previous = around?.previous;
+  const isNextKnown = around !== undefined;
   return useMemo(
-    () => ({ upNext, previous, isAutoplayOn, receiving }),
-    [upNext, previous, isAutoplayOn, receiving],
+    () => ({ upNext, previous, isNextKnown, isAutoplayOn, receiving }),
+    [upNext, previous, isNextKnown, isAutoplayOn, receiving],
   );
+}
+
+/**
+ * Whether the film is known to have nothing playing after it: no next episode, or one that cannot
+ * be read now, which is not offered (plans/up-next.md §7); false while what plays next is unknown.
+ */
+export function useIsNothingNext(offered: UpNextOffered | undefined): boolean {
+  const { next } = useSequenceMoves(offered);
+  return offered?.isNextKnown === true && next === undefined;
+}
+
+/**
+ * Calls atTheEnd, once, as video ends with nothing playing after its film (isNothingNext), or at
+ * once where it has ended already as that comes to be known. What a film's end does where nothing
+ * plays next (the owner, 2026-11-17): the player left for the page above it, a host's group stopped.
+ */
+export function useAtTheEndWithNothingNext(
+  video: HTMLVideoElement | null,
+  isNothingNext: boolean,
+  atTheEnd: (() => void) | undefined,
+): void {
+  const atTheEndRef = useLatest(atTheEnd);
+  const hasEndedRef = useRef(false);
+  useEffect(() => {
+    if (video === null || !isNothingNext) {
+      return undefined;
+    }
+    const ended = (): void => {
+      if (!hasEndedRef.current && atTheEndRef.current !== undefined) {
+        hasEndedRef.current = true;
+        atTheEndRef.current();
+      }
+    };
+    if (video.ended) {
+      ended();
+      return undefined;
+    }
+    video.addEventListener("ended", ended);
+    return () => {
+      video.removeEventListener("ended", ended);
+    };
+  }, [video, isNothingNext, atTheEndRef]);
+}
+
+/**
+ * Leaves the player as its film ends with nothing playing after it, whatever the person's autoplay
+ * (the owner, 2026-11-17), so no press at its end plays it again: for the page above it, its Up's
+ * (OverlayUp, D367 §8), a film's page or an episode's own; back to that page's entry where it is
+ * behind, else in the player's place, never a new entry, as Up leaves it. Nothing on a cast's
+ * receiver, whose page has no Up (PlayUpwardContext): its cast is made ready instead
+ * (cast-receiver.tsx).
+ */
+export function LeavesAtTheEnd(props: { readonly video: HTMLVideoElement | null }): null {
+  const { navigation } = useServices();
+  const upward = use(PlayUpwardContext);
+  const parent = upward === undefined ? undefined : parentOf(upward);
+  const isNothingNext = useIsNothingNext(use(UpNextContext));
+  const leave =
+    parent === undefined
+      ? undefined
+      : () => {
+          navigation.up(parent.to, parent.isIt);
+        };
+  useAtTheEndWithNothingNext(props.video, isNothingNext, leave);
+  return null;
 }
 
 /**

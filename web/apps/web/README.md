@@ -651,7 +651,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   without the rest of the overlay (alone, or through a seek's scrub bar and the pause sign) it sits
   in the film's top-right corner, clear of the action, at row 0's end only while all of the overlay
   shows (the owner, 2026-11-09). A film, the last
-  episode and one that cannot be read now offer nothing. `src/up-next.test.tsx`,
+  episode and one that cannot be read now offer nothing, and at their end the player leaves at once,
+  whatever the autoplay, for the page its Up leads to (a film's page, an episode's own), back to that
+  entry where it is behind, else in the player's place, never a new entry, so no press at the end plays
+  it again (the owner, 2026-11-17; `LeavesAtTheEnd`, `src/play-end.test.tsx`). `src/up-next.test.tsx`,
   `src/autoplay-setting.test.tsx`, `src/player-overlay.test.tsx`, `src/up-next-place.browser.test.tsx`;
   on devices, VQ67.
 - **A run of autoplays asks before it goes on, and a host's moves their group** (D339): after

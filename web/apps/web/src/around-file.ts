@@ -28,7 +28,8 @@ export interface AroundFile {
 
 /**
  * What plays after fileId and before it, undefined while unknown; asked for once isAsked, nothing
- * before.
+ * before. Where it cannot be read, nothing plays after it nor before, as a next episode that cannot
+ * be read now is not offered (plans/up-next.md §7).
  */
 export function useAroundFile(fileId: number, isAsked: boolean): AroundFile | undefined {
   const { api } = useServices();
@@ -44,5 +45,11 @@ export function useAroundFile(fileId: number, isAsked: boolean): AroundFile | un
       return { upNext: answer.upNext ?? undefined, previous: answer.previous ?? undefined };
     },
   );
+  if (around.state === "failed") {
+    return nothingAround;
+  }
   return around.state === "loaded" ? around.value : undefined;
 }
+
+/** What is around a file whose sequence cannot be read: nothing. */
+const nothingAround: AroundFile = { upNext: undefined, previous: undefined };

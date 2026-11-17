@@ -86,6 +86,7 @@ import {
 } from "./play-opened.ts";
 import {
   ControlsUnderTheFilm,
+  LeavesAtTheEnd,
   overTheFilm,
   UpNextContext,
   useSequenceCommands,
@@ -225,6 +226,7 @@ function PlayerView(
   return (
     <UpNextContext value={offered}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
+        <LeavesAtTheEnd video={video} />
         <PlayContext value={ways}>
           <PlayArea isOwn={isOwn}>
             <FilmPlayer
