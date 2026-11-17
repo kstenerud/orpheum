@@ -29836,6 +29836,13 @@ index): the pinned FFmpeg parses an MP4's whole movie box at every open, 4.0–4
 file 15497's 179 MB, paid by the picture run and the sound run of every seek. Thresholds and margins
 below marked *lead's default* are the lead's, awaiting the owner.
 
+**Proven by:**
+- 1: internal/node/execx/cutdown_test.go (TestFilmOf_ARunOfChunksOfALongIndexedMP4IsServedItsIndexCutDown), internal/node/agent/film_test.go (TestAgent_ARunOfChunksOpensItsFilmForTheStretchItReads)
+- 2: internal/node/execx/cutdown_test.go (TestFilmOf_ARunOfChunksOfALongIndexedMP4IsServedItsIndexCutDown: a short movie box and another container are served as they are)
+- 3: internal/node/container/trim_test.go (TestTrim_KeepsEverySampleOfItsStretchAsTheFileHasIt), internal/node/execx/cutdown_integration_test.go (TestFilmOf_AFilmServedCutDownMakesTheChunksOfTheWholeFilm)
+- 4: internal/node/container/trim_test.go (TestReadIndex_RefusesAnIndexItDoesNotFollow), internal/node/execx/cutdown_test.go (TestFilmOf_AnMP4WhoseIndexIsNotCutDownIsLoggedOnceWithWhy)
+- 5: internal/node/agent/film_test.go (TestAgent_ARunOfChunksOpensItsFilmForTheStretchItReads: the run's log line says indexCutDown), internal/node/agent/chunks_test.go (the run's log line's filmOpenedAfterMs)
+
 **Status:** built (2026-11-17) in "feat(node): a chunk run of a long-indexed MP4 is served its index cut down to its stretch", its clauses read back against the code: 1 holds at `execx.FilmOf`, a run of chunks opening its film for `chunks.Maker.StretchOf`'s stretch; 2 is `cutDownMinMoovBytes` and the extensions `isCutDownExtension` names; 3 and 4 are `container.Index.Trim` and `container.ReadIndex`; 5 is `readCutDownIndex`, once a file, and the run's log line. Not yet measured on production.
 
 1. **A run of chunks of a seekable window is served, through fdproxy, the film with its index cut
