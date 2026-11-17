@@ -164,6 +164,9 @@
 //     mount, or a removal of all of a root's files or more than half and more than twenty, waits
 //     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,
 //     TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead.
+//     The system library's folder alone never waits: its videos are the server's own, and one a
+//     scan finds gone is made again on its next use (D510, D435).
+//     TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain.
 //
 //   - A scan that would remove nothing completes though its root's device or mount changed, and
 //     the new one is recorded (D276).

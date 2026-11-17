@@ -306,6 +306,11 @@ func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, r
 	if removing == 0 {
 		return "", nil
 	}
+	if isSystem, err := batch.isSystemFolderAlone(ctx, scan); err != nil || isSystem {
+		// The system videos are the server's own, made again on their next use: one gone is not yet
+		// made, whatever took it, never a disk to wait for (D510 §1, D435 §5).
+		return "", err
+	}
 	prior, err := store.OrNotFound(batch.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
 		NodeID: batch.nodeID, RootPath: scan.root,
 	}))
@@ -334,6 +339,21 @@ func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, r
 		return fmt.Sprintf("the scan would remove %d of the root's %d files", removing, total), nil
 	}
 	return "", nil
+}
+
+// isSystemFolderAlone is whether the scan's root is covered by the system library and no other.
+func (batch *ingestBatch) isSystemFolderAlone(ctx context.Context, scan *scanState) (bool, error) {
+	if len(scan.libraryIDs) != 1 {
+		return false, nil
+	}
+	system, err := store.OrNotFound(batch.queries.GetSystemLibrary(ctx))
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read the system library: %w", err)
+	}
+	return system.ID == scan.libraryIDs[0], nil
 }
 
 // recordNotComplete records a scan that could not read its root, or whose removals wait, and

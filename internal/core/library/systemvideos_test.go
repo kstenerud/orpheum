@@ -7,6 +7,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -154,6 +155,38 @@ func TestSystemVideos_TheFirstUseMakesTheLibraryAndTheNodeMakesTheVideos(t *test
 	}
 	if err := world.videos.Rebuild(ctx); err != nil || world.queue.queued[1].ArgsJSON != `{"isRebuild":true}` {
 		t.Errorf("a rebuild = %v, queued %+v; want a make that makes them again", err, world.queue.queued)
+	}
+}
+
+// A system video removed from its folder after it was made is made again: the scan that finds it
+// gone leaves no file for the next use, which queues the make, and the make's scan finds it there
+// once more (D510 §1, D435 §4).
+func TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain(t *testing.T) {
+	t.Parallel()
+	world := newSystemVideosWorld(t)
+	ctx := t.Context()
+	if _, err := world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC); err != nil {
+		t.Fatal(err)
+	}
+	world.makeVideos(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
+	world.clock.Advance(time.Minute) // a later scan, which finds the folder without it
+	facts := nodeproto.ScanBegin{RootPath: systemFolder, FilesystemDevice: 8}
+	if err := world.ingester.IngestScan(ctx, world.nodeID, systemFolder,
+		librarytest.Scan(facts, nil, true)); err != nil {
+		t.Fatal(err)
+	}
+	state, err := world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC)
+	if err != nil || state.FileID != 0 || len(world.queue.queued) != 2 {
+		t.Fatalf("the use after the clip went = %+v, %v, queued %+v; want it being made again", state, err,
+			world.queue.queued)
+	}
+	world.makeVideos(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
+	state, err = world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC)
+	if err != nil || state.FileID == 0 || len(world.queue.queued) != 2 {
+		t.Errorf("the use after it was made again = %+v, %v, queued %d makes; want the clip's file and no "+
+			"further make", state, err, len(world.queue.queued))
 	}
 }
 
