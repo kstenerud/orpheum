@@ -4272,3 +4272,15 @@ deployment written before this names no folder until its next install-script run
 the step, with the command written out for `/srv/orpheum` as an example. The first update that
 shows the exact command is the one after the next release, since the command comes from the version
 running.
+
+### A film played to its end with nothing next goes back to its page, next batch (the owner, 2026-11-17)
+
+The owner: "When a movie plays all the way to the end, it just sits there on a black screen.
+Pressing the select button causes it to play over again. When a video finishes and there's nothing
+left in the set for it to play next, it should go back to the info page." Today the end screen and
+its Up next offer count down to the next video (`up-next.tsx`, `offerState`), and where nothing plays
+next nothing is offered, so the player stays on its last frame, black after the credits, and a press
+plays the ended video again. To build: a video that ends with nothing next leaves the player for
+its item's page. Open for the owner when it is taken up: whether it goes at once or after a short
+end screen, whether autoplay being off changes that, and what a cast's receiver and a Watch
+Together group do at the same end.
