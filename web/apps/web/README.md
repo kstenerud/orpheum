@@ -152,8 +152,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   start the browser refused show ▶ and no spinner (`src/film-waits.tsx`'s isPausedAsAsked).
   `src/film-waits.test.tsx`.
 - **Under the spinner, a bar shows a wait the link holds up, never one the server does** (the
-  owner, 2026-11-17): once a chunk waited on has had its answer's head for `linkWaitBarAfterMs`
-  with bytes still to come, its filler as full as the bytes come against the lengths the heads said,
+  owner, 2026-11-17): once every chunk waited on has had its answer's head, the last of them for
+  `linkWaitBarAfterMs`, with bytes still to come (a chunk the server makes again starts it anew), its filler as full as the bytes come against the lengths the heads said,
   kept between a tenth and nine tenths (`src/film-waits.tsx`'s linkWaitShare); none while any of
   them has no head, which the core holds while its node makes the chunk, and none on a player that
   loads no chunks of its own (the player's README). It adds no words. `src/film-waits-bar.test.tsx`,

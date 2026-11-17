@@ -19,7 +19,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   and sound chunk on its way then or asked for after, a start's second picture chunk among them
   (D502 §2), its bytes come against the length its answer's head said (Content-Length), a chunk
   all come kept, one that failed waited on no more; it says nothing while any of them has no head
-  yet, which the core holds while its node makes the chunk. `link-wait.test.ts`, `chunked.test.ts`,
+  yet, which the core holds while its node makes the chunk, and its clock runs from the last head. `link-wait.test.ts`, `chunked.test.ts`,
   `fetch-loader.test.ts`.
 
 - **Never imports an app.** `package-not-to-app` (`web/.dependency-cruiser.cjs`).

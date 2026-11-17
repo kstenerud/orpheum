@@ -31,7 +31,11 @@ export interface LinkWait {
   readonly arrivedBytes: number;
   /** Bytes the wait's chunks are, as their heads say (Content-Length). */
   readonly neededBytes: number;
-  /** How long since the head of the chunk on its way the longest since its head came, in ms. */
+  /**
+   * How long since the last head of the chunks on their way came, in ms: since the wait became the
+   * link's to carry, every chunk it waits on begun by the server (the owner, 2026-11-17). A chunk
+   * asked again, its head not come, makes the wait the server's again, and its head starts this anew.
+   */
   readonly sinceHeadMs: number;
 }
 
@@ -93,7 +97,7 @@ function lengthOf(loader: FollowedLoader): number | undefined {
   return Number.isInteger(length) && length > 0 ? length : undefined;
 }
 
-/** How much of loads has come: bytes come and needed, and the earliest head, Infinity for none. */
+/** How much of loads has come: bytes come and needed, and the latest head, -Infinity for none. */
 interface Arrival {
   readonly arrivedBytes: number;
   readonly neededBytes: number;
@@ -104,7 +108,7 @@ interface Arrival {
 function arrivalOf(load: FollowedLoad): Arrival | undefined {
   const { arrivedBytes } = load;
   if (arrivedBytes !== undefined) {
-    return { arrivedBytes, neededBytes: arrivedBytes, headAtMs: Number.POSITIVE_INFINITY };
+    return { arrivedBytes, neededBytes: arrivedBytes, headAtMs: Number.NEGATIVE_INFINITY };
   }
   const { stats } = load.loader;
   const length = lengthOf(load.loader);
@@ -119,7 +123,7 @@ function arrivalOf(load: FollowedLoad): Arrival | undefined {
 
 /** How loads come at nowMs, as LinkWaitWatch.read says it. */
 function linkWaitOf(loads: Iterable<FollowedLoad>, nowMs: number): LinkWait | undefined {
-  let sums: Arrival = { arrivedBytes: 0, neededBytes: 0, headAtMs: Number.POSITIVE_INFINITY };
+  let sums: Arrival = { arrivedBytes: 0, neededBytes: 0, headAtMs: Number.NEGATIVE_INFINITY };
   for (const load of loads) {
     const arrival = arrivalOf(load);
     if (arrival === undefined) {
@@ -128,7 +132,7 @@ function linkWaitOf(loads: Iterable<FollowedLoad>, nowMs: number): LinkWait | un
     sums = {
       arrivedBytes: sums.arrivedBytes + arrival.arrivedBytes,
       neededBytes: sums.neededBytes + arrival.neededBytes,
-      headAtMs: Math.min(sums.headAtMs, arrival.headAtMs),
+      headAtMs: Math.max(sums.headAtMs, arrival.headAtMs),
     };
   }
   const { arrivedBytes, neededBytes, headAtMs } = sums;

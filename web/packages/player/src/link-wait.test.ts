@@ -152,12 +152,26 @@ describe("a wait for data, its chunks as they come over the link", () => {
     first.succeed();
     sound.arrive(10_000);
     clock.nowMs = 3200;
-    // The wait's clock runs from the head of the chunk on its way the longest: the sound's.
+    // The wait's clock runs from the last head of the chunks on their way: the second picture chunk's.
     expect(watch.read()).toEqual({
       arrivedBytes: 310_000,
       neededBytes: 650_000,
-      sinceHeadMs: 3050,
+      sinceHeadMs: 3000,
     });
+  });
+
+  it("starts its clock anew when a chunk the server was making begins, though another long came (the owner, 2026-11-17)", () => {
+    const { waits, ask, clock } = waitsOnADrivenLink();
+    const watch = waits.watch();
+    const picture = ask("/c/0.m4s", "main");
+    picture.head(10, 300_000);
+    picture.arrive(50_000);
+    const sound = ask("/a/0.m4s", "audio");
+    clock.nowMs = 5000;
+    expect(watch.read()).toBeUndefined(); // the sound is the server's to make
+    sound.head(5000, 50_000);
+    clock.nowMs = 7000;
+    expect(watch.read()).toEqual({ arrivedBytes: 50_000, neededBytes: 350_000, sinceHeadMs: 2000 });
   });
 
   it("says nothing while one of its chunks is still being made, though another's head came", () => {
