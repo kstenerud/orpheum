@@ -168,6 +168,7 @@ var sectionByKey = map[Key]Section{
 	ReaderLimitUnknownDisk:                         SectionNodes,
 	FinishedJobsKeptDays:                           SectionJobs,
 	JobAttemptLimit:                                SectionJobs,
+	UnknownFailuresAlertPerHour:                    SectionJobs,
 	JobFirstRetryDelaySeconds:                      SectionJobs,
 	JobHealthWindowHours:                           SectionJobs,
 	JobLongestRetryDelayHours:                      SectionJobs,

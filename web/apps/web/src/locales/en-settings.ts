@@ -86,6 +86,8 @@ export const enSettingsCatalogue = {
       "The server checks that its database agrees with itself, for example that nothing points at a title that's gone. It does this at every start, and this often while it runs, writing each problem it finds to its log.",
     jobAttemptLimit:
       "Background work, such as fetching a title's details or making artwork, is retried when it fails for a reason that may pass. After this many tries it is marked failed and shown on the System page.",
+    unknownFailuresAlertPerHour:
+      "When work fails for a reason the server doesn't recognise, the failure is kept with everything it said, and the thing it was for is left alone until the server next starts. When one kind of work has more of these than this in an hour, a banner on an admin's pages says so, until an hour passes under it.",
     linkShareForQualityPercent:
       "A link's measured speed varies, and the sound and the picture's peaks need room too. A quality is chosen only when its bit rate fits in this share of what was measured.",
     loudnessMaxRaiseDb:
@@ -266,6 +268,8 @@ export const enSettingsCatalogue = {
     invariantsCheckEveryHours:
       "How often the database is checked for consistency, besides at each start.",
     jobAttemptLimit: "How many times a failing background job is tried before it is marked failed.",
+    unknownFailuresAlertPerHour:
+      "How many unexplained failures of one kind of work in an hour raise the alert. It clears after an hour under.",
     jobFirstRetryDelaySeconds:
       "How long a failed job waits before its first retry. Each later retry waits twice as long.",
     jobHealthWindowHours: "How far back the System page counts failed jobs.",

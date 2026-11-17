@@ -202,6 +202,10 @@ func wholeReadsAllowed() map[string]string {
 		"ListLiveLibraryIDs":            few + "libraries; the identification sweep lists them",
 		"GetLiveLibraryByName":          few + "libraries; a name is checked when one is made or renamed",
 		"ListLibraries":                 few + "libraries",
+		"ListUnknownFailures": "an admin's export and Needs attention page show every failure of unknown cause, " +
+			"as many as the kinds and subjects that failed (D509 section 3)",
+		"ListUnknownFailuresOfStartsBefore": "every failure of unknown cause is what it reads, once a start, " +
+			"for the failures an earlier start left to try once more (D511 section 4)",
 		"MoveProgressHidesToItem": few + "people; a title merged into another gives it each one's hiding, " +
 			"found by its key",
 		"cache.SummarizeResourceUse": "every row kept is what it sums: a minute's row for the core and each node, " +

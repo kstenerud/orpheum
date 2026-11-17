@@ -93,6 +93,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/together` | LIVE (Watch Together's sessions, in memory; built 2026-10-05) | — (the WebSocket and endpoints are internal/core/api's) |
 | `internal/core/reachability` | OPS (the System page's check of the public path, from outside in; built 2026-10-05) | ⚑ R1: asks the server's own public name and relay through the outbound client |
 | `internal/core/turn` | LIVE (the TURN relay carrying voice, and its credentials; built 2026-10-05) | — (pion/turn does the protocol; the ICE endpoint is internal/core/api's) |
+| `internal/core/unexpected` | OPS (the failures of unknown cause, kept whole, held unavailable until the next start and tried once more at it; counted per kind per hour for the alert; D509, D511) | — |
 | `internal/core/webclient` | R9 (delivers the client) | — |
 | `internal/node/agent` | R8 | — |
 | `internal/node/artwork` | R3 | — |
@@ -224,6 +225,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
 | resource_use | cache.db | TO (measured each minute, kept a month) | no | in cache.db since step 0070 (D426 §9), so the hourly backup can skip an unchanged persistent.db; lost with cache.db: the System page's hours start over |
 | own_picture_given_up (the films whose own picture each device could not play) | persistent.db | TO (a player's report) | yes | in persistent.db (step 0088, D493), so a restart keeps it, where the core's memory lost it; its rows deleted with the device or the file |
+| unknown_failure (each failure of unknown cause, with its error and output whole, the version, when and how many times) | persistent.db | TO (the work's own report of its failure) | yes | in persistent.db (step 0089, D511), so a restart tries each once more and the failures can be taken out of a server; a row is deleted when its work succeeds |
 | link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement) | yes | in persistent.db (step 0063, D427), so a release that rebuilds cache.db keeps it; it changes only when a player measures, so the hourly backup still skips an unchanged database; its rows deleted a day after their last word |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |

@@ -53,6 +53,7 @@ const (
 	ScanWithholdRemovalsOverFiles                  Key = "scanWithholdRemovalsOverFiles"
 	ScanVideosPerExamineBatch                      Key = "scanVideosPerExamineBatch"
 	JobAttemptLimit                                Key = "jobAttemptLimit"
+	UnknownFailuresAlertPerHour                    Key = "unknownFailuresAlertPerHour"
 	FinishedJobsKeptDays                           Key = "finishedJobsKeptDays"
 	JobFirstRetryDelaySeconds                      Key = "jobFirstRetryDelaySeconds"
 	ProviderTimeoutSeconds                         Key = "providerTimeoutSeconds"
@@ -430,6 +431,10 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 		sourced(integerSetting(JobAttemptLimit, "5", 1, 100,
 			"how many times a background job that failed is tried before it is marked failed"),
 			"best guess (M2): enough to ride out a short outage, few enough to stop a hopeless job"),
+		sourced(integerSetting(UnknownFailuresAlertPerHour, "20", 1, 100000,
+			"how many failures of unknown cause of one kind of work in an hour raise the alert on an admin's "+
+				"pages; it clears after an hour under"),
+			"D509 §2, the owner's: 20 an hour"),
 		sourced(durationSetting(FinishedJobsKeptDays, 24*time.Hour, "30", 1, 3650,
 			"days the job view keeps a job that ended, done, failed or cancelled; an item's own failure is kept "+
 				"apart from it"),

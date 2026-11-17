@@ -70,6 +70,7 @@ export const enSettingLabels = {
     hlsSegmentLengthSeconds: "Shortest chunk length (seconds)",
     invariantsCheckEveryHours: "Check the database's consistency every (hours)",
     jobAttemptLimit: "Tries before a job fails",
+    unknownFailuresAlertPerHour: "Alert at unexplained failures of one kind in an hour",
     jobFirstRetryDelaySeconds: "First wait before retrying a job (seconds)",
     jobHealthWindowHours: "Judge jobs' health over (hours)",
     jobLongestRetryDelayHours: "Longest wait before retrying a job (hours)",

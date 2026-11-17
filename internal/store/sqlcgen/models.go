@@ -91,6 +91,18 @@ type SubtitleText struct {
 	MadeAt      int64
 }
 
+type UnknownFailure struct {
+	Kind          string
+	Subject       string
+	ErrorText     string
+	Output        string
+	Version       string
+	FirstFailedAt int64
+	LastFailedAt  int64
+	FailureCount  int64
+	StartID       string
+}
+
 type VideoTimeline struct {
 	PayloadHash           []byte
 	VideoStreamIndex      int64
