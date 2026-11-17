@@ -647,16 +647,17 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 	return items, nil
 }
 
-const listTakenFrameStillImages = `-- name: ListTakenFrameStillImages :many
+const listStoredArtworkImages = `-- name: ListStoredArtworkImages :many
 SELECT DISTINCT source_sha256
 FROM artwork
-WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 IS NOT NULL
+WHERE removed_at IS NULL AND source_sha256 IS NOT NULL
 `
 
-// The hash of every frame still recorded as taken: the art directory must hold its image, or the
-// still is taken again (D507 section 3).
-func (q *Queries) ListTakenFrameStillImages(ctx context.Context) ([][]byte, error) {
-	rows, err := q.db.QueryContext(ctx, listTakenFrameStillImages)
+// The hash of every image recorded as stored, of every source: the art directory must hold a WebP
+// of each, or the records pointing to it are retired, so the ordinary planning makes it again
+// (D507, D510 sections 1 and 2).
+func (q *Queries) ListStoredArtworkImages(ctx context.Context) ([][]byte, error) {
+	rows, err := q.db.QueryContext(ctx, listStoredArtworkImages)
 	if err != nil {
 		return nil, err
 	}
@@ -676,6 +677,17 @@ func (q *Queries) ListTakenFrameStillImages(ctx context.Context) ([][]byte, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const markArtworkChosen = `-- name: MarkArtworkChosen :exec
+UPDATE artwork SET is_chosen = 1 WHERE id = ?1
+`
+
+// The image stored again in place of a person's choice the cache lost, chosen as it was (D510
+// section 3).
+func (q *Queries) MarkArtworkChosen(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, markArtworkChosen, id)
+	return err
 }
 
 const retireArtworkNotFound = `-- name: RetireArtworkNotFound :exec
@@ -702,6 +714,44 @@ func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNo
 		arg.FoundRefs,
 	)
 	return err
+}
+
+const retireArtworkOfLostImage = `-- name: RetireArtworkOfLostImage :many
+UPDATE artwork SET removed_at = ?1
+WHERE removed_at IS NULL AND source_sha256 = ?2
+RETURNING item_id
+`
+
+type RetireArtworkOfLostImageParams struct {
+	RemovedAt    *int64
+	SourceSha256 []byte
+}
+
+// The records of an image the art directory lost, of every source, retired as never stored, so the
+// pass that names it, or the frame-still planning, makes it again; their items are returned for it
+// (D510 section 1). A person's choice is retired too, and kept on its record for the image stored
+// again to take over (TakeOverLostChoice).
+func (q *Queries) RetireArtworkOfLostImage(ctx context.Context, arg RetireArtworkOfLostImageParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, retireArtworkOfLostImage, arg.RemovedAt, arg.SourceSha256)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const retireArtworkRow = `-- name: RetireArtworkRow :exec
@@ -744,43 +794,6 @@ func (q *Queries) RetireFrameStillsOfFile(ctx context.Context, arg RetireFrameSt
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-const retireFrameStillsOfImage = `-- name: RetireFrameStillsOfImage :many
-UPDATE artwork SET removed_at = ?1
-WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 = ?2
-RETURNING item_id
-`
-
-type RetireFrameStillsOfImageParams struct {
-	RemovedAt    *int64
-	SourceSha256 []byte
-}
-
-// The frame stills recorded as taken whose image the art directory lost, retired as never taken, so
-// the frame-still planning takes each again; their items are returned for it (D507 section 3). A
-// person's choice goes too: what it chose is gone, and the still taken again is of the same frame.
-func (q *Queries) RetireFrameStillsOfImage(ctx context.Context, arg RetireFrameStillsOfImageParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, retireFrameStillsOfImage, arg.RemovedAt, arg.SourceSha256)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var item_id int64
-		if err := rows.Scan(&item_id); err != nil {
-			return nil, err
-		}
-		items = append(items, item_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
@@ -828,4 +841,43 @@ type RetryItemArtworkParams struct {
 func (q *Queries) RetryItemArtwork(ctx context.Context, arg RetryItemArtworkParams) error {
 	_, err := q.db.ExecContext(ctx, retryItemArtwork, arg.RemovedAt, arg.ItemID)
 	return err
+}
+
+const takeOverLostChoice = `-- name: TakeOverLostChoice :execrows
+UPDATE artwork SET is_chosen = 0
+WHERE artwork.item_id = ?1 AND artwork.kind = ?2 AND artwork.grp_id IS ?3
+  AND artwork.source = ?4 AND artwork.source_ref = ?5
+  AND artwork.removed_at IS NOT NULL AND artwork.is_chosen = 1
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork live
+    WHERE live.item_id = artwork.item_id AND live.kind = artwork.kind AND live.is_chosen = 1
+      AND live.removed_at IS NULL
+  )
+`
+
+type TakeOverLostChoiceParams struct {
+	ItemID    int64
+	Kind      string
+	GrpID     *int64
+	Source    string
+	SourceRef *string
+}
+
+// A person's choice whose image the art directory lost, given up by its retired record once the
+// image is stored again from the same source and place, for the caller to mark the new record
+// chosen (D510 section 3). Only a retired choice is one the cache lost: every other retirement
+// keeps a person's choice. None is taken over where the item has come to hold another choice of
+// the kind.
+func (q *Queries) TakeOverLostChoice(ctx context.Context, arg TakeOverLostChoiceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, takeOverLostChoice,
+		arg.ItemID,
+		arg.Kind,
+		arg.GrpID,
+		arg.Source,
+		arg.SourceRef,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

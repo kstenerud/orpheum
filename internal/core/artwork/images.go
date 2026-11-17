@@ -394,17 +394,50 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 		if err != nil || sourceSha256 == nil {
 			return err
 		}
-		err = queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
-			RemovedAt: &now, ItemID: want.itemID, Kind: want.ref.Kind, GrpID: insert.GrpID,
-			Source: want.source, KeepID: id,
-		})
-		if err != nil {
-			return fmt.Errorf("retire its earlier %s: %w", want.ref.Kind, err)
-		}
-		return nil
+		return replaceWithStored(ctx, queries, insert, id, now)
 	})
 	if err != nil {
 		return fmt.Errorf("record item %d's %s: %w", want.itemID, want.ref.Kind, err)
+	}
+	return nil
+}
+
+// replaceWithStored makes a stored image the one its source shows for its item, kind and season: it
+// takes over a choice the art directory lost, and retires the source's earlier image.
+func replaceWithStored(
+	ctx context.Context, queries *sqlcgen.Queries, stored sqlcgen.InsertArtworkParams, id, now int64,
+) error {
+	if err := takeOverLostChoice(ctx, queries, stored, id); err != nil {
+		return err
+	}
+	err := queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
+		RemovedAt: &now, ItemID: stored.ItemID, Kind: stored.Kind, GrpID: stored.GrpID,
+		Source: stored.Source, KeepID: id,
+	})
+	if err != nil {
+		return fmt.Errorf("retire its earlier %s: %w", stored.Kind, err)
+	}
+	return nil
+}
+
+// takeOverLostChoice makes a stored image the person's choice that the record it was stored again
+// for was, retired because the art directory lost the image (D510 §3): the same item, kind, season,
+// source and place. The retired record gives the choice up, so an item never holds two of a kind.
+func takeOverLostChoice(
+	ctx context.Context, queries *sqlcgen.Queries, stored sqlcgen.InsertArtworkParams, id int64,
+) error {
+	given, err := queries.TakeOverLostChoice(ctx, sqlcgen.TakeOverLostChoiceParams{
+		ItemID: stored.ItemID, Kind: stored.Kind, GrpID: stored.GrpID,
+		Source: stored.Source, SourceRef: stored.SourceRef,
+	})
+	if err != nil {
+		return fmt.Errorf("take over a lost choice of %s: %w", stored.Kind, err)
+	}
+	if given == 0 {
+		return nil
+	}
+	if err := queries.MarkArtworkChosen(ctx, id); err != nil {
+		return fmt.Errorf("choose the %s stored again: %w", stored.Kind, err)
 	}
 	return nil
 }

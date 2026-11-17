@@ -72,6 +72,14 @@ type Parts struct {
 	Fetchers  map[string]Fetcher // by source: "tmdb"
 	Clock     clock.Clock
 	Logger    *slog.Logger
+	// OwePass marks a library as owing a pass, which runs soon (identify.Pass.OwePass): the
+	// ordinary planning that makes again an image whose record was retired because the art
+	// directory lost it (D510 §1). Nil owes nothing: the next scheduled pass makes it.
+	OwePass func(ctx context.Context, libraryID int64)
+	// OnNothingHeld is called when a look at an image finds nothing of it held. A look is a
+	// reading request's, which never writes (D303, DL10), so it asks for SweepLost, which retires
+	// the image's records soon (D510 §1). Nil asks for nothing: the scheduled sweep finds it.
+	OnNothingHeld func()
 }
 
 // Service fetches, re-encodes through the node, and stores artwork.

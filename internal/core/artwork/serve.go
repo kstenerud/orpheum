@@ -77,17 +77,19 @@ func (service *Service) Serve(ctx context.Context, sourceSha256Hex string, name 
 }
 
 // serveNearest answers for a size not held: a redirect to the nearest size held, with the size
-// queued to be made; or, with nothing of the image held — the cache was deleted — no image, and
-// the image queued to be made again, if an item shows it.
+// queued to be made; or, with nothing of the image held — the cache lost it — no image, and the
+// sweep that retires its records asked for, so the ordinary planning makes it again (D510 §1).
 func (service *Service) serveNearest(
 	ctx context.Context, sourceSha256Hex string, size nodeproto.ArtSize, format string,
 ) (Served, error) {
 	art := service.parts.ArtFiles
 	nearest, err := service.nearest(art, sourceSha256Hex, size)
 	if errors.Is(err, ErrNoArt) {
-		if makeErr := service.queueMake(ctx, sourceSha256Hex, size.Shape, fetchedSizes(size.Shape)); makeErr != nil &&
-			!errors.Is(makeErr, ErrNoArt) {
-			return Served{}, makeErr
+		if !isSha256Hex(sourceSha256Hex) {
+			return Served{}, ErrNoArt // no image's: nothing was stored under it
+		}
+		if service.parts.OnNothingHeld != nil {
+			service.parts.OnNothingHeld()
 		}
 		return Served{}, ErrNoArt
 	}

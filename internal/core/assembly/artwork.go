@@ -25,6 +25,10 @@ func (services *Services) openArtwork(ctx context.Context, parts Parts) error {
 		Settings: parts.Settings,
 		Fetchers: map[string]artwork.Fetcher{"tmdb": images},
 		Clock:    parts.Clock, Logger: parts.Logger,
+		// An image the art directory lost is made again by its library's pass (D510 §1).
+		OwePass: func(_ context.Context, libraryID int64) { services.pass.OwePass(libraryID) },
+		// A look that finds one gone asks for the sweep that retires it, writing nothing (D303).
+		OnNothingHeld: func() { services.Queue.RequestSweeps(sweepLostArtwork) },
 	})
 	if err := service.LoadHoldings(ctx); err != nil {
 		return err

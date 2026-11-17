@@ -29758,7 +29758,7 @@ things. We also do one sweep at app start." The form of the revert is the lead's
 owner took, asking that nothing be shoe-horned to save code or schema. Amends D507 §3, which it
 widens from frame stills to every record that points into a cache.
 
-**Status:** decided; not built.
+**Status:** decided; built for artwork of every source (tmdb, beside the media, frame stills) and for the system videos. A job making an image's sizes that finds it gone retires every live row of it and owes each library filing its items a pass, whose ordinary planning makes it again; a person's look at it, a reading request that may not write (D303), asks for the sweep that does; the start sweep runs from `LoadHoldings`, and the scheduled one lists the art directory hourly (`lostArtworkCheckEvery` in internal/core/assembly/jobs.go, a constant beside the derived work's hour, being a listing and one read). A person's choice moves to the row stored again for the same source and place, in the transaction that stores it, so §5 needed no migration. A system video gone from its folder was held back as a removal for the admin; the system library's folder now never waits, and the next use makes it again.
 
 1. **A lookup that finds the cached thing gone retires the record pointing to it**, so the ordinary
    code finds nothing made and makes or fetches it as it would the first time. For artwork that is
@@ -29771,6 +29771,20 @@ widens from frame stills to every record that points into a cache.
    the cache itself is lost with it, and is made again the ordinary way.
 5. **Where the schema does not fit this, the schema changes** (a migration), rather than the healing
    being bent to fit it.
+
+**Proven by:**
+- 1: TestHandle_AProviderImageWhoseImageWentWhileRunningIsFetchedAgainAndNotNoted,
+  TestServe_AnImageWithNothingHeldAsksForTheSweepThatRetiresIt,
+  TestHandle_AFrameStillWhoseImageWentWhileRunningIsTakenAgainAndNotNoted (internal/core/artwork/lost_test.go),
+  TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain (internal/core/library/systemvideos_test.go)
+- 2: TestLoadHoldings_AnImageOfAnySourceRecordedAsStoredWithNoImageHeldIsMadeAgain,
+  TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain,
+  TestSweepLost_AnImageDeletedFromTheArtDirectoryWhileRunningIsRetired (internal/core/artwork/lost_test.go),
+  TestSweeps_TheArtDirectoryIsCheckedForLostImagesHourly (internal/core/assembly/jobs_test.go)
+- 3: TestRecord_APersonsChoiceTheCacheLostIsChosenAgainWhenStoredAgain (internal/core/artwork/lost_test.go)
+- 4: TestLoadHoldings_AnImageOfAnySourceRecordedAsStoredWithNoImageHeldIsMadeAgain (its lost .none note
+  is gone and the image made again), TestHandle_AFrameStillTooSmallForALargerSizeIsNotedSo (a note on a
+  held base stays)
 
 ## D511 — A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
 

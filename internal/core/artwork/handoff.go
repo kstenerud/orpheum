@@ -159,8 +159,9 @@ func (service *Service) imageToFetch(ctx context.Context, fetcher Fetcher, want 
 
 // sizesToMake is a stored image's sizes to make, from its base when the base is large enough — our
 // own WebP, so nothing is fetched (D212 §2) — else from its source, fetched again, and its node; nil
-// when a source gone or changed is noted so no request asks again, and for a frame still the art
-// directory lost, which is taken again (D507 §3).
+// when a source gone or changed is noted so no request asks again, and for an image the art
+// directory lost, of any source, whose records are retired so the ordinary planning makes it again
+// (D510 §1).
 func (service *Service) sizesToMake(
 	ctx context.Context, fetcher Fetcher, want wantedImage, args artworkJobArgs,
 ) (gathered, error) {
@@ -177,16 +178,17 @@ func (service *Service) sizesToMake(
 			nodeID, err := service.anyNode(ctx)
 			return gathered{image: image, nodeID: nodeID, isFromBase: true}, err
 		}
-		if want.source == SourceFrame && !isMissing(readErr) {
-			return gathered{}, fmt.Errorf("read frame still %s's %s: %w", args.SourceSha256, base, readErr)
+		if !isMissing(readErr) {
+			return gathered{}, fmt.Errorf("read art %s's %s: %w", args.SourceSha256, base, readErr)
 		}
 		isBaseLost = true
 	}
+	if isBaseLost {
+		// Nothing of the image is left to cut from: it is not stored yet, and is made again as it was
+		// the first time, never noted as one that cannot be made (D510 §1, §4).
+		return gathered{}, service.retireLost(ctx, args.SourceSha256)
+	}
 	if want.source == SourceFrame {
-		if isBaseLost {
-			// Nothing of the still is left to cut from: it is not taken yet (D507 §3).
-			return gathered{}, service.retakeLostStills(ctx, args.SourceSha256)
-		}
 		// A still is not taken again for a size its base is too small for: the frame it was taken
 		// from is all there is of it (D362 §1).
 		return gathered{}, service.noteCannotMake(ctx, args.SourceSha256, args.SizeNames)

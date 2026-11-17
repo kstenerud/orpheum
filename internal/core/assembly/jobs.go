@@ -180,12 +180,19 @@ const (
 	sweepInvariants       = "the database's invariants"
 	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
 	sweepRemovedFiles     = "removed files past their keeping"
+	sweepLostArtwork      = "images the art directory lost"
 )
 
 // scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
 // scan: a bound on how late one starts, against intervals of hours, and a read of persistent.db's
 // roots, nothing more.
 const scheduledScansCheckEvery = 15 * time.Minute
+
+// lostArtworkCheckEvery is how often the art directory is listed again for the images it lost while
+// the core runs (D510 §2): hourly, as the derived work is, so a folder cleared or a disk swapped is
+// made good within the hour; a listing of the directory and a read of the stored images' hashes,
+// nothing more. A lookup that finds one gone retires it at once (D510 §1).
+const lostArtworkCheckEvery = time.Hour
 
 // purgeEndedCredentials is the ended credentials' sweep: it queues no work, and deletes those past
 // their keeping.
@@ -318,6 +325,11 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepRollingRefresh, Derive: services.refresher.Sweep,
 			Every: every(settings.MetadataRefreshCheckEveryHours),
+		},
+		// Before the passes, which make again what it retires (D510 §2).
+		{
+			Name: sweepLostArtwork, Derive: services.artwork.SweepLost,
+			Every: func(context.Context) time.Duration { return lostArtworkCheckEvery },
 		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
 		// The passes a match or a refresh left owed, one per library however many asked (D303, DL14).

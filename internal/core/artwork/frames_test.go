@@ -3,6 +3,7 @@
 package artwork
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -36,6 +37,10 @@ func newFrameWorld(t *testing.T, kind, metadataSource string) *frameWorld {
 	bench.service.parts.Queue = queue
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
 		librarytest.Library{Name: "L", Kind: kind, MetadataSource: metadataSource, Root: "/m"})
+	// A pass of the library, of the service's work: nothing found beside the media, nothing named.
+	bench.pass = func(ctx context.Context, libraryID int64) {
+		bench.service.Take(ctx, Found{BesideTheMedia: &LocalImages{LibraryID: libraryID}})
+	}
 	return &frameWorld{bench: bench, queue: queue, nodeID: nodeID, libraryID: libraryID, nextFile: 100}
 }
 

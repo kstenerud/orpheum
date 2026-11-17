@@ -301,17 +301,40 @@ WHERE item_id IN (
   AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0
   AND source_ref GLOB 'file:' || CAST(sqlc.arg(file_id) AS INTEGER) || ':*';
 
--- name: ListTakenFrameStillImages :many
--- The hash of every frame still recorded as taken: the art directory must hold its image, or the
--- still is taken again (D507 section 3).
+-- name: ListStoredArtworkImages :many
+-- The hash of every image recorded as stored, of every source: the art directory must hold a WebP
+-- of each, or the records pointing to it are retired, so the ordinary planning makes it again
+-- (D507, D510 sections 1 and 2).
 SELECT DISTINCT source_sha256
 FROM artwork
-WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 IS NOT NULL;
+WHERE removed_at IS NULL AND source_sha256 IS NOT NULL;
 
--- name: RetireFrameStillsOfImage :many
--- The frame stills recorded as taken whose image the art directory lost, retired as never taken, so
--- the frame-still planning takes each again; their items are returned for it (D507 section 3). A
--- person's choice goes too: what it chose is gone, and the still taken again is of the same frame.
+-- name: RetireArtworkOfLostImage :many
+-- The records of an image the art directory lost, of every source, retired as never stored, so the
+-- pass that names it, or the frame-still planning, makes it again; their items are returned for it
+-- (D510 section 1). A person's choice is retired too, and kept on its record for the image stored
+-- again to take over (TakeOverLostChoice).
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
-WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 = sqlc.arg(source_sha256)
+WHERE removed_at IS NULL AND source_sha256 = sqlc.arg(source_sha256)
 RETURNING item_id;
+
+-- name: TakeOverLostChoice :execrows
+-- A person's choice whose image the art directory lost, given up by its retired record once the
+-- image is stored again from the same source and place, for the caller to mark the new record
+-- chosen (D510 section 3). Only a retired choice is one the cache lost: every other retirement
+-- keeps a person's choice. None is taken over where the item has come to hold another choice of
+-- the kind.
+UPDATE artwork SET is_chosen = 0
+WHERE artwork.item_id = sqlc.arg(item_id) AND artwork.kind = sqlc.arg(kind) AND artwork.grp_id IS sqlc.narg(grp_id)
+  AND artwork.source = sqlc.arg(source) AND artwork.source_ref = sqlc.arg(source_ref)
+  AND artwork.removed_at IS NOT NULL AND artwork.is_chosen = 1
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork live
+    WHERE live.item_id = artwork.item_id AND live.kind = artwork.kind AND live.is_chosen = 1
+      AND live.removed_at IS NULL
+  );
+
+-- name: MarkArtworkChosen :exec
+-- The image stored again in place of a person's choice the cache lost, chosen as it was (D510
+-- section 3).
+UPDATE artwork SET is_chosen = 1 WHERE id = sqlc.arg(id);

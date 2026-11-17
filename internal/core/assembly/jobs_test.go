@@ -121,6 +121,21 @@ func checkDerivation(t *testing.T, kind jobs.Kind, derivedBy []string, sweepName
 	}
 }
 
+// The art directory is listed again for the images it lost by a sweep of its own, hourly, besides
+// at start (D510 §2).
+func TestSweeps_TheArtDirectoryIsCheckedForLostImagesHourly(t *testing.T) {
+	t.Parallel()
+	for _, sweep := range (&Services{}).sweeps(slog.New(slog.DiscardHandler)) {
+		if sweep.Name == sweepLostArtwork {
+			if every := sweep.Every(t.Context()); every != time.Hour {
+				t.Errorf("the art directory is checked every %s, want 1h", every)
+			}
+			return
+		}
+	}
+	t.Error("no sweep looks for the images the art directory lost (D510 §2)")
+}
+
 func TestSweeps_TheScanScheduleIsASweepCheckedEveryQuarterHour(t *testing.T) {
 	t.Parallel()
 	for _, sweep := range (&Services{}).sweeps(slog.New(slog.DiscardHandler)) {

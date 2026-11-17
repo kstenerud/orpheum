@@ -56,14 +56,18 @@ func newHoldings() *holdings {
 	}
 }
 
-// LoadHoldings reads what the art directory holds and when each image was last served, and takes
-// again each frame still recorded as taken that it does not hold (D507); call it once, before
-// serving.
+// LoadHoldings reads what the art directory holds and when each image was last served, and makes
+// again each image recorded as stored that it does not hold, of every source (D507, D510 §2): a
+// restore from backup carries no cache, and a cache folder can be lost or cleared while the core is
+// stopped. Call it once, before serving. A failure to look for the lost images is logged, not
+// returned: the core serves what it holds, and the scheduled sweep looks again.
 func (service *Service) LoadHoldings(ctx context.Context) error {
 	if err := service.loadHoldings(ctx); err != nil {
 		return err
 	}
-	service.retakeStillsLostAtStart(ctx)
+	if _, err := service.SweepLost(ctx); err != nil {
+		service.parts.Logger.ErrorContext(ctx, "look for the images the art directory lost", "err", err)
+	}
 	return nil
 }
 

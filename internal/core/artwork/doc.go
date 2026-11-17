@@ -72,16 +72,27 @@
 //     the request path. TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack.
 //
 //   - An evicted size is cut again by the node from the image's base, our own WebP, without
-//     fetching; only a size larger than the base, or an image with nothing held, is fetched
-//     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
+//     fetching; only a size larger than the base is fetched again.
+//     TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
 //
-//   - A frame still recorded as taken whose image the art directory does not hold, at start or
-//     when a size of it is asked for, is not taken yet: its row is retired, what is left of it goes,
-//     and its library's frame-still planning runs at once; no .none note stands on the absence
-//     (D507). A still whose base is held but too small for a size keeps its note (D362 §1).
+//   - An image of any source recorded as stored whose image the art directory does not hold is
+//     not stored yet: wherever the core finds it gone (at start, in a job making its sizes, on a
+//     look at it, which writes nothing and asks for the sweep, or in the hourly sweep that lists
+//     the directory afresh), every record of it is
+//     retired, what is left of it goes, and each library that files its items owes a pass, whose
+//     ordinary planning fetches, reads or takes it again; no .none note stands on the absence
+//     (D507, D510 §1, §2, §4). A frame still whose base is held but too small for a size keeps its
+//     note (D362 §1). TestLoadHoldings_AnImageOfAnySourceRecordedAsStoredWithNoImageHeldIsMadeAgain,
+//     TestHandle_AProviderImageWhoseImageWentWhileRunningIsFetchedAgainAndNotNoted,
+//     TestServe_AnImageWithNothingHeldAsksForTheSweepThatRetiresIt,
+//     TestSweepLost_AnImageDeletedFromTheArtDirectoryWhileRunningIsRetired,
 //     TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain,
 //     TestHandle_AFrameStillWhoseImageWentWhileRunningIsTakenAgainAndNotNoted,
 //     TestHandle_AFrameStillTooSmallForALargerSizeIsNotedSo.
+//
+//   - A person's choice whose image the art directory lost is chosen again once the image is
+//     stored again from the same source and place (D510 §3).
+//     TestRecord_APersonsChoiceTheCacheLostIsChosenAgainWhenStoredAgain.
 //
 //   - An image beside the media is read and re-encoded by the node that holds it, sent its path
 //     and never its bytes, and stored under the hash that node read; a person's choice shows

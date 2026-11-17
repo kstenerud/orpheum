@@ -182,6 +182,12 @@ type bench struct {
 	settings *settings.Service
 	clock    *clocktest.Fake
 	resolver *nodestest.Resolver
+	// owedPasses are the libraries the service said owe a pass, in order (Parts.OwePass); pass,
+	// when set, is what a library's pass does of the service's work, run at once.
+	owedPasses []int64
+	pass       func(ctx context.Context, libraryID int64)
+	// lostSweepsAsked counts the looks that found nothing held (Parts.OnNothingHeld).
+	lostSweepsAsked int
 }
 
 func newBench(t *testing.T, images fakeFetcher) *bench {
@@ -217,10 +223,18 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	resolver := nodestest.NewResolver()
 	service.exchanges.Handle(jobs.KindMakeArtworkSizes, service.Assignee(resolver.Of(nil)))
 	node.service = service
-	return &bench{
+	made := &bench{
 		service: service, database: database, node: node, art: art, itemID: itemID,
 		settings: config, clock: fakeClock, resolver: resolver,
 	}
+	service.parts.OwePass = func(ctx context.Context, libraryID int64) {
+		made.owedPasses = append(made.owedPasses, libraryID)
+		if made.pass != nil {
+			made.pass(ctx, libraryID)
+		}
+	}
+	service.parts.OnNothingHeld = func() { made.lostSweepsAsked++ }
+	return made
 }
 
 // becomeSeries makes the bench's item a series with an aired order, whose groups its seasons'
