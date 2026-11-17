@@ -36,12 +36,14 @@ const mostShare = 0.9;
  * How much of the bar under the spinner is filled for wait, between a tenth and nine tenths of it:
  * the bytes of its chunks come against those needed; undefined, no bar, where wait says nothing (a
  * chunk the server is still making, a player that loads no chunks of its own), before
- * linkWaitBarAfterMs since the last of its chunks' heads came, or once all of it has come.
+ * linkWaitBarAfterMs since the last of its chunks' heads came, or once all of it has come. A bar
+ * shown already, isBarShown, stays without waiting again: once shown, it shows until the film has
+ * enough to play, hidden only while the server makes a chunk (D506 §1).
  */
-export function linkWaitShare(wait: LinkWait | undefined): number | undefined {
+export function linkWaitShare(wait: LinkWait | undefined, isBarShown = false): number | undefined {
   if (
     wait === undefined ||
-    wait.sinceHeadMs < linkWaitBarAfterMs ||
+    (!isBarShown && wait.sinceHeadMs < linkWaitBarAfterMs) ||
     wait.arrivedBytes >= wait.neededBytes
   ) {
     return undefined;
@@ -68,9 +70,12 @@ function useLinkWaitShare(
       return undefined;
     }
     let watch = watchLinkWaitRef.current?.();
+    let isBarShown = false;
     const read = (): void => {
       watch ??= watchLinkWaitRef.current?.();
-      setShare(linkWaitShare(watch?.read()));
+      const next = linkWaitShare(watch?.read(), isBarShown);
+      isBarShown = next !== undefined;
+      setShare(next);
     };
     const timer = setInterval(read, linkWaitReadEveryMs);
     return () => {

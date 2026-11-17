@@ -29626,7 +29626,7 @@ permanent." Amends D501 §2, one try per film.
 test was a real slow link, a poor Wi-Fi signal). Amends the link-wait bar's rule (film-waits.tsx,
 the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its level.
 
-**Status:** decided; not built.
+**Status:** decided; §1 built.
 
 1. **Once shown, the bar stays until the film has enough to play.** It hides only while a chunk
    waited on is one the server is still making. A chunk asked again, given up or failed, already
@@ -29636,3 +29636,10 @@ the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its lev
    lowest rung.
 3. **At the lowest rung, still waiting 10 s on**, a dialog with an OK button says this film
    probably won't play on this link; the player goes on trying until its person leaves.
+
+**Proven by:**
+- 1: web/packages/player/src/link-wait.test.ts ("waits no more on a chunk whose load failed; the
+  one asked again counts from the chunk's first head (D506 §1)", "is the link's for a chunk asked
+  again before its head comes: its length and clock from its first head (D506 §1)"),
+  web/apps/web/src/film-waits-bar.test.tsx ("once shown, stays as new heads come, and waits its 3
+  seconds again only after the server held it up (D506 §1)")

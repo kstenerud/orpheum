@@ -39,6 +39,12 @@ describe("how much of the spinner's bar is filled", () => {
     expect(linkWaitShare(coming(400_000))).toBeUndefined();
   });
 
+  it("stays once shown though a chunk's head came since, as a chunk asked again's does (D506 §1)", () => {
+    expect(linkWaitShare(coming(200_000, 0), true)).toBe(0.5);
+    expect(linkWaitShare(undefined, true)).toBeUndefined();
+    expect(linkWaitShare(coming(400_000), true)).toBeUndefined();
+  });
+
   it("is the bytes come against those needed, between a tenth and nine tenths", () => {
     expect(linkWaitBarAfterMs).toBe(3000);
     expect(linkWaitShare(coming(200_000))).toBe(0.5);
@@ -197,6 +203,25 @@ describe("the bar under the spinner (the owner, 2026-11-17)", () => {
     expect(filled()).toBeUndefined();
     expect(watching.stopped).toBe(1);
     expect(watching.begun).toBe(1);
+  });
+
+  it("once shown, stays as new heads come, and waits its 3 seconds again only after the server held it up (D506 §1)", async () => {
+    const watching = fakeWatching();
+    mounted = await mount(<WaitingFilm watching={watching} />);
+    stall(videoIn(mounted));
+    await passMs(spinnerAfterMs);
+    watching.wait = { arrivedBytes: 100_000, neededBytes: 400_000, sinceHeadMs: 3000 };
+    await passMs(250);
+    expect(filled()).toBe("25%");
+    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, sinceHeadMs: 100 };
+    await passMs(250);
+    expect(filled()).toBe("10%"); // a new head since, its bar kept
+    watching.wait = undefined; // a chunk the server makes
+    await passMs(250);
+    expect(filled()).toBeUndefined();
+    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, sinceHeadMs: 100 };
+    await passMs(250);
+    expect(filled()).toBeUndefined(); // the link's again, but not yet for 3 seconds
   });
 
   it("is watched on the player's stage by its ladder's playback", async () => {
