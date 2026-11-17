@@ -4317,4 +4317,5 @@ keeps it at the bottom. At the top, clearing the banner and the header leaves ro
 on which page and device it shows, and whether a `scroll-margin-block` of the ring's room on the
 focused tile (or a `scroll-padding-block-end` on the page) is what keeps it. Where: "It happens
 on all pages that show posters (home, films, series, etc)" (the owner, 2026-11-17), so the fix
-belongs to the one way focus scrolls, not to a page.
+belongs to the one way focus scrolls, not to a page. Seen "on firefox and on the fire tv" (the
+owner, 2026-11-17): a desktop browser's arrow keys as well as a TV's remote.
