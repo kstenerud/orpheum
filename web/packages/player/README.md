@@ -22,6 +22,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   yet, which the core holds while its node makes the chunk, and its clock runs from the last head. `link-wait.test.ts`, `chunked.test.ts`,
   `fetch-loader.test.ts`.
 
+- **A chunked playback says whether it loads its lowest quality** (`isAtLowestRung`, D506 §3): the
+  quality it loads, not the one playing, which a film waiting at its start has none of, at or
+  below the lowest the bitrate controller may choose; never before it loads one, nor where the
+  browser chooses its qualities itself. `chunked.test.ts`.
+
 - **Never imports an app.** `package-not-to-app` (`web/.dependency-cruiser.cjs`).
 - **Its play report is the API's own shape**: `PlayReport`, `PlayEvent` and `PlaySpan` are
   derived from the SDK's generated types (`src/report.ts`), so a field the API renames fails

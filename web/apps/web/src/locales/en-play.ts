@@ -77,6 +77,8 @@ export const enPlay = {
       "Even the lowest quality, {{lowest}}, is too much for this connection: it will keep pausing.",
     cannotKeepUp:
       "Your connection carries about {{link}}, and even the lowest quality needs {{lowest}}: it will keep pausing.",
+    tooSlowAtLowest:
+      "This film probably won't play on this connection: even at its lowest quality, it can't load fast enough. It will keep trying.",
     failure: {
       hlsUnsupported: "this browser cannot play streamed video",
       aborted: "loading it was stopped",

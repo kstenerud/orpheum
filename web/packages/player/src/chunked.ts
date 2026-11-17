@@ -193,6 +193,19 @@ export function beyondTheLink(
 }
 
 /**
+ * Whether a playback loads its lowest quality, the lowest its bitrate controller may choose
+ * (minAutoLevel), no lower one left to try (D506 §3): the quality it loads, not the one playing,
+ * which a film waiting at its start has none of yet. Not before it loads one.
+ */
+export function isAtLowestRung(hls: {
+  readonly levels: readonly unknown[];
+  readonly loadLevel: number;
+  readonly minAutoLevel: number;
+}): boolean {
+  return hls.levels.length > 0 && hls.loadLevel >= 0 && hls.loadLevel <= hls.minAutoLevel;
+}
+
+/**
  * The BANDWIDTH of the quality a playback last loaded a chunk of, where its stepping has settled so
  * far: a player made after it starts there (D260 §3). Undefined before it loads one.
  */
@@ -211,6 +224,8 @@ export interface ChunkedPlayback extends HlsPlayback {
   readonly settledAtBps: () => number | undefined;
   /** Whether a stall now is beyond the link, with both numbers (beyondTheLink, D247 §8). */
   readonly beyondTheLink: () => CannotKeepUp | undefined;
+  /** Whether it loads its lowest quality (isAtLowestRung, D506 §3); never where the browser chooses itself. */
+  readonly isAtLowestRung: () => boolean;
   /**
    * Whether its buffer is full (ForwardBuffer.isFull); never where the browser loads by itself and
    * says nothing of its target (D501 §1).
@@ -470,6 +485,23 @@ function choosingOf(
 }
 
 /**
+ * What a chunked playback hls.js plays says of its qualities as it plays, read from hls: the one
+ * playing, where its stepping settled, whether a stall is beyond the link linkKbps measures, and
+ * whether it loads its lowest.
+ */
+function qualitiesOf(
+  hls: Hls,
+  linkKbps: () => number | undefined,
+): Pick<ChunkedPlayback, "playing" | "settledAtBps" | "beyondTheLink" | "isAtLowestRung"> {
+  return {
+    playing: () => hls.levels[hls.currentLevel],
+    settledAtBps: () => settledAtBps(hls),
+    beyondTheLink: () => beyondTheLink(hls, linkKbps()),
+    isAtLowestRung: () => isAtLowestRung(hls),
+  };
+}
+
+/**
  * Plays url with the element's own HLS where the page has no MSE, knowing nothing of its qualities,
  * or fails as unsupported where it has neither; undefined where hls.js plays it.
  */
@@ -484,6 +516,7 @@ function playWithoutHlsJs(
     settledAtBps: () => undefined,
     estimateKbps: () => undefined,
     beyondTheLink: () => undefined,
+    isAtLowestRung: () => false,
     isAheadFull: () => false,
     watchLinkWait: () => noLinkWaitWatch,
   };
@@ -756,10 +789,8 @@ export function playChunked(
       }
       hls.destroy();
     },
-    playing: () => hls.levels[hls.currentLevel],
-    settledAtBps: () => settledAtBps(hls),
+    ...qualitiesOf(hls, linkKbps),
     estimateKbps: linkKbps,
-    beyondTheLink: () => beyondTheLink(hls, linkKbps()),
     isAheadFull: () => followed.ahead.isFull(),
     watchLinkWait: () => linkWaits.watch(),
   };

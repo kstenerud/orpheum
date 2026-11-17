@@ -9,6 +9,7 @@ import {
   mediaErrorFailure,
   meterBufferGrowth,
   shapeChunkLoads,
+  type ChunkedPlayback,
   type LinkMeter,
   type PlaybackFailed,
   type PlaybackFailure,
@@ -49,6 +50,7 @@ import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
 import { useServices } from "./services.tsx";
 import { noteIfStartRefused } from "./start-refused.ts";
+import { useTellsTooSlowAtLowest } from "./too-slow-at-lowest.ts";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import { isStartThePages, playsOwnFile, type PlaybackDecision } from "./watching.ts";
@@ -75,6 +77,11 @@ export interface FilmParts {
         readonly cannotKeepUp: CannotKeepUp | undefined;
         /** Whether its buffer is full (ChunkedPlayback.isAheadFull, @orpheum/player; D501 §1). */
         readonly isAheadFull: () => boolean;
+        /**
+         * Whether it loads its lowest quality (ChunkedPlayback.isAtLowestRung, @orpheum/player;
+         * D506 §3); never before its player is made.
+         */
+        readonly isAtLowestRung: () => boolean;
         /**
          * Watches a wait for data over the chunks it waits on, for the spinner's bar
          * (ChunkedPlayback.watchLinkWait, @orpheum/player); undefined before its player is made.
@@ -241,7 +248,8 @@ export function EmptyStage(props: { readonly children?: ReactNode }): JSX.Elemen
 /**
  * The stage and its video, the page's drawing over it inside the stage, where JASSUB places its
  * canvas too, then the page's drawing under it, and the spinner over the video while it waits for
- * data, its bar watched by its ladder's playback (FilmWaitsSpinner).
+ * data, its bar watched by its ladder's playback (FilmWaitsSpinner); a film on its ladder waiting
+ * long at its lowest quality told it probably will not play here (useTellsTooSlowAtLowest, D506 §3).
  */
 export function Stage(
   props: FilmParts &
@@ -274,6 +282,7 @@ export function Stage(
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
   useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
+  useTellsTooSlowAtLowest(videoRef, ladder?.isAtLowestRung, ladder?.offer.url);
   const parts = { videoRef, readLinkKbps, failure, ladder };
   const drawn = (
     <>
@@ -534,6 +543,7 @@ function ChunkedFilm(props: {
     { ...starting, mediaToken: props.mediaToken },
     onFailed,
   );
+  const reads = usePlaybackReads(playbackRef);
   const height = playing?.height ?? offer.height;
   // Its tracks are named while the level playing is one of the pictures they list.
   const hasTracks = tracks !== undefined && playingPicture(tracks, height) !== undefined;
@@ -549,8 +559,7 @@ function ChunkedFilm(props: {
           positionMs,
           playing,
           cannotKeepUp,
-          isAheadFull: () => playbackRef.current?.isAheadFull() === true,
-          watchLinkWait: () => playbackRef.current?.watchLinkWait(),
+          ...reads,
           sound,
           heardLevel,
           playSound,
@@ -630,6 +639,24 @@ function useLadderPlayback(
   );
   const heardLevel = useMemo(() => ladderSoundLevelOf(tracks, heard), [tracks, heard]);
   return { ...chunked, sound, heardLevel, playSound };
+}
+
+/**
+ * What a film on its ladder reads of its playback in playbackRef as it plays, for the stage: whether
+ * its buffer is full, whether it loads its lowest quality, and a watch of a wait for data; nothing
+ * before its player is made.
+ */
+function usePlaybackReads(
+  playbackRef: RefObject<ChunkedPlayback | undefined>,
+): Pick<NonNullable<FilmParts["ladder"]>, "isAheadFull" | "isAtLowestRung" | "watchLinkWait"> {
+  return useMemo(
+    () => ({
+      isAheadFull: () => playbackRef.current?.isAheadFull() === true,
+      isAtLowestRung: () => playbackRef.current?.isAtLowestRung() === true,
+      watchLinkWait: () => playbackRef.current?.watchLinkWait(),
+    }),
+    [playbackRef],
+  );
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   ceilingHeader,
   chunkedHlsConfig,
   choosingOptionsOf,
+  isAtLowestRung,
   keptBehindS,
   paceHeader,
   playerFoundUnplayableEvent,
@@ -68,6 +69,19 @@ describe("whether a stall is beyond the link (D247 §8)", () => {
 
   it("is not, above the lowest quality, where a lower one answers it", () => {
     expect(playingAt(1, 500)).toBeUndefined();
+  });
+});
+
+describe("whether a playback loads its lowest quality (D506 §3)", () => {
+  it("is, loading the lowest its bitrate controller may choose, played or not", () => {
+    expect(isAtLowestRung({ levels, loadLevel: 0, minAutoLevel: 0 })).toBe(true);
+    expect(isAtLowestRung({ levels, loadLevel: 1, minAutoLevel: 1 })).toBe(true);
+  });
+
+  it("is not, loading a quality above it, nor before it loads any", () => {
+    expect(isAtLowestRung({ levels, loadLevel: 1, minAutoLevel: 0 })).toBe(false);
+    expect(isAtLowestRung({ levels, loadLevel: -1, minAutoLevel: 0 })).toBe(false);
+    expect(isAtLowestRung({ levels: [], loadLevel: 0, minAutoLevel: 0 })).toBe(false);
   });
 });
 

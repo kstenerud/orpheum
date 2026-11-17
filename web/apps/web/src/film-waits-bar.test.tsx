@@ -134,6 +134,7 @@ function LadderStage(props: { readonly watching: FakeWatching }): JSX.Element {
         playing: undefined,
         cannotKeepUp: undefined,
         isAheadFull: () => false,
+        isAtLowestRung: () => false,
         watchLinkWait: props.watching.watchLinkWait,
         sound: undefined,
         heardLevel: undefined,
