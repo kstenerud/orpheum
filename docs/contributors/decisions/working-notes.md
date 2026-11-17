@@ -3515,7 +3515,9 @@ them on a TV before they ship, and the monospaced-serif slot deserves a second l
 Courier Prime is a faithful Courier, and Courier is itself criticised as unsuitable for
 captioning.
 
-**Status:** Provisional. The style→face table is a configuration file, not code, so it is cheap
+**Status:** Provisional. The owner approved the six faces as a dependency (2026-11-17), each
+fetched only where a subtitle's text uses it, as a browser fetches a declared font, so a film of
+plain subtitles fetches none. The style→face table is a configuration file, not code, so it is cheap
 to revise. The subsetting numbers are measured and are unlikely to move; the per-track subset
 should be validated against a real anime release with a heavy `.ass` typeset, which is the
 adversarial case.
@@ -29511,12 +29513,16 @@ carrying the file by the ladder's share), the lead's stand-in until this answer.
 **Status:** decided and built.
 
 1. **The move waits for about 60 s of the link carrying at least 1.3 times the file's average rate**
-   (the decision's `fileBitRateKbps`), with the film's buffer full; a look the link falls short at
+   (the decision's `fileBitRateKbps`), with the film's buffer full, within one chunk of its target
+   (the owner, 2026-11-17); a look the link falls short at
    starts the wait again, and a data cap under the file still holds it back (D489).
 2. **One try per film.** A try that fails (the player moves down from the original within two
    minutes) ends the moves up for that film's playback.
 3. **⋯ says it.** While the film waits on its ladder for the original, ⋯'s line says it plays its
-   rung until the link carries the original; once moved, it says the original.
+   rung until the link carries the original; once moved, it says the original. Both show only
+   with Show debug tools, in the place of "Play the original file", in the words "Plays
+   {height}p until the link carries the original file" and "Plays the original file, which the
+   link now carries" (the owner, 2026-11-17).
 
 **Proven by:**
 - 1: web/apps/web/src/original-waits.test.tsx ("is the link at least 1.3 times the file, and never
@@ -29612,3 +29618,21 @@ permanent." Amends D501 §2, one try per film.
    drops to the rung the link carries, and a dialog with an OK button says why. Its words are the
    owner's to choose; that it cannot carry it is read as for the move up, the player moving down
    from it within two minutes (D501 §2), the lead's reading.
+
+## D506 — The link-wait bar stays until the film can play, but where the server makes a chunk; a film the lowest rung cannot carry says so and goes on trying
+
+**Decided** (2026-11-17), by the project owner, of the lead's questions after the bar showed at a
+300 kb/s link for 3 s of every 6, its film given up and asked again each time (the owner's own
+test was a real slow link, a poor Wi-Fi signal). Amends the link-wait bar's rule (film-waits.tsx,
+the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its level.
+
+**Status:** decided; not built.
+
+1. **Once shown, the bar stays until the film has enough to play.** It hides only while a chunk
+   waited on is one the server is still making. A chunk asked again, given up or failed, already
+   exists, so its wait is the link's: it neither hides the bar nor starts its 3 s again. "Retries
+   are not the server's fault."
+2. **A stuck chunk the link cannot measure drops the quality**, as one measured does, down to the
+   lowest rung.
+3. **At the lowest rung, still waiting 10 s on**, a dialog with an OK button says this film
+   probably won't play on this link; the player goes on trying until its person leaves.

@@ -511,6 +511,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D503](working-notes.md#d503--a-quality-switch-never-loads-again-a-chunk-it-already-holds-and-a-step-down-is-not-caught-by-a-chunk-not-made-yet) A quality switch never loads again a chunk it already holds, and a step-down is not caught by a chunk not made yet
 - [D504](working-notes.md#d504--a-field-a-provider-left-empty-is-asked-for-again-when-someone-looks-at-it-at-most-weekly-for-a-recent-work-and-monthly-for-an-older-one) A field a provider left empty is asked for again when someone looks at it, at most weekly for a recent work and monthly for an older one
 - [D505](working-notes.md#d505--a-failed-move-up-to-the-original-is-tried-again-after-five-minutes-and-two-of-the-link-carrying-it-a-chosen-original-the-link-cannot-carry-says-why) A failed move up to the original is tried again after five minutes and two of the link carrying it; a chosen original the link cannot carry says why
+- [D506](working-notes.md#d506--the-link-wait-bar-stays-until-the-film-can-play-but-where-the-server-makes-a-chunk-a-film-the-lowest-rung-cannot-carry-says-so-and-goes-on-trying) The link-wait bar stays until the film can play, but where the server makes a chunk; a film the lowest rung cannot carry says so and goes on trying
 
 ## Archived
 
