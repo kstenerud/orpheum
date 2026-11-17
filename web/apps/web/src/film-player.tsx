@@ -13,6 +13,7 @@ import {
   type PlaybackFailed,
   type PlaybackFailure,
   type PlayedLevel,
+  type LinkWaitWatch,
   type SoundChoiceCause,
 } from "@orpheum/player";
 import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
@@ -74,6 +75,11 @@ export interface FilmParts {
         readonly cannotKeepUp: CannotKeepUp | undefined;
         /** Whether its buffer is full (ChunkedPlayback.isAheadFull, @orpheum/player; D501 §1). */
         readonly isAheadFull: () => boolean;
+        /**
+         * Watches a wait for data over the chunks it waits on, for the spinner's bar
+         * (ChunkedPlayback.watchLinkWait, @orpheum/player); undefined before its player is made.
+         */
+        readonly watchLinkWait: () => LinkWaitWatch | undefined;
         /**
          * The sound playing, on a film's ladder whose sounds its tracks name; undefined on a ladder a
          * stalled player moved to, whose sounds no decision named.
@@ -234,9 +240,10 @@ export function EmptyStage(props: { readonly children?: ReactNode }): JSX.Elemen
 
 /**
  * The stage and its video, the page's drawing over it inside the stage, where JASSUB places its
- * canvas too, then the page's drawing under it.
+ * canvas too, then the page's drawing under it, and the spinner over the video while it waits for
+ * data, its bar watched by its ladder's playback (FilmWaitsSpinner).
  */
-function Stage(
+export function Stage(
   props: FilmParts &
     Pick<
       FilmComposition,
@@ -284,7 +291,11 @@ function Stage(
         ) : (
           <KeptVideo {...props} video={props.keptVideo} />
         )}
-        <FilmWaitsSpinner videoRef={videoRef} isFailed={failure !== undefined} />
+        <FilmWaitsSpinner
+          videoRef={videoRef}
+          isFailed={failure !== undefined}
+          watchLinkWait={ladder?.watchLinkWait}
+        />
         {Over === undefined ? null : <Over {...parts} />}
       </div>
       {Under === undefined ? null : <Under {...parts} />}
@@ -512,10 +523,9 @@ function ChunkedFilm(props: {
   readonly sound?: PlayingSound | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { offer, positionMs } = props;
+  const { offer, positionMs, tracks } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const { failure, onFailed } = useLadderFailure(props.composition, videoRef);
-  const { tracks } = props;
   // A playback's own start on its ladder starts by the link its device remembers (D381).
   const shouldStartByRememberedLink = props.isOnLadder === true && !isStartThePages(offer);
   const starting = { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink };
@@ -540,6 +550,7 @@ function ChunkedFilm(props: {
           playing,
           cannotKeepUp,
           isAheadFull: () => playbackRef.current?.isAheadFull() === true,
+          watchLinkWait: () => playbackRef.current?.watchLinkWait(),
           sound,
           heardLevel,
           playSound,

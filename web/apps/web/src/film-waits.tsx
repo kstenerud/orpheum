@@ -3,8 +3,9 @@
 import "./film-waits.css";
 import "./play-words.ts";
 
+import type { LinkWait, LinkWaitWatch } from "@orpheum/player";
 import { isWaitingToPlay, startGateWaitChangedEvent } from "@orpheum/sdk";
-import { useEffect, useState, type JSX, type RefObject } from "react";
+import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { WaitingIcon } from "./icons.tsx";
@@ -16,6 +17,70 @@ import { WaitingIcon } from "./icons.tsx";
  * waiting is watched for its picture, where a page's part waiting is read past.
  */
 export const spinnerAfterMs = 500;
+
+/**
+ * How long after the head of a chunk waited on came, in ms, the spinner's bar shows how much of the
+ * wait's chunks has come over the link (the owner, 2026-11-17): a chunk its head says is on its way
+ * that takes this long is the link's holding the film up, not the server's.
+ */
+export const linkWaitBarAfterMs = 3000;
+
+/** How often the spinner reads its wait's chunks, in ms, for its bar to move as they come. */
+const linkWaitReadEveryMs = 250;
+
+/** The bar's least and most filled, so it never looks empty nor done while it waits (the owner, 2026-11-17). */
+const leastShare = 0.1;
+const mostShare = 0.9;
+
+/**
+ * How much of the bar under the spinner is filled for wait, between a tenth and nine tenths of it:
+ * the bytes of its chunks come against those needed; undefined, no bar, where wait says nothing (a
+ * chunk the server is still making, a player that loads no chunks of its own), before
+ * linkWaitBarAfterMs since its head came, or once all of it has come.
+ */
+export function linkWaitShare(wait: LinkWait | undefined): number | undefined {
+  if (
+    wait === undefined ||
+    wait.sinceHeadMs < linkWaitBarAfterMs ||
+    wait.arrivedBytes >= wait.neededBytes
+  ) {
+    return undefined;
+  }
+  return Math.min(mostShare, Math.max(leastShare, wait.arrivedBytes / wait.neededBytes));
+}
+
+/**
+ * How much of the spinner's bar is filled (linkWaitShare) while isShown, read every
+ * linkWaitReadEveryMs from a watch watchLinkWait begins as the spinner shows, or once it can (its
+ * player made), stopped as the spinner hides; undefined while it is hidden.
+ */
+function useLinkWaitShare(
+  isShown: boolean,
+  watchLinkWait: (() => LinkWaitWatch | undefined) | undefined,
+): number | undefined {
+  const [share, setShare] = useState<number | undefined>(undefined);
+  const watchLinkWaitRef = useRef(watchLinkWait);
+  useEffect(() => {
+    watchLinkWaitRef.current = watchLinkWait;
+  }, [watchLinkWait]);
+  useEffect(() => {
+    if (!isShown) {
+      return undefined;
+    }
+    let watch = watchLinkWaitRef.current?.();
+    const read = (): void => {
+      watch ??= watchLinkWaitRef.current?.();
+      setShare(linkWaitShare(watch?.read()));
+    };
+    const timer = setInterval(read, linkWaitReadEveryMs);
+    return () => {
+      clearInterval(timer);
+      watch?.stop();
+      setShare(undefined);
+    };
+  }, [isShown]);
+  return share;
+}
 
 /** HTMLMediaElement.HAVE_FUTURE_DATA, which a plain page may not define: it can play on. */
 const haveFutureData = 3;
@@ -111,14 +176,19 @@ export function useIsWaitingShown(videoRef: RefObject<HTMLVideoElement | null>):
  * knows it is getting ready, not paused (the owner, 2026-11-15): at its start, after a seek to where
  * too little is loaded, and in a stall. None over a film that failed, whose page says why. It takes
  * no pointer, and says "Getting ready to play" to a screen reader as it shows. It is a turning ring,
- * or, asked for less motion, the still-reading hourglass pulsing (film-waits.css).
+ * or, asked for less motion, the still-reading hourglass pulsing (film-waits.css). Under it, once
+ * a chunk waited on has been coming over the link for linkWaitBarAfterMs, a bar shows how much of
+ * the wait's chunks has come (linkWaitShare; the owner, 2026-11-17), watched by watchLinkWait, none
+ * where it is undefined; it adds no words, so a screen reader is not told it.
  */
 export function FilmWaitsSpinner(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly isFailed: boolean;
+  readonly watchLinkWait?: (() => LinkWaitWatch | undefined) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const isShown = useIsWaitingShown(props.videoRef) && !props.isFailed;
+  const share = useLinkWaitShare(isShown, props.watchLinkWait);
   return (
     // A span, not an output, which the player's page keeps for its words (the reconnecting note).
     <span className="film-waits" hidden={!isShown} aria-live="polite">
@@ -128,6 +198,11 @@ export function FilmWaitsSpinner(props: {
           <span className="film-waits__hourglass">
             <WaitingIcon />
           </span>
+        </span>
+      ) : null}
+      {isShown && share !== undefined ? (
+        <span className="film-waits__bar" aria-hidden="true">
+          <span className="film-waits__fill" style={{ width: `${String(share * 100)}%` }} />
         </span>
       ) : null}
     </span>

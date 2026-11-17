@@ -62,6 +62,40 @@
   }
 }
 
+/* The bar under the ring or the hourglass, a third of the picture's width, its filler how much of
+   the chunks a wait waits on has come over the link (film-waits.tsx; the owner, 2026-11-17). It is
+   placed under the sign, not beside it in the grid, so the sign stays in the middle of the picture
+   as the bar shows and hides: half the sign's 3.5rem below the middle, and a gap. */
+.film-waits__bar {
+  position: absolute;
+  top: calc(50% + 1.75rem + var(--space-4));
+  left: 33.333%;
+  display: block;
+  box-sizing: border-box;
+  width: 33.333%;
+  height: 0.75rem;
+  padding: 0.125rem;
+  border: 0.0625rem solid var(--color-video-control);
+  border-radius: 0.375rem;
+  background: var(--color-video-card);
+}
+
+/* The filler fades out and back in every 2 seconds, so a bar that has not moved still says the
+   film is waiting. */
+.film-waits__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0.25rem;
+  background: var(--color-on-video);
+  animation: film-waits-fade 2s ease-in-out infinite;
+}
+
+@keyframes film-waits-fade {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* The sign the ring or the hourglass stands in, one of them showing at a time. */
 .film-waits__sign {
   display: grid;
@@ -95,6 +129,11 @@
   .film-waits__hourglass {
     display: block;
     animation: film-waits-pulse 3s ease-in-out infinite;
+    animation-duration: 3s !important;
+  }
+
+  /* The bar's filler fades every 3 seconds, in step with the hourglass, kept against the reset too. */
+  .film-waits__fill {
     animation-duration: 3s !important;
   }
 }

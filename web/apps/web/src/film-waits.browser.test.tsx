@@ -10,28 +10,34 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
+import type { LinkWait } from "@orpheum/player";
 import { act, useRef, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FilmWaitsSpinner, spinnerAfterMs } from "./film-waits.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
-/** A video and its sign, as the player's page lays them out. */
-function WaitingFilm(): JSX.Element {
+/** A video and its sign, as the player's page lays them out, its wait's chunks coming as wait says. */
+function WaitingFilm(props: { readonly wait?: LinkWait | undefined }): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { wait } = props;
   return (
     <div style={{ position: "relative", width: "640px", height: "360px" }}>
       <video ref={videoRef}>
         <track kind="captions" />
       </video>
-      <FilmWaitsSpinner videoRef={videoRef} isFailed={false} />
+      <FilmWaitsSpinner
+        videoRef={videoRef}
+        isFailed={false}
+        watchLinkWait={() => ({ read: () => wait, stop: () => undefined })}
+      />
     </div>
   );
 }
 
 /** Mounts a film that plays with nothing loaded, a stall, and waits until its sign shows. */
-async function stalledFilm(): Promise<Mounted> {
-  const mounted = await mount(<WaitingFilm />);
+async function stalledFilm(wait?: LinkWait): Promise<Mounted> {
+  const mounted = await mount(<WaitingFilm wait={wait} />);
   const video = mounted.container.querySelector("video");
   if (video === null) {
     throw new Error("the page has no video");
@@ -118,5 +124,58 @@ describe("the sign over a film waiting for data", () => {
     const box = icon.getBoundingClientRect();
     expect(box.width).toBeCloseTo(56, 0);
     expect(box.height).toBeCloseTo(56, 0);
+  });
+});
+
+describe("the bar under the sign, a chunk held up on the link (the owner, 2026-11-17)", () => {
+  /** A stalled film whose wait's chunks have half come for 3 seconds, once its bar shows. */
+  async function barredFilm(): Promise<Mounted> {
+    const shown = await stalledFilm({
+      arrivedBytes: 200_000,
+      neededBytes: 400_000,
+      sinceHeadMs: 3000,
+    });
+    await expect.poll(() => shown.container.querySelector(".film-waits__bar")).not.toBeNull();
+    return shown;
+  }
+  let mounted: Mounted | undefined;
+  let restore: (() => void) | undefined;
+  afterEach(() => {
+    restore?.();
+    restore = undefined;
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("is a third of the picture's width, under the ring, which stays in the middle, its filler white and as full as the bytes come", async () => {
+    mounted = await barredFilm();
+    const bar = one(mounted, ".film-waits__bar").getBoundingClientRect();
+    const ring = one(mounted, ".film-waits__spinner").getBoundingClientRect();
+    const fill = one(mounted, ".film-waits__fill");
+    expect(bar.width).toBeCloseTo(640 / 3, 0);
+    expect(bar.left).toBeCloseTo(ring.left + ring.width / 2 - bar.width / 2, 0);
+    expect(bar.top).toBeGreaterThan(ring.bottom);
+    expect(ring.top + ring.height / 2).toBeCloseTo(180, 0);
+    expect(fill.getBoundingClientRect().width).toBeCloseTo((bar.width - 2 * 3) / 2, 0);
+    expect(getComputedStyle(fill).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(one(mounted, ".film-waits__bar")).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+  });
+
+  it("fades its filler out and back in every 2 seconds, and every 3 under Reduce Motion", async () => {
+    mounted = await barredFilm();
+    const fill = getComputedStyle(one(mounted, ".film-waits__fill"));
+    expect(fill.animationName).toBe("film-waits-fade");
+    expect(fill.animationDuration).toBe("2s");
+    expect(fill.animationIterationCount).toBe("infinite");
+    restore = askForLessMotion();
+    expect(getComputedStyle(one(mounted, ".film-waits__fill")).animationDuration).toBe("3s");
+  });
+
+  it("is not there while the wait says nothing, a chunk the server is still making", async () => {
+    mounted = await stalledFilm();
+    await new Promise((resolve) => setTimeout(resolve, 500)); // two of its reads
+    expect(mounted.container.querySelector(".film-waits__bar")).toBeNull();
   });
 });
