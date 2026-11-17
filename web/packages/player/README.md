@@ -18,8 +18,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (`src/link-wait.ts`, the owner, 2026-11-17): from when the page's spinner shows, every picture
   and sound chunk on its way then or asked for after, a start's second picture chunk among them
   (D502 §2), its bytes come against the length its answer's head said (Content-Length), a chunk
-  all come kept, one that failed waited on no more; it says nothing while any of them has no head
-  yet, which the core holds while its node makes the chunk, and its clock runs from the last head. `link-wait.test.ts`, `chunked.test.ts`,
+  all come kept, one that failed waited on no more; it says nothing only while the core makes a
+  chunk of it, its answer a 425 (until that chunk's head comes, or 5 s pass with no 425 again), and
+  a request no answer of which has come is the link's, the core answering at once (D506 §4); its
+  clock runs from the watch's start or the server's last chunk made. `link-wait.test.ts`, `chunked.test.ts`,
   `fetch-loader.test.ts`.
 
 - **A chunked playback says whether it loads its lowest quality** (`isAtLowestRung`, D506 §3): the

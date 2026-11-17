@@ -19,9 +19,9 @@ import { WaitingIcon } from "./icons.tsx";
 export const spinnerAfterMs = 500;
 
 /**
- * How long after the head of a chunk waited on came, in ms, the spinner's bar shows how much of the
- * wait's chunks has come over the link (the owner, 2026-11-17): a chunk its head says is on its way
- * that takes this long is the link's holding the film up, not the server's.
+ * How long a wait has been the link's, in ms, before the spinner's bar shows how much of its chunks
+ * has come over the link (the owner, 2026-11-17): a wait that long is the link's holding the film up,
+ * not the server's (D506 §4).
  */
 export const linkWaitBarAfterMs = 3000;
 
@@ -34,19 +34,18 @@ const mostShare = 0.9;
 
 /**
  * How much of the bar under the spinner is filled for wait, between a tenth and nine tenths of it:
- * the bytes of its chunks come against those needed; undefined, no bar, where wait says nothing (a
- * chunk the server is still making, a player that loads no chunks of its own), before
- * linkWaitBarAfterMs since the last of its chunks' heads came, or once all of it has come. A bar
- * shown already, isBarShown, stays without waiting again: once shown, it shows until the film has
- * enough to play, hidden only while the server makes a chunk (D506 §1), and full, as full as it
- * gets, while all of its chunks have come and the next is not yet asked.
+ * the bytes of its chunks come against those needed, the least while no head has said a length, the
+ * most once all of it has come; undefined, no bar, where wait says nothing (the server making a chunk
+ * of it, a player that loads no chunks of its own), or before it has been the link's for
+ * linkWaitBarAfterMs. A bar shown already, isBarShown, stays without waiting again: once shown, it
+ * shows until the film has enough to play, hidden only while the server makes a chunk (D506 §1, §4).
  */
 export function linkWaitShare(wait: LinkWait | undefined, isBarShown = false): number | undefined {
-  if (wait === undefined || (!isBarShown && wait.sinceHeadMs < linkWaitBarAfterMs)) {
+  if (wait === undefined || (!isBarShown && wait.linksForMs < linkWaitBarAfterMs)) {
     return undefined;
   }
-  if (wait.arrivedBytes >= wait.neededBytes) {
-    return isBarShown ? mostShare : undefined;
+  if (wait.neededBytes === 0) {
+    return leastShare;
   }
   return Math.min(mostShare, Math.max(leastShare, wait.arrivedBytes / wait.neededBytes));
 }
@@ -182,7 +181,7 @@ export function useIsWaitingShown(videoRef: RefObject<HTMLVideoElement | null>):
  * too little is loaded, and in a stall. None over a film that failed, whose page says why. It takes
  * no pointer, and says "Getting ready to play" to a screen reader as it shows. It is a turning ring,
  * or, asked for less motion, the still-reading hourglass pulsing (film-waits.css). Under it, once
- * every chunk waited on has been coming over the link for linkWaitBarAfterMs, a bar shows how much of
+ * the wait has been the link's for linkWaitBarAfterMs (D506 §4), a bar shows how much of
  * the wait's chunks has come (linkWaitShare; the owner, 2026-11-17), watched by watchLinkWait, none
  * where it is undefined; it adds no words, so a screen reader is not told it.
  */

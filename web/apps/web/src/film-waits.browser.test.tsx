@@ -133,7 +133,7 @@ describe("the bar under the sign, a chunk held up on the link (the owner, 2026-1
     const shown = await stalledFilm({
       arrivedBytes: 200_000,
       neededBytes: 400_000,
-      sinceHeadMs: 3000,
+      linksForMs: 3000,
     });
     await expect.poll(() => shown.container.querySelector(".film-waits__bar")).not.toBeNull();
     return shown;

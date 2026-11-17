@@ -492,7 +492,7 @@ function FilmWaitingLooks(): JSX.Element {
       : linkWaitShare({
           arrivedBytes: arrived,
           neededBytes: 100,
-          sinceHeadMs: linkWaitBarAfterMs,
+          linksForMs: linkWaitBarAfterMs,
         });
   return (
     <>

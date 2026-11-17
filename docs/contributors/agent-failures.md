@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A77 — Built the link-wait bar on the core holding a chunk's request, which it stopped doing at D250 §5 (2026-11-17)
+
+- **What happened:** the lead built the bar's rule that a chunk whose answer's head has not come
+  is the server's to make, and wrote in `link-wait.ts` that "the core holds a chunk's request
+  without a word while its node makes the chunk". The core answers at once, with the chunk's head
+  or with 425 (`chunkHoldMs` 0, chunks.md §3), so a request with no answer is the network's, and
+  the bar hid exactly when a slow link held it up. The lead then told the owner a link could be
+  "too busy to deliver even its head" and offered a guess at a grace period, still without reading
+  the core.
+- **Caught by:** the owner: "the server should be responding immediately when the client requests
+  a video … If that fails, the client knows there's network troubles already."
+- **Gate:** `link-wait.test.ts` now drives the core's 425 and a request with no answer apart
+  (D506 §4). The rule is A75's: read the other end of a wire before building on what it does.
+
 ### A76 — Said a Continue Watching row for an episode shows its series' poster, unread (2026-11-16)
 
 - **What happened:** asking the owner how an episode with no picture should look, the lead said

@@ -29636,15 +29636,25 @@ the owner, 2026-11-17) and D382 P3, a stuck start's chunk asked again at its lev
    lowest rung.
 3. **At the lowest rung, still waiting 10 s on**, a dialog with an OK button says this film
    probably won't play on this link; the player goes on trying until its person leaves.
+4. **Only the core's 425 makes a wait the server's** (the owner, 2026-11-17, of the lead's
+   report that a chunk whose head had not come hid the shown bar). The core answers a chunk's
+   request at once, with its head or with 425 (chunks.md §3), and that answer is small, so a
+   request with no answer yet is the network's trouble: the link's, its bar shown. The lead had
+   built §1 on the core holding a request without a word, which it has not done since D250 §5.
+   A chunk answered 425 is the server's until its head comes, or 5 s pass with no 425 again
+   (given up).
 
 **Proven by:**
-- 1: web/packages/player/src/link-wait.test.ts ("waits no more on a chunk whose load failed; the
-  one asked again counts from the chunk's first head (D506 §1)", "is the link's for a chunk asked
-  again before its head comes: its length and clock from its first head (D506 §1)"),
+- 1: web/packages/player/src/link-wait.test.ts ("waits no more on a chunk whose load was lost; the
+  one asked again counts against the chunk's first head (D506 §1)", "counts a chunk asked again
+  before its head comes against its first head's length (D506 §1)"),
   web/apps/web/src/film-waits-bar.test.tsx ("once shown, stays as new heads come, and waits its 3
   seconds again only after the server held it up (D506 §1)")
 - 2: web/packages/player/src/abr-trust.test.ts ("a chunk given up stuck while the link is
   unmeasured lowers the ceiling a quality each time, down to the lowest (D506 §2)")
+- 4: web/packages/player/src/link-wait.test.ts ("is the link's while a chunk's answer has not come,
+  the core answering at once (D506 §4)", "says nothing while the core makes a chunk of it,
+  answered 425, and is the link's from that chunk's head on (D506 §4)")
 - 3: web/apps/web/src/too-slow-at-lowest.test.tsx ("is told, once it has waited 10 s at its lowest
   quality, that it probably won't play here, and goes on trying", "is told once in a playback:
   closed with its OK, a later wait at the lowest tells nothing")

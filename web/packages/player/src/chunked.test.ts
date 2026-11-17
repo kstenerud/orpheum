@@ -608,7 +608,6 @@ describe("a playback's chunk loader", () => {
       onError: () => undefined,
       onTimeout: () => undefined,
     });
-    // Its clock runs from the last head, the second chunk's.
-    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 500_000, sinceHeadMs: 3000 });
+    expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 500_000, linksForMs: 0 });
   });
 });

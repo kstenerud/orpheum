@@ -24,19 +24,29 @@ import { mount, type Mounted } from "./test-dom.tsx";
  */
 
 describe("how much of the spinner's bar is filled", () => {
-  const coming = (arrivedBytes: number, sinceHeadMs = linkWaitBarAfterMs): LinkWait => ({
+  const coming = (arrivedBytes: number, linksForMs = linkWaitBarAfterMs): LinkWait => ({
     arrivedBytes,
     neededBytes: 400_000,
-    sinceHeadMs,
+    linksForMs,
   });
 
   it("is no bar while the wait says nothing: a chunk the server is still making", () => {
     expect(linkWaitShare(undefined)).toBeUndefined();
   });
 
-  it("is no bar before 3 seconds since a chunk's head came, nor once all of it has come", () => {
+  it("is no bar before the wait has been the link's for 3 seconds; then at its fullest once all of it has come (D506 §4)", () => {
     expect(linkWaitShare(coming(200_000, linkWaitBarAfterMs - 1))).toBeUndefined();
-    expect(linkWaitShare(coming(400_000))).toBeUndefined();
+    expect(linkWaitShare(coming(400_000))).toBe(0.9);
+  });
+
+  // No answer come: the core answers at once, so the link holds it (the owner, 2026-11-17).
+  it("is at its least while no head has said how much is coming (D506 §4)", () => {
+    const unmeasured: LinkWait = {
+      arrivedBytes: 0,
+      neededBytes: 0,
+      linksForMs: linkWaitBarAfterMs,
+    };
+    expect(linkWaitShare(unmeasured)).toBe(0.1);
   });
 
   it("stays once shown though a chunk's head came since, as a chunk asked again's does (D506 §1)", () => {
@@ -186,16 +196,16 @@ describe("the bar under the spinner (the owner, 2026-11-17)", () => {
     expect(mounted.container.querySelector(".film-waits__spinner")).not.toBeNull();
     expect(watching.begun).toBe(1); // watched from when the spinner shows
     expect(filled()).toBeUndefined(); // the server is still making the chunk
-    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, sinceHeadMs: 1000 };
+    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, linksForMs: 1000 };
     await passMs(250);
     expect(filled()).toBeUndefined(); // coming, but not yet for 3 seconds
-    watching.wait = { arrivedBytes: 200_000, neededBytes: 400_000, sinceHeadMs: 3000 };
+    watching.wait = { arrivedBytes: 200_000, neededBytes: 400_000, linksForMs: 3000 };
     await passMs(250);
     expect(filled()).toBe("50%");
     expect(mounted.container.querySelector(".film-waits__bar")?.getAttribute("aria-hidden")).toBe(
       "true",
     );
-    watching.wait = { arrivedBytes: 300_000, neededBytes: 400_000, sinceHeadMs: 3250 };
+    watching.wait = { arrivedBytes: 300_000, neededBytes: 400_000, linksForMs: 3250 };
     await passMs(250);
     expect(filled()).toBe("75%");
     Object.defineProperty(video, "readyState", { value: 4 });
@@ -212,23 +222,23 @@ describe("the bar under the spinner (the owner, 2026-11-17)", () => {
     mounted = await mount(<WaitingFilm watching={watching} />);
     stall(videoIn(mounted));
     await passMs(spinnerAfterMs);
-    watching.wait = { arrivedBytes: 100_000, neededBytes: 400_000, sinceHeadMs: 3000 };
+    watching.wait = { arrivedBytes: 100_000, neededBytes: 400_000, linksForMs: 3000 };
     await passMs(250);
     expect(filled()).toBe("25%");
-    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, sinceHeadMs: 100 };
+    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, linksForMs: 100 };
     await passMs(250);
     expect(filled()).toBe("10%"); // a new head since, its bar kept
     watching.wait = undefined; // a chunk the server makes
     await passMs(250);
     expect(filled()).toBeUndefined();
-    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, sinceHeadMs: 100 };
+    watching.wait = { arrivedBytes: 0, neededBytes: 400_000, linksForMs: 100 };
     await passMs(250);
     expect(filled()).toBeUndefined(); // the link's again, but not yet for 3 seconds
   });
 
   it("is watched on the player's stage by its ladder's playback", async () => {
     const watching = fakeWatching();
-    watching.wait = { arrivedBytes: 100_000, neededBytes: 400_000, sinceHeadMs: 3000 };
+    watching.wait = { arrivedBytes: 100_000, neededBytes: 400_000, linksForMs: 3000 };
     mounted = await mount(<LadderStage watching={watching} />);
     stall(videoIn(mounted));
     await passMs(spinnerAfterMs);
