@@ -4387,3 +4387,14 @@ index already cached took 4.0–4.7 s (less 0.37 s for the exec), and reading th
 on the host, cached, 1.0 s. So the parse dominates, paid by the picture run and the sound run each:
 an index of only the stretch around a seek (the virtual MP4 above) is what would remove it; holding
 the index's bytes in memory would not.
+
+### A library just made is not in the libraries menu until the page is loaded again, next batch (the owner, 2026-11-17)
+
+The owner: "When I create a new library, the libraries menu doesn't get updated unless I reload
+the page." The lead's reading, not yet confirmed in a browser: `CreateLibraryPage`'s `onCreated`
+(`create-library.tsx`) only moves to the new library's page; the menu reads the shell's one shared
+reading of the libraries (`useLibrariesRead`, `libraries-reached.ts`, D476, D478), which is read
+again only when the background-changes poller says so, and nothing asks it to (`readAgain`) after
+the POST. The likely fix: `onCreated` reads the shared libraries again before it moves, with a
+test that the menu lists a library made in the page. To check at the same time: a library renamed
+or deleted, whether the menu follows those either.
