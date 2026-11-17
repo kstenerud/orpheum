@@ -36,8 +36,9 @@ export interface TooSlowLadder {
  * (isAtLowestRung, @orpheum/player; D506 §3) and its wait was the link's (watchLinkWait): a wait the
  * server holds, a chunk of it answered 425 while its node makes it, is not the link's to blame (a file of one quality, always at its lowest, waited 11 s on 425s after a seek
  * and told the owner, whose link was fine; the owner, 2026-11-17). Nothing stops: the player goes on
- * trying until its person leaves. A wait that ends, the server making a chunk of it, or a quality
- * above the lowest loading, counts again from nothing. A playback with no ladder (a film playing its
+ * trying until its person leaves. While the server makes a chunk of it the count
+ * pauses, and goes on from where it was once the wait is the link's again (the owner, 2026-11-17). A
+ * wait that ends, or a quality above the lowest loading, counts again from nothing. A playback with no ladder (a film playing its
  * own file), or whose browser chooses its qualities itself, never at its lowest, tells none.
  */
 export function useTellsTooSlowAtLowest(
@@ -60,7 +61,11 @@ export function useTellsTooSlowAtLowest(
       watch ??= ladderRef.current?.watchLinkWait();
       const isLinks = watch?.read() !== undefined;
       const isAtLowest = ladderRef.current?.isAtLowestRung() === true;
-      waitedMs = isAtLowest && isLinks ? waitedMs + lookEveryMs : 0;
+      if (!isAtLowest) {
+        waitedMs = 0;
+      } else if (isLinks) {
+        waitedMs += lookEveryMs;
+      }
       if (waitedMs >= tooSlowAtLowestAfterMs) {
         clearInterval(look);
         toldForRef.current = playbackUrl;

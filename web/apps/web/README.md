@@ -163,8 +163,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `tooSlowAtLowestAfterMs` while its playback loads its lowest quality (the player's
   `isAtLowestRung`) and its wait is the link's (the player's `watchLinkWait`), never the server's,
   a chunk waited on answered 425 while its node makes it (the owner, 2026-11-17), the tab's notice
-  with its OK (`src/notice.ts`); a wait that ends, the server making a chunk of it, or a quality
-  above the lowest counts again from nothing. Nothing stops the player. A film playing its own file,
+  with its OK (`src/notice.ts`); the server making a chunk of it pauses the count, which goes on
+  once the wait is the link's again (the owner, 2026-11-17); a wait that ends, or a quality above
+  the lowest, counts again from nothing. Nothing stops the player. A film playing its own file,
   or one whose browser chooses its qualities, is never told. `src/too-slow-at-lowest.test.tsx`.
 - **A playback the page asks for again goes on from where its video stands** (D230 §5, D336 §3):
   another audio track, a fetched subtitle, the original chosen or the boost turned on asks with its

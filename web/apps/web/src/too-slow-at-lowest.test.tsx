@@ -195,15 +195,16 @@ describe("a film the lowest quality cannot carry (D506 §3)", () => {
     expect(currentNotice()?.text).toBe(told);
   });
 
-  it("counts from nothing once the server makes a chunk in the middle of the link's wait", async () => {
+  it("pauses its count while the server makes a chunk in the middle of the link's wait, then goes on", async () => {
     await stalled();
     await passMs(tooSlowAtLowestAfterMs - 2000);
     server.isMaking = true;
-    await passMs(500);
-    server.isMaking = false;
-    await passMs(tooSlowAtLowestAfterMs - 1000);
+    await passMs(5000);
     expect(currentNotice()).toBeUndefined();
-    await passMs(1000);
+    server.isMaking = false;
+    await passMs(1500);
+    expect(currentNotice()).toBeUndefined();
+    await passMs(500);
     expect(currentNotice()?.text).toBe(told);
   });
 
