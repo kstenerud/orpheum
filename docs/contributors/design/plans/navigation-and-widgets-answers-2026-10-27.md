@@ -4238,3 +4238,13 @@ playbacks its encode, so this is left to an encoded picture whose chunk 0 is giv
 staging's core log, 2026-11-16 22:09 UTC, `action="start a playback"` with `err="… chunk 0: FFmpeg
 failed on the film at this chunk each time it was made …"`.
 
+### sign-release makes the folder it is given, next batch (the lead, 2026-11-17)
+
+The owner ran `discovery-sign sign-release --folder ~/orpheum-security` on the Mac, the path the
+lead had given; the records are in `~/Projects/orpheum-security` (`ceremony.json`'s stub paths).
+`openFolder` (`cmd/discovery-sign/ceremony.go`) makes a folder that is not there, so the command read
+the record, asked for the digest, and only then said "the folder's ledger holds no publisher chain:
+run the ceremony first", and left an empty folder behind. Proposed: only `ceremony` may make the
+folder; `sign-release` and the other commands refuse a folder with no `ceremony.json`, before
+asking anything, naming the path they were given.
+

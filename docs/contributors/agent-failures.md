@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A79 — Gave the owner a signing folder path without reading where the records are (2026-11-17)
+
+- **What happened:** the lead's signing steps said `--folder ~/orpheum-security` on the Mac. The
+  records are in `~/Projects/orpheum-security`, which `ceremony.json`, in the lead's own copy,
+  states in every key's stub path. The tool made the empty folder and failed after the digest was
+  typed: "the folder's ledger holds no publisher chain".
+- **Caught by:** the owner, signing v0.8.2: the error.
+- **Gate:** proposed in the plan's next batch: `sign-release` refuses a folder with no
+  `ceremony.json`, before asking anything. The rule: a path in steps for the owner is read from
+  the records, not assumed from the sandbox's layout.
+
 ### A78 — Called the tag's failing walk a known flake, not a release problem, without running it (2026-11-17)
 
 - **What happened:** the v0.8.2 tag's CI failed on the Firefox walk "keeps the focused film in
