@@ -4281,6 +4281,11 @@ left in the set for it to play next, it should go back to the info page." Today 
 its Up next offer count down to the next video (`up-next.tsx`, `offerState`), and where nothing plays
 next nothing is offered, so the player stays on its last frame, black after the credits, and a press
 plays the ended video again. To build: a video that ends with nothing next leaves the player for
-its item's page. Open for the owner when it is taken up: whether it goes at once or after a short
-end screen, whether autoplay being off changes that, and what a cast's receiver and a Watch
-Together group do at the same end.
+its item's page. The owner's answers (2026-11-17): "It should leave at once. Autoplay shouldn't
+matter since there's nothing left to autoplay to (it's the last video in the set/series)." A Watch
+Together group "just brings you back to the same view you'd see if the host hasn't selected a video
+yet." Still open: what a cast's receiver does at that end. Google's design checklist for a
+non-touch receiver has it show its idle screen, promote what else the sender offers, and stop the
+receiver app after 5 minutes idle, which returns the device to its own home screen
+(developers.google.com/cast/docs/design_checklist/receiver); ours is started never to close for
+being idle (`web/apps/cast-receiver/src/main.ts`).
