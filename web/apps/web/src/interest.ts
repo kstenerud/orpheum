@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api } from "@orpheum/sdk";
+import { startGateOf, startGateWaitChangedEvent, type Api } from "@orpheum/sdk";
 
+import { isPausedAsAsked } from "./film-waits.tsx";
 import { isPressKeepersPause } from "./start-refused.ts";
 
 /**
@@ -22,26 +23,47 @@ export interface SaidInterest {
 /**
  * Says what the video's player wants as it pauses, plays again and seeks, so the server finishes
  * only what a paused player keeps ahead, and stops the runs a seek left at once (D309 §2, §7).
- * Returns the stopping.
+ * Paused is said of a film paused as its person asked (isPausedAsAsked), never of one meant to play
+ * that waits for enough to be loaded: a seek's, which its start gate pauses until then, was said
+ * paused, so the core made it only the half minute ahead, and the run cut there paid FFmpeg's 5 to
+ * 8 s open again (file 15497, production, 2026-11-17). Returns the stopping.
  */
 export function sayInterestOf(
   video: HTMLVideoElement,
   say: (said: SaidInterest) => void,
 ): () => void {
   const at = (): number => Math.round(video.currentTime * 1000);
+  // Whether the film is paused, its start gate holding a seek, with the core told it plays.
+  let isHeldSaidPlaying = false;
   const listeners: Record<string, () => void> = {
     pause: () => {
       // The end pauses the video too: nothing is left ahead to keep. The pause that keeps the
-      // press for the start is not the person's.
-      if (!isPressKeepersPause(video) && !video.ended) {
-        say({ positionMs: at(), isPaused: true });
+      // press for the start is not the person's, nor the start gate's own, holding a seek.
+      if (isPressKeepersPause(video) || video.ended) {
+        return;
       }
+      if (startGateOf(video).isOwnPause()) {
+        isHeldSaidPlaying = true;
+        return;
+      }
+      say({ positionMs: at(), isPaused: true });
     },
     playing: () => {
+      isHeldSaidPlaying = false;
       say({ positionMs: at(), isPaused: false });
     },
     seeking: () => {
-      say({ positionMs: at(), isPaused: video.paused });
+      const isPaused = isPausedAsAsked(video);
+      isHeldSaidPlaying = !isPaused && video.paused;
+      say({ positionMs: at(), isPaused });
+    },
+    // A held seek's wait given up, the film left paused (a press of Pause while it waits), is the
+    // person's pause, which no pause event tells: the gate had paused it already.
+    [startGateWaitChangedEvent]: () => {
+      if (isHeldSaidPlaying && !video.ended && isPausedAsAsked(video)) {
+        isHeldSaidPlaying = false;
+        say({ positionMs: at(), isPaused: true });
+      }
     },
   };
   for (const [event, listener] of Object.entries(listeners)) {
