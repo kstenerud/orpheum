@@ -370,6 +370,37 @@ func TestSweepLost_AnImageDeletedFromTheArtDirectoryWhileRunningIsRetired(t *tes
 	}
 }
 
+// An image only an item no library lists any more shows, which the ceiling evicts whole under
+// pressure, is not retired by the lost sweep: retired, its pass would fetch it again, to be evicted
+// again the hour after (the lead, production's v0.8.3, 2026-11-17).
+func TestSweepLost_AnImageTheCeilingEvictedOfAnItemNoLibraryListsIsLeftAndOwesNoPass(t *testing.T) {
+	t.Parallel()
+	world := newFrameWorld(t, "other", "nfo")
+	goneID, _ := world.video(t, otherVideo)
+	gone := sourceSha256HexOf("c")
+	world.posterStored(t, goneID, "tmdb", "/gone.jpg", gone)
+	world.bench.art[gone+"/portrait-s.webp"] = ourWebP
+	if err := world.bench.service.LoadHoldings(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	storetest.ExecRaw(t, world.bench.database.Path(),
+		fmt.Sprintf("UPDATE version SET removed_at = 5 WHERE work_id = %d", goneID),
+		fmt.Sprintf("UPDATE item SET removed_at = 5 WHERE id = %d", goneID))
+	// The ceiling evicts the image whole: its item is no longer shown by any library.
+	delete(world.bench.art, gone+"/portrait-s.webp")
+	if _, err := world.bench.service.SweepLost(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	live := storetest.QueryRaw(t, world.bench.database.Path(), fmt.Sprintf(
+		"SELECT count(*) FROM artwork WHERE item_id = %d AND removed_at IS NULL", goneID))
+	if !slices.Equal(live, []string{"1"}) {
+		t.Errorf("records of the evicted image left %v; want its one record left as it was", live)
+	}
+	if len(world.bench.owedPasses) != 0 {
+		t.Errorf("passes owed %v; want none for an image no listed item shows", world.bench.owedPasses)
+	}
+}
+
 // A person's choice whose image the art directory lost is chosen again once the image is stored
 // again from the same source and place; a choice of another place, also lost, is not moved to it
 // (D510 §3).

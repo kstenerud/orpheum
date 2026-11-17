@@ -85,7 +85,9 @@ WHERE item_id = sqlc.arg(item_id) AND source_sha256 IS NULL AND is_chosen = 0 AN
 -- Every stored image, whether a live item shows it, whether one a library lists does, and when it last
 -- stopped being shown: what the artwork ceiling reads to find removed items' images, D212 section 6,
 -- and those of items no library covers any more, kept until the ceiling needs their room (D363
--- section 10). A person or another kind of item is always listed.
+-- section 10). A person or another kind of item is always listed. The lost-artwork sweep reads it
+-- too: the art directory must hold a WebP of each image a listed item shows, or the records pointing
+-- to it are retired, so the ordinary planning makes it again (D507, D510 sections 1 and 2).
 SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL AND (
@@ -300,14 +302,6 @@ WHERE item_id IN (
   )
   AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0
   AND source_ref GLOB 'file:' || CAST(sqlc.arg(file_id) AS INTEGER) || ':*';
-
--- name: ListStoredArtworkImages :many
--- The hash of every image recorded as stored, of every source: the art directory must hold a WebP
--- of each, or the records pointing to it are retired, so the ordinary planning makes it again
--- (D507, D510 sections 1 and 2).
-SELECT DISTINCT source_sha256
-FROM artwork
-WHERE removed_at IS NULL AND source_sha256 IS NOT NULL;
 
 -- name: RetireArtworkOfLostImage :many
 -- The records of an image the art directory lost, of every source, retired as never stored, so the

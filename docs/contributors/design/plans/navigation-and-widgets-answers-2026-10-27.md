@@ -4306,6 +4306,15 @@ retires it and its pass fetches it again, which under pressure is evicted again 
 an eviction of an image's last file retires its records as it goes, or the lost sweep passes over
 images the ceiling evicted.
 
+**Built (2026-11-17), the second way:** the ceiling evicts an image whole only where no live item a
+library lists shows it (`classRemoved`, `classUncovered`), and every listed item keeps its smallest
+size and the poster wall's; so the lost-artwork sweep now looks only at images a listed live item
+shows (`SweepLost`, reading the ceiling's own `ListArtworkSourceSha256s`; the unused
+`ListStoredArtworkImages` is gone). An evicted image's records stay until a library lists its item
+again, when the sweep after finds it lost and its pass makes it again.
+`TestSweepLost_AnImageTheCeilingEvictedOfAnItemNoLibraryListsIsLeftAndOwesNoPass` fails with it
+undone.
+
 ### A focused poster's ring goes off the bottom when moving down, next batch (the owner, 2026-11-17)
 
 The owner: "When I press down, the highlight around the poster isn't fully on screen (it goes off

@@ -20,12 +20,24 @@ import (
 // the core wrote and removed itself, and retires the records of each image recorded as stored that
 // it holds no WebP of, as a lookup that finds one gone does. It queues nothing itself: each library
 // whose images it retired owes a pass, which does.
+//
+// It passes over an image no live item a library lists shows: the ceiling evicts such an image whole
+// under pressure (classRemoved, classUncovered), and retiring it would have its pass fetch it again,
+// to be evicted again at the next sweep, each hour (the lead, production's v0.8.3, 2026-11-17). Its
+// records stay as they are until a library lists its item again, when the sweep after finds it lost.
 func (service *Service) SweepLost(ctx context.Context) (int, error) {
 	// Read before the listing: an image's sizes are written before its record, so one stored while
 	// the directory is listed is never taken for lost.
-	stored, err := service.parts.Database.Read().ListStoredArtworkImages(ctx)
+	rows, err := service.parts.Database.Read().ListArtworkSourceSha256s(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list the images recorded as stored: %w", err)
+	}
+	var stored [][]byte
+	for _, row := range rows {
+		// Listed implies a live record of a live item, so one recorded as stored.
+		if row.IsListed == 1 {
+			stored = append(stored, row.SourceSha256)
+		}
 	}
 	files, err := service.parts.ArtFiles.ListArt()
 	if err != nil {

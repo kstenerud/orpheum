@@ -205,7 +205,9 @@ type ListArtworkSourceSha256sRow struct {
 // Every stored image, whether a live item shows it, whether one a library lists does, and when it last
 // stopped being shown: what the artwork ceiling reads to find removed items' images, D212 section 6,
 // and those of items no library covers any more, kept until the ceiling needs their room (D363
-// section 10). A person or another kind of item is always listed.
+// section 10). A person or another kind of item is always listed. The lost-artwork sweep reads it
+// too: the art directory must hold a WebP of each image a listed item shows, or the records pointing
+// to it are retired, so the ordinary planning makes it again (D507, D510 sections 1 and 2).
 func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSourceSha256sRow, error) {
 	rows, err := q.db.QueryContext(ctx, listArtworkSourceSha256s)
 	if err != nil {
@@ -637,38 +639,6 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStoredArtworkImages = `-- name: ListStoredArtworkImages :many
-SELECT DISTINCT source_sha256
-FROM artwork
-WHERE removed_at IS NULL AND source_sha256 IS NOT NULL
-`
-
-// The hash of every image recorded as stored, of every source: the art directory must hold a WebP
-// of each, or the records pointing to it are retired, so the ordinary planning makes it again
-// (D507, D510 sections 1 and 2).
-func (q *Queries) ListStoredArtworkImages(ctx context.Context) ([][]byte, error) {
-	rows, err := q.db.QueryContext(ctx, listStoredArtworkImages)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := [][]byte{}
-	for rows.Next() {
-		var source_sha256 []byte
-		if err := rows.Scan(&source_sha256); err != nil {
-			return nil, err
-		}
-		items = append(items, source_sha256)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
