@@ -40,6 +40,7 @@ import {
   WarningIcon,
   WatchedIcon,
 } from "./icons.tsx";
+import { FilmWaitsLook, linkWaitBarAfterMs, linkWaitShare } from "./film-waits.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
@@ -251,6 +252,7 @@ function Icons(): JSX.Element {
         <UncertainMatchIcon isRinged={false} />
         <StillReadingIcon isRinged={true} />
         <StillReadingIcon isRinged={false} />
+        <WaitingIcon />
         <WatchedIcon />
       </p>
       <p className="ui-gallery__icons">
@@ -470,93 +472,52 @@ function PlayerWidgets(): JSX.Element {
   );
 }
 
+/** How much of what a start needs has come, for the gallery's spinner to show: none is a wait the server holds. */
+const linkArrivedSamples = ["none", 0, 5, 25, 40, 75, 95, 100] as const;
+
 /**
- * The sign a film waiting for data shows (film-waits.css): today's ring, and the still-reading
- * hourglass that takes its place under Reduce Motion, white on the film's control ground, pulsing
- * once every 3 seconds (the owner, 2026-11-16, "Use the 3s hourglass (white) for the video"). Both
- * run here whatever motion is asked for, so each can be seen with Reduce Motion on or off.
+ * A film waiting for data, drawn by the player's own spinner (FilmWaitsLook, film-waits.tsx) on a
+ * film's ground, once the owner settled its look (2026-11-17: the gallery shows mock-ups while a
+ * design is worked on, and the real thing once it is final). The ring, or the hourglass where this
+ * device asks for less motion, as the player shows it; and under it the bar, filled as linkWaitShare
+ * fills it for how much has come, chosen among a few, its 3 s since the heads already past; none
+ * while the server holds the wait, nor once all has come.
  */
 function FilmWaitingLooks(): JSX.Element {
   const { t } = useTranslation();
+  const [arrived, setArrived] = useState<(typeof linkArrivedSamples)[number]>(40);
+  const share =
+    arrived === "none"
+      ? undefined
+      : linkWaitShare({
+          arrivedBytes: arrived,
+          neededBytes: 100,
+          sinceHeadMs: linkWaitBarAfterMs,
+        });
   return (
     <>
       <h3>{t("gallery.waiting")}</h3>
       <p>{t("gallery.waitingLead")}</p>
-      <div className="ui-gallery__waits">
-        <figure className="ui-gallery__wait-look">
-          <span className="ui-gallery__wait">
-            <span className="ui-gallery__ring" />
-          </span>
-          <figcaption>{t("gallery.waitingRing")}</figcaption>
-        </figure>
-        <figure className="ui-gallery__wait-look">
-          <span className="ui-gallery__wait">
-            <span className="ui-gallery__hourglass">
-              <WaitingIcon />
-            </span>
-          </span>
-          <figcaption>{t("gallery.waitingHourglass")}</figcaption>
-        </figure>
-      </div>
-      <LinkWaitLooks />
-    </>
-  );
-}
-
-/** How much has arrived, for the gallery's bar to draw: the ends below 10% and above 90% too. */
-const linkArrivedSamples = [0, 5, 25, 40, 75, 95, 100] as const;
-
-/**
- * A film waiting on its device's link, the look the owner chose (2026-11-17): the ring, and under it
- * a bar a third of the screen wide of how much of what the start needs has arrived, never below 10% nor above 90% so it reads
- * as a bar. Its filler fades out and back in every 2 seconds (the owner, 2026-11-17: "the fading
- * looks best overall"), and every 3 seconds asked for less motion, in step with the hourglass
- * (film-waits.css), under the hourglass that takes the ring's place. Here both show side by side,
- * whatever this device asks for, on a stage as wide as the gallery, how much has arrived chosen among a few.
- */
-function LinkWaitLooks(): JSX.Element {
-  const { t } = useTranslation();
-  const [arrivedPercent, setArrivedPercent] = useState<number>(40);
-  const shown = Math.min(90, Math.max(10, arrivedPercent));
-  return (
-    <>
-      <h3>{t("gallery.linkWait")}</h3>
-      <p>{t("gallery.linkWaitLead")}</p>
       <Cluster space="3">
-        <span>{t("gallery.linkWaitArrived", { percent: arrivedPercent, shown })}</span>
+        <span>{t("gallery.waitingArrived")}</span>
         {linkArrivedSamples.map((each) => (
           <button
             key={each}
             type="button"
-            aria-pressed={each === arrivedPercent}
+            aria-pressed={each === arrived}
             onClick={() => {
-              setArrivedPercent(each);
+              setArrived(each);
             }}
           >
-            {`${String(each)}%`}
+            {each === "none" ? t("gallery.waitingByServer") : `${String(each)}%`}
           </button>
         ))}
       </Cluster>
-      {(["usual", "lessMotion"] as const).map((motion) => (
-        <figure key={motion} className="ui-gallery__wait-look">
-          <span className="ui-gallery__link-stage">
-            {motion === "usual" ? (
-              <span className="ui-gallery__ring" />
-            ) : (
-              <span className="ui-gallery__hourglass">
-                <WaitingIcon />
-              </span>
-            )}
-            <span className="ui-gallery__link-bar">
-              <span
-                className={`ui-gallery__link-fill ui-gallery__link-fill--${motion}`}
-                style={{ width: `${String(shown)}%` }}
-              />
-            </span>
-          </span>
-          <figcaption>{t(`gallery.linkWaitFading.${motion}`)}</figcaption>
-        </figure>
-      ))}
+      <div className="ui-gallery__film">
+        <span className="film-waits">
+          <FilmWaitsLook share={share} />
+        </span>
+      </div>
     </>
   );
 }

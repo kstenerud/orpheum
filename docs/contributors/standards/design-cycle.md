@@ -25,6 +25,10 @@ with the checks deferred until I'm happy with the look and feel", and after the 
    changes in worktrees for now and concentrate on getting the visual aspects right"). *Review-only.*
 4. **The owner's go ends it.** At "I'm happy with the look" (and not before):
    - drop what only stood in for the worktrees' work, and anything the looks left unused;
+   - put the real thing in the UI gallery in the place of its mock-up, drawn by the product's own
+     component and styles, the mock-up's copy of them dropped (the owner, 2026-11-17: "We use the
+     gallery for mock-ups of the thing we're working on, but once we've finalized the design, we
+     replace it with the real thing");
    - remove the mark: `rm .claude/.cache/check-deferred`. `make check` refuses to run while it is
      there (`scripts/check_stamp.py`, `DEFERRED_MARK`; its test
      `test_the_gate_refuses_to_begin_while_a_design_cycle_defers_it`): a make check ends the cycle

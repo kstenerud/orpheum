@@ -58,16 +58,8 @@ export const enGallery = {
     barRemote: "The player's bar on a cast's remote",
     waiting: "A film waiting for data",
     waitingLead:
-      "The ring turns while a film waits for data. Asked for less motion, the hourglass takes its place, its opacity alone changing.",
-    waitingRing: "The ring, turning",
-    waitingHourglass: "The hourglass, once every 3 s, asked for less motion",
-    linkWait: "A film waiting on its device's link",
-    linkWaitLead:
-      "When the bytes are sent but arrive slowly or not at all, a bar a third of the screen wide under the ring shows how much of what the start needs has arrived, never under 10% nor over 90%.",
-    linkWaitArrived: "Arrived: {{percent}}% (drawn at {{shown}}%)",
-    linkWaitFading: {
-      usual: "The filler fading out and in every 2 s",
-      lessMotion: "Every 3 s, in step with the hourglass, asked for less motion",
-    },
+      "The player's own spinner: the ring, or the hourglass where this device asks for less motion. When the bytes are sent but come slowly, a bar a third of the picture wide under it shows how much of what the film needs to play has come, never under 10% nor over 90%, its filler fading every 2 s, or every 3 s with the hourglass. None while the server prepares, nor once all has come.",
+    waitingArrived: "Come over the link:",
+    waitingByServer: "None, the server prepares",
   },
 };

@@ -454,9 +454,12 @@ describe("the shell, laid out by a real browser", () => {
           expect(getComputedStyle(part)[paint], `${selector} ${paint}`).toBe(colour);
         }
       }
+      // The cues have their own colours, and so has the waiting sign, the film's white on its dark
+      // disc at the spinner's size (film-waits.css), drawn among them since the gallery shows the
+      // real spinner (the owner, 2026-11-17).
       const icons = [...container.querySelectorAll(".ui-gallery__icons svg")].filter(
         (icon) =>
-          !/warning-icon|uncertain-match-icon|still-reading-icon|watched-icon/u.test(
+          !/warning-icon|uncertain-match-icon|still-reading-icon|watched-icon|waiting-icon/u.test(
             icon.getAttribute("class") ?? "",
           ),
       );

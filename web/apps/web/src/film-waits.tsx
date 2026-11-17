@@ -186,25 +186,38 @@ export function FilmWaitsSpinner(props: {
   readonly isFailed: boolean;
   readonly watchLinkWait?: (() => LinkWaitWatch | undefined) | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
   const isShown = useIsWaitingShown(props.videoRef) && !props.isFailed;
   const share = useLinkWaitShare(isShown, props.watchLinkWait);
   return (
     // A span, not an output, which the player's page keeps for its words (the reconnecting note).
     <span className="film-waits" hidden={!isShown} aria-live="polite">
-      {isShown ? (
-        <span className="film-waits__sign" aria-label={t("playerControls.gettingReady")}>
-          <span className="film-waits__spinner" />
-          <span className="film-waits__hourglass">
-            <WaitingIcon />
-          </span>
+      {isShown ? <FilmWaitsLook share={share} /> : null}
+    </span>
+  );
+}
+
+/**
+ * What the spinner draws while it shows: its sign, the ring or, asked for less motion, the
+ * hourglass (film-waits.css), saying "Getting ready to play"; and under it, where share is not
+ * undefined, the bar filled to that share (linkWaitShare), which says nothing. The UI gallery draws
+ * it too, so it shows the real thing (the owner, 2026-11-17).
+ */
+export function FilmWaitsLook(props: { readonly share: number | undefined }): JSX.Element {
+  const { t } = useTranslation();
+  const { share } = props;
+  return (
+    <>
+      <span className="film-waits__sign" aria-label={t("playerControls.gettingReady")}>
+        <span className="film-waits__spinner" />
+        <span className="film-waits__hourglass">
+          <WaitingIcon />
         </span>
-      ) : null}
-      {isShown && share !== undefined ? (
+      </span>
+      {share === undefined ? null : (
         <span className="film-waits__bar" aria-hidden="true">
           <span className="film-waits__fill" style={{ width: `${String(share * 100)}%` }} />
         </span>
-      ) : null}
-    </span>
+      )}
+    </>
   );
 }
