@@ -28,15 +28,29 @@
 //     an MPEG transport stream, or an MP4 whose index comes before its media; anything else, or a
 //     file it cannot read, is read as a file (D329 §7).
 //     TestReadsStraightThrough_OnlyContainersReadInOnePassFromTheirStart.
+//   - An MP4's index cut down to a stretch (Index.Trim, D512) keeps every sample of the stretch, a
+//     picture's from the sync sample at or before it, and the first 10 s, each sample as the file
+//     has it, at its decode time with its composition offset, size, offset and sync; its edits and
+//     timescales unchanged; its bytes, and its duration, added up the file's, so FFmpeg says the
+//     same bit rate; the file's bytes outside the movie box, whose place a smaller one and a free box
+//     fill. TestTrim_KeepsEverySampleOfItsStretchAsTheFileHasIt.
+//   - An index it might not cut down faithfully is refused with why (ErrCannotTrim): a fragmented
+//     file, a track of two sample descriptions or an encrypted one, an edit list it does not follow,
+//     a sample table box it does not slice, tables that disagree, no track long enough, or a stretch
+//     whose least composition offset is not the track's. Its tables are read by offset, a block at a
+//     time with checkpoints, never whole (maxMoovBytes stands).
+//     TestReadIndex_RefusesAnIndexItDoesNotFollow.
 //
 // # Read before changing
 //
 //   - D179: identity is a hash of the media payload.
 //   - D259: a film's cut points from its file's own index.
+//   - D512: a chunk run of an MP4 with a long index is served the index cut down.
 //
 // # Where to change
 //
 //   - straight.go: whether a file reads in one pass from its start.
 //   - read.go: bounded reads; ebml.go: Matroska elements; mp4.go: MP4 boxes; keyframes.go: a
-//     picture's keyframes from either's index.
+//     picture's keyframes from either's index;
+//     index.go and trim.go: an MP4's index read and cut down to a stretch (D512).
 package container

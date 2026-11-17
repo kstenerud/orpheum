@@ -29827,3 +29827,39 @@ with backoff, and D509 §1, whose unexpected errors are these.
    prod and for a user to send.
 7. **A person sees the thing as unavailable the way that kind shows it today**; only an admin, on
    the Needs attention page, sees that the cause is unknown.
+
+## D512 — A chunk run of an MP4 with a long index is served the index cut down to its stretch
+
+**Decided** (2026-11-17), by the project owner, on the measurement in
+`design/plans/navigation-and-widgets-answers-2026-10-27.md` (opening file 15497 is spent parsing its
+index): the pinned FFmpeg parses an MP4's whole movie box at every open, 4.0–4.7 s on production for
+file 15497's 179 MB, paid by the picture run and the sound run of every seek. Thresholds and margins
+below marked *lead's default* are the lead's, awaiting the owner.
+
+**Status:** decided; being built.
+
+1. **A run of chunks of a seekable window is served, through fdproxy, the film with its index cut
+   down**: the file's bytes, but in the movie box's place a movie box whose tracks keep only the
+   samples of the run's stretch, a minute either side (*lead's default*), and the first 10 s, then
+   a `free` box to the old size. Chunk offsets are not rebased; nothing moves. Probes, read-throughs
+   and any other run get the file as it is (at `execx.FilmOf`, as a DVD title is served).
+2. **Only an MP4, M4V or MOV, streamed, whose movie box is at least 16 MB** (*lead's default*):
+   smaller indexes open fast enough.
+3. **The cut-down index is the file's**: each kept sample at its decode time, with its composition
+   offset, size, offset and sync; the picture from the sync sample at or before the stretch; edits
+   and timescales unchanged. The head's last sample lasts until the stretch, so start time and edits
+   hold. A tail chunk at the file's end, read by no run, holds the bytes and lasts the time cut away,
+   so FFmpeg says the same stream bit rate, which a copied run writes in its init.
+4. **When in doubt it falls back**, served whole and logged once a file with why: a fragmented
+   file, two sample descriptions, an encrypted track, an edit list of more than one edit of media or
+   another rate, a sample table box it does not slice, tables that disagree, no track long enough,
+   a ctts offset FFmpeg drops, and a stretch whose least composition offset, by which FFmpeg moves
+   all the track's times, is not the track's.
+5. **The tables are read by offset, never whole**, with checkpoints, once a file; `maxMoovBytes`
+   stands. Each run's figures say `indexCutDown`, beside its time to first output.
+
+Measured (2026-11-17) on a file of file 15497's shape in the sandbox (an i3-1315U): FFmpeg's time
+to its first packet fell from 0.58–0.72 s to 0.009–0.011 s; reading the index in Go took 55–60 ms
+once a file, and each cut 1.5–2 ms. Packets (framecrc) are the same at the start, middle and end of
+the 45 h file, copied and encoded, and `TestFilmOf_AFilmServedCutDownMakesTheChunksOfTheWholeFilm`
+holds a run's chunks and init to the whole film's byte for byte. Not yet measured on production.

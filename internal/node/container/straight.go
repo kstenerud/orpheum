@@ -48,7 +48,7 @@ func mp4IndexComesFirst(file io.ReaderAt, sizeBytes int64) bool {
 			return false
 		}
 		switch box.Kind {
-		case "moov":
+		case moovKind:
 			return true
 		case "mdat":
 			return false

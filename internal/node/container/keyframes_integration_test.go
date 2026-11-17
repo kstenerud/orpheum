@@ -2,7 +2,7 @@
 
 //go:build integration
 
-package container
+package container_test
 
 import (
 	"math"
@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/container"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -91,7 +92,7 @@ func keyframesOfFile(t *testing.T, path string) []int64 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keyframes, err := KeyframesMs(file, info.Size(), 0)
+	keyframes, err := container.KeyframesMs(file, info.Size(), 0)
 	if err != nil {
 		t.Fatalf("%s: %v", path, err)
 	}

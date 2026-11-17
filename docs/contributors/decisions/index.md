@@ -517,6 +517,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D509](working-notes.md#d509--unexpected-errors-are-marked-counted-per-kind-and-raise-an-alert-when-an-hour-has-many) Unexpected errors are marked, counted per kind, and raise an alert when an hour has many
 - [D510](working-notes.md#d510--a-lookup-that-finds-a-cached-thing-gone-retires-its-record-and-sweeps-at-start-and-on-a-schedule-look-for-them) A lookup that finds a cached thing gone retires its record, and sweeps at start and on a schedule look for them
 - [D511](working-notes.md#d511--a-failure-of-unknown-cause-keeps-everything-it-said-makes-its-thing-unavailable-and-is-tried-once-at-each-start) A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
+- [D512](working-notes.md#d512--a-chunk-run-of-an-mp4-with-a-long-index-is-served-the-index-cut-down-to-its-stretch) A chunk run of an MP4 with a long index is served the index cut down to its stretch
 
 ## Archived
 
