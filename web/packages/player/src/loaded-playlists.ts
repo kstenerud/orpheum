@@ -16,8 +16,11 @@ import type {
   LoaderConfiguration,
   LoaderContext,
   LoaderStats,
+  PlaylistLoaderConstructor,
+  PlaylistLoaderContext,
 } from "hls.js";
 
+import { forItsContext } from "./audio-shift.ts";
 import type { LoaderClass } from "./link-shaping.ts";
 
 /** A playlist as the path it names answers it. */
@@ -70,15 +73,15 @@ function answeredAtOnce(text: string): LoaderStats {
 export function loadedPlaylistLoader(
   loaded: StartingPlaylists | undefined,
   carrier: LoaderClass,
-): LoaderClass {
+): PlaylistLoaderConstructor {
   const each = loaded === undefined ? [] : [loaded.master, loaded.picture, loaded.sound];
   const held = new Map(
     each.flatMap((playlist) =>
       playlist === undefined ? [] : [[absoluteOf(playlist.url), playlist.text] as const],
     ),
   );
-  return class LoadedPlaylistLoader implements Loader<LoaderContext> {
-    context: LoaderContext | null = null;
+  return class LoadedPlaylistLoader implements Loader<PlaylistLoaderContext> {
+    context: PlaylistLoaderContext | null = null;
 
     private readonly inner: Loader<LoaderContext>;
     private answered: LoaderStats | undefined;
@@ -110,15 +113,19 @@ export function loadedPlaylistLoader(
     }
 
     load(
-      context: LoaderContext,
+      context: PlaylistLoaderContext,
       config: LoaderConfiguration,
-      callbacks: LoaderCallbacks<LoaderContext>,
+      callbacks: LoaderCallbacks<PlaylistLoaderContext>,
     ): void {
       this.context = context;
       const url = absoluteOf(context.url);
       const text = held.get(url);
       if (text === undefined) {
-        this.inner.load(context, config, callbacks);
+        this.inner.load(
+          context,
+          config,
+          forItsContext(context, callbacks, () => undefined),
+        );
         return;
       }
       held.delete(url);

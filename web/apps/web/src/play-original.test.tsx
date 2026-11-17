@@ -199,7 +199,7 @@ describe("the original moved up to once the link carried it", () => {
       menuOpen(mounted).querySelector(".list-box__note .play__original-moved-to")?.textContent,
     ).toBe(movedTo);
     mounted.unmount();
-    mounted = await onItsLadder(false, [], false, { tries, isDirect: true });
+    mounted = await onItsLadder(false, [], { tries, isDirect: true });
     await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
     expect(menuOpen(mounted).textContent).not.toContain(movedTo);
   });

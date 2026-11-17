@@ -228,12 +228,12 @@ function shiftOnArrival(
 }
 
 /**
- * hls.js's callbacks for one fragment, told of it as the fragment's own context: the wrapped
- * loader, made for any context, answers with the one it was given.
+ * hls.js's callbacks for one load, told of it as its own context (a fragment's, a playlist's): the
+ * wrapped loader, made for any context, answers with the one it was given.
  */
-function forFragment(
-  context: FragmentLoaderContext,
-  callbacks: LoaderCallbacks<FragmentLoaderContext>,
+export function forItsContext<Context extends LoaderContext>(
+  context: Context,
+  callbacks: LoaderCallbacks<Context>,
   onArrival: (data: unknown) => void,
 ): LoaderCallbacks<LoaderContext> {
   const { onAbort, onProgress } = callbacks;
@@ -317,7 +317,7 @@ export function shiftingFragmentLoader(
       this.inner.load(
         context,
         config,
-        forFragment(context, callbacks, (data) => {
+        forItsContext(context, callbacks, (data) => {
           shiftOnArrival(context, data, shift);
         }),
       );

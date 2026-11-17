@@ -7,6 +7,7 @@ import type {
   LoaderConfiguration,
   LoaderContext,
   LoaderStats,
+  PlaylistLoaderContext,
 } from "hls.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,16 +48,20 @@ class Carrier implements Loader<LoaderContext> {
 function ask(
   loaderClass: ReturnType<typeof loadedPlaylistLoader>,
   url: string,
-): { texts: string[]; loader: Loader<LoaderContext> } {
+): { texts: string[]; loader: Loader<PlaylistLoaderContext> } {
   const texts: string[] = [];
-  const callbacks: LoaderCallbacks<LoaderContext> = {
+  const callbacks: LoaderCallbacks<PlaylistLoaderContext> = {
     onSuccess: (response) =>
       texts.push(typeof response.data === "string" ? response.data : "bytes"),
     onError: () => undefined,
     onTimeout: () => undefined,
   };
   const loader = new loaderClass({} as HlsConfig);
-  loader.load({ url, responseType: "text" } as LoaderContext, {} as LoaderConfiguration, callbacks);
+  loader.load(
+    { url, responseType: "text" } as PlaylistLoaderContext,
+    {} as LoaderConfiguration,
+    callbacks,
+  );
   return { texts, loader };
 }
 
