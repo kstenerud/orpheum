@@ -4399,6 +4399,12 @@ the POST. The likely fix: `onCreated` reads the shared libraries again before it
 test that the menu lists a library made in the page. To check at the same time: a library renamed
 or deleted, whether the menu follows those either.
 
+**Built (2026-11-17):** the reading was as the lead read it, and a library deleted stayed in the
+menu the same way (a library cannot be renamed). Creating one and deleting one now read the shell's
+libraries again (`useReadLibrariesAgain`, `libraries-reached.ts`) before moving on; the tests "a
+library just made is in the banner's Libraries menu at once" and "a library deleted leaves the
+banner's Libraries menu at once" (`library-pages.test.tsx`) fail with it undone.
+
 ### Eight titles on staging misidentified or left unidentified, next batch (the owner, 2026-11-17)
 
 The owner named eight of staging's titles, each with the provider's entry it should be (kept out

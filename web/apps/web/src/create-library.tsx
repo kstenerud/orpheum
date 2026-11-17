@@ -13,6 +13,7 @@ import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { useFieldMarks, type FieldMark } from "./field-marks.ts";
 import { dataOrThrow, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
@@ -496,11 +497,14 @@ export function CreateLibraryForm(props: {
 export function CreateLibraryPage(): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
+  // The banner's Libraries menu lists the shell's reading, which nothing else tells of the new library.
+  const readLibrariesAgain = useReadLibrariesAgain();
   return (
     <section className="libraries">
       <UpTrail upward={{ crumbs: [adminLibrariesCrumb(t)], here: t("libraries.createHeading") }} />
       <CreateLibrary
         onCreated={(libraryId) => {
+          readLibrariesAgain();
           navigation.replace({ screen: "library", libraryId });
         }}
       />

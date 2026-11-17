@@ -8,7 +8,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { JSX } from "react";
 
 import { CreateLibraryPage } from "./create-library.tsx";
-import { LibrariesReachedContext, useLibrariesRead } from "./libraries-reached.ts";
+import {
+  LibrariesReachedContext,
+  useLibrariesRead,
+  useLibrariesReached,
+} from "./libraries-reached.ts";
+import { LibraryPage } from "./library-manage.tsx";
 import { Libraries } from "./libraries.tsx";
 import {
   buttonWithText,
@@ -67,7 +72,104 @@ function UnderTheShellsReading(): JSX.Element {
   );
 }
 
+/** The names the shell's reading lists, as the banner's Libraries menu shows them. */
+function MenuNames(): JSX.Element {
+  const libraries = useLibrariesReached();
+  const names = libraries.state === "loaded" ? libraries.value.map((each) => each.name) : [];
+  return <output className="menu-names">{names.join(",")}</output>;
+}
+
+/** A page under the shell's reading of the libraries, beside the menu that lists them. */
+function BesideTheMenu(props: { readonly children: JSX.Element }): JSX.Element {
+  return (
+    <LibrariesReachedContext value={useLibrariesRead()}>
+      <MenuNames />
+      {props.children}
+    </LibrariesReachedContext>
+  );
+}
+
+const nodesOfOne = [
+  200,
+  { nodes: [{ name: "nas", isConnected: true, rootPaths: ["/tank"] }] },
+] as const;
+const scanSetting = [
+  200,
+  {
+    settings: [
+      {
+        key: "newLibraryDefaultScanEveryHours",
+        kind: "integer",
+        value: 24,
+        startingValue: 24,
+        isModified: false,
+        isImportant: false,
+        section: "libraries",
+        description: "",
+        setAt: 1,
+      },
+    ],
+  },
+] as const;
+
 describe("the admin's Libraries pages (D361)", () => {
+  it("a library just made is in the banner's Libraries menu at once, not after a reload", async () => {
+    const services = servedBy({
+      "GET /libraries": [
+        [200, { libraries: [films] }],
+        [200, { libraries: [films, { ...films, id: 7, name: "Shows" }] }],
+      ],
+      "GET /nodes": nodesOfOne,
+      "GET /config": scanSetting,
+      "POST /libraries": [201, { id: 7 }],
+    });
+    services.navigation.go({ screen: "new-library" });
+    mounted = await mount(
+      withServices(
+        <BesideTheMenu>
+          <CreateLibraryPage />
+        </BesideTheMenu>,
+        services,
+      ),
+    );
+    const page = mounted.container;
+    await settleAnswers();
+    expect(page.querySelector(".menu-names")?.textContent).toBe("Films");
+    await enter(page.querySelector("input:not([type])"), "Shows");
+    await click(page.querySelector('input[type="checkbox"]'));
+    await submit(page.querySelector("form"));
+    await settleAnswers();
+    expect(page.querySelector(".menu-names")?.textContent).toBe("Films,Shows");
+  });
+
+  it("a library deleted leaves the banner's Libraries menu at once, not after a reload", async () => {
+    const services = servedBy({
+      // The shell's reading and the library's page's own each read it once; the third is read again.
+      "GET /libraries": [
+        [200, { libraries: [films] }],
+        [200, { libraries: [films] }],
+        [200, { libraries: [] }],
+      ],
+      "GET /nodes": [200, { nodes: [] }],
+      "DELETE /libraries/3": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
+    });
+    mounted = await mount(
+      withServices(
+        <BesideTheMenu>
+          <LibraryPage libraryId={3} />
+        </BesideTheMenu>,
+        services,
+      ),
+    );
+    const page = mounted.container;
+    await settleAnswers();
+    expect(page.querySelector(".menu-names")?.textContent).toBe("Films");
+    await click(buttonWithText(page, "Delete the library…"));
+    await click(buttonWithText(page, "Delete it"));
+    await settleAnswers();
+    expect(page.querySelector(".menu-names")?.textContent).toBe("");
+  });
+
   it("lists the shell's reading of the libraries, reading and polling them no more (D478)", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "GET /libraries": [200, { libraries: [films] }] }, heard);

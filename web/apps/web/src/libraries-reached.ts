@@ -73,3 +73,16 @@ export function useLibrariesRead(isNeeded = true): LibrariesRead {
   );
   return useMemo(() => ({ libraries, readAgain }), [libraries, readAgain]);
 }
+
+/** Does nothing: where no reading is shared, none is kept that a change could leave behind. */
+const readNothingAgain = (): void => undefined;
+
+/**
+ * The way to read the shared libraries again after a change the page made itself, as a library
+ * created or deleted: the banner's Libraries menu lists them from that reading, and the
+ * background-changes poller does not tell it of the change. Where none is shared it does nothing,
+ * and reads nothing of its own.
+ */
+export function useReadLibrariesAgain(): () => void {
+  return use(LibrariesReachedContext)?.readAgain ?? readNothingAgain;
+}

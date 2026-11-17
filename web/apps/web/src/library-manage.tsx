@@ -27,6 +27,7 @@ import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { RepointDialog, type Place } from "./repoint-root.tsx";
 import { RootWarning } from "./root-warning.tsx";
 import { SaveNote, useSaveState, type SaveState } from "./save-note.tsx";
+import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
@@ -596,6 +597,7 @@ function useFolderActions(
 function useLibraryActions(libraryId: number, reload: () => void): LibraryActions {
   const { api, navigation } = useServices();
   const { note, setNote, act, isActing } = useLibraryNote();
+  const readLibrariesAgain = useReadLibrariesAgain();
   return {
     note,
     isActing,
@@ -615,6 +617,8 @@ function useLibraryActions(libraryId: number, reload: () => void): LibraryAction
         throwIfRefused(
           await api.DELETE("/libraries/{id}", { params: { path: { id: libraryId } } }),
         );
+        // The banner's Libraries menu would list it still.
+        readLibrariesAgain();
         navigation.go({ screen: "libraries" });
       });
     },
