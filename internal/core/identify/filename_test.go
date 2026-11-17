@@ -256,6 +256,28 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 // The owner's library, 2026-11-03: "Iron Ledger 1992" is a series' whole name, not Iron Ledger of 1992, and a name
 // beneath its folder says so by carrying on past the number ("Iron Ledger 1992 - The Iron Ledger Story
 // (2020)"). Where nothing beneath carries on, or the folder's year is in brackets, it stays the year.
+// D513 §2: a series' folder with no year takes the year of a season pack's folder or an episode's
+// file beneath it that names the same work, as staging's titles/1679's do; a name beneath of
+// another work gives it none.
+func TestParsePath_ASeriesFolderWithNoYearTakesOneFromANameBeneathIt(t *testing.T) {
+	t.Parallel()
+	const show = "Moss and Bramble/"
+	episode := func(name string, year int) ParsedPath {
+		return ParsedPath{Kind: "episode", Name: name, Year: year, Season: 1, Episode: 1}
+	}
+	cases := []parsedCase{
+		{
+			show + "Moss.and.Bramble.2019.S01.COMPLETE.720p.WEB/Moss.and.Bramble.2019.S01E01.720p.WEB.mkv",
+			episode("Moss and Bramble", 2019),
+		},
+		{show + "Season 1/Moss.and.Bramble.2019.S01E01.mkv", episode("Moss and Bramble", 2019)},
+		{show + "Season 1/Moss and Bramble S01E01.mkv", episode("Moss and Bramble", 0)},
+		{show + "Season 1/Velvet.Static.2019.S01E01.mkv", episode("Moss and Bramble", 0)},
+	}
+	checkParsed(t, "ParsePath", ParsePath, cases)
+	checkParsed(t, "ParseEpisodePath", ParseEpisodePath, cases)
+}
+
 func TestParsePath_AYearEndingASeriesFolderIsPartOfItsNameWhereANameBeneathCarriesOn(t *testing.T) {
 	t.Parallel()
 	const (

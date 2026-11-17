@@ -445,10 +445,15 @@ func outermostSeriesFolder(folder string) (name string, year int) {
 // the name, and that name beneath is the series', with its own later year if it gives one, else none
 // ("Iron Ledger 1992/Iron Ledger 1992 - The Iron Ledger Story (2020) S01/…" is Iron Ledger 1992 - The Iron Ledger
 // Story, 2020, not Iron Ledger, 1992: the owner's library, 2026-11-03). One that gives a year is taken
-// before one that gives none.
+// before one that gives none. A folder with no year takes one from the first name beneath it that
+// names the same work and gives one: "Moss and Bramble/Moss.and.Bramble.2019.S01/…S01E01.mkv"
+// is Moss and Bramble, 2019 (staging's titles/1679, D513 §2).
 func seriesName(folder string, beneath ...string) (string, int) {
 	name, year := cleanTitle(folder)
-	if year == 0 || !isBareYearAtEnd(folder, year) {
+	if year == 0 {
+		return name, yearBeneath(name, beneath)
+	}
+	if !isBareYearAtEnd(folder, year) {
 		return name, year
 	}
 	named := append(wordsOf(strings.ToLower(name)), strconv.Itoa(year))
@@ -467,6 +472,21 @@ func seriesName(folder string, beneath ...string) (string, int) {
 		return name, year
 	}
 	return carriedOn, carriedOnYear
+}
+
+// yearBeneath is the year of the first of beneath that names the work name names, as
+// textindex.SameWork folds them, and gives a year; 0 when none does.
+func yearBeneath(name string, beneath []string) int {
+	want := textindex.SameWork(name)
+	if want == "" {
+		return 0
+	}
+	for _, text := range beneath {
+		if named, year := cleanTitle(text); year != 0 && textindex.SameWork(named) == want {
+			return year
+		}
+	}
+	return 0
 }
 
 // isBareYearAtEnd is whether a folder's name ends in year, not in brackets, release tags aside: the

@@ -31,11 +31,13 @@
 //     non-Latin names, and no expression uses an ASCII-only class (D49). The corpus's names are our
 //     own, none copied from another project's tests (D306 §1). A year ending a series' folder's
 //     name, not in brackets, is part of the name where a name beneath the folder carries on past it
-//     ("Iron Ledger 1992/Iron Ledger 1992 - The Iron Ledger Story (2020) S01/…").
+//     ("Iron Ledger 1992/Iron Ledger 1992 - The Iron Ledger Story (2020) S01/…"). A series' folder
+//     with no year takes one from a name beneath it of the same work (D513 §2).
 //     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass,
 //     TestParsePath_OurCorpusOfFilms, TestParsePath_OurCorpusOfEpisodes,
 //     TestParseEpisodePath_OurCorpusOfASeriesLibrary,
-//     TestParsePath_AYearEndingASeriesFolderIsPartOfItsNameWhereANameBeneathCarriesOn.
+//     TestParsePath_AYearEndingASeriesFolderIsPartOfItsNameWhereANameBeneathCarriesOn,
+//     TestParsePath_ASeriesFolderWithNoYearTakesOneFromANameBeneathIt.
 //
 //   - Whether two names name the same work is textindex.SameWork's answer, and nothing else's: a
 //     candidate against the file, a film's name and year, a series' folder against the series
