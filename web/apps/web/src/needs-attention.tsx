@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dateTimeText } from "./date-time-text.ts";
@@ -13,8 +13,15 @@ import { Link } from "./link.tsx";
 import { needsAttentionKey, readNeedsAttention } from "./needs-attention-read.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
+import {
+  readUnknownFailures,
+  reportedKinds,
+  UnknownFailures,
+  type UnknownFailuresReport,
+} from "./unknown-failures.tsx";
 import { useUpdate, type Update } from "./update.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
  * A newer version, once the server's word of one is read, leading to How to update, which no menu
@@ -40,6 +47,20 @@ function UpdateItem(props: { readonly newer: Update | undefined }): JSX.Element 
 function useNewerVersion(): Update | undefined {
   const update = useUpdate(true);
   return update.state === "loaded" && update.value?.latest !== undefined ? update.value : undefined;
+}
+
+/**
+ * Every failure of unknown cause, for an admin; nothing is asked for anyone else (D511 §7), who
+ * reads undefined.
+ */
+function useUnknownFailures(): Resource<UnknownFailuresReport | undefined> {
+  const { api } = useServices();
+  const isAdmin = use(IsAdminContext);
+  const [report] = useResource(
+    isAdmin ? "unknown-failures" : "unknown-failures-not-admin",
+    async () => (isAdmin ? await readUnknownFailures(api) : undefined),
+  );
+  return report;
 }
 
 /** What needs the admin, as the server counts and lists it. */
@@ -141,7 +162,8 @@ function OneCopyItems(props: { readonly value: AttentionCounts }): JSX.Element {
 /**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
  * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
- * have each, the System page, the Libraries and Needs a match, and a newer version to How to update.
+ * have each, the System page, the Libraries and Needs a match, and a newer version to How to update;
+ * below, the failures of unknown cause in full (D511 §6).
  */
 export function NeedsAttention(): JSX.Element {
   const { t } = useTranslation();
@@ -149,6 +171,7 @@ export function NeedsAttention(): JSX.Element {
   // The tray's answer shows at once, read again behind it (D478).
   const [counts] = useResource(needsAttentionKey, async () => await readNeedsAttention(api));
   const newer = useNewerVersion();
+  const unknownFailures = useUnknownFailures();
   return (
     <section aria-labelledby="needs-attention-heading">
       <h1 id="needs-attention-heading">{t("needsAttention.heading")}</h1>
@@ -169,7 +192,8 @@ export function NeedsAttention(): JSX.Element {
             (value.rescansGivenUp?.length ?? 0) ===
             0 &&
             newer === undefined &&
-            !hasCopyWarning(value) ? (
+            !hasCopyWarning(value) &&
+            reportedKinds(unknownFailures).length === 0 ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
             <ul {...arrivalMark}>
@@ -185,6 +209,7 @@ export function NeedsAttention(): JSX.Element {
           );
         }}
       />
+      <UnknownFailures report={unknownFailures} />
       <ToPages />
     </section>
   );

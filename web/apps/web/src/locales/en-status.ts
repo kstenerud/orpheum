@@ -50,6 +50,17 @@ export const enStatus = {
     banner: "Failures of unknown cause are piling up: {{kinds}}.",
     kindInLastHour: "{{kind}}, {{count}} in the last hour",
     seeThem: "See them on Needs attention",
+    heading: "Failures of unknown cause",
+    about:
+      "Work that failed in a way the server doesn't know how to handle yet. What it was for stays unavailable until the server next starts, when it is tried once more.",
+    counts:
+      "{{lastHour}} in the last hour, {{sinceStart}} since the server started, the last {{at}}.",
+    raised: "Its alert is raised.",
+    times: "Failed {{count}} times, on {{version}}, the first {{first}} and the last {{last}}.",
+    earlierStart: "From an earlier start of the server.",
+    error: "Error",
+    output: "Output",
+    noOutput: "No output.",
   },
   jobs: {
     heading: "Jobs",

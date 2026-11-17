@@ -98,6 +98,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   dismissed; it goes once the server clears the alert, read again when the page is shown and every
   five minutes. Nobody else is shown it, nor is the server asked (D511 §7).
   `src/unknown-failures-note.test.tsx`.
+- **Needs attention lists the failures of unknown cause in full** (D509 §4, D511 §6;
+  `src/unknown-failures.tsx`): one entry per kind, its count in the last hour and since the start,
+  when one last failed and whether its alert is raised, opening on each failure's subject, times,
+  version, and error and output whole in a monospace block that wraps, never cut. Read for an admin
+  alone (`IsAdminContext`). `src/unknown-failures.test.tsx`.
 - **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
   2026-10-29): a control or readout for testing is wrapped in `DebugTool` (`src/debug-tools.tsx`),
   which renders it only while the signed-in person's own Show debug tools is on, off until they turn
