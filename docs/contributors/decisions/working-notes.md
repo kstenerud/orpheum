@@ -29733,7 +29733,7 @@ counting errors that we don't expect, marking them as such when we log them, and
 we're getting a lot of them." Its surface and threshold are the owner's answers to the lead's
 questions the same day.
 
-**Status:** decided; §1, §2 and the server side of §3 and §4 built: each failure of unknown cause is logged marked unexpected with its kind, counted by kind a minute at a time, and the alert past `unknownFailuresAlertPerHour` (20) raised and cleared after an hour under, read from `GET /unknown-failures/alerts` and `GET /unknown-failures`; the web's banner and Needs attention entries are not built.
+**Status:** decided; §1, §2 and the server side of §3 and §4 built: each failure of unknown cause is logged marked unexpected with its kind, counted by kind a minute at a time, and the alert past `unknownFailuresAlertPerHour` (20) raised and cleared after an hour under, read from `GET /unknown-failures/alerts` and `GET /unknown-failures`; §3 and §4 built in the web too: the banner beside the security update's (unknown-failures-note.tsx) and the Needs attention entries (unknown-failures.tsx).
 
 1. **An error not recognised is marked as unexpected where it is logged**: the failures D508 §2
    tries again, each logged with the same mark and the kind of work that failed (a frame still, a
@@ -29752,6 +29752,10 @@ questions the same day.
 - 3, 4 (the server's side):
   TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes
   (internal/core/api/unknown_failures_test.go)
+- 3: web/apps/web/src/unknown-failures-note.test.tsx ("shows an admin each kind raised with its
+  count in the last hour, and the way to Needs attention")
+- 4: web/apps/web/src/unknown-failures.test.tsx ("lists each kind with its counts, when one last
+  failed and whether its alert is raised")
 
 ## D510 — A lookup that finds a cached thing gone retires its record, and sweeps at start and on a schedule look for them
 
@@ -29814,7 +29818,7 @@ intelligently. A fix would require a reboot of the server, so we could mark fail
 problems a 'try once per boot' kind of thing." Amends D508 §2, which tried an unknown failure again
 with backoff, and D509 §1, whose unexpected errors are these.
 
-**Status:** decided; §1–§5 built for the job queue's work, and the server side of the page and export: a failure past the attempt limit, a claim past it and a panic twice are kept in `unknown_failure` (step 0090) unless known to block or to pass; their work is refused this start; each start tries once more those of an earlier start, fetch_metadata by clearing its item's own failure. Not built: the web's banner, Needs attention entries and Copy report; the other kinds' retries at start beyond their sweeps; failures outside the job queue.
+**Status:** decided; §1–§5 built for the job queue's work, and the server side of the page and export: a failure past the attempt limit, a claim past it and a panic twice are kept in `unknown_failure` (step 0090) unless known to block or to pass; their work is refused this start; each start tries once more those of an earlier start, fetch_metadata by clearing its item's own failure. §6 built in the web too: the Needs attention entries and Copy report (unknown-failures.tsx). Not built: the other kinds' retries at start beyond their sweeps; failures outside the job queue.
 
 1. **A failure is one of three**: a cause known to block it, kept for good (D508 §1); a cause known
    to pass (a timeout, a stall, a provider or node not answering), tried again with backoff and never
@@ -29852,7 +29856,9 @@ with backoff, and D509 §1, whose unexpected errors are these.
   (internal/core/identify/refresh_test.go)
 - 5: TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes
   (internal/core/api/unknown_failures_test.go)
-- 6: TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes (the server's side)
+- 6: TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes (the server's side);
+  web/apps/web/src/unknown-failures.test.tsx ("opens each kind on its failures, the error and the
+  output in full", "copies the whole report as pretty-printed JSON, and says it was copied")
 - 7: TestRunDue_AFailureAtTheLimitIsKeptForGoodOnlyWhenKnownToBlockAndPassesOnlyWhenKnownToPass (the
   kind's own recorder is called first, so the thing shows as its kind shows it),
   TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh
