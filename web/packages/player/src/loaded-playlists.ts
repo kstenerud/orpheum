@@ -56,6 +56,16 @@ function freshStats(): LoaderStats {
   };
 }
 
+/** The texts of loaded, each at its absolute address, for hls.js's first ask for it. */
+function heldOf(loaded: StartingPlaylists | undefined): Map<string, string> {
+  const each = loaded === undefined ? [] : [loaded.master, loaded.picture, loaded.sound];
+  return new Map(
+    each.flatMap((playlist) =>
+      playlist === undefined ? [] : [[absoluteOf(playlist.url), playlist.text] as const],
+    ),
+  );
+}
+
 /** The stats of a playlist answered from memory: loaded whole the moment it was asked for. */
 function answeredAtOnce(text: string): LoaderStats {
   const now = performance.now();
@@ -74,12 +84,7 @@ export function loadedPlaylistLoader(
   loaded: StartingPlaylists | undefined,
   carrier: LoaderClass,
 ): PlaylistLoaderConstructor {
-  const each = loaded === undefined ? [] : [loaded.master, loaded.picture, loaded.sound];
-  const held = new Map(
-    each.flatMap((playlist) =>
-      playlist === undefined ? [] : [[absoluteOf(playlist.url), playlist.text] as const],
-    ),
-  );
+  const held = heldOf(loaded);
   return class LoadedPlaylistLoader implements Loader<PlaylistLoaderContext> {
     context: PlaylistLoaderContext | null = null;
 
