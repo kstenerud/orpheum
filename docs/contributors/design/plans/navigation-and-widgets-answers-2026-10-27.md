@@ -3057,6 +3057,12 @@ The owner's answers:
   found focus out of view (`isFocusInView` false) after a press; alone it passes 12 of 12. Focus
   scrolls by `scrollIntoViewGently` (`focus-navigation.ts`), at the press: find what moves the list
   after the scroll under load (more posters drawn, the banner), as the rail's flake was found.
+  **Again, after the frame-focus fix (CI, 2026-11-17 11:31 UTC, the v0.8.2 tag's push):** the
+  desktop window's case, `isFocusInView` false at line 122, in Firefox; the same commit passed on
+  main's push. So a third cause, not the frame's focus. Not yet ruled out: a row's height changing
+  after the press (the grid's columns read by a ResizeObserver, `grid-columns.ts`) and the banner's
+  height (`--banner-height`, read by one too, `app-shell.tsx`); not it: D495 §4's row shapes, as every
+  film's card is upright.
 
 ## The 11-23 batch: Chromecast (the owner, 2026-11-11)
 
