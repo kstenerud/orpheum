@@ -29948,5 +29948,6 @@ to series.
 **Proven by:**
 - 1: internal/core/identify/series_test.go (TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake)
 - 2: internal/core/identify/filename_test.go (TestParsePath_ASeriesFolderWithNoYearTakesOneFromANameBeneathIt)
+- 3: internal/core/identify/spellings_test.go (TestMatch_ASearchInTheYearThatFindsNothingIsMadeOnceMoreWithNone)
 
-**Status:** §1–§2 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`; §3–§5 not built, §5 waiting for its schema step.
+**Status:** §1–§3 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`; §4–§5 not built, §5 waiting for its schema step.

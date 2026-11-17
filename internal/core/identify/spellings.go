@@ -207,7 +207,8 @@ func inCaseOf(word, replaced string) string {
 // name, for the name's other spellings in turn (spellingVariants), stopping at the first that finds
 // a work of its own (the owner, 2026-10-21). It returns the query the candidates answer, the
 // spelling that found one or query itself, and the candidates: that spelling's, then the rest of
-// query's.
+// query's. With no spelling finding one, a query with a year is searched with none
+// (searchWithoutYear).
 func searchWithSpellings(ctx context.Context, provider Provider, query Query) (Query, []Candidate, error) {
 	candidates, err := provider.Search(ctx, query)
 	if err != nil {
@@ -226,6 +227,28 @@ func searchWithSpellings(ctx context.Context, provider Provider, query Query) (Q
 		if hasWorkNamed(spelling, found) {
 			return spelled, withCandidates(found, candidates), nil
 		}
+	}
+	return searchWithoutYear(ctx, provider, query, candidates)
+}
+
+// searchWithoutYear is a query with a year that found no work of its name searched once more with
+// none, as TMDB's search finds a film only in the year it has, and a release's is often a year off
+// (D513 §3): the query, its year kept for the settle's year-either-side rule to weigh, and what the
+// search finds of the name, then what the year's found. A query with no year has been searched so.
+func searchWithoutYear(
+	ctx context.Context, provider Provider, query Query, candidates []Candidate,
+) (Query, []Candidate, error) {
+	if query.Year == 0 {
+		return query, candidates, nil
+	}
+	yearless := query
+	yearless.Year = 0
+	found, err := provider.Search(ctx, yearless)
+	if err != nil {
+		return query, nil, fmt.Errorf("search %s for %q with no year: %w", provider.Name(), query.Name, err)
+	}
+	if hasWorkNamed(query.Name, found) {
+		return query, withCandidates(found, candidates), nil
 	}
 	return query, candidates, nil
 }

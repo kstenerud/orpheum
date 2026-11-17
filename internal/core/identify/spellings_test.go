@@ -91,6 +91,40 @@ func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 	}
 }
 
+// D513 §3: a search in the file's year that finds nothing is made once more with no year, and a film
+// it finds a year off is followed by the year-either-side rule, as staging's titles/130 is; one it
+// finds further off is not followed but offered to a person, who may know it is the one.
+func TestMatch_ASearchInTheYearThatFindsNothingIsMadeOnceMoreWithNone(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Harbour Lantern", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "41", Name: "Harbour Lantern", Year: 2005}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Velvet Static", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "42", Name: "Velvet Static", Year: 2009}),
+	}
+	files := map[string]struct {
+		outcome identify.Outcome
+		id      string
+	}{
+		"Harbour Lantern (2004).mkv": {identify.OutcomeMatched, "41"},
+		"Velvet Static (2004).mkv":   {identify.OutcomeAmbiguous, ""},
+	}
+	var records []nodeproto.ScanRecord
+	for path := range files {
+		records = append(records, videoRecord(path))
+	}
+	lib.scan(records...)
+	for path, want := range files {
+		if outcome := lib.matchFileTitle(path); outcome != want.outcome {
+			t.Errorf("%s: outcome %s; want %s", path, outcome, want.outcome)
+		}
+		if id, _ := lib.followed(path); id != want.id {
+			t.Errorf("%s follows %q; want %q", path, id, want.id)
+		}
+	}
+}
+
 // A file's misspelling of its work's name, a letter off in a long enough name and its year, is
 // guessed, marked as a guess for a person to confirm (D301); a short name a letter off, a plural,
 // another year, or two so named are not (the owner, 2026-10-21).
