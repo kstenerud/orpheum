@@ -647,6 +647,37 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 	return items, nil
 }
 
+const listTakenFrameStillImages = `-- name: ListTakenFrameStillImages :many
+SELECT DISTINCT source_sha256
+FROM artwork
+WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 IS NOT NULL
+`
+
+// The hash of every frame still recorded as taken: the art directory must hold its image, or the
+// still is taken again (D507 section 3).
+func (q *Queries) ListTakenFrameStillImages(ctx context.Context) ([][]byte, error) {
+	rows, err := q.db.QueryContext(ctx, listTakenFrameStillImages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := [][]byte{}
+	for rows.Next() {
+		var source_sha256 []byte
+		if err := rows.Scan(&source_sha256); err != nil {
+			return nil, err
+		}
+		items = append(items, source_sha256)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const retireArtworkNotFound = `-- name: RetireArtworkNotFound :exec
 UPDATE artwork SET removed_at = ?1
 WHERE item_id = ?2 AND source = ?3 AND is_chosen = 0 AND removed_at IS NULL
@@ -713,6 +744,43 @@ func (q *Queries) RetireFrameStillsOfFile(ctx context.Context, arg RetireFrameSt
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const retireFrameStillsOfImage = `-- name: RetireFrameStillsOfImage :many
+UPDATE artwork SET removed_at = ?1
+WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 = ?2
+RETURNING item_id
+`
+
+type RetireFrameStillsOfImageParams struct {
+	RemovedAt    *int64
+	SourceSha256 []byte
+}
+
+// The frame stills recorded as taken whose image the art directory lost, retired as never taken, so
+// the frame-still planning takes each again; their items are returned for it (D507 section 3). A
+// person's choice goes too: what it chose is gone, and the still taken again is of the same frame.
+func (q *Queries) RetireFrameStillsOfImage(ctx context.Context, arg RetireFrameStillsOfImageParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, retireFrameStillsOfImage, arg.RemovedAt, arg.SourceSha256)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec

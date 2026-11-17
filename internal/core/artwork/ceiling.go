@@ -56,9 +56,19 @@ func newHoldings() *holdings {
 	}
 }
 
-// LoadHoldings reads what the art directory holds and when each image was last served; call it once,
-// before serving.
+// LoadHoldings reads what the art directory holds and when each image was last served, and takes
+// again each frame still recorded as taken that it does not hold (D507); call it once, before
+// serving.
 func (service *Service) LoadHoldings(ctx context.Context) error {
+	if err := service.loadHoldings(ctx); err != nil {
+		return err
+	}
+	service.retakeStillsLostAtStart(ctx)
+	return nil
+}
+
+// loadHoldings is LoadHoldings's listing.
+func (service *Service) loadHoldings(ctx context.Context) error {
 	files, err := service.parts.ArtFiles.ListArt()
 	if err != nil {
 		return err

@@ -19,10 +19,7 @@ import (
 // baseNameFor is the held WebP an image's sizes can be cut from: its largest, when it is at least
 // as large as every size asked for.
 func (service *Service) baseNameFor(sourceSha256Hex string, sizes []nodeproto.ArtSizeName) (string, bool) {
-	held := service.holdings
-	held.mutex.Lock()
-	base := baseNameOf(held.sizeBytesByNameBySourceSha256[sourceSha256Hex])
-	held.mutex.Unlock()
+	base := service.heldBaseName(sourceSha256Hex)
 	baseSize, known := nodeproto.ArtSizeName(strings.TrimSuffix(base, webpSuffix)).Size()
 	if !known {
 		return "", false
@@ -34,6 +31,14 @@ func (service *Service) baseNameFor(sourceSha256Hex string, sizes []nodeproto.Ar
 		}
 	}
 	return base, true
+}
+
+// heldBaseName is an image's largest WebP size the art directory holds; "" for none.
+func (service *Service) heldBaseName(sourceSha256Hex string) string {
+	held := service.holdings
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	return baseNameOf(held.sizeBytesByNameBySourceSha256[sourceSha256Hex])
 }
 
 // noteCannotMake notes sizes an image cannot be made at, as empty .none files beside its sizes.

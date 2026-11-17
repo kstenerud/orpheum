@@ -114,6 +114,12 @@ func (world *frameWorld) pass(t *testing.T, found Found) []int64 {
 	}
 	found.BesideTheMedia.LibraryID = world.libraryID
 	world.bench.service.Take(t.Context(), found)
+	return world.stillsPlanned(t)
+}
+
+// stillsPlanned are the items a frame still was queued for, checking each job.
+func (world *frameWorld) stillsPlanned(t *testing.T) []int64 {
+	t.Helper()
 	var planned []int64
 	for _, request := range *world.queue {
 		var args artworkJobArgs

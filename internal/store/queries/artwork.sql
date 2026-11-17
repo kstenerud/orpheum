@@ -300,3 +300,18 @@ WHERE item_id IN (
   )
   AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0
   AND source_ref GLOB 'file:' || CAST(sqlc.arg(file_id) AS INTEGER) || ':*';
+
+-- name: ListTakenFrameStillImages :many
+-- The hash of every frame still recorded as taken: the art directory must hold its image, or the
+-- still is taken again (D507 section 3).
+SELECT DISTINCT source_sha256
+FROM artwork
+WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 IS NOT NULL;
+
+-- name: RetireFrameStillsOfImage :many
+-- The frame stills recorded as taken whose image the art directory lost, retired as never taken, so
+-- the frame-still planning takes each again; their items are returned for it (D507 section 3). A
+-- person's choice goes too: what it chose is gone, and the still taken again is of the same frame.
+UPDATE artwork SET removed_at = sqlc.arg(removed_at)
+WHERE source = 'frame' AND removed_at IS NULL AND source_sha256 = sqlc.arg(source_sha256)
+RETURNING item_id;

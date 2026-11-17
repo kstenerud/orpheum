@@ -68,6 +68,14 @@
 //     fetching; only a size larger than the base, or an image with nothing held, is fetched
 //     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
 //
+//   - A frame still recorded as taken whose image the art directory does not hold, at start or
+//     when a size of it is asked for, is not taken yet: its row is retired, what is left of it goes,
+//     and its library's frame-still planning runs at once; no .none note stands on the absence
+//     (D507). A still whose base is held but too small for a size keeps its note (D362 §1).
+//     TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain,
+//     TestHandle_AFrameStillWhoseImageWentWhileRunningIsTakenAgainAndNotNoted,
+//     TestHandle_AFrameStillTooSmallForALargerSizeIsNotedSo.
+//
 //   - An image beside the media is read and re-encoded by the node that holds it, sent its path
 //     and never its bytes, and stored under the hash that node read; a person's choice shows
 //     first, then the source the library prefers (D215).
