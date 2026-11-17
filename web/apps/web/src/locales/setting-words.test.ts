@@ -33,4 +33,24 @@ describe("the settings' words", () => {
     ].filter((named) => !serverSettingKeys.includes(named.split(" ").at(-1) ?? ""));
     expect(stale).toEqual([]);
   });
+
+  // And as the Go tests hold it, from the web's side: every setting the server has is labelled and
+  // described here, so its field never shows its bare key.
+  it("label and describe every setting the server has", () => {
+    const labels: Record<string, string> = enSettingLabels.labels;
+    const descriptions: Record<string, string> = enSettingsCatalogue.descriptions;
+    const unworded = serverSettingKeys.flatMap((key) => [
+      ...(labels[key] === undefined ? [`the label of ${key}`] : []),
+      ...(descriptions[key] === undefined ? [`the description of ${key}`] : []),
+    ]);
+    expect(unworded).toEqual([]);
+  });
+
+  // D509 §3: the alert's setting says, in its details, what is kept and what the banner says when.
+  it("say in the alert's details what a failure of unknown cause keeps and when the banner shows", () => {
+    const details: Record<string, string> = enSettingsCatalogue.details;
+    expect(details["unknownFailuresAlertPerHour"]).toMatch(
+      /kept with everything it said.*banner/su,
+    );
+  });
 });
