@@ -29676,7 +29676,7 @@ prod was restored on ainas from backups on 2026-11-06, the backups carry `persis
 cannot be made. Amends D362 §1 (a still is not taken again) and D212's `.none` note where what the
 note stands on is gone, and extends principles §14.
 
-**Status:** decided; not built.
+**Status:** decided; §1–§3 built; §4 is not built: of the other cached products, a chunk its node dropped, a system video and a match candidate are made again, and the persistent tables hold their data themselves, but a chunk run whose prepared folder went is failed for good and a provider's image the cache lost, whose source changed at its address, is noted rather than fetched again; both wait on the owner.
 
 1. **A general principle, not a fix for stills:** "If we had something in the cache and it's gone,
    we change its status back to 'not generated yet' and let the passive (or active in the case of
@@ -29692,6 +29692,16 @@ note stands on is gone, and extends principles §14.
 4. **Every other cached product is checked against this rule**: art, `cache.db`, and what the node
    keeps; each that persistent state calls made while it may be gone gets the same treatment, and a
    test that removes it.
+
+**Proven by:**
+- 1: TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain,
+  TestHandle_AFrameStillWhoseImageWentWhileRunningIsTakenAgainAndNotNoted (internal/core/artwork/lost_test.go),
+  TestWant_AChunkKnownMadeThatItsNodeDroppedIsMadeAgain (internal/core/chunks/ensure_test.go)
+- 2: TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain (the still is queued by the
+  frame-still planning, at the background's priority)
+- 3: TestLoadHoldings_AFrameStillRecordedAsTakenWithNoImageHeldIsTakenAgain,
+  TestHandle_AFrameStillWhoseImageWentWhileRunningIsTakenAgainAndNotNoted,
+  TestHandle_AFrameStillTooSmallForALargerSizeIsNotedSo
 
 ## D508 — Nothing is marked as one that cannot be made but for a cause known to block it; an unknown failure is tried again
 
