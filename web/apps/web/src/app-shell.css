@@ -386,10 +386,12 @@
 }
 
 /*
- * The banner of a security update pending, an admin's alone (security-updates.md Part B): in the
- * warning yellow, which asks for something to be done (D280), and its command on a line of its own.
+ * The banner of a security update pending (security-updates.md Part B) and that of failures of
+ * unknown cause piling up (D509 §3), each an admin's alone: in the warning yellow, which asks for
+ * something to be done (D280), and the update's command on a line of its own.
  */
-.app-shell__note--security {
+.app-shell__note--security,
+.app-shell__note--unknown-failures {
   border-color: var(--color-warning);
 }
 

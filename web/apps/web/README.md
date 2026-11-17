@@ -92,6 +92,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   browser that refuses it keeps the snooze for the page's life), and a new fix shows at once.
   Nobody else is shown it, nor is the server asked for them. A newer release with no security fix
   is no banner, only the settings page's Updates row. `src/security-update-note.test.tsx`.
+- **Failures of unknown cause piling up are a banner above every page, an admin's alone** (D509 §3;
+  `src/unknown-failures-note.tsx`): beside the security fix's, in its warning yellow, each kind whose
+  alert is raised with its count in the last hour, and the way to Needs attention. It is never
+  dismissed; it goes once the server clears the alert, read again when the page is shown and every
+  five minutes. Nobody else is shown it, nor is the server asked (D511 §7).
+  `src/unknown-failures-note.test.tsx`.
 - **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
   2026-10-29): a control or readout for testing is wrapped in `DebugTool` (`src/debug-tools.tsx`),
   which renders it only while the signed-in person's own Show debug tools is on, off until they turn

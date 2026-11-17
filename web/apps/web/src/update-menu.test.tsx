@@ -27,9 +27,13 @@ const newer: Update = {
   checkedAt: 1_793_000_360_000,
 };
 
-/** The rest of an admin's shell's own asking: the libraries menu and the tray's sign. */
+/**
+ * The rest of an admin's shell's own asking: the libraries menu, the tray's sign and the banner of
+ * failures of unknown cause.
+ */
 const shellAnswers = {
   "GET /libraries": [200, { libraries: [] }],
+  "GET /unknown-failures/alerts": [200, { alerts: [] }],
   "GET /needs-attention": [
     200,
     {
