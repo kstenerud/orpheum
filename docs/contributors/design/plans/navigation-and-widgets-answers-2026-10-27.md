@@ -4320,6 +4320,16 @@ on all pages that show posters (home, films, series, etc)" (the owner, 2026-11-1
 belongs to the one way focus scrolls, not to a page. Seen "on firefox and on the fire tv" (the
 owner, 2026-11-17): a desktop browser's arrow keys as well as a TV's remote.
 
+**Built (2026-11-17):** in the one way focus scrolls (`scrollClear`, `focus-navigation.ts`). Where
+an arrow, a controller or the rail moves focus (`focusAndShow`) to an element not already whole in
+view below, the page is scrolled on past "nearest" by the room kept under the banner, so the ring is
+whole above the bottom edge; the browser test "shows the poster's focus ring whole above the edge"
+(`focus-navigation.browser.test.tsx`, Chromium and Firefox) fails with it undone. Focus given back
+to a dialog's opener is left as it was: the modal dialog's and the drop-down's browser tests hold
+that such an opener comes in at the very edge and that one already in view moves no page. **For the
+owner:** whether an opener given focus back at the bottom should keep the ring's room too; that
+changes those tests, so it waits for the owner's word.
+
 ### A seek in a long file waits 6–11 s, and the "connection isn't fast enough" dialog blames the link, next batch (the owner, 2026-11-17)
 
 The owner, playing file 15497 on production in Firefox: it "takes a long time to jump to a new

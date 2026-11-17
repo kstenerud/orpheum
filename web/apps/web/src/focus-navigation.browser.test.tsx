@@ -308,3 +308,42 @@ describe("an arrow entering the page from the banner over the alphabet rail", ()
     expect(document.activeElement?.textContent).toBe("B");
   });
 });
+
+/** A column of two posters, the second's top past the window's bottom edge. */
+const tallColumnPage = (
+  <main style={{ position: "relative", height: "1200px" }}>
+    <ul data-focus-container="">
+      {["upper", "lower"].map((name, index) => (
+        <li key={name} style={{ ...placedAt(0, 40 + index * 460, 200), height: 300 }}>
+          <a href={`#${name}`} style={{ display: "block", height: "300px" }}>
+            {name}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </main>
+);
+
+describe("Down to a poster below the window's bottom edge (the owner, 2026-11-17)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    window.scrollTo(0, 0);
+  });
+
+  it("shows the poster's focus ring whole above the edge, as it does below the banner going up", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(tallColumnPage));
+    document.querySelector<HTMLElement>('a[href="#upper"]')?.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    const lower = document.activeElement;
+    expect(lower?.textContent).toBe("lower");
+    const ringWidth = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--focus-ring-width"),
+    );
+    // The ring is drawn outside the poster's box, two widths of it (tokens.css).
+    const ringBottom = (lower?.getBoundingClientRect().bottom ?? Infinity) + 2 * ringWidth;
+    expect(ringBottom).toBeLessThanOrEqual(document.documentElement.clientHeight);
+  });
+});

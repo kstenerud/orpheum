@@ -207,10 +207,11 @@ function isFreeToTake(
 }
 
 /**
- * The room kept between a focused element and the banner over it, in CSS pixels: the focus ring's
- * two widths and a little air (tokens.css). A justified constant, the ring's geometry.
+ * The room kept between a focused element and the banner over it, or the window's bottom edge under
+ * it, in CSS pixels: the focus ring's two widths and a little air (tokens.css). A justified
+ * constant, the ring's geometry.
  */
-const roomAboveFocusPx = 12;
+const roomAroundFocusPx = 12;
 
 /**
  * How far down the view a focused element's top must be to show clear of the banner over the page's
@@ -220,7 +221,7 @@ const roomAboveFocusPx = 12;
 export function clearOfTheBannerPx(
   cover: Element | null = document.querySelector(`[${coversTopAttribute}]`),
 ): number {
-  return (cover?.getBoundingClientRect().bottom ?? 0) + roomAboveFocusPx;
+  return (cover?.getBoundingClientRect().bottom ?? 0) + roomAroundFocusPx;
 }
 
 /**
@@ -228,13 +229,13 @@ export function clearOfTheBannerPx(
  * page, and clear of a banner over the page's top where it is on the page: an open dialog's control,
  * over the banner, moves no page under it (a drop-down's Close, the owner on a Fire TV, 2026-10-28).
  */
-export function scrollIntoViewGently(element: HTMLElement): void {
+export function scrollIntoViewGently(element: HTMLElement, isMovedTo = false): void {
   // A test's DOM may have no scrolling at all.
   if (typeof element.scrollIntoView !== "function") {
     return;
   }
-  scrollClear(element);
-  keepClearAsItsListIsLaidOut(element);
+  scrollClear(element, isMovedTo);
+  keepClearAsItsListIsLaidOut(element, isMovedTo);
 }
 
 /** Ends the watch keepClearAsItsListIsLaidOut keeps for the element last scrolled to, if one is kept. */
@@ -251,7 +252,7 @@ const settlingFrames = 3;
  * As the list is laid out over the next few frames, element is scrolled into view again while it has
  * focus; never after, where a scroll of the reader's own would be undone.
  */
-function keepClearAsItsListIsLaidOut(element: HTMLElement): void {
+function keepClearAsItsListIsLaidOut(element: HTMLElement, isMovedTo: boolean): void {
   endWatch?.();
   const list = skippedItemAround(element)?.parentElement;
   if (list === null || list === undefined || typeof ResizeObserver === "undefined") {
@@ -260,7 +261,7 @@ function keepClearAsItsListIsLaidOut(element: HTMLElement): void {
   let frame = 0;
   const watching = new ResizeObserver(() => {
     if (document.activeElement === element) {
-      scrollClear(element);
+      scrollClear(element, isMovedTo);
     }
   });
   const end = (): void => {
@@ -294,11 +295,30 @@ function skippedItemAround(element: Element): Element | undefined {
   return undefined;
 }
 
-/** Scrolls element into view no further than it must be, and clear of a banner (scrollIntoViewGently). */
-function scrollClear(element: HTMLElement): void {
+/**
+ * Scrolls element into view no further than it must be, and clear of a banner (scrollIntoViewGently).
+ * Where focus was moved to it (isMovedTo), as by an arrow, and it was not already in view whole, its
+ * focus ring is brought whole above the window's bottom edge too: the ring is drawn outside the
+ * element's box, which "nearest" alone brings only to the edge, so moving down the ring's bottom was
+ * off the screen (the owner, Firefox and a Fire TV, 2026-11-17).
+ */
+function scrollClear(element: HTMLElement, isMovedTo: boolean): void {
+  const height = document.documentElement.clientHeight;
+  const wasBelow = element.getBoundingClientRect().bottom > height;
   element.scrollIntoView({ block: "nearest", inline: "nearest" });
+  if (element.closest("dialog[open]") !== null) {
+    return;
+  }
   const cover = document.querySelector(`[${coversTopAttribute}]`);
-  if (cover === null || cover.contains(element) || element.closest("dialog[open]") !== null) {
+  if (cover?.contains(element) === true) {
+    return;
+  }
+  const bottom = element.getBoundingClientRect().bottom;
+  const shownTo = height - roomAroundFocusPx;
+  if (isMovedTo && wasBelow && bottom > shownTo && bottom <= height) {
+    window.scrollBy({ top: bottom - shownTo });
+  }
+  if (cover === null) {
     return;
   }
   const hiddenBy = clearOfTheBannerPx(cover);
@@ -318,7 +338,7 @@ export function focusAndShow(element: HTMLElement, isShownAsAKeys: boolean): voi
   element.focus(
     isShownAsAKeys ? { preventScroll: true, focusVisible: true } : { preventScroll: true },
   );
-  scrollIntoViewGently(element);
+  scrollIntoViewGently(element, true);
 }
 
 /** How an arrow moves focus: by which engine, and with which containers' memory. */
