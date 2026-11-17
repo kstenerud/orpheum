@@ -92,9 +92,18 @@ describe("the sign over a film waiting for data", () => {
     expect(getComputedStyle(one(mounted, ".film-waits__hourglass")).display).toBe("none");
   });
 
+  it("lights a quarter of the ring and fades a tail half as long behind it, only on the ring itself (the owner, 2026-11-17)", async () => {
+    mounted = await stalledFilm();
+    const lit = getComputedStyle(one(mounted, ".film-waits__spinner"), "::before");
+    expect(lit.backgroundImage).toMatch(/^conic-gradient\(from 270deg, /u);
+    expect(lit.backgroundImage).toContain("rgb(255, 255, 255) 45deg");
+    expect(lit.backgroundImage).toContain("rgb(255, 255, 255) 135deg");
+    // Cut to the ring's width, so the see-through disc inside shows none of it.
+    expect(lit.maskImage).toMatch(/^radial-gradient\(/u);
+  });
+
   it("is the white hourglass, pulsing once every 3 seconds, in the ring's place under Reduce Motion", async () => {
     mounted = await stalledFilm();
-    const ringColour = getComputedStyle(one(mounted, ".film-waits__spinner")).borderTopColor;
     restore = askForLessMotion();
     expect(getComputedStyle(one(mounted, ".film-waits__spinner")).display).toBe("none");
     const hourglass = getComputedStyle(one(mounted, ".film-waits__hourglass"));
@@ -105,7 +114,7 @@ describe("the sign over a film waiting for data", () => {
     expect(hourglass.animationIterationCount).toBe("infinite");
     const icon = one(mounted, ".film-waits__hourglass .waiting-icon");
     // White, as the ring's lit quarter is, and at the ring's size.
-    expect(getComputedStyle(icon).color).toBe(ringColour);
+    expect(getComputedStyle(icon).color).toBe("rgb(255, 255, 255)");
     const box = icon.getBoundingClientRect();
     expect(box.width).toBeCloseTo(56, 0);
     expect(box.height).toBeCloseTo(56, 0);

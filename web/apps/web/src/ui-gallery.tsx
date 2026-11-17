@@ -498,6 +498,65 @@ function FilmWaitingLooks(): JSX.Element {
           <figcaption>{t("gallery.waitingHourglass")}</figcaption>
         </figure>
       </div>
+      <LinkWaitLooks />
+    </>
+  );
+}
+
+/** How much has arrived, for the gallery's bar to draw: the ends below 10% and above 90% too. */
+const linkArrivedSamples = [0, 5, 25, 40, 75, 95, 100] as const;
+
+/**
+ * A film waiting on its device's link, the look the owner chose (2026-11-17): the ring, and under it
+ * a bar a third of the screen wide of how much of what the start needs has arrived, never below 10% nor above 90% so it reads
+ * as a bar. Its filler fades out and back in every 2 seconds (the owner, 2026-11-17: "the fading
+ * looks best overall"), and every 3 seconds asked for less motion, in step with the hourglass
+ * (film-waits.css), under the hourglass that takes the ring's place. Here both show side by side,
+ * whatever this device asks for, on a stage as wide as the gallery, how much has arrived chosen among a few.
+ */
+function LinkWaitLooks(): JSX.Element {
+  const { t } = useTranslation();
+  const [arrivedPercent, setArrivedPercent] = useState<number>(40);
+  const shown = Math.min(90, Math.max(10, arrivedPercent));
+  return (
+    <>
+      <h3>{t("gallery.linkWait")}</h3>
+      <p>{t("gallery.linkWaitLead")}</p>
+      <Cluster space="3">
+        <span>{t("gallery.linkWaitArrived", { percent: arrivedPercent, shown })}</span>
+        {linkArrivedSamples.map((each) => (
+          <button
+            key={each}
+            type="button"
+            aria-pressed={each === arrivedPercent}
+            onClick={() => {
+              setArrivedPercent(each);
+            }}
+          >
+            {`${String(each)}%`}
+          </button>
+        ))}
+      </Cluster>
+      {(["usual", "lessMotion"] as const).map((motion) => (
+        <figure key={motion} className="ui-gallery__wait-look">
+          <span className="ui-gallery__link-stage">
+            {motion === "usual" ? (
+              <span className="ui-gallery__ring" />
+            ) : (
+              <span className="ui-gallery__hourglass">
+                <WaitingIcon />
+              </span>
+            )}
+            <span className="ui-gallery__link-bar">
+              <span
+                className={`ui-gallery__link-fill ui-gallery__link-fill--${motion}`}
+                style={{ width: `${String(shown)}%` }}
+              />
+            </span>
+          </span>
+          <figcaption>{t(`gallery.linkWaitFading.${motion}`)}</figcaption>
+        </figure>
+      ))}
     </>
   );
 }

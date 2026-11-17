@@ -136,7 +136,10 @@ it("shows the parts the widgets are built from, a pop-up at its button and the l
 
 it("shows the film's waiting looks: the ring, and the white hourglass that takes its place under Reduce Motion (the owner, 2026-11-16)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
-  const player = markup.slice(markup.indexOf('id="gallery-player"'));
+  const player = markup.slice(
+    markup.indexOf('id="gallery-player"'),
+    markup.indexOf("A film waiting on its device&#x27;s link"),
+  );
   expect([...player.matchAll(/class="ui-gallery__ring"/gu)]).toHaveLength(1);
   expect([...player.matchAll(/class="ui-gallery__hourglass"/gu)]).toHaveLength(1);
   expect(player).toContain("The hourglass, once every 3 s, asked for less motion");
@@ -147,4 +150,31 @@ it("keeps the ring turning and the hourglass pulsing every 3 s under Reduce Moti
   const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
   expect(reduced).toMatch(/\.ui-gallery__ring \{\s*animation-duration: 1s !important;/u);
   expect(reduced).toMatch(/\.ui-gallery__hourglass \{\s*animation-duration: 3s !important;/u);
+});
+
+it("draws a film waiting on its link as the owner chose: the ring or the hourglass, over a bar whose filler is held between 10% and 90% (2026-11-17)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const looks = markup.slice(markup.indexOf("A film waiting on its device&#x27;s link"));
+  expect(looks).toContain("Arrived: 40% (drawn at 40%)");
+  expect(looks).toMatch(
+    /class="ui-gallery__ring"[^]*class="ui-gallery__link-fill ui-gallery__link-fill--usual" style="width:40%"/u,
+  );
+  expect(looks).toMatch(
+    /class="ui-gallery__hourglass"[^]*class="ui-gallery__link-fill ui-gallery__link-fill--lessMotion" style="width:40%"/u,
+  );
+});
+
+it("fades the link's bar every 2 s, and every 3 s in step with the hourglass under Reduce Motion, its bar a third of the stage (the owner, 2026-11-17)", () => {
+  const css = readFileSync(new URL("./ui-gallery.css", import.meta.url), "utf8");
+  expect(css).toMatch(/\.ui-gallery__link-bar \{[^}]*width: 33\.333%;/u);
+  expect(css).toMatch(
+    /\.ui-gallery__link-fill--usual \{\s*animation: ui-gallery-fade 2s ease-in-out infinite;/u,
+  );
+  expect(css).toMatch(
+    /\.ui-gallery__link-fill--lessMotion \{\s*animation: ui-gallery-fade 3s ease-in-out infinite;/u,
+  );
+  const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+  expect(reduced).toMatch(
+    /\.ui-gallery__link-fill--lessMotion \{\s*animation-duration: 3s !important;/u,
+  );
 });

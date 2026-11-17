@@ -61,5 +61,13 @@ export const enGallery = {
       "The ring turns while a film waits for data. Asked for less motion, the hourglass takes its place, its opacity alone changing.",
     waitingRing: "The ring, turning",
     waitingHourglass: "The hourglass, once every 3 s, asked for less motion",
+    linkWait: "A film waiting on its device's link",
+    linkWaitLead:
+      "When the bytes are sent but arrive slowly or not at all, a bar a third of the screen wide under the ring shows how much of what the start needs has arrived, never under 10% nor over 90%.",
+    linkWaitArrived: "Arrived: {{percent}}% (drawn at {{shown}}%)",
+    linkWaitFading: {
+      usual: "The filler fading out and in every 2 s",
+      lessMotion: "Every 3 s, in step with the hourglass, asked for less motion",
+    },
   },
 };
