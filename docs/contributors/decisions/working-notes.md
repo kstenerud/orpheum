@@ -29798,3 +29798,9 @@ with backoff, and D509 §1, whose unexpected errors are these.
    count raised.
 5. **These records are what D509 counts and alerts on**, and they are taken out of staging and prod,
    and later the users' servers, to find which can be handled.
+6. **They are taken out through a page and an export** (the owner's answers to the lead's questions
+   the same day): the Needs attention page lists them per kind with the error in full, and a "Copy
+   report" button and an admin JSON endpoint give them all, for the lead to pull from staging and
+   prod and for a user to send.
+7. **A person sees the thing as unavailable the way that kind shows it today**; only an admin, on
+   the Needs attention page, sees that the cause is unknown.
