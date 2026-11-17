@@ -29714,3 +29714,23 @@ artwork row, a permanent job failure, and any like them), across the core and th
    is "not generated yet".
 4. **Every place that records a thing as not to be tried again is checked against this rule**; each
    that sets it for an unknown cause is changed, with a test that fails when the change is reverted.
+
+## D509 — Unexpected errors are marked, counted per kind, and raise an alert when an hour has many
+
+**Decided** (2026-11-17), by the project owner, alongside D508: "as a guard against churn and
+spinning on things that really are hitting problems that our code can't (yet) solve, we should be
+counting errors that we don't expect, marking them as such when we log them, and raising an alert if
+we're getting a lot of them." Its surface and threshold are the owner's answers to the lead's
+questions the same day.
+
+**Status:** decided; not built.
+
+1. **An error not recognised is marked as unexpected where it is logged**: the failures D508 §2
+   tries again, each logged with the same mark and the kind of work that failed (a frame still, a
+   probe, a provider's fetch, …), so the log can be searched for them alone.
+2. **They are counted per kind, per hour.** A kind past a setting's count in an hour, 20 by default,
+   raises the alert; it clears after an hour under it. Counts since start are kept for the page in §4.
+3. **The alert is a banner above an admin's pages**, as the security update's is
+   (security-update-note.tsx): the kind, its count in the last hour, and the way to §4's page.
+4. **The Needs attention page (the "!" icon's) lists it too**: each kind raised, its count in the
+   last hour and since start, and when it last happened.

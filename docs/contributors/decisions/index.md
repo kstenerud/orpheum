@@ -514,6 +514,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D506](working-notes.md#d506--the-link-wait-bar-stays-until-the-film-can-play-but-where-the-server-makes-a-chunk-a-film-the-lowest-rung-cannot-carry-says-so-and-goes-on-trying) The link-wait bar stays until the film can play, but where the server makes a chunk; a film the lowest rung cannot carry says so and goes on trying
 - [D507](working-notes.md#d507--something-the-cache-held-and-lost-is-not-generated-yet-and-the-cores-own-work-makes-it-again) Something the cache held and lost is not generated yet, and the core's own work makes it again
 - [D508](working-notes.md#d508--nothing-is-marked-as-one-that-cannot-be-made-but-for-a-cause-known-to-block-it-an-unknown-failure-is-tried-again) Nothing is marked as one that cannot be made but for a cause known to block it; an unknown failure is tried again
+- [D509](working-notes.md#d509--unexpected-errors-are-marked-counted-per-kind-and-raise-an-alert-when-an-hour-has-many) Unexpected errors are marked, counted per kind, and raise an alert when an hour has many
 
 ## Archived
 
