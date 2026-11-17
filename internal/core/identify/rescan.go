@@ -495,11 +495,14 @@ func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cache
 
 // handleRematch is a fetch_metadata job of an item a rescan waits on: it matches the item again
 // from what its files say, logs what changed, and counts it in its rescan. An id its files give that
-// its provider does not have is the item's own failure (RecordFailure), which ends its rematch too.
+// its provider does not have is the item's own failure (RecordFailure), which ends its rematch too;
+// ids kept in cache.db that cannot be read say nothing of the item, and are tried again (D508 §2).
 func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cachegen.GetRematchRow) error {
 	said := filesQuery{name: row.Name, year: int(row.Year)}
 	if err := strictjson.Unmarshal([]byte(row.IdsJSON), &said.ids); err != nil {
-		return fmt.Errorf("item %d's rematch: %w", itemID, jobs.MarkPermanent(err))
+		matcher.logger.WarnContext(ctx, "a rematch's ids could not be read; it is tried again",
+			"itemId", itemID, "err", err)
+		return fmt.Errorf("item %d's rematch: %w", itemID, err)
 	}
 	result, err := matcher.rematch(ctx, itemID, said)
 	if errors.Is(err, ErrNoMatch) {

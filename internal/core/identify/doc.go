@@ -316,6 +316,11 @@
 //     as a fetch that succeeds does (D231 §4, §10).
 //     TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh.
 //
+//   - A fetch fails for good only for a cause known to be the item's, an id its provider does not
+//     have; a job's own arguments or a rematch's ids it cannot read say nothing of the item, and
+//     are tried again (D508 §2). TestHandle_AFetchWhoseArgumentsCannotBeReadIsTriedAgain,
+//     TestRescan_ARematchWhoseIdsCannotBeReadIsTriedAgain.
+//
 //   - A person's refresh is a fact (refresh_request), not a job: the refresh sweep queues it until
 //     a fetch that read it succeeds or fails, and whichever fetch of the item runs does what it
 //     asked, images included, so a request lost with cache.db or merged into a rolling refresh

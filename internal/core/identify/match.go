@@ -622,14 +622,17 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 // person's refresh above the background (providers.JobImportance). A provider that cannot be
 // reached, asks us to wait or has its key unset or refused answers that the job parks on it (its
 // provider service's doing, D231 §5); an id the provider does not have fails the job, as the
-// item's own failure (RecordFailure); anything else retries. A person's refresh waiting for the
-// item (refresh_request) makes whichever fetch runs a refresh that asks for what they asked, and
-// a fetch that succeeds answers it and clears a failure of the item's own (D231 §4).
+// item's own failure (RecordFailure); anything else retries, arguments it cannot read included,
+// which say nothing of the item (D508 §2). A person's refresh waiting for the item
+// (refresh_request) makes whichever fetch runs a refresh that asks for what they asked, and a
+// fetch that succeeds answers it and clears a failure of the item's own (D231 §4).
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	ctx = providers.WithImportance(ctx, providers.JobImportance(job.Priority))
 	args, err := decodeFetchArgs(cmp.Or(job.ArgsJSON, "{}"))
 	if err != nil {
-		return fmt.Errorf("fetch_metadata job %d: %w", job.ID, jobs.MarkPermanent(err))
+		matcher.logger.WarnContext(ctx, "a fetch's arguments could not be read; it is tried again",
+			"jobId", job.ID, "itemId", job.ItemID, "err", err)
+		return fmt.Errorf("fetch_metadata job %d: %w", job.ID, err)
 	}
 	request, err := store.OrNotFound(matcher.database.Read().GetRefreshRequest(ctx, job.ItemID))
 	hasRequest := err == nil
