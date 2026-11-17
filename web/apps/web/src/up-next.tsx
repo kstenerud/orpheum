@@ -24,6 +24,7 @@ import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
+import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
@@ -122,39 +123,6 @@ export function useIsNothingNext(offered: UpNextOffered | undefined): boolean {
 }
 
 /**
- * Calls atTheEnd, once, as video ends with nothing playing after its film (isNothingNext), or at
- * once where it has ended already as that comes to be known. What a film's end does where nothing
- * plays next (the owner, 2026-11-17): the player left for the page above it, a host's group stopped.
- */
-export function useAtTheEndWithNothingNext(
-  video: HTMLVideoElement | null,
-  isNothingNext: boolean,
-  atTheEnd: (() => void) | undefined,
-): void {
-  const atTheEndRef = useLatest(atTheEnd);
-  const hasEndedRef = useRef(false);
-  useEffect(() => {
-    if (video === null || !isNothingNext) {
-      return undefined;
-    }
-    const ended = (): void => {
-      if (!hasEndedRef.current && atTheEndRef.current !== undefined) {
-        hasEndedRef.current = true;
-        atTheEndRef.current();
-      }
-    };
-    if (video.ended) {
-      ended();
-      return undefined;
-    }
-    video.addEventListener("ended", ended);
-    return () => {
-      video.removeEventListener("ended", ended);
-    };
-  }, [video, isNothingNext, atTheEndRef]);
-}
-
-/**
  * Leaves the player as its film ends with nothing playing after it, whatever the person's autoplay
  * (the owner, 2026-11-17), so no press at its end plays it again: for the page above it, its Up's
  * (OverlayUp, D367 §8), a film's page or an episode's own; back to that page's entry where it is
@@ -162,18 +130,21 @@ export function useAtTheEndWithNothingNext(
  * receiver, whose page has no Up (PlayUpwardContext): its cast is made ready instead
  * (cast-receiver.tsx).
  */
-export function LeavesAtTheEnd(props: { readonly video: HTMLVideoElement | null }): null {
+export function LeavesAtTheEnd(props: {
+  readonly video: HTMLVideoElement | null;
+  /** Whether nothing is known to play after the film (useIsNothingNext). */
+  readonly isNothingNext: boolean;
+}): null {
   const { navigation } = useServices();
   const upward = use(PlayUpwardContext);
   const parent = upward === undefined ? undefined : parentOf(upward);
-  const isNothingNext = useIsNothingNext(use(UpNextContext));
   const leave =
     parent === undefined
       ? undefined
       : () => {
           navigation.up(parent.to, parent.isIt);
         };
-  useAtTheEndWithNothingNext(props.video, isNothingNext, leave);
+  useAtTheEndWithNothingNext(props.video, props.isNothingNext, leave);
   return null;
 }
 

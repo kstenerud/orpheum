@@ -4292,6 +4292,16 @@ that page without connecting again; after 5 minutes with nothing playing the cas
 device goes back to its own home screen. Ours is started never to close for being idle today
 (`web/apps/cast-receiver/src/main.ts`), so the 5 minutes are new.
 
+**Built (2026-11-17):** local play and Watch Together; the cast is not built yet. A video that ends
+with nothing next, whatever the autoplay, leaves the player the way its own Up does
+(`LeavesAtTheEnd` in `web/apps/web/src/up-next.tsx`, `navigation.up`): a film for the film's page,
+an episode for the episode's own page (not its series'), back to that entry where it is behind,
+else in the player's place, never a new entry; an up-next answer that cannot be read counts as
+nothing next. `web/apps/web/src/play-end.test.tsx`. A host's film ending so stops the group's film
+as Stop does, and a guest's Play page then goes to `/together`, the page before the host played
+anything (`web/apps/web/src/together-end.test.tsx`). Open: a host who left the player before the
+end still leaves the group's film playing past it on the server's clock (D364 §15).
+
 ### Production on v0.8.3; the lost-artwork sweep against the ceiling's evictions, next batch (the lead, 2026-11-17)
 
 Production was updated to v0.8.3 by the install script at 18:46 UTC, at the owner's go ("Once that

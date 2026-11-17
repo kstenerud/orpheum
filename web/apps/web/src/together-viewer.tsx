@@ -22,6 +22,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type JSX,
   type RefObject,
@@ -162,9 +163,10 @@ export function TogetherViewer(): JSX.Element {
  * The group's film on its Play page, for a signed-in guest in a session that plays it (D384 §2): the
  * one page every film plays on, here as a guest's, the film following the group, with who is here,
  * voice, their own volume and Leave; it moves to the Play page of the next film the group plays, as it
- * does from the guest's own page (/together), where it waits while the group plays nothing. Ended,
- * they are taken home and told why (useSessionEnd); sent away for the host's connection, the page says
- * so, with Join again. A page shown by a press needs no tap to continue: the press was it.
+ * does from the guest's own page (/together), where it waits while the group plays nothing, and goes
+ * as the group's film stops (the owner, 2026-11-17). Ended, they are taken home and told why
+ * (useSessionEnd); sent away for the host's connection, the page says so, with Join again. A page
+ * shown by a press needs no tap to continue: the press was it.
  */
 export function GroupFilmPage(props: { readonly membership: Membership }): JSX.Element {
   const { navigation } = useServices();
@@ -175,6 +177,12 @@ export function GroupFilmPage(props: { readonly membership: Membership }): JSX.E
   const toFilm = useCallback(
     (fileId: number) => {
       const shown = navigation.route();
+      if (fileId === 0) {
+        if (shown.screen === "play") {
+          navigation.replace({ screen: "together" });
+        }
+        return;
+      }
       if (shown.screen === "together" || (shown.screen === "play" && shown.fileId !== fileId)) {
         navigation.replace({ screen: "play", fileId });
       }
@@ -295,14 +303,16 @@ function ViewerSession(props: {
   );
 }
 
-/** Tells onGroupFilm, where given, each film the group plays, never nothing playing. */
+/** Tells onGroupFilm each film the group plays, and 0 once one it played stops; unknown, nothing. */
 function useFollowsTheGroupsFilm(
   snapshot: TogetherSnapshot | undefined,
   onGroupFilm: ((fileId: number) => void) | undefined,
 ): void {
-  const fileId = snapshot?.group?.fileId ?? 0;
+  const fileId = snapshot?.group?.fileId;
+  const hasPlayedRef = useRef(false);
   useEffect(() => {
-    if (fileId !== 0) {
+    if (fileId !== undefined && (fileId !== 0 || hasPlayedRef.current)) {
+      hasPlayedRef.current = true;
       onGroupFilm?.(fileId);
     }
   }, [fileId, onGroupFilm]);

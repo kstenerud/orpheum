@@ -89,6 +89,7 @@ import {
   LeavesAtTheEnd,
   overTheFilm,
   UpNextContext,
+  useIsNothingNext,
   useSequenceCommands,
   useUpNextOffered,
 } from "./up-next.tsx";
@@ -200,11 +201,9 @@ function PlayerView(
   const pressedVideo = useVideoPressedForPlay();
   const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
   const tracks = useSequenceCommands(offered);
+  const isNothingNext = useIsNothingNext(offered);
   usePlayerCommands(video, tracks);
-  useFullscreenAsTheBrowserIs(video);
-  // A cast's receiver fills the window itself (cast-receiver.tsx).
-  useWholeWindow(receiving === undefined ? video : null);
-  useFullScreenLeftAsBack(receiving === undefined && isTelevision(navigator.userAgent));
+  useStageAsTheDeviceHasIt(video, receiving === undefined);
   const ways = useMemo(
     () => ({
       fileId,
@@ -226,7 +225,7 @@ function PlayerView(
   return (
     <UpNextContext value={offered}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
-        <LeavesAtTheEnd video={video} />
+        <LeavesAtTheEnd video={video} isNothingNext={isNothingNext} />
         <PlayContext value={ways}>
           <PlayArea isOwn={isOwn}>
             <FilmPlayer
@@ -243,7 +242,7 @@ function PlayerView(
         </PlayContext>
       </PlayTop>
       <PlaysAlong
-        {...{ receiving, fileId, video, cannotKeepUp }}
+        {...{ receiving, fileId, video, cannotKeepUp, isNothingNext }}
         delivery={deliveryOf(decision, moved)}
         startPositionMs={resumePositionMs}
         hasNext={tracks.hasNext}
@@ -288,6 +287,17 @@ function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): J
       <LinkDebugTools />
     </>
   );
+}
+
+/**
+ * The player's stage as the device has it: full screen as the browser is, filling the window, and
+ * a television's leaving full screen a Back; a cast's receiver (isOwn false) fills the window itself
+ * (cast-receiver.tsx).
+ */
+function useStageAsTheDeviceHasIt(video: HTMLVideoElement | null, isOwn: boolean): void {
+  useFullscreenAsTheBrowserIs(video);
+  useWholeWindow(isOwn ? video : null);
+  useFullScreenLeftAsBack(isOwn && isTelevision(navigator.userAgent));
 }
 
 /**

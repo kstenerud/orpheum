@@ -662,7 +662,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   film's end shows *Still watching?*, Continue (focused) or Stop (leaves the film), and counts
   nothing; any press starts the run again. A host's player moving on to another film's player, by Up
   next or its autoplay, does not stop their Watch Together session: the next player puts its film on
-  for everyone. `src/up-next.test.tsx`, `src/watch-together.test.tsx`; on devices, VQ69 and VQ70.
+  for everyone. A host's film ending with nothing next stops the group's film, as Stop does, and a
+  guest's Play page then goes to Watch Together's own, as before the host played anything (the
+  owner, 2026-11-17; `src/together-end.test.tsx`). `src/up-next.test.tsx`,
+  `src/watch-together.test.tsx`; on devices, VQ69 and VQ70.
 - **A Watch Together invitation is short-term** (D346): the host's list says until when each
   waiting link admits; a guest whose link no longer works is told invitations are short-lived and
   to ask for another, and one whose session the server closed as idle is told so. The join's form

@@ -22,6 +22,7 @@ import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
+import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
@@ -43,6 +44,8 @@ interface HostPlayer {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** How the film is given to the player, which the session is told (D371 §4). */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
+  /** Whether nothing is known to play after the film, at whose end the group's film stops. */
+  readonly isNothingNext?: boolean;
 }
 
 /**
@@ -184,6 +187,7 @@ function HostLeading(
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs, delivery });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
+  useStopsAtTheEnd(video, props.isNothingNext === true, connection);
   useEffect(() => {
     if (endReason !== undefined) {
       onOver(endReason);
@@ -205,6 +209,26 @@ function HostLeading(
       </TogetherPanel>
     </div>
   );
+}
+
+/**
+ * Stops the group's film, as Stop does (together-plays.tsx), as the host's video ends with nothing
+ * playing after it (isNothingNext): the host's player leaves for the film's page (up-next.tsx,
+ * LeavesAtTheEnd), and the group is left with nothing playing, as before the host played anything,
+ * not a film past its end on the server's clock (the owner, 2026-11-17).
+ */
+function useStopsAtTheEnd(
+  video: HTMLVideoElement | null,
+  isNothingNext: boolean,
+  connection: TogetherConnection | undefined,
+): void {
+  const stop =
+    connection === undefined
+      ? undefined
+      : () => {
+          connection.command({ command: "stop" });
+        };
+  useAtTheEndWithNothingNext(video, isNothingNext, stop);
 }
 
 /**
