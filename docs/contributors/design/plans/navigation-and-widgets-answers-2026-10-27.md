@@ -4499,3 +4499,31 @@ made, 0.12–0.16 s, no 425), once the rescan had settled (load average 0.24). E
 its index cut down; the film opened in 6–12 ms and the first chunk came 0.22–0.59 s after the run's
 slot, the same as under load. From the client each seek took 1.25–1.37 s, one 425 each: as under
 load, the second of `Retry-After: 1` is most of a seek.
+
+## The 11-19 batch (the owner, 2026-11-18)
+
+The owner: "For next batch, I want the one signing command, and help for a person's AI agent at
+orpheum.cc. The help is important because my friend will be attempting to install tomorrow. After
+that I'll be busy most of the day, so you can batch however you like." Also: "Make me a command to
+open an SSH tunnel to connect to the operator's panel" (built: orpheum-ops' `bin/operator-panel.sh`).
+
+**The agent's help was built on 2026-11-13** ("feat(webclient): serve the agent's setup help as
+Markdown, gzipped as other text" and the commits beside it): orpheum.cc names `/agent-setup.md` in
+its head and in a line of text a person does not see, and `/llms.txt` lists it. A dry run
+(2026-11-18), by an agent told only "orpheum.cc" and "an OpenMediaVault box", found it, and found the
+guide's OpenMediaVault opening gave no way to install omv-extras, the compose plugin or Docker, and
+nothing on a lapsed invitation; both fixed in "docs(users): OpenMediaVault's guide installs Docker
+and the compose plugin, and a lapsed invitation is said". The friend installs on OpenMediaVault with
+Claude.
+
+**The owner's answers:**
+
+1. The signing command fetches the unsigned record from the GitHub release, which the release
+   workflow attaches (`Gate-Changed`), not a workflow artifact.
+2. It shows the digest from the record and from the registry, and asks yes or no, not the digest's
+   first 12 characters; it copies to the server, reads the record back, commits in the records
+   folder, and tries to push: "don't fail the process if something breaks in the push (like
+   out-of-sync repos). If something goes wrong there we can fix it together."
+3. A playback whose first chunk is given up skips it, as a playing film does.
+4. A paused cast closes after 20 minutes; the receiver's idle screen stays black.
+5. D516's wire name `isAtTheEnd` stays.
