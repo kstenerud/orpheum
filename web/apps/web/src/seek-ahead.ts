@@ -230,11 +230,19 @@ export class SeekAhead {
     }
   }
 
-  /** Stops waiting: the player is gone. */
+  /**
+   * Stops waiting and forgets the aim, making no seek: the player is gone. A video the page keeps
+   * for the next film shows that film's own place, not the last one's aim (KeptVideo, film-player.tsx).
+   */
   stop(): void {
     clearTimeout(this.#timer);
+    this.#timer = undefined;
     this.#stopHearingReleases?.();
     this.#stopHearingReleases = undefined;
+    this.#held = undefined;
+    this.#aimMs = undefined;
+    this.#askedBy = undefined;
+    this.#madeAtMs = undefined;
   }
 
   #make(): void {
@@ -334,7 +342,7 @@ const videoAheads = new WeakMap<HTMLVideoElement, SeekAhead>();
  * The seek being chosen on video, one for every press and bar that seeks it: an arrow's command
  * (player-commands.ts) and its timeline (useVideoSource), so a press on one ends what the other
  * chose. It tells the video seekAimedEvent as the place shown changes, and takes the video's seeked
- * as its seek landed.
+ * as its seek landed; the player stops it as it lets the video go (stopSeekAheadOf).
  */
 export function seekAheadOf(video: HTMLVideoElement): SeekAhead {
   const known = videoAheads.get(video);
@@ -361,6 +369,15 @@ export function seekAheadOf(video: HTMLVideoElement): SeekAhead {
   });
   videoAheads.set(video, ahead);
   return ahead;
+}
+
+/**
+ * Stops the seek being chosen on video, if any, making no seek: its player lets the video go
+ * (Stage, film-player.tsx). A seek a press aimed waits for the presses to rest, and with nothing to
+ * stop it, it outlived the player and seeked a video no page showed (check-pr, 2026-11-18).
+ */
+export function stopSeekAheadOf(video: HTMLVideoElement): void {
+  videoAheads.get(video)?.stop();
 }
 
 /**

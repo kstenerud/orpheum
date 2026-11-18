@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { act, createRef, useEffect, type JSX } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
@@ -13,7 +13,7 @@ import type { SequenceMoves } from "./player-controls.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { doubleTapWaitMs } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
-import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
+import { seekAskedEvent, seekRestMs, soughtByOf, stopSeekAheadOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { clockText } from "./timeline.tsx";
@@ -120,6 +120,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
   ): Promise<Mounted> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
+    onTestFinished(stopSeekAheadOf.bind(undefined, video)); // let go as the player does (Stage)
     mounted = await mount(
       withServices(
         <div className="film-player__stage">

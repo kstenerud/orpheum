@@ -899,7 +899,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   arrow or seeking button moves the timeline's marker and time alone 10 s, a held one, a remote's
   key and a controller's stick alike, by the time held, faster each 2 s, and the film seeks once,
   there, as the presses rest (three quarters of a second, a held one's after its release); a press on the timeline shows its place at once; and the place shown stays
-  until the seek lands. A remote's drags and steps are one command once they rest the same way
+  until the seek lands; a seek still waiting as the player lets its video go is never made
+  (`src/film-player.test.tsx`). A remote's drags and steps are one command once they rest the same way
   (the owner, Fire TV, 2026-10-29). In full screen, the browser's or a stage filling the window, every
   device's controls are the overlay (`src/player-overlay.tsx`, D407 §1, §5): its rows, Up and the
   convenience area (Up next, Still watching, when the film ends), the timeline, whose arrows are

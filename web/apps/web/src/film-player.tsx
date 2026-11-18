@@ -47,6 +47,7 @@ import { isThisHandheld } from "./handheld.ts";
 import { useChunkedPlayback } from "./ladder-playback.ts";
 import { useLatest } from "./latest.ts";
 import { rateText } from "./rate-text.ts";
+import { stopSeekAheadOf } from "./seek-ahead.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
 import { useServices } from "./services.tsx";
@@ -296,6 +297,7 @@ export function Stage(
     const video = videoRef.current;
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
+  useSeekAheadStopsWithTheVideo(videoRef, props.keptVideo);
   useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
   useTellsTooSlowAtLowest(videoRef, ladder);
   const parts = { videoRef, readLinkKbps, failure, ladder };
@@ -440,6 +442,25 @@ function useStartsWithEnoughAhead(
       gate.cancel();
     };
   }, [videoRef, isAutoPlay]);
+}
+
+/**
+ * Stops a seek chosen on the stage's video (seekAheadOf) as the stage lets the video go, gone or
+ * kept for the next film (keptVideo): a seek a press aimed waits for the presses to rest, and it
+ * outlived the player, seeking a video no page showed (check-pr, 2026-11-18).
+ */
+function useSeekAheadStopsWithTheVideo(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  keptVideo: HTMLVideoElement | undefined,
+): void {
+  useEffect(() => {
+    const video = videoRef.current;
+    return video === null
+      ? undefined
+      : () => {
+          stopSeekAheadOf(video);
+        };
+  }, [videoRef, keptVideo]);
 }
 
 /**
