@@ -30198,5 +30198,6 @@ the playback's starting track, not the Japanese the guest had chosen. Amends D47
 
 **Proven by:**
 - 1: web/packages/player/src/airplay.test.ts ("at a Stop pressed, shows the picker for the person to choose this device, and ends as they do (D521 §1)"; "plays on at a Stop pressed when the person keeps the receiver, and ends at once if none was picked"), web/apps/web/src/airplay-entry.test.tsx ("closes the menu at Stop AirPlay, for AirPlay's picker to show over the page (D521 §1)"), VQ363
+- 2: TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays, TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays (internal/core/api/airplay_sound_test.go), web/apps/web/src/film-player-airplay.test.tsx ("says the audio track the film plays, by its place, which its grant asks AirPlay to play (D521 §2)"), web/apps/web/src/together-guest-airplay.test.tsx ("asks its grant with the audio track the guest chose on their page, which AirPlay plays (D521 §2)"), VQ364
 
-**Status:** decided (2026-11-18); §1 built (2026-11-18), §2 not built.
+**Status:** decided (2026-11-18); built (2026-11-18).

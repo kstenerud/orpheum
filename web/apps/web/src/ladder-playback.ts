@@ -80,6 +80,21 @@ export function followChunkedPlayback(
   };
 }
 
+/** What a film's chunked playback (useChunkedPlayback) starts from. */
+export interface ChunkedPlaybackStart {
+  readonly offer: LadderOffer;
+  readonly positionMs: number;
+  readonly startAudioRef?: RefObject<number | undefined>;
+  /** Whether it chooses its first quality from the link its device remembers (D381). */
+  readonly shouldStartByRememberedLink?: boolean;
+  /** The playback's media token, which AirPlay's grant is asked for by; none offers no AirPlay. */
+  readonly mediaToken?: string | undefined;
+  /** The audio track it plays now, by its place, which AirPlay plays too (D521 §2). */
+  readonly playingTrackRef?: RefObject<number | undefined>;
+  /** What plays it: the player's chunked playback, but in a test. */
+  readonly play?: typeof playChunked;
+}
+
 /**
  * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
  * and, once its lowest quality stalls, that the link cannot keep up (D247 §8). Each playback starts
@@ -90,17 +105,7 @@ export function followChunkedPlayback(
  */
 export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
-  starting: {
-    readonly offer: LadderOffer;
-    readonly positionMs: number;
-    readonly startAudioRef?: RefObject<number | undefined>;
-    /** Whether it chooses its first quality from the link its device remembers (D381). */
-    readonly shouldStartByRememberedLink?: boolean;
-    /** The playback's media token, which AirPlay's grant is asked for by; none offers no AirPlay. */
-    readonly mediaToken?: string | undefined;
-    /** What plays it: the player's chunked playback, but in a test. */
-    readonly play?: typeof playChunked;
-  },
+  starting: ChunkedPlaybackStart,
   onFailed: PlaybackFailed,
 ): {
   readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
@@ -191,7 +196,11 @@ interface AirPlayStage {
  */
 function useAirPlayStage(
   videoRef: RefObject<HTMLVideoElement | null>,
-  starting: { readonly positionMs: number; readonly mediaToken?: string | undefined },
+  starting: {
+    readonly positionMs: number;
+    readonly mediaToken?: string | undefined;
+    readonly playingTrackRef?: RefObject<number | undefined>;
+  },
 ): {
   readonly stage: AirPlayStage;
   readonly letGoRef: RefObject<(() => void) | undefined>;
@@ -200,6 +209,7 @@ function useAirPlayStage(
 } {
   const [stage, setStage] = useState<AirPlayStage>({ isOnAirPlay: false });
   const letGoRef = useRef<(() => void) | undefined>(undefined);
+  const { playingTrackRef } = starting;
   const handOff = useMemo(
     (): AirPlayHandOff => ({
       letGoOfHls: () => {
@@ -210,8 +220,9 @@ function useAirPlayStage(
         const positionMs = Math.round(left.positionS * 1000);
         setStage({ isOnAirPlay: false, backAt: { positionMs, isPaused: left.wasPaused } });
       },
+      playingTrack: () => playingTrackRef?.current,
     }),
-    [],
+    [playingTrackRef],
   );
   useOffersAirPlay(videoRef, starting.mediaToken, handOff);
   return { stage, letGoRef, startMs: stage.backAt?.positionMs ?? starting.positionMs };

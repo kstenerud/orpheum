@@ -96,21 +96,33 @@ func (server *Server) getChunksMasterPlaylist(
 	if err != nil {
 		return nil, err
 	}
-	return server.masterPlaylistOf(ctx, dependencies, input.Token, holder, 0)
+	return server.masterPlaylistOf(ctx, dependencies, input.Token, holder, masterAsked{})
 }
 
-// masterPlaylistOf is the master playlist of the playback token names, as holder holds it. While the
-// film has no grid it is read through, and asked again every chunkAskEvery for up to hold, after
-// which the player is told to ask again (425): a hold of 0 tells it at once, as hls.js is told, which
-// honours the 425; an AirPlay receiver does not, and is held (airplay.md, the 2026-11-12 findings).
+// masterAsked is how a master playlist is asked for: how long it is held for its film's grid (hold),
+// and the playback as the player asking plays it (asPlayed), nil for as the playback's own player
+// does.
+type masterAsked struct {
+	hold     time.Duration
+	asPlayed func(chunks.Playback) chunks.Playback
+}
+
+// masterPlaylistOf is the master playlist of the playback token names, as holder holds it and the
+// player asking plays it (masterAsked). While the film has no grid it is read through, and asked
+// again every chunkAskEvery for up to its hold, after which the player is told to ask again (425): a
+// hold of 0 tells it at once, as hls.js is told, which honours the 425; an AirPlay receiver does not,
+// and is held (airplay.md, the 2026-11-12 findings).
 func (server *Server) masterPlaylistOf(
-	ctx context.Context, dependencies *Dependencies, token string, holder playback.Holder, hold time.Duration,
+	ctx context.Context, dependencies *Dependencies, token string, holder playback.Holder, asked masterAsked,
 ) (*huma.StreamResponse, error) {
-	giveUpAt := dependencies.Clock.Now().Add(hold)
+	giveUpAt := dependencies.Clock.Now().Add(asked.hold)
 	for {
 		chunked, err := dependencies.Playback.ChunksOf(ctx, token, holder)
 		if err != nil {
 			return nil, server.playbackError(ctx, "find a playback's chunks", err)
+		}
+		if asked.asPlayed != nil {
+			chunked = asked.asPlayed(chunked)
 		}
 		text, err := keptMasterPlaylist(ctx, dependencies, token, holder, chunked)
 		if errors.Is(err, chunks.ErrNoGrid) && dependencies.Clock.Now().Before(giveUpAt) &&

@@ -159,6 +159,13 @@
       "AirPlayGrantInputBody": {
         "additionalProperties": false,
         "properties": {
+          "audioTrackIndex": {
+            "description": "The audio track the page plays now, by its place among the film's, which the grant's master playlist names its default; absent, or one the film does not have, for the playback's starting track",
+            "format": "int64",
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer"
+          },
           "mediaToken": {
             "description": "The playback's media token, as POST /playback answered it",
             "maxLength": 200,

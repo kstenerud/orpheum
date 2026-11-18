@@ -3483,3 +3483,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   (A tab opened before the deploy ran the old Stop, which showed no picker.) Found with it: the
   film came back playing the English sound while the page said "Sound: Japanese", the sound it
   had played before AirPlay.
+- [ ] **VQ364** — AirPlay plays the sound the page plays (D521 §2; the owner, staging, 2026-11-18: a
+  guest by link chose the Japanese sound on the iPhone, AirPlayed to the Mac, and the Mac played
+  another track, the core's log showing only `sound2-own` fetched). On staging, on the iPhone in
+  Safari, with a film of two audio tracks or more: (1) as a Watch Together guest by link, choose
+  a sound other than the film's first, then Cast, AirPlay, and pick the Mac; (2) signed in, play
+  the same film, choose a sound other than its first, then Cast, AirPlay, and pick the Mac. Passes
+  when, each time, the Mac plays the sound chosen on the iPhone, and the core's log shows the Mac
+  fetching that track's sound under the grant. (`audioTrackIndex` of `POST /airplay/grants` and
+  `POST /together/airplay-grants`; the web app's `airplay.ts`.)

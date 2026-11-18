@@ -43,12 +43,15 @@ describe("a film on its ladder, offered to AirPlay from the Cast menu (D473)", (
     Reflect.deleteProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker");
   });
 
-  async function mountFilm(hasControls: boolean): Promise<void> {
+  async function mountFilm(
+    hasControls: boolean,
+    decision: ReturnType<typeof directDecision> = directDecision({ onLadder }),
+  ): Promise<void> {
     const composition: FilmComposition = { hasControls, isAutoPlay: false, askAbout: undefined };
     mounted = await mount(
       withServices(
         <FilmPlayer
-          decision={directDecision({ onLadder })}
+          decision={decision}
           moved={undefined}
           ladderStartMs={0}
           composition={composition}
@@ -64,6 +67,19 @@ describe("a film on its ladder, offered to AirPlay from the Cast menu (D473)", (
     mounted?.unmount();
     mounted = undefined;
     expect(airPlayHere()).toBeUndefined();
+  });
+
+  it("says the audio track the film plays, by its place, which its grant asks AirPlay to play (D521 §2)", async () => {
+    const twoTracks = directDecision({ onLadder });
+    await mountFilm(true, {
+      ...twoTracks,
+      audioTracks: [
+        { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+        { streamId: 81, audioTrackIndex: 1, language: "ja", kind: "plain" },
+      ],
+      startingAudioStreamId: 81,
+    });
+    expect(airPlayHere()?.audioTrackIndex?.()).toBe(1);
   });
 
   it("is not offered for a player without controls, as a film page's hidden one", async () => {

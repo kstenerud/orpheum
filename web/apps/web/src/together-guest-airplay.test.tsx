@@ -10,8 +10,8 @@ import { apiPrefix } from "@orpheum/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
-import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
-import { directDecision } from "./test-fixtures.ts";
+import { buttonWithText, chooseIn, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
@@ -69,6 +69,31 @@ function onItsLadder(fileId: number): ReturnType<typeof directDecision> {
   });
 }
 
+/** The group's film on its ladder with two audio tracks, English and French, the first its start. */
+function withTwoSoundsOnItsLadder(fileId: number): ReturnType<typeof directDecision> {
+  const ladder = onItsLadder(fileId);
+  const made = { isBoosted: false, codec: "aac", channelCount: 2, kbps: 96, isOriginal: false };
+  return {
+    ...ladder,
+    audioTracks: [
+      { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+      { streamId: 81, audioTrackIndex: 1, language: "fr", kind: "plain" },
+    ],
+    startingAudioStreamId: 80,
+    tracks: {
+      ...ladder.tracks,
+      sounds: [
+        { audioTrackIndex: 0, ...made, ...unmeasuredSound, stream: "sound0-96k" },
+        { audioTrackIndex: 1, ...made, ...unmeasuredSound, stream: "sound1-96k" },
+      ],
+      fileSounds: [
+        { audioTrackIndex: 0, codec: "aac", channelCount: 2 },
+        { audioTrackIndex: 1, codec: "aac", channelCount: 2 },
+      ],
+    },
+  };
+}
+
 /** A JSON answer, or an empty one for 204. */
 function answer(status: number, body: unknown): Response {
   return status === 204
@@ -100,6 +125,8 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
   let asked: Asked[];
   let refused: string[];
   let groupsFilm: number;
+  /** Whether the group's film has two audio tracks (withTwoSoundsOnItsLadder). */
+  let hasTwoSounds: boolean;
   /** Holds DELETE /together/airplay-grants unanswered while set; its release answers it. */
   let isRevokeHeld: boolean;
   let releaseRevoke: (() => void) | undefined;
@@ -111,6 +138,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     asked = [];
     refused = [];
     groupsFilm = 5;
+    hasTwoSounds = false;
     isRevokeHeld = false;
     releaseRevoke = undefined;
     // Safari's AirPlay, as the page finds it.
@@ -148,7 +176,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
         return answer(403, { error: { code: "forbidden", message: "not a guest's" } });
       }
       if (route === "POST /together/playback") {
-        return answer(200, onItsLadder(groupsFilm));
+        return answer(200, (hasTwoSounds ? withTwoSoundsOnItsLadder : onItsLadder)(groupsFilm));
       }
       if (route === "POST /together/airplay-grants") {
         return answer(201, { masterPath, expiresAt: "2026-11-18T18:00:00Z" });
@@ -221,7 +249,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
         route: "POST /together/airplay-grants",
         authorization: "Bearer viewer-credential",
         hasKey: true,
-        body: { mediaToken: "film-5" },
+        body: { mediaToken: "film-5", audioTrackIndex: 0 },
       },
     ]);
     const [video] = pickers;
@@ -229,6 +257,17 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     expect(video?.getAttribute("src")).toBe(new URL(masterPath, globalThis.location.origin).href);
     expect(airPlayHere()?.isPlaying()).toBe(true);
     expect(button("AirPlay")).toBeUndefined(); // the dialog closed as the film went to AirPlay
+    expect(refused).toEqual([]);
+  });
+
+  it("asks its grant with the audio track the guest chose on their page, which AirPlay plays (D521 §2)", async () => {
+    hasTwoSounds = true;
+    const container = await joinedAsTheFilmPlays();
+    await chooseIn(container, "Sound", "French");
+    await airPlays();
+    expect(grantsAsked().map((each) => each.body)).toEqual([
+      { mediaToken: "film-5", audioTrackIndex: 1 },
+    ]);
     expect(refused).toEqual([]);
   });
 
@@ -279,7 +318,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
       route: "POST /together/airplay-grants",
       authorization: "Bearer viewer-credential",
       hasKey: true,
-      body: { mediaToken: "film-6" },
+      body: { mediaToken: "film-6", audioTrackIndex: 0 },
     });
     await click(button("AirPlay"));
     expect(airPlayHere()?.isPlaying()).toBe(true);

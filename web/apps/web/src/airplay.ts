@@ -67,19 +67,38 @@ export function grantOriginOf(
 }
 
 /**
- * Asks for an AirPlay grant (D473) for the playback mediaToken names, its address resolved on
- * origin, the address the receiver is handed and must reach itself.
+ * What a grant is asked for: the playback its media token names, and the audio track the page plays
+ * now, by its place among the film's, which the grant's master playlist names its default (D521 §2);
+ * none, the playback's starting track.
+ */
+export interface AirPlayGrantAsked {
+  readonly mediaToken: string;
+  readonly audioTrackIndex?: number | undefined;
+}
+
+/** The body a grant is asked for with, naming no audio track where asked names none. */
+export function grantBody(asked: AirPlayGrantAsked): {
+  readonly mediaToken: string;
+  readonly audioTrackIndex?: number;
+} {
+  const { mediaToken, audioTrackIndex } = asked;
+  return audioTrackIndex === undefined ? { mediaToken } : { mediaToken, audioTrackIndex };
+}
+
+/**
+ * Asks for the AirPlay grant (D473) asked names, its address resolved on origin, the address the
+ * receiver is handed and must reach itself.
  */
 export async function makeAirPlayGrant(
   doing: AirPlayDoing,
-  mediaToken: string,
+  asked: AirPlayGrantAsked,
   origin: string,
 ): Promise<AirPlayGrant> {
   doing.log("asking for the grant (POST /airplay/grants)");
   // Each ask is one click's (a way's button, or the menu opening for way B), under its own key (D244 §4).
   const made = dataOrThrow(
     await doing.api.POST("/airplay/grants", {
-      body: { mediaToken },
+      body: grantBody(asked),
       ...idempotent(newIdempotencyKey()),
     }),
   );
@@ -110,7 +129,11 @@ export const noLog: Log = () => undefined;
 
 /** How AirPlay's grant is asked for (make) and revoked at AirPlay's end (revoke), and by whom. */
 export interface AirPlayGrants {
-  readonly make: (doing: AirPlayDoing, mediaToken: string, origin: string) => Promise<AirPlayGrant>;
+  readonly make: (
+    doing: AirPlayDoing,
+    asked: AirPlayGrantAsked,
+    origin: string,
+  ) => Promise<AirPlayGrant>;
   readonly revoke: (doing: AirPlayDoing) => Promise<number>;
 }
 
@@ -127,14 +150,18 @@ export const AirPlayGrantsContext = createContext<AirPlayGrants>(sessionAirPlayG
 // revocation of everything the page made cannot land after the grant, revoking it too.
 let revoking: Promise<unknown> = Promise.resolve();
 
-/** Asks for here's grant, by whoever here AirPlays by, once AirPlay's last revocation is answered. */
+/**
+ * Asks for here's grant, by whoever here AirPlays by, once AirPlay's last revocation is answered,
+ * with the audio track here plays as it is asked (D521 §2).
+ */
 export async function askAirPlayGrant(
   here: AirPlayHere,
   doing: AirPlayDoing,
   origin: string,
 ): Promise<AirPlayGrant> {
   await revoking;
-  return await here.grants.make(doing, here.mediaToken, origin);
+  const asked = { mediaToken: here.mediaToken, audioTrackIndex: here.audioTrackIndex?.() };
+  return await here.grants.make(doing, asked, origin);
 }
 
 /** The film this tab plays that AirPlay is offered for, as the Cast menu reaches it. */
@@ -143,6 +170,8 @@ export interface AirPlayHere {
   readonly mediaToken: string;
   /** Who its grant is asked for and revoked by. */
   readonly grants: AirPlayGrants;
+  /** The audio track the film plays now, by its place, which AirPlay plays too; none, its starting one. */
+  readonly audioTrackIndex?: () => number | undefined;
   /** Whether the film plays on AirPlay now. */
   readonly isPlaying: () => boolean;
   /** Hands the film to AirPlay from the grant at url, within the press it is called in. */
@@ -195,10 +224,14 @@ export function offerAirPlayHere(here: AirPlayHere): () => void {
   };
 }
 
-/** How a film on its ladder lets its element go to AirPlay, and takes it back where it stood. */
+/**
+ * How a film on its ladder lets its element go to AirPlay, and takes it back where it stood; and the
+ * audio track it plays now, by its place, which AirPlay is to play (D521 §2).
+ */
 export interface AirPlayHandOff {
   readonly letGoOfHls: () => void;
   readonly takeBack: (left: AirPlayLeft) => void;
+  readonly playingTrack: () => number | undefined;
 }
 
 /**
@@ -227,6 +260,7 @@ export function useOffersAirPlay(
     const here: AirPlayHere = {
       mediaToken,
       grants,
+      audioTrackIndex: () => handOffRef.current.playingTrack(),
       isPlaying: () => playing !== undefined,
       start: (url) => {
         if (playing !== undefined) {

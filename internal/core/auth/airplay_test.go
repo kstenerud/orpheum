@@ -14,7 +14,7 @@ func TestAirPlayGrant_StandsForItsPlaybackForADayThenExpires(t *testing.T) {
 	t.Parallel()
 	setup := newFixture(t)
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,12 +42,12 @@ func TestAirPlayGrant_IsRevokedByItsSenderAlone(t *testing.T) {
 	t.Parallel()
 	setup := newFixture(t)
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	other := anotherSession(t, setup.service)
-	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8)
+	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,8 @@ func TestAirPlayGrant_RefusesAGuestReceiver(t *testing.T) {
 	sender, _ := guestSender(t, setup.service)
 	guest := sender
 	guest.isGuestReceiver = true
-	if _, err := setup.service.IssueAirPlayGrant(guest, phone, "media-token", 7); !errors.Is(err, ErrAirPlaySender) {
+	_, err := setup.service.IssueAirPlayGrant(guest, phone, "media-token", 7, AirPlaySound{})
+	if !errors.Is(err, ErrAirPlaySender) {
 		t.Errorf("a guest receiver's grant: %v, want ErrAirPlaySender", err)
 	}
 }
@@ -85,12 +86,12 @@ func TestAirPlayGrant_EndsWithItsSendersSession(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, issued := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	other := anotherSession(t, setup.service)
-	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8)
+	otherGrant, err := setup.service.IssueAirPlayGrant(other, phone, "other-token", 8, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestAirPlayGrant_EndsWhenItsSendersDeviceIsRevoked(t *testing.T) {
 	if sender.DeviceID == 0 {
 		t.Fatal("the sender's session has no device to revoke")
 	}
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestAirPlayGrant_IsBoundToTheFirstIPv4AddressThatPresentsIt(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64(t *testing.T) {
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +199,7 @@ func TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther(t *testing.T)
 	setup := newFixture(t)
 	ctx := t.Context()
 	sender, _ := guestSender(t, setup.service)
-	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7)
+	grant, err := setup.service.IssueAirPlayGrant(sender, phone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +218,7 @@ func TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther(t *testing.T)
 	}
 
 	sixPhone := netip.MustParseAddr("2001:db8:5:6::20")
-	sixGrant, err := setup.service.IssueAirPlayGrant(sender, sixPhone, "media-token", 7)
+	sixGrant, err := setup.service.IssueAirPlayGrant(sender, sixPhone, "media-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +266,7 @@ func TestAirPlayGrant_AWatchTogetherGuestsStandsForTheirMembershipsPlayback(t *t
 	setup := newFixture(t)
 	receiver := netip.MustParseAddr("192.0.2.30")
 	membership := AirPlayMembership{SessionKey: "viewer:abc", HoldCredential: "hold"}
-	grant, err := setup.service.IssueMembershipAirPlayGrant(membership, phone, "viewer-token", 7)
+	grant, err := setup.service.IssueMembershipAirPlayGrant(membership, phone, "viewer-token", 7, AirPlaySound{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,8 +306,8 @@ func TestAirPlayGrant_NoneIsMadeForNoMembership(t *testing.T) {
 	for name, none := range map[string]AirPlayMembership{
 		"no key": {HoldCredential: "hold"}, "no hold": {SessionKey: "viewer:abc"},
 	} {
-		if _, err := setup.service.IssueMembershipAirPlayGrant(none, phone, "viewer-token", 7); !errors.Is(
-			err, ErrAirPlaySender) {
+		_, err := setup.service.IssueMembershipAirPlayGrant(none, phone, "viewer-token", 7, AirPlaySound{})
+		if !errors.Is(err, ErrAirPlaySender) {
 			t.Errorf("%s: %v, want ErrAirPlaySender", name, err)
 		}
 	}

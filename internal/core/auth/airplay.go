@@ -63,13 +63,22 @@ type airPlayGrant struct {
 // the one file FileID, as its sender's session holds them; never anything else. A Watch Together
 // guest's (D519 §1) has no person: SessionKey is their membership's as their page's playback holds it,
 // and HoldCredential is the credential of their membership it holds it by, which the caller checks
-// still admits them.
+// still admits them. Sound is the audio track its master playlist names its default (D521 §2).
 type AirPlayGrant struct {
 	UserID         int64
 	SessionKey     string
 	MediaToken     string
 	FileID         int64
 	HoldCredential string
+	Sound          AirPlaySound
+}
+
+// AirPlaySound is the audio track the page plays as it asks for an AirPlay grant, by its place among
+// the film's audio tracks (D521 §2), which the grant's receiver plays too: IsChosen false where the
+// page named none.
+type AirPlaySound struct {
+	IsChosen        bool
+	AudioTrackIndex int
 }
 
 // IsForMembership is whether the grant is a Watch Together guest's, held by HoldCredential.
@@ -157,9 +166,10 @@ func (kept *airPlayGrants) forgetLocked(now time.Time, sessionKey string) {
 // connection's own): random, kept only as its SHA-256, good for AirPlayGrantLife unless revoked,
 // served to the sender's address always, and bound to no other until one first presents it. It goes in
 // the media's path, the one place an AirPlay receiver, which runs none of our code, can carry it
-// (D473 §1). ErrAirPlaySender for a guest receiver's session or one of no session key.
+// (D473 §1). Its receiver plays sound, the track the page plays (D521 §2). ErrAirPlaySender for a
+// guest receiver's session or one of no session key.
 func (service *Service) IssueAirPlayGrant(
-	sender Principal, senderAddress netip.Addr, mediaToken string, fileID int64,
+	sender Principal, senderAddress netip.Addr, mediaToken string, fileID int64, sound AirPlaySound,
 ) (string, error) {
 	if sender.isGuestReceiver || sender.SessionKey == "" {
 		return "", ErrAirPlaySender
@@ -169,7 +179,7 @@ func (service *Service) IssueAirPlayGrant(
 		return "", err
 	}
 	service.keepAirPlayGrant(secret, senderAddress, AirPlayGrant{
-		UserID: sender.UserID, SessionKey: sender.SessionKey, MediaToken: mediaToken, FileID: fileID,
+		UserID: sender.UserID, SessionKey: sender.SessionKey, MediaToken: mediaToken, FileID: fileID, Sound: sound,
 	})
 	return secret, nil
 }
@@ -177,11 +187,11 @@ func (service *Service) IssueAirPlayGrant(
 // IssueMembershipAirPlayGrant is IssueAirPlayGrant for a Watch Together guest who joined by their
 // link, signed in to nothing (D519 §1): the grant is for the playback of fileID that mediaToken names,
 // which their membership holds (the caller has checked), and bound to the membership, not to a person
-// or a session. Its life, its addresses, its film alone and its revocation (RevokeAirPlayGrantsOf) are
-// a person's grant's; it serves while membership.HoldCredential admits the guest, which the caller
-// checks at each request (AirPlayGrantOf). ErrAirPlaySender for no membership.
+// or a session. Its life, its addresses, its film alone, its sound and its revocation
+// (RevokeAirPlayGrantsOf) are a person's grant's; it serves while membership.HoldCredential admits
+// the guest, which the caller checks at each request (AirPlayGrantOf). ErrAirPlaySender for no membership.
 func (service *Service) IssueMembershipAirPlayGrant(
-	membership AirPlayMembership, senderAddress netip.Addr, mediaToken string, fileID int64,
+	membership AirPlayMembership, senderAddress netip.Addr, mediaToken string, fileID int64, sound AirPlaySound,
 ) (string, error) {
 	if membership.SessionKey == "" || membership.HoldCredential == "" {
 		return "", ErrAirPlaySender
@@ -192,7 +202,7 @@ func (service *Service) IssueMembershipAirPlayGrant(
 	}
 	service.keepAirPlayGrant(secret, senderAddress, AirPlayGrant{
 		SessionKey: membership.SessionKey, MediaToken: mediaToken, FileID: fileID,
-		HoldCredential: membership.HoldCredential,
+		HoldCredential: membership.HoldCredential, Sound: sound,
 	})
 	return secret, nil
 }

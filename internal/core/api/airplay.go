@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -37,7 +38,17 @@ type AirPlayGrantInput struct {
 	ConnectionAddress
 	Body struct {
 		MediaToken string `doc:"The playback's media token, as POST /playback answered it" json:"mediaToken" maxLength:"200" minLength:"1"` //nolint:lll // one struct tag
+		// The audio track the page plays now, which the receiver plays (D521 §2).
+		AudioTrackIndex *int `doc:"The audio track the page plays now, by its place among the film's, which the grant's master playlist names its default; absent, or one the film does not have, for the playback's starting track" json:"audioTrackIndex,omitempty" maximum:"1000" minimum:"0" required:"false"` //nolint:lll // one struct tag
 	}
+}
+
+// soundAsked is the audio track the grant's receiver is to play, as the page asked (D521 §2).
+func (input *AirPlayGrantInput) soundAsked() auth.AirPlaySound {
+	if input.Body.AudioTrackIndex == nil {
+		return auth.AirPlaySound{}
+	}
+	return auth.AirPlaySound{IsChosen: true, AudioTrackIndex: *input.Body.AudioTrackIndex}
 }
 
 // AirPlayGrantOutput is the grant made, and where its master playlist is.
@@ -155,7 +166,8 @@ func (server *Server) makeAirPlayGrant(
 	if err != nil {
 		return nil, server.playbackError(ctx, "find the playback to AirPlay", err)
 	}
-	grant, err := dependencies.Auth.IssueAirPlayGrant(principal, input.address, input.Body.MediaToken, chunked.FileID)
+	grant, err := dependencies.Auth.IssueAirPlayGrant(
+		principal, input.address, input.Body.MediaToken, chunked.FileID, input.soundAsked())
 	if err != nil {
 		return nil, server.logInternalError(ctx, "make an AirPlay grant", err)
 	}
@@ -206,7 +218,7 @@ func (server *Server) makeTogetherAirPlayGrant(
 	}
 	grant, err := dependencies.Auth.IssueMembershipAirPlayGrant(
 		auth.AirPlayMembership{SessionKey: holder.SessionKey, HoldCredential: hold},
-		input.address, input.Body.MediaToken, chunked.FileID)
+		input.address, input.Body.MediaToken, chunked.FileID, input.soundAsked())
 	if err != nil {
 		return nil, server.logInternalError(ctx, "make a Watch Together guest's AirPlay grant", err)
 	}
@@ -251,11 +263,22 @@ func (server *Server) revokeAirPlayGrants(
 
 // airPlayServed is what an AirPlay grant serves: its playback's token, and the holder that
 // holds it, its sender's person and session, reaching what their role reaches now, and the grant's
-// film alone.
+// film alone; and the sound the page played as it asked for the grant.
 type airPlayServed struct {
 	dependencies *Dependencies
 	mediaToken   string
 	holder       playback.Holder
+	sound        auth.AirPlaySound
+}
+
+// asPlayed is the playback as the grant's receiver plays it: the track the page played as it asked
+// for the grant, where it named one, its master playlist's default (D521 §2); else as the page's
+// own player plays it.
+func (served airPlayServed) asPlayed(chunked chunks.Playback) chunks.Playback {
+	if !served.sound.IsChosen {
+		return chunked
+	}
+	return chunked.PlayingTrack(served.sound.AudioTrackIndex)
 }
 
 // airPlayPlayback is what an AirPlay grant serves to a receiver at address. A grant unknown, revoked
@@ -287,6 +310,7 @@ func (server *Server) airPlayPlayback(
 		holder: playback.Holder{
 			UserID: kept.UserID, SessionKey: kept.SessionKey, Reach: reach, OnlyFileID: kept.FileID,
 		},
+		sound: kept.Sound,
 	}, nil
 }
 
@@ -307,11 +331,13 @@ func membershipAirPlayPlayback(
 	if !isHeld {
 		return airPlayServed{}, newError(http.StatusNotFound, CodeNotFound, auth.ErrNoAirPlayGrant.Error())
 	}
-	return airPlayServed{dependencies: dependencies, mediaToken: kept.MediaToken, holder: holder}, nil
+	return airPlayServed{
+		dependencies: dependencies, mediaToken: kept.MediaToken, holder: holder, sound: kept.Sound,
+	}, nil
 }
 
 // getAirPlayMasterPlaylist answers GET /bytes/media/g/{grant}/master.m3u8, held while the film has
-// no grid (airPlayHold).
+// no grid (airPlayHold), its default sound the track the page played (asPlayed).
 func (server *Server) getAirPlayMasterPlaylist(
 	ctx context.Context, input *AirPlayMasterInput,
 ) (*huma.StreamResponse, error) {
@@ -319,7 +345,9 @@ func (server *Server) getAirPlayMasterPlaylist(
 	if err != nil {
 		return nil, err
 	}
-	return server.masterPlaylistOf(ctx, served.dependencies, served.mediaToken, served.holder, airPlayHold)
+	return server.masterPlaylistOf(ctx, served.dependencies, served.mediaToken, served.holder, masterAsked{
+		hold: airPlayHold, asPlayed: served.asPlayed,
+	})
 }
 
 // getAirPlayFile answers GET /bytes/media/g/{grant}/{streamName}/{fileName}, a chunk not made yet

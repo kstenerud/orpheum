@@ -85,6 +85,15 @@ func (offered offer) playingSoundOf(playback Playback, picture Stream) Stream {
 	return offered.soundOf(picture, Sound{AudioTrackIndex: playback.StartingAudioTrackIndex})
 }
 
+// PlayingTrack is the playback as a player that plays the film's audio track audioTrackIndex, by its
+// place among them, sees it: its master playlist's default that track's standard sound, where the film
+// has it, else its starting track's (playingSoundOf), the playback itself unchanged. An AirPlay
+// receiver plays the track the page played as it asked for the grant (D521 §2).
+func (playback Playback) PlayingTrack(audioTrackIndex int) Playback {
+	playback.PlayingSound = Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: audioTrackIndex}.Name()
+	return playback
+}
+
 // isPlayingTrack is whether sound is the standard sound of the track the playback plays now
 // (playingSoundOf), its master playlist's default.
 func (offered offer) isPlayingTrack(playback Playback, sound Sound) bool {

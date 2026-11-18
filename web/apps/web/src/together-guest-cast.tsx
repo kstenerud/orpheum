@@ -7,7 +7,7 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { grantAt, useAirPlayHere, type AirPlayGrants } from "./airplay.ts";
+import { grantAt, grantBody, useAirPlayHere, type AirPlayGrants } from "./airplay.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { ChromecastEntry, useGuestCastAskingBy } from "./cast-to.tsx";
 import type { CastChannel } from "./cast-sdk.ts";
@@ -49,12 +49,12 @@ import { useRequest } from "./use-request.ts";
  */
 export function membershipAirPlayGrants(credential: string): AirPlayGrants {
   return {
-    make: async (doing, mediaToken, origin) => {
+    make: async (doing, asked, origin) => {
       doing.log("asking for the guest's grant (POST /together/airplay-grants)");
       const made = dataOrThrow(
         await doing.api.POST("/together/airplay-grants", {
           headers: { ...idempotent(newIdempotencyKey()).headers, ...membershipHeaders(credential) },
-          body: { mediaToken },
+          body: grantBody(asked),
         }),
       );
       return grantAt(made, origin, doing.log);

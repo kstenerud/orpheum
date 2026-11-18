@@ -2801,6 +2801,11 @@ export interface components {
             adminNote: string;
         };
         AirPlayGrantInputBody: {
+            /**
+             * Format: int64
+             * @description The audio track the page plays now, by its place among the film's, which the grant's master playlist names its default; absent, or one the film does not have, for the playback's starting track
+             */
+            audioTrackIndex?: number;
             /** @description The playback's media token, as POST /playback answered it */
             mediaToken: string;
         };

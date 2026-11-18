@@ -268,7 +268,7 @@ function useGrant(
       return undefined;
     }
     try {
-      const made = await makeAirPlayGrant({ api, log }, mediaToken, origin);
+      const made = await makeAirPlayGrant({ api, log }, { mediaToken }, origin);
       setGrant(made);
       return made;
     } catch (cause: unknown) {
