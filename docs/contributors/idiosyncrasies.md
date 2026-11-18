@@ -1370,8 +1370,11 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 - **What we do:** the code alone cannot tell the two apart, so `openCastSession`
   (`web/apps/web/src/cast-sdk.ts`) listens for the context's `SESSION_STARTING`, which comes only
   once a device is picked: a failure with none heard is the person's closing of the picker, and
-  the page says nothing (`cast-sdk.test.ts`). Why the picker listed no device that time is not
-  known yet.
+  the page says nothing (`cast-sdk.test.ts`). The picker listed no device because Chrome lists,
+  for an unpublished receiver application (staging's), only a device whose serial is registered for
+  development in Google's Cast console, and the owner's Chromecast's registration had been removed
+  for VQ303; production's published application listed it at once. An empty picker on staging:
+  look at the device's registration first.
 - **Evidence:** the owner's console, 2026-11-18. **[web]** the SDK's error codes
   ([chrome.cast reference](https://developers.google.com/cast/docs/reference/web_sender/chrome.cast))
   name "cancel" as the person's but say nothing of a picker closed empty; a Chromium review
