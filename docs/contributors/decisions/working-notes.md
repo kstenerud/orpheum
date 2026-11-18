@@ -30201,3 +30201,26 @@ the playback's starting track, not the Japanese the guest had chosen. Amends D47
 - 2: TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays, TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays (internal/core/api/airplay_sound_test.go), web/apps/web/src/film-player-airplay.test.tsx ("says the audio track the film plays, by its place, which its grant asks AirPlay to play (D521 §2)"), web/apps/web/src/together-guest-airplay.test.tsx ("asks its grant with the audio track the guest chose on their page, which AirPlay plays (D521 §2)"), VQ364
 
 **Status:** decided (2026-11-18); built (2026-11-18).
+
+## D522 — An AirPlay grant's master offers only the sound the page plays, and a guest's sync gives AirPlay room
+
+**Decided** (2026-11-18), by the project owner, choosing both recommendations asked after VQ364's
+fourth run. In that run the guest's page asked its grant for track 0 (`audioTrackAsked=0`), and the
+grant's master marked track 0's sound as the default (D521 §2). Even so, the Mac and the iPhone's own
+player each fetched track 0's sound and then, within half a second, track 2's, the English one: Apple's
+player chooses its own sound over the default (WebKit bug 188068; docs/contributors/idiosyncrasies.md).
+Over AirPlay the guest's player also paused itself. The receiver ran behind, and the guest's sync
+sought it forward (`followerCaughtUp by=seek`). Each seek made Safari fire `pause`, and the page sent
+that pause to the group as a pause the guest had made (`leaderCommand command=pause`). Amends D521 §2.
+
+1. **The grant's master offers one sound.** An AirPlay grant's master playlist lists only the sound
+   of the audio track its page asked for, one rendition in each group, so the receiver has no other
+   sound to choose. With no track asked for, or one the film does not have, it lists the playback's
+   starting track. The page's own master is unchanged. To change the sound, the person uses the page;
+   the receiver's own menu offers no other.
+2. **A guest's sync gives AirPlay room.** While a Watch Together guest's video plays on an AirPlay
+   receiver, the guest's sync corrects its position only once it is about 2 s from the group's, not
+   at the gap it allows a local player. A pause or play the element fires that the guest did not
+   press (a seek's, the receiver's) is not sent to the group as theirs.
+
+**Status:** decided (2026-11-18).

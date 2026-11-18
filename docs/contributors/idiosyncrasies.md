@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
 | A seek in a very long MP4 (file 15497, 45 h) waited 5–8 s before its first chunk. | [FFmpeg's MP4 demuxer parses the whole index at every open, and says a stream's bit rate from all of it](#ffmpegs-mp4-demuxer-parses-the-whole-index-at-every-open-and-says-a-streams-bit-rate-from-all-of-it) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
+| AirPlay to the Mac played the English sound though the page played the Japanese one and asked for it; back on the iPhone it played English too. | [Apple's HLS player chooses its own sound over the master playlist's default](#apples-hls-player-chooses-its-own-sound-over-the-master-playlists-default) |
 | After Stop AirPlay on the iPhone, the film's sound went on playing on the Mac; the next AirPlay played on the phone, its sound alone on the Mac. | [Safari on iOS keeps AirPlay's sound route after the page ends AirPlay, which only the person can end](#safari-on-ios-keeps-airplays-sound-route-after-the-page-ends-airplay-which-only-the-person-can-end) |
 | Chrome's Cast picker listed no device; closed, the page said a failure the app does not expect. | [Chrome's Cast picker, closed having found no device, answers session_error, not cancel](#chromes-cast-picker-closed-having-found-no-device-answers-session_error-not-cancel) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
@@ -1392,6 +1393,23 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   [WebKit bug 239031](https://bugs.webkit.org/show_bug.cgi?id=239031): the WebKit attribute cannot
   be removed again, `disableremoteplayback` can (read 2026-11-18).
 
+
+### Apple's HLS player chooses its own sound over the master playlist's default
+
+- **Symptom:** a Watch Together guest's page played track 0's Japanese sound and asked its AirPlay
+  grant for track 0. The grant's master playlist marked that sound `DEFAULT=YES,AUTOSELECT=YES` and
+  the English one `DEFAULT=NO,AUTOSELECT=NO`. The Mac, and the iPhone's own player as it handed
+  over, each fetched the Japanese sound's playlist and then, within half a second, the English one's,
+  and played English (the owner, staging, VQ364, 2026-11-18 17:05; the core's `airPlayRequest` lines).
+- **Cause:** Apple's player (AVFoundation, behind Safari's own HLS and AirPlay) applies its own
+  media selection, by the system's languages or a sound chosen before, over the master's default.
+  Others report the same, and WebKit's bug is open.
+- **What we do:** an AirPlay grant's master lists only the sound its page asked for, one rendition
+  in each group, so there is no other to choose (D522 §1). The page's own master, which hls.js
+  plays, keeps every sound.
+- **Evidence:** the owner's run and the core's log, 2026-11-18. **[web]** WebKit,
+  [Bug 188068: Safari HLS playback ignores DEFAULT attribute for audio tracks](https://bugs.webkit.org/show_bug.cgi?id=188068);
+  Bitmovin community, [iOS audio played does not match the one selected](https://community.bitmovin.com/t/ios-audio-played-does-not-match-the-one-selected-in-player-audio-settings/2776).
 ### Chrome's Cast picker, closed having found no device, answers session_error, not cancel
 
 - **Symptom:** a Watch Together guest pressed Chromecast in Chrome on the Mac; Chrome's picker

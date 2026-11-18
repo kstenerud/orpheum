@@ -526,7 +526,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D518](working-notes.md#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership) A Watch Together guest by link casts to a Chromecast as another device of their membership — *revisited by D519*
 - [D519](working-notes.md#d519--a-watch-together-guest-by-link-airplays-as-their-membership-too-and-keeps-one-casts-credential-at-a-time) A Watch Together guest by link AirPlays as their membership too, and keeps one cast's credential at a time — *revisited by D520*
 - [D520](working-notes.md#d520--one-device-casts-to-one-other-at-a-time-and-a-guest-by-link-is-always-offered-airplay-the-server-refusing-what-their-link-does-not-allow) One device casts to one other at a time, and a guest by link is always offered AirPlay, the server refusing what their link does not allow
-- [D521](working-notes.md#d521--stop-airplay-opens-airplays-picker-for-the-person-to-choose-this-device-and-airplay-plays-the-sound-the-page-plays) Stop AirPlay opens AirPlay's picker for the person to choose this device, and AirPlay plays the sound the page plays
+- [D521](working-notes.md#d521--stop-airplay-opens-airplays-picker-for-the-person-to-choose-this-device-and-airplay-plays-the-sound-the-page-plays) Stop AirPlay opens AirPlay's picker for the person to choose this device, and AirPlay plays the sound the page plays — *revisited by D522*
+- [D522](working-notes.md#d522--an-airplay-grants-master-offers-only-the-sound-the-page-plays-and-a-guests-sync-gives-airplay-room) An AirPlay grant's master offers only the sound the page plays, and a guest's sync gives AirPlay room
 
 ## Archived
 
