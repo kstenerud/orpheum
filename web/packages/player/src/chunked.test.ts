@@ -93,24 +93,22 @@ describe("whether a playback loads its lowest quality (D506 §3)", () => {
 describe("loading a chunk the core is making (D250 §5)", () => {
   // D514: a sought chunk is made in a quarter to three fifths of a second, and the second's wait
   // before it was asked for again was most of a seek's (staging, 2026-11-17).
+  it("asks again a quarter second after a 425, then doubling the wait, two seconds at most", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(retry === null ? [] : [0, 1, 2, 3, 4].map((count) => delayOf(retry, count))).toEqual([
+      250, 500, 1000, 2000, 2000,
+    ]);
+  });
+
   // D514 §2: a chunk lost with its connection waits as long in all as before the quarter second, the
   // 1 s and 2 s, so it is asked again on the connection that replaced the lost one, half a second on.
   it("asks a chunk lost with its connection again for as long as the 1 s and 2 s it waited before", () => {
     const retry = chunkLoadPolicy.default.errorRetry;
     let waitedMs = 0;
     for (let count = 0; count < unansweredAskAgainCount; count++) {
-      waitedMs += retry === null || retry === undefined ? 0 : delayOf(retry, count);
+      waitedMs += retry === null ? 0 : delayOf(retry, count);
     }
     expect(waitedMs).toBeGreaterThanOrEqual(3000);
-  });
-
-  it("asks again a quarter second after a 425, then doubling the wait, two seconds at most", () => {
-    const retry = chunkLoadPolicy.default.errorRetry;
-    expect(
-      retry === null || retry === undefined
-        ? []
-        : [0, 1, 2, 3, 4].map((count) => delayOf(retry, count)),
-    ).toEqual([250, 500, 1000, 2000, 2000]);
   });
 
   it("asks again after a 425 for longer than a player catching up waits ahead", () => {
@@ -644,8 +642,8 @@ function delayOf(retry: RetryConfig, count: number): number {
 }
 
 /** How long hls.js goes on asking a chunk again, every wait of retry's added up. */
-function askingAgainForMs(retry: RetryConfig | null | undefined): number {
-  if (retry === null || retry === undefined) {
+function askingAgainForMs(retry: RetryConfig | null): number {
+  if (retry === null) {
     return 0;
   }
   let total = 0;
