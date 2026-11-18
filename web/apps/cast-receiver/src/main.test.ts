@@ -57,13 +57,17 @@ describe("the receiver's entry point", () => {
       sendCustomMessage: () => undefined,
       stop,
     };
-    vi.stubGlobal("cast", {
-      framework: {
-        CastReceiverOptions: class {},
-        CastReceiverContext: { getInstance: () => context },
-        system: { MessageType: { JSON: "JSON" }, EventType: {} },
-      },
-    });
+    // CAF's own names, which are not this tree's camelCase: the options an object, as CAF's are.
+    const system = Object.fromEntries<unknown>([
+      ["MessageType", Object.fromEntries([["JSON", "JSON"]])],
+      ["EventType", {}],
+    ]);
+    const framework = Object.fromEntries<unknown>([
+      ["CastReceiverOptions", Object],
+      ["CastReceiverContext", { getInstance: () => context }],
+      ["system", system],
+    ]);
+    vi.stubGlobal("cast", { framework });
     await import("./main.ts");
     vi.advanceTimersByTime(idleClosesAfterMs - 1);
     expect(stop).not.toHaveBeenCalled();

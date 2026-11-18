@@ -87,6 +87,14 @@ export class UpNextCard {
       });
   }
 
+  /**
+   * Whether an episode that can be read now is known to play after the film, as the caster offers
+   * it; false while what plays next is unknown, or could not be read.
+   */
+  hasNext(): boolean {
+    return this.lines !== undefined;
+  }
+
   /** Takes the card away, the receiver no cast's now. */
   remove(): void {
     this.fileId = 0;

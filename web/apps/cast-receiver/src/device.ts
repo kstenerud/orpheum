@@ -284,6 +284,31 @@ export class CastDevice {
         this.together?.reportState();
       });
     }
+    options.video.addEventListener("ended", () => {
+      this.waitsReadyAtTheEnd();
+    });
+  }
+
+  /**
+   * At its cast's film's end with nothing after it that can be read now, has the cast play nothing,
+   * as a browser receiver does (the web app's readyForTheNext, D364 §5): the server hands the cast
+   * again so, the film is taken off and the receiver's black screen shows, still connected, for the
+   * next video the person casts, until its idle close ends it (idle.ts). Where a next episode is
+   * offered, the caster's Up next moves the cast on, or leaves it at its end (D471).
+   */
+  private waitsReadyAtTheEnd(): void {
+    const { castId } = this;
+    const { api, note } = this.options;
+    if (castId === undefined || this.playingFileId === 0 || this.upNext.hasNext()) {
+      return;
+    }
+    note("the film ended with nothing next: the cast plays nothing, ready for the next");
+    void api
+      .POST("/me/casts/{id}/play", { params: { path: { id: castId } }, body: {} })
+      .then(dataOrThrow)
+      .catch((cause: unknown) => {
+        note(`could not have the cast wait ready: ${failureText(cause)}`);
+      });
   }
 
   /** Connects as a device, listed in the Cast control while connected; returns the stopping. */
