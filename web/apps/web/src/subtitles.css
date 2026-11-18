@@ -12,6 +12,8 @@
 .subtitles .route-chooser__button {
   min-width: 0;
   max-width: 100%;
+  /* A release name has no space to wrap at: it breaks anywhere, or it is wider than the screen. */
+  overflow-wrap: anywhere;
 }
 
 .subtitles__offset {
