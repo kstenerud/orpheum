@@ -30008,7 +30008,14 @@ film's last frame until its idle end, its guests never sent back to the waiting 
 2. **Stopping stays the host's right otherwise**: a guest's player says only that it reached the
    end, the server stopping the group for the host; no guest command is admitted by it.
 
-**Status:** decided (2026-11-18).
+**Proven by:**
+- 1: TestHub_AFilmEndingOnItsLeadersPlayerWithNothingNextStopsTheGroup (internal/core/together/film_end_test.go)
+- 1: web/packages/sdk/src/together-film-end.test.ts ("a guest's player %s says its film ended in the state it tells as it ends, and not before")
+- 2: TestHub_AFollowersEndOfTheFilmChangesNothing (internal/core/together/film_end_test.go)
+- 2: web/apps/web/src/together-end.test.tsx ("sends no stop of its own at the end, where an episode plays next or none does: the server finds which (D516 §2)")
+
+**Status:** built (2026-11-18) in "feat(together): a group's film ending on its leader's player
+with nothing next stops the group", at `stopsAtItsLeadersEnd` and `isAtTheEnd`.
 
 ## D517 — Failures of unknown cause piling up light the warning sign, with no banner
 
