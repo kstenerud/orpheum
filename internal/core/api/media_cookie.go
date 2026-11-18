@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
 // MediaCookieName names the cookie that carries the session to the byte paths, all under /bytes/
@@ -191,7 +192,18 @@ func (server *Server) viewerHolder(
 		return playback.Holder{}, false
 	}
 	viewer, isViewer := dependencies.Together.ViewerOf(credential)
-	if !isViewer || viewer.FileID == 0 {
+	if !isViewer {
+		return playback.Holder{}, false
+	}
+	return holderOfViewer(ctx, dependencies, viewer, viewerKey(credential))
+}
+
+// holderOfViewer is the holder viewer is, its playbacks held by sessionKey, while the session plays
+// something: the host's libraries, and only that film (D246 §3).
+func holderOfViewer(
+	ctx context.Context, dependencies *Dependencies, viewer together.Viewer, sessionKey string,
+) (playback.Holder, bool) {
+	if viewer.FileID == 0 {
 		return playback.Holder{}, false
 	}
 	reach, err := dependencies.Auth.ReachOfUser(ctx, viewer.HostUserID)
@@ -199,7 +211,7 @@ func (server *Server) viewerHolder(
 		return playback.Holder{}, false
 	}
 	return playback.Holder{
-		SessionKey: viewerKey(credential), Reach: reach, OnlyFileID: viewer.FileID, HostUserID: viewer.HostUserID,
+		SessionKey: sessionKey, Reach: reach, OnlyFileID: viewer.FileID, HostUserID: viewer.HostUserID,
 	}, true
 }
 

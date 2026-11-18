@@ -256,7 +256,13 @@
 //     TestAirPlayGrant_EndsWhenItsSendersDeviceIsRevoked, TestAirPlayGrant_RefusesAGuestReceiver,
 //     TestAirPlayGrant_IsBoundToTheFirstIPv4AddressThatPresentsIt,
 //     TestAirPlayGrant_IsBoundToTheFirstIPv6AddresssSlash64 and
-//     TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther.
+//     TestAirPlayGrant_ServesItsSendersAddressAndBindsTheFirstOther. A Watch Together guest's grant
+//     (D519 §1) is the same but for whom it stands for: their membership's playback, held as their
+//     page holds it, the credential the hub keeps for it naming the membership; no person's session
+//     ends or revokes it, the guest's page revokes it by its viewer key, and the API refuses it once
+//     the membership no longer admits that credential.
+//     TestAirPlayGrant_AWatchTogetherGuestsStandsForTheirMembershipsPlayback and
+//     TestAirPlayGrant_NoneIsMadeForNoMembership.
 //
 // # Read before changing
 //

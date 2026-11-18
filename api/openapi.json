@@ -18599,6 +18599,88 @@
         "x-orpheum-capability": "hostTogether"
       }
     },
+    "/together/airplay-grants": {
+      "delete": {
+        "operationId": "revokeTogetherAirPlayGrants",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirPlayRevokeOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
+        "summary": "Revokes every AirPlay grant your Watch Together membership's page made, as its Stop does",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "member"
+      },
+      "post": {
+        "operationId": "makeTogetherAirPlayGrant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AirPlayGrantInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirPlayGrantOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
+        "summary": "A grant in the media's path for the playback your Watch Together membership holds, for an AirPlay receiver to play the group's film with as your membership, while you are in (D519 §1)",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "member"
+      }
+    },
     "/together/cast-grants": {
       "post": {
         "operationId": "issueTogetherGuestGrant",

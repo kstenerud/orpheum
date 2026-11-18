@@ -2449,6 +2449,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/airplay-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A grant in the media's path for the playback your Watch Together membership holds, for an AirPlay receiver to play the group's film with as your membership, while you are in (D519 §1) */
+        post: operations["makeTogetherAirPlayGrant"];
+        /** Revokes every AirPlay grant your Watch Together membership's page made, as its Stop does */
+        delete: operations["revokeTogetherAirPlayGrants"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/cast-grants": {
         parameters: {
             query?: never;
@@ -11787,6 +11805,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TogetherLinkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    makeTogetherAirPlayGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirPlayGrantInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirPlayGrantOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeTogetherAirPlayGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirPlayRevokeOutputBody"];
                 };
             };
             /** @description Error */

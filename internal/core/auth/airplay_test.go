@@ -255,3 +255,59 @@ func anotherSession(t *testing.T, service *Service) Principal {
 	}
 	return other
 }
+
+// A Watch Together guest's AirPlay grant (D519 §1) stands for their membership's playback alone: no
+// person, their membership's key, the credential it holds the membership by for the caller to check,
+// for a day as a person's, bound to the addresses that present it as a person's, revoked under their
+// membership's key alone, and never by a session's end, which it has none of.
+func TestAirPlayGrant_AWatchTogetherGuestsStandsForTheirMembershipsPlayback(t *testing.T) {
+	t.Parallel()
+	setup := newFixture(t)
+	receiver := netip.MustParseAddr("192.0.2.30")
+	membership := AirPlayMembership{SessionKey: "viewer:abc", HoldCredential: "hold"}
+	grant, err := setup.service.IssueMembershipAirPlayGrant(membership, phone, "viewer-token", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, err := setup.service.AirPlayGrantOf(t.Context(), grant, receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !kept.IsForMembership() || kept.UserID != 0 || kept.SessionKey != "viewer:abc" ||
+		kept.HoldCredential != "hold" || kept.MediaToken != "viewer-token" || kept.FileID != 7 {
+		t.Errorf("the guest's grant stands for %+v; want their membership's playback of file 7", kept)
+	}
+	if _, err = setup.service.AirPlayGrantOf(t.Context(), grant, netip.MustParseAddr("192.168.1.99")); !errors.Is(
+		err, ErrNoAirPlayGrant) {
+		t.Errorf("the guest's grant from a third address: %v, want ErrNoAirPlayGrant", err)
+	}
+	sender, _ := guestSender(t, setup.service)
+	if revoked := setup.service.RevokeAirPlayGrants(sender); revoked != 0 {
+		t.Errorf("a person's Stop revoked %d of the guest's grants; want none", revoked)
+	}
+	setup.clock.Advance(AirPlayGrantLife - time.Second)
+	if _, err = setup.service.AirPlayGrantOf(t.Context(), grant, receiver); err != nil {
+		t.Errorf("a second before its day ends: %v", err)
+	}
+	if revoked := setup.service.RevokeAirPlayGrantsOf("viewer:abc"); revoked != 1 {
+		t.Errorf("the guest's Stop revoked %d; want their one grant", revoked)
+	}
+	if _, err = setup.service.AirPlayGrantOf(t.Context(), grant, receiver); !errors.Is(err, ErrNoAirPlayGrant) {
+		t.Errorf("the guest's revoked grant: %v, want ErrNoAirPlayGrant", err)
+	}
+}
+
+// No AirPlay grant is made for no Watch Together membership (D519 §1): one with no key or no
+// credential to hold it by is refused.
+func TestAirPlayGrant_NoneIsMadeForNoMembership(t *testing.T) {
+	t.Parallel()
+	setup := newFixture(t)
+	for name, none := range map[string]AirPlayMembership{
+		"no key": {HoldCredential: "hold"}, "no hold": {SessionKey: "viewer:abc"},
+	} {
+		if _, err := setup.service.IssueMembershipAirPlayGrant(none, phone, "viewer-token", 7); !errors.Is(
+			err, ErrAirPlaySender) {
+			t.Errorf("%s: %v, want ErrAirPlaySender", name, err)
+		}
+	}
+}

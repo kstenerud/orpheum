@@ -3430,3 +3430,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   a few seconds; (4) with a new link and a new cast, the host ends the session: the TV goes home
   the same way. (`POST /together/cast-grants`, `GuestCastPart`, the receiver's `guest.ts` and
   `guest-part.ts`, the web app's `together-guest-cast.tsx`.)
+- [ ] **VQ361** — A Watch Together guest by link, signed in to nothing, AirPlays the group's film
+  and it plays as their membership while they are in (D519 §1; the owner, 2026-11-18). Waits on the
+  guest page's AirPlay button, which is not built yet. On staging, the owner signed in on the Mac
+  opens a Watch Together session and makes a link; on an iPhone's Safari, or a Mac's Safari in a
+  private window, join by the link and, once the host puts a film on, AirPlay from the Watch
+  Together page to the AirPlay TV. Passes when (1) the TV plays the group's film; (2) Stop on the
+  guest's page leaves the TV; (3) AirPlay again, then the host removes the guest from the roster:
+  the TV stops within a few seconds, its next request refused; (4) with a new link, AirPlay again,
+  then cast to the Chromecast from the same page: the AirPlay TV stops, the guest having one cast
+  at a time (D519 §2). (`POST /together/airplay-grants`, `DELETE /together/airplay-grants`,
+  `GuestAirPlayHold`, the web app's `together-viewer.tsx`.)

@@ -30119,7 +30119,13 @@ keeps: "agreed". Amends D518.
    is. The guest's own browser's credential is never pushed out by casting.
 
 **Proven by:**
+- 1: TestTogetherAirPlay_AGuestByLinkAirPlaysAsTheirMembershipWhileTheyAreIn (internal/core/api/together_airplay_test.go)
+- 1: TestAirPlayGrant_AWatchTogetherGuestsStandsForTheirMembershipsPlayback, TestAirPlayGrant_NoneIsMadeForNoMembership (internal/core/auth/airplay_test.go)
+- 1, 2: TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast (internal/core/together/guest_cast_test.go)
 - 2: TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential (internal/core/together/guest_cast_test.go)
 
 **Status:** decided (2026-11-18). §2 for a Chromecast's part is in "feat(together): a guest's new
-cast replaces their last cast's credential" (`replaceCastCredential`); §1 is not yet.
+cast replaces their last cast's credential" (`replaceCastCredential`); §1's server half, and §2 for
+an AirPlay grant, are in "feat(together): a Watch Together guest by link AirPlays as their
+membership" (`POST /together/airplay-grants`, `GuestAirPlayHold`). The guest's page offers no
+AirPlay button yet (`together-viewer.tsx`), so VQ361 waits on it.

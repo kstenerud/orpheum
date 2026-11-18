@@ -475,6 +475,11 @@ type Viewer struct {
 // ViewerOf is the viewer a membership credential names, while the membership lasts; false for an
 // unknown credential and for the host's, who plays as themselves.
 func (hub *Hub) ViewerOf(credential string) (Viewer, bool) {
+	return hub.viewerByCredential(credential)
+}
+
+// viewerByCredential is the viewer a membership credential names, for ViewerOf and ViewerHeldBy.
+func (hub *Hub) viewerByCredential(credential string) (Viewer, bool) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	viewed, viewing := hub.memberByCredential(credential)

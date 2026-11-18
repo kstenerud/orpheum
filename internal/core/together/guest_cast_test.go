@@ -158,3 +158,53 @@ func TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential(t *testing.T
 		t.Error("casting again and again pushed the guest's own browser's credential out")
 	}
 }
+
+// An AirPlay grant of a guest's holds their membership by a credential of its own while they are in
+// (D519 §1): it names the guest's member, adds no locator for a discovery to find, and, as a
+// Chromecast's part does, replaces the guest's last cast's credential and is replaced by their next
+// (D519 §2); the host has none, and a removed guest's admits nothing.
+func TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	guest := stage.join(t)
+	locatorsBefore := len(stage.hub.LiveLocators())
+	part, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, castBox := stage.attach(t, part.MembershipCredential, RoleVideo)
+	hold, err := stage.hub.GuestAirPlayHold(guest.SessionID, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewer, isViewer := stage.hub.ViewerHeldBy(hold)
+	if !isViewer || viewer.SessionID != guest.SessionID || viewer.MemberID != guest.MemberID {
+		t.Errorf("the hold views as %+v (%v); want the guest's member", viewer, isViewer)
+	}
+	if ended := castBox.last(MessageEnded); ended.Reason != "movedAway" {
+		t.Errorf("the Chromecast the AirPlay grant replaced was told %+v; want ended, movedAway", ended)
+	}
+	if locators := len(stage.hub.LiveLocators()); locators != locatorsBefore {
+		t.Errorf("the hold left %d locators; want the %d before the casts, it adding none", locators, locatorsBefore)
+	}
+	if _, err = stage.hub.GuestAirPlayHold(guest.SessionID, guest.MemberID); err != nil {
+		t.Fatal(err)
+	}
+	if _, isViewer = stage.hub.ViewerHeldBy(hold); isViewer {
+		t.Error("the hold the guest's next cast replaced still admits them")
+	}
+	_, hostMemberID, _ := stage.hub.MemberOf(stage.opened.MembershipCredential)
+	if _, err = stage.hub.GuestAirPlayHold(guest.SessionID, hostMemberID); !errors.Is(err, ErrNoMember) {
+		t.Errorf("a hold for the host = %v; want ErrNoMember, the host AirPlaying as themselves", err)
+	}
+	last, err := stage.hub.GuestAirPlayHold(guest.SessionID, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = stage.hub.Eject(stage.opened.SessionID, stage.owner.UserID, guest.MemberID); err != nil {
+		t.Fatal(err)
+	}
+	if _, isViewer = stage.hub.ViewerHeldBy(last); isViewer {
+		t.Error("the removed guest's hold still admits them")
+	}
+}

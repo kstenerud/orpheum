@@ -221,7 +221,13 @@
 //     TestAirPlay_AMasterWithNoGridIsHeldForTheReceiver,
 //     TestAirPlay_AChunkNotMadeYetIsHeldUntilItIsMade, TestAirPlay_AReceiverGoneWhileHeldIsLoggedAsGone,
 //     TestAirPlay_AReceiverGoneBeforeItsAnswerIsNoInternalError and
-//     TestAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant.
+//     TestAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant. A Watch Together guest by link,
+//     signed in to nothing, asks for one by their membership credential (POST /together/airplay-grants,
+//     for the playback POST /together/playback started) and revokes theirs (DELETE
+//     /together/airplay-grants) (D519 §1); its receiver plays as the membership, the session's film
+//     alone, until the guest's Stop, their next cast, their removal or the session's end, after which
+//     it is a grant unknown; the host's credential gets none. Enforced by
+//     TestTogetherAirPlay_AGuestByLinkAirPlaysAsTheirMembershipWhileTheyAreIn.
 //   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no
 //     gzip shrinks, never cached, behind the same sign-in and setting, each one logged as sent with
 //     the path it came over; a throughput test's figures are logged as "a throughput test ran"

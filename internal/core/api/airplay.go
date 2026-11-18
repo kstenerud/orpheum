@@ -100,6 +100,21 @@ func (server *Server) registerAirPlay() {
 		DefaultStatus: http.StatusOK,
 		Extensions:    callableBy(capabilitySignedIn),
 	}, server.revokeAirPlayGrants)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "makeTogetherAirPlayGrant", Method: http.MethodPost, Path: "/together/airplay-grants",
+		Summary: "A grant in the media's path for the playback your Watch Together membership holds, for an " +
+			"AirPlay receiver to play the group's film with as your membership, while you are in (D519 §1)",
+		Tags:          []string{tagPlayback},
+		DefaultStatus: http.StatusOK,
+		Extensions:    callableBy(capabilityMember),
+	}, server.makeTogetherAirPlayGrant)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "revokeTogetherAirPlayGrants", Method: http.MethodDelete, Path: "/together/airplay-grants",
+		Summary:       "Revokes every AirPlay grant your Watch Together membership's page made, as its Stop does",
+		Tags:          []string{tagPlayback},
+		DefaultStatus: http.StatusOK,
+		Extensions:    callableBy(capabilityMember),
+	}, server.revokeTogetherAirPlayGrants)
 	responses := map[string]*huma.Response{
 		"200": {Description: "A playlist, an init or a chunk", Content: map[string]*huma.MediaType{
 			"application/vnd.apple.mpegurl": {}, "video/iso.segment": {}, "video/mp4": {},
@@ -142,9 +157,72 @@ func (server *Server) makeAirPlayGrant(
 	if err != nil {
 		return nil, server.logInternalError(ctx, "make an AirPlay grant", err)
 	}
+	return airPlayGrantOutput(dependencies, grant), nil
+}
+
+// airPlayGrantOutput is the answer for grant: its master playlist's path, and when it ends.
+func airPlayGrantOutput(dependencies *Dependencies, grant string) *AirPlayGrantOutput {
 	output := &AirPlayGrantOutput{}
 	output.Body.MasterPath = Prefix + airPlayPathPrefix + grant + "/master.m3u8"
 	output.Body.ExpiresAt = dependencies.Clock.Now().Add(auth.AirPlayGrantLife).UTC()
+	return output
+}
+
+// makeTogetherAirPlayGrant answers POST /together/airplay-grants, makeAirPlayGrant for a Watch
+// Together guest who joined by their link, signed in to nothing (D519 §1): the playback their
+// membership holds, the group's film, gets a grant bound to the membership, which holds it by a
+// credential of its own (GuestAirPlayHold), replacing the guest's last cast's (D519 §2). Its receiver
+// plays as the membership: the host's libraries, the film on now, nothing more. The host's credential
+// is refused: the host is signed in, and AirPlays as themselves.
+func (server *Server) makeTogetherAirPlayGrant(
+	ctx context.Context, input *AirPlayGrantInput,
+) (*AirPlayGrantOutput, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	credential := bearerToken(input.Authorization)
+	holder, isViewer := server.viewerHolder(ctx, dependencies, credential)
+	if !isViewer {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "nothing plays for you in a session now")
+	}
+	chunked, err := dependencies.Playback.ChunksOf(ctx, input.Body.MediaToken, holder)
+	if err != nil {
+		return nil, server.playbackError(ctx, "find the Watch Together guest's playback to AirPlay", err)
+	}
+	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
+	hold, err := dependencies.Together.GuestAirPlayHold(sessionID, memberID)
+	if err != nil {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "you are in no session as a guest now")
+	}
+	grant, err := dependencies.Auth.IssueMembershipAirPlayGrant(
+		auth.AirPlayMembership{SessionKey: holder.SessionKey, HoldCredential: hold},
+		input.address, input.Body.MediaToken, chunked.FileID)
+	if err != nil {
+		return nil, server.logInternalError(ctx, "make a Watch Together guest's AirPlay grant", err)
+	}
+	server.logger.InfoContext(ctx, "airplay: a Watch Together guest made an AirPlay grant",
+		slogx.EventKey, "togetherAirPlayGranted", "sessionId", sessionID, "memberId", memberID,
+		"fileId", chunked.FileID)
+	return airPlayGrantOutput(dependencies, grant), nil
+}
+
+// revokeTogetherAirPlayGrants answers DELETE /together/airplay-grants, revokeAirPlayGrants for a Watch
+// Together guest's page: the AirPlay grants made for the playbacks its membership credential holds
+// end, and a receiver presenting one is refused from then on.
+func (server *Server) revokeTogetherAirPlayGrants(
+	_ context.Context, input *AuthorizationHeader,
+) (*AirPlayRevokeOutput, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	credential := bearerToken(input.Authorization)
+	if _, isViewer := dependencies.Together.ViewerOf(credential); !isViewer {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "you are in no session as a guest now")
+	}
+	output := &AirPlayRevokeOutput{}
+	output.Body.Revoked = dependencies.Auth.RevokeAirPlayGrantsOf(viewerKey(credential))
 	return output, nil
 }
 
@@ -187,6 +265,9 @@ func (server *Server) airPlayPlayback(
 	if err != nil {
 		return airPlayServed{}, server.logInternalError(ctx, "find an AirPlay grant", err)
 	}
+	if kept.IsForMembership() {
+		return membershipAirPlayPlayback(ctx, dependencies, kept)
+	}
 	reach, err := dependencies.Auth.ReachOfUser(ctx, kept.UserID)
 	if err != nil {
 		return airPlayServed{}, server.logInternalError(ctx, "find what an AirPlay grant's person reaches", err)
@@ -198,6 +279,26 @@ func (server *Server) airPlayPlayback(
 			UserID: kept.UserID, SessionKey: kept.SessionKey, Reach: reach, OnlyFileID: kept.FileID,
 		},
 	}, nil
+}
+
+// membershipAirPlayPlayback is what a Watch Together guest's AirPlay grant serves (D519 §1): their
+// membership's playback, held as their page's player holds it, the host's libraries and the film on
+// now alone, while the credential the grant holds the membership by admits them (ViewerHeldBy: the
+// core's own, which the receiver never presents; the grant in the path is the caller's secret). The
+// guest removed, their place taken by a new link, the session ended, another film put on or their
+// next cast made, it serves nothing, answered as a grant unknown.
+func membershipAirPlayPlayback(
+	ctx context.Context, dependencies *Dependencies, kept auth.AirPlayGrant,
+) (airPlayServed, error) {
+	viewer, isViewer := dependencies.Together.ViewerHeldBy(kept.HoldCredential)
+	if !isViewer || viewer.FileID != kept.FileID {
+		return airPlayServed{}, newError(http.StatusNotFound, CodeNotFound, auth.ErrNoAirPlayGrant.Error())
+	}
+	holder, isHeld := holderOfViewer(ctx, dependencies, viewer, kept.SessionKey)
+	if !isHeld {
+		return airPlayServed{}, newError(http.StatusNotFound, CodeNotFound, auth.ErrNoAirPlayGrant.Error())
+	}
+	return airPlayServed{dependencies: dependencies, mediaToken: kept.MediaToken, holder: holder}, nil
 }
 
 // getAirPlayMasterPlaylist answers GET /bytes/media/g/{grant}/master.m3u8, held while the film has

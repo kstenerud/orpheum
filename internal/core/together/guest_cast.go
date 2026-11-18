@@ -39,6 +39,26 @@ func (hub *Hub) GuestCastPart(sessionID, memberID int64) (Joined, error) {
 	}, nil
 }
 
+// GuestAirPlayHold is a new credential of member memberID in session sessionID, a guest's, for an
+// AirPlay grant they asked for to hold their membership by while they are in (D519 §1): it is held by
+// the core alone, never handed to a device, and has no locator, as no device finds the core by it. As
+// a Chromecast's part does, it replaces the guest's last cast's credential (D519 §2). ErrNoSession and
+// ErrNoMember as GuestCastPart.
+func (hub *Hub) GuestAirPlayHold(sessionID, memberID int64) (string, error) {
+	made, err := newCredential(hub.random)
+	if err != nil {
+		return "", err
+	}
+	made.locator = ""
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, made); replaceErr != nil {
+		return "", replaceErr
+	}
+	hub.linksChanged()
+	return made.credential, nil
+}
+
 // replaceGuestsCastLocked gives guest memberID of session sessionID made as their cast's credential,
 // in place of their last cast's (replaceCastCredential), and hands the lead on and tells the roster
 // where that receiver was cut off; the mutex is held. ErrNoSession and ErrNoMember as GuestCastPart.
@@ -100,4 +120,11 @@ func (hub *Hub) MemberOfLocator(hash string) (sessionID, memberID int64, isFound
 		}
 	}
 	return 0, 0, false
+}
+
+// ViewerHeldBy is the viewer an AirPlay grant of a guest's holds their membership by (D519 §1), hold
+// being the credential GuestAirPlayHold made for it, while it admits them: as ViewerOf, but of a
+// credential the core keeps for a grant, which no caller presents.
+func (hub *Hub) ViewerHeldBy(hold string) (Viewer, bool) {
+	return hub.viewerByCredential(hold)
 }

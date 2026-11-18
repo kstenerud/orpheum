@@ -256,6 +256,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A Watch Together guest's grant: the device it gives their part plays only what their session
 		// plays, by POST /together/playback, which checks the host's reach (D518 §1, D246 §3).
 		"issueTogetherGuestGrant",
+		// A Watch Together guest's AirPlay grant: for a playback their membership holds, the session's
+		// film in the host's libraries, by POST /together/playback (D519 §1, D246 §3).
+		"makeTogetherAirPlayGrant", "revokeTogetherAirPlayGrants",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.

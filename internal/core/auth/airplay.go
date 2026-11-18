@@ -60,12 +60,29 @@ type airPlayGrant struct {
 }
 
 // AirPlayGrant is what an AirPlay grant stands for (D473 §2): one playback's media, by its token, of
-// the one file FileID, as its sender's session holds them; never anything else.
+// the one file FileID, as its sender's session holds them; never anything else. A Watch Together
+// guest's (D519 §1) has no person: SessionKey is their membership's as their page's playback holds it,
+// and HoldCredential is the credential of their membership it holds it by, which the caller checks
+// still admits them.
 type AirPlayGrant struct {
-	UserID     int64
-	SessionKey string
-	MediaToken string
-	FileID     int64
+	UserID         int64
+	SessionKey     string
+	MediaToken     string
+	FileID         int64
+	HoldCredential string
+}
+
+// IsForMembership is whether the grant is a Watch Together guest's, held by HoldCredential.
+func (grant AirPlayGrant) IsForMembership() bool {
+	return grant.HoldCredential != ""
+}
+
+// AirPlayMembership is the Watch Together membership a guest by link asks for an AirPlay grant under
+// (D519 §1): the key their page's playbacks are held by, as a person's session's is, and the
+// credential the core made for the grant to hold the membership by (together's GuestAirPlayHold).
+type AirPlayMembership struct {
+	SessionKey     string
+	HoldCredential string
 }
 
 // admits is whether a request from address may present the grant (D473 §3, as D474 amends it). The
@@ -151,18 +168,46 @@ func (service *Service) IssueAirPlayGrant(
 	if err != nil {
 		return "", err
 	}
+	service.keepAirPlayGrant(secret, senderAddress, AirPlayGrant{
+		UserID: sender.UserID, SessionKey: sender.SessionKey, MediaToken: mediaToken, FileID: fileID,
+	})
+	return secret, nil
+}
+
+// IssueMembershipAirPlayGrant is IssueAirPlayGrant for a Watch Together guest who joined by their
+// link, signed in to nothing (D519 §1): the grant is for the playback of fileID that mediaToken names,
+// which their membership holds (the caller has checked), and bound to the membership, not to a person
+// or a session. Its life, its addresses, its film alone and its revocation (RevokeAirPlayGrantsOf) are
+// a person's grant's; it serves while membership.HoldCredential admits the guest, which the caller
+// checks at each request (AirPlayGrantOf). ErrAirPlaySender for no membership.
+func (service *Service) IssueMembershipAirPlayGrant(
+	membership AirPlayMembership, senderAddress netip.Addr, mediaToken string, fileID int64,
+) (string, error) {
+	if membership.SessionKey == "" || membership.HoldCredential == "" {
+		return "", ErrAirPlaySender
+	}
+	secret, err := randomSecret(service.random)
+	if err != nil {
+		return "", err
+	}
+	service.keepAirPlayGrant(secret, senderAddress, AirPlayGrant{
+		SessionKey: membership.SessionKey, MediaToken: mediaToken, FileID: fileID,
+		HoldCredential: membership.HoldCredential,
+	})
+	return secret, nil
+}
+
+// keepAirPlayGrant keeps the grant whose secret is secret, standing for granted, asked for from
+// senderAddress, forgetting its sender's oldest while it has as many as it may.
+func (service *Service) keepAirPlayGrant(secret string, senderAddress netip.Addr, granted AirPlayGrant) {
 	now := service.clock.Now()
 	service.airPlayGrants.mutex.Lock()
 	defer service.airPlayGrants.mutex.Unlock()
-	service.airPlayGrants.forgetLocked(now, sender.SessionKey)
+	service.airPlayGrants.forgetLocked(now, granted.SessionKey)
 	senderV4, senderV6, _ := addressKey(senderAddress)
 	service.airPlayGrants.byHash[hex.EncodeToString(tokenHash(secret))] = airPlayGrant{
-		AirPlayGrant: AirPlayGrant{
-			UserID: sender.UserID, SessionKey: sender.SessionKey, MediaToken: mediaToken, FileID: fileID,
-		},
-		madeAt: now, senderV4: senderV4, senderV6: senderV6,
+		AirPlayGrant: granted, madeAt: now, senderV4: senderV4, senderV6: senderV6,
 	}
-	return secret, nil
 }
 
 // AirPlayGrantOf is what an AirPlay grant stands for, presented by a request from address (the
@@ -172,7 +217,8 @@ func (service *Service) IssueAirPlayGrant(
 // revoked or expired, presented from another address, or whose session ended: signed out, ended by a
 // new password or its device revoked, or its person removed. The grant serves that session's
 // playback with no credential of its own, so it ends with the session, as the session's own media
-// requests do.
+// requests do. A Watch Together guest's grant (IsForMembership) has no session here: the caller
+// checks its HoldCredential still admits the guest, and serves nothing once it does not.
 func (service *Service) AirPlayGrantOf(ctx context.Context, grant string, address netip.Addr) (AirPlayGrant, error) {
 	now := service.clock.Now()
 	hash := hex.EncodeToString(tokenHash(grant))
@@ -189,6 +235,9 @@ func (service *Service) AirPlayGrantOf(ctx context.Context, grant string, addres
 	}
 	service.airPlayGrants.byHash[hash] = kept
 	service.airPlayGrants.mutex.Unlock()
+	if kept.IsForMembership() {
+		return kept.AirPlayGrant, nil
+	}
 	isLive, err := service.isSessionLive(ctx, kept.SessionKey, now)
 	if err != nil {
 		return AirPlayGrant{}, err
@@ -236,12 +285,18 @@ func (service *Service) isSessionLive(ctx context.Context, sessionKey string, no
 // the end of its AirPlay do (D473 §2), and says how many were still good: a receiver presenting one
 // is refused from then on.
 func (service *Service) RevokeAirPlayGrants(sender Principal) int {
+	return service.RevokeAirPlayGrantsOf(sender.SessionKey)
+}
+
+// RevokeAirPlayGrantsOf revokes every AirPlay grant made under sessionKey, a person's session's or a
+// Watch Together guest's membership's (AirPlayMembership.SessionKey), as RevokeAirPlayGrants does.
+func (service *Service) RevokeAirPlayGrantsOf(sessionKey string) int {
 	now := service.clock.Now()
 	service.airPlayGrants.mutex.Lock()
 	defer service.airPlayGrants.mutex.Unlock()
 	revoked := 0
 	for hash, each := range service.airPlayGrants.byHash {
-		if each.SessionKey != sender.SessionKey || sender.SessionKey == "" {
+		if each.SessionKey != sessionKey || sessionKey == "" {
 			continue
 		}
 		if now.Sub(each.madeAt) < AirPlayGrantLife {
