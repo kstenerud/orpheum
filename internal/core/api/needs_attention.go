@@ -53,6 +53,10 @@ type NeedsAttentionBody struct {
 	// were read, until a later rescan of each finishes (the owner, 2026-11-13). At most 100 are
 	// listed, one a library.
 	RescansGivenUp []RescanGivenUpBody `maxItems:"100" json:"rescansGivenUp,omitempty"`
+	// UnknownFailureAlertCount is how many kinds of work have their alert raised, failures of
+	// unknown cause piling up (D509 §2), as GET /unknown-failures/alerts lists them: the warning
+	// sign shows while any is, leading to the page that lists the failures (D517 §2).
+	UnknownFailureAlertCount int `json:"unknownFailureAlertCount"`
 	// StoodAsideAt is when the discovery refused this server as a copy of another that serves, so
 	// that it asks no more until an admin asks again (D437 §3, §4); 0 while it asks.
 	StoodAsideAt int64 `json:"stoodAsideAt"`
@@ -157,6 +161,13 @@ func (server *Server) needsAttention(ctx context.Context, dependencies *Dependen
 	}
 	if err := addRescansGivenUp(ctx, output, dependencies.Rescans); err != nil {
 		return nil, server.libraryError(ctx, "list the rescans given up", err)
+	}
+	if dependencies.UnknownFailures != nil {
+		alerts, err := dependencies.UnknownFailures.Alerts(ctx)
+		if err != nil {
+			return nil, server.logInternalError(ctx, "count the unknown failures' alerts", err)
+		}
+		output.Body.UnknownFailureAlertCount = len(alerts)
 	}
 	return output, nil
 }

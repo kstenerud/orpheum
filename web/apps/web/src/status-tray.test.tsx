@@ -48,6 +48,7 @@ const nothingWrong = {
   seriesReadWronglyCount: 0,
   filmsWithoutSound: [],
   filmsWithoutSoundCount: 0,
+  unknownFailureAlertCount: 0,
   copyRefusedAt: 0,
   copyRefusedFrom: "",
   stoodAsideAt: 0,
@@ -548,6 +549,18 @@ it("tells an admin of a film whose video has no sound, leading to it (the owner,
   );
   expect(mounted.container.querySelector('a[href="/titles/880"]')?.textContent).toBe("Mister 517");
   expect(mounted.container.textContent).toContain(": its video has no sound track");
+});
+
+it("shows an admin the yellow sign while failures of unknown cause pile up, with nothing else to say, leading to Needs attention (D517 §2)", async () => {
+  const piling = { ...nothingWrong, unknownFailureAlertCount: 1 };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, piling] }),
+    ),
+  );
+  const link = mounted.container.querySelector('[aria-label="Something needs your attention"]');
+  expect(link?.getAttribute("href")).toBe("/needs-attention");
 });
 
 it("tells an admin of a library whose rescan gave up, leading to it (the owner, 2026-11-13)", async () => {

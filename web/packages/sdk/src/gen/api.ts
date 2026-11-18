@@ -4308,6 +4308,8 @@ export interface components {
             /** Format: int64 */
             stoodAsideAt: number;
             /** Format: int64 */
+            unknownFailureAlertCount: number;
+            /** Format: int64 */
             unreadCount: number;
             /** Format: int64 */
             waitingRootCount: number;

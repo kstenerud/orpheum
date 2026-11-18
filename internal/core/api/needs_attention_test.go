@@ -13,6 +13,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -350,4 +353,40 @@ func seedListedFile(
 		return 0, fmt.Errorf("file %d's version: %w", index, err)
 	}
 	return id, nil
+}
+
+// The warning sign lights for failures of unknown cause piling up (D517 §2): needs-attention counts
+// the kinds whose alert is raised, none while no kind is over the setting's count in the hour.
+func TestNeedsAttention_CountsTheKindsWhoseUnknownFailuresAlertIsRaised(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	settingstest.Set(t, harness.settings, settings.UnknownFailuresAlertPerHour, "1")
+	alertCount := func() int {
+		t.Helper()
+		var got api.NeedsAttentionOutput
+		harness.readJSON(t, "/needs-attention", admin, &got.Body)
+		return got.Body.UnknownFailureAlertCount
+	}
+	record := func(subject string) {
+		t.Helper()
+		err := harness.unknownFailures.Record(t.Context(), unexpected.Failure{
+			Kind: "fetch_metadata", Subject: subject, Error: "not JSON", Output: "<html>",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := alertCount(); got != 0 {
+		t.Errorf("with no failure of unknown cause: %d alerts counted, want 0", got)
+	}
+	record("item 1")
+	if got := alertCount(); got != 0 {
+		t.Errorf("with one failure, not over the setting's 1: %d alerts counted, want 0", got)
+	}
+	record("item 2")
+	if got := alertCount(); got != 1 {
+		t.Errorf("with two failures of one kind, over the setting's 1: %d alerts counted, want 1", got)
+	}
 }

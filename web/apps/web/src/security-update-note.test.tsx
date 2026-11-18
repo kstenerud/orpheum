@@ -144,10 +144,8 @@ describe("SecurityUpdateNote", () => {
         </AppShell>,
         servedBy({
           "GET /system/update": [200, pending],
-          // The rest of the shell's own asking: the libraries menu, the tray's sign and the banner of
-          // failures of unknown cause.
+          // The rest of the shell's own asking: the libraries menu and the tray's sign.
           "GET /libraries": [200, { libraries: [] }],
-          "GET /unknown-failures/alerts": [200, { alerts: [] }],
           "GET /needs-attention": [
             200,
             {
@@ -158,6 +156,7 @@ describe("SecurityUpdateNote", () => {
               matchCount: 0,
               seriesReadWronglyCount: 0,
               filmsWithoutSoundCount: 0,
+              unknownFailureAlertCount: 0,
             },
           ],
         }),

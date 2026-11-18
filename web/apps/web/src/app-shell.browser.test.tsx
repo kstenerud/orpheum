@@ -18,10 +18,9 @@ import { page, userEvent } from "vitest/browser";
 import { AppShell } from "./app-shell.tsx";
 import { ShellReadContext } from "./shell-read.ts";
 import { PosterGrid, type Entry } from "./browse.tsx";
-import { mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
-import { UnknownFailuresNote } from "./unknown-failures-note.tsx";
 
 /** Where element is drawn; it fails the test when there is none. */
 function boxOf(element: Element | null | undefined): DOMRect {
@@ -74,27 +73,6 @@ function expectPlacesLikeTheTray(container: Element): void {
 }
 
 describe("the shell, laid out by a real browser", () => {
-  // D509 §3: the banner of failures of unknown cause piling up asks for something to be done, so it
-  // is drawn in the warning yellow, as the security update's is (D280).
-  it("draws the banner of failures of unknown cause piling up in the warning yellow", async () => {
-    const services = servedBy({
-      "GET /unknown-failures/alerts": [200, { alerts: [{ kind: "fetch_metadata", lastHour: 24 }] }],
-    });
-    const mounted = await mount(withServices(<UnknownFailuresNote isAdmin={true} />, services));
-    try {
-      await settleUntil(() => mounted.container.querySelector(".app-shell__note") !== null);
-      const note = mounted.container.querySelector(".app-shell__note--unknown-failures");
-      const warning = document.createElement("div");
-      warning.style.border = "1px solid var(--color-warning)";
-      document.body.append(warning);
-      const want = getComputedStyle(warning).borderTopColor;
-      warning.remove();
-      expect(note === null ? "" : getComputedStyle(note).borderTopColor).toBe(want);
-    } finally {
-      mounted.unmount();
-    }
-  });
-
   // The owner, 2026-11-13: "It shouldn't be necessary to render the admin things separately." While
   // the first read is waited on, the banner keeps its room and shows none of its places (D476 §3).
   it("keeps the banner's room while the first read is waited on, drawing none of its places", async () => {

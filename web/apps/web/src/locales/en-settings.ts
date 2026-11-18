@@ -87,7 +87,7 @@ export const enSettingsCatalogue = {
     jobAttemptLimit:
       "Background work, such as fetching a title's details or making artwork, is retried when it fails for a reason that may pass. After this many tries it is marked failed and shown on the System page.",
     unknownFailuresAlertPerHour:
-      "When work fails for a reason the server doesn't recognise, the failure is kept with everything it said, and the thing it was for is left alone until the server next starts. When one kind of work has more of these than this in an hour, a banner on an admin's pages says so, until an hour passes under it.",
+      "When work fails for a reason the server doesn't recognise, the failure is kept with everything it said, and the thing it was for is left alone until the server next starts. When one kind of work has more of these than this in an hour, an admin's warning sign shows, leading to the list of them, until an hour passes under it.",
     linkShareForQualityPercent:
       "A link's measured speed varies, and the sound and the picture's peaks need room too. A quality is chosen only when its bit rate fits in this share of what was measured.",
     loudnessMaxRaiseDb:

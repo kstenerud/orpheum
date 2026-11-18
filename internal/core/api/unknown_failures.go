@@ -16,7 +16,7 @@ type UnknownFailureAlertsOutput struct {
 	Body UnknownFailureAlertsBody
 }
 
-// UnknownFailureAlertsBody is what an admin's banner says: each kind of work whose failures of
+// UnknownFailureAlertsBody is which kinds are raised: each kind of work whose failures of
 // unknown cause passed the alert setting within the last hour (D509 §2).
 type UnknownFailureAlertsBody struct {
 	Alerts []UnknownFailureAlertBody `json:"alerts"`

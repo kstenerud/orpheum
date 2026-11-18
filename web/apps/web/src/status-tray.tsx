@@ -229,7 +229,8 @@ function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element 
 
 /**
  * For an admin, the warning sign when anything needs them, leading to the page that lists it: the
- * shell's read says it first (D476).
+ * shell's read says it first (D476). Failures of unknown cause piling up light it too, with no banner
+ * of their own (D517 §2).
  */
 function NeedsAttentionSign(): JSX.Element | null {
   const { t } = useTranslation();
@@ -249,6 +250,7 @@ function NeedsAttentionSign(): JSX.Element | null {
     seriesReadWronglyCount,
     filmsWithoutSoundCount,
     rescansGivenUp,
+    unknownFailureAlertCount,
   } = counts.value;
   if (
     rootCount +
@@ -258,7 +260,8 @@ function NeedsAttentionSign(): JSX.Element | null {
       matchCount +
       seriesReadWronglyCount +
       filmsWithoutSoundCount +
-      (rescansGivenUp?.length ?? 0) ===
+      (rescansGivenUp?.length ?? 0) +
+      unknownFailureAlertCount ===
       0 &&
     !hasCopyWarning(counts.value)
   ) {

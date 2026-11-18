@@ -4534,6 +4534,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "unknownFailureAlertCount": {
+            "format": "int64",
+            "type": "integer"
+          },
           "unreadCount": {
             "format": "int64",
             "type": "integer"
@@ -4553,6 +4557,7 @@
           "seriesReadWronglyCount",
           "filmsWithoutSound",
           "filmsWithoutSoundCount",
+          "unknownFailureAlertCount",
           "stoodAsideAt",
           "copyRefusedFrom",
           "copyRefusedAt"

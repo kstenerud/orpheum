@@ -92,12 +92,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   browser that refuses it keeps the snooze for the page's life), and a new fix shows at once.
   Nobody else is shown it, nor is the server asked for them. A newer release with no security fix
   is no banner, only the settings page's Updates row. `src/security-update-note.test.tsx`.
-- **Failures of unknown cause piling up are a banner above every page, an admin's alone** (D509 §3;
-  `src/unknown-failures-note.tsx`): beside the security fix's, in its warning yellow, each kind whose
-  alert is raised with its count in the last hour, and the way to Needs attention. It is never
-  dismissed; it goes once the server clears the alert, read again when the page is shown and every
-  five minutes. Nobody else is shown it, nor is the server asked (D511 §7).
-  `src/unknown-failures-note.test.tsx`.
+- **Failures of unknown cause piling up light an admin's warning sign and have no banner** (D517;
+  `NeedsAttentionSign`, `src/status-tray.tsx`): while any kind's alert is raised, GET /needs-attention
+  says `unknownFailureAlertCount` above 0 and the sign shows, leading to Needs attention, which
+  lists them below. `src/status-tray.test.tsx`.
 - **Needs attention lists the failures of unknown cause in full** (D509 §4, D511 §6;
   `src/unknown-failures.tsx`): one entry per kind, its count in the last hour and since the start,
   when one last failed and whether its alert is raised, opening on each failure's subject, times,

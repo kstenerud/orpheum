@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppShell } from "./app-shell.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import {
   buttonWithText,
@@ -36,6 +37,7 @@ const nothingWrong = {
   matchCount: 0,
   seriesReadWronglyCount: 0,
   filmsWithoutSoundCount: 0,
+  unknownFailureAlertCount: 0,
   copyRefusedAt: 0,
   copyRefusedFrom: "",
   stoodAsideAt: 0,
@@ -193,6 +195,59 @@ describe("the Needs attention page's failures of unknown cause", () => {
     expect(shown.container.querySelector(".unknown-failures__report")?.textContent).toBe(
       JSON.stringify(report, null, 2),
     );
+  });
+
+  // D517 §2: the warning sign is lit for the alert alone, and the page it leads to lists the
+  // failures, never "Nothing needs your attention."
+  it("lists the failures where the warning sign was lit for their alert alone", async () => {
+    mounted = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <NeedsAttention />
+        </IsAdminContext>,
+        servedBy({
+          "GET /needs-attention": [200, { ...nothingWrong, unknownFailureAlertCount: 1 }],
+          ...noUpdate,
+          "GET /unknown-failures": [200, report],
+        }),
+      ),
+    );
+    const page = mounted;
+    await settleUntil(() => kindEntries(page).length === 2);
+    expect(page.container.textContent).toContain("Failures of unknown cause");
+    expect(page.container.textContent).not.toContain("Nothing needs your attention.");
+  });
+
+  // D517 §1, §2: the shell lights the warning sign for the alert and draws no banner of it.
+  it("lights the admin's warning sign for the alert in the shell and draws no banner of it", async () => {
+    mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={() => undefined}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        servedBy({
+          "GET /unknown-failures/alerts": [
+            200,
+            { alerts: [{ kind: "fetch_metadata", lastHour: 24 }] },
+          ],
+          "GET /system/update": [200, { checkedAt: 0, version: "dev" }],
+          "GET /libraries": [200, { libraries: [] }],
+          "GET /needs-attention": [200, { ...nothingWrong, unknownFailureAlertCount: 1 }],
+        }),
+      ),
+    );
+    const shell = mounted;
+    await settleUntil(
+      () => shell.container.querySelector('[aria-label="Something needs your attention"]') !== null,
+    );
+    expect(shell.container.querySelector("main")?.textContent).toBe("screen");
+    expect(shell.container.textContent).not.toContain("piling up");
   });
 
   it("is no group while there are none", async () => {

@@ -39,8 +39,6 @@ const backgroundAnswers: Answers = {
   "GET /libraries": [200, { libraries: [] }],
   // An admin's shell asks what it knows of an update (security-update-note.tsx): none pending.
   "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
-  // And whether failures of unknown cause pile up (unknown-failures-note.tsx): none do.
-  "GET /unknown-failures/alerts": [200, { alerts: [] }],
   // And, on Needs attention, the failures themselves (unknown-failures.tsx): none.
   "GET /unknown-failures": [200, { at: 0, kinds: [], startId: "a start" }],
   "GET /client-settings": [
@@ -85,6 +83,7 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
           matchCount: 0,
           seriesReadWronglyCount: 0,
           filmsWithoutSoundCount: 0,
+          unknownFailureAlertCount: 0,
         },
       ],
       "GET /setup": [200, { isRequired: false }],
@@ -182,6 +181,7 @@ describe("App", () => {
           matchCount: 0,
           seriesReadWronglyCount: 0,
           filmsWithoutSoundCount: 0,
+          unknownFailureAlertCount: 0,
         },
       ],
     };
@@ -218,6 +218,7 @@ describe("App", () => {
           matchCount: 0,
           seriesReadWronglyCount: 0,
           filmsWithoutSoundCount: 0,
+          unknownFailureAlertCount: 0,
         },
       ],
     };
@@ -256,6 +257,7 @@ describe("App", () => {
               matchCount: 0,
               seriesReadWronglyCount: 0,
               filmsWithoutSoundCount: 0,
+              unknownFailureAlertCount: 0,
             },
           ],
         },
@@ -516,6 +518,7 @@ describe("App", () => {
             matchCount: 0,
             seriesReadWronglyCount: 0,
             filmsWithoutSoundCount: 0,
+            unknownFailureAlertCount: 0,
           },
         ],
         "GET /together/3": [

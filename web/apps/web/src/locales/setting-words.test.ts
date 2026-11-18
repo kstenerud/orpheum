@@ -46,11 +46,12 @@ describe("the settings' words", () => {
     expect(unworded).toEqual([]);
   });
 
-  // D509 §3: the alert's setting says, in its details, what is kept and what the banner says when.
-  it("say in the alert's details what a failure of unknown cause keeps and when the banner shows", () => {
+  // D509 §3, D517 §2: the alert's setting says, in its details, what is kept and what the warning
+  // sign says when.
+  it("say in the alert's details what a failure of unknown cause keeps and when the warning sign shows", () => {
     const details: Record<string, string> = enSettingsCatalogue.details;
     expect(details["unknownFailuresAlertPerHour"]).toMatch(
-      /kept with everything it said.*banner/su,
+      /kept with everything it said.*warning sign/su,
     );
   });
 });

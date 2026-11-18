@@ -106,6 +106,7 @@ const nothingNeedsAttention: components["schemas"]["NeedsAttentionBody"] = {
   diskCount: 0,
   filmsWithoutSound: [],
   filmsWithoutSoundCount: 0,
+  unknownFailureAlertCount: 0,
   matchCount: 0,
   rootCount: 0,
   seriesReadWrongly: [],

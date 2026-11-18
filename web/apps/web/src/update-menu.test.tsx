@@ -28,12 +28,10 @@ const newer: Update = {
 };
 
 /**
- * The rest of an admin's shell's own asking: the libraries menu, the tray's sign and the banner of
- * failures of unknown cause.
+ * The rest of an admin's shell's own asking: the libraries menu and the tray's sign.
  */
 const shellAnswers = {
   "GET /libraries": [200, { libraries: [] }],
-  "GET /unknown-failures/alerts": [200, { alerts: [] }],
   "GET /needs-attention": [
     200,
     {
@@ -44,6 +42,7 @@ const shellAnswers = {
       matchCount: 0,
       seriesReadWronglyCount: 0,
       filmsWithoutSoundCount: 0,
+      unknownFailureAlertCount: 0,
     },
   ],
 } as const;

@@ -2,9 +2,8 @@
 
 /**
  * The English catalogue's status part: the status tray at the banner's end (status), the page
- * of what needs the admin (needsAttention), D280, its failures of unknown cause and their banner
- * (unknownFailures, D509, D511), and the job view (jobs), kept apart so the catalogue fits in one
- * read (en.ts).
+ * of what needs the admin (needsAttention), D280, its failures of unknown cause (unknownFailures,
+ * D509, D511), and the job view (jobs), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enStatus = {
   status: {
@@ -47,9 +46,6 @@ export const enStatus = {
     toIdentify: "Needs a match",
   },
   unknownFailures: {
-    banner: "Failures of unknown cause are piling up: {{kinds}}.",
-    kindInLastHour: "{{kind}}, {{count}} in the last hour",
-    seeThem: "See them on Needs attention",
     heading: "Failures of unknown cause",
     about:
       "Work that failed in a way the server doesn't know how to handle yet. What it was for stays unavailable until the server next starts, when it is tried once more.",

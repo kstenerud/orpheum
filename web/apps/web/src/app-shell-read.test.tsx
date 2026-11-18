@@ -30,6 +30,7 @@ const shell = {
     matchCount: 0,
     seriesReadWronglyCount: 0,
     filmsWithoutSoundCount: 0,
+    unknownFailureAlertCount: 0,
   },
   update: { isAvailable: false },
 };

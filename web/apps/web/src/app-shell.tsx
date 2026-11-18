@@ -33,7 +33,6 @@ import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
 import { SecurityUpdateNote } from "./security-update-note.tsx";
-import { UnknownFailuresNote } from "./unknown-failures-note.tsx";
 import { WorkerBypassedNote } from "./worker-bypassed-note.tsx";
 import { useShowsDebugTools } from "./debug-tools.tsx";
 import { LinkCapBadge } from "./link-debug-tools.tsx";
@@ -369,8 +368,8 @@ function isShownTo(
 export const InShellContext = createContext(false);
 
 /**
- * The screen, under any word the page has about what the browser is doing, an admin's banners of a
- * security update pending and of failures of unknown cause piling up, and the tab's notice.
+ * The screen, under any word the page has about what the browser is doing, an admin's banner of a
+ * security update pending, and the tab's notice.
  */
 function ShellMain(props: {
   readonly isAdmin: boolean;
@@ -379,7 +378,6 @@ function ShellMain(props: {
   return (
     <main className="app-shell__main" data-focus-memory="">
       <SecurityUpdateNote isAdmin={props.isAdmin} />
-      <UnknownFailuresNote isAdmin={props.isAdmin} />
       <PlainHttpNote />
       <WorkerBypassedNote />
       <LinkCapBadge />

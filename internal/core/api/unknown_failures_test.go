@@ -16,7 +16,7 @@ import (
 )
 
 // TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes is D509's API: the
-// banner's alert past the setting, and the report of every failure with what it said, to an admin
+// alert past the setting, and the report of every failure with what it said, to an admin
 // alone.
 func TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes(t *testing.T) {
 	t.Parallel()
