@@ -3468,7 +3468,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   back to the iPhone and the sound went on playing on the Mac. The page cannot end AirPlay's sound
   route (idiosyncrasies.md); the fix waits on the owner's choice of how Stop ends AirPlay.
   Superseded by VQ363 (D521 §1).
-- [ ] **VQ363** — Stop AirPlay shows AirPlay's picker, and choosing the iPhone in it brings the
+- [x] **VQ363** — Stop AirPlay shows AirPlay's picker, and choosing the iPhone in it brings the
   film's picture and sound back to the iPhone's page (D521 §1; VQ362 failed: the page alone cannot
   end AirPlay's sound route). On staging, on the iPhone in Safari, play a film (once signed in,
   once as a Watch Together guest by link), Cast, AirPlay, and pick the Mac; then Cast, Stop AirPlay.
@@ -3478,3 +3478,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   plays on on the Mac, and Cast still offers Stop AirPlay. A second AirPlay after the first's Stop
   plays picture and sound on the Mac.
   (`web/packages/player/src/airplay.ts` `askToStop`, `web/apps/web/src/airplay-entry.tsx`.)
+  **Passed 2026-11-18 ~15:00 (the owner, staging, iPhone to the Mac, the page opened afresh):**
+  Stop AirPlay showed the picker, and choosing the iPhone brought the film back with its sound.
+  (A tab opened before the deploy ran the old Stop, which showed no picker.) Found with it: the
+  film came back playing the English sound while the page said "Sound: Japanese", the sound it
+  had played before AirPlay.
