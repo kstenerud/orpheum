@@ -4542,3 +4542,30 @@ Claude.
    chunk is, not a 500. VQ357.
 4. A paused cast closes after 20 minutes; the receiver's idle screen stays black.
 5. D516's wire name `isAtTheEnd` stays.
+
+**The batch passed check-pr at "docs: the skipped first chunk's answer names VQ357 again, and the
+receiver's idle line is said once"** and is on staging. Owed by the owner: VQ356–359.
+
+**The owner's answers to the batch's report (2026-11-18):**
+
+1. Chunks made before the start-gap fix keep their old first-picture times: "Can we surgically
+   remove the files so that they get regenerated automatically? I'd rather not build something into
+   the app itself." So the encode's recipe is not changed. On staging, a scan of every quality
+   store's chunks for a first picture decoded more than four frames before it is shown (the old
+   encode of a run after a gap) found six chunks of five films beside file 17477's; they were moved
+   out of the cache, which makes a chunk its node no longer has again (D392 §4). The same scan runs
+   on the production NAS once a release with the fix is deployed there, on the owner's go.
+2. A Watch Together guest who is not signed in casts (D515 §1): "if someone redeems a watch
+   together session and is not logged in, they have the option to cast the video to any chromecast
+   device they have permission for. Furthermore, that chromecast session can act with their
+   permissions for the duration of their watch together membership (play/pause and all that)."
+   Being built (VQ360).
+3. A cast's film ended with an episode next: the existing rules come first ("if they have autoplay
+   on, it does so, and it asks them to confirm they're still watching if a few episodes have played
+   with no input from them"). The receiver's 20 minutes count only while it stands at the end with
+   nothing moving it on; with nothing next, the film is taken off and the black screen closes after
+   5 minutes.
+4. The signing command refuses a record naming another registry than the last release signed:
+   "yes". Built: "feat(discovery-sign): release refuses a record naming another registry than the
+   last release signed" (`--new-registry` for a move made on purpose).
+5. The friend's invitation, the strays on the connect server and the push: done by the owner.
