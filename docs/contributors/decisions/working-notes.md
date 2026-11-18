@@ -29995,3 +29995,30 @@ devices."
 played to its end with nothing next goes back to its page", its cast part), once what each cast's
 calls ask of the person today is read.
 
+## D516 — A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
+
+**Decided** (2026-11-18), by the project owner, "yes do that", on the lead's proposal answering
+their question why the clock was not following the leader (agent-failures A80). Amends what "feat(web):
+a Watch Together film that ends with nothing next stops for the group" built, where only the host's
+own player stopped the group: a host who had left the player left the group held paused on the
+film's last frame until its idle end, its guests never sent back to the waiting view.
+
+1. **The group's film ending with nothing next on its leader's player stops the group** as the
+   host's stop does, the guests sent back to the waiting view, whether the host or a guest leads.
+2. **Stopping stays the host's right otherwise**: a guest's player says only that it reached the
+   end, the server stopping the group for the host; no guest command is admitted by it.
+
+**Status:** decided (2026-11-18).
+
+## D517 — Failures of unknown cause piling up light the warning sign, with no banner
+
+**Decided** (2026-11-18), by the project owner, on the lead's account of the banner's open points
+(no dismiss, the warning sign not lit for it): "don't bother with the banner, then. The '!' icon's
+details page will list them anyway." Amends D509 §3, whose alert was a banner above an admin's pages.
+
+1. **The unknown-failures banner is gone.**
+2. **While the alert is raised, an admin's warning sign shows**, leading to Needs attention, which
+   lists the failures per kind (D511 §6).
+
+**Status:** decided (2026-11-18).
+

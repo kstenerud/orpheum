@@ -514,13 +514,15 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D506](working-notes.md#d506--the-link-wait-bar-stays-until-the-film-can-play-but-where-the-server-makes-a-chunk-a-film-the-lowest-rung-cannot-carry-says-so-and-goes-on-trying) The link-wait bar stays until the film can play, but where the server makes a chunk; a film the lowest rung cannot carry says so and goes on trying
 - [D507](working-notes.md#d507--something-the-cache-held-and-lost-is-not-generated-yet-and-the-cores-own-work-makes-it-again) Something the cache held and lost is not generated yet, and the core's own work makes it again — *revisited by D510*
 - [D508](working-notes.md#d508--nothing-is-marked-as-one-that-cannot-be-made-but-for-a-cause-known-to-block-it-an-unknown-failure-is-tried-again) Nothing is marked as one that cannot be made but for a cause known to block it; an unknown failure is tried again — *revisited by D511*
-- [D509](working-notes.md#d509--unexpected-errors-are-marked-counted-per-kind-and-raise-an-alert-when-an-hour-has-many) Unexpected errors are marked, counted per kind, and raise an alert when an hour has many
+- [D509](working-notes.md#d509--unexpected-errors-are-marked-counted-per-kind-and-raise-an-alert-when-an-hour-has-many) Unexpected errors are marked, counted per kind, and raise an alert when an hour has many — *revisited by D517*
 - [D510](working-notes.md#d510--a-lookup-that-finds-a-cached-thing-gone-retires-its-record-and-sweeps-at-start-and-on-a-schedule-look-for-them) A lookup that finds a cached thing gone retires its record, and sweeps at start and on a schedule look for them
 - [D511](working-notes.md#d511--a-failure-of-unknown-cause-keeps-everything-it-said-makes-its-thing-unavailable-and-is-tried-once-at-each-start) A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
 - [D512](working-notes.md#d512--a-chunk-run-of-an-mp4-with-a-long-index-is-served-the-index-cut-down-to-its-stretch) A chunk run of an MP4 with a long index is served the index cut down to its stretch
 - [D513](working-notes.md#d513--a-search-that-finds-nothing-tries-the-series-order-its-year-beneath-no-year-no-movie-and-its-folder-and-is-made-again-when-the-rules-change) A search that finds nothing tries the series' order, its year beneath, no year, no "Movie" and its folder, and is made again when the rules change
 - [D514](working-notes.md#d514--a-chunk-the-core-is-making-is-asked-for-again-a-quarter-second-after-its-425) A chunk the core is making is asked for again a quarter second after its 425
 - [D515](working-notes.md#d515--a-guest-casts-to-a-chromecast-or-airplay-device-without-signing-in-only-an-orpheum-device-needs-a-sign-in) A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in
+- [D516](working-notes.md#d516--a-groups-film-that-ends-on-its-leaders-player-with-nothing-next-stops-for-the-group-whoever-leads) A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
+- [D517](working-notes.md#d517--failures-of-unknown-cause-piling-up-light-the-warning-sign-with-no-banner) Failures of unknown cause piling up light the warning sign, with no banner
 
 ## Archived
 
