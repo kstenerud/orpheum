@@ -35,7 +35,9 @@ function givenARequestFailing(code: string, states: readonly string[]): void {
       CastContextEventType: { SESSION_STATE_CHANGED: "sessionstatechanged" },
       // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
       SessionState: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
         SESSION_STARTING: "SESSION_STARTING",
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own names
         SESSION_START_FAILED: "SESSION_START_FAILED",
       },
     },
