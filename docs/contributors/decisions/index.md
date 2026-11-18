@@ -523,7 +523,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D515](working-notes.md#d515--a-guest-casts-to-a-chromecast-or-airplay-device-without-signing-in-only-an-orpheum-device-needs-a-sign-in) A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in — *revisited by D518*
 - [D516](working-notes.md#d516--a-groups-film-that-ends-on-its-leaders-player-with-nothing-next-stops-for-the-group-whoever-leads) A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
 - [D517](working-notes.md#d517--failures-of-unknown-cause-piling-up-light-the-warning-sign-with-no-banner) Failures of unknown cause piling up light the warning sign, with no banner
-- [D518](working-notes.md#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership) A Watch Together guest by link casts to a Chromecast as another device of their membership
+- [D518](working-notes.md#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership) A Watch Together guest by link casts to a Chromecast as another device of their membership — *revisited by D519*
+- [D519](working-notes.md#d519--a-watch-together-guest-by-link-airplays-as-their-membership-too-and-keeps-one-casts-credential-at-a-time) A Watch Together guest by link AirPlays as their membership too, and keeps one cast's credential at a time
 
 ## Archived
 

@@ -193,7 +193,10 @@
 //     follower with their rights alone, found by its locator, and ends as the membership does
 //     (D518 §1), enforced by TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights,
 //     TestGuestCastPart_ItsLocatorFindsTheGuestsMember and
-//     TestGuestCastPart_EndsAsTheMembershipEnds.
+//     TestGuestCastPart_EndsAsTheMembershipEnds. A guest has one cast's credential at a time: a new
+//     cast's replaces the last's, whose receiver is told its place moved away and cut off, so casting
+//     again and again never pushes the guest's own browser out of the newest credentials kept
+//     (D519 §2), enforced by TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential.
 //   - When the server's upload cannot carry every player at its lowest quality, the member who
 //     joined most recently with a player, never the host, is told the session ended for them with
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by

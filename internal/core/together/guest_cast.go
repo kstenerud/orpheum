@@ -2,6 +2,11 @@
 
 package together
 
+import (
+	"crypto/sha256"
+	"slices"
+)
+
 // A Watch Together guest who joined by their link, signed in to nothing, casts to a Google Cast
 // device as another device of their membership (D518 §1): the device trades a grant bound to the
 // membership (internal/core/auth's IssueMembershipGuestGrant) for a credential of the member's own,
@@ -9,12 +14,15 @@ package together
 // (TogetherPart, D371 §4), playing what the session plays by the membership (D246 §3) with exactly
 // the guest's rights (D372 §4). It is no cast: no session of one, no person, no device of anyone's.
 // It ends as the membership ends, the guest removed or the session ended, its device told why as each
-// of the member's is.
+// of the member's is. A guest has one cast's credential at a time (D519 §2): each new cast's replaces
+// the last's, whose receiver is cut off as a device whose place moved away is, so casting again and
+// again never pushes the guest's own browser out of the newest credentials the member keeps.
 
 // GuestCastPart is a new credential, and its device's locator, for a Google Cast device to take the
-// part of member memberID in session sessionID, a guest's, while they are in (D518 §1). ErrNoSession
-// for a session ended, or a cast; ErrNoMember for a member gone, removed or left, or the host, whose
-// cast is a signed-in person's (TogetherPart).
+// part of member memberID in session sessionID, a guest's, while they are in (D518 §1). It replaces
+// the guest's last cast's credential, that receiver told its place moved away and cut off (D519 §2).
+// ErrNoSession for a session ended, or a cast; ErrNoMember for a member gone, removed or left, or the
+// host, whose cast is a signed-in person's (TogetherPart).
 func (hub *Hub) GuestCastPart(sessionID, memberID int64) (Joined, error) {
 	made, err := newCredential(hub.random)
 	if err != nil {
@@ -22,19 +30,54 @@ func (hub *Hub) GuestCastPart(sessionID, memberID int64) (Joined, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	in, found := hub.sessions[sessionID]
-	if !found || in.isCast {
-		return Joined{}, ErrNoSession
+	if replaceErr := hub.replaceGuestsCastLocked(sessionID, memberID, made); replaceErr != nil {
+		return Joined{}, replaceErr
 	}
-	guest, found := in.members[memberID]
-	if !found || guest.isHost {
-		return Joined{}, ErrNoMember
-	}
-	guest.addCredential(made)
 	hub.linksChanged()
 	return Joined{
 		SessionID: sessionID, MemberID: memberID, MembershipCredential: made.credential, Locator: made.locator,
 	}, nil
+}
+
+// replaceGuestsCastLocked gives guest memberID of session sessionID made as their cast's credential,
+// in place of their last cast's (replaceCastCredential), and hands the lead on and tells the roster
+// where that receiver was cut off; the mutex is held. ErrNoSession and ErrNoMember as GuestCastPart.
+func (hub *Hub) replaceGuestsCastLocked(sessionID, memberID int64, made madeCredential) error {
+	casting, found := hub.sessions[sessionID]
+	if !found || casting.isCast {
+		return ErrNoSession
+	}
+	guest, found := casting.members[memberID]
+	if !found || guest.isHost {
+		return ErrNoMember
+	}
+	if guest.replaceCastCredential(made) {
+		casting.leaderStillHere(hub.clock.Now(), false, goneReplaced)
+		casting.sendRoster()
+	}
+	return nil
+}
+
+// replaceCastCredential makes made the member's cast's credential (D519 §2): the last cast's admits
+// nothing more, and each device that said hello with it is told its place moved away and let go, as
+// cutOff tells a device whose place a new link took. Whether any device was let go.
+func (each *member) replaceCastCredential(made madeCredential) bool {
+	isCutOff := false
+	if replaced := each.castCredential; replaced != ([sha256.Size]byte{}) {
+		each.credentials = slices.DeleteFunc(each.credentials, func(kept credential) bool {
+			return kept.hash == replaced
+		})
+		for id, attached := range each.devices {
+			if attached.credentialHash == replaced {
+				attached.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "movedAway"})
+				delete(each.devices, id)
+				isCutOff = true
+			}
+		}
+	}
+	each.addCredential(made)
+	each.castCredential = sha256.Sum256([]byte(made.credential))
+	return isCutOff
 }
 
 // MemberOfLocator is the session and member one of whose devices finds the core by the locator whose

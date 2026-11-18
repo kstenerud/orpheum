@@ -178,12 +178,18 @@ type member struct {
 	// credentials are the credentials its devices say hello with, the newest last: one per
 	// device that had the membership, so having it back on one cuts off no other (D267 §3).
 	credentials []credential
-	devices     map[int64]*device
+	// castCredential is the hash of the credential the guest's latest cast was given, a Google Cast
+	// device's part or an AirPlay grant's hold (D519 §2): the next cast's replaces it. Zero for none.
+	castCredential [sha256.Size]byte
+	devices        map[int64]*device
 }
 
 // device is one connected client of a member.
 type device struct {
 	id int64
+	// credentialHash is the hash of the membership credential it said hello with, by which a guest's
+	// cast replaced cuts its receiver off (D519 §2).
+	credentialHash [sha256.Size]byte
 	// signedInDevice is the person's device it said hello signed in as (SignedIn.DeviceID), or 0
 	// for a device that said hello signed in to nothing, as a guest's by link alone.
 	signedInDevice int64
@@ -517,7 +523,8 @@ func (hub *Hub) Attach(
 	hub.lastID++
 	now := hub.clock.Now()
 	attachedDevice := &device{
-		id: hub.lastID, signedInDevice: signedInDevice, role: role, canSetRate: canSetRate, send: send,
+		id: hub.lastID, credentialHash: sha256.Sum256([]byte(credential)), signedInDevice: signedInDevice,
+		role: role, canSetRate: canSetRate, send: send,
 	}
 	attachedMember.devices[hub.lastID] = attachedDevice
 	send(Outbound{

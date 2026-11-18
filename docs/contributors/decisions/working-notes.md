@@ -30077,6 +30077,9 @@ Amends D515 §1 for a Chromecast; AirPlay is not built by it.
 - 1, 2: TestGuestReceiver_AWatchTogetherGuestByLinkCastsAsTheirMembershipWhileTheyAreIn (internal/core/api/guest_receivers_test.go)
 - 2: TestGuestCastPart_EndsAsTheMembershipEnds (internal/core/together/guest_cast_test.go)
 
+> **Amended by [D519](#d519--a-watch-together-guest-by-link-airplays-as-their-membership-too-and-keeps-one-casts-credential-at-a-time)** (2026-11-18): the guest AirPlays too, as their membership, and keeps
+> one cast's credential at a time.
+
 **Status:** decided (2026-11-18). The server's side is in "feat(together): a Watch Together guest
 by link casts to a Chromecast as another device of their membership": `POST /together/cast-grants`
 (`issueTogetherGuestGrant`), `IssueMembershipGuestGrant`, `GuestCastPart` and the trade's answer of
@@ -30091,3 +30094,32 @@ on, the remote and Stop casting, and the panel which device and Stop casting. Te
 device: the trade, the welcome, the playback ask, going home, the grant asked by the membership and
 handed over with its locator, and no route a guest's membership is refused. VQ360 is the device
 test.
+
+
+## D519 — A Watch Together guest by link AirPlays as their membership too, and keeps one cast's credential at a time
+
+**Decided** (2026-11-18), by the project owner, answering two questions on D518. Asked whether a
+guest who is not signed in casts to an AirPlay device too, as D515 §1 says: "yes". Asked whether each
+cast a guest starts should replace the credential their previous cast's receiver was given, so that
+many casts cannot push the guest's own browser out of the newest 16 credentials their membership
+keeps: "agreed". Amends D518.
+
+1. **A guest by link AirPlays from the Watch Together page.** The AirPlay grant (D473) is asked for
+   by their membership credential, for the playback their page holds (`POST /together/playback`),
+   and bound to their membership, not to a person or a session; its life, its address binding
+   (D473 §3, D474), its film alone and its revocation by the page's Stop are a signed-in person's
+   grant's. Its playback plays the group's film as the membership does (D246 §3): the host's
+   libraries, the film on now, the link's rights alone, nothing a user may do. It serves nothing
+   once the membership ends, the guest removed, their place taken by a new link or the session
+   ended.
+2. **A guest has one cast's credential at a time.** Each cast a guest starts, a Chromecast's part
+   (D518 §1) or an AirPlay grant's hold on the membership (§1), gets a credential of the membership
+   that replaces the last cast's: that one admits nothing more, and a receiver that said hello with
+   it is told its place moved away (`movedAway`) and cut off, as a device whose place a new link took
+   is. The guest's own browser's credential is never pushed out by casting.
+
+**Proven by:**
+- 2: TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential (internal/core/together/guest_cast_test.go)
+
+**Status:** decided (2026-11-18). §2 for a Chromecast's part is in "feat(together): a guest's new
+cast replaces their last cast's credential" (`replaceCastCredential`); §1 is not yet.

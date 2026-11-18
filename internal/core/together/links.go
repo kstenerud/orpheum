@@ -188,6 +188,7 @@ func (each *member) cutOff() {
 	}
 	each.devices = map[int64]*device{}
 	each.credentials = nil
+	each.castCredential = [sha256.Size]byte{}
 }
 
 // endLinksOf ends every link of a member's place, theirs and any new one made for it, as they leave

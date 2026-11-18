@@ -108,3 +108,53 @@ func TestGuestCastPart_EndsAsTheMembershipEnds(t *testing.T) {
 		t.Errorf("a part in an ended session = %v; want ErrNoSession", err)
 	}
 }
+
+// A guest has one cast's credential at a time (D519 §2): a new cast's replaces the last's, whose
+// receiver is told its place moved away and admits nothing more, its locator finding no one, while the
+// guest's own browser plays on; and casting again and again never pushes the browser's credential out
+// of the newest the member keeps.
+func TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	guest := stage.join(t)
+	_, browserBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
+	first, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstReceiver, firstBox := stage.attach(t, first.MembershipCredential, RoleVideo)
+	second, err := stage.hub.GuestCastPart(guest.SessionID, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ended := firstBox.last(MessageEnded); ended.Reason != "movedAway" {
+		t.Errorf("the replaced cast's receiver was told %+v; want ended, movedAway", ended)
+	}
+	if _, isViewer := stage.hub.ViewerOf(first.MembershipCredential); isViewer {
+		t.Error("the replaced cast's credential still admits the guest")
+	}
+	if _, _, isFound := stage.hub.MemberOfLocator(discoverylink.LocatorHash(first.Locator)); isFound {
+		t.Error("the replaced cast's locator still finds the guest")
+	}
+	for _, each := range browserBox.last(MessageRoster).Roster {
+		for _, attached := range each.Devices {
+			if attached.ID == firstReceiver.DeviceID {
+				t.Error("the roster still lists the replaced cast's receiver")
+			}
+		}
+	}
+	if _, isViewer := stage.hub.ViewerOf(second.MembershipCredential); !isViewer {
+		t.Error("the new cast's credential does not admit the guest")
+	}
+	if browserBox.count(MessageEnded) != 0 {
+		t.Errorf("the guest's own browser was told %+v; want it playing on", browserBox.last(MessageEnded))
+	}
+	for range credentialsKeptPerMember + 4 {
+		if _, err = stage.hub.GuestCastPart(guest.SessionID, guest.MemberID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, isViewer := stage.hub.ViewerOf(guest.MembershipCredential); !isViewer {
+		t.Error("casting again and again pushed the guest's own browser's credential out")
+	}
+}
