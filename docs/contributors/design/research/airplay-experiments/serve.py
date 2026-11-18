@@ -28,12 +28,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):  # noqa: A002 (the standard library's name)
-        if "POST /log" not in (args[0] if args else ""):
+        if "POST /log" not in str(args[0] if args else ""):
             super().log_message(format, *args)
 
 
 if __name__ == "__main__":
-    name = socket.gethostname()
-    print(f"On the iPhone, open http://{name if name.endswith('.local') else name + '.local'}:8000/")
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    probe.connect(("192.0.2.1", 9))  # no packet is sent: it only picks the LAN address
+    print(f"On the iPhone, open http://{probe.getsockname()[0]}:8000/")
+    probe.close()
     print(f"Logs are kept in {LOGS}")
     http.server.ThreadingHTTPServer(("", 8000), Handler).serve_forever()
