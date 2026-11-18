@@ -473,9 +473,14 @@ type Inbound struct {
 	// session on this page, as a follower in step or as its leader, before this connection or on it:
 	// its position is one of its own, which becomes the group's should it be chosen to lead a group no
 	// one leads, where a fresh page's is only where it loads from (D377 §4; placeByNewLeader).
-	RemembersPlace bool        `json:"remembersPlace,omitempty"`
-	Command        CommandKind `json:"command,omitempty"`
-	Rate           float64     `json:"rate,omitempty"`
+	RemembersPlace bool `json:"remembersPlace,omitempty"`
+	// IsAtTheEnd, in a state, is the device's player saying it played its film to its end. Only the
+	// leader's, of the group's film, is acted on: where nothing plays after it in the host's
+	// ordering, the group stops as the host's stop stops it (D516). The player says no more: what
+	// plays next the hub finds (isNothingNext), and stopping stays the host's right otherwise.
+	IsAtTheEnd bool        `json:"isAtTheEnd,omitempty"`
+	Command    CommandKind `json:"command,omitempty"`
+	Rate       float64     `json:"rate,omitempty"`
 	// FileID is a changeItem's film to put on (a next's or a previous's, found by the hub); in a
 	// state, the film the device's player has loaded, 0 when it has none: its player gone, its film
 	// handed to a cast's receiver, or not yet loaded. Only a device whose player has the session's
@@ -504,6 +509,9 @@ type Inbound struct {
 	// movedToMs is where the film a next or previous found starts: where the host is partway
 	// through it, else its start.
 	movedToMs int64
+	// isNothingNext is, for a leader's state IsAtTheEnd of the group's film, that nothing plays
+	// after it in the host's ordering: the hub finds it before it is held (Handle); never on the wire.
+	isNothingNext bool
 }
 
 // Outbound is one message the server sends.

@@ -19,7 +19,7 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-/** A video that says it has ended once told to end. */
+/** A video that says it has ended once told to end, pausing first as a browser's does. */
 function endingVideo(): HTMLVideoElement & { end: () => void } {
   const video = document.createElement("video");
   let hasEnded = false;
@@ -28,6 +28,7 @@ function endingVideo(): HTMLVideoElement & { end: () => void } {
     end: (): void => {
       hasEnded = true;
       act(() => {
+        video.dispatchEvent(new Event("pause"));
         video.dispatchEvent(new Event("ended"));
       });
     },
@@ -36,7 +37,7 @@ function endingVideo(): HTMLVideoElement & { end: () => void } {
 
 describe("a Watch Together film played to its end with nothing next (the owner, 2026-11-17)", () => {
   /** The host's player of file 5 in session 3, welcomed; what its session heard. */
-  async function hostAtTheEnd(isNothingNext: boolean): Promise<readonly unknown[]> {
+  async function hostAtTheEnd(hasNext: boolean): Promise<readonly unknown[]> {
     window.sessionStorage.setItem(
       "orpheum.together.host",
       JSON.stringify({ sessionId: 3, credential: "host-credential" }),
@@ -51,8 +52,7 @@ describe("a Watch Together film played to its end with nothing next (the owner, 
           video={video}
           startPositionMs={0}
           cannotKeepUp={undefined}
-          hasNext={!isNothingNext}
-          isNothingNext={isNothingNext}
+          hasNext={hasNext}
         />,
         { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket },
       ),
@@ -71,14 +71,16 @@ describe("a Watch Together film played to its end with nothing next (the owner, 
     return server.heard;
   }
 
-  it("stops the group's film as the host's video ends, the group then playing nothing", async () => {
-    const heard = await hostAtTheEnd(true);
-    expect(heard).toContainEqual(expect.objectContaining({ type: "command", command: "stop" }));
+  it("tells the group the host's video ended, by which the server stops a film with nothing next (D516)", async () => {
+    const heard = await hostAtTheEnd(false);
+    expect(heard).toContainEqual(expect.objectContaining({ type: "state", isAtTheEnd: true }));
   });
 
-  it("leaves the group's film alone where an episode plays next, which Up next plays for everyone", async () => {
-    const heard = await hostAtTheEnd(false);
-    expect(heard).not.toContainEqual(expect.objectContaining({ command: "stop" }));
+  it("sends no stop of its own at the end, where an episode plays next or none does: the server finds which (D516 §2)", async () => {
+    for (const hasNext of [true, false]) {
+      const heard = await hostAtTheEnd(hasNext);
+      expect(heard).not.toContainEqual(expect.objectContaining({ command: "stop" }));
+    }
   });
 
   it("takes a guest's Play page to the page they had before the host played anything", async () => {

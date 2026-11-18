@@ -242,7 +242,7 @@ function PlayerView(
         </PlayContext>
       </PlayTop>
       <PlaysAlong
-        {...{ receiving, fileId, video, cannotKeepUp, isNothingNext }}
+        {...{ receiving, fileId, video, cannotKeepUp }}
         delivery={deliveryOf(decision, moved)}
         startPositionMs={resumePositionMs}
         hasNext={tracks.hasNext}

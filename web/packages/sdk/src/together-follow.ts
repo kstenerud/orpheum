@@ -163,7 +163,8 @@ export class GroupFollower {
   /**
    * The player's state as the group is told it, with the film it plays, by which it contends for its
    * session's lead (D374 §1): a leader buffers only while it cannot play on, and its stall, told while
-   * its group plays, is one it catches up after (LeaderCatchUp).
+   * its group plays, is one it catches up after (LeaderCatchUp); and whether its film ended, a host's
+   * player's and a guest's alike, which its leader's stops a group with nothing next (D516).
    */
   readonly playerState = (): PlayerState => {
     const isLeading = this.#isLeading();
@@ -187,6 +188,8 @@ export class GroupFollower {
       ...(playback === undefined ? {} : { playback }),
       ...(this.#options.page?.visibilityState === "hidden" ? { isPageHidden: true } : {}),
       ...remembered,
+      // Its film played to its end, which its leader's stops a group with nothing next (D516).
+      ...(this.#media.ended ? { isAtTheEnd: true } : {}),
     };
   };
 

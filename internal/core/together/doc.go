@@ -141,6 +141,12 @@
 //     TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows, TestHub_ANewLinkStartsWithTheLastOnesRights,
 //     TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight,
 //     TestHub_TheHostStoppingLeavesNothingPlaying and TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.
+//   - The group's film played to its end on its leader's player, the host's or a guest's, with
+//     nothing after it in the host's ordering, the hub stops it as the host's Stop does, for the
+//     host; a player that does not lead saying it ended changes nothing, and no guest may stop the
+//     group (D516). A cast's own session is its receiver's to move on. Enforced by
+//     TestHub_AFilmEndingOnItsLeadersPlayerWithNothingNextStopsTheGroup and
+//     TestHub_AFollowersEndOfTheFilmChangesNothing.
 //   - A new link for a guest gives their place: they stay in until it is used, whoever joins by it
 //     takes the place over, the devices they came in on cut off, and the place's other links end;
 //     removed, their place's links admit no one (D267 §4 amended, D318). Enforced by
@@ -232,6 +238,7 @@
 //   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control, as D271 §4 revised
 //     it: a guest's rights.
 //   - D471: who may take each action and where it is only shown: a guest's next and previous.
+//   - D516: a film ending on its leader's player with nothing next stops the group, for the host.
 //   - D371: a session's leader plays as a device plays alone; everyone else catches up to it, and a
 //     cast takes its sender's part. It revises D250 §2–§3 (no sync points but the leader's) and
 //     D247 §4 (no group waits for a stalled viewer).

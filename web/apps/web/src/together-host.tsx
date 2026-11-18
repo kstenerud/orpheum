@@ -22,7 +22,6 @@ import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
-import { useAtTheEndWithNothingNext } from "./film-end.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
@@ -44,8 +43,6 @@ interface HostPlayer {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** How the film is given to the player, which the session is told (D371 §4). */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
-  /** Whether nothing is known to play after the film, at whose end the group's film stops. */
-  readonly isNothingNext?: boolean;
 }
 
 /**
@@ -54,8 +51,10 @@ interface HostPlayer {
  * host's video leads the session, playing as it would alone, and the viewers catch up to it (D371). Leaving the player
  * leaves the film playing for the group, on the server's clock, the host's session page holding its
  * controls; Stop there, or another film the host plays, ends it (D364 §15, withdrawing D246 §5's stop
- * on leaving). The session's end, however it ends, takes the page home, the film played on alone no
- * more (D389 §1). With no session it shows nothing and does nothing.
+ * on leaving). The film played to its end on its leader's player, the host's or a guest's, with
+ * nothing after it, the server stops it for the group (D516). The session's end, however it ends,
+ * takes the page home, the film played on alone no more (D389 §1). With no session it shows nothing
+ * and does nothing.
  */
 export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
   // Started on this device or another of the host's, had back from the server (D267 §2).
@@ -187,7 +186,6 @@ function HostLeading(
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs, delivery });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
-  useStopsAtTheEnd(video, props.isNothingNext === true, connection);
   useEffect(() => {
     if (endReason !== undefined) {
       onOver(endReason);
@@ -209,26 +207,6 @@ function HostLeading(
       </TogetherPanel>
     </div>
   );
-}
-
-/**
- * Stops the group's film, as Stop does (together-plays.tsx), as the host's video ends with nothing
- * playing after it (isNothingNext): the host's player leaves for the film's page (up-next.tsx,
- * LeavesAtTheEnd), and the group is left with nothing playing, as before the host played anything,
- * not a film past its end on the server's clock (the owner, 2026-11-17).
- */
-function useStopsAtTheEnd(
-  video: HTMLVideoElement | null,
-  isNothingNext: boolean,
-  connection: TogetherConnection | undefined,
-): void {
-  const stop =
-    connection === undefined
-      ? undefined
-      : () => {
-          connection.command({ command: "stop" });
-        };
-  useAtTheEndWithNothingNext(video, isNothingNext, stop);
 }
 
 /**

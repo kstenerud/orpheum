@@ -93,6 +93,32 @@ describe("what a device's state tells its session of its player (cut-a §5.1)", 
     expect(lastState()).not.toHaveProperty("isPageHidden");
   });
 
+  it("tells the group, in its state, that its player played its film to its end, and nothing before (D516)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    let isAtTheEnd = false;
+    connection.setPlayer(() => ({
+      fileId: 7,
+      positionMs: 2_400_000,
+      isPlaying: false,
+      isBuffering: false,
+      ...(isAtTheEnd ? { isAtTheEnd } : {}),
+    }));
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    const lastState = (): Record<string, unknown> | undefined =>
+      sockets.sent.filter((each) => each["type"] === "state").at(-1);
+    expect(lastState()).not.toHaveProperty("isAtTheEnd");
+    isAtTheEnd = true;
+    connection.reportState();
+    expect(lastState()?.["isAtTheEnd"]).toBe(true);
+  });
+
   it("tells the group, in its first state at its welcome, its player's position and that it is its own (D377 §3, §4)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({

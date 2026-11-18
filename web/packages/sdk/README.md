@@ -74,6 +74,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   first state tells its own position, which the server takes as the group's should it be chosen to
   lead a group no one leads. `src/together-own-position.test.ts`,
   `src/together-connection-state.test.ts`.
+- **A player that played its group's film to its end says so** (`isAtTheEnd`, D516), in the state
+  it tells as it ends, host's or guest's, leading or following; nothing before. The server stops the
+  group where it leads and nothing plays next. `src/together-film-end.test.ts`,
+  `src/together-connection-state.test.ts`.
 - **Every state a player tells says the film it has** (`fileId`), by which the server counts it a
   contender for its session's lead; a page whose film went to a cast's receiver, its connection
   kept, says it has none (`tellsNoFilmHere`), so it never leads in its receiver's place (D374 §1).

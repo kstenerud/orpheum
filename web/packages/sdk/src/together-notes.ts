@@ -39,16 +39,23 @@ export interface PlayerState {
    * it loads from (D377 §4), said to the server as remembersPlace. Absent where it does not say.
    */
   readonly isPlaceRemembered?: boolean;
+  /**
+   * Whether its player played the film to its end: its leader's, of a film nothing plays after in
+   * the host's ordering, stops its group, as the host's Stop does, whoever leads (D516). It says no
+   * more: what plays next the server finds. Absent where it has not.
+   */
+  readonly isAtTheEnd?: boolean;
 }
 
 /**
  * A state's flags as the server reads them, by their names on the wire, each sent only while it
- * holds: isPageHidden, remembersPlace.
+ * holds: isPageHidden, remembersPlace, isAtTheEnd.
  */
 export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>> {
   return {
     ...(state.isPageHidden === true ? { isPageHidden: true } : {}),
     ...(state.isPlaceRemembered === true ? { remembersPlace: true } : {}),
+    ...(state.isAtTheEnd === true ? { isAtTheEnd: true } : {}),
   };
 }
 

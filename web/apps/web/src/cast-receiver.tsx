@@ -87,14 +87,12 @@ export function PlaysAlong(props: {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** Whether an episode plays after the film, which its Up next plays (plans/up-next.md). */
   readonly hasNext: boolean;
-  /** Whether nothing is known to play after the film, at whose end a host's group stops. */
-  readonly isNothingNext: boolean;
   /** How the film is given to the player, which its session is told (D371 §4). */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
 }): JSX.Element {
-  const { receiving, hasNext, isNothingNext, ...player } = props;
+  const { receiving, hasNext, ...player } = props;
   return receiving === undefined ? (
-    <HostPlaysTogether {...player} isNothingNext={isNothingNext} />
+    <HostPlaysTogether {...player} />
   ) : (
     <CastReceiver key={receiving.cast.castId} receiving={receiving} hasNext={hasNext} {...player} />
   );

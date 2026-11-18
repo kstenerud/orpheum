@@ -569,14 +569,16 @@ func (hub *Hub) MovesAlongBy(neighbour Neighbour) {
 }
 
 // Handle takes one message from an attached device. A change of what plays is checked against
-// what the host may play, a next's or a previous's film found, and a seek's keyframe found, before
-// the hub is held, since they read the store.
+// what the host may play, a next's or a previous's film found, whether anything plays after the
+// film its leader's player ended, and a seek's keyframe found, before the hub is held, since they
+// read the store.
 func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbound) {
 	if message.Type == MessageCommand && message.Command == CommandChangeItem &&
 		!hub.mayPlay(ctx, hub.hostOf(attachment.SessionID), message.FileID) {
 		message.FileID = 0 // refused below, as one the host may not play
 	}
 	hub.findNeighbour(ctx, attachment, &message)
+	hub.findNothingNext(ctx, attachment, &message)
 	hub.findKeyframe(ctx, attachment, &message)
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -622,8 +624,9 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 // no longer does handing it on (takeContention, D372 §5, D374 §1); a host's device in step taking
 // the lead back from a guest's (D372 §3); the leader's state places the group (followLeader), and no
 // one else's moves it, a follower's trouble its own to catch up on (D371 §2); no one's stall is
-// waited for while another plays the film (takeStall, D373 §1, D374 §3). Its first word that even
-// its lowest quality is beyond its link is logged.
+// waited for while another plays the film (takeStall, D373 §1, D374 §3); the leader's player at the
+// end of a film nothing plays after stops the group (stopsAtItsLeadersEnd, D516). Its first word that
+// even its lowest quality is beyond its link is logged.
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
 	wasContender := current.contends(from)
@@ -640,7 +643,9 @@ func (current *session) takeState(ctx context.Context, now time.Time, who *membe
 		current.takeContention(now, who, from, wasContender)
 		current.takeLeadInStep(now, who, from, message)
 	}
-	if message.Type == MessageState && from.id == current.leaderID {
+	switch {
+	case current.stopsAtItsLeadersEnd(now, from, message):
+	case message.Type == MessageState && from.id == current.leaderID:
 		current.followLeader(ctx, now, who, from, message)
 	}
 	if couldKeepUp && from.cannotKeepUp != nil {
@@ -721,14 +726,50 @@ func (hub *Hub) findNeighbour(ctx context.Context, attachment Attachment, messag
 	}
 	message.FileID = 0 // a next or a previous names no film of its own
 	message.movedFrom = hub.fileOf(attachment.SessionID)
-	if message.movedFrom == 0 || hub.neighbour == nil {
+	if message.movedFrom == 0 {
 		return
 	}
-	host := hub.hostOf(attachment.SessionID)
-	neighbourID, positionMs, found := hub.neighbour(ctx, host, message.movedFrom, isNext)
-	if found && hub.mayPlay(ctx, host, neighbourID) {
+	if neighbourID, positionMs, found := hub.neighbourOf(ctx, attachment.SessionID, message.movedFrom, isNext); found {
 		message.FileID, message.movedToMs = neighbourID, positionMs
 	}
+}
+
+// findNothingNext finds, for the state of a session's leader whose player played the group's film
+// to its end, whether nothing plays after it in the host's ordering, as a next would find it
+// (neighbourOf): the group then stops (stopsAtItsLeadersEnd, D516). Another device's end is not
+// looked up.
+func (hub *Hub) findNothingNext(ctx context.Context, attachment Attachment, message *Inbound) {
+	if message.Type != MessageState || !message.IsAtTheEnd || !hub.isLeadersEnd(attachment, *message) {
+		return
+	}
+	_, _, found := hub.neighbourOf(ctx, attachment.SessionID, message.FileID, true)
+	message.isNothingNext = !found
+}
+
+// isLeadersEnd is whether message is the state of attachment's device, its session's leader, whose
+// player played the group's film to its end (atItsLeadersEnd).
+func (hub *Hub) isLeadersEnd(attachment Attachment, message Inbound) bool {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	held, found := hub.sessions[attachment.SessionID]
+	return found && held.atItsLeadersEnd(attachment.DeviceID, message)
+}
+
+// neighbourOf is the film after fileID (isNext) or before it in the host of sessionID's ordering, one
+// the host may play, and where the host is partway through it; false where there is none, or no
+// ordering is known (MovesAlongBy).
+func (hub *Hub) neighbourOf(
+	ctx context.Context, sessionID, fileID int64, isNext bool,
+) (neighbourID, positionMs int64, found bool) {
+	if hub.neighbour == nil {
+		return 0, 0, false
+	}
+	host := hub.hostOf(sessionID)
+	neighbourID, positionMs, found = hub.neighbour(ctx, host, fileID, isNext)
+	if !found || !hub.mayPlay(ctx, host, neighbourID) {
+		return 0, 0, false
+	}
+	return neighbourID, positionMs, true
 }
 
 // fileOf is the file a session plays, or 0.

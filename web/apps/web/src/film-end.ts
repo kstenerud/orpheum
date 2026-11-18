@@ -2,8 +2,8 @@
 
 /**
  * What a film's end does where nothing plays after it (the owner, 2026-11-17): the Play page leaves
- * the player for the page above it (up-next.tsx, LeavesAtTheEnd), and a host's player stops the
- * film for their Watch Together group (together-host.tsx), each from the one hearing of the end.
+ * the player for the page above it (up-next.tsx, LeavesAtTheEnd). A Watch Together group's film the
+ * server stops as its leader's player says it ended (D516), the player's state saying so.
  */
 
 import { useEffect, useRef } from "react";
@@ -13,7 +13,7 @@ import { useLatest } from "./latest.ts";
 /**
  * Calls atTheEnd, once, as video ends with nothing playing after its film (isNothingNext), or at
  * once where it has ended already as that comes to be known. What a film's end does where nothing
- * plays next (the owner, 2026-11-17): the player left for the page above it, a host's group stopped.
+ * plays next (the owner, 2026-11-17): the player left for the page above it.
  */
 export function useAtTheEndWithNothingNext(
   video: HTMLVideoElement | null,
