@@ -188,7 +188,12 @@
 //     Watch Together session they are in, a host's credential leading it (D364 §11), a signed-in
 //     guest's following as just another follower (D371 §4), enforced by
 //     TestCast_AHostsReceiverHasACredentialForTheirSession and
-//     TestCast_AGuestsReceiverTakesTheirPartAsAFollower.
+//     TestCast_AGuestsReceiverTakesTheirPartAsAFollower. A Google Cast device a guest by link, signed
+//     in to nothing, cast to is no cast: it is given a credential of the guest's own membership, a
+//     follower with their rights alone, found by its locator, and ends as the membership does
+//     (D518 §1), enforced by TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights,
+//     TestGuestCastPart_ItsLocatorFindsTheGuestsMember and
+//     TestGuestCastPart_EndsAsTheMembershipEnds.
 //   - When the server's upload cannot carry every player at its lowest quality, the member who
 //     joined most recently with a player, never the host, is told the session ended for them with
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by

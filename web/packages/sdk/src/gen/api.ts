@@ -2449,6 +2449,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/cast-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A grant for a Google Cast device to take your part in the Watch Together session you joined by your link, with your rights, while you are in (D518 §1) */
+        post: operations["issueTogetherGuestGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/join": {
         parameters: {
             query?: never;
@@ -3645,6 +3662,10 @@ export interface components {
         GuestGrantOutputBody: {
             /** @description Traded once, within a minute, by the receiver at POST /guest-receivers */
             grant: string;
+        };
+        GuestPartGrantInputBody: {
+            /** @description The Cast device's name, as Chrome's Cast menu shows it */
+            receiverName: string;
         };
         HandOffOutputBody: {
             /** @description Taken once, within a minute, by POST /session/redeem at the client origin */
@@ -6013,10 +6034,21 @@ export interface components {
             grant: string;
         };
         TradeGuestGrantOutputBody: {
-            /** Format: int64 */
-            deviceId: number;
+            /**
+             * Format: int64
+             * @description The device it is; absent for a Watch Together guest's grant
+             */
+            deviceId?: number;
             locator: string;
-            token: string;
+            /** @description For a Watch Together guest's grant: the credential of their membership the device takes their part by */
+            membershipCredential?: string;
+            /**
+             * Format: int64
+             * @description For a Watch Together guest's grant: the session the device takes their part in
+             */
+            togetherSessionId?: number;
+            /** @description The guest receiver's session; absent for a Watch Together guest's grant */
+            token?: string;
         };
         UnavailableBody: {
             /** @description The machine that holds it */
@@ -11755,6 +11787,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TogetherLinkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueTogetherGuestGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestPartGrantInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestGrantOutputBody"];
                 };
             };
             /** @description Error */

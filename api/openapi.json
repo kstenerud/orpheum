@@ -2604,6 +2604,21 @@
         ],
         "type": "object"
       },
+      "GuestPartGrantInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "receiverName": {
+            "description": "The Cast device's name, as Chrome's Cast menu shows it",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "receiverName"
+        ],
+        "type": "object"
+      },
       "HandOffOutputBody": {
         "properties": {
           "code": {
@@ -9522,20 +9537,29 @@
       "TradeGuestGrantOutputBody": {
         "properties": {
           "deviceId": {
+            "description": "The device it is; absent for a Watch Together guest's grant",
             "format": "int64",
             "type": "integer"
           },
           "locator": {
             "type": "string"
           },
+          "membershipCredential": {
+            "description": "For a Watch Together guest's grant: the credential of their membership the device takes their part by",
+            "type": "string"
+          },
+          "togetherSessionId": {
+            "description": "For a Watch Together guest's grant: the session the device takes their part in",
+            "format": "int64",
+            "type": "integer"
+          },
           "token": {
+            "description": "The guest receiver's session; absent for a Watch Together guest's grant",
             "type": "string"
           }
         },
         "required": [
-          "token",
-          "locator",
-          "deviceId"
+          "locator"
         ],
         "type": "object"
       },
@@ -18573,6 +18597,53 @@
           "Watch Together"
         ],
         "x-orpheum-capability": "hostTogether"
+      }
+    },
+    "/together/cast-grants": {
+      "post": {
+        "operationId": "issueTogetherGuestGrant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestPartGrantInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestGrantOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
+        "summary": "A grant for a Google Cast device to take your part in the Watch Together session you joined by your link, with your rights, while you are in (D518 §1)",
+        "tags": [
+          "Users"
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/together/join": {

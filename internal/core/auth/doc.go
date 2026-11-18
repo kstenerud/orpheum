@@ -239,6 +239,12 @@
 //     the locator of the session that asked for it alone, and no longer once traded or expired.
 //     TestGuestGrant_ItsOfferKeyHoldsUnderItsSendersLocatorWhileItWaits.
 //
+//   - A grant a Watch Together guest by link asks for (D518 §1) is bound to their membership, not to
+//     a person or a device: traded once within a minute, a membership keeping few waiting, it signs
+//     nothing in but answers the membership, and its offer key holds for that membership alone while
+//     it waits. TestGuestGrant_AWatchTogetherGuestsIsBoundToTheirMembershipAndSignsNothingIn and
+//     TestGuestGrant_AWatchTogetherGuestsExpiresAfterAMinuteAndTheyKeepFewWaiting.
+//
 //   - An AirPlay grant (D473) is kept only as its hash, in memory, stands for one playback of one
 //     file its session holds, for AirPlayGrantLife, 24 hours, and is revoked by its sending session
 //     alone, and ends with that session (signed out, a new password, its device revoked); a guest

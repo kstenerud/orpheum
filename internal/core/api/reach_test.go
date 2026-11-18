@@ -253,6 +253,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// cast's films (guestPlays; TestGuestReceiver_ReachesItsCastAlone), by playback that checks the
 		// sender's person's reach (D465 §2).
 		"issueGuestGrant", "tradeGuestGrant",
+		// A Watch Together guest's grant: the device it gives their part plays only what their session
+		// plays, by POST /together/playback, which checks the host's reach (D518 §1, D246 §3).
+		"issueTogetherGuestGrant",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.

@@ -29996,7 +29996,11 @@ devices."
 - 2: TestArch_EveryHandlerChecksTheCallersItsOperationDeclares (internal/core/api/access_test.go; startCast is `signedIn`)
 - the question answered: TestGuestReceiver_PlaysNothingInItsOwnCastAlone (internal/core/api/guest_receivers_test.go)
 
-**Status:** §1 not built; the question it answers and §2 built (2026-11-18).
+> **§1 amended by [D518](#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership)** (2026-11-18): a Watch Together guest by link casts to a Chromecast as another device of their membership, while they are in.
+
+**Status:** §1 is D518's for a Watch Together guest by link casting to a Chromecast, the server's
+side of it built, the page's and the receiver's not yet; for AirPlay, and for anyone else not signed
+in, not built. The question it answers and §2 built (2026-11-18).
 In "feat(api): a guest receiver plays nothing in its own cast, waiting ready at its film's end", a
 Chromecast cast to under a grant has its own cast play nothing at its film's end, and nothing else,
 the call open to a guest receiver for that alone; §2 holds as before. §1 waits on the owner: a
@@ -30045,3 +30049,36 @@ warning sign, with no banner": 1 is the removal of `unknown-failures-note.tsx` a
 `NeedsAttentionBody.UnknownFailureAlertCount`, read from the recorder's `Alerts`, and
 `NeedsAttentionSign`'s count of it.
 
+
+## D518 — A Watch Together guest by link casts to a Chromecast as another device of their membership
+
+**Decided** (2026-11-18), by the project owner, answering how D515 §1 is to work for a Watch
+Together guest who joined by their link, signed in to nothing: "my idea is that if someone redeems
+a watch together session and is not logged in, they have the option to cast the video to any
+chromecast device they have permission for. Furthermore, that chromecast session can act with their
+permissions for the duration of their watch together membership (play/pause and all that)."
+Amends D515 §1 for a Chromecast; AirPlay is not built by it.
+
+1. **A guest by link casts to any Chromecast their browser's Cast dialog offers**, from the Watch
+   Together page. The grant (D465 §2) is asked for by their membership credential and bound to their
+   membership, not to a person or a device; its minute, its single trade and its offer key are a
+   person's grant's. Traded, it signs nothing in: the Chromecast is given a credential of the guest's
+   own membership, another device of theirs in the session, a follower of the group (D371 §4) with
+   the guest's rights alone (D372 §4), playing what is on as the guest's player does (D246 §3).
+2. **The Chromecast acts for the guest while they are in, and no longer**: the guest removed, or the
+   session ended, it is told why as each of their devices is and goes home (D389); a grant traded
+   after gives it nothing.
+
+**Proven by:**
+- 1: TestGuestGrant_AWatchTogetherGuestsIsBoundToTheirMembershipAndSignsNothingIn (internal/core/auth/guest_receivers_test.go)
+- 1: TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights, TestGuestCastPart_ItsLocatorFindsTheGuestsMember (internal/core/together/guest_cast_test.go)
+- 1: TestGuestGrant_AWatchTogetherGuestsExpiresAfterAMinuteAndTheyKeepFewWaiting (internal/core/auth/guest_receivers_test.go)
+- 1: TestFurtherOfferKeysOf_AWatchTogetherGuestsGrantIsProvenUnderTheirDevicesLocator (cmd/orpheum/discovery_links_test.go)
+- 1, 2: TestGuestReceiver_AWatchTogetherGuestByLinkCastsAsTheirMembershipWhileTheyAreIn (internal/core/api/guest_receivers_test.go)
+- 2: TestGuestCastPart_EndsAsTheMembershipEnds (internal/core/together/guest_cast_test.go)
+
+**Status:** decided (2026-11-18). The server's side is in "feat(together): a Watch Together guest
+by link casts to a Chromecast as another device of their membership": `POST /together/cast-grants`
+(`issueTogetherGuestGrant`), `IssueMembershipGuestGrant`, `GuestCastPart` and the trade's answer of
+a membership credential at `POST /guest-receivers`. The web page's Cast button and the receiver's
+taking of the part are not built yet. VQ360 is the device test.

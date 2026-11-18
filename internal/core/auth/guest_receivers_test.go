@@ -348,3 +348,73 @@ func scannedPairing(t *testing.T, service *Service, byUserID, forUserID int64, n
 	}
 	return codes
 }
+
+// A grant a Watch Together guest by link asks for (D518 §1) is bound to their membership: it signs
+// nothing in when traded but answers the membership, once, within a minute, its offer key passed on
+// for that membership alone while it waits; none is made for no membership.
+func TestGuestGrant_AWatchTogetherGuestsIsBoundToTheirMembershipAndSignsNothingIn(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	pat, other := GrantMembership{SessionID: 3, MemberID: 5}, GrantMembership{SessionID: 3, MemberID: 6}
+	if _, err := fixture.service.IssueMembershipGuestGrant(GrantMembership{}, "TV"); !errors.Is(err, ErrGuestSender) {
+		t.Errorf("a grant for no membership: %v, want ErrGuestSender", err)
+	}
+	grant, err := fixture.service.IssueMembershipGuestGrant(pat, "Living Room TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := fixture.service.MembershipGuestGrantOfferKeys(pat)
+	if len(keys) != 1 || !bytes.Equal(keys[0], proof.GuestGrantOfferKey(grant)) {
+		t.Errorf("the membership's waiting offer keys are %x; want its grant's", keys)
+	}
+	if keys := fixture.service.MembershipGuestGrantOfferKeys(other); len(keys) != 0 {
+		t.Errorf("another membership's offer keys are %x; want none", keys)
+	}
+	traded, err := fixture.service.TradeGuestGrant(ctx, grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !traded.IsForMembership() || traded.Membership != pat || traded.Name != "Living Room TV" ||
+		traded.Token != "" || traded.UserID != 0 || traded.DeviceID != 0 {
+		t.Errorf("the guest's grant traded for %+v; want their membership and nothing signed in", traded)
+	}
+	if _, err = fixture.service.TradeGuestGrant(ctx, grant); !errors.Is(err, ErrNoGuestGrant) {
+		t.Errorf("the guest's grant traded twice: %v, want ErrNoGuestGrant", err)
+	}
+	if keys := fixture.service.MembershipGuestGrantOfferKeys(pat); len(keys) != 0 {
+		t.Errorf("a traded grant's offer key is still passed on: %x", keys)
+	}
+}
+
+// A Watch Together guest's grant (D518 §1) lives a minute, as a person's does, and their membership
+// keeps four waiting at most, as a device does.
+func TestGuestGrant_AWatchTogetherGuestsExpiresAfterAMinuteAndTheyKeepFewWaiting(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	pat := GrantMembership{SessionID: 3, MemberID: 5}
+	late, err := fixture.service.IssueMembershipGuestGrant(pat, "TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(time.Minute)
+	if _, err = fixture.service.TradeGuestGrant(ctx, late); !errors.Is(err, ErrNoGuestGrant) {
+		t.Errorf("the guest's grant traded after a minute: %v, want ErrNoGuestGrant", err)
+	}
+	first, err := fixture.service.IssueMembershipGuestGrant(pat, "TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range guestGrantsPerDevice {
+		if _, err = fixture.service.IssueMembershipGuestGrant(pat, "TV"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = fixture.service.TradeGuestGrant(ctx, first); !errors.Is(err, ErrNoGuestGrant) {
+		t.Errorf("the oldest of five waiting grants traded: %v, want it forgotten", err)
+	}
+	if keys := fixture.service.MembershipGuestGrantOfferKeys(pat); len(keys) != guestGrantsPerDevice {
+		t.Errorf("the membership keeps %d grants waiting; want %d", len(keys), guestGrantsPerDevice)
+	}
+}

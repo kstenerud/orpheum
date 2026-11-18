@@ -53,26 +53,50 @@ type guestGrants struct {
 // guestGrant is what a grant makes when traded: a guest receiver of the person's, cast to by the
 // sending device alone, under the Cast device's name; and, while it waits, the key the Cast device
 // proves its first offers under (proof.GuestGrantOfferKey), taken under the sending session's locator.
+// A grant a Watch Together guest by link asked for is bound to their membership instead, and has no
+// person, device or session (D518 §1).
 type guestGrant struct {
 	userID         int64
 	senderDeviceID int64
 	// senderSession is the sending session's token's SHA-256, which its locator finds (sessionOfLocator).
 	senderSession []byte
-	offerKey      []byte
-	receiverName  string
-	madeAt        time.Time
+	// membership is the guest's membership the grant is bound to; zero for a person's grant.
+	membership   GrantMembership
+	offerKey     []byte
+	receiverName string
+	madeAt       time.Time
 }
 
-// forgetLocked forgets every grant expired at now, and the oldest of senderDeviceID's while it has as
-// many as it may; the mutex is held.
-func (kept *guestGrants) forgetLocked(now time.Time, senderDeviceID int64) {
+// GrantMembership is the Watch Together membership a guest grant is bound to when a guest who joined
+// by their link, signed in to nothing, asked for it (D518 §1): its session and its member, whose
+// part the Cast device takes once it trades the grant.
+type GrantMembership struct {
+	SessionID int64
+	MemberID  int64
+}
+
+// grantSender is who a grant was asked by, of which each keeps guestGrantsPerDevice waiting at most:
+// a person's device, or a guest's membership.
+type grantSender struct {
+	deviceID   int64
+	membership GrantMembership
+}
+
+// senderOf is who asked for waiting.
+func (waiting guestGrant) senderOf() grantSender {
+	return grantSender{deviceID: waiting.senderDeviceID, membership: waiting.membership}
+}
+
+// forgetLocked forgets every grant expired at now, and the oldest of sender's while it has as many
+// as it may; the mutex is held.
+func (kept *guestGrants) forgetLocked(now time.Time, sender grantSender) {
 	oldest, count := "", 0
 	for hash, waiting := range kept.byHash {
 		if now.Sub(waiting.madeAt) >= guestGrantLife {
 			delete(kept.byHash, hash)
 			continue
 		}
-		if waiting.senderDeviceID != senderDeviceID {
+		if waiting.senderOf() != sender {
 			continue
 		}
 		count++
@@ -86,13 +110,21 @@ func (kept *guestGrants) forgetLocked(now time.Time, senderDeviceID int64) {
 }
 
 // GuestReceiver is a guest grant traded: the receiver's session, and the device it signed in as,
-// its person's, named Name, which only SenderDeviceID casts to.
+// its person's, named Name, which only SenderDeviceID casts to. For a grant bound to a Watch Together
+// guest's membership (D518 §1), Membership is it and nothing is signed in: no session, no person, no
+// device; the Cast device takes the member's part in their session.
 type GuestReceiver struct {
 	Issued
 	UserID         int64
 	DeviceID       int64
 	SenderDeviceID int64
 	Name           string
+	Membership     GrantMembership
+}
+
+// IsForMembership is whether the grant traded was a Watch Together guest's, bound to Membership.
+func (traded GuestReceiver) IsForMembership() bool {
+	return traded.Membership != GrantMembership{}
 }
 
 // IssueGuestGrant mints a grant for a Google Cast device, named receiverName, to receive a cast from
@@ -110,12 +142,56 @@ func (service *Service) IssueGuestGrant(sender Principal, receiverName string) (
 	now := service.clock.Now()
 	service.guestGrants.mutex.Lock()
 	defer service.guestGrants.mutex.Unlock()
-	service.guestGrants.forgetLocked(now, sender.DeviceID)
+	service.guestGrants.forgetLocked(now, grantSender{deviceID: sender.DeviceID})
 	service.guestGrants.byHash[hex.EncodeToString(tokenHash(secret))] = guestGrant{
 		userID: sender.UserID, senderDeviceID: sender.DeviceID, senderSession: senderSession,
 		offerKey: proof.GuestGrantOfferKey(secret), receiverName: receiverName, madeAt: now,
 	}
 	return secret, nil
+}
+
+// IssueMembershipGuestGrant mints a grant for a Google Cast device, named receiverName, to take the
+// part of the Watch Together guest whose membership is membership, a guest by their link signed in to
+// nothing (D518 §1): as IssueGuestGrant's, random, kept only as its SHA-256, traded once within
+// guestGrantLife, a membership keeping guestGrantsPerDevice waiting at most, but bound to the
+// membership, not to a person or a device. The caller has checked the membership is live.
+// ErrGuestSender for no membership.
+func (service *Service) IssueMembershipGuestGrant(membership GrantMembership, receiverName string) (string, error) {
+	if membership.SessionID == 0 || membership.MemberID == 0 {
+		return "", ErrGuestSender
+	}
+	secret, err := randomSecret(service.random)
+	if err != nil {
+		return "", err
+	}
+	now := service.clock.Now()
+	service.guestGrants.mutex.Lock()
+	defer service.guestGrants.mutex.Unlock()
+	service.guestGrants.forgetLocked(now, grantSender{membership: membership})
+	service.guestGrants.byHash[hex.EncodeToString(tokenHash(secret))] = guestGrant{
+		membership: membership, offerKey: proof.GuestGrantOfferKey(secret), receiverName: receiverName, madeAt: now,
+	}
+	return secret, nil
+}
+
+// MembershipGuestGrantOfferKeys are the keys a Google Cast device holding a waiting grant of
+// membership's proves its first offers under (proof.GuestGrantOfferKey), passed on by the discovery
+// under the locator of a device of that membership, which the guest's page handed the device with the
+// grant (D518 §1; GuestGrantOfferKeys for a person's). None once each is traded or expired.
+func (service *Service) MembershipGuestGrantOfferKeys(membership GrantMembership) [][]byte {
+	keys := [][]byte{}
+	if membership == (GrantMembership{}) {
+		return keys
+	}
+	now := service.clock.Now()
+	service.guestGrants.mutex.Lock()
+	defer service.guestGrants.mutex.Unlock()
+	for _, each := range service.guestGrants.byHash {
+		if now.Sub(each.madeAt) < guestGrantLife && each.membership == membership {
+			keys = append(keys, each.offerKey)
+		}
+	}
+	return keys
 }
 
 // GuestGrantOfferKeys are the keys a Google Cast device holding a waiting grant proves its first
@@ -158,8 +234,10 @@ func (service *Service) GuestGrantOfferKeys(ctx context.Context, locatorHash str
 
 // TradeGuestGrant trades a guest grant, once, for a session of a guest receiver of the grant's
 // person (D465 §2): a device of its own, never listed among theirs (ListLiveDevicesOfUser), whose
-// session reaches its cast alone. The grant is gone whatever the trade's outcome. ErrNoGuestGrant
-// for one unknown, traded or expired; ErrNoUser for a person removed since.
+// session reaches its cast alone. A grant bound to a Watch Together guest's membership signs nothing
+// in: it answers the membership, whose part the caller gives the device (D518 §1). The grant is gone
+// whatever the trade's outcome. ErrNoGuestGrant for one unknown, traded or expired; ErrNoUser for a
+// person removed since.
 func (service *Service) TradeGuestGrant(ctx context.Context, grant string) (GuestReceiver, error) {
 	now := service.clock.Now()
 	hash := hex.EncodeToString(tokenHash(grant))
@@ -169,6 +247,9 @@ func (service *Service) TradeGuestGrant(ctx context.Context, grant string) (Gues
 	service.guestGrants.mutex.Unlock()
 	if !found || now.Sub(waiting.madeAt) >= guestGrantLife {
 		return GuestReceiver{}, ErrNoGuestGrant
+	}
+	if waiting.membership != (GrantMembership{}) {
+		return GuestReceiver{Membership: waiting.membership, Name: waiting.receiverName}, nil
 	}
 	if _, err := liveUser(ctx, service.database.Read(), waiting.userID); err != nil {
 		return GuestReceiver{}, err

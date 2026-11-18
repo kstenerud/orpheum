@@ -347,3 +347,78 @@ func TestGuestReceiver_ReadsAndMovesItsOwnCastAlongItsFilmsSequenceAlone(t *test
 	}
 	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool { return each.Receive.FileID == 3 })
 }
+
+// togetherGuestGranted is a grant for a Google Cast device to take the part of the Watch Together
+// guest whose membership credential is credential, as the guest's page asks (D518 §1).
+func (harness testHarness) togetherGuestGranted(t *testing.T, credential string) response {
+	t.Helper()
+	return harness.do(t, http.MethodPost, "/together/cast-grants", credential,
+		map[string]any{"receiverName": "Living room TV"})
+}
+
+// grantOf is the grant a 201 answered.
+func grantOf(t *testing.T, answer response) string {
+	t.Helper()
+	var granted api.GuestGrantOutput
+	if err := json.Unmarshal([]byte(answer.body), &granted.Body); err != nil ||
+		answer.status != http.StatusCreated || granted.Body.Grant == "" {
+		t.Fatalf("POST /together/cast-grants = %d %s", answer.status, answer.body)
+	}
+	return granted.Body.Grant
+}
+
+// A Watch Together guest who joined by their link, signed in to nothing, casts to a Google Cast
+// device (D518 §1): the grant is asked for by their membership credential, the host's refused;
+// traded once, it signs nothing in but gives the device a credential of the guest's own membership,
+// with which it follows the group and plays what is on, as the guest may. Once the guest is removed,
+// the device is told so and plays nothing, and a grant traded after gives no part.
+func TestGuestReceiver_AWatchTogetherGuestByLinkCastsAsTheirMembershipWhileTheyAreIn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "a friend", "Sam")
+	forHost := harness.togetherGuestGranted(t, opened.Body.MembershipCredential)
+	wantError(t, forHost, http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.togetherGuestGranted(t, "no one's"), http.StatusNotFound, api.CodeNotFound)
+	grant := grantOf(t, harness.togetherGuestGranted(t, membership.Body.MembershipCredential))
+	traded := harness.tradeGuestGrant(t, grant)
+	var part api.TradeGuestGrantOutput
+	if err := json.Unmarshal([]byte(traded.body), &part.Body); err != nil || traded.status != http.StatusCreated {
+		t.Fatalf("POST /guest-receivers = %d %s", traded.status, traded.body)
+	}
+	if part.Body.Token != "" || part.Body.DeviceID != 0 || part.Body.MembershipCredential == "" ||
+		part.Body.MembershipCredential == membership.Body.MembershipCredential || part.Body.Locator == "" ||
+		part.Body.TogetherSessionID != opened.Body.SessionID {
+		t.Fatalf("the guest's grant traded for %s; want their membership's credential, nothing signed in", traded.body)
+	}
+	wantError(t, harness.tradeGuestGrant(t, grant), http.StatusNotFound, api.CodeNotFound)
+	harness.logs.AwaitEvent(t, "guestPartTaken", fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID))
+	if logged := harness.logs.String(); strings.Contains(logged, grant) ||
+		strings.Contains(logged, part.Body.MembershipCredential) {
+		t.Errorf("the grant or the credential was logged:\n%s", logged)
+	}
+	host := harness.dialTogether(t, opened.Body.MembershipCredential)
+	host.awaitWelcome()
+	device := harness.dialTogether(t, part.Body.MembershipCredential)
+	device.awaitWelcome()
+	putOn(host, device, 1)
+	if played := harness.viewerPlayback(t, part.Body.MembershipCredential); played.status != http.StatusOK {
+		t.Errorf("the guest's Cast device's playback of the film on = %d %s", played.status, played.body)
+	}
+	waiting := grantOf(t, harness.togetherGuestGranted(t, membership.Body.MembershipCredential))
+	ejected := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/members/%d/eject",
+		opened.Body.SessionID, membership.Body.MemberID), admin, nil)
+	if ejected.status != http.StatusOK && ejected.status != http.StatusNoContent {
+		t.Fatalf("the guest's removal = %d %s", ejected.status, ejected.body)
+	}
+	if reason := device.awaitEnded(); reason != "ejected" {
+		t.Errorf("the removed guest's Cast device was told %q; want ejected", reason)
+	}
+	playedAfter := harness.viewerPlayback(t, part.Body.MembershipCredential)
+	wantError(t, playedAfter, http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.tradeGuestGrant(t, waiting), http.StatusNotFound, api.CodeNotFound)
+	removed := harness.togetherGuestGranted(t, membership.Body.MembershipCredential)
+	wantError(t, removed, http.StatusNotFound, api.CodeNotFound)
+}

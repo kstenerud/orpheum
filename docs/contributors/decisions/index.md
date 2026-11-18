@@ -520,9 +520,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D512](working-notes.md#d512--a-chunk-run-of-an-mp4-with-a-long-index-is-served-the-index-cut-down-to-its-stretch) A chunk run of an MP4 with a long index is served the index cut down to its stretch
 - [D513](working-notes.md#d513--a-search-that-finds-nothing-tries-the-series-order-its-year-beneath-no-year-no-movie-and-its-folder-and-is-made-again-when-the-rules-change) A search that finds nothing tries the series' order, its year beneath, no year, no "Movie" and its folder, and is made again when the rules change
 - [D514](working-notes.md#d514--a-chunk-the-core-is-making-is-asked-for-again-a-quarter-second-after-its-425) A chunk the core is making is asked for again a quarter second after its 425
-- [D515](working-notes.md#d515--a-guest-casts-to-a-chromecast-or-airplay-device-without-signing-in-only-an-orpheum-device-needs-a-sign-in) A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in
+- [D515](working-notes.md#d515--a-guest-casts-to-a-chromecast-or-airplay-device-without-signing-in-only-an-orpheum-device-needs-a-sign-in) A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in — *revisited by D518*
 - [D516](working-notes.md#d516--a-groups-film-that-ends-on-its-leaders-player-with-nothing-next-stops-for-the-group-whoever-leads) A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
 - [D517](working-notes.md#d517--failures-of-unknown-cause-piling-up-light-the-warning-sign-with-no-banner) Failures of unknown cause piling up light the warning sign, with no banner
+- [D518](working-notes.md#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership) A Watch Together guest by link casts to a Chromecast as another device of their membership
 
 ## Archived
 

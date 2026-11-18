@@ -75,6 +75,48 @@ func TestLinksOf_TheDiscoveryFindsTheCoreByWatchTogethersLinksAndLocators(t *tes
 	}
 }
 
+// A Google Cast device a Watch Together guest by link cast to proves its first offers under its grant's
+// key, passed on under the locator of the guest's device that asked for it, while the grant waits and
+// the guest is in (D518 §1); the locator of no member's device passes on none.
+func TestFurtherOfferKeysOf_AWatchTogetherGuestsGrantIsProvenUnderTheirDevicesLocator(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	fakeClock := clocktest.NewFake(time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC))
+	accounts := auth.NewService(database, fakeClock, rand.Reader, settingstest.Seeded(t, database))
+	sessions := together.NewHub(fakeClock, rand.Reader, nil, slog.New(slog.DiscardHandler))
+	opened, err := sessions.Open(together.Person{UserID: 1, Name: "host"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	made, err := sessions.AddLink(opened.SessionID, 1, "a friend", together.Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := sessions.Join(made.Secret, "Pat", nil, together.Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, err := accounts.IssueMembershipGuestGrant(
+		auth.GrantMembership{SessionID: joined.SessionID, MemberID: joined.MemberID}, "Living Room TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	further := furtherOfferKeysOf(accounts, sessions)
+	keys, err := further(t.Context(), link.LocatorHash(joined.Locator))
+	if err != nil || len(keys) != 1 || !bytes.Equal(keys[0], proof.GuestGrantOfferKey(grant)) {
+		t.Errorf("under the guest's locator the further keys are %x, %v; want their grant's", keys, err)
+	}
+	if keys, err = further(t.Context(), link.LocatorHash("no one's")); err != nil || len(keys) != 0 {
+		t.Errorf("under no member's locator the further keys are %x, %v; want none", keys, err)
+	}
+	if err = sessions.Eject(joined.SessionID, 1, joined.MemberID); err != nil {
+		t.Fatal(err)
+	}
+	if keys, err = further(t.Context(), link.LocatorHash(joined.Locator)); err != nil || len(keys) != 0 {
+		t.Errorf("under a removed guest's locator the further keys are %x, %v; want none", keys, err)
+	}
+}
+
 // fixedSecrets is a TURN secret kept in memory.
 type fixedSecrets struct{ value secrets.Value }
 
@@ -274,6 +316,8 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 	var opened openedServices
 	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)),
 		rand.Reader, settingstest.Seeded(t, database))
+	opened.together = together.NewHub(clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)), rand.Reader,
+		nil, slog.New(slog.DiscardHandler))
 	opened.reachability = newReachability(config, opened)
 	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
 	parts.OnRealm("karlnas")
@@ -301,6 +345,8 @@ func TestDiscoveryParts_AHandOffsCodeAndAGuestGrantProveOffers(t *testing.T) {
 	var opened openedServices
 	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)),
 		rand.Reader, settingstest.Seeded(t, database))
+	opened.together = together.NewHub(clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)), rand.Reader,
+		nil, slog.New(slog.DiscardHandler))
 	opened.reachability = newReachability(config, opened)
 	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
 	parts.OnRealm("karlnas")
