@@ -3404,14 +3404,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   page in Chrome and press Play, without skipping. Passes when the picture moves and the sound
   plays within a few seconds of the press, from the film's start; and when a normal film's encoded
   quality still starts from Play as before (`encodeStartDecodeTimes`, `internal/node/chunks/arguments.go`).
-- [ ] **VQ359** — A cast's end on a Chromecast: black at a film's end with nothing next, closed 5
+- [ ] **VQ359** — A cast's end on a Chromecast: black at a film's end with nothing next, closed 20
   minutes later; closed after 20 minutes paused; a guest receiver waits ready too (the plan file's
   "A film played to its end with nothing next goes back to its page", its cast part; the 11-19
   batch's answer 4). On staging, from the owner's Mac, Chrome, to the 3rd-generation Chromecast,
   cast as usual (under a grant): (1) cast a film with nothing after it, seek to a minute before
   its end and let it play out. Passes when, at its end, the TV shows a black screen, still
-  connected, the Mac leaves the remote for the film's page at once, and 5 minutes later the
-  Chromecast goes back to its own home screen. (2) Cast a film and pause it from the Mac: passes
+  connected, the Mac leaves the remote for the film's page at once, and 20 minutes later, not at
+  5, the Chromecast goes back to its own home screen (the owner, 2026-11-18: "20 minutes for all of
+  those chromecast cases"). (2) Cast a film and pause it from the Mac: passes
   when the Chromecast closes 20 minutes after the pause, not at 5, and does not close while a film
   plays for longer than 20 minutes. (`cast-receiver/src/idle.ts`, `src/device.ts`'s
   waitsReadyAtTheEnd, the web app's `cast-remote.tsx`.)

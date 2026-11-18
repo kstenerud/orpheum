@@ -46,16 +46,17 @@ describe("the receiver's own idle close", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("never closes while a film plays, and closes 5 minutes after the film is taken off", () => {
+  it("never closes while a film plays, and closes 20 minutes after the film is taken off at its end", () => {
     const close = vi.fn();
     const { video, stand } = aVideo();
     closesWhenIdle(video, close);
     stand({ source: film, isPaused: false }, "playing");
     vi.advanceTimersByTime(3 * pausedClosesAfterMs);
     expect(close).not.toHaveBeenCalled();
-    // The cast's film ended with nothing next: the cast plays nothing, and its film is taken off.
+    // The cast's film ended with nothing next: the cast plays nothing, and its film is taken off; it
+    // waits as a paused film does (the owner, 2026-11-18: "20 minutes for all of those chromecast cases").
     stand({ source: "", isPaused: true }, "emptied");
-    vi.advanceTimersByTime(idleClosesAfterMs - 1);
+    vi.advanceTimersByTime(pausedClosesAfterMs - 1);
     expect(close).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(close).toHaveBeenCalledOnce();
