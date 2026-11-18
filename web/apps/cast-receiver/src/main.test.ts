@@ -3,12 +3,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { idleClosesAfterMs } from "./idle.ts";
 import mainSource from "./main.ts?raw";
 
 const ownToSorted = Reflect.getOwnPropertyDescriptor(Array.prototype, "toSorted");
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   if (ownToSorted !== undefined) {
     Reflect.defineProperty(Array.prototype, "toSorted", ownToSorted);
   }
@@ -41,5 +43,31 @@ describe("the receiver's entry point", () => {
     const log = document.querySelector(".receiver__log");
     expect(log?.textContent).toContain(navigator.userAgent);
     expect(log?.textContent).not.toContain("making the report");
+  });
+
+  it("stops CAF's receiver, closing the cast, once it has had nothing playing for 5 minutes", async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    document.body.replaceChildren();
+    const stop = vi.fn();
+    const context = {
+      addCustomMessageListener: () => undefined,
+      addEventListener: () => undefined,
+      start: () => undefined,
+      sendCustomMessage: () => undefined,
+      stop,
+    };
+    vi.stubGlobal("cast", {
+      framework: {
+        CastReceiverOptions: class {},
+        CastReceiverContext: { getInstance: () => context },
+        system: { MessageType: { JSON: "JSON" }, EventType: {} },
+      },
+    });
+    await import("./main.ts");
+    vi.advanceTimersByTime(idleClosesAfterMs - 1);
+    expect(stop).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(stop).toHaveBeenCalledOnce();
   });
 });

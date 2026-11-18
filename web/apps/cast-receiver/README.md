@@ -14,9 +14,12 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   policy that allows CAF from www.gstatic.com and the Cast platform's socket on the device
   (`internal/core/webclient`, `TestHandler_ServesTheCastReceiverUnderCast`,
   `TestHandler_OnlyTheScreensAndTheReceiverMayLoadGooglesCastSDK`).
-- **Never closed for being idle, with CAF's players not loaded**: our player replaces CAF's, which
-  would otherwise see a receiver playing nothing (casting-review-2026-10-25.md §4). `src/caf.ts`;
+- **Never closed by CAF for being idle, with CAF's players not loaded**: our player replaces CAF's,
+  which would otherwise see a receiver playing nothing (casting-review-2026-10-25.md §4). `src/caf.ts`;
   only a device shows it: VQ58.
+- **Closes itself, by CAF's stop, after 5 minutes with nothing playing or 20 with its film paused**
+  (the owner, 2026-11-17 and 2026-11-18), timed by its video from when it came to stand so; playing,
+  it stays. `src/idle.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ359.
 - **Plays only a path on its own core, or on its sender's core reached through the sender's
   discovery** (its own names, else WebRTC, as the web client reaches it: `src/reach.ts`, the 11-05
   batch's item 10), signed in by what its sender hands it, and answers only the lab's requests on

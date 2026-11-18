@@ -5,13 +5,15 @@ import "./old-engine.ts";
 
 import { startReceiver } from "./caf.ts";
 import { castNamespace } from "./guest.ts";
+import { closesWhenIdle } from "./idle.ts";
 import { LabReceiver, memoryEveryMs } from "./lab.ts";
 
 /**
  * The cast receiver's entry point. For now it is the lab's spike receiver (plans/tv-device-tests.md;
- * casting-2026-10-25.md §5.2 step 2): CAF's receiver, started never to close for being idle, with
- * our own player in place of CAF's, listening on the lab's namespace, and on the cast's for a cast
- * under a grant (D465 §2); the receiver of M6 (D245) grows from what it finds. It makes its device
+ * casting-2026-10-25.md §5.2 step 2): CAF's receiver, started never to close for being idle by CAF,
+ * which cannot see our own player in place of CAF's, so it closes itself by its video (idle.ts),
+ * listening on the lab's namespace, and on the cast's for a cast under a grant (D465 §2); the
+ * receiver of M6 (D245) grows from what it finds. It makes its device
  * report only when the lab's sender asks (lab-cast.tsx's openOurs), never at its start.
  */
 
@@ -49,6 +51,10 @@ function start(): void {
     lab.note(`CAF did not start: ${cause instanceof Error ? cause.message : "failed"}`);
   }
   lab.note(navigator.userAgent);
+  closesWhenIdle(video, () => {
+    lab.note("idle for too long: closing");
+    receiver?.stop();
+  });
   setInterval(() => {
     lab.sampleMemory();
   }, memoryEveryMs);

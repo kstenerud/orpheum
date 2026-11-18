@@ -29,15 +29,19 @@ function call(holder: unknown, name: string, ...methodArguments: readonly unknow
   return Reflect.apply(method, holder, methodArguments);
 }
 
-/** A started receiver: its sending, on one of its namespaces, to every sender. */
+/**
+ * A started receiver: its sending, on one of its namespaces, to every sender; and its stop, which
+ * closes the receiver, ending the cast, the device going back to its own home screen.
+ */
 export interface Receiver {
   readonly broadcast: (namespace: string, message: Readonly<Record<string, unknown>>) => void;
+  readonly stop: () => void;
 }
 
 /**
- * Starts CAF's receiver on each namespace heard names: never closed for being idle, since our own
- * player replaces CAF's and CAF would see a receiver playing nothing (casting-review-2026-10-25.md
- * §4), with CAF's players not loaded. Tells each namespace's listener the messages on it, and
+ * Starts CAF's receiver on each namespace heard names: never closed by CAF for being idle, since our
+ * own player replaces CAF's and CAF would see a receiver playing nothing (casting-review-2026-10-25.md
+ * §4), with CAF's players not loaded; the receiver times its idle close itself (idle.ts). Tells each namespace's listener the messages on it, and
  * onEvent the senders' coming and going. Undefined where the page is not on a Cast device.
  */
 export function startReceiver(
@@ -79,6 +83,9 @@ export function startReceiver(
   return {
     broadcast: (namespace, message) => {
       call(context, "sendCustomMessage", namespace, undefined, message);
+    },
+    stop: () => {
+      call(context, "stop");
     },
   };
 }
