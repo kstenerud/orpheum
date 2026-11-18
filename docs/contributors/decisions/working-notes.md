@@ -29941,17 +29941,17 @@ to series.
    raises, is recorded with each "not found"; one recorded under an older version, or under none,
    is returned to its first match by a sweep a few at a time, unhurried as the missing-fetch sweep
    is (D335 §3), and searched under the new rules. §1–§4 are such changes, and are covered by the
-   version's first value, as every "not found" recorded before it has none. *Not built:* the
-   version a "not found" was recorded under has nowhere to live without a schema change (a column
-   of item, step 0091), whose golden is the owner's.
+   version's first value, as every "not found" recorded before it has none. The version lives in
+   `item.search_rules_version` (step 0091, the owner's go of 2026-11-18).
 
 **Proven by:**
 - 1: internal/core/identify/series_test.go (TestSeries_WithNoYearTheWellKnownIsGuessedOverAnOlderNamesake)
 - 2: internal/core/identify/filename_test.go (TestParsePath_ASeriesFolderWithNoYearTakesOneFromANameBeneathIt)
 - 3: internal/core/identify/spellings_test.go (TestMatch_ASearchInTheYearThatFindsNothingIsMadeOnceMoreWithNone)
 - 4: internal/core/identify/spellings_test.go (TestMatch_AFilmItsNameFindsNotIsFoundWithoutItsMovieOrByItsFolder, TestSpellingVariants_AreTheOtherWaysANameIsWritten)
+- 5: internal/core/identify/match_test.go (TestMatch_AFilmFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange), internal/core/identify/chosen_by_hand_test.go (TestMatch_ASeriesFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange), internal/core/assembly/jobs_test.go (TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays)
 
-**Status:** §1–§4 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`, and "fix(identify): a film whose name finds nothing is searched without its Movie, then by its folder", at `withoutTrailingMovie` and `searchTitle`; §5 not built, waiting for its schema step.
+**Status:** §1–§4 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`, and "fix(identify): a film whose name finds nothing is searched without its Movie, then by its folder", at `withoutTrailingMovie` and `searchTitle`; §5 built (2026-11-18) in "feat(identify): a title found to match nothing is searched again when the search rules change", at `searchRulesVersion` and `SearchNotFoundAgain`.
 
 ## D514 — A chunk the core is making is asked for again a quarter second after its 425
 
