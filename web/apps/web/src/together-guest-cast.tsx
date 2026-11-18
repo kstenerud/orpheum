@@ -7,7 +7,8 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { grantAt, grantBody, type AirPlayGrants } from "./airplay.ts";
+import { grantAt, grantBody } from "./airplay.ts";
+import type { AirPlayGrants } from "./airplay-types.ts";
 import { useAirPlayHere, useIsOnAirPlay } from "./airplay-here.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { ChromecastEntry, useGuestCastAskingBy } from "./cast-to.tsx";

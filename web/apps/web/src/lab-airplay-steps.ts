@@ -9,7 +9,7 @@
 import { followAirPlay, offerAirPlayAlternative, showAirPlayPicker } from "@orpheum/player";
 import { failureText } from "@orpheum/sdk";
 
-import type { AirPlayGrant, Log } from "./airplay.ts";
+import type { AirPlayGrant, Log } from "./airplay-types.ts";
 
 /** A media element with Safari's AirPlay picker (WebKit's own, in no standard's DOM types). */
 interface WebKitAirPlay {

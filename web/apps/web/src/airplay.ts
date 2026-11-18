@@ -10,7 +10,6 @@
  * link's page, their membership's (D519 §1), as AirPlayGrantsContext says around the player.
  */
 
-import type { Api } from "@orpheum/sdk";
 import {
   followAirPlay,
   isAirPlayOffered,
@@ -21,25 +20,17 @@ import {
 import { createContext, use, useEffect, useRef, type RefObject } from "react";
 
 import { offerAirPlayHere, tellAirPlayChanged, type AirPlayHere } from "./airplay-here.ts";
+import type {
+  AirPlayDoing,
+  AirPlayGrant,
+  AirPlayGrantAsked,
+  AirPlayGrants,
+  Log,
+} from "./airplay-types.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLatest } from "./latest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, type PathMoves } from "./services.tsx";
-
-/** A line for the page's log. */
-export type Log = (line: string) => void;
-
-/** The grant made for a playback: its master playlist's whole address, and when it ends. */
-export interface AirPlayGrant {
-  readonly url: string;
-  readonly expiresAt: string;
-}
-
-/** What a step is given: the server, and the log it writes each step to. */
-export interface AirPlayDoing {
-  readonly api: Api;
-  readonly log: Log;
-}
 
 /**
  * The origin the grant's address is resolved on, the one the receiver must reach the core at
@@ -67,16 +58,6 @@ export function grantOriginOf(
     );
   }
   return origin;
-}
-
-/**
- * What a grant is asked for: the playback its media token names, and the audio track the page plays
- * now, by its place among the film's, which the grant's master playlist names its default (D521 §2);
- * none, the playback's starting track.
- */
-export interface AirPlayGrantAsked {
-  readonly mediaToken: string;
-  readonly audioTrackIndex?: number | undefined;
 }
 
 /** The body a grant is asked for with, naming no audio track where asked names none. */
@@ -129,16 +110,6 @@ export async function revokeAirPlayGrants(doing: AirPlayDoing): Promise<number> 
 
 /** A log that keeps nothing, for the product's steps, which the lab's log names. */
 export const noLog: Log = () => undefined;
-
-/** How AirPlay's grant is asked for (make) and revoked at AirPlay's end (revoke), and by whom. */
-export interface AirPlayGrants {
-  readonly make: (
-    doing: AirPlayDoing,
-    asked: AirPlayGrantAsked,
-    origin: string,
-  ) => Promise<AirPlayGrant>;
-  readonly revoke: (doing: AirPlayDoing) => Promise<number>;
-}
 
 /** The person's session's grants (POST and DELETE /airplay/grants, D473). */
 export const sessionAirPlayGrants: AirPlayGrants = {

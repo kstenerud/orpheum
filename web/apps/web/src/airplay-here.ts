@@ -9,7 +9,7 @@
 
 import { useSyncExternalStore } from "react";
 
-import type { AirPlayGrants } from "./airplay.ts";
+import type { AirPlayGrants } from "./airplay-types.ts";
 
 /** The film this tab plays that AirPlay is offered for, as the Cast menu reaches it. */
 export interface AirPlayHere {

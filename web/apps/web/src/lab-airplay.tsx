@@ -6,13 +6,8 @@ import { failureText } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  grantOriginOf,
-  makeAirPlayGrant,
-  revokeAirPlayGrants,
-  type AirPlayGrant,
-  type Log,
-} from "./airplay.ts";
+import { grantOriginOf, makeAirPlayGrant, revokeAirPlayGrants } from "./airplay.ts";
+import type { AirPlayGrant, Log } from "./airplay-types.ts";
 import {
   airPlayFromSecondElement,
   airPlayFromTheSameElement,
