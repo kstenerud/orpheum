@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A84 — Called AirPlay drops "by itself" that were the owner's own switches (2026-11-18)
+
+- **What happened:** in the AirPlay lab's runs 2 and 3, the lead read a drop and a return in the
+  log that no page press preceded, and wrote into the research, twice, that AirPlay changes route
+  with no input from the page or the person. The owner had made both, with a control outside the
+  page's buttons, to read the steps on the Mac. The false belief came from reading the log's
+  "no press" as "nobody acted": the log records only the page's own buttons.
+- **Caught by:** the owner, explaining what they had done.
+- **Gate:** none: the lab cannot see controls outside the page. The lesson is to ask the person
+  what they did before calling an event spontaneous, and to word a log's silence as "no page
+  press", not "no press".
+
 ### A83 — Gave the owner a release's signing command as an installed program, which it is not (2026-11-18)
 
 - **What happened:** handing over v0.8.5, the lead told the owner to run

@@ -392,11 +392,13 @@ This was the lab page's run 2, which covered steps 1, 3, 4 and 6.
 So both ways of changing the sound work during AirPlay: one track property on a master listing
 every sound, or a new one-sound source.
 
-**The rerun, 2026-11-18 (log `e1-sound-…T19-56-32`).** The owner suspected the first run's drop
-came from switching to the Mac to read the steps. In the rerun the iPhone's page stayed visible
-throughout (no `visibility` event), and the same thing happened. AirPlay ended 3.5 s after the
-Mac connected, with no press. 18 s later it came back, again with no press. Both reloads repeated
-step 6's result: the flag fell for about 100 ms, the position held, and the right tone played.
+**The rerun, 2026-11-18 (log `e1-sound-…T19-56-32`).** In both runs, the drop soon after the Mac
+connected, and the return after it, were the owner's (the owner): they brought the video back to
+the iPhone to read the steps on the Mac's screen, then sent it to the Mac again. They used a
+control other than the page's buttons, so the log shows no press. This matters for the design: a
+person can change the route with controls the page does not own, and the page sees only the flag
+move. Both reloads repeated step 6's result: the flag fell for about 100 ms, the position held,
+and the right tone played.
 
 ### E2: the picker, and ending AirPlay (`e2-picker.html`)
 
@@ -446,10 +448,8 @@ tapping outside it).**
   2.4 s until the owner chose the iPhone, and the Mac kept the picture and the sound until then
   (the owner). The picker still opened with the attribute set, and it
   still let the owner bring the video back.
-- **An unexplained change.** In run 2 (E1), AirPlay ended 4 s after the Mac connected. 39 s
-  after a later return, it came back on. Nobody pressed anything, and the picker can be ruled
-  out: closing it changes nothing. So a route can change with no input from the page or the
-  person, and the page must follow the flag rather than its own idea of the state.
+- **Run 2's drop and return are explained.** They were the owner's, made with a control other
+  than the page's buttons (E1's rerun), not the picker's close.
 
 ### E3: MMS with an HLS alternative (`e3-mms.html`)
 
@@ -565,10 +565,10 @@ That is the lab's limit, not a fault: the owner saw nothing pause that they had 
   bar.
 - **Lock.** With the iPhone locked for 34 s (`visibility` hidden), the Mac played on, and the
   position on unlocking was continuous.
-- **A second unexplained drop.** The flag fell, with no press, 3.8 s after the Mac's own pause and
-  play. Run 2's drop came 4.0 s after the Mac connected. Two drops about 4 s after something
-  happened on the route make a pattern worth one more look. The product must handle a drop
-  either way: follow the flag and carry on locally.
+- **One drop not yet explained.** The flag fell, with no press on the iPhone, 3.8 s after the
+  owner used the Mac's own pause and play. Run 2's drops were the owner's (E1's rerun); this one
+  may have come from the Mac's controls. The product must handle a drop either way: follow the
+  flag and carry on locally.
 
 ## 6. Candidate designs
 
