@@ -541,7 +541,8 @@ the iPhone.
   master, and it picked the high sound. The alternative was `master-low.m3u8`, so the Mac, and the
   iPhone before each reattach, played the low one. In the product the alternative's one sound is the
   one the page plays (D521 §2, D522 §1), and the page sets the starting sound itself (D523 §3).
-- **One pause came from no page button,** 6.5 s after the last reattach, as the run ended.
+- **The one pause no page button made was the owner's,** with the video's own controls, as the
+  run ended.
 
 So the page can reattach after the same 1 s that settles the flag: a quick return to the receiver
 works on either side of the reattach.
