@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A82 — Told the owner a sound changed during AirPlay would reach the receiver, with nothing built for it (2026-11-18)
+
+- **What happened:** asking the owner to choose D522 §1, the lead wrote that the person changes the
+  sound on the page and "a change makes a new AirPlay playlist". Neither the decision's text nor the
+  agent's brief asked for it, and nothing made a new grant at a sound changed while AirPlay played:
+  the change did nothing until AirPlay ended.
+- **Caught by:** the owner, on staging: "changing the audio track from the phone did nothing until I
+  stopped casting".
+- **Gate:** none. The lesson: every behaviour a question to the owner promises goes into the
+  decision's text and the brief, so its proof line has to name a test of it.
+
 ### A81 — Committed a fix for AirPlay's sound left on the Mac on one WebKit sentence about video (2026-11-18)
 
 - **What happened:** the owner said that after Stop AirPlay the film's sound went on playing on the

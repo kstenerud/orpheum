@@ -3483,7 +3483,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (A tab opened before the deploy ran the old Stop, which showed no picker.) Found with it: the
   film came back playing the English sound while the page said "Sound: Japanese", the sound it
   had played before AirPlay.
-- [ ] **VQ364** — AirPlay plays the sound the page plays (D521 §2; the owner, staging, 2026-11-18: a
+- [x] **VQ364** — AirPlay plays the sound the page plays (D521 §2; the owner, staging, 2026-11-18: a
   guest by link chose the Japanese sound on the iPhone, AirPlayed to the Mac, and the Mac played
   another track, the core's log showing only `sound2-own` fetched). On staging, on the iPhone in
   Safari, with a film of two audio tracks or more: (1) as a Watch Together guest by link, choose
@@ -3504,6 +3504,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   grant fell back to the sound last fetched, the English the iPhone's own player had moved to
   under the grant. The page's track is lost before the request (being fixed). In this run the
   film also paused as it went to the Mac and played on only when the owner pressed play.
+  **Passed 2026-11-18 about 18:40 UTC (the owner, staging, a guest by link, case 1), after D522:**
+  the Mac played the Japanese sound, and the iPhone kept it at the hand-back (VQ365 case 1 too). Two new failures, filed
+  as VQ366: changing the sound on the iPhone while AirPlaying did nothing until AirPlay ended, and
+  Stop AirPlay left the page saying AirPlay played where the person did not choose the iPhone.
+- [ ] **VQ366** — While AirPlay plays, the sound chosen on the page is the one the receiver plays, and
+  the page says AirPlay plays only while it does (the owner, staging, 2026-11-18 about 18:40 UTC, after
+  D522: "changing the audio track from the phone did nothing until I stopped casting. Also, the
+  airplay control gets confused if I don't actually move control back to the iphone side when I tap
+  'stop casting', thinking its casting when it's not"). On staging, on the iPhone in Safari, as a
+  guest by link on film 215: (1) AirPlay to the Mac, then choose another sound on the page; (2) Cast,
+  Stop AirPlay, and close the picker without choosing the iPhone. Passes when the Mac plays the new
+  sound within a few seconds, and the page's Cast menu says AirPlay plays exactly while the Mac
+  plays. Waits on the owner's choice of design (asked 2026-11-18).
 - [ ] **VQ365** — A film handed back from AirPlay plays the sound its page says (VQ363, 2026-11-18:
   a Watch Together guest by link on the iPhone, the page saying "Sound: Japanese", AirPlayed to
   the Mac, which played the English; at Stop AirPlay, choosing the iPhone, the film came back
