@@ -30176,3 +30176,24 @@ one cast, and a device cast to casts nothing" (`castOf` on a member's credential
 the server and the guest's page already did it, and "test(together): a guest whose link gives no
 controls changes nothing, from their page, their Chromecast or their AirPlay" proves it. VQ361 (6)
 and (7), on devices, are owed.
+
+## D521 — Stop AirPlay opens AirPlay's picker for the person to choose this device, and AirPlay plays the sound the page plays
+
+**Decided** (2026-11-18), by the project owner, answering the questions asked after VQ362 failed:
+"1, 2: Go with your recommendations". At Stop the picture came back to the iPhone and the sound
+stayed on the Mac: the AirPlay picker routes the page's sound as well, and no web API ends that
+route (docs/contributors/idiosyncrasies.md). The Mac played the master playlist's default sound,
+the playback's starting track, not the Japanese the guest had chosen. Amends D473's Stop.
+
+1. **Stop opens the picker.** Pressed while AirPlay plays, Stop AirPlay shows Safari's AirPlay
+   picker within the press, for the person to choose this device. AirPlay ends as the element's
+   target stops being wireless, as it does now when they choose the phone from Control Center, and the
+   film comes back to the page. If they close the picker or keep the receiver, AirPlay plays on.
+   An end the person did not press (no receiver picked in time, the session ending, the
+   grant's playback gone) ends AirPlay as before: there is no press to show the picker in.
+2. **AirPlay plays the sound the page plays.** The page asks for its grant with the audio track it
+   plays now (`audioTrackIndex`), signed in or a guest by link. The grant's master playlist marks
+   that track's sound as its default, in place of the playback's starting track. With no track
+   given, or one the film does not have, it is the starting track, as before.
+
+**Status:** decided (2026-11-18); not built yet.
