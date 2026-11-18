@@ -83,6 +83,21 @@ export function reachOfGrant(
     );
 }
 
+// personsSessionOf is a traded grant's session and device. A Watch Together guest's grant answers
+// their membership's credential instead, with no session (D518 §1): taking their part is not built in
+// the receiver yet, so it throws, and the sender is told the cast failed.
+function personsSessionOf(traded: { token?: string; deviceId?: number }): {
+  token: string;
+  deviceId: number;
+} {
+  if (traded.token === undefined || traded.deviceId === undefined) {
+    throw new Error(
+      "the grant was a Watch Together guest's, whose part this receiver cannot take yet",
+    );
+  }
+  return { token: traded.token, deviceId: traded.deviceId };
+}
+
 /**
  * Takes the cast request's grant is for: reaches the core, trades the grant, connects as the device
  * the trade made, and once the core has welcomed it answers the sender which device it is, taking
@@ -103,15 +118,16 @@ export async function castAsGuest(
     const session = dataOrThrow(
       await api.POST("/guest-receivers", { body: { grant: request.grant } }),
     );
+    const { token, deviceId } = personsSessionOf(session);
     const core = { coreId: request.reach.coreId, fingerprint: request.reach.fingerprint };
-    traded = { core, token: session.token, locator: session.locator };
-    note(`traded the grant: device ${String(session.deviceId)}`);
+    traded = { core, token, locator: session.locator };
+    note(`traded the grant: device ${String(deviceId)}`);
     const way = reached;
     let isStopped = false;
     let isAnswered = false;
     const device = new CastDevice({
       api,
-      token: session.token,
+      token,
       reached: way,
       video: steps.video,
       note,
@@ -130,7 +146,7 @@ export async function castAsGuest(
       onConnected: () => {
         if (!isAnswered) {
           isAnswered = true;
-          steps.answer({ type: "ready", deviceId: session.deviceId });
+          steps.answer({ type: "ready", deviceId });
         }
       },
     });
