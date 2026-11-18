@@ -285,9 +285,11 @@ type airPlayServed struct {
 }
 
 // asPlayed is the playback as the grant's receiver plays it: the track the page played as it asked
-// for the grant, where it named one, its master playlist's default (D521 §2); else as the page's
-// own player plays it.
+// for the grant, where it named one, its master playlist's default (D521 §2), else the one the
+// page's own player plays; and that sound alone offered, as the receiver would choose another
+// (D522 §1).
 func (served airPlayServed) asPlayed(chunked chunks.Playback) chunks.Playback {
+	chunked.OffersPlayingSoundAlone = true
 	if !served.sound.IsChosen {
 		return chunked
 	}
@@ -350,7 +352,7 @@ func membershipAirPlayPlayback(
 }
 
 // getAirPlayMasterPlaylist answers GET /bytes/media/g/{grant}/master.m3u8, held while the film has
-// no grid (airPlayHold), its default sound the track the page played (asPlayed).
+// no grid (airPlayHold), offering the sound of the track the page played alone (asPlayed).
 func (server *Server) getAirPlayMasterPlaylist(
 	ctx context.Context, input *AirPlayMasterInput,
 ) (*huma.StreamResponse, error) {

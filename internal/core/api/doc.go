@@ -221,7 +221,12 @@
 //     TestAirPlay_AMasterWithNoGridIsHeldForTheReceiver,
 //     TestAirPlay_AChunkNotMadeYetIsHeldUntilItIsMade, TestAirPlay_AReceiverGoneWhileHeldIsLoggedAsGone,
 //     TestAirPlay_AReceiverGoneBeforeItsAnswerIsNoInternalError and
-//     TestAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant. A Watch Together guest by link,
+//     TestAirPlay_EachRequestUnderAGrantIsLoggedWithoutTheGrant. A grant's master playlist offers
+//     one sound, one rendition in each audio group: the audio track the page asked the grant with,
+//     or with none, or one the film does not have, the playback's own; the page's own master offers
+//     every sound (D521 §2, D522 §1). Enforced by
+//     TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays and
+//     TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays. A Watch Together guest by link,
 //     signed in to nothing, asks for one by their membership credential (POST /together/airplay-grants,
 //     for the playback POST /together/playback started) and revokes theirs (DELETE
 //     /together/airplay-grants) (D519 §1); its receiver plays as the membership, the session's film

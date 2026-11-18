@@ -62,6 +62,11 @@ type Playback struct {
 	// are (decide.PlaysAsItIs): the top of its ladder, the film's own picture copied, plays each of
 	// them copied (D368 §1).
 	OwnSoundTracks []int
+	// OffersPlayingSoundAlone is whether its master playlist offers the sound it plays alone, its
+	// default (playingSoundOf), one in each audio group: an AirPlay receiver's, as Apple's player
+	// chooses a sound of its own over the default (D522 §1). False for the playback's own player,
+	// offered every sound.
+	OffersPlayingSoundAlone bool
 }
 
 // Kept is what a playback keeps, to its end, of the first master playlist it was offered, though
@@ -402,7 +407,8 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 // MasterPlaylist is the master playlist of the playback's film cut into chunks (chunks.md §3): every
 // sound of its tracks (SoundsOf), the playback's starting track's standard mix the default, in the
 // audio group the lower qualities play, and, where the top plays a track's own sound copied, again in
-// a group of the top's own (D368 §3); every picture it is offered, highest first, each naming its
+// a group of the top's own (D368 §3), the default alone where the playback offers its sound alone
+// (OffersPlayingSoundAlone, D522 §1); every picture it is offered, highest first, each naming its
 // group; and what the playback keeps of it from then on: whether the film is cut on time (D269 §3),
 // and whether its sounds are named unlevelled. A film with no grid yet is ErrNoGrid, and is being
 // read through for one; one that cannot be cut is ErrCannotBeCut.
@@ -446,7 +452,8 @@ const (
 // soundMediaOf are the film's sounds picture plays (soundOf), each as its master playlist names it: in
 // SoundsOf's order, which every group keeps, so a player keeps the sound's place as it moves between
 // groups; each named as its made mix is, a name the groups share; the standard sound of the track the
-// playback plays (playingSoundOf) the default, or the first where the film no longer has that track.
+// playback plays (playingSoundOf) the default, or the first where the film no longer has that track;
+// that default alone where the playback offers its sound alone (OffersPlayingSoundAlone).
 func (film cutFilm) soundMediaOf(offered offer, playback Playback, picture Stream) []soundMedia {
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
@@ -464,6 +471,9 @@ func (film cutFilm) soundMediaOf(offered offer, playback Playback, picture Strea
 	// A playback that started with no track the film still has starts with its first sound.
 	if len(sounds) > 0 && !slices.ContainsFunc(sounds, func(sound soundMedia) bool { return sound.isDefault }) {
 		sounds[0].isDefault = true
+	}
+	if playback.OffersPlayingSoundAlone {
+		sounds = slices.DeleteFunc(sounds, func(sound soundMedia) bool { return !sound.isDefault })
 	}
 	return sounds
 }

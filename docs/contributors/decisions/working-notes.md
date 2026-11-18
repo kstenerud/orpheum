@@ -30223,4 +30223,7 @@ that pause to the group as a pause the guest had made (`leaderCommand command=pa
    at the gap it allows a local player. A pause or play the element fires that the guest did not
    press (a seek's, the receiver's) is not sent to the group as theirs.
 
+**Proven by:**
+- 1: TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays, TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays (internal/core/api/airplay_sound_test.go), VQ364
+
 **Status:** decided (2026-11-18).
