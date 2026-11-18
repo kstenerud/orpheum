@@ -634,6 +634,7 @@ is only a change of route.
    playback while receivers are available? It would last a day and be revoked at the end
    (D154, D473, D474).
 2. **Moving hls.js.** Is it acceptable to move hls.js past 1.7.3 to a release with
-   `isMediaSourceReplaced`, once one ships?
+   `isMediaSourceReplaced`, once one ships? **Answered (the owner, 2026-11-18): yes, to 1.7.4.**
+   Run 1b showed it fixes the handover, and the owner approved the upgrade.
 3. **Stop's promise.** Should Stop say "choose this iPhone to bring it back" rather than promise
    to stop, given that no page can end the route?
