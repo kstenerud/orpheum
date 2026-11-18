@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/trust"
@@ -349,5 +351,23 @@ func TestNetwork_DigestTakesTheRegistrysAnonymousToken(t *testing.T) {
 	}
 	if _, err = world.Digest(strings.TrimPrefix(registry.URL, "http://")+"/owner/orpheum", "v9.9.9"); err == nil {
 		t.Error("a tag the registry does not hold: want an error")
+	}
+}
+
+// The owner reads the release command's flags in the usage the tool says: --new-registry, the one way
+// past the refusal of a record naming another registry, is among them.
+func TestRelease_TheUsageNamesTheNewRegistryFlag(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if status := run(nil, time.Time{}, &stdout, &stderr); status != exitUsage {
+		t.Fatalf("run with no command = %d, want the usage error %d", status, exitUsage)
+	}
+	releaseLine := ""
+	for line := range strings.Lines(stderr.String()) {
+		if strings.Contains(line, "discovery-sign release ") {
+			releaseLine = line
+		}
+	}
+	if !strings.Contains(releaseLine, "[--new-registry]") {
+		t.Fatalf("the usage's release line %q does not name --new-registry", releaseLine)
 	}
 }
