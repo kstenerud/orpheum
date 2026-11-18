@@ -42,8 +42,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   nudge goes on past the group by that much, so it lands on it rather than nudging again. Once
   `returnsBeforeSeeksOnly` returns cost it more than `leaveDriftUpToMs`, it corrects by seeks alone,
   beyond `seekOnlyLeaveDriftUpToMs`, each aimed past the group by what its seeks have learned to lose
-  (D268 §2). `src/together-follow-devices.test.ts`, `src/together-drift.test.ts`,
-  `src/together-follow.test.ts`.
+  (D268 §2). While its film plays on a wireless receiver, AirPlay's (`isOnWirelessTarget`, the
+  player's reading), its drift is left alone, by nudges and seeks alike, up to
+  `receiverLeavesDriftUpToMs`, about 2 s (`followedTuning`, D522 §2).
+  `src/together-follow-devices.test.ts`, `src/together-drift.test.ts`,
+  `src/together-follow.test.ts`, `src/together-follow-receiver.test.ts`.
 - **A player its session's roster names as its leader is never steered** (D371 §1): it plays as a
   device plays a film alone, loading as it would, never held, sought to the group's place, run up or
   nudged, and the server places the group by its state. Each change of its group another device made,
@@ -90,7 +93,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's: a
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
-  given up and noted (D268 §4). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`.
+  given up and noted (D268 §4); on a wireless receiver, a pause or play its element fires within
+  `receiverAnswersWithinMs` of its own seek, play or pause is the receiver's answer, never its
+  person's (D522 §2). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`,
+  `src/together-follow-receiver.test.ts`.
 - **After a stall a following player is ready again only with `refillAheadMs` loaded ahead, and after
   a seek once what it loaded outlasts its next chunk's expected load by `readyAheadOfNextChunkPercent`**
   (`readyAheadOf`, `src/ready-ahead.ts`: the one rule every player starts by, its player telling the

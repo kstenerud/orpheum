@@ -3,6 +3,7 @@
 import "./together-viewer.css";
 import "./cast-words.ts";
 
+import { isOnWirelessTarget } from "@orpheum/player";
 import {
   followGroup,
   playedMutedEvent,
@@ -712,6 +713,8 @@ function useFollowing(
       leads: { canPlayPause, canSeek, canNext: false },
       monotonicMs,
       page: pageThatPausesWhenHidden(),
+      // On an AirPlay receiver its sync gives the receiver room (D522 §2).
+      isOnWirelessTarget: () => isOnWirelessTarget(video),
     });
     return () => {
       stopFollowing();

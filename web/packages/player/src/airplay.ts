@@ -18,6 +18,24 @@ export type AirPlayPage = object;
 /** The event an element tells as its playback target becomes wireless, or stops being. */
 export const wirelessChangedEvent = "webkitcurrentplaybacktargetiswirelesschanged";
 
+/** An element WebKit says the playback target of: wireless, an AirPlay receiver, or not. */
+export interface WirelessTargeted {
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
+  readonly webkitCurrentPlaybackTargetIsWireless?: boolean;
+}
+
+/**
+ * Whether media plays on a wireless target now, an AirPlay receiver, as WebKit says; false in a
+ * browser that says nothing. The one reading of it: AirPlay's end, a hidden page's pause and a Watch
+ * Together guest's sync (D522 §2) each ask it, of any element, typed as WebKit's or not.
+ */
+export function isOnWirelessTarget(media: object): boolean {
+  return (
+    "webkitCurrentPlaybackTargetIsWireless" in media &&
+    media.webkitCurrentPlaybackTargetIsWireless === true
+  );
+}
+
 /** How long a receiver may take to be picked before the film is handed back to the page. */
 export const airPlayPickWithinMs = 30_000;
 
@@ -33,13 +51,12 @@ export type AirPlayVideo = Pick<
   | "load"
   | "setAttribute"
   | "removeAttribute"
-> & {
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
-  readonly webkitCurrentPlaybackTargetIsWireless?: boolean;
-  readonly webkitShowPlaybackTargetPicker?: () => void;
-  addEventListener(type: string, listener: () => void): void;
-  removeEventListener(type: string, listener: () => void): void;
-};
+> &
+  WirelessTargeted & {
+    readonly webkitShowPlaybackTargetPicker?: () => void;
+    addEventListener(type: string, listener: () => void): void;
+    removeEventListener(type: string, listener: () => void): void;
+  };
 
 /** Where the film stood as AirPlay ended, in s, and whether it was paused there. */
 export interface AirPlayLeft {
@@ -104,7 +121,7 @@ export function playOnAirPlay(
     hand.onEnded(emptied(element));
   }
   function onWirelessChanged(): void {
-    if (element.webkitCurrentPlaybackTargetIsWireless === true) {
+    if (isOnWirelessTarget(element)) {
       hasGoneWireless = true;
       clearTimeout(unpicked);
     } else if (hasGoneWireless) {

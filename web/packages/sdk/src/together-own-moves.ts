@@ -2,7 +2,9 @@
 
 /**
  * A following player's marks on the moves it makes itself, so their events are not taken for its
- * person's: a seek it made, or that hls.js made over a gap, and a pause it made to hold or wait.
+ * person's: a seek it made, or that hls.js made over a gap, and a pause it made to hold or wait; and,
+ * while its film plays on a wireless receiver, the pauses and plays its element fires in answer to
+ * them (D522 §2).
  */
 
 /**
@@ -11,6 +13,15 @@
  * (D268 §4, until the M5 controls send a person's moves as commands).
  */
 export const ownMarkLastsMs = 2000;
+
+/**
+ * How long after the follower's own move a film on a wireless receiver, AirPlay's, fires the pauses
+ * and plays that answer it: Safari tells the page the receiver's play state late, and after a seek,
+ * a pause or a play the follower made, the element fired pause and play again within a quarter of a
+ * second, each pause sent to the group as the guest's, which paused everyone (VQ364, staging,
+ * 2026-11-18). Short of a person's next press: the guest's play came 1.5 s after the follower's seek.
+ */
+export const receiverAnswersWithinMs = 1000;
 
 /** Which of its own moves a mark waits for. */
 export type OwnMove = "seek" | "pause";
@@ -22,6 +33,14 @@ export class OwnMoves {
   #pauseUntilMs: number | undefined = undefined;
   /** Whether the seek under way is its own: its seeking was, so its seeked is. */
   #isOwnSeekUnderWay = false;
+  /** Until when a pause or play its element fires answers its own move on a receiver; else undefined. */
+  #receiverAnswersUntilMs: number | undefined = undefined;
+  /** Whether its film plays on a wireless receiver now (FollowOptions' isOnWirelessTarget). */
+  readonly #isOnReceiver: () => boolean;
+
+  constructor(isOnReceiver: () => boolean = () => false) {
+    this.#isOnReceiver = isOnReceiver;
+  }
 
   /** Marks the move about to be made, at nowMs, as its own. */
   mark(move: OwnMove, nowMs: number): void {
@@ -29,6 +48,22 @@ export class OwnMoves {
       this.#seekUntilMs = nowMs + ownMarkLastsMs;
     } else {
       this.#pauseUntilMs = nowMs + ownMarkLastsMs;
+    }
+    this.#awaitReceiversAnswer(nowMs);
+  }
+
+  /**
+   * Notes the follower's own play, at nowMs: no mark, as a play while its group plays is no command,
+   * but a receiver's answer to it is awaited (receiverAnswersWithinMs).
+   */
+  played(nowMs: number): void {
+    this.#awaitReceiversAnswer(nowMs);
+  }
+
+  /** Takes, where its film plays on a receiver, the pauses and plays of the next while for its own. */
+  #awaitReceiversAnswer(nowMs: number): void {
+    if (this.#isOnReceiver()) {
+      this.#receiverAnswersUntilMs = nowMs + receiverAnswersWithinMs;
     }
   }
 
@@ -39,6 +74,9 @@ export class OwnMoves {
     }
     if (event === "seeking") {
       return isWaiting(this.#seekUntilMs, nowMs);
+    }
+    if ((event === "pause" || event === "play") && isWaiting(this.#receiverAnswersUntilMs, nowMs)) {
+      return true; // the receiver's answer to its own move, never its person's press (D522 §2)
     }
     return event === "pause" && isWaiting(this.#pauseUntilMs, nowMs);
   }
@@ -51,7 +89,10 @@ export class OwnMoves {
       this.#seekUntilMs = undefined;
     } else if (event === "seeked") {
       // A seek that ends answers its mark too, its seeking heard or not: a mark left waiting would
-      // take its person's next seek for the follower's own.
+      // take its person's next seek for the follower's own. A receiver answers its own seek's end.
+      if (isOwn) {
+        this.#awaitReceiversAnswer(nowMs);
+      }
       this.#isOwnSeekUnderWay = false;
       this.#seekUntilMs = undefined;
     } else if (event === "pause") {

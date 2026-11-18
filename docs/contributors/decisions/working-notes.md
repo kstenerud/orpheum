@@ -30225,5 +30225,6 @@ that pause to the group as a pause the guest had made (`leaderCommand command=pa
 
 **Proven by:**
 - 1: TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays, TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays (internal/core/api/airplay_sound_test.go), VQ364
+- 2: web/packages/sdk/src/together-follow-receiver.test.ts ("leaves a receiver a second behind its group alone: no nudge and no seek"; "still nudges a local player a second behind, as before"; "corrects a receiver once it is further than about 2 s behind"; "holds a receiver 280 ms off its paused group where it is, and seeks a local player there"; "sends no pause for the receiver's answer to its own play, and the guest's own pause later"; "takes a pause or play after its own seek on a receiver for the receiver's, never on a local player"), web/apps/web/src/together-viewer-receiver.test.tsx ("leaves the receiver 280 ms off its paused group where it is"), VQ364
 
-**Status:** decided (2026-11-18).
+**Status:** decided (2026-11-18); built (2026-11-18).

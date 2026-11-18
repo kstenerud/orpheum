@@ -129,8 +129,12 @@ export class DriftCorrector {
     this.#correct(where, hasCaughtUp);
   }
 
-  /** Plays, muted if refused, offered at a tap if shown again and still wanted (playOrPlayMuted). */
+  /**
+   * Plays, muted if refused, offered at a tap if shown again and still wanted (playOrPlayMuted): its
+   * own play, a receiver's answer to which is not its person's (OwnMoves.played).
+   */
   startPlaying(): void {
+    this.#ownMoves.played(this.#monotonicMs());
     const isWanted = (): boolean =>
       this.#connection.snapshot().group?.state === "playing" && this.#phase.kind !== "waitingAhead";
     playOrPlayMuted(this.#media, this.#connection, this.#shownAgain.play(isWanted));

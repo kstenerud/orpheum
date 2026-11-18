@@ -7,7 +7,7 @@
 
 import type { PlaybackPicture } from "./playback-picture.ts";
 import type { PlaybackSound } from "./playback-sound.ts";
-import type { PlaybackReport, PlaybackRights } from "./together.ts";
+import type { PlaybackReport, PlaybackRights, SyncTuning } from "./together.ts";
 import type { ShownPage } from "./shown-page.ts";
 
 /**
@@ -22,6 +22,32 @@ export const checkDriftEveryMs = 1000;
  * group less tightly for nothing (D268 §2).
  */
 export const returnsBeforeSeeksOnly = 2;
+
+/**
+ * How far off its group's position a player whose film plays on a wireless receiver, AirPlay's, is
+ * left alone, nudged or sought by nothing (D522 §2): the receiver's position reaches the page late
+ * and lands its seeks short, and each seek made Safari fire a pause the guest never pressed. A local
+ * player is left within the tuning's leaveDriftUpToMs.
+ */
+export const receiverLeavesDriftUpToMs = 2000;
+
+/**
+ * The tuning a player follows its group by (D250 §1), where isOnReceiver says its film plays on a
+ * wireless receiver: left alone within receiverLeavesDriftUpToMs, by nudges and seeks alike, and
+ * sought only beyond it at least (D522 §2). Else the welcome's, as it is.
+ */
+export function followedTuning(tuning: SyncTuning, isOnReceiver: boolean): SyncTuning {
+  if (!isOnReceiver) {
+    return tuning;
+  }
+  const leftAloneMs = receiverLeavesDriftUpToMs;
+  return {
+    ...tuning,
+    leaveDriftUpToMs: Math.max(tuning.leaveDriftUpToMs, leftAloneMs),
+    seekOnlyLeaveDriftUpToMs: Math.max(tuning.seekOnlyLeaveDriftUpToMs, leftAloneMs),
+    seekDriftBeyondMs: Math.max(tuning.seekDriftBeyondMs, leftAloneMs),
+  };
+}
 
 /** How many of its player's last events a leading player's command note carries. */
 export const recentEventsKept = 8;
@@ -74,6 +100,13 @@ export interface FollowOptions {
    * roster (playback-picture.ts); absent where nothing is to be said.
    */
   readonly readPicture?: (() => PlaybackPicture | undefined) | undefined;
+  /**
+   * Whether the player's film plays on a wireless receiver now, AirPlay's (the player's
+   * isOnWirelessTarget): while it does, its drift is left alone further (followedTuning) and the
+   * pause and play its element fires in answer to the follower's own moves are not its person's
+   * (OwnMoves, D522 §2). Absent where it never does.
+   */
+  readonly isOnWirelessTarget?: (() => boolean) | undefined;
 }
 
 /** The events a following player tells the group of, and is moved by. */

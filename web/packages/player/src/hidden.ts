@@ -15,6 +15,8 @@
  * the page is shown.
  */
 
+import { isOnWirelessTarget, type WirelessTargeted } from "./airplay.ts";
+
 /** The page a film is on: whether it is hidden, its picture-in-picture video, and its events. */
 export interface HiddenPage {
   readonly visibilityState: DocumentVisibilityState;
@@ -27,11 +29,10 @@ export interface HiddenPage {
  * The film: whether it plays, Safari's presentation mode and whether it plays on a wireless target
  * where it has them, and pausing and playing it.
  */
-export type PausedFilm = Pick<HTMLMediaElement, "paused" | "pause" | "play"> & {
-  readonly webkitPresentationMode?: string;
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
-  readonly webkitCurrentPlaybackTargetIsWireless?: boolean;
-};
+export type PausedFilm = Pick<HTMLMediaElement, "paused" | "pause" | "play"> &
+  WirelessTargeted & {
+    readonly webkitPresentationMode?: string;
+  };
 
 /** What says whether the browser is a handheld's: its pointer, and its touch points. */
 export interface HandheldSigns {
@@ -71,7 +72,7 @@ export function pauseWhenHidden(
       wasPlayingOnTarget = false;
       return;
     }
-    const isOnTarget = media.webkitCurrentPlaybackTargetIsWireless === true;
+    const isOnTarget = isOnWirelessTarget(media);
     wasPlayingOnTarget = isOnTarget && !media.paused;
     const isPictureInPicture =
       Object.is(page.pictureInPictureElement, media) ||

@@ -26,7 +26,7 @@ import { Refill } from "./together-refill.ts";
 import { ShownAgain } from "./together-sound.ts";
 import { startGateOf, type StartGate } from "./start-gate.ts";
 import { bufferingCauseOf, bufferingNote, HoldingNotes } from "./together-buffering.ts";
-import { RecentEvents, type FollowOptions } from "./together-follow-options.ts";
+import { followedTuning, RecentEvents, type FollowOptions } from "./together-follow-options.ts";
 
 export { browserPauseWindowMs, scrubPauseWindowMs } from "./together-lead.ts";
 export {
@@ -55,8 +55,11 @@ export class GroupFollower {
   readonly #media: FollowedMedia;
   readonly #connection: TogetherConnection;
   readonly #options: FollowOptions;
-  /** The moves it makes itself, marked so their events are not taken for its person's. */
-  readonly #ownMoves = new OwnMoves();
+  /**
+   * The moves it makes itself, marked so their events are not taken for its person's, nor, on a
+   * wireless receiver, the pauses and plays that answer them (D522 §2).
+   */
+  readonly #ownMoves: OwnMoves;
   /** When it moved for each change of its group, against when the change reached it. */
   readonly #followed: FollowedChanges;
   /** The group's jumps it told its player of. */
@@ -113,6 +116,7 @@ export class GroupFollower {
     this.#media = media;
     this.#connection = connection;
     this.#options = options;
+    this.#ownMoves = new OwnMoves(() => this.#isOnReceiver());
     this.#loading = new GroupLoading(media, connection);
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
     this.#corrector = new DriftCorrector({
@@ -146,6 +150,11 @@ export class GroupFollower {
       startGate,
     });
     this.#playback = new PlaybackTold(options.delivery, options.readSound, options.readPicture);
+  }
+
+  /** Whether its film plays on a wireless receiver now, AirPlay's (D522 §2). */
+  #isOnReceiver(): boolean {
+    return this.#options.isOnWirelessTarget?.() === true;
   }
 
   /** Whether this device leads its session, as its roster says (D371 §1). */
@@ -527,7 +536,8 @@ export class GroupFollower {
       group,
       nowMs,
       expectedMs: expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs,
-      tuning: snapshot.tuning,
+      // On a wireless receiver its drift is left alone up to about 2 s (D522 §2).
+      tuning: followedTuning(snapshot.tuning, this.#isOnReceiver()),
     };
   }
 }

@@ -1394,6 +1394,29 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   be removed again, `disableremoteplayback` can (read 2026-11-18).
 
 
+### Safari on AirPlay fires pause and play the page never asked for, and its position reaches the page late
+
+- **Symptom:** a Watch Together guest's iPhone, AirPlaying to a Mac, paused the whole group. Its
+  sync sought it 280 ms to where its group was held (`followerCaughtUp by=seek why=hold`); as the
+  group played and the page played its element, Safari fired `pause`, then `play`, then `pause`
+  and `play` again, all within a quarter of a second (`play@30505 playing@30506 pause@30523
+  play@30732 playing@30732 pause@30732 play@30751`). The page sent the pause to the group as the
+  guest's. Then each time the guest pressed play, a few frames played and it paused again (the
+  owner, staging, VQ364, 2026-11-18).
+- **Cause:** unconfirmed. The element's play state and position are the receiver's, told to the
+  page late, so the page's own play or seek is answered by the receiver's state of a moment
+  before. A press on the AirPlay device or the lock screen arrives the same way, so the page
+  cannot tell a press from such an answer by the events alone (D520 §2).
+- **What we do:** while the element's target is wireless (`isOnWirelessTarget`,
+  `web/packages/player/src/airplay.ts`), a guest's sync leaves its drift alone up to about 2 s
+  (`followedTuning`, `web/packages/sdk/src/together-follow-options.ts`), and a pause or play fired
+  within `receiverAnswersWithinMs` of the follower's own seek, play or pause is taken for the
+  receiver's, not the guest's (`OwnMoves`, `web/packages/sdk/src/together-own-moves.ts`) (D522 §2).
+- **Evidence:** the owner's run and the core's log, 2026-11-18. **[web]** no public report of
+  this sequence on AirPlay found (searched WebKit's Bugzilla and the web, 2026-11-18); WebKit bugs
+  on play and pause firing around a seek exist for local playback only.
+
+
 ### Apple's HLS player chooses its own sound over the master playlist's default
 
 - **Symptom:** a Watch Together guest's page played track 0's Japanese sound and asked its AirPlay
