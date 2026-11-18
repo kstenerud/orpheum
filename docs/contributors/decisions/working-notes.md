@@ -30166,8 +30166,13 @@ rights, the controls will do nothing." Amends D519 §2.
 **Proven by:**
 - 1: TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone, TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes, TestGuestCastPart_ADeviceBeingCastToCastsNothing, TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast (internal/core/together/guest_cast_test.go)
 - 1: TestGuestReceiver_AWatchTogetherGuestsCastDeviceIsRefusedACastOfItsOwn (internal/core/api/guest_receivers_test.go)
+- 2: TestHub_AGuestWhoseLinkGivesNoControlsChangesNothing (internal/core/together/guest_controls_test.go)
+- 2: "a guest's player whose link gives no controls (D520 §2)" (web/packages/sdk/src/together-follow-no-controls.test.ts)
+- 2: "a Watch Together guest's page, its player moved from outside it (D520 §2)" (web/apps/web/src/together-viewer-no-controls.test.tsx)
 
 **Status:** decided (2026-11-18). §1 is in "feat(together): a guest's cast is their sending device's
 one cast, and a device cast to casts nothing" (`castOf` on a member's credential,
-`replaceCastCredential`, `IsBeingCastTo`, `auth.GrantMembership.Sender`). §2 is not yet proven;
-VQ361, on devices, is owed.
+`replaceCastCredential`, `IsBeingCastTo`, `auth.GrantMembership.Sender`). §2 needed no change:
+the server and the guest's page already did it, and "test(together): a guest whose link gives no
+controls changes nothing, from their page, their Chromecast or their AirPlay" proves it. VQ361 (6)
+and (7), on devices, are owed.

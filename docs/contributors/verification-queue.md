@@ -3447,5 +3447,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   Chromecast and Chrome AirPlays to nothing, and a guest by link has one device, a new link for their
   place cutting off the last; a second device's cast playing on beside the first's, and a Chromecast
   refused a cast of its own, are proven by the server's tests alone.
+  (7) AirPlay is offered whatever the link's controls (D520 §2): with a link that gives no
+  controls, Cast, then AirPlay, plays the film on the TV; pausing or seeking on the TV's remote, or on
+  the iPhone's lock screen, changes nothing on the host's page, and the TV goes back to where the
+  group is within a few seconds.
   (`POST /together/airplay-grants`, `DELETE /together/airplay-grants`, `GuestAirPlayHold`, the web
   app's `together-guest-cast.tsx`.)
