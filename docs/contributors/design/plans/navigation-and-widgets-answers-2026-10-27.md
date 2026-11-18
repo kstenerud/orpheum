@@ -4571,3 +4571,8 @@ receiver's idle line is said once"** and is on staging. Owed by the owner: VQ356
    "yes". Built: "feat(discovery-sign): release refuses a record naming another registry than the
    last release signed" (`--new-registry` for a move made on purpose).
 5. The friend's invitation, the strays on the connect server and the push: done by the owner.
+
+**The owner's answers on D518 (2026-11-18), the guest's cast:** its server half is on main ("feat(together): a Watch Together guest by link casts to a Chromecast as another device of their membership"); its web half is being built.
+
+1. A guest who is not signed in casts to AirPlay too, as D515 §1 says: "yes". To build: an AirPlay grant asked under the membership credential, its playback playing as the membership.
+2. Each cast a guest starts replaces the credential their previous cast's receiver was given, so many casts cannot push the guest's own browser out of the membership's newest 16: "agreed".
