@@ -3492,6 +3492,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   when, each time, the Mac plays the sound chosen on the iPhone, and the core's log shows the Mac
   fetching that track's sound under the grant. (`audioTrackIndex` of `POST /airplay/grants` and
   `POST /together/airplay-grants`; the web app's `airplay.ts`.)
+  **Failed 2026-11-18 15:40 UTC (the owner, staging, a guest by link on the iPhone, an Android
+  host):** the guest's page played `sound0-own` (Japanese), and the Mac fetched `sound2-own`
+  (English) under the grant; at Stop AirPlay the iPhone came back playing the English, the page
+  saying "Sound: Japanese". Staging served D521 §2, but the log could not say which track the page
+  had asked with, or whether its tab ran the bundle from before the deploy. The grant's log line
+  (`airPlayGranted`, `togetherAirPlayGranted`) now names it as `audioTrackAsked` (`unnamed` where it named none); run it again with
+  every tab of the app closed first, and read that field.
 - [ ] **VQ365** — A film handed back from AirPlay plays the sound its page says (VQ363, 2026-11-18:
   a Watch Together guest by link on the iPhone, the page saying "Sound: Japanese", AirPlayed to
   the Mac, which played the English; at Stop AirPlay, choosing the iPhone, the film came back

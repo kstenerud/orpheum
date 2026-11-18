@@ -51,6 +51,16 @@ func (input *AirPlayGrantInput) soundAsked() auth.AirPlaySound {
 	return auth.AirPlaySound{IsChosen: true, AudioTrackIndex: *input.Body.AudioTrackIndex}
 }
 
+// trackAsked is the audio track a grant's request named, by its place, for the log: "none" where it
+// named none (as unnamed), and its receiver plays as the page's own player does (D521 §2; VQ364's first run could
+// not tell which the page sent).
+func trackAsked(sound auth.AirPlaySound) any {
+	if !sound.IsChosen {
+		return "unnamed"
+	}
+	return sound.AudioTrackIndex
+}
+
 // AirPlayGrantOutput is the grant made, and where its master playlist is.
 type AirPlayGrantOutput struct {
 	Body struct {
@@ -171,6 +181,9 @@ func (server *Server) makeAirPlayGrant(
 	if err != nil {
 		return nil, server.logInternalError(ctx, "make an AirPlay grant", err)
 	}
+	server.logger.InfoContext(ctx, "airplay: a signed-in viewer made an AirPlay grant",
+		slogx.EventKey, "airPlayGranted", "fileId", chunked.FileID,
+		"audioTrackAsked", trackAsked(input.soundAsked()))
 	return airPlayGrantOutput(dependencies, grant), nil
 }
 
@@ -224,7 +237,7 @@ func (server *Server) makeTogetherAirPlayGrant(
 	}
 	server.logger.InfoContext(ctx, "airplay: a Watch Together guest made an AirPlay grant",
 		slogx.EventKey, "togetherAirPlayGranted", "sessionId", sessionID, "memberId", memberID,
-		"fileId", chunked.FileID)
+		"fileId", chunked.FileID, "audioTrackAsked", trackAsked(input.soundAsked()))
 	return airPlayGrantOutput(dependencies, grant), nil
 }
 

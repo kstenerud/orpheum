@@ -73,7 +73,8 @@ func checkDefaultTrack(t *testing.T, master byteAnswer, track, why string) {
 // An AirPlay grant's master playlist names its default the sound of the audio track the page played
 // as it asked for the grant, in place of the playback's starting track; with no track named, or one
 // the film does not have, the starting track's, as before; and the page's own master is unchanged
-// (D521 §2: the owner's Mac played another track than the one chosen on the phone, 2026-11-18).
+// (D521 §2: the owner's Mac played another track than the one chosen on the phone, 2026-11-18). The
+// log says which track each grant was asked with, so a run on a device shows what its page sent.
 func TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -88,7 +89,9 @@ func TestAirPlay_AGrantsMasterDefaultsToTheTrackThePagePlays(t *testing.T) {
 	}
 	second, beyond := 1, 7
 	checkDefaultTrack(t, ask(&second), "1", "a grant asked with the second track")
+	harness.logs.AwaitEvent(t, "airPlayGranted", `"audioTrackAsked":1`)
 	checkDefaultTrack(t, ask(nil), "0", "a grant asked with no track")
+	harness.logs.AwaitEvent(t, "airPlayGranted", `"audioTrackAsked":"unnamed"`)
 	checkDefaultTrack(t, ask(&beyond), "0", "a grant asked with a track the film does not have")
 	own := harness.getBytePath(t, api.Prefix+"/bytes/media/chunks/"+token+"/master.m3u8", user, true, "")
 	checkDefaultTrack(t, own, "0", "the page's own master, after the grants'")
@@ -123,5 +126,7 @@ func TestTogetherAirPlay_AGuestsGrantsMasterDefaultsToTheTrackTheirPagePlays(t *
 	}
 	second := 1
 	checkDefaultTrack(t, ask(&second), "1", "the guest's grant asked with the second track")
+	harness.logs.AwaitEvent(t, "togetherAirPlayGranted", `"audioTrackAsked":1`)
 	checkDefaultTrack(t, ask(nil), "0", "the guest's grant asked with no track")
+	harness.logs.AwaitEvent(t, "togetherAirPlayGranted", `"audioTrackAsked":"unnamed"`)
 }
