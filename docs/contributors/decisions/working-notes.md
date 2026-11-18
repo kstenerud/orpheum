@@ -29733,7 +29733,9 @@ counting errors that we don't expect, marking them as such when we log them, and
 we're getting a lot of them." Its surface and threshold are the owner's answers to the lead's
 questions the same day.
 
-**Status:** decided; §1, §2 and the server side of §3 and §4 built: each failure of unknown cause is logged marked unexpected with its kind, counted by kind a minute at a time, and the alert past `unknownFailuresAlertPerHour` (20) raised and cleared after an hour under, read from `GET /unknown-failures/alerts` and `GET /unknown-failures`; §3 and §4 built in the web too: the banner beside the security update's (unknown-failures-note.tsx) and the Needs attention entries (unknown-failures.tsx).
+> **§3 amended by [D517](#d517--failures-of-unknown-cause-piling-up-light-the-warning-sign-with-no-banner)** (2026-11-18): the banner is gone; while the alert is raised, an admin's warning sign shows, leading to Needs attention.
+
+**Status:** decided; §3's banner is gone (D517), so §3 is not built; §1, §2 and the server side of §3 and §4 built: each failure of unknown cause is logged marked unexpected with its kind, counted by kind a minute at a time, and the alert past `unknownFailuresAlertPerHour` (20) raised and cleared after an hour under, read from `GET /unknown-failures/alerts` and `GET /unknown-failures`; §3 and §4 built in the web too: the banner beside the security update's (unknown-failures-note.tsx) and the Needs attention entries (unknown-failures.tsx).
 
 1. **An error not recognised is marked as unexpected where it is logged**: the failures D508 §2
    tries again, each logged with the same mark and the kind of work that failed (a frame still, a
@@ -29752,8 +29754,6 @@ questions the same day.
 - 3, 4 (the server's side):
   TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes
   (internal/core/api/unknown_failures_test.go)
-- 3: web/apps/web/src/unknown-failures-note.test.tsx ("shows an admin each kind raised with its
-  count in the last hour, and the way to Needs attention")
 - 4: web/apps/web/src/unknown-failures.test.tsx ("lists each kind with its counts, when one last
   failed and whether its alert is raised")
 
@@ -30020,5 +30020,12 @@ details page will list them anyway." Amends D509 §3, whose alert was a banner a
 2. **While the alert is raised, an admin's warning sign shows**, leading to Needs attention, which
    lists the failures per kind (D511 §6).
 
-**Status:** decided (2026-11-18).
+**Proven by:**
+- 1: web/apps/web/src/unknown-failures.test.tsx ("lights the admin's warning sign for the alert in the shell and draws no banner of it")
+- 2: internal/core/api/needs_attention_test.go (TestNeedsAttention_CountsTheKindsWhoseUnknownFailuresAlertIsRaised), web/apps/web/src/status-tray.test.tsx ("shows an admin the yellow sign while failures of unknown cause pile up, with nothing else to say, leading to Needs attention (D517 §2)"), web/apps/web/src/unknown-failures.test.tsx ("lists the failures where the warning sign was lit for their alert alone")
+
+**Status:** built (2026-11-18) in "feat(web): failures of unknown cause piling up light the admin's
+warning sign, with no banner": 1 is the removal of `unknown-failures-note.tsx` and its mount; 2 is
+`NeedsAttentionBody.UnknownFailureAlertCount`, read from the recorder's `Alerts`, and
+`NeedsAttentionSign`'s count of it.
 
