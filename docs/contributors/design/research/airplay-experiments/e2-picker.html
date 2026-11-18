@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- ABOUTME: Experiment E2: what a page is told when the AirPlay picker is dismissed, when another
+     device or this one is chosen, and whether anything the page does ends a route
+     (airplay-2026-11-18-research.md). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E2: the picker, and ending AirPlay</title>
+    <style>
+      body { font: 14px -apple-system, sans-serif; margin: 8px; }
+      video { width: 100%; max-height: 40vh; background: #000; }
+      button { margin: 2px; padding: 8px; font-size: 14px; }
+      input { width: 100%; font-size: 14px; }
+      pre.status { background: #eef; padding: 4px; white-space: pre-wrap; }
+      pre.log { background: #111; color: #cfc; padding: 4px; height: 40vh; overflow: auto; font-size: 11px; white-space: pre-wrap; }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <h3>E2: the picker, and ending AirPlay</h3>
+    <p>Native HLS master: <input id="src" /></p>
+    <video id="video" playsinline controls x-webkit-airplay="allow"></video>
+    <div id="buttons"></div>
+    <div id="out"></div>
+    <script>
+      "use strict";
+      const video = document.getElementById("video");
+      const src = document.getElementById("src");
+      src.value = Lab.param("src", "master.m3u8");
+      Lab.mount(document.getElementById("out"));
+      Lab.watch(video);
+
+      const buttons = document.getElementById("buttons");
+      Lab.button(buttons, "Load and play", () => {
+        Lab.press("load and play");
+        video.src = src.value;
+        Lab.promise("play()", video.play());
+      });
+      Lab.button(buttons, "AirPlay (webkit picker)", () => Lab.pickWebKit(video));
+      Lab.button(buttons, "AirPlay (remote.prompt)", () => Lab.pickPrompt(video));
+      Lab.button(buttons, "remote.prompt without a press (after 1 s)", () => {
+        Lab.press("prompt later");
+        setTimeout(() => Lab.promise("remote.prompt (no gesture)", video.remote.prompt()), 1000);
+      });
+      Lab.button(buttons, "disableRemotePlayback = true", () => {
+        Lab.press("disableRemotePlayback true");
+        video.disableRemotePlayback = true;
+      });
+      Lab.button(buttons, "disableRemotePlayback = false", () => {
+        Lab.press("disableRemotePlayback false");
+        video.disableRemotePlayback = false;
+      });
+      Lab.button(buttons, "x-webkit-airplay = deny", () => {
+        Lab.press("airplay deny");
+        video.setAttribute("x-webkit-airplay", "deny");
+      });
+      Lab.button(buttons, "Empty the element (Way B's end)", () => {
+        Lab.press("empty");
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      });
+      Lab.button(buttons, "Play a short sound in a new audio element", () => {
+        Lab.press("audio element");
+        const context = new AudioContext();
+        const tone = context.createOscillator();
+        tone.connect(context.destination);
+        tone.start();
+        tone.stop(context.currentTime + 1);
+        Lab.log("audio", "a 1 s tone by Web Audio: where is it heard?");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- ABOUTME: Experiment E4: which pause, play and seek events reach a page during AirPlay that it
+     never asked for, and how late the receiver's position and its own presses arrive
+     (airplay-2026-11-18-research.md). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E4: unasked pauses and the late position</title>
+    <style>
+      body { font: 14px -apple-system, sans-serif; margin: 8px; }
+      video { width: 100%; max-height: 40vh; background: #000; }
+      button { margin: 2px; padding: 8px; font-size: 14px; }
+      input { width: 100%; font-size: 14px; }
+      pre.status { background: #eef; padding: 4px; white-space: pre-wrap; }
+      pre.log { background: #111; color: #cfc; padding: 4px; height: 40vh; overflow: auto; font-size: 11px; white-space: pre-wrap; }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <h3>E4: unasked pauses and the late position</h3>
+    <p>Native HLS master: <input id="src" /></p>
+    <video id="video" playsinline controls x-webkit-airplay="allow"></video>
+    <div id="buttons"></div>
+    <div id="out"></div>
+    <script>
+      "use strict";
+      const video = document.getElementById("video");
+      const src = document.getElementById("src");
+      src.value = Lab.param("src", "master.m3u8");
+      Lab.mount(document.getElementById("out"));
+      Lab.watch(video);
+      let ticking = null;
+
+      const buttons = document.getElementById("buttons");
+      Lab.button(buttons, "Load", () => {
+        Lab.press("load");
+        video.src = src.value;
+        video.load();
+      });
+      Lab.button(buttons, "Play", () => {
+        Lab.press("play");
+        Lab.promise("play()", video.play());
+      });
+      Lab.button(buttons, "Pause", () => {
+        Lab.press("pause");
+        video.pause();
+      });
+      Lab.button(buttons, "Seek +30 s", () => {
+        Lab.press("seek +30");
+        video.currentTime += 30;
+      });
+      Lab.button(buttons, "Seek -30 s", () => {
+        Lab.press("seek -30");
+        video.currentTime = Math.max(0, video.currentTime - 30);
+      });
+      Lab.button(buttons, "AirPlay (webkit picker)", () => Lab.pickWebKit(video));
+      Lab.button(buttons, "Log the position every second", () => {
+        if (ticking) {
+          clearInterval(ticking);
+          ticking = null;
+          return;
+        }
+        ticking = setInterval(() => Lab.log("tick", ""), 1000);
+      });
+      Lab.button(buttons, "Mark: the TV shows a new second now", () => Lab.press("mark (compare t with the TV's counter)"));
+      Lab.button(buttons, "Own the lock screen's buttons", () => {
+        for (const action of ["play", "pause", "seekto", "seekforward", "seekbackward"]) {
+          navigator.mediaSession.setActionHandler(action, (details) => {
+            Lab.press("mediaSession " + action);
+            if (action === "play") {
+              Lab.promise("play()", video.play());
+            } else if (action === "pause") {
+              video.pause();
+            } else if (action === "seekto") {
+              video.currentTime = details.seekTime;
+            } else {
+              video.currentTime += action === "seekforward" ? 10 : -10;
+            }
+          });
+        }
+        Lab.log("mediaSession", "handlers set: a lock-screen press now logs as asked");
+      });
+    </script>
+  </body>
+</html>

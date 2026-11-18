@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- ABOUTME: Experiment E1: which sound the receiver plays at the start and after a change made
+     during AirPlay, by audioTracks and by a source reload (airplay-2026-11-18-research.md). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E1: a sound changed during AirPlay</title>
+    <style>
+      body { font: 14px -apple-system, sans-serif; margin: 8px; }
+      video { width: 100%; max-height: 40vh; background: #000; }
+      button { margin: 2px; padding: 8px; font-size: 14px; }
+      input { width: 100%; font-size: 14px; }
+      pre.status { background: #eef; padding: 4px; white-space: pre-wrap; }
+      pre.log { background: #111; color: #cfc; padding: 4px; height: 40vh; overflow: auto; font-size: 11px; white-space: pre-wrap; }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <h3>E1: a sound changed during AirPlay</h3>
+    <p>
+      Native HLS. Master with both sounds: <input id="full" /> One-sound masters (the grant's
+      shape, D522): <input id="low" /> <input id="high" />
+    </p>
+    <video id="video" playsinline controls x-webkit-airplay="allow"></video>
+    <div id="buttons"></div>
+    <div id="tracks"></div>
+    <div id="out"></div>
+    <script>
+      "use strict";
+      const video = document.getElementById("video");
+      const full = document.getElementById("full");
+      const low = document.getElementById("low");
+      const high = document.getElementById("high");
+      full.value = Lab.param("full", "master.m3u8");
+      low.value = Lab.param("low", "master-low.m3u8");
+      high.value = Lab.param("high", "master-high.m3u8");
+      Lab.mount(document.getElementById("out"));
+      Lab.watch(video);
+
+      const buttons = document.getElementById("buttons");
+      Lab.button(buttons, "Load full master", () => {
+        Lab.press("load full");
+        video.src = full.value;
+        video.load();
+      });
+      Lab.button(buttons, "Load low-only master", () => {
+        Lab.press("load low-only");
+        video.src = low.value;
+        video.load();
+      });
+      Lab.button(buttons, "Play", () => {
+        Lab.press("play");
+        Lab.promise("play()", video.play());
+      });
+      Lab.button(buttons, "Pause", () => {
+        Lab.press("pause");
+        video.pause();
+      });
+      Lab.button(buttons, "AirPlay (webkit picker)", () => Lab.pickWebKit(video));
+      Lab.button(buttons, "AirPlay (remote.prompt)", () => Lab.pickPrompt(video));
+      Lab.button(buttons, "Reload here: full master", () => {
+        Lab.press("reload full");
+        Lab.reloadAt(video, full.value);
+      });
+      Lab.button(buttons, "Reload here: low-only", () => {
+        Lab.press("reload low-only");
+        Lab.reloadAt(video, low.value);
+      });
+      Lab.button(buttons, "Reload here: high-only", () => {
+        Lab.press("reload high-only");
+        Lab.reloadAt(video, high.value);
+      });
+      Lab.button(buttons, "Second element plays high-only (E5)", () => {
+        Lab.press("second element");
+        const second = document.createElement("video");
+        second.playsInline = true;
+        second.controls = true;
+        second.setAttribute("x-webkit-airplay", "allow");
+        second.style.width = "40%";
+        for (const name of ["play", "playing", "pause", "error", "webkitcurrentplaybacktargetiswirelesschanged"]) {
+          second.addEventListener(name, () =>
+            Lab.log("second." + name, "t=" + second.currentTime.toFixed(2) + " wireless=" + second.webkitCurrentPlaybackTargetIsWireless),
+          );
+        }
+        second.src = high.value;
+        second.currentTime = video.currentTime;
+        video.pause();
+        buttons.appendChild(second);
+        Lab.promise("second.play()", second.play());
+      });
+
+      const trackBox = document.getElementById("tracks");
+      function drawTracks() {
+        trackBox.textContent = "";
+        const list = video.audioTracks;
+        if (!list) {
+          trackBox.textContent = "This browser has no audioTracks.";
+          return;
+        }
+        for (let i = 0; i < list.length; i += 1) {
+          Lab.button(trackBox, "Enable sound " + i + " (" + (list[i].label || list[i].language) + ")", () => {
+            Lab.press("enable sound " + i);
+            list[i].enabled = true;
+            for (const after of [0, 500, 2000, 5000]) {
+              setTimeout(() => Lab.log("tracks+" + after + "ms", Lab.tracks(video)), after);
+            }
+          });
+        }
+      }
+      if (video.audioTracks) {
+        video.audioTracks.addEventListener("addtrack", drawTracks);
+        video.audioTracks.addEventListener("removetrack", drawTracks);
+      }
+      video.addEventListener("loadedmetadata", () => Lab.log("chosen at load", Lab.tracks(video)));
+    </script>
+  </body>
+</html>

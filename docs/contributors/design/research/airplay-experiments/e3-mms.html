@@ -1,0 +1,143 @@
+<!doctype html>
+<!-- ABOUTME: Experiment E3: hls.js under Managed Media Source with an HLS <source> alternative
+     against native HLS and against the product's src handover: whether WebKit switches to the
+     alternative itself, where it starts, and what it does when AirPlay ends
+     (airplay-2026-11-18-research.md). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E3: MMS with an HLS alternative</title>
+    <style>
+      body { font: 14px -apple-system, sans-serif; margin: 8px; }
+      video { width: 100%; max-height: 40vh; background: #000; }
+      button { margin: 2px; padding: 8px; font-size: 14px; }
+      input { width: 100%; font-size: 14px; }
+      pre.status { background: #eef; padding: 4px; white-space: pre-wrap; }
+      pre.log { background: #111; color: #cfc; padding: 4px; height: 40vh; overflow: auto; font-size: 11px; white-space: pre-wrap; }
+    </style>
+    <script src="lab.js"></script>
+  </head>
+  <body>
+    <h3>E3: MMS with an HLS alternative</h3>
+    <p>
+      hls.js plays: <input id="mse" /> The alternative AirPlay gets: <input id="alt" /> hls.js
+      script: <input id="script" />
+    </p>
+    <video id="video" playsinline controls></video>
+    <div id="buttons"></div>
+    <div id="out"></div>
+    <script>
+      "use strict";
+      const video = document.getElementById("video");
+      const mse = document.getElementById("mse");
+      const alt = document.getElementById("alt");
+      const script = document.getElementById("script");
+      mse.value = Lab.param("mse", "master.m3u8");
+      alt.value = Lab.param("alt", "master-low.m3u8");
+      script.value = Lab.param("hls", "hls.js");
+      Lab.mount(document.getElementById("out"));
+      Lab.watch(video);
+      let hls = null;
+      let stopOnAirPlay = true;
+
+      function addAlternative() {
+        const source = document.createElement("source");
+        source.type = "application/x-mpegURL";
+        source.src = alt.value;
+        video.appendChild(source);
+        video.disableRemotePlayback = false;
+        Lab.log("alternative", "appended, disableRemotePlayback=false " + Lab.sources(video));
+      }
+
+      // startHls attaches hls.js, as the product does (1.7.3 sets disableRemotePlayback under MMS
+      // and removes <source> children), then adds the alternative now, at the press, or never.
+      function startHls(alternativeWhen) {
+        if (!window.Hls) {
+          Lab.log("hls", "hls.js not loaded: press Load hls.js first");
+          return;
+        }
+        if (hls) {
+          hls.destroy();
+        }
+        hls = new window.Hls({ debug: false });
+        for (const name of ["MEDIA_ATTACHING", "MEDIA_ATTACHED", "MEDIA_DETACHING", "MEDIA_DETACHED", "MANIFEST_PARSED", "BUFFER_RESET", "ERROR"]) {
+          hls.on(window.Hls.Events[name], (event, data) => {
+            Lab.log("hls." + name, data && data.details ? data.details + " fatal=" + data.fatal : "");
+            if (name === "MEDIA_ATTACHED" && alternativeWhen === "attach") {
+              addAlternative();
+            }
+          });
+        }
+        hls.loadSource(mse.value);
+        hls.attachMedia(video);
+        Lab.log("hls", "version " + window.Hls.version + " MMS=" + Boolean(window.ManagedMediaSource) + " alternative " + alternativeWhen);
+      }
+
+      video.addEventListener("webkitcurrentplaybacktargetiswirelesschanged", () => {
+        if (hls && stopOnAirPlay && video.webkitCurrentPlaybackTargetIsWireless) {
+          hls.stopLoad();
+          Lab.log("hls", "stopLoad on the rising edge (video.js does this)");
+        }
+      });
+
+      const buttons = document.getElementById("buttons");
+      Lab.button(buttons, "Load hls.js", () => {
+        const tag = document.createElement("script");
+        tag.src = script.value;
+        tag.onload = () => Lab.log("hls", "loaded " + window.Hls.version);
+        tag.onerror = () => Lab.log("hls", "could not load " + script.value);
+        document.head.appendChild(tag);
+      });
+      Lab.button(buttons, "A: native HLS", () => {
+        Lab.press("A native");
+        video.src = alt.value;
+        video.load();
+      });
+      Lab.button(buttons, "B: hls.js, alternative at attach", () => {
+        Lab.press("B attach");
+        startHls("attach");
+      });
+      Lab.button(buttons, "C: hls.js, no alternative (now)", () => {
+        Lab.press("C none");
+        startHls("never");
+      });
+      Lab.button(buttons, "C: add the alternative now", () => {
+        Lab.press("add alternative");
+        addAlternative();
+      });
+      Lab.button(buttons, "Play", () => {
+        Lab.press("play");
+        Lab.promise("play()", video.play());
+      });
+      Lab.button(buttons, "Pause", () => {
+        Lab.press("pause");
+        video.pause();
+      });
+      Lab.button(buttons, "AirPlay (webkit picker)", () => Lab.pickWebKit(video));
+      Lab.button(buttons, "AirPlay (remote.prompt)", () => Lab.pickPrompt(video));
+      Lab.button(buttons, "D: product's handover (let hls.js go, src = alternative, picker)", () => {
+        Lab.press("D handover");
+        const where = video.currentTime;
+        if (hls) {
+          hls.detachMedia();
+        }
+        video.disableRemotePlayback = false;
+        video.setAttribute("x-webkit-airplay", "allow");
+        video.src = alt.value;
+        video.currentTime = where;
+        video.webkitShowPlaybackTargetPicker();
+      });
+      Lab.button(buttons, "Toggle stopLoad on AirPlay", () => {
+        stopOnAirPlay = !stopOnAirPlay;
+        Lab.log("hls", "stopLoad on AirPlay " + stopOnAirPlay);
+      });
+      Lab.button(buttons, "Re-attach hls.js where it is", () => {
+        Lab.press("re-attach");
+        const where = video.currentTime;
+        startHls("attach");
+        hls.startLoad(where);
+      });
+    </script>
+  </body>
+</html>
