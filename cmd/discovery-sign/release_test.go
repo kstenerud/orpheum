@@ -216,14 +216,48 @@ func TestRelease_CopiesReadsBackAndCommits(t *testing.T) {
 	}
 }
 
+// A record whose image is pulled from another registry than the last release signed names, as one
+// changed on its way from GitHub could, signs nothing and asks no registry, unless the owner says the
+// move is meant.
+func TestRelease_RefusesARegistryTheLastReleaseWasNotPulledFrom(t *testing.T) {
+	t.Parallel()
+	digest := "sha256:" + strings.Repeat("ab12", 16)
+	folder, fake, world := releaseFolder(t, digest, digest)
+	status, said := guidedRunIn(t, fake, world, "yes\n"+testDestination+"\n", "release", "v1.0.0", "--folder", folder)
+	if status != exitSuccess {
+		t.Fatalf("the first release = %d: %s", status, said)
+	}
+	world.assets[fmt.Sprintf(recordAsset, "v1.0.1")] = nextRecordFrom(t, world, "v1.0.1", digest,
+		[]string{"elsewhere.example/orpheum"})
+	world.digests["elsewhere.example/orpheum:v1.0.1"] = digest
+	signsBefore := fake.signs
+	status, said = guidedRunIn(t, fake, world, "yes\n", "release", "v1.0.1", "--folder", folder)
+	if status != exitFailure || !strings.Contains(said, "the last release signed was pulled from") ||
+		fake.signs != signsBefore || strings.Contains(said, "the registry:") {
+		t.Fatalf("another registry: %d %s (%d signs); want refused before the registry is asked", status, said,
+			fake.signs-signsBefore)
+	}
+	status, said = guidedRunIn(t, fake, world, "yes\n", "release", "v1.0.1", "--folder", folder, "--new-registry")
+	if status != exitSuccess || !strings.Contains(said, "as you said") || fake.signs == signsBefore {
+		t.Fatalf("a move said: %d %s; want signed", status, said)
+	}
+}
+
 // nextRecord is the record after the one served, releasing tag at digest.
 func nextRecord(t *testing.T, world *fakeWorld, tag, digest string) []byte {
+	t.Helper()
+	return nextRecordFrom(t, world, tag, digest, nil)
+}
+
+// nextRecordFrom is the record after the one served, releasing tag at digest pulled from pulls (the
+// served record's when nil).
+func nextRecordFrom(t *testing.T, world *fakeWorld, tag, digest string, pulls []string) []byte {
 	t.Helper()
 	served, err := release.Parse(world.assets[fmt.Sprintf(recordAsset, "v1.0.0")])
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, err := served.Released(tag, digest, "", nil, served.Issued)
+	next, err := served.Released(tag, digest, "", pulls, served.Issued)
 	if err != nil {
 		t.Fatal(err)
 	}

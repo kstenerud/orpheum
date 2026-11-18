@@ -126,7 +126,9 @@ go run ./cmd/discovery-sign release v1.2.3 --folder ~/orpheum-security
 
 It fetches the record from the release and shows the version, whether the release fixes a security
 problem, and the digest (the fingerprint of the exact software cores will install) twice: the
-record's, and the one the image registry serves for the tag. It refuses when they differ. Answer
+record's, and the one the image registry serves for the tag. It refuses when they differ, and
+before that when the record names another registry than the last release you signed, as a record
+changed on its way from GitHub could. If you moved the image on purpose, add `--new-registry`. Answer
 `yes` to sign it with a publisher everyday key. It then checks the signature, copies the files to
 publish to the server with `scp` and reads the record back from where cores read it, refusing one that
 is not the file just signed. Last, it commits the records folder and pushes it. A push that fails is

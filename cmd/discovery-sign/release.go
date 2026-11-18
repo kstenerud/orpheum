@@ -34,6 +34,9 @@ type releaseRun struct {
 	place   *folder
 	version string
 	record  release.Record
+	// isNewRegistry is the owner's word that the record's registries are meant to differ from the
+	// last record signed (--new-registry).
+	isNewRegistry bool
 }
 
 // signRelease is the release command: it fetches the release's unsigned record (or reads one given),
@@ -45,6 +48,8 @@ func (guide *guided) signRelease(arguments []string) error {
 	flags.SetOutput(guide.err)
 	where := flags.String("folder", "", "the records folder (required)")
 	recordFile := flags.String("record", "", "the release's unsigned record, when not fetched from its GitHub release")
+	isNewRegistry := flags.Bool("new-registry", false,
+		"the release's image is pulled from other registries than the last release signed, on purpose")
 	if flags.Parse(arguments) != nil {
 		return flag.ErrHelp
 	}
@@ -64,7 +69,7 @@ func (guide *guided) signRelease(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	run := releaseRun{place: place, version: version, record: record}
+	run := releaseRun{place: place, version: version, record: record, isNewRegistry: *isNewRegistry}
 	if isSigned, confirmErr := guide.confirmRelease(run); confirmErr != nil || !isSigned {
 		return confirmErr
 	}
@@ -109,12 +114,16 @@ func (guide *guided) unsignedRecord(version, file string) (release.Record, error
 }
 
 // confirmRelease shows the release, its digest from the record and from the registry, and asks the
-// owner whether to sign it; it refuses digests that differ, or a registry that cannot be asked.
+// owner whether to sign it; it refuses digests that differ, a registry that cannot be asked, or
+// registries other than the last record signed names, unless the owner says they are meant to.
 func (guide *guided) confirmRelease(run releaseRun) (bool, error) {
 	record := run.record
 	digest := record.Images[record.Latest]
 	if digest == "" || len(record.Pulls) == 0 {
 		return false, errors.New("the record names no image for its latest release, so nothing was signed")
+	}
+	if err := guide.checkRegistries(run); err != nil {
+		return false, err
 	}
 	say := guide.say
 	say.sayf("This release record says:\n  version:  %s\n  expires:  %s\n%s", record.Latest,
@@ -142,6 +151,33 @@ func (guide *guided) confirmRelease(run releaseRun) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// checkRegistries refuses a record whose registries are not the ones the ledger's last release
+// record names: the registry asked for the digest is the record's own, so a record changed on its way
+// from GitHub could name a registry serving whatever digest it names. The owner's --new-registry lets
+// a move to another registry through, said.
+func (guide *guided) checkRegistries(run releaseRun) error {
+	previous, err := run.place.ledger().newest(string(trust.ChainPublisher), kindRelease)
+	if err != nil || previous.signed.Payload == "" {
+		return err
+	}
+	before, err := release.Parse([]byte(previous.signed.Payload))
+	if err != nil {
+		return err
+	}
+	if slices.Equal(before.Pulls, run.record.Pulls) {
+		return nil
+	}
+	if run.isNewRegistry {
+		guide.say.sayf("The image is pulled from %s, where the last release was pulled from %s, as you said.",
+			strings.Join(run.record.Pulls, ", "), strings.Join(before.Pulls, ", "))
+		return nil
+	}
+	return fmt.Errorf("the record says the image is pulled from %s, but the last release signed was pulled "+
+		"from %s, so nothing was signed: do not sign it, and find out why (or, if you moved the image "+
+		"on purpose, run this again with --new-registry)", strings.Join(run.record.Pulls, ", "),
+		strings.Join(before.Pulls, ", "))
 }
 
 // copyPublished copies the published files to the server, at the destination the folder keeps, asked

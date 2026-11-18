@@ -44,6 +44,9 @@
 //     no or an empty answer signs nothing. TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest.
 //   - A digest the registry does not serve for the tag, or a registry that cannot be asked, signs
 //     nothing and asks nothing. TestRelease_RefusesADigestTheRegistryDoesNotServe.
+//   - A record naming other registries than the ledger's last release record signs nothing and asks no
+//     registry, unless the owner gives --new-registry, as a record changed on its way from GitHub
+//     could name a registry serving its digest. TestRelease_RefusesARegistryTheLastReleaseWasNotPulledFrom.
 //   - A signed release is copied to the destination the folder keeps, read back from where cores read
 //     it and committed; a failed push is said and the run still succeeds, and a server serving another
 //     record than the one signed fails it before the commit.

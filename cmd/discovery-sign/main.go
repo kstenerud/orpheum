@@ -35,7 +35,7 @@ func write(writer io.Writer, text string, status int) int {
 
 // usage is how the command is run.
 const usage = `usage: discovery-sign ceremony [--folder <dir>] [--software <keysdir>]
-       discovery-sign release <version> --folder <dir> [--record <unsigned record file>]
+       discovery-sign release <version> --folder <dir> [--record <unsigned record file>] [--new-registry]
        discovery-sign suspend|resume|add|remove --folder <dir> [--key <name>]
        discovery-sign <what> --ledger <dir> [flags]
 
