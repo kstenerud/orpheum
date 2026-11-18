@@ -135,17 +135,25 @@ export function LeavesAtTheEnd(props: {
   /** Whether nothing is known to play after the film (useIsNothingNext). */
   readonly isNothingNext: boolean;
 }): null {
+  useAtTheEndWithNothingNext(props.video, props.isNothingNext, useLeavesForThePageAbove());
+  return null;
+}
+
+/**
+ * The Play page's leaving for the page above it, its Up's (OverlayUp, D367 §8), as a film's end with
+ * nothing next leaves it (the owner, 2026-11-17): back to that page's entry where it is behind, else
+ * in the player's place, never a new entry. Undefined on a page with no Up, a cast's receiver's
+ * (PlayUpwardContext).
+ */
+export function useLeavesForThePageAbove(): (() => void) | undefined {
   const { navigation } = useServices();
   const upward = use(PlayUpwardContext);
   const parent = upward === undefined ? undefined : parentOf(upward);
-  const leave =
-    parent === undefined
-      ? undefined
-      : () => {
-          navigation.up(parent.to, parent.isIt);
-        };
-  useAtTheEndWithNothingNext(props.video, props.isNothingNext, leave);
-  return null;
+  return parent === undefined
+    ? undefined
+    : () => {
+        navigation.up(parent.to, parent.isIt);
+      };
 }
 
 /**

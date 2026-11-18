@@ -4302,6 +4302,17 @@ as Stop does, and a guest's Play page then goes to `/together`, the page before 
 anything (`web/apps/web/src/together-end.test.tsx`). Open: a host who left the player before the
 end still leaves the group's film playing past it on the server's clock (D364 §15).
 
+**Built (2026-11-18):** the cast. A Chromecast whose cast's film ends with nothing next has its cast
+play nothing, as a browser receiver waits ready (D364 §5): its black screen, still connected
+(`waitsReadyAtTheEnd` in `web/apps/cast-receiver/src/device.ts`, `src/device-end.test.ts`); a guest
+receiver too, the core taking that of it for its own cast alone (D515's question,
+`TestGuestReceiver_PlaysNothingInItsOwnCastAlone`). The receiver closes itself by CAF's stop after 5
+minutes with nothing playing, or 20 with its film paused (`src/idle.ts`, `src/idle.test.ts`,
+`src/main.test.ts`). The sender's remote, its cast's film then nothing, leaves for the page above
+as a local play does (`useLeavesAtTheCastsEnd` in `web/apps/web/src/cast-remote.tsx`,
+`cast-remote.test.tsx`). A device shows the whole: VQ359. Open: where the cast had moved on to
+another episode, the remote leaves for its own page's film's page, the cast saying no item.
+
 ### Production on v0.8.3; the lost-artwork sweep against the ceiling's evictions, next batch (the lead, 2026-11-17)
 
 Production was updated to v0.8.3 by the install script at 18:46 UTC, at the owner's go ("Once that
@@ -4528,6 +4539,6 @@ Claude.
    runs begin at the first chunk not given up (`notGivenUpFrom`, as an init's run does), and its
    player, refused the chunks before it, steps over them as it does mid-film, the sign under the
    film saying so; with every chunk ahead given up the start is refused 422 `cannotConvert`, as a
-   chunk is, not a 500. VQ357.
+   chunk is, not a 500. VQ359.
 4. A paused cast closes after 20 minutes; the receiver's idle screen stays black.
 5. D516's wire name `isAtTheEnd` stays.

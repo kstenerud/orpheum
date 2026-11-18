@@ -11,6 +11,7 @@ import { startCast } from "./cast.ts";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { createHiddenNeed } from "./hidden-need.ts";
 import { LiveProvider } from "./live.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
 import {
   buttonNamed,
@@ -26,6 +27,7 @@ import {
 } from "./test-dom.tsx";
 import { useServices } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
+import type { Upward } from "./upward.ts";
 import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
 /** Opens the remote's menu whose opener's name starts with name, as over the film. */
@@ -129,6 +131,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     shown: {
       readonly sent?: Readonly<Record<string, unknown>>;
       readonly castSign?: () => ReactNode;
+      readonly upward?: Upward;
     } = {},
   ): Promise<{
     readonly services: ReturnType<typeof servedBy>;
@@ -145,9 +148,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     mounted = await mount(
       withServices(
         <CastSignOverTheFilmContext value={shown.castSign ?? (() => null)}>
-          <LiveProvider>
-            <CastRemote castId={9} fileId={4} onPlayHere={onPlayHere} />
-          </LiveProvider>
+          <PlayUpwardContext value={shown.upward}>
+            <LiveProvider>
+              <CastRemote castId={9} fileId={4} onPlayHere={onPlayHere} />
+            </LiveProvider>
+          </PlayUpwardContext>
         </CastSignOverTheFilmContext>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
@@ -600,6 +605,39 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledOnce();
     expect(onPlayHere.mock.calls[0]?.[1]).toBe(false);
+  });
+
+  /** File 4's page's way up, its film's page, item 40's, as a Play page's Up is. */
+  const filmsPage: Upward = {
+    crumbs: [
+      {
+        label: "Metropolis",
+        to: { screen: "title", itemId: 40 },
+        isIt: (route) => route.screen === "title" && route.itemId === 40,
+      },
+    ],
+    here: "Metropolis",
+  };
+
+  it("leaves for the film's page, back to its entry, as its receiver has the cast play nothing at the film's end (the owner, 2026-11-17)", async () => {
+    // The plan file's "A film played to its end with nothing next goes back to its page", its cast
+    // part: as a local play leaves, the cast going on, ready.
+    const { services, sockets, onPlayHere } = await casting({}, [], { upward: filmsPage });
+    services.navigation.go({ screen: "title", itemId: 40 });
+    services.navigation.go({ screen: "play", fileId: 4 });
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
+    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 40 });
+    expect(onPlayHere).not.toHaveBeenCalled();
+  });
+
+  it("stays on its page as a cast that has played nothing from its start is said again", async () => {
+    const { services, sockets } = await casting({}, [], {
+      upward: filmsPage,
+      sent: { ...sending, fileId: 0, itemName: "" },
+    });
+    services.navigation.go({ screen: "play", fileId: 4 });
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
   });
 
   it("goes home, playing nothing here, as a cast with nothing on is stopped (D446 §2)", async () => {

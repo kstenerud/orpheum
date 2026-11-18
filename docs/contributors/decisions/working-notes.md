@@ -29991,9 +29991,15 @@ devices."
    an AirPlay device**, whatever they may play.
 2. **Casting to an Orpheum device needs a signed-in person**, as it does now.
 
-**Status:** decided (2026-11-18). It goes with a cast's end of a film (the plan file's "A film
-played to its end with nothing next goes back to its page", its cast part), once what each cast's
-calls ask of the person today is read.
+**Proven by:**
+- the question answered: TestGuestReceiver_PlaysNothingInItsOwnCastAlone (internal/core/api/guest_receivers_test.go)
+
+**Status:** the question it answers built (2026-11-18) in "feat(api): a guest receiver plays
+nothing in its own cast, waiting ready at its film's end": a Chromecast cast to under a grant has
+its own cast play nothing at its film's end, and nothing else, the call open to a guest receiver
+for that alone. §2 holds as before. §1 is not built: a sender with no user cannot start a cast
+today (a cast, its guest grant and an AirPlay grant are a signed-in user's), and whose cast a
+Watch Together guest's is, and what of its grants they may ask, is for the owner to say.
 
 ## D516 — A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
 
