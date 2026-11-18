@@ -156,7 +156,7 @@ func TestHandleMakeChunks_ARunOnTimeIsMadeOnTheTimeGrid(t *testing.T) {
 	fixture.start(t, 7, testRun{"q1200k480p", gridID, runArgs{FirstChunk: 3, LastChunk: 5}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
 	if sent == nil || !slices.Equal(sent.BoundsMs, []int64{6000, 8000, 10_000, 12_000}) ||
-		sent.Stream.Height != 480 || sent.PictureSeekMs != 0 {
+		sent.Stream.Height != 480 {
 		t.Errorf("the node was sent %+v; want chunks 3 to 5 at 6, 8, 10 and 12 s, encoded", sent)
 	}
 }

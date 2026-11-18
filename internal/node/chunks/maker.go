@@ -104,9 +104,6 @@ func check(command nodeproto.MakeChunks) error {
 		return fmt.Errorf("%w: a %s stream with a sound of %v", ErrBadRun,
 			command.Stream.Kind, command.Stream.Sound)
 	}
-	if err := checkSeek(command); err != nil {
-		return err
-	}
 	if err := checkLeadIn(command); err != nil {
 		return err
 	}
@@ -133,26 +130,6 @@ func checkLeadIn(command nodeproto.MakeChunks) error {
 // from its start.
 func mayBeLedIn(kind nodeproto.ChunkStreamKind) bool {
 	return kind.IsSound() || kind == nodeproto.StreamPicture
-}
-
-// checkSeek refuses a copied picture whose seek is not past the keyframe it reads from, its first
-// chunk's or its lead-in's, and before the chunk after it, or, when it seeks before the keyframe
-// (MPEG-TS), not at or before it; and any other stream with a picture's seek.
-func checkSeek(command nodeproto.MakeChunks) error {
-	isPicture := command.Stream.Kind == nodeproto.StreamPicture
-	seekMs := command.PictureSeekMs
-	fromMs, nextMs := command.BoundsMs[0], command.BoundsMs[1]
-	if command.IsLedIn {
-		fromMs, nextMs = command.LeadInMs, command.BoundsMs[0]
-	}
-	isSeekRight := seekMs > fromMs && seekMs < nextMs
-	if command.IsPictureSeekBeforeKeyframe {
-		isSeekRight = seekMs >= 0 && seekMs <= fromMs
-	}
-	if isPicture != isSeekRight || !isPicture && command.IsPictureSeekBeforeKeyframe {
-		return fmt.Errorf("%w: a %s seeking to %d ms", ErrBadRun, command.Stream.Kind, seekMs)
-	}
-	return nil
 }
 
 // Make makes the run's chunks of source, a film the caller has checked, in order, telling onChunk

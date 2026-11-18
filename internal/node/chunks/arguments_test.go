@@ -29,9 +29,6 @@ func run(stream nodeproto.ChunkStream) nodeproto.MakeChunks {
 		VideoStreamIndex: 0, VideoCodec: "h264", Stream: stream, StoreDir: "7/chunks-x/0123456789abcdef",
 		FirstChunk: 10, BoundsMs: []int64{98_849, 108_859, 112_613, 122_581},
 	}
-	if stream.Kind == nodeproto.StreamPicture {
-		command.PictureSeekMs = 103_854
-	}
 	return command
 }
 
@@ -80,7 +77,7 @@ func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 func TestArguments_ACopiedPictureIsLedInFromTheChunkBefore(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	command.LeadInMs, command.IsLedIn, command.PictureSeekMs = 88_839, true, 93_844
+	command.LeadInMs, command.IsLedIn = 88_839, true
 	arguments := Arguments(execx.Film{Path: "/films/a.mkv"}, "/r", command, encode.EncoderX264)
 	if start := valueOf(arguments, "-ss"); start != "88.789" {
 		t.Errorf("the run seeks to %s, want 50 ms before its lead-in's keyframe, 88.789", start)
@@ -113,7 +110,6 @@ func TestArguments_WriteNoTimecodeTrackBesideTheStream(t *testing.T) {
 func TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe(t *testing.T) {
 	t.Parallel()
 	transport := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	transport.IsPictureSeekBeforeKeyframe, transport.PictureSeekMs = true, 93_844
 	arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r", transport, encode.EncoderX264)
 	if shift := valueOf(arguments, "-avoid_negative_ts"); shift != "make_zero" {
 		t.Errorf("the copy's times are shifted by %q; want make_zero", shift)
@@ -127,17 +123,15 @@ func TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe(t *testing.T) {
 }
 
 // A copied picture's run starts at its first keyframe in any container, whatever the demuxer's seek
-// lands on (D500 §1): it seeks 50 ms before the keyframe, its lead-in's when led in, wherever the core
-// says to seek, and the copy drops every packet before a keyframe shown at or after the seek
+// lands on (D500 §1): it seeks 50 ms before the keyframe, its lead-in's when led in, and the copy
+// drops every packet before a keyframe shown at or after the seek
 // (-copypriorss 0, an output option). An AVI indexing every frame a keyframe lands between keyframes,
 // and a copy from past its keyframe began at the next (file 17099, staging, 2026-11-16;
 // idiosyncrasies.md). A run from the film's start reads unsought and drops nothing.
 func TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands(t *testing.T) {
 	t.Parallel()
 	ledIn := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	ledIn.LeadInMs, ledIn.IsLedIn, ledIn.PictureSeekMs = 88_839, true, 93_844
-	transport := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	transport.IsPictureSeekBeforeKeyframe, transport.PictureSeekMs = true, 93_844
+	ledIn.LeadInMs, ledIn.IsLedIn = 88_839, true
 	for name, made := range map[string]struct {
 		film    string
 		command nodeproto.MakeChunks
@@ -145,7 +139,7 @@ func TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands(t *test
 	}{
 		"an AVI's":            {"/a.avi", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), "98.799"},
 		"a Matroska's led in": {"/a.mkv", ledIn, "88.789"},
-		"an MPEG-TS's":        {"/a.ts", transport, "98.799"},
+		"an MPEG-TS's":        {"/a.ts", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), "98.799"},
 	} {
 		arguments := Arguments(execx.Film{Path: made.film}, "/r", made.command, encode.EncoderX264)
 		seek := valueOf(arguments, "-ss")
@@ -159,7 +153,7 @@ func TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands(t *test
 		}
 	}
 	fromTheStart := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-	fromTheStart.FirstChunk, fromTheStart.BoundsMs, fromTheStart.PictureSeekMs = 0, []int64{0, 2_000, 4_000}, 1_000
+	fromTheStart.FirstChunk, fromTheStart.BoundsMs = 0, []int64{0, 2_000, 4_000}
 	arguments := Arguments(execx.Film{Path: "/a.avi"}, "/r", fromTheStart, encode.EncoderX264)
 	if slices.Contains(arguments, "-ss") || slices.Contains(arguments, "-copypriorss:v") {
 		t.Errorf("a run from the film's start copies %q; want it read unsought and nothing dropped", arguments)
@@ -434,12 +428,11 @@ func TestArguments_NoRunSeeksToTheFilmsStart(t *testing.T) {
 		"a sound": {
 			Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 		},
-		"a sound copied":     {Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2}},
-		"an MPEG-TS picture": {Kind: nodeproto.StreamPicture},
+		"a sound copied":   {Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2}},
+		"a copied picture": {Kind: nodeproto.StreamPicture},
 	} {
 		command := run(stream)
 		command.FirstChunk, command.BoundsMs = 0, []int64{0, 2_000, 4_000}
-		command.IsPictureSeekBeforeKeyframe, command.PictureSeekMs = stream.Kind == nodeproto.StreamPicture, 0
 		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264)
 		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
 			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)

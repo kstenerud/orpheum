@@ -3088,10 +3088,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   before it, and the copy drops every packet until a keyframe shown at or after the seek
   (`-copypriorss:v 0`; D500 §1, `internal/node/chunks/arguments.go`), so it begins at its own keyframe
   wherever the demuxer lands; the muxer's cut times stay relative to that keyframe, where the copy
-  begins (`-avoid_negative_ts make_zero`). Until D500 §1 it seeked midway to the next keyframe, which
-  the core still computes and the node still checks (`chunks.PictureSeekMs` in
-  `internal/core/chunks/job.go`; `nodeproto.MakeChunks.PictureSeekMs`), and which an AVI whose index
-  marks every frame a keyframe cannot use (below). The node also refuses a raw file whose listed span is not its chunk's
+  begins (`-avoid_negative_ts make_zero`). Until D500 §1 it seeked midway to the next keyframe, as
+  the core said (the wire's `PictureSeekMs`, retired at protocol 64), which an AVI whose index marks
+  every frame a keyframe cannot use (below). The node also refuses a raw file whose listed span is not its chunk's
   (`internal/node/chunks/listed.go`), which a whole run begun early passes when chunks are as long as
   the stretches between keyframes.
 - **Evidence:** **[measured]** on *Flow* with the pinned FFmpeg 8.1.2: `-ss 388.930`, a keyframe,
@@ -3119,12 +3118,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   starts at it, but its times then start as far after zero as the seek was before the keyframe, and
   the segment muxer's list times each raw file that much late (its cuts count from the first packet).
 - **What we do:** a copied picture's run, an MPEG-TS's as any other's, seeks 50 ms before its first
-  keyframe and drops what it lands on before it (`-copypriorss:v 0`; D500 §1). The core still asks
-  an MPEG-TS film (`decide.ContainerOf`) to seek midway back to the keyframe before its run's first,
-  or to the film's start for its first keyframe (`chunks.PictureSeekBeforeMs` in
-  `internal/core/chunks/job.go`), and says so (`nodeproto.MakeChunks.IsPictureSeekBeforeKeyframe`),
-  which the node checks; every
-  copied picture is written with `-avoid_negative_ts make_zero`, so its times start at its first
+  keyframe and drops what it lands on before it (`-copypriorss:v 0`; D500 §1). Until then the core
+  asked an MPEG-TS film to seek midway back to the keyframe before its run's first, or to the film's
+  start for its first keyframe, and said so (the wire's `IsPictureSeekBeforeKeyframe`, retired at
+  protocol 64); every copied picture is written with `-avoid_negative_ts make_zero`, so its times start at its first
   keyframe whichever side the seek was (`internal/node/chunks/arguments.go`). Other demuxers seeking
   by `read_timestamp` (MPEG-PS among them) likely behave alike; unmeasured, and `decide.ContainerOf`
   names none of them.

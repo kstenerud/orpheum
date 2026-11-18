@@ -177,15 +177,8 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		command.NeedsPictureRetiming = film.picture.Video.NeedsRetiming
 		// Read from the chunk before, dropped, so FFmpeg times the pictures of an open GOP shown before
 		// the run's first keyframe as the film does (nodeproto.MakeChunks.LeadInMs).
-		startMs := film.grid.StartsMs[args.FirstChunk]
 		if args.FirstChunk > 0 {
 			command.LeadInMs, command.IsLedIn = film.grid.StartsMs[args.FirstChunk-1], true
-			startMs = command.LeadInMs
-		}
-		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, startMs, film.grid.FilmDurationMs)
-		if container, _ := decide.ContainerOf(film.probe.Format); container == decide.MPEGTS {
-			command.IsPictureSeekBeforeKeyframe = true
-			command.PictureSeekMs = PictureSeekBeforeMs(film.keyframesMs, startMs)
 		}
 	}
 	return command, nil
@@ -205,43 +198,6 @@ func isSoundInterleaved(probe nodeproto.Probe, audioTrackIndex int) bool {
 		return true
 	}
 	return false
-}
-
-// seekMovedEarlierMs is how much earlier FFmpeg moves an input seek into a file it does not seek by
-// shown time, Matroska among them, when a picture has B-frames: 3/23 s, rounded up
-// (fftools/ffmpeg_demux.c; docs/contributors/idiosyncrasies.md).
-const seekMovedEarlierMs = 131
-
-// PictureSeekMs is where a copied picture's run starting at the keyframe at startMs seeks, so
-// FFmpeg lands on that keyframe and not the one before it: midway to the next keyframe, or to the
-// film's end at durationMs, and at least seekMovedEarlierMs past the start, but always before the
-// next keyframe (Kyoo seeks midway for the same reason; idiosyncrasies.md). With keyframes closer
-// than that, a Matroska run still lands one early, and the node refuses its chunks.
-func PictureSeekMs(keyframesMs []int64, startMs, durationMs int64) int64 {
-	nextMs := durationMs
-	after, _ := slices.BinarySearch(keyframesMs, startMs+1)
-	if after < len(keyframesMs) && keyframesMs[after] < nextMs {
-		nextMs = keyframesMs[after]
-	}
-	seekMs := max(startMs+(nextMs-startMs)/2, startMs+seekMovedEarlierMs)
-	return min(seekMs, nextMs-1)
-}
-
-// PictureSeekBeforeMs is where a copied picture's run starting at the keyframe at startMs seeks in
-// MPEG-TS, which FFmpeg seeks to the frame at or before a time, not to a keyframe, so a copy from
-// a seek past the keyframe starts at the next one, and a run of the film's last keyframe has none
-// (idiosyncrasies.md): midway back to the keyframe before it, and at least seekMovedEarlierMs past
-// that one, as FFmpeg moves the seek so much earlier, but never past the start; with no keyframe
-// before it, the film's start. A copy drops what comes before its first keyframe, so it starts at
-// the run's.
-func PictureSeekBeforeMs(keyframesMs []int64, startMs int64) int64 {
-	at, _ := slices.BinarySearch(keyframesMs, startMs)
-	if at == 0 {
-		return 0
-	}
-	previousMs := keyframesMs[at-1]
-	seekMs := max(previousMs+(startMs-previousMs)/2, previousMs+seekMovedEarlierMs)
-	return min(seekMs, startMs)
 }
 
 // copiedTrack is a sound copied's audio track, as its chunks are copied of it: its place, language

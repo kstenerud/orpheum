@@ -78,14 +78,9 @@
 //
 //   - A copied picture's run past the film's first chunk is led in from the chunk before, so FFmpeg
 //     times an open GOP's pictures shown before the run's first keyframe as the film does, and says
-//     so (IsLedIn), as a lead-in from a chunk 0 at the film's start is at zero; it seeks
-//     past its first keyframe (its lead-in's), midway to the next, so FFmpeg lands on it; an MPEG-TS
-//     film's, which FFmpeg seeks to a frame and not a keyframe, before it, midway back to the one
-//     before or at the film's start, and says so (idiosyncrasies.md). Enforced by
-//     TestHandleMakeChunks_APictureRunSeeksPastTheKeyframeOfTheChunkBeforeIt,
-//     TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe,
-//     TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext and
-//     TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore. A sound run of a RealMedia
+//     so (IsLedIn), as a lead-in from a chunk 0 at the film's start is at zero; where it seeks is
+//     the node's, a little before that keyframe in any container (D500 §1). Enforced by
+//     TestHandleMakeChunks_APictureRunIsLedInFromTheChunkBeforeIt. A sound run of a RealMedia
 //     film's cook, ATRAC3, SIPR or 28.8, interleaved in super-blocks, says so, as FFmpeg loses the
 //     super-block a seek lands in. Enforced by
 //     TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe. A run of a picture,

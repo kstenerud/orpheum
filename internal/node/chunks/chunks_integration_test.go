@@ -167,20 +167,6 @@ func openGOPFilm(t *testing.T) string {
 	return path
 }
 
-// pictureSeek is where a copied picture's run from chunk first seeks, as the core sends it: midway
-// from its lead-in's keyframe, or the film's first, to the next; an MPEG-TS's midway back to the
-// keyframe before, or the film's start, said to be before it.
-func pictureSeek(source string, grid []int64, first int) (seekMs int64, isBeforeKeyframe bool) {
-	from := max(first-1, 0)
-	if !strings.HasSuffix(source, ".ts") {
-		return (grid[from] + grid[from+1]) / 2, false
-	}
-	if from == 0 {
-		return 0, true
-	}
-	return (grid[from-1] + grid[from]) / 2, true
-}
-
 // makeInTwoRuns makes stream's chunks 0–2 in one run and 3–5 in another, the second led in from the
 // chunk before, as the core sends them for two players asking far apart.
 func makeInTwoRuns(
@@ -198,9 +184,6 @@ func makeInTwoRuns(
 		}
 		if (stream.Kind.IsSound() || stream.Kind == nodeproto.StreamPicture) && first > 0 {
 			command.LeadInMs, command.IsLedIn = grid[first-1], true
-		}
-		if stream.Kind == nodeproto.StreamPicture {
-			command.PictureSeekMs, command.IsPictureSeekBeforeKeyframe = pictureSeek(source, grid, first)
 		}
 		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)
@@ -438,7 +421,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 	storeDir := "1/chunks-picture/0123456789abcdef"
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
-		StoreDir: storeDir, BoundsMs: []int64{0, 12_000}, IsPictureSeekBeforeKeyframe: true,
+		StoreDir: storeDir, BoundsMs: []int64{0, 12_000},
 	}
 	if last, err := maker.Make(t.Context(), execx.Film{Path: transport}, command, nil); err != nil || last != 0 {
 		t.Fatalf("the run made through %d, %v; want its one chunk", last, err)

@@ -40,20 +40,18 @@
 //     into one stream at the film's times, by TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes
 //     (integration tier).
 //   - A copied picture's run starts at its first keyframe in any container, whatever the demuxer's
-//     seek lands on (D500 §1): it seeks a little before the keyframe, not where the core says, and
-//     the copy drops every packet before a keyframe shown at or after the seek (-copypriorss 0). A
-//     seek lands by the file's index, and FFmpeg moves one into Matroska 130 ms earlier, onto the
-//     keyframe before; MPEG-TS lands on any frame, and an AVI whose index marks every frame a keyframe
-//     on the frame at the seek, from which a copy seeking past its keyframe began at the next and the
-//     node refused every run at its bounds (file 17099; idiosyncrasies.md). A decoded stream seeks to
+//     seek lands on (D500 §1): it seeks a little before the keyframe, and the copy drops every
+//     packet before a keyframe shown at or after the seek (-copypriorss 0). A seek lands by the
+//     file's index, and FFmpeg moves one into Matroska 130 ms earlier, onto the keyframe before;
+//     MPEG-TS lands on any frame, and an AVI whose index marks every frame a keyframe on the frame
+//     at the seek, from which a copy seeking past its keyframe began at the next and the node
+//     refused every run at its bounds (file 17099; idiosyncrasies.md). A decoded stream seeks to
 //     its start. Every copied picture's times start at its first keyframe (-avoid_negative_ts
-//     make_zero), so the muxer's cuts and list count from it; an MPEG-TS's chunks are the film's, its
-//     one keyframe its first included. Enforced by
+//     make_zero), so the muxer's cuts and list count from it; an MPEG-TS's chunks are the film's,
+//     its one keyframe its first included. Enforced by
 //     TestArguments_ACopiedPictureStartsAtItsKeyframeWhereverItsSeekLands,
 //     TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd,
-//     TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe,
-//     TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe,
-//     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg,
+//     TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe and, with the pinned FFmpeg,
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes, whose MP4, Matroska, MPEG-TS and open
 //     GOP's pictures' packets must be the film's,
 //     TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyframe and

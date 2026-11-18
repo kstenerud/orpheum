@@ -162,9 +162,6 @@ func chunksCommandOf(stream nodeproto.ChunkStream, grid []int64) nodeproto.MakeC
 	if stream.Kind != nodeproto.StreamQuality {
 		command.LeadInMs, command.IsLedIn = grid[0], true
 	}
-	if stream.Kind == nodeproto.StreamPicture {
-		command.PictureSeekMs = (grid[0] + grid[1]) / 2
-	}
 	return command
 }
 

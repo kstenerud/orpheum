@@ -105,9 +105,6 @@ func (fixture retimingFixture) makeTwoRuns(
 			VideoStreamIndex: 0, VideoCodec: fixture.codec, Stream: stream, StoreDir: storeDir, FirstChunk: first,
 			BoundsMs: grid[first : first+4], NeedsPictureRetiming: isMarked,
 		}
-		if stream.Kind == nodeproto.StreamPicture {
-			command.PictureSeekMs = (grid[first] + grid[first+1]) / 2
-		}
 		last, err := fixture.maker.Make(t.Context(), execx.Film{Path: fixture.source}, command, nil)
 		if err != nil || last != first+2 {
 			t.Fatalf("%s %s: the run from %d made through %d, %v", fixture.codec, stream.Kind, first, last, err)
@@ -237,7 +234,7 @@ func TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst(t *testing.T) 
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "hevc", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 		StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 1, BoundsMs: grid[1:5],
-		PictureSeekMs: (grid[1] + grid[2]) / 2, NeedsPictureRetiming: true,
+		NeedsPictureRetiming: true,
 	}
 	last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
 	if err != nil || last != 3 {

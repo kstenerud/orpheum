@@ -153,6 +153,10 @@ var wireShapeByVersion = map[int]string{
 	// at zero, which alone is none: a node of 62 would read no lead-in from a core of 63's run from
 	// chunk 1 and refuse its picture's seek, as before.
 	63: "aa6bf35d50f91a42b3ca12d2b5c0b390e58ba29db575155381bc8963cb3f720b",
+	// 64 drops MakeChunks' PictureSeekMs and IsPictureSeekBeforeKeyframe, as a copied picture's node
+	// seeks a little before its run's keyframe in any container (D500 §1): a node of 63 would refuse
+	// every copied picture's run of a core of 64 for its seek.
+	64: "f1bf2fe6e86d8823afc8621eb750f1517b9d5d89b7b5070f16999e703fd37270",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

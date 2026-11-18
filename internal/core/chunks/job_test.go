@@ -242,55 +242,31 @@ func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, storeKey string) {
 	}
 }
 
-// A copied picture's run is led in from the chunk before, and seeks midway between that chunk's
-// keyframe and the next, so FFmpeg lands on it and not the one before it, and times an open GOP's
-// pictures shown before the run's first keyframe as the film does (idiosyncrasies.md); the film's
-// first chunk is read from itself.
-func TestHandleMakeChunks_APictureRunSeeksPastTheKeyframeOfTheChunkBeforeIt(t *testing.T) {
+// A copied picture's run is led in from the chunk before, so FFmpeg times an open GOP's pictures
+// shown before the run's first keyframe as the film does (idiosyncrasies.md); the film's first chunk
+// is read from itself.
+func TestHandleMakeChunks_APictureRunIsLedInFromTheChunkBeforeIt(t *testing.T) {
 	t.Parallel()
 	fixture := runsOnAFakeNode(t)
 	gridID := mustGrid(t, fixture.service).ID()
 	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 10_000 || !sent.IsLedIn || sent.PictureSeekMs != 15_000 ||
+	if sent == nil || sent.LeadInMs != 10_000 || !sent.IsLedIn ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
-		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s, read from a seek to 15 s, "+
-			"midway to the next keyframe", sent)
+		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s", sent)
 	}
 	fixture.start(t, 11, testRun{"picture", gridID, runArgs{FirstChunk: 0, LastChunk: 1}})
 	sent = testutil.Receive(t, fixture.node.sent, "the first chunk's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 0 || sent.IsLedIn || sent.PictureSeekMs != 5_000 {
-		t.Fatalf("the node was sent %+v; want chunks 0 and 1 read from a seek to 5 s, with no lead-in", sent)
+	if sent == nil || sent.LeadInMs != 0 || sent.IsLedIn {
+		t.Fatalf("the node was sent %+v; want chunks 0 and 1 with no lead-in", sent)
 	}
 	// Chunk 0 starts at the film's start, so a run from chunk 1 is led in from 0 ms, and says so: a
 	// lead-in of zero alone is none, and the node refused the run's seek past chunk 0's keyframe (file
 	// 17099, staging, 2026-11-16).
 	fixture.start(t, 12, testRun{"picture", gridID, runArgs{FirstChunk: 1, LastChunk: 2}})
 	sent = testutil.Receive(t, fixture.node.sent, "the second chunk's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 0 || !sent.IsLedIn || sent.PictureSeekMs != 5_000 {
-		t.Fatalf("the node was sent %+v; want chunks 1 and 2 led in from the film's start, read from a seek "+
-			"to 5 s", sent)
-	}
-}
-
-// An MPEG-TS film's copied picture seeks before its run's lead-in's keyframe, midway back to the one
-// before, and says so: FFmpeg seeks MPEG-TS to a frame, not a keyframe, and a copy from past the
-// keyframe starts at the next one, or, past the film's last, has none (idiosyncrasies.md).
-func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testing.T) {
-	t.Parallel()
-	fixture := runsOnAFakeNode(t)
-	librarytest.Probe(t, fixture.service.database, librarytest.ProbeSpec{
-		FileID: 1, DurationMs: filmMinutes * 60_000,
-		ProbeJSON: `{"format":{"formatNames":["mpegts"],"durationMs":1200000,"bitRateBps":4000000},"streams":[` +
-			`{"kind":"video","codec":"h264","video":{"width":1920,"height":1080}},` +
-			`{"streamIndex":1,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`,
-	})
-	gridID := mustGrid(t, fixture.service).ID()
-	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
-	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	if sent == nil || sent.LeadInMs != 10_000 || sent.PictureSeekMs != 5_000 || !sent.IsPictureSeekBeforeKeyframe {
-		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s, read from a seek to 5 s, "+
-			"midway back to the keyframe before, said to be before the run's keyframe", sent)
+	if sent == nil || sent.LeadInMs != 0 || !sent.IsLedIn {
+		t.Fatalf("the node was sent %+v; want chunks 1 and 2 led in from the film's start", sent)
 	}
 }
 
@@ -392,53 +368,6 @@ func TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe(t *t
 		sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
 		if sent == nil || sent.IsSoundInterleaved != want {
 			t.Errorf("the node was sent %+v for %s; want it said interleaved: %v", sent, stream, want)
-		}
-	}
-}
-
-// Before a keyframe, the seek is midway back to the one before it; at least FFmpeg's 131 ms past
-// that one, so a seek moved earlier stays after it; never past the keyframe itself; and the film's
-// start for its first keyframe.
-func TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore(t *testing.T) {
-	t.Parallel()
-	keyframes := []int64{400, 10_000, 10_200, 10_300, 20_000}
-	for _, test := range []struct {
-		name        string
-		startMs     int64
-		wantSeekMs  int64
-		explanation string
-	}{
-		{"the first keyframe", 400, 0, "the film's start"},
-		{"far apart", 20_000, 15_150, "midway back to 10.3 s"},
-		{"200 ms apart", 10_200, 10_131, "131 ms past the one before, beyond midway"},
-		{"100 ms apart", 10_300, 10_300, "the keyframe itself, never past it"},
-	} {
-		if got := PictureSeekBeforeMs(keyframes, test.startMs); got != test.wantSeekMs {
-			t.Errorf("%s: the run at %d ms seeks to %d ms, want %d: %s",
-				test.name, test.startMs, got, test.wantSeekMs, test.explanation)
-		}
-	}
-}
-
-// The seek is midway to the next keyframe, or the film's end; at least FFmpeg's 131 ms past the
-// keyframe, so a Matroska seek moved earlier still lands on it; and always before the next keyframe.
-func TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext(t *testing.T) {
-	t.Parallel()
-	keyframes := []int64{0, 10_000, 10_200, 10_300, 20_000}
-	for _, test := range []struct {
-		name        string
-		startMs     int64
-		wantSeekMs  int64
-		explanation string
-	}{
-		{"far apart", 0, 5_000, "midway"},
-		{"200 ms apart", 10_000, 10_131, "131 ms past it, beyond midway"},
-		{"100 ms apart", 10_200, 10_299, "a millisecond before the next keyframe"},
-		{"the last keyframe", 20_000, 25_000, "midway to the film's end"},
-	} {
-		if got := PictureSeekMs(keyframes, test.startMs, 30_000); got != test.wantSeekMs {
-			t.Errorf("%s: the run at %d ms seeks to %d ms, want %d: %s",
-				test.name, test.startMs, got, test.wantSeekMs, test.explanation)
 		}
 	}
 }
