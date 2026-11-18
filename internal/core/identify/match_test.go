@@ -464,6 +464,36 @@ func TestMatch_AFilmFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange(t
 	}
 }
 
+// A sweep returns two hundred titles found to match nothing under older rules to their first match,
+// a library's few hundred within an hour or two of a release, and the rest at the next (D513 §5; the
+// owner, 2026-11-18).
+func TestMatch_ASweepSearchesAgainTwoHundredTitlesFoundToMatchNothing(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	const films = 201
+	var records []nodeproto.ScanRecord
+	var paths []string
+	for index := range films {
+		rel := fmt.Sprintf("Film %03d (%d).mkv", index, 1900+index%100)
+		records, paths = append(records, videoRecord(rel)), append(paths, rel)
+	}
+	lib.scan(records...)
+	for _, rel := range paths {
+		if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNoMatch {
+			t.Fatalf("%s: %s; want no match to begin with", rel, outcome)
+		}
+	}
+	identify.RaiseSearchRules(lib.matcher)
+	for sweep, want := range []int{200, 1, 0} {
+		if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != want {
+			t.Fatalf("sweep %d: SearchNotFoundAgain = %d, %v; want %d", sweep+1, returned, err, want)
+		}
+		for _, rel := range paths { // each returned title found to match nothing again, under the new rules
+			lib.matchFileTitle(rel)
+		}
+	}
+}
+
 func TestMatch_AProviderIDInHandSkipsTheSearch(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")

@@ -52,9 +52,10 @@ type Matcher struct {
 const searchRulesVersion = 1
 
 // notFoundSearchedAgainPerSweep is how many titles found to match nothing under older rules one
-// sweep returns to their first match: a little at a time, never a flood of searches at a release's
-// start (D513 §5, as D335 §3's missing fetches), the sweep running as the first matches' does.
-const notFoundSearchedAgainPerSweep = 20
+// sweep returns to their first match: enough that a library's few hundred are searched again within
+// an hour or two of a release's start, the sweep running hourly as the first matches' does, yet
+// never a flood of searches, each costing at most some four (D513 §5; 200, the owner, 2026-11-18).
+const notFoundSearchedAgainPerSweep = 200
 
 // NewMatcher returns the matcher. It reaches the providers through the pass, which re-derives a
 // series' episodes once it is matched.
