@@ -16,7 +16,7 @@ import {
 } from "@orpheum/sdk";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
-import { ownScriptOf } from "./app-update.ts";
+import { builtScriptOf } from "./app-update.ts";
 import { forgetProtocolVersionReload, reloadsForProtocolVersion } from "./newer-client.ts";
 import { useServices } from "./services.tsx";
 
@@ -65,7 +65,9 @@ export function useTogether(device: TogetherDevice): {
         ? undefined
         : createTogetherConnection({
             credential,
-            client: ownScriptOf(document),
+            // The script the page runs, under a discovery's loader too, so the core's log ties what
+            // a device did to its build (a guest's AirPlay grant, VQ364, was logged with client="").
+            client: builtScriptOf(document),
             sessionToken,
             role,
             openSocket: openTogetherSocket,

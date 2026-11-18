@@ -26,7 +26,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ownScriptOf } from "./app-update.ts";
+import { builtScriptOf } from "./app-update.ts";
 import { useHasMicrophone } from "./has-microphone.ts";
 import { MicrophoneIcon } from "./icons.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -88,7 +88,7 @@ export function useVoice(
     () =>
       createTogetherVoice({
         credential,
-        client: ownScriptOf(document),
+        client: builtScriptOf(document),
         sessionToken,
         openSocket: openTogetherSocket,
         monotonicMs,
