@@ -156,11 +156,18 @@ type chosenPicture struct {
 }
 
 // startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
-// its chunk, and returns the offer of the picture.
+// its chunk, and returns the offer of the picture. A chunk of the picture given up on (givenUp) is
+// stepped over, as its player steps over it once playing (web/packages/player's skip-unmade.ts): the
+// runs start, and the playback is wanted from (FromMs), the first chunk from there not given up on
+// (notGivenUpFrom), so the player, refused the chunks before it, plays on from one being made. Before,
+// a picture encoded whose chunk 0 was given up refused every new start of its film, a 500 (staging,
+// 2026-11-16; the owner, 2026-11-18: "skip it"). With every chunk from there given up, the start is
+// refused as its player would be, ErrCannotBeMade.
 func (service *Service) startAt(
 	ctx context.Context, playback Playback, film cutFilm, offered offer, chosen chosenPicture,
 ) (Offer, error) {
-	picture, chunk := chosen.stream, chosen.chunk
+	picture := chosen.stream
+	chunk := service.runs.notGivenUpFrom(film.storeDir(picture), chosen.chunk)
 	// A stall asks for its quality again, a new try, though a run of it was evicted (D250 §6).
 	service.runs.unevict(film.storeDir(picture))
 	if err := service.Ensure(ctx, playback.FileID, film.kind, picture, chunk); err != nil {

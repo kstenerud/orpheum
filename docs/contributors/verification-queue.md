@@ -3389,3 +3389,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   https://orpheum.cc"; and it commits "Release <the tag>" in the records folder and pushes it (or
   says the push failed and still ends well). The watcher then shows the new release. A second
   release asks no destination (`cmd/discovery-sign/release.go`, `outside.go`).
+- [ ] **VQ357** — A playback whose first chunk was given up skips it, as a playing film does (the
+  11-19 batch's answer 3; the owner, 2026-11-18: "skip it"). Needs a film on staging whose encoded
+  picture's chunk 0 its node failed on twice: the core's log says "runs of chunks failed at the same
+  chunk again" with `"chunk":0` for a `chunks-q…` store. In Chrome on a computer, on staging, play
+  it from its start. Passes when it plays from the chunk after (about 2–10 s in), the warning sign
+  under the film names the stretch stepped over, and no "Something went wrong on the server" shows;
+  the core's log has `action="start a playback"` with no error for it. Pressing Play again starts
+  it the same way (`internal/core/chunks/stall.go`'s startAt, `skip-unmade.ts`).

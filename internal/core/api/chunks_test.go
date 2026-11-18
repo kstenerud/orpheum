@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // filmOnesStoreKey is the key of film 1's store of the stream named on the grid gridID: the grid's id,
@@ -417,6 +418,74 @@ func TestChunks_AChunkThatCannotBeMadeIsRefusedForGood(t *testing.T) {
 		refused.ErrorBody.Error.Code != api.CodeCannotConvert || strings.Contains(err.Error(), "raw 00000") {
 		t.Errorf("a chunk that cannot be made = %v; want 422 %s, without FFmpeg's word", err, api.CodeCannotConvert)
 	}
+}
+
+// failEveryPictureChunk has each picture's run of film 1 a start queued fail at each chunk of it,
+// FFmpeg failing on the film, as often as gives each up; it reports whether there was one.
+func (harness testHarness) failEveryPictureChunk(t *testing.T) bool {
+	t.Helper()
+	jobID, hasFailed := int64(900), false
+	for _, run := range harness.openJobs(t, jobs.KindMakeChunks) {
+		store, err := harness.cache.Read().GetChunkStore(t.Context(), *run.ChunkStoreID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var args struct {
+			LastChunk int `json:"lastChunk"`
+		}
+		if strings.HasPrefix(store.Stream, "sound") || json.Unmarshal([]byte(run.ArgsJSON), &args) != nil {
+			continue
+		}
+		for chunk := 0; chunk <= args.LastChunk; chunk++ {
+			for range 2 { // runFailuresToGiveUp
+				jobID++
+				job := jobs.Job{
+					ID: jobID, Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: *run.ChunkStoreID},
+					ArgsJSON: fmt.Sprintf(`{"firstChunk":%d,"lastChunk":%d}`, chunk, args.LastChunk),
+				}
+				finished := harness.handle(t, harness.chunks.HandleMakeChunks, job)
+				harness.nextCommand(t)
+				harness.deliver(t, jobID, nodeproto.Result{MakeChunks: &nodeproto.MakeChunksReport{
+					State: nodeproto.RunFailed, LastChunk: -1, Failure: "ffmpeg: invalid data found",
+				}})
+				_ = testutil.Receive(t, finished, "the run to end") //nolint:errcheck // a failure, as asked
+				// As the queue ends a job failed for good.
+				if err := harness.chunks.RecordMakeChunksFailure(t.Context(), job, "failed"); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		hasFailed = true
+	}
+	return hasFailed
+}
+
+// A start whose every picture's chunks from where it starts were given up on, its runs failing on
+// the film each time, is refused as its player is refused such a chunk, 422 cannotConvert: the film
+// cannot be converted here. Each start of a film whose chunk 0 was given up was a 500 (staging,
+// 2026-11-16).
+func TestPlayback_AStartWithEveryChunkGivenUpCannotBeConverted(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	for range 6 { // the copy given up, its twin offered, then each quality below
+		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(1))
+		if answer.status != http.StatusOK {
+			if answer.status != http.StatusUnprocessableEntity ||
+				!strings.Contains(answer.body, string(api.CodeCannotConvert)) {
+				t.Errorf("a start with every chunk given up = %d %s; want 422 %s", answer.status, answer.body,
+					api.CodeCannotConvert)
+			}
+			return
+		}
+		if !harness.failEveryPictureChunk(t) {
+			t.Fatalf("a start queued no run of a picture: %s", answer.body)
+		}
+	}
+	t.Error("every start was played; want one refused once every picture's chunks were given up")
 }
 
 func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {

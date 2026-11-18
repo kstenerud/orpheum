@@ -287,7 +287,9 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	}
 	if err != nil {
 		server.logPlaybackRefused(ctx, who, err)
-		return nil, server.playbackError(ctx, "start a playback", err)
+		// A start refused as a chunk is, every chunk from where it starts given up on, is answered as
+		// the chunk's player would be: the film cannot be converted here, not a 500.
+		return nil, server.chunksError(ctx, "start a playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
 	output, work, err := server.namedOutput(ctx, dependencies, principal.Reach, input.Body.FileID, started)

@@ -4524,6 +4524,10 @@ Claude.
    first 12 characters; it copies to the server, reads the record back, commits in the records
    folder, and tries to push: "don't fail the process if something breaks in the push (like
    out-of-sync repos). If something goes wrong there we can fix it together."
-3. A playback whose first chunk is given up skips it, as a playing film does.
+3. A playback whose first chunk is given up skips it, as a playing film does. Built: the start's
+   runs begin at the first chunk not given up (`notGivenUpFrom`, as an init's run does), and its
+   player, refused the chunks before it, steps over them as it does mid-film, the sign under the
+   film saying so; with every chunk ahead given up the start is refused 422 `cannotConvert`, as a
+   chunk is, not a 500. VQ357.
 4. A paused cast closes after 20 minutes; the receiver's idle screen stays black.
 5. D516's wire name `isAtTheEnd` stays.

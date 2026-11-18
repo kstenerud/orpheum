@@ -106,6 +106,58 @@ func TestStartOnLadder_APictureWhoseCopyCannotBeMadeStartsAtItsTwin(t *testing.T
 	}
 }
 
+// giveUpTwin has film 1's twin, H.264 at its 1080 lines at 4 Mb/s, given up at each of chunks, its
+// runs having failed there often enough; a run of it was asked for first, as a failure follows one.
+func giveUpTwin(t *testing.T, service *Service, chunks ...int) {
+	t.Helper()
+	twin := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 4000, Height: 1080}}
+	ensured(t, service, twin, chunks[0])
+	dir := testStoreDir(t, service, twin, mustGrid(t, service).ID())
+	service.runs.forget(dir, chunks[0]) // the run failed
+	for _, chunk := range chunks {
+		for range runFailuresToGiveUp {
+			service.runs.failed(dir, chunk, "ffmpeg: invalid data found when processing input")
+		}
+	}
+}
+
+// A picture encoded whose chunks at the start were given up on starts its playback at the first
+// chunk after them not given up, its sound's run too, and the playback wants the film from there, as
+// its player, refused the chunks given up, steps over them to play on from it (skip-unmade.ts). Each
+// start of a film whose chunk 0 was given up was refused, a 500 (staging, 2026-11-16; the owner,
+// 2026-11-18: "skip it").
+func TestStartOnLadder_AStartSkipsTheChunksOfItsPictureGivenUpOn(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	giveUpTwin(t, service, 9, 10)
+	before := len(queue.runs(t, service))
+	offer := startedOnLadder(t, service, 0, false)
+	if offer.StreamName != "q4000k1080p" || offer.FromMs != 110_000 {
+		t.Errorf("the offer = %+v; want the twin, wanted from chunk 11, at 110 s", offer)
+	}
+	want := []askedRun{{"q4000k1080p", 11, 40}, {"sound0-96k", 11, 40}}
+	if runs := queue.runs(t, service)[before:]; !slices.Equal(runs, want) {
+		t.Errorf("the runs asked for = %+v; want the twin's and the sound's, from chunk 11", runs)
+	}
+}
+
+// A start whose picture's every chunk from where it starts was given up on is refused as its player
+// would be, ErrCannotBeMade: there is nothing after them to play.
+func TestStartOnLadder_AStartWhoseEveryChunkAheadIsGivenUpCannotBeMade(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	ahead := []int{}
+	for chunk := 9; chunk <= mustGrid(t, service).lastChunk(); chunk++ {
+		ahead = append(ahead, chunk)
+	}
+	giveUpTwin(t, service, ahead...)
+	_, err := service.StartOnLadder(t.Context(), Playback{FileID: 1, HasStartingAudio: true}, 95_000, 0)
+	if !errors.Is(err, ErrCannotBeMade) {
+		t.Errorf("a start with every chunk ahead given up = %v; want ErrCannotBeMade", err)
+	}
+}
+
 // A start bounded by what is left of the server's upload takes the highest picture whose average
 // with its sound's is within the bound, says it was held lower than its link carries, and names its
 // stream and rate; with no bound it starts as its link says (D286 §5).

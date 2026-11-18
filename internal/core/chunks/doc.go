@@ -276,7 +276,13 @@
 //     refusal is a 422 by TestChunks_AChunkThatCannotBeMadeIsRefusedForGood (internal/core/api). Its
 //     init, the same from any run of the store, is never refused for it: asked for from a chunk given
 //     up on, it starts the run from the first after it that is not. Enforced by
-//     TestWant_AnInitAskedForFromAChunkGivenUpOnStartsTheRunAfterIt. A
+//     TestWant_AnInitAskedForFromAChunkGivenUpOnStartsTheRunAfterIt. Nor is a playback's start: one
+//     at a chunk of its picture given up on starts its runs, and is wanted from, the first chunk after
+//     it that is not, as its player steps over the chunks refused (the owner, 2026-11-18: "skip it");
+//     with every chunk from there given up, it is refused, ErrCannotBeMade, which the API answers as
+//     the chunk's refusal. Enforced by TestStartOnLadder_AStartSkipsTheChunksOfItsPictureGivenUpOn,
+//     TestStartOnLadder_AStartWhoseEveryChunkAheadIsGivenUpCannotBeMade and
+//     TestPlayback_AStartWithEveryChunkGivenUpCannotBeConverted (internal/core/api). A
 //     track whose copy is so given up on is offered no more copied meanwhile: a playback started anew
 //     plays the top with the sound the server makes. Enforced by
 //     TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes. A picture whose copy
