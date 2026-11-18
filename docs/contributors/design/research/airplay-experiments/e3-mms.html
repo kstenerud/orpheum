@@ -52,7 +52,7 @@
 
       // startHls attaches hls.js, as the product does (1.7.3 sets disableRemotePlayback under MMS
       // and removes <source> children), then adds the alternative now, at the press, or never.
-      function startHls(alternativeWhen) {
+      function startHls(alternativeWhen, startPosition) {
         if (!window.Hls) {
           Lab.log("hls", "hls.js not loaded: press Load hls.js first");
           return;
@@ -60,7 +60,7 @@
         if (hls) {
           hls.destroy();
         }
-        hls = new window.Hls({ debug: false });
+        hls = new window.Hls({ debug: false, startPosition: startPosition === undefined ? -1 : startPosition });
         for (const name of ["MEDIA_ATTACHING", "MEDIA_ATTACHED", "MEDIA_DETACHING", "MEDIA_DETACHED", "MANIFEST_PARSED", "BUFFER_RESET", "ERROR"]) {
           hls.on(window.Hls.Events[name], (event, data) => {
             Lab.log("hls." + name, data && data.details ? data.details + " fatal=" + data.fatal : "");
@@ -78,6 +78,32 @@
         if (hls && stopOnAirPlay && video.webkitCurrentPlaybackTargetIsWireless) {
           hls.stopLoad();
           Lab.log("hls", "stopLoad on the rising edge (video.js does this)");
+        }
+      });
+      // reattach puts the film back on hls.js where it stands, as design B does once AirPlay has
+      // ended: the old alternative goes, and a new one is added at attach, for the next AirPlay.
+      function reattach(why) {
+        const where = video.currentTime;
+        const wasPaused = video.paused;
+        for (const source of video.querySelectorAll("source")) {
+          source.remove();
+        }
+        Lab.log("reattach", why + " at " + where.toFixed(2));
+        startHls("attach", where);
+        if (!wasPaused) {
+          Lab.promise("play after reattach", video.play());
+        }
+      }
+      // With auto-reattach on, the page waits for the flag to stay down this long, as design B
+      // would, then reattaches; a rise before then cancels it.
+      let autoReattachS = 0;
+      let reattachTimer = null;
+      video.addEventListener("webkitcurrentplaybacktargetiswirelesschanged", () => {
+        clearTimeout(reattachTimer);
+        reattachTimer = null;
+        if (autoReattachS > 0 && hls && !video.webkitCurrentPlaybackTargetIsWireless) {
+          Lab.log("reattach", "flag down: reattaching in " + autoReattachS + " s unless it rises");
+          reattachTimer = setTimeout(() => reattach("auto, flag down " + autoReattachS + " s"), autoReattachS * 1000);
         }
       });
 
@@ -134,10 +160,15 @@
       });
       Lab.button(buttons, "Re-attach hls.js where it is", () => {
         Lab.press("re-attach");
-        const where = video.currentTime;
-        startHls("attach");
-        hls.startLoad(where);
+        reattach("pressed");
       });
+      for (const seconds of [0, 1, 10]) {
+        Lab.button(buttons, seconds === 0 ? "Auto-reattach off" : "Auto-reattach after " + seconds + " s", () => {
+          Lab.press("auto-reattach " + seconds);
+          autoReattachS = seconds;
+          Lab.log("reattach", seconds === 0 ? "auto off" : "auto after " + seconds + " s down");
+        });
+      }
     </script>
   </body>
 </html>

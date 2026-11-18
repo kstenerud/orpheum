@@ -72,6 +72,19 @@ copy: just tell me what you <b>heard and saw</b> (the yellow boxes) after each r
 </ol>
 <p class="tell">Tell me: Did anything pause that you didn't press? And roughly how long did the Mac take to follow each press?</p>
 
+<h2>Run 5: to the iPhone and back to the Mac, with the picker open</h2>
+<p>Design B puts the film back on hls.js once AirPlay has been off for a while. This run checks a quick return to the Mac, before and after that.</p>
+<a class="go" href="e3-mms.html?hls=hls-1.7.4.js">Open run 5's page</a>
+<ol>
+  <li>Press <b class="btn">Load hls.js</b> (check the log says <code>loaded 1.7.4</code>), then <b class="btn">Auto-reattach after 1 s</b>, then <b class="btn">B: hls.js, alternative at attach</b>, then <b class="btn">Play</b>.</li>
+  <li>After about 10 s, press <b class="btn">AirPlay (webkit picker)</b> and choose the Mac. <b>Leave the picker open.</b></li>
+  <li>After 10 s, choose the iPhone, count to 3, then choose the Mac again. Close the picker and watch for 15 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b>, choose the iPhone, count to 10, then choose the Mac again. Close the picker and watch for 15 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> and choose the iPhone. Watch for 15 s.</li>
+  <li>Reload the page. Do step 1 again, but press <b class="btn">Auto-reattach after 10 s</b> in place of 1 s. Then do steps 2–5 again.</li>
+</ol>
+<p class="tell">Tell me, for each time you chose the Mac again (steps 3 and 4, in both rounds): did the Mac play, from about where the iPhone was, and roughly how long was it silent? And while it was on the iPhone, did the iPhone keep playing?</p>
+
 <h2>When you're done</h2>
 <p>Stop the server on the Mac (Ctrl-C). In the <code>airplay-lab</code> folder, run <code>zip -r logs.zip logs</code>, copy <code>logs.zip</code> to the machine this sandbox runs on, and there run <code>yoloai files orpheum put logs.zip</code>. Then send me your answers from the yellow boxes.</p>
 </body>
