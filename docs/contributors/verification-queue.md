@@ -3464,3 +3464,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   Mac, Control Center's output naming the iPhone; and the second AirPlay plays picture and sound on
   the Mac, the core's log showing its requests under the grant from the Mac's address.
   (`web/packages/player/src/airplay.ts`, `playOnAirPlay`'s end.)
+  **Failed 2026-11-18 14:17 (the owner, staging, as a guest by link):** at Stop the picture came
+  back to the iPhone and the sound went on playing on the Mac. The page cannot end AirPlay's sound
+  route (idiosyncrasies.md); the fix waits on the owner's choice of how Stop ends AirPlay.

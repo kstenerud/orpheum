@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A81 — Committed a fix for AirPlay's sound left on the Mac on one WebKit sentence about video (2026-11-18)
+
+- **What happened:** the owner said that after Stop AirPlay the film's sound went on playing on the
+  Mac. The lead committed "fix(player): AirPlay's end turns the element's remote playback off, so
+  its sound comes back to the phone" and wrote in idiosyncrasies.md that Safari kept the element on
+  the AirPlay route because it still allowed remote playback. The owner's next run (VQ362) failed
+  the same way. Turning remote playback off brings only the picture back. AirPlay's sound goes by
+  the audio route picked in the picker, which audio may always use and which the page cannot
+  end. The belief came from a WebKit engineer's 2016 mail about wireless *video* playback,
+  read as covering the sound, without a search for reports of the sound alone staying.
+- **Caught by:** the owner's run on the iPhone.
+- **Gate:** none can test a device's routing. A fix whose cause rests on one source names it as a
+  hypothesis in its commit and in the idiosyncrasy, until the VQ passes.
+
 ### A80 — Told the owner a group's film runs on past its end on the server's clock, which follows its leader (2026-11-18)
 
 - **What happened:** the end-of-film agent's commit, "feat(web): a Watch Together film that ends

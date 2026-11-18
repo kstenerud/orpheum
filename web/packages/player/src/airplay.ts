@@ -95,10 +95,9 @@ export function playOnAirPlay(
     clearTimeout(unpicked);
     element.removeEventListener(wirelessChangedEvent, onWirelessChanged);
     const left = { positionS: element.currentTime, wasPaused: element.paused };
-    // Remote playback off again, as before the handover, so that Safari plays the element here: left
-    // on, the iPhone went on sending the sound of hls.js's playback to the Mac after Stop AirPlay, and
-    // the next AirPlay played on the phone, its sound alone on the Mac (the owner, VQ361, 2026-11-18;
-    // docs/contributors/idiosyncrasies.md).
+    // Remote playback off again, as before the handover, which brings the picture back to the page.
+    // The sound stays on the AirPlay route the picker chose, which only the person can end (the
+    // owner, VQ362, 2026-11-18; docs/contributors/idiosyncrasies.md).
     element.disableRemotePlayback = true;
     element.removeAttribute("x-webkit-airplay");
     element.pause();
