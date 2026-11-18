@@ -104,7 +104,7 @@ func (server *Server) registerCasts() {
 		OperationID: "playInCast", Method: http.MethodPost, Path: "/me/casts/{id}/play",
 		Summary:    "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
 		Tags:       tags,
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilitySignedInOrGuest),
 	}, server.playInCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "acceptCast", Method: http.MethodPost, Path: "/me/casts/{id}/accept",
@@ -309,11 +309,23 @@ type PlayInCastInput struct {
 // playInCast plays a film on a cast's receiver, which is handed the cast again with it: whatever the
 // person plays on the sender while the cast lasts (D364 §3). With no film the receiver plays nothing,
 // ready for the next, the cast's group stopped so the next is put on afresh: the remote's "Play on
-// this device instead" (§4) and a film's end with nothing after it (§5).
+// this device instead" (§4) and a film's end with nothing after it (§5). A guest receiver plays
+// nothing in its own cast alone, at its film's end, as any receiver does, so a Google Cast device
+// cast to under a grant waits ready too (the question D515 answers); a film it plays its sender puts
+// on.
 func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*StartCastOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	if principal.IsGuestReceiver() {
+		if input.Body.FileID != 0 {
+			return nil, errGuestReceiver
+		}
+		casts := dependencies.Live.CastsOf(principal.UserID, principal.DeviceID)
+		if !slices.ContainsFunc(casts, func(each live.Cast) bool { return each.ID == input.CastID }) {
+			return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
+		}
 	}
 	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.FileID)
 	if err != nil {

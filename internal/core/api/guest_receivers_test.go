@@ -180,6 +180,45 @@ func TestGuestReceiver_FetchesAndReportsOnItsCastsFilm(t *testing.T) {
 	}
 }
 
+// A guest receiver whose film ended with nothing after it plays nothing in its own cast, which waits
+// ready, handed to it again so (D364 §5, the question D515 answers); it puts no film on, and plays
+// nothing in no other cast of its person's, which goes on.
+func TestGuestReceiver_PlaysNothingInItsOwnCastAlone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	ours := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, phoneToken))).Body
+	theirs := tradedGuest(t, harness.tradeGuestGrant(t, harness.guestGranted(t, laptopToken))).Body
+	ourSocket := harness.dialLive(t, ours.Token)
+	ourSocket.awaitConnected()
+	theirSocket := harness.dialLive(t, theirs.Token)
+	theirSocket.awaitConnected()
+	phoneSocket := harness.dialLive(t, phoneToken)
+	phoneSocket.awaitDevices(harness.thisDevice(t, phoneToken))
+	ourCast := startedCast(t, harness.startCast(t, phoneToken, ours.DeviceID, 0))
+	theirCast := startedCast(t, harness.startCast(t, laptopToken, theirs.DeviceID, 0))
+	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool { return each.Receive.FileID == 1 })
+	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/play", theirCast.CastID), ours.Token,
+		map[string]any{}), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/play", ourCast.CastID), ours.Token,
+		map[string]any{"fileId": 2}), http.StatusForbidden, api.CodeForbidden)
+	ready := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/play", ourCast.CastID), ours.Token,
+		map[string]any{})
+	if ready.status != http.StatusOK || !strings.Contains(ready.body, `"fileId":0`) {
+		t.Fatalf("the guest receiver's play of nothing = %d %s; want its cast ready", ready.status, ready.body)
+	}
+	ourSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+		return each.Receive.CastID == ourCast.CastID && each.Receive.FileID == 0
+	})
+	if still := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/play", theirCast.CastID), theirs.Token,
+		map[string]any{}); still.status != http.StatusOK {
+		t.Errorf("the other guest receiver's own play of nothing = %d %s; want its cast still on", still.status,
+			still.body)
+	}
+}
+
 // A guest receiver the core ended, its cast never come in time, is refused a live connection,
 // though its session has not yet been removed with its device (D465 §1).
 func TestGuestReceiver_EndedIsRefusedItsLiveConnection(t *testing.T) {
