@@ -34,6 +34,12 @@ copy: just tell me what you <b>heard and saw</b> (the yellow boxes) after each r
 </ol>
 <p class="tell">Tell me: In step 2, did the Mac play, and from where the counter was on the iPhone? In step 4, did the iPhone carry on playing by itself? In step 6, did the Mac play?</p>
 
+<h2>Run 1b: the same, with hls.js 1.7.4</h2>
+<p>This needs <code>hls-1.7.4.js</code> in this folder. (Under 1.7.3, WebKit switched to the alternative, then hls.js reset it and ended AirPlay.)</p>
+<a class="go" href="e3-mms.html?hls=hls-1.7.4.js">Open run 1b's page</a>
+<p>Do run 1's steps 1–6 again. After each <b class="btn">Load hls.js</b>, check that the log says <code>loaded 1.7.4</code>.</p>
+<p class="tell">Tell me the same three things as for run 1.</p>
+
 <h2>Run 2: changing the sound during AirPlay (fault 1)</h2>
 <a class="go" href="e1-sound.html">Open run 2's page</a>
 <ol>

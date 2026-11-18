@@ -451,6 +451,22 @@ how it compares with the product's handover.
 | C fails | The grant must exist before the press, so it is made at attach while receivers are available. |
 | B fails on iOS but works on macOS | Keep design A on iOS. |
 
+**Results, 2026-11-18 (iPhone on iOS 18.5 to the Mac, hls.js 1.7.3, four runs of B and C).**
+Every run went the same way: **WebKit's handover works, and hls.js 1.7.3 undoes it.**
+
+- **WebKit's switch.** About 500 ms after the flag rose, `currentSrc` moved from the blob to
+  `master-low.m3u8`. It did so in B and in C, so a late alternative works: the grant can be made at
+  the press.
+- **hls.js 1.7.3's response.** It saw its MediaSource close and logged
+  `mediaSourceRequiresReset`. It then detached and reattached, removed the `<source>` children and
+  set `disableRemotePlayback` again. All of this happened within 10 ms.
+- **The route ended.** The flag fell and `remote` disconnected. The Mac never played, and the
+  iPhone was left paused at 0.
+
+hls.js 1.7.4, released since, adds `isMediaSourceReplaced`. On an alternate `<source>` it detaches
+and leaves the element alone; its comment names Safari AirPlay under ManagedMediaSource. So step 6
+is the next run, with 1.7.4 as `?hls=hls-1.7.4.js`.
+
 ### E4: unasked pauses and the late position (`e4-unasked.html`)
 
 **Settles** which pause, play and seek events reach a page during AirPlay unasked, and how late
