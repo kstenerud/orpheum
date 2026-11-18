@@ -437,7 +437,8 @@ tapping outside it).**
 - **A dismissal gives the page nothing.** Closing the picker without choosing changed nothing,
   before AirPlay and during it. No event came, and the route held.
 - **`disableRemotePlayback = true` during AirPlay did not end it.** The flag stayed true for the
-  2.4 s until the owner chose the iPhone. The picker still opened with the attribute set, and it
+  2.4 s until the owner chose the iPhone, and the Mac kept the picture and the sound until then
+  (the owner). The picker still opened with the attribute set, and it
   still let the owner bring the video back.
 - **An unexplained change.** In run 2 (E1), AirPlay ended 4 s after the Mac connected. 39 s
   after a later return, it came back on. Nobody pressed anything, and the picker can be ruled
