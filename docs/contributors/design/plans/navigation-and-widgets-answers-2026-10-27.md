@@ -4576,3 +4576,19 @@ receiver's idle line is said once"** and is on staging. Owed by the owner: VQ356
 
 1. A guest who is not signed in casts to AirPlay too, as D515 §1 says: "yes". To build: an AirPlay grant asked under the membership credential, its playback playing as the membership.
 2. Each cast a guest starts replaces the credential their previous cast's receiver was given, so many casts cannot push the guest's own browser out of the membership's newest 16: "agreed".
+
+**The owner's answers on D519 (2026-11-18), asked after its build:**
+
+1. One cast slot or one of each kind: "One device can cast to one other device at a time. If a device
+   is being cast to, it must end the cast in order to cast itself (when possible). So caster -> castee
+   is always 1:1." D519 §2 built one slot per guest's membership; the slot is to be per sending device
+   instead (a guest's phone and laptop may each cast to one receiver), and a device being cast to
+   casts only after ending that cast.
+2. A replaced Chromecast told `movedAway`, as a device whose place a new link took: "yes".
+3. The panel's "Casting to {{name}}. It plays what the group plays.": "yes".
+4. AirPlay offered to a guest by link whose link gives no controls: "If airplay ignores the control
+   rights, then we'd need to make sure the server ignores requests they don't have rights to. So we
+   always offer airplay, but if they don't have the rights, the controls will do nothing." AirPlay is
+   always offered; the server refuses what the link does not allow, and a control pressed on the
+   AirPlay device (its remote, the phone's lock screen) changes nothing for the group.
+5. The signed-in Cast menu waiting for the old AirPlay grant's revoke before offering the new film's: "Fine".
