@@ -565,11 +565,10 @@ That is the lab's limit, not a fault: the owner saw nothing pause that they had 
   bar.
 - **Lock.** With the iPhone locked for 34 s (`visibility` hidden), the Mac played on, and the
   position on unlocking was continuous.
-- **One drop not yet explained.** The flag fell, with no press on the page, 3.8 s after the
-  owner used the Mac's own pause and play. The owner made every switch on the iPhone, none on
-  the Mac. Run 2's drops were the owner's (E1's rerun); this one
-  may have come from the Mac's controls. The product must handle a drop either way: follow the
-  flag and carry on locally.
+- **No drop came by itself.** The flag's fall 3.8 s after the Mac's own pause and play was the
+  owner bringing the video back to the iPhone, by a control other than the page's buttons, before
+  sending it to the Mac again for the lock step (the owner). Across all four runs, every route
+  change was the owner's, and every switch was made on the iPhone.
 
 ## 6. Candidate designs
 
