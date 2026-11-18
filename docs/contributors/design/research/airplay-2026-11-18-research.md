@@ -373,6 +373,25 @@ HTTPS instead.
 | Step 6 drops AirPlay | A sound change during AirPlay must end and restart it, and the design should say so to the person. |
 | Step 7 joins the route | The route follows the now-playing element. A reload stays on AirPlay; way A's failure lay elsewhere. |
 
+**Results, 2026-11-18 (iPhone on iOS 18.5 to the Mac, native HLS; the owner's ears, and the log).**
+This was the lab page's run 2, which covered steps 1, 3, 4 and 6.
+
+- **Step 1.** The full master played the low tone on the iPhone, despite `DEFAULT` marking high.
+  WebKit chose by the device's language, as expected; the Mac then played low too. So the
+  starting sound must be set by the page, or by a master with only that sound.
+- **Step 4 reaches the Mac.** During AirPlay, enabling sound 1 moved the Mac to the high tone
+  (the owner). The log showed both tracks enabled after the press: a page must disable the other
+  track itself.
+- **Step 6 holds.** Each reload to a one-sound master during AirPlay played the right tone on the
+  Mac and kept the position (49.86 and 58.05).
+  - **Silence:** under 0.5 s (the owner).
+  - **The flag:** it fell for about 135 ms and rose again, the same flicker as E3's.
+  - **`remote`:** it reported `disconnect` about 150 ms after `playing`, while the flag stayed
+    true. This is one more case of `remote.state` being unreliable.
+
+So both ways of changing the sound work during AirPlay: one track property on a master listing
+every sound, or a new one-sound source.
+
 ### E2: the picker, and ending AirPlay (`e2-picker.html`)
 
 **Settles** what the page learns:
