@@ -328,6 +328,13 @@ export class GroupFollower {
     }
     this.#shownAgain.heard(event);
     this.#noteLoading(event);
+    if (this.#isReceiversScrub(event)) {
+      // Neither half is its person's: the guest's pause waiting to be sent is dropped, and the
+      // player put back where its group is (D523 §5).
+      this.#dropPendingPause();
+      this.apply();
+      return;
+    }
     const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
     // A player not yet once in step with its group moves as it loads, not as its person says: an
@@ -402,15 +409,29 @@ export class GroupFollower {
    * player's own, and the video is put back where the group is.
    */
   readonly browserPaused = (): void => {
+    this.#dropPendingPause();
+    this.#ownMoves.mark("pause", this.#options.monotonicMs());
+    this.apply();
+  };
+
+  /** Drops a pause waiting to be sent, if one waits: it was not its person's. */
+  #dropPendingPause(): void {
     if (this.#pendingKind === "pause") {
       clearTimeout(this.#pendingCommand);
       this.#pendingCommand = undefined;
       this.#pendingKind = undefined;
       this.#isAwaitingGroup = false;
     }
-    this.#ownMoves.mark("pause", this.#options.monotonicMs());
-    this.apply();
-  };
+  }
+
+  /**
+   * Whether event is the second half of an AirPlay receiver's scrub: its bar moves the film as a
+   * pause, then a play at the new place 0.1–0.3 s later, with no seeking (the lab's E4), so a play
+   * heard while its pause waits to be sent (browserPauseWindowMs), no seek since, on a receiver.
+   */
+  #isReceiversScrub(event: string): boolean {
+    return event === "play" && this.#pendingKind === "pause" && this.#isOnReceiver();
+  }
 
   /**
    * The page was hidden, where hiding pauses its film, or shown again, and then put where its group

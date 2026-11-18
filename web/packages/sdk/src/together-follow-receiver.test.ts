@@ -60,7 +60,7 @@ function playingAlong(
   return { ...given, media, checkBehindBy };
 }
 
-describe("a guest's sync while its film plays on an AirPlay receiver (D522 §2)", () => {
+describe("a guest's sync while its film plays on an AirPlay receiver (D522 §2, D523 §5)", () => {
   it("leaves a receiver a second behind its group alone: no nudge and no seek", () => {
     const { media, notes, checkBehindBy } = playingAlong(true);
     checkBehindBy(1000);
@@ -115,6 +115,23 @@ describe("a guest's sync while its film plays on an AirPlay receiver (D522 §2)"
     media.fire("pause");
     vi.advanceTimersByTime(browserPauseWindowMs);
     expect(commands).toEqual([{ command: "pause" }]);
+  });
+
+  it("takes the receiver's scrub, a pause then a play with no seeking, for the receiver's: no pause sent", () => {
+    for (const isOnReceiver of [true, false]) {
+      const { media, commands } = playingAlong(isOnReceiver, everyRight);
+      // The Mac's bar, well after the follower's own play: pause, then play 0.2 s later 19 s on.
+      monotonicNowMs = 1000 + receiverAnswersWithinMs + 100;
+      media.paused = true;
+      media.fire("pause");
+      vi.advanceTimersByTime(200);
+      media.currentTime = 79;
+      media.paused = false;
+      media.fire("play");
+      vi.advanceTimersByTime(browserPauseWindowMs);
+      expect(commands).toEqual(isOnReceiver ? [] : [{ command: "pause" }]);
+      stopEveryFollower();
+    }
   });
 
   it("takes a pause or play after its own seek on a receiver for the receiver's, never on a local player", () => {
