@@ -6,7 +6,9 @@ import "./i18n.ts";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { stallAfterMs } from "@orpheum/player";
 import { apiPrefix } from "@orpheum/sdk";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
@@ -94,6 +96,44 @@ function withTwoSoundsOnItsLadder(fileId: number): ReturnType<typeof directDecis
   };
 }
 
+/**
+ * The group's film played as it is, its two audio tracks English and French, the first its start,
+ * which a stall moves to the lower quality its report is offered (lowerQuality).
+ */
+function playedAsItIsWithTwoSounds(fileId: number): ReturnType<typeof directDecision> {
+  const { onLadder: _none, ...asItIs } = withTwoSoundsOnItsLadder(fileId);
+  return asItIs;
+}
+
+const lowerQuality = {
+  url: "/api/v1/bytes/media/chunks/film-5/master.m3u8",
+  startAtBps: 1_242_000,
+  qualityKbps: 700,
+  height: 432,
+  isBelowTheLowest: false,
+  soundCarriedGainDb: 0,
+  isReady: true,
+  filmPictureKbps: 2_400,
+  linkSharePercent: 70,
+  steadiness: 0,
+};
+
+/**
+ * Safari's own list of a file's audio tracks on every video, as it plays a file as it is: each
+ * element's own, its first track enabled.
+ */
+function listsItsOwnAudioTracks(): void {
+  const lists = new WeakMap<object, { enabled: boolean }[]>();
+  Object.defineProperty(HTMLMediaElement.prototype, "audioTracks", {
+    get(this: HTMLMediaElement) {
+      const list = lists.get(this) ?? [{ enabled: true }, { enabled: false }];
+      lists.set(this, list);
+      return list;
+    },
+    configurable: true,
+  });
+}
+
 /** A JSON answer, or an empty one for 204. */
 function answer(status: number, body: unknown): Response {
   return status === 204
@@ -127,6 +167,8 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
   let groupsFilm: number;
   /** Whether the group's film has two audio tracks (withTwoSoundsOnItsLadder). */
   let hasTwoSounds: boolean;
+  /** Whether the group's film plays as it is, two audio tracks (playedAsItIsWithTwoSounds). */
+  let isPlayedAsItIs: boolean;
   /** Holds DELETE /together/airplay-grants unanswered while set; its release answers it. */
   let isRevokeHeld: boolean;
   let releaseRevoke: (() => void) | undefined;
@@ -139,6 +181,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     refused = [];
     groupsFilm = 5;
     hasTwoSounds = false;
+    isPlayedAsItIs = false;
     isRevokeHeld = false;
     releaseRevoke = undefined;
     // Safari's AirPlay, as the page finds it.
@@ -157,6 +200,7 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     pickers.length = 0;
     vi.unstubAllGlobals();
     Reflect.deleteProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker");
+    Reflect.deleteProperty(HTMLMediaElement.prototype, "audioTracks");
   });
 
   /** The core, answering the guest's page as it does, refusing what a guest may not call. */
@@ -176,7 +220,13 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
         return answer(403, { error: { code: "forbidden", message: "not a guest's" } });
       }
       if (route === "POST /together/playback") {
+        if (isPlayedAsItIs) {
+          return answer(200, playedAsItIsWithTwoSounds(groupsFilm));
+        }
         return answer(200, (hasTwoSounds ? withTwoSoundsOnItsLadder : onItsLadder)(groupsFilm));
+      }
+      if (route === `POST /playback/film-${String(groupsFilm)}/report`) {
+        return answer(200, { lowerQuality });
       }
       if (route === "POST /together/airplay-grants") {
         return answer(201, { masterPath, expiresAt: "2026-11-18T18:00:00Z" });
@@ -195,6 +245,13 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
 
   /** The guest's page, in their session, the group playing film 5. */
   async function joinedAsTheFilmPlays(): Promise<HTMLElement> {
+    const container = await joined();
+    await playsTheGroupsFilm(5);
+    return container;
+  }
+
+  /** The guest's page, in their session, before the group plays a film. */
+  async function joined(): Promise<HTMLElement> {
     window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
@@ -209,7 +266,6 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     await click(buttonWithText(container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
-    await playsTheGroupsFilm(5);
     return container;
   }
 
@@ -264,6 +320,42 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     hasTwoSounds = true;
     const container = await joinedAsTheFilmPlays();
     await chooseIn(container, "Sound", "French");
+    await airPlays();
+    expect(grantsAsked().map((each) => each.body)).toEqual([
+      { mediaToken: "film-5", audioTrackIndex: 1 },
+    ]);
+    expect(refused).toEqual([]);
+  });
+
+  it("asks its grant with the audio track the guest chose of the film's own as it played as it is, once a stall moved it to a lower quality (D521 §2)", async () => {
+    isPlayedAsItIs = true;
+    listsItsOwnAudioTracks();
+    const container = await joined();
+    await server.say({
+      type: "group",
+      seq: 5,
+      group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
+    });
+    await settleUntil(() => container.querySelector(".route-chooser") !== null);
+    await chooseIn(container, "Sound", "French");
+    const video = container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    // Playing along, it runs out of data, and its report is offered a lower quality.
+    Object.defineProperty(video, "paused", { value: false });
+    await act(async () => {
+      // The stall's wait on fake time, not the real clock's (rule 16).
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        video.dispatchEvent(new Event("playing"));
+        video.dispatchEvent(new Event("waiting"));
+        await vi.advanceTimersByTimeAsync(stallAfterMs + 50);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+    await settleUntil(() => airPlayHere()?.mediaToken === "film-5");
     await airPlays();
     expect(grantsAsked().map((each) => each.body)).toEqual([
       { mediaToken: "film-5", audioTrackIndex: 1 },

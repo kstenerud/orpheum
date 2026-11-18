@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
-import { FilmPlayer, type FilmComposition } from "./film-player.tsx";
+import { FilmPlayer, type FilmComposition, type MovedDown } from "./film-player.tsx";
 import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
@@ -46,13 +46,14 @@ describe("a film on its ladder, offered to AirPlay from the Cast menu (D473)", (
   async function mountFilm(
     hasControls: boolean,
     decision: ReturnType<typeof directDecision> = directDecision({ onLadder }),
+    moved?: MovedDown,
   ): Promise<void> {
     const composition: FilmComposition = { hasControls, isAutoPlay: false, askAbout: undefined };
     mounted = await mount(
       withServices(
         <FilmPlayer
           decision={decision}
-          moved={undefined}
+          moved={moved}
           ladderStartMs={0}
           composition={composition}
         />,
@@ -80,6 +81,38 @@ describe("a film on its ladder, offered to AirPlay from the Cast menu (D473)", (
       startingAudioStreamId: 81,
     });
     expect(airPlayHere()?.audioTrackIndex?.()).toBe(1);
+  });
+
+  /** The original, its second audio track its start, played as it is: no ladder of its own. */
+  function playedAsItIsInJapanese(): ReturnType<typeof directDecision> {
+    return {
+      ...directDecision(),
+      audioTracks: [
+        { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+        { streamId: 81, audioTrackIndex: 1, language: "ja", kind: "plain" },
+      ],
+      startingAudioStreamId: 81,
+    };
+  }
+
+  it("says the starting audio track of a film a stalled player moved to a lower quality of, whose ladder names no sounds (D521 §2)", async () => {
+    await mountFilm(true, playedAsItIsInJapanese(), {
+      mediaToken: "t",
+      offer: onLadder,
+      positionMs: 0,
+    });
+    expect(airPlayHere()?.mediaToken).toBe("t");
+    expect(airPlayHere()?.audioTrackIndex?.()).toBe(1);
+  });
+
+  it("says the audio track the original played as a stalled player moved, chosen of its own (D521 §2)", async () => {
+    await mountFilm(true, playedAsItIsInJapanese(), {
+      mediaToken: "t",
+      offer: onLadder,
+      positionMs: 0,
+      audioTrackIndex: 0,
+    });
+    expect(airPlayHere()?.audioTrackIndex?.()).toBe(0);
   });
 
   it("is not offered for a player without controls, as a film page's hidden one", async () => {

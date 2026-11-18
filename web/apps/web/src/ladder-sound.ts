@@ -139,6 +139,22 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
 }
 
 /**
+ * The audio track a file played as it is plays now, by its place, as its element says where it lists
+ * its file's own tracks, as Safari's does: the one enabled, which an own track chosen
+ * (useOwnTrackChoice) switched to and told the server, so a stall's lower quality starts with it;
+ * undefined where the element lists none or plays none (D521 §2).
+ */
+export function ownTrackPlaying(video: HTMLMediaElement | null): number | undefined {
+  const tracks = video === null ? undefined : ownAudioTracksOf(video);
+  for (let place = 0; place < (tracks?.length ?? 0); place += 1) {
+    if (tracks?.[place]?.enabled === true) {
+      return place;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Another audio track chosen in a file played as it is (DirectUnder): switched in place where the
  * element lists its file's tracks, as Safari's does, levelled by its own and said to the server as the
  * sound playing, whose stall's offer then starts it; else askAgain, the film moving onto its ladder

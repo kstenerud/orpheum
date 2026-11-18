@@ -160,6 +160,12 @@ export interface MovedDown {
   readonly mediaToken: string;
   readonly offer: LadderOffer;
   readonly positionMs: number;
+  /**
+   * The audio track the original played as the player moved, by its place, as its element said
+   * (ownTrackPlaying): the one told the server as it was chosen, which its lower quality starts with;
+   * undefined, the decision's starting one.
+   */
+  readonly audioTrackIndex?: number | undefined;
 }
 
 /**
@@ -198,6 +204,7 @@ export function FilmPlayer(props: {
         positionMs={moved.positionMs}
         composition={composition}
         mediaToken={airPlayToken}
+        playedTrack={moved.audioTrackIndex ?? playingSoundOf(decision).audioTrackIndex}
       />
     );
   }
@@ -538,9 +545,15 @@ function ChunkedFilm(props: {
   /** What the film on its ladder may play, which its tracks are named from as its level moves. */
   readonly tracks?: PlaybackDecision["tracks"] | undefined;
   readonly sound?: PlayingSound | undefined;
+  /**
+   * The audio track a ladder whose sounds no decision named plays, by its place: a lower quality a
+   * stalled player moved to plays the one its original played (MovedDown), which AirPlay plays too
+   * (D521 §2).
+   */
+  readonly playedTrack?: number | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { offer, positionMs, tracks } = props;
+  const { offer, positionMs, tracks, playedTrack } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const { failure, onFailed } = useLadderFailure(props.composition, videoRef);
   // A playback's own start on its ladder starts by the link its device remembers (D381).
@@ -548,7 +561,7 @@ function ChunkedFilm(props: {
   const starting = { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink };
   const { playbackRef, playing, cannotKeepUp, sound, heardLevel, playSound } = useLadderPlayback(
     videoRef,
-    { ...starting, mediaToken: props.mediaToken },
+    { ...starting, playedTrack, mediaToken: props.mediaToken },
     onFailed,
   );
   const reads = usePlaybackReads(playbackRef);
@@ -606,6 +619,8 @@ function useLadderPlayback(
     readonly positionMs: number;
     readonly tracks: PlaybackDecision["tracks"] | undefined;
     readonly sound: PlayingSound | undefined;
+    /** The track it plays where it names no sound of its tracks (ChunkedFilm's playedTrack). */
+    readonly playedTrack: number | undefined;
     readonly shouldStartByRememberedLink: boolean;
     readonly mediaToken: string | undefined;
   },
@@ -620,8 +635,9 @@ function useLadderPlayback(
   const [sound, setSound] = useState(starting.sound);
   const [heard, setHeard] = useState(starting.sound);
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
-  // AirPlay plays the track the page plays as its grant is asked for (D521 §2).
-  const playingTrackRef = useLatest(sound?.audioTrackIndex);
+  // AirPlay plays the track the page plays as its grant is asked for (D521 §2): a lower quality a
+  // stalled player moved to names none of its tracks, and plays the one its original played.
+  const playingTrackRef = useLatest(sound?.audioTrackIndex ?? starting.playedTrack);
   const chunked = useChunkedPlayback(
     videoRef,
     { offer, positionMs, startAudioRef, shouldStartByRememberedLink, mediaToken, playingTrackRef },

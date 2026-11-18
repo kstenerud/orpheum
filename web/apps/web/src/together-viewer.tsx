@@ -39,6 +39,7 @@ import { JoinForm } from "./together-join.tsx";
 import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
+import { ownTrackPlaying } from "./ladder-sound.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { SequenceMoveButton, type SequenceMoves } from "./player-controls.tsx";
 import { useStallReports } from "./play-state.ts";
@@ -474,9 +475,10 @@ function GroupFilm(props: {
     <Loaded
       resource={decision}
       render={(value) => {
-        const onLowerQuality = (offer: LadderOffer): void => {
+        const onLowerQuality: GuestFilm["onLowerQuality"] = (offer, audioTrackIndex) => {
           const positionMs = connection.snapshot().group?.positionMs ?? 0;
-          setMoved((already) => already ?? { mediaToken: value.mediaToken, offer, positionMs });
+          const { mediaToken } = value;
+          setMoved((already) => already ?? { mediaToken, offer, positionMs, audioTrackIndex });
         };
         return (
           <GuestFilmContext
@@ -524,7 +526,8 @@ interface GuestFilm {
   readonly decision: PlaybackDecision;
   /** The membership's authorization, by which the viewer's player reports its stalls. */
   readonly headers: Readonly<Record<string, string>>;
-  readonly onLowerQuality: (offer: LadderOffer) => void;
+  /** Moves the player to offer, its original having played audioTrackIndex (MovedDown). */
+  readonly onLowerQuality: (offer: LadderOffer, audioTrackIndex: number | undefined) => void;
 }
 
 const GuestFilmContext = createContext<GuestFilm | undefined>(undefined);
@@ -639,7 +642,7 @@ function ReportsStalls(props: {
   readonly readLinkKbps: () => number | undefined;
   readonly decision: PlaybackDecision;
   readonly headers: Readonly<Record<string, string>>;
-  readonly onLowerQuality: (offer: LadderOffer) => void;
+  readonly onLowerQuality: GuestFilm["onLowerQuality"];
 }): null {
   useMovingDown(props.videoRef, props, props.readLinkKbps);
   return null;
@@ -647,14 +650,15 @@ function ReportsStalls(props: {
 
 /**
  * Reports a viewer's stalls and link (D247 §2), and hands on the lower quality a stall started, once
- * it is ready and the player still cannot keep up (D253).
+ * it is ready and the player still cannot keep up (D253), with the audio track the original plays
+ * as it moves, which the lower quality starts with (ownTrackPlaying).
  */
 function useMovingDown(
   videoRef: RefObject<HTMLVideoElement | null>,
   props: {
     readonly decision: PlaybackDecision;
     readonly headers: Readonly<Record<string, string>>;
-    readonly onLowerQuality: (offer: LadderOffer) => void;
+    readonly onLowerQuality: GuestFilm["onLowerQuality"];
   },
   readLinkKbps: () => number | undefined,
 ): void {
@@ -667,9 +671,9 @@ function useMovingDown(
   const { onLowerQuality } = props;
   useEffect(() => {
     if (lowerQuality !== undefined) {
-      onLowerQuality(lowerQuality);
+      onLowerQuality(lowerQuality, ownTrackPlaying(videoRef.current));
     }
-  }, [lowerQuality, onLowerQuality]);
+  }, [lowerQuality, onLowerQuality, videoRef]);
 }
 
 /** Whether the film plays muted, the browser having refused its sound, and the tap that turns it on. */
