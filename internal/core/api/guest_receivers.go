@@ -4,12 +4,14 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
@@ -128,8 +130,10 @@ type GuestPartGrantInput struct {
 
 // issueTogetherGuestGrant is issueGuestGrant for a Watch Together guest who joined by their link,
 // signed in to nothing (D518 §1): the grant is asked for under their membership credential and bound
-// to their membership, traded at POST /guest-receivers as a person's is, within the same minute and
-// once. The host's credential is refused: the host is signed in, and casts as themselves.
+// to their membership and to the device that asked, whose one cast it becomes (D520 §1), traded at
+// POST /guest-receivers as a person's is, within the same minute and once. The host's credential is
+// refused: the host is signed in, and casts as themselves; so is a Cast device's part, which casts
+// nothing while it is cast to.
 func (server *Server) issueTogetherGuestGrant(
 	ctx context.Context, input *GuestPartGrantInput,
 ) (*GuestGrantOutput, error) {
@@ -137,12 +141,17 @@ func (server *Server) issueTogetherGuestGrant(
 	if err != nil {
 		return nil, err
 	}
-	viewer, isViewer := dependencies.Together.ViewerOf(bearerToken(input.Authorization))
+	credential := bearerToken(input.Authorization)
+	viewer, isViewer := dependencies.Together.ViewerOf(credential)
 	if !isViewer {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "you are in no session as a guest now")
 	}
-	grant, err := dependencies.Auth.IssueMembershipGuestGrant(
-		auth.GrantMembership{SessionID: viewer.SessionID, MemberID: viewer.MemberID}, input.Body.ReceiverName)
+	if dependencies.Together.IsBeingCastTo(credential) {
+		return nil, beingCastTo()
+	}
+	grant, err := dependencies.Auth.IssueMembershipGuestGrant(auth.GrantMembership{
+		SessionID: viewer.SessionID, MemberID: viewer.MemberID, Sender: sha256.Sum256([]byte(credential)),
+	}, input.Body.ReceiverName)
 	if err != nil {
 		return nil, server.authError(ctx, "issue a Watch Together guest's cast grant", err)
 	}
@@ -155,12 +164,14 @@ func (server *Server) issueTogetherGuestGrant(
 
 // takeGuestsPart answers a grant a Watch Together guest asked for, traded: a credential of their
 // membership for the Cast device, which with it is another device of the guest's in their session,
-// following the group with their rights alone (D518 §1). A membership ended since, the guest removed
-// or the session over, gives none, answered as a grant unknown.
+// following the group with their rights alone (D518 §1), the one cast of the guest's device that
+// asked (D520 §1). A membership ended since, the guest removed or the session over, or that device's
+// credential gone, gives none, answered as a grant unknown.
 func (server *Server) takeGuestsPart(
 	ctx context.Context, dependencies *Dependencies, traded auth.GuestReceiver,
 ) (*TradeGuestGrantOutput, error) {
-	part, err := dependencies.Together.GuestCastPart(traded.Membership.SessionID, traded.Membership.MemberID)
+	part, err := dependencies.Together.GuestCastPart(
+		traded.Membership.SessionID, traded.Membership.MemberID, traded.Membership.Sender)
 	if err != nil {
 		server.logger.InfoContext(ctx, "cast: a Watch Together guest's grant was traded after their membership ended",
 			"sessionId", traded.Membership.SessionID, "memberId", traded.Membership.MemberID, "why", err.Error())
@@ -190,6 +201,12 @@ func guestPlays(dependencies *Dependencies, guest auth.Principal, fileID int64) 
 		}
 	}
 	return false
+}
+
+// beingCastTo is the API's refusal of a device being cast to that asks to cast: it ends that cast
+// first (D520 §1).
+func beingCastTo() *Error {
+	return newError(http.StatusForbidden, CodeForbidden, together.ErrBeingCastTo.Error())
 }
 
 // guestRefusal is the API's error for auth's refusal of a guest receiver's grant, or nil for another.

@@ -39,6 +39,8 @@ var (
 	ErrNoMember = errors.New("no such member")
 	// ErrNoLink is a link the session does not hold.
 	ErrNoLink = errors.New("no such link")
+	// ErrBeingCastTo is a device being cast to asking to cast itself: it ends that cast first (D520 §1).
+	ErrBeingCastTo = errors.New("a device being cast to ends that cast before it casts")
 	// ErrNoNote is a link without the host's note of who it is for, which it must have (D246 §3).
 	ErrNoNote = errors.New("a link needs a note of who it is for")
 )
@@ -178,17 +180,14 @@ type member struct {
 	// credentials are the credentials its devices say hello with, the newest last: one per
 	// device that had the membership, so having it back on one cuts off no other (D267 §3).
 	credentials []credential
-	// castCredential is the hash of the credential the guest's latest cast was given, a Google Cast
-	// device's part or an AirPlay grant's hold (D519 §2): the next cast's replaces it. Zero for none.
-	castCredential [sha256.Size]byte
-	devices        map[int64]*device
+	devices     map[int64]*device
 }
 
 // device is one connected client of a member.
 type device struct {
 	id int64
 	// credentialHash is the hash of the membership credential it said hello with, by which a guest's
-	// cast replaced cuts its receiver off (D519 §2).
+	// sending device's next cast replaced cuts its receiver off (D520 §1).
 	credentialHash [sha256.Size]byte
 	// signedInDevice is the person's device it said hello signed in as (SignedIn.DeviceID), or 0
 	// for a device that said hello signed in to nothing, as a guest's by link alone.

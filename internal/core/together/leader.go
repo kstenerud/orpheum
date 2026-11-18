@@ -61,7 +61,8 @@ const (
 	goneHidden GoneBecause = "hidden"
 	// Its member out of the session: removed by the host, left, or their place taken.
 	goneRemoved GoneBecause = "removed"
-	// A receiver of a guest's cast whose credential the guest's next cast replaced (D519 §2).
+	// A receiver of a guest's cast whose credential the sending device's next cast replaced, or that
+	// went with that device's credential (D520 §1).
 	goneReplaced GoneBecause = "replaced"
 	// Its player stalled past stalledLeaderGrace while its Watch Together group played (D373 §2).
 	goneStalled GoneBecause = "stalled"

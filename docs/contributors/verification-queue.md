@@ -3440,8 +3440,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   Stop AirPlay, leaves the TV and plays the film on the guest's page again; (3) AirPlay again, then
   the host puts on another film: the TV stops, and Cast, then AirPlay, plays the new film on it;
   (4) AirPlay again, then the host removes the guest from the roster: the TV stops within a few
-  seconds, its next request refused; (5) with a new link, AirPlay again, then Leave: the TV stops.
-  A Chromecast cast replacing the AirPlay grant (D519 §2) cannot be had from one page, since Safari
-  casts to no Chromecast and Chrome AirPlays to nothing; it is proven by the server's tests alone.
+  seconds, its next request refused; (5) with a new link, AirPlay again, then Leave: the TV stops;
+  (6) one cast per sending device (D520 §1): AirPlay, then AirPlay again from the same page, picking
+  the TV again: the TV plays the film once, as one AirPlay, and Stop AirPlay leaves it. A Chromecast
+  cast replacing the same page's AirPlay grant cannot be had from one page, since Safari casts to no
+  Chromecast and Chrome AirPlays to nothing, and a guest by link has one device, a new link for their
+  place cutting off the last; a second device's cast playing on beside the first's, and a Chromecast
+  refused a cast of its own, are proven by the server's tests alone.
   (`POST /together/airplay-grants`, `DELETE /together/airplay-grants`, `GuestAirPlayHold`, the web
   app's `together-guest-cast.tsx`.)

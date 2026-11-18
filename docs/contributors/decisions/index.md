@@ -524,7 +524,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D516](working-notes.md#d516--a-groups-film-that-ends-on-its-leaders-player-with-nothing-next-stops-for-the-group-whoever-leads) A group's film that ends on its leader's player with nothing next stops for the group, whoever leads
 - [D517](working-notes.md#d517--failures-of-unknown-cause-piling-up-light-the-warning-sign-with-no-banner) Failures of unknown cause piling up light the warning sign, with no banner
 - [D518](working-notes.md#d518--a-watch-together-guest-by-link-casts-to-a-chromecast-as-another-device-of-their-membership) A Watch Together guest by link casts to a Chromecast as another device of their membership — *revisited by D519*
-- [D519](working-notes.md#d519--a-watch-together-guest-by-link-airplays-as-their-membership-too-and-keeps-one-casts-credential-at-a-time) A Watch Together guest by link AirPlays as their membership too, and keeps one cast's credential at a time
+- [D519](working-notes.md#d519--a-watch-together-guest-by-link-airplays-as-their-membership-too-and-keeps-one-casts-credential-at-a-time) A Watch Together guest by link AirPlays as their membership too, and keeps one cast's credential at a time — *revisited by D520*
+- [D520](working-notes.md#d520--one-device-casts-to-one-other-at-a-time-and-a-guest-by-link-is-always-offered-airplay-the-server-refusing-what-their-link-does-not-allow) One device casts to one other at a time, and a guest by link is always offered AirPlay, the server refusing what their link does not allow
 
 ## Archived
 

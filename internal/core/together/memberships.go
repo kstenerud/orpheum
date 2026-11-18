@@ -24,6 +24,10 @@ const credentialsKeptPerMember = 16
 type credential struct {
 	hash        [sha256.Size]byte
 	locatorHash string
+	// castOf is, for a cast's credential (a Google Cast device's part, an AirPlay grant's hold), the
+	// hash of the credential of the device that cast (D520 §1): the one cast that device has, which
+	// its next replaces and which ends as that credential goes. Zero for a device's own.
+	castOf [sha256.Size]byte
 }
 
 // madeCredential is a new credential and its locator, before the member keeps their hashes; the
@@ -45,16 +49,52 @@ func newCredential(random io.Reader) (madeCredential, error) {
 	return madeCredential{credential: credential, locator: locator}, nil
 }
 
-// addCredential admits made's devices too, keeping the newest credentialsKeptPerMember.
-func (each *member) addCredential(made madeCredential) {
-	kept := credential{hash: sha256.Sum256([]byte(made.credential))}
+// addCredential admits made's devices too, keeping the newest credentialsKeptPerMember: a cast whose
+// sending device's credential is no longer kept ends with it (D520 §1), its receiver told its place
+// moved away and let go. Whether any device was let go.
+func (each *member) addCredential(made madeCredential) bool {
+	return each.addCastCredential(made, [sha256.Size]byte{})
+}
+
+// addCastCredential is addCredential for a cast's credential, the device whose credential's hash is
+// castOf casting; zero for a device's own.
+func (each *member) addCastCredential(made madeCredential, castOf [sha256.Size]byte) bool {
+	kept := credential{hash: sha256.Sum256([]byte(made.credential)), castOf: castOf}
 	if made.locator != "" {
 		kept.locatorHash = discoverylink.LocatorHash(made.locator)
 	}
 	each.credentials = append(each.credentials, kept)
-	if extra := len(each.credentials) - credentialsKeptPerMember; extra > 0 {
-		each.credentials = each.credentials[extra:]
+	extra := len(each.credentials) - credentialsKeptPerMember
+	if extra <= 0 {
+		return false
 	}
+	each.credentials = each.credentials[extra:]
+	senders := map[[sha256.Size]byte]bool{}
+	for _, still := range each.credentials {
+		senders[still.hash] = true
+	}
+	return each.endCastsWhere(func(cast credential) bool { return !senders[cast.castOf] })
+}
+
+// endCastsWhere lets go of each cast's credential isEnded says ends: it admits nothing more, and each
+// device that said hello with it is told its place moved away and let go, as cutOff tells a device
+// whose place a new link took. Whether any device was let go.
+func (each *member) endCastsWhere(isEnded func(cast credential) bool) bool {
+	isCutOff := false
+	each.credentials = slices.DeleteFunc(each.credentials, func(kept credential) bool {
+		if kept.castOf == ([sha256.Size]byte{}) || !isEnded(kept) {
+			return false
+		}
+		for id, attached := range each.devices {
+			if attached.credentialHash == kept.hash {
+				attached.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "movedAway"})
+				delete(each.devices, id)
+				isCutOff = true
+			}
+		}
+		return true
+	})
+	return isCutOff
 }
 
 // admits is whether a credential whose hash is hash is one of the member's.
@@ -111,7 +151,10 @@ func (hub *Hub) Mine(userID int64) ([]Membership, error) {
 			if err != nil {
 				return nil, err
 			}
-			candidate.addCredential(made)
+			if candidate.addCredential(made) {
+				each.leaderStillHere(hub.clock.Now(), false, goneReplaced)
+				each.sendRoster()
+			}
 			isMade = true
 			mine = append(mine, Membership{
 				SessionID: each.id, MemberID: candidate.id,

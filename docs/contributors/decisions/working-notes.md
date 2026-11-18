@@ -30133,4 +30133,41 @@ membership" (`POST /together/airplay-grants`, `GuestAirPlayHold`); §1's page ha
 Safari, the guest's Cast dialog offers AirPlay after Chromecast, its grant asked for and revoked by
 the membership (`membershipAirPlayGrants`, `together-guest-cast.tsx`), Stop AirPlay or Leave
 revoking it, the host's next film ending it and asking that film's own grant. §1 and §2 are built;
+VQ361, on devices, is owed. §2 is amended by D520 §1: the one cast is the sending device's, not the
+membership's.
+
+## D520 — One device casts to one other at a time, and a guest by link is always offered AirPlay, the server refusing what their link does not allow
+
+**Decided** (2026-11-18), by the project owner, answering the questions asked after D519's build.
+Asked whether a guest has one cast slot or one of each kind: "One device can cast to one other device
+at a time. If a device is being cast to, it must end the cast in order to cast itself (when possible).
+So caster -> castee is always 1:1." Asked whether AirPlay is offered to a guest by link whose link
+gives no controls: "If airplay ignores the control rights, then we'd need to make sure the server
+ignores requests they don't have rights to. So we always offer airplay, but if they don't have the
+rights, the controls will do nothing." Amends D519 §2.
+
+1. **A cast is the sending device's.** The cast's credential a Watch Together guest's cast is given, a
+   Chromecast's part (D518 §1) or an AirPlay grant's hold (D519 §1), is tied to the guest's device
+   that asked, by its membership credential, not to the membership: a guest's phone and laptop may
+   each cast to one receiver, and a device's new cast, Chromecast or AirPlay, replaces that device's
+   last one alone, its receiver told its place moved away (`movedAway`) and cut off. The cast ends as
+   the sending device's credential goes: the guest removed or leaving, their place taken by a new
+   link, or the credential pushed out of the newest the membership keeps. A device being cast to
+   casts nothing itself: a Chromecast's credential of a guest's part is refused a cast grant
+   (`POST /together/cast-grants`) and an AirPlay grant (`POST /together/airplay-grants`), 403.
+2. **AirPlay is always offered; the controls do only what the link allows.** A guest by link is
+   offered AirPlay whatever their link's controls (as D519 §1 built it). The server refuses every
+   control the link does not give (the group's commands, `member.may`); and the guest's page, when its
+   own player is paused, played or seeked by something outside it (the AirPlay device's remote, the
+   phone's lock screen, Safari's own controls) and the link does not give that control, sends no
+   command and puts the player back where the group is. A guest with the control keeps today's
+   behaviour: the move is the group's.
+
+**Proven by:**
+- 1: TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone, TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes, TestGuestCastPart_ADeviceBeingCastToCastsNothing, TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast (internal/core/together/guest_cast_test.go)
+- 1: TestGuestReceiver_AWatchTogetherGuestsCastDeviceIsRefusedACastOfItsOwn (internal/core/api/guest_receivers_test.go)
+
+**Status:** decided (2026-11-18). §1 is in "feat(together): a guest's cast is their sending device's
+one cast, and a device cast to casts nothing" (`castOf` on a member's credential,
+`replaceCastCredential`, `IsBeingCastTo`, `auth.GrantMembership.Sender`). §2 is not yet proven;
 VQ361, on devices, is owed.

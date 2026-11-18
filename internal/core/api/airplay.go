@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"net/http"
 	"net/netip"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
@@ -171,9 +173,10 @@ func airPlayGrantOutput(dependencies *Dependencies, grant string) *AirPlayGrantO
 // makeTogetherAirPlayGrant answers POST /together/airplay-grants, makeAirPlayGrant for a Watch
 // Together guest who joined by their link, signed in to nothing (D519 §1): the playback their
 // membership holds, the group's film, gets a grant bound to the membership, which holds it by a
-// credential of its own (GuestAirPlayHold), replacing the guest's last cast's (D519 §2). Its receiver
-// plays as the membership: the host's libraries, the film on now, nothing more. The host's credential
-// is refused: the host is signed in, and AirPlays as themselves.
+// credential of its own (GuestAirPlayHold), replacing the last cast of the guest's device that asked
+// (D520 §1). Its receiver plays as the membership: the host's libraries, the film on now, nothing
+// more. The host's credential is refused: the host is signed in, and AirPlays as themselves; so is a
+// Cast device's part, which casts nothing while it is cast to.
 func (server *Server) makeTogetherAirPlayGrant(
 	ctx context.Context, input *AirPlayGrantInput,
 ) (*AirPlayGrantOutput, error) {
@@ -186,12 +189,18 @@ func (server *Server) makeTogetherAirPlayGrant(
 	if !isViewer {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "nothing plays for you in a session now")
 	}
+	if dependencies.Together.IsBeingCastTo(credential) {
+		return nil, beingCastTo()
+	}
 	chunked, err := dependencies.Playback.ChunksOf(ctx, input.Body.MediaToken, holder)
 	if err != nil {
 		return nil, server.playbackError(ctx, "find the Watch Together guest's playback to AirPlay", err)
 	}
 	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
-	hold, err := dependencies.Together.GuestAirPlayHold(sessionID, memberID)
+	hold, err := dependencies.Together.GuestAirPlayHold(sessionID, memberID, sha256.Sum256([]byte(credential)))
+	if errors.Is(err, together.ErrBeingCastTo) {
+		return nil, beingCastTo()
+	}
 	if err != nil {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "you are in no session as a guest now")
 	}

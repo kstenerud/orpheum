@@ -193,13 +193,17 @@
 //     follower with their rights alone, found by its locator, and ends as the membership does
 //     (D518 §1), enforced by TestGuestCastPart_IsAnotherDeviceOfTheGuestsWithTheirRights,
 //     TestGuestCastPart_ItsLocatorFindsTheGuestsMember and
-//     TestGuestCastPart_EndsAsTheMembershipEnds. A guest has one cast's credential at a time: a new
-//     cast's replaces the last's, whose receiver is told its place moved away and cut off, so casting
-//     again and again never pushes the guest's own browser out of the newest credentials kept
-//     (D519 §2), enforced by TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential. A guest's
-//     AirPlay grant is a cast too (D519 §1): GuestAirPlayHold makes it a credential of its own, with no
-//     locator, which takes the cast's one place, and ViewerHeldBy names the membership it holds while
-//     it admits them, enforced by TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast.
+//     TestGuestCastPart_EndsAsTheMembershipEnds. One device casts to one other at a time (D520 §1): a
+//     cast's credential is the sending device's, whose new cast replaces its last alone, that receiver
+//     told its place moved away and cut off, so casting again and again never pushes a browser out of
+//     the newest credentials kept, enforced by
+//     TestGuestCastPart_ADevicesNewCastReplacesThatDevicesLastCastAlone; it ends as the sending
+//     device's credential goes, enforced by TestGuestCastPart_EndsAsItsSendingDevicesCredentialGoes;
+//     and a device being cast to casts nothing itself, enforced by
+//     TestGuestCastPart_ADeviceBeingCastToCastsNothing. A guest's AirPlay grant is a cast too
+//     (D519 §1): GuestAirPlayHold makes it a credential of its own, with no locator, which takes the
+//     sending device's one cast's place, and ViewerHeldBy names the membership it holds while it
+//     admits them, enforced by TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast.
 //   - When the server's upload cannot carry every player at its lowest quality, the member who
 //     joined most recently with a player, never the host, is told the session ended for them with
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by

@@ -422,3 +422,37 @@ func TestGuestReceiver_AWatchTogetherGuestByLinkCastsAsTheirMembershipWhileTheyA
 	removed := harness.togetherGuestGranted(t, membership.Body.MembershipCredential)
 	wantError(t, removed, http.StatusNotFound, api.CodeNotFound)
 }
+
+// A device being cast to casts nothing itself (D520 §1): a Google Cast device taking a Watch Together
+// guest's part is refused a cast grant and an AirPlay grant of its own, by its own credential, for the
+// playback it holds, while the guest's browser that cast to it may ask again.
+func TestGuestReceiver_AWatchTogetherGuestsCastDeviceIsRefusedACastOfItsOwn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "a friend", "Sam")
+	grant := grantOf(t, harness.togetherGuestGranted(t, membership.Body.MembershipCredential))
+	traded := harness.tradeGuestGrant(t, grant)
+	var part api.TradeGuestGrantOutput
+	if err := json.Unmarshal([]byte(traded.body), &part.Body); err != nil || traded.status != http.StatusCreated {
+		t.Fatalf("POST /guest-receivers = %d %s", traded.status, traded.body)
+	}
+	receiver := part.Body.MembershipCredential
+	host := harness.dialTogether(t, opened.Body.MembershipCredential)
+	host.awaitWelcome()
+	device := harness.dialTogether(t, receiver)
+	device.awaitWelcome()
+	putOn(host, device, 1)
+	started := harness.viewerPlayback(t, receiver)
+	var playing decision
+	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
+		t.Fatalf("the Cast device's POST /together/playback = %d %s", started.status, started.body)
+	}
+	wantError(t, harness.togetherGuestGranted(t, receiver), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.makeTogetherAirPlayGrant(t, receiver, playing.MediaToken),
+		http.StatusForbidden, api.CodeForbidden)
+	grantOf(t, harness.togetherGuestGranted(t, membership.Body.MembershipCredential))
+}

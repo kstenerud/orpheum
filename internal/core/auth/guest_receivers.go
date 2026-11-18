@@ -5,6 +5,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -74,10 +75,13 @@ type guestGrant struct {
 
 // GrantMembership is the Watch Together membership a guest grant is bound to when a guest who joined
 // by their link, signed in to nothing, asked for it (D518 §1): its session and its member, whose
-// part the Cast device takes once it trades the grant.
+// part the Cast device takes once it trades the grant, and the guest's device that asked.
 type GrantMembership struct {
 	SessionID int64
 	MemberID  int64
+	// Sender is the SHA-256 of the membership credential of the guest's device that asked, whose one
+	// cast the Cast device's becomes (D520 §1).
+	Sender [sha256.Size]byte
 }
 
 // grantSender is who a grant was asked by, of which each keeps guestGrantsPerDevice waiting at most:
@@ -165,8 +169,8 @@ func (service *Service) IssueGuestGrant(sender Principal, receiverName string) (
 // IssueMembershipGuestGrant mints a grant for a Google Cast device, named receiverName, to take the
 // part of the Watch Together guest whose membership is membership, a guest by their link signed in to
 // nothing (D518 §1): as IssueGuestGrant's, random, kept only as its SHA-256, traded once within
-// guestGrantLife, a membership keeping guestGrantsPerDevice waiting at most, but bound to the
-// membership, not to a person or a device. The caller has checked the membership is live.
+// guestGrantLife, a membership's device keeping guestGrantsPerDevice waiting at most, but bound to
+// the membership, not to a person or a device of one. The caller has checked the membership is live.
 // ErrGuestSender for no membership.
 func (service *Service) IssueMembershipGuestGrant(membership GrantMembership, receiverName string) (string, error) {
 	if membership.SessionID == 0 || membership.MemberID == 0 {
