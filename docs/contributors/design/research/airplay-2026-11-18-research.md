@@ -467,6 +467,22 @@ hls.js 1.7.4, released since, adds `isMediaSourceReplaced`. On an alternate `<so
 and leaves the element alone; its comment names Safari AirPlay under ManagedMediaSource. So step 6
 is the next run, with 1.7.4 as `?hls=hls-1.7.4.js`.
 
+**Results with hls.js 1.7.4, 2026-11-18 (B and C once each). WebKit's handover works.**
+
+- **To the Mac.** About 0.5 s after the flag rose, `currentSrc` moved to `master-low.m3u8`, and
+  hls.js 1.7.4 detached cleanly (`MEDIA_DETACHING`, `MEDIA_DETACHED`, no reset). The Mac then
+  fetched the alternative and played.
+  - **Position.** The Mac played from where the iPhone was: 11.69 → 11.72 in B, 5.24 → 5.27 in C.
+    It took about 2.2 s from the pick to `playing`, and nothing paused.
+  - **C, the late alternative, behaved the same as B.**
+- **The flag flickers at the switch.** It fell for about 150 ms, with `remote` disconnecting and
+  connecting again, as the element moved to the new source. A page that read the flag
+  undebounced would see AirPlay end and start again; the 1 s debounce in §1.2 covers it.
+- **Back to the iPhone.** WebKit did not return to the blob. The iPhone played the HLS alternative
+  natively, with its sound only, and needed no press. It went back to the segment start (30.30 →
+  28.00 in B, 26.05 → 24.00 in C), so about 2 s repeated. hls.js stayed detached; reattaching it,
+  or staying native, is the page's choice.
+
 ### E4: unasked pauses and the late position (`e4-unasked.html`)
 
 **Settles** which pause, play and seek events reach a page during AirPlay unasked, and how late
