@@ -120,6 +120,13 @@
 //     third of a second after its first was cut past its bound and never made (idiosyncrasies.md).
 //     Enforced by TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes; with the pinned FFmpeg, by
 //     TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds (integration tier).
+//   - Every encode of a quality decodes its run's first picture at its shown time when the encoder
+//     put it more than 0.1 s before, past hls.js's maxBufferHole: hls.js places a stream by its first
+//     decode time, and a film whose first picture is followed by a gap, decoded as long before it was
+//     shown, began with a hole no paused start steps over and never started from Play (file 17477;
+//     idiosyncrasies.md). Its shown times, and so its cuts, are the encoder's. Enforced by
+//     TestArguments_EncodeAQualityDecodingItsFirstPictureAtItsShownTime; with the pinned FFmpeg, by
+//     TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime (integration tier).
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, ending no
 //     more than a few frames past its bound, the run's last chunk too, and the run's last only once
 //     FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as

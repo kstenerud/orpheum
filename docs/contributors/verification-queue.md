@@ -3397,3 +3397,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   under the film names the stretch stepped over, and no "Something went wrong on the server" shows;
   the core's log has `action="start a playback"` with no error for it. Pressing Play again starts
   it the same way (`internal/core/chunks/stall.go`'s startAt, `skip-unmade.ts`).
+- [ ] **VQ358** — A film whose first picture is followed by a gap starts from its page's Play (the
+  owner, 2026-11-18, choosing the fix at the node: an encoded chunk's first picture is decoded at
+  its shown time). On staging, once the node runs this build and file 17477's encoded chunks are
+  made anew (their stores emptied first, as chunks made before keep their times), open file 17477's
+  page in Chrome and press Play, without skipping. Passes when the picture moves and the sound
+  plays within a few seconds of the press, from the film's start; and when a normal film's encoded
+  quality still starts from Play as before (`encodeStartDecodeTimes`, `internal/node/chunks/arguments.go`).

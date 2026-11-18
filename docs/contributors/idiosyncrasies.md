@@ -167,6 +167,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
 | An AVI's sound played half a second ahead of its picture for its first five minutes, then in step. | [An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second](#an-input-seek-to-the-start-of-an-avi-with-b-frames-lands-past-its-first-keyframe-and-its-sounds-first-half-second) |
 | An encode's chunk 0 was refused, "raw 00000.mp4 holds 0 to 2307 ms of the run, not its chunk 0's 0 to 2000 ms (… first cut at 1.950 s)", while the run from chunk 1 made every chunk. | [An encoder's B-frames move every packet later for the segment muxer by as long as its first pictures' gap](#an-encoders-b-frames-move-every-packet-later-for-the-segment-muxer-by-as-long-as-its-first-pictures-gap) |
+| A RealMedia film played only once the viewer skipped forward: its chunks were made, but from Play the player never started. | [An encode's first picture is decoded as long before it is shown as its first pictures' gap, and hls.js starts the film that late](#an-encodes-first-picture-is-decoded-as-long-before-it-is-shown-as-its-first-pictures-gap-and-hlsjs-starts-the-film-that-late) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | A film's own sound copied failed its chunk 0, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not play. | [An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start](#an-mp4-whose-first-keyframe-is-before-its-start-discarded-has-its-grid-start-at-the-next-and-a-sound-copied-sought-there-reads-from-the-films-start) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
@@ -3198,6 +3199,41 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   ending at 2.044 s before and 2.003 s after. `TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds`
   (integration tier) fails without it with "holds 0 to 2467 ms". **[web]** no report found of the
   shift's effect on `-segment_times` (searched 2026-11-16).
+
+### An encode's first picture is decoded as long before it is shown as its first pictures' gap, and hls.js starts the film that late
+
+- **Symptom:** a RealMedia film (file 17477) played on staging only once the viewer skipped forward:
+  both its runs, the encoded picture's and the sound's, made their chunks in 4 to 6 s, but from its
+  page's Play the player never said it had started (staging, 2026-11-18). File 17137 has the same
+  shape.
+- **Cause:** two things together. The film's first picture is followed by a gap of 0.53 s. An
+  encoder with B-frames, x264 and `h264_vaapi` alike, decodes its first pictures before they are
+  shown by as long as its next one or two pictures are after the first, so chunk 0's first picture
+  had a composition offset of 0.532 s, where a film of even pictures has one or two pictures' worth
+  (83 ms at 24 a second). And hls.js places a fragmented MP4 stream by its first chunk's first decode
+  time (`baseMediaDecodeTime`, the start of `getSampleData` in `passthrough-remuxer.ts`), not its
+  first shown time, so the film's first picture landed at 0.532 s and its sound at 0.511 s, nothing
+  at 0. A hole at the start wider than `maxBufferHole` (0.1 s) is stepped over only by a player playing
+  and stalled ([A paused player is never stepped over a gap at the start, so it never becomes
+  ready](#a-paused-player-is-never-stepped-over-a-gap-at-the-start-so-it-never-becomes-ready)).
+- **What we do:** an encode's output passes a `setts` filter that, when the encoder put the run's
+  first picture's decode time more than 0.1 s before its shown time, raises each packet's decode time
+  to no less than the first shown time sixteen ticks early, a tick later for each packet: H.264
+  reorders at most sixteen pictures, so every packet is still decoded at or before it is shown and
+  in order, and the shown times, the muxer's cuts and its list stay the encoder's
+  (`encodeStartDecodeTimes`, `internal/node/chunks/arguments.go`). A run of even pictures is left
+  as encoded. VQ358.
+- **Evidence:** **[measured]** the chunks staging made of file 17477 (q1000k240p, timescale 16000):
+  chunk 0's first two samples last 8,512 ticks each, its first composition offset 8,512 (0.532 s),
+  chunk 1's 1,072 (a picture). With the pinned FFmpeg 8.1.3 and x264, a 15-a-second clip whose second
+  picture is 0.4 s after its first: chunk 0's first offset 0.467 s, and with the filter 16 of 15,360
+  ticks, the list and every later sample unchanged; a 24-a-second clip kept its 83 ms and every
+  other time.
+  `TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime` (integration tier)
+  fails without it with "shown 0.467 s after its decode time". **[source]** hls.js 1.7.3
+  `passthrough-remuxer.ts` takes `initPTS` from the first fragment's `start`, the `tfdt`
+  (`utils/mp4-tools.ts`, `getSampleData`). **[web]** no report found of an encode's first-picture
+  offset as a start gap (searched 2026-11-18).
 
 ### A sound copied starts before its seek, and the segment muxer times its cuts from the first packet
 

@@ -639,3 +639,64 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureIsCutAtItsBounds(t *tes
 		t.Errorf("the chunks hold %d pictures; want the film's %d before %d ms", len(stored), want, grid[3])
 	}
 }
+
+// An encode of a film whose first picture is followed by a gap shows its chunk 0's first picture at
+// its decode time, at the film's start: x264's B-frames decoded it 0.47 s before it was shown, and
+// hls.js, placing the stream by that decode time, began the film with a hole no paused start steps
+// over (encodeStartDecodeTimes; file 17477; idiosyncrasies.md). The picture is still shown at the
+// film's start, every picture once.
+func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmWithAGapAfterItsFirstPicture(t)
+	grid := keyframeGrid(t, runner, source)
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-q400k360p/0123456789abcdef"
+	command := nodeproto.MakeChunks{
+		VideoStreamIndex: 0, VideoCodec: "h264", StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[:3],
+		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360},
+	}
+	if last, makeErr := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); makeErr != nil || last != 1 {
+		t.Fatalf("the run from the film's start made through %d, %v; want its two chunks", last, makeErr)
+	}
+	storePath := filepath.Join(directory, storeDir)
+	init, err := os.ReadFile(filepath.Join(storePath, chunks.InitName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(filepath.Join(storePath, chunks.ChunkName(0)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scale, err := chunks.Timescale(init)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shownAfter, err := chunks.FirstShownAfterDecode(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after := float64(shownAfter) / float64(scale); after > 0.01 {
+		t.Errorf("chunk 0's first picture is shown %.3f s after its decode time; want at it, within 10 ms", after)
+	}
+	times := packetTimes(t, runner, storePath, 2)
+	offset := float64(chunks.TimelineOffsetMs) / 1000
+	if len(times) == 0 || math.Abs(times[0]-offset) > 0.001 {
+		t.Errorf("the first picture is shown at %v; want it at the film's start, %.3f s", times, offset)
+	}
+	var want int
+	for _, shown := range sourceTimes(t, runner, source, "v:0", false) {
+		if shown < float64(grid[2])/1000 {
+			want++
+		}
+	}
+	if len(times) != want {
+		t.Errorf("the chunks hold %d pictures; want the film's %d before %d ms", len(times), want, grid[2])
+	}
+}

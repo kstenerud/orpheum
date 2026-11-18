@@ -239,6 +239,34 @@ func TestArguments_EncodeAQualityCutAtItsKeyframesOwnTimes(t *testing.T) {
 	}
 }
 
+// Every encoder's quality decodes its run's first picture at its shown time when the encoder put it
+// more than a tenth of a second before, past hls.js's maxBufferHole, as a film whose first picture is
+// followed by a gap had it, and leaves the shown times as they are (encodeStartDecodeTimes); a copied
+// picture's times are the film's.
+func TestArguments_EncodeAQualityDecodingItsFirstPictureAtItsShownTime(t *testing.T) {
+	t.Parallel()
+	const want = `setts=pts=PTS:dts=if(gt(STARTPTS-STARTDTS\,0.1/TB)\,max(DTS\,STARTPTS-16+N)\,DTS)`
+	for _, encoder := range []encode.Encoder{
+		encode.EncoderX264, encode.EncoderQuickSync, encode.EncoderNVENC, encode.EncoderVAAPI,
+	} {
+		for _, isRetimed := range []bool{false, true} {
+			command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 400, Height: 360})
+			command.NeedsPictureRetiming = isRetimed
+			arguments := Arguments(execx.Film{Path: "/a.rm"}, "/r", command, encoder)
+			filter, input := slices.Index(arguments, "-bsf:v"), slices.Index(arguments, "-i")
+			if filter < input || valueOf(arguments, "-bsf:v") != want {
+				t.Errorf("%s's encode (re-timed: %v) is %q; want its output's decode times filtered by %s",
+					encoder, isRetimed, arguments, want)
+			}
+		}
+	}
+	copied := Arguments(execx.Film{Path: "/a.rm"}, "/r", run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}),
+		encode.EncoderX264)
+	if strings.Contains(strings.Join(copied, " "), "STARTPTS-16") {
+		t.Errorf("a copied picture's decode times are moved: %q", copied)
+	}
+}
+
 // A picture whose B-frames carry no display times, copied or encoded, is re-timed by dts2pts, a
 // copy's on the output and an encode's on its input, and read a second past its end, an
 // encode keyframed at that end too so what is read past it is cut off; an ordinary picture is not,

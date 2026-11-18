@@ -283,6 +283,26 @@ func encodeCutTimes() []string {
 	return []string{"-avoid_negative_ts", "disabled"}
 }
 
+// encodeStartDecodeTimes are the bitstream filter on an encode's output that decodes a run's first
+// picture at its shown time when the encoder put it more than a tenth of a second before: hls.js
+// places a stream by its first chunk's first decode time, the run's chunk 0's at a film's start, and
+// shows its first picture as long after the start as its composition offset, a hole hls.js steps over
+// only once playing and stalled, never from a paused start, beyond its maxBufferHole, 0.1 s. An
+// encoder with B-frames decodes the first pictures before they are shown by as long as the next one
+// or two are after the first, and a film whose first picture is followed by a gap had its first shown
+// 0.532 s after its decode time, its sound 0.511 s after the start, and never started playing until
+// skipped forward (file 17477, staging, 2026-11-18; idiosyncrasies.md). A film's even pictures
+// reorder a picture or two, under the hole (83 ms at 24 a second), and are left as encoded.
+//
+// Each packet's decode time is raised, never lowered, to no less than the first picture's shown time
+// sixteen ticks early, a tick later for each packet: H.264 reorders at most sixteen pictures, so every
+// packet is still shown at or after its decode time, the decode times still rise, and from the packet
+// the encoder decodes at the first picture's shown time on none moves. The shown times, and so the
+// muxer's cuts and its list, are the encoder's.
+func encodeStartDecodeTimes() []string {
+	return []string{"-bsf:v", `setts=pts=PTS:dts=if(gt(STARTPTS-STARTDTS\,0.1/TB)\,max(DTS\,STARTPTS-16+N)\,DTS)`}
+}
+
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
 // run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
@@ -318,6 +338,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 			encoder.QualityArguments(command.Stream.BitRateKbps, command.Stream.Height, keyframeTimes(command))...)
 		arguments = append(arguments, encodeTimeBase()...)
 		arguments = append(arguments, encodeCutTimes()...)
+		arguments = append(arguments, encodeStartDecodeTimes()...)
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
