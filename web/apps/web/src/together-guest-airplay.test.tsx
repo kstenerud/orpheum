@@ -101,7 +101,8 @@ function withTwoSoundsOnItsLadder(fileId: number): ReturnType<typeof directDecis
  * which a stall moves to the lower quality its report is offered (lowerQuality).
  */
 function playedAsItIsWithTwoSounds(fileId: number): ReturnType<typeof directDecision> {
-  const { onLadder: _none, ...asItIs } = withTwoSoundsOnItsLadder(fileId);
+  const asItIs = { ...withTwoSoundsOnItsLadder(fileId) };
+  delete asItIs.onLadder;
   return asItIs;
 }
 
@@ -123,7 +124,7 @@ const lowerQuality = {
  * element's own, its first track enabled.
  */
 function listsItsOwnAudioTracks(): void {
-  const lists = new WeakMap<object, { enabled: boolean }[]>();
+  const lists = new WeakMap<object, unknown>();
   Object.defineProperty(HTMLMediaElement.prototype, "audioTracks", {
     get(this: HTMLMediaElement) {
       const list = lists.get(this) ?? [{ enabled: true }, { enabled: false }];
