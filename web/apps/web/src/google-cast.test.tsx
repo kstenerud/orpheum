@@ -572,18 +572,17 @@ describe("a Watch Together guest by link's Chromecast (D518)", () => {
     const refused: string[] = [];
     const api = createApi({
       getToken: () => undefined,
-      fetch: async (request: Request) => {
+      fetch: (request: Request) => {
         const route = `${request.method} ${new URL(request.url).pathname.slice(apiPrefix.length)}`;
         asked.push(`${route} ${request.headers.get("Authorization") ?? "signed out"}`);
         if (!routes.some((each) => each.test(route))) {
           refused.push(route);
-          return new Response("{}", { status: 403 });
+          return Promise.resolve(new Response("{}", { status: 403 }));
         }
         const answer = JSON.stringify({ grant });
-        return new Response(answer, {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
+        return Promise.resolve(
+          new Response(answer, { status: 201, headers: { "Content-Type": "application/json" } }),
+        );
       },
     });
     const ways = guestCastOf(
