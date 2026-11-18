@@ -10,6 +10,18 @@
   let statusBox;
   let lastPress = { at: -1e9, what: "" };
 
+  // The log is sent to the serving Mac every 3 s (serve.py keeps it under logs/), so nothing needs
+  // copying off the phone; under a server that takes no POST the send fails quietly.
+  const run = location.pathname.split("/").pop().replace(".html", "") + "-" + new Date().toISOString().replace(/[:.]/g, "-");
+  let sent = 0;
+  setInterval(() => {
+    if (lines.length === sent) return;
+    const count = lines.length;
+    fetch("log?run=" + encodeURIComponent(run), { method: "POST", body: lines.join("\n") + "\n" })
+      .then(() => { sent = count; })
+      .catch(() => {});
+  }, 3000);
+
   function stamp() {
     return ((performance.now() - started) / 1000).toFixed(3).padStart(8, " ");
   }

@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- ABOUTME: The AirPlay lab's one list of what to do: four short runs on the iPhone with the Mac as
+     the receiver, and what to tell the lead after each (airplay-2026-11-18-research.md §5). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirPlay lab</title>
+<style>
+  body { font: 17px/1.45 -apple-system, system-ui, sans-serif; margin: 0 auto; padding: 16px; max-width: 40em; }
+  h2 { margin-top: 1.6em; }
+  li { margin: 0.35em 0; }
+  b.btn { background: #e8e8ed; border-radius: 6px; padding: 0 6px; font-weight: 600; white-space: nowrap; }
+  .tell { background: #fff6d6; border-left: 4px solid #e0b000; padding: 8px 12px; }
+  a.go { display: inline-block; margin: 6px 0; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>AirPlay lab</h1>
+<p>Four short runs, about 20 minutes in all. Use the <b>iPhone</b> as the sender and the <b>Mac</b> as the
+receiver. Turn the Mac's sound up. Every page sends its log to the Mac by itself, so there's nothing to
+copy: just tell me what you <b>heard and saw</b> (the yellow boxes) after each run.</p>
+<p>The test picture is a counter, and the sound is a beep each second. The <b>low beep</b> is the first sound, and the <b>high beep</b> is the second.</p>
+
+<h2>Run 1: WebKit's own handover (decides design B)</h2>
+<a class="go" href="e3-mms.html">Open run 1's page</a>
+<ol>
+  <li>Press <b class="btn">Load hls.js</b>, then <b class="btn">B: hls.js, alternative at attach</b>, then <b class="btn">Play</b>.</li>
+  <li>After about 10 s, press <b class="btn">AirPlay (webkit picker)</b> and choose the Mac.</li>
+  <li>Watch for 20 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> again and choose the iPhone. Watch for 20 s.</li>
+  <li>Reload the page. Press <b class="btn">Load hls.js</b>, then <b class="btn">C: hls.js, no alternative (now)</b>, then <b class="btn">Play</b>.</li>
+  <li>Press <b class="btn">C: add the alternative now</b>, then <b class="btn">AirPlay (webkit picker)</b>, and choose the Mac. Watch for 20 s, then choose the iPhone again.</li>
+</ol>
+<p class="tell">Tell me: In step 2, did the Mac play, and from where the counter was on the iPhone? In step 4, did the iPhone carry on playing by itself? In step 6, did the Mac play?</p>
+
+<h2>Run 2: changing the sound during AirPlay (fault 1)</h2>
+<a class="go" href="e1-sound.html">Open run 2's page</a>
+<ol>
+  <li>Press <b class="btn">Load full master</b>, then <b class="btn">Play</b>. Listen: is it the low beep or the high beep?</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> and choose the Mac. Which beep does the Mac play?</li>
+  <li>Press <b class="btn">Enable sound 0 (Low tone)</b> and listen to the Mac for 10 s. Then press <b class="btn">Enable sound 1 (High tone)</b> and listen for 10 s.</li>
+  <li>Press <b class="btn">Reload here: low-only</b> and listen for 15 s. Then press <b class="btn">Reload here: high-only</b> and listen for 15 s.</li>
+  <li>Choose the iPhone in the picker to end.</li>
+</ol>
+<p class="tell">Tell me: Which beep played in steps 1 and 2? Did either press in step 3 change the Mac's beep? In step 4, did the Mac change beep, stay on AirPlay, and keep its counter, and about how long was it silent?</p>
+
+<h2>Run 3: the picker and Stop (fault 2)</h2>
+<a class="go" href="e2-picker.html">Open run 3's page</a>
+<ol>
+  <li>Press <b class="btn">Load and play</b>. Press <b class="btn">AirPlay (webkit picker)</b> and close the picker <b>without choosing anything</b>. Wait 10 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> and choose the Mac. Wait 10 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> and close it <b>without choosing anything</b>. Wait 10 s.</li>
+  <li>Press <b class="btn">disableRemotePlayback = true</b>. Wait 10 s.</li>
+  <li>Press <b class="btn">AirPlay (webkit picker)</b> and choose the iPhone.</li>
+</ol>
+<p class="tell">Tell me: In step 3, did the Mac carry on playing? In step 4, did the Mac stop showing the picture, and where was the sound?</p>
+
+<h2>Run 4 (if you have time): pauses nobody pressed</h2>
+<a class="go" href="e4-unasked.html">Open run 4's page</a>
+<ol>
+  <li>Load it and press Play, turn on <b>Log the position every second</b>, then AirPlay to the Mac.</li>
+  <li>Press the page's Pause, then Play, then Seek +30 s. Wait 5 s after each.</li>
+  <li>Pause and play once from the Mac's own controls.</li>
+  <li>Lock the iPhone for 30 s, then unlock it.</li>
+</ol>
+<p class="tell">Tell me: Did anything pause that you didn't press? And roughly how long did the Mac take to follow each press?</p>
+
+<h2>When you're done</h2>
+<p>Stop the server on the Mac (Ctrl-C). In the <code>airplay-lab</code> folder, run <code>zip -r logs.zip logs</code>, copy <code>logs.zip</code> to the machine this sandbox runs on, and there run <code>yoloai files orpheum put logs.zip</code>. Then send me your answers from the yellow boxes.</p>
+</body>
+</html>

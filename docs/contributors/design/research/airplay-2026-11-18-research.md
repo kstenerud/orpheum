@@ -309,8 +309,11 @@ for tone in low:440 high:880; do name=${tone%%:*}; hz=${tone##*:}
     -f hls -hls_time 4 -hls_playlist_type vod -hls_segment_type fmp4 -hls_fmp4_init_filename init.mp4 \
     -hls_segment_filename "$name/%05d.m4s" "$name/stream.m3u8"
 done
-python3 -m http.server 8000
+python3 serve.py   # serves the folder on port 8000 and keeps each page's log under logs/
 ```
+
+**`index.html` is the one list of what to do**: the four runs pared to what decides the design, and
+what to report after each. The sections below are the full steps, behind it.
 
 **Open the pages by the Mac's LAN name**, for example `http://<mac>.local:8000/e1-sound.html`, on
 the iPhone, never by `localhost`. The receiver fetches the stream itself, and relative URLs
