@@ -27,7 +27,7 @@ import type { Services } from "./services.tsx";
 
 const grantPath = "/api/v1/bytes/media/g/grant/master.m3u8";
 
-/** A film this tab offers AirPlay for, faked: it notes each start's address and each stop. */
+/** A film this tab offers AirPlay for, faked: it notes each start's address and each Stop pressed. */
 function fakeHere(isPlaying = false): AirPlayHere & { readonly did: string[] } {
   const did: string[] = [];
   return {
@@ -38,7 +38,7 @@ function fakeHere(isPlaying = false): AirPlayHere & { readonly did: string[] } {
     start: (url) => {
       did.push(`start ${url}`);
     },
-    stop: () => {
+    askToStop: () => {
       did.push("stop");
     },
   };
@@ -73,7 +73,7 @@ describe("AirPlay in Cast's menu (D473)", () => {
         <LiveProvider>
           <CastTargets
             film={() => undefined}
-            onAirPlayStarted={() => {
+            onAirPlayPressed={() => {
               closed.push("closed");
             }}
           />
@@ -103,6 +103,14 @@ describe("AirPlay in Cast's menu (D473)", () => {
     expect(buttonWithText(mounted?.container ?? document.body, "AirPlay")).toBeUndefined();
     await click(buttonWithText(mounted?.container ?? document.body, "Stop AirPlay"));
     expect(here.did).toEqual(["stop"]);
+  });
+
+  it("closes the menu at Stop AirPlay, for AirPlay's picker to show over the page (D521 §1)", async () => {
+    const here = fakeHere(true);
+    unoffer = offerAirPlayHere(here);
+    const { closed } = await openMenu();
+    await click(buttonWithText(mounted?.container ?? document.body, "Stop AirPlay"));
+    expect(closed).toEqual(["closed"]);
   });
 
   it("offers no AirPlay where this tab plays nothing that AirPlay is offered for", async () => {

@@ -3467,3 +3467,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Failed 2026-11-18 14:17 (the owner, staging, as a guest by link):** at Stop the picture came
   back to the iPhone and the sound went on playing on the Mac. The page cannot end AirPlay's sound
   route (idiosyncrasies.md); the fix waits on the owner's choice of how Stop ends AirPlay.
+  Superseded by VQ363 (D521 §1).
+- [ ] **VQ363** — Stop AirPlay shows AirPlay's picker, and choosing the iPhone in it brings the
+  film's picture and sound back to the iPhone's page (D521 §1; VQ362 failed: the page alone cannot
+  end AirPlay's sound route). On staging, on the iPhone in Safari, play a film (once signed in,
+  once as a Watch Together guest by link), Cast, AirPlay, and pick the Mac; then Cast, Stop AirPlay.
+  Passes when the Cast menu closes and AirPlay's picker shows; choosing the iPhone in it, the film
+  plays on in the iPhone's page from where the Mac stood, picture and sound on the iPhone, nothing
+  playing on the Mac; and when, doing it again but closing the picker without choosing, the film
+  plays on on the Mac, and Cast still offers Stop AirPlay. A second AirPlay after the first's Stop
+  plays picture and sound on the Mac.
+  (`web/packages/player/src/airplay.ts` `askToStop`, `web/apps/web/src/airplay-entry.tsx`.)

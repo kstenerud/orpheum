@@ -87,6 +87,7 @@ const grant = "https://core.example/api/v1/bytes/media/g/grant/master.m3u8";
 function handedOver(): {
   readonly video: FakeVideo;
   readonly stop: () => void;
+  readonly askToStop: () => void;
   readonly ended: AirPlayLeft[];
 } {
   const video = new FakeVideo();
@@ -103,7 +104,7 @@ function handedOver(): {
       ended.push(left);
     },
   });
-  return { video, stop: playing.stop, ended };
+  return { video, stop: playing.stop, askToStop: playing.askToStop, ended };
 }
 
 describe("AirPlay from the page's own element (D473, Way B)", () => {
@@ -162,6 +163,34 @@ describe("AirPlay from the page's own element (D473, Way B)", () => {
     stop();
     expect(video.disableRemotePlayback).toBe(true);
     expect(video.attributes.has("x-webkit-airplay")).toBe(false);
+  });
+
+  it("at a Stop pressed, shows the picker for the person to choose this device, and ends as they do (D521 §1)", () => {
+    // The owner, VQ362, 2026-11-18: Stop brought the picture back to the iPhone and left its sound
+    // on the Mac, which only the person choosing the iPhone can bring back.
+    const { video, askToStop, ended } = handedOver();
+    video.goWireless(true);
+    video.currentTime = 120;
+    askToStop();
+    expect(video.said.at(-1)).toBe("picker");
+    expect(ended).toEqual([]);
+    expect(video.src).toBe(grant);
+    video.goWireless(false);
+    expect(ended).toEqual([{ positionS: 120, wasPaused: false }]);
+    expect(video.src).toBe("");
+  });
+
+  it("plays on at a Stop pressed when the person keeps the receiver, and ends at once if none was picked", () => {
+    const kept = handedOver();
+    kept.video.goWireless(true);
+    kept.askToStop();
+    vi.advanceTimersByTime(airPlayPickWithinMs * 2);
+    expect(kept.ended).toEqual([]);
+
+    const unpicked = handedOver();
+    unpicked.askToStop();
+    expect(unpicked.ended).toHaveLength(1);
+    expect(unpicked.video.said.filter((each) => each === "picker")).toHaveLength(1);
   });
 
   it("is handed back when no receiver is picked in time, and not while one plays", () => {

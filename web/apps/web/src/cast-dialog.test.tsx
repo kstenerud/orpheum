@@ -80,7 +80,7 @@ describe("Cast's dialog (D384 §2)", () => {
       start: (url) => {
         started.push(url);
       },
-      stop: () => undefined,
+      askToStop: () => undefined,
     });
     try {
       const live = fakeTogetherServer();

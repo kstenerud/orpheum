@@ -193,7 +193,8 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     const plays = vi.spyOn(video, "play").mockResolvedValue(undefined);
     Object.defineProperty(video, "paused", { value: false, configurable: true });
     await act(async () => {
-      airPlayHere()?.stop();
+      airPlayHere()?.askToStop(); // the picker, in which the person chooses this device (D521 §1)
+      goWireless(video, false);
       await Promise.resolve();
     });
     expect(heard.map((each) => each.methodAndPath)).toEqual(["DELETE /airplay/grants"]);

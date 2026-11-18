@@ -43,10 +43,10 @@ import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
 
-/** The film a cast moves, and what is told as the film goes to AirPlay from the menu, to close it. */
+/** The film a cast moves, and what is told as AirPlay or Stop AirPlay is pressed in the menu, to close it. */
 interface CastTargetsProps {
   readonly film: () => CastFilm | undefined;
-  readonly onAirPlayStarted?: (() => void) | undefined;
+  readonly onAirPlayPressed?: (() => void) | undefined;
 }
 
 /**
@@ -113,7 +113,7 @@ export function CastTargets(props: CastTargetsProps): JSX.Element {
             }}
           />
         )}
-        <AirPlayEntry onStarted={props.onAirPlayStarted} />
+        <AirPlayEntry onPressed={props.onAirPlayPressed} />
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>

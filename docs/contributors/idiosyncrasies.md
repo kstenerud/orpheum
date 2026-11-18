@@ -1374,9 +1374,12 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   the video back to the device and leaves the sound on the AirPlay route. hls.js's playback,
   handed the element back, plays its sound down that route. No web API changes the route: the
   person ends it in the picker, choosing the iPhone, or in Control Center.
-- **What we do:** `playOnAirPlay`'s end (`web/packages/player/src/airplay.ts`) still turns the
-  element's remote playback off, which brings the picture back. The sound is not fixed yet; the
-  owner chooses how Stop should end AirPlay (the 2026-11-18 report). `disableRemotePlayback` is
+- **What we do:** Stop AirPlay shows the picker within the press (`askToStop`,
+  `web/packages/player/src/airplay.ts`), for the person to choose the iPhone, which ends the route;
+  AirPlay ends as the element's target stops being wireless, as it does from Control Center (D521
+  §1, VQ363). An end no one pressed (no receiver picked in time, the session ending) has no press to
+  show the picker in: `playOnAirPlay`'s end turns the element's remote playback off, which brings
+  the picture back, and the sound stays on the route till the person ends it. `disableRemotePlayback` is
   toggled, not WebKit's `x-webkit-wirelessvideoplaybackdisabled`, which cannot be turned off again.
 - **Evidence:** the owner's runs and the core's log, 2026-11-18. **[web]** Apple,
   [Opting Into or Out of AirPlay](https://developer.apple.com/library/safari/documentation/AudioVideo/Conceptual/AirPlayGuide/OptingInorOutofAirPlay/OptingInorOutofAirPlay.html):

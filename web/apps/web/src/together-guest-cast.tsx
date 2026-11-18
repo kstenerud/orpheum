@@ -220,7 +220,7 @@ function GuestsCastChoices(props: {
             onCast={cast.start}
           />
         ) : null}
-        {props.isAirPlayOffered ? <AirPlayEntry onStarted={close} /> : null}
+        {props.isAirPlayOffered ? <AirPlayEntry onPressed={close} /> : null}
         {cast.problem === undefined ? null : <p role="alert">{cast.problem}</p>}
       </section>
     </ModalDialog>

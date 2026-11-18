@@ -147,8 +147,11 @@ export interface AirPlayHere {
   readonly isPlaying: () => boolean;
   /** Hands the film to AirPlay from the grant at url, within the press it is called in. */
   readonly start: (url: string) => void;
-  /** Ends AirPlay, handing the film back to the page where it stood. */
-  readonly stop: () => void;
+  /**
+   * Within a press, shows AirPlay's picker for the person to choose this device, AirPlay ending as
+   * they do, the film handed back to the page where it stood (D521 §1).
+   */
+  readonly askToStop: () => void;
 }
 
 let offered: AirPlayHere | undefined;
@@ -201,8 +204,9 @@ export interface AirPlayHandOff {
 /**
  * Offers AirPlay for the playback mediaToken names in the video, while the calling player lives,
  * where the page offers AirPlay (isAirPlayOffered): started from the Cast menu (airPlayHere), it is
- * handed back (handOff) and its grant revoked as AirPlay ends, at Stop or as the target stops being
- * wireless; the player going away ends it too. Its grant is asked for and revoked by whom
+ * handed back (handOff) and its grant revoked as AirPlay ends, as the target stops being wireless (the
+ * person choosing this device, in the picker Stop shows or in Control Center); the player going away
+ * ends it at once. Its grant is asked for and revoked by whom
  * AirPlayGrantsContext names.
  */
 export function useOffersAirPlay(
@@ -241,8 +245,8 @@ export function useOffersAirPlay(
           },
         });
       },
-      stop: () => {
-        playing?.stop();
+      askToStop: () => {
+        playing?.askToStop();
       },
     };
     const unoffer = offerAirPlayHere(here);

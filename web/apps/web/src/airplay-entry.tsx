@@ -22,32 +22,31 @@ import { useResource } from "./use-resource.ts";
  * where the page reaches the core at a name a receiver can reach too (grantOriginOf), never over
  * WebRTC alone. Its grant is asked for as the menu opens, so the press keeps its gesture for Safari's
  * picker; till the grant is had, or where it was refused, AirPlay is not pressable. Pressed, the film
- * goes to AirPlay and onStarted is told, to close the menu. While the film plays on AirPlay, Stop
- * AirPlay is offered instead, which hands it back to this page. Left open as the film changes, it
+ * goes to AirPlay and onPressed is told, to close the menu. While the film plays on AirPlay, Stop
+ * AirPlay is offered instead, which shows AirPlay's picker for the person to choose this device, the
+ * film coming back to this page as they do (D521 §1), and closes the menu too. Left open as the film changes, it
  * offers the new film's AirPlay, by a grant of its own. A Watch Together guest by link's Cast dialog
  * offers it too, its grant their membership's (D519 §1, together-guest-cast.tsx).
  */
 export function AirPlayEntry(props: {
-  readonly onStarted?: (() => void) | undefined;
+  readonly onPressed?: (() => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { pathMoves } = useServices();
   const here = useAirPlayHere();
   const [origin] = useState(() => grantOriginOf(pathMoves, globalThis.location.origin, noLog));
-  // The film Stop AirPlay was pressed for, which no longer plays on AirPlay.
-  const [stopped, setStopped] = useState<AirPlayHere | undefined>(undefined);
   if (here === undefined || origin === undefined) {
     return null;
   }
-  if (here.isPlaying() && stopped !== here) {
+  if (here.isPlaying()) {
     return (
       <>
         <hr className="cast-to__separator" />
         <button
           type="button"
           onClick={() => {
-            here.stop();
-            setStopped(here);
+            here.askToStop();
+            props.onPressed?.();
           }}
         >
           <FindDevicesIcon />
@@ -56,14 +55,14 @@ export function AirPlayEntry(props: {
       </>
     );
   }
-  return <AirPlayStart here={here} origin={origin} onStarted={props.onStarted} />;
+  return <AirPlayStart here={here} origin={origin} onPressed={props.onPressed} />;
 }
 
 /** AirPlay pressable once the grant asked for as it shows is had; pressed, the film goes to it. */
 function AirPlayStart(props: {
   readonly here: AirPlayHere;
   readonly origin: string;
-  readonly onStarted?: (() => void) | undefined;
+  readonly onPressed?: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -83,7 +82,7 @@ function AirPlayStart(props: {
         onClick={() => {
           if (grant.state === "loaded") {
             here.start(grant.value.url);
-            props.onStarted?.();
+            props.onPressed?.();
           }
         }}
       >
