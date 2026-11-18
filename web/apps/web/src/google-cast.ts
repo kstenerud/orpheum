@@ -88,14 +88,14 @@ export function askGuestCastGrantOf(api: Api): AskGuestCastGrant {
 
 /**
  * Asks the core of api, by the credential of a Watch Together guest's membership, for a grant for
- * the Google Cast device receiverName to take the guest's part in their session (D518 §1). The route
- * takes no key: a repeat asks for a second grant, the first one expiring unused.
+ * the Google Cast device receiverName to take the guest's part in their session (D518 §1), under a
+ * key of its own, as the menu's choice sends it: a repeat is answered with the first grant.
  */
 export function askTogetherCastGrantOf(api: Api, credential: string): AskGuestCastGrant {
   return async (receiverName) =>
     dataOrThrow(
       await api.POST("/together/cast-grants", {
-        headers: membershipHeaders(credential),
+        headers: { ...idempotent(newIdempotencyKey()).headers, ...membershipHeaders(credential) },
         body: { receiverName },
       }),
     ).grant;
