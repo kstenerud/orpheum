@@ -237,35 +237,6 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 	}
 }
 
-// stopsAtItsLeadersEnd stops a Watch Together group whose leader's player, host's or guest's, played
-// its film to its end with nothing after it in the host's ordering, as the host's Stop does, for the
-// host: the guests go back to what they had before the host put a film on (D516 §1). The leader's
-// player says only that it reached the end; what plays next the hub found (findNothingNext), and no
-// guest's command is taken for it (D516 §2). Whether it stopped.
-func (current *session) stopsAtItsLeadersEnd(now time.Time, from *device, message Inbound) bool {
-	if !message.isNothingNext || !current.atItsLeadersEnd(from.id, message) {
-		return false
-	}
-	for _, each := range current.members {
-		if each.isHost {
-			current.stop(now, each.id)
-			return true
-		}
-	}
-	return false
-}
-
-// atItsLeadersEnd is whether message is the state of deviceID, the Watch Together session's leader,
-// saying its player played the group's film to its end: playing, or paused there, as a leading
-// player's own end pauses its group (commandOfEvent, in the SDK) where its state comes after. A cast's
-// own session is left as it is: its receiver's page moves it on or waits ready for the next video
-// (D364 §5).
-func (current *session) atItsLeadersEnd(deviceID int64, message Inbound) bool {
-	return message.Type == MessageState && message.IsAtTheEnd && !current.isCast &&
-		deviceID != 0 && deviceID == current.leaderID &&
-		current.group.fileID != 0 && message.FileID == current.group.fileID
-}
-
 // leaderCatchesUp takes the state of a leader catching up to its group after a stall the group played
 // on through (D374): out of step, behind the group or ahead of it, playing or waiting paused ahead
 // for it as a follower does, it moves the group not at all, so the group never steps back for the

@@ -734,27 +734,6 @@ func (hub *Hub) findNeighbour(ctx context.Context, attachment Attachment, messag
 	}
 }
 
-// findNothingNext finds, for the state of a session's leader whose player played the group's film
-// to its end, whether nothing plays after it in the host's ordering, as a next would find it
-// (neighbourOf): the group then stops (stopsAtItsLeadersEnd, D516). Another device's end is not
-// looked up.
-func (hub *Hub) findNothingNext(ctx context.Context, attachment Attachment, message *Inbound) {
-	if message.Type != MessageState || !message.IsAtTheEnd || !hub.isLeadersEnd(attachment, *message) {
-		return
-	}
-	_, _, found := hub.neighbourOf(ctx, attachment.SessionID, message.FileID, true)
-	message.isNothingNext = !found
-}
-
-// isLeadersEnd is whether message is the state of attachment's device, its session's leader, whose
-// player played the group's film to its end (atItsLeadersEnd).
-func (hub *Hub) isLeadersEnd(attachment Attachment, message Inbound) bool {
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	held, found := hub.sessions[attachment.SessionID]
-	return found && held.atItsLeadersEnd(attachment.DeviceID, message)
-}
-
 // neighbourOf is the film after fileID (isNext) or before it in the host of sessionID's ordering, one
 // the host may play, and where the host is partway through it; false where there is none, or no
 // ordering is known (MovesAlongBy).
