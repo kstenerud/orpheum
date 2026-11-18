@@ -18,9 +18,18 @@ import {
 export const chunkFirstByteWaitMs = 30_000;
 
 /**
- * How many times a chunk the core says is being made (425) is asked for again, a second or two
- * apart: over a minute and a half, longer than a player catching up waits for the run already
- * making its quality to reach where it jumped to, at most a minute of film ahead (D250 §4, §5).
+ * How long after the core's 425, "being made", a chunk is first asked for again, hls.js doubling the
+ * wait each time after, to two seconds at most: a quarter second, where it was a second, as a sought
+ * chunk is made in a quarter to three fifths of one and the second's wait was most of a seek's
+ * (staging, 2026-11-17; D514).
+ */
+export const chunkAskAgainFirstMs = 250;
+
+/**
+ * How many times a chunk the core says is being made (425) is asked for again, two seconds apart
+ * after the first few: over a minute and a half, longer than a player catching up waits for the run
+ * already making its quality to reach where it jumped to, at most a minute of film ahead (D250 §4,
+ * §5).
  */
 export const chunkAskAgainCount = 90;
 
@@ -28,14 +37,15 @@ export const chunkAskAgainCount = 90;
  * How many times in a row a chunk's load that nothing answered (unansweredStatus) is asked for again
  * while the browser is online, at the quality chosen as before, before hls.js takes it for its
  * quality's failure and loads a lower one: its connection was lost, not its quality, and asked again,
- * hls.js waiting errorRetry's 1 s and then 2 s, it goes on the connection that replaced it, which the
+ * hls.js waiting errorRetry's 250 ms, 500 ms, 1 s and then 2 s, as long in all as the 1 s and 2 s it
+ * waited before chunkAskAgainFirstMs (D514), it goes on the connection that replaced it, which the
  * transport holds it for until one is up. Taken for its quality's failure, a chunk of the owner's
  * Firefox on Wi-Fi dropping out, lost with its WebRTC connection (replaced within half a second),
  * forced the quality from level 5 to 4 for a minute and left a 0.17 s hole, stepped over with a
  * 252 ms stand-still (staging, 2026-11-12). Offline, hls.js asks again itself once the browser is
  * back.
  */
-export const unansweredAskAgainCount = 2;
+export const unansweredAskAgainCount = 4;
 
 /** The core's statuses after which a chunk is never asked for again, whatever hls.js would do. */
 const neverAskedAgain: ReadonlySet<number> = new Set([
@@ -72,7 +82,8 @@ function isChunkAskedAgain(
 
 /**
  * How a chunked playback loads its chunks: waiting as long as the core may hold one being made,
- * and asking again after the core's 425, "being made", every second or two for chunkAskAgainCount
+ * and asking again after the core's 425, "being made", a quarter second after it and then up to every
+ * two seconds for chunkAskAgainCount
  * times, and after a load nothing answered unansweredAskAgainCount times in a row, at its quality
  * (isChunkAskedAgain); hls.js's own defaults give up after ten seconds, and never ask again after a
  * 425.
@@ -84,7 +95,7 @@ export const chunkLoadPolicy: LoadPolicy = {
     timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 },
     errorRetry: {
       maxNumRetry: chunkAskAgainCount,
-      retryDelayMs: 1000,
+      retryDelayMs: chunkAskAgainFirstMs,
       maxRetryDelayMs: 2000,
       shouldRetry: isChunkAskedAgain,
     },

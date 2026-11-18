@@ -29952,3 +29952,29 @@ to series.
 - 4: internal/core/identify/spellings_test.go (TestMatch_AFilmItsNameFindsNotIsFoundWithoutItsMovieOrByItsFolder, TestSpellingVariants_AreTheOtherWaysANameIsWritten)
 
 **Status:** §1–§4 built (2026-11-17) in "fix(identify): a series with no year takes the well-known of its namesakes, as a film does", at `likeliestSeries`, and "fix(identify): a series' folder with no year takes the year of a name beneath it", at `yearBeneath`, and "fix(identify): a search in a year that finds nothing is made once more with none", at `searchWithoutYear`, and "fix(identify): a film whose name finds nothing is searched without its Movie, then by its folder", at `withoutTrailingMovie` and `searchTitle`; §5 not built, waiting for its schema step.
+
+## D514 — A chunk the core is making is asked for again a quarter second after its 425
+
+**Decided** (2026-11-18), by the project owner, choosing the first of three ways offered. A seek on
+staging saw its chunk after 1.25–1.45 s, where the node had it made in 0.22–0.59 s (D512's
+measurement, 2026-11-17): the core answers a chunk not made yet with 425 at once (`chunkHoldMs`,
+0 by default, as its setting cites
+[D250](#d250--a-watch-together-group-stops-only-at-its-own-sync-points-a-members-trouble-is-theirs-to-catch-up-on-from-what-is-already-being-made)
+§5), and hls.js asked again a second after, the wait most of the seek's. The second was the
+player's own retry setting, which no decision named.
+
+1. **After a 425 the player asks again in 250 ms**, hls.js doubling the wait each time after, to its
+   two seconds at most (`chunkAskAgainFirstMs`). A seek's chunk is then seen within about a
+   quarter second of its being made. The core still answers at once: a request held counts as the
+   chunk's download, and hls.js takes its link for slower, as `chunkHoldMs` says, which the other way offered,
+   holding a sought chunk's request for up to 0.7 s, risked.
+2. **A chunk lost with its connection is asked again four times, not two**, as the same doubling
+   waits from 250 ms: 3.75 s in all, as long as the 1 s and 2 s it had, so it still goes on the
+   connection that replaced the lost one before hls.js tries a lower quality.
+
+**Proven by:** web/packages/player/src/chunked.test.ts ("asks again a quarter second after a 425,
+then doubling the wait, two seconds at most"; "asks again after a 425 for longer than a player
+catching up waits ahead").
+
+**Status:** decided (2026-11-18); being built.
+

@@ -2,7 +2,12 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import Hls, { LoadStats, type LoaderConfiguration, type LoaderContext } from "hls.js";
+import Hls, {
+  LoadStats,
+  type LoaderConfiguration,
+  type LoaderContext,
+  type RetryConfig,
+} from "hls.js";
 
 import {
   catchUpSeekEvent,
@@ -86,14 +91,23 @@ describe("whether a playback loads its lowest quality (D506 §3)", () => {
 });
 
 describe("loading a chunk the core is making (D250 §5)", () => {
+  // D514: a sought chunk is made in a quarter to three fifths of a second, and the second's wait
+  // before it was asked for again was most of a seek's (staging, 2026-11-17).
+  it("asks again a quarter second after a 425, then doubling the wait, two seconds at most", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(
+      retry === null || retry === undefined
+        ? []
+        : [0, 1, 2, 3, 4].map((count) => delayOf(retry, count)),
+    ).toEqual([250, 500, 1000, 2000, 2000]);
+  });
+
   it("asks again after a 425 for longer than a player catching up waits ahead", () => {
     const retry = chunkLoadPolicy.default.errorRetry;
     expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 425 }, false)).toBe(
       true,
     );
-    expect((retry?.maxNumRetry ?? 0) * (retry?.retryDelayMs ?? 0)).toBeGreaterThan(
-      waitAheadAtMostMs,
-    );
+    expect(askingAgainForMs(retry)).toBeGreaterThan(waitAheadAtMostMs);
     // A 429, the core having no room to make it, is not asked for again (D250 §6).
     expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 429 }, true)).toBe(
       false,
@@ -611,3 +625,21 @@ describe("a playback's chunk loader", () => {
     expect(watch.read()).toEqual({ arrivedBytes: 0, neededBytes: 500_000, linksForMs: 0 });
   });
 });
+
+/** How long hls.js waits before asking again the count-th time, as its getRetryDelay does. */
+function delayOf(retry: RetryConfig, count: number): number {
+  const factor = retry.backoff === "linear" ? 1 : 2 ** count;
+  return Math.min(factor * retry.retryDelayMs, retry.maxRetryDelayMs);
+}
+
+/** How long hls.js goes on asking a chunk again, every wait of retry's added up. */
+function askingAgainForMs(retry: RetryConfig | null | undefined): number {
+  if (retry === null || retry === undefined) {
+    return 0;
+  }
+  let total = 0;
+  for (let count = 0; count < retry.maxNumRetry; count++) {
+    total += delayOf(retry, count);
+  }
+  return total;
+}

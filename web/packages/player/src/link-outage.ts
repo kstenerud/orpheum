@@ -11,8 +11,8 @@
 
 /**
  * The least an outage lasts, in milliseconds, for a playback to load deeper ahead after it: longer
- * than a WebRTC connection's replacement, half a second, with hls.js's two asks again after it, 1 s
- * then 2 s (chunk-load-policy.ts's unansweredAskAgainCount; the owner's Firefox, staging,
+ * than a WebRTC connection's replacement, half a second, with hls.js's four asks again after it,
+ * 250 ms, 500 ms, 1 s and 2 s (chunk-load-policy.ts's unansweredAskAgainCount; the owner's Firefox, staging,
  * 2026-11-12), and a third of the 30 s a playback holds below its top (loadsAheadBelowTopS): an outage
  * shorter than that was covered by what was held. A justified constant, the lead's (D487 §1).
  */

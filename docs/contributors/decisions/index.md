@@ -519,6 +519,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D511](working-notes.md#d511--a-failure-of-unknown-cause-keeps-everything-it-said-makes-its-thing-unavailable-and-is-tried-once-at-each-start) A failure of unknown cause keeps everything it said, makes its thing unavailable, and is tried once at each start
 - [D512](working-notes.md#d512--a-chunk-run-of-an-mp4-with-a-long-index-is-served-the-index-cut-down-to-its-stretch) A chunk run of an MP4 with a long index is served the index cut down to its stretch
 - [D513](working-notes.md#d513--a-search-that-finds-nothing-tries-the-series-order-its-year-beneath-no-year-no-movie-and-its-folder-and-is-made-again-when-the-rules-change) A search that finds nothing tries the series' order, its year beneath, no year, no "Movie" and its folder, and is made again when the rules change
+- [D514](working-notes.md#d514--a-chunk-the-core-is-making-is-asked-for-again-a-quarter-second-after-its-425) A chunk the core is making is asked for again a quarter second after its 425
 
 ## Archived
 
