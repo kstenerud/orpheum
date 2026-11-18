@@ -7,7 +7,12 @@ import { castTo } from "./lab-cast-sdk.ts";
 
 /** Puts a Cast context whose requestSession answers as requested on the page's globals. */
 function givenCastContext(requestSession: () => Promise<unknown>): void {
-  const castContext = { setOptions: () => undefined, requestSession };
+  const castContext = {
+    setOptions: () => undefined,
+    requestSession,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  };
   Reflect.set(globalThis, "cast", {
     // eslint-disable-next-line @typescript-eslint/naming-convention -- the Cast SDK's own name
     framework: { CastContext: { getInstance: () => castContext } },

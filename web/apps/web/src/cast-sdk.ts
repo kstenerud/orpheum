@@ -40,13 +40,20 @@ export function call(
   return Reflect.apply(method, holder, methodArguments);
 }
 
-/** A failure the SDK gave as a bare error code, kept as code: "cancel" is the person's own choice. */
+/**
+ * A failure the SDK gave as a bare error code, kept as code: "cancel" is the person's own choice.
+ * isPicked is whether a device had been picked as it failed: where none was, the person closed the
+ * picker, whatever the code (Chrome answers "session_error" to a picker closed having found no
+ * device, the owner's 2026-11-18 console; docs/contributors/idiosyncrasies.md).
+ */
 export class CastSdkFailure extends Error {
   readonly code: string;
+  readonly isPicked: boolean;
 
-  constructor(code: string) {
+  constructor(code: string, isPicked = true) {
     super(`the Cast SDK answered ${code}`);
     this.code = code;
+    this.isPicked = isPicked;
   }
 }
 
@@ -66,7 +73,7 @@ export function isNotListenedOn(cause: unknown): boolean {
 
 /** Whether cause is the person closing Chrome's Cast picker without choosing a device. */
 export function isCancelledByThePerson(cause: unknown): boolean {
-  return cause instanceof CastSdkFailure && cause.code === cancelledCode;
+  return cause instanceof CastSdkFailure && (cause.code === cancelledCode || !cause.isPicked);
 }
 
 /**
@@ -150,9 +157,31 @@ export async function openCastSession(appId: string): Promise<unknown> {
     receiverApplicationId: appId,
     autoJoinPolicy: at(globalThis, "chrome", "cast", "AutoJoinPolicy", "ORIGIN_SCOPED"),
   });
-  const failure = await answerOf(call(context, "requestSession"));
+  // A session starts only once a device is picked: none heard starting, the picker was closed.
+  const changed = at(
+    globalThis,
+    "cast",
+    "framework",
+    "CastContextEventType",
+    "SESSION_STATE_CHANGED",
+  );
+  const starting = at(globalThis, "cast", "framework", "SessionState", "SESSION_STARTING");
+  let isPicked = false;
+  const heard = (event: unknown): void => {
+    isPicked ||= at(event, "sessionState") === starting;
+  };
+  call(context, "addEventListener", changed, heard);
+  let failure: unknown;
+  try {
+    failure = await answerOf(call(context, "requestSession"));
+  } catch (cause) {
+    // The SDK rejects with its code, or answers it: either way, a failure says whether one was picked.
+    throw cause instanceof CastSdkFailure ? new CastSdkFailure(cause.code, isPicked) : cause;
+  } finally {
+    call(context, "removeEventListener", changed, heard);
+  }
   if (typeof failure === "string") {
-    throw new CastSdkFailure(failure);
+    throw new CastSdkFailure(failure, isPicked);
   }
   const session = call(context, "getCurrentSession");
   if (session === null || session === undefined) {

@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
 | A seek in a very long MP4 (file 15497, 45 h) waited 5–8 s before its first chunk. | [FFmpeg's MP4 demuxer parses the whole index at every open, and says a stream's bit rate from all of it](#ffmpegs-mp4-demuxer-parses-the-whole-index-at-every-open-and-says-a-streams-bit-rate-from-all-of-it) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
+| Chrome's Cast picker listed no device; closed, the page said a failure the app does not expect. | [Chrome's Cast picker, closed having found no device, answers session_error, not cancel](#chromes-cast-picker-closed-having-found-no-device-answers-session_error-not-cancel) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
 | Firefox on a Linux laptop never signed in to the production core ("can't reach the server from this network"); Chromium on it did. | [pion's UDP mux on every address gives several host candidates one socket, and a connection never chooses a pair](#pions-udp-mux-on-every-address-gives-several-host-candidates-one-socket-and-a-connection-never-chooses-a-pair) |
@@ -1357,6 +1358,25 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   41784137](https://stackoverflow.com/questions/41784137/webrtc-doesnt-work-with-audiocontext),
   [53325793](https://stackoverflow.com/questions/53325793/no-audio-from-webrct-stream-on-chrome-without-audio-tag)).
 
+
+### Chrome's Cast picker, closed having found no device, answers session_error, not cancel
+
+- **Symptom:** a Watch Together guest pressed Chromecast in Chrome on the Mac; Chrome's picker
+  listed no device, they closed it, and the page said a failure the app does not expect. The
+  console: "the Cast SDK answered session_error" (the owner, staging, 2026-11-18).
+- **Cause:** the SDK's `requestSession` answers "cancel" only where the picker listed devices and
+  the person closed it; closed having listed none, it answered "session_error", the code it also
+  gives a picked device whose session could not start.
+- **What we do:** the code alone cannot tell the two apart, so `openCastSession`
+  (`web/apps/web/src/cast-sdk.ts`) listens for the context's `SESSION_STARTING`, which comes only
+  once a device is picked: a failure with none heard is the person's closing of the picker, and
+  the page says nothing (`cast-sdk.test.ts`). Why the picker listed no device that time is not
+  known yet.
+- **Evidence:** the owner's console, 2026-11-18. **[web]** the SDK's error codes
+  ([chrome.cast reference](https://developers.google.com/cast/docs/reference/web_sender/chrome.cast))
+  name "cancel" as the person's but say nothing of a picker closed empty; a Chromium review
+  ([2533073002](https://codereview.chromium.org/2533073002)) notes the SDK tells a closed dialog
+  from a failed session by the error Chrome gives it (read 2026-11-18).
 
 ### Chrome DevTools' network throttling does not slow a service worker's requests
 
