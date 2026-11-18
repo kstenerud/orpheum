@@ -478,7 +478,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D470](working-notes.md#d470--a-lists-sort-and-filters-are-kept-for-the-way-back-to-it-in-its-address-alone-the-banner-opens-it-at-its-defaults) A list's sort and filters are kept for the way back to it, in its address alone; the banner opens it at its defaults
 - [D471](working-notes.md#d471--a-client-sends-only-what-its-rights-allow-a-guests-link-may-give-next-and-previous) A client sends only what its rights allow; a guest's link may give next and previous
 - [D472](working-notes.md#d472--connects-operator-console-before-the-beta-its-actions-a-fresh-passkey-touch-before-each-that-destroys-over-wireguard) Connect's operator console before the beta: its actions, a fresh passkey touch before each that destroys, over WireGuard
-- [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab — *revisited by D474, D521*
+- [D473](working-notes.md#d473--airplays-grant-may-be-in-the-medias-path-for-a-day-bound-to-the-tvs-address-and-airplay-leaves-the-lab) AirPlay's grant may be in the media's path, for a day, bound to the TV's address, and AirPlay leaves the lab — *revisited by D474, D521, D523*
 - [D474](working-notes.md#d474--an-airplay-grant-serves-its-senders-address-always-and-binds-to-the-first-other) An AirPlay grant serves its sender's address always and binds to the first other
 - [D475](working-notes.md#d475--a-list-a-client-may-read-whole-comes-in-one-answer-its-limit-left-out) A list a client may read whole comes in one answer, its limit left out — *revisited by D478*
 - [D476](working-notes.md#d476--the-shells-first-read-carries-what-it-reads-as-it-starts-and-home-answers-its-rows-in-one-read) The shell's first read carries what it reads as it starts, and Home answers its rows in one read
@@ -528,6 +528,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D520](working-notes.md#d520--one-device-casts-to-one-other-at-a-time-and-a-guest-by-link-is-always-offered-airplay-the-server-refusing-what-their-link-does-not-allow) One device casts to one other at a time, and a guest by link is always offered AirPlay, the server refusing what their link does not allow
 - [D521](working-notes.md#d521--stop-airplay-opens-airplays-picker-for-the-person-to-choose-this-device-and-airplay-plays-the-sound-the-page-plays) Stop AirPlay opens AirPlay's picker for the person to choose this device, and AirPlay plays the sound the page plays — *revisited by D522*
 - [D522](working-notes.md#d522--an-airplay-grants-master-offers-only-the-sound-the-page-plays-and-a-guests-sync-gives-airplay-room) An AirPlay grant's master offers only the sound the page plays, and a guest's sync gives AirPlay room
+- [D523](working-notes.md#d523--airplay-is-webkits-own-handover-followed-by-its-flag-alone-with-airplay-controls-in-place-of-stop-and-one-cast-at-a-time) AirPlay is WebKit's own handover, followed by its flag alone, with AirPlay controls in place of Stop and one cast at a time
 
 ## Archived
 

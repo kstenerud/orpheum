@@ -30228,3 +30228,52 @@ that pause to the group as a pause the guest had made (`leaderCommand command=pa
 - 2: web/packages/sdk/src/together-follow-receiver.test.ts ("leaves a receiver a second behind its group alone: no nudge and no seek"; "still nudges a local player a second behind, as before"; "corrects a receiver once it is further than about 2 s behind"; "holds a receiver 280 ms off its paused group where it is, and seeks a local player there"; "sends no pause for the receiver's answer to its own play, and the guest's own pause later"; "takes a pause or play after its own seek on a receiver for the receiver's, never on a local player"), web/apps/web/src/together-viewer-receiver.test.tsx ("leaves the receiver 280 ms off its paused group where it is"), VQ364
 
 **Status:** decided (2026-11-18); built (2026-11-18).
+
+## D523 — AirPlay is WebKit's own handover, followed by its flag alone, with AirPlay controls in place of Stop and one cast at a time
+
+**Decided** (2026-11-18), by the project owner. The lab's runs 1–4
+(design/research/airplay-2026-11-18-research.md, E1–E4) settled what a page can do. The owner then chose
+the research's design B, and answered the proposal's three questions with "yes to your
+recommendations". On Stop: "rather than display "stop casting" when dealing with airplay, we'll need
+an "Airplay controls" button since we can't control what happens - it's all in a dialog we can't see,
+and can't predict what the user will or will not do." On other casts: "I only want one cast target to
+be running at a time, so if airplay is casting, we shouldn't allow the user to cast to another device
+at the same time." Amends D473 (the page's own handover) and D521 §1 (Stop AirPlay); keeps D521 §2
+and D522.
+
+1. **WebKit hands the film over.** hls.js moves from 1.7.3 to 1.7.4, whose `isMediaSourceReplaced`
+   lets go of the element cleanly (E3, run 1b). Pressing AirPlay adds the grant's master to the
+   element as an HLS `<source>` alternative, then shows the picker within the press. WebKit moves the
+   film to the receiver itself, from where it stood. The page no longer lets go of hls.js, sets
+   `src`, seeks, or runs a pick timer. A picker closed with nothing chosen changes nothing (E2). The
+   grant is still asked for as the menu opens: a late alternative works (E3, C), so no grant is made
+   for a playback no one AirPlays.
+2. **The flag alone says whether AirPlay plays.** The page shows AirPlay as on when
+   `webkitCurrentPlaybackTargetIsWireless` rises, and as off once it has stayed false for 1 s: it
+   fell for 100–150 ms at WebKit's switch and at a sound's reload (E1, E3). No press sets it, and
+   every change of route is the person's, made in a dialog the page cannot see (E2, E4; agent-failures
+   A84).
+3. **The sound.** The page sets the starting sound itself, as Safari otherwise picks it by the
+   device's language (E1). A sound changed during AirPlay makes a grant for the new sound and reloads
+   it where the film stands: the route and the position held, with under 0.5 s of silence (E1). The
+   grant's master keeps offering one sound (D522 §1).
+4. **Back on this device, the film goes back to hls.js.** Once AirPlay is off (§2), the page puts the
+   film back on hls.js where it stands, with the alternative ready for the next AirPlay. WebKit leaves
+   it on Safari's own player otherwise (E3), which has no quality ladder and none of the page's sound
+   handling. How long the page waits before reattaching is set by the lab's run 5, which tries a
+   quick return to the receiver before and after it.
+5. **The receiver's controls.** Its pause and play arrive as a pause and a play; its scrub as a pause,
+   then a play at the new place, with no seek event (E4). A Watch Together guest's sync takes such a
+   pair for the receiver's move, not the guest's (D522 §2).
+6. **AirPlay controls in place of Stop.** While AirPlay plays, Cast's menu, and a Watch Together
+   guest's Cast dialog, say "Playing on AirPlay" (the page cannot learn the receiver's name) and
+   offer one button, AirPlay controls, which shows the picker and closes the menu. There is no Stop.
+   Cast's sign over the film shows a cast on, as for a device's.
+7. **One cast at a time.** While AirPlay plays, Cast's menu offers no device and no Chromecast. While
+   this device casts to a device or a Chromecast, its page is the cast's remote and plays no film,
+   so AirPlay is not offered; a test keeps it so.
+
+**Not covered:** AirPlay started from Control Center, without the menu, has no alternative to switch
+to. The page shows it on, by §2; a device check says what it does, and a fix follows.
+
+**Status:** decided (2026-11-18); the build waits on the lab's run 5 (§4).
