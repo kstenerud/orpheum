@@ -4592,3 +4592,25 @@ receiver's idle line is said once"** and is on staging. Owed by the owner: VQ356
    always offered; the server refuses what the link does not allow, and a control pressed on the
    AirPlay device (its remote, the phone's lock screen) changes nothing for the group.
 5. The signed-in Cast menu waiting for the old AirPlay grant's revoke before offering the new film's: "Fine".
+
+### AirPlay from the page, back to basics after the release (the owner, 2026-11-18)
+
+After VQ364 passed on D522, the owner found two faults (VQ366): a sound changed on the iPhone while
+AirPlay played did not reach the Mac until AirPlay ended, and after Stop AirPlay, with the iPhone
+not chosen in the picker, the page said AirPlay played when it did not. The owner: "What we have is
+a hacky, brittle solution", and "Let's push this mostly-working solution out in a release, and then
+go back to basics to find a proper solution. Research, competitor analysis, experiments, the works."
+
+- **First:** the 11-19 batch's check-pr, then the release with D521 and D522 as they are.
+- **Then, as its own piece of work:** research how web players and native apps hand a film to
+  AirPlay and keep their own state honest (what WebKit tells a page, the Remote Playback API,
+  AVFoundation's media selection, how others choose the sound and end the route), with
+  experiments on the iPhone and the Mac, and a design for the owner. The lead's proposal so far
+  (not chosen): the page shows AirPlay only from Safari's own wireless-target signal, never from
+  what was pressed, and a sound changed while AirPlaying gets a new grant and reloads the
+  receiver where it was.
+- **Filed with it, from this batch's runs:** the pause on the way to the Mac before D522 §2; a
+  guest's join that sent nothing for 45 s and was dropped before it caught up (16:32 UTC); the
+  live socket's hello still logs `client=""` under the loader (`live.tsx`, the same change as the
+  together hello's); a grant asked with no track follows the playback's current sound, not
+  strictly the starting track (`asPlayed`); a moved-down ladder's sound cannot be changed.
