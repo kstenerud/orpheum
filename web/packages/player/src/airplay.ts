@@ -101,16 +101,7 @@ export function playOnAirPlay(
     isEnded = true;
     clearTimeout(unpicked);
     element.removeEventListener(wirelessChangedEvent, onWirelessChanged);
-    const left = { positionS: element.currentTime, wasPaused: element.paused };
-    // Remote playback off again, as before the handover, which brings the picture back to the page.
-    // The sound stays on the AirPlay route the picker chose, which only the person can end (the
-    // owner, VQ362, 2026-11-18; docs/contributors/idiosyncrasies.md).
-    element.disableRemotePlayback = true;
-    element.removeAttribute("x-webkit-airplay");
-    element.pause();
-    element.removeAttribute("src");
-    element.load();
-    hand.onEnded(left);
+    hand.onEnded(emptied(element));
   }
   function onWirelessChanged(): void {
     if (element.webkitCurrentPlaybackTargetIsWireless === true) {
@@ -128,20 +119,41 @@ export function playOnAirPlay(
       end(); // no receiver is picked, so nothing plays the sound but this device
       return;
     }
-    try {
-      element.webkitShowPlaybackTargetPicker?.();
-    } catch {
+    if (!isPickerShown(element)) {
       end();
     }
   }
   const playing = { askToStop, stop: end };
   element.addEventListener(wirelessChangedEvent, onWirelessChanged);
-  try {
-    element.webkitShowPlaybackTargetPicker?.();
-  } catch {
+  if (!isPickerShown(element)) {
     end();
     return playing;
   }
   element.play().catch(() => undefined); // a refusal leaves it paused, for the person's press
   return playing;
+}
+
+/** Shows Safari's AirPlay picker for element, within the press it is called in; false where it threw. */
+function isPickerShown(element: AirPlayVideo): boolean {
+  try {
+    element.webkitShowPlaybackTargetPicker?.();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Takes element back from AirPlay, emptied, and says where it stood, paused or not. */
+function emptied(element: AirPlayVideo): AirPlayLeft {
+  const left = { positionS: element.currentTime, wasPaused: element.paused };
+  // Remote playback off again, as before the handover, which brings the picture back to the page.
+  // The sound stays on the AirPlay route the picker chose, which only the person can end, choosing
+  // this device (D521 §1; docs/contributors/idiosyncrasies.md).
+  const taken = element;
+  taken.disableRemotePlayback = true;
+  taken.removeAttribute("x-webkit-airplay");
+  taken.pause();
+  taken.removeAttribute("src");
+  taken.load();
+  return left;
 }
