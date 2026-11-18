@@ -49,6 +49,16 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A83 — Gave the owner a release's signing command as an installed program, which it is not (2026-11-18)
+
+- **What happened:** handing over v0.8.5, the lead told the owner to run
+  `discovery-sign release v0.8.5`. The tool is not installed anywhere. It runs from the source, as
+  `go run ./cmd/discovery-sign release <version> --folder ~/orpheum-security`
+  (docs/users/discovery-signing.md §Releases), and the folder was left out as well.
+- **Caught by:** the owner: `-bash: discovery-sign: command not found`.
+- **Gate:** none. The lesson: a command handed to the owner is copied from the user guide that
+  documents it, not written from memory.
+
 ### A82 — Told the owner a sound changed during AirPlay would reach the receiver, with nothing built for it (2026-11-18)
 
 - **What happened:** asking the owner to choose D522 §1, the lead wrote that the person changes the
