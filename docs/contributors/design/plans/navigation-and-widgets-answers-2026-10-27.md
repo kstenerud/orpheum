@@ -4563,8 +4563,10 @@ receiver's idle line is said once"** and is on staging. Owed by the owner: VQ356
 3. A cast's film ended with an episode next: the existing rules come first ("if they have autoplay
    on, it does so, and it asks them to confirm they're still watching if a few episodes have played
    with no input from them"). The receiver's 20 minutes count only while it stands at the end with
-   nothing moving it on; with nothing next, the film is taken off and the black screen closes after
-   5 minutes.
+   nothing moving it on; with nothing next, the film is taken off and the black screen waits 20
+   minutes too: "yes, 20 minutes for all of those chromecast cases". Built: "feat(cast-receiver): a
+   receiver whose film ended with nothing next waits 20 minutes, as a paused one" (5 minutes only for
+   a receiver no film was ever put on).
 4. The signing command refuses a record naming another registry than the last release signed:
    "yes". Built: "feat(discovery-sign): release refuses a record naming another registry than the
    last release signed" (`--new-registry` for a move made on purpose).
