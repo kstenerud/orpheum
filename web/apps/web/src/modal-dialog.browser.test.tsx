@@ -184,14 +184,15 @@ describe("a modal dialog, laid out by a real browser", () => {
     const shown = window.scrollY;
     await openAndClose();
     expect(window.scrollY).toBe(shown);
-    // Opened, then the page moved off it: it comes in at the screen's bottom edge, not its middle.
+    // Opened, then the page moved off it: it comes in at the screen's bottom edge, not its middle,
+    // its focus ring's room above the edge as focus moved down to it has (the owner, 2026-11-18).
     await userEvent.click(opener);
     await expect.poll(() => document.querySelector("dialog")).not.toBeNull();
     window.scrollTo({ top: 0 });
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => document.activeElement).toBe(opener);
-    expect(opener.getBoundingClientRect().bottom).toBeGreaterThan(window.innerHeight - 4);
-    expect(opener.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight + 1);
+    expect(opener.getBoundingClientRect().bottom).toBeGreaterThan(window.innerHeight - 16);
+    expect(opener.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight - 8);
     mounted.unmount();
   });
 });

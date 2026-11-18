@@ -91,7 +91,7 @@ function giveFocusBack(
   );
   if (isLost && to instanceof HTMLElement) {
     to.focus({ preventScroll: true });
-    scrollIntoViewGently(to);
+    scrollIntoViewGently(to, true);
   }
 }
 

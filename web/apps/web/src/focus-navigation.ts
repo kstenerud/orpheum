@@ -297,7 +297,8 @@ function skippedItemAround(element: Element): Element | undefined {
 
 /**
  * Scrolls element into view no further than it must be, and clear of a banner (scrollIntoViewGently).
- * Where focus was moved to it (isMovedTo), as by an arrow, and it was not already in view whole, its
+ * Where focus was moved to it (isMovedTo), as by an arrow or given back to a dialog's opener (the
+ * owner, 2026-11-18), and it was not already in view whole, its
  * focus ring is brought whole above the window's bottom edge too: the ring is drawn outside the
  * element's box, which "nearest" alone brings only to the edge, so moving down the ring's bottom was
  * off the screen (the owner, Firefox and a Fire TV, 2026-11-17).
