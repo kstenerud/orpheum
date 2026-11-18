@@ -372,8 +372,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   chunked playback starts no hls.js. The menu offers *Stop AirPlay* then. AirPlay ends at Stop, as
   the target stops being wireless, or when no receiver is picked within 30 s. At its end the grant
   is revoked, the element is emptied, and hls.js plays the film again where AirPlay left it, paused
-  if it was (`src/ladder-playback.ts`). `src/airplay-entry.test.tsx`, `src/cast-dialog.test.tsx`,
-  `src/ladder-playback.test.tsx`; on a device, VQ315.
+  if it was (`src/ladder-playback.ts`). The grant's asks are a parameter of the one flow
+  (`AirPlayGrants`, `AirPlayGrantsContext`): the person's session's, or, on a Watch Together guest
+  by link's page, their membership's (`POST`/`DELETE /together/airplay-grants`, D519 §1), offered
+  after Chromecast in their Cast dialog whatever their link's controls (`src/together-guest-cast.tsx`).
+  A grant asked for waits for the last AirPlay's revocation to be answered, so that it cannot be
+  revoked with it. `src/airplay-entry.test.tsx`, `src/cast-dialog.test.tsx`,
+  `src/ladder-playback.test.tsx`, `src/together-guest-airplay.test.tsx`; on a device, VQ315 and
+  VQ361.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.

@@ -146,6 +146,12 @@ export interface FilmComposition {
   readonly keptVideo?: HTMLVideoElement | undefined;
   /** Whether what fails is kept from the viewer, as while the page opens a lost playback again. */
   readonly isFailureHidden?: boolean;
+  /**
+   * Whether the film is offered to AirPlay (D473) whatever its controls: a Watch Together guest by
+   * link's player, which shows controls only where their link's rights give them (D519 §1).
+   * Undefined, the player with controls alone offers it.
+   */
+  readonly isOfferedToAirPlay?: boolean | undefined;
 }
 
 /** Where a stalled player moved to a lower quality (D247 §2), for its playback alone. */
@@ -182,7 +188,8 @@ export function FilmPlayer(props: {
   const { decision, moved, composition } = props;
   const onLadder = decision.onLadder ?? undefined;
   // AirPlay is the person's own player's, the one with controls (D473), never a film page's hidden one.
-  const airPlayToken = composition.hasControls ? decision.mediaToken : undefined;
+  const airPlayToken =
+    (composition.isOfferedToAirPlay ?? composition.hasControls) ? decision.mediaToken : undefined;
   if (moved?.mediaToken === decision.mediaToken) {
     return (
       <ChunkedFilm

@@ -6,7 +6,7 @@ import "./i18n.ts";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { offerAirPlayHere, type AirPlayHere } from "./airplay.ts";
+import { offerAirPlayHere, sessionAirPlayGrants, type AirPlayHere } from "./airplay.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
 import {
@@ -33,6 +33,7 @@ function fakeHere(isPlaying = false): AirPlayHere & { readonly did: string[] } {
   return {
     did,
     mediaToken: "media",
+    grants: sessionAirPlayGrants,
     isPlaying: () => isPlaying,
     start: (url) => {
       did.push(`start ${url}`);

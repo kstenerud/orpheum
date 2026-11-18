@@ -30,6 +30,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { secretFromHash } from "./accounts.ts";
+import { AirPlayGrantsContext, sessionAirPlayGrants } from "./airplay.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IsGuestContext } from "./guest-page.ts";
@@ -373,12 +374,13 @@ function ViewingArea(props: {
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly volume: number;
-  /** A guest by link's cast to a Chromecast, which takes their part (D518). */
+  /** A guest by link's cast to a Chromecast, which takes their part (D518), and their AirPlay. */
   readonly guestCast?: GuestsCast | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
+  const airPlayGrants = props.guestCast?.airPlayGrants;
   const { isCasting, stage } = useCastingTheGroupsFilm(props.snapshot, props.guestCast);
   useEffect(
     () => (isCasting && connection !== undefined ? tellsNoFilmHere(connection) : undefined),
@@ -392,14 +394,18 @@ function ViewingArea(props: {
       {fileId === 0 || connection === undefined ? (
         <NothingPlays snapshot={props.snapshot} isVoiceWaiting={props.isVoiceWaiting} />
       ) : (
-        <GroupFilm
-          key={fileId}
-          keptVideo={props.kept.video}
-          isVoiceWaiting={props.isVoiceWaiting}
-          fileId={fileId}
-          credential={props.credential}
-          following={{ connection, volume: props.volume }}
-        />
+        // A guest by link AirPlays by their membership's grants, whatever their controls (D519 §1).
+        <AirPlayGrantsContext value={airPlayGrants ?? sessionAirPlayGrants}>
+          <GroupFilm
+            key={fileId}
+            keptVideo={props.kept.video}
+            isVoiceWaiting={props.isVoiceWaiting}
+            fileId={fileId}
+            credential={props.credential}
+            following={{ connection, volume: props.volume }}
+            isOfferedToAirPlay={airPlayGrants === undefined ? undefined : true}
+          />
+        </AirPlayGrantsContext>
       )}
     </section>
   );
@@ -451,6 +457,8 @@ function GroupFilm(props: {
   readonly fileId: number;
   readonly credential: string;
   readonly following: Following;
+  /** Whether the guest's player is offered to AirPlay whatever its controls (D519 §1). */
+  readonly isOfferedToAirPlay?: boolean | undefined;
 }): JSX.Element {
   const decision = useGroupFilmDecision(props);
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
@@ -496,6 +504,7 @@ function GroupFilm(props: {
                   over: FollowingGroup,
                   under: GuestStalls,
                   keptVideo: props.keptVideo,
+                  isOfferedToAirPlay: props.isOfferedToAirPlay,
                 }}
               />
             </IsGuestContext>

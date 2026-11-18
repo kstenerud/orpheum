@@ -6,7 +6,7 @@ import "./i18n.ts";
 import type { JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { offerAirPlayHere } from "./airplay.ts";
+import { offerAirPlayHere, sessionAirPlayGrants } from "./airplay.ts";
 import { CastDialog } from "./cast-dialog.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { CastingLeft } from "./old-addresses.tsx";
@@ -75,6 +75,7 @@ describe("Cast's dialog (D384 §2)", () => {
     const started: string[] = [];
     const unoffer = offerAirPlayHere({
       mediaToken: "media",
+      grants: sessionAirPlayGrants,
       isPlaying: () => false,
       start: (url) => {
         started.push(url);

@@ -7,6 +7,8 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { grantAt, useAirPlayHere, type AirPlayGrants } from "./airplay.ts";
+import { AirPlayEntry } from "./airplay-entry.tsx";
 import { ChromecastEntry, useGuestCastAskingBy } from "./cast-to.tsx";
 import type { CastChannel } from "./cast-sdk.ts";
 import {
@@ -15,10 +17,11 @@ import {
   GuestCastFailure,
   openGuestReceiverBy,
 } from "./google-cast.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { problemText } from "./problem.ts";
+import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import type { Membership } from "./together-storage.ts";
+import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
 
 /**
@@ -31,7 +34,51 @@ import { useRequest } from "./use-request.ts";
  * theirs following the group (cast-receiver's guest-part.ts); no cast is made to it, which needs a
  * person's session. The page's cast is its Cast session: Stop casting ends it, as does the page's
  * going, and Chrome's own Cast control ends it too, as the signed-in cast's ends with its session.
+ *
+ * In Safari, the dialog offers AirPlay after it, as the Cast menu does (AirPlayEntry), for the
+ * group's film the guest's player plays on its ladder (D519 §1): its grant is asked for and revoked
+ * by the guest's membership (membershipAirPlayGrants), the player handing the film over and back as
+ * the signed-in person's does. Each film the group plays is a playback of its own, whose AirPlay is a
+ * grant of its own: the film's change ends AirPlay of the last one, revoking its grant.
  */
+
+/**
+ * AirPlay's grants by the guest's membership credential (POST and DELETE /together/airplay-grants,
+ * D519 §1), for the playback POST /together/playback answered; each ask is one press's, under a key
+ * of its own (D244 §4).
+ */
+export function membershipAirPlayGrants(credential: string): AirPlayGrants {
+  return {
+    make: async (doing, mediaToken, origin) => {
+      doing.log("asking for the guest's grant (POST /together/airplay-grants)");
+      const made = dataOrThrow(
+        await doing.api.POST("/together/airplay-grants", {
+          headers: { ...idempotent(newIdempotencyKey()).headers, ...membershipHeaders(credential) },
+          body: { mediaToken },
+        }),
+      );
+      return grantAt(made, origin, doing.log);
+    },
+    revoke: async (doing) => {
+      doing.log("revoking the guest's grants (DELETE /together/airplay-grants)");
+      const answered = await doing.api.DELETE("/together/airplay-grants", {
+        headers: membershipHeaders(credential),
+      });
+      return dataOrThrow(answered).revoked;
+    },
+  };
+}
+
+/** The guest's AirPlay grants, where they may AirPlay as their membership (isOffered). */
+function useMembershipAirPlayGrants(
+  credential: string,
+  isOffered: boolean,
+): AirPlayGrants | undefined {
+  return useMemo(
+    () => (isOffered ? membershipAirPlayGrants(credential) : undefined),
+    [credential, isOffered],
+  );
+}
 
 /** A Watch Together guest's cast to a Chromecast, from their page. */
 export interface GuestsCast {
@@ -48,6 +95,8 @@ export interface GuestsCast {
   readonly start: (showsLog: boolean) => void;
   /** Ends the Cast session: the device lets go of the guest's part and goes home. */
   readonly stop: () => void;
+  /** The membership's AirPlay grants, which the guest's player AirPlays by (D519 §1). */
+  readonly airPlayGrants: AirPlayGrants | undefined;
 }
 
 /**
@@ -63,6 +112,7 @@ export function useGuestsCast(membership: Membership, isOffered: boolean): Guest
     [api, credential, isOffered],
   );
   const ways = useGuestCastAskingBy(askGrant);
+  const airPlayGrants = useMembershipAirPlayGrants(credential, isOffered);
   const [channel, setChannel] = useState<CastChannel | undefined>(undefined);
   const [isChoosing, setIsChoosing] = useState(false);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
@@ -106,6 +156,7 @@ export function useGuestsCast(membership: Membership, isOffered: boolean): Guest
     stop: () => {
       setChannel(undefined);
     },
+    airPlayGrants,
   };
 }
 
@@ -113,7 +164,8 @@ export function useGuestsCast(membership: Membership, isOffered: boolean): Guest
  * The guest's Cast, on their page's panel: while no Chromecast takes their part, Cast, which opens a
  * dialog of the one choice, Chromecast, saying there why a cast failed; while one does, which it is
  * and Stop casting. Chromecast waits while the session is not connected, as the Cast menu's does
- * while the live connection is down.
+ * while the live connection is down; then AirPlay, where the guest's player offers it (Safari), as
+ * the Cast menu's last choice, the dialog closing as the film goes to it.
  */
 export function GuestsCastEntry(props: {
   readonly cast: GuestsCast;
@@ -121,7 +173,10 @@ export function GuestsCastEntry(props: {
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { cast, snapshot } = props;
-  if (!cast.isOffered) {
+  const airPlayHere = useAirPlayHere();
+  const isAirPlayOffered = cast.airPlayGrants !== undefined && airPlayHere !== undefined;
+  // Open, the dialog stays as the group's film changes, AirPlay offered again for the next one.
+  if (!cast.isOffered && !isAirPlayOffered && !cast.isChoosing) {
     return null;
   }
   if (cast.castingTo !== undefined) {
@@ -138,23 +193,37 @@ export function GuestsCastEntry(props: {
         {t("cast.page")}
       </button>
       {cast.isChoosing ? (
-        <ModalDialog
-          label={t("cast.page")}
-          onClose={() => {
-            cast.setIsChoosing(false);
-          }}
-        >
-          <section className="cast-to" aria-labelledby="guest-cast-heading">
-            <h2 id="guest-cast-heading">{t("cast.heading")}</h2>
-            <ChromecastEntry
-              isStale={snapshot?.status !== "connected" || cast.isBusy}
-              onCast={cast.start}
-            />
-            {cast.problem === undefined ? null : <p role="alert">{cast.problem}</p>}
-          </section>
-        </ModalDialog>
+        <GuestsCastChoices cast={cast} snapshot={snapshot} isAirPlayOffered={isAirPlayOffered} />
       ) : null}
     </>
+  );
+}
+
+/** Cast's dialog: Chromecast where this page casts to one, then AirPlay where it is offered. */
+function GuestsCastChoices(props: {
+  readonly cast: GuestsCast;
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly isAirPlayOffered: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { cast } = props;
+  const close = (): void => {
+    cast.setIsChoosing(false);
+  };
+  return (
+    <ModalDialog label={t("cast.page")} onClose={close}>
+      <section className="cast-to" aria-labelledby="guest-cast-heading">
+        <h2 id="guest-cast-heading">{t("cast.heading")}</h2>
+        {cast.isOffered ? (
+          <ChromecastEntry
+            isStale={props.snapshot?.status !== "connected" || cast.isBusy}
+            onCast={cast.start}
+          />
+        ) : null}
+        {props.isAirPlayOffered ? <AirPlayEntry onStarted={close} /> : null}
+        {cast.problem === undefined ? null : <p role="alert">{cast.problem}</p>}
+      </section>
+    </ModalDialog>
   );
 }
 

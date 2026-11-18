@@ -6,10 +6,10 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  airPlayHere,
+  askAirPlayGrant,
   grantOriginOf,
-  makeAirPlayGrant,
   noLog,
+  useAirPlayHere,
   type AirPlayHere,
 } from "./airplay.ts";
 import { FindDevicesIcon } from "./icons.tsx";
@@ -23,20 +23,23 @@ import { useResource } from "./use-resource.ts";
  * WebRTC alone. Its grant is asked for as the menu opens, so the press keeps its gesture for Safari's
  * picker; till the grant is had, or where it was refused, AirPlay is not pressable. Pressed, the film
  * goes to AirPlay and onStarted is told, to close the menu. While the film plays on AirPlay, Stop
- * AirPlay is offered instead, which hands it back to this page.
+ * AirPlay is offered instead, which hands it back to this page. Left open as the film changes, it
+ * offers the new film's AirPlay, by a grant of its own. A Watch Together guest by link's Cast dialog
+ * offers it too, its grant their membership's (D519 §1, together-guest-cast.tsx).
  */
 export function AirPlayEntry(props: {
   readonly onStarted?: (() => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { pathMoves } = useServices();
-  const [here] = useState(airPlayHere);
+  const here = useAirPlayHere();
   const [origin] = useState(() => grantOriginOf(pathMoves, globalThis.location.origin, noLog));
-  const [isPlaying, setIsPlaying] = useState(() => here?.isPlaying() === true);
+  // The film Stop AirPlay was pressed for, which no longer plays on AirPlay.
+  const [stopped, setStopped] = useState<AirPlayHere | undefined>(undefined);
   if (here === undefined || origin === undefined) {
     return null;
   }
-  if (isPlaying) {
+  if (here.isPlaying() && stopped !== here) {
     return (
       <>
         <hr className="cast-to__separator" />
@@ -44,7 +47,7 @@ export function AirPlayEntry(props: {
           type="button"
           onClick={() => {
             here.stop();
-            setIsPlaying(false);
+            setStopped(here);
           }}
         >
           <FindDevicesIcon />
@@ -68,7 +71,7 @@ function AirPlayStart(props: {
   // A grant per opening (D473): one kept from an earlier opening may be revoked by its AirPlay's end.
   const [grant] = useResource(
     `airplay-grant/${here.mediaToken}`,
-    async () => await makeAirPlayGrant({ api, log: noLog }, here.mediaToken, origin),
+    async () => await askAirPlayGrant(here, { api, log: noLog }, origin),
     { isSingleUse: true },
   );
   return (

@@ -30122,10 +30122,15 @@ keeps: "agreed". Amends D518.
 - 1: TestTogetherAirPlay_AGuestByLinkAirPlaysAsTheirMembershipWhileTheyAreIn (internal/core/api/together_airplay_test.go)
 - 1: TestAirPlayGrant_AWatchTogetherGuestsStandsForTheirMembershipsPlayback, TestAirPlayGrant_NoneIsMadeForNoMembership (internal/core/auth/airplay_test.go)
 - 1, 2: TestGuestAirPlayHold_HoldsTheGuestsMembershipAsTheirOneCast (internal/core/together/guest_cast_test.go)
+- 1: web/apps/web/src/together-guest-airplay.test.tsx ("asks its grant by the guest's membership with the playback's media token under a key, hands AirPlay the grant's master path, and asks for no route a guest is refused")
 - 2: TestGuestCastPart_ANewCastReplacesTheGuestsLastCastsCredential (internal/core/together/guest_cast_test.go)
 
 **Status:** decided (2026-11-18). §2 for a Chromecast's part is in "feat(together): a guest's new
 cast replaces their last cast's credential" (`replaceCastCredential`); §1's server half, and §2 for
 an AirPlay grant, are in "feat(together): a Watch Together guest by link AirPlays as their
-membership" (`POST /together/airplay-grants`, `GuestAirPlayHold`). The guest's page offers no
-AirPlay button yet (`together-viewer.tsx`), so VQ361 waits on it.
+membership" (`POST /together/airplay-grants`, `GuestAirPlayHold`); §1's page half is in
+"feat(together): a Watch Together guest by link AirPlays the group's film from their page": in
+Safari, the guest's Cast dialog offers AirPlay after Chromecast, its grant asked for and revoked by
+the membership (`membershipAirPlayGrants`, `together-guest-cast.tsx`), Stop AirPlay or Leave
+revoking it, the host's next film ending it and asking that film's own grant. §1 and §2 are built;
+VQ361, on devices, is owed.
