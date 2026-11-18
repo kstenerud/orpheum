@@ -3389,6 +3389,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   https://orpheum.cc"; and it commits "Release <the tag>" in the records folder and pushes it (or
   says the push failed and still ends well). The watcher then shows the new release. A second
   release asks no destination (`cmd/discovery-sign/release.go`, `outside.go`).
+  **Run 2026-11-18, v0.8.5, all but the last part passed:** the GitHub release lists `release-record`,
+  the owner signed it, gave prod-api's `/srv/connect/published/` as the destination, and it committed and
+  pushed. orpheum.cc serves record sequence 4, latest v0.8.5. Still open: the watcher's view, and the
+  next release asking no destination.
 - [ ] **VQ357** — A playback whose first chunk was given up skips it, as a playing film does (the
   11-19 batch's answer 3; the owner, 2026-11-18: "skip it"). Needs a film on staging whose encoded
   picture's chunk 0 its node failed on twice: the core's log says "runs of chunks failed at the same
