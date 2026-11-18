@@ -31,7 +31,7 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	services := Services{settings: config}
 	derived := map[string]bool{
 		sweepFirstMatches: true, sweepRefreshRequests: true, sweepRechecks: true, sweepPasses: true,
-		sweepOwedPasses: true, sweepReconsidered: true, sweepMissing: true,
+		sweepOwedPasses: true, sweepReconsidered: true, sweepMissing: true, sweepNotFoundAgain: true,
 	}
 	var order []string
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
@@ -48,6 +48,10 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	}
 	if slices.Index(order, sweepReconsidered) > slices.Index(order, sweepFirstMatches) {
 		t.Errorf("the sweeps run in the order %v; want ambiguous matches reconsidered before the first matches",
+			order)
+	}
+	if slices.Index(order, sweepNotFoundAgain) > slices.Index(order, sweepFirstMatches) {
+		t.Errorf("the sweeps run in the order %v; want the titles not found searched again before the first matches",
 			order)
 	}
 }

@@ -197,9 +197,12 @@
 //     TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.
 //
 //   - A pass re-derives a matched title from its stored response and never calls a provider;
-//     a title its provider found nothing for is not searched again (D170, D182).
+//     a title its provider found nothing for is not searched again (D170, D182) until the search
+//     rules change: each "not found" records searchRulesVersion, and a sweep returns to its first
+//     match, a few at a time, one found so under an older version or none (D513 §5).
 //     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse,
-//     TestMatch_NothingFoundIsRecordedAndNotSearchedAgain.
+//     TestMatch_NothingFoundIsRecordedAndNotSearchedAgain,
+//     TestMatch_AFilmFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange.
 //
 //   - An override survives a match and every re-derivation (D183).
 //     TestMatch_AnOverrideSurvivesTheMatchAndReDerivation.

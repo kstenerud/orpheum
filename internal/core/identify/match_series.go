@@ -55,9 +55,7 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	case unsettled:
 	}
 	if len(candidates) == 0 {
-		return OutcomeNoMatch, matcher.recordSeriesAndRederive(ctx, series, func(queries *sqlcgen.Queries) error {
-			return queries.MarkSeriesUnmatched(ctx, seriesID)
-		})
+		return OutcomeNoMatch, matcher.recordSeriesAndRederive(ctx, series, matcher.markSeriesNoMatch(ctx, seriesID))
 	}
 	if err := matcher.keepCandidates(ctx, provider, seriesID, candidates); err != nil {
 		return "", err
@@ -68,6 +66,17 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 			ID:                  seriesID,
 		})
 	})
+}
+
+// markSeriesNoMatch records that the provider has nothing for the series, under the search rules of
+// now (D513 §5), as markNoMatch a film's.
+func (matcher *Matcher) markSeriesNoMatch(ctx context.Context, seriesID int64) func(*sqlcgen.Queries) error {
+	return func(queries *sqlcgen.Queries) error {
+		if err := queries.MarkSeriesUnmatched(ctx, seriesID); err != nil {
+			return fmt.Errorf("record series %d's empty search: %w", seriesID, err)
+		}
+		return matcher.recordNotFoundUnderRules(ctx, queries, seriesID)
+	}
 }
 
 // acceptSeriesGuess accepts a series' match the matcher guessed among candidates (D301), as

@@ -151,6 +151,35 @@ WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND language = '';
 UPDATE item SET identification_state = 'unidentified'
 WHERE id = sqlc.arg(id) AND kind IN ('movie', 'episode', 'extra', 'other') AND identification_state = 'ambiguous';
 
+-- name: RecordNotFoundUnderRules :exec
+-- The version of the search rules a film or series was just found to match nothing under (D513
+-- section 5), so a sweep searches it again once the rules change.
+UPDATE item SET search_rules_version = sqlc.arg(search_rules_version)
+WHERE id = sqlc.arg(id) AND kind IN ('movie', 'series');
+
+-- name: ListNotFoundUnderOlderRules :many
+-- The films and series found to match nothing under an older version of the search rules than
+-- sqlc.arg(current_version), or under none, in a library that searches a provider: the next the
+-- sweep returns to their first match, a few at a time (D513 section 5). A library read from NFO
+-- files alone searches nothing: its titles with no NFO are "not found" with no search. Read by
+-- item_waiting, whose condition it repeats, the few "Needs a match" counts.
+SELECT item.id
+FROM item
+JOIN library ON library.id = item.filing_library_id
+WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
+  AND item.kind IN ('movie', 'series') AND item.removed_at IS NULL AND library.metadata_source != 'nfo'
+  AND (item.search_rules_version IS NULL OR item.search_rules_version < sqlc.arg(current_version))
+ORDER BY item.id
+LIMIT sqlc.arg(max_rows);
+
+-- name: ReturnNotFoundToItsFirstMatch :exec
+-- A film or series found to match nothing under older search rules: owed its first match again,
+-- which the matcher takes, searching it under the rules of now (D513 section 5). Only a "not
+-- found" changes: a person's choice is never undone.
+UPDATE item SET followed_source = NULL, search_rules_version = NULL
+WHERE id = sqlc.arg(id) AND kind IN ('movie', 'series') AND identification_state = 'unidentified'
+  AND followed_source = 'none';
+
 -- name: CountWaitingForAPerson :one
 -- The films and series whose match waits for a person, as "Needs a match" lists them: several
 -- found, or none found after a search, or a fetch that failed on its own, that a library lists; an

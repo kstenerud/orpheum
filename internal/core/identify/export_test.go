@@ -60,3 +60,7 @@ func BetweenBatches(pass *Pass, between func(ctx context.Context, rowsChanged in
 
 // OtherName is the name and date an other video's file gives it (D349 §3, §4).
 var OtherName = otherName
+
+// RaiseSearchRules raises the version of the search rules the matcher records a "not found" under
+// and searches again those of older ones, as a release that changes them would (D513 §5).
+func RaiseSearchRules(matcher *Matcher) { matcher.searchRules++ }

@@ -406,6 +406,64 @@ func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
 	}
 }
 
+// A film found to match nothing is searched again once the search rules change, and not before: the
+// sweep returns to its first match one found so under older rules than the matcher's, or under none
+// as every one found so before step 0091, and the search under the rules of now finds it (D513 §5).
+// One in a library read from NFO files alone, which searches nothing, is left alone.
+func TestMatch_AFilmFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	const violet, kestrel = "Hollow Violet (1998).mkv", "Kestrel (2014).mkv"
+	lib.scan(videoRecord(violet), videoRecord(kestrel))
+	for _, rel := range []string{violet, kestrel} {
+		if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNoMatch {
+			t.Fatalf("%s: %s; want no match to begin with", rel, outcome)
+		}
+	}
+	// Kestrel as it was found to match nothing before the rules' version was recorded.
+	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.RecordNotFoundUnderRules(t.Context(), sqlcgen.RecordNotFoundUnderRulesParams{
+			ID: lib.titlesByPath()[kestrel].WorkID,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib.provider.Searches[identifytest.SearchKey("Hollow Violet", 1998)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "10", Name: "Hollow Violet", Year: 1998}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Kestrel", 2014)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "16", Name: "Kestrel", Year: 2014}),
+	}
+	if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 1 {
+		t.Fatalf("SearchNotFoundAgain = %d, %v; want Kestrel alone, found to match nothing under no version",
+			returned, err)
+	}
+	if outcome := lib.matchFileTitle(kestrel); outcome != identify.OutcomeMatched {
+		t.Errorf("Kestrel: %s; want matched once returned", outcome)
+	}
+	if outcome := lib.matchFileTitle(violet); outcome != identify.OutcomeNothingToDo {
+		t.Errorf("Hollow Violet: %s; want nothing done under the rules it was found to match nothing under", outcome)
+	}
+	identify.RaiseSearchRules(lib.matcher)
+	if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 1 {
+		t.Fatalf("SearchNotFoundAgain = %d, %v; want Hollow Violet alone once the rules change", returned, err)
+	}
+	if outcome := lib.matchFileTitle(violet); outcome != identify.OutcomeMatched {
+		t.Errorf("Hollow Violet: %s; want matched under the new rules", outcome)
+	}
+	if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 0 {
+		t.Errorf("SearchNotFoundAgain = %d, %v; want none left once both are matched", returned, err)
+	}
+
+	nfo := newTestLibrary(t, "movie", "nfo")
+	nfo.scan(videoRecord(violet))
+	identify.RaiseSearchRules(nfo.matcher)
+	if returned, err := nfo.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 0 {
+		t.Errorf("SearchNotFoundAgain = %d, %v; want a film with no NFO in an NFO library left alone", returned, err)
+	}
+}
+
 func TestMatch_AProviderIDInHandSkipsTheSearch(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")

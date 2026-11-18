@@ -87,3 +87,23 @@ func TestCandidates_SearchingAgainTriesTheNamesOtherSpellings(t *testing.T) {
 		t.Errorf("Candidates = %+v, %q, %v; want TMDB's Harbour Lights, by its British spelling", found, provider, err)
 	}
 }
+
+// A series found to match nothing is searched again once the search rules change, and not before,
+// as a film is (D513 §5).
+func TestMatch_ASeriesFoundToMatchNothingIsSearchedAgainWhenTheSearchRulesChange(t *testing.T) {
+	t.Parallel()
+	lib, seriesID := harborLightsLibrary(t)
+	if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 0 {
+		t.Fatalf("SearchNotFoundAgain = %d, %v; want none under the rules it was searched by", returned, err)
+	}
+	lib.provider.Searches[identifytest.SearchKey("Harbor Lights", 0)] = []identify.Candidate{
+		{ID: "4808", Name: "Harbour Lights", Year: 1969},
+	}
+	identify.RaiseSearchRules(lib.matcher)
+	if returned, err := lib.matcher.SearchNotFoundAgain(t.Context()); err != nil || returned != 1 {
+		t.Fatalf("SearchNotFoundAgain = %d, %v; want the series once the rules change", returned, err)
+	}
+	if outcome, err := lib.matcher.Match(t.Context(), seriesID); err != nil || outcome != identify.OutcomeMatched {
+		t.Errorf("Match = %s, %v; want matched under the new rules", outcome, err)
+	}
+}

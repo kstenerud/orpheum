@@ -441,6 +441,10 @@ CREATE TABLE item (                                        -- class I, and O/F/A
   -- (the view file_place: its own place while live, else its earliest live one).
   found_at               INTEGER NOT NULL DEFAULT 0,      -- C
   found_file_modified_at INTEGER NOT NULL DEFAULT 0,      -- C
+  -- Step 0091 (D513 section 5): the version of the search rules a film or series was found to
+  -- match nothing under; NULL on the rest, and on one found so before the step. A sweep searches
+  -- again one found so under an older version than identify's, or none.
+  search_rules_version   INTEGER CHECK (search_rules_version > 0),  -- F, as followed_source
   CHECK (followed_source_id IS NULL OR followed_source IS NOT NULL),
   CHECK ((kind = 'person') = (identification_state IS NULL)),  -- every kind but a person is identified
   UNIQUE (id, kind)

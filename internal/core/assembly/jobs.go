@@ -165,6 +165,7 @@ const (
 	sweepFirstMatches     = "first matches"
 	sweepMissing          = "what should have been fetched"
 	sweepReconsidered     = "ambiguous matches reconsidered"
+	sweepNotFoundAgain    = "titles not found searched again"
 	sweepRefreshRequests  = "refreshes people asked for"
 	sweepRescans          = "rescans"
 	sweepRechecks         = "rechecks of missing images"
@@ -306,6 +307,8 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 	return []jobs.Sweep{
 		// Before the first matches, which queue what it returns to them.
 		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
+		// A few at a time, under search rules newer than they were found to match nothing under (D513 §5).
+		{Name: sweepNotFoundAgain, Derive: services.matcher.SearchNotFoundAgain, Every: derivedWorkEvery},
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
 		// An admin's rescans: each listed once its scan is over, its matches queued (D357).

@@ -309,6 +309,50 @@ func (q *Queries) ListLiveFilesOfWork(ctx context.Context, workID int64) ([]List
 	return items, nil
 }
 
+const listNotFoundUnderOlderRules = `-- name: ListNotFoundUnderOlderRules :many
+SELECT item.id
+FROM item
+JOIN library ON library.id = item.filing_library_id
+WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
+  AND item.kind IN ('movie', 'series') AND item.removed_at IS NULL AND library.metadata_source != 'nfo'
+  AND (item.search_rules_version IS NULL OR item.search_rules_version < ?1)
+ORDER BY item.id
+LIMIT ?2
+`
+
+type ListNotFoundUnderOlderRulesParams struct {
+	CurrentVersion *int64
+	MaxRows        int64
+}
+
+// The films and series found to match nothing under an older version of the search rules than
+// sqlc.arg(current_version), or under none, in a library that searches a provider: the next the
+// sweep returns to their first match, a few at a time (D513 section 5). A library read from NFO
+// files alone searches nothing: its titles with no NFO are "not found" with no search. Read by
+// item_waiting, whose condition it repeats, the few "Needs a match" counts.
+func (q *Queries) ListNotFoundUnderOlderRules(ctx context.Context, arg ListNotFoundUnderOlderRulesParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listNotFoundUnderOlderRules, arg.CurrentVersion, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorksAwaitingMatch = `-- name: ListWorksAwaitingMatch :many
 SELECT work.id
 FROM work
@@ -481,6 +525,23 @@ func (q *Queries) MoveVersionsBetweenWorks(ctx context.Context, arg MoveVersions
 	return err
 }
 
+const recordNotFoundUnderRules = `-- name: RecordNotFoundUnderRules :exec
+UPDATE item SET search_rules_version = ?1
+WHERE id = ?2 AND kind IN ('movie', 'series')
+`
+
+type RecordNotFoundUnderRulesParams struct {
+	SearchRulesVersion *int64
+	ID                 int64
+}
+
+// The version of the search rules a film or series was just found to match nothing under (D513
+// section 5), so a sweep searches it again once the rules change.
+func (q *Queries) RecordNotFoundUnderRules(ctx context.Context, arg RecordNotFoundUnderRulesParams) error {
+	_, err := q.db.ExecContext(ctx, recordNotFoundUnderRules, arg.SearchRulesVersion, arg.ID)
+	return err
+}
+
 const returnAmbiguousWorkToItsFirstMatch = `-- name: ReturnAmbiguousWorkToItsFirstMatch :exec
 UPDATE item SET identification_state = 'unidentified'
 WHERE id = ?1 AND kind IN ('movie', 'episode', 'extra', 'other') AND identification_state = 'ambiguous'
@@ -491,6 +552,20 @@ WHERE id = ?1 AND kind IN ('movie', 'episode', 'extra', 'other') AND identificat
 // person's choice is never undone: only 'ambiguous' changes.
 func (q *Queries) ReturnAmbiguousWorkToItsFirstMatch(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, returnAmbiguousWorkToItsFirstMatch, id)
+	return err
+}
+
+const returnNotFoundToItsFirstMatch = `-- name: ReturnNotFoundToItsFirstMatch :exec
+UPDATE item SET followed_source = NULL, search_rules_version = NULL
+WHERE id = ?1 AND kind IN ('movie', 'series') AND identification_state = 'unidentified'
+  AND followed_source = 'none'
+`
+
+// A film or series found to match nothing under older search rules: owed its first match again,
+// which the matcher takes, searching it under the rules of now (D513 section 5). Only a "not
+// found" changes: a person's choice is never undone.
+func (q *Queries) ReturnNotFoundToItsFirstMatch(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, returnNotFoundToItsFirstMatch, id)
 	return err
 }
 
