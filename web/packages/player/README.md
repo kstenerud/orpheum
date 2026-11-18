@@ -24,6 +24,16 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   clock runs from the watch's start or the server's last chunk made. `link-wait.test.ts`, `chunked.test.ts`,
   `fetch-loader.test.ts`.
 
+- **AirPlay is WebKit's own handover, and the wireless flag alone says whether it plays**
+  (`src/airplay.ts`, `src/airplay-hls.ts`, D523): a playback offers the grant's master as the
+  element's HLS `<source>` alternative each time hls.js attaches (hls.js removes every source as it
+  does), and stops hls.js loading as the target becomes wireless; hls.js 1.7.4 detaches itself as
+  WebKit moves the element to the alternative, and the playback's listeners then stop, so nothing it
+  runs acts on the element during AirPlay. AirPlay is on as the flag rises and off only once it has
+  stayed false `airPlayOffSettlesMs`, so WebKit's 100–150 ms flicker at its switch is no end. A
+  sound changed during AirPlay is reloaded on the receiver where the film stands, playing or paused
+  as it was. `airplay.test.ts`, `airplay-hls.test.ts`.
+
 - **A chunked playback says whether it loads its lowest quality** (`isAtLowestRung`, D506 §3): the
   quality it loads, not the one playing, which a film waiting at its start has none of, at or
   below the lowest the bitrate controller may choose; never before it loads one, nor where the
@@ -350,7 +360,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 [D352](../../../docs/contributors/decisions/working-notes.md) for choosing a quality;
 [forward-buffer-2026-10-29.md](../../../docs/contributors/design/research/forward-buffer-2026-10-29.md)
 for how far ahead it loads, and [D487](../../../docs/contributors/decisions/working-notes.md)
-for how far after its link was out; [D488](../../../docs/contributors/decisions/working-notes.md)
+for how far after its link was out; [D523](../../../docs/contributors/decisions/working-notes.md) for AirPlay;
+[D488](../../../docs/contributors/decisions/working-notes.md)
 for the device's data cap, and [D491](../../../docs/contributors/decisions/working-notes.md) for
 the film's own picture under it;
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §1, §3;
@@ -365,4 +376,5 @@ the film's own picture under it;
   stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; the room its picture's buffer has for the next chunk, and the step-down of one that does not fit: `src/picture-room.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`; where a playback resumes after its decoding is rebuilt: `src/resume-position.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
-  over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.
+  over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`. AirPlay: `src/airplay.ts`, and
+  hls.js's part in its handover: `src/airplay-hls.ts`.

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, myDevicesKey, type Device } from "./accounts.ts";
+import { useIsOnAirPlay } from "./airplay.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark } from "./cast-kind.tsx";
@@ -43,7 +44,7 @@ import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
 
-/** The film a cast moves, and what is told as AirPlay or Stop AirPlay is pressed in the menu, to close it. */
+/** The film a cast moves, and what is told as AirPlay or its controls are pressed in the menu, to close it. */
 interface CastTargetsProps {
   readonly film: () => CastFilm | undefined;
   readonly onAirPlayPressed?: (() => void) | undefined;
@@ -61,9 +62,16 @@ interface CastTargetsProps {
  * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
  * raced, is refused with its name (D386 §1). The device casting to this one is not listed, and a cast
  * back to one casting here through others is refused with its name (casting_here; the owner's 11-20
- * batch, finding 6). After Chromecast, AirPlay, where this tab offers it (AirPlayEntry, D473).
+ * batch, finding 6). After Chromecast, AirPlay, where this tab offers it (AirPlayEntry, D473). One
+ * cast at a time (D523 §7): while the film plays on AirPlay, AirPlay alone is shown, no device and no
+ * Chromecast; while a cast to a device is on, the dialog shows it instead of this (cast-dialog.tsx).
  */
 export function CastTargets(props: CastTargetsProps): JSX.Element {
+  return useIsOnAirPlay() ? <OnAirPlayAlone {...props} /> : <CastTargetsOffered {...props} />;
+}
+
+/** Cast's menu with no AirPlay on: the devices, Chromecast and AirPlay (CastTargets). */
+function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
   const { t } = useTranslation();
   const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
     useLive();
@@ -117,6 +125,17 @@ export function CastTargets(props: CastTargetsProps): JSX.Element {
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>
+    </section>
+  );
+}
+
+/** Cast's menu while the film plays on AirPlay: AirPlay alone, one cast at a time (D523 §7). */
+function OnAirPlayAlone(props: CastTargetsProps): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section className="cast-to" aria-labelledby="cast-to-heading">
+      <h2 id="cast-to-heading">{t("cast.heading")}</h2>
+      <AirPlayEntry onPressed={props.onAirPlayPressed} />
     </section>
   );
 }

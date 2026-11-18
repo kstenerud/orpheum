@@ -2,8 +2,8 @@
 
 /**
  * A film on its ladder, played by the player's chunked playback (D247 §10): the hook a film player
- * starts it with, which follows the quality playing and its stalls, and hands the element to AirPlay
- * and takes it back (D473).
+ * starts it with, which follows the quality playing and its stalls, and offers the film to AirPlay
+ * and takes it back (D523).
  */
 
 import {
@@ -18,6 +18,7 @@ import { playerSwitchedQualityEvent, startGateOf, type CannotKeepUp } from "@orp
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { useOffersAirPlay, type AirPlayHandOff } from "./airplay.ts";
+import { useLatest } from "./latest.ts";
 import { deviceDataCapKbps } from "./data-cap.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { noteIfStartRefused } from "./start-refused.ts";
@@ -89,8 +90,11 @@ export interface ChunkedPlaybackStart {
   readonly shouldStartByRememberedLink?: boolean;
   /** The playback's media token, which AirPlay's grant is asked for by; none offers no AirPlay. */
   readonly mediaToken?: string | undefined;
-  /** The audio track it plays now, by its place, which AirPlay plays too (D521 §2). */
-  readonly playingTrackRef?: RefObject<number | undefined>;
+  /**
+   * The audio track it plays now, by its place, which AirPlay plays too (D521 §2), and reloads on
+   * the receiver as it changes during AirPlay (D523 §3).
+   */
+  readonly playingTrack?: number | undefined;
   /** What plays it: the player's chunked playback, but in a test. */
   readonly play?: typeof playChunked;
 }
@@ -100,8 +104,8 @@ export interface ChunkedPlaybackStart {
  * and, once its lowest quality stalls, that the link cannot keep up (D247 §8). Each playback starts
  * with the audio rendition startAudioRef holds as it starts, the playlist's default when none. Where
  * a media token is given and the page offers AirPlay, the film may be handed to AirPlay from the Cast
- * menu (D473): hls.js lets go of the element, and plays it again where AirPlay left it, paused if it
- * was (useAirPlayStage).
+ * menu, WebKit moving it to the grant's alternative itself; once AirPlay is off, a new playback plays
+ * it on hls.js where AirPlay left it, paused if it was (D523 §4, useAirPlayStage).
  */
 export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -118,13 +122,13 @@ export function useChunkedPlayback(
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  const { stage, letGoRef, startMs } = useAirPlayStage(videoRef, starting);
+  const { backAt, alternativeRef, startMs } = useAirPlayStage(videoRef, starting);
   useEffect(() => {
     const video = videoRef.current;
-    if (video === null || stage.isOnAirPlay) {
+    if (video === null) {
       return undefined;
     }
-    keepBack(video, stage.backAt);
+    keepBack(video, backAt);
     const playback = play(video, url, {
       onFailed,
       ...startAudioOf(startAudioRef),
@@ -133,12 +137,9 @@ export function useChunkedPlayback(
       monotonicMs,
       outages: pageLinkOutages, // loads deeper after its link was out, in this film or the next (D487)
       dataCapKbps: deviceDataCapKbps, // within this device's cap, read at each chunk (D488)
+      airPlayAlternativeUrl: alternativeRef.current, // ready for the next AirPlay (D523 §4)
     });
-    const following = { playbackRef, letGoRef, setPlaying, setCannotKeepUp };
-    letGoRef.current = holdPlayback(video, playback, following);
-    return () => {
-      letGoRef.current?.();
-    };
+    return holdPlayback(video, playback, { playbackRef, setPlaying, setCannotKeepUp });
   }, [
     videoRef,
     url,
@@ -150,8 +151,8 @@ export function useChunkedPlayback(
     startMs,
     onFailed,
     startAudioRef,
-    stage,
-    letGoRef,
+    backAt,
+    alternativeRef,
     play,
   ]);
   return { playbackRef, playing, cannotKeepUp };
@@ -166,66 +167,61 @@ function holdPlayback(
   playback: ChunkedPlayback,
   following: Parameters<typeof followChunkedPlayback>[2] & {
     readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
-    readonly letGoRef: RefObject<(() => void) | undefined>;
   },
 ): () => void {
-  const { playbackRef, letGoRef } = following;
+  const { playbackRef } = following;
   playbackRef.current = playback;
   const stopFollowing = followChunkedPlayback(video, playback, following);
   return () => {
-    letGoRef.current = undefined;
     stopFollowing();
     playback.destroy();
     playbackRef.current = undefined;
   };
 }
 
-/**
- * Where a chunked playback stands as to AirPlay: on it, its element let go of by hls.js; or not, and,
- * once it was, where AirPlay left the film (backAt), which it starts from again, paused if it was.
- */
-interface AirPlayStage {
-  readonly isOnAirPlay: boolean;
-  readonly backAt?: { readonly positionMs: number; readonly isPaused: boolean };
+/** Where AirPlay left the film as it ended, which its playback starts from again, paused if it was. */
+interface BackFromAirPlay {
+  readonly positionMs: number;
+  readonly isPaused: boolean;
 }
 
 /**
- * A chunked playback's AirPlay stage, and the letting go of its hls.js playback as AirPlay takes the
- * element (letGoRef, which the playback sets as it starts), AirPlay offered for its media token's playback
- * (useOffersAirPlay) with its hand-off.
+ * A chunked playback's part in AirPlay (D523), offered for its media token's playback
+ * (useOffersAirPlay): the grant's alternative each new playback offers as it attaches (alternativeRef),
+ * and where AirPlay left the film once it ended (backAt), a new playback put there on hls.js (§4).
  */
 function useAirPlayStage(
   videoRef: RefObject<HTMLVideoElement | null>,
   starting: {
     readonly positionMs: number;
     readonly mediaToken?: string | undefined;
-    readonly playingTrackRef?: RefObject<number | undefined>;
+    readonly playingTrack?: number | undefined;
   },
 ): {
-  readonly stage: AirPlayStage;
-  readonly letGoRef: RefObject<(() => void) | undefined>;
+  readonly backAt: BackFromAirPlay | undefined;
+  readonly alternativeRef: RefObject<string | undefined>;
   /** Where the playback starts: where AirPlay left it, once it did, else where it was to start. */
   readonly startMs: number;
 } {
-  const [stage, setStage] = useState<AirPlayStage>({ isOnAirPlay: false });
-  const letGoRef = useRef<(() => void) | undefined>(undefined);
-  const { playingTrackRef } = starting;
+  const [backAt, setBackAt] = useState<BackFromAirPlay | undefined>(undefined);
+  const alternativeRef = useRef<string | undefined>(undefined);
+  const playingTrackRef = useLatest(starting.playingTrack);
   const handOff = useMemo(
     (): AirPlayHandOff => ({
-      letGoOfHls: () => {
-        letGoRef.current?.(); // within the press: the picker is shown in its gesture
-        setStage({ isOnAirPlay: true });
+      offered: (url) => {
+        alternativeRef.current = url;
       },
       takeBack: (left) => {
         const positionMs = Math.round(left.positionS * 1000);
-        setStage({ isOnAirPlay: false, backAt: { positionMs, isPaused: left.wasPaused } });
+        setBackAt({ positionMs, isPaused: left.wasPaused });
       },
-      playingTrack: () => playingTrackRef?.current,
+      playingTrack: () => playingTrackRef.current,
     }),
     [playingTrackRef],
   );
-  useOffersAirPlay(videoRef, starting.mediaToken, handOff);
-  return { stage, letGoRef, startMs: stage.backAt?.positionMs ?? starting.positionMs };
+  const { mediaToken, playingTrack } = starting;
+  useOffersAirPlay(videoRef, { mediaToken, playingTrack }, handOff);
+  return { backAt, alternativeRef, startMs: backAt?.positionMs ?? starting.positionMs };
 }
 
 /** The audio rendition a playback starts with, as startAudioRef holds it as it starts, if any. */
@@ -240,7 +236,7 @@ function startAudioOf(startAudioRef: RefObject<number | undefined> | undefined):
  * Keeps a film handed back from AirPlay as AirPlay left it (backAt), if it was: playing, it plays on as hls.js has it
  * again; paused, the page's start (useStartsWithEnoughAhead) is not let to play it as it loads.
  */
-function keepBack(video: HTMLVideoElement, backAt: AirPlayStage["backAt"]): void {
+function keepBack(video: HTMLVideoElement, backAt: BackFromAirPlay | undefined): void {
   if (backAt === undefined) {
     return;
   }

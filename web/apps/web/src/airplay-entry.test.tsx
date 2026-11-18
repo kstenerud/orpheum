@@ -27,7 +27,7 @@ import type { Services } from "./services.tsx";
 
 const grantPath = "/api/v1/bytes/media/g/grant/master.m3u8";
 
-/** A film this tab offers AirPlay for, faked: it notes each start's address and each Stop pressed. */
+/** A film this tab offers AirPlay for, faked: it notes each start's address and each showing of its controls. */
 function fakeHere(isPlaying = false): AirPlayHere & { readonly did: string[] } {
   const did: string[] = [];
   return {
@@ -38,13 +38,13 @@ function fakeHere(isPlaying = false): AirPlayHere & { readonly did: string[] } {
     start: (url) => {
       did.push(`start ${url}`);
     },
-    askToStop: () => {
-      did.push("stop");
+    showControls: () => {
+      did.push("controls");
     },
   };
 }
 
-describe("AirPlay in Cast's menu (D473)", () => {
+describe("AirPlay in Cast's menu (D473, D523)", () => {
   let mounted: Mounted | undefined;
   let unoffer: (() => void) | undefined;
   afterEach(() => {
@@ -95,22 +95,38 @@ describe("AirPlay in Cast's menu (D473)", () => {
     expect(closed).toEqual(["closed"]);
   });
 
-  it("offers Stop AirPlay while the film plays on AirPlay, asking no grant, and Stop hands it back", async () => {
+  it("says the film plays on AirPlay, asking no grant, with AirPlay controls, which shows AirPlay's picker and no Stop (D523 §6)", async () => {
     const here = fakeHere(true);
     unoffer = offerAirPlayHere(here);
     const { heard } = await openMenu();
+    const menu = mounted?.container ?? document.body;
     expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /airplay/grants");
-    expect(buttonWithText(mounted?.container ?? document.body, "AirPlay")).toBeUndefined();
-    await click(buttonWithText(mounted?.container ?? document.body, "Stop AirPlay"));
-    expect(here.did).toEqual(["stop"]);
+    expect(menu.querySelector("output")?.textContent).toBe("Playing on AirPlay");
+    expect(buttonWithText(menu, "AirPlay")).toBeUndefined();
+    expect(menu.textContent).not.toContain("Stop");
+    await click(buttonWithText(menu, "AirPlay controls"));
+    expect(here.did).toEqual(["controls"]);
   });
 
-  it("closes the menu at Stop AirPlay, for AirPlay's picker to show over the page (D521 §1)", async () => {
+  it("closes the menu at AirPlay controls, for AirPlay's picker to show over the page (D523 §6)", async () => {
     const here = fakeHere(true);
     unoffer = offerAirPlayHere(here);
     const { closed } = await openMenu();
-    await click(buttonWithText(mounted?.container ?? document.body, "Stop AirPlay"));
+    await click(buttonWithText(mounted?.container ?? document.body, "AirPlay controls"));
     expect(closed).toEqual(["closed"]);
+  });
+
+  it("lists no device while the film plays on AirPlay, one cast at a time (D523 §7)", async () => {
+    unoffer = offerAirPlayHere(fakeHere(true));
+    await openMenu();
+    const menu = mounted?.container ?? document.body;
+    expect(menu.textContent).not.toContain("None of your other devices");
+    expect(menu.textContent).toContain("Playing on AirPlay");
+    mounted?.unmount();
+    unoffer();
+    unoffer = offerAirPlayHere(fakeHere(false));
+    await openMenu();
+    expect(mounted?.container.textContent).toContain("None of your other devices");
   });
 
   it("offers no AirPlay where this tab plays nothing that AirPlay is offered for", async () => {

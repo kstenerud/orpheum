@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * AirPlay from the Play page (D473): the grant in the media's path, asked for as the Cast menu opens
- * on the core's name the page reaches it at (grantOriginOf), and revoked as AirPlay ends; and the
- * film this tab plays that AirPlay is offered for (useOffersAirPlay, airPlayHere), handed to the
- * receiver from the page's own element by the player (playOnAirPlay) and back to hls.js at its end.
+ * AirPlay from the Play page (D473, D523): the grant in the media's path, asked for as the Cast menu
+ * opens on the core's name the page reaches it at (grantOriginOf), and revoked as the player goes;
+ * and the film this tab plays that AirPlay is offered for (useOffersAirPlay, airPlayHere), its grant
+ * the element's alternative, which WebKit hands to the receiver itself, and back to hls.js once
+ * AirPlay is off.
  * The grant is the person's session's (sessionAirPlayGrants), or, on a Watch Together guest by
  * link's page, their membership's (D519 §1), as AirPlayGrantsContext says around the player.
  */
 
 import type { Api } from "@orpheum/sdk";
 import {
+  followAirPlay,
   isAirPlayOffered,
-  playOnAirPlay,
-  type AirPlayLeft,
-  type AirPlaying,
+  offerAirPlayAlternative,
+  reloadOnAirPlay,
+  showAirPlayPicker,
 } from "@orpheum/player";
-import { createContext, use, useEffect, useSyncExternalStore, type RefObject } from "react";
+import { createContext, use, useEffect, useRef, useSyncExternalStore, type RefObject } from "react";
 
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLatest } from "./latest.ts";
@@ -146,8 +148,8 @@ export const sessionAirPlayGrants: AirPlayGrants = {
 /** Whose grants the player under it AirPlays by: the person's session's, but a guest's page's. */
 export const AirPlayGrantsContext = createContext<AirPlayGrants>(sessionAirPlayGrants);
 
-// The revocation sent as AirPlay last ended: a grant asked for after it waits for it, so that a
-// revocation of everything the page made cannot land after the grant, revoking it too.
+// The revocation sent as AirPlay's last player went: a grant asked for after it waits for it, so that
+// a revocation of everything the page made cannot land after the grant, revoking it too.
 let revoking: Promise<unknown> = Promise.resolve();
 
 /**
@@ -172,21 +174,21 @@ export interface AirPlayHere {
   readonly grants: AirPlayGrants;
   /** The audio track the film plays now, by its place, which AirPlay plays too; none, its starting one. */
   readonly audioTrackIndex?: () => number | undefined;
-  /** Whether the film plays on AirPlay now. */
+  /** Whether the film plays on AirPlay now, as the element's wireless flag says (D523 §2). */
   readonly isPlaying: () => boolean;
-  /** Hands the film to AirPlay from the grant at url, within the press it is called in. */
-  readonly start: (url: string) => void;
   /**
-   * Within a press, shows AirPlay's picker for the person to choose this device, AirPlay ending as
-   * they do, the film handed back to the page where it stood (D521 §1).
+   * Within a press, offers the grant at url to AirPlay as the element's alternative and shows the
+   * picker: WebKit moves the film to the receiver the person picks (D523 §1).
    */
-  readonly askToStop: () => void;
+  readonly start: (url: string) => void;
+  /** Within a press, shows AirPlay's picker, AirPlay's own controls while it plays (D523 §6). */
+  readonly showControls: () => void;
 }
 
 let offered: AirPlayHere | undefined;
 const watchers = new Set<() => void>();
 
-function tellWatchers(): void {
+function tellAirPlayChanged(): void {
   for (const watcher of watchers) {
     watcher();
   }
@@ -212,82 +214,182 @@ export function useAirPlayHere(): AirPlayHere | undefined {
   return useSyncExternalStore(watchOffered, airPlayHere, airPlayHere);
 }
 
+/** Whether this tab's film plays on AirPlay now (D523 §2). */
+function isOnAirPlayNow(): boolean {
+  return offered?.isPlaying() === true;
+}
+
+/**
+ * Whether this tab's film plays on AirPlay now, re-rendering as it starts or ends (D523 §2): what
+ * Cast's menu, its sign over the film and a guest's Cast dialog show (D523 §6, §7).
+ */
+export function useIsOnAirPlay(): boolean {
+  return useSyncExternalStore(watchOffered, isOnAirPlayNow, isOnAirPlayNow);
+}
+
 /** Offers AirPlay for here, the film this tab plays, till the returned function takes it back. */
 export function offerAirPlayHere(here: AirPlayHere): () => void {
   offered = here;
-  tellWatchers();
+  tellAirPlayChanged();
   return () => {
     if (offered === here) {
       offered = undefined;
-      tellWatchers();
+      tellAirPlayChanged();
     }
   };
 }
 
+/** Where the film stood as AirPlay ended, in s, and whether it was paused there. */
+export interface AirPlayLeft {
+  readonly positionS: number;
+  readonly wasPaused: boolean;
+}
+
 /**
- * How a film on its ladder lets its element go to AirPlay, and takes it back where it stood; and the
- * audio track it plays now, by its place, which AirPlay is to play (D521 §2).
+ * How a film on its ladder takes part in AirPlay (D523): it offers each grant's alternative again as
+ * its playback attaches anew (offered), is put back on hls.js where AirPlay left it (takeBack), and
+ * says the audio track it plays now, by its place, which AirPlay is to play (D521 §2).
  */
 export interface AirPlayHandOff {
-  readonly letGoOfHls: () => void;
+  readonly offered: (url: string) => void;
   readonly takeBack: (left: AirPlayLeft) => void;
   readonly playingTrack: () => number | undefined;
 }
 
 /**
  * Offers AirPlay for the playback mediaToken names in the video, while the calling player lives,
- * where the page offers AirPlay (isAirPlayOffered): started from the Cast menu (airPlayHere), it is
- * handed back (handOff) and its grant revoked as AirPlay ends, as the target stops being wireless (the
- * person choosing this device, in the picker Stop shows or in Control Center); the player going away
- * ends it at once. Its grant is asked for and revoked by whom
- * AirPlayGrantsContext names.
+ * where the page offers AirPlay (isAirPlayOffered), its grant asked for and revoked by whom
+ * AirPlayGrantsContext names (D523). Started from the Cast menu (airPlayHere), the grant is the
+ * element's alternative, which WebKit moves the film to; AirPlay is on as the wireless flag says
+ * (followAirPlay), and once it is off the film is handed back (handOff.takeBack). A track chosen
+ * while AirPlay plays, playingTrack, is reloaded on the receiver from a grant of its own (D523 §3).
+ * The grants are revoked as the player goes, if AirPlay was started; one made for a menu's opening
+ * alone ends with its day.
  */
 export function useOffersAirPlay(
   videoRef: RefObject<HTMLVideoElement | null>,
-  mediaToken: string | undefined,
+  playback: { readonly mediaToken: string | undefined; readonly playingTrack: number | undefined },
   handOff: AirPlayHandOff,
 ): void {
-  const { api } = useServices();
+  const { mediaToken, playingTrack } = playback;
+  const { api, pathMoves } = useServices();
   const grants = use(AirPlayGrantsContext);
   const handOffRef = useLatest(handOff);
+  const offerRef = useRef<AirPlayOffer | undefined>(undefined);
   useEffect(() => {
     const video = videoRef.current;
     if (video === null || mediaToken === undefined || !isAirPlayOffered(video, globalThis)) {
       return undefined;
     }
-    let playing: AirPlaying | undefined;
-    let isGone = false;
-    const here: AirPlayHere = {
-      mediaToken,
-      grants,
-      audioTrackIndex: () => handOffRef.current.playingTrack(),
-      isPlaying: () => playing !== undefined,
+    const offer = new AirPlayOffer(video, { mediaToken, grants, handOffRef }, { api, pathMoves });
+    offerRef.current = offer;
+    return () => {
+      offerRef.current = undefined;
+      offer.end();
+    };
+  }, [videoRef, mediaToken, api, pathMoves, grants, handOffRef]);
+  useEffect(() => {
+    offerRef.current?.soundChanged();
+  }, [playingTrack]);
+}
+
+/**
+ * AirPlay offered for one playback in its video, till end (useOffersAirPlay): here, in the Cast menu's
+ * reach while it lasts; on as the wireless flag says (followAirPlay), the film handed back once off; a
+ * sound changed while on reloaded on the receiver from a grant of its own (D523 §3); its grants
+ * revoked at its end where AirPlay was started.
+ */
+class AirPlayOffer {
+  readonly #video: HTMLVideoElement;
+  readonly #handOffRef: RefObject<AirPlayHandOff>;
+  readonly #grants: AirPlayGrants;
+  readonly #services: Pick<ReturnType<typeof useServices>, "api" | "pathMoves">;
+  readonly #here: AirPlayHere;
+  readonly #stopFollowing: () => void;
+  readonly #unoffer: () => void;
+  #isOn = false;
+  #isGone = false;
+  #hasStarted = false;
+  #grantedTrack: number | undefined;
+
+  constructor(
+    video: HTMLVideoElement,
+    offered: {
+      readonly mediaToken: string;
+      readonly grants: AirPlayGrants;
+      readonly handOffRef: RefObject<AirPlayHandOff>;
+    },
+    services: Pick<ReturnType<typeof useServices>, "api" | "pathMoves">,
+  ) {
+    this.#video = video;
+    this.#handOffRef = offered.handOffRef;
+    this.#grants = offered.grants;
+    this.#services = services;
+    this.#here = {
+      mediaToken: offered.mediaToken,
+      grants: offered.grants,
+      audioTrackIndex: () => this.#handOffRef.current.playingTrack(),
+      isPlaying: () => this.#isOn,
       start: (url) => {
-        if (playing !== undefined) {
-          return;
-        }
-        playing = playOnAirPlay(video, url, {
-          letGoOfHls: () => {
-            handOffRef.current.letGoOfHls();
-          },
-          onEnded: (left) => {
-            playing = undefined;
-            revoking = grants.revoke({ api, log: noLog }).catch(() => undefined); // its day ends it else
-            if (!isGone) {
-              handOffRef.current.takeBack(left);
-            }
-          },
+        this.#start(url);
+      },
+      showControls: () => {
+        showAirPlayPicker(video);
+      },
+    };
+    this.#stopFollowing = followAirPlay(video, {
+      onOn: () => {
+        this.#isOn = true;
+        tellAirPlayChanged();
+      },
+      onOff: () => {
+        this.#isOn = false;
+        tellAirPlayChanged();
+        this.#handOffRef.current.takeBack({
+          positionS: video.currentTime,
+          wasPaused: video.paused,
         });
       },
-      askToStop: () => {
-        playing?.askToStop();
-      },
-    };
-    const unoffer = offerAirPlayHere(here);
-    return () => {
-      isGone = true;
-      playing?.stop();
-      unoffer();
-    };
-  }, [videoRef, mediaToken, api, grants, handOffRef]);
+    });
+    this.#unoffer = offerAirPlayHere(this.#here);
+  }
+
+  /** Within the press: the grant at url offered as the alternative, and the picker shown (D523 §1). */
+  #start(url: string): void {
+    this.#hasStarted = true;
+    this.#grantedTrack = this.#handOffRef.current.playingTrack();
+    this.#handOffRef.current.offered(url);
+    offerAirPlayAlternative(this.#video, url);
+    showAirPlayPicker(this.#video);
+  }
+
+  /** The film's sound changed: while on AirPlay, reloaded there from a grant for it (D523 §3). */
+  soundChanged(): void {
+    const track = this.#handOffRef.current.playingTrack();
+    const { api, pathMoves } = this.#services;
+    const origin = grantOriginOf(pathMoves, globalThis.location.origin, noLog);
+    if (!this.#isOn || track === this.#grantedTrack || origin === undefined) {
+      return;
+    }
+    this.#grantedTrack = track;
+    askAirPlayGrant(this.#here, { api, log: noLog }, origin)
+      .then((grant) => {
+        if (!this.#isGone && this.#isOn) {
+          this.#handOffRef.current.offered(grant.url);
+          reloadOnAirPlay(this.#video, grant.url);
+        }
+      })
+      .catch(() => undefined); // the receiver plays on with the sound it has
+  }
+
+  /** Its end, as the player goes: the grants revoked where AirPlay was started. */
+  end(): void {
+    this.#isGone = true;
+    this.#stopFollowing();
+    this.#unoffer();
+    if (this.#hasStarted) {
+      const doing = { api: this.#services.api, log: noLog };
+      revoking = this.#grants.revoke(doing).catch(() => undefined); // its day ends it else
+    }
+  }
 }

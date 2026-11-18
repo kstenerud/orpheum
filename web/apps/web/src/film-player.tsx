@@ -45,7 +45,6 @@ import { ForTesters } from "./for-testers.tsx";
 import type { LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
 import { useChunkedPlayback } from "./ladder-playback.ts";
-import { useLatest } from "./latest.ts";
 import { rateText } from "./rate-text.ts";
 import { stopSeekAheadOf } from "./seek-ahead.ts";
 import type { ReopenAt } from "./reopen.ts";
@@ -658,10 +657,10 @@ function useLadderPlayback(
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
   // AirPlay plays the track the page plays as its grant is asked for (D521 §2): a lower quality a
   // stalled player moved to names none of its tracks, and plays the one its original played.
-  const playingTrackRef = useLatest(sound?.audioTrackIndex ?? starting.playedTrack);
+  const playingTrack = sound?.audioTrackIndex ?? starting.playedTrack;
   const chunked = useChunkedPlayback(
     videoRef,
-    { offer, positionMs, startAudioRef, shouldStartByRememberedLink, mediaToken, playingTrackRef },
+    { offer, positionMs, startAudioRef, shouldStartByRememberedLink, mediaToken, playingTrack },
     onFailed,
   );
   const { playbackRef } = chunked;

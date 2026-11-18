@@ -7,6 +7,7 @@ import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useIsOnAirPlay } from "./airplay.ts";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IconButton } from "./icon-button.tsx";
 import { CastIcon, TogetherIcon, WarningIcon } from "./icons.tsx";
@@ -177,7 +178,8 @@ export function castSignOverTheFilm(onOpenChange: (isOpen: boolean) => void): JS
 
 /**
  * Cast's sign itself: Cast to a device, or, blue, what plays on which device while this one casts, or
- * which device casts to this one while it receives (a device that does both says what it casts).
+ * which device casts to this one while it receives (a device that does both says what it casts); blue
+ * too while this tab's film plays on AirPlay, saying so (D523 §6).
  */
 function CastSignButton(props: {
   readonly sending: CastSending | undefined;
@@ -187,11 +189,12 @@ function CastSignButton(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { sending, receiving } = props;
+  const isOnAirPlay = useIsOnAirPlay();
   return (
     <IconButton
-      label={castSignLabel(t, sending, receiving)}
+      label={isOnAirPlay ? t("status.onAirPlay") : castSignLabel(t, sending, receiving)}
       icon={<CastIcon />}
-      mark={signMark(sending !== undefined || receiving !== undefined)}
+      mark={signMark(isOnAirPlay || sending !== undefined || receiving !== undefined)}
       isOverVideo={props.isOverVideo}
       onClick={props.onOpen}
     />

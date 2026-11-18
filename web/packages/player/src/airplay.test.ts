@@ -1,209 +1,166 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  airPlayPickWithinMs,
+  airPlayAlternativeType,
+  airPlayOffSettlesMs,
+  followAirPlay,
+  hasAirPlayAlternative,
   isAirPlayOffered,
-  playOnAirPlay,
+  offerAirPlayAlternative,
+  reloadOnAirPlay,
+  showAirPlayPicker,
   wirelessChangedEvent,
-  type AirPlayLeft,
-  type AirPlayVideo,
 } from "./airplay.ts";
 
-/** An element with Safari's AirPlay, which notes what it is told and tells its target's changes. */
-class FakeVideo implements AirPlayVideo {
-  currentTime = 0;
-  src = "";
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- HTMLMediaElement's own name
-  disableRemotePlayback = true;
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- HTMLMediaElement's own name
-  paused = true;
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
-  webkitCurrentPlaybackTargetIsWireless = false;
-  readonly said: string[] = [];
-  readonly attributes = new Map<string, string>();
-  readonly #listeners = new Map<string, Set<() => void>>();
-
-  webkitShowPlaybackTargetPicker(): void {
-    this.said.push("picker");
-  }
-
-  pause(): void {
-    this.paused = true;
-    this.said.push("pause");
-  }
-
-  async play(): Promise<void> {
-    this.paused = false;
-    this.said.push("play");
-    await Promise.resolve();
-  }
-
-  load(): void {
-    this.said.push(`load ${this.src}`);
-  }
-
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value);
-  }
-
-  removeAttribute(name: string): void {
-    if (name === "src") {
-      this.src = "";
-    }
-    this.attributes.delete(name);
-  }
-
-  addEventListener(type: string, listener: () => void): void {
-    const listeners = this.#listeners.get(type) ?? new Set();
-    listeners.add(listener);
-    this.#listeners.set(type, listeners);
-  }
-
-  removeEventListener(type: string, listener: () => void): void {
-    this.#listeners.get(type)?.delete(listener);
-  }
-
-  /** Makes the target wireless or not, telling the listeners as WebKit does. */
-  goWireless(isWireless: boolean): void {
-    this.webkitCurrentPlaybackTargetIsWireless = isWireless;
-    for (const listener of this.#listeners.get(wirelessChangedEvent) ?? []) {
-      listener();
-    }
-  }
-
-  listening(type: string): number {
-    return this.#listeners.get(type)?.size ?? 0;
-  }
-}
-
-/** A page with WebKit's target availability event, as Safari's has. */
-const safari = Object.fromEntries([["WebKitPlaybackTargetAvailabilityEvent", Event]]);
-
-const grant = "https://core.example/api/v1/bytes/media/g/grant/master.m3u8";
-
-/** A film playing at 61 s, handed to AirPlay; what it was let go of and where it ended are noted. */
-function handedOver(): {
-  readonly video: FakeVideo;
-  readonly stop: () => void;
-  readonly askToStop: () => void;
-  readonly ended: AirPlayLeft[];
+/** A page's element with Safari's AirPlay: its wireless flag set by goWireless, its picker counted. */
+function safarisVideo(): HTMLVideoElement & {
+  readonly goWireless: (isWireless: boolean) => void;
+  readonly pickersShown: () => number;
 } {
-  const video = new FakeVideo();
-  video.currentTime = 61;
-  video.paused = false;
-  const ended: AirPlayLeft[] = [];
-  const playing = playOnAirPlay(video, grant, {
-    letGoOfHls: () => {
-      video.said.push(`hls.js let go at ${String(video.currentTime)}`);
-      video.src = "";
-      video.currentTime = 0;
-    },
-    onEnded: (left) => {
-      ended.push(left);
+  const video = document.createElement("video");
+  let isTargetWireless = false;
+  let shown = 0;
+  Object.defineProperty(video, "webkitCurrentPlaybackTargetIsWireless", {
+    get: () => isTargetWireless,
+  });
+  Object.defineProperty(video, "webkitShowPlaybackTargetPicker", {
+    value: () => {
+      shown += 1;
     },
   });
-  return { video, stop: playing.stop, askToStop: playing.askToStop, ended };
+  return Object.assign(video, {
+    goWireless: (isWireless: boolean) => {
+      isTargetWireless = isWireless;
+      video.dispatchEvent(new Event(wirelessChangedEvent));
+    },
+    pickersShown: () => shown,
+  });
 }
 
-describe("AirPlay from the page's own element (D473, Way B)", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
+const grantUrl = "https://core.example/api/v1/airplay/g1/master.m3u8";
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+/** Safari's page, which has WebKit's event for a target's availability. */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- WebKit's own name
+const safarisPage = { WebKitPlaybackTargetAvailabilityEvent: Event };
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("AirPlay as WebKit's own handover (D523)", () => {
   it("is offered only where the page has WebKit's availability event and the element its picker", () => {
-    const video = new FakeVideo();
-    expect(isAirPlayOffered(video, safari)).toBe(true);
+    const video = safarisVideo();
+    expect(isAirPlayOffered(video, safarisPage)).toBe(true);
     expect(isAirPlayOffered(video, {})).toBe(false);
-    expect(isAirPlayOffered({}, safari)).toBe(false);
+    expect(isAirPlayOffered(document.createElement("video"), safarisPage)).toBe(false);
   });
 
-  it("lets hls.js go, gives the element the grant at the film's position, and shows the picker within the press", () => {
-    const { video } = handedOver();
-    expect(video.said).toEqual(["hls.js let go at 61", "picker", "play"]);
-    expect(video.src).toBe(grant);
-    expect(video.currentTime).toBe(61);
+  it("offers the grant as the element's HLS alternative, its remote playback allowed, replacing an earlier one (§1)", () => {
+    const video = safarisVideo();
+    video.disableRemotePlayback = true; // as hls.js leaves it, attached under Managed Media Source
+    const blob = document.createElement("source");
+    blob.src = "blob:hls";
+    video.append(blob);
+    offerAirPlayAlternative(video, `${grantUrl}?first`);
+    offerAirPlayAlternative(video, grantUrl);
+    const sources = [...video.querySelectorAll("source")];
+    expect(sources.map((source) => source.src)).toEqual(["blob:hls", grantUrl]);
+    expect(sources[1]?.type).toBe(airPlayAlternativeType);
     expect(video.disableRemotePlayback).toBe(false);
-    expect(video.attributes.get("x-webkit-airplay")).toBe("allow");
+    expect(video.getAttribute("x-webkit-airplay")).toBe("allow");
+    expect(hasAirPlayAlternative(video)).toBe(true);
   });
 
-  it("ends as the target stops being wireless, emptying the element, and says where it stood, paused or not", () => {
-    const { video, ended } = handedOver();
+  it("shows the picker within the press, and says where it could not", () => {
+    const video = safarisVideo();
+    expect(showAirPlayPicker(video)).toBe(true);
+    expect(video.pickersShown()).toBe(1);
+    expect(showAirPlayPicker(document.createElement("video"))).toBe(false);
+    const throwing = document.createElement("video");
+    Object.defineProperty(throwing, "webkitShowPlaybackTargetPicker", {
+      value: () => {
+        throw new Error("not in a press");
+      },
+    });
+    expect(showAirPlayPicker(throwing)).toBe(false);
+  });
+
+  it("is on as the flag rises and off only once it has stayed down a second, a flicker at the switch kept on (§2)", () => {
+    const video = safarisVideo();
+    const told: string[] = [];
+    const stop = followAirPlay(video, {
+      onOn: () => told.push("on"),
+      onOff: () => told.push("off"),
+    });
     video.goWireless(true);
-    video.currentTime = 600;
-    video.paused = true;
+    expect(told).toEqual(["on"]);
+    // WebKit's switch: the flag down for 130 ms (the lab's E3).
     video.goWireless(false);
-    expect(ended).toEqual([{ positionS: 600, wasPaused: true }]);
-    expect(video.src).toBe("");
-    expect(video.said.slice(-2)).toEqual(["pause", "load "]);
-    expect(video.listening(wirelessChangedEvent)).toBe(0);
-  });
-
-  it("ends at Stop, once, playing or not", () => {
-    const { video, stop, ended } = handedOver();
+    vi.advanceTimersByTime(130);
     video.goWireless(true);
-    video.currentTime = 90;
-    stop();
-    stop();
+    vi.advanceTimersByTime(airPlayOffSettlesMs * 2);
+    expect(told).toEqual(["on"]);
     video.goWireless(false);
-    expect(ended).toEqual([{ positionS: 90, wasPaused: false }]);
-    expect(video.src).toBe("");
-  });
-
-  it("turns the element's remote playback off again as it ends, so its sound plays here, not on the receiver", () => {
-    // The owner, VQ361, 2026-11-18: after Stop AirPlay, the film went back to the iPhone's page
-    // and its sound went on playing on the Mac.
-    const { video, stop } = handedOver();
-    video.goWireless(true);
-    stop();
-    expect(video.disableRemotePlayback).toBe(true);
-    expect(video.attributes.has("x-webkit-airplay")).toBe(false);
-  });
-
-  it("at a Stop pressed, shows the picker for the person to choose this device, and ends as they do (D521 §1)", () => {
-    // The owner, VQ362, 2026-11-18: Stop brought the picture back to the iPhone and left its sound
-    // on the Mac, which only the person choosing the iPhone can bring back.
-    const { video, askToStop, ended } = handedOver();
-    video.goWireless(true);
-    video.currentTime = 120;
-    askToStop();
-    expect(video.said.at(-1)).toBe("picker");
-    expect(ended).toEqual([]);
-    expect(video.src).toBe(grant);
-    video.goWireless(false);
-    expect(ended).toEqual([{ positionS: 120, wasPaused: false }]);
-    expect(video.src).toBe("");
-  });
-
-  it("plays on at a Stop pressed when the person keeps the receiver, and ends at once if none was picked", () => {
-    const kept = handedOver();
-    kept.video.goWireless(true);
-    kept.askToStop();
-    vi.advanceTimersByTime(airPlayPickWithinMs * 2);
-    expect(kept.ended).toEqual([]);
-
-    const unpicked = handedOver();
-    unpicked.askToStop();
-    expect(unpicked.ended).toHaveLength(1);
-    expect(unpicked.video.said.filter((each) => each === "picker")).toHaveLength(1);
-  });
-
-  it("is handed back when no receiver is picked in time, and not while one plays", () => {
-    const unpicked = handedOver();
-    vi.advanceTimersByTime(airPlayPickWithinMs - 1);
-    expect(unpicked.ended).toEqual([]);
+    vi.advanceTimersByTime(airPlayOffSettlesMs - 1);
+    expect(told).toEqual(["on"]);
     vi.advanceTimersByTime(1);
-    expect(unpicked.ended).toHaveLength(1);
-    expect(unpicked.video.src).toBe("");
+    expect(told).toEqual(["on", "off"]);
+    stop();
+    video.goWireless(true);
+    expect(told).toEqual(["on", "off"]);
+  });
 
-    const picked = handedOver();
-    picked.video.goWireless(true);
-    vi.advanceTimersByTime(airPlayPickWithinMs * 2);
-    expect(picked.ended).toEqual([]);
+  it("tells nothing for a fall before any rise, and nothing once stopped while settling", () => {
+    const video = safarisVideo();
+    const told: string[] = [];
+    const stop = followAirPlay(video, {
+      onOn: () => told.push("on"),
+      onOff: () => told.push("off"),
+    });
+    video.goWireless(false);
+    vi.advanceTimersByTime(airPlayOffSettlesMs);
+    video.goWireless(true);
+    video.goWireless(false);
+    stop();
+    vi.advanceTimersByTime(airPlayOffSettlesMs);
+    expect(told).toEqual(["on"]);
+  });
+
+  it("reloads another sound's grant where the film stands, playing on, the alternative now the new grant (§3)", () => {
+    const video = safarisVideo();
+    offerAirPlayAlternative(video, `${grantUrl}?sound=0`);
+    video.currentTime = 42;
+    const played = vi.spyOn(video, "play").mockResolvedValue(undefined);
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
+    const loaded = vi.spyOn(video, "load").mockImplementation(() => undefined);
+    reloadOnAirPlay(video, `${grantUrl}?sound=1`);
+    expect(video.getAttribute("src")).toBe(`${grantUrl}?sound=1`);
+    expect(loaded).toHaveBeenCalledOnce();
+    expect(played).not.toHaveBeenCalled();
+    video.currentTime = 0;
+    video.dispatchEvent(new Event("loadedmetadata"));
+    expect(video.currentTime).toBe(42);
+    expect(played).toHaveBeenCalledOnce();
+    expect([...video.querySelectorAll("source")].map((source) => source.src)).toEqual([
+      `${grantUrl}?sound=1`,
+    ]);
+  });
+
+  it("keeps a paused film paused as it reloads its sound", () => {
+    const video = safarisVideo();
+    video.currentTime = 7;
+    const played = vi.spyOn(video, "play").mockResolvedValue(undefined);
+    vi.spyOn(video, "load").mockImplementation(() => undefined);
+    reloadOnAirPlay(video, grantUrl);
+    video.dispatchEvent(new Event("loadedmetadata"));
+    expect(video.currentTime).toBe(7);
+    expect(played).not.toHaveBeenCalled();
   });
 });

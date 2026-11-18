@@ -7,7 +7,13 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { grantAt, grantBody, useAirPlayHere, type AirPlayGrants } from "./airplay.ts";
+import {
+  grantAt,
+  grantBody,
+  useAirPlayHere,
+  useIsOnAirPlay,
+  type AirPlayGrants,
+} from "./airplay.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { ChromecastEntry, useGuestCastAskingBy } from "./cast-to.tsx";
 import type { CastChannel } from "./cast-sdk.ts";
@@ -199,7 +205,10 @@ export function GuestsCastEntry(props: {
   );
 }
 
-/** Cast's dialog: Chromecast where this page casts to one, then AirPlay where it is offered. */
+/**
+ * Cast's dialog: Chromecast where this page casts to one, then AirPlay where it is offered; while the
+ * film plays on AirPlay, AirPlay alone, one cast at a time (D523 §7).
+ */
 function GuestsCastChoices(props: {
   readonly cast: GuestsCast;
   readonly snapshot: TogetherSnapshot | undefined;
@@ -207,6 +216,7 @@ function GuestsCastChoices(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { cast } = props;
+  const isOnAirPlay = useIsOnAirPlay();
   const close = (): void => {
     cast.setIsChoosing(false);
   };
@@ -214,7 +224,7 @@ function GuestsCastChoices(props: {
     <ModalDialog label={t("cast.page")} onClose={close}>
       <section className="cast-to" aria-labelledby="guest-cast-heading">
         <h2 id="guest-cast-heading">{t("cast.heading")}</h2>
-        {cast.isOffered ? (
+        {cast.isOffered && !isOnAirPlay ? (
           <ChromecastEntry
             isStale={props.snapshot?.status !== "connected" || cast.isBusy}
             onCast={cast.start}

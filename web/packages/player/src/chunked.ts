@@ -26,6 +26,7 @@ import { loadOnAfterFailures } from "./load-again.ts";
 import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
 import type { StartingPlaylists } from "./loaded-playlists.ts";
 import { chunkedHls } from "./chunk-hls.ts";
+import { stopsAsAirPlayTakesOver, type OffersAirPlay } from "./airplay-hls.ts";
 import { noLinkWaitWatch, type LinkWaitWatch } from "./link-wait.ts";
 import {
   failOnFatal,
@@ -754,6 +755,7 @@ export function playChunked(
      */
     readonly loadedPlaylists?: StartingPlaylists | undefined;
   } & RememberedOffer &
+    OffersAirPlay &
     Pick<ChoosingOptions, "dataCapKbps">, // the device's data cap, read at each choice (D488)
 ): ChunkedPlayback {
   const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
@@ -779,14 +781,13 @@ export function playChunked(
   const followed = followAheadGroupSoundAndStalls(hls, video, follow);
   const stops = [...followed.stops, seeks.stop, stopLoadingOn, readAhead.stop];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
+  const stopListening = stopsAsAirPlayTakesOver({ hls, video }, options, stops);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
     ...soundChoice,
     destroy: () => {
-      for (const stop of stops) {
-        stop();
-      }
+      stopListening();
       hls.destroy();
     },
     ...qualitiesOf(hls, linkKbps),

@@ -7,7 +7,7 @@ import {
   type PlaybackFailed,
   type playChunked,
 } from "@orpheum/player";
-import { act, useRef, type JSX } from "react";
+import { act, useEffect, useRef, useState, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
@@ -22,6 +22,7 @@ const played = {
   outages: [] as unknown[],
   dataCaps: [] as ((() => number | undefined) | undefined)[],
   loadedPlaylists: [] as unknown[],
+  alternatives: [] as (string | undefined)[],
   destroyed: 0,
 };
 
@@ -31,6 +32,7 @@ const fakePlayChunked = ((_video, _url, options): ChunkedPlayback => {
   played.outages.push(options.outages);
   played.dataCaps.push(options.dataCapKbps);
   played.loadedPlaylists.push(options.loadedPlaylists);
+  played.alternatives.push(options.airPlayAlternativeUrl);
   return {
     setAudioRendition: () => undefined,
     canSwitchSoundInPlace: false,
@@ -65,13 +67,30 @@ const offer: LadderOffer = {
 };
 
 const grant = "https://core.example/api/v1/bytes/media/g/grant/master.m3u8";
+const soundsGrantPath = "/api/v1/bytes/media/g/sound-1/master.m3u8";
 
 const noFailure: PlaybackFailed = () => undefined;
 
-/** A film on its ladder from 61 s, its playback's media token given, so AirPlay is offered for it. */
+/** Chooses the audio track the mounted ladder plays, by its place, as the page's sound choice does. */
+let chooseTrack: (track: number) => void = () => undefined;
+
+/**
+ * A film on its ladder from 61 s, its playback's media token given, so AirPlay is offered for it,
+ * playing its first audio track till another is chosen (chooseTrack).
+ */
 function Ladder(): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const starting = { offer, positionMs: 61_000, mediaToken: "media", play: fakePlayChunked };
+  const [playingTrack, setPlayingTrack] = useState(0);
+  useEffect(() => {
+    chooseTrack = setPlayingTrack;
+  }, []);
+  const starting = {
+    offer,
+    positionMs: 61_000,
+    mediaToken: "media",
+    play: fakePlayChunked,
+    playingTrack,
+  };
   useChunkedPlayback(videoRef, starting, noFailure);
   // eslint-disable-next-line jsx-a11y-x/media-has-caption -- a stand-in for the player's element
   return <video ref={videoRef} />;
@@ -86,7 +105,7 @@ function goWireless(video: HTMLVideoElement, isWireless: boolean): void {
   video.dispatchEvent(new Event("webkitcurrentplaybacktargetiswirelesschanged"));
 }
 
-describe("a film on its ladder handed to AirPlay and back (D473)", () => {
+describe("a film on its ladder handed to AirPlay and back (D473, D523)", () => {
   let mounted: Mounted | undefined;
   const pickers: HTMLMediaElement[] = [];
 
@@ -95,6 +114,7 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     played.outages.length = 0;
     played.dataCaps.length = 0;
     played.loadedPlaylists.length = 0;
+    played.alternatives.length = 0;
     played.destroyed = 0;
     vi.stubGlobal("WebKitPlaybackTargetAvailabilityEvent", Event);
     Object.defineProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker", {
@@ -110,13 +130,24 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     mounted = undefined;
     pickers.length = 0;
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     Reflect.deleteProperty(HTMLMediaElement.prototype, "webkitShowPlaybackTargetPicker");
   });
 
   /** The ladder mounted, its video, and the requests it made. */
   async function mountLadder(): Promise<{ readonly video: HTMLVideoElement; heard: Heard[] }> {
     const heard: Heard[] = [];
-    const services = servedBy({ "DELETE /airplay/grants": [200, { revoked: 1 }] }, heard, "token");
+    const services = servedBy(
+      {
+        "DELETE /airplay/grants": [200, { revoked: 1 }],
+        "POST /airplay/grants": [
+          201,
+          { masterPath: soundsGrantPath, expiresAt: "2026-11-19T12:00:00Z" },
+        ],
+      },
+      heard,
+      "token",
+    );
     mounted = await mount(withServices(<Ladder />, services));
     const video = mounted.container.querySelector("video");
     if (video === null) {
@@ -145,7 +176,41 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
     expect(capNow?.()).toBeUndefined();
   });
 
-  it("lets hls.js go and gives the element the grant at its place, starting no playback while on AirPlay", async () => {
+  /** The ladder mounted and AirPlay started from it, its target wireless, the settle's clock faked. */
+  async function onAirPlay(): Promise<{ readonly video: HTMLVideoElement; heard: Heard[] }> {
+    const mountedLadder = await mountLadder();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await act(async () => {
+      airPlayHere()?.start(grant);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      goWireless(mountedLadder.video, true);
+      await Promise.resolve();
+    });
+    return mountedLadder;
+  }
+
+  /** The ladder unmounted, as its player goes. */
+  function leave(): void {
+    mounted?.unmount();
+    mounted = undefined;
+  }
+
+  /** The address of AirPlay's alternative offered in video, if one is. */
+  function alternativeOf(video: HTMLVideoElement): string | undefined {
+    return video.querySelector<HTMLSourceElement>("source[data-airplay-alternative]")?.src;
+  }
+
+  /** Lets ms pass, the page's renders done. */
+  async function pass(ms: number): Promise<void> {
+    await act(async () => {
+      vi.advanceTimersByTime(ms);
+      await Promise.resolve();
+    });
+  }
+
+  it("offers the grant as the element's alternative and shows the picker, keeping hls.js's playback through AirPlay (D523 §1)", async () => {
     const { video } = await mountLadder();
     expect(played.starts).toEqual([61]);
     video.currentTime = 75;
@@ -153,21 +218,21 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
       airPlayHere()?.start(grant);
       await Promise.resolve();
     });
-    expect(played.destroyed).toBe(1);
-    expect(video.getAttribute("src")).toBe(grant);
-    expect(video.currentTime).toBe(75);
+    expect(alternativeOf(video)).toBe(grant);
+    expect(video.hasAttribute("src")).toBe(false);
     expect(pickers).toEqual([video]);
+    expect(airPlayHere()?.isPlaying()).toBe(false);
+    await act(async () => {
+      goWireless(video, true);
+      await Promise.resolve();
+    });
     expect(airPlayHere()?.isPlaying()).toBe(true);
+    expect(played.destroyed).toBe(0);
     expect(played.starts).toEqual([61]);
   });
 
-  it("as its target stops being wireless, revokes the grant and hands it back to hls.js where it stood, paused as it was", async () => {
-    const { video, heard } = await mountLadder();
-    await act(async () => {
-      airPlayHere()?.start(grant);
-      await Promise.resolve();
-    });
-    goWireless(video, true);
+  it("once its target has stayed off a second, plays it on hls.js where AirPlay left it, paused as it was, the alternative ready again (D523 §2, §4)", async () => {
+    const { video, heard } = await onAirPlay();
     video.currentTime = 600;
     video.pause();
     const plays = vi.spyOn(video, "play");
@@ -175,30 +240,76 @@ describe("a film on its ladder handed to AirPlay and back (D473)", () => {
       goWireless(video, false);
       await Promise.resolve();
     });
-    expect(heard.map((each) => each.methodAndPath)).toEqual(["DELETE /airplay/grants"]);
+    await pass(999);
+    expect(played.starts).toEqual([61]);
+    expect(airPlayHere()?.isPlaying()).toBe(true);
+    await pass(1);
     expect(played.starts).toEqual([61, 600]);
-    expect(video.getAttribute("src")).toBeNull();
-    expect(plays).not.toHaveBeenCalled();
+    expect(played.destroyed).toBe(1);
+    expect(played.alternatives).toEqual([undefined, grant]);
     expect(airPlayHere()?.isPlaying()).toBe(false);
+    expect(plays).not.toHaveBeenCalled();
+    expect(heard.map((each) => each.methodAndPath)).toEqual([]);
   });
 
-  it("at Stop, hands a film that was playing back to hls.js playing", async () => {
-    const { video, heard } = await mountLadder();
+  it("stays on AirPlay through the flag's flicker at WebKit's switch (D523 §2)", async () => {
+    const { video } = await onAirPlay();
     await act(async () => {
-      airPlayHere()?.start(grant);
+      goWireless(video, false);
       await Promise.resolve();
     });
-    goWireless(video, true);
+    await pass(130);
+    await act(async () => {
+      goWireless(video, true);
+      await Promise.resolve();
+    });
+    await pass(5000);
+    expect(played.starts).toEqual([61]);
+    expect(airPlayHere()?.isPlaying()).toBe(true);
+  });
+
+  it("hands a film that was playing as AirPlay ended back to hls.js playing", async () => {
+    const { video } = await onAirPlay();
     video.currentTime = 90;
     const plays = vi.spyOn(video, "play").mockResolvedValue(undefined);
     Object.defineProperty(video, "paused", { value: false, configurable: true });
     await act(async () => {
-      airPlayHere()?.askToStop(); // the picker, in which the person chooses this device (D521 §1)
-      goWireless(video, false);
+      goWireless(video, false); // the picker, in which the person chose this device (D523 §6)
       await Promise.resolve();
     });
-    expect(heard.map((each) => each.methodAndPath)).toEqual(["DELETE /airplay/grants"]);
+    await pass(1000);
     expect(played.starts).toEqual([61, 90]);
     expect(plays).toHaveBeenCalled();
+  });
+
+  it("revokes its grants as the player goes once AirPlay was started, and none where it never was", async () => {
+    const started = await onAirPlay();
+    leave();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(started.heard.map((each) => each.methodAndPath)).toEqual(["DELETE /airplay/grants"]);
+    vi.useRealTimers();
+    const never = await mountLadder();
+    leave();
+    expect(never.heard).toEqual([]);
+  });
+
+  it("reloads another sound chosen during AirPlay on the receiver, from a grant of its own (D523 §3)", async () => {
+    const { video, heard } = await onAirPlay();
+    vi.spyOn(video, "load").mockImplementation(() => undefined);
+    vi.useRealTimers();
+    await act(async () => {
+      chooseTrack(1);
+      await Promise.resolve();
+    });
+    const soundsGrant = new URL(soundsGrantPath, globalThis.location.origin).href;
+    await vi.waitFor(() => {
+      expect(video.getAttribute("src")).toBe(soundsGrant);
+    });
+    const asked = heard.filter((each) => each.methodAndPath === "POST /airplay/grants");
+    expect(asked.map((each) => each.body)).toEqual([{ mediaToken: "media", audioTrackIndex: 1 }]);
+    expect(alternativeOf(video)).toBe(soundsGrant);
+    expect(played.starts).toEqual([61]);
   });
 });

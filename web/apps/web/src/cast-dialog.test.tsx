@@ -42,12 +42,16 @@ describe("Cast's dialog (D384 §2)", () => {
   });
 
   /** The dialog over film 4's Play page, its live connection open; what it was told of closing. */
-  async function opened(): Promise<{
+  async function opened(answers: Answers = {}): Promise<{
     readonly live: ReturnType<typeof fakeTogetherServer>;
     readonly onClose: ReturnType<typeof vi.fn>;
   }> {
     const live = fakeTogetherServer();
-    const services = servedBy({ "GET /me/devices": [200, { devices: [] }] }, [], "token");
+    const services = servedBy(
+      { "GET /me/devices": [200, { devices: [] }], ...answers },
+      [],
+      "token",
+    );
     services.navigation.go({ screen: "play", fileId: 4 });
     const onClose = vi.fn();
     mounted = await mount(
@@ -80,7 +84,7 @@ describe("Cast's dialog (D384 §2)", () => {
       start: (url) => {
         started.push(url);
       },
-      askToStop: () => undefined,
+      showControls: () => undefined,
     });
     try {
       const live = fakeTogetherServer();
@@ -104,6 +108,27 @@ describe("Cast's dialog (D384 §2)", () => {
       await click(buttonWithText(mounted.container, "AirPlay"));
       expect(started).toHaveLength(1);
       expect(onClose).toHaveBeenCalledOnce();
+    } finally {
+      unoffer();
+    }
+  });
+
+  it("offers no AirPlay while a cast to a device is on, one cast at a time (D523 §7)", async () => {
+    const unoffer = offerAirPlayHere({
+      mediaToken: "media",
+      grants: sessionAirPlayGrants,
+      isPlaying: () => false,
+      start: () => undefined,
+      showControls: () => undefined,
+    });
+    try {
+      const grant = { masterPath: "/g/master.m3u8", expiresAt: "2026-11-14T12:00:00Z" };
+      const { live } = await opened({ "POST /airplay/grants": [201, grant] });
+      await live.say({ type: "sending" });
+      expect(document.querySelector("dialog")?.textContent).toContain("AirPlay");
+      await live.say({ type: "sending", sending });
+      expect(document.querySelector("dialog")?.textContent).toContain("Fire TV");
+      expect(document.querySelector("dialog")?.textContent).not.toContain("AirPlay");
     } finally {
       unoffer();
     }

@@ -81,6 +81,11 @@ async function mountControls(
   return { page: mounted, main };
 }
 
+/** The address of AirPlay's alternative offered in video, if one is (D523 §1). */
+function alternativeOf(video: HTMLVideoElement): string | undefined {
+  return video.querySelector<HTMLSourceElement>("source[data-airplay-alternative]")?.src;
+}
+
 /** The page's log, a line each. */
 function logOf(page: Mounted): string {
   return [...page.container.querySelectorAll(".lab__log li")]
@@ -89,7 +94,7 @@ function logOf(page: Mounted): string {
 }
 
 describe("the AirPlay lab (airplay.md's spike)", () => {
-  it("fetches the grant as the menu opens, so way B shows the picker on this player within the press", async () => {
+  it("fetches the grant as the menu opens, so way B offers it as this player's alternative and shows the picker within the press (D523 §1)", async () => {
     const heard: Heard[] = [];
     const letGoOfHls = vi.fn();
     const { page, main } = await mountControls({ "POST /airplay/grants": [200, made] }, heard, {
@@ -103,14 +108,15 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /airplay/grants"]);
     expect(bodyField(heard[0]!, "mediaToken")).toBe("media-1");
     await click(buttonNamed(page.container, "Way B: this player"));
-    expect(letGoOfHls).toHaveBeenCalledOnce();
+    expect(letGoOfHls).not.toHaveBeenCalled(); // hls.js lets go itself as WebKit moves the element
     expect(pickedOn).toEqual([main]);
     expect(main.disableRemotePlayback).toBe(false);
-    expect(main.src).toBe(url);
+    expect(alternativeOf(main)).toBe(url);
+    expect(main.hasAttribute("src")).toBe(false);
     expect(logOf(page)).toContain("menu opened: fetching the grant before the press");
     expect(logOf(page)).toContain(`grant fetched: ${url}`);
     expect(logOf(page)).toContain(
-      "way B: the page's element given the grant at 42.0 s, hls.js let go of",
+      "way B: the grant offered as the element's alternative at 42.0 s",
     );
     expect(logOf(page)).toContain("picker shown");
     expect(heard).toHaveLength(1);
@@ -162,7 +168,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     expect(logOf(page)).toContain("revocation answered: 1 revoked");
   });
 
-  it("Stop ends way B by the player's own hand-over, which logs where it stood and empties this player (D473)", async () => {
+  it("way B logs AirPlay's start as the wireless flag rises, and Stop ends its following (D523 §2)", async () => {
     const { page, main } = await mountControls(
       {
         "POST /airplay/grants": [200, made],
@@ -170,12 +176,24 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
       },
       [],
     );
+    let isWireless = false;
+    Object.defineProperty(main, "webkitCurrentPlaybackTargetIsWireless", {
+      get: () => isWireless,
+    });
     await click(buttonNamed(page.container, "AirPlay menu"));
     await settleUntil(() => page.container.textContent.includes("Grant: "));
     await click(buttonNamed(page.container, "Way B: this player"));
+    isWireless = true;
+    await fire(main, new Event("webkitcurrentplaybacktargetiswirelesschanged"));
+    await settleUntil(() => logOf(page).includes("way B: on AirPlay"));
+    expect(logOf(page)).toContain("way B: on AirPlay at 42.0 s");
     await click(buttonNamed(page.container, "Stop"));
     await settleUntil(() => page.container.textContent.includes("Stop answered"));
-    expect(logOf(page)).toContain("way B: ended at 42.0 s, playing; the element emptied");
+    isWireless = false;
+    await fire(main, new Event("webkitcurrentplaybacktargetiswirelesschanged"));
+    isWireless = true;
+    await fire(main, new Event("webkitcurrentplaybacktargetiswirelesschanged"));
+    expect(logOf(page).split("way B: on AirPlay")).toHaveLength(2);
     expect(main.hasAttribute("src")).toBe(false);
   });
 
@@ -189,7 +207,7 @@ describe("the AirPlay lab (airplay.md's spike)", () => {
     const url = `${lanName}${masterPath}`;
     expect(page.container.textContent).toContain(`Grant: ${url}`);
     await click(buttonNamed(page.container, "Way B: this player"));
-    expect(main.src).toBe(url);
+    expect(alternativeOf(main)).toBe(url);
     expect(pickedOn).toEqual([main]);
   });
 

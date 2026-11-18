@@ -16,6 +16,7 @@ export const enStatus = {
     castingFilm: "Casting {{film}} to {{name}}",
     castFrom: "Cast from {{name}}",
     castFromAnother: "Cast from another of your devices",
+    onAirPlay: "Playing on AirPlay",
     close: "Close",
     needsAttention: "Something needs your attention",
   },

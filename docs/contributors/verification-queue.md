@@ -3457,6 +3457,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   group is within a few seconds.
   (`POST /together/airplay-grants`, `DELETE /together/airplay-grants`, `GuestAirPlayHold`, the web
   app's `together-guest-cast.tsx`.)
+  Since D523 there is no Stop AirPlay: read it as Cast, AirPlay controls, and choosing the iPhone.
 - [ ] **VQ362** — Stop AirPlay brings the film's sound back to the iPhone, and the next AirPlay plays
   on the receiver (the owner, VQ361, 2026-11-18: after Stop AirPlay the film came back to the
   iPhone's page and its sound went on playing on the Mac; the next AirPlay then played on the
@@ -3521,6 +3522,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Stop AirPlay, and close the picker without choosing the iPhone. Passes when the Mac plays the new
   sound within a few seconds, and the page's Cast menu says AirPlay plays exactly while the Mac
   plays. Waits on the owner's choice of design (asked 2026-11-18).
+  Superseded by VQ367 (D523 §3, §6: the sound reloads on the receiver, and Stop is AirPlay controls).
 - [ ] **VQ365** — A film handed back from AirPlay plays the sound its page says (VQ363, 2026-11-18:
   a Watch Together guest by link on the iPhone, the page saying "Sound: Japanese", AirPlayed to
   the Mac, which played the English; at Stop AirPlay, choosing the iPhone, the film came back
@@ -3539,3 +3541,34 @@ An item is ticked only by the person who did it, and only with what they saw.
   `sound0-own` (the Japanese) before AirPlay.
   (`web/apps/web/src/ladder-playback.ts` `useChunkedPlayback`, `web/packages/player/src/hls.ts`
   `startAndKeepAudio`.)
+  Since D523 there is no Stop AirPlay: read it as Cast, AirPlay controls, and choosing the iPhone.
+- [ ] **VQ367** — AirPlay is WebKit's own handover, and the page says AirPlay plays exactly while it
+  does (D523; the owner, 2026-11-18). On staging, on the iPhone in Safari, with every tab of the app
+  closed first, on film 215 (two sounds or more), once signed in and once as a Watch Together guest
+  by link with an Android or Mac host:
+  1. Play the film, choose a sound other than its first, press Cast, then AirPlay, and pick the Mac.
+     Report: does the Mac play from where the iPhone stood, with the sound chosen, and no pause you
+     did not press? Does Cast's sign over the film show a cast on?
+  2. Press Cast. Report: does the menu say "Playing on AirPlay" with one button, AirPlay controls,
+     no Stop, and no device or Chromecast listed?
+  3. Press AirPlay controls, and close the picker without choosing. Report: does the menu close, the
+     Mac play on, and Cast still say "Playing on AirPlay"?
+  4. On the page, choose the other sound. Report: does the Mac play it within a few seconds, from
+     where it stood?
+  5. As the guest: pause and play from the Mac's own controls, then scrub on the Mac. Report: does
+     the host's page follow, or come back (as the link's controls allow), with no second jump?
+  6. Press Cast, AirPlay controls, and choose the iPhone. Report: does the film play on in the
+     iPhone's page from where the Mac stood, picture and sound on the iPhone, nothing on the Mac,
+     the page's sound the one chosen, and after a second or two does Cast offer devices and AirPlay
+     again?
+  7. Within about a second of step 6, pick the Mac again from Control Center's AirPlay. Report: does
+     the Mac play on from where it stood?
+  8. Press Cast, then AirPlay, and pick the Mac once more. Report: does the second AirPlay play
+     picture and sound on the Mac?
+  (`web/packages/player/src/airplay.ts`, `airplay-hls.ts`, the web app's `airplay.ts`,
+  `ladder-playback.ts`, `airplay-entry.tsx`, `cast-to.tsx`, `together-guest-cast.tsx`.)
+- [ ] **VQ368** — AirPlay started from Control Center, not from Cast's menu (D523, not covered). On
+  staging, on the iPhone in Safari, play a film on its ladder, then open Control Center's AirPlay
+  and pick the Mac. Report: what plays where (picture, sound, on the iPhone or the Mac); what Cast's
+  menu says; and, choosing the iPhone again in Control Center, whether the film plays on in the page
+  from where it stood. A fix follows from what it shows.

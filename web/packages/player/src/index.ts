@@ -91,8 +91,16 @@ export type { SubtitleLayer } from "./subtitles.ts";
 export type { CaptionSource } from "./fullscreen-captions.ts";
 export { keepScreenAwake } from "./wake.ts";
 export { isHandheld, pauseWhenHidden } from "./hidden.ts";
-export { isAirPlayOffered, isOnWirelessTarget, playOnAirPlay } from "./airplay.ts";
-export type { AirPlayLeft, AirPlaying, AirPlayVideo, WirelessTargeted } from "./airplay.ts";
+export {
+  airPlayOffSettlesMs,
+  followAirPlay,
+  isAirPlayOffered,
+  isOnWirelessTarget,
+  offerAirPlayAlternative,
+  reloadOnAirPlay,
+  showAirPlayPicker,
+} from "./airplay.ts";
+export type { AirPlayFollowed, WirelessTargeted } from "./airplay.ts";
 export type { HandheldSigns, HiddenPage, PausedFilm } from "./hidden.ts";
 export type { AwakeMedia, AwakePage, ScreenLock, ScreenLocks } from "./wake.ts";
 

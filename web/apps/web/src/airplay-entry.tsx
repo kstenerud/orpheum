@@ -10,6 +10,7 @@ import {
   grantOriginOf,
   noLog,
   useAirPlayHere,
+  useIsOnAirPlay,
   type AirPlayHere,
 } from "./airplay.ts";
 import { FindDevicesIcon } from "./icons.tsx";
@@ -22,9 +23,10 @@ import { useResource } from "./use-resource.ts";
  * where the page reaches the core at a name a receiver can reach too (grantOriginOf), never over
  * WebRTC alone. Its grant is asked for as the menu opens, so the press keeps its gesture for Safari's
  * picker; till the grant is had, or where it was refused, AirPlay is not pressable. Pressed, the film
- * goes to AirPlay and onPressed is told, to close the menu. While the film plays on AirPlay, Stop
- * AirPlay is offered instead, which shows AirPlay's picker for the person to choose this device, the
- * film coming back to this page as they do (D521 §1), and closes the menu too. Left open as the film changes, it
+ * goes to AirPlay and onPressed is told, to close the menu. While the film plays on AirPlay, it says
+ * so, with AirPlay controls, which shows AirPlay's picker, where every choice is the person's: another
+ * receiver, its sound, or this device, the film coming back to this page (D523 §6); it closes the menu
+ * too. There is no Stop: the page cannot end AirPlay itself. Left open as the film changes, it
  * offers the new film's AirPlay, by a grant of its own. A Watch Together guest by link's Cast dialog
  * offers it too, its grant their membership's (D519 §1, together-guest-cast.tsx).
  */
@@ -34,23 +36,25 @@ export function AirPlayEntry(props: {
   const { t } = useTranslation();
   const { pathMoves } = useServices();
   const here = useAirPlayHere();
+  const isOn = useIsOnAirPlay();
   const [origin] = useState(() => grantOriginOf(pathMoves, globalThis.location.origin, noLog));
   if (here === undefined || origin === undefined) {
     return null;
   }
-  if (here.isPlaying()) {
+  if (isOn) {
     return (
       <>
         <hr className="cast-to__separator" />
+        <output>{t("cast.playingOnAirPlay")}</output>
         <button
           type="button"
           onClick={() => {
-            here.askToStop();
+            here.showControls();
             props.onPressed?.();
           }}
         >
           <FindDevicesIcon />
-          {t("cast.stopAirPlay")}
+          {t("cast.airPlayControls")}
         </button>
       </>
     );

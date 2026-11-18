@@ -14,8 +14,10 @@
   and the page reaches the core at a name a receiver can reach, its grant asked for as the menu
   opens; the player hands its element over (`playOnAirPlay`) and back to hls.js where AirPlay left
   the film, paused if it was, at Stop, as the target stops being wireless, or after 30 s with no
-  receiver picked, revoking the grant. The lab's way B is the same hand-over. What is open is
-  named under "Open".
+  receiver picked, revoking the grant. The lab's way B is the same hand-over. **D523 built 2026-11-18**: WebKit's own
+  handover replaces the page's (the grant's master offered as the element's HLS alternative, hls.js
+  1.7.4 letting go by itself), the wireless flag alone saying whether AirPlay plays, AirPlay
+  controls in place of Stop, one cast at a time (VQ367, VQ368). What is open is named under "Open".
 - **Depends on:** [cast-to-device.md](cast-to-device.md) (casting to one's own devices, the other
   route to a TV), [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md) (the LAN name the TV reaches
   at home).

@@ -6,7 +6,7 @@
  * logged. Safari alone has the picker; elsewhere each step says it is missing.
  */
 
-import { playOnAirPlay, type AirPlaying } from "@orpheum/player";
+import { followAirPlay, offerAirPlayAlternative, showAirPlayPicker } from "@orpheum/player";
 import { failureText } from "@orpheum/sdk";
 
 import type { AirPlayGrant, Log } from "./airplay.ts";
@@ -96,32 +96,30 @@ export function airPlayFromSecondElement(way: AirPlayWay, toSecond: HTMLVideoEle
 }
 
 /**
- * Way B, the product's (D473): the player's own hand-over (playOnAirPlay), the page's element let go
- * of by hls.js and given the grant fetched before the press at its position, its picker shown within
- * the press; its end, at Stop or as the target stops being wireless, is logged. Returns the playing,
- * whose stop ends it.
+ * Way B, the product's (D523): WebKit's own handover, the grant fetched before the press offered as
+ * the page's element's HLS alternative and its picker shown within the press; hls.js lets go of the
+ * element itself as WebKit moves it to the receiver. AirPlay's start and its settled end are logged,
+ * as the element's wireless flag says them (followAirPlay). Returns the end of the following.
  */
-export function airPlayFromTheSameElement(way: AirPlayWay, letGoOfHls: () => void): AirPlaying {
+export function airPlayFromTheSameElement(way: AirPlayWay): () => void {
   const { main, log } = way;
-  log(
-    `way B: the page's element given the grant at ${main.currentTime.toFixed(1)} s, hls.js let go of`,
-  );
-  if (!hasPicker(main)) {
-    log("no webkitShowPlaybackTargetPicker here: AirPlay's picker is Safari's");
-  }
-  const ended = { isSo: false }; // at once where the picker throws
-  const playing = playOnAirPlay(main, way.grant.url, {
-    letGoOfHls,
-    onEnded: (left) => {
-      ended.isSo = true;
-      const how = left.wasPaused ? "paused" : "playing";
-      log(`way B: ended at ${left.positionS.toFixed(1)} s, ${how}; the element emptied`);
+  log(`way B: the grant offered as the element's alternative at ${main.currentTime.toFixed(1)} s`);
+  offerAirPlayAlternative(main, way.grant.url);
+  const stopFollowing = followAirPlay(main, {
+    onOn: () => {
+      log(`way B: on AirPlay at ${main.currentTime.toFixed(1)} s`);
+    },
+    onOff: () => {
+      const how = main.paused ? "paused" : "playing";
+      log(`way B: off AirPlay at ${main.currentTime.toFixed(1)} s, ${how}`);
     },
   });
-  if (hasPicker(main) && !ended.isSo) {
+  if (showAirPlayPicker(main)) {
     log("picker shown");
+  } else {
+    log("no webkitShowPlaybackTargetPicker here: AirPlay's picker is Safari's");
   }
-  return playing;
+  return stopFollowing;
 }
 
 /** Plays video, logging a refusal under the way's name. */

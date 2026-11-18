@@ -12,7 +12,15 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { airPlayHere } from "./airplay.ts";
-import { buttonWithText, chooseIn, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  chooseIn,
+  click,
+  fire,
+  mount,
+  settleUntil,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -293,6 +301,24 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     await click(button("AirPlay"));
   }
 
+  /** Makes the guest's player's target wireless or not, telling it as WebKit does (D523 §2). */
+  async function goWireless(isWireless: boolean): Promise<void> {
+    const video = document.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "webkitCurrentPlaybackTargetIsWireless", {
+      value: isWireless,
+      configurable: true,
+    });
+    await fire(video, new Event("webkitcurrentplaybacktargetiswirelesschanged"));
+  }
+
+  /** The address of AirPlay's alternative offered in video, if one is (D523 §1). */
+  function alternativeOf(video: HTMLMediaElement | undefined): string | undefined {
+    return video?.querySelector<HTMLSourceElement>("source[data-airplay-alternative]")?.src;
+  }
+
   /** What the page asked of AirPlay's grants. */
   function grantsAsked(): Asked[] {
     return asked.filter((each) => each.route.endsWith(" /together/airplay-grants"));
@@ -311,9 +337,10 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     ]);
     const [video] = pickers;
     expect(pickers).toHaveLength(1);
-    expect(video?.getAttribute("src")).toBe(new URL(masterPath, globalThis.location.origin).href);
+    expect(alternativeOf(video)).toBe(new URL(masterPath, globalThis.location.origin).href);
+    expect(button("AirPlay")).toBeUndefined(); // the dialog closed as the picker showed
+    await goWireless(true);
     expect(airPlayHere()?.isPlaying()).toBe(true);
-    expect(button("AirPlay")).toBeUndefined(); // the dialog closed as the film went to AirPlay
     expect(refused).toEqual([]);
   });
 
@@ -364,19 +391,19 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
     expect(refused).toEqual([]);
   });
 
-  it("revokes the grant by the membership at the page's Stop AirPlay, the film handed back", async () => {
+  it("shows AirPlay alone in the guest's dialog while the film plays on it, with AirPlay controls and no Stop (D523 §6, §7)", async () => {
     await joinedAsTheFilmPlays();
     await airPlays();
+    await goWireless(true);
     await click(button("Cast"));
-    await click(button("Stop AirPlay"));
-    await settleUntil(() => grantsAsked().length >= 2);
-    expect(grantsAsked()[1]).toEqual({
-      route: "DELETE /together/airplay-grants",
-      authorization: "Bearer viewer-credential",
-      hasKey: false,
-      body: undefined,
-    });
-    expect(airPlayHere()?.isPlaying()).toBe(false);
+    const dialog = document.querySelector("dialog");
+    expect(dialog?.textContent).toContain("Playing on AirPlay");
+    expect(dialog?.textContent).not.toContain("Chromecast");
+    expect(dialog?.textContent).not.toContain("Stop");
+    await click(button("AirPlay controls"));
+    expect(pickers).toHaveLength(2);
+    expect(button("AirPlay controls")).toBeUndefined(); // the dialog closed for the picker
+    expect(grantsAsked().map((each) => each.route)).toEqual(["POST /together/airplay-grants"]);
     expect(refused).toEqual([]);
   });
 
@@ -394,27 +421,31 @@ describe("a Watch Together guest by link's AirPlay (D519 §1)", () => {
   it("ends AirPlay of the last film as the host puts on another, and asks the new film's grant once the last one's revocation is answered", async () => {
     await joinedAsTheFilmPlays();
     await airPlays();
-    // The dialog open on Stop AirPlay as the film changes: it offers the new film's AirPlay.
+    // The dialog open as the film changes: it offers the new film's AirPlay.
     await click(button("Cast"));
-    expect(button("Stop AirPlay")).toBeDefined();
+    await settleUntil(() => button("AirPlay") !== undefined);
     isRevokeHeld = true;
     await playsTheGroupsFilm(6);
     await settleUntil(() => releaseRevoke !== undefined);
+    // The first film's grant, the reopened dialog's, then the revocation as its player went.
     expect(grantsAsked().map((each) => each.route)).toEqual([
+      "POST /together/airplay-grants",
       "POST /together/airplay-grants",
       "DELETE /together/airplay-grants",
     ]);
     expect(button("AirPlay")?.hasAttribute("disabled")).toBe(true);
     releaseRevoke?.();
     await settleUntil(() => button("AirPlay")?.hasAttribute("disabled") === false);
-    expect(grantsAsked()[2]).toEqual({
+    expect(grantsAsked()[3]).toEqual({
       route: "POST /together/airplay-grants",
       authorization: "Bearer viewer-credential",
       hasKey: true,
       body: { mediaToken: "film-6", audioTrackIndex: 0 },
     });
     await click(button("AirPlay"));
-    expect(airPlayHere()?.isPlaying()).toBe(true);
+    expect(alternativeOf(pickers.at(-1))).toBe(
+      new URL(masterPath, globalThis.location.origin).href,
+    );
     expect(refused).toEqual([]);
   });
 });
