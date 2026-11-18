@@ -3,7 +3,6 @@
 package api_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,9 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -197,7 +194,7 @@ func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing
 		firstID: 100, count: episodes, kind: "episode", state: "unidentified", addedAt: 2,
 	})
 	storetest.ExecRaw(t, harness.databasePath, storetest.Positions(strings.Join(places, ", ")))
-	seedEpisodeFiles(t, harness.database, 100, episodes, filesEach)
+	seedEpisodeFiles(t, harness, 100, episodes, filesEach)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
 	unplaced := episodes * filesEach
 	want := fmt.Sprintf(`"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":%d}]`, unplaced)
@@ -212,39 +209,19 @@ func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing
 func seedSoundlessFilms(t *testing.T, harness testHarness, firstID int64, count int) {
 	t.Helper()
 	names := make([]string, 0, count)
+	files := make([]listedFile, 0, count)
 	for index := range count {
-		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", firstID+int64(index), index))
+		id := firstID + int64(index)
+		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", id, index))
+		files = append(files, listedFile{
+			workID: id, path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), sizeBytes: 1000,
+			payloadHash: []byte{byte(index), 0xf0}, versionCreatedAt: 3, videoCodec: "h264",
+		})
 	}
 	seedTitles(t, harness.databasePath, titleRows{
 		firstID: firstID, count: int64(count), kind: "movie", state: "identified", year: 1950, addedAt: 3,
 	})
-	library, err := harness.database.Read().GetLibraryForIdentify(t.Context(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		for index := range count {
-			id := firstID + int64(index)
-			fileID, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
-				workID: id, path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), sizeBytes: 1000,
-				payloadHash: []byte{byte(index), 0xf0}, placeIndex: index, versionCreatedAt: 3,
-			})
-			if seedErr != nil {
-				return seedErr
-			}
-			streamIndex := int64(0)
-			seedErr = queries.UpsertStream(t.Context(), sqlcgen.UpsertStreamParams{
-				FileID: fileID, StreamIndex: &streamIndex, Kind: "video", Codec: new("h264"),
-			})
-			if seedErr != nil {
-				return fmt.Errorf("stream %d: %w", index, seedErr)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("films: %v", err)
-	}
+	seedListedFiles(t, harness, files)
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES "+
 			strings.Join(names, ", "))
@@ -278,81 +255,112 @@ func seedTitles(t *testing.T, databasePath string, rows titleRows) {
 		"INSERT INTO work (id, kind) VALUES "+strings.Join(works, ", "))
 }
 
-// seedEpisodeFiles gives each of the episodes from firstID a version holding filesEach files, as
-// librarytest.File writes each, in one transaction: a transaction per file, or every file in one
-// title (title_found's trigger recomputes over a title's files), takes minutes.
-func seedEpisodeFiles(t *testing.T, database *store.Database, firstID int64, episodes, filesEach int) {
+// seedEpisodeFiles gives each of the episodes from firstID filesEach files, each in a version of its
+// own. Every file in one title would take minutes: title_found's trigger recomputes over a title's
+// files.
+func seedEpisodeFiles(t *testing.T, harness testHarness, firstID int64, episodes, filesEach int) {
 	t.Helper()
-	library, err := database.Read().GetLibraryForIdentify(t.Context(), 1)
-	if err != nil {
-		t.Fatal(err)
+	files := make([]listedFile, 0, episodes*filesEach)
+	for index := range episodes * filesEach {
+		files = append(files, listedFile{
+			workID: firstID + int64(index/filesEach), path: fmt.Sprintf("/m/BB/Brass Arena - part %d.mkv", index),
+			sizeBytes: 10, versionCreatedAt: 2,
+		})
 	}
-	err = database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		for index := range episodes * filesEach {
-			_, seedErr := seedListedFile(t.Context(), queries, library.Kind, listedFile{
-				workID: firstID + int64(index/filesEach), path: fmt.Sprintf("/m/BB/Brass Arena - part %d.mkv", index),
-				sizeBytes: 10, placeIndex: index, versionCreatedAt: 2,
-			})
-			if seedErr != nil {
-				return seedErr
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("files: %v", err)
-	}
+	seedListedFiles(t, harness, files)
 }
 
-// listedFile is a file seedListedFile writes: at path, in a new version of title workID.
+// listedFile is a file seedListedFiles writes: at path, in a new version of title workID, with one
+// video stream of videoCodec unless that is empty.
 type listedFile struct {
 	workID           int64
 	path             string
 	sizeBytes        int64
 	payloadHash      []byte // nil: the path's bytes
-	placeIndex       int    // the file's number in its test, for the errors
 	versionCreatedAt int64
+	videoCodec       string
 }
 
-// seedListedFile writes file, read and listed, in a new version of its title, and returns its id.
-func seedListedFile(
-	ctx context.Context, queries *sqlcgen.Queries, libraryKind string, file listedFile,
-) (int64, error) {
-	index := file.placeIndex
-	payloadHash := file.payloadHash
-	if payloadHash == nil {
-		payloadHash = []byte(file.path)
-	}
-	id, err := queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		SizeBytes: &file.sizeBytes, PayloadHash: payloadHash,
-	})
+// seedListedFiles writes files in library 1, each read and listed in a new version of its title,
+// with the rows and in the order the store's writers leave them (InsertFile, InsertPlace,
+// UpsertFileFiling, InsertVersion, SetFileVersionAndIdentifiedPath, UpsertStream), at the ids they
+// would take, but in one statement per table for all of them: SQLite compiles a statement, its
+// triggers' programs included, each time it is prepared, and the writers' statements once a file
+// spent 16 of a test's 18 s compiling for 5005 files (test-weight.md §34).
+func seedListedFiles(t *testing.T, harness testHarness, files []listedFile) {
+	t.Helper()
+	library, err := harness.database.Read().GetLibraryForIdentify(t.Context(), 1)
 	if err != nil {
-		return 0, fmt.Errorf("file %d: %w", index, err)
+		t.Fatal(err)
 	}
-	err = queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
-		FileID: id, NodeID: 1, Path: file.path, ReportedPathRaw: []byte(file.path), Filing: "read", SeenAt: 1,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("place %d: %w", index, err)
+	firstFile, firstVersion := nextID(t, harness.databasePath, "file"), nextID(t, harness.databasePath, "version")
+	var fileRows, placeRows, filingRows, versionRows, streamRows []string
+	for index, file := range files {
+		fileID, versionID := firstFile+int64(index), firstVersion+int64(index)
+		payloadHash := file.payloadHash
+		if payloadHash == nil {
+			payloadHash = []byte(file.path)
+		}
+		path := "'" + strings.ReplaceAll(file.path, "'", "''") + "'"
+		fileRows = append(fileRows, fmt.Sprintf("(%d, %d, X'%x')", fileID, file.sizeBytes, payloadHash))
+		placeRows = append(placeRows,
+			fmt.Sprintf("(%d, %d, 1, %s, X'%x', 'read', 1, 1)", fileID, fileID, path, file.path))
+		filingRows = append(filingRows, fmt.Sprintf("(%d, '%s', 'listed')", fileID, library.Kind))
+		versionRows = append(versionRows, fmt.Sprintf("(%d, %d, %d)", versionID, file.workID, file.versionCreatedAt))
+		if file.videoCodec != "" {
+			streamRows = append(streamRows, fmt.Sprintf("(%d, %d, 0, 'video', '%s')", fileID, fileID, file.videoCodec))
+		}
 	}
-	err = queries.UpsertFileFiling(ctx, sqlcgen.UpsertFileFilingParams{
-		FileID: id, LibraryKind: libraryKind, Filing: "listed",
-	})
-	if err != nil {
-		return 0, fmt.Errorf("filing %d: %w", index, err)
+	statements := []string{
+		"INSERT INTO file (id, size_bytes, payload_hash) VALUES " + strings.Join(fileRows, ", "),
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
+		 VALUES ` + strings.Join(placeRows, ", "),
+		"INSERT INTO file_filing (file_id, library_kind, filing) VALUES " + strings.Join(filingRows, ", "),
+		"INSERT INTO version (id, work_id, created_at) VALUES " + strings.Join(versionRows, ", "),
+		// SetFileVersionAndIdentifiedPath's statement, over every file at once.
+		fmt.Sprintf(`INSERT INTO file_filing (file_id, library_kind, filing, version_id, identified_from_path)
+		 SELECT place.id, '%s', 'unidentified', place.id + %d, place.path FROM place WHERE place.id BETWEEN %d AND %d
+		 ON CONFLICT (file_id, library_kind) DO UPDATE SET version_id = excluded.version_id,
+		   identified_from_path = excluded.identified_from_path
+		 WHERE (file_filing.version_id, file_filing.identified_from_path)
+		   IS NOT (excluded.version_id, excluded.identified_from_path)`,
+			library.Kind, firstVersion-firstFile, firstFile, firstFile+int64(len(files))-1),
 	}
-	versionID, err := queries.InsertVersion(ctx,
-		sqlcgen.InsertVersionParams{WorkID: file.workID, CreatedAt: file.versionCreatedAt})
-	if err != nil {
-		return 0, fmt.Errorf("version %d: %w", index, err)
+	if len(streamRows) > 0 {
+		statements = append(statements,
+			"INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec) VALUES "+
+				strings.Join(streamRows, ", "))
 	}
-	err = queries.SetFileVersionAndIdentifiedPath(ctx, sqlcgen.SetFileVersionAndIdentifiedPathParams{
-		LibraryKind: libraryKind, VersionID: &versionID, FileID: id,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("file %d's version: %w", index, err)
+	storetest.ExecRaw(t, harness.databasePath, statements...)
+	// One statement for every file fails for none of them alone: each file is checked written.
+	lastFile := firstFile + int64(len(files)) - 1
+	versioned := storetest.QueryRaw(t, harness.databasePath, fmt.Sprintf(
+		`SELECT count(*) FROM file_filing JOIN place ON place.id = file_filing.file_id
+		 WHERE file_filing.file_id BETWEEN %d AND %d AND file_filing.filing = 'listed'
+		   AND file_filing.version_id = file_filing.file_id + %d AND identified_from_path = place.path`,
+		firstFile, lastFile, firstVersion-firstFile))
+	if want := fmt.Sprint(len(files)); versioned[0] != want {
+		t.Fatalf("%s of %s seeded files listed in their own version, from their place's path", versioned[0], want)
 	}
-	return id, nil
+	streams := storetest.QueryRaw(t, harness.databasePath, fmt.Sprintf(
+		"SELECT count(*) FROM stream WHERE video_file BETWEEN %d AND %d", firstFile, lastFile))
+	if want := fmt.Sprint(len(streamRows)); streams[0] != want {
+		t.Fatalf("%s of %s seeded files' video streams written", streams[0], want)
+	}
+}
+
+// nextID is the id the database gives the next row of table, an AUTOINCREMENT table's.
+func nextID(t *testing.T, databasePath, table string) int64 {
+	t.Helper()
+	got := storetest.QueryRaw(t, databasePath, fmt.Sprintf(
+		`SELECT max(coalesce((SELECT max(id) FROM %s), 0),
+		   coalesce((SELECT seq FROM sqlite_sequence WHERE name = '%s'), 0)) + 1`,
+		table, table))
+	var id int64
+	if _, err := fmt.Sscan(got[0], &id); err != nil {
+		t.Fatalf("the next %s id, %q: %v", table, got, err)
+	}
+	return id
 }
 
 // The warning sign lights for failures of unknown cause piling up (D517 §2): needs-attention counts

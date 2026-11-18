@@ -677,6 +677,28 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** a walk test of a Play page whose first request after the page's own comes 3 s
   late.
 
+### 34. A seed of thousands of rows through the store's writers, one statement a row
+
+- **Mechanism:** the generated queries prepare their statement on every call, and SQLite compiles
+  a statement afresh each time it is prepared, the programs of every trigger it fires included. A
+  write to `file_filing` or `place` fires many triggers, so preparing one costs about 0.7 ms, far
+  more than running it. A test that seeds thousands of rows through the writers, even in one
+  transaction, pays that compile once a row.
+- **Instance** (2026-11-18): `TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand`
+  seeded 5005 files through five writers each; 16 of its 18 s alone (`prepareV2`, under
+  `_codeRowTrigger`) were compiling, and under the full suite's load it took 41.5 s, the Go
+  suite's slowest test. `TestNeedsAttention_ListsAHundredAndCountsThemAll` paid the same for 520
+  films, 2.2 s.
+- **Why it was invisible:** the seed was already one transaction, the fix the previous slowdown
+  (a transaction a title) needed, and a profile is needed to see that the compile, not the
+  writing, is the cost.
+- **Fix:** the api tests' `seedListedFiles` writes the rows the writers leave, at the ids they would
+  take, in one statement per table (`storetest.ExecRaw`); a comparison of every table, both ways,
+  found them the same. 18.6 s to 1.1 s and 2.2 s to 0.3 s alone. A size the claim needs stays: it
+  is the building that got cheap.
+- **Warning sign:** `prepareV2` or `_codeRowTrigger` high in a test's profile; a loop over
+  thousands calling `queries.` inside one `database.Write` in a test.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
