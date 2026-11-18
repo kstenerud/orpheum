@@ -44,6 +44,7 @@ export const enCast = {
     toHome: "Go to the home page",
     aFilm: "A film",
     playingOn: "Playing on {{name}}",
+    castingTo: "Casting to {{name}}. It plays what the group plays.",
     playingFilmOn: "Playing {{film}} on {{name}}",
     backToTheFilm: "Back to the film",
     playback: {

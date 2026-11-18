@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./together-on-the-remote.css";
+import "./cast-words.ts";
 
-import type { TogetherSnapshot } from "@orpheum/sdk";
+import type { TogetherConnection, TogetherSnapshot } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
 import { useLive } from "./live.tsx";
+import { SessionRemote } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherNews } from "./together-news.tsx";
 import { TogetherButton, TogetherPanel } from "./together-over-the-film.tsx";
@@ -37,6 +39,57 @@ export function TogetherOnTheRemote(): JSX.Element {
       </div>
       <TogetherBehindTheRemote />
     </div>
+  );
+}
+
+/**
+ * Whether this page casts the group's film (useIsCastingTheGroupsFilm), by the tray's cast or a guest
+ * by link's (guestCast, D518), and, where it is known where to, the stage it shows (CastingStage).
+ */
+export function useCastingTheGroupsFilm(
+  snapshot: TogetherSnapshot | undefined,
+  guestCast: { readonly castingTo: string | undefined; readonly stop: () => void } | undefined,
+): {
+  readonly isCasting: boolean;
+  readonly stage: { readonly castingTo: string; readonly onStop?: () => void } | undefined;
+} {
+  const { sending } = useLive();
+  const guests = guestCast?.castingTo === undefined ? undefined : guestCast;
+  const isCasting = useIsCastingTheGroupsFilm(snapshot, guests !== undefined);
+  const castingTo = guests?.castingTo ?? sending?.receiverName;
+  if (!isCasting || castingTo === undefined) {
+    return { isCasting, stage: undefined };
+  }
+  return {
+    isCasting,
+    stage: guests === undefined ? { castingTo } : { castingTo, onStop: guests.stop },
+  };
+}
+
+/**
+ * A guest's stage while their device casts the group's film (together-viewer.tsx's ViewingArea): the
+ * device it plays on, the cast's controls, Watch Together's among them, the phone the control centre
+ * (D440 §5), and, where onStop is given, Stop casting: a guest by link's, whose cast is not the
+ * tray's (D518).
+ */
+export function CastingStage(props: {
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly connection: TogetherConnection | undefined;
+  readonly castingTo: string;
+  readonly onStop?: (() => void) | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section className="together-viewer__viewing" aria-label={t("together.stage")}>
+      <p>{t("cast.playingOn", { name: props.castingTo })}</p>
+      {props.onStop === undefined ? null : (
+        <button type="button" onClick={props.onStop}>
+          {t("cast.stop")}
+        </button>
+      )}
+      <SessionRemote snapshot={props.snapshot} connection={props.connection} durationMs={0} />
+      <TogetherOnTheRemote />
+    </section>
   );
 }
 
@@ -76,9 +129,14 @@ export function TogetherBehindTheRemote(props: {
 
 /**
  * Whether this device casts while its session plays a film: the device it casts to plays the film
- * in its place (together-viewer.tsx's ViewingArea), and the page is the cast's controls.
+ * in its place (together-viewer.tsx's ViewingArea), and the page is the cast's controls. A guest by
+ * link casts with no cast made (isTheGuestsPartCast): a Chromecast takes their part (D518).
  */
-export function useIsCastingTheGroupsFilm(snapshot: TogetherSnapshot | undefined): boolean {
+export function useIsCastingTheGroupsFilm(
+  snapshot: TogetherSnapshot | undefined,
+  isTheGuestsPartCast = false,
+): boolean {
   const { sending } = useLive();
-  return sending?.isAccepted === true && (snapshot?.group?.fileId ?? 0) !== 0;
+  const isCasting = isTheGuestsPartCast || sending?.isAccepted === true;
+  return isCasting && (snapshot?.group?.fileId ?? 0) !== 0;
 }

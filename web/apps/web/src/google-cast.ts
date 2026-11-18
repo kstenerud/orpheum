@@ -32,6 +32,7 @@ import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import type { AskGuestCastGrant, Services } from "./services.tsx";
+import { membershipHeaders } from "./together-storage.ts";
 
 /** The namespace the sender and the receiver speak on of a cast under a grant. */
 export const guestCastNamespace = "urn:x-cast:org.orpheum.cast";
@@ -85,6 +86,21 @@ export function askGuestCastGrantOf(api: Api): AskGuestCastGrant {
     ).grant;
 }
 
+/**
+ * Asks the core of api, by the credential of a Watch Together guest's membership, for a grant for
+ * the Google Cast device receiverName to take the guest's part in their session (D518 §1). The route
+ * takes no key: a repeat asks for a second grant, the first one expiring unused.
+ */
+export function askTogetherCastGrantOf(api: Api, credential: string): AskGuestCastGrant {
+  return async (receiverName) =>
+    dataOrThrow(
+      await api.POST("/together/cast-grants", {
+        headers: membershipHeaders(credential),
+        body: { receiverName },
+      }),
+    ).grant;
+}
+
 /** What a page casts to a Google Cast device with: the loader's application, the grant, the reach. */
 export interface GuestCastWays {
   readonly appId: string;
@@ -126,15 +142,7 @@ export async function castToAGoogleCastDevice(
     readonly showsLog: boolean;
   },
 ): Promise<{ readonly cast: Cast; readonly name: string } | undefined> {
-  const reach = receiverReachOf(ways.discovery, how.locator);
-  if (reach === undefined || !(await loadCastSender())) {
-    throw new GuestCastFailure("this page cannot cast to a Google Cast device");
-  }
-  const receiver = await openGuestReceiver(ways.appId, {
-    askGrant: ways.askGrant,
-    reach,
-    showsLog: how.showsLog,
-  });
+  const receiver = await openGuestReceiverBy(ways, how);
   if (receiver === undefined) {
     return undefined;
   }
@@ -147,6 +155,27 @@ export async function castToAGoogleCastDevice(
     endQuietly(channel);
     throw cause;
   }
+}
+
+/**
+ * Opens the Google Cast device the person picks in Chrome's picker by ways, as openGuestReceiver
+ * does, reaching the core by locator from away: a cast's device, or a Watch Together guest's whose
+ * part it takes (D518 §1), whose grant askGrant asks for by their membership. Undefined where the
+ * person picked none.
+ */
+export async function openGuestReceiverBy(
+  ways: GuestCastWays,
+  how: { readonly locator: string | undefined; readonly showsLog: boolean },
+): Promise<GuestReceiver | undefined> {
+  const reach = receiverReachOf(ways.discovery, how.locator);
+  if (reach === undefined || !(await loadCastSender())) {
+    throw new GuestCastFailure("this page cannot cast to a Google Cast device");
+  }
+  return await openGuestReceiver(ways.appId, {
+    askGrant: ways.askGrant,
+    reach,
+    showsLog: how.showsLog,
+  });
 }
 
 /**
@@ -316,7 +345,7 @@ function readyHeard(channel: CastChannel): {
 }
 
 /** Ends channel's Cast session, one the SDK may have ended already. */
-function endQuietly(channel: CastChannel): void {
+export function endQuietly(channel: CastChannel): void {
   try {
     channel.end();
   } catch {

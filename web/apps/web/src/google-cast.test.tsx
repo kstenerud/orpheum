@@ -3,6 +3,10 @@
 
 import "./i18n.ts";
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { apiPrefix, createApi } from "@orpheum/sdk";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +16,9 @@ import { DebugToolsContext } from "./debug-tools.tsx";
 import { castReceiverAppIdOf } from "./discovery-page.ts";
 import {
   askGuestCastGrantOf,
+  askTogetherCastGrantOf,
+  guestCastOf,
+  openGuestReceiverBy,
   castLogTickedKey,
   guestCastNamespace,
   isCastLogTicked,
@@ -533,5 +540,83 @@ describe("the Cast menu's Show cast log (the owner, 2026-11-12)", () => {
     });
     expect(untickedAgain.handed).not.toHaveProperty("showsLog");
     expect(localStorage.getItem(castLogTickedKey)).toBeNull();
+  });
+});
+
+describe("a Watch Together guest by link's Chromecast (D518)", () => {
+  /** Each route a guest's membership may call (x-orpheum-capability member, none or media). */
+  function membersRoutes(): readonly RegExp[] {
+    const document: unknown = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, "../../../../api/openapi.json"), "utf8"),
+    );
+    const routes: RegExp[] = [];
+    for (const [template, operations] of Object.entries(
+      Reflect.get(document as object, "paths") as object,
+    )) {
+      for (const [method, operation] of Object.entries(operations as object)) {
+        const capability: unknown = Reflect.get(operation as object, "x-orpheum-capability");
+        if (capability === "member" || capability === "none" || capability === "media") {
+          const pattern = `${method.toUpperCase()} ${template.replaceAll(/\{[^/}]+\}/gu, "[^/]+")}`;
+          routes.push(new RegExp(`^${pattern}$`, "u"));
+        }
+      }
+    }
+    return routes;
+  }
+
+  it("asks its grant by the guest's membership, signed in as no one, hands it over with the membership's locator, and asks for no route a guest is refused", async () => {
+    givenHints(chromeHints);
+    const device = givenCastSdk();
+    const routes = membersRoutes();
+    const asked: string[] = [];
+    const refused: string[] = [];
+    const api = createApi({
+      getToken: () => undefined,
+      fetch: async (request: Request) => {
+        const route = `${request.method} ${new URL(request.url).pathname.slice(apiPrefix.length)}`;
+        asked.push(`${route} ${request.headers.get("Authorization") ?? "signed out"}`);
+        if (!routes.some((each) => each.test(route))) {
+          refused.push(route);
+          return new Response("{}", { status: 403 });
+        }
+        const answer = JSON.stringify({ grant });
+        return new Response(answer, {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    });
+    const ways = guestCastOf(
+      {
+        castReceiverAppId: "ABCD1234",
+        askGuestCastGrant: askTogetherCastGrantOf(api, "the-guests-membership"),
+        throughDiscovery: {
+          clientApi: "https://discovery.example/api",
+          coreId: "core-1",
+          fingerprint: "fp-1",
+        },
+      },
+      globalThis.location.origin,
+    );
+    expect(ways).toBeDefined();
+    if (ways === undefined) {
+      return;
+    }
+    const opening = openGuestReceiverBy(ways, {
+      locator: "the-memberships-locator",
+      showsLog: false,
+    });
+    await vi.waitFor(() => {
+      expect(device.sent).toHaveLength(1);
+    });
+    device.say({ type: "ready", deviceId: 12 });
+    const receiver = await opening;
+    expect(receiver?.channel.receiverName).toBe("Living room TV");
+    expect(receiver?.deviceId).toBe(12);
+    expect(asked).toEqual(["POST /together/cast-grants Bearer the-guests-membership"]);
+    const handed = JSON.stringify(device.sent[0]?.[1]);
+    expect(handed).toContain(grant);
+    expect(handed).toContain("the-memberships-locator");
+    expect(refused).toEqual([]);
   });
 });

@@ -49,8 +49,6 @@ import { useMembership } from "./together-membership.ts";
 import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
 import { NoSessionHere, SessionOver, usePastedLinks } from "./together-viewer-outside.tsx";
-import { useLive } from "./live.tsx";
-import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
 import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
@@ -70,7 +68,12 @@ import {
   type KeptVideo,
 } from "./together-viewer-tap.tsx";
 import { ComingAndGoing, TogetherPanel } from "./together-over-the-film.tsx";
-import { TogetherOnTheRemote, useIsCastingTheGroupsFilm } from "./together-on-the-remote.tsx";
+import {
+  CastingStage,
+  useCastingTheGroupsFilm,
+  useIsCastingTheGroupsFilm,
+} from "./together-on-the-remote.tsx";
+import { GuestsCastEntry, useGuestsCast, type GuestsCast } from "./together-guest-cast.tsx";
 import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
@@ -81,8 +84,7 @@ import {
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
 import { useResource } from "./use-resource.ts";
-import { VolumeRange } from "./volume-range.tsx";
-import { useIsVolumeSettable, VolumeButtonsNote } from "./film-volume-slider.tsx";
+import { ViewersVolumeSlider } from "./film-volume-slider.tsx";
 
 /**
  * A Watch Together viewer's page (D246 §3, §5, §6), for someone who need not be signed in: they
@@ -151,6 +153,7 @@ export function TogetherViewer(): JSX.Element {
   return (
     <ViewerSession
       membership={membership}
+      canCastAsTheMembership
       hasJoinedHere={hasJoinedHere}
       kept={keptVideo}
       devices={devices}
@@ -238,6 +241,8 @@ function standingOf(kept: KeptVideo): Standing {
  */
 function ViewerSession(props: {
   readonly membership: Membership;
+  /** Whether it casts to a Chromecast as the membership: a guest by link, signed in to nothing. */
+  readonly canCastAsTheMembership?: boolean;
   /** Whether this page joined by the link itself, rather than came back to the membership. */
   readonly hasJoinedHere: boolean;
   readonly kept: KeptVideo;
@@ -261,7 +266,8 @@ function ViewerSession(props: {
   useOverWhenEnded(snapshot, onOver);
   useFollowsTheGroupsFilm(snapshot, props.onGroupFilm);
   useToldStanding(isConnected ? connection : undefined, standingOf(kept));
-  const isCasting = useIsCastingTheGroupsFilm(snapshot);
+  const guestCast = useGuestsCast(props.membership, props.canCastAsTheMembership === true);
+  const isCasting = useIsCastingTheGroupsFilm(snapshot, guestCast.castingTo !== undefined);
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
     return (
@@ -280,21 +286,19 @@ function ViewerSession(props: {
         {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
         <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
         <ViewingArea
-          kept={kept}
+          {...{ kept, connection, snapshot, volume, guestCast }}
           isVoiceWaiting={voice.tap.isWaiting}
           credential={props.membership.credential}
-          connection={connection}
-          snapshot={snapshot}
-          volume={volume}
         />
         <ComingAndGoing snapshot={snapshot} video={kept.video} />
         <TogetherPanel isHomeHidden={isCasting}>
           <TogetherNews snapshot={snapshot} />
           <TogetherDebug snapshot={snapshot} />
+          <GuestsCastEntry cast={guestCast} snapshot={snapshot} />
           {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
           <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
           <OnlyOnThePanelsPage>
-            <VolumeSlider volume={volume} onChange={setVolume} />
+            <ViewersVolumeSlider volume={volume} onChange={setVolume} />
           </OnlyOnThePanelsPage>
           <LeaveButton membership={props.membership} onLeft={onOver} />
         </TogetherPanel>
@@ -329,22 +333,6 @@ function useOverWhenEnded(
       onOver(endReason);
     }
   }, [endReason, onOver]);
-}
-
-/** The viewer's own volume, which no one else hears (watch-together.md: per person). */
-function VolumeSlider(props: {
-  readonly volume: number;
-  readonly onChange: (volume: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  if (!useIsVolumeSettable()) {
-    return <VolumeButtonsNote />;
-  }
-  return (
-    <label className="together-viewer__volume">
-      {t("together.volume")} <VolumeRange value={props.volume} most={1} onChange={props.onChange} />
-    </label>
-  );
 }
 
 /**
@@ -385,25 +373,19 @@ function ViewingArea(props: {
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly volume: number;
+  /** A guest by link's cast to a Chromecast, which takes their part (D518). */
+  readonly guestCast?: GuestsCast | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sending } = useLive();
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
-  const isCasting = useIsCastingTheGroupsFilm(props.snapshot);
+  const { isCasting, stage } = useCastingTheGroupsFilm(props.snapshot, props.guestCast);
   useEffect(
     () => (isCasting && connection !== undefined ? tellsNoFilmHere(connection) : undefined),
     [isCasting, connection],
   );
-  if (isCasting && sending !== undefined) {
-    // The cast's controls, Watch Together's among them, the phone the control centre (D440 §5).
-    return (
-      <section className="together-viewer__viewing" aria-label={t("together.stage")}>
-        <p>{t("cast.playingOn", { name: sending.receiverName })}</p>
-        <SessionRemote snapshot={props.snapshot} connection={connection} durationMs={0} />
-        <TogetherOnTheRemote />
-      </section>
-    );
+  if (stage !== undefined) {
+    return <CastingStage snapshot={props.snapshot} connection={connection} {...stage} />;
   }
   return (
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>

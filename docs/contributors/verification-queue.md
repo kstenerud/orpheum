@@ -3420,12 +3420,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   it acts for them while they are in (D518; the owner, 2026-11-18). On staging, the owner signed in
   on the Mac opens a Watch Together session and makes a link; on the Pixel 3a, or a laptop's Chrome
   signed in to nothing (a private window), join by the link and, once the host puts a film on, press
-  Cast on the Watch Together page and choose the 3rd-generation Chromecast. Passes when (1) the TV
+  Cast in the Watch Together panel of the guest's page, then Chromecast in the dialog it opens, and
+  choose the 3rd-generation Chromecast in Chrome's picker. Passes when (1) the TV
   plays the group's film in step with the host, the guest's page says it plays on the Chromecast,
   and play/pause on the guest's page pauses and plays the TV and the group as the guest's link
   allows (a guest given no pause right is refused, as on their phone); (2) Stop casting on the
   guest's page leaves the TV and plays on the guest's page again; (3) cast again, then the host
   removes the guest from the roster: the TV leaves the film for the Chromecast's home screen within
   a few seconds; (4) with a new link and a new cast, the host ends the session: the TV goes home
-  the same way. (`POST /together/cast-grants`, `GuestCastPart`, the receiver's `guest.ts`, the web
-  app's `together-viewer.tsx`.)
+  the same way. (`POST /together/cast-grants`, `GuestCastPart`, the receiver's `guest.ts` and
+  `guest-part.ts`, the web app's `together-guest-cast.tsx`.)

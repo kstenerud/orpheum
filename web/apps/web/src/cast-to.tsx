@@ -37,7 +37,7 @@ import { FindDevicesIcon } from "./icons.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
-import { useServices, useToken } from "./services.tsx";
+import { useServices, useToken, type AskGuestCastGrant } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
@@ -173,11 +173,25 @@ function useStartsCasts(
 /**
  * What this page casts to a Google Cast device with, where the Cast menu offers Chromecast
  * (guestCastOf); Google's sender script is loaded then, at the menu's first opening, and not before
- * (D465 §3: the owner, 2026-11-12), so no page loads it until someone means to cast.
+ * (D465 §3: the owner, 2026-11-12), so no page loads it until someone means to cast. Its grant is
+ * the person's (useGuestCastAskingBy for another's).
  */
 function useGuestCast(): GuestCastWays | undefined {
+  return useGuestCastAskingBy(useServices().askGuestCastGrant);
+}
+
+/**
+ * What this page casts to a Google Cast device with, as useGuestCast, its grant asked for by
+ * askGrant: a Watch Together guest's by their membership (D518), or none, where none is offered.
+ */
+export function useGuestCastAskingBy(
+  askGrant: AskGuestCastGrant | undefined,
+): GuestCastWays | undefined {
   const services = useServices();
-  const guest = guestCastOf(services, globalThis.location.origin);
+  const guest = guestCastOf(
+    { ...services, askGuestCastGrant: askGrant },
+    globalThis.location.origin,
+  );
   const isOffered = guest !== undefined;
   useEffect(() => {
     if (isOffered) {
@@ -216,7 +230,7 @@ function useCastLogChoice(): CastLogChoice {
  * connection is down, as no device is. While the person shows debug tools, Show cast log follows it
  * (CastLogChoice); onCast is told whether the device shows its log.
  */
-function ChromecastEntry(props: {
+export function ChromecastEntry(props: {
   readonly isStale: boolean;
   readonly onCast: (showsLog: boolean) => void;
 }): JSX.Element {

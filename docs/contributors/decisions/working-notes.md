@@ -30080,5 +30080,14 @@ Amends D515 §1 for a Chromecast; AirPlay is not built by it.
 **Status:** decided (2026-11-18). The server's side is in "feat(together): a Watch Together guest
 by link casts to a Chromecast as another device of their membership": `POST /together/cast-grants`
 (`issueTogetherGuestGrant`), `IssueMembershipGuestGrant`, `GuestCastPart` and the trade's answer of
-a membership credential at `POST /guest-receivers`. The web page's Cast button and the receiver's
-taking of the part are not built yet. VQ360 is the device test.
+a membership credential at `POST /guest-receivers`. The receiver's taking of the part is in
+"feat(cast-receiver): a Chromecast takes a Watch Together guest's part by their membership"
+(`guest-part.ts`): it follows the group and plays its film through `POST /together/playback` by the
+membership's credential, with no up next and no Stop of its own, and goes home (CAF's stop) as the
+guest is removed or the session ends. The guest's page is in "feat(web): a Watch Together guest by
+link casts to a Chromecast from their page" (`together-guest-cast.tsx`): Cast on the session's panel,
+in Chrome under a loader alone, opens a dialog of Chromecast alone; casting, the stage shows Playing
+on, the remote and Stop casting, and the panel which device and Stop casting. Tested without a
+device: the trade, the welcome, the playback ask, going home, the grant asked by the membership and
+handed over with its locator, and no route a guest's membership is refused. VQ360 is the device
+test.
