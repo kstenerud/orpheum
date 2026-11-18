@@ -3492,3 +3492,21 @@ An item is ticked only by the person who did it, and only with what they saw.
   when, each time, the Mac plays the sound chosen on the iPhone, and the core's log shows the Mac
   fetching that track's sound under the grant. (`audioTrackIndex` of `POST /airplay/grants` and
   `POST /together/airplay-grants`; the web app's `airplay.ts`.)
+- [ ] **VQ365** — A film handed back from AirPlay plays the sound its page says (VQ363, 2026-11-18:
+  a Watch Together guest by link on the iPhone, the page saying "Sound: Japanese", AirPlayed to
+  the Mac, which played the English; at Stop AirPlay, choosing the iPhone, the film came back
+  playing the English, the page still saying "Sound: Japanese"). On staging, on the iPhone in
+  Safari, as a guest by link, on film 215: (1) start with a Japanese sound as the film's starting
+  sound, Cast, AirPlay to the Mac, then Cast, Stop AirPlay, and choose the iPhone; (2) start with
+  the English, choose a Japanese sound in Tracks as it plays, then the same. Passes when, each
+  time, the film comes back playing the sound the page names, and the core's log shows the guest's
+  playback wanting that sound's stream (`filmInterests`) after the hand-back, not the one the Mac
+  played. Run it after D521 §2 is built, and once more with the Mac's sound differing from the
+  page's if §2 leaves a way to, since §2 makes the Mac play the page's sound and would hide this.
+  No cause was found in the web app or the player: real hls.js starts on the chosen place in both
+  audio groups, the place is mapped as the master orders it, and the hand-back's playback is
+  answered the start's own master again. The staging log of 14:56–14:57 UTC is the one sign: after
+  the hand-back the guest's playback wanted `sound2-own` (the English), where it had played
+  `sound0-own` (the Japanese) before AirPlay.
+  (`web/apps/web/src/ladder-playback.ts` `useChunkedPlayback`, `web/packages/player/src/hls.ts`
+  `startAndKeepAudio`.)
