@@ -48,6 +48,8 @@ var ErrGuestSender = errors.New("this sign-in cannot cast to a Google Cast devic
 type guestGrants struct {
 	mutex  sync.Mutex
 	byHash map[string]guestGrant
+	// issued counts the grants issued, numbering each (guestGrant.order).
+	issued uint64
 }
 
 // guestGrant is what a grant makes when traded: a guest receiver of the person's, cast to by the
@@ -65,6 +67,9 @@ type guestGrant struct {
 	offerKey     []byte
 	receiverName string
 	madeAt       time.Time
+	// order is the grant's place among those issued, which tells the oldest of a sender's apart from
+	// the others made at the same instant.
+	order uint64
 }
 
 // GrantMembership is the Watch Together membership a guest grant is bound to when a guest who joined
@@ -100,13 +105,19 @@ func (kept *guestGrants) forgetLocked(now time.Time, sender grantSender) {
 			continue
 		}
 		count++
-		if oldest == "" || waiting.madeAt.Before(kept.byHash[oldest].madeAt) {
+		if oldest == "" || waiting.order < kept.byHash[oldest].order {
 			oldest = hash
 		}
 	}
 	if count >= guestGrantsPerDevice {
 		delete(kept.byHash, oldest)
 	}
+}
+
+// nextOrderLocked numbers the next grant issued; the mutex is held.
+func (kept *guestGrants) nextOrderLocked() uint64 {
+	kept.issued++
+	return kept.issued
 }
 
 // GuestReceiver is a guest grant traded: the receiver's session, and the device it signed in as,
@@ -146,6 +157,7 @@ func (service *Service) IssueGuestGrant(sender Principal, receiverName string) (
 	service.guestGrants.byHash[hex.EncodeToString(tokenHash(secret))] = guestGrant{
 		userID: sender.UserID, senderDeviceID: sender.DeviceID, senderSession: senderSession,
 		offerKey: proof.GuestGrantOfferKey(secret), receiverName: receiverName, madeAt: now,
+		order: service.guestGrants.nextOrderLocked(),
 	}
 	return secret, nil
 }
@@ -170,6 +182,7 @@ func (service *Service) IssueMembershipGuestGrant(membership GrantMembership, re
 	service.guestGrants.forgetLocked(now, grantSender{membership: membership})
 	service.guestGrants.byHash[hex.EncodeToString(tokenHash(secret))] = guestGrant{
 		membership: membership, offerKey: proof.GuestGrantOfferKey(secret), receiverName: receiverName, madeAt: now,
+		order: service.guestGrants.nextOrderLocked(),
 	}
 	return secret, nil
 }
