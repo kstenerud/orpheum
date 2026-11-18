@@ -30196,9 +30196,7 @@ the playback's starting track, not the Japanese the guest had chosen. Amends D47
    that track's sound as its default, in place of the playback's starting track. With no track
    given, or one the film does not have, it is the starting track, as before.
 
-**Proven by:** §1, `airplay.test.ts` ("at a Stop pressed, shows the picker for the person to
-choose this device, and ends as they do (D521 §1)", "plays on at a Stop pressed when the person
-keeps the receiver, and ends at once if none was picked"), `airplay-entry.test.tsx` ("closes the
-menu at Stop AirPlay, for AirPlay's picker to show over the page (D521 §1)"), VQ363.
+**Proven by:**
+- 1: web/packages/player/src/airplay.test.ts ("at a Stop pressed, shows the picker for the person to choose this device, and ends as they do (D521 §1)"; "plays on at a Stop pressed when the person keeps the receiver, and ends at once if none was picked"), web/apps/web/src/airplay-entry.test.tsx ("closes the menu at Stop AirPlay, for AirPlay's picker to show over the page (D521 §1)"), VQ363
 
 **Status:** decided (2026-11-18); §1 built (2026-11-18), §2 not built.
