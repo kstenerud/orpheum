@@ -154,6 +154,16 @@ describe("AirPlay from the page's own element (D473, Way B)", () => {
     expect(video.src).toBe("");
   });
 
+  it("turns the element's remote playback off again as it ends, so its sound plays here, not on the receiver", () => {
+    // The owner, VQ361, 2026-11-18: after Stop AirPlay, the film went back to the iPhone's page
+    // and its sound went on playing on the Mac.
+    const { video, stop } = handedOver();
+    video.goWireless(true);
+    stop();
+    expect(video.disableRemotePlayback).toBe(true);
+    expect(video.attributes.has("x-webkit-airplay")).toBe(false);
+  });
+
   it("is handed back when no receiver is picked in time, and not while one plays", () => {
     const unpicked = handedOver();
     vi.advanceTimersByTime(airPlayPickWithinMs - 1);

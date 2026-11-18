@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
 | A seek in a very long MP4 (file 15497, 45 h) waited 5–8 s before its first chunk. | [FFmpeg's MP4 demuxer parses the whole index at every open, and says a stream's bit rate from all of it](#ffmpegs-mp4-demuxer-parses-the-whole-index-at-every-open-and-says-a-streams-bit-rate-from-all-of-it) |
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
+| After Stop AirPlay on the iPhone, the film's sound went on playing on the Mac; the next AirPlay played on the phone, its sound alone on the Mac. | [Safari on iOS keeps an element's AirPlay route after its source is emptied, and sends hls.js's sound down it](#safari-on-ios-keeps-an-elements-airplay-route-after-its-source-is-emptied-and-sends-hlsjss-sound-down-it) |
 | Chrome's Cast picker listed no device; closed, the page said a failure the app does not expect. | [Chrome's Cast picker, closed having found no device, answers session_error, not cancel](#chromes-cast-picker-closed-having-found-no-device-answers-session_error-not-cancel) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
@@ -1358,6 +1359,27 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   41784137](https://stackoverflow.com/questions/41784137/webrtc-doesnt-work-with-audiocontext),
   [53325793](https://stackoverflow.com/questions/53325793/no-audio-from-webrct-stream-on-chrome-without-audio-tag)).
 
+
+### Safari on iOS keeps an element's AirPlay route after its source is emptied, and sends hls.js's sound down it
+
+- **Symptom:** on the iPhone, Stop AirPlay brought the film back to the page, but its sound went
+  on playing on the Mac; the next AirPlay to the Mac then played on the iPhone, its sound alone on
+  the Mac, the core's log showing the Mac fetching nothing under the grant (the owner, staging,
+  VQ361, 2026-11-18). Ending AirPlay from Control Center put all right.
+- **Cause:** the element was handed back to hls.js still allowing remote playback
+  (`disableRemotePlayback` false, `x-webkit-airplay`), so Safari kept it on the AirPlay route: a
+  Media Source playback cannot be played by the receiver, so its sound alone went there. WebKit's
+  own word is that disabling the element's wireless playback returns it to the device.
+- **What we do:** `playOnAirPlay`'s end (`web/packages/player/src/airplay.ts`) sets
+  `disableRemotePlayback` back to true and removes `x-webkit-airplay` before emptying the element;
+  the next AirPlay sets them again. `disableRemotePlayback` is toggled, not WebKit's
+  `x-webkit-wirelessvideoplaybackdisabled`, which cannot be turned off again. VQ362 confirms it
+  on the device.
+- **Evidence:** the owner's runs and the core's log, 2026-11-18. **[web]** Jer Noble (WebKit),
+  [public-secondscreen, 2016-05](https://lists.w3.org/Archives/Public/public-secondscreen/2016May/0161.html):
+  disabling wireless playback on the element returns playback to the local device;
+  [WebKit bug 239031](https://bugs.webkit.org/show_bug.cgi?id=239031): the WebKit attribute cannot
+  be removed again, `disableremoteplayback` can (read 2026-11-18).
 
 ### Chrome's Cast picker, closed having found no device, answers session_error, not cancel
 

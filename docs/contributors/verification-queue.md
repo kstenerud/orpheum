@@ -3453,3 +3453,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   group is within a few seconds.
   (`POST /together/airplay-grants`, `DELETE /together/airplay-grants`, `GuestAirPlayHold`, the web
   app's `together-guest-cast.tsx`.)
+- [ ] **VQ362** — Stop AirPlay brings the film's sound back to the iPhone, and the next AirPlay plays
+  on the receiver (the owner, VQ361, 2026-11-18: after Stop AirPlay the film came back to the
+  iPhone's page and its sound went on playing on the Mac; the next AirPlay then played on the
+  iPhone, its sound alone on the Mac, the core's log showing the Mac fetching nothing). On staging,
+  on the iPhone in Safari, with Control Center's sound output on the iPhone, play a film (signed in,
+  or a Watch Together guest by link), Cast, AirPlay, and pick the Mac; then Stop AirPlay; then
+  AirPlay to the Mac again, and Stop again. Passes when, at each Stop, the film plays on in the
+  iPhone's page from where the Mac stood, with its sound on the iPhone and nothing playing on the
+  Mac, Control Center's output naming the iPhone; and the second AirPlay plays picture and sound on
+  the Mac, the core's log showing its requests under the grant from the Mac's address.
+  (`web/packages/player/src/airplay.ts`, `playOnAirPlay`'s end.)
