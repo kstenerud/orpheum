@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { airPlayHere } from "./airplay.ts";
+import { airPlayHere } from "./airplay-here.ts";
 import { FilmPlayer, type FilmComposition, type MovedDown } from "./film-player.tsx";
 import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";

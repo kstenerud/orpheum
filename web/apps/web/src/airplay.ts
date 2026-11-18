@@ -3,7 +3,7 @@
 /**
  * AirPlay from the Play page (D473, D523): the grant in the media's path, asked for as the Cast menu
  * opens on the core's name the page reaches it at (grantOriginOf), and revoked as the player goes;
- * and the film this tab plays that AirPlay is offered for (useOffersAirPlay, airPlayHere), its grant
+ * and the film this tab plays that AirPlay is offered for (useOffersAirPlay, airplay-here.ts), its grant
  * the element's alternative, which WebKit hands to the receiver itself, and back to hls.js once
  * AirPlay is off.
  * The grant is the person's session's (sessionAirPlayGrants), or, on a Watch Together guest by
@@ -18,8 +18,9 @@ import {
   reloadOnAirPlay,
   showAirPlayPicker,
 } from "@orpheum/player";
-import { createContext, use, useEffect, useRef, useSyncExternalStore, type RefObject } from "react";
+import { createContext, use, useEffect, useRef, type RefObject } from "react";
 
+import { offerAirPlayHere, tellAirPlayChanged, type AirPlayHere } from "./airplay-here.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { useLatest } from "./latest.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -164,79 +165,6 @@ export async function askAirPlayGrant(
   await revoking;
   const asked = { mediaToken: here.mediaToken, audioTrackIndex: here.audioTrackIndex?.() };
   return await here.grants.make(doing, asked, origin);
-}
-
-/** The film this tab plays that AirPlay is offered for, as the Cast menu reaches it. */
-export interface AirPlayHere {
-  /** The playback's media token, which its grant is asked for by. */
-  readonly mediaToken: string;
-  /** Who its grant is asked for and revoked by. */
-  readonly grants: AirPlayGrants;
-  /** The audio track the film plays now, by its place, which AirPlay plays too; none, its starting one. */
-  readonly audioTrackIndex?: () => number | undefined;
-  /** Whether the film plays on AirPlay now, as the element's wireless flag says (D523 §2). */
-  readonly isPlaying: () => boolean;
-  /**
-   * Within a press, offers the grant at url to AirPlay as the element's alternative and shows the
-   * picker: WebKit moves the film to the receiver the person picks (D523 §1).
-   */
-  readonly start: (url: string) => void;
-  /** Within a press, shows AirPlay's picker, AirPlay's own controls while it plays (D523 §6). */
-  readonly showControls: () => void;
-}
-
-let offered: AirPlayHere | undefined;
-const watchers = new Set<() => void>();
-
-function tellAirPlayChanged(): void {
-  for (const watcher of watchers) {
-    watcher();
-  }
-}
-
-function watchOffered(watcher: () => void): () => void {
-  watchers.add(watcher);
-  return () => {
-    watchers.delete(watcher);
-  };
-}
-
-/** The film this tab offers AirPlay for now, if any. */
-export function airPlayHere(): AirPlayHere | undefined {
-  return offered;
-}
-
-/**
- * The film this tab offers AirPlay for, re-rendering as another is offered or it goes: a menu or
- * dialog left open as the film changes offers the new one's.
- */
-export function useAirPlayHere(): AirPlayHere | undefined {
-  return useSyncExternalStore(watchOffered, airPlayHere, airPlayHere);
-}
-
-/** Whether this tab's film plays on AirPlay now (D523 §2). */
-function isOnAirPlayNow(): boolean {
-  return offered?.isPlaying() === true;
-}
-
-/**
- * Whether this tab's film plays on AirPlay now, re-rendering as it starts or ends (D523 §2): what
- * Cast's menu, its sign over the film and a guest's Cast dialog show (D523 §6, §7).
- */
-export function useIsOnAirPlay(): boolean {
-  return useSyncExternalStore(watchOffered, isOnAirPlayNow, isOnAirPlayNow);
-}
-
-/** Offers AirPlay for here, the film this tab plays, till the returned function takes it back. */
-export function offerAirPlayHere(here: AirPlayHere): () => void {
-  offered = here;
-  tellAirPlayChanged();
-  return () => {
-    if (offered === here) {
-      offered = undefined;
-      tellAirPlayChanged();
-    }
-  };
 }
 
 /** Where the film stood as AirPlay ended, in s, and whether it was paused there. */

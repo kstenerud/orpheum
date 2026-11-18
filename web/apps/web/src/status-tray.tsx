@@ -7,7 +7,7 @@ import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useIsOnAirPlay } from "./airplay.ts";
+import { useIsOnAirPlay } from "./airplay-here.ts";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IconButton } from "./icon-button.tsx";
 import { CastIcon, TogetherIcon, WarningIcon } from "./icons.tsx";

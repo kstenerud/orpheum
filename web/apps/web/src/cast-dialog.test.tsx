@@ -6,7 +6,8 @@ import "./i18n.ts";
 import type { JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { offerAirPlayHere, sessionAirPlayGrants } from "./airplay.ts";
+import { sessionAirPlayGrants } from "./airplay.ts";
+import { offerAirPlayHere } from "./airplay-here.ts";
 import { CastDialog } from "./cast-dialog.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { CastingLeft } from "./old-addresses.tsx";

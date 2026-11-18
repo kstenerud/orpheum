@@ -5,14 +5,8 @@ import "./cast-words.ts";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  askAirPlayGrant,
-  grantOriginOf,
-  noLog,
-  useAirPlayHere,
-  useIsOnAirPlay,
-  type AirPlayHere,
-} from "./airplay.ts";
+import { askAirPlayGrant, grantOriginOf, noLog } from "./airplay.ts";
+import { useAirPlayHere, useIsOnAirPlay, type AirPlayHere } from "./airplay-here.ts";
 import { FindDevicesIcon } from "./icons.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";

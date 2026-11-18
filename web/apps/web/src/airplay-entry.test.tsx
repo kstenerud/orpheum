@@ -6,7 +6,8 @@ import "./i18n.ts";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { offerAirPlayHere, sessionAirPlayGrants, type AirPlayHere } from "./airplay.ts";
+import { sessionAirPlayGrants } from "./airplay.ts";
+import { offerAirPlayHere, type AirPlayHere } from "./airplay-here.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
 import {

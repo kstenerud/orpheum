@@ -10,7 +10,7 @@ import {
 import { act, useEffect, useRef, useState, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { airPlayHere } from "./airplay.ts";
+import { airPlayHere } from "./airplay-here.ts";
 import { dataCapsKey } from "./data-cap.ts";
 import { useChunkedPlayback } from "./ladder-playback.ts";
 import type { LadderOffer } from "./moving-down.ts";

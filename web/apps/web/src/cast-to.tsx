@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, myDevicesKey, type Device } from "./accounts.ts";
-import { useIsOnAirPlay } from "./airplay.ts";
+import { useIsOnAirPlay } from "./airplay-here.ts";
 import { AirPlayEntry } from "./airplay-entry.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { castKindOf, CastKindMark } from "./cast-kind.tsx";
