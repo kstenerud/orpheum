@@ -392,6 +392,12 @@ This was the lab page's run 2, which covered steps 1, 3, 4 and 6.
 So both ways of changing the sound work during AirPlay: one track property on a master listing
 every sound, or a new one-sound source.
 
+**The rerun, 2026-11-18 (log `e1-sound-…T19-56-32`).** The owner suspected the first run's drop
+came from switching to the Mac to read the steps. In the rerun the iPhone's page stayed visible
+throughout (no `visibility` event), and the same thing happened. AirPlay ended 3.5 s after the
+Mac connected, with no press. 18 s later it came back, again with no press. Both reloads repeated
+step 6's result: the flag fell for about 100 ms, the position held, and the right tone played.
+
 ### E2: the picker, and ending AirPlay (`e2-picker.html`)
 
 **Settles** what the page learns:
