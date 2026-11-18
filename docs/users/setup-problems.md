@@ -197,8 +197,9 @@ Raise the limit on the host (a container shares its host's): add
 
 ## Installed from the one compose file, or on OpenMediaVault
 
-These are for a server installed from [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml),
-or a Synology's [`deploy/synology/compose.yaml`](../../deploy/synology/compose.yaml)
+These are for a server installed from OpenMediaVault's `orpheum-omv.yaml`
+([`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) in the repository), or a Synology's
+`orpheum-synology.yaml` ([`deploy/synology/compose.yaml`](../../deploy/synology/compose.yaml))
 ([install.md](install.md)). Its containers are `orpheum-core`, `orpheum-node` and `orpheum-folders`;
 in OpenMediaVault their logs are under **Services > Compose > Containers**, elsewhere
 `docker logs <name>`.

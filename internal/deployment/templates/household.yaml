@@ -4,7 +4,7 @@ with the household's own values for the Update page (D462 §4). Each rendering s
 file's own header; the template's comments never reach a household. */ -}}
 # SPDX-License-Identifier: AGPL-3.0-or-later
 {{- if eq .Route "omv"}}
-# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Create, and start it. The
+# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add > Add, and start it. The
 # variables come from OpenMediaVault's global.env and the file's own Environment box.
 {{- else if eq .Route "portainer"}}
 # Orpheum as a Portainer stack, from the app template's form, which sets the variables below.

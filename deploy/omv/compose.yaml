@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Create, and start it. The
+# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add > Add, and start it. The
 # variables come from OpenMediaVault's global.env and the file's own Environment box.
 #
 # Generated from internal/deployment/templates/household.yaml (make generate); edit that. The server

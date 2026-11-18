@@ -19,7 +19,9 @@ which of them are the person's.
 ## What to ask
 
 1. **The machine, and its system.** Which machine will run the server, and what runs on it:
-   - **OpenMediaVault**: [OpenMediaVault](install.md#openmediavault).
+   - **OpenMediaVault**: [OpenMediaVault](install.md#openmediavault), whose opening installs Docker
+     and the compose plugin when the box has neither. The person opens the compose file's link in
+     their own browser and pastes the whole file: it redirects, and you may not be able to fetch it.
    - **A NAS**: its make, and its model. A Synology follows [Synology](install.md#synology), whose
      model matters: some models need an unofficial script first, and the 32-bit ones cannot run it
      at all. A NAS of another make, or Portainer or CasaOS, follows
@@ -45,7 +47,9 @@ which of them are the person's.
    an ARM board, or a machine with none, encodes on the processor. A slow NAS cannot re-encode a
    film as fast as it plays, as [Synology](install.md#synology) explains for its older models.
 4. **Watching away from home.** At home no account is needed. Away from home needs an Orpheum
-   account at orpheum.cc, which is made from an invitation: ask whether they have one
+   account at orpheum.cc, which is made from an invitation: ask whether they have one, and when it came: its link lasts 14 days and makes one account,
+   so one older than that needs a new link from whoever sent it, before anything else. Making the
+   account first, while the link is good, is safest
    ([from away from home](install.md#from-away-from-home-optional),
    [the account](install.md#your-account-at-orpheumcc),
    [connecting the server to it](install.md#connect-it-to-your-account)). Without one, set up for

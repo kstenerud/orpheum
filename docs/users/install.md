@@ -101,9 +101,21 @@ compose up -d`.
 
 ### OpenMediaVault
 
-This follows omv-extras' own pages for apps such as Jellyfin. It needs OpenMediaVault 7 or 8 with
-**omv-extras** and the **openmediavault-compose** plugin installed, and Docker installed from the
-plugin's settings (**Services > Compose > Settings**, Docker's status *Installed and running*).
+This follows omv-extras' own pages for apps such as Jellyfin, on OpenMediaVault 7 or 8. If your
+box already runs apps in **Services > Compose**, skip to step 1. Otherwise, first:
+
+- **omv-extras.** If **System** has no **omv-extras** entry, install it: on the box, as root (over
+  SSH, or at its own keyboard), run
+  `wget -O - https://github.com/OpenMediaVault-Plugin-Developers/packages/raw/master/install | bash`,
+  then load OpenMediaVault's page again.
+- **Docker and the compose plugin.** In **System > omv-extras**, switch on **Docker repo** and
+  **Save**. Then in **System > Plugins**, select **openmediavault-compose** and **Install**; Docker
+  comes with it. (It also installs openmediavault-sharerootfs: leave that installed.)
+- **Where compose files live.** Make the `appdata` folder of step 1 below, then in **Services >
+  Compose > Settings** choose it as **Compose Files**' **Shared folder**, and **Save**.
+- **The user apps run as.** If **Users > Users** has no `appuser`, make one: **+ (Create)**, name
+  `appuser`, a password, **Save**. Never add it to the `docker` group, and never use `admin` or
+  `root` for apps.
 
 1. **Shared folders.** In **Storage > Shared Folders** you have, or make, a folder for your media
    (`Media`) and one for app data (`appdata`), as omv-extras' guide sets up. Each lies on a disk at
@@ -132,7 +144,8 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
    on 8440 and its HTTPS on 8444. If something else has 8440, set `ORPHEUM_HTTP_PORT` to a free
    one in step 4's **Environment**; the HTTPS port is changed later on the server's **System**
    page.
-4. **The file.** In **Services > Compose > Files**, **+ Add > Add**: name it `orpheum`, paste the
+4. **The file.** In **Services > Compose > Files**, **Add**, then **Add** again (not *Add from
+   example*): name it `orpheum`, paste the
    whole of [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    into **File**, and into **Environment** (this file's own variables):
 
@@ -373,6 +386,9 @@ each time.
    not the server's), and **Choose your realm**: the name your household signs in to your server by, 5 to 32 letters and digits, with
    hyphens between them, such as `annanas`. It is yours alone and cannot be changed, so choose it
    with care. **Make my account**.
+   An invitation's link lasts 14 days and makes one account. One that has lapsed, or was used,
+   says "this invitation has expired or was used; ask for a new one": ask whoever invited you,
+   who can send another link for the same invitation.
 2. Open the link in the e-mail it sends you, within 24 hours (**Send a new link** on your account's
    page sends another). An account not verified within 7 days is deleted.
 
