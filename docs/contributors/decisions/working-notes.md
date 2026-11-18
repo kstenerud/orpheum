@@ -30260,8 +30260,9 @@ and D522.
 4. **Back on this device, the film goes back to hls.js.** Once AirPlay is off (§2), the page puts the
    film back on hls.js where it stands, with the alternative ready for the next AirPlay. WebKit leaves
    it on Safari's own player otherwise (E3), which has no quality ladder and none of the page's sound
-   handling. How long the page waits before reattaching is set by the lab's run 5, which tries a
-   quick return to the receiver before and after it.
+   handling. It reattaches after the same 1 s that settles the flag: in the lab's run 5, a return to
+   the receiver before the reattach was only a change of route, and every handover after one worked,
+   at the position.
 5. **The receiver's controls.** Its pause and play arrive as a pause and a play; its scrub as a pause,
    then a play at the new place, with no seek event (E4). A Watch Together guest's sync takes such a
    pair for the receiver's move, not the guest's (D522 §2).
@@ -30276,4 +30277,4 @@ and D522.
 **Not covered:** AirPlay started from Control Center, without the menu, has no alternative to switch
 to. The page shows it on, by §2; a device check says what it does, and a fix follows.
 
-**Status:** decided (2026-11-18); the build waits on the lab's run 5 (§4).
+**Status:** decided (2026-11-18); run 5 settled §4's wait (2026-11-18).

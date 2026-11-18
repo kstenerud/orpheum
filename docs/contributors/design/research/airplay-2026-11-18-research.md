@@ -522,6 +522,30 @@ is the next run, with 1.7.4 as `?hls=hls-1.7.4.js`.
   28.00 in B, 26.05 → 24.00 in C), so about 2 s repeated. hls.js stayed detached; reattaching it,
   or staying native, is the page's choice.
 
+**Run 5, 2026-11-18: back to the iPhone and to the Mac again, the picker left open (D523 §4).**
+hls.js 1.7.4, design B, and the page reattaching hls.js once the flag had stayed down 1 s, then
+10 s. The owner moved the film to the Mac five times, three of them to the Mac again after a spell on
+the iPhone.
+
+- **Every handover after a reattach worked.** It happened four times, in both rounds. About 0.5 s
+  after the flag rose, hls.js detached and `currentSrc` moved to the alternative, as on the first
+  handover. The Mac played from where the iPhone was (24.60 → 24.66, 46.93 → 46.98, 74.49 → 74.53),
+  about 0.8 s after the flag rose.
+- **Back to the Mac before the reattach worked too.** In the 10 s round, the owner chose the Mac 6.3 s
+  after the iPhone. The element was still on Safari's own player of the alternative, so it was only a
+  change of route: the flag rose and the position ran on unbroken.
+- **The reattach.** It took 0.2–0.3 s from the timer to `playing`, at the position, with no press.
+  The iPhone played throughout. No pick fell inside a reattach, so that race went untried; its window
+  is that 0.3 s.
+- **The pitch that changed was the lab's, not WebKit's.** On the iPhone, hls.js played the full
+  master, and it picked the high sound. The alternative was `master-low.m3u8`, so the Mac, and the
+  iPhone before each reattach, played the low one. In the product the alternative's one sound is the
+  one the page plays (D521 §2, D522 §1), and the page sets the starting sound itself (D523 §3).
+- **One pause came from no page button,** 6.5 s after the last reattach, as the run ended.
+
+So the page can reattach after the same 1 s that settles the flag: a quick return to the receiver
+works on either side of the reattach.
+
 ### E4: unasked pauses and the late position (`e4-unasked.html`)
 
 **Settles** which pause, play and seek events reach a page during AirPlay unasked, and how late
