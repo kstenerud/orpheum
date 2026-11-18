@@ -4539,6 +4539,6 @@ Claude.
    runs begin at the first chunk not given up (`notGivenUpFrom`, as an init's run does), and its
    player, refused the chunks before it, steps over them as it does mid-film, the sign under the
    film saying so; with every chunk ahead given up the start is refused 422 `cannotConvert`, as a
-   chunk is, not a 500. VQ359.
+   chunk is, not a 500. VQ357.
 4. A paused cast closes after 20 minutes; the receiver's idle screen stays black.
 5. D516's wire name `isAtTheEnd` stays.

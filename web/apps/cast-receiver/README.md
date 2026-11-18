@@ -20,7 +20,6 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 - **Closes itself, by CAF's stop, after 5 minutes with nothing playing or 20 with its film paused**
   (the owner, 2026-11-17 and 2026-11-18), timed by its video from when it came to stand so; playing,
   it stays. `src/idle.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ359.
-  it stays. `src/idle.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ359.
 - **Has its cast play nothing at its film's end with nothing next**, as a browser receiver waits
   ready (D364 §5): its black screen shows, still connected, for the next video cast, until its idle
   close; a guest receiver too, the core taking that of it for its own cast alone. Where an episode
