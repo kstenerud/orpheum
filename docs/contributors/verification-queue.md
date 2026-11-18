@@ -3499,6 +3499,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   had asked with, or whether its tab ran the bundle from before the deploy. The grant's log line
   (`airPlayGranted`, `togetherAirPlayGranted`) now names it as `audioTrackAsked` (`unnamed` where it named none); run it again with
   every tab of the app closed first, and read that field.
+  **Failed again 2026-11-18 16:03 UTC (the owner, every tab closed first):** the log said
+  `audioTrackAsked=unnamed`: the page's bundle was the new one, and it named no track, so the
+  grant fell back to the sound last fetched, the English the iPhone's own player had moved to
+  under the grant. The page's track is lost before the request (being fixed). In this run the
+  film also paused as it went to the Mac and played on only when the owner pressed play.
 - [ ] **VQ365** — A film handed back from AirPlay plays the sound its page says (VQ363, 2026-11-18:
   a Watch Together guest by link on the iPhone, the page saying "Sound: Japanese", AirPlayed to
   the Mac, which played the English; at Stop AirPlay, choosing the iPhone, the film came back
