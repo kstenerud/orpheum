@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 // @vitest-environment happy-dom
 
-import type { HeldSession, OpenTogetherSocket } from "@orpheum/sdk";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { apiPrefix, type HeldSession, type OpenTogetherSocket } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { receiverFormats } from "./device.ts";
 import { castAsGuest, guestRequestOf, type GuestAnswer } from "./guest.ts";
 
 const reach = {
@@ -124,6 +128,7 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         note: () => undefined,
         answer: (answer) => answers.push(answer),
         onTaken: () => undefined,
+        goHome: () => undefined,
       },
     );
     // Not ready at the trade: a cast to it is refused until the core has welcomed its connection.
@@ -176,6 +181,7 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         note: () => undefined,
         answer: (answer) => answers.push(answer),
         onTaken: () => undefined,
+        goHome: () => undefined,
       },
     );
     sockets[0]?.onOpen();
@@ -209,11 +215,216 @@ describe("a Google Cast device casting under a grant (D465 §2)", () => {
         note: () => undefined,
         answer: (answer) => answers.push(answer),
         onTaken: () => undefined,
+        goHome: () => undefined,
       },
     );
     expect(stop).toBeUndefined();
     expect(answers).toHaveLength(1);
     expect(answers[0]?.type).toBe("failed");
     expect(isClosed).toBe(true);
+  });
+});
+
+describe("a Google Cast device taking the part of a Watch Together guest by link (D518)", () => {
+  /** The capabilities a Watch Together guest's membership holds (x-orpheum-capability). */
+  const membersCapabilities = new Set(["member", "none", "media"]);
+
+  /** Each route a guest's membership may call, as its method and a pattern its path matches. */
+  function membersRoutes(): readonly RegExp[] {
+    const document: unknown = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, "../../../../api/openapi.json"), "utf8"),
+    );
+    const routes: string[] = [];
+    for (const [template, operations] of Object.entries(
+      Reflect.get(document as object, "paths") as object,
+    )) {
+      for (const [method, operation] of Object.entries(operations as object)) {
+        const capability: unknown = Reflect.get(operation as object, "x-orpheum-capability");
+        if (typeof capability === "string" && membersCapabilities.has(capability)) {
+          routes.push(`${method.toUpperCase()} ${template}`);
+        }
+      }
+    }
+    return routes.map((route) => new RegExp(`^${route.replaceAll(/\{[^/}]+\}/gu, "[^/]+")}$`, "u"));
+  }
+
+  /**
+   * A core answering the trade with the guest's membership, refusing every route a guest's
+   * membership may not call (each kept in refused), and starting no film.
+   */
+  function membersCore(
+    asked: string[],
+    refused: string[],
+  ): (request: Request) => Promise<Response> {
+    const routes = membersRoutes();
+    return async (request) => {
+      const apiPath = new URL(request.url).pathname.slice(apiPrefix.length);
+      const signedIn = request.headers.get("Authorization") ?? "signed out";
+      asked.push(`${request.method} ${apiPath} ${signedIn} ${await request.text()}`);
+      if (!routes.some((route) => route.test(`${request.method} ${apiPath}`))) {
+        refused.push(`${request.method} ${apiPath}`);
+        return new Response("{}", { status: 403 });
+      }
+      if (apiPath === "/guest-receivers") {
+        const part = {
+          locator: "the-memberships-locator",
+          membershipCredential: "the-guests-membership",
+          togetherSessionId: 1,
+        };
+        return new Response(JSON.stringify(part), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      // No film starts: what is tested is the part, not the player.
+      return new Response("{}", { status: 503 });
+    };
+  }
+
+  /** The session's welcome of the Chromecast, device 12 of the guest's membership, a follower. */
+  const welcomeOfThePart = {
+    v: 3,
+    type: "welcome",
+    seq: 1,
+    sessionId: 1,
+    memberId: 2,
+    deviceId: 12,
+    group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
+    roster: [
+      { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video", isLeader: true }] },
+      {
+        id: 2,
+        name: "Gran",
+        devices: [
+          { id: 8, role: "video" },
+          { id: 12, role: "video" },
+        ],
+      },
+    ],
+  };
+
+  /** The group playing film 7, told the Chromecast as its session tells each follower. */
+  function groupPlays(state: "playing" | "paused"): string {
+    const group = { state, positionMs: 5000, rate: 1, fileId: 7, event: "leaderPlays" };
+    return JSON.stringify({ v: 3, type: "group", seq: 2, group });
+  }
+
+  /** A cast under a Watch Together guest's grant: what it asked and answered, and where it went. */
+  interface CastPart {
+    readonly asked: string[];
+    readonly refused: string[];
+    readonly answers: GuestAnswer[];
+    readonly socket: () => Parameters<OpenTogetherSocket>[0] | undefined;
+    readonly traded: () => HeldSession | undefined;
+    readonly wentHome: () => number;
+    readonly isClosed: () => boolean;
+    readonly isTaken: () => boolean;
+  }
+
+  /** Casts under a Watch Together guest's grant. */
+  async function castAsTheGuestsPart(): Promise<CastPart> {
+    const asked: string[] = [];
+    const refused: string[] = [];
+    const answers: GuestAnswer[] = [];
+    const sockets: Parameters<OpenTogetherSocket>[0][] = [];
+    let traded: (() => HeldSession | undefined) | undefined;
+    let wentHome = 0;
+    let isClosed = false;
+    let isTaken = false;
+    await castAsGuest(
+      { grant: "a Watch Together guest's grant", reach, showsLog: false },
+      {
+        reach: (tradedSession) => {
+          traded = tradedSession;
+          return Promise.resolve({
+            fetch: membersCore(asked, refused),
+            openSocket: (listeners) => {
+              sockets.push(listeners);
+              return { send: () => undefined, close: () => undefined };
+            },
+            close: () => {
+              isClosed = true;
+            },
+          });
+        },
+        video,
+        note: () => undefined,
+        answer: (answer) => answers.push(answer),
+        onTaken: () => {
+          isTaken = true;
+        },
+        goHome: () => {
+          wentHome += 1;
+        },
+      },
+    );
+    return {
+      asked,
+      refused,
+      answers,
+      socket: () => sockets[0],
+      traded: () => traded?.(),
+      wentHome: () => wentHome,
+      isClosed: () => isClosed,
+      isTaken: () => isTaken,
+    };
+  }
+
+  it("takes their part by their membership's credential, signed in as no one, ready once welcomed, and asks for the group's film as the guest does", async () => {
+    const part = await castAsTheGuestsPart();
+    expect(part.answers).toEqual([]);
+    // Its later offers are proven by the membership, under the locator the trade answered.
+    expect(part.traded()).toEqual({
+      core: { coreId: "k7xq2", fingerprint: reach.fingerprint },
+      token: "the-guests-membership",
+      locator: "the-memberships-locator",
+    });
+    part.socket()?.onOpen();
+    part.socket()?.onMessage(JSON.stringify(welcomeOfThePart));
+    expect(part.answers).toEqual([{ type: "ready", deviceId: 12 }]);
+    expect(part.isTaken()).toBe(true);
+    part.socket()?.onMessage(groupPlays("playing"));
+    const formats = JSON.stringify({ playableFormats: receiverFormats() });
+    await vi.waitFor(() => {
+      expect(part.asked).toContain(
+        `POST /together/playback Bearer the-guests-membership ${formats}`,
+      );
+    });
+    expect(part.wentHome()).toBe(0);
+  });
+
+  it("goes home, its part let go of, as the guest is removed or the session ends (D518 §2)", async () => {
+    for (const reason of ["ejected", "hostEnded"]) {
+      const part = await castAsTheGuestsPart();
+      part.socket()?.onOpen();
+      part.socket()?.onMessage(JSON.stringify(welcomeOfThePart));
+      part.socket()?.onMessage(JSON.stringify({ v: 3, type: "ended", reason }));
+      expect(part.wentHome()).toBe(1);
+      expect(part.isClosed()).toBe(true);
+      expect(part.answers).toHaveLength(1);
+    }
+  });
+
+  it("answers that it failed where its part ends before the session welcomed it", async () => {
+    const part = await castAsTheGuestsPart();
+    part.socket()?.onOpen();
+    part.socket()?.onMessage(JSON.stringify({ v: 3, type: "ended", reason: "ejected" }));
+    expect(part.answers).toHaveLength(1);
+    expect(part.answers[0]?.type).toBe("failed");
+    expect(part.wentHome()).toBe(0);
+    expect(part.isClosed()).toBe(true);
+  });
+
+  it("asks for no route the core refuses a guest's membership", async () => {
+    const part = await castAsTheGuestsPart();
+    part.socket()?.onOpen();
+    part.socket()?.onMessage(JSON.stringify(welcomeOfThePart));
+    part.socket()?.onMessage(groupPlays("paused"));
+    await vi.waitFor(() => {
+      expect(part.asked.some((each) => each.startsWith("POST /together/playback"))).toBe(true);
+    });
+    part.socket()?.onMessage(JSON.stringify({ v: 3, type: "ended", reason: "ejected" }));
+    expect(part.asked.length).toBeGreaterThan(1);
+    expect(part.refused).toEqual([]);
   });
 });

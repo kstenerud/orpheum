@@ -50,6 +50,13 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   the cast as a paired device does, its later offers proven by the guest's session. It keeps nothing
   in storage, and stops once the core refuses the guest, whose device is gone when its cast ends.
   `src/guest.test.ts`; only a device shows the whole: VQ302.
+- **Takes a Watch Together guest's part by their membership** (D518): a grant a guest by link asked
+  for trades for a credential of their membership, not a session. The receiver then joins their
+  session as another device of theirs, answers `ready` once welcomed, follows the group and plays its
+  film through `POST /together/playback`, its chunks read by that credential, asking for no route a
+  guest's membership is refused. It takes no cast, shows no up next and has no Stop; told the guest
+  was removed or the session ended, it goes home (CAF's stop). `src/guest.test.ts`; on a device:
+  VQ360.
 - **Shows its log on screen only once a sender asks** (the owner, 2026-11-12): it keeps noting
   lines for its report from its start, the screen hidden, until a launch under a grant carries
   `showsLog: true` (its sender's person shows debug tools and ticked Show cast log;
@@ -76,5 +83,5 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 - The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. The lab's session (the
   report, the film, the memory, the log on screen and when it shows): `src/lab.ts`. The receiver as a cast target (its
   pairing, its live connection, the cast it follows): `src/device.ts`. A cast under a grant:
-  `src/guest.ts`.
+  `src/guest.ts`; a Watch Together guest's part: `src/guest-part.ts`.
 - The CAF receiver SDK script tag: `index.html`.

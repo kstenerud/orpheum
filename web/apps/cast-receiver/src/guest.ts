@@ -5,17 +5,21 @@ import {
   dataOrThrow,
   failureText,
   targetOfGuestGrant,
+  type Api,
   type HeldSession,
 } from "@orpheum/sdk";
 
 import { CastDevice } from "./device.ts";
+import { GuestPart } from "./guest-part.ts";
 import { coreReachOf, reachThrough, type CoreReach, type Reached } from "./reach.ts";
 
 /**
  * A cast to any Google Cast device under a grant for that cast alone (D465 §2): the sender's launch
  * message carries the grant and how to reach its core; the receiver trades the grant for a guest
  * session, tells the sender which device it is, and takes the cast as a paired device does
- * (device.ts), keeping nothing: the guest's device is gone once its cast ends.
+ * (device.ts), keeping nothing: the guest's device is gone once its cast ends. A grant a Watch
+ * Together guest by link asked for gives no session but a credential of their membership, with which
+ * the receiver takes their part in their session (guest-part.ts, D518 §1).
  */
 
 /** The namespace a sender casting under a grant speaks on (the web app's google-cast.ts). */
@@ -63,6 +67,11 @@ export interface GuestSteps {
   readonly answer: (message: GuestAnswer) => void;
   /** Called as the cast is taken, before its film plays on the video: the lab stops its own film. */
   readonly onTaken: () => void;
+  /**
+   * Sends the receiver home, CAF's stop, the TV back on its own screen: a Watch Together guest's
+   * part ended, the guest removed or the session over (D518 §2, as at D389's end).
+   */
+  readonly goHome: () => void;
 }
 
 /**
@@ -81,21 +90,6 @@ export function reachOfGrant(
       (client) => targetOfGuestGrant(client, { core, grant, senderLocator: reach.locator }, traded),
       note,
     );
-}
-
-// personsSessionOf is a traded grant's session and device. A Watch Together guest's grant answers
-// their membership's credential instead, with no session (D518 §1): taking their part is not built in
-// the receiver yet, so it throws, and the sender is told the cast failed.
-function personsSessionOf(traded: { token?: string; deviceId?: number }): {
-  token: string;
-  deviceId: number;
-} {
-  if (traded.token === undefined || traded.deviceId === undefined) {
-    throw new Error(
-      "the grant was a Watch Together guest's, whose part this receiver cannot take yet",
-    );
-  }
-  return { token: traded.token, deviceId: traded.deviceId };
 }
 
 /**
@@ -118,51 +112,126 @@ export async function castAsGuest(
     const session = dataOrThrow(
       await api.POST("/guest-receivers", { body: { grant: request.grant } }),
     );
-    const { token, deviceId } = personsSessionOf(session);
     const core = { coreId: request.reach.coreId, fingerprint: request.reach.fingerprint };
+    if (session.membershipCredential !== undefined) {
+      // Its later offers are proven by the membership's credential, under its own locator.
+      traded = { core, token: session.membershipCredential, locator: session.locator };
+      return takeGuestsPart({ api, credential: session.membershipCredential, reached }, steps);
+    }
+    const { token, deviceId } = session;
+    if (token === undefined || deviceId === undefined) {
+      throw new Error("the trade answered neither a session nor a membership");
+    }
     traded = { core, token, locator: session.locator };
-    note(`traded the grant: device ${String(deviceId)}`);
-    const way = reached;
-    let isStopped = false;
-    let isAnswered = false;
-    const device = new CastDevice({
-      api,
-      token,
-      reached: way,
-      video: steps.video,
-      note,
-      // Refused once its cast ends: the guest's device is removed then (D465 §2); refused before
-      // it was ever welcomed, the sender is told it failed.
-      onRefused: () => {
-        if (!isAnswered) {
-          isAnswered = true;
-          steps.answer({ type: "failed", reason: "the core refused the device's live connection" });
-        }
-        stop();
-      },
-      onTaken: steps.onTaken,
-      // Ready once the core has welcomed its live connection, not at the trade: the sender's cast
-      // to it is refused while it is not yet one of its person's devices connected now.
-      onConnected: () => {
-        if (!isAnswered) {
-          isAnswered = true;
-          steps.answer({ type: "ready", deviceId });
-        }
-      },
-    });
-    const stopDevice = device.start();
-    const stop = (): void => {
-      if (!isStopped) {
-        isStopped = true;
-        stopDevice();
-        way.close();
-      }
-    };
-    return stop;
+    return takePersonsDevice({ api, token, deviceId, reached }, steps);
   } catch (cause) {
     reached?.close();
     note(`could not cast under the grant: ${failureText(cause)}`);
     steps.answer({ type: "failed", reason: failureText(cause) });
     return undefined;
   }
+}
+
+/** What a traded grant gave the receiver to act by, on its way to the sender's core. */
+interface TradedWay {
+  readonly api: Api;
+  readonly reached: Reached;
+}
+
+/**
+ * Takes the device of the grant's person the trade made, connecting as it: answers the sender ready
+ * once the core has welcomed its live connection, failed where the core refuses it first. Returns
+ * its stopping.
+ */
+function takePersonsDevice(
+  way: TradedWay & { readonly token: string; readonly deviceId: number },
+  steps: GuestSteps,
+): () => void {
+  const { deviceId, reached } = way;
+  steps.note(`traded the grant: device ${String(deviceId)}`);
+  let isStopped = false;
+  let isAnswered = false;
+  const device = new CastDevice({
+    api: way.api,
+    token: way.token,
+    reached,
+    video: steps.video,
+    note: steps.note,
+    // Refused once its cast ends: the guest's device is removed then (D465 §2); refused before
+    // it was ever welcomed, the sender is told it failed.
+    onRefused: () => {
+      if (!isAnswered) {
+        isAnswered = true;
+        steps.answer({ type: "failed", reason: "the core refused the device's live connection" });
+      }
+      stop();
+    },
+    onTaken: steps.onTaken,
+    // Ready once the core has welcomed its live connection, not at the trade: the sender's cast
+    // to it is refused while it is not yet one of its person's devices connected now.
+    onConnected: () => {
+      if (!isAnswered) {
+        isAnswered = true;
+        steps.answer({ type: "ready", deviceId });
+      }
+    },
+  });
+  const stopDevice = device.start();
+  const stop = (): void => {
+    if (!isStopped) {
+      isStopped = true;
+      stopDevice();
+      reached.close();
+    }
+  };
+  return stop;
+}
+
+/**
+ * Takes the part of the Watch Together guest whose grant was traded, by their membership's
+ * credential (D518 §1): answers the sender ready once the session welcomes it, failed where its part
+ * ends before, and goes home as its part ends after (D518 §2). Returns the letting go of it.
+ */
+function takeGuestsPart(
+  way: TradedWay & { readonly credential: string },
+  steps: GuestSteps,
+): () => void {
+  const { api, credential, reached } = way;
+  const { note } = steps;
+  note("traded the grant: taking a Watch Together guest's part");
+  let isAnswered = false;
+  let isStopped = false;
+  let stopPart: () => void = () => undefined;
+  const stop = (): void => {
+    if (!isStopped) {
+      isStopped = true;
+      stopPart();
+      reached.close();
+    }
+  };
+  const part = new GuestPart({
+    api,
+    credential,
+    reached,
+    video: steps.video,
+    note,
+    onWelcomed: (deviceId) => {
+      if (!isAnswered) {
+        isAnswered = true;
+        steps.onTaken();
+        steps.answer({ type: "ready", deviceId });
+      }
+    },
+    onEnded: (reason) => {
+      stop();
+      if (isAnswered) {
+        steps.goHome();
+      } else {
+        isAnswered = true;
+        steps.answer({ type: "failed", reason: `the guest's part ended: ${reason}` });
+      }
+    },
+  });
+  stopPart = part.start();
+  return stop;
 }

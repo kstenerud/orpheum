@@ -236,7 +236,7 @@ function playOrPause(isGroupPlaying: boolean, isPlaying: boolean): readonly Foll
  * What the receiver asks to play: the device's own codecs, by no container of a file's own, so the
  * core puts the film on its ladder, which our player plays (the lab's sender asks the same).
  */
-function receiverFormats(): PlayableFormats {
+export function receiverFormats(): PlayableFormats {
   return { ...browserPlayableFormats(), containers: [] };
 }
 

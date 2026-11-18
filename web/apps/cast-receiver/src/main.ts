@@ -37,9 +37,17 @@ function start(): void {
           lab.heard(message);
         },
         [castNamespace]: (message) => {
-          lab.heardGuestLaunch(message, (answer) => {
-            receiver?.broadcast(castNamespace, answer);
-          });
+          lab.heardGuestLaunch(
+            message,
+            (answer) => {
+              receiver?.broadcast(castNamespace, answer);
+            },
+            // A Watch Together guest's part ended (D518 §2): the TV goes back to its own screen.
+            () => {
+              lab.note("the guest's part ended: going home");
+              receiver?.stop();
+            },
+          );
         },
       },
       (what) => {

@@ -141,7 +141,11 @@ describe("the receiver's log on screen (the owner, 2026-11-12)", () => {
     lab.note("CAF started");
     expect(screen.hidden).toBe(true);
     expect(screen.textContent).toContain("CAF started");
-    lab.heardGuestLaunch({ type: "guest", grant: "g", reach }, (answer) => answered.push(answer));
+    lab.heardGuestLaunch(
+      { type: "guest", grant: "g", reach },
+      (answer) => answered.push(answer),
+      () => undefined,
+    );
     expect(screen.hidden).toBe(true); // an older sender's launch says nothing of the log
     await vi.waitFor(() => {
       expect(answered).toHaveLength(1);
@@ -151,8 +155,10 @@ describe("the receiver's log on screen (the owner, 2026-11-12)", () => {
 
   it("shows once a cast under a grant says to, its sender's person showing debug tools", async () => {
     const { lab, screen, answered } = receiverOnScreen();
-    lab.heardGuestLaunch({ type: "guest", grant: "g", reach, showsLog: true }, (answer) =>
-      answered.push(answer),
+    lab.heardGuestLaunch(
+      { type: "guest", grant: "g", reach, showsLog: true },
+      (answer) => answered.push(answer),
+      () => undefined,
     );
     expect(screen.hidden).toBe(false);
     await vi.waitFor(() => {

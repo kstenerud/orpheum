@@ -205,9 +205,14 @@ export class LabReceiver {
 
   /**
    * Takes a cast under a grant (guest.ts) in place of any cast target it is now, its film in place
-   * of the lab's own, answering the sender by answer; its log shown where the sender says so.
+   * of the lab's own, answering the sender by answer, sent home by goHome as a Watch Together guest's part it took ends
+   * (D518 §2); its log shown where the sender says so.
    */
-  heardGuestLaunch(message: unknown, answer: (message: GuestAnswer) => void): void {
+  heardGuestLaunch(
+    message: unknown,
+    answer: (message: GuestAnswer) => void,
+    goHome: () => void,
+  ): void {
     const request = guestRequestOf(message);
     if (request === undefined) {
       this.note(`a cast it does not know: ${JSON.stringify(message).slice(0, 200)}`);
@@ -226,6 +231,7 @@ export class LabReceiver {
       video: this.video,
       note,
       answer,
+      goHome,
       onTaken: () => {
         this.stopOwnFilm();
       },
