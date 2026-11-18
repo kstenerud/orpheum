@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A80 — Told the owner a group's film runs on past its end on the server's clock, which follows its leader (2026-11-18)
+
+- **What happened:** the end-of-film agent's commit, "feat(web): a Watch Together film that ends
+  with nothing next stops for the group", said a host's film at its end "left the group's film
+  playing past its end on the server's clock", and the lead put it in the morning report as the
+  case left open: a host who left the player before the end. The owner asked why the clock was not
+  following the leader. It is: the group's position is its leader's, guest or host (D372 §4, D377
+  §4); the gap is that stopping is the host's right, so only the host's own player stops the group
+  at the end. The belief came from relaying the agent's sentence without reading the hub's
+  invariants, which say the clock is the leader's in their first lines.
+- **Caught by:** the owner's question.
+- **Gate:** none can check a sentence about behaviour against the code. The lead reads a package's
+  `doc.go` Invariants before passing on an agent's claim about that package to the owner.
+
 ### A79 — Gave the owner a signing folder path without reading where the records are (2026-11-17)
 
 - **What happened:** the lead's signing steps said `--folder ~/orpheum-security` on the Mac. The

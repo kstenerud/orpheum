@@ -29979,3 +29979,19 @@ player's own retry setting, which no decision named.
 **Status:** built (2026-11-18) in "perf(player): a chunk the core is making is asked for again a
 quarter second after its 425", at `chunkAskAgainFirstMs` and `unansweredAskAgainCount`.
 
+## D515 — A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in
+
+**Decided** (2026-11-18), by the project owner, answering the morning report's question on a cast
+at a film's end, where a Watch Together guest's receiver could not set up its own cast as the call
+that plays in a cast needs a signed-in person: "A guest should be able to cast to chromecast and
+airplay devices without being logged in. One only needs to be logged in to cast to orpheum
+devices."
+
+1. **A person who is not signed in, a Watch Together guest among them, may cast to a Chromecast or
+   an AirPlay device**, whatever they may play.
+2. **Casting to an Orpheum device needs a signed-in person**, as it does now.
+
+**Status:** decided (2026-11-18). It goes with a cast's end of a film (the plan file's "A film
+played to its end with nothing next goes back to its page", its cast part), once what each cast's
+calls ask of the person today is read.
+

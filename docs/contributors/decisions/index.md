@@ -520,6 +520,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D512](working-notes.md#d512--a-chunk-run-of-an-mp4-with-a-long-index-is-served-the-index-cut-down-to-its-stretch) A chunk run of an MP4 with a long index is served the index cut down to its stretch
 - [D513](working-notes.md#d513--a-search-that-finds-nothing-tries-the-series-order-its-year-beneath-no-year-no-movie-and-its-folder-and-is-made-again-when-the-rules-change) A search that finds nothing tries the series' order, its year beneath, no year, no "Movie" and its folder, and is made again when the rules change
 - [D514](working-notes.md#d514--a-chunk-the-core-is-making-is-asked-for-again-a-quarter-second-after-its-425) A chunk the core is making is asked for again a quarter second after its 425
+- [D515](working-notes.md#d515--a-guest-casts-to-a-chromecast-or-airplay-device-without-signing-in-only-an-orpheum-device-needs-a-sign-in) A guest casts to a Chromecast or AirPlay device without signing in; only an Orpheum device needs a sign-in
 
 ## Archived
 
