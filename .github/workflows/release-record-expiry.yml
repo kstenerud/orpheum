@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # The signed release record lasts 30 days (discovery/release recordLasts, the audit's F9). Without a
-# release before it expires, the owner signs it again (`discovery-sign sign-release`) and copies it
-# to the publisher's place. Nothing else reminds anyone (principles §17): this reads the record the
+# release before it expires, the owner signs it again (`discovery-sign release <version> --record
+# <file>`, which copies it to the publisher's place). Nothing else reminds anyone (principles §17): this reads the record the
 # publisher serves, daily, and fails from 7 days before its expiry, so GitHub mails the owner a
 # failed scheduled run with the date. It does nothing while PUBLISHER_PLACE is unset.
 name: release-record-expiry
@@ -31,6 +31,6 @@ jobs:
           left=$(( ( $(date -u -d "$expires" +%s) - $(date -u +%s) ) / 86400 ))
           echo "The release record at ${PLACE} expires ${expires}: ${left} day(s) from now."
           if [ "$left" -lt 7 ]; then
-            echo "::error::the release record expires ${expires} (${left} day(s)): sign it again with discovery-sign sign-release, or release"
+            echo "::error::the release record expires ${expires} (${left} day(s)): sign it again with discovery-sign release --record, or release"
             exit 1
           fi

@@ -18,7 +18,8 @@ const (
 
 func main() {
 	now := clock.System{}.Now()
-	if status, isGuided := runGuided(os.Args[1:], now, os.Stdin, os.Stdout, os.Stderr, sshKeygen{}); isGuided {
+	world := outsideWorld{keys: sshKeygen{}, network: newNetwork()}
+	if status, isGuided := runGuided(os.Args[1:], now, os.Stdin, os.Stdout, os.Stderr, world); isGuided {
 		os.Exit(status)
 	}
 	os.Exit(run(os.Args[1:], now, os.Stdout, os.Stderr))
@@ -34,12 +35,13 @@ func write(writer io.Writer, text string, status int) int {
 
 // usage is how the command is run.
 const usage = `usage: discovery-sign ceremony [--folder <dir>] [--software <keysdir>]
-       discovery-sign sign-release --folder <dir> --record <unsigned record file>
+       discovery-sign release <version> --folder <dir> [--record <unsigned record file>]
        discovery-sign suspend|resume|add|remove --folder <dir> [--key <name>]
        discovery-sign <what> --ledger <dir> [flags]
 
 ceremony asks plain questions and does day one for both chains (run it again to carry on if stopped);
-sign-release signs a release;
+release checks a release's digest against the image registry, signs it on your yes, copies it to the
+server, reads it back from where cores read it, and commits and pushes the folder;
 suspend, resume, add and remove change a key's standing in both chains, asking which key signs.
 The commands below are what they use, for the cases they do not cover yet.
 

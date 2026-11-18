@@ -3377,3 +3377,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   place not yet loaded shows the ring and Pause until it plays on there; a stall mid-film shows
   the ring until it plays again; a pause asked for shows ▶ and no ring (`film-waits.tsx`,
   `start-gate.ts`'s startGateWaitChangedEvent).
+- [ ] **VQ356** — One command signs and publishes a release (the 11-19 batch's item 1; the owner,
+  2026-11-18: "It should show the SHA from both locations and then ask me to confirm yes or no";
+  "attempt to push to orpheum-security, but don't fail the process if something breaks in the
+  push"). At the next release, once its workflow has finished, check that its GitHub release lists
+  `release-record` and the run's summary names the image and its digest. Then on the Mac, from the
+  repository, run `go run ./cmd/discovery-sign release <the tag> --folder ~/Projects/orpheum-security`.
+  Passes when it shows the version and two equal digests, the record's and the registry's; answering
+  `yes` signs with the everyday key; the first time it asks where to copy to, and
+  prod-api's `/srv/connect/published/` (orpheum-ops' machines.md) is taken; scp copies; it says "Read back from
+  https://orpheum.cc"; and it commits "Release <the tag>" in the records folder and pushes it (or
+  says the push failed and still ends well). The watcher then shows the new release. A second
+  release asks no destination (`cmd/discovery-sign/release.go`, `outside.go`).

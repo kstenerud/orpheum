@@ -7,8 +7,9 @@
 # packages start private).
 #
 # It then writes the release into the publisher's unsigned release record (D394 §8) and attaches it
-# to the run as the artifact "release-record", for the owner to download, check and sign on the Mac
-# (`discovery-sign sign-release`). Nothing is signed here: the publisher's keys never leave their
+# to the tag's GitHub release as the file "release-record" (and to the run, as the artifact of that
+# name), where the owner's `discovery-sign release <tag>` fetches it on the Mac, checks its digest
+# against the registry's and signs it. Nothing is signed here: the publisher's keys never leave their
 # devices. The repository's variables say where the record lives: PUBLISHER_PLACE, the origin
 # serving the publisher's published files (unset, until the owner's ceremony made the publisher
 # root: the step does nothing); PUBLISHER_ID and PUBLISHER_ROOT_VERSION, for the first record and
@@ -94,6 +95,9 @@ jobs:
   publish:
     needs: image
     runs-on: ubuntu-24.04
+    outputs:
+      # The unsigned record, base64, for release-files to attach; empty when no record is written.
+      record: ${{ steps.record.outputs.record }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,6 +116,7 @@ jobs:
             "$image:$TAG-amd64" "$image:$TAG-arm64"
           docker buildx imagetools inspect "$image:$TAG"
       - name: Write the release into the unsigned release record
+        id: record
         if: vars.PUBLISHER_PLACE != ''
         env:
           TAG: ${{ github.ref_name }}
@@ -149,6 +154,8 @@ jobs:
           if [ -n "$ROOT_VERSION" ]; then set -- "$@" --root-version "$ROOT_VERSION"; fi
           # The runner's Go fetches the toolchain go.mod names, checked against Go's checksum database.
           GOTOOLCHAIN=auto go run ./cmd/release-record "$@"
+          echo "record=$(base64 -w0 release)" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "Release record for $TAG: $image@$digest" >> "$GITHUB_STEP_SUMMARY"
       - name: Attach the unsigned release record for the owner to sign
         if: vars.PUBLISHER_PLACE != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -177,9 +184,11 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
+          RECORD: ${{ needs.publish.outputs.record }}
         run: |
           set -eu
           mkdir files
+          if [ -n "$RECORD" ]; then printf '%s' "$RECORD" | base64 -d > files/release-record; fi
           cp deploy/omv/compose.yaml files/orpheum-omv.yaml
           cp deploy/synology/compose.yaml files/orpheum-synology.yaml
           cp deploy/portainer/compose.yaml files/orpheum-portainer.yaml

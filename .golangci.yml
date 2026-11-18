@@ -479,9 +479,9 @@ linters:
           # internal/testutil runs the MKVToolNix tests edit files with; only tests may import it
           # (TestArch_TestSupportIsImportedOnlyByTests). The owner's signing tool runs ssh-keygen,
           # which needs the owner's terminal and environment for a hardware key's touch and PIN, from
-          # one file (D394 §5).
+          # one file (D394 §5), and scp and git to publish a signed release from another (outside.go).
           files: ["$all", "!**/internal/node/execx/**", "!**/internal/archtest/*_test.go", "!**/internal/testutil/**",
-                  "!**/cmd/discovery-sign/keygen.go"]
+                  "!**/cmd/discovery-sign/keygen.go", "!**/cmd/discovery-sign/outside.go"]
           deny:
             - pkg: "os/exec"
               desc: "[exec-only-in-execx] start processes through internal/node/execx, which confines them (D26, cut-a §7)"
@@ -717,7 +717,7 @@ linters:
       - path: ^internal/archtest/.*_test\.go$
         linters: [forbidigo]
         text: '\[exec\]'
-      - path: ^cmd/discovery-sign/keygen\.go$
+      - path: ^cmd/discovery-sign/(keygen|outside)\.go$
         linters: [forbidigo]
         text: '\[exec\]'
       - path: ^internal/(node/trash|node/prepared|core/instancedir)/

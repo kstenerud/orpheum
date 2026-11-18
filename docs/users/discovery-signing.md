@@ -105,7 +105,8 @@ key by the name the ceremony gave it.
   it at once with your other everyday key, and remove or replace it at the bank when convenient.
 - **After a change,** if the address document was signed by the key that stopped counting, the
   tool signs it again with a key that still counts. If the newest release record was, it says so:
-  make a new unsigned record (`release-record --root-version <n>`) and sign it with `sign-release`.
+  make a new unsigned record (`release-record --root-version <n>`) and sign it with
+  `release <version> --record <the record>`.
 - **Then** copy the files to publish to the server, check the watcher shows every place the same,
   commit the records folder, and look for cores whose heartbeat names an older root version.
 
@@ -116,16 +117,25 @@ with a recovery key; that one is done by hand (below, `--skip`).
 
 ## Releases
 
-The release workflow writes an unsigned release record. To sign it:
+The release workflow writes an unsigned release record and attaches it to the tag's GitHub release
+as `release-record`. Once the workflow has finished, sign it with one command:
 
 ```sh
-go run ./cmd/discovery-sign sign-release --folder ~/orpheum-security --record <the unsigned record>
+go run ./cmd/discovery-sign release v1.2.3 --folder ~/orpheum-security
 ```
 
-It shows the version, the digest (the fingerprint of the exact software cores will install) and
-whether the release fixes a security problem. Compare the digest with the one on the release
-workflow's summary page, then type its first 12 characters to confirm. It signs with a publisher
-everyday key, checks the result, and writes the files to publish; copy them to the server.
+It fetches the record from the release and shows the version, whether the release fixes a security
+problem, and the digest (the fingerprint of the exact software cores will install) twice: the
+record's, and the one the image registry serves for the tag. It refuses when they differ. Answer
+`yes` to sign it with a publisher everyday key. It then checks the signature, copies the files to
+publish to the server with `scp` and reads the record back from where cores read it, refusing one that
+is not the file just signed. Last, it commits the records folder and pushes it. A push that fails is
+only said, since the release is out by then: push it yourself once that is mended.
+
+The first time, it asks where the files go: the server, and the folder it serves as `/.well-known/`
+(`user@host:/path/`). It keeps the answer in the records folder's `local/`, which git leaves out.
+With `--record <file>` it signs a record you have instead of fetching one, such as a record made
+again before the last one expires.
 
 A version's digest never changes: a rebuilt release takes a new version.
 

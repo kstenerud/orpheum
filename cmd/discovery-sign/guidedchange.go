@@ -44,7 +44,7 @@ func (guide *guided) changeKey(change string, arguments []string) error {
 	if flags.Parse(arguments) != nil || flags.NArg() != 0 || *where == "" {
 		return flag.ErrHelp
 	}
-	place, err := openFolder(*where)
+	place, err := openRecords(*where)
 	if err != nil {
 		return err
 	}

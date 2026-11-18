@@ -4,14 +4,16 @@
 // guided commands ask plain questions and run ssh-keygen themselves, so the owner types no flag:
 // `ceremony` is day one for both chains (keys made on their devices or, with --software, as plain files; each chain's
 // genesis and the address document, each signature checked by the code a core uses before the next step),
-// `sign-release` shows an unsigned release record and signs it once the owner types the digest's start, and
+// `release` fetches a release's unsigned record, shows its digest beside the registry's and signs it on the
+// owner's yes, then copies it to the server, reads it back and commits and pushes the folder, and
 // `suspend`, `resume`, `add` and `remove` change a key's standing in both chains (D394 §4), offering only the keys
 // allowed to sign each change. Beneath them the flag commands build a root statement, an address document or a drill
 // from a typed edit (keys added, removed, suspended or resumed, versions skipped, thresholds and locations changed) and
 // `check` checks a signature by the very code a core uses, keeps payload and signature in the owner's ledger, its
-// expected file the watcher's (cmd/discovery-watch), and writes the files every place serves. keygen.go alone starts a
-// process (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch and PIN there;
-// the lint names that one file), and a test puts a fake in its place. No root key is ever put in an agent (the audit's
+// expected file the watcher's (cmd/discovery-watch), and writes the files every place serves. keygen.go and outside.go
+// alone start a process (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch
+// and PIN there; scp and git) or reach the network (the registry, the release's record, the read-back), and the lint
+// names those two files; a test puts a fake in their place. No root key is ever put in an agent (the audit's
 // F16). A Mac is no key and the tool has no kind for one (D395 §3). `bootstrap` writes the install's bootstrap
 // script from the publisher's chain. No household runs it.
 //
@@ -38,8 +40,16 @@
 //     refused at its step, before any later key is asked or anything is kept.
 //     TestCeremony_AWrongSignatureIsRefusedBeforeTheNextStep,
 //     TestCeremony_ASignatureWithoutThePINIsRefused.
-//   - sign-release signs only once the owner types the start of the record's digest; a mistyped or
-//     empty answer signs nothing. TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest.
+//   - release signs only on the owner's yes, once shown the record's digest beside the registry's; a
+//     no or an empty answer signs nothing. TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest.
+//   - A digest the registry does not serve for the tag, or a registry that cannot be asked, signs
+//     nothing and asks nothing. TestRelease_RefusesADigestTheRegistryDoesNotServe.
+//   - A signed release is copied to the destination the folder keeps, read back from where cores read
+//     it and committed; a failed push is said and the run still succeeds, and a server serving another
+//     record than the one signed fails it before the commit.
+//     TestRelease_CopiesReadsBackAndCommits, TestRelease_ReadBackRefusesWhatIsNotTheSignedRecord.
+//   - Every command but the ceremony refuses a folder without the ceremony's notes before it asks
+//     anything, and makes no folder. TestGuided_RefusesAFolderTheCeremonyDidNotMake.
 //   - The install's bootstrap checks the record's signature by the publisher's keys before it pulls
 //     or runs anything, then pulls the latest's image by its digest (the audit's §3.9).
 //     TestBootstrap_VerifiesTheRecordBeforeItRunsAnything.
@@ -56,7 +66,8 @@
 //
 //   - ceremony.go: the guided commands and their shared steps (the place for the rotation, suspend,
 //     resume, add and remove flows: a method of guided in commands(), using signWith and accept);
-//     keygen.go: ssh-keygen, behind the keygen interface; prompt.go: the questions.
+//     keygen.go: ssh-keygen, behind the keygen interface; outside.go: the network, scp and git, behind
+//     the outside interface; release.go: the release command; prompt.go: the questions.
 //   - commands.go: each flag command; ledger.go: the ledger and the published files; bootstrap.sh: the
 //     install's bootstrap.
 package main

@@ -29,23 +29,33 @@ type guided struct {
 	now  time.Time
 	say  *prompter
 	keys keygen
-	err  io.Writer
+	// world is everything beyond the folder and the key: the network, scp and git (outside.go).
+	world outside
+	err   io.Writer
 }
 
 // The guided commands, which read answers and run ssh-keygen, and so are not the flag commands of run:
 // day one, a key's test, a release's signature, and the changes to a key's standing (guidedchange.go).
 func (guide *guided) commands() map[string]func(arguments []string) error {
 	commands := map[string]func([]string) error{
-		"ceremony":     guide.ceremony,
-		"sign-release": guide.signRelease,
+		"ceremony": guide.ceremony,
+		"release":  guide.signRelease,
 	}
 	maps.Copy(commands, guide.changeCommands())
 	return commands
 }
 
+// outsideWorld is what a guided command reaches beyond the folder: the keys, and the network, scp and git.
+type outsideWorld struct {
+	keys    keygen
+	network outside
+}
+
 // runGuided runs the guided command arguments name, and says whether it is one.
-func runGuided(arguments []string, now time.Time, in io.Reader, stdout, stderr io.Writer, keys keygen) (int, bool) {
-	guide := &guided{now: now, say: newPrompter(in, stdout), keys: keys, err: stderr}
+func runGuided(arguments []string, now time.Time, in io.Reader, stdout, stderr io.Writer,
+	world outsideWorld,
+) (int, bool) {
+	guide := &guided{now: now, say: newPrompter(in, stdout), keys: world.keys, world: world.network, err: stderr}
 	if len(arguments) == 0 || guide.commands()[arguments[0]] == nil {
 		return 0, false
 	}
@@ -163,6 +173,16 @@ func openFolder(path string) (*folder, error) {
 		return nil, fmt.Errorf("read the ceremony's notes %s: %w", place.join(stateFile), err)
 	}
 	return place, nil
+}
+
+// openRecords opens a folder the ceremony made, and refuses any other before a question is asked: every
+// command but the ceremony works on the records it keeps.
+func openRecords(path string) (*folder, error) {
+	if _, err := os.Stat(filepath.Join(path, stateFile)); err != nil {
+		return nil, fmt.Errorf("%s holds no %s, so it is not a records folder the ceremony made: name the "+
+			"folder that holds it, or run the ceremony first", path, stateFile)
+	}
+	return openFolder(path)
 }
 
 // save writes the state.

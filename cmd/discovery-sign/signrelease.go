@@ -4,56 +4,15 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
-
-// signRelease shows an unsigned release record in plain words, asks the owner to confirm its digest,
-// signs it with an everyday key of the publisher chain, checks it, keeps it and writes the files to
-// publish.
-func (guide *guided) signRelease(arguments []string) error {
-	flags := flag.NewFlagSet("discovery-sign sign-release", flag.ContinueOnError)
-	flags.SetOutput(guide.err)
-	where := flags.String("folder", "", "the records folder (required)")
-	recordFile := flags.String("record", "", "the release's unsigned record (required)")
-	if flags.Parse(arguments) != nil || flags.NArg() != 0 || *where == "" || *recordFile == "" {
-		return flag.ErrHelp
-	}
-	place, err := openFolder(*where)
-	if err != nil {
-		return err
-	}
-	record, err := release.Read(*recordFile)
-	if err != nil {
-		return err
-	}
-	digest := record.Images[record.Latest]
-	if record.Latest == "" || digest == "" {
-		return errors.New("the record names no release")
-	}
-	say := guide.say
-	say.sayf("This release record says:\n  version:  %s\n  digest:   %s\n  expires:  %s", record.Latest, digest,
-		trust.TimeText(record.Expires))
-	say.sayf("%s", securityNote(record))
-	say.sayf("The digest is the fingerprint of the exact software cores will install. Compare it with the one the\n" +
-		"release build printed (the workflow's summary page); it must be the same, character for character.")
-	typed, err := say.ask("To confirm, type the first 12 characters of the digest after \"sha256:\"", "")
-	if err != nil {
-		return err
-	}
-	if typed == "" || !strings.HasPrefix(strings.TrimPrefix(digest, "sha256:"), typed) || len(typed) < 12 {
-		return errors.New("that is not the start of the record's digest, so nothing was signed")
-	}
-	return guide.signRecord(place, record)
-}
 
 // securityNote says whether the record's newest release fixes a security problem.
 func securityNote(record release.Record) string {
@@ -113,7 +72,6 @@ func (guide *guided) signRecord(place *folder, record release.Record) error {
 	if err := records.publish(place.join(publishDirectory)); err != nil {
 		return err
 	}
-	guide.say.sayf("Signed, checked and kept. Copy the contents of %s to the server, then check the watcher.",
-		place.join(publishDirectory))
+	guide.say.sayf("Signed, checked and kept in %s.", place.join(publishDirectory))
 	return nil
 }

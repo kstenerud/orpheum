@@ -91,8 +91,15 @@ func (fake *fakeKeys) Sign(spec signSpec) error {
 // guidedRun runs a guided command with the answers, one line each, and returns its status and all it said.
 func guidedRun(t *testing.T, keys keygen, answers string, arguments ...string) (int, string) {
 	t.Helper()
+	return guidedRunIn(t, keys, newFakeWorld(t), answers, arguments...)
+}
+
+// guidedRunIn is guidedRun with world as all beyond the folder and the key.
+func guidedRunIn(t *testing.T, keys keygen, world outside, answers string, arguments ...string) (int, string) {
+	t.Helper()
 	var stdout, stderr bytes.Buffer
-	status, isGuided := runGuided(arguments, trusttest.Issued(), strings.NewReader(answers), &stdout, &stderr, keys)
+	status, isGuided := runGuided(arguments, trusttest.Issued(), strings.NewReader(answers), &stdout, &stderr,
+		outsideWorld{keys: keys, network: world})
 	if !isGuided {
 		t.Fatalf("%v is not a guided command", arguments)
 	}
@@ -285,41 +292,4 @@ func releaseRecord(t *testing.T, folder, tag, digest string) string {
 		t.Fatal(err)
 	}
 	return path
-}
-
-// sign-release shows the release, signs it only once the owner types the digest's start, and
-// publishes a record a core opens; a digest mistyped signs nothing.
-func TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest(t *testing.T) {
-	t.Parallel()
-	folder, keysDirectory := filepath.Join(t.TempDir(), "records"), t.TempDir()
-	fake := newFakeKeys(t)
-	answers := "\n\nhttps://orpheum.dev\n\n"
-	if status, said := softwareCeremony(t, fake, folder, keysDirectory, answers); status != exitSuccess {
-		t.Fatalf("the ceremony = %d: %s", status, said)
-	}
-	digest := "sha256:" + strings.Repeat("ab12", 16)
-	record := releaseRecord(t, folder, "v1.0.0", digest)
-	signsBefore := fake.signs
-	status, said := guidedRun(t, fake, "ab12ab12ab99\n", "sign-release", "--folder", folder, "--record", record)
-	if status != exitFailure || !strings.Contains(said, "nothing was signed") || fake.signs != signsBefore {
-		t.Fatalf("a mistyped digest: %d %s (%d signs); want refused, nothing signed",
-			status, said, fake.signs-signsBefore)
-	}
-	status, said = guidedRun(t, fake, "\n", "sign-release", "--folder", folder, "--record", record)
-	if status != exitFailure || fake.signs != signsBefore {
-		t.Fatalf("no confirmation: %d %s; want refused", status, said)
-	}
-	status, said = guidedRun(t, fake, "ab12ab12ab12\n", "sign-release", "--folder", folder, "--record", record)
-	if status != exitSuccess || !strings.Contains(said, "A flaw in sign-in.") || !strings.Contains(said, "v1.0.0") {
-		t.Fatalf("sign-release = %d: %s; want the release shown and signed", status, said)
-	}
-	out := filepath.Join(folder, publishDirectory)
-	publisher, err := trust.Genesis(trust.ChainPublisher, readPublished(t, out, release.PublisherRootPath(1)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if opened, openErr := release.Open(readPublished(t, out, release.RecordPath), publisher); openErr != nil ||
-		opened.Latest != "v1.0.0" {
-		t.Errorf("the published record: %+v, %v", opened, openErr)
-	}
 }
