@@ -30,7 +30,7 @@ describe("a Watch Together guest's film and its subtitles, laid out by a real br
     // The owner, 2026-11-18, the guest's iPhone: they chose the one subtitle, and "the video screen
     // grew such that it ran off the screen".
     const mounted = await mount(
-      <div style={{ width: `${phoneWidthPx}px` }}>
+      <div style={{ width: phoneWidthPx }}>
         <section className="together-viewer__viewing">
           <div className="film-player__stage" style={{ aspectRatio: "16 / 9" }} />
           <div className="together-viewer__tracks">
