@@ -545,6 +545,25 @@ the receiver's position and its own presses arrive.
 | The receiver's presses arrive as plain `pause` and `play` | The page can follow the receiver's state, but must not echo it back. |
 | The position lags by a measured amount | Sync and the resume point use the position only after a settle, or the page carries its own clock across the handover. |
 
+**Results, 2026-11-18 (iPhone to the Mac, native HLS; the lab page's run 4).** The owner used the
+video's own controls on the iPhone and the Mac's controls, so the log marks every press UNASKED.
+That is the lab's limit, not a fault: the owner saw nothing pause that they had not pressed.
+
+- **No pause at a route change.** None came at any of the three times the flag rose or fell.
+- **The iPhone's controls during AirPlay.** Pause, play and seek reached the Mac at once (the
+  owner).
+- **The Mac's controls.** Pause and play arrived as plain `pause` and `play` events. A scrub on the
+  Mac's bar arrived as `pause`, then `play` about 0.1–0.3 s later at the new position (+19.4 s,
+  then −50 s), **with no `seeking` or `seeked`**. A page that keeps the position must take a jump
+  without a seek event as the receiver's seek. The Mac's player has no ±10 s buttons, only the
+  bar.
+- **Lock.** With the iPhone locked for 34 s (`visibility` hidden), the Mac played on, and the
+  position on unlocking was continuous.
+- **A second unexplained drop.** The flag fell, with no press, 3.8 s after the Mac's own pause and
+  play. Run 2's drop came 4.0 s after the Mac connected. Two drops about 4 s after something
+  happened on the route make a pattern worth one more look. The product must handle a drop
+  either way: follow the flag and carry on locally.
+
 ## 6. Candidate designs
 
 All three share one rule, the state rule: **what the page shows about AirPlay comes only from
