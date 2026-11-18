@@ -565,8 +565,9 @@ That is the lab's limit, not a fault: the owner saw nothing pause that they had 
   bar.
 - **Lock.** With the iPhone locked for 34 s (`visibility` hidden), the Mac played on, and the
   position on unlocking was continuous.
-- **One drop not yet explained.** The flag fell, with no press on the iPhone, 3.8 s after the
-  owner used the Mac's own pause and play. Run 2's drops were the owner's (E1's rerun); this one
+- **One drop not yet explained.** The flag fell, with no press on the page, 3.8 s after the
+  owner used the Mac's own pause and play. The owner made every switch on the iPhone, none on
+  the Mac. Run 2's drops were the owner's (E1's rerun); this one
   may have come from the Mac's controls. The product must handle a drop either way: follow the
   flag and carry on locally.
 
@@ -696,3 +697,7 @@ is only a change of route.
    Run 1b showed it fixes the handover, and the owner approved the upgrade.
 3. **Stop's promise.** Should Stop say "choose this iPhone to bring it back" rather than promise
    to stop, given that no page can end the route?
+   **Answered: neither (the owner, 2026-11-18).** During AirPlay there is no Stop. An "AirPlay
+   controls" button opens the system's picker, because everything happens in a dialog the page
+   cannot see, and nobody can predict what the person will do there. The page follows whatever
+   the flag says afterwards.
