@@ -177,7 +177,8 @@ func Members(seriesID int64, rows string) string {
 // run in fifty (2026-10-06). A test's calls on one file share one connection, as QueryRaw's do
 // (below): a new connection parses the whole schema before its first statement, about 85 times the
 // cost of the statement itself (audit 2026-10-25, G1). A path whose file is replaced between calls
-// (a restore, a cache's discard) is noticed and opens a fresh connection, never a stale one.
+// (a restore, a cache's discard) is noticed and opens a fresh connection, never a stale one. It
+// commits without syncing the disk, which only a power cut could tell apart.
 func ExecRaw(tb testing.TB, path string, statements ...string) {
 	tb.Helper()
 	pool, release := rawConnectionOf(tb, path, true)
@@ -275,7 +276,13 @@ func rawConnectionOf(tb testing.TB, path string, writable bool) (pool *sql.DB, r
 		delete(rawConnections.byTest, key)
 	}
 	dsn := path + "?_pragma=busy_timeout(15000)"
-	if !writable {
+	if writable {
+		// SQLite's default, FULL, syncs the disk at each statement's commit: 0.8 s of the 1 s
+		// TestEstimator_AFileWithNoReadThroughReadsNoOtherFilesRead took seeding 51 files and 50
+		// jobs (test-weight.md §35). A test's file outlives no power cut, so nothing a test sees
+		// depends on the sync.
+		dsn += "&_pragma=synchronous(OFF)"
+	} else {
 		dsn += "&_pragma=query_only(1)"
 	}
 	pool, err := sql.Open("sqlite", dsn)

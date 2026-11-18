@@ -22,6 +22,17 @@ func TestExecRaw_WaitsForALockAsTheStoresOwnConnectionsDo(t *testing.T) {
 			"ELSE abs(-9223372036854775808) END")
 }
 
+// ExecRaw's connection commits without syncing the disk (test-weight.md §35): at SQLite's default,
+// FULL, each call waited on a sync, most of a test that seeded 51 files. The statement fails, and
+// so ExecRaw, unless the connection's synchronous is OFF: abs of the smallest integer overflows.
+func TestExecRaw_CommitsWithoutSyncingTheDisk(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "raw.db")
+	storetest.ExecRaw(t, path,
+		"SELECT CASE WHEN (SELECT synchronous FROM pragma_synchronous) = 0 THEN 1 "+
+			"ELSE abs(-9223372036854775808) END")
+}
+
 // A test's reads of one file share one connection, so a read pays the schema's parse once rather
 // than on every call (audit 2026-10-25, G1). The connection's cache size, set by one read, is the
 // next read's only if both run on the same connection.

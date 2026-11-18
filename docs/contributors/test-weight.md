@@ -699,6 +699,25 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** `prepareV2` or `_codeRowTrigger` high in a test's profile; a loop over
   thousands calling `queries.` inside one `database.Write` in a test.
 
+### 35. A test helper's connection syncing the disk at every commit
+
+- **Mechanism:** a connection opened without a `synchronous` pragma runs at SQLite's default, FULL,
+  which syncs the disk at each commit, and a statement outside a transaction is a commit. The
+  store's own connections run at NORMAL, which in WAL syncs only at a checkpoint; a helper that
+  opens its own connection does not inherit that.
+- **Instance** (2026-11-18): `storetest.ExecRaw`'s connection. 0.83 s of the 1.0 s of
+  `TestEstimator_AFileWithNoReadThroughReadsNoOtherFilesRead`, which seeds 51 files and 50 jobs a
+  call at a time, was `fsync`, with 0.15 s of CPU in all; it took 19 s under the full suite's
+  load.
+- **Why it was invisible:** the time is off the CPU, so a CPU profile shows a test using a sixth
+  of its time and nothing else; only the execution trace's syscall profile
+  (`go test -trace`, `go tool trace -pprof=syscall`) names the sync.
+- **Fix:** ExecRaw's connection runs `synchronous(OFF)`: a test's file outlives no power cut, so
+  nothing a test sees depends on it (`TestExecRaw_CommitsWithoutSyncingTheDisk`). 1.0 s to 0.17 s
+  alone, and none of ExecRaw's 200-odd calls in the tests pays a sync.
+- **Warning sign:** a test whose wall time is several times its CPU profile's total; `Xfsync` in
+  a trace's syscall profile.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
