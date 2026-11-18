@@ -29972,9 +29972,10 @@ player's own retry setting, which no decision named.
    waits from 250 ms: 3.75 s in all, as long as the 1 s and 2 s it had, so it still goes on the
    connection that replaced the lost one before hls.js tries a lower quality.
 
-**Proven by:** web/packages/player/src/chunked.test.ts ("asks again a quarter second after a 425,
-then doubling the wait, two seconds at most"; "asks again after a 425 for longer than a player
-catching up waits ahead").
+**Proven by:**
+- 1: web/packages/player/src/chunked.test.ts ("asks again a quarter second after a 425, then doubling the wait, two seconds at most")
+- 2: web/packages/player/src/chunked.test.ts ("asks a chunk lost with its connection again for as long as the 1 s and 2 s it waited before")
 
-**Status:** decided (2026-11-18); being built.
+**Status:** built (2026-11-18) in "perf(player): a chunk the core is making is asked for again a
+quarter second after its 425", at `chunkAskAgainFirstMs` and `unansweredAskAgainCount`.
 

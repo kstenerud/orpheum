@@ -35,7 +35,7 @@ import {
 } from "./chunked.ts";
 import { SoundShift } from "./audio-shift.ts";
 import { chunkLoader } from "./chunk-hls.ts";
-import { chunkLoadPolicy } from "./chunk-load-policy.ts";
+import { chunkLoadPolicy, unansweredAskAgainCount } from "./chunk-load-policy.ts";
 import { FirstPieces } from "./first-piece.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
@@ -93,6 +93,17 @@ describe("whether a playback loads its lowest quality (D506 §3)", () => {
 describe("loading a chunk the core is making (D250 §5)", () => {
   // D514: a sought chunk is made in a quarter to three fifths of a second, and the second's wait
   // before it was asked for again was most of a seek's (staging, 2026-11-17).
+  // D514 §2: a chunk lost with its connection waits as long in all as before the quarter second, the
+  // 1 s and 2 s, so it is asked again on the connection that replaced the lost one, half a second on.
+  it("asks a chunk lost with its connection again for as long as the 1 s and 2 s it waited before", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    let waitedMs = 0;
+    for (let count = 0; count < unansweredAskAgainCount; count++) {
+      waitedMs += retry === null || retry === undefined ? 0 : delayOf(retry, count);
+    }
+    expect(waitedMs).toBeGreaterThanOrEqual(3000);
+  });
+
   it("asks again a quarter second after a 425, then doubling the wait, two seconds at most", () => {
     const retry = chunkLoadPolicy.default.errorRetry;
     expect(
