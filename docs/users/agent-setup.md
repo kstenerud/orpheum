@@ -36,8 +36,11 @@ which of them are the person's.
 
 1. **The machine, and its system.** Which machine will run the server, and what runs on it:
    - **OpenMediaVault**: [OpenMediaVault](install.md#openmediavault), whose opening installs Docker
-     and the compose plugin when the box has neither. The person opens the compose file's link in
-     their own browser and pastes the whole file: it redirects, and you may not be able to fetch it.
+     and the compose plugin when the box has neither. The compose file's link redirects to
+     release-assets.githubusercontent.com: if your tool follows redirects, as `curl -L` does, fetch
+     the file yourself and show it to the person; if it does not, ask them to open the link in their
+     own browser. Either way the person pastes the whole file into OpenMediaVault themselves, as
+     the guide's step 4 says.
    - **A NAS**: its make, and its model. A Synology follows [Synology](install.md#synology), whose
      model matters: some models need an unofficial script first, and the 32-bit ones cannot run it
      at all. A NAS of another make, or Portainer or CasaOS, follows
