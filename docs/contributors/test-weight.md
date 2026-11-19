@@ -750,6 +750,35 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** `prepareV2` under `tallying.ExecContext`, or under `keptStatements.statement`
   for a statement that a run of short writes each prepare once.
 
+### Looked for and left: a seed built once and copied (2026-11-19)
+
+The owner asked whether the tests that spend their time seeding could copy a seeded database into
+place, as `storetest.OpenMigrated` copies the migrated schema. The Go tests were searched for
+helpers several tests call with the same contents, each timed 20 to 80 times in one process after
+the template was built. None repeats enough to pay for a copy:
+
+| Seed | Calls alike | CPU each | A copy would save |
+| --- | --- | --- | --- |
+| api `harness.shelveFilms` (three files, two probes) | 173 | 5.9 ms | about 1.0 s, but 164 tests would move to a harness opened with the films already shelved, before `assembly.Build` and `/setup` run |
+| `settingstest.Seeded` | about 1,000, in 17 packages | 1.0–1.4 ms | 0.6–0.9 s: a copy still runs `Seed` to fill the service's settings |
+| api `harness.shelve` | about 50 | 13–16 ms wall | about 0.5 s |
+| chunks `chunksFixture`'s database | 70 | about 6 ms | about 0.4 s |
+| cmd/orpheum `seedPersistentDatabase` | about 40 | 8 ms | about 0.3 s |
+| identify, library, nodes, auth and jobs fixtures | 30–132 each | 0.3 ms past `OpenMigrated` | under 0.1 s each |
+
+The repeated cost the profiles found is setup that writes no rows, each a change to production code
+or the store's checks, so for the owner to order:
+
+- **`api.NewServer` in every api harness:** 12.75 ms of CPU each, mostly huma registering the
+  routes; about 5.6 s over 440 harnesses, 12% of the package's CPU. Cutting it means caching the
+  registration's schema work in the server, or test servers sharing one built API.
+- **Each test database's `Close`:** the WAL checkpoint syncs the disk, about 16 ms of wall a
+  database with almost no CPU (0.66 s over 41 databases in one trace): §35's cost, at the store's
+  own connections. Cutting it means a test-only `store.OpenOptions` that turns syncing off, with
+  `verifyPragmas`, which insists on NORMAL, told of it.
+- **`verifyPragmas` on every `store.Open`:** about 5.7 ms of CPU, the schema parsed on each new
+  connection (§36's 5 s in api).
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
