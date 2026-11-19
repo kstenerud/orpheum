@@ -63,8 +63,8 @@ Each such failure is counted in the **Remote access** section of the server's **
 Signing in by household, name and password, away from home, works only after each person has signed
 in once **with their password on the server itself**: at home, or through their own link. That
 sign-in makes the key the household sign-in is checked against, from the household, the name and
-the password. The server keeps only a hash of each password, so it cannot make the key by itself
-(D297 §3). The same happens each time the server is given a household or its household is renamed.
+the password. The server keeps only a hash of each password, so it cannot make the key by itself.
+The same happens each time the server is given a household or its household is renamed.
 Once that sign-in is done, signing in by household works.
 
 It says the same, for everyone, until the server is connected to your account and claimed
@@ -75,7 +75,7 @@ whether a server was enrolled. At home you need none of this: open the server's 
 ## The page is blank, or says "This browser is too old for Orpheum"
 
 The browser is older than the web client reads. It needs **Chrome or Edge 120, Firefox 140, or
-Safari 17.1** (on macOS, iPhone and iPad) or newer (D271). An older one that loads the page says
+Safari 17.1** (on macOS, iPhone and iPad) or newer. An older one that loads the page says
 "This browser is too old for Orpheum" since 2026-11-19; before then it showed a blank page. Update
 the browser, or use another one on the same device.
 
@@ -142,7 +142,7 @@ processor.
 
 The node runs FFmpeg on every film it reads, and a crafted file can attack FFmpeg, so a release node
 runs it inside Landlock and seccomp. On a kernel without one of them the node runs without it, and
-the System page says, calmly, which kernel brings it (D454 §3, since 2026-11-09). It starts locked
+the System page says, calmly, which kernel brings it (since 2026-11-09). It starts locked
 only when the kernel has a mechanism but putting it in force failed, which a container runtime's
 own policy usually causes: it connects to the server, and the System page says what failed, but it
 reads no films and runs no FFmpeg. Its log (`docker compose logs orpheum-node`, in the server's
@@ -227,7 +227,7 @@ file's **Environment** (tick **Show environment file** to see it): `ORPHEUM_MEDI
 `PATH_TO_APPDATA` with the user and time zone unless the global environment file sets them
 ([step 4](install.md#openmediavault));
 elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
-`ORPHEUM_LAN_ADDRESS` too; the server now learns the address, D452 §5.)
+`ORPHEUM_LAN_ADDRESS` too; the server now learns the address.)
 
 ### Up says "bind source path does not exist" and names a folder
 
@@ -241,10 +241,10 @@ Station**, right-click the folder, **Properties**, **Location**), set `ORPHEUM_M
 
 Another service has the port: OpenMediaVault's own web interface takes 80 (and 443), or 8443 once
 moved as omv-extras' guide moves it; another app may have 8440 or 8444. If it is 8440, set `ORPHEUM_HTTP_PORT` to a free
-port, then **Up** again: every start takes the new value (D449). If `127.0.0.1:8441` is the one
+port, then **Up** again: every start takes the new value. If `127.0.0.1:8441` is the one
 taken, set `ORPHEUM_THIS_MACHINE_PORT`. The HTTPS and WebRTC ports are set on the **System** page,
 under **The house's network**: one that will not open at the start falls back to 8444, and the page
-says so (D462 §10.11).
+says so.
 
 ### `orpheum-folders` exited with an error, or the core's log says "permission denied" under /var/lib/orpheum
 
@@ -257,7 +257,7 @@ and `run` folders yourself, owned by that user.
 ### Where is the link that makes the first admin? The core's log has scrolled away
 
 Until the first admin is made, the link, with the setup code in it, is in `SETUP-CODE.txt` in
-`appdata/orpheum` (D449), readable by the app user (`APPUSER_PUID`) alone: on OpenMediaVault, where
+`appdata/orpheum`, readable by the app user (`APPUSER_PUID`) alone: on OpenMediaVault, where
 that user is not the one you browse the shared folders as, the log is the way. The core also writes it
 to its log at every start: restart `orpheum-core`, or run
 `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`, which prints the code
@@ -267,19 +267,19 @@ and the links to open. Open one in a browser on your home network.
 
 The server counts a browser as at home by its address; through a VPN, or from another network of
 yours, it does not. Open it on the machine itself at `http://127.0.0.1:8441`
-(`ORPHEUM_THIS_MACHINE_PORT`), which only the machine can reach and the server counts as home
-(D334 §4); from another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` first.
+(`ORPHEUM_THIS_MACHINE_PORT`), which only the machine can reach and the server counts as home;
+from another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` first.
 
 ### I changed a variable and nothing changed
 
-Each start writes the settings from the variables (D449), but a compose tool applies a changed
+Each start writes the settings from the variables, but a compose tool applies a changed
 variable only when it recreates the containers: **Up** again (`docker compose up -d`), not a restart.
 An edit to `appdata/orpheum/values.toml` is lost at the next start; change the variable instead.
 
 ### A library's folder is "not found", or the node's log says "permission denied" reading a film
 
 Inside the containers each media folder keeps the machine's own name: a library names
-`/srv/dev-disk-by-uuid-…/Media/Films`. An install from before D449 had its folder at `/media`;
+`/srv/dev-disk-by-uuid-…/Media/Films`. An older install had its folder at `/media`;
 repoint such a library to the machine's name. If the path is right, the app user cannot read it: in
 OpenMediaVault, **Storage > Shared Folders**, the media folder, **Permissions**: give the user
 `APPUSER_PUID` names read access (the folder's ACL too, if it has one).

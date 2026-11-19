@@ -9,7 +9,7 @@ Two things in Orpheum are trusted because a key you hold signed them:
   release only when one of your *publisher* keys signed its record.
 
 Each of the two has its own keys, so a signature for one never counts for the other. The same
-YubiKey holds one key of each. The rules behind this are in D391, D393 and D394, and the
+YubiKey holds one key of each. The reasons behind this are in the
 [root key audit](../contributors/design/research/root-key-audit-2026-10-31.md).
 
 Your keys come in two kinds:
@@ -17,7 +17,7 @@ Your keys come in two kinds:
 - **Everyday keys** sign the routine things: the address document and each release. You carry
   one (`e1`) and may keep a second at home (`e2`). The one change to the keys an everyday key can
   sign is suspending another everyday key, so a thief holding one can never add a key of their own
-  or remove yours (D395).
+  or remove yours.
 - **Recovery keys** can sign anything: adding and removing keys of either kind, and replacing the
   everyday keys. They are locked away, one at a bank (`r1`) and one at a second site (`r2`). A thief
   who steals an everyday key never holds them, so the recovery keys can always cancel a stolen key.
@@ -39,7 +39,7 @@ with the same code a core runs before it keeps anything, so a mistake is caught 
 core later.
 
 **A Mac is not a key.** Its signatures cannot show a core that Touch ID was asked for, so it
-protects less than a YubiKey and its PIN (D395 §3). The tool makes no Mac key and asks no question
+protects less than a YubiKey and its PIN. The tool makes no Mac key and asks no question
 about one.
 
 ## Day one: the ceremony
@@ -143,7 +143,7 @@ A version's digest never changes: a rebuilt release takes a new version.
 
 ## Staging and self-hosters
 
-Staging (`orpheum.dev`) has its own keys, plain key files with no YubiKey (D394 §3), so a leaked
+Staging (`orpheum.dev`) has its own keys, plain key files with no YubiKey, so a leaked
 staging key reaches staging alone. They are made by the same ceremony:
 
 ```sh

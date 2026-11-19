@@ -14,7 +14,7 @@ There are two ways to install it:
 - **One compose file** ([below](#one-compose-file)): paste it into OpenMediaVault, a Synology's
   Container Manager, Portainer or any compose tool, or put it in a folder, fill in a few values, and
   start it. Every start
-  writes the server's settings from those values (D447, D449); nothing runs on the machine itself.
+  writes the server's settings from those values; nothing runs on the machine itself.
 - **The install script** ([the other route](#the-install-script)): one command at a terminal,
   which finds the machine's address, starts the server and asks for the first admin there.
 
@@ -36,7 +36,7 @@ anywhere, the whole way is:
 ## One compose file
 
 Each way has its own copy of one compose file, attached to the latest release, so the file you
-install is the one the running version was tested with (D462 §5):
+install is the one the running version was tested with:
 
 - on OpenMediaVault, [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml);
 - on a Synology, [`orpheum-synology.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml);
@@ -65,10 +65,10 @@ Each media folder keeps the machine's own name inside the containers: with
 the server does not show it.
 
 At every start the core writes its deployment into `PATH_TO_APPDATA/orpheum` from these values, so to
-change one, change the variable and start it again (D449): its database, people, libraries and keys
+change one, change the variable and start it again: its database, people, libraries and keys
 are kept. `values.toml` there is written from the variables each time, so an edit to it is lost.
 
-Every other setting is the server's own, kept in its database and changed on its pages (D462 §2).
+Every other setting is the server's own, kept in its database and changed on its pages.
 The house's network is on the **System** page, under **The house's network**: the HTTPS port
 devices at home reach it on (8444), the WebRTC port (UDP, 8444 too) and your router's address,
 which the server asks to forward the HTTPS port so devices away from home reach it. A change there
@@ -384,7 +384,7 @@ only from the home network; the server learns the machine's address there from t
 
 If the server refuses admin because it does not count your browser as at home (a VPN, a second
 network), open it on the machine itself instead: `http://127.0.0.1:8441` (`ORPHEUM_THIS_MACHINE_PORT`)
-is published on the machine's own loopback alone, and the server counts it as home (D334 §4). From
+is published on the machine's own loopback alone, and the server counts it as home. From
 another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` and open the same address there.
 
 ### Your first library
@@ -458,7 +458,7 @@ With the server installed and you its admin, on a computer at home:
 ### Watching
 
 Any device with a current browser watches: **Chrome or Edge 120, Firefox 140, or Safari 17.1** (on
-macOS, iPhone and iPad) or newer (D271). An older one says the browser is too old
+macOS, iPhone and iPad) or newer. An older one says the browser is too old
 ([the page is blank](setup-problems.md#the-page-is-blank-or-says-this-browser-is-too-old-for-orpheum)).
 
 - **At home**, open `http://<the machine's address>:8440`.
