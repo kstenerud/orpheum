@@ -135,9 +135,10 @@ export function RootLine(props: {
 }
 
 /**
- * A folder's two repairs, rarely used, under its own "…" (ui-audit-2026-11-04.md §3, A library):
- * retiring it for good, and moving it where it now is, where there is a place to move it to. Each
- * opens a dialog whose least harmful choice, keeping it, is focused as it opens.
+ * A folder's two actions, rarely used, under its own "…" (ui-audit-2026-11-04.md §3, A library):
+ * removing it from the library (retiring it, D231 §7), and moving it where it now is, where there is
+ * a place to move it to. Each opens a dialog whose least harmful choice, keeping it, is focused as it
+ * opens.
  */
 function RootRepairs(props: {
   readonly root: Root;

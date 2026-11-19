@@ -65,10 +65,10 @@ export const enLibraries = {
     diskMissing: "Nothing is mounted any more at",
     diskGone: "What was mounted here is gone for good",
     folderMore: "More for {{node}}: {{path}}",
-    retireRoot: "This folder is gone for good…",
-    retireRootHeading: "This folder is gone for good",
+    retireRoot: "Remove this folder from the library…",
+    retireRootHeading: "Remove this folder from the library",
     retireRootConsequence:
-      "Its films leave the library and it is never scanned again; what was watched is kept.",
+      "What it holds leaves the library and it is never scanned again; what was watched is kept. If the folder only moved, say where it is now instead.",
     repoint: "This folder moved…",
     repointTo: "It is now at",
     repointConsequence:
@@ -96,7 +96,7 @@ export const enLibraries = {
     repointConfirm: "Use the new place",
     repointKeep: "Keep it where it is",
     repointed: "Now at the new place, with {{count}} files. A scan of it is under way.",
-    retireRootConfirm: "Retire the folder",
+    retireRootConfirm: "Remove the folder",
     delete: "Delete the library…",
     deleteConsequence:
       "Its folders are never scanned again and its films and series leave its lists. Nothing is deleted: what was watched and learned is kept, and a library over the same folders finds them as they were.",

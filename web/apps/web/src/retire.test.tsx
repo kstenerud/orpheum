@@ -115,28 +115,29 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   );
   mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const container = mounted.container;
+  // Removing it reads as removal, first under its "…" (the first beta install, 2026-11-19, #18).
   // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's action marked dangerous, so
   // focus arrives on Keep it (D421; dangerous-choices.browser.test.tsx).
   const repairs = (): HTMLElement | undefined =>
     buttonNamed(container, "More for local: /media/films");
   await click(repairs());
-  await click(buttonWithText(container, "This folder is gone for good…"));
+  await click(buttonWithText(container, "Remove this folder from the library…"));
   expect(container.querySelector("dialog")?.textContent).toContain(
-    "it is never scanned again; what was watched is kept.",
+    "it is never scanned again; what was watched is kept. If the folder only moved, say where it is now instead.",
   );
   expect(container.querySelector("dialog [data-dangerous-action]")?.textContent).toBe(
-    "Retire the folder",
+    "Remove the folder",
   );
   // The safe choice first in the row, too (D421).
   expect([...container.querySelectorAll("dialog p button")].map((b) => b.textContent)).toEqual([
     "Keep it",
-    "Retire the folder",
+    "Remove the folder",
   ]);
   await click(buttonWithText(container, "Keep it"));
   expect(container.querySelector("dialog")).toBeNull();
   await click(repairs());
-  await click(buttonWithText(container, "This folder is gone for good…"));
-  await click(buttonWithText(container, "Retire the folder"));
+  await click(buttonWithText(container, "Remove this folder from the library…"));
+  await click(buttonWithText(container, "Remove the folder"));
   expect(heard.filter((each) => each.methodAndPath.startsWith("POST"))).toEqual([
     {
       methodAndPath: "POST /libraries/3/roots/retire",
@@ -158,7 +159,7 @@ it("puts Scan now first on a library's page, focus arriving on it, its folders' 
   const firstControl = page?.querySelector("button, a, select, input");
   expect(firstControl?.textContent).toBe("Scan now");
   expect(firstControl?.getAttribute("data-focus-start")).toBe("arrival");
-  expect(page?.textContent).not.toContain("This folder is gone for good…");
+  expect(page?.textContent).not.toContain("Remove this folder from the library…");
   expect(buttonNamed(mounted.container, "More for local: /media/films")).toBeDefined();
 });
 
