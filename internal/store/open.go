@@ -281,8 +281,8 @@ func (database *Database) transactHolding(ctx context.Context, change func(trans
 	isDone := false
 	defer func() {
 		if !isDone {
-			// The change's panic goes on and says what went wrong; a rollback that fails has lost
-			// its connection, which database/sql then discards, freeing the writer all the same.
+			// The change's panic goes on and says what went wrong; database/sql ends the
+			// transaction and releases its connection whether or not the rollback succeeds.
 			_ = transaction.Rollback() //nolint:errcheck // the panic going on is the failure to report
 		}
 	}()
