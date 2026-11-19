@@ -686,7 +686,7 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     await enter(page.querySelector('input[name="name"]'), "karl");
     await enter(page.querySelector('input[type="password"]'), "a guess");
     await click(buttonWithText(page, "Sign in"));
-    await settleUntil(() => page.textContent.includes("The realm, name or password is wrong"));
+    await settleUntil(() => page.textContent.includes("The household, name or password is wrong"));
     expect(storage.getItem("orpheum.discovery.realm")).toBeNull();
   });
 });

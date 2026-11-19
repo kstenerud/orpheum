@@ -33,9 +33,9 @@ export const enDiscovery = {
     },
     changed: {
       heading: "Your household's server has changed",
-      text: "The server this realm leads to is not the one this browser reached before.",
+      text: "The server your household's name leads to is not the one this browser reached before.",
       since:
-        "The server this realm leads to is not the one this browser reached before. The new one was connected on {{at}}.",
+        "The server your household's name leads to is not the one this browser reached before. The new one was connected on {{at}}.",
       ifNot:
         "If someone in your household set up a new server, go on. If no one did, stop here and tell whoever runs your server: someone else may have connected theirs to your account.",
       continue: "Go on to the new server",
@@ -90,14 +90,14 @@ export const enDiscovery = {
     },
     realm: {
       heading: "Sign in",
-      realm: "Realm",
-      realmHint: "The name of the server you were given, such as karlnas or karlnas.live.",
+      realm: "Household",
+      realmHint: "The name your household signs in by, such as annanas.",
       name: "Name",
       password: "Password",
-      remember: "This is my own device: remember my realm",
+      remember: "This is my own device: remember my household",
       submit: "Sign in",
       signingIn: "Signing in…",
-      wrong: "The realm, name or password is wrong, or the server can't be reached right now.",
+      wrong: "The household, name or password is wrong, or the server can't be reached right now.",
       unreached:
         "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       unreachedNoIpv6:
@@ -121,7 +121,7 @@ export const enDiscovery = {
     notConfigured: "This page was served without what it needs to find a server.",
     activate: {
       heading: "Activate a TV",
-      whichRealm: "Activate the TV in which realm?",
+      whichRealm: "Activate the TV in which household?",
       notSignedIn:
         "This browser is not signed in to a household. Open this link on a phone or computer that is, or sign in here and then activate the TV.",
       copy: "Copy link",
@@ -134,7 +134,7 @@ export const enDiscovery = {
       forget: "Forget",
       forgetNamed: "Forget {{name}}",
       forgetConsequence:
-        "This browser will forget {{name}}. You can sign in to it again by its realm.",
+        "This browser will forget {{name}}. You can sign in to it again by its name.",
       forgetConfirm: "Forget it",
       join: "Sign in to another household",
     },
@@ -158,7 +158,7 @@ export const enDiscovery = {
       refused: "Nothing was signed in. Go back to ask for a new code.",
       signingIn: "Activated. Opening your server…",
       failed: "No code could be had just now. Go back and try again in a minute.",
-      back: "Sign in with a realm, name and password instead",
+      back: "Sign in with a household, name and password instead",
     },
     pathRefused: {
       text: "This page lost its connection to your server, and the server no longer accepts the sign-in it reconnects with. Reload the page; if this comes back, sign in again.",

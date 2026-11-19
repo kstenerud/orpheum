@@ -133,7 +133,7 @@ describe("AppShell", () => {
         ),
       );
     expect(shell("karlnas.live")).toContain(
-      '<span class="app-shell__realm" title="Signed in to the realm karlnas.live">karlnas.live</span>',
+      '<span class="app-shell__realm" title="Signed in to the household karlnas.live">karlnas.live</span>',
     );
     expect(shell(undefined)).not.toContain("app-shell__realm");
   });

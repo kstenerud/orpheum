@@ -215,7 +215,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   const text = mounted.container.textContent;
   expect(text).toContain("Claimed: clients can find this server.");
   // The realm the discovery gave it, which only it shows (D298 §3).
-  expect(text).toContain("at the discovery's page by the realm karlnas.live");
+  expect(text).toContain("at the discovery's page by the household karlnas.live");
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
   // How often a client found no way in, as the discovery counted (D293 §7).

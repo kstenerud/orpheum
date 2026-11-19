@@ -23,7 +23,7 @@ Something went wrong? [setup-problems.md](setup-problems.md) lists what has, and
 If you were invited to the Orpheum service (orpheum.cc), which lets your household watch from
 anywhere, the whole way is:
 
-1. Open the invitation link and make your account there, choosing your realm
+1. Open the invitation link and make your account there, choosing your household's name
    ([your account](#your-account-at-orpheumcc)). You can do this at any point before step 5.
 2. Install the server, on [OpenMediaVault](#openmediavault), a [Synology](#synology) or
    [any machine with Docker](#on-any-machine-with-docker).
@@ -390,7 +390,7 @@ learned, as above.
 
 At home, devices reach the server directly. To reach it from away, the server is paired with your
 Orpheum account at orpheum.cc, from the **Remote access** section of the server's **System** page,
-as an admin at home. Devices away from home then sign in at orpheum.cc with your realm, and
+as an admin at home. Devices away from home then sign in at orpheum.cc with your household's name, and
 reach the server over WebRTC, with no port to open. Your router's address, on the **System** page under
 **The house's network**, lets the server ask the router to forward its HTTPS port, which helps where the router allows it. There is no relay:
 a device that can meet the server only through one does not connect, and the System page counts
@@ -400,7 +400,7 @@ each time.
 
 1. Open the invitation link you were sent, which opens `account.orpheum.cc`. **Make your Orpheum
    account** asks your e-mail address, a password of at least 15 characters (this account's own,
-   not the server's), and **Choose your realm**: the name your household signs in to your server by, 5 to 32 letters and digits, with
+   not the server's), and **Choose your realm** (your household's name): the name your household signs in to your server by, 5 to 32 letters and digits, with
    hyphens between them, such as `annanas`. It is yours alone and cannot be changed, so choose it
    with care. **Make my account**.
    An invitation's link lasts 14 days and makes one account. One that has lapsed, or was used,
@@ -423,18 +423,18 @@ With the server installed and you its admin, on a computer at home:
    **System → Discovery**.)
 3. **Claim it.** Under **Your account's key**, type or paste the key from step 1, and your Orpheum
    password again, and press **Claim**. It says *Claimed: clients can find this server.* and
-   names your realm; your account's page says your server was enrolled. If the key is refused, make
+   names your household; your account's page says your server was enrolled. If the key is refused, make
    a new one and try again.
 
 ### Watching
 
 - **At home**, open `http://<the machine's address>:8440`.
-- **Anywhere**, open `https://orpheum.cc` and sign in with your **Realm**, your **Name** and your
+- **Anywhere**, open `https://orpheum.cc` and sign in with your **Household**, your **Name** and your
   **Password** on the server. This works for you once the claim is done.
 
 To add someone, in the menu under **Manage**, **Users**, **Invite someone** makes a link for them.
-Each person signs in once at home, or through their own link, before signing in by the realm
-works for them ([why](setup-problems.md#signing-in-by-realm-says-the-realm-name-or-password-is-wrong-just-after-the-realm-was-given-or-changed)).
+Each person signs in once at home, or through their own link, before signing in by the household
+works for them ([why](setup-problems.md#signing-in-by-household-says-the-household-name-or-password-is-wrong-just-after-the-household-was-given-or-changed)).
 
 ## The install script
 

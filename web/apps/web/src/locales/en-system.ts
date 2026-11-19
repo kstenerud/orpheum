@@ -224,7 +224,7 @@ export const enSystem = {
       documentProblem:
         "The discovery's addresses couldn't be checked for an update; the server keeps the last ones it trusted. Its log says why.",
       realm:
-        "People sign in to this server at the discovery's page by the realm {{realm}}, with their name and password.",
+        "People sign in to this server at the discovery's page by the household {{realm}}, with their name and password.",
       state: {
         pending: "Waiting to be claimed.",
         claimed: "Claimed: clients can find this server.",
@@ -240,7 +240,7 @@ export const enSystem = {
         "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
       key: "Your account's key",
       keyHint:
-        "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here, with your own password on this server: it lets you sign in by your realm from anywhere. The key works for an hour.",
+        "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here, with your own password on this server: it lets you sign in by your household from anywhere. The key works for an hour.",
       yourPassword: "Your password",
       claimByKey: "Claim",
       wrongPassword: "That isn't your password. Nothing was claimed, and the key still works.",

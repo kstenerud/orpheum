@@ -61,7 +61,7 @@ export const en = {
     menu: "Menu",
     signedInAs: "{{name}}",
     signedInAsOn: "{{name}} on {{device}}",
-    realmTitle: "Signed in to the realm {{realm}}",
+    realmTitle: "Signed in to the household {{realm}}",
     label: "Main",
   },
   signIn: {

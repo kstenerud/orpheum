@@ -279,7 +279,7 @@ func signInDefinitions() []Definition {
 			"best guess (M1): fifteen minutes, a common lock-out window"),
 		sourced(durationSetting(SignInFailureAnswerSeconds, time.Second, "2", 1, 60,
 			"seconds after it arrived that a failed sign-in is answered, whatever failed, so its timing "+
-				"tells no name or realm apart (D312 §17); a success is answered at once"),
+				"tells no name or household apart (D312 §17); a success is answered at once"),
 			"D312 §17: longer than a password hash takes under the hash slots' usual wait"),
 		important(sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
 			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),

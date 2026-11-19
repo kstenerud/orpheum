@@ -482,7 +482,7 @@ describe("the loader's /activate, which a TV's QR code opens (D321)", () => {
     rememberHousehold(storage, { ...household, coreId: "m3dz9", realm: "cottage" });
     mounted = await mount(startAtLoaderOrigin(loaderAt(scanned, storage, [])) ?? <p>nothing</p>);
     const page = mounted.container;
-    expect(page.textContent).toContain("Activate the TV in which realm?");
+    expect(page.textContent).toContain("Activate the TV in which household?");
     const links = [...page.querySelectorAll(".loader-households a")].map((link) => [
       link.textContent,
       link.getAttribute("href"),
