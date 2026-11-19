@@ -37,4 +37,15 @@ describe("every page by a remote's arrows, on a Fire TV's page in Silk", () => {
     walking = await mountApp(walkServices(anAdmin, path));
     expect(await unreachedOnThePage(tools)).toEqual([]);
   });
+
+  it("reaches each folder the first page offers as a library, by its tick (D527 §3)", async () => {
+    await page.viewport(960, 480);
+    walking = await mountApp(walkServices(anAdmin, "/welcome"));
+    const ticked = (): string[] =>
+      [...document.querySelectorAll("main label")]
+        .filter((label) => label.querySelector('input[type="checkbox"]') !== null)
+        .map((label) => label.textContent.trim());
+    await expect.poll(ticked).toEqual(["Movies", "TV", "Holiday videos"]);
+    expect(await unreachedOnThePage(tools)).toEqual([]);
+  });
 });

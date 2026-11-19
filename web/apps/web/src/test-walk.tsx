@@ -387,6 +387,7 @@ export const anAdmin: WalkAnswers = {
     state: "readable",
     folders: ["Movies", "TV", "Holiday videos"],
   },
+  // Settings' posters key: none of a person's own, Orpheum's in its place (D527 §1.3).
   "GET /secrets": { secrets: [{ name: "tmdb_api_key", isSet: false }] },
   // Two films partway, so Home's walk reaches each card and its "…".
   "GET /home": {
