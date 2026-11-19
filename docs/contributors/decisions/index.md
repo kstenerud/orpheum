@@ -531,6 +531,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D523](working-notes.md#d523--airplay-is-webkits-own-handover-followed-by-its-flag-alone-with-airplay-controls-in-place-of-stop-and-one-cast-at-a-time) AirPlay is WebKit's own handover, followed by its flag alone, with AirPlay controls in place of Stop and one cast at a time
 - [D524](working-notes.md#d524--a-problem-report-is-made-from-inside-the-app-kept-for-the-households-admin-alone-from-logs-every-process-keeps-in-memory-and-downloaded-shareable-or-full) A problem report is made from inside the app, kept for the household's admin alone, from logs every process keeps in memory, and downloaded shareable or full
 - [D525](working-notes.md#d525--the-loglevel-setting-moves-the-nodes-too-and-connectds-level-is-an-operators-control-while-it-runs) The logLevel setting moves the nodes too, and connectd's level is an operator's control while it runs
+- [D526](working-notes.md#d526--what-a-household-signs-in-by-is-called-its-servers-name-not-its-realm) What a household signs in by is called its server's name, not its realm
 
 ## Archived
 
