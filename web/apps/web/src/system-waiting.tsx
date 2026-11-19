@@ -3,6 +3,7 @@
 import "./system-words.ts";
 
 import type { components } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -122,17 +123,41 @@ function UnreadPaths(props: {
                   mode: detail.modeText,
                 })}
               </p>
-              <p>
-                {node === undefined
-                  ? t("system.unreadFixUnknownNode")
-                  : t("system.unreadFix", { uid: node.uid, gid: node.gid })}
-              </p>
+              <p>{unreadFixText(t, path, node)}</p>
             </li>
           );
         })}
       </ul>
     </section>
   );
+}
+
+/**
+ * What to do about something a scan could not read: make it readable to the node only when it was
+ * refused for permission, or its owner, group and mode show the node cannot read it; a file FFmpeg
+ * could not read looks damaged, and any other failure is the disk's or share's (the first beta
+ * install, 2026-11-19, #19b: a world-readable file FFmpeg could not read was told to chown).
+ */
+function unreadFixText(t: TFunction, path: Unread, node: SystemNode | undefined): string {
+  if (path.code === "permissionDenied" || (node !== undefined && !isReadableTo(path, node))) {
+    return node === undefined
+      ? t("system.unreadFixUnknownNode")
+      : t("system.unreadFix", { uid: node.uid, gid: node.gid });
+  }
+  return path.code === "probeFailed" ? t("system.unreadDamaged") : t("system.unreadOther");
+}
+
+/**
+ * Whether the path's owner, group and mode ("-rw-r-----") let the node's user and group read it;
+ * true when they are not known, the node's other groups not being known either.
+ */
+function isReadableTo(path: Unread, node: SystemNode): boolean {
+  const { modeText, ownerUid, groupGid } = path.errorDetail;
+  if (modeText.length < 10 || ownerUid < 0 || node.uid === 0) {
+    return true;
+  }
+  const readsAs = ownerUid === node.uid ? 1 : groupGid === node.gid ? 4 : 7;
+  return modeText[readsAs] === "r";
 }
 
 /** One folder whose removals wait: why, since when, the first of the files, and removing them. */

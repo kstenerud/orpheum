@@ -91,3 +91,36 @@ it("says what could not be read, whose it is, and how to make it readable to the
   expect(text).toContain("The node reads as user 1000 and group 100");
   expect(text).toContain("chown -R 1000:100");
 });
+
+// The first beta install, 2026-11-19, #19b: a world-readable file FFmpeg could not read was given
+// the advice on ownership and mode, as every failure was.
+it("advises on ownership and mode only for what the node may not read, a damaged file otherwise", async () => {
+  const unread = (code: string, path: string, modeText: string): unknown => ({
+    libraryId: 5,
+    libraryName: "Series",
+    nodeName: "sandbox",
+    path,
+    code,
+    foundAt: 1,
+    errorDetail: { text: "it failed", ownerUid: 0, groupGid: 0, modeText, occurrenceCount: 1 },
+  });
+  const failures = {
+    ...report,
+    waiting: [],
+    unread: [
+      unread("probeFailed", "/media/shows/a.mkv", "-rw-r--r--"),
+      unread("probeFailed", "/media/shows/b.mkv", "-rw-------"),
+      unread("ioError", "/media/shows/c.mkv", "-rw-r--r--"),
+    ],
+  } as unknown as SystemReport;
+  mounted = await mount(withServices(<WhatWaits report={failures} />, servedBy({})));
+  const advice = [...mounted.container.querySelectorAll("li")].map(
+    (item) => item.querySelectorAll("p")[1]?.textContent ?? "",
+  );
+  expect(advice[0]).toContain("the file looks damaged, or is in a format FFmpeg cannot read");
+  expect(advice[0]).not.toContain("chown");
+  // Its mode lets only its owner, root, read it: the node, user 1000, cannot.
+  expect(advice[1]).toContain("chown -R 1000:100");
+  expect(advice[2]).toContain("Check that the disk or share it is on is connected");
+  expect(advice[2]).not.toContain("chown");
+});

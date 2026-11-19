@@ -393,6 +393,10 @@ export const enSystem = {
     unreadWhy: "{{text}}. It belongs to user {{owner}} and group {{group}}, with mode {{mode}}.",
     unreadFix:
       "The node reads as user {{uid}} and group {{gid}}. On the machine that holds it, give it to that user (chown -R {{uid}}:{{gid}}) or let everyone read it (chmod -R a+rX), then scan the library again.",
+    unreadDamaged:
+      "The node could open it, but FFmpeg could not read what is in it: the file looks damaged, or is in a format FFmpeg cannot read. Replace it, or take it out of the folder, then scan the library again.",
+    unreadOther:
+      "Check that the disk or share it is on is connected and working, then scan the library again.",
     unreadFixUnknownNode:
       "Make it readable to the user the node runs as, which its System entry shows once it connects, then scan the library again.",
     silentSince: "Not answering. Last heard from at {{at}}.",

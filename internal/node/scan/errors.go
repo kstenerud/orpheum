@@ -86,17 +86,19 @@ func (log *errorLog) flush() error {
 	return log.emit(nodeproto.ScanRecord{Type: nodeproto.RecordError, Error: pending})
 }
 
-// classify maps an error to the project's closed vocabulary (D40).
+// classify maps an error to the project's closed vocabulary (D40). A probe the platform refused to
+// open for permission is a permission failure, not a probe's: the System page gives the advice on
+// ownership and mode to that alone (the first beta install, 2026-11-19, #19b).
 func classify(cause error) nodeproto.ErrorCode {
 	switch {
 	case errors.Is(cause, context.Canceled):
 		return nodeproto.CodeCancelled
 	case errors.Is(cause, context.DeadlineExceeded):
 		return nodeproto.CodeTimeout
-	case errors.Is(cause, errProbe):
-		return nodeproto.CodeProbeFailed
 	case errors.Is(cause, fs.ErrPermission):
 		return nodeproto.CodePermissionDenied
+	case errors.Is(cause, errProbe):
+		return nodeproto.CodeProbeFailed
 	case errors.Is(cause, fs.ErrNotExist):
 		return nodeproto.CodeNotFound
 	}
