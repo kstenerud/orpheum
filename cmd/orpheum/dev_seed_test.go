@@ -52,6 +52,9 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 			t.Errorf("the seed's report does not say %q:\n%s", want, output)
 		}
 	}
+	// Each seeded person's away-from-home key, as the server makes it (D527 §2.2).
+	checkPersonKey(t, config, "owner", "owner")
+	checkPersonKey(t, config, "partner", "partner")
 
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	token := signInAs(t, server.baseURL, "owner", "owner")

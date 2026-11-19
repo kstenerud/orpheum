@@ -58,14 +58,14 @@ func (service *Service) ResetAdmin(ctx context.Context, name, password string) (
 	if err != nil {
 		return AdminReset{}, err
 	}
-	if service.Realm() != "" {
-		user, lookErr := service.database.Read().GetLiveUserByName(ctx, name)
-		if lookErr != nil {
-			return AdminReset{}, fmt.Errorf("find %q: %w", name, lookErr)
-		}
-		if keepErr := service.keepRealmKey(ctx, user.ID, user.Name, password, true); keepErr != nil {
-			return AdminReset{}, keepErr
-		}
+	// The new password's away-from-home key, linked or not: an old password's key left standing would
+	// let the old password in from away once the core is linked (D527 §2.2).
+	user, err := service.database.Read().GetLiveUserByName(ctx, name)
+	if err != nil {
+		return AdminReset{}, fmt.Errorf("find %q: %w", name, err)
+	}
+	if err := service.keepRealmKey(ctx, user.ID, user.Name, password, true); err != nil {
+		return AdminReset{}, err
 	}
 	return reset, nil
 }

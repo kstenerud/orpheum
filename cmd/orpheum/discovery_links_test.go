@@ -317,11 +317,16 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)),
 		rand.Reader, settingstest.Seeded(t, database))
 	keySalt := []byte("a core's own 16b")
+	opened.keySalt = keySalt
 	opened.auth.SetKeySalt(keySalt)
 	opened.together = together.NewHub(clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)), rand.Reader,
 		nil, slog.New(slog.DiscardHandler))
 	opened.reachability = newReachability(config, opened)
 	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
+	// The heartbeat carries the salt, so a sign-in page away from home makes the same key (D527 §2.2).
+	if !bytes.Equal(parts.KeySalt, keySalt) {
+		t.Errorf("the discovery's parts carry key salt %q; want the core's, %q", parts.KeySalt, keySalt)
+	}
 	parts.OnRealm("karlnas")
 	karl := auth.NewUser{Name: "karl", Password: "a password", Role: auth.RoleUser}
 	if _, err := opened.auth.CreateUser(ctx, karl); err != nil {

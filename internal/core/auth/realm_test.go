@@ -214,3 +214,20 @@ func TestRealmKey_IsMadeWheneverAPasswordIsSet(t *testing.T) {
 		t.Error("the operator's reset made no key from the new password")
 	}
 }
+
+// The operator's reset of a person's password on a core not linked to a discovery makes their key
+// from the new password: the old password's key, made at an earlier sign-in, does not stand to let
+// the old password in from away once the core is linked (D527 §2.2).
+func TestResetAdmin_MakesTheKeyFromTheNewPasswordOnACoreNotLinked(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	fixture.createUser(t, "Karl", "the old password", RoleUser)
+	if _, err := fixture.service.ResetAdmin(t.Context(), "karl", "the new password"); err != nil {
+		t.Fatal(err)
+	}
+	fixture.service.SetRealm("karlnas")
+	if key := karlsKey(t, fixture.service, "karlnas"); !bytes.Equal(key, karlsPersonKey("the new password")) {
+		t.Errorf("after a reset on a core not linked, karl's key is %x; want the new password's, %x",
+			key, karlsPersonKey("the new password"))
+	}
+}
