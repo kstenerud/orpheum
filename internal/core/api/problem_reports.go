@@ -238,7 +238,7 @@ func (server *Server) downloadProblemReport(
 	case errors.Is(err, problemreport.ErrNoReport):
 		return nil, errNoSuchProblemReport()
 	case errors.Is(err, problemreport.ErrNoForm):
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
+		return nil, invalidRequestAt(http.StatusBadRequest, "query.form", err.Error())
 	case err != nil:
 		return nil, server.logInternalError(ctx, "download a problem report", err)
 	}
