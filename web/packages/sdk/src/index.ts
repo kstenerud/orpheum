@@ -88,7 +88,6 @@ export type { PathWays } from "./path-keeper.ts";
 export {
   isRealm,
   masterRealm,
-  personKey,
   realmAsk,
   realmKey,
   realmName,
