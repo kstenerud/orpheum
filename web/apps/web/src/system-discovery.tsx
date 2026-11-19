@@ -169,14 +169,27 @@ function Unconnected(props: {
     );
   }
   return (
-    <ConnectForm
-      isBusy={connecting.isBusy}
-      suggested={suggested}
-      onConnect={(issuer, password) => {
-        connecting.connect(issuer, password, suggested);
-      }}
-    />
+    <>
+      <NeedsInvitation />
+      <ConnectForm
+        isBusy={connecting.isBusy}
+        suggested={suggested}
+        onConnect={(issuer, password) => {
+          connecting.connect(issuer, password, suggested);
+        }}
+      />
+    </>
   );
+}
+
+/**
+ * That remote access needs an account made from an invitation, and whom to ask for one, until the
+ * server is claimed: the first beta tester never claimed his, and nothing here said a step was left
+ * or that it starts with an invitation (the install report, 2026-11-19).
+ */
+function NeedsInvitation(): JSX.Element {
+  const { t } = useTranslation();
+  return <p>{t("system.discovery.invitation")}</p>;
 }
 
 /**
@@ -413,7 +426,12 @@ function Enrolment(props: {
       {standing.account === undefined ? null : (
         <p>{t("system.discovery.account", { account: standing.account })}</p>
       )}
-      {standing.state === "pending" ? <KeyForm claiming={props.claiming} /> : null}
+      {standing.state === "pending" ? (
+        <>
+          <NeedsInvitation />
+          <KeyForm claiming={props.claiming} />
+        </>
+      ) : null}
       {standing.claimCode === undefined ? null : (
         <p>
           {t("system.discovery.claim", {

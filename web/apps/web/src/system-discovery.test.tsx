@@ -46,6 +46,10 @@ const none = {
   portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
 };
 
+/** What Remote access says until the server is claimed (the install report, 2026-11-19). */
+const invitationNeeded =
+  "you need an invitation from whoever runs your Orpheum service. At home, you need none of it.";
+
 it("connects to the discovery the server suggests, by its name and the admin's password, and shows the code to claim the server by (D273, D391)", async () => {
   const heard: Heard[] = [];
   const pending = {
@@ -92,6 +96,17 @@ it("connects to the discovery the server suggests, by its name and the admin's p
   );
   expect(text).toContain("Waiting to be claimed.");
   expect(text).toContain("enter the code WXYZ-2345");
+  expect(text).toContain(invitationNeeded);
+});
+
+it("says, before the server is connected, that remote access needs an invitation and whom to ask", async () => {
+  mounted = await mount(
+    withServices(<SystemDiscovery />, servedBy({ "GET /system/discovery": [200, none] })),
+  );
+  expect(mounted.container.textContent).toContain(
+    "None of this works without an account at the discovery, and an account needs an invitation",
+  );
+  expect(mounted.container.textContent).toContain(invitationNeeded);
 });
 
 it("says the server cannot trust the suggested discovery when this build knows none of its keys (D391 §7)", async () => {
@@ -214,6 +229,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const text = mounted.container.textContent;
   expect(text).toContain("Claimed: clients can find this server.");
+  expect(text).not.toContain(invitationNeeded);
   // The realm the discovery gave it, which only it shows (D298 §3).
   expect(text).toContain("at the discovery's page by the household karlnas.live");
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
