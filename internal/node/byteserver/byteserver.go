@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Server answers the node's byte socket.
@@ -57,6 +58,10 @@ type Server struct {
 	// logger logs each folder listing, timed by clock; nil logs nothing (LoggingTo).
 	logger *slog.Logger
 	clock  clock.Clock
+	// recent is the node process's recent log, read as of recentClock's now; nil answers none
+	// (ServingRecentLog).
+	recent      *slogx.Recent
+	recentClock clock.Clock
 }
 
 // LoggingTo has the server log to logger what an admin's folder listings asked and found, and how
@@ -138,6 +143,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
 	mux.HandleFunc("GET "+nodeproto.PathBytesFolders, server.serveFolders)
+	mux.HandleFunc("GET "+nodeproto.PathBytesRecentLog, server.serveRecentLog)
 	return mux
 }
 

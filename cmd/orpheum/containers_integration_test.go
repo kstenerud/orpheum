@@ -143,7 +143,7 @@ func TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade(t *t
 		}
 	})
 	server := startServing(t, config, captured, filmIdentified, func(ctx context.Context) error {
-		return runNodeWith(ctx, config, captured.logger, nodeSeams{statusEvery: time.Second})
+		return runNodeWith(ctx, config, captured.logger, nil, nodeSeams{statusEvery: time.Second})
 	})
 	token := signedInOwner(t, server, configPath)
 	database := openDatabase(t, config)

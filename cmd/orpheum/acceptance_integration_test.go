@@ -142,7 +142,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	recorder := &recordingScanner{}
 	first := acceptanceRun(t, config, root, func(captured capturedLog) func(ctx context.Context) error {
 		return func(ctx context.Context) error {
-			return runNodeWith(ctx, config, captured.logger, nodeSeams{
+			return runNodeWith(ctx, config, captured.logger, nil, nodeSeams{
 				statusEvery: time.Second,
 				wrapScanner: func(inner agent.Scanner) agent.Scanner {
 					recorder.inner = inner

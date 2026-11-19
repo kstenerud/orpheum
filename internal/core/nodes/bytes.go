@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
@@ -156,6 +157,26 @@ func (socketClient *ByteSocketClient) ListFolders(ctx context.Context, nodeID in
 	}
 	return listing, nil
 }
+
+// RecentLog asks a node for its recent log, every line it kept in memory whatever level it writes,
+// the oldest first, for a problem report (D524 §3). It reads outside every queue and touches no disk;
+// the caller bounds its wait by ctx, and a node that does not answer, or of protocol 64, which answers
+// 404, fails, which the report says absent.
+func (socketClient *ByteSocketClient) RecentLog(ctx context.Context, nodeID int64) ([]slogx.Line, error) {
+	answer, err := askAnswer[nodeproto.RecentLog](ctx, socketClient, nodeID, nodeproto.PathBytesRecentLog,
+		maxRecentLogBytes)
+	if err != nil {
+		return nil, fmt.Errorf("read node %d's recent log: %w", nodeID, err)
+	}
+	lines := make([]slogx.Line, 0, len(answer.Lines))
+	for _, line := range answer.Lines {
+		lines = append(lines, line.Line())
+	}
+	return lines, nil
+}
+
+// maxRecentLogBytes bounds a node's recent log: its 40,000 lines at most, each some hundreds of bytes.
+const maxRecentLogBytes = 64 << 20
 
 // askAnswer GETs target on a node's byte socket and decodes its JSON answer, within maxBytes: a
 // question answered outside every queue, a probe or a folder listing.

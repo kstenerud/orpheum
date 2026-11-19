@@ -52,6 +52,11 @@
 //     TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
+//   - The recent log is every line the node process kept, whatever level it writes, each field's
+//     value with its kind, outside every queue and touching no disk; a node given none answers 404,
+//     as one of protocol 64 does (D524 §3).
+//     TestServeRecentLog_SaysEveryLineTheNodeKeptWithItsFieldsKinds,
+//     TestServeRecentLog_IsNotFoundOnANodeKeepingNone.
 //
 // # Read before changing
 //
@@ -59,6 +64,7 @@
 //   - D100: a command names its target by identity, not by path.
 //   - D128: the node keeps what it makes.
 //   - D327: the probe, a question answered outside every queue.
+//   - D524 §3: the recent log, for a problem report.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
@@ -66,4 +72,5 @@
 //   - byteserver.go: the file route, the chunks' route (D217 §5, D247 §10), and the held results' route.
 //   - probe.go: the probe of a root (D327), and the sharing of a read among asks.
 //   - folders.go: the folders in a folder (D359 §2).
+//   - recentlog.go: the node's recent log (D524 §3).
 package byteserver

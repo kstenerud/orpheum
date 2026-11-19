@@ -3,10 +3,12 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -101,6 +103,35 @@ func TestLogger_AppendsToTheFileLogDestinationNames(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Errorf("standard error got %q; want the log in its file alone", stderr.String())
+	}
+}
+
+// The process's logger keeps its recent lines, a debug line the info level does not write among
+// them, for a problem report (D524 §3).
+func TestLeveledLogger_KeepsTheRecentLinesItDoesNotWrite(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	config.Log.Destination = filepath.Join(t.TempDir(), "orpheum.log")
+	opened, err := invocation{stderr: &strings.Builder{}}.leveledLogger(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opened.level.Set(slog.LevelInfo)
+	opened.logger.Debug("a detail")
+	if err = opened.closeLog(); err != nil {
+		t.Fatal(err)
+	}
+	if opened.recent == nil {
+		t.Fatal("the process keeps no recent log")
+	}
+	// As of the zero time nothing kept is too old: the line carries the real clock's time, which the
+	// test does not read.
+	lines := opened.recent.Lines(time.Time{})
+	if len(lines) != 1 || lines[0].Message != "a detail" {
+		t.Errorf("the recent log holds %+v; want the debug line", lines)
+	}
+	if written := string(readFile(t, config.Log.Destination)); strings.Contains(written, "a detail") {
+		t.Errorf("the log file holds %q; want the debug line kept, not written", written)
 	}
 }
 

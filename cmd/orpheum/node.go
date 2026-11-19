@@ -61,24 +61,26 @@ func commandNode(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	logger, closeLog, err := call.logger(config)
+	opened, err := call.leveledLogger(config)
 	if err != nil {
 		return call.fail(err)
 	}
-	defer closeLog() //nolint:errcheck // nothing is logged after it
+	logger := opened.logger
+	defer opened.closeLog() //nolint:errcheck // nothing is logged after it
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}
-	if err = runNode(ctx, config, logger); err != nil {
+	if err = runNode(ctx, config, logger, opened.recent); err != nil {
 		logger.ErrorContext(ctx, "the node stopped", "err", err)
 		return exitFailure
 	}
 	return exitSuccess
 }
 
-// runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends.
-func runNode(ctx context.Context, config Config, logger *slog.Logger) error {
-	return runNodeWith(ctx, config, logger, nodeSeams{})
+// runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends; its
+// byte socket answers with recent, the lines logger kept (D524 §3).
+func runNode(ctx context.Context, config Config, logger *slog.Logger, recent *slogx.Recent) error {
+	return runNodeWith(ctx, config, logger, recent, nodeSeams{})
 }
 
 // nodeSeams are where a test reaches into the node; the zero value is the node as it runs.
@@ -156,7 +158,7 @@ func waitWhileLocked(
 }
 
 // runNodeWith is runNode with a test's seams.
-func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams) error {
+func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, recent *slogx.Recent, seams nodeSeams) error {
 	ticker, setStatusEvery := statusTicker(seams)
 	defer ticker.Stop()
 	confinement, isLocked := checkConfinement(ctx, config, logger, seams)
@@ -203,7 +205,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	heldResults, hashes := agent.NewHeldResults(), namedfile.NewHashes()
 	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory,
-		byteSocketShares{heldResults: heldResults, disks: disks, hashes: hashes}, logger)
+		byteSocketShares{heldResults: heldResults, disks: disks, hashes: hashes, recent: recent}, logger)
 	if err != nil {
 		return err
 	}
@@ -400,6 +402,8 @@ type byteSocketShares struct {
 	heldResults *agent.HeldResults
 	disks       *diskwatch.Gate
 	hashes      *namedfile.Hashes
+	// recent is the node process's recent log, which the socket answers with; nil answers none.
+	recent *slogx.Recent
 }
 
 // serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop
@@ -414,6 +418,9 @@ func serveBytes(
 	}
 	server := byteserver.New(roots).ServingResults(shares.heldResults).
 		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes).LoggingTo(logger, clock.System{})
+	if shares.recent != nil {
+		server.ServingRecentLog(shares.recent, clock.System{})
+	}
 	if directory.shelf != nil {
 		server.ServingStores(directory.shelf).OnStoreServed(directory.shelf.MarkServed)
 	}

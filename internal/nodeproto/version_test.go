@@ -157,6 +157,9 @@ var wireShapeByVersion = map[int]string{
 	// seeks a little before its run's keyframe in any container (D500 §1): a node of 63 would refuse
 	// every copied picture's run of a core of 64 for its seek.
 	64: "f1bf2fe6e86d8823afc8621eb750f1517b9d5d89b7b5070f16999e703fd37270",
+	// 65 adds the node's recent log on the byte socket, RecentLog, for a problem report (D524 §3): a
+	// node of 64 would answer it 404. The shape counts the recent log from 65 on.
+	65: "786641cba8d769bda9c92e507a8f42e96ebac11ccbb73e55d167009a7945add5",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -179,7 +182,7 @@ func wireShape() string {
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
 		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
 		reflect.TypeFor[PlaceProbe](), reflect.TypeFor[FolderListing](),
-		reflect.TypeFor[LockedReport](), reflect.TypeFor[LockedReply](),
+		reflect.TypeFor[LockedReport](), reflect.TypeFor[LockedReply](), reflect.TypeFor[RecentLog](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

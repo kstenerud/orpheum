@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package slogx builds the process's *slog.Logger. It is the one sanctioned way to log:
-// cmd/orpheum calls New once, and every other package takes the logger as a constructor
+// cmd/orpheum calls NewKeeping once, and every other package takes the logger as a constructor
 // parameter. There is no global logger.
 //
 // Secrets never reach a log as text: secrets.Value implements slog.LogValuer and logs as
@@ -28,6 +28,14 @@
 //   - A loop's lasting failure is said as it begins, then once each FailingSaidEvery with how often
 //     it failed, then as it ends; each loop logs it with its own constant message. Enforced by
 //     TestFailing_SaysAFailureOnceAMinuteAndItsEnd.
+//   - A logger built with a Recent keeps every line in it, at any level, the written level unchanged:
+//     each line 30 minutes and those at info and above 24 hours, each kind within its count, the
+//     oldest going first; a line keeps its logger's fields, its groups' dotted keys and its request's
+//     ID, a secret still "[redacted]" (D524 §3). Enforced by
+//     TestRecent_KeepsALineBelowTheLevelItDoesNotWrite,
+//     TestRecent_KeepsEveryLineHalfAnHourAndThoseAtInfoADay,
+//     TestRecent_KeepsNoMoreThanItsCountOfEachKind,
+//     TestRecent_ALineHasTheLoggersFieldsItsGroupsAndItsRequestsID.
 //
 // # Read before changing
 //
@@ -35,6 +43,7 @@
 //   - D74: bug reports pseudonymise rather than redact.
 //   - D194: secrets log as "[redacted]"; the canary test checks the logs.
 //   - D347: the log's level changes at runtime, and every request's lines carry its ID.
+//   - D524 §3: every process keeps its recent log in memory, for a problem report.
 //   - docs/contributors/standards/go.md, Logging.
 //
 // # Where to change
@@ -42,4 +51,5 @@
 //   - slogx.go: formats and handler options. A new Format needs a case in every switch over
 //     Format; exhaustive fails the build until it has one. failing.go: Failing, when a loop's
 //     lasting failure is said. request.go: a request's ID, on every line it causes.
+//     recent.go: the recent log (Recent); line.go: its Line.
 package slogx

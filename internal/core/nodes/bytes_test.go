@@ -9,9 +9,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -258,5 +260,50 @@ func TestProbeRoot_AsksTheNodesByteSocket(t *testing.T) {
 	cancel() // the caller's wait is over
 	if _, err := client.ProbePlace(bounded, reply.NodeID, "/media/away"); err == nil {
 		t.Error("a probe the caller stopped waiting on answered; want it failed")
+	}
+}
+
+// The core asks a node for its recent log on its byte socket and reads each line's values of their
+// kinds; a node that keeps none, of protocol 64, answers 404, which fails, for the report to say the
+// node absent (D524 §3).
+func TestRecentLog_AsksTheNodesByteSocketAndFailsWhereItKeepsNone(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	socketDir := filepath.Join(testutil.SocketDirectory(t), "run")
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
+	listener, err := unixsocket.Listen(socketDir, "node.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loggedAt := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
+	var isKeeping atomic.Bool
+	isKeeping.Store(true)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+nodeproto.PathBytesRecentLog, func(writer http.ResponseWriter, _ *http.Request) {
+		if !isKeeping.Load() {
+			http.NotFound(writer, nil)
+			return
+		}
+		line := nodeproto.LogLine{
+			Time: loggedAt, Level: int(slog.LevelDebug), Message: "examined a file",
+			Fields: []nodeproto.LogField{{Key: "fileId", Kind: nodeproto.LogValueInt, Value: "7"}},
+		}
+		answer := nodeproto.RecentLog{Lines: []nodeproto.LogLine{line}}
+		_ = json.NewEncoder(writer).Encode(answer) //nolint:errcheck // the test reads what arrives
+	})
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
+	go func() { _ = server.Serve(listener) }() //nolint:errcheck // closed loggedAt cleanup
+	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // as above
+	client := NewByteSocketClient(harness.service, nil)
+
+	lines, err := client.RecentLog(t.Context(), reply.NodeID)
+	if err != nil || len(lines) != 1 || !lines[0].Time.Equal(loggedAt) || lines[0].Level != slog.LevelDebug ||
+		lines[0].Message != "examined a file" || len(lines[0].Fields) != 1 ||
+		lines[0].Fields[0].Value.Kind() != slog.KindInt64 || lines[0].Fields[0].Value.Int64() != 7 {
+		t.Errorf("the recent log = %+v, %v; want the debug line, its fileId the number 7", lines, err)
+	}
+	isKeeping.Store(false)
+	if _, err := client.RecentLog(t.Context(), reply.NodeID); err == nil {
+		t.Error("a node keeping no recent log was read as having none")
 	}
 }

@@ -83,6 +83,8 @@ type processLog struct {
 	level *slog.LevelVar
 	// closeLog closes the log's file; standard error's does nothing.
 	closeLog func() error
+	// recent is the process's recent log, kept whatever the level, for a problem report (D524 §3).
+	recent *slogx.Recent
 }
 
 // leveledLogger is logger, with the level it writes at.
@@ -105,11 +107,12 @@ func (call invocation) leveledLogger(config Config) (processLog, error) {
 		}
 		output, closeLog = file, file.Close
 	}
-	logger, err := slogx.New(output, format, level)
+	recent := slogx.NewRecent(slogx.ProcessRecentLimits())
+	logger, err := slogx.NewKeeping(output, format, level, recent)
 	if err != nil {
 		return processLog{}, errors.Join(err, closeLog())
 	}
-	return processLog{logger: logger, level: level, closeLog: closeLog}, nil
+	return processLog{logger: logger, level: level, closeLog: closeLog, recent: recent}, nil
 }
 
 // openExistingDatabase opens an existing persistent.db, refusing to create one where there is none.

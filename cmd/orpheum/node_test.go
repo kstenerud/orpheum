@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -178,7 +180,7 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
 	return startServing(t, config, captured, awaited, func(ctx context.Context) error {
-		return runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams)
+		return runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams)
 	})
 }
 
@@ -327,7 +329,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams) }()
+	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
 		if err := testutil.Receive(t, done, "the node to stop"); err != nil {
@@ -377,6 +379,55 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	}
 }
 
+// A running node's byte socket answers with the recent log it was given, every line kept whatever its
+// level, for the core's problem report (D524 §3).
+func TestRunNode_AnswersWithItsRecentLogOnTheByteSocket(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
+	config.Node.RootPaths, config.Node.FFmpegDir = []string{t.TempDir()}, fake.Directory
+	recent := slogx.NewRecent(slogx.ProcessRecentLimits())
+	keeping, err := slogx.NewKeeping(io.Discard, slogx.FormatText, slog.LevelInfo, recent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keeping.DebugContext(t.Context(), "a detail the log does not write")
+	const listening = "byteSocketServing"
+	captured := newCapturedLog(listening)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- runNodeWith(ctx, config, captured.logger, recent, fakeFFmpegSeams) }()
+	defer func() {
+		cancel()
+		if stopped := testutil.Receive(t, done, "the node to stop"); stopped != nil {
+			t.Errorf("runNode returned %v", stopped)
+		}
+	}()
+	select {
+	case <-captured.signals[listening]:
+	case early := <-done:
+		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
+	}
+	socket := filepath.Join(config.Instance.RunDir, nodeSocketName)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://node"+nodeproto.PathBytesRecentLog,
+		http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := unixsocket.Client(socket, 0).Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read to the end below
+	var answer nodeproto.RecentLog
+	if err = json.NewDecoder(response.Body).Decode(&answer); err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("the byte socket answered %d (%v); want 200 with the recent log", response.StatusCode, err)
+	}
+	if len(answer.Lines) != 1 || answer.Lines[0].Message != "a detail the log does not write" {
+		t.Errorf("the recent log's lines are %+v; want the debug line alone", answer.Lines)
+	}
+}
+
 func TestRunNode_StillServesFilesWhenItCannotMakeChunks(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
@@ -391,7 +442,7 @@ func TestRunNode_StillServesFilesWhenItCannotMakeChunks(t *testing.T) {
 	captured := newCapturedLog(listening, cannot)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams) }()
+	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams) }()
 	for _, awaited := range []string{cannot, listening} {
 		select {
 		case <-captured.signals[awaited]:
@@ -506,7 +557,7 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 		return hangingListings{Scanner: inner, testCtx: t.Context()}
 	}
 	server := startServing(t, config, captured, stalled, func(ctx context.Context) error {
-		return runNodeWith(ctx, config, captured.logger, seams)
+		return runNodeWith(ctx, config, captured.logger, nil, seams)
 	})
 	if stopped := server.stop(); stopped != nil {
 		t.Errorf("serve returned %v", stopped)
