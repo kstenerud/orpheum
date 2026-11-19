@@ -269,13 +269,26 @@ func (database *Database) transact(ctx context.Context, change func(transaction 
 	return database.transactHolding(ctx, change)
 }
 
-// transactHolding is transact once the gate has handed this write the writer.
+// transactHolding is transact once the gate has handed this write the writer. A change that panics
+// is rolled back before the panic goes on: the writer is the database's one connection, and a
+// transaction left open on it would hold every later write waiting until its context ended, where
+// net/http recovers a handler's panic and the server runs on.
 func (database *Database) transactHolding(ctx context.Context, change func(transaction *sql.Tx) error) error {
 	transaction, err := database.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin write transaction: %w", err)
 	}
-	if err := change(transaction); err != nil {
+	isDone := false
+	defer func() {
+		if !isDone {
+			// The change's panic goes on and says what went wrong; a rollback that fails has lost
+			// its connection, which database/sql then discards, freeing the writer all the same.
+			_ = transaction.Rollback() //nolint:errcheck // the panic going on is the failure to report
+		}
+	}()
+	err = change(transaction)
+	isDone = true
+	if err != nil {
 		return errors.Join(err, transaction.Rollback())
 	}
 	if err := transaction.Commit(); err != nil {

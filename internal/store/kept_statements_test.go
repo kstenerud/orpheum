@@ -3,11 +3,13 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -112,5 +114,35 @@ func TestWrite_ClosesTheStatementsItKeptWhenItEnds(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "statement is closed") {
 			t.Errorf("the %s write's kept statement ran after it with %v; want it closed", ending, err)
 		}
+	}
+}
+
+// A write whose change panics is rolled back, so the next write has the writer: left open, the
+// transaction held the one writer connection and the next write waited until its context ended.
+func TestWrite_APanickingChangeLeavesTheWriterToTheNextWrite(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	panicked := func() (value any) {
+		defer func() { value = recover() }()
+		half := sqlcgen.UpsertSettingParams{Key: "half", ValueJSON: "1", SetAt: 1}
+		err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+			if err := queries.UpsertSetting(t.Context(), half); err != nil {
+				return fmt.Errorf("upsert: %w", err)
+			}
+			panic("a change's bug")
+		})
+		t.Errorf("the panicking write returned %v; want its panic to go on", err)
+		return nil
+	}()
+	if panicked != "a change's bug" {
+		t.Errorf("the write's panic: %v; want the change's own", panicked)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.UpsertSetting(ctx, sqlcgen.UpsertSettingParams{Key: "next", ValueJSON: "1", SetAt: 1})
+	})
+	if err != nil {
+		t.Fatalf("the write after a panicking one: %v; want it to have the writer", err)
 	}
 }
