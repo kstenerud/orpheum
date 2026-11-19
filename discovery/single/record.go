@@ -36,6 +36,9 @@ type Core struct {
 // Record is what a single-target discovery keeps: its core, or none.
 type Record struct {
 	Core *Core `json:"core,omitempty"`
+	// SaltKey is the secret the salt answered for a realm no core's heartbeat gave one for is derived
+	// under, made at the first ask and kept, so the answer is the same across restarts (D527 §2.2).
+	SaltKey []byte `json:"saltKey,omitempty"`
 }
 
 // Store keeps the record. Update changes it under a lock, read and written whole; the server and

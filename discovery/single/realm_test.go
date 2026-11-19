@@ -3,7 +3,9 @@
 package single
 
 import (
+	"encoding/base64"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 	"time"
@@ -162,5 +164,55 @@ func TestRealmSignIn_ACoreSlowToRefuseIsAnsweredWhenAnUnknownRealmIs(t *testing.
 	built.mutex.Unlock()
 	if took != realmAnswerWait {
 		t.Errorf("a refusal that took the core %s was answered after %s; want %s", slowRefusal, took, realmAnswerWait)
+	}
+}
+
+// saltOf is the salt the client API answers for realm.
+func saltOf(t *testing.T, built clientStage, realm string) string {
+	t.Helper()
+	var answered discoveryproto.RealmSaltResponse
+	if code, refusal := built.ask(t, discoveryproto.PathRealmSalt, discoveryproto.RealmSaltRequest{Realm: realm},
+		&answered); code != http.StatusOK {
+		t.Fatalf("the salt of %q answered %d %q", realm, code, refusal)
+	}
+	if salt, err := base64.RawURLEncoding.DecodeString(answered.Salt); err != nil || len(salt) != proof.KeySaltBytes {
+		t.Fatalf("the salt of %q is %q, %v; want %d bytes, base64url", realm, answered.Salt, err, proof.KeySaltBytes)
+	}
+	return answered.Salt
+}
+
+// The realm the operator named answers the key salt its claimed core's last heartbeat gave; any other
+// realm, and that one before a heartbeat gave a salt, a salt derived from its name under a secret the
+// discovery keeps, the same at each ask and after a restart, and another for another realm, so no
+// answer tells a realm with a core from one without (D527 §2.2).
+func TestRealmSalt_IsTheCoresFromItsHeartbeatAndForAnyOtherRealmTheSameDerivedOne(t *testing.T) {
+	t.Parallel()
+	built := newClientStageWithRealm(t, "karlnas")
+	beforeHeartbeat := saltOf(t, built, "KarlNAS")
+	nobody := saltOf(t, built, "nobody")
+	if nobody == beforeHeartbeat || nobody == saltOf(t, built, "someone") {
+		t.Error("two realms answer one salt; want each its own")
+	}
+	if again := saltOf(t, built, "Nobody"); again != nobody {
+		t.Errorf("a realm asked again, in another case, answers %q; want %q, the first answer", again, nobody)
+	}
+	coresSalt := base64.RawURLEncoding.EncodeToString([]byte("a core's own 16b"))
+	if status := built.call(t, http.MethodPut, discoveryproto.PathAddresses, built.token,
+		discoveryproto.AddressesRequest{KeySalt: coresSalt}, nil); status != http.StatusOK {
+		t.Fatalf("the heartbeat answered %d", status)
+	}
+	if salt := saltOf(t, built, "KarlNAS"); salt != coresSalt {
+		t.Errorf("after the core's heartbeat, its realm's salt is %q; want the core's, %q", salt, coresSalt)
+	}
+	restarted, err := New(built.discovery.parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := httptest.NewServer(restarted.ClientHandler())
+	t.Cleanup(client.Close)
+	afterRestart := built
+	afterRestart.client = client
+	if salt := saltOf(t, afterRestart, "nobody"); salt != nobody {
+		t.Errorf("after a restart, a realm with no core answers %q; want %q, as before", salt, nobody)
 	}
 }

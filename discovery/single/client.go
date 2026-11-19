@@ -56,6 +56,8 @@ func (discovery *Discovery) serveClient(writer http.ResponseWriter, request *htt
 		discovery.paths(writer, request)
 	case http.MethodPost + " " + discoveryproto.PathRealmSignIn:
 		discovery.realmSignIn(writer, request)
+	case http.MethodPost + " " + discoveryproto.PathRealmSalt:
+		discovery.realmSalt(writer, request)
 	case http.MethodPost + " " + discoveryproto.PathDeadEnd:
 		discovery.deadEnd(writer, request)
 	case http.MethodGet + " " + discoveryproto.PathClientFloor:

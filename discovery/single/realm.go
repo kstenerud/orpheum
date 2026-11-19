@@ -4,6 +4,11 @@ package single
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -92,4 +97,58 @@ func (discovery *Discovery) wait(ctx context.Context, duration time.Duration) {
 	case <-ctx.Done():
 	case <-timer.C:
 	}
+}
+
+// saltKeyBytes is the length of the secret a realm's derived salt is made under.
+const saltKeyBytes = 32
+
+// realmSalt answers the key salt of a realm's core, which a page derives the person's version-2 key
+// with before their realm sign-in (D527 §2.2): for the realm the operator named, while its core is
+// claimed, the salt its last heartbeat gave; for any other realm, and for that one before a heartbeat
+// gave a salt, one derived from the realm's name under a secret the discovery makes once and keeps in
+// its record, the same each time, so no answer tells a realm that has a core from one that has none.
+func (discovery *Discovery) realmSalt(writer http.ResponseWriter, request *http.Request) {
+	var asked discoveryproto.RealmSaltRequest
+	if !read(writer, request, &asked) {
+		return
+	}
+	record, err := discovery.withSaltKey()
+	if err != nil {
+		discovery.fail(writer, request, err)
+		return
+	}
+	realm, held := proof.RealmName(asked.Realm), proof.RealmName(discovery.parts.Realm)
+	if core := record.Core; held != "" && realm == held && core != nil &&
+		core.State == discoveryproto.StateClaimed && core.Addresses != nil && core.Addresses.KeySalt != "" {
+		answer(writer, discoveryproto.RealmSaltResponse{Salt: core.Addresses.KeySalt})
+		return
+	}
+	answer(writer, discoveryproto.RealmSaltResponse{Salt: derivedSalt(record.SaltKey, realm)})
+}
+
+// withSaltKey is the record, its salt key made and kept first when it has none.
+func (discovery *Discovery) withSaltKey() (Record, error) {
+	record, err := discovery.parts.Store.Read()
+	if err != nil || len(record.SaltKey) > 0 {
+		return record, err
+	}
+	err = discovery.parts.Store.Update(func(kept *Record) error {
+		if len(kept.SaltKey) == 0 {
+			kept.SaltKey = make([]byte, saltKeyBytes)
+			if _, readErr := io.ReadFull(discovery.parts.Random, kept.SaltKey); readErr != nil {
+				return fmt.Errorf("make the realm salts' key: %w", readErr)
+			}
+		}
+		record = *kept
+		return nil
+	})
+	return record, err
+}
+
+// derivedSalt is the salt answered for realm when no core's heartbeat gave one: HMAC-SHA256 under
+// key over the realm's name, as long as a core's own key salt, base64url.
+func derivedSalt(key []byte, realm string) string {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte("orpheum-realm-salt\x00" + realm))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:proof.KeySaltBytes])
 }
