@@ -6,6 +6,7 @@ import "./i18n.ts";
 import type { JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { LiveProvider } from "./live.tsx";
 import { mount, servedBy } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
@@ -56,6 +57,24 @@ describe("the client a Watch Together device names in its hello, for the core's 
     const server = fakeTogetherServer();
     const mounted = await mount(
       withServices(<Voice />, { ...servedBy({}), openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    expect(server.heard[0]).toMatchObject({ type: "hello", client: "index-C0re22.js" });
+    mounted.unmount();
+  });
+});
+
+describe("the client the page's live connection names in its hello, for the core's log", () => {
+  it("is the core's client the loader runs, on a discovery's page, as the Watch Together hellos are", async () => {
+    pageUnderALoader();
+    const server = fakeTogetherServer();
+    const mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <p>page</p>
+        </LiveProvider>,
+        { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket },
+      ),
     );
     await server.accept();
     expect(server.heard[0]).toMatchObject({ type: "hello", client: "index-C0re22.js" });

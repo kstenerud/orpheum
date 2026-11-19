@@ -23,7 +23,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ownScriptOf } from "./app-update.ts";
+import { builtScriptOf } from "./app-update.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { forgetReceiving, markReceiving, wasReceiving } from "./cast-receiving-mark.ts";
 import { CastStartPress, leaveFullScreen, type CastAnswer } from "./cast-start.tsx";
@@ -138,7 +138,7 @@ function usePageLiveConnection(): {
         ? undefined
         : createLiveConnection({
             sessionToken: token,
-            client: ownScriptOf(document),
+            client: builtScriptOf(document),
             openSocket: openTogetherSocket,
             monotonicMs,
             isInFront: isTabInFront,
