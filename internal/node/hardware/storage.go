@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
@@ -55,22 +57,24 @@ const maxSlaveDepth = 4
 // (D240 §5): the device each is on and every one mounted inside it, a pool, array or volume
 // followed to its member disks. It reads the system's mount table, /sys, and udev's database for
 // the disks of a ZFS pool.
-func Devices(paths []string) ([]nodeproto.Device, error) { return devicesUnder("/", paths) }
+func Devices(paths []string) ([]nodeproto.Device, error) {
+	return devicesUnder(sysTree{root: "/", branchesOf: mergerfsBranches}, paths)
+}
 
-// devicesUnder is Devices with /proc, /sys and /run/udev read under root: "/" on a node, a
-// made-up tree in a test.
-func devicesUnder(root string, paths []string) ([]nodeproto.Device, error) {
-	mounts, err := readMounts(filepath.Join(root, "proc", "self", "mountinfo"))
+// devicesUnder is Devices with /proc, /sys and /run/udev read under the tree's root: "/" on a node,
+// a made-up tree in a test.
+func devicesUnder(system sysTree, paths []string) ([]nodeproto.Device, error) {
+	mounts, err := readMounts(system.path("proc", "self", "mountinfo"))
 	if err != nil {
 		return nil, err
 	}
-	system := sysTree{root: root}
 	byKey := map[string]*nodeproto.Device{}
 	var keys []string
 	add := func(each mount, mountPath string) {
-		device, found := byKey[each.key(system)]
+		described := system.describe(each, mounts)
+		device, found := byKey[described.Key]
 		if !found {
-			device = system.describe(each)
+			device = described
 			byKey[device.Key] = device
 			keys = append(keys, device.Key)
 		}
@@ -203,14 +207,25 @@ func (each mount) key(system sysTree) string {
 }
 
 // sysTree reads /sys and udev's database under root.
-type sysTree struct{ root string }
+type sysTree struct {
+	root string
+	// branchesOf are the folders a mergerfs pool's folder is made of, in its branches, as the pool
+	// says them; none when it does not say.
+	branchesOf func(folder string) []string
+}
 
 func (system sysTree) path(parts ...string) string {
 	return filepath.Join(append([]string{system.root}, parts...)...)
 }
 
-// describe is the device a mount is on, without its mount paths.
-func (system sysTree) describe(each mount) *nodeproto.Device {
+// describe is the device a mount is on, without its mount paths: a mergerfs pool's, where the node
+// sees every branch of it, the devices its branches are on together.
+func (system sysTree) describe(each mount, mounts []mount) *nodeproto.Device {
+	if each.filesystem == mergerfs {
+		if pool, isSeen := system.describePool(each, mounts); isSeen {
+			return pool
+		}
+	}
 	device := &nodeproto.Device{
 		Key: each.key(system), Kind: nodeproto.DeviceUnknown, Filesystem: each.filesystem, WhenGone: whenGone(each),
 	}
@@ -225,6 +240,98 @@ func (system sysTree) describe(each mount) *nodeproto.Device {
 	}
 	device.Kind = system.kindOf(device.Disks)
 	return device
+}
+
+// mergerfs is a mergerfs pool's filesystem type, as the mount table names it.
+const mergerfs = "fuse.mergerfs"
+
+// describePool is a mergerfs pool as the devices of its branches together, and whether the node
+// sees each branch: in a container the pool's folder is bound in and none of its branches' disks are
+// (the owner's friend's OpenMediaVault, 2026-11-19), and the pool stays a FUSE mount of unknown kind.
+// The devices together spin when one spins, are a network share's when one is, and wait for a server
+// as the most waiting of them does; two roots on one pool share it.
+func (system sysTree) describePool(pool mount, mounts []mount) (*nodeproto.Device, bool) {
+	if system.branchesOf == nil {
+		return nil, false
+	}
+	branches := system.branchesOf(pool.mountPoint)
+	if len(branches) == 0 {
+		return nil, false
+	}
+	var members []*nodeproto.Device
+	for _, branch := range branches {
+		if _, err := os.Stat(system.path(branch)); err != nil {
+			return nil, false
+		}
+		holding, found := mountHolding(mounts, branch)
+		if !found || holding.filesystem == mergerfs {
+			return nil, false
+		}
+		members = append(members, system.describe(holding, nil))
+	}
+	device := &nodeproto.Device{Filesystem: pool.filesystem}
+	var keys []string
+	var kinds []nodeproto.DeviceKind
+	for _, member := range members {
+		keys = append(keys, member.Key)
+		kinds = append(kinds, member.Kind)
+		device.Disks = append(device.Disks, member.Disks...)
+		device.WhenGone = mostWaiting(device.WhenGone, member.WhenGone)
+	}
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	device.Key = keys[0]
+	if len(keys) > 1 {
+		device.Key = "mergerfs:" + strings.Join(keys, "+")
+	}
+	slices.Sort(device.Disks)
+	device.Disks = slices.Compact(device.Disks)
+	device.Kind = kindTogether(kinds)
+	return device, true
+}
+
+// kindTogether is how devices read together, as kindOf has disks: a network share's when one is one,
+// else spinning when one spins, unknown when one cannot be told, and SSD when all are.
+func kindTogether(kinds []nodeproto.DeviceKind) nodeproto.DeviceKind {
+	for _, kind := range []nodeproto.DeviceKind{
+		nodeproto.DeviceNetwork, nodeproto.DeviceSpinning, nodeproto.DeviceUnknown,
+	} {
+		if slices.Contains(kinds, kind) {
+			return kind
+		}
+	}
+	return nodeproto.DeviceSSD
+}
+
+// mostWaiting is the one of two ways a read behaves when a share goes away that waits the more.
+func mostWaiting(one, other nodeproto.ShareWhenGone) nodeproto.ShareWhenGone {
+	for _, waiting := range []nodeproto.ShareWhenGone{nodeproto.ShareWaitsForever, nodeproto.ShareMayWaitForever} {
+		if one == waiting || other == waiting {
+			return waiting
+		}
+	}
+	return ""
+}
+
+// mergerfsBranches are the folders a mergerfs pool's folder is in, one in each branch that holds
+// it, as the pool's user.mergerfs.allpaths attribute says them (mergerfs(1)); none when it says
+// nothing, on a pool mounted without extended attributes or not mergerfs at all.
+func mergerfsBranches(folder string) []string {
+	size, err := unix.Getxattr(folder, "user.mergerfs.allpaths", nil)
+	if err != nil || size <= 0 {
+		return nil
+	}
+	value := make([]byte, size)
+	if size, err = unix.Getxattr(folder, "user.mergerfs.allpaths", value); err != nil {
+		return nil
+	}
+	var folders []string
+	for path := range strings.SplitSeq(string(value[:size]), "\x00") {
+		if path != "" {
+			folders = append(folders, filepath.Clean(path)) // a pool's root says each branch's with a "/" after
+		}
+	}
+	return folders
 }
 
 // kindOf is how disks read together: spinning when one of them spins, SSD when none does, unknown

@@ -82,7 +82,7 @@ func TestDevices_FollowsPoolsArraysAndPartitionsToTheirDisksToTellHowEachReads(t
 	system.write("run/udev/data/b8:65", "N:sde1\nE:ID_FS_TYPE=zfs_member\nE:ID_FS_LABEL=tank\n")
 	system.write("run/udev/data/b8:48", "N:sdd\nE:ID_FS_TYPE=linux_raid_member\n")
 
-	devices, err := devicesUnder(system.root,
+	devices, err := devicesUnder(sysTree{root: system.root},
 		[]string{"/media/films", "/media/shows", "/media/nas", "/media/raid", "/prepared"})
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown(t *testing.T) {
 	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
 30 20 0:60 / /media/films rw - zfs tank/media/films rw
 `)
-	devices, err := devicesUnder(system.root, []string{"/media/films", "/srv/prepared"})
+	devices, err := devicesUnder(sysTree{root: system.root}, []string{"/media/films", "/srv/prepared"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,6 +137,54 @@ func TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown(t *testing.T) {
 		devices[1].Key != "unknown:0:30" || devices[1].Kind != nodeproto.DeviceUnknown ||
 		!slices.Equal(devices[1].MountPaths, []string{"/srv/prepared"}) {
 		t.Errorf("found %+v, want the pool and the overlay, both of unknown kind", devices)
+	}
+}
+
+// A mergerfs pool whose branches the node sees is the devices they are on together, and two roots on
+// it share it; one bound into a container, whose branches are the host's, is a FUSE mount of unknown
+// kind, as before (the owner's friend's OpenMediaVault, 2026-11-19).
+func TestDevices_AMergerfsPoolIsItsBranchesDevicesWhereTheNodeSeesThem(t *testing.T) {
+	t.Parallel()
+	system := fakeSystem{t: t, root: t.TempDir()}
+	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
+30 20 8:17 / /srv/dev-disk-by-uuid-a rw - ext4 /dev/sdb1 rw
+31 20 8:33 / /srv/dev-disk-by-uuid-b rw - ext4 /dev/sdc1 rw
+32 20 0:83 / /srv/mergerfs/Storage rw - fuse.mergerfs a:b rw,user_id=0,group_id=0,allow_other
+33 20 0:84 /Media /media rw - fuse.mergerfs Storage rw,user_id=0,group_id=0,allow_other
+`)
+	system.disk("sdb", "8:16", "1", map[string]string{"sdb1": "8:17"})
+	system.disk("sdc", "8:32", "0", map[string]string{"sdc1": "8:33"})
+	system.write("srv/dev-disk-by-uuid-a/Media/.keep", "")
+	system.write("srv/dev-disk-by-uuid-b/Media/.keep", "")
+	branches := map[string][]string{
+		"/srv/mergerfs/Storage": {"/srv/dev-disk-by-uuid-a", "/srv/dev-disk-by-uuid-b"},
+		"/media":                {"/srv/dev-disk-by-uuid-c/Media", "/srv/dev-disk-by-uuid-d/Media"},
+	}
+	tree := sysTree{root: system.root, branchesOf: func(folder string) []string { return branches[folder] }}
+	devices, err := devicesUnder(tree, []string{"/srv/mergerfs/Storage/Media", "/srv/mergerfs/Storage/Shows", "/media"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []nodeproto.Device{
+		{
+			Key: "mergerfs:disk:sdb+disk:sdc", Kind: nodeproto.DeviceSpinning, Filesystem: mergerfs,
+			Disks:      []string{"sdb", "sdc"},
+			MountPaths: []string{"/srv/mergerfs/Storage/Media", "/srv/mergerfs/Storage/Shows"},
+		},
+		{
+			Key: "unknown:0:84", Kind: nodeproto.DeviceUnknown, Filesystem: mergerfs, MountPaths: []string{"/media"},
+			WhenGone: nodeproto.ShareMayWaitForever,
+		},
+	}
+	if len(devices) != len(want) {
+		t.Fatalf("found %+v, want %+v", devices, want)
+	}
+	for index, device := range devices {
+		if device.Key != want[index].Key || device.Kind != want[index].Kind ||
+			device.Filesystem != want[index].Filesystem || !slices.Equal(device.Disks, want[index].Disks) ||
+			!slices.Equal(device.MountPaths, want[index].MountPaths) || device.WhenGone != want[index].WhenGone {
+			t.Errorf("device %d is %+v, want %+v", index, device, want[index])
+		}
 	}
 }
 
@@ -165,7 +213,7 @@ func TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown(t *te
 	system.usbDisk("sdd", "8:48", "1")
 	system.write("run/udev/data/b8:48", "E:ID_BUS=usb\nE:ID_ATA_ROTATION_RATE_RPM=0\n")
 	system.disk("sde", "8:64", "1", nil)
-	devices, err := devicesUnder(system.root, []string{"/usb-ssd", "/usb-told", "/sata"})
+	devices, err := devicesUnder(sysTree{root: system.root}, []string{"/usb-ssd", "/usb-told", "/sata"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +265,7 @@ func TestDevices_SayWhetherAShareWaitsForeverWhenItsServerGoes(t *testing.T) {
 35 20 0:45 / /passed rw - virtiofs media rw
 `)
 	paths := []string{"/hard", "/soft", "/smb", "/smb-hard", "/passed", "/local"}
-	devices, err := devicesUnder(system.root, paths)
+	devices, err := devicesUnder(sysTree{root: system.root}, paths)
 	if err != nil {
 		t.Fatal(err)
 	}

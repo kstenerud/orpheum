@@ -226,7 +226,8 @@ const (
 // so that two roots on one disk share it.
 type Device struct {
 	// Key names it on this node, the same across hellos: "zfs:<pool>", "disk:<disk>[+<disk>…]",
-	// "network:<source>", or "unknown:<major>:<minor>".
+	// "network:<source>", "unknown:<major>:<minor>", or "mergerfs:<key>+<key>[+…]" for a mergerfs
+	// pool over more than one of those.
 	Key  string     `json:"key"`
 	Kind DeviceKind `json:"kind"`
 	// Filesystem is its filesystem's type, as the mount table names it.

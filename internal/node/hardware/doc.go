@@ -20,7 +20,10 @@
 //     behind USB that the kernel says spins is unknown, the kernel guessing through most bridges.
 //     TestDevices_FollowsPoolsArraysAndPartitionsToTheirDisksToTellHowEachReads,
 //     TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown,
-//     TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown.
+//     TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown. A mergerfs pool whose
+//     every branch the node sees is the devices they are on together; one whose branches it cannot
+//     see, as in a container, stays a FUSE mount of unknown kind.
+//     TestDevices_AMergerfsPoolIsItsBranchesDevicesWhereTheNodeSeesThem.
 //   - The mount point a path is on is the deepest mount holding it (MountTable, which the disk gate
 //     keys by, D328 §1); the table is read once and again only after the kernel raises POLLPRI on it,
 //     a mount or an unmount since (proc(5)), never at every gated read.
