@@ -253,6 +253,14 @@ describe("the loader at its own origin (D308)", () => {
     expect(install?.getAttribute("href")).toBe(installGuideOnGitHub);
   });
 
+  // The same install: a phone and a TV at home were pointed at orpheum.cc, not at the server.
+  it("tells a person at home to open the server's own address instead", async () => {
+    mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
+    expect(mounted.container.textContent).toContain(
+      "At home? Open your server's own address, such as http://192.168.1.20:8440, instead.",
+    );
+  });
+
   it("offers a television a code beside the realm sign-in, and keeps its household as a sign-in does (D293 §2)", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(buttonWithText(mounted.container, "Get a code")).not.toBeNull();

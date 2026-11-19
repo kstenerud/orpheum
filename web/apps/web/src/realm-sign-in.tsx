@@ -110,14 +110,16 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
 }
 
 /**
- * The other ways in than a realm: the link sent, and a code where one is offered; and, for a person
- * who came to set up a server rather than to sign in, the install guide (a household's first
- * install, 2026-11-19: the page showed no way to it).
+ * The other ways in than a realm: at home, the server's own address, which needs no account at all;
+ * the link sent, and a code where one is offered; and, for a person who came to set up a server
+ * rather than to sign in, the install guide (a household's first install, 2026-11-19: the page
+ * showed no way to it, and a phone and a TV at home were pointed at it first).
  */
 function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX.Element {
   const { t } = useTranslation();
   return (
     <>
+      <p>{t("discovery.realm.atHome")}</p>
       <p>{t("discovery.realm.orLink")}</p>
       {props.onUseCode === undefined ? null : (
         <button type="button" onClick={props.onUseCode}>
