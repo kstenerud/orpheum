@@ -44,8 +44,8 @@ household; nothing after it reaches anyone else without it.
 | The System page in plain words | discovery-core K12, K16 | M | First-run form, home address, counting where people get stuck |
 | The paid service made whole | service.md M-S1–M-S4, M-S6 | L | Probe, names and certificates, caps, client integrity and kill switch, lapse |
 | Bug reports from inside the app | [bug-reports.md](bug-reports.md); D74 | M | |
-| Log levels changeable while running | the owner, 2026-10-15 | M | Design owed |
-| Terms, privacy policy, Impressum | service.md P13 | ? | Drafts exist |
+| Log levels changeable while running | the owner, 2026-10-15; D347 | M | The core's is built (D347); the nodes', connectd's and per-part levels are still to design |
+| Terms, privacy policy, Impressum | service.md P13 | ? | Not drafted (orpheum-site holds only its landing page, 2026-11-19). After the basics: the first outside household is a friend, "so the legal stuff isn't as important as getting the basics going" (the owner, 2026-11-19) |
 
 **Order:** the install and the service's accounts first, since everything else is reached through
 them; then enrolment and the safeguards, which are one design; then the codes' pattern across the
