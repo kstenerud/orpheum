@@ -728,6 +728,28 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   `make check` reruns only changed packages. What would work is a tmpfs mounted at `/tmp` itself:
   the machine's setup, not the Makefile's.
 
+### 36. A write transaction compiling the same statement on every call
+
+- **Mechanism:** §34's compile, paid by the store itself: sqlc's generated code hands the query
+  text to `ExecContext` on every call, so a write that runs one insert a hundred times compiles it,
+  and the programs of every trigger it fires, a hundred times.
+- **Instance** (2026-11-19): `internal/core/identify`'s tests spent 30 s of their 62 s of CPU in
+  `tallying.ExecContext`, nearly all of it `prepareV2` under `_codeRowTrigger`.
+- **Why it was invisible:** §34 found the cost in a seed and fixed the seed; the same compile in
+  the writes the code under test makes looks like the code's own work.
+- **Fix:** a write keeps each statement that returns no rows prepared for its length
+  (`keptStatements` in `internal/store/tally.go`); statements that return rows are left as they
+  were, since reusing one could reset it under a reader of its earlier rows.
+  `go test -count=1 ./internal/store/... ./internal/core/api/ ./internal/core/identify/`, alone,
+  three runs each: 29.7–32.3 s to 26.3–28.7 s; identify alone 28.7–31.3 s to 19.5–22.5 s, its
+  CPU 62.5 s to 36.3 s, `tallying.ExecContext` 29.9 s to 10.9 s. The api package, the run's
+  longest, gained less (28.4–29.3 s to 25.3–27.7 s): its writes are short, and the 20 s of its 47 s
+  of CPU still in `prepareV2` are each statement's first compile in a transaction (3.4 s), the
+  readers' queries, the seeds' `ExecRaw` (3.9 s), and the pragma reads of every `Open` (5 s, the
+  schema parsed on each new connection).
+- **Warning sign:** `prepareV2` under `tallying.ExecContext`, or under `keptStatements.statement`
+  for a statement that a run of short writes each prepare once.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

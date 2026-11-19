@@ -81,6 +81,12 @@
 //   - Every statement either database runs, search's included, counts by its query's name into the
 //     querytally.Tally its context carries, and every write transaction counts once (D303, DL6).
 //     Enforced by TestTally_CountsEveryStatementByItsNameAndEveryWrite.
+//   - A write, on either database, prepares each statement that returns no rows once and runs it
+//     from there, counting every run; statements returning rows are prepared as they run, since
+//     reusing one could reset it under a reader of its earlier rows. Every statement a write kept
+//     is closed when it ends, committed, rolled back or panicking. Enforced by
+//     TestWrite_PreparesEachStatementThatReturnsNoRowsOnceAWrite and
+//     TestWrite_ClosesTheStatementsItKeptWhenItEnds.
 //   - Every upsert writes only when it changes something, unless its query opts out and says why
 //     (D303, DL9). Enforced by sqlc vet's upsert-only-if-changed rule and
 //     TestUpserts_EachWritesOnlyWhenItChangesSomething.

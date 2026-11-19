@@ -100,20 +100,22 @@ func (cache *Cache) Close() error {
 
 // Read returns the cache queries over the read-only pool.
 func (cache *Cache) Read() *cachegen.Queries {
-	return cachegen.New(tallying{cache.database.readers})
+	return cachegen.New(tallying{inner: cache.database.readers})
 }
 
 // ReadTx runs read in one read transaction on cache.db's reader pool: every query in it sees one
 // commit (D303, M2).
 func (cache *Cache) ReadTx(ctx context.Context, read func(queries *cachegen.Queries) error) error {
 	return readTransaction(ctx, cache.database.readers, func(transaction *sql.Tx) error {
-		return read(cachegen.New(tallying{transaction}))
+		return read(cachegen.New(tallying{inner: transaction}))
 	})
 }
 
 // Write runs change in one write transaction on cache.db's single writer.
 func (cache *Cache) Write(ctx context.Context, change func(queries *cachegen.Queries) error) error {
 	return cache.database.transact(ctx, func(transaction *sql.Tx) error {
-		return change(cachegen.New(tallying{transaction}))
+		return cache.database.keepingStatements(transaction, func(connection tallying) error {
+			return change(cachegen.New(connection))
+		})
 	})
 }

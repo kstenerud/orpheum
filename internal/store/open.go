@@ -77,6 +77,9 @@ type Database struct {
 	isClosed atomic.Bool
 	// commits counts the write transactions committed since the database opened (Commits).
 	commits atomic.Int64
+	// onKeep is told each statement a write prepares and keeps (keptStatements); nil, as Open
+	// leaves it, tells no one. The store's tests set it to see the statements kept.
+	onKeep func(query string, statement *sql.Stmt)
 }
 
 // OpenOptions are the choices Open needs from the config file: they are known before the
@@ -191,7 +194,7 @@ var ErrClosed = errors.New("the database is closed")
 // Read returns the generated queries over the read-only pool. SQLite itself refuses a write
 // through it (query_only).
 func (database *Database) Read() *sqlcgen.Queries {
-	return sqlcgen.New(tallying{database.readers})
+	return sqlcgen.New(tallying{inner: database.readers})
 }
 
 // ReadTx runs read in one read transaction on the reader pool: every query in it sees the database
@@ -199,7 +202,7 @@ func (database *Database) Read() *sqlcgen.Queries {
 // more than one query reads through it; Read's queries each see the latest commit.
 func (database *Database) ReadTx(ctx context.Context, read func(queries *sqlcgen.Queries) error) error {
 	return readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
-		return read(sqlcgen.New(tallying{transaction}))
+		return read(sqlcgen.New(tallying{inner: transaction}))
 	})
 }
 
@@ -219,10 +222,13 @@ func readTransaction(ctx context.Context, pool *sql.DB, read func(transaction *s
 }
 
 // Write runs change in one write transaction, which begins IMMEDIATE on the single writer and
-// commits only if change returns nil.
+// commits only if change returns nil. Each statement it runs that returns no rows is prepared once
+// and kept until it ends (keptStatements).
 func (database *Database) Write(ctx context.Context, change func(queries *sqlcgen.Queries) error) error {
 	return database.transact(ctx, func(transaction *sql.Tx) error {
-		return change(sqlcgen.New(tallying{transaction}))
+		return database.keepingStatements(transaction, func(connection tallying) error {
+			return change(sqlcgen.New(connection))
+		})
 	})
 }
 

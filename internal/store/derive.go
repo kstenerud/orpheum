@@ -34,7 +34,7 @@ func (database *Database) WriteUnlessUnchanged(
 // stops at the first write it tries, so it must keep nothing of the run.
 func (database *Database) WouldWrite(ctx context.Context, derive func(queries *sqlcgen.Queries) error) (bool, error) {
 	err := readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
-		return derive(sqlcgen.New(tallying{transaction}))
+		return derive(sqlcgen.New(tallying{inner: transaction}))
 	})
 	if isRefusedWrite(err) {
 		return true, nil
