@@ -9,19 +9,8 @@ import (
 	"context"
 )
 
-const getRealmKeyMasterOfUser = `-- name: GetRealmKeyMasterOfUser :one
-SELECT master_realm FROM realm_key WHERE user_id = ?1
-`
-
-// The master realm the person's key was made for: what tells whether it serves the realm the core has.
-func (q *Queries) GetRealmKeyMasterOfUser(ctx context.Context, userID int64) (string, error) {
-	row := q.db.QueryRowContext(ctx, getRealmKeyMasterOfUser, userID)
-	var master_realm string
-	err := row.Scan(&master_realm)
-	return master_realm, err
-}
-
 const listLiveRealmKeys = `-- name: ListLiveRealmKeys :many
+
 SELECT realm_key.user_id, user.name, realm_key.key FROM realm_key
 JOIN user ON user.id = realm_key.user_id
 WHERE realm_key.master_realm = ?1 AND user.removed_at IS NULL
@@ -34,6 +23,9 @@ type ListLiveRealmKeysRow struct {
 	Key    []byte
 }
 
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Realm keys: what a person's realm sign-in is proven by, both ways, one per person, made for the
+// master realm the core's host holds (D297 section 3).
 // Every live person's key made for the master realm, with their name: a sign-in names its person by
 // the whole realm and their name, which the core matches against each.
 func (q *Queries) ListLiveRealmKeys(ctx context.Context, masterRealm string) ([]ListLiveRealmKeysRow, error) {
@@ -57,35 +49,4 @@ func (q *Queries) ListLiveRealmKeys(ctx context.Context, masterRealm string) ([]
 		return nil, err
 	}
 	return items, nil
-}
-
-const setRealmKey = `-- name: SetRealmKey :exec
-
-INSERT INTO realm_key (user_id, master_realm, key, made_at)
-VALUES (?1, ?2, ?3, ?4)
-ON CONFLICT (user_id) DO UPDATE SET master_realm = excluded.master_realm, key = excluded.key, made_at = excluded.made_at
-WHERE (realm_key.master_realm, realm_key.key, realm_key.made_at)
-  IS NOT (excluded.master_realm, excluded.key, excluded.made_at)
-`
-
-type SetRealmKeyParams struct {
-	UserID      int64
-	MasterRealm string
-	Key         []byte
-	MadeAt      int64
-}
-
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Realm keys: what a person's realm sign-in is proven by, both ways, one per person, made for the
-// master realm the core's host holds (D297 section 3).
-// The person's key, replacing the one they had: a new password or a new master realm makes another.
-// Only when it changes something (D303, DL9).
-func (q *Queries) SetRealmKey(ctx context.Context, arg SetRealmKeyParams) error {
-	_, err := q.db.ExecContext(ctx, setRealmKey,
-		arg.UserID,
-		arg.MasterRealm,
-		arg.Key,
-		arg.MadeAt,
-	)
-	return err
 }
