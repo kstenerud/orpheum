@@ -208,3 +208,58 @@ wrong (change the kind and the library rescans), and the metadata source is stil
 1. One button linking the server, held password, recorded as D451? Or ask the password on return?
 2. Register with TMDB and ship the key in source, once TMDB answers on commerciality?
 3. Offer one library per kind of subfolder, kind guessed from the folder's name?
+
+## The build (D527), as the lead specified it for the agents
+
+D527 replaces §1's flow: no password at the press, a link token that lives long enough to fetch an
+invitation, and away-from-home keys salted by the server, not the household. The wire below is
+shared by Orpheum (`discovery/discoveryproto`, `discovery/single`, the core, the SDK) and
+orpheum-connect, which builds against it through `ORPHEUM_PIN`.
+
+**The key salt.** Each core makes 16 random bytes once, at its first start, kept with its other
+state (and so in its backups), never changed. A person's away-from-home key, version 2:
+`proof.PersonKey(keySalt, name, password)`, PBKDF2-SHA256, `RealmRounds` rounds, salt
+`prefix + "person-key\n" + base64url(keySalt) + "\n" + RealmName(name)`. The core makes it whenever
+it sees the person's password (the first admin made, each sign-in, each password set, an invitation
+redeemed) whether or not it is linked, and keeps it beside any version-1 key (`proof.RealmKey`),
+which it keeps until it has made the version 2 (D527 §2.2). `RealmAsk`, `RealmPerson` and
+`RealmTag` are unchanged; only the key under them differs.
+
+**The salt to the discovery.** `AddressesRequest` (the heartbeat) gains `keySalt` (base64url), sent
+each time; the discovery keeps the latest per core.
+
+**The salt to a browser.** `POST PathRealmSalt` (`/realm-salt`) `{realm}` → `{salt}`: the realm's
+core's key salt, or, for a realm that names no core, a salt the discovery derives from the realm
+under a secret of its own, so that a realm's existence cannot be read from the answer. Rate limited
+as the realm sign-in is.
+
+**A sign-in from away.** The page asks the salt, derives the version-2 key and signs in as now;
+refused, it derives the version-1 key (salted by the realm, as now) and tries once more. The core
+checks each against the key of that version. The refusal stays the single "wrong" answer (D297).
+
+**The link token.** The core, enrolled (today's Connect does that, at home, by an admin), asks
+`POST PathLinkToken` (`/link-token`, a core-authenticated call as `/claim` is)
+`{returnTo, name}` → `{token, expiresAt}`: 128 bits, base64url, one use, **24 hours**, kept by its
+hash, one live per core (a new one replaces the old). `returnTo` is the core's page as the
+admin's browser opened it (`<origin>/manage/system/discovery`), so the discovery never takes an
+address from the query string. `name` is the server's name, for the approval page.
+
+**At the account site.** `GET /link?token=…` (account origin):
+1. signed in: names the server (name, identity-key fingerprint), the warning "continue only if you
+   just pressed Connect on your own server", the household's name to choose if the account has
+   none, **Link**; reconnecting a server the account already holds needs no other step;
+2. not signed in: the account's sign-in, saying it is *the orpheum.cc account, not the name and
+   password on your server*; at its foot "Don't have an account? Ask the orpheum.cc admins for an
+   invite link"; the token kept in that browser (connectd's own storage, cookie-bound, 24 hours)
+   while the person fetches an invitation: one redeemed in the same browser makes the account and
+   comes back to step 1 by itself; one redeemed elsewhere leaves this page waiting at its sign-in.
+**Link** claims the core for the account exactly as a typed key does today, and sends the browser
+to `returnTo` with `?linked=1`. A token expired or used says so, and that pressing Connect again on
+the server makes a new one.
+
+**At the core.** System's top: "Connect to a discovery service", the discovery named and its state.
+**Connect** (admin, at home): enrol if needed, ask the token, go to the account's `/link`. Asks the
+admin's password only when the core holds no version-2 key for them (a sign-in from before this
+release). Back with `linked=1`, the page shows the state from `askStatus`. The typed key and Claim
+stay behind "Link another way". What needs a discovery is greyed and stays selectable, and says
+what it needs (D527 §3).
