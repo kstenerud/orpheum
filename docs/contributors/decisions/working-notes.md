@@ -30385,6 +30385,10 @@ Amends D448 §9 (the approval from the account, built this way) and D297 §3 (§
       household's name, which it learns only at the link (amends D297 §3). The household's key
       follows from it when the link is made, so a household's name given or changed later leaves
       every key working.
+      **The keys made before** (the owner, 2026-11-19): the core keeps each person's old key beside
+      the new until it sees their password; a sign-in from away tries the new key first and the old
+      only when it is refused, so someone who signs in only from away is never locked out by the
+      change, and waits a second derivation until their next sign-in with a password.
    3. **Arriving at the discovery** (the owner, 2026-11-19). Signed in there already, as someone
       linking a first server or reconnecting one, the link goes on by itself after the confirmation.
       Not signed in, the page is a sign-in to the discovery's account, an e-mail and a password, and
@@ -30408,5 +30412,5 @@ Amends D448 §9 (the approval from the account, built this way) and D297 §3 (§
 4. **Every failure in setting up is told plainly**: what went wrong, and what to do, at the moment
    it happens, not only on the System page.
 
-**Status:** decided (2026-11-19); to build, in this order: the first-time pages (§1.3), the link
+**Status:** decided (2026-11-19); top priority, ahead of the B0 queue (the owner, 2026-11-19); to build, in this order: the first-time pages (§1.3), the link
 (§2), the start per platform (§1.1).
