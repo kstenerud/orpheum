@@ -1,6 +1,7 @@
 # Orpheum
 
-A self-hosted media server for your own films and series.
+A self-hosted media server for your own films and series. Its home on the web is
+[orpheum.cc](https://orpheum.cc).
 
 - Your own hardware.
 - Your own videos.
