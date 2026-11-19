@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add > Add, and start it. The
-# variables come from OpenMediaVault's global.env and the file's own Environment box.
+# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add (on some versions Add, then
+# Add again), and start it. The variables come from the file's own Environment box (tick Show
+# environment file to see it), or from OpenMediaVault's global.env where it already sets them.
 #
 # Generated from internal/deployment/templates/household.yaml (make generate); edit that. The server
 # writes its deployment at every start from what this file tells it; every other setting, its
@@ -11,14 +12,14 @@
 # It asks the kernel for nothing (D454 §2): no setting, no network of its own beside this machine's.
 #
 # Needed:
-#   PATH_TO_APPDATA       the folder that holds each app's data: OpenMediaVault's global.env sets it
+#   PATH_TO_APPDATA       the folder that holds each app's data: the Environment box, or global.env
 #   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it; the
 #                         server shows it by that name
 # Optional:
 #   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
 #                         one not set is none
-#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data: global.env sets them
-#   TIME_ZONE_VALUE       the time zone, Europe/Berlin: global.env sets it
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data: the Environment box, or global.env
+#   TIME_ZONE_VALUE       the time zone, Europe/Berlin: the Environment box, or global.env
 #   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version
 #                         such as v0.4.0 stays on it
 #   ORPHEUM_HTTP_PORT     the port a browser at home opens it on, http://<address>:8440

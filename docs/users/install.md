@@ -113,20 +113,34 @@ box already runs apps in **Services > Compose**, skip to step 1. Otherwise, firs
   comes with it. (It also installs openmediavault-sharerootfs: leave that installed.)
 - **Where compose files live.** Make the `appdata` folder of step 1 below, then in **Services >
   Compose > Settings** choose it as **Compose Files**' **Shared folder**, and **Save**.
-- **The user apps run as.** If **Users > Users** has no `appuser`, make one: **+ (Create)**, name
-  `appuser`, a password, **Save**. Never add it to the `docker` group, and never use `admin` or
-  `root` for apps.
+- **The user apps run as.** omv-extras' guide makes a user for apps alone, `appuser`, and that is
+  the best: if **Users > Users** has none, **+ (Create)**, name `appuser`, a password, **Save**.
+  (OpenMediaVault asks a password for every user; an AI agent helping you leaves it to you to
+  type.) An existing user that is not `root` or `admin` works too, one in the `sudo` group
+  included: the server sees only its own data folder and your media, so what that user may do
+  elsewhere on the box gives it nothing. What you give up is the other way round: anything that
+  user signs in to or runs can then read and change the server's data, its keys among them, which a
+  user for apps alone keeps apart. Never add the user to the `docker` group.
 
 1. **Shared folders.** In **Storage > Shared Folders** you have, or make, a folder for your media
    (`Media`) and one for app data (`appdata`), as omv-extras' guide sets up. Each lies on a disk at
-   a path like `/srv/dev-disk-by-uuid-1234abcd-…/Media`: the **Absolute Path** column shows it
-   (switch it on from the column menu if it is hidden). To make one, **+ (Create)**, give it its
-   name and the disk, and **Save**. After each change OpenMediaVault shows a yellow bar asking to
-   apply it: press its tick (**Apply**), or the change does not take.
-2. **The global environment.** In **Services > Compose > Files**, **Edit global environment file**
-   should already set `PATH_TO_APPDATA` (the appdata folder's absolute path), `APPUSER_PUID` and
-   `APPUSER_PGID` (the user apps run as, `appuser` in the guide) and `TIME_ZONE_VALUE`. Orpheum
-   uses these as every app does. If yours is empty, add them, with your own path and numbers:
+   a path like `/srv/dev-disk-by-uuid-1234abcd-…/Media`, or on a mergerfs pool at one like
+   `/srv/mergerfs/Storage/Media` (a pool works as a disk does): the **Absolute Path** column shows
+   it (switch it on from the column menu if it is hidden). To make one, **+ (Create)**, give it its
+   name, the disk or pool, and its **Relative path** on it, and **Save**. After each change
+   OpenMediaVault shows a yellow bar asking to apply it: press its tick (**Apply**), or the change
+   does not take.
+
+   If your films are in a folder inside a shared folder (`Storage/Video`, say), OpenMediaVault
+   shows only the shared folder's path. Make a shared folder for the inner one too, its
+   **Relative path** that folder's (`Storage/Video/`): its **Absolute Path** is then the exact path,
+   capitals included, to copy into step 4.
+2. **The values every app reads.** Orpheum reads `PATH_TO_APPDATA` (the appdata folder's absolute
+   path), `APPUSER_PUID` and `APPUSER_PGID` (the user apps run as) and `TIME_ZONE_VALUE`, as
+   omv-extras' apps do. Where a box set up by omv-extras' guide has them, they are in **Services >
+   Compose > Files**, **Edit global environment file**, and there is nothing to do. If that file is
+   empty (a box whose apps came from Portainer, say), leave it so: write them into Orpheum's own
+   file in step 4 instead, where they change no other app. Note your own values:
 
    ```sh
    PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
@@ -144,16 +158,19 @@ box already runs apps in **Services > Compose**, skip to step 1. Otherwise, firs
    on 8440 and its HTTPS on 8444. If something else has 8440, set `ORPHEUM_HTTP_PORT` to a free
    one in step 4's **Environment**; the HTTPS port is changed later on the server's **System**
    page.
-4. **The file.** In **Services > Compose > Files**, **Add**, then **Add** again (not *Add from
-   example*): name it `orpheum`, paste the
-   whole of [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
-   into **File**, and into **Environment** (this file's own variables):
+4. **The file.** In **Services > Compose > Files**, **Add** (on some versions **Add**, then **Add**
+   again; not *Add from example*): name it `orpheum`, and paste the whole of
+   [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
+   into **File**. Paste it, don't type it: the editor indents as you type, which breaks the file.
+   Tick **Show environment file** if the **Environment** box (this file's own variables) is hidden,
+   and write into it:
 
    ```sh
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
    ```
 
-   with the media folder's own **Absolute Path** from step 1, capitals included. **Save**.
+   with the media folder's own **Absolute Path** from step 1, capitals included, and, if step 2
+   found the global environment file empty, the four values from step 2 below it. **Save**.
 5. **Start it.** Select the `orpheum` file and press **Up**. The first time it pulls the image, so
    give it a minute. Three containers appear in **Services > Compose > Containers**:
    `orpheum-folders`, which prepares the data folder and stops (*exited* is right), then

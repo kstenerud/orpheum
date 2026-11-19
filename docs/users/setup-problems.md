@@ -207,7 +207,8 @@ in OpenMediaVault their logs are under **Services > Compose > Containers**, else
 ### Up says "required variable PATH_TO_APPDATA is missing a value" (or `ORPHEUM_MEDIA`)
 
 Compose stops before anything starts: the file needs that value. In OpenMediaVault, put it in the
-file's **Environment** (`ORPHEUM_MEDIA`) or check the global environment file (`PATH_TO_APPDATA`);
+file's **Environment**: `ORPHEUM_MEDIA` always, and `PATH_TO_APPDATA` with the user and time zone
+when the global environment file does not set them ([step 2](install.md#openmediavault));
 elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
 `ORPHEUM_LAN_ADDRESS` too; the server now learns the address, D452 §5.)
 

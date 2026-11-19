@@ -4,8 +4,9 @@ with the household's own values for the Update page (D462 §4). Each rendering s
 file's own header; the template's comments never reach a household. */ -}}
 # SPDX-License-Identifier: AGPL-3.0-or-later
 {{- if eq .Route "omv"}}
-# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add > Add, and start it. The
-# variables come from OpenMediaVault's global.env and the file's own Environment box.
+# Orpheum for OpenMediaVault: paste it into Services > Compose > Files > Add (on some versions Add, then
+# Add again), and start it. The variables come from the file's own Environment box (tick Show
+# environment file to see it), or from OpenMediaVault's global.env where it already sets them.
 {{- else if eq .Route "portainer"}}
 # Orpheum as a Portainer stack, from the app template's form, which sets the variables below.
 {{- else if eq .Route "docker"}}
@@ -56,7 +57,7 @@ x-yours:
 #   ORPHEUM_MEDIA         the folder that holds your films and series, /DATA/Media unless set
 {{- else}}
 # Needed:
-#   PATH_TO_APPDATA       the folder that holds each app's data{{if eq .Route "omv"}}: OpenMediaVault's global.env sets it{{end}}
+#   PATH_TO_APPDATA       the folder that holds each app's data{{if eq .Route "omv"}}: the Environment box, or global.env{{end}}
 #   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it; the
 #                         server shows it by that name
 # Optional:
@@ -64,8 +65,8 @@ x-yours:
 #   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
 #                         one not set is none
 {{- if ne .Route "casaos"}}
-#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data{{if eq .Route "omv"}}: global.env sets them{{end}}
-#   TIME_ZONE_VALUE       the time zone, Europe/Berlin{{if eq .Route "omv"}}: global.env sets it{{end}}
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data{{if eq .Route "omv"}}: the Environment box, or global.env{{end}}
+#   TIME_ZONE_VALUE       the time zone, Europe/Berlin{{if eq .Route "omv"}}: the Environment box, or global.env{{end}}
 {{- end}}
 #   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version
 #                         such as v0.4.0 stays on it
