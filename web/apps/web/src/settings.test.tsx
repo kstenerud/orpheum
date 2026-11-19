@@ -358,9 +358,9 @@ describe("settings", () => {
     expect(row.querySelector("output.save-note")?.textContent).toBe("Saved");
   });
 
-  it("says the server's log level can be changed at once (D347)", async () => {
+  it("says the server's and its media machines' log level can be changed at once (D347, D525)", async () => {
     expect(await paragraphsFor("logLevel")).toEqual([
-      "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
+      "How much the server and each of its media machines write to their logs, changed at once, a media machine's within half a minute: debug, info, warn or error. file keeps the level each one's config file names.",
     ]);
   });
 });
