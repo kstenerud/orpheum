@@ -165,18 +165,33 @@ func TestProbeNonce_IsRecognisedForTenMinutes(t *testing.T) {
 	}
 }
 
+// bothAtOnePort listens on UDP and TCP at one free port. The UDP port the system picks may be
+// another test's TCP port (a whole-suite run, 2026-11-19: "bind: address already in use"), so a
+// taken one is given back and another picked.
+func bothAtOnePort(t *testing.T) (net.PacketConn, net.Listener) {
+	t.Helper()
+	for range 20 {
+		packets, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		streams, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", packets.LocalAddr().String())
+		if err == nil {
+			return packets, streams
+		}
+		if closeErr := packets.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
+	t.Fatal("no port free for both UDP and TCP in 20 tries")
+	return nil, nil
+}
+
 // answerBindings answers STUN bindings on UDP and TCP at one port, as the relay does, until the
 // test ends; it returns the port's address.
 func answerBindings(t *testing.T) string {
 	t.Helper()
-	packets, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	streams, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", packets.LocalAddr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	packets, streams := bothAtOnePort(t)
 	t.Cleanup(func() { _, _ = packets.Close(), streams.Close() }) //nolint:errcheck // the test's end
 	answer := func(raw []byte) []byte {
 		request := &stun.Message{Raw: raw}
