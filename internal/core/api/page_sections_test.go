@@ -83,6 +83,7 @@ func TestSystem_ThePagesFirstReadCarriesWhatItsSectionsReadApart(t *testing.T) {
 		"backups":        "/backups",
 		"unusedSettings": "/config/unused",
 		"filingReports":  "/filing-reports?limit=500",
+		"problemReports": "/problem-reports",
 	})
 }
 

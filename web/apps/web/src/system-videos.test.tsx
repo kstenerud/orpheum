@@ -75,6 +75,7 @@ describe("the server's own videos on the System page (D435 §7)", () => {
         servedBy({
           "GET /system": [500, { title: "down" }],
           "GET /backups": [500, { title: "down" }],
+          "GET /problem-reports": [200, { reports: [] }],
           "GET /system/resource-use": [500, { title: "down" }],
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],

@@ -342,6 +342,17 @@ export const en = {
     viewFolders: "Folders",
     folderEmpty: "This folder holds no videos.",
   },
+  problemReport: {
+    open: "Report a problem",
+    heading: "Report a problem",
+    what: "Say what went wrong and what you were doing. It goes to this household's admin, with what this device says of itself and the server's recent log.",
+    words: "What went wrong",
+    send: "Send",
+    cancel: "Cancel",
+    close: "Close",
+    sent: "Sent. This household's admin finds it on the System page.",
+    tooMany: "You have reported many problems in the last hour. Wait a while, then report again.",
+  },
   filingReport: {
     write: "Report this",
     savedAt:

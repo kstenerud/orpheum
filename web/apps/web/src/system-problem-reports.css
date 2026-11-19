@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The System page's problem reports (system-problem-reports.tsx): each report's words set apart, its
+   two downloads side by side, and the summary's field at the section's width. */
+.system-problem-reports__words {
+  margin: var(--space-2) 0;
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--color-border);
+  white-space: pre-wrap;
+}
+
+.system-problem-reports__download,
+.system-problem-reports__downloaded {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block: var(--space-3);
+}
+
+.system-problem-reports__forms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.system-problem-reports__downloaded textarea {
+  width: 100%;
+}

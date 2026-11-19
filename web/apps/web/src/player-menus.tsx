@@ -30,6 +30,7 @@ import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
+import { playbackNow, ProblemReportDialog, type ReportedPlayback } from "./problem-report.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
@@ -68,9 +69,9 @@ export const PlayerMenusContext = createContext<PlayerMenusWays | undefined>(und
 
 /**
  * The menu open now, if one is: 🔈, Subtitles, Sound track, ⁝, or the dialog one opened (Find subtitles,
- * For testers).
+ * For testers, Report a problem).
  */
-type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers";
+type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers" | "report";
 
 /**
  * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
@@ -96,6 +97,8 @@ export function PlayerMenus(props: {
   const tracks = use(PlayerTracksContext);
   const ways = use(PlayerMenusContext);
   const [open, setOpen] = useState<OpenMenu | undefined>(undefined);
+  // The player's state as Report a problem was chosen, before the person writes (D524 §2).
+  const [reported, setReported] = useState<ReportedPlayback | undefined>(undefined);
   const { onOpenChange, sound } = props;
   const isOpen = open !== undefined;
   useEffect(() => {
@@ -108,11 +111,15 @@ export function PlayerMenus(props: {
     (isNowOpen: boolean): void => {
       setOpen((now) => openAfter(now, menu, isNowOpen));
     };
-  const findSubtitles =
+  const opens = (menu: OpenMenu) => (): void => {
+    setOpen(menu);
+  };
+  const reportProblem =
     ways === undefined
       ? undefined
       : (): void => {
-          setOpen("find");
+          setReported(playbackNow(ways.fileId, props.videoRef.current, ways.playback));
+          setOpen("report");
         };
   return (
     <>
@@ -127,22 +134,34 @@ export function PlayerMenus(props: {
           videoRef={props.videoRef}
           shown={props.shown}
           toldOf={toldOf}
-          onFind={findSubtitles}
-          onTesters={
-            hasTesters
-              ? () => {
-                  setOpen("testers");
-                }
-              : undefined
-          }
+          onFind={ways === undefined ? undefined : opens("find")}
+          onReport={reportProblem}
+          onTesters={hasTesters ? opens("testers") : undefined}
         />
       )}
-      {open === "find" && ways !== undefined ? (
-        <FindSubtitlesDialog ways={ways} onClose={endFinding} />
-      ) : null}
-      {open === "testers" ? <ForTestersDialog onClose={endFinding} /> : null}
+      <MenuDialog open={open} ways={ways} reported={reported} onClose={endFinding} />
     </>
   );
+}
+
+/** The dialog a menu opened, if one did: Find subtitles, For testers or Report a problem. */
+function MenuDialog(props: {
+  readonly open: OpenMenu | undefined;
+  readonly ways: PlayerMenusWays | undefined;
+  /** The player's state as Report a problem was chosen. */
+  readonly reported: ReportedPlayback | undefined;
+  readonly onClose: () => void;
+}): JSX.Element | null {
+  const { open, ways, onClose } = props;
+  if (open === "find" && ways !== undefined) {
+    return <FindSubtitlesDialog ways={ways} onClose={onClose} />;
+  }
+  if (open === "testers") {
+    return <ForTestersDialog onClose={onClose} />;
+  }
+  return open === "report" ? (
+    <ProblemReportDialog playback={props.reported} onClose={onClose} />
+  ) : null;
 }
 
 /** Subtitles, Sound track and ⁝ among those shown, over the film's tracks (PlayerMenus). */
@@ -153,6 +172,8 @@ function TrackMenus(props: {
   readonly shown: readonly OverlayControl[];
   readonly toldOf: (menu: OpenMenu) => (isNowOpen: boolean) => void;
   readonly onFind: (() => void) | undefined;
+  /** Opens ⁝'s Report a problem, where the page plays a film of its own (D524 §2). */
+  readonly onReport: (() => void) | undefined;
   /** Opens ⁝'s For testers, where the player gives the panel (ForTestersContext). */
   readonly onTesters: (() => void) | undefined;
 }): JSX.Element {
@@ -174,6 +195,7 @@ function TrackMenus(props: {
           tracks={tracks}
           ways={props.ways}
           videoRef={props.videoRef}
+          onReport={props.onReport}
           onTesters={props.onTesters}
           onOpenChange={toldOf("more")}
         />
@@ -356,6 +378,7 @@ function MoreMenu(props: {
   readonly tracks: PlayerTracks;
   readonly ways: PlayerMenusWays | undefined;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly onReport: (() => void) | undefined;
   readonly onTesters: (() => void) | undefined;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
@@ -398,6 +421,9 @@ function MoreMenu(props: {
       {ways === undefined ? null : <DataCapChoices videoRef={videoRef} />}
       <MoreOfThePage ways={ways} />
       <HowItPlays playback={ways?.playback} />
+      {props.onReport === undefined ? null : (
+        <ListOption onChoose={props.onReport}>{t("problemReport.open")}</ListOption>
+      )}
       {props.onTesters === undefined ? null : (
         <ListOption onChoose={props.onTesters}>{t("play.forTesters.open")}</ListOption>
       )}

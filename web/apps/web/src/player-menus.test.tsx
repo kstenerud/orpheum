@@ -19,7 +19,17 @@ import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import type { SubtitleTrack, TrackKey } from "./subtitles.tsx";
-import { fire, mount, type Mounted } from "./test-dom.tsx";
+import {
+  bodyField,
+  buttonWithText,
+  click,
+  enter,
+  fire,
+  mount,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { FakeConnection, heldStorage } from "./test-data-cap.ts";
 import { testServices, withServices } from "./test-services.tsx";
 
@@ -132,6 +142,36 @@ async function choosing(on: Mounted, text: string): Promise<void> {
 }
 
 describe("the overlay's menus (D407 §8)", () => {
+  it("reports a problem from ⁝ with where the film stands, taken as it was chosen (D524 §2)", async () => {
+    const heard: Heard[] = [];
+    const video = document.createElement("video");
+    video.currentTime = 42;
+    const videoRef: RefObject<HTMLVideoElement | null> = { current: video };
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+          <PlayerMenusContext value={ways}>
+            <PlayerMenus videoRef={videoRef} shown={everyMenu} onOpenChange={() => undefined} />
+          </PlayerMenusContext>
+        </PlayerTracksContext>,
+        servedBy({ "POST /problem-reports": [201, { id: 1 }] }, heard),
+      ),
+    );
+    await opened(mounted, "Settings");
+    await choosing(mounted, "Report a problem");
+    video.currentTime = 50;
+    const dialog = mounted.container.querySelector('dialog[aria-label="Report a problem"]');
+    await enter(dialog?.querySelector("textarea"), "the picture froze");
+    await click(buttonWithText(mounted.container, "Send"));
+    const sent = heard.find((each) => each.methodAndPath === "POST /problem-reports");
+    expect(bodyField(sent!, "playback")).toEqual({
+      fileId: 3,
+      positionMs: 42_000,
+      quality: "",
+      state: "paused",
+    });
+  });
+
   it("lists Off, the subtitle tracks and Find subtitles in Subtitles, no audio track, and chooses one", async () => {
     const chosen: Chosen = { subtitles: [], audio: [] };
     const on = await drawn(tracksNoting(chosen));

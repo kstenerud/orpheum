@@ -131,6 +131,7 @@ async function shown(
       servedBy({
         "GET /system": [200, report(node)],
         "GET /backups": noBackups,
+        "GET /problem-reports": [200, { reports: [] }],
         "GET /system/resource-use": noResourceUse,
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
@@ -387,6 +388,7 @@ it("the System page says what is not answering, and each outside service's limit
       <System />,
       servedBy({
         "GET /backups": noBackups,
+        "GET /problem-reports": [200, { reports: [] }],
         "GET /system/resource-use": noResourceUse,
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
@@ -455,6 +457,7 @@ it("the System page says when the public name's certificate expires, or that the
         servedBy({
           "GET /system": [200, shownReport],
           "GET /backups": noBackups,
+          "GET /problem-reports": [200, { reports: [] }],
           "GET /system/resource-use": noResourceUse,
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],
@@ -484,6 +487,7 @@ it("the System page notes a machine whose kernel has MPTCP on, and says nothing 
         servedBy({
           "GET /system": [200, shownReport],
           "GET /backups": noBackups,
+          "GET /problem-reports": [200, { reports: [] }],
           "GET /system/resource-use": noResourceUse,
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],
@@ -516,6 +520,7 @@ it("the System page opens with a contents row whose links focus their sections' 
     "Now playing",
     "Resource use",
     "Backups",
+    "Problem reports",
     "Reached from outside",
     "Remote access",
   ]);
@@ -570,6 +575,7 @@ function systemPage(query: URLSearchParams): Answer {
             backups: { directory: "/srv/orpheum/kept-backups", backups: [] },
             unusedSettings: { unusedSettings: [] },
             filingReports: { reports: [] },
+            problemReports: { reports: [] },
             network: {
               kept: home,
               running: home,

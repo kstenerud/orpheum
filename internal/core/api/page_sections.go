@@ -47,6 +47,8 @@ type SystemSectionsBody struct {
 	UnusedSettings UnusedOutputBody `json:"unusedSettings"`
 	// FilingReports is GET /filing-reports' first page of 500, its nextCursor the rest's.
 	FilingReports FilingReportsOutputBody `json:"filingReports"`
+	// ProblemReports is GET /problem-reports' answer.
+	ProblemReports ProblemReportsOutputBody `json:"problemReports"`
 	// Network is GET /system/network's answer; absent where the server keeps no network settings,
 	// its config file's, where that endpoint refuses with a conflict.
 	Network *NetworkStateBody `json:"network,omitempty"`
@@ -74,9 +76,13 @@ func (server *Server) systemSections(ctx context.Context, dependencies *Dependen
 	if err != nil {
 		return nil, err
 	}
+	problems, err := server.problemReportsListed(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
 	sections := &SystemSectionsBody{
 		NowPlaying: playing.Body, ResourceUse: use.Body, Backups: backups.Body,
-		UnusedSettings: unused.Body, FilingReports: reports.Body,
+		UnusedSettings: unused.Body, FilingReports: reports.Body, ProblemReports: problems.Body,
 	}
 	network, err := server.networkState(ctx, dependencies)
 	switch {

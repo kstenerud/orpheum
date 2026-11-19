@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
 import { DropDown } from "./drop-down.tsx";
+import { ProblemReportDialog } from "./problem-report.tsx";
 import { dangerousMark } from "./focus-navigation.ts";
 import { FilmsIcon, LibrariesIcon, MenuIcon, SeriesIcon } from "./icons.tsx";
 import { ListNote, ListOption } from "./list-box.tsx";
@@ -618,6 +619,7 @@ function MainMenu(props: {
   const { t } = useTranslation();
   const label = t("nav.menu");
   const [isSignOutAsked, setIsSignOutAsked] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
   return (
     <div
       className={props.isCurrent ? "app-shell__menu app-shell__menu--current" : "app-shell__menu"}
@@ -636,6 +638,9 @@ function MainMenu(props: {
             setIsSignOutAsked(true);
           }}
           onSwitchHousehold={props.onSwitchHousehold}
+          onReportProblem={() => {
+            setIsReporting(true);
+          }}
         >
           {props.children}
         </MenuPlaces>
@@ -645,6 +650,13 @@ function MainMenu(props: {
           onSignOut={props.onSignOut}
           onCancel={() => {
             setIsSignOutAsked(false);
+          }}
+        />
+      ) : null}
+      {isReporting ? (
+        <ProblemReportDialog
+          onClose={() => {
+            setIsReporting(false);
           }}
         />
       ) : null}
@@ -679,8 +691,15 @@ function SignOutAsked(props: {
   );
 }
 
-/** What the menu holds, in order: who is signed in where, its places, and Sign out last. */
-function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): JSX.Element {
+/**
+ * What the menu holds, in order: who is signed in where, its places, Report a problem for someone
+ * signed in (D524 §2), and Sign out last.
+ */
+function MenuPlaces(
+  props: Omit<Parameters<typeof MainMenu>[0], "isCurrent"> & {
+    readonly onReportProblem: () => void;
+  },
+): JSX.Element {
   const { t } = useTranslation();
   const { signedInAs, realm } = props;
   return (
@@ -698,6 +717,9 @@ function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): J
         </ListNote>
       )}
       {props.children}
+      {signedInAs === undefined ? null : (
+        <ListOption onChoose={props.onReportProblem}>{t("problemReport.open")}</ListOption>
+      )}
       {props.onSwitchHousehold === undefined ? null : (
         <ListOption onChoose={props.onSwitchHousehold}>{t("nav.switchHousehold")}</ListOption>
       )}

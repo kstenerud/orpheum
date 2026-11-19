@@ -124,6 +124,28 @@ export const enSystem = {
       set: "Set",
       useKinds: "Use its kind's",
     },
+    problemReports: {
+      heading: "Problem reports",
+      what: "What people here reported from the menu or the player, with what their device said and the server's and each machine's recent log. Each is kept for 60 days.",
+      none: "No one has reported a problem.",
+      made: "{{who}}, {{at}}, version {{version}}",
+      someoneGone: "Someone whose account is gone",
+      choose:
+        "Download it shareable, every name hidden, to post as an issue; or full, every name kept, to read here and not to share.",
+      shareable: "Shareable",
+      full: "Full",
+      includeOther: "In the full report, name the other library's videos too",
+      shareableGot:
+        "The shareable report: every name it found is hidden, but read it before you post it.",
+      fullGot: "The full report: it names your people, videos and folders. Do not share it.",
+      save: "Save {{name}}",
+      summary: "The report's summary, which fits an issue",
+      copySummary: "Copy the summary",
+      copied: "Copied.",
+      delete: "Delete",
+      deleteConsequence: "The report and the logs it holds are deleted for good.",
+      deleteConfirm: "Delete the report",
+    },
     backups: {
       heading: "Backups",
       what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it. The server makes one on its own each day, without the server's keys, and keeps the newest; the backup settings say when and how many.",

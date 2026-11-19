@@ -23,6 +23,7 @@ import { NodeUnconfinedLeave } from "./node-unconfined.tsx";
 import { NowPlaying } from "./now-playing.tsx";
 import { SystemAddressAtHome } from "./system-address-at-home.tsx";
 import { SystemBackups } from "./system-backups.tsx";
+import { SystemProblemReports } from "./system-problem-reports.tsx";
 import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
 import { SystemResourceUse } from "./system-resource-use.tsx";
 import { SystemUnusedSettings } from "./system-unused-settings.tsx";
@@ -110,6 +111,7 @@ export function System(): JSX.Element {
       <NowPlaying />
       <SystemResourceUse />
       <SystemBackups />
+      <SystemProblemReports />
       <SystemUnusedSettings />
       <SystemFilingReports />
       <SystemReachability />
@@ -208,6 +210,7 @@ function contentsEntries(t: TFunction, nodes: readonly SystemNode[]): readonly C
     { headingId: "now-playing", name: t("nowPlaying.heading") },
     { headingId: "system-resource-use", name: t("system.resourceUse.heading") },
     { headingId: "system-backups", name: t("system.backups.heading") },
+    { headingId: "system-problem-reports", name: t("system.problemReports.heading") },
     { headingId: "system-reachability", name: t("system.reachability.heading") },
     { headingId: "system-discovery", name: t("system.discovery.heading") },
   ];

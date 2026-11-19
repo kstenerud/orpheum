@@ -358,17 +358,26 @@ export async function chooseIn(container: Element, field: string, text: string):
   await click(choice);
 }
 
+/** The prototype whose value setter a field's typing calls, or undefined for one not a field. */
+function fieldPrototypeOf(field: Element | null | undefined): object | undefined {
+  if (field instanceof HTMLInputElement) {
+    return HTMLInputElement.prototype;
+  }
+  return field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : undefined;
+}
+
 /**
- * Types text into an input, as a person does, and lets the requests it made answer. React reads an
- * input's value through the element's own setter, so the value is set through it.
+ * Types text into an input or a textarea, as a person does, and lets the requests it made answer.
+ * React reads a field's value through the element's own setter, so the value is set through it.
  */
 export async function enter(input: Element | null | undefined, text: string): Promise<void> {
-  if (!(input instanceof HTMLInputElement)) {
+  const prototype = fieldPrototypeOf(input);
+  if (input === null || input === undefined || prototype === undefined) {
     throw new Error("no input to type in");
   }
   await act(async () => {
-    // The prototype's setter, with the input as its receiver: what a person's typing calls.
-    Reflect.set(HTMLInputElement.prototype, "value", text, input);
+    // The prototype's setter, with the field as its receiver: what a person's typing calls.
+    Reflect.set(prototype, "value", text, input);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await settleAnswers();
   });

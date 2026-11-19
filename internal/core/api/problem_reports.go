@@ -55,9 +55,13 @@ type MakeProblemReportOutput struct {
 
 // ProblemReportsOutput is GET /problem-reports's answer.
 type ProblemReportsOutput struct {
-	Body struct {
-		Reports []ProblemReportSummaryBody `doc:"Newest first, for the 60 days each is kept" json:"reports"`
-	}
+	Body ProblemReportsOutputBody
+}
+
+// ProblemReportsOutputBody is ProblemReportsOutput's body, which the System page's first read
+// carries too (the client-server audit's finding 10).
+type ProblemReportsOutputBody struct {
+	Reports []ProblemReportSummaryBody `doc:"Newest first, for the 60 days each is kept" json:"reports"`
 }
 
 // ProblemReportSummaryBody is one kept report as the admin's list names it.
@@ -191,6 +195,14 @@ func (server *Server) listProblemReports(
 	if err != nil {
 		return nil, err
 	}
+	return server.problemReportsListed(ctx, dependencies)
+}
+
+// problemReportsListed is GET /problem-reports' answer, which the System page's first read carries
+// too.
+func (server *Server) problemReportsListed(
+	ctx context.Context, dependencies *Dependencies,
+) (*ProblemReportsOutput, error) {
 	output := &ProblemReportsOutput{}
 	output.Body.Reports = []ProblemReportSummaryBody{}
 	if dependencies.ProblemReports == nil {

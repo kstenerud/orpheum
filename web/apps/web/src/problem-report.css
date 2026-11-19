@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Report a problem (problem-report.tsx): what to say, the words' field at the dialog's width, then
+   Cancel and Send side by side. */
+.problem-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.problem-report__words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.problem-report__words textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.problem-report__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

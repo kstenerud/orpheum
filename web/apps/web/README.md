@@ -16,6 +16,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (a library, an invitation) keeps its one Create. Settings shows each setting in one column, its
   name in the person's words above its key (`locales/en-setting-labels.ts`, every setting's held by
   `TestRegistry_TheWebCatalogueLabelsEverySetting`). `src/settings.test.tsx`.
+- **Anyone signed in reports a problem to the household's admin, who alone reads it** (D524 §2,
+  §4): *Report a problem* is in the account menu for a person signed in and in the player's ⁝, which
+  adds where the film stood as it was chosen; it sends their words, the page and the device's facts
+  (`src/problem-report.tsx`). The System page lists the reports, and each downloads shareable or
+  full at a press of one or the other, neither the default, the other library's names only in the
+  full form and only when asked. `src/problem-report.test.tsx`, `src/player-menus.test.tsx`,
+  `src/system-problem-reports.test.tsx`.
 - **Imports packages by name, never another app.** `app-not-to-other-app` and
   `not-into-another-package-by-path` (`web/.dependency-cruiser.cjs`).
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals` (`fetch`,

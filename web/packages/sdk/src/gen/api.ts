@@ -5998,6 +5998,7 @@ export interface components {
             filingReports: components["schemas"]["FilingReportsOutputBody"];
             network?: components["schemas"]["NetworkStateBody"];
             nowPlaying: components["schemas"]["NowPlayingOutputBody"];
+            problemReports: components["schemas"]["ProblemReportsOutputBody"];
             resourceUse: components["schemas"]["ResourceUseOutputBody"];
             unusedSettings: components["schemas"]["UnusedOutputBody"];
         };
