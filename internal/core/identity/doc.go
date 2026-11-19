@@ -14,6 +14,10 @@
 //   - The installation id, beside the key in installation-id, is made once and kept across restarts,
 //     and like the key is never in a backup (D437 §5). TestLoadOrMakeInstallation_MakesTheIDOnceAndKeepsIt;
 //     backup's TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys.
+//   - The key salt, in key-salt, is made once and never changed, and unlike the key is in every
+//     backup, since each person's version-2 away-from-home key is salted by it (D527 §2.2).
+//     TestLoadOrMakeKeySalt_MakesTheSaltOnceAndKeepsIt; backup's
+//     TestWrite_KeepsTheKeySaltInEveryBackup.
 //
 // # Read before changing
 //
@@ -25,4 +29,5 @@
 //   - identity.go: the key, its file and its signatures.
 //   - installation.go: the installation id a discovery tells this installation's restarts from a
 //     copy's by (D437 §5).
+//   - keysalt.go: the salt of every person's version-2 key (D527 §2.2).
 package identity

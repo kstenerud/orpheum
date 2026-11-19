@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -127,6 +128,10 @@ type Parts struct {
 	// (identity.LoadOrMakeInstallation), sent with each session asked for, so the discovery admits the
 	// installation that last held the realm at once (D437 §5). Empty sends none.
 	InstallationID string
+	// KeySalt is the core's key salt (identity.LoadOrMakeKeySalt), sent in every heartbeat so the
+	// discovery can give it to a page signing in by the realm, which derives each person's version-2
+	// key with it (D527 §2.2). Empty sends none.
+	KeySalt []byte
 	// Healthy is the core's own health check, which must pass for the core to hold its signalling
 	// connection and so answer the discovery's ping: a core whose database or disk has failed does
 	// not hold the realm against a real failover (D437 §2). Nil is always healthy.
@@ -680,6 +685,9 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		APIMajor:       service.parts.APIMajor, Candidates: candidates, HouseNetworks: houseNetworks,
 		// The root it pinned, so its operator sees a core holding another statement (the audit's F17).
 		RootVersion: rootVersion, RootHash: rootHash,
+	}
+	if len(service.parts.KeySalt) > 0 {
+		request.KeySalt = base64.RawURLEncoding.EncodeToString(service.parts.KeySalt)
 	}
 	if service.parts.TURN != nil {
 		request.TURN = service.parts.TURN(ctx)

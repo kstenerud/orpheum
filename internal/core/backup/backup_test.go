@@ -412,6 +412,32 @@ func TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys(t *testing.T) {
 	}
 }
 
+// The key salt is in every backup, one made without the keys too: it is no secret, and a restore that
+// lost it would leave every person's away-from-home key unusable until each signed in at home again
+// (D527 §2.2).
+func TestWrite_KeepsTheKeySaltInEveryBackup(t *testing.T) {
+	t.Parallel()
+	original := newServer(t)
+	salt := []byte("AAECAwQFBgcICQoLDA0ODw\n")
+	if err := original.directories.WritePersistentFile(identity.KeySaltFileName, salt); err != nil {
+		t.Fatal(err)
+	}
+	for index, withKeys := range []bool{false, true} {
+		written, err := Write(t.Context(), original.database, original.directories,
+			testTime.Add(time.Duration(index)*time.Hour), withKeys)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names, err := instancedir.ListBackupArchive(written.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(names, identity.KeySaltFileName) {
+			t.Errorf("a backup made with the keys %t lacks %s: %v", withKeys, identity.KeySaltFileName, names)
+		}
+	}
+}
+
 func TestWrite_RefusesToIncludeAKeyThereIsNot(t *testing.T) {
 	t.Parallel()
 	original := newServer(t)

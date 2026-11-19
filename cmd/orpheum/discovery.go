@@ -74,6 +74,7 @@ func discoveryParts(
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
 		TURN: relayForFound(newICEIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
+		KeySalt:                 opened.keySalt,
 		HasCertificate:          opened.certificates.hasDiscoveryCertificate,
 		ConfiguredHouseNetworks: config.Discovery.houseNetworks(),
 		Healthy:                 databaseHealth(opened.database),

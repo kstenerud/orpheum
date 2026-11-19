@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/home"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
@@ -243,6 +244,9 @@ type openedServices struct {
 	// portMapping keeps the core's HTTPS port open at the home router while the discovery publishes
 	// it (D273 §7).
 	portMapping *portmap.Service
+	// keySalt is the core's key salt, made at its first start, which salts each person's version-2 key
+	// and goes to the discovery in each heartbeat (D527 §2.2).
+	keySalt []byte
 }
 
 // with is opened holding the core's services, and those of them that what the config makes uses.
@@ -302,6 +306,17 @@ func tellTheUpdatePage(dependencies *api.Dependencies, server ServerConfig) {
 	dependencies.ImageTag, dependencies.InstallDirectory = server.ImageTag, server.InstallDirectory
 }
 
+// loadKeyAndSalt loads the secret key and the key salt, each made at the first start: the one seals
+// the secrets (D194 §4), the other salts each person's version-2 key (D527 §2.2).
+func loadKeyAndSalt(directories *instancedir.Directories, logger *slog.Logger) (secrets.Key, []byte, error) {
+	secretKey, err := loadOrCreateSecretKey(directories, logger)
+	if err != nil {
+		return secretKey, nil, err
+	}
+	keySalt, err := identity.LoadOrMakeKeySalt(directories, rand.Reader)
+	return secretKey, keySalt, err
+}
+
 // wireCore seeds the settings, loads the secret key, has the core's services assembled (D351), makes
 // sure a server with no users has a setup code, and makes what the config alone makes beside them:
 // the debug endpoints, the certificates, the discovery, port mapping, the reachability check and the
@@ -317,8 +332,8 @@ func wireCore(
 	if opened.addressAtHome, err = keepAddressAtHome(ctx, config, server, opened, logger); err != nil {
 		return opened, api.Dependencies{}, err
 	}
-	secretKey, err := loadOrCreateSecretKey(opened.directories, logger)
-	if err != nil {
+	var secretKey secrets.Key
+	if secretKey, opened.keySalt, err = loadKeyAndSalt(opened.directories, logger); err != nil {
 		return opened, api.Dependencies{}, err
 	}
 	if diagnosticsErr := mountDiagnostics(

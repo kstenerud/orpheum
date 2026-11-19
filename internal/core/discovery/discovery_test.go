@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -138,6 +139,7 @@ func (built *world) restart(t *testing.T) *Service {
 		ProbeNonce:     func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
 		HasCertificate: built.hasCertificate.Load,
 		InstallationID: "installation-of-the-test",
+		KeySalt:        []byte("the key salt 16b"),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -305,6 +307,28 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	if first, next := built.fake.heartbeats[1].ProbeNonce, built.fake.heartbeats[2].ProbeNonce; first != "probe-2" ||
 		next != "probe-3" {
 		t.Errorf("the heartbeats' probe nonces were %q and %q; want a new one each", first, next)
+	}
+}
+
+// Each heartbeat carries the core's key salt, which a page derives its version-2 key with (D527 §2.2).
+func TestStep_EachHeartbeatCarriesTheKeySalt(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(ctx) // learns it is claimed
+	built.service.step(ctx) // sends its addresses
+	if len(built.fake.heartbeats) == 0 {
+		t.Fatal("no heartbeat was sent once claimed")
+	}
+	want := base64.RawURLEncoding.EncodeToString([]byte("the key salt 16b"))
+	for _, sent := range built.fake.heartbeats {
+		if sent.KeySalt != want {
+			t.Errorf("a heartbeat's key salt was %q; want %q", sent.KeySalt, want)
+		}
 	}
 }
 

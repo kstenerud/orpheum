@@ -35,6 +35,9 @@
 //     TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse and
 //     TestRestore_WithTheIncludedKeyOpensSecrets; every table's copy, by the store's
 //     TestBackup_ARestoredCopyReproducesEveryTable.
+//   - The key salt, which is no secret, is in every backup, one made without the keys too, so a restore
+//     leaves every person's away-from-home key working (D527 §2.2).
+//     TestWrite_KeepsTheKeySaltInEveryBackup.
 //   - A backup whose database copy fails its integrity check is refused and leaves nothing behind
 //     (D303 §7, M6), as does one whose copy is cut short, its check cancelled by a stop; a copy of
 //     its name there already, another backup's of the same second, is refused and left alone.

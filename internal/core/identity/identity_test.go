@@ -3,6 +3,7 @@
 package identity
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"strings"
@@ -66,6 +67,30 @@ func TestLoadOrMakeInstallation_MakesTheIDOnceAndKeepsIt(t *testing.T) {
 	files[InstallationFileName] = []byte("\n")
 	if _, err = LoadOrMakeInstallation(files, rand.Reader); err == nil {
 		t.Error("a file holding no installation id was taken; want it refused")
+	}
+}
+
+// The key salt is made at the first start and the same one read back at every later start, since
+// every person's version-2 key is salted by it (D527 §2.2); a file holding no salt is refused.
+func TestLoadOrMakeKeySalt_MakesTheSaltOnceAndKeepsIt(t *testing.T) {
+	t.Parallel()
+	files := memoryFiles{}
+	first, err := LoadOrMakeKeySalt(files, rand.Reader)
+	if err != nil || len(first) != proof.KeySaltBytes {
+		t.Fatalf("the first start's key salt is %x (%v); want %d bytes", first, err, proof.KeySaltBytes)
+	}
+	again, err := LoadOrMakeKeySalt(files, rand.Reader)
+	if err != nil || !bytes.Equal(again, first) {
+		t.Errorf("the second start's key salt is %x (%v); want the one kept, %x", again, err, first)
+	}
+	if other, otherErr := LoadOrMakeKeySalt(memoryFiles{}, rand.Reader); otherErr != nil || bytes.Equal(other, first) {
+		t.Error("another instance directory made the same key salt")
+	}
+	for _, held := range []string{"\n", "not a salt\n", "AAEC\n"} {
+		files[KeySaltFileName] = []byte(held)
+		if _, err = LoadOrMakeKeySalt(files, rand.Reader); err == nil {
+			t.Errorf("a file holding %q was taken as the key salt; want it refused", held)
+		}
 	}
 }
 
