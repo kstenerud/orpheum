@@ -499,6 +499,8 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 func fullScansAllowed() map[string]string {
 	return map[string]string{
 		"ListLibraries": "a household has a handful of libraries",
+		"ListLivePersonKeys": "a household has a handful of people, and a sign-in from away matches its name " +
+			"against every live person's key (D527 section 2.2)",
 		"ListProblemReportKnownNames": "an admin's download of a problem report looks for every title, root, " +
 			"library, person, device and node in its free text, at the moment of the download (D524)",
 		"ListRootsOfNodeWithRetired":    "a household has a handful of library folders, retired ones too",
