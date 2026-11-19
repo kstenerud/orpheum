@@ -3,8 +3,8 @@
 /**
  * How long a chunked playback's next chunk is expected to take to load, which a player waits to
  * outlast before it starts or plays on after a seek (the SDK's ready-ahead.ts; the owner,
- * 2026-10-28): the chunk after what the video loaded where it is, on the quality hls.js loads, its
- * size from its byte range where the playlist gives one, else its film's length at its quality's
+ * 2026-10-28): the chunk hls.js loads next, as the step-down judges it too (picture-room's
+ * nextChunkOf: one finder, rule 11), on the quality hls.js loads, its size from its byte range where the playlist gives one, else its film's length at its quality's
  * average rate, over the next chunk's bound of its controller's estimate of the link, plus the wait
  * its first byte is expected to take (bandwidth-sampling-2026-10-29.md P5). The bound is a lower
  * quantile set by what is loaded ahead, from the link its device remembers before any chunk and
@@ -15,53 +15,52 @@
  * and the player waits refillAheadMs.
  */
 
-import { loadedAheadMsOf, tellNextChunkLoadMs, type NextChunkLoad } from "@orpheum/sdk";
+import { tellNextChunkLoadMs, type NextChunkLoad } from "@orpheum/sdk";
 
-/** One chunk in a quality's playlist, as hls.js lists it: where it starts, how long, and its bytes. */
-interface ListedChunk {
-  readonly start: number;
-  readonly duration: number;
+import {
+  nextChunkOf,
+  type GridChunk,
+  type PictureRoom,
+  type RoomHls,
+  type RoomLevel,
+} from "./picture-room.ts";
+
+/** One chunk in a quality's playlist, as hls.js lists it: its place on the grid, and its bytes. */
+interface ListedChunk extends GridChunk {
   readonly byteRange: readonly number[];
 }
 
 /**
- * The part of hls.js the next chunk is read from: the quality it loads, the lowest it may, each
- * quality's chunks, and how far ahead it loads (keepForwardBuffer sets both lengths).
+ * The part of hls.js the next chunk is read from: what the picture room reads (which chunk is
+ * next), the quality it loads, each quality's chunks with their bytes, and how far ahead it loads
+ * (keepForwardBuffer sets both lengths).
  */
-export interface ChunkListing {
+export interface ChunkListing extends RoomHls {
   readonly loadLevel: number;
-  readonly minAutoLevel: number;
-  readonly levels: readonly {
-    readonly averageBitrate: number;
+  readonly levels: readonly (Omit<RoomLevel, "details"> & {
     readonly details?: { readonly fragments: readonly ListedChunk[] } | undefined;
-  }[];
+  })[];
   readonly config: { readonly maxBufferLength: number; readonly maxMaxBufferLength: number };
 }
 
-/** A hair past the end of what is loaded, in seconds, so the chunk ending there is not taken for the next. */
-const pastTheEndS = 0.001;
-
 /**
- * The bits of the chunk after what video loaded where it is, on the quality hls.js loads: its byte
- * range's, else its length at the quality's average rate; undefined where that quality's playlist
- * is not loaded yet, or nothing is left to load.
+ * The bits of the chunk hls.js loads next (picture-room's nextChunkOf, which the step-down judges
+ * too), on the quality it loads: its byte range's, else its length at the quality's average rate;
+ * undefined where that quality's playlist is not loaded yet, or nothing is left to load.
  */
-export function nextChunkBits(
-  listing: ChunkListing,
-  video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
-): number | undefined {
-  return nextChunkOf(listing, video)?.bits;
+export function nextChunkBits(listing: ChunkListing, room: PictureRoom): number | undefined {
+  return nextChunkLoadOf(listing, room)?.bits;
 }
 
-/** The chunk after what video loaded where it is, on the quality hls.js loads: its bits and its film. */
-function nextChunkOf(
+/** The chunk hls.js loads next, on the quality it loads: its bits and its film. */
+function nextChunkLoadOf(
   listing: ChunkListing,
-  video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
+  room: PictureRoom,
 ): { readonly bits: number; readonly filmMs: number } | undefined {
+  const sn = nextChunkOf(listing, room)?.sn;
   const level = listing.levels[listing.loadLevel];
-  const loadedEndS = video.currentTime + loadedAheadMsOf(video) / 1000 + pastTheEndS;
-  const next = level?.details?.fragments.find((chunk) => chunk.start + chunk.duration > loadedEndS);
-  if (level === undefined || next === undefined) {
+  const next = level?.details?.fragments.find((chunk) => chunk.sn === sn);
+  if (sn === undefined || level === undefined || next === undefined) {
     return undefined;
   }
   const [from, to] = next.byteRange;
@@ -93,12 +92,13 @@ export interface NextChunkLink {
  */
 export function tellNextChunkLoad(
   listing: ChunkListing,
+  room: PictureRoom,
   video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
   nextChunkLink: () => NextChunkLink | undefined,
 ): () => void {
   return tellNextChunkLoadMs(video, () => {
     const over = nextChunkLink();
-    const next = nextChunkOf(listing, video);
+    const next = nextChunkLoadOf(listing, room);
     const { maxBufferLength, maxMaxBufferLength } = listing.config;
     // A kilobit a second is a bit a millisecond.
     return over === undefined || next === undefined || over.kbps <= 0

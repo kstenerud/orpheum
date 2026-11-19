@@ -14,6 +14,7 @@ import {
   type ChunkListing,
   type NextChunkLink,
 } from "./next-chunk.ts";
+import { limitMemoryIn, PictureRoom, type HeldSpan } from "./picture-room.ts";
 
 /** Loaded ranges, as a video's buffered says them. */
 function ranges(loaded: readonly (readonly [number, number])[]): TimeRanges {
@@ -24,19 +25,50 @@ function ranges(loaded: readonly (readonly [number, number])[]): TimeRanges {
   };
 }
 
-/** A quality of averageBps cut into chunks of 10.4 s from 0, and one byte range where given. */
-function listing(averageBps: number, byteRange: readonly number[] = []): ChunkListing {
+/** Loaded where resumedVideo is: 1794.96 s to the end of chunk 172 at 1799.2 s. */
+const resumedSpan: HeldSpan = { start: 1794.96, end: 1799.2 };
+
+/**
+ * A quality of averageBps cut into chunks of 10.4 s from 0, with byte ranges for the chunks
+ * byteRanges names, and hls.js's span loaded.
+ */
+function listing(
+  averageBps: number,
+  byteRanges: Readonly<Record<number, readonly number[]>> = {},
+  span: HeldSpan = resumedSpan,
+): ChunkListing {
   const fragments = Array.from({ length: 200 }, (_unused, index) => ({
+    sn: index,
     start: index * 10.4,
     duration: 10.4,
-    byteRange: index === 173 ? byteRange : [],
+    bitrate: null,
+    byteRange: byteRanges[index] ?? [],
   }));
   return {
     loadLevel: 0,
     minAutoLevel: 0,
-    levels: [{ averageBitrate: averageBps, details: { fragments } }],
+    levels: [{ bitrate: averageBps, averageBitrate: averageBps, details: { fragments } }],
+    mainForwardBufferInfo: span,
     config: { maxBufferLength: 30, maxMaxBufferLength: 30 },
   };
+}
+
+/** A picture room holding the chunks numbered, 10.4 s each, as hls.js buffered them. */
+function roomHolding(...held: readonly number[]): PictureRoom {
+  const room = new PictureRoom({
+    assumedBytes: 300_000_000,
+    memory: limitMemoryIn(undefined, { userAgent: "test", nowMs: () => 0, told: () => {} }),
+    note: () => {},
+  });
+  for (const sn of held) {
+    room.buffered({ sn, level: 0, startS: sn * 10.4, endS: (sn + 1) * 10.4, bytes: 1 }, null);
+  }
+  return room;
+}
+
+/** The room of resumedVideo: chunk 172 held, which ends where the picture loaded ends. */
+function resumedRoom(): PictureRoom {
+  return roomHolding(172);
 }
 
 /** A stand-in video: where it is, what it loaded, and its events. */
@@ -53,17 +85,44 @@ function resumedVideo(): FakeVideo {
 describe("how long the next chunk is expected to take to load (the owner, 2026-10-28)", () => {
   it("is the chunk after what is loaded, its length at its quality's average rate", () => {
     // Chunk 172 is 1788.8-1799.2 s: the next is 173, 10.4 s at 7.7 Mb/s.
-    expect(nextChunkBits(listing(7_700_000), resumedVideo())).toBeCloseTo(10.4 * 7_700_000);
+    expect(nextChunkBits(listing(7_700_000), resumedRoom())).toBeCloseTo(10.4 * 7_700_000);
   });
 
   it("is its byte range's size where the playlist gives one", () => {
-    expect(nextChunkBits(listing(7_700_000, [5_000_000, 15_000_000]), resumedVideo())).toBe(
+    expect(nextChunkBits(listing(7_700_000, { 173: [5_000_000, 15_000_000] }), resumedRoom())).toBe(
       80_000_000,
     );
   });
 
   it("is unknown before the quality's playlist is loaded", () => {
-    expect(nextChunkBits({ ...listing(7_700_000), levels: [] }, resumedVideo())).toBeUndefined();
+    expect(nextChunkBits({ ...listing(7_700_000), levels: [] }, resumedRoom())).toBeUndefined();
+  });
+
+  it("sizes the chunk after a held chunk the picture loaded ends just short of, as hls.js loads it", () => {
+    // Loaded 10 ms short of chunk 172's end, 172 held: hls.js loads 173, as the step-down judges
+    // (the 2026-11-15 step-down fix); a finder going 1 ms past what is loaded sized 172 again.
+    const shortOf172 = listing(
+      7_700_000,
+      { 173: [0, 1_000_000] },
+      { start: 1794.96, end: 1799.19 },
+    );
+    expect(nextChunkBits(shortOf172, roomHolding(172))).toBe(8_000_000);
+  });
+
+  it("sizes the chunk the picture plays in when nothing is loaded, however near its end", () => {
+    // Half a millisecond before chunk 172 ends, nothing loaded: hls.js loads 172, not 173.
+    const atEndOf172 = listing(
+      7_700_000,
+      { 172: [0, 1_000_000] },
+      { start: 1799.1995, end: 1799.1995 },
+    );
+    expect(nextChunkBits(atEndOf172, roomHolding())).toBe(8_000_000);
+  });
+
+  it("sizes again a chunk loaded and since evicted, which hls.js loads again", () => {
+    // Loaded to the last chunk's end, the last no longer held: hls.js loads chunk 199 again.
+    const lastEvicted = listing(7_700_000, { 199: [0, 1_000_000] }, { start: 2075, end: 2079.999 });
+    expect(nextChunkBits(lastEvicted, roomHolding())).toBe(8_000_000);
   });
 
   it("tells the SDK its load: its first byte's wait and its bits over the link its controller names", () => {
@@ -71,7 +130,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     const link: { now?: NextChunkLink } = {
       now: { kbps: 40_040, firstByteMs: 0, from: "remembered" },
     };
-    const stop = tellNextChunkLoad(listing(7_700_000), video, () => link.now);
+    const stop = tellNextChunkLoad(listing(7_700_000), resumedRoom(), video, () => link.now);
     // Before any chunk, the remembered link's bound: 80 Mb at 40 Mb/s.
     expect(readyAheadOf(video)).toMatchObject({
       nextChunkLoadMs: 2000,
@@ -93,7 +152,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
       ...listing(1_782_000),
       config: { maxBufferLength: 30, maxMaxBufferLength: 20 },
     };
-    const stopLowest = tellNextChunkLoad(lowest, video, () => ({
+    const stopLowest = tellNextChunkLoad(lowest, resumedRoom(), video, () => ({
       kbps: 1000,
       firstByteMs: 0,
       from: "confident",
@@ -103,7 +162,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     expect(refillAfterStallOf(video).aheadMs).toBe(20_000);
     stopLowest();
     const above = { ...lowest, loadLevel: 1, levels: [lowest.levels[0]!, lowest.levels[0]!] };
-    const stopAbove = tellNextChunkLoad(above, video, () => ({
+    const stopAbove = tellNextChunkLoad(above, resumedRoom(), video, () => ({
       kbps: 1000,
       firstByteMs: 0,
       from: "confident",
@@ -114,7 +173,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
 
   it("says nothing with nothing remembered and nothing measured, and the player waits refillAheadMs", () => {
     const video = resumedVideo();
-    const stop = tellNextChunkLoad(listing(7_700_000), video, () => undefined);
+    const stop = tellNextChunkLoad(listing(7_700_000), resumedRoom(), video, () => undefined);
     expect(readyAheadOf(video).nextChunkLoadMs).toBeUndefined();
     expect(readyAheadOf(video).nextChunkLoadFrom).toBe("none");
     stop();
@@ -126,7 +185,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     // remembered 9.6 and a first chunk at 28.4 (abr-trust.test.ts), it takes 2.35 s.
     const video = new FakeVideo();
     video.currentTime = 1798.13; // 1.07 s before chunk 172 ends at 1799.2 s
-    const stop = tellNextChunkLoad(listing(1_782_000), video, () => ({
+    const stop = tellNextChunkLoad(listing(1_782_000), resumedRoom(), video, () => ({
       kbps: 7900,
       firstByteMs: 0,
       from: "confident",
@@ -144,7 +203,12 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     // 3.1 s; by its size at heavyChunkLoadKbps, 9.76 s.
     const video = resumedVideo();
     const fast = (): NextChunkLink => ({ kbps: 95_000, firstByteMs: 0, from: "confident" });
-    const heavy = tellNextChunkLoad(listing(7_700_000, [0, 24_400_000]), video, fast);
+    const heavy = tellNextChunkLoad(
+      listing(7_700_000, { 173: [0, 24_400_000] }),
+      resumedRoom(),
+      video,
+      fast,
+    );
     expect(heavyChunkLoadKbps).toBe(20_000);
     expect(readyAheadOf(video)).toEqual({
       aheadMs: 9760,
@@ -153,11 +217,16 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     });
     heavy();
     // A light one, 2.4 MB, waits as the bound says, its size's 0.96 s under it.
-    const light = tellNextChunkLoad(listing(7_700_000, [0, 2_400_000]), video, () => ({
-      kbps: 9_600,
-      firstByteMs: 300,
-      from: "confident",
-    }));
+    const light = tellNextChunkLoad(
+      listing(7_700_000, { 173: [0, 2_400_000] }),
+      resumedRoom(),
+      video,
+      () => ({
+        kbps: 9_600,
+        firstByteMs: 300,
+        from: "confident",
+      }),
+    );
     expect(readyAheadOf(video).aheadMs).toBe(Math.round(((300 + 19_200_000 / 9_600) * 150) / 100));
     light();
   });
@@ -166,14 +235,19 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     const video = resumedVideo();
     const fast = (): NextChunkLink => ({ kbps: 95_000, firstByteMs: 0, from: "confident" });
     // 40 MB: 16 s by its size, 10 s at most, what a player knowing nothing waits.
-    const stop = tellNextChunkLoad(listing(7_700_000, [0, 40_000_000]), video, fast);
+    const stop = tellNextChunkLoad(
+      listing(7_700_000, { 173: [0, 40_000_000] }),
+      resumedRoom(),
+      video,
+      fast,
+    );
     expect(readyAheadOf(video).aheadMs).toBe(10_000);
     stop();
     const shortAhead = {
-      ...listing(7_700_000, [0, 40_000_000]),
+      ...listing(7_700_000, { 173: [0, 40_000_000] }),
       config: { maxBufferLength: 6, maxMaxBufferLength: 30 },
     };
-    const stopShort = tellNextChunkLoad(shortAhead, video, fast);
+    const stopShort = tellNextChunkLoad(shortAhead, resumedRoom(), video, fast);
     expect(readyAheadOf(video).aheadMs).toBe(6000);
     stopShort();
   });

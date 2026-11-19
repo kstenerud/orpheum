@@ -780,7 +780,7 @@ export function playChunked(
   const follow = { abr, room, soundShift, ...aheadOptionsOf(options) };
   const followed = followAheadGroupSoundAndStalls(hls, video, follow);
   const stops = [...followed.stops, seeks.stop, stopLoadingOn, readAhead.stop];
-  stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
+  stops.push(tellNextChunkLoad(hls, room, video, () => abr.choosing()?.nextChunkLink()));
   const stopListening = stopsAsAirPlayTakesOver({ hls, video }, options, stops);
   hls.loadSource(url);
   hls.attachMedia(video);
