@@ -52,7 +52,7 @@ type Definition struct {
 // Registry lists every secret, in the order a settings page shows them.
 func Registry() []Definition {
 	return []Definition{
-		{Name: TMDBAPIKey, ShowsLastChars: true, Description: "the TMDB API key metadata is fetched with"},
+		{Name: TMDBAPIKey, ShowsLastChars: true, Description: "a TMDB API key used in place of Orpheum's own"},
 		{
 			Name: DNSProviderToken, ShowsLastChars: true,
 			Description: "the DNS provider token for the certificate",

@@ -21,6 +21,11 @@
 //   - The key is revealed only here, and never appears in an error: a failed connection's error
 //     drops the URL that carries it. Enforced by the forbidigo rule tagged [reveal] and
 //     TestGet_AFailedConnectionDoesNotPrintTheKey.
+//   - The server is wired with WithShippedKey: a key never set, or set empty, is Orpheum's own,
+//     shipped with the program, so posters come with nothing to set; a key set in Settings is used
+//     in its place (D527 §1.3). Enforced by TestWithShippedKey_AKeyNeverSetOrSetEmptyIsOrpheumsOwn,
+//     TestWithShippedKey_AKeySetIsTheAdminsAndOtherNamesAreUntouched and, for the wiring,
+//     internal/core/assembly's TestMetadataJobs_WithNoKeySetTMDBIsAskedWithOrpheumsOwn.
 //   - TMDB's refusals become the errors the matcher acts on: 429 is outbound.RateLimitedError,
 //     waiting a second when Retry-After names no time, 401 is ErrKeyRefused, 404 is ErrNoMatch,
 //     a 502, 503, 504 or a failed connection is outbound.ErrUnavailable (a plain 500 is the

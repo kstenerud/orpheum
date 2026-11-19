@@ -63,7 +63,7 @@ func newMetadataJobs(parts metadataParts) metadataJobs {
 	providers := parts.providers
 	if providers == nil {
 		providers = identify.Providers{
-			"tmdb": tmdb.New(parts.httpClient, parts.tmdbBaseURL, parts.secrets, hosts.tmdbAPI),
+			"tmdb": tmdb.New(parts.httpClient, parts.tmdbBaseURL, tmdb.WithShippedKey(parts.secrets), hosts.tmdbAPI),
 		}
 	}
 	pass := identify.NewPass(parts.database, parts.clock, parts.logger, providers, parts.settings)

@@ -508,3 +508,21 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		}
 	}
 }
+
+// With no key set in Settings, TMDB is still asked, with Orpheum's own key (D527 §1.3): the server
+// does not sit parked for a key no one was told to set.
+func TestMetadataJobs_WithNoKeySetTMDBIsAskedWithOrpheumsOwn(t *testing.T) {
+	t.Parallel()
+	world := newJobsWorld(t, time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC))
+	if err := world.secrets.Clear(t.Context(), secrets.TMDBAPIKey); err != nil {
+		t.Fatal(err)
+	}
+	world.addFilms(0, 1)
+	world.runDue()
+	if asked := world.tmdb.requests(); asked == 0 {
+		t.Error("TMDB was never asked with no key set; want it asked with Orpheum's own")
+	}
+	if state := world.hosts.tmdbAPI.State(t.Context()); state.Credentials == providers.CredentialsMissing {
+		t.Errorf("the admin sees TMDB as %+v; want no missing key", state)
+	}
+}
