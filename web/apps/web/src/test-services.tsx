@@ -17,11 +17,31 @@ export interface FakePlace extends Place {
   readonly addresses: readonly string[];
   /** The browser moving back to an address, as its back button does. */
   back(to: string): void;
+  /** Each other site's page the app left for (Navigation's leave), oldest first. */
+  readonly left: readonly string[];
+}
+
+/** A location at the test's origin, which keeps in left each other site's page it leaves for. */
+function leavingLocation(left: string[]): FakePlace["location"] & {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  return {
+    origin: testOrigin,
+    pathname: "/",
+    search: "",
+    hash: "",
+    assign: (url) => {
+      left.push(url);
+    },
+  };
 }
 
 /** A place at start, the first address in its history. */
 export function fakePlace(start: string): FakePlace {
-  const location = { origin: testOrigin, pathname: "/", search: "", hash: "" };
+  const left: string[] = [];
+  const location = leavingLocation(left);
   const addresses: string[] = [];
   const states: unknown[] = [];
   // The entry shown, which moves back by the history's own back.
@@ -39,6 +59,7 @@ export function fakePlace(start: string): FakePlace {
   return {
     location,
     addresses,
+    left,
     history: {
       get state() {
         return states[at] ?? null;

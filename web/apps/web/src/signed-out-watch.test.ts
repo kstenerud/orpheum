@@ -40,6 +40,8 @@ function recordingNavigation(went: Route[]): Navigation {
     behind: () => [],
     origin: () => testOrigin,
     fragment: () => "",
+    query: () => "",
+    leave: () => undefined,
     subscribe: () => () => undefined,
     beforeLeaving: () => () => undefined,
     noteOnEntry: () => undefined,

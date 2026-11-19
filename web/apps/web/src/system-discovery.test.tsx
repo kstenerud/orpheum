@@ -77,10 +77,14 @@ it("connects to the discovery the server suggests, by its name and the admin's p
   );
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
-  // The suggestion is the server's, offered as a person types it.
+  // The suggestion is the server's, offered as a person types it, to Connect and the other way alike.
   expect(container.querySelector<HTMLInputElement>("form input")?.value).toBe("discovery.example");
-  await enter(container.querySelector('form input[type="password"]'), "owner-password");
-  await click(buttonWithText(container, "Connect"));
+  expect(container.querySelector("details summary")?.textContent).toBe("Link another way");
+  expect(container.querySelector<HTMLInputElement>("details form input")?.value).toBe(
+    "discovery.example",
+  );
+  await enter(container.querySelector('details form input[type="password"]'), "owner-password");
+  await click(buttonWithText(container, "Connect here"));
   expect(heard.map((each) => each.methodAndPath)).toEqual([
     "GET /system/discovery",
     "POST /system/discovery",
@@ -127,14 +131,14 @@ it("says the server cannot trust the suggested discovery when this build knows n
   });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
-  await enter(container.querySelector('form input[type="password"]'), "owner-password");
-  await click(buttonWithText(container, "Connect"));
+  await enter(container.querySelector('details form input[type="password"]'), "owner-password");
+  await click(buttonWithText(container, "Connect here"));
   expect(container.querySelector('[role="alert"]')?.textContent).toBe(
     "This version of the server doesn't know the keys of discovery.example yet, so it can't trust it. Update the server, or connect to another discovery.",
   );
   // Another name refused there is no discovery's name.
-  await enter(container.querySelector("form input"), "http://elsewhere.example");
-  await click(buttonWithText(container, "Connect"));
+  await enter(container.querySelector("details form input"), "http://elsewhere.example");
+  await click(buttonWithText(container, "Connect here"));
   expect(container.querySelector('[role="alert"]')?.textContent).toBe(
     "That isn't a discovery's name. Type the name it gave you, as in discovery.example.",
   );
@@ -167,9 +171,9 @@ it("shows another discovery's identity to compare, and connects with it only onc
   );
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
-  await enter(container.querySelector("form input"), "home.example");
-  await enter(container.querySelector('form input[type="password"]'), "owner-password");
-  await click(buttonWithText(container, "Connect"));
+  await enter(container.querySelector("details form input"), "home.example");
+  await enter(container.querySelector('details form input[type="password"]'), "owner-password");
+  await click(buttonWithText(container, "Connect here"));
   // Nothing enrolled yet: the identity is shown, for the admin to compare with the operator's.
   expect(heard.map((each) => each.methodAndPath)).toEqual([
     "GET /system/discovery",
@@ -399,7 +403,9 @@ it("claims a waiting server by the key its household's account made, and names t
   );
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
-  await enter(container.querySelector("form input"), "  abcd efgh-jkmn pqrs ");
+  // Behind Link another way, as Connect replaced it (D527 §2.3).
+  expect(container.querySelector("details summary")?.textContent).toBe("Link another way");
+  await enter(container.querySelector("details form input"), "  abcd efgh-jkmn pqrs ");
   await enter(container.querySelector('form input[type="password"]'), "owner-password");
   await click(buttonWithText(container, "Claim"));
   expect(heard.map((each) => each.methodAndPath)).toEqual([

@@ -10,6 +10,8 @@ export interface Place {
     readonly pathname: string;
     readonly search: string;
     readonly hash: string;
+    /** Leaves this document for url, as following a link does. */
+    assign(url: string): void;
   };
   readonly history: {
     /** What the current entry was pushed or replaced with; null for one this app did not write. */
@@ -25,8 +27,8 @@ export interface Place {
 
 /**
  * The address bar, the one place that reads and writes it: the current route, moving to another
- * or putting one in the current one's place, the address's origin and fragment, and telling
- * listeners when the route changes.
+ * or putting one in the current one's place, leaving the app for another site's page, the
+ * address's origin, query and fragment, and telling listeners when the route changes.
  */
 export interface Navigation {
   readonly route: () => Route;
@@ -54,6 +56,14 @@ export interface Navigation {
   readonly origin: () => string;
   /** What follows # in the address, without the #, or "" when nothing does. */
   readonly fragment: () => string;
+  /** What follows ? in the address, without the ?, or "" when nothing does. */
+  readonly query: () => string;
+  /**
+   * Leaves this app for url, another site's page, once no held entry is in the history
+   * (whenNoneHeld), whose later step back would cancel the leaving: the System page's Connect, to
+   * the discovery's account page that links the server (D527 §2.1).
+   */
+  readonly leave: (url: string) => void;
   readonly subscribe: (listener: () => void) => () => void;
   /**
    * Tells listener just before go leaves the current entry, while what the page shows is still
@@ -211,12 +221,17 @@ export function createNavigation(
     whenNoneHeld: (action) => {
       held.whenNoneLaid(action);
     },
+    leave: (url) => {
+      held.whenNoneLaid(() => {
+        place.location.assign(url);
+      });
+    },
     onPersonsStep: held.onPersonsStep,
   };
 }
 
 /** What navigates among the pages' own entries: Navigation but for what the held entries do. */
-type PageNavigation = Omit<Navigation, "holdBack" | "whenNoneHeld" | "onPersonsStep">;
+type PageNavigation = Omit<Navigation, "holdBack" | "whenNoneHeld" | "onPersonsStep" | "leave">;
 
 /** Navigation among the pages' own entries, over a place whose held entries are kept apart. */
 function createPageNavigation(place: Place, isOnTelevision: boolean): PageNavigation {
@@ -284,12 +299,20 @@ function readingsOf(
   place: Place,
 ): Pick<
   Navigation,
-  "behind" | "origin" | "fragment" | "noteOnEntry" | "entryNote" | "noteInPlace" | "notedInPlace"
+  | "behind"
+  | "origin"
+  | "fragment"
+  | "query"
+  | "noteOnEntry"
+  | "entryNote"
+  | "noteInPlace"
+  | "notedInPlace"
 > {
   return {
     behind: () => belowOf(place.history.state).map(routeOfHref),
     origin: () => place.location.origin,
     fragment: () => place.location.hash.replace(/^#/u, ""),
+    query: () => place.location.search.replace(/^\?/u, ""),
     noteOnEntry: (note) => {
       noteOn(place, note);
     },

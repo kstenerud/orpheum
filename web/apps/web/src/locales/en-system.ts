@@ -206,6 +206,28 @@ export const enSystem = {
         "None of this works without an account at the discovery, and an account needs an invitation: you need an invitation from whoever runs your Orpheum service. At home, you need none of it.",
       issuer: "The discovery's name",
       connect: "Connect",
+      connectHeading: "Connect to a discovery service",
+      notLinked:
+        "Not linked to an account yet. The server works at home as it is; linked, your household reaches it from away too.",
+      connectHint:
+        "Connect takes you to the discovery's page, where you approve the link with your account there, and brings you back here.",
+      justLinked: "Linked: this server is on your account at the discovery now.",
+      passwordNeeded:
+        "Your password on this server is needed once, so you can sign in from away. Enter it and press Connect again.",
+      wrongPasswordToLink: "That isn't your password. Nothing was linked.",
+      noOrigin:
+        "Your browser didn't say which page to come back to. Open this server's page in a browser and press Connect there.",
+      onlyAdmins: "Only an admin of this server can link it.",
+      linkNotConnected:
+        "The server stopped being connected to the discovery while Connect was under way. Press Connect again.",
+      linkUnanswered:
+        "The discovery didn't answer, so nothing was linked. Try again in a few minutes.",
+      linkRefused:
+        "The server couldn't start the link. Press Connect again; if this comes back, the server's log says why.",
+      linkAnotherWay: "Link another way",
+      anotherWay:
+        "Connect here with your password, then make a key on your account at the discovery and type it below.",
+      connectHere: "Connect here",
       wrongPasswordToConnect: "That isn't your password. The server is not connected.",
       notAnIssuer:
         "That isn't a discovery's name. Type the name it gave you, as in discovery.example.",

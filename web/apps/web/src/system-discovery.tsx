@@ -4,7 +4,7 @@ import "./system-words.ts";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useRef, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { HomeAddress } from "./home-address.tsx";
@@ -18,6 +18,15 @@ import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { ConnectSection, useJustLinked, useLink } from "./system-discovery-connect.tsx";
+import {
+  ConfirmIdentity,
+  issuerProblem,
+  typedName,
+  useConnecting,
+  type Asked,
+  type Connecting,
+} from "./system-discovery-connecting.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -26,21 +35,15 @@ type PortMapping = components["schemas"]["PortMappingBody"];
 type WebRTCPath = components["schemas"]["WebRTCPathBody"];
 type HouseNetwork = components["schemas"]["HouseNetworkBody"];
 
-/** A discovery its issuer showed, waiting for the admin to compare its identity (D393 §4). */
-interface ToConfirm {
-  readonly issuer: string;
-  readonly password: string;
-  readonly identity: string;
-  readonly name: string;
-}
-
 /**
- * The core's discovery on the System page (D273): connecting to one by its issuer, the suggested
- * discovery the core names or the owner's own, with the admin's password (D391 §3); for any but the
+ * The core's discovery on the System page (D273): at its top Connect, which links the server to an
+ * account at the discovery by one press (D527 §2.1, §2.3), with where the server stands; behind
+ * "Link another way", connecting by its issuer, the suggested discovery the core names or the
+ * owner's own, with the admin's password (D391 §3), and the key the account made; for any but the
  * suggested one, first showing the identity its issuer shows, for the admin to compare with what its
- * operator shows (the root key audit's §3.8); the code its owner claims it by there, and once claimed
- * where clients can reach it from, as the discovery's probe found; and leaving it. The suggestion is
- * the core's, never this page's own (D391 §7).
+ * operator shows (the root key audit's §3.8); once claimed where clients can reach it from, as the
+ * discovery's probe found; and leaving it. The suggestion is the core's, never this page's own
+ * (D391 §7).
  */
 export function SystemDiscovery(): JSX.Element {
   const { t } = useTranslation();
@@ -50,7 +53,9 @@ export function SystemDiscovery(): JSX.Element {
     async () => dataOrThrow(await api.GET("/system/discovery")),
     { poller: useBackgroundChangesPoller() },
   );
-  const connecting = useConnecting(reload);
+  const isJustLinked = useJustLinked();
+  const linking = useLink(reload);
+  const connecting = useEnrolling(reload);
   const claiming = useClaim(reload);
   const askAgain = (): void => {
     connecting.runRequest(async (idempotencyKey) => {
@@ -68,88 +73,83 @@ export function SystemDiscovery(): JSX.Element {
     <section aria-labelledby="system-discovery">
       <h2 id="system-discovery">{t("system.discovery.heading")}</h2>
       <p>{t("system.discovery.what")}</p>
+      {isJustLinked ? (
+        <p>
+          <output>{t("system.discovery.justLinked")}</output>
+        </p>
+      ) : null}
       {connecting.problem === undefined ? null : <p role="alert">{connecting.problem}</p>}
       <Loaded
         resource={standing}
-        render={(value) =>
-          value.issuer === "" ? (
-            <Unconnected connecting={connecting} suggested={value.suggestedIssuer ?? ""} />
-          ) : (
-            <StandingView
-              standing={value}
-              claiming={claiming}
-              isBusy={connecting.isBusy}
-              onAskAgain={askAgain}
-              onLeave={leave}
-            />
-          )
-        }
+        render={(value) => (
+          <>
+            <ConnectSection standing={value} linking={linking} />
+            <AnotherWay standing={value} connecting={connecting} claiming={claiming} />
+            {value.issuer === "" ? null : (
+              <StandingView
+                standing={value}
+                isBusy={connecting.isBusy}
+                onAskAgain={askAgain}
+                onLeave={leave}
+              />
+            )}
+          </>
+        )}
       />
     </section>
   );
 }
 
-/** Connecting to a discovery: the request under way, why it failed, and the identity to confirm. */
-interface Connecting {
-  readonly isBusy: boolean;
-  readonly problem: string | undefined;
-  readonly runRequest: ReturnType<typeof useRequest>["runRequest"];
-  readonly toConfirm: ToConfirm | undefined;
-  readonly connect: (issuer: string, password: string, suggested: string) => void;
-  readonly confirm: () => void;
-  readonly cancel: () => void;
+/** Connecting the core to a discovery by the admin's password alone, enrolling it unlinked (D391 §3). */
+function useEnrolling(reload: () => void): Connecting {
+  const { api } = useServices();
+  return useConnecting(async (asked, identity, idempotencyKey) => {
+    const { issuer, password } = asked;
+    dataOrThrow(
+      await api.POST("/system/discovery", {
+        body: identity === undefined ? { issuer, password } : { issuer, password, identity },
+        ...idempotent(idempotencyKey),
+      }),
+    );
+    reload();
+  }, connectProblem);
 }
 
 /**
- * Connecting: the suggested discovery at once, any other once the identity its issuer shows is
- * confirmed (D393 §4); and the core's standing read again after.
+ * Linking the way it was before Connect, behind "Link another way" (D527 §2.3), while the server is
+ * yet to be linked: connecting with the admin's password, and then the operator's code and the key
+ * the household's account made.
  */
-function useConnecting(reload: () => void): Connecting {
+function AnotherWay(props: {
+  readonly standing: Standing;
+  readonly connecting: Connecting;
+  readonly claiming: Claiming;
+}): JSX.Element | null {
   const { t } = useTranslation();
-  const { api } = useServices();
-  // What the admin last asked to connect to, which says why it was refused.
-  const askedRef = useRef({ issuer: "", suggested: "" });
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    connectProblem(t, cause, askedRef.current),
+  const { standing } = props;
+  if (standing.issuer !== "" && standing.state !== "pending") {
+    return null;
+  }
+  return (
+    <details className="system__fold">
+      <summary>{t("system.discovery.linkAnotherWay")}</summary>
+      {standing.issuer === "" ? (
+        <Unconnected connecting={props.connecting} suggested={standing.suggestedIssuer ?? ""} />
+      ) : (
+        <>
+          {standing.claimCode === undefined ? null : (
+            <p>
+              {t("system.discovery.claim", {
+                code: standing.claimCode,
+                until: dateTimeText(standing.claimExpiresAt, i18n.language),
+              })}
+            </p>
+          )}
+          <KeyForm claiming={props.claiming} />
+        </>
+      )}
+    </details>
   );
-  const [toConfirm, setToConfirm] = useState<ToConfirm | undefined>(undefined);
-  const enrol = (issuer: string, password: string, identity?: string): void => {
-    runRequest(async (idempotencyKey) => {
-      dataOrThrow(
-        await api.POST("/system/discovery", {
-          body: identity === undefined ? { issuer, password } : { issuer, password, identity },
-          ...idempotent(idempotencyKey),
-        }),
-      );
-      setToConfirm(undefined);
-      reload();
-    });
-  };
-  const connect = (issuer: string, password: string, suggested: string): void => {
-    askedRef.current = { issuer, suggested };
-    if (suggested !== "" && typedName(issuer) === typedName(suggested)) {
-      enrol(issuer, password);
-      return;
-    }
-    runRequest(async (idempotencyKey) => {
-      const shown = dataOrThrow(
-        await api.POST("/system/discovery/identify", {
-          body: { issuer },
-          ...idempotent(idempotencyKey),
-        }),
-      );
-      setToConfirm({ issuer, password, identity: shown.identity, name: shown.name });
-    });
-  };
-  const confirm = (): void => {
-    if (toConfirm !== undefined) {
-      enrol(toConfirm.issuer, toConfirm.password, toConfirm.identity);
-    }
-  };
-  const cancel = (): void => {
-    setToConfirm(undefined);
-  };
-  return { isBusy, problem, runRequest, toConfirm, connect, confirm, cancel };
 }
 
 /** A core with no discovery: the form to connect one, or the identity to confirm. */
@@ -157,6 +157,7 @@ function Unconnected(props: {
   readonly connecting: Connecting;
   readonly suggested: string;
 }): JSX.Element {
+  const { t } = useTranslation();
   const { connecting, suggested } = props;
   if (connecting.toConfirm !== undefined) {
     return (
@@ -170,12 +171,12 @@ function Unconnected(props: {
   }
   return (
     <>
-      <NeedsInvitation />
+      <p>{t("system.discovery.anotherWay")}</p>
       <ConnectForm
         isBusy={connecting.isBusy}
         suggested={suggested}
         onConnect={(issuer, password) => {
-          connecting.connect(issuer, password, suggested);
+          connecting.connect({ issuer, password, suggested });
         }}
       />
     </>
@@ -183,45 +184,14 @@ function Unconnected(props: {
 }
 
 /**
- * That remote access needs an account made from an invitation, and whom to ask for one, until the
- * server is claimed: the first beta tester never claimed his, and nothing here said a step was left
- * or that it starts with an invitation (the install report, 2026-11-19).
- */
-function NeedsInvitation(): JSX.Element {
-  const { t } = useTranslation();
-  return <p>{t("system.discovery.invitation")}</p>;
-}
-
-/**
  * Why connecting failed: the password's and the issuer's own refusals in their words, the suggested
  * discovery's when this build knows none of its root keys, any other failure as every request's.
  */
-function connectProblem(
-  t: TFunction,
-  cause: unknown,
-  asked: { readonly issuer: string; readonly suggested: string },
-): string {
+function connectProblem(t: TFunction, cause: unknown, asked: Asked): string {
   if (isRefusedAt(cause, "body.password")) {
     return t("system.discovery.wrongPasswordToConnect");
   }
-  if (isRefusedAt(cause, "body.identity")) {
-    return t("system.discovery.notTheIdentity");
-  }
-  if (isRefusedAt(cause, "body.issuer")) {
-    return asked.suggested !== "" && typedName(asked.issuer) === typedName(asked.suggested)
-      ? t("system.discovery.suggestedUnknown", { issuer: typedName(asked.suggested) })
-      : t("system.discovery.notAnIssuer");
-  }
-  return problemText(t, cause);
-}
-
-/** An issuer as a person types it: its host, without https:// or a closing slash. */
-function typedName(issuer: string): string {
-  return issuer
-    .trim()
-    .replace(/^https:\/\//iu, "")
-    .replace(/\/$/u, "")
-    .toLowerCase();
+  return issuerProblem(t, cause, asked) ?? problemText(t, cause);
 }
 
 /**
@@ -266,49 +236,18 @@ function ConnectForm(props: {
         />
       </label>{" "}
       <button type="submit" disabled={props.isBusy || issuer.trim() === "" || password === ""}>
-        {t("system.discovery.connect")}
+        {t("system.discovery.connectHere")}
       </button>
     </form>
   );
 }
 
 /**
- * The identity a discovery's issuer showed, for the admin to compare with what its operator shows,
- * and connecting to it only when they confirm.
+ * Where the core stands with its discovery beyond Connect's: whom it trusts it by, its household,
+ * whether another server took its place, how it is reached; and leaving it.
  */
-function ConfirmIdentity(props: {
-  readonly toConfirm: ToConfirm;
-  readonly isBusy: boolean;
-  readonly onConfirm: () => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { toConfirm } = props;
-  return (
-    <>
-      <p>
-        {t("system.discovery.compareIdentity", {
-          name: toConfirm.name,
-          issuer: typedName(toConfirm.issuer),
-        })}
-      </p>
-      <p>
-        <code>{toConfirm.identity}</code>
-      </p>
-      <button type="button" disabled={props.isBusy} onClick={props.onConfirm}>
-        {t("system.discovery.identityMatches")}
-      </button>{" "}
-      <button type="button" disabled={props.isBusy} onClick={props.onCancel}>
-        {t("system.discovery.identityCancel")}
-      </button>
-    </>
-  );
-}
-
-/** Where the core stands with its discovery, claiming it by the account's key, and leaving it. */
 function StandingView(props: {
   readonly standing: Standing;
-  readonly claiming: Claiming;
   readonly isBusy: boolean;
   readonly onAskAgain: () => void;
   readonly onLeave: () => void;
@@ -317,16 +256,11 @@ function StandingView(props: {
   const { standing } = props;
   return (
     <>
-      <p>
-        {standing.isSuggested
-          ? t("system.discovery.atService", { issuer: standing.issuer })
-          : t("system.discovery.at", { name: standing.name ?? "", issuer: standing.issuer })}
-      </p>
       <Trusted standing={standing} />
       {standing.realm === undefined ? null : (
         <p>{t("system.discovery.realm", { realm: standing.realm })}</p>
       )}
-      <Enrolment standing={standing} claiming={props.claiming} />
+      <Removed standing={standing} />
       <Reach standing={standing} />
       {standing.lastHeartbeatAt === 0 ? null : (
         <p>
@@ -400,48 +334,19 @@ function OneCopy(props: {
   );
 }
 
-/**
- * Where the server stands with its account: taken off it, its state, the account, and while it waits
- * the key form and the operator's code.
- */
-function Enrolment(props: {
-  readonly standing: Standing;
-  readonly claiming: Claiming;
-}): JSX.Element {
+/** That another server was enrolled with this server's account in its place (D312 §15). */
+function Removed(props: { readonly standing: Standing }): JSX.Element | null {
   const { t } = useTranslation();
-  const { standing } = props;
-  return (
-    <>
-      {/* A server older than removedAt sends none: missing is not removed. */}
-      {standing.removedAt > 0 ? (
-        <p className="needs-fixing">
-          <output>
-            {t("system.discovery.removed", {
-              at: dateTimeText(standing.removedAt, i18n.language),
-            })}
-          </output>
-        </p>
-      ) : null}
-      {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
-      {standing.account === undefined ? null : (
-        <p>{t("system.discovery.account", { account: standing.account })}</p>
-      )}
-      {standing.state === "pending" ? (
-        <>
-          <NeedsInvitation />
-          <KeyForm claiming={props.claiming} />
-        </>
-      ) : null}
-      {standing.claimCode === undefined ? null : (
-        <p>
-          {t("system.discovery.claim", {
-            code: standing.claimCode,
-            until: dateTimeText(standing.claimExpiresAt, i18n.language),
-          })}
-        </p>
-      )}
-    </>
-  );
+  // A server older than removedAt sends none: missing is not removed.
+  return props.standing.removedAt > 0 ? (
+    <p className="needs-fixing">
+      <output>
+        {t("system.discovery.removed", {
+          at: dateTimeText(props.standing.removedAt, i18n.language),
+        })}
+      </output>
+    </p>
+  ) : null;
 }
 
 /**
