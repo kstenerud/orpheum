@@ -3,7 +3,7 @@
 import "./people-words.ts";
 
 import type { TFunction } from "i18next";
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { completeSetup, signInThisDevice } from "./accounts.ts";
@@ -15,6 +15,7 @@ import {
 } from "./credentials-form.tsx";
 import { useFieldMarks, type FieldMark } from "./field-marks.ts";
 import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { setupCodeFromFragment } from "./set-up-link.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
@@ -23,15 +24,23 @@ import { useRequest } from "./use-request.ts";
  * admin's name and password, which then sign this device in (cut-a §5.2's `POST /setup`; A29, A31).
  * The sign-in screen opens it when the server answers that it needs setting up. While the server
  * knows no address in the house, it offers its guess to confirm or correct; empty leaves it to be
- * learned from the first page opened at it (D452 §4).
+ * learned from the first page opened at it (D452 §4). The link the server prints carries the code after
+ * a # (D527 §1.2): the page fills it in, so a person types only a name and a password, and takes the
+ * # out of the address at once, so the code is not left in the address bar or the history.
  */
 export function SetUp(props: {
   readonly onBack: () => void;
   readonly offeredAddressAtHome?: string;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api, session } = useServices();
-  const [setupCode, setSetupCode] = useState("");
+  const { api, session, navigation } = useServices();
+  const [linkedCode] = useState(() => setupCodeFromFragment(navigation.fragment()));
+  const [setupCode, setSetupCode] = useState(linkedCode ?? "");
+  useEffect(() => {
+    if (linkedCode !== undefined) {
+      navigation.replace(navigation.route());
+    }
+  }, [linkedCode, navigation]);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const isAskingAddress =
@@ -56,7 +65,9 @@ export function SetUp(props: {
   };
   return (
     <CredentialsForm heading={t("setUp.heading")} onSubmit={submit}>
-      <CredentialsProblem isAlert={false}>{t("setUp.explain")}</CredentialsProblem>
+      <CredentialsProblem isAlert={false}>
+        {linkedCode === undefined ? t("setUp.explain") : t("setUp.explainLinked")}
+      </CredentialsProblem>
       <CodeAndAdmin
         setupCode={field("setupCode", setupCode, setSetupCode)}
         name={field("name", name, setName)}
