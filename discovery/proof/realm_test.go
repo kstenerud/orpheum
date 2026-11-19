@@ -19,6 +19,52 @@ const (
 	realmOfferVector  = "3C1NBzuWqwkuFATD3QijN5V_0ujLhubShn9Zh7qVqPM"
 )
 
+// The version-2 key's vectors, over the key salt 0x00…0x0f, which the web client's tests hold too
+// (web/packages/sdk/src/realm.test.ts); the key was checked against Python's hashlib.
+const (
+	personKeyVector = "uv43RZGP775xAJg7IrZFqKEqHkdSN1lvwTPy4CUOXZY"
+	personAskVector = "4XnMVtARnI--WRxjOJD3mkqo9STHA91iFFCq4tCP0LA"
+	personTagVector = "M30ogOTBStG74ad_v5tyPL9CiJkMGQFpB9iisKZEWSQ"
+)
+
+// vectorKeySalt is the key salt 0x00…0x0f.
+func vectorKeySalt() []byte {
+	salt := make([]byte, KeySaltBytes)
+	for index := range salt {
+		salt[index] = byte(index)
+	}
+	return salt
+}
+
+// A version-2 key is PBKDF2-SHA256 of the password, salted by the core's key salt and the name as
+// typed, in any case and with spaces around, and by no realm; the ask and the tag are made under it
+// as under a version-1 key (D527 §2.2).
+func TestPersonKey_IsTheVectorsWhateverTheCaseTypedAndNamesNoRealm(t *testing.T) {
+	t.Parallel()
+	key := PersonKey(vectorKeySalt(), " Karl ", "a password")
+	if got := base64.RawURLEncoding.EncodeToString(key); got != personKeyVector {
+		t.Fatalf("PersonKey = %s; want %s", got, personKeyVector)
+	}
+	if got := RealmAsk(key, "nas", realmPersonVector); got != personAskVector {
+		t.Errorf("RealmAsk under the person key = %s; want %s", got, personAskVector)
+	}
+	if got := RealmTag(key, "k7xq2", vectorKey()); got != personTagVector {
+		t.Errorf("RealmTag under the person key = %s; want %s", got, personTagVector)
+	}
+	otherSalt := vectorKeySalt()
+	otherSalt[0] = 0xff
+	for name, other := range map[string][]byte{
+		"another salt":     PersonKey(otherSalt, "karl", "a password"),
+		"another name":     PersonKey(vectorKeySalt(), "anna", "a password"),
+		"another password": PersonKey(vectorKeySalt(), "karl", "a Password"),
+		"the version 1":    RealmKey("nas", "karl", "a password"),
+	} {
+		if bytes.Equal(other, key) {
+			t.Errorf("%s makes the same key", name)
+		}
+	}
+}
+
 // vectorPrivate is the Ed25519 key of the seed 0x00…0x1f, as the other vectors use.
 func vectorPrivate() ed25519.PrivateKey {
 	seed := make([]byte, ed25519.SeedSize)

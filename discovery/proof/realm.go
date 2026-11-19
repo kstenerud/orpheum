@@ -22,6 +22,7 @@ const realmKeyBytes = 32
 // The purposes of what a realm key makes, apart from an offer's proof, which Offer makes under it.
 const (
 	realmKeyPurpose    = "realm-key"
+	personKeyPurpose   = "person-key"
 	realmPersonPurpose = "realm-person"
 	realmAskPurpose    = "realm-ask"
 	realmCorePurpose   = "realm-core"
@@ -46,6 +47,23 @@ func MasterRealm(realm string) string {
 // core, whenever it sees their password, and keeps it (D297 §3).
 func RealmKey(realm, name, password string) []byte {
 	salt := []byte(prefix + realmKeyPurpose + "\n" + MasterRealm(realm) + "\n" + RealmName(name))
+	key, err := pbkdf2.Key(sha256.New, password, salt, RealmRounds, realmKeyBytes)
+	if err != nil {
+		return nil // unreachable: SHA-256 and a key this short are always allowed
+	}
+	return key
+}
+
+// KeySaltBytes is a core's key salt's length, made once at its first start: 128 random bits.
+const KeySaltBytes = 16
+
+// PersonKey is a person's away-from-home key, version 2: what RealmKey is, salted by the core's key
+// salt and their name, not by the realm, so a household's name given or changed later leaves every
+// key working (D527 §2.2). The core makes it whenever it sees their password, linked or not; the
+// page, from what its person typed and the salt the discovery gives it for the realm (PathRealmSalt).
+func PersonKey(keySalt []byte, name, password string) []byte {
+	salt := []byte(prefix + personKeyPurpose + "\n" + base64.RawURLEncoding.EncodeToString(keySalt) + "\n" +
+		RealmName(name))
 	key, err := pbkdf2.Key(sha256.New, password, salt, RealmRounds, realmKeyBytes)
 	if err != nil {
 		return nil // unreachable: SHA-256 and a key this short are always allowed

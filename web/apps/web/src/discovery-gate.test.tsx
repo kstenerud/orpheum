@@ -588,7 +588,11 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     await click(page.querySelector('input[type="checkbox"]'));
     await click(buttonWithText(page, "Sign in"));
     await settleUntil(() => connected.length > 0);
-    expect(heard[0]?.startsWith("/realm ")).toBe(true);
+    // The salt asked first, which this discovery gives none of, then the version-1 sign-in (D527 §2.2).
+    expect(heard.slice(0, 2).map((request) => request.split(" ")[0])).toEqual([
+      "/realm-salt",
+      "/realm",
+    ]);
     expect(connected).toEqual([
       {
         core: { coreId: "k7xq2", fingerprint: fingerprintOfKey, realm: "karlnas" },

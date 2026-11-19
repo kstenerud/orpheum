@@ -9,7 +9,14 @@
  * sign-in sends next.
  */
 
-import { base64url, fromBase64, keyFingerprint, locatedOf, postToDiscovery } from "./discovery.ts";
+import {
+  base64url,
+  fromBase64,
+  keyFingerprint,
+  locatedOf,
+  NotFound,
+  postToDiscovery,
+} from "./discovery.ts";
 import type { DiscoveryClient, Located } from "./discovery.ts";
 
 const prefix = "orpheum-discovery-v1:";
@@ -35,22 +42,42 @@ export function isRealm(realm: string): boolean {
   );
 }
 
-/** The key a person's realm sign-in is proven by both ways: proof.RealmKey. */
-export async function realmKey(
-  realm: string,
-  name: string,
-  password: string,
-): Promise<Uint8Array<ArrayBuffer>> {
+/** PBKDF2-SHA256 of password, realmRounds rounds, salted by the prefix and saltText: 32 bytes. */
+async function stretched(password: string, saltText: string): Promise<Uint8Array<ArrayBuffer>> {
   const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, [
     "deriveBits",
   ]);
-  const salt = encoder.encode(`${prefix}realm-key\n${masterRealm(realm)}\n${realmName(name)}`);
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: realmRounds },
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: encoder.encode(prefix + saltText),
+      iterations: realmRounds,
+    },
     material,
     256,
   );
   return new Uint8Array(bits);
+}
+
+/** The key a person's realm sign-in was proven by before D527, version 1, salted by the realm:
+ * proof.RealmKey. */
+export function realmKey(
+  realm: string,
+  name: string,
+  password: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  return stretched(password, `realm-key\n${masterRealm(realm)}\n${realmName(name)}`);
+}
+
+/** A person's away-from-home key, version 2, salted by their server's key salt and not by the realm
+ * (D527 §2.2): proof.PersonKey. */
+export function personKey(
+  keySalt: Uint8Array,
+  name: string,
+  password: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  return stretched(password, `person-key\n${base64url(keySalt)}\n${realmName(name)}`);
 }
 
 /** Who a realm sign-in is for, as the discovery passes it to the core: proof.RealmPerson. */
@@ -122,14 +149,59 @@ function signedBy(
 }
 
 /**
+ * The key salt of the realm's core as the discovery gives it (PathRealmSalt), which a version-2 key
+ * is derived with; undefined from a discovery that gives none, which knows version-1 keys alone.
+ */
+async function keySaltOf(client: DiscoveryClient, realm: string): Promise<Uint8Array | undefined> {
+  let answer: unknown;
+  try {
+    answer = await postToDiscovery({
+      ...client,
+      path: "/realm-salt",
+      body: { realm: realmName(realm) },
+    });
+  } catch (error) {
+    if (error instanceof NotFound) {
+      return undefined;
+    }
+    throw error;
+  }
+  const salt: unknown =
+    typeof answer === "object" && answer !== null ? Reflect.get(answer, "salt") : undefined;
+  return typeof salt === "string" && salt !== "" ? fromBase64(salt) : undefined;
+}
+
+/**
  * Finds the core by a person's realm, name and password: NotFound when any is wrong, as the
  * discovery says no more; and an error when the answer's tag does not hold under the person's key,
- * a discovery answering in the core's place, whose key is never believed.
+ * a discovery answering in the core's place, whose key is never believed. It signs in under the
+ * version-2 key first, salted by the key salt the discovery gives for the realm, and only when that
+ * is refused under the version-1 key, which a core keeps for a person until it next sees their
+ * password (D527 §2.2): a second derivation, which a slow device (a TV's browser) pays only then.
  */
 export async function realmSignIn(client: DiscoveryClient, typed: RealmTyped): Promise<RealmFound> {
   const { realm, name, password } = typed;
-  const key = await realmKey(realm, name, password);
   const person = await realmPerson(realm, name);
+  const keySalt = await keySaltOf(client, realm);
+  if (keySalt !== undefined) {
+    try {
+      return await signInUnder(client, realm, person, await personKey(keySalt, name, password));
+    } catch (error) {
+      if (!(error instanceof NotFound)) {
+        throw error;
+      }
+    }
+  }
+  return await signInUnder(client, realm, person, await realmKey(realm, name, password));
+}
+
+/** The realm sign-in of person proven under key: what realmSignIn finds, under one key. */
+async function signInUnder(
+  client: DiscoveryClient,
+  realm: string,
+  person: string,
+  key: Uint8Array<ArrayBuffer>,
+): Promise<RealmFound> {
   const answer = await postToDiscovery({
     ...client,
     path: "/realm",
