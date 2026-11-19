@@ -378,7 +378,7 @@ export async function reachedFrom(
 export const anAdmin: WalkAnswers = {
   "GET /me": { ...viewer, role: "admin", isAdmin: true },
   "GET /client-settings": {},
-  // The first-time pages (D527 §3): one media folder holding three folders to offer, and no TMDB key.
+  // The first-time pages (D527 §3): one media folder holding three folders to offer.
   "GET /nodes": {
     nodes: [{ name: "local", isConnected: true, rootPaths: ["/media"] }],
   },
@@ -470,7 +470,6 @@ export const libraryPages: readonly string[] = [
 export const managePages: readonly string[] = [
   "/libraries/new",
   "/welcome",
-  "/welcome/posters",
   "/welcome/discovery",
   "/libraries/1/files",
   "/about",

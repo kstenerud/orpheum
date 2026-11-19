@@ -67,8 +67,5 @@ export function holdsTwoKinds(rows: readonly Pick<OfferRow, "kind">[]): boolean 
 
 /** The first-time page after step (undefined is the libraries page); home after the last. */
 export function stepAfter(step: WelcomeStep | undefined): Route {
-  if (step === undefined) {
-    return { screen: "welcome", step: "posters" };
-  }
-  return step === "posters" ? { screen: "welcome", step: "discovery" } : { screen: "home" };
+  return step === undefined ? { screen: "welcome", step: "discovery" } : { screen: "home" };
 }

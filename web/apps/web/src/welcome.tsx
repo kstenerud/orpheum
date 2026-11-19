@@ -2,33 +2,24 @@
 
 import "./libraries-words.ts";
 
-import { useEffect, useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CreateLibrary } from "./create-library.tsx";
 import { Link } from "./link.tsx";
 import { LibraryOffer } from "./library-offer.tsx";
 import { stepAfter } from "./library-offer-kinds.ts";
-import { Loaded } from "./loaded.tsx";
-import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import type { WelcomeStep } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
-import { useRequest } from "./use-request.ts";
-import { useResource } from "./use-resource.ts";
-
-/** The secret the metadata is fetched with (the server's tmdb_api_key). */
-const tmdbSecret = "tmdb_api_key";
 
 /**
  * The first-time pages the first admin meets after being made (D527 §3), in order: libraries, then
- * posters (skipped when a TMDB key is set already), then discovery. Each is at an address of its
- * own, and each can be skipped; no menu leads to them.
+ * discovery. Posters have no page: Orpheum ships its own TMDB key (D527 §1.3), and Settings holds
+ * the key of a person who wants theirs. Each page is at an address of its own, and each can be
+ * skipped; no menu leads to them.
  */
 export function Welcome(props: { readonly step: WelcomeStep | undefined }): JSX.Element {
-  if (props.step === "posters") {
-    return <PostersStep />;
-  }
   return props.step === "discovery" ? <DiscoveryStep /> : <LibrariesStep />;
 }
 
@@ -61,84 +52,6 @@ function LibrariesStep(): JSX.Element {
       <p>
         <button type="button" onClick={goOn}>
           {t("welcome.skip")}
-        </button>
-      </p>
-    </section>
-  );
-}
-
-/** The second page: posters, descriptions and cast come from TMDB, which needs a free key. */
-function PostersStep(): JSX.Element {
-  const { api } = useServices();
-  const goOn = useGoOn("posters");
-  const [isKeySet] = useResource("welcome-tmdb-key", async () => {
-    const secrets = dataOrThrow(await api.GET("/secrets")).secrets ?? [];
-    return secrets.some((secret) => secret.name === tmdbSecret && secret.isSet);
-  });
-  const isSet = isKeySet.state === "loaded" && isKeySet.value;
-  useEffect(() => {
-    if (isSet) {
-      goOn();
-    }
-  });
-  const { t } = useTranslation();
-  return (
-    <Loaded
-      resource={isKeySet}
-      render={(isAlready) =>
-        isAlready ? <output>{t("welcome.postersAlready")}</output> : <PostersAsk goOn={goOn} />
-      }
-    />
-  );
-}
-
-/** The steps to a TMDB key, and the field to paste it in. */
-function PostersAsk(props: { readonly goOn: () => void }): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const [token, setToken] = useState("");
-  const saving = useRequest((cause) =>
-    fieldProblemText(t, cause, { fields: { "body.value": t("welcome.postersField") } }),
-  );
-  const save = (): void => {
-    saving.runRequest(async () => {
-      throwIfRefused(
-        await api.PUT("/secrets/{name}", {
-          params: { path: { name: tmdbSecret } },
-          body: { value: token.trim() },
-        }),
-      );
-      props.goOn();
-    });
-  };
-  return (
-    <section>
-      <h1>{t("welcome.postersHeading")}</h1>
-      <p>{t("welcome.postersExplain")}</p>
-      <ol>
-        <li>{t("welcome.postersStep1")}</li>
-        <li>{t("welcome.postersStep2")}</li>
-        <li>{t("welcome.postersStep3")}</li>
-        <li>{t("welcome.postersStep4")}</li>
-      </ol>
-      <label>
-        {t("welcome.postersField")}
-        <input
-          type="password"
-          autoComplete="off"
-          value={token}
-          onChange={(event) => {
-            setToken(event.target.value);
-          }}
-        />
-      </label>
-      {saving.problem === undefined ? null : <p role="alert">{saving.problem}</p>}
-      <p>
-        <button type="button" disabled={token.trim() === "" || saving.isBusy} onClick={save}>
-          {t("welcome.postersSave")}
-        </button>{" "}
-        <button type="button" onClick={props.goOn}>
-          {t("welcome.postersSkip")}
         </button>
       </p>
     </section>

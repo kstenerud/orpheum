@@ -9,6 +9,7 @@ import { CreateLibraryPage } from "./create-library.tsx";
 import { LibraryOffer } from "./library-offer.tsx";
 import { guessKind, holdsTwoKinds, offerRows, stepAfter } from "./library-offer-kinds.ts";
 import { createNavigation } from "./navigation.ts";
+import { parseRoute, welcomeSteps } from "./router.ts";
 import type { Services } from "./services.tsx";
 import { buttonWithText, click, mount, refusal, servedBy, type Answers } from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
@@ -29,6 +30,26 @@ function houseServing(folders: readonly string[], more: Answers = {}): Answers {
 function openedAt(address: string, answers: Answers): Services {
   return { ...servedBy(answers), navigation: createNavigation(fakePlace(address)) };
 }
+
+/** The one setting the whole-folder form reads: how often a new library is scanned. */
+const libraryDefaults: Answers[string] = [
+  200,
+  {
+    settings: [
+      {
+        key: "newLibraryDefaultScanEveryHours",
+        kind: "integer",
+        value: 24,
+        startingValue: 24,
+        isModified: false,
+        isImportant: false,
+        section: "libraries",
+        description: "",
+        setAt: 1,
+      },
+    ],
+  },
+];
 
 describe("the offer of a library for each folder (D527 §3)", () => {
   it("guesses a kind from a folder's name without regard to case, and leaves the rest unticked", () => {
@@ -102,24 +123,7 @@ describe("the New library page (D527 §3)", () => {
         <CreateLibraryPage />,
         servedBy(
           houseServing(["Movies", "TV Shows"], {
-            "GET /config": [
-              200,
-              {
-                settings: [
-                  {
-                    key: "newLibraryDefaultScanEveryHours",
-                    kind: "integer",
-                    value: 24,
-                    startingValue: 24,
-                    isModified: false,
-                    isImportant: false,
-                    section: "libraries",
-                    description: "",
-                    setAt: 1,
-                  },
-                ],
-              },
-            ],
+            "GET /config": libraryDefaults,
           }),
         ),
       ),
@@ -131,37 +135,25 @@ describe("the New library page (D527 §3)", () => {
 });
 
 describe("the first-time pages (D527 §3)", () => {
-  it("go in order: libraries, posters, discovery, then home", () => {
-    expect(stepAfter(undefined)).toEqual({ screen: "welcome", step: "posters" });
-    expect(stepAfter("posters")).toEqual({ screen: "welcome", step: "discovery" });
+  it("go in order: libraries, discovery, then home", () => {
+    expect(stepAfter(undefined)).toEqual({ screen: "welcome", step: "discovery" });
     expect(stepAfter("discovery")).toEqual({ screen: "home" });
   });
 
-  const noKey = {
-    secrets: [{ name: "tmdb_api_key", description: "", isSet: false, needsReentry: false }],
-  };
-
-  it("ask for a TMDB key when none is set, with the steps and a way to skip", async () => {
-    const services = openedAt("/welcome/posters", { "GET /secrets": [200, noKey] });
-    const mounted = await mount(withServices(<Welcome step="posters" />, services));
-    const text = mounted.container.textContent;
-    expect(text).toContain("come from TMDB");
-    expect(text).toContain("API Read Access Token");
+  it("go from the libraries page to discovery, in its place, when it is skipped", async () => {
+    const services = openedAt(
+      "/welcome",
+      houseServing(["Movies"], { "GET /config": libraryDefaults }),
+    );
+    const mounted = await mount(withServices(<Welcome step={undefined} />, services));
     await click(buttonWithText(mounted.container, "Skip for now"));
     expect(services.navigation.route()).toEqual({ screen: "welcome", step: "discovery" });
     mounted.unmount();
   });
 
-  it("skip the posters page when a TMDB key is set already", async () => {
-    const services = openedAt("/welcome/posters", {
-      "GET /secrets": [
-        200,
-        { secrets: [{ name: "tmdb_api_key", description: "", isSet: true, needsReentry: false }] },
-      ],
-    });
-    const mounted = await mount(withServices(<Welcome step="posters" />, services));
-    expect(services.navigation.route()).toEqual({ screen: "welcome", step: "discovery" });
-    mounted.unmount();
+  it("have no posters page: its old address is not a welcome step", () => {
+    expect(welcomeSteps).toEqual(["discovery"]);
+    expect(parseRoute("/welcome/posters", "")).toEqual({ screen: "not-found" });
   });
 
   it("end on discovery, which says the server works without one and links to System", async () => {

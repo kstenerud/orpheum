@@ -25,7 +25,7 @@ export type LabPage = (typeof labPages)[number];
  * The pages after the libraries one of the first-time pages (D527 §3), each at an address of its
  * own so a reload or Back returns to it: the libraries page is /welcome itself.
  */
-export const welcomeSteps = ["posters", "discovery"] as const;
+export const welcomeSteps = ["discovery"] as const;
 
 /** One of the first-time pages that follow the libraries one. */
 export type WelcomeStep = (typeof welcomeSteps)[number];
@@ -113,8 +113,8 @@ export type Route =
   | { readonly screen: "files"; readonly libraryId: number }
   | { readonly screen: "about" }
   /**
-   * The first-time pages the first admin meets after being made (D527 §3): libraries, then posters
-   * (step "posters"), then discovery (step "discovery"). No menu leads to them.
+   * The first-time pages the first admin meets after being made (D527 §3): libraries, then
+   * discovery (step "discovery"). No menu leads to them.
    */
   | { readonly screen: "welcome"; readonly step?: WelcomeStep }
   | { readonly screen: "settings" }
