@@ -799,6 +799,8 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   20.3–25.3 s, no change beyond the noise, the package's wall being its longest tests'. What is
   left is huma's per-operation reflection over each input's fields (`findParams`), which builds
   what each server's handlers read, and the mux's routes.
+  The whole Go suite (`go test -count=1 ./...`, alternating, after a warm-up pair): 45.1–45.7 s
+  to 44.4–44.9 s of wall, 311 s to 301 s of CPU, about 10 s less in each pair.
 - **Warning sign:** `mapRegistry.Schema` or `SchemaFromField` in a CPU profile of a test run.
 
 ### Looked for and left: a seed built once and copied (2026-11-19)
