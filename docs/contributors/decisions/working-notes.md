@@ -30329,7 +30329,9 @@ D347 §1, which kept a node's level its config file's.
    node's, for a node. A core that says none, an older one, leaves a node's level as it was. Each
    change is logged, at the level it leaves, as the core's is.
 2. **connectd's level is a control in the operator's panel,** changed while it runs, each change
-   logged; a restart starts it at its configured level again.
+   logged. Where it is kept is open: the command line acts on connectd's database (the owner,
+   2026-10-19, every panel action a command too), so a level it sets as well is a row the running
+   connectd reads, a migration of production's schema; one kept in memory alone is the panel's.
 3. **Levels per part of the program come later** (D347 §4). Every process's recent log keeps its
    debug lines whatever it writes (D524 §3), so a problem report carries them without anyone having
    turned them on.
