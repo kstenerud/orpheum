@@ -159,6 +159,68 @@ function OneCopyItems(props: { readonly value: AttentionCounts }): JSX.Element {
   );
 }
 
+/** One count of what needs the admin: its words, its words for one, and whether it leads to System. */
+interface CountedLine {
+  readonly count: number;
+  readonly key: string;
+  readonly one: string;
+  readonly isOnSystem?: boolean;
+}
+
+/**
+ * The counts that are not zero, each with its words and its own for one (the catalogue has no plural
+ * forms: en.ts); what could not be read leads to the System page, which names each (the first beta
+ * install, 2026-11-19, #32: "1 files or folders could not be read", naming nothing).
+ */
+function countLines(value: AttentionCounts): readonly CountedLine[] {
+  const lines: readonly CountedLine[] = [
+    {
+      count: value.rootCount,
+      key: "needsAttention.offlineFolders",
+      one: "needsAttention.offlineFoldersOne",
+    },
+    {
+      count: value.diskCount,
+      key: "needsAttention.missingDisks",
+      one: "needsAttention.missingDisksOne",
+    },
+    {
+      count: value.waitingRootCount,
+      key: "needsAttention.waitingFolders",
+      one: "needsAttention.waitingFoldersOne",
+    },
+    {
+      count: value.unreadCount,
+      key: "needsAttention.unreadPaths",
+      one: "needsAttention.unreadPathsOne",
+      isOnSystem: true,
+    },
+    {
+      count: value.matchCount,
+      key: "needsAttention.waitingMatches",
+      one: "needsAttention.waitingMatchesOne",
+    },
+  ];
+  return lines.filter((line) => line.count > 0);
+}
+
+/** One count's line, in the singular for one, with the System page's link where it lists them. */
+function CountLine(props: { readonly line: CountedLine }): JSX.Element {
+  const { t } = useTranslation();
+  const { line } = props;
+  return (
+    <li>
+      <WarningIcon /> {line.count === 1 ? t(line.one) : t(line.key, { count: line.count })}
+      {line.isOnSystem === true ? (
+        <>
+          {" "}
+          <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link>
+        </>
+      ) : null}
+    </li>
+  );
+}
+
 /**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
  * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
@@ -179,37 +241,7 @@ export function NeedsAttention(): JSX.Element {
       <Loaded
         resource={counts}
         render={(value) => {
-          // Each count's words, and their own for one (the catalogue has no plural forms: en.ts); what
-          // could not be read leads to the System page, which names each (the first beta install,
-          // 2026-11-19, #32: "1 files or folders could not be read", naming nothing).
-          const lines = [
-            {
-              count: value.rootCount,
-              key: "needsAttention.offlineFolders",
-              one: "needsAttention.offlineFoldersOne",
-            },
-            {
-              count: value.diskCount,
-              key: "needsAttention.missingDisks",
-              one: "needsAttention.missingDisksOne",
-            },
-            {
-              count: value.waitingRootCount,
-              key: "needsAttention.waitingFolders",
-              one: "needsAttention.waitingFoldersOne",
-            },
-            {
-              count: value.unreadCount,
-              key: "needsAttention.unreadPaths",
-              one: "needsAttention.unreadPathsOne",
-              isOnSystem: true,
-            },
-            {
-              count: value.matchCount,
-              key: "needsAttention.waitingMatches",
-              one: "needsAttention.waitingMatchesOne",
-            },
-          ].filter((line) => line.count > 0);
+          const lines = countLines(value);
           return lines.length +
             value.seriesReadWronglyCount +
             value.filmsWithoutSoundCount +
@@ -224,16 +256,7 @@ export function NeedsAttention(): JSX.Element {
               <UpdateItem newer={newer} />
               <OneCopyItems value={value} />
               {lines.map((line) => (
-                <li key={line.key}>
-                  <WarningIcon />{" "}
-                  {line.count === 1 ? t(line.one) : t(line.key, { count: line.count })}
-                  {line.isOnSystem === true ? (
-                    <>
-                      {" "}
-                      <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link>
-                    </>
-                  ) : null}
-                </li>
+                <CountLine key={line.key} line={line} />
               ))}
               <ProblemTitles value={value} />
             </ul>

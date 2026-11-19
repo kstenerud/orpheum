@@ -156,8 +156,11 @@ function isReadableTo(path: Unread, node: SystemNode): boolean {
   if (modeText.length < 10 || ownerUid < 0 || node.uid === 0) {
     return true;
   }
-  const readsAs = ownerUid === node.uid ? 1 : groupGid === node.gid ? 4 : 7;
-  return modeText[readsAs] === "r";
+  // The owner's read bit, the group's, then everyone's, as ls shows them.
+  if (ownerUid === node.uid) {
+    return modeText[1] === "r";
+  }
+  return modeText[groupGid === node.gid ? 4 : 7] === "r";
 }
 
 /** One folder whose removals wait: why, since when, the first of the files, and removing them. */
