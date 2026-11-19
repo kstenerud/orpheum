@@ -4,7 +4,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -203,9 +205,13 @@ type Server struct {
 }
 
 // documentConfig is the API's configuration as its document says it: its description and who may
-// call each operation (declareCallers).
-func documentConfig() huma.Config {
+// call each operation (declareCallers). Its schemas are the given ones, built and opened by an
+// earlier server, or new ones when there are none.
+func documentConfig(schemas huma.Registry) huma.Config {
 	config := huma.DefaultConfig("Orpheum", documentVersion)
+	if schemas != nil {
+		config.Components.Schemas = schemas
+	}
 	config.DocsPath = "" // the docs page loads scripts from a CDN; the document itself is served
 	config.CreateHooks = nil
 	config.Info.Description = "The Orpheum media server's client API (cut-a §5). Errors have one shape: " +
@@ -226,7 +232,46 @@ func strictJSONFormats() map[string]huma.Format {
 
 // NewServer builds the API and registers every operation. UseErrorShape must have been called.
 func NewServer(logger *slog.Logger) *Server {
-	config := documentConfig()
+	var first *Server
+	builtSchemas.once.Do(func() {
+		first = newServer(logger, nil)
+		builtSchemas.registry = first.humaAPI.OpenAPI().Components.Schemas
+	})
+	if first != nil {
+		return first
+	}
+	return newServer(logger, sharedSchemas{builtSchemas.registry})
+}
+
+// builtSchemas is the schemas of the first server's document, which every later server in the
+// process shares: each registers the same operations, so each would build the same schemas again,
+// most of the cost of building a server. After the first server is built, nothing writes to them.
+//
+//nolint:gochecknoglobals // built once a process and shared by every later server: a server cannot share it otherwise
+var builtSchemas struct {
+	once     sync.Once
+	registry huma.Registry
+}
+
+// sharedSchemas is the first server's schemas as a later server holds them. Making an API on
+// huma's own kind of registry writes the API's configuration into it, which every later server
+// would do at once; huma does not recognise this kind, so it writes nothing. Its registry
+// configuration then reads as huma's default, which is the one documentConfig keeps.
+type sharedSchemas struct{ huma.Registry }
+
+// MarshalJSON writes the schemas as huma's own registry does: by name.
+func (schemas sharedSchemas) MarshalJSON() ([]byte, error) {
+	written, err := json.Marshal(schemas.Map())
+	if err != nil {
+		return nil, fmt.Errorf("writing the shared schemas: %w", err)
+	}
+	return written, nil
+}
+
+// newServer builds the API on the given schemas, built and opened by an earlier server, or on new
+// ones when there are none.
+func newServer(logger *slog.Logger, schemas huma.Registry) *Server {
+	config := documentConfig(schemas)
 	mux := http.NewServeMux()
 	server := &Server{mux: mux, logger: logger.With("component", "api")}
 	server.togetherSilence.Store(int64(silenceLimit))
@@ -268,7 +313,7 @@ func NewServer(logger *slog.Logger) *Server {
 	mux.HandleFunc("GET "+socketPath, server.serveTogetherSocket)
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
-	openResponses(server.humaAPI.OpenAPI())
+	openResponses(server.humaAPI.OpenAPI(), schemas == nil)
 	return server
 }
 

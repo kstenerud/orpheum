@@ -297,6 +297,10 @@
 //     a guest receiver the answering device alone casts to; GET /me and its session's body say it is
 //     one and nothing of the person.
 //     TestGuestReceiver_ByCodeIsCastToByTheDeviceThatAnsweredTheCodeAlone.
+//   - Every server in a process after the first shares the first's schemas, which nothing writes
+//     to once it is built, and serves the document a server built on new schemas serves, byte for
+//     byte. TestNewServer_ALaterServerSharesTheFirstsSchemas and
+//     TestNewServer_ALaterServerServesTheDocumentOfOneBuiltAnew.
 //
 // # Read before changing
 //

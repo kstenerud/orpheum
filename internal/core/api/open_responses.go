@@ -26,11 +26,26 @@ const openDescription = " Responses are open: a client ignores a field it does n
 // openResponses makes the document's responses open (D432 §2): a schema only a response uses no
 // longer refuses properties it does not name, and its kind enumerations and the error codes are
 // marked extensible. A schema a request uses stays closed, so the server still refuses a request
-// field it does not know; huma validates requests alone, so this changes no answer.
-func openResponses(document *huma.OpenAPI) {
-	schemas := document.Components.Schemas.Map()
-	requested := map[string]bool{}
+// field it does not know; huma validates requests alone, so this changes no answer. The named
+// schemas are opened only when the document's are new: schemas an earlier server built were opened
+// by it, and are shared, so they are never written again (builtSchemas).
+func openResponses(document *huma.OpenAPI, schemasAreNew bool) {
 	operations := operationsIn(document)
+	if schemasAreNew {
+		openNamedResponseSchemas(document.Components.Schemas.Map(), operations)
+	}
+	for _, each := range operations {
+		for _, response := range each.operation.Responses {
+			for _, content := range response.Content {
+				openSchema(content.Schema)
+			}
+		}
+	}
+}
+
+// openNamedResponseSchemas opens every named schema no request refers to, itself or through another.
+func openNamedResponseSchemas(schemas map[string]*huma.Schema, operations []documentedOperation) {
+	requested := map[string]bool{}
 	for _, each := range operations {
 		for _, parameter := range each.operation.Parameters {
 			markReferenced(parameter.Schema, schemas, requested)
@@ -44,13 +59,6 @@ func openResponses(document *huma.OpenAPI) {
 	for name, schema := range schemas {
 		if !requested[name] {
 			openSchema(schema)
-		}
-	}
-	for _, each := range operations {
-		for _, response := range each.operation.Responses {
-			for _, content := range response.Content {
-				openSchema(content.Schema)
-			}
 		}
 	}
 }

@@ -44,7 +44,9 @@ func extensibleValues(schema *huma.Schema) []any {
 // request stays closed (D432 §2).
 func TestDocument_ResponsesAreOpenAndRequestsClosed(t *testing.T) {
 	t.Parallel()
-	document := NewServer(slog.New(slog.DiscardHandler)).OpenAPI()
+	// A document of its own, built as the process's first server's is: validateAgainst writes to the
+	// schemas it reads (PrecomputeMessages), and NewServer's are shared with every other test's.
+	document := newServer(slog.New(slog.DiscardHandler), nil).OpenAPI()
 	library := map[string]any{
 		"id": 1, "name": "Films", "kind": "film", "metadataSource": "tmdb", "changeDetection": "watch",
 		"isWritable": true, "createdAt": 1, "addedByALaterServer": "ignored",

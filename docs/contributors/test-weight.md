@@ -774,6 +774,33 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** `prepareV2` under `tallying.ExecContext`, or under `keptStatements.statement`
   for a statement that a run of short writes each prepare once.
 
+### 37. Every test's server building the same OpenAPI schemas again
+
+- **Mechanism:** huma builds an operation's schemas from its Go types by reflection when it is
+  registered, into a registry the API owns. Production builds one server; the api tests build one
+  per harness, about 440 a run, and each built the same schemas again.
+- **Instance** (2026-11-19): `api.NewServer`, 11.2 ms and 54,000 allocations a server in a scratch
+  benchmark; 63% of it `mapRegistry.Schema` under `SchemaFromField`, and much of the rest the
+  garbage collector after it.
+- **Why it was invisible:** it is the harness's first line, so it reads as the API's own start-up,
+  and it runs in every test alike, so no test stands out.
+- **Fix:** the process's first server builds the schemas and opens them (`openResponses`); every
+  later one registers its operations on the same registry (`builtSchemas` in
+  `internal/core/api/server.go`), so huma finds each type already built. Nothing writes to the
+  schemas once the first server is built: a later server holds them through `sharedSchemas`, which
+  huma does not recognise as its own and so writes no configuration into, and opens only its own
+  operations' responses. The handlers, routes, sessions and stores are each server's own. A test
+  that writes to schemas (`validateAgainst`'s `PrecomputeMessages`) builds its own with
+  `newServer(logger, nil)`. A later server's document is the one a server built anew serves, byte
+  for byte (`TestNewServer_ALaterServerServesTheDocumentOfOneBuiltAnew`); production's one server
+  is the first and is built as before. 11.2 ms to 3.8 ms a server, 5.4 MB to 2.0 MB allocated;
+  `go test -count=1 ./internal/core/api/`, before and after alternating, five pairs: CPU (user and
+  system) 49.2–55.6 s to 43.7–51.8 s, 4–7 s less in each pair run back to back; wall 21.0–23.1 s to
+  20.3–25.3 s, no change beyond the noise, the package's wall being its longest tests'. What is
+  left is huma's per-operation reflection over each input's fields (`findParams`), which builds
+  what each server's handlers read, and the mux's routes.
+- **Warning sign:** `mapRegistry.Schema` or `SchemaFromField` in a CPU profile of a test run.
+
 ### Looked for and left: a seed built once and copied (2026-11-19)
 
 The owner asked whether the tests that spend their time seeding could copy a seeded database into
@@ -794,8 +821,8 @@ The repeated cost the profiles found is setup that writes no rows, each a change
 or the store's checks, so for the owner to order:
 
 - **`api.NewServer` in every api harness:** 12.75 ms of CPU each, mostly huma registering the
-  routes; about 5.6 s over 440 harnesses, 12% of the package's CPU. Cutting it means caching the
-  registration's schema work in the server, or test servers sharing one built API.
+  routes; about 5.6 s over 440 harnesses, 12% of the package's CPU. Done (the owner, 2026-11-19):
+  later servers share the first's schemas, §37.
 - **Each test database's `Close`:** done (the owner's go, 2026-11-19): §35's second instance. The
   checkpoint the close runs, and a new log's first commit, synced the disk, about 16 ms of wall a
   database; the tests' options now open at synchronous OFF, the whole suite 4 s quicker.
