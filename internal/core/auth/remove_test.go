@@ -112,7 +112,7 @@ func wantSignedOutAndForgotten(t *testing.T, service *Service, database *store.D
 }
 
 // Removing a person deletes what was theirs, not pseudonymises it (D305 §1): their credentials,
-// live or ended, their devices and their realm key go, and their row stays only as a nameless
+// live or ended, their devices and their away-from-home keys go, and their row stays only as a nameless
 // tombstone, its password and the admin's note on it gone.
 func TestRemoveUser_LeavesNothingOfTheirsButANamelessRow(t *testing.T) {
 	t.Parallel()
@@ -138,8 +138,13 @@ func TestRemoveUser_LeavesNothingOfTheirsButANamelessRow(t *testing.T) {
 		"devices": storetest.QueryRaw(t, path, fmt.Sprintf("SELECT count(*) FROM device WHERE user_id = %d", partner)),
 		"realm key": storetest.QueryRaw(t, path,
 			fmt.Sprintf("SELECT count(*) FROM realm_key WHERE user_id = %d", partner)),
+		// Made when they were (D527 §2.2).
+		"person key": storetest.QueryRaw(t, path,
+			fmt.Sprintf("SELECT count(*) FROM person_key WHERE user_id = %d", partner)),
 	}
-	want := map[string][]string{"their row": {"||"}, "credentials": {"0"}, "devices": {"0"}, "realm key": {"0"}}
+	want := map[string][]string{
+		"their row": {"||"}, "credentials": {"0"}, "devices": {"0"}, "realm key": {"0"}, "person key": {"0"},
+	}
 	for what, got := range left {
 		if !slices.Equal(got, want[what]) {
 			t.Errorf("after removal, %s: %v; want %v", what, got, want[what])

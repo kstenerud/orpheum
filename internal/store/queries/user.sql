@@ -123,7 +123,8 @@ DELETE FROM "grant" WHERE user_id = sqlc.arg(user_id);
 -- Their devices, once their plays, which name them, are deleted.
 DELETE FROM device WHERE user_id = sqlc.arg(user_id);
 
--- name: DeleteRealmKeyOfRemovedUser :exec
+-- name: DeleteRealmKeyOfUser :exec
+-- The person's version-1 key: when they are removed, and once their version-2 key is made (D527 section 2.2).
 DELETE FROM realm_key WHERE user_id = sqlc.arg(user_id);
 
 

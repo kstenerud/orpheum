@@ -191,7 +191,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 
 | What | Where | Tier (actual → should) | Backed up | Flag |
 | --- | --- | --- | --- | --- |
-| user, role, role_library, invitation, invitation_link, device, grant, locator, realm_key | persistent.db | T1 | yes | — |
+| user, role, role_library, invitation, invitation_link, device, grant, locator, realm_key, person_key | persistent.db | T1 | yes | — |
 | setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
 | play_position, play_event, play_span, purged_watching, item_hidden, work_watched, preference | persistent.db | T1 | yes | — |
 | field_override, group_text, extra_relation (asserted) | persistent.db | T1 | yes | identify writes group_text, a provider's episode group's part names (step 0079 keys it by grp) |

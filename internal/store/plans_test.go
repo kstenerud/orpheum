@@ -284,6 +284,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListUnreadablePaths":   few + "nodes, which the errored files are joined to",
 		"ListLibraryRootStates": few + "roots and nodes",
 		"ListLiveRealmKeys":     few + "people, whose realm keys a discovery lists",
+		"ListLivePersonKeys":    few + "people, whose away-from-home keys a sign-in from away is matched against",
 		"ListLibraryIDsOfRole":  few + "libraries",
 		"ListLibrarySeries":     "a library's series, which are few, read whole by the statistics",
 		"ListLibraryUnnumberedEpisodePaths": "the series' orderings, which are few, each searched for its " +

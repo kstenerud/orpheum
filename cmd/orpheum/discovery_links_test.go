@@ -306,8 +306,8 @@ func TestPortMappingParts_InAContainerAskTheNamedRouterForTheMachinesAddress(t *
 	}
 }
 
-// The discovery's realm reaches the accounts, which make a person's realm key for it at their next
-// password sign-in, and the realm sign-ins it passes on are checked by those keys (D297 §3).
+// The discovery's realm reaches the accounts, and the realm sign-ins it passes on are checked by the
+// away-from-home keys the accounts make from each person's password (D297 §3; D527 §2.2).
 func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -316,6 +316,8 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 	var opened openedServices
 	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)),
 		rand.Reader, settingstest.Seeded(t, database))
+	keySalt := []byte("a core's own 16b")
+	opened.auth.SetKeySalt(keySalt)
 	opened.together = together.NewHub(clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)), rand.Reader,
 		nil, slog.New(slog.DiscardHandler))
 	opened.reachability = newReachability(config, opened)
@@ -326,7 +328,7 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	person := proof.RealmPerson("karlnas", "karl")
-	key := proof.RealmKey("karlnas", "karl", "a password")
+	key := proof.PersonKey(keySalt, "karl", "a password")
 	got, err := parts.RealmSignIn(ctx, person, proof.RealmAsk(key, "karlnas", person))
 	if err != nil || !bytes.Equal(got, key) {
 		t.Errorf("karl's realm sign-in through the parts = %x, %v; want his key", got, err)

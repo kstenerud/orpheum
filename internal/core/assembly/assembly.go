@@ -54,6 +54,9 @@ type Parts struct {
 	Settings *settings.Service
 	// SecretKey seals the secrets (D194 §4).
 	SecretKey secrets.Key
+	// KeySalt is the core's key salt (identity.LoadOrMakeKeySalt), which each person's away-from-home
+	// key is salted by (D527 §2.2).
+	KeySalt []byte
 	// SetupCodes keep the setup code a server with no users is set up by (D242 §3).
 	SetupCodes auth.SetupCodes
 	Clock      clock.Clock
@@ -247,6 +250,7 @@ func buildAccounts(ctx context.Context, parts Parts) api.Dependencies {
 	// Each link keeps its secret sealed, so a person's own link can be shown to them again (K7).
 	authService.SealLinksWith(secretStore)
 	authService.OnSignInLimitFull(warnSignInLimitFull(ctx, parts.Logger))
+	authService.SetKeySalt(parts.KeySalt)
 	return api.Dependencies{
 		Auth: authService, Settings: parts.Settings,
 		Secrets: secretStore, SetupCodes: parts.SetupCodes,

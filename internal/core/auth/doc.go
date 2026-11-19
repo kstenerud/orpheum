@@ -121,6 +121,17 @@
 //     TestHandOff_ACodeNotTakenInItsMinuteEndsWithItsSession and
 //     TestHandOffOfferKeys_AreTheLiveCodesOfThePersonTheRealmNames.
 //
+//   - A person's away-from-home key is the version 2 (proof.PersonKey), salted by the core's key
+//     salt (SetKeySalt) and made from their password whenever the core sees it, linked to a discovery
+//     or not: the first admin made, each sign-in that finds none, each password set, an invitation
+//     redeemed; making it deletes their version-1 key. A sign-in from away is taken under the
+//     version 2, else the version 1 the core kept, and answered under the one it matched; a wrong
+//     one is the one refusal, under the person's limit (D297 §2, §3; D527 §2.2). Enforced by
+//     TestPersonKey_IsMadeFromThePasswordWheneverTheCoreSeesItLinkedOrNot,
+//     TestTakeRealmSignIn_TakesTheOldKeyUntilThePasswordIsSeenAndThenTheNew,
+//     TestTakeRealmSignIn_TakesARightProofAndHoldsAGuesserToThePersonsLimit and
+//     TestRealmKey_IsMadeWheneverAPasswordIsSet.
+//
 //   - A code the core did not issue is claimed from the paid service: its check code is made of the
 //     device's key, a match keeps the device-scoped session as a hand-off under the code's person and
 //     passes its code on to be sealed to that key, and no match ends the code there (D293 §2).
@@ -172,7 +183,7 @@
 //
 //   - An admin removes a person, never themselves (so an admin remains), deleting what was theirs
 //     (D305 §1): their watching, positions and preferences, their credentials, live or ended, with
-//     what names them, their devices and their realm key; who set what everyone shares is
+//     what names them, their devices and their away-from-home keys; who set what everyone shares is
 //     forgotten, and their row stays only as a nameless tombstone, whose name is free (S40).
 //     Enforced by TestRemoveUser_EndsTheirAccessDeletesTheirOwnRowsAndFreesTheName,
 //     TestRemoveUser_LeavesNothingOfTheirsButANamelessRow, and the API's

@@ -62,11 +62,14 @@ func newFixture(t *testing.T) fixture {
 	database := storetest.OpenMigrated(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
-	return fixture{
-		database: database, settings: seeded, clock: fakeClock,
-		service: NewService(database, fakeClock, rand.Reader, seeded),
-	}
+	service := NewService(database, fakeClock, rand.Reader, seeded)
+	// As the server's assembly sets it: every person's away-from-home key is salted by it.
+	service.SetKeySalt(fixtureKeySalt)
+	return fixture{database: database, settings: seeded, clock: fakeClock, service: service}
 }
+
+// fixtureKeySalt is the fixture's core's key salt, 16 bytes as the core's own (proof.KeySaltBytes).
+var fixtureKeySalt = []byte("a core's own 16b")
 
 func (fixture fixture) createUser(t *testing.T, name, password string, role Role) int64 {
 	t.Helper()

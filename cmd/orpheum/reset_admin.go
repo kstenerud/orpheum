@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -43,12 +44,18 @@ func commandResetAdmin(ctx context.Context, call invocation) int {
 		return call.fail(err)
 	}
 	defer closeLog() //nolint:errcheck // the log of a command that has written its answer
-	_, database, err := openExistingDatabase(ctx, config)
+	directories, database, err := openExistingDatabase(ctx, config)
 	if err != nil {
 		return call.fail(err)
 	}
+	keySalt, err := identity.LoadOrMakeKeySalt(directories, rand.Reader)
+	if err != nil {
+		return call.fail(errors.Join(err, database.Close()))
+	}
 	authService := auth.NewService(database, clock.System{}, rand.Reader,
 		settings.NewService(database, clock.System{}, logger))
+	// The new password makes the admin's away-from-home key, as the server's own reset would (D527 §2.2).
+	authService.SetKeySalt(keySalt)
 	reset, err := authService.ResetAdmin(ctx, name, password)
 	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)

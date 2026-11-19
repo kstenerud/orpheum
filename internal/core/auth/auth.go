@@ -184,8 +184,11 @@ type Service struct {
 	// uses are the sessions used since their use was last written (FlushSessionUses).
 	uses sessionUses
 	// realm is the realm the core is found by at its discovery (SetRealm), a string; none, or empty,
-	// and no realm key is made.
+	// and no realm sign-in is taken.
 	realm atomic.Value
+	// keySalt is the core's key salt (SetKeySalt), which each person's version-2 key is salted by;
+	// nil, and no key is made.
+	keySalt atomic.Pointer[[]byte]
 	// serviceDeviceCodes claims the codes the paid service issued (ClaimDeviceCodesFrom); nil claims
 	// none.
 	serviceDeviceCodes ServiceDeviceCodes

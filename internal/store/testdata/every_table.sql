@@ -121,6 +121,7 @@ INSERT INTO problem_report (id, user_id, made_at, version, words, gathered_json)
   VALUES (1, 2, 1790000000000, 'v0.8.4', 'the picture stopped', '{"components":[]}');
 INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (1, 'karlnas', X'0A0B', 1790000000000);
+INSERT INTO person_key (user_id, key, made_at) VALUES (1, X'0A0B', 1790000000000);
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (1, 1790000000000);
 INSERT INTO invitation (id, role_id, admin_note, issued_at, made_user_id, made_at)
   VALUES (1, 2, 'Grandma', 1790000000000, NULL, NULL);

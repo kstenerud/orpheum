@@ -84,12 +84,13 @@ func (q *Queries) DeleteLocatorsOfRemovedUser(ctx context.Context, userID *int64
 	return err
 }
 
-const deleteRealmKeyOfRemovedUser = `-- name: DeleteRealmKeyOfRemovedUser :exec
+const deleteRealmKeyOfUser = `-- name: DeleteRealmKeyOfUser :exec
 DELETE FROM realm_key WHERE user_id = ?1
 `
 
-func (q *Queries) DeleteRealmKeyOfRemovedUser(ctx context.Context, userID int64) error {
-	_, err := q.db.ExecContext(ctx, deleteRealmKeyOfRemovedUser, userID)
+// The person's version-1 key: when they are removed, and once their version-2 key is made (D527 section 2.2).
+func (q *Queries) DeleteRealmKeyOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteRealmKeyOfUser, userID)
 	return err
 }
 

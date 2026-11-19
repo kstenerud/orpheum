@@ -18,6 +18,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -136,7 +137,13 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
+	keySalt, err := identity.LoadOrMakeKeySalt(directories, rand.Reader)
+	if err != nil {
+		return err
+	}
 	authService := auth.NewService(database, clock.System{}, rand.Reader, settingsService)
+	// Each seeded person's away-from-home key is made as the server makes it (D527 §2.2).
+	authService.SetKeySalt(keySalt)
 	err = seedUsers(ctx, authService, seed.Users, report)
 	if err != nil {
 		return err

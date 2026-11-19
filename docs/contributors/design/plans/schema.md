@@ -914,6 +914,15 @@ CREATE TABLE realm_key (                                   -- class A (D297)
 );
 CREATE INDEX realm_key_master ON realm_key(master_realm);  -- a sign-in lists its master realm's (0040)
 
+-- A person's away-from-home key, version 2: proof.PersonKey, salted by the core's key salt, made
+-- whenever the core sees their password, linked or not; making it deletes their realm_key row, the
+-- version 1, which a sign-in is still checked by until then (0093; D527 section 2.2).
+CREATE TABLE person_key (                                   -- class A (D527)
+  user_id  INTEGER PRIMARY KEY REFERENCES user(id) ON DELETE CASCADE,
+  key      BLOB NOT NULL,           -- proof.PersonKey, 32 bytes
+  made_at  INTEGER NOT NULL
+) STRICT;
+
 -- A film or series the matcher settled by a guess among several of its name, marked on its poster
 -- until a person confirms or corrects it (0041; D301 section 4).
 CREATE TABLE guessed_match (                               -- class F (D301)
@@ -1474,6 +1483,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `grant` | persistent.db | `internal/core/auth` | |
 | `locator` | persistent.db | `internal/core/auth` | |
 | `realm_key` | persistent.db | `internal/core/auth` | |
+| `person_key` | persistent.db | `internal/core/auth` | |
 | `guessed_match` | persistent.db | `internal/core/identify` | |
 | `group_text` | persistent.db | `internal/core/identify` | a provider's episode group's parts' names (episode-orderings.md) |
 | `item` | persistent.db | `internal/core/identify` | |

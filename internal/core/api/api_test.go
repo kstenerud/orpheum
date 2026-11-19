@@ -169,6 +169,7 @@ func newHarness(t *testing.T) testHarness {
 	reads := &fakeFileReads{}
 	core, err := assembly.Build(t.Context(), assembly.Parts{
 		Database: database, Cache: cache, Directories: directories, Settings: seeded, SecretKey: key,
+		KeySalt:    []byte("a core's own 16b"),
 		SetupCodes: codes, Clock: now, Random: rand.Reader, Jitter: jobqueuetest.Unjittered(), Logger: logger,
 		Build: build.Provenance{Version: "test"}, StartID: "a-test-start",
 		Nodes: nodes, NodeBytes: nodeBytes, ScanRequests: nodes, FileReads: reads, Subtitler: subtitler,

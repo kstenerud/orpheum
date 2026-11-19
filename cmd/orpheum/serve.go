@@ -348,7 +348,7 @@ func wireCore(
 	core, err := assembly.Build(ctx, assembly.Parts{
 		StartID:  startID,
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
-		SecretKey:  secretKey,
+		SecretKey: secretKey, KeySalt: opened.keySalt,
 		SetupCodes: setupCodesOf(opened.directories, config, outside),
 		Clock:      config.servicesClock(), Random: rand.Reader, Logger: logger, Recent: outside.recent,
 		Build:       thisBuild(),

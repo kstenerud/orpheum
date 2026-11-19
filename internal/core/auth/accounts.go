@@ -391,8 +391,11 @@ func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, 
 				return fmt.Errorf("delete user %d's %s: %w", userID, step.what, err)
 			}
 		}
-		if err = queries.DeleteRealmKeyOfRemovedUser(ctx, userID); err != nil {
+		if err = queries.DeleteRealmKeyOfUser(ctx, userID); err != nil {
 			return fmt.Errorf("delete user %d's realm key: %w", userID, err)
+		}
+		if err = queries.DeletePersonKeyOfRemovedUser(ctx, userID); err != nil {
+			return fmt.Errorf("delete user %d's person key: %w", userID, err)
 		}
 		return nil
 	})
