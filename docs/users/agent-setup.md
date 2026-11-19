@@ -1,5 +1,21 @@
 # Setting Up Orpheum: Help for a Person's AI Agent
 
+The facts first:
+
+- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin)
+  on a 64-bit machine, amd64 or arm64.
+- Install guide: https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md
+- Its exact text: https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/install.md
+- Compose file for OpenMediaVault:
+  https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml
+- Compose file for a Synology:
+  https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml
+- Compose file for any other machine with Docker:
+  https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml
+- Never ask for a password: the person types it themselves.
+- An invitation link is a secret: never paste one into a chat, a document or an issue that anyone
+  else can read.
+
 This page is for an AI agent helping a person install Orpheum, a server that plays their own films
 and series to their browsers, phones and televisions. They may have said no more than "set up
 Orpheum, which is at orpheum.cc". Ask them the questions below, then follow the section of the

@@ -20,12 +20,36 @@ export const llmsTxtFile = "llms.txt";
 /** The public repository's tree of the user documentation, which the help's links point into. */
 const usersGuideOnGitHub = "https://github.com/kstenerud/orpheum/blob/main/docs/users/";
 
+/**
+ * The same tree as plain files: a fetch of one gives its exact text, where a fetch of the GitHub page
+ * may give an agent a summary without its links (an agent's install, 2026-11-19).
+ */
+const usersGuideRaw = "https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/";
+
 /** The install guide in the public repository, which /llms.txt and the realm sign-in link to. */
 export const installGuideOnGitHub = `${usersGuideOnGitHub}install.md`;
+
+/** The latest release's compose files, one for each way to install (install.md, One compose file). */
+const composeFiles = "https://github.com/kstenerud/orpheum/releases/latest/download/";
 
 /** What Orpheum is, in the sentence /llms.txt and the page's description (index.html) both say. */
 export const orpheumInOneSentence =
   "A self-hosted server that plays a household's own films and series to its browsers, phones and televisions.";
+
+/**
+ * The facts an agent needs first, which open /llms.txt and the help (docs/users/agent-setup.md has
+ * them word for word): short and plain, with each address written out, so a fetch that summarizes
+ * the file or drops its links keeps them (an agent's install, 2026-11-19).
+ */
+export const installFacts = `- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin) on a 64-bit machine, amd64 or arm64.
+- Install guide: ${installGuideOnGitHub}
+- Its exact text: ${usersGuideRaw}install.md
+- Compose file for OpenMediaVault: ${composeFiles}orpheum-omv.yaml
+- Compose file for a Synology: ${composeFiles}orpheum-synology.yaml
+- Compose file for any other machine with Docker: ${composeFiles}orpheum-docker.yaml
+- Never ask for a password: the person types it themselves.
+- An invitation link is a secret: never paste one into a chat, a document or an issue that anyone else can read.
+`;
 
 /** A Markdown link's target: what is between `](` and `)`. */
 const linkTarget = /\]\(([^)\s]+)\)/gu;
@@ -43,18 +67,28 @@ export function servedAgentHelp(source: string): string {
   );
 }
 
-/** /llms.txt: the site named, and the help listed first, by the address the page names it at. */
+/**
+ * /llms.txt: the site named, the facts an agent needs first, then the help, by the address the page
+ * names it at, and each guide with its exact text beside it.
+ */
 export const llmsTxt = `# Orpheum
 
 > ${orpheumInOneSentence} An AI agent helping a person set it up starts with the
-> setup help below.
+> facts and the setup help below.
 
+${installFacts}
 ## Setting up
+
+Each guide's raw.githubusercontent.com address gives its exact text, where its github.com page may
+reach an agent only as a summary.
 
 - [Setup help for an AI agent](/${agentHelpFile}): what to ask the person, which section of the
   install guide each answer leads to, and the agent's rules.
-- [The same help in the public repository](${usersGuideOnGitHub}agent-setup.md)
-- [The install guide](${installGuideOnGitHub})
+- [The same help in the public repository](${usersGuideOnGitHub}agent-setup.md); its exact text:
+  ${usersGuideRaw}agent-setup.md
+- [The install guide](${installGuideOnGitHub}); its exact text: ${usersGuideRaw}install.md
+- [What has gone wrong in an install before, and the fix](${usersGuideOnGitHub}setup-problems.md); its
+  exact text: ${usersGuideRaw}setup-problems.md
 `;
 
 /** One file the build writes beside the client's. */

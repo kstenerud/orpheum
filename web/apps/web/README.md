@@ -488,7 +488,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   phone shows each page on the way to its core while the script starts (the owner, 2026-11-14); an
   agent reading the text takes no style. The build writes the help from its one source,
   `docs/users/agent-setup.md`, its relative links made the public repository's, and `/llms.txt`
-  naming it (`src/agent-help.ts`, the `orpheum-agent-help` plugin in `vite.config.ts`).
+  naming it (`src/agent-help.ts`, the `orpheum-agent-help` plugin in `vite.config.ts`). Both open
+  with the same short facts, each address written out, and `/llms.txt` gives each guide's
+  raw.githubusercontent.com copy beside its page, so a fetch that summarizes or drops links keeps
+  them.
   `agent-help.test.ts`, `agent-help-page.test.tsx`.
 - **A loader whose path is lost waits it out; a refusal stays a refusal** (principles §28; the owner's
   train, 2026-11-13, where one channel lost mid-manifest ended the page for good): a try that fails
