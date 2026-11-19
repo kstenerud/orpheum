@@ -23,6 +23,10 @@ const usersGuideOnGitHub = "https://github.com/kstenerud/orpheum/blob/main/docs/
 /** The install guide in the public repository, which /llms.txt and the realm sign-in link to. */
 export const installGuideOnGitHub = `${usersGuideOnGitHub}install.md`;
 
+/** What Orpheum is, in the sentence /llms.txt and the page's description (index.html) both say. */
+export const orpheumInOneSentence =
+  "A self-hosted server that plays a household's own films and series to its browsers, phones and televisions.";
+
 /** A Markdown link's target: what is between `](` and `)`. */
 const linkTarget = /\]\(([^)\s]+)\)/gu;
 
@@ -42,8 +46,8 @@ export function servedAgentHelp(source: string): string {
 /** /llms.txt: the site named, and the help listed first, by the address the page names it at. */
 export const llmsTxt = `# Orpheum
 
-> A self-hosted server that plays a household's own films and series to its browsers, phones and
-> televisions. An AI agent helping a person set it up starts with the setup help below.
+> ${orpheumInOneSentence} An AI agent helping a person set it up starts with the
+> setup help below.
 
 ## Setting up
 

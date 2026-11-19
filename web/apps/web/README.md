@@ -479,8 +479,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `rtc-media.test.ts`.
 - **The page names the setup help for a person's own AI agent to one that runs no script** (the
   plan's "Help for a person's own AI agent at orpheum.cc"): a `<link rel="help">` and an `alternate`
-  `text/markdown` link in its head, and in its root a plain paragraph naming `/agent-setup.md` and
-  `/llms.txt`, which the client's first drawing replaces, so neither a person nor a screen reader
+  `text/markdown` link in its head, and in its root plain paragraphs: what Orpheum is (the head's
+  `description` too) with an **Install a server** link to the install guide on GitHub, the help's
+  `/agent-setup.md` and `/llms.txt`, and a sentence telling the agent that a person sees more than it
+  does, so it does not report the page as empty (an agent's install, 2026-11-19). The client's first
+  drawing replaces them, so neither a person nor a screen reader
   meets it once the page is drawn. Until then the page's own style hides it (`.for-agents`), as a
   phone shows each page on the way to its core while the script starts (the owner, 2026-11-14); an
   agent reading the text takes no style. The build writes the help from its one source,

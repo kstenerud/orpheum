@@ -8,10 +8,18 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 
-import { agentHelpFile, llmsTxtFile } from "./agent-help.ts";
+import {
+  agentHelpFile,
+  installGuideOnGitHub,
+  llmsTxtFile,
+  orpheumInOneSentence,
+} from "./agent-help.ts";
 
 /** The page the core and the loader serve, as the build takes it. */
 const page = readFileSync(path.join(import.meta.dirname, "../index.html"), "utf8");
+
+/** Text with each run of spaces and line breaks made one space, as a browser draws it. */
+const flowed = (text: string): string => text.replaceAll(/\s+/gu, " ");
 
 /** The page as a browser parses it, before any script runs. */
 function parsedPage(): Document {
@@ -32,7 +40,31 @@ describe("the page's naming of the setup help for a person's AI agent", () => {
     expect(root?.textContent).toContain(`/${llmsTxtFile}`);
     expect(
       [...(root?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("href")),
-    ).toEqual([`/${agentHelpFile}`, `/${llmsTxtFile}`]);
+    ).toEqual([installGuideOnGitHub, `/${agentHelpFile}`, `/${llmsTxtFile}`]);
+  });
+
+  // An agent whose fetch ran no script and summarized the page reported it as empty, with no word
+  // of what Orpheum is and no way to install it (an agent's install, 2026-11-19).
+  it("says what Orpheum is, in the page's description and its root, and links the install guide", () => {
+    const served = parsedPage();
+    expect(served.head.querySelector(`meta[name="description"]`)?.getAttribute("content")).toBe(
+      orpheumInOneSentence,
+    );
+    const root = served.getElementById("root");
+    expect(flowed(root?.textContent ?? "").toLowerCase()).toContain(
+      orpheumInOneSentence.toLowerCase(),
+    );
+    const install = [...(root?.querySelectorAll("a") ?? [])].find(
+      (link) => link.getAttribute("href") === installGuideOnGitHub,
+    );
+    expect(flowed(install?.textContent ?? "").trim()).toBe("Install a server");
+  });
+
+  it("tells an agent that a person sees more than it does, with the install guide's address in its words", () => {
+    const text = flowed(parsedPage().getElementById("root")?.textContent ?? "");
+    expect(text).toContain("If you read this, you see this page without its script");
+    expect(text).toContain(`Install a server link to ${installGuideOnGitHub}.`);
+    expect(text).toContain("Do not report the page as empty.");
   });
 
   it("shows a person none of it while the script starts, as a phone shows each page on the way to its core (the owner, 2026-11-14)", () => {
