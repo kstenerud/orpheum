@@ -717,6 +717,16 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   alone, and none of ExecRaw's 200-odd calls in the tests pays a sync.
 - **Warning sign:** a test whose wall time is several times its CPU profile's total; `Xfsync` in
   a trace's syscall profile.
+- **Not taken: the Go tests' temporary files on a RAM disk** (the owner's go, 2026-11-19, tried
+  first). Go 1.26 puts `t.TempDir()` under `GOTMPDIR`, beside the test binaries it builds, so the
+  RAM disk must allow running programs and hold every package's binary; the sandbox's `/dev/shm`
+  is 64 MB and `noexec`; and a directory longer than `/tmp` makes the compose tests' Unix sockets
+  too long (108 bytes against 103). On an 8 GB tmpfs at `/mnt/ramtmp`, the whole uncached suite
+  (`go test -count=1 ./...`) took 57 s against 64 s on the disk, with
+  `TestReleasedCompose_EveryReleasedFileStillStartsThisServer` and
+  `TestFilledComposeFile_AServerStartedByEachFileHandsThatFileBack` failing on the socket path, and
+  `make check` reruns only changed packages. What would work is a tmpfs mounted at `/tmp` itself:
+  the machine's setup, not the Makefile's.
 
 ## What makes these hard to see
 
