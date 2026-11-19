@@ -41,14 +41,26 @@ func ParseFormat(value string) (Format, error) {
 // With("component", ...). It logs at level, which a *slog.LevelVar changes while it runs (D347),
 // and a line logged with a request's context carries the request's ID (WithRequestID).
 func New(output io.Writer, format Format, level slog.Leveler) (*slog.Logger, error) {
+	return NewKeeping(output, format, level, nil)
+}
+
+// NewKeeping is New whose logger also keeps every line it is given in recent, at whatever level
+// it writes (D524 §3); a nil recent keeps none.
+func NewKeeping(output io.Writer, format Format, level slog.Leveler, recent *Recent) (*slog.Logger, error) {
 	options := &slog.HandlerOptions{Level: level}
+	var written slog.Handler
 	switch format {
 	case FormatJSON:
-		return slog.New(requestHandler{slog.NewJSONHandler(output, options)}), nil
+		written = requestHandler{slog.NewJSONHandler(output, options)}
 	case FormatText:
-		return slog.New(requestHandler{slog.NewTextHandler(output, options)}), nil
+		written = requestHandler{slog.NewTextHandler(output, options)}
+	default:
+		return nil, fmt.Errorf("log format %q: want %q or %q", format, FormatJSON, FormatText)
 	}
-	return nil, fmt.Errorf("log format %q: want %q or %q", format, FormatJSON, FormatText)
+	if recent == nil {
+		return slog.New(written), nil
+	}
+	return slog.New(recentHandler{written: written, recent: recent}), nil
 }
 
 // UserAgent is the browser's own words for itself, as a log attribute and nothing else: behaviour
