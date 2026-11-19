@@ -63,7 +63,7 @@ describe("the page's naming of the setup help for a person's AI agent", () => {
   it("tells an agent that a person sees more than it does, with the install guide's address in its words", () => {
     const text = flowed(parsedPage().getElementById("root")?.textContent ?? "");
     expect(text).toContain("If you read this, you see this page without its script");
-    expect(text).toContain(`Install a server link to ${installGuideOnGitHub}.`);
+    expect(text).toContain(`The install guide is at ${installGuideOnGitHub}.`);
     expect(text).toContain("Do not report the page as empty.");
   });
 
