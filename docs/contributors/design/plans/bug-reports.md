@@ -5,6 +5,7 @@
 # Bug reports
 
 - **Status:** PLANNED — designed 2026-09-19 ([D74](../../decisions/working-notes.md)); structure adapted from the [yoloai](https://github.com/kstenerud/yoloai) design, which solved this already.
+- **Revised:** 2026-11-19 by [D524](../../decisions/working-notes.md): made from inside the app by anyone signed in, kept for the household's admin alone, from the recent log every process keeps in memory, downloaded shareable or full; the command line second, `--bugreport` on every command dropped. Where this page and D524 differ, D524 holds.
 - **Depends on:** [remote-access.md](remote-access.md) (the session id from [D73](../../decisions/working-notes.md))
 
 ## Why this is not boilerplate

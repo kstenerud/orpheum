@@ -80,7 +80,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D71](working-notes.md#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) One relay artefact, three jobs, and the core dials out to it — *revisited by D152, D193*
 - [D72](working-notes.md#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) The hosted relay has no free tier, holds no data, and has no accounts — *revisited by D73, D214, D289*
 - [D73](working-notes.md#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) Each component reports according to its own visibility; blind is not opaque — *revisited by D152*
-- [D74](working-notes.md#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) Bug reports pseudonymise rather than redact, and fan in across components
+- [D74](working-notes.md#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) Bug reports pseudonymise rather than redact, and fan in across components — *revisited by D524*
 - [D75](working-notes.md#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) One predicate language, three bindings; a typed field registry is the schema deliverable — *revisited by D76, D84, D98, D164*
 - [D76](working-notes.md#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) A share is a grantee plus a predicate, and it fails closed — *revisited by D130, D184*
 - [D77](working-notes.md#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) Back up with `VACUUM INTO`, back up only the irreplaceable, and test the restore — *revisited by D166, D179, D185*
@@ -529,6 +529,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D521](working-notes.md#d521--stop-airplay-opens-airplays-picker-for-the-person-to-choose-this-device-and-airplay-plays-the-sound-the-page-plays) Stop AirPlay opens AirPlay's picker for the person to choose this device, and AirPlay plays the sound the page plays — *revisited by D522*
 - [D522](working-notes.md#d522--an-airplay-grants-master-offers-only-the-sound-the-page-plays-and-a-guests-sync-gives-airplay-room) An AirPlay grant's master offers only the sound the page plays, and a guest's sync gives AirPlay room
 - [D523](working-notes.md#d523--airplay-is-webkits-own-handover-followed-by-its-flag-alone-with-airplay-controls-in-place-of-stop-and-one-cast-at-a-time) AirPlay is WebKit's own handover, followed by its flag alone, with AirPlay controls in place of Stop and one cast at a time
+- [D524](working-notes.md#d524--a-problem-report-is-made-from-inside-the-app-kept-for-the-households-admin-alone-from-logs-every-process-keeps-in-memory-and-downloaded-shareable-or-full) A problem report is made from inside the app, kept for the household's admin alone, from logs every process keeps in memory, and downloaded shareable or full
 
 ## Archived
 

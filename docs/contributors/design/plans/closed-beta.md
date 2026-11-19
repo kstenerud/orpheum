@@ -43,7 +43,7 @@ household; nothing after it reaches anyone else without it.
 | Connections that heal on network changes | discovery-core K3b, K4 | M | Replacing a failed connection is built (W2d); ICE restart and change events are not |
 | The System page in plain words | discovery-core K12, K16 | M | First-run form, home address, counting where people get stuck |
 | The paid service made whole | service.md M-S1–M-S4, M-S6 | L | Probe, names and certificates, caps, client integrity and kill switch, lapse |
-| Bug reports from inside the app | [bug-reports.md](bug-reports.md); D74 | M | |
+| Bug reports from inside the app | [bug-reports.md](bug-reports.md); D74, D524 | M | Being built (2026-11-19) |
 | Log levels changeable while running | the owner, 2026-10-15; D347 | M | The core's is built (D347); the nodes', connectd's and per-part levels are still to design |
 | Terms, privacy policy, Impressum | service.md P13 | ? | Not drafted (orpheum-site holds only its landing page, 2026-11-19). After the basics: the first outside household is a friend, "so the legal stuff isn't as important as getting the basics going" (the owner, 2026-11-19) |
 
@@ -57,7 +57,8 @@ set up before, gets from nothing to playing a film at app.orpheum-app.com with n
 operator. A second invitation for the same account hands it over and ends the first's sessions. A
 new key removes the old core and the household's pages say so. A failed sign-in for an unknown
 name, an unknown realm and a wrong password take the same time. A bug report from the app reaches
-the operator with the logs that explain it.
+the household's admin with the logs that explain it, one a maintainer can triage without asking
+for anything else (D524 §1).
 
 ## B1 — between episodes
 

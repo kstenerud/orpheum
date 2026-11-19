@@ -30278,3 +30278,41 @@ and D522.
 to. The page shows it on, by §2; a device check says what it does, and a fix follows.
 
 **Status:** decided (2026-11-18); run 5 settled §4's wait (2026-11-18).
+
+## D524 — A problem report is made from inside the app, kept for the household's admin alone, from logs every process keeps in memory, and downloaded shareable or full
+
+**Decided** (2026-11-19), by the project owner, "yes to all" on the lead's five proposals, asked as
+the closed beta's first outside household installed: D74 designed a command-line report pasted into
+a GitHub issue, and the 2026-10-26 Diagnostics agreement had reports go to the household's admin
+alone. **Extends** D74, whose pseudonymising, "keep the shape, drop the identity", absent components
+named with a reason, the outer `<details>` and the 64,000-byte summary all hold; **keeps** D349 §10.
+
+1. **It goes to the household's admin alone.** Nothing of it reaches the service or the operator;
+   the admin reads it and chooses to post it on GitHub or send it on. The beta's acceptance line
+   becomes: the admin gets a report a maintainer can triage without asking for anything else.
+2. **Anyone signed in makes one,** by *Report a problem* in the player's menu and in the account's
+   menu, with a line of their own words. Their device adds what only it sees: the browser, what it
+   can play, the page's state and, from the player, the playback's. A Watch Together guest by link
+   does not, for now. The admin finds the reports in a list on the System page.
+3. **Every process keeps its recent log in memory,** whatever level it writes: the core and each
+   node hold their last 30 minutes at every level and their last 24 hours at info and above, lost at
+   a restart, bounded by count too. A report takes the core's and asks each node for its own (a node
+   that does not answer is named absent, with why). So a report has the detail no one turned on
+   beforehand: D74's flight recorder, in a server's form.
+4. **One report is kept; the admin downloads it shareable or full,** choosing each time, with no
+   default (D74): shareable pseudonymised, full with the table of what each tag stands for. An other
+   library's names stay out of the full form's table unless the admin asks for them in that download
+   (D349 §10). A report deletes itself after 60 days.
+5. **The command line comes second:** `orpheum bugreport safe|unsafe`, for a core that does not
+   start, by the same builder reading the database and the config itself. D74's `--bugreport` on
+   every command is dropped: a server's one long command is `serve`.
+
+**How (the lead's, within the above):** a log line's message is constant (sloglint), so what can name
+a film, a person or a house is in its values. A value is pseudonymised unless its key is on a short
+list of keys known to carry only shape (an event, a codec, a status, a request's ID, a count);
+numbers, durations and booleans are kept. Free text kept for its sense (an error's words, the page's
+own message) has its paths (depth and extension kept), addresses, URLs' queries and every value the
+report pseudonymised elsewhere replaced by tags. One salt per report, so the core's and the nodes'
+lines name the same file by the same tag. D194 §5's canary test covers the report.
+
+**Status:** decided (2026-11-19); to build.
