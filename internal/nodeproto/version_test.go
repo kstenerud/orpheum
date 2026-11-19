@@ -160,6 +160,9 @@ var wireShapeByVersion = map[int]string{
 	// 65 adds the node's recent log on the byte socket, RecentLog, for a problem report (D524 §3): a
 	// node of 64 would answer it 404. The shape counts the recent log from 65 on.
 	65: "786641cba8d769bda9c92e507a8f42e96ebac11ccbb73e55d167009a7945add5",
+	// 66 adds the tuning's LogLevel, the core's logLevel setting each node's log follows (D525 §1):
+	// a node of 65 would ignore it and keep its file's level.
+	66: "96d225ce8271db66cbcab907e017c04a4b9cbe7179880bca2d98ed624c83f845",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

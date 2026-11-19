@@ -70,17 +70,18 @@ func commandNode(ctx context.Context, call invocation) int {
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}
-	if err = runNode(ctx, config, logger, opened.recent); err != nil {
+	if err = runNode(ctx, config, opened); err != nil {
 		logger.ErrorContext(ctx, "the node stopped", "err", err)
 		return exitFailure
 	}
 	return exitSuccess
 }
 
-// runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends; its
-// byte socket answers with recent, the lines logger kept (D524 §3).
-func runNode(ctx context.Context, config Config, logger *slog.Logger, recent *slogx.Recent) error {
-	return runNodeWith(ctx, config, logger, recent, nodeSeams{})
+// runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends, writing
+// log: its byte socket answers with the lines it kept (D524 §3), and its level follows the core's
+// (D525 §1).
+func runNode(ctx context.Context, config Config, log processLog) error {
+	return runNodeWith(ctx, config, log, nodeSeams{})
 }
 
 // nodeSeams are where a test reaches into the node; the zero value is the node as it runs.
@@ -157,8 +158,22 @@ func waitWhileLocked(
 	return agent.WaitForLeave(ctx, config.Node.CoreSocket, report, tick, logger)
 }
 
+// shimPathFor is the shim every FFmpeg run is started through: this binary, re-executed to confine it
+// (cut-a §7), or none for a test's unconfined runs.
+func shimPathFor(seams nodeSeams) (string, error) {
+	if seams.isUnconfined {
+		return "", nil
+	}
+	shimPath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("find orpheum's own path for the shim: %w", err)
+	}
+	return shimPath, nil
+}
+
 // runNodeWith is runNode with a test's seams.
-func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, recent *slogx.Recent, seams nodeSeams) error {
+func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeSeams) error {
+	logger := log.logger
 	ticker, setStatusEvery := statusTicker(seams)
 	defer ticker.Stop()
 	confinement, isLocked := checkConfinement(ctx, config, logger, seams)
@@ -173,13 +188,9 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, recent
 			}
 		}
 	}()
-	// Every FFmpeg run re-executes this binary as the shim that confines it (cut-a §7).
-	shimPath, err := os.Executable()
+	shimPath, err := shimPathFor(seams)
 	if err != nil {
-		return fmt.Errorf("find orpheum's own path for the shim: %w", err)
-	}
-	if seams.isUnconfined {
-		shimPath = ""
+		return err
 	}
 	runner, err := execx.NewConfinedRunner(config.Node.FFmpegDir, shimPath)
 	if err != nil {
@@ -205,7 +216,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, recent
 	}
 	heldResults, hashes := agent.NewHeldResults(), namedfile.NewHashes()
 	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory,
-		byteSocketShares{heldResults: heldResults, disks: disks, hashes: hashes, recent: recent}, logger)
+		byteSocketShares{heldResults: heldResults, disks: disks, hashes: hashes, recent: log.recent}, logger)
 	if err != nil {
 		return err
 	}
@@ -224,7 +235,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, recent
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
 		Disks: disks, Films: runner, ReadSelfUse: selfuse.Read,
-		SystemVideoMaker: systemVideoMaker(runner, systemFolder),
+		SystemVideoMaker: systemVideoMaker(runner, systemFolder), SetLogLevel: nodeLogLevelSetter(log),
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)

@@ -180,7 +180,7 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
 	return startServing(t, config, captured, awaited, func(ctx context.Context) error {
-		return runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams)
+		return runNodeWith(ctx, config, processLog{logger: captured.logger}, fakeFFmpegSeams)
 	})
 }
 
@@ -329,7 +329,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams) }()
+	go func() { done <- runNodeWith(ctx, config, processLog{logger: captured.logger}, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
 		if err := testutil.Receive(t, done, "the node to stop"); err != nil {
@@ -396,7 +396,8 @@ func TestRunNode_AnswersWithItsRecentLogOnTheByteSocket(t *testing.T) {
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, recent, fakeFFmpegSeams) }()
+	log := processLog{logger: captured.logger, recent: recent}
+	go func() { done <- runNodeWith(ctx, config, log, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
 		if stopped := testutil.Receive(t, done, "the node to stop"); stopped != nil {
@@ -442,7 +443,7 @@ func TestRunNode_StillServesFilesWhenItCannotMakeChunks(t *testing.T) {
 	captured := newCapturedLog(listening, cannot)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams) }()
+	go func() { done <- runNodeWith(ctx, config, processLog{logger: captured.logger}, fakeFFmpegSeams) }()
 	for _, awaited := range []string{cannot, listening} {
 		select {
 		case <-captured.signals[awaited]:
@@ -557,7 +558,7 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 		return hangingListings{Scanner: inner, testCtx: t.Context()}
 	}
 	server := startServing(t, config, captured, stalled, func(ctx context.Context) error {
-		return runNodeWith(ctx, config, captured.logger, nil, seams)
+		return runNodeWith(ctx, config, processLog{logger: captured.logger}, seams)
 	})
 	if stopped := server.stop(); stopped != nil {
 		t.Errorf("serve returned %v", stopped)

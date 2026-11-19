@@ -30316,3 +30316,22 @@ report pseudonymised elsewhere replaced by tags. One salt per report, so the cor
 lines name the same file by the same tag. D194 §5's canary test covers the report.
 
 **Status:** decided (2026-11-19); to build.
+
+## D525 — The logLevel setting moves the nodes too, and connectd's level is an operator's control while it runs
+
+**Decided** (2026-11-19), by the project owner, answering the lead's proposal of the owner's
+2026-10-15 ask for log depths changed at runtime, which D347 began with the core's own. It amends
+D347 §1, which kept a node's level its config file's.
+
+1. **The nodes follow the core's logLevel.** The core sends the setting as it stands to every node
+   in the tuning of each hello's reply and poll's answer (nodeproto.Tuning), so a change reaches each
+   node within a poll's hold, 25 seconds. `file` is each process's own config file's `log.level`: a
+   node's, for a node. A core that says none, an older one, leaves a node's level as it was. Each
+   change is logged, at the level it leaves, as the core's is.
+2. **connectd's level is a control in the operator's panel,** changed while it runs, each change
+   logged; a restart starts it at its configured level again.
+3. **Levels per part of the program come later** (D347 §4). Every process's recent log keeps its
+   debug lines whatever it writes (D524 §3), so a problem report carries them without anyone having
+   turned them on.
+
+**Status:** decided (2026-11-19); to build.

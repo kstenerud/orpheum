@@ -37,7 +37,7 @@ func TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined(t *t
 	captured := newCapturedLog()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, withoutLandlock) }()
+	go func() { done <- runNodeWith(ctx, config, processLog{logger: captured.logger}, withoutLandlock) }()
 	defer func() {
 		cancel()
 		if err := testutil.Receive(t, done, "the node to stop"); err != nil {

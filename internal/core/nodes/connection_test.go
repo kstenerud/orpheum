@@ -381,6 +381,22 @@ func TestHelloAndCommands_SayHowOftenAReadThroughsProgressIsSaid(t *testing.T) {
 	}
 }
 
+// The reply to a hello and each answer to a poll name the log level the logLevel setting holds then,
+// so each node's log follows the one setting the core's does (D525 §1).
+func TestHelloAndCommands_NameTheLogLevelTheSettingHolds(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	if level := reply.Tuning.LogLevel; level != settings.LogLevelFromFile {
+		t.Errorf("the hello's reply names log level %q; want the setting's starting %q", level,
+			settings.LogLevelFromFile)
+	}
+	settingstest.Set(t, harness.settings, settings.LogLevel, `"debug"`)
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); commands.Tuning.LogLevel != "debug" {
+		t.Errorf("the poll names log level %q; want the debug set", commands.Tuning.LogLevel)
+	}
+}
+
 // A node posts its status at its own starting cadence until a core says one, so that cadence is the
 // one the silence setting's starting value gives (the constants sweep, 2026-10-21).
 func TestStatusEveryFor_ANodesCadenceBeforeACoreSaysIsTheSilenceSettingsStart(t *testing.T) {

@@ -281,7 +281,7 @@ export const enSettingsCatalogue = {
     linkSteadinessRelaxesSeconds:
       "How long between playbacks a device's caution on a network takes to ease by one level. A device whose last playback there kept switching quality starts the next one cautious, one level less for each of these since.",
     logLevel:
-      "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
+      "How much the server and each of its media machines write to their logs, changed at once, a media machine's within half a minute: debug, info, warn or error. file keeps the level each one's config file names.",
     loudnessMaxRaiseDb:
       "The most a quiet sound is raised, in dB, so its noise is not raised with it.",
     loudnessTargetLufs: "The loudness, in LUFS, that sound is raised or lowered towards.",

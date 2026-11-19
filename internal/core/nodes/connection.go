@@ -115,9 +115,15 @@ func (service *Service) isConnectedLocked(node *connectedNode, silentAfter time.
 func (service *Service) tuning(ctx context.Context) nodeproto.Tuning {
 	progressEvery := settings.DurationOrStarting(ctx, service.settings, settings.NodeProgressEverySeconds,
 		service.logger)
+	// A level that cannot be read is said as none, which leaves each node's as it was.
+	logLevel, err := service.settings.String(ctx, settings.LogLevel)
+	if err != nil {
+		service.logger.ErrorContext(ctx, "the nodes' log level is not sent", "err", err)
+	}
 	return nodeproto.Tuning{
 		StatusEverySeconds:   StatusEveryFor(service.silentAfter(ctx)),
 		ProgressEverySeconds: int(progressEvery.Seconds()),
+		LogLevel:             logLevel,
 	}
 }
 

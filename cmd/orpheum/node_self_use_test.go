@@ -25,7 +25,7 @@ func TestRunNode_SaysInItsStatusWhatItUsesOfItsMachine(t *testing.T) {
 	captured := newCapturedLog()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNodeWith(ctx, config, captured.logger, nil, fakeFFmpegSeams) }()
+	go func() { done <- runNodeWith(ctx, config, processLog{logger: captured.logger}, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
 		if err := testutil.Receive(t, done, "the node to stop"); err != nil {

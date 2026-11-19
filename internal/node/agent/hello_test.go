@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -106,6 +107,22 @@ func TestAgent_SaysARunsProgressAsOftenAsTheCoreSays(t *testing.T) {
 	agent.takeTuning(t.Context(), nodeproto.Tuning{})
 	if every := agent.progressEvery(); every != 5*time.Second {
 		t.Errorf("progress is said every %v; want the 5 s the core said, which a tuning saying none leaves", every)
+	}
+}
+
+// The node's log is set to each level the core names, once a change, so a level it cannot set is not
+// tried again at every poll; a tuning naming none leaves it (D525 §1).
+func TestAgent_SetsTheLogLevelTheCoreNamesOnceAChange(t *testing.T) {
+	t.Parallel()
+	var set []string
+	agent := New("", nodeproto.Hello{}, nil, Workers{
+		SetLogLevel: func(_ context.Context, name string) { set = append(set, name) },
+	}, nil, slog.New(slog.DiscardHandler))
+	for _, said := range []string{"", "debug", "debug", "", "file", "debug"} {
+		agent.takeTuning(t.Context(), nodeproto.Tuning{LogLevel: said})
+	}
+	if want := []string{"debug", "file", "debug"}; !slices.Equal(set, want) {
+		t.Errorf("the node set its log's level to %q; want %q, each change once", set, want)
 	}
 }
 

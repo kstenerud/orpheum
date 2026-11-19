@@ -27,7 +27,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 65
+const ProtocolVersion = 66
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -194,6 +194,10 @@ type Tuning struct {
 	// ProgressEverySeconds is how often, at most, a running read-through tells the core how far it is
 	// (D234 §5): the core's nodeProgressEverySeconds.
 	ProgressEverySeconds int `json:"progressEverySeconds"`
+	// LogLevel is the level the node's log is written at, the core's logLevel setting as it stands
+	// (D525 §1): debug, info, warn or error, or file, the node's own config file's log.level. Empty,
+	// from a core that says none, leaves the node's level as it was.
+	LogLevel string `json:"logLevel,omitempty"`
 }
 
 // StartingStatusEverySeconds is how often a node posts its status before a core has said: the

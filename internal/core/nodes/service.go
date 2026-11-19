@@ -26,6 +26,7 @@ type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 	Bool(ctx context.Context, key settings.Key) (bool, error)
+	String(ctx context.Context, key settings.Key) (string, error)
 }
 
 // ScanRequester asks for a scan of a node's root: library.Scans (D240).

@@ -115,6 +115,9 @@ type Workers struct {
 	// ReadSelfUse reads what the node, with the FFmpeg runs it started, uses of its machine, for its
 	// status: selfuse.Read. Nil says nothing of it.
 	ReadSelfUse func() (selfuse.Sample, error)
+	// SetLogLevel writes the node's log at the level the core names (nodeproto.Tuning.LogLevel, D525
+	// §1), called when the core says one other than the last; nil keeps the level as it is.
+	SetLogLevel func(ctx context.Context, name string)
 }
 
 // defaultOpenStallWindow is how long the node waits for a file it is to read to open: a disk asleep
@@ -193,6 +196,9 @@ type Agent struct {
 	// progressEverySeconds is how often, at most, a running read-through tells the core how far it is, as
 	// the core last said (nodeproto.Tuning); starts at nodeproto.StartingProgressEverySeconds.
 	progressEverySeconds atomic.Int64
+	// logLevel is the log level the core last said (nodeproto.Tuning.LogLevel), which a change is set
+	// against; empty until it says one.
+	logLevel atomic.Pointer[string]
 	// selfUseFailing says once that the node cannot read what it uses, which does not change.
 	selfUseFailing sync.Once
 
@@ -246,6 +252,19 @@ func (agent *Agent) takeTuning(ctx context.Context, tuning nodeproto.Tuning) {
 	if tuning.ProgressEverySeconds > 0 {
 		agent.progressEverySeconds.Store(int64(tuning.ProgressEverySeconds))
 	}
+	agent.setLogLevel(ctx, tuning.LogLevel)
+}
+
+// setLogLevel writes the log at the level the core names, when it names one other than the last;
+// empty, from a core that says none, keeps the last.
+func (agent *Agent) setLogLevel(ctx context.Context, name string) {
+	if name == "" || agent.workers.SetLogLevel == nil {
+		return
+	}
+	if last := agent.logLevel.Swap(&name); last != nil && *last == name {
+		return
+	}
+	agent.workers.SetLogLevel(ctx, name)
 }
 
 // progressEvery is how often, at most, a running read-through tells the core how far it is.

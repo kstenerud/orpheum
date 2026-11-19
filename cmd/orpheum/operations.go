@@ -81,6 +81,8 @@ type processLog struct {
 	logger *slog.Logger
 	// level is the config file's log.level until it is set to another while the process runs (D347).
 	level *slog.LevelVar
+	// fileLevel is the config file's log.level, which the logLevel setting's "file" names.
+	fileLevel slog.Level
 	// closeLog closes the log's file; standard error's does nothing.
 	closeLog func() error
 	// recent is the process's recent log, kept whatever the level, for a problem report (D524 §3).
@@ -112,7 +114,7 @@ func (call invocation) leveledLogger(config Config) (processLog, error) {
 	if err != nil {
 		return processLog{}, errors.Join(err, closeLog())
 	}
-	return processLog{logger: logger, level: level, closeLog: closeLog, recent: recent}, nil
+	return processLog{logger: logger, level: level, fileLevel: fileLevel, closeLog: closeLog, recent: recent}, nil
 }
 
 // openExistingDatabase opens an existing persistent.db, refusing to create one where there is none.

@@ -142,6 +142,9 @@
 //     tuning says, instead of at the tick.
 //     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
 //     TestAgent_ARunWaitingForASlotSaysSoAtOnceAndAtEachTick.
+//   - The node's log is written at the level the core's tuning names, set once at each change, so a
+//     level it cannot set is not tried at every poll; a tuning naming none leaves it (D525 §1).
+//     TestAgent_SetsTheLogLevelTheCoreNamesOnceAChange.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
 //     which a cancel and every result name, and a command without one is refused; and a run is
 //     held beside a scan's examining, never queued behind one. What waits for a slot of its kind

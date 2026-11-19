@@ -94,3 +94,30 @@ func TestReleaseWiringFor_HandsTheServeTheLevelItsLogWritesAt(t *testing.T) {
 		t.Errorf("the serve's recent log is %p; want the opened log's, %p", wired.recent, opened.recent)
 	}
 }
+
+// A node's log is written at the level its core names (D525 §1): "file" is the node's own config
+// file's level, and a name that is no level leaves it as it was, saying why.
+func TestNodeLogLevelSetter_TheNodesLogFollowsTheLevelItsCoreNames(t *testing.T) {
+	t.Parallel()
+	var written strings.Builder
+	level := &slog.LevelVar{}
+	level.Set(slog.LevelWarn)
+	logger := slog.New(slog.NewTextHandler(&written, &slog.HandlerOptions{Level: level}))
+	set := nodeLogLevelSetter(processLog{logger: logger, level: level, fileLevel: slog.LevelWarn})
+	set(t.Context(), "debug")
+	if level.Level() != slog.LevelDebug {
+		t.Errorf("named debug, the node's level is %v", level.Level())
+	}
+	set(t.Context(), "loudest")
+	if level.Level() != slog.LevelDebug || !strings.Contains(written.String(), "the node's log level stays as it was") {
+		t.Errorf("named no level, the node's level is %v and its log\n%s\nwant debug kept and why", level.Level(),
+			written.String())
+	}
+	set(t.Context(), settings.LogLevelFromFile)
+	if level.Level() != slog.LevelWarn {
+		t.Errorf("named file, the node's level is %v; want its file's, warn", level.Level())
+	}
+	if nodeLogLevelSetter(processLog{logger: logger}) != nil {
+		t.Error("a log with no level to set has a setter; want none, which keeps the node's level")
+	}
+}
