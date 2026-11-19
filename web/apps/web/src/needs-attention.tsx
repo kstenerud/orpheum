@@ -179,12 +179,36 @@ export function NeedsAttention(): JSX.Element {
       <Loaded
         resource={counts}
         render={(value) => {
+          // Each count's words, and their own for one (the catalogue has no plural forms: en.ts); what
+          // could not be read leads to the System page, which names each (the first beta install,
+          // 2026-11-19, #32: "1 files or folders could not be read", naming nothing).
           const lines = [
-            { count: value.rootCount, key: "needsAttention.offlineFolders" },
-            { count: value.diskCount, key: "needsAttention.missingDisks" },
-            { count: value.waitingRootCount, key: "needsAttention.waitingFolders" },
-            { count: value.unreadCount, key: "needsAttention.unreadPaths" },
-            { count: value.matchCount, key: "needsAttention.waitingMatches" },
+            {
+              count: value.rootCount,
+              key: "needsAttention.offlineFolders",
+              one: "needsAttention.offlineFoldersOne",
+            },
+            {
+              count: value.diskCount,
+              key: "needsAttention.missingDisks",
+              one: "needsAttention.missingDisksOne",
+            },
+            {
+              count: value.waitingRootCount,
+              key: "needsAttention.waitingFolders",
+              one: "needsAttention.waitingFoldersOne",
+            },
+            {
+              count: value.unreadCount,
+              key: "needsAttention.unreadPaths",
+              one: "needsAttention.unreadPathsOne",
+              isOnSystem: true,
+            },
+            {
+              count: value.matchCount,
+              key: "needsAttention.waitingMatches",
+              one: "needsAttention.waitingMatchesOne",
+            },
           ].filter((line) => line.count > 0);
           return lines.length +
             value.seriesReadWronglyCount +
@@ -201,7 +225,14 @@ export function NeedsAttention(): JSX.Element {
               <OneCopyItems value={value} />
               {lines.map((line) => (
                 <li key={line.key}>
-                  <WarningIcon /> {t(line.key, { count: line.count })}
+                  <WarningIcon />{" "}
+                  {line.count === 1 ? t(line.one) : t(line.key, { count: line.count })}
+                  {line.isOnSystem === true ? (
+                    <>
+                      {" "}
+                      <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link>
+                    </>
+                  ) : null}
                 </li>
               ))}
               <ProblemTitles value={value} />

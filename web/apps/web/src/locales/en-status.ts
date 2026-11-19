@@ -23,13 +23,19 @@ export const enStatus = {
   needsAttention: {
     heading: "Needs attention",
     placeholder:
-      "Everything that needs fixing will be summed up here. For now, this counts it, and the pages below have each with what fixes it.",
+      "What needs fixing is counted here. The pages linked at the bottom list each thing and say how to fix it.",
     nothing: "Nothing needs your attention.",
     offlineFolders: "{{count}} library folders are offline.",
+    offlineFoldersOne: "1 library folder is offline.",
     missingDisks: "{{count}} folders mounted inside library folders are missing.",
+    missingDisksOne: "1 folder mounted inside a library folder is missing.",
     waitingFolders: "{{count}} library folders' scans wait for you before removing files.",
-    unreadPaths: "{{count}} files or folders could not be read.",
+    waitingFoldersOne: "1 library folder's scan waits for you before removing files.",
+    unreadPaths:
+      "{{count}} files or folders could not be read: the System page names them, and why.",
+    unreadPathsOne: "1 file or folder could not be read: the System page names it, and why.",
     waitingMatches: "{{count}} films and series need you to choose their match.",
+    waitingMatchesOne: "1 film or series needs you to choose its match.",
     seriesReadWrongly:
       ": {{count}} of its episodes have no number, though no specials or extras folder holds them. Their file names may have been read wrongly; renaming them as S01E04 places them.",
     filmWithoutSound:

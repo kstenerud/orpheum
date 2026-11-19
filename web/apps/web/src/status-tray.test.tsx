@@ -476,9 +476,27 @@ it("the page of what needs the admin counts each kind, a placeholder until it is
     ),
   );
   const text = mounted.container.textContent;
-  expect(text).toContain("1 library folders' scans wait for you");
-  expect(text).toContain("2 files or folders could not be read.");
+  expect(text).toContain("1 library folder's scan waits for you");
+  expect(text).toContain("2 files or folders could not be read: the System page names them");
   expect(text).not.toContain("offline");
+});
+
+// The first beta install, 2026-11-19, #32: the intro was garbled, one was "1 files or folders", and
+// what could not be read was named nowhere it led to.
+it("says one in the singular, and leads from what could not be read to the System page", async () => {
+  const one = { ...nothingWrong, unreadCount: 1, matchCount: 1 };
+  mounted = await mount(
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, one], ...noUpdate })),
+  );
+  const text = mounted.container.textContent;
+  expect(text).toContain("What needs fixing is counted here.");
+  expect(text).toContain("1 file or folder could not be read: the System page names it");
+  expect(text).toContain("1 film or series needs you to choose its match.");
+  expect(text).not.toContain("1 files");
+  const unread = [...mounted.container.querySelectorAll("li")].find((item) =>
+    item.textContent.includes("could not be read"),
+  );
+  expect(unread?.querySelector("a")?.textContent).toBe("The System page");
 });
 
 it("reads what needs the admin once for the tray's sign and the page of it together (D478)", async () => {
@@ -492,7 +510,7 @@ it("reads what needs the admin once for the tray's sign and the page of it toget
       servedBy({ "GET /needs-attention": [200, somethingWrong], ...noUpdate }, heard),
     ),
   );
-  expect(mounted.container.textContent).toContain("2 files or folders could not be read.");
+  expect(mounted.container.textContent).toContain("2 files or folders could not be read:");
   expect(
     mounted.container.querySelector('[aria-label="Something needs your attention"]'),
   ).not.toBeNull();
