@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A85 — Confirmed orpheum.cc had nothing for a person to read, from the HTML a fetch gets (2026-11-19)
+
+- **What happened:** an install-test agent reported that orpheum.cc's front page held only a note
+  for AI agents. The lead checked with `curl`, saw the same, and told the owner the finding was
+  "real". A browser shows a description and an "Install a server" link, which the page's script
+  draws (`en-discovery.ts`); curl, like the agent's summarizing fetch, sees only the static
+  `index.html`. Both took what their tool did not show for what the site does not have.
+- **Caught by:** the owner, who pointed the agent at the link at the foot of the page.
+- **Gate:** none yet. The lesson: a page's look is judged in a browser (the Playwright harness the
+  lead already runs), not from its HTML. The gap the mistake shows, the static HTML naming nothing
+  a person or an agent needs, is the install-test agent's R1, proposed to the owner.
+
 ### A84 — Called AirPlay drops "by itself" that were the owner's own switches (2026-11-18)
 
 - **What happened:** in the AirPlay lab's runs 2 and 3, the lead read a drop and a return in the
