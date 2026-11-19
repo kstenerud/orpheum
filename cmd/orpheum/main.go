@@ -253,7 +253,7 @@ func usage() string {
 func releaseWiringFor(opened processLog, zone localtime.Zone) wiring {
 	outside := releaseWiring()
 	outside.machineZone = zone
-	outside.logLevel = opened.level
+	outside.logLevel, outside.recent = opened.level, opened.recent
 	return outside
 }
 

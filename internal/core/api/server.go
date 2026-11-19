@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/problemreport"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
@@ -81,6 +82,8 @@ type Dependencies struct {
 	// UnknownFailures are the failures of unknown cause, for the alert, the Needs attention page and
 	// the export (D509, D511).
 	UnknownFailures *unexpected.Recorder
+	// ProblemReports keep the problem reports people make, for the admin to download (D524).
+	ProblemReports *problemreport.Keeper
 	// Rescans are an admin's rescans of every library of films or series, of one, or of one film or
 	// series (D357).
 	Rescans *identify.Rescans
@@ -291,6 +294,7 @@ func newServer(logger *slog.Logger, schemas huma.Registry) *Server {
 	server.registerFilingReports()
 	server.registerNeedsAttention()
 	server.registerUnknownFailures()
+	server.registerProblemReports()
 	server.registerClientSettings()
 	server.registerPlayback()
 	server.registerPreferences()

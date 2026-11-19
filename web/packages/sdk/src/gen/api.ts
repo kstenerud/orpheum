@@ -1794,6 +1794,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The problem reports kept, newest first (D524) */
+        get: operations["listProblemReports"];
+        put?: never;
+        /** Report a problem to the household's admin, with the server's and nodes' recent logs (D524) */
+        post: operations["makeProblemReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/problem-reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One problem report, shareable or full, as Markdown (D524 §4) */
+        get: operations["downloadProblemReport"];
+        put?: never;
+        post?: never;
+        /** Delete one problem report */
+        delete: operations["deleteProblemReport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reachability/{nonce}": {
         parameters: {
             query?: never;
@@ -3378,6 +3414,12 @@ export interface components {
             /** Format: int64 */
             totalBytes: number;
         };
+        DownloadProblemReportOutputBody: {
+            /** @description Its newest lines that fit a GitHub issue's body, in Markdown */
+            summary: string;
+            /** @description The whole report, in Markdown, to attach as a file */
+            whole: string;
+        };
         EncoderTrialBody: {
             /** @enum {string} */
             encoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi";
@@ -4279,6 +4321,23 @@ export interface components {
             /** @description Put secret.key in it, for moving to another machine (D194 §4) */
             includesKey: boolean;
         };
+        MakeProblemReportBody: {
+            /** @description What the device says of itself, in its order: its browser, screen, network */
+            device: components["schemas"]["ProblemReportFactBody"][] | null;
+            /** @description The page's path when the report was made */
+            page: string;
+            /** @description The player's state, when the report was made from the player */
+            playback?: components["schemas"]["ProblemReportPlaybackBody"];
+            /** @description What went wrong, in the person's own words */
+            words: string;
+        };
+        MakeProblemReportOutputBody: {
+            /**
+             * Format: int64
+             * @description The report, which the household's admin downloads
+             */
+            id: number;
+        };
         MatchByLinkInputBody: {
             /**
              * @description A TMDB address or id, or an IMDb address or tt id
@@ -4837,6 +4896,46 @@ export interface components {
             failedHop?: "node" | "provider";
             /** @description For developers, in English */
             message: string;
+        };
+        ProblemReportFactBody: {
+            name: string;
+            value: string;
+        };
+        ProblemReportPlaybackBody: {
+            /** Format: int64 */
+            fileId?: number;
+            /** Format: int64 */
+            itemId?: number;
+            /** Format: int64 */
+            playbackId?: number;
+            /**
+             * Format: int64
+             * @description Where the player was, in milliseconds
+             */
+            positionMs: number;
+            /** @description The quality it played at, as the player names it */
+            quality?: string;
+            /** @description What it was doing: playing, stalled, paused */
+            state?: string;
+        };
+        ProblemReportsOutputBody: {
+            /** @description Newest first, for the 60 days each is kept */
+            reports: components["schemas"]["ProblemReportSummaryBody"][] | null;
+        };
+        ProblemReportSummaryBody: {
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description When it was made, in Unix milliseconds
+             */
+            madeAt: number;
+            /** @description Who made it; absent once their account is deleted */
+            userName?: string;
+            /** @description The version that made it */
+            version: string;
+            /** @description Their own words */
+            words: string;
         };
         ProviderBody: {
             /** Format: double */
@@ -10347,6 +10446,133 @@ export interface operations {
                 "application/json": components["schemas"]["PlaybackWantsInputBody"];
             };
         };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listProblemReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemReportsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    makeProblemReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MakeProblemReportBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MakeProblemReportOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    downloadProblemReport: {
+        parameters: {
+            query: {
+                /** @description shareable hides every name; full holds them, with the table of the tags */
+                form: "shareable" | "full";
+                /** @description Put an other library's names in the full form too (D349 §10) */
+                includeOther?: boolean;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadProblemReportOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteProblemReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

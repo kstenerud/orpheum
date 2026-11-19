@@ -188,6 +188,9 @@ type wiring struct {
 	// logLevel is the level the log is written at, which the logLevel setting changes while the core
 	// runs (D347); nil, a test's, is left as it is.
 	logLevel *slog.LevelVar
+	// recent is the process's recent log, which a problem report holds (D524 §3); nil, a test's,
+	// keeps none.
+	recent *slogx.Recent
 	// setupCodeShown is where the setup code is also written while no admin exists, for a person who
 	// looks in the data folder, and the port it tells them to open: a compose file's start names its
 	// deployment's file and its published HTTP port (D449 §3); no file writes none.
@@ -328,7 +331,8 @@ func wireCore(
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
 		SecretKey:  secretKey,
 		SetupCodes: runSetupCodes{directories: opened.directories, shown: outside.setupCodeShown},
-		Clock:      config.servicesClock(), Random: rand.Reader, Logger: logger, Build: thisBuild(),
+		Clock:      config.servicesClock(), Random: rand.Reader, Logger: logger, Recent: outside.recent,
+		Build:       thisBuild(),
 		TMDBBaseURL: outside.tmdbBaseURL, TMDBImagesBaseURL: outside.tmdbImagesBaseURL,
 		OpenSubtitlesBaseURL: outside.openSubtitlesBaseURL,
 	})

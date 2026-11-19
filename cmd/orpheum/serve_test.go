@@ -246,6 +246,8 @@ func serveOn(
 type serveAlongside struct {
 	node           func(ctx context.Context) error
 	setupCodeShown setupCodeShown
+	// recent is the process's recent log, as a release's run hands it the serve; nil keeps none.
+	recent *slogx.Recent
 }
 
 // serveWithOn is serveOn with alongside's node and setup code's file.
@@ -260,7 +262,7 @@ func serveWithOn(
 	go func() {
 		outside := wiring{
 			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
-			setupCodeShown: shown,
+			setupCodeShown: shown, recent: alongside.recent,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()

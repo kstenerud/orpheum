@@ -75,7 +75,7 @@ func (service *Service) HandOff(
 		return "", err
 	}
 	person := ""
-	if realm := service.currentRealm(); realm != "" {
+	if realm := service.Realm(); realm != "" {
 		person = proof.RealmPerson(realm, name)
 	}
 	return service.keepHandOff(ctx, issued, person, handOffLife)

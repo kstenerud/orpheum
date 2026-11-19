@@ -1719,6 +1719,23 @@
         ],
         "type": "object"
       },
+      "DownloadProblemReportOutputBody": {
+        "properties": {
+          "summary": {
+            "description": "Its newest lines that fit a GitHub issue's body, in Markdown",
+            "type": "string"
+          },
+          "whole": {
+            "description": "The whole report, in Markdown, to attach as a file",
+            "type": "string"
+          }
+        },
+        "required": [
+          "whole",
+          "summary"
+        ],
+        "type": "object"
+      },
       "EncoderTrialBody": {
         "properties": {
           "encoder": {
@@ -4313,6 +4330,56 @@
         ],
         "type": "object"
       },
+      "MakeProblemReportBody": {
+        "additionalProperties": false,
+        "properties": {
+          "device": {
+            "description": "What the device says of itself, in its order: its browser, screen, network",
+            "items": {
+              "$ref": "#/components/schemas/ProblemReportFactBody"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "description": "The page's path when the report was made",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "playback": {
+            "$ref": "#/components/schemas/ProblemReportPlaybackBody",
+            "description": "The player's state, when the report was made from the player"
+          },
+          "words": {
+            "description": "What went wrong, in the person's own words",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "page",
+          "device"
+        ],
+        "type": "object"
+      },
+      "MakeProblemReportOutputBody": {
+        "properties": {
+          "id": {
+            "description": "The report, which the household's admin downloads",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "MatchByLinkInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5931,6 +5998,115 @@
             "type": "object"
           }
         ]
+      },
+      "ProblemReportFactBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 300,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ProblemReportPlaybackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "itemId": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "playbackId": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "positionMs": {
+            "description": "Where the player was, in milliseconds",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "quality": {
+            "description": "The quality it played at, as the player names it",
+            "maxLength": 60,
+            "type": "string"
+          },
+          "state": {
+            "description": "What it was doing: playing, stalled, paused",
+            "maxLength": 60,
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionMs"
+        ],
+        "type": "object"
+      },
+      "ProblemReportSummaryBody": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "madeAt": {
+            "description": "When it was made, in Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "userName": {
+            "description": "Who made it; absent once their account is deleted",
+            "type": "string"
+          },
+          "version": {
+            "description": "The version that made it",
+            "type": "string"
+          },
+          "words": {
+            "description": "Their own words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "madeAt",
+          "version",
+          "words"
+        ],
+        "type": "object"
+      },
+      "ProblemReportsOutputBody": {
+        "properties": {
+          "reports": {
+            "description": "Newest first, for the 60 days each is kept",
+            "items": {
+              "$ref": "#/components/schemas/ProblemReportSummaryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "reports"
+        ],
+        "type": "object"
       },
       "ProviderBody": {
         "properties": {
@@ -16939,6 +17115,202 @@
           "Playback"
         ],
         "x-orpheum-capability": "member"
+      }
+    },
+    "/problem-reports": {
+      "get": {
+        "operationId": "listProblemReports",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemReportsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The problem reports kept, newest first (D524)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      },
+      "post": {
+        "operationId": "makeProblemReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeProblemReportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MakeProblemReportOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Report a problem to the household's admin, with the server's and nodes' recent logs (D524)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/problem-reports/{id}": {
+      "delete": {
+        "operationId": "deleteProblemReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete one problem report",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      },
+      "get": {
+        "operationId": "downloadProblemReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "shareable hides every name; full holds them, with the table of the tags",
+            "explode": false,
+            "in": "query",
+            "name": "form",
+            "required": true,
+            "schema": {
+              "description": "shareable hides every name; full holds them, with the table of the tags",
+              "enum": [
+                "shareable",
+                "full"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Put an other library's names in the full form too (D349 §10)",
+            "explode": false,
+            "in": "query",
+            "name": "includeOther",
+            "schema": {
+              "description": "Put an other library's names in the full form too (D349 §10)",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadProblemReportOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "One problem report, shareable or full, as Markdown (D524 §4)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/reachability/{nonce}": {

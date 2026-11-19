@@ -316,6 +316,9 @@ func (keeper *Keeper) keptSince() int64 {
 	return keeper.parts.Clock.Now().Add(-KeptFor).UnixMilli()
 }
 
+// EventExpired is the log's event of the reports Expire deleted.
+const EventExpired = "problemReportsExpired"
+
 // Expire deletes the reports made more than KeptFor ago (D524 §4).
 func (keeper *Keeper) Expire(ctx context.Context) error {
 	before := keeper.keptSince()
@@ -329,7 +332,8 @@ func (keeper *Keeper) Expire(ctx context.Context) error {
 		return fmt.Errorf("delete the problem reports past their %s: %w", KeptFor, err)
 	}
 	if deleted > 0 {
-		keeper.parts.Logger.InfoContext(ctx, "deleted problem reports past their keeping", "count", deleted)
+		keeper.parts.Logger.InfoContext(ctx, "deleted problem reports past their keeping",
+			slogx.EventKey, EventExpired, "count", deleted)
 	}
 	return nil
 }

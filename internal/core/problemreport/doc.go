@@ -16,7 +16,10 @@
 // safe. Download renders the row in the form asked for, looking up then every name the database
 // holds that can say whose the report is (titles, roots, libraries, people, devices, nodes, the
 // house's name), so a name added since is hidden too. A report past KeptFor is neither listed nor
-// downloaded; Expiring's sweep deletes it.
+// downloaded; Expiring's sweep deletes it, as the core starts and each hour after, logging
+// EventExpired. The API (internal/core/api/problem_reports.go) makes a report for anyone signed in
+// and lists, downloads and deletes them for the admin; the assembly hands the keeper the process's
+// recent log and the node byte socket's client as its NodeLogs.
 //
 // A tag is `kind:xxxxxx`, a salted hash's first hex digits, lengthened where two values would share
 // one; one salt per report, so the core's and the nodes' lines name one file by one tag, and every

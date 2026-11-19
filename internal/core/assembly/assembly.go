@@ -66,6 +66,9 @@ type Parts struct {
 	// Build is what this binary was built from: the outbound client names it to other hosts, and a
 	// filing report its version.
 	Build build.Provenance
+	// Recent is the core process's recent log, kept at every level for a problem report (D524 §3);
+	// nil keeps none, and a report says so.
+	Recent *slogx.Recent
 	// StartID names this start of the server, at random: a failure of unknown cause kept under an
 	// earlier one is tried once more at this start (D511 §4).
 	StartID string
@@ -225,6 +228,7 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 		return nil, err
 	}
 	dependencies.NodeBytes = nodeBytes
+	dependencies.ProblemReports = services.problemReports(parts, nodeBytes)
 	// The node's folders, for an admin choosing a library folder, are listed on its byte socket (D359 §2).
 	if lister, isLister := nodeBytes.(library.FolderLister); isLister {
 		dependencies.Libraries.ListFoldersThrough(lister)

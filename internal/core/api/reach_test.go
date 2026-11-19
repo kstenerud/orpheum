@@ -265,6 +265,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"echoReachability",
 		// A page's failure, or how it chose its path to the core, which are only logged and answer nothing.
 		"reportClientProblem", "reportClientPath",
+		// A problem report, which answers only its id: the file it names is read for the admin's
+		// report, never for its caller (D524 §2).
+		"makeProblemReport",
 		// What a lab page measured on a device, which is only logged and answers its name in the log or
 		// nothing, and the throughput test's body, bytes of no meaning.
 		"reportLabResult", "reportLabInputEvents", "getLabThroughput",

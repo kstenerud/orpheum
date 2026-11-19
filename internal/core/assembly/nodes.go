@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/problemreport"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -198,6 +199,28 @@ func (services *Services) nodeBytes(parts Parts) (api.NodeBytes, error) {
 	}
 	return openByteSocket(services.NodeChannel, services.Scans), nil
 }
+
+// problemReports keep the problem reports (D524): the core's recent log and each node's, read on its
+// byte socket; a test's faked bytes keep no node's log, and each report names every node absent.
+func (services *Services) problemReports(parts Parts, nodeBytes api.NodeBytes) *problemreport.Keeper {
+	logs, isLogs := nodeBytes.(problemreport.NodeLogs)
+	if !isLogs {
+		logs = noNodeLogs{}
+	}
+	return problemreport.NewKeeper(problemreport.Parts{
+		Database: parts.Database, Clock: parts.Clock, Version: parts.Build.Version, Recent: parts.Recent,
+		NodeLogs: logs, Connections: services.nodes, House: services.API.Auth.Realm, Logger: parts.Logger,
+	})
+}
+
+// noNodeLogs are the node logs of a test whose node bytes are faked: none.
+type noNodeLogs struct{}
+
+// errNoNodeLogs is a node's log asked of a test's faked node bytes.
+var errNoNodeLogs = errors.New("the node's bytes are faked, and keep no log")
+
+// RecentLog is no node's: errNoNodeLogs.
+func (noNodeLogs) RecentLog(context.Context, int64) ([]slogx.Line, error) { return nil, errNoNodeLogs }
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, results
 // the node holds, too large to post, for the node channel (D234 §5), and the probes of roots the

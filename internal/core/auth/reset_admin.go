@@ -58,7 +58,7 @@ func (service *Service) ResetAdmin(ctx context.Context, name, password string) (
 	if err != nil {
 		return AdminReset{}, err
 	}
-	if service.currentRealm() != "" {
+	if service.Realm() != "" {
 		user, lookErr := service.database.Read().GetLiveUserByName(ctx, name)
 		if lookErr != nil {
 			return AdminReset{}, fmt.Errorf("find %q: %w", name, lookErr)

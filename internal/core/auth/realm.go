@@ -26,8 +26,9 @@ func (service *Service) SetRealm(realm string) {
 	service.realm.Store(proof.RealmName(realm))
 }
 
-// currentRealm is the realm the core is found by, or empty.
-func (service *Service) currentRealm() string {
+// Realm is the realm the core is found by, or empty: the household's name, which a problem report
+// hides (D524 §4).
+func (service *Service) Realm() string {
 	realm, _ := service.realm.Load().(string) //nolint:errcheck // a realm never set is none
 	return realm
 }
@@ -39,7 +40,7 @@ func (service *Service) currentRealm() string {
 func (service *Service) keepRealmKey(
 	ctx context.Context, userID int64, name, password string, isNewPassword bool,
 ) error {
-	realm := service.currentRealm()
+	realm := service.Realm()
 	if realm == "" {
 		return nil
 	}
@@ -67,7 +68,7 @@ func (service *Service) keepRealmKey(
 
 // keepRealmKeyOfUser is keepRealmKey for a new password, the person found by their id.
 func (service *Service) keepRealmKeyOfUser(ctx context.Context, userID int64, password string) error {
-	if service.currentRealm() == "" {
+	if service.Realm() == "" {
 		return nil
 	}
 	user, err := liveUser(ctx, service.database.Read(), userID)
@@ -101,7 +102,7 @@ func (service *Service) MakeRealmKey(ctx context.Context, userID int64, password
 // has and their name, which their offers through it are proven under too; ErrRealmRefused when no one
 // is. A household holds few people, so each is matched in turn.
 func (service *Service) RealmKeyOfPerson(ctx context.Context, person string) ([]byte, error) {
-	realm := service.currentRealm()
+	realm := service.Realm()
 	if realm == "" {
 		return nil, ErrRealmRefused
 	}
@@ -141,7 +142,7 @@ func (service *Service) TakeRealmSignIn(ctx context.Context, person, ask string)
 	if err != nil {
 		return nil, err
 	}
-	if !proof.VerifyRealmAsk(key, service.currentRealm(), person, ask) {
+	if !proof.VerifyRealmAsk(key, service.Realm(), person, ask) {
 		return nil, ErrRealmRefused
 	}
 	service.limiter.withdraw(attemptedAt, limitKey)

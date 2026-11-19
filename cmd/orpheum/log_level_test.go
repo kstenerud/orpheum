@@ -10,6 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -83,9 +84,13 @@ func TestMountDiagnostics_TheFilesLevelHoldsUntilTheSettingNamesAnother(t *testi
 // A release's run hands the serve its opened log's level, which the logLevel setting then moves: wired
 // to another, an admin's change of the setting reached nothing the log wrote at (D347).
 func TestReleaseWiringFor_HandsTheServeTheLevelItsLogWritesAt(t *testing.T) {
-	opened := processLog{level: &slog.LevelVar{}}
+	opened := processLog{level: &slog.LevelVar{}, recent: slogx.NewRecent(slogx.ProcessRecentLimits())}
 	wired := releaseWiringFor(opened, localtime.Zone{})
 	if wired.logLevel != opened.level {
 		t.Fatalf("the serve's level is %p; want the opened log's, %p", wired.logLevel, opened.level)
+	}
+	// And the lines the log keeps, whatever its level, for a problem report (D524 §3).
+	if wired.recent != opened.recent {
+		t.Errorf("the serve's recent log is %p; want the opened log's, %p", wired.recent, opened.recent)
 	}
 }
