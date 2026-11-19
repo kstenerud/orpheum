@@ -70,6 +70,10 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 - **Caught by:** the owner: `-bash: discovery-sign: command not found`.
 - **Gate:** none. The lesson: a command handed to the owner is copied from the user guide that
   documents it, not written from memory.
+- **Again, 2026-11-19, at v0.8.6:** the same bare `discovery-sign release v0.8.6`, from the session's
+  handoff note, which had carried the wrong form forward; the owner met the same "command not found".
+  A handoff note is memory too: the release's hand-over takes its command from
+  docs/users/discovery-signing.md §Releases each time.
 
 ### A82 — Told the owner a sound changed during AirPlay would reach the receiver, with nothing built for it (2026-11-18)
 
