@@ -4614,3 +4614,25 @@ go back to basics to find a proper solution. Research, competitor analysis, expe
   live socket's hello still logs `client=""` under the loader (`live.tsx`, the same change as the
   together hello's); a grant asked with no track follows the playback's current sound, not
   strictly the starting track (`asPlayed`); a moved-down ladder's sound cannot be changed.
+
+## A household's first install on OpenMediaVault (the owner's friend, 2026-11-19)
+
+The friend's AI agent installed v0.8.5 on an OpenMediaVault box (Docker by the compose plugin and
+Portainer, the media on a mergerfs pool) from orpheum.cc's help, and reported what it met. The
+owner agreed the lead's proposals ("yes to both, go ahead"):
+
+- **Built:** "feat(web): the realm sign-in links to the install guide"; "docs(install):
+  OpenMediaVault's steps fit a box with no global environment, mergerfs and either Add" (the four
+  values in the file's own Environment box when the global file is empty; an existing user other
+  than root or admin is acceptable, `appuser` still the best; mergerfs named; a shared folder for an
+  inner folder to read its path; both Add forms, the Show environment file tickbox, paste don't
+  type).
+- **Next batch:** the node's device report shows a mergerfs pool's mount as kind unknown,
+  filesystem `fuse.mergerfs` (`internal/node/hardware/storage.go`, which knows `fuse.sshfs` and
+  `fuse.rclone` as network filesystems and every FUSE one as "may wait forever"). Recognise it as a
+  pool and, where its branches can be read, follow them to their disks.
+
+## Loop playback, later (the owner, 2026-11-19)
+
+Recorded as [loop-playback.md](loop-playback.md), UNSPECIFIED: a video or a set looping without
+end, never asking Still watching. "To do at a later time, possibly after beta."
