@@ -30353,3 +30353,52 @@ as a household will have more than one core: "Maybe 'household'?"
    to be proposed to the owner before they change, if they do.
 
 **Status:** decided (2026-11-19); to build.
+
+## D527 — Setting up: a server made from the home network, then linked to a discovery by one button
+
+**Decided** (2026-11-19), by the project owner, after the first beta install
+([beta-install-report-2026-11-19.md](../design/research/beta-install-report-2026-11-19.md)) and the
+proposal [setup-simplification-2026-11-19.md](../design/plans/setup-simplification-2026-11-19.md).
+Amends D448 §9 (the approval from the account, built this way) and D297 §3 (§2.2 below).
+
+1. **Phase 1, the server at home.**
+   1. **One start per platform**: a command on plain Linux, one paste and a short form on OMV,
+      Portainer, Synology and Unraid. It asks only what cannot be found: the media folders. The user
+      and group come from the first media folder's owner, the time zone from the host, a GPU by
+      looking; the port and where the server's data lives have defaults.
+   2. **No password in the install.** The start prints a **magic link** on the home network that
+      makes the first admin in the web app; the link is also kept in the server's data folder, and a
+      command prints it again. It works until an admin exists. Whoever can reach the machine's
+      console already owns it, so neither is a weakness.
+   3. **The first-time pages, in order**: the admin; the folders, offered one library per
+      subfolder with its kind guessed; posters with nothing to set (the shipped key, if TMDB agrees);
+      last, what a discovery service gives and a link to Phase 2.
+2. **Phase 2, a discovery service.**
+   1. **System has "Connect to a discovery service" at its top**, with whether and where the server
+      is connected. Its page is filled with orpheum.cc. **Connect** sends the browser to the
+      discovery with what it needs in the address: single use, short-lived, bound to the server's
+      own key. The discovery's page names the server being attached and asks for a click, and the
+      return to the server is checked against what the server sent.
+   2. **No password asked when linking.** The core keeps each person's away-from-home key from the
+      moments it sees their password (the first admin made, each sign-in, each new password), salted
+      by something the server has from its install and the discovery can tell a browser, not by the
+      household's name, which it learns only at the link (amends D297 §3). The household's key
+      follows from it when the link is made, so a household's name given or changed later leaves
+      every key working.
+   3. **No invitation yet**: the discovery says how to get one, and keeps what the server sent in the
+      browser while the person finds it; an invitation opened in the same browser makes the account
+      and goes on to the link. One left unfinished is started again from the server's page.
+   4. **The household's other people never need the home network**: the admin's invite link does
+      everything through the discovery.
+   5. **The link ends with a test from outside** that says whether the server can be reached from
+      away, and if not, why.
+   6. **Disconnecting, moving to another discovery and replacing a server** are done from either
+      side: the server's page sends the person to the discovery's, with what it needs filled in, and
+      a confirmation.
+3. **Until it is linked the server works at home**, with no banner. What needs a discovery shows
+   greyed but stays selectable, and chosen it says what it needs and how to get it.
+4. **Every failure in setting up is told plainly**: what went wrong, and what to do, at the moment
+   it happens, not only on the System page.
+
+**Status:** decided (2026-11-19); to build, in this order: the first-time pages (§1.3), the link
+(§2), the start per platform (§1.1).
