@@ -863,6 +863,17 @@ CREATE TABLE unknown_failure (                              -- class O (migratio
   PRIMARY KEY (kind, subject)                               -- start's is tried once more (§4)
 ) WITHOUT ROWID, STRICT;
 
+CREATE TABLE problem_report (                               -- class A (migration 0092, D524)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER REFERENCES user(id) ON DELETE SET NULL,  -- who made it, none once deleted
+  made_at       INTEGER NOT NULL,                           -- deleted 60 days on (§4)
+  version       TEXT NOT NULL,                              -- the core's version it was made on
+  words         TEXT NOT NULL,                              -- what the person said, whole
+  gathered_json TEXT NOT NULL CHECK (json_valid(gathered_json))  -- the device's facts, the playback,
+) STRICT;                                                   -- each component's recent log: none made safe
+CREATE INDEX problem_report_made_at ON problem_report(made_at);
+CREATE INDEX problem_report_user_made ON problem_report(user_id, made_at);
+
 CREATE TABLE "grant" (                                     -- class A (D154)
   secret_sha256        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
   kind        TEXT NOT NULL CHECK (kind IN ('session','link','cast','join','api_key',
@@ -1475,6 +1486,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `system_library` | persistent.db | `internal/core/library` | the server's own videos' library, found by its kind (D435) |
 | `own_picture_given_up` | persistent.db | `internal/core/playback` | a device's report that it gave up a film's own picture (D266, D493) |
 | `unknown_failure` | persistent.db | `internal/core/unexpected` | each failure of unknown cause, recorded by the work that gave up: the job queue's give-up (D511) |
+| `problem_report` | persistent.db | `internal/core/problemreport` | a problem report a signed-in person made, as gathered; each download renders it shareable or full (D524) |
 | `link_memory` | persistent.db | `internal/core/playback` | what each player last said of its link on each network, kept across restarts (D257 §1, D352 Q2; `speeds.go`) |
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
@@ -1539,6 +1551,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Pictures given up | `own_picture_given_up` | one row a device a film whose own picture it could not play; deleted with the device or the file (D493) |
 | Failures of unknown cause | `unknown_failure` | one row a kind of work a subject it failed on; deleted when the work succeeds (D511) |
+| Problem reports | `problem_report` | at most ten a person an hour, each deleted 60 days after it was made, or when the admin deletes it (D524 §4) |
 | Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `linkSpeedFreshHours` (24) is deleted at the next player's word (D257 §1) |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 

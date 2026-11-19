@@ -117,6 +117,8 @@ INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at
 INSERT INTO own_picture_given_up (device_id, file_id, given_up_at) VALUES (1, 1, 1790000000000);
 INSERT INTO unknown_failure (kind, subject, error_text, output, version, first_failed_at, last_failed_at, failure_count, start_id)
   VALUES ('fetch_metadata', 'item 1', 'the provider said what was not understood', 'its output', 'v0.8.2', 1790000000000, 1790000000000, 1, '0a0b');
+INSERT INTO problem_report (id, user_id, made_at, version, words, gathered_json)
+  VALUES (1, 2, 1790000000000, 'v0.8.4', 'the picture stopped', '{"components":[]}');
 INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (1, 'karlnas', X'0A0B', 1790000000000);
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (1, 1790000000000);

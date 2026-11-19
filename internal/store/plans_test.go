@@ -202,6 +202,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListLiveLibraryIDs":            few + "libraries; the identification sweep lists them",
 		"GetLiveLibraryByName":          few + "libraries; a name is checked when one is made or renamed",
 		"ListLibraries":                 few + "libraries",
+		"ListProblemReportKnownNames": "a problem report's download looks for every name that can say whose it is in " +
+			"its free text, every title, root, library, person, device and node (D524)",
 		"ListUnknownFailures": "an admin's export and Needs attention page show every failure of unknown cause, " +
 			"as many as the kinds and subjects that failed (D509 section 3)",
 		"ListUnknownFailuresOfStartsBefore": "every failure of unknown cause is what it reads, once a start, " +

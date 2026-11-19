@@ -168,11 +168,7 @@ func (socketClient *ByteSocketClient) RecentLog(ctx context.Context, nodeID int6
 	if err != nil {
 		return nil, fmt.Errorf("read node %d's recent log: %w", nodeID, err)
 	}
-	lines := make([]slogx.Line, 0, len(answer.Lines))
-	for _, line := range answer.Lines {
-		lines = append(lines, line.Line())
-	}
-	return lines, nil
+	return answer.SlogLines(), nil
 }
 
 // maxRecentLogBytes bounds a node's recent log: its 40,000 lines at most, each some hundreds of bytes.

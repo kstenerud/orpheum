@@ -79,7 +79,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/resourceuse` | OPS (what the core and each node use of their machines, a minute's row each, kept a month; toolkit.md) | — |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
-| `internal/core/problemreport` | OPS (a problem report rendered shareable or full: its log fields and free text pseudonymised, D74, D524) | — (built 2026-11-19; pure, the gathering is its caller's) |
+| `internal/core/problemreport` | OPS (a problem report rendered shareable or full: its log fields and free text pseudonymised, D74, D524) | — (built 2026-11-19; Render is pure, the Keeper gathers and keeps, in problem_report) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
 | `internal/core/home` | R5 (the rule of which addresses are the house's, which api and rtcapi both judge by, D452 §1–2) | — |
@@ -227,6 +227,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | resource_use | cache.db | TO (measured each minute, kept a month) | no | in cache.db since step 0070 (D426 §9), so the hourly backup can skip an unchanged persistent.db; lost with cache.db: the System page's hours start over |
 | own_picture_given_up (the films whose own picture each device could not play) | persistent.db | TO (a player's report) | yes | in persistent.db (step 0088, D493), so a restart keeps it, where the core's memory lost it; its rows deleted with the device or the file |
 | unknown_failure (each failure of unknown cause, with its error and output whole, the version, when and how many times) | persistent.db | TO (the work's own report of its failure) | yes | in persistent.db (step 0090, D511), so a restart tries each once more and the failures can be taken out of a server; a row is deleted when its work succeeds |
+| problem_report (a problem report a signed-in person made: their words, the device's facts, the playback, the core's and each node's recent log) | persistent.db | T1 (a person's report) | yes | in persistent.db (step 0092, D524), so the admin can download it after a restart; deleted 60 days after it was made |
 | link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement) | yes | in persistent.db (step 0063, D427), so a release that rebuilds cache.db keeps it; it changes only when a player measures, so the hourly backup still skips an unchanged database; its rows deleted a day after their last word |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |

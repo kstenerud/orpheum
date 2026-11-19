@@ -2,10 +2,21 @@
 
 // Package problemreport turns a gathered problem report into Markdown, in the form the household's
 // admin downloads it: shareable, every identifying value replaced by a tag, or full, everything as
-// gathered with the table of what each tag stands for (D74, D524 §4). It is pure: the caller
-// gathers the report (the person's words, the device's facts, the playback, the core's and each
-// node's recent log, the values it knows identify) and passes in the time and the report's salt;
-// this package touches no store, no network and no clock.
+// gathered with the table of what each tag stands for (D74, D524 §4), and keeps the reports.
+//
+// Render is pure: it is given the report (the person's words, the device's facts, the playback,
+// the core's and each node's recent log, the values known to identify) with the time and the
+// report's salt, and touches no store, no network and no clock.
+//
+// The Keeper gathers and keeps (keeper.go, gathered.go). Make draws the salt, takes the core's
+// recent log and asks each connected node for its own, all at once, each within NodeAnswerWithin;
+// a node not connected, or that does not answer, is named absent with why and when it was last
+// heard (D524 §3). It adds the played file's path, size and kept probe, and stores one row in
+// problem_report: who, when, which version, the words, and the rest as gathered_json, nothing made
+// safe. Download renders the row in the form asked for, looking up then every name the database
+// holds that can say whose the report is (titles, roots, libraries, people, devices, nodes, the
+// house's name), so a name added since is hidden too. A report past KeptFor is neither listed nor
+// downloaded; Expiring's sweep deletes it.
 //
 // A tag is `kind:xxxxxx`, a salted hash's first hex digits, lengthened where two values would share
 // one; one salt per report, so the core's and the nodes' lines name one file by one tag, and every
@@ -54,6 +65,20 @@
 //     TestScrub_LooksUpATitleByItsFirstTwoWords.
 //   - Nothing gathered is read as HTML: a person's words cannot end the report's `<details>`.
 //     Enforced by TestRender_AWordCannotEndTheReportsHTML.
+//   - A report holds the core's recent log at every level and each connected node's; a node that
+//     gave none is named absent with why and when it was last heard. Enforced by
+//     TestMake_KeepsTheCoresAndEachNodesLogAndNamesANodeThatGaveNoneAbsent.
+//   - The shareable download hides every name the database holds that says whose the report is,
+//     in the person's words too. Enforced by
+//     TestDownload_TheShareableFormHidesTheNamesTheDatabaseHolds.
+//   - One person makes at most PerPersonPerHour reports in an hour. Enforced by
+//     TestMake_RefusesAPersonPastTheirReportsInAnHour.
+//   - A report is kept KeptFor (60 days), then neither listed nor downloaded and deleted by the
+//     sweep; Delete takes one at once (D524 §4). Enforced by TestList_AReportGoesAfterSixtyDays and
+//     TestDelete_TakesOneReportAtOnce.
+//   - A played file's shape keeps codecs, depths, sizes, rates, layouts and languages, and no
+//     container's or track's title (D74). Enforced by
+//     TestShape_KeepsTheFilesShapeAndLeavesItsTitlesBehind.
 //
 // # Read before changing
 //
@@ -70,4 +95,6 @@
 //     under it.
 //   - scrub.go: what free text is scrubbed of, and in what order. names.go: tags.
 //   - markdown.go: the report's sections and the summary's cut.
+//   - keeper.go: what is gathered, the rate limit and how long a report is kept; gathered.go: the
+//     stored shape (gathered_json), which a report already kept must still read.
 package problemreport

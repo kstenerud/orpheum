@@ -95,3 +95,46 @@ func (field LogField) value() slog.Value {
 	}
 	return slog.StringValue(field.Value)
 }
+
+// Add appends lines to the log, each value written out with its kind.
+func (log *RecentLog) Add(lines ...slogx.Line) {
+	for _, line := range lines {
+		sent := LogLine{Time: line.Time, Level: int(line.Level), Message: line.Message}
+		for _, field := range line.Fields {
+			sent = sent.withField(field)
+		}
+		log.Lines = append(log.Lines, sent)
+	}
+}
+
+// withField is the line with field appended, its value written out with its kind.
+func (line LogLine) withField(field slogx.Field) LogLine {
+	value := field.Value
+	kind, text := LogValueString, value.String()
+	switch value.Kind() {
+	case slog.KindInt64:
+		kind, text = LogValueInt, strconv.FormatInt(value.Int64(), 10)
+	case slog.KindUint64:
+		kind, text = LogValueUint, strconv.FormatUint(value.Uint64(), 10)
+	case slog.KindFloat64:
+		kind, text = LogValueFloat, strconv.FormatFloat(value.Float64(), 'g', -1, 64)
+	case slog.KindBool:
+		kind, text = LogValueBool, strconv.FormatBool(value.Bool())
+	case slog.KindDuration:
+		kind, text = LogValueDuration, strconv.FormatInt(int64(value.Duration()), 10)
+	case slog.KindTime:
+		kind, text = LogValueTime, value.Time().Format(time.RFC3339Nano)
+	case slog.KindString, slog.KindAny, slog.KindGroup, slog.KindLogValuer:
+	}
+	line.Fields = append(line.Fields, LogField{Key: field.Key, Kind: kind, Value: text})
+	return line
+}
+
+// SlogLines are the log's lines as the core reads them, each value of its kind.
+func (log *RecentLog) SlogLines() []slogx.Line {
+	lines := make([]slogx.Line, 0, len(log.Lines))
+	for _, line := range log.Lines {
+		lines = append(lines, line.Line())
+	}
+	return lines
+}

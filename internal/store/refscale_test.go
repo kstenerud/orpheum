@@ -498,7 +498,9 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 // query that no longer scans fails until it is taken off (sql.md section 11).
 func fullScansAllowed() map[string]string {
 	return map[string]string{
-		"ListLibraries":                 "a household has a handful of libraries",
+		"ListLibraries": "a household has a handful of libraries",
+		"ListProblemReportKnownNames": "an admin's download of a problem report looks for every title, root, " +
+			"library, person, device and node in its free text, at the moment of the download (D524)",
 		"ListRootsOfNodeWithRetired":    "a household has a handful of library folders, retired ones too",
 		"ListRoles":                     "a household has a handful of roles; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             "a role reaches a handful of libraries; the admin lists them (D243 section 4)",
