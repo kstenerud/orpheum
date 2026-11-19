@@ -12,6 +12,9 @@ const (
 	PathDeadEnd = "/dead-end"
 	// PathRealmSignIn finds a core by its realm, for a person who signs in there (ClientRealmRequest).
 	PathRealmSignIn = "/realm"
+	// PathRealmSalt gives a page the key salt of a realm's core, which a person's version-2 key is
+	// derived with before their realm sign-in (RealmSaltRequest; D527 §2.2).
+	PathRealmSalt = "/realm-salt"
 	// PathCores is the start of a core's offer path: OfferPath.
 	PathCores = "/cores/"
 	// PathClientFloor is read with GET: the client versions the discovery refuses, which its loader
@@ -51,6 +54,19 @@ type ClientRealmRequest struct {
 	Realm  string `json:"realm"`
 	Person string `json:"person"`
 	Ask    string `json:"ask"`
+}
+
+// RealmSaltRequest asks the key salt of realm's core.
+type RealmSaltRequest struct {
+	Realm string `json:"realm"`
+}
+
+// RealmSaltResponse is the key salt of the realm's core, base64url, as its heartbeat last gave it
+// (AddressesRequest.KeySalt); for a realm that names no core, a salt the discovery derives from the
+// realm under a secret of its own, the same each time, so the answer says nothing of which realms
+// exist (D527 §2.2).
+type RealmSaltResponse struct {
+	Salt string `json:"salt"`
 }
 
 // ClientRealmResponse is what a realm sign-in the core took gives: what a link's locate gives, the

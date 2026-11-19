@@ -43,6 +43,10 @@ const (
 	// PathClaim is where a pending core sends the key its household's account made, which claims it
 	// for the account (the protocol's §2.2; D310 §5, §8).
 	PathClaim = "/claim"
+	// PathLinkToken is an enrolled core's ask for the token its admin's browser takes to the
+	// discovery's account site, where a signed-in account links the core to itself (D527 §2.1;
+	// LinkTokenRequest).
+	PathLinkToken = "/link-token"
 )
 
 // The purposes a signature is made for: the protocol, the purpose and the nonce are what is signed,
@@ -148,6 +152,23 @@ type ClaimRequest struct {
 	Key string `json:"key"`
 }
 
+// LinkTokenRequest is a core's ask for a link token: ReturnTo, the core's page the admin's browser
+// pressed Connect on, which the account site sends the browser back to once linked, so it never
+// takes an address from a query string; Name, the server's name, which the approval page shows.
+type LinkTokenRequest struct {
+	ReturnTo string `json:"returnTo"`
+	Name     string `json:"name"`
+}
+
+// LinkTokenResponse is the link token, base64url of 128 random bits, for one use until ExpiresAt
+// (Unix ms, a day on), and the account site's page to send the browser to with it. A new token
+// replaces the core's last.
+type LinkTokenResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expiresAt"`
+	LinkURL   string `json:"linkUrl"`
+}
+
 // ClaimResponse is a claim taken: the address of the account the core is now its server.
 type ClaimResponse struct {
 	Account string `json:"account"`
@@ -224,6 +245,10 @@ type AddressesRequest struct {
 	APIMajor       int         `json:"apiMajor"`
 	Candidates     []Candidate `json:"candidates"`
 	TURN           []ICEServer `json:"turn,omitempty"`
+	// KeySalt is the core's key salt, base64url of 16 bytes made once at its first start: what a
+	// person's version-2 away-from-home key is salted by, which the discovery gives a page asking
+	// PathRealmSalt for the core's realm (D527 §2.2).
+	KeySalt string `json:"keySalt,omitempty"`
 	// ProbeNonce is what the probe asks the core's reachability echo for at each candidate: the
 	// core made it, so only the core answers it (the protocol's §2.6). Each heartbeat sends a new one,
 	// recognised for ten minutes.
