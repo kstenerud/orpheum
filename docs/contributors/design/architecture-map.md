@@ -79,6 +79,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/resourceuse` | OPS (what the core and each node use of their machines, a minute's row each, kept a month; toolkit.md) | — |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
+| `internal/core/problemreport` | OPS (a problem report rendered shareable or full: its log fields and free text pseudonymised, D74, D524) | — (built 2026-11-19; pure, the gathering is its caller's) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
 | `internal/core/home` | R5 (the rule of which addresses are the house's, which api and rtcapi both judge by, D452 §1–2) | — |
