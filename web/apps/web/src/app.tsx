@@ -23,6 +23,7 @@ import {
   CastingLeft,
   CastReady,
   CreateLibraryPage,
+  Welcome,
   CreditedPerson,
   Files,
   HowToUpdate,
@@ -571,6 +572,9 @@ function librariesScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "new-library") {
     return <CreateLibraryPage />;
+  }
+  if (route.screen === "welcome") {
+    return <Welcome step={route.step} />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />

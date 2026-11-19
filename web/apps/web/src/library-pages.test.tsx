@@ -120,6 +120,8 @@ describe("the admin's Libraries pages (D361)", () => {
         [200, { libraries: [films, { ...films, id: 7, name: "Shows" }] }],
       ],
       "GET /nodes": nodesOfOne,
+      // The offer of a library for each folder (D527 §3) finds none to offer.
+      "GET /nodes/nas/folders": [200, { path: "/tank", state: "readable", folders: [] }],
       "GET /config": scanSetting,
       "POST /libraries": [201, { id: 7 }],
     });
@@ -254,6 +256,8 @@ describe("the admin's Libraries pages (D361)", () => {
     const services = servedBy(
       {
         "GET /nodes": [200, { nodes: [{ name: "nas", isConnected: true, rootPaths: ["/tank"] }] }],
+        // The offer of a library for each folder (D527 §3) finds none to offer.
+        "GET /nodes/nas/folders": [200, { path: "/tank", state: "readable", folders: [] }],
         "GET /config": [
           200,
           {
@@ -295,6 +299,8 @@ describe("the admin's Libraries pages (D361)", () => {
   it("marks the folders invalid while the server's refusal of one shows, until the folders change", async () => {
     const services = servedBy({
       "GET /nodes": [200, { nodes: [{ name: "nas", isConnected: true, rootPaths: ["/tank"] }] }],
+      // The offer of a library for each folder (D527 §3) finds none to offer.
+      "GET /nodes/nas/folders": [200, { path: "/tank", state: "readable", folders: [] }],
       "GET /config": [
         200,
         {

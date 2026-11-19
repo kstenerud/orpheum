@@ -62,6 +62,8 @@ describe("the setup code in a magic link (D527 §1.2)", () => {
       name: "owner",
       password: "a password",
     });
+    // The first admin goes on to the first-time pages (D527 §3).
+    expect(services.navigation.route()).toEqual({ screen: "welcome" });
     mounted.unmount();
   });
 

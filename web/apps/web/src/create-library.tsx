@@ -5,37 +5,21 @@ import "./libraries-words.ts";
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 
 import { FolderBrowser } from "./folder-picker.tsx";
+import { LibraryOffer } from "./library-offer.tsx";
+import { blankLibrary, libraryToCreate, libraryWords, type NewLibrary } from "./library-draft.ts";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { useFieldMarks, type FieldMark } from "./field-marks.ts";
-import { dataOrThrow, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
+import { dataOrThrow, failedFields, fieldProblemText } from "./problem.ts";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
-
-/** A new library, as the server takes it. */
-export type NewLibrary = components["schemas"]["CreateLibraryInputBody"];
-
-/** The form's starting answers: read-only, told when to scan, sources as a person would expect. */
-export function blankLibrary(): NewLibrary {
-  return {
-    name: "",
-    kind: "film",
-    metadataSource: "nfoThenTmdb",
-    changeDetection: "manual",
-    isWritable: false,
-    // No machine yet: onAConnectedNode puts the first connected one here once they are known.
-    nodeName: "",
-    rootPaths: [],
-  };
-}
 
 /** A node, and the roots it configured when it is connected. */
 export type LibraryNode = components["schemas"]["NodeBody"];
@@ -102,19 +86,6 @@ export function onAConnectedNode(draft: NewLibrary, nodes: readonly LibraryNode[
     nodeName: first.name,
     rootPaths: draft.nodeName === "" ? draft.rootPaths : [],
   };
-}
-
-/**
- * The library the server is asked to create: the draft, but an other library is not asked where its
- * information comes from, as it takes NFO files only and is never looked up online (D349).
- */
-export function libraryToCreate(draft: NewLibrary): NewLibrary {
-  if (draft.kind !== "other") {
-    return draft;
-  }
-  const rest: NewLibrary = { ...draft };
-  delete rest.metadataSource;
-  return rest;
 }
 
 /** Whether the draft has a folder to read: the server refuses a library without one. */
@@ -449,8 +420,11 @@ export function CreateLibraryForm(props: {
   readonly isCreating?: boolean | undefined;
   readonly onDraftChange: (draft: NewLibrary) => void;
   readonly onSubmit: () => void;
+  /** Whether the form sits under a heading of its page's, so its own is a second-level one. */
+  readonly isNested?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
+  const Heading = props.isNested === true ? "h2" : "h1";
   const draft = onAConnectedNode(props.draft, props.nodes);
   const marks = useFieldMarks(props.failure, failedFields(props.failure, libraryWords(t)));
   // An answer changed takes its field's mark away.
@@ -459,7 +433,7 @@ export function CreateLibraryForm(props: {
   };
   return (
     <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
-      <h1 id="create-library-heading">{t("libraries.createHeading")}</h1>
+      <Heading id="create-library-heading">{t("libraries.createHeading")}</Heading>
       <FormGroup id="create-library-what" heading={t("libraries.groupWhat")}>
         <WhatItHolds draft={draft} setAnswer={setAnswer} markOf={marks.markOf} />
       </FormGroup>
@@ -502,6 +476,11 @@ export function CreateLibraryPage(): JSX.Element {
   return (
     <section className="libraries">
       <UpTrail upward={{ crumbs: [adminLibrariesCrumb(t)], here: t("libraries.createHeading") }} />
+      <LibraryOffer
+        onMade={() => {
+          navigation.replace({ screen: "libraries" });
+        }}
+      />
       <CreateLibrary
         onCreated={(libraryId) => {
           readLibrariesAgain();
@@ -512,22 +491,12 @@ export function CreateLibraryPage(): JSX.Element {
   );
 }
 
-/** How a refused library is told: by the fields the server names. */
-function libraryWords(t: TFunction): FormWords {
-  return {
-    fields: {
-      "body.name": t("libraries.name"),
-      "body.nodeName": t("libraries.node"),
-      "body.rootPaths": t("libraries.roots"),
-      "body.checkEveryHours": t("libraries.checkEvery"),
-    },
-  };
-}
-
 /** The create-library form, sent to the server; a created library is scanned at once. */
 export function CreateLibrary(props: {
   /** Told the new library's id once the server made it. */
   readonly onCreated: (libraryId: number) => void;
+  /** Whether the form sits under a heading of its page's. */
+  readonly isNested?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -564,6 +533,7 @@ export function CreateLibrary(props: {
           isCreating={creating.isBusy}
           onDraftChange={setDraft}
           onSubmit={submit}
+          isNested={props.isNested === true}
         />
       )}
     />

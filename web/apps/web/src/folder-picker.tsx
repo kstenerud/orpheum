@@ -48,7 +48,7 @@ export function folderInside(path: string, name: string): string {
  * Asks the server for the folders in a folder on a node (D359 §2): every page of them, the first
  * page's state and path with them all (D432 §3).
  */
-async function listFolders(api: Api, place: Place): Promise<FolderListing> {
+export async function listFolders(api: Api, place: Place): Promise<FolderListing> {
   let first: FolderListing | undefined;
   const folders = await allPages(async (query) => {
     const page = dataOrThrow(

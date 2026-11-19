@@ -378,6 +378,16 @@ export async function reachedFrom(
 export const anAdmin: WalkAnswers = {
   "GET /me": { ...viewer, role: "admin", isAdmin: true },
   "GET /client-settings": {},
+  // The first-time pages (D527 §3): one media folder holding three folders to offer, and no TMDB key.
+  "GET /nodes": {
+    nodes: [{ name: "local", isConnected: true, rootPaths: ["/media"] }],
+  },
+  "GET /nodes/local/folders": {
+    path: "/media",
+    state: "readable",
+    folders: ["Movies", "TV", "Holiday videos"],
+  },
+  "GET /secrets": { secrets: [{ name: "tmdb_api_key", isSet: false }] },
   // Two films partway, so Home's walk reaches each card and its "…".
   "GET /home": {
     continueWatching: [101, 102].map((id) => ({
@@ -459,6 +469,9 @@ export const libraryPages: readonly string[] = [
 /** then Manage's, */
 export const managePages: readonly string[] = [
   "/libraries/new",
+  "/welcome",
+  "/welcome/posters",
+  "/welcome/discovery",
   "/libraries/1/files",
   "/about",
   "/settings",

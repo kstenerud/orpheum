@@ -19,6 +19,7 @@ import type { UserPage as UserPageComponent } from "./user.tsx";
 import type { Libraries as LibrariesComponent } from "./libraries.tsx";
 import type { LibraryPage as LibraryPageComponent } from "./library-manage.tsx";
 import type { CreateLibraryPage as CreateLibraryPageComponent } from "./create-library.tsx";
+import type { Welcome as WelcomeComponent } from "./welcome.tsx";
 import type { Files as FilesComponent } from "./files.tsx";
 import type { About as AboutComponent } from "./about.tsx";
 import type { Account as AccountComponent } from "./account.tsx";
@@ -97,6 +98,9 @@ const loadCreateLibraryPage = async (): Promise<{
 }> => ({
   default: (await import("./create-library.tsx")).CreateLibraryPage,
 });
+const loadWelcome = async (): Promise<{ default: typeof WelcomeComponent }> => ({
+  default: (await import("./welcome.tsx")).Welcome,
+});
 const loadFiles = async (): Promise<{ default: typeof FilesComponent }> => ({
   default: (await import("./files.tsx")).Files,
 });
@@ -170,6 +174,7 @@ export let UserPage = lazyScreen("user", loadUserPage);
 export let Libraries = lazyScreen("libraries", loadLibraries);
 export let LibraryPage = lazyScreen("library", loadLibraryPage);
 export let CreateLibraryPage = lazyScreen("new-library", loadCreateLibraryPage);
+export let Welcome = lazyScreen("welcome", loadWelcome);
 export let Files = lazyScreen("files", loadFiles);
 export let About = lazyScreen("about", loadAbout);
 export let Account = lazyScreen("account", loadAccount);
@@ -284,6 +289,7 @@ export function resetLazyScreensForTests(): void {
   Libraries = lazyScreen("libraries", loadLibraries);
   LibraryPage = lazyScreen("library", loadLibraryPage);
   CreateLibraryPage = lazyScreen("new-library", loadCreateLibraryPage);
+  Welcome = lazyScreen("welcome", loadWelcome);
   Files = lazyScreen("files", loadFiles);
   About = lazyScreen("about", loadAbout);
   Account = lazyScreen("account", loadAccount);

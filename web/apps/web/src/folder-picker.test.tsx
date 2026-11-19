@@ -6,12 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AddRoot } from "./add-root.tsx";
-import {
-  blankLibrary,
-  CreateLibraryForm,
-  foldersOffered,
-  type NewLibrary,
-} from "./create-library.tsx";
+import { CreateLibraryForm, foldersOffered } from "./create-library.tsx";
 import {
   FolderBrowser,
   FolderPicker,
@@ -19,6 +14,7 @@ import {
   folderInside,
   type Place,
 } from "./folder-picker.tsx";
+import { blankLibrary, type NewLibrary } from "./library-draft.ts";
 import { RepointDialog } from "./repoint-root.tsx";
 import {
   buttonWithText,

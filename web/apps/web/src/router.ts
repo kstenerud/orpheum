@@ -22,6 +22,15 @@ export const labPages = [
 export type LabPage = (typeof labPages)[number];
 
 /**
+ * The pages after the libraries one of the first-time pages (D527 §3), each at an address of its
+ * own so a reload or Back returns to it: the libraries page is /welcome itself.
+ */
+export const welcomeSteps = ["posters", "discovery"] as const;
+
+/** One of the first-time pages that follow the libraries one. */
+export type WelcomeStep = (typeof welcomeSteps)[number];
+
+/**
  * The order a library's list comes in (D349 §9.1): recorded and fileName, an other library's;
  * released, a film's release date or a series' first air date, films' and series' (D366 §1).
  */
@@ -103,6 +112,11 @@ export type Route =
   | { readonly screen: "new-library" }
   | { readonly screen: "files"; readonly libraryId: number }
   | { readonly screen: "about" }
+  /**
+   * The first-time pages the first admin meets after being made (D527 §3): libraries, then posters
+   * (step "posters"), then discovery (step "discovery"). No menu leads to them.
+   */
+  | { readonly screen: "welcome"; readonly step?: WelcomeStep }
   | { readonly screen: "settings" }
   | { readonly screen: "jobs" }
   | { readonly screen: "system" }
@@ -182,6 +196,11 @@ const shapes: readonly Shape[] = [
     toRoute: (libraryId) => ({ screen: "files", libraryId }),
   },
   { pattern: /^\/about\/?$/u, toRoute: () => ({ screen: "about" }) },
+  { pattern: /^\/welcome\/?$/u, toRoute: () => ({ screen: "welcome" }) },
+  ...welcomeSteps.map((step) => ({
+    pattern: new RegExp(`^/welcome/${step}/?$`, "u"),
+    toRoute: (): Route => ({ screen: "welcome", step }),
+  })),
   { pattern: /^\/settings\/?$/u, toRoute: () => ({ screen: "settings" }) },
   { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
@@ -388,6 +407,19 @@ function libraryRouteHref(route: Route): string | undefined {
   return route.screen === "new-library" ? "/libraries/new" : undefined;
 }
 
+/** The address of a first-time page, or undefined for another route. */
+function welcomeRouteHref(route: Route): string | undefined {
+  if (route.screen !== "welcome") {
+    return undefined;
+  }
+  return route.step === undefined ? "/welcome" : `/welcome/${route.step}`;
+}
+
+/** The address of a first-time page or of one of the device lab's, or undefined for another. */
+function pageRouteHref(route: Route): string | undefined {
+  return welcomeRouteHref(route) ?? labRouteHref(route);
+}
+
 /** The address of one of the device lab's routes, or undefined for another. */
 function labRouteHref(route: Route): string | undefined {
   if (route.screen === "lab") {
@@ -428,7 +460,7 @@ export function routeHref(route: Route): string {
   if (library !== undefined) {
     return library;
   }
-  const lab = labRouteHref(route);
+  const lab = pageRouteHref(route);
   if (lab !== undefined) {
     return lab;
   }

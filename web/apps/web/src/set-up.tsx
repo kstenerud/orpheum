@@ -34,13 +34,8 @@ export function SetUp(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session, navigation } = useServices();
-  const [linkedCode] = useState(() => setupCodeFromFragment(navigation.fragment()));
+  const linkedCode = useLinkedCode();
   const [setupCode, setSetupCode] = useState(linkedCode ?? "");
-  useEffect(() => {
-    if (linkedCode !== undefined) {
-      navigation.replace(navigation.route());
-    }
-  }, [linkedCode, navigation]);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const isAskingAddress =
@@ -61,6 +56,8 @@ export function SetUp(props: {
         idempotencyKey,
       );
       await signInThisDevice({ api, session }, { name, password }, idempotencyKey);
+      // The first admin's first pages: libraries, then posters, then discovery (D527 §3).
+      navigation.replace({ screen: "welcome" });
     });
   };
   return (
@@ -89,6 +86,18 @@ export function SetUp(props: {
       </button>
     </CredentialsForm>
   );
+}
+
+/** The code the address carried (D527 §1.2), read once; the address is rewritten without it at once. */
+function useLinkedCode(): string | undefined {
+  const { navigation } = useServices();
+  const [linkedCode] = useState(() => setupCodeFromFragment(navigation.fragment()));
+  useEffect(() => {
+    if (linkedCode !== undefined) {
+      navigation.replace(navigation.route());
+    }
+  }, [linkedCode, navigation]);
+  return linkedCode;
 }
 
 /** A field's value, its change handler, and its mark while a refusal of it shows. */

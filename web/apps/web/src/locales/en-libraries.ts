@@ -5,7 +5,40 @@
  * and the new-library form (libraries), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enLibraries = {
+  welcome: {
+    librariesHeading: "Add your videos",
+    librariesExplain:
+      "Orpheum shows the videos in the folders you give it. Make a library of each folder below, or of a whole folder.",
+    wholeFolderHeading: "Or make one library of a whole folder",
+    skip: "Skip for now",
+    postersHeading: "Posters, descriptions and cast",
+    postersExplain:
+      "Posters, descriptions and cast come from TMDB (The Movie Database), which needs a free key. It takes a few minutes:",
+    postersStep1: "Make a free account at themoviedb.org.",
+    postersStep2: "Open your account's Settings, then API.",
+    postersStep3: "Request a Developer key.",
+    postersStep4: "Copy the \u201cAPI Read Access Token\u201d and paste it below.",
+    postersField: "TMDB API Read Access Token",
+    postersSave: "Save the key",
+    postersSkip: "Skip for now",
+    postersAlready: "A TMDB key is set already; going on.",
+    discoveryHeading: "Watching away from home",
+    discoveryExplain: "Connecting this server to a discovery gives your household:",
+    discoveryAway: "watching away from home,",
+    discoveryTv: "signing in a TV by a short code,",
+    discoveryInvite: "the household's other people joining by a link you send them.",
+    discoveryNotNeeded: "This server works fully at home without one.",
+    discoveryLater: "Connect later from System",
+    finish: "Start using Orpheum",
+  },
   libraries: {
+    offerHeading: "Your media folder holds these folders. Make a library of each?",
+    offerMake: "Make a library of each ticked folder",
+    offerKindOf: "What {{name}} holds",
+    offerMade: "Made",
+    offerRefused: "\u201c{{name}}\u201d was not made: {{problem}}",
+    offerTwoKinds:
+      "{{path}} holds both film and series folders. One library of the whole folder takes one kind, so make a library of each folder above instead.",
     heading: "Libraries",
     none: "No libraries yet.",
     manage: "Manage this library",

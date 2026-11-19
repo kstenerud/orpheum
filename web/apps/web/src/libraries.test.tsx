@@ -8,16 +8,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
-  blankLibrary,
   checkEveryHoursToStart,
   CreateLibraryForm,
   hasARoot,
-  libraryToCreate,
   onAConnectedNode,
   withChangeDetection,
   withRootChosen,
 } from "./create-library.tsx";
 import type { Library } from "./libraries.tsx";
+import { blankLibrary, libraryToCreate } from "./library-draft.ts";
 import { LibraryManagement, rootAnswerRequest } from "./library-manage.tsx";
 import { withServices } from "./test-services.tsx";
 

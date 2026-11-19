@@ -389,12 +389,25 @@ another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` and open the same a
 
 ### Your first library
 
-In the menu, under **Manage**, open **Libraries**, then **Create a library**. Give it a **Name**,
-choose **What it holds** (**Films** or **Series**: a library holds one kind, so films and series
-are a library each), and under **Folders this library reads** tick your media folder, which shows
-by the machine's own name ([above](#one-compose-file)); if your films and series are in folders
-inside it, press **Choose a folder inside one…** and pick that folder. **Create and scan**: the
-films appear as the scan finds them.
+Once the first admin is made, Orpheum takes you through three pages, each of which you can skip:
+
+1. **Add your videos.** It lists the folders inside your media folder and offers to make a library of
+   each: tick the ones you want and check the kind it guessed (**Films**, **Series** or **Other**:
+   a folder named Movies, Films or Film is guessed Films, and one named TV, TV Shows, Shows or Series
+   is guessed Series). One press makes each ticked library; a folder the server refuses is named with
+   why, and the others are made. A library holds one kind, so films and series are a library each.
+   Below the offer you can instead make one library of a whole folder.
+2. **Posters, descriptions and cast** come from TMDB, which needs a free key: make an account at
+   themoviedb.org, open its **Settings**, then **API**, request a Developer key and paste the **API
+   Read Access Token** on the page. Skip it and nothing is identified until you add the key under
+   **Manage**, **Settings**. The page does not appear when a key is set already.
+3. **Watching away from home** says what connecting a discovery gives (watching away from home,
+   signing in a TV by a short code, the household's other people joining by a link) and that the
+   server works fully at home without one. **Connect later from System** leads to the page that does
+   it.
+
+Later, **Manage**, **Libraries**, **Create a library** makes more, with the same offer above its
+form. The scan finds the films as it goes: they appear in the libraries as it does.
 
 ## From a catalogue
 
