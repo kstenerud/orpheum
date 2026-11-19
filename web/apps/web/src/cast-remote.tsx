@@ -10,7 +10,7 @@ import {
   type PlaybackReport,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
@@ -26,10 +26,11 @@ import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { useServices, useToken } from "./services.tsx";
+import { titleCrumb } from "./upward.ts";
 import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
-import { useAroundFile, type UpNext } from "./around-file.ts";
+import { useAroundFile, type AroundFile, type UpNext } from "./around-file.ts";
 import { offerState, useLeavesForThePageAbove } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
@@ -121,8 +122,8 @@ function usePlaysHere(
  * one way to bring the film back here (D388), is in the Cast sign's dialog, as everywhere (D444).
  * Stopped here or on the receiver, or the receiver gone, the film plays here again at once, as the
  * receiver left it, or the page goes home where nothing was on (D446 §2); lost, the server knowing it no more, the page goes home (D386 §2).
- * The cast's film ended with nothing next, the page goes to the page above it, the cast going on
- * (useLeavesAtTheCastsEnd).
+ * The cast's film ended with nothing next, the page goes to the page above it, or above the episode
+ * the cast had moved on to, the cast going on (useLeavesAtTheCastsEnd).
  */
 function Remote(props: {
   readonly sent: CastSending;
@@ -136,13 +137,19 @@ function Remote(props: {
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
   useTakesTheFilmOver(over, stoodRef, playHere);
   useGoesHomeAsTheCastIsLost(over);
-  useLeavesAtTheCastsEnd(sent.fileId);
+  const episodes = useEpisodesMovedTo();
+  useLeavesAtTheCastsEnd(sent.fileId, props.pageFileId, episodes.of);
   if (over !== undefined) {
     return null; // the film plays here again at once, or the page goes home
   }
   return (
     <>
-      <RemoteOf sent={sent} cast={{ snapshot, connection }} hosted={hosted} />
+      <RemoteOf
+        sent={sent}
+        cast={{ snapshot, connection }}
+        hosted={hosted}
+        onAround={episodes.note}
+      />
       <TogetherBehindTheRemote hostedSnapshot={hosted?.snapshot} />
     </>
   );
@@ -153,18 +160,57 @@ function Remote(props: {
  * nothing next (LeavesAtTheEnd; the owner, 2026-11-17), once the cast that played a film, fileId,
  * plays nothing: its receiver, a browser's or a Chromecast's, has it play nothing at its film's end
  * with nothing after it, waiting ready (D364 §5). The cast goes on, connected, for the next video
- * played from that page; one that played nothing from the start leaves nothing.
+ * played from that page; one that played nothing from the start leaves nothing. Where the cast had
+ * moved on from the page's film, pageFileId, to another episode, the page leaves for that episode's
+ * page, as a local play moved on by Up next does, where episodeOf knows it.
  */
-function useLeavesAtTheCastsEnd(fileId: number): void {
+function useLeavesAtTheCastsEnd(
+  fileId: number,
+  pageFileId: number,
+  episodeOf: (fileId: number) => number | undefined,
+): void {
+  const { navigation } = useServices();
   const leaveRef = useLatest(useLeavesForThePageAbove());
+  const episodeOfRef = useLatest(episodeOf);
   const playedRef = useRef(fileId);
   useEffect(() => {
     const played = playedRef.current;
     playedRef.current = fileId;
-    if (played !== 0 && fileId === 0) {
-      leaveRef.current?.();
+    if (played === 0 || fileId !== 0) {
+      return;
     }
-  }, [fileId, leaveRef]);
+    const episodeId = played === pageFileId ? undefined : episodeOfRef.current(played);
+    if (episodeId === undefined) {
+      leaveRef.current?.();
+      return;
+    }
+    const page = titleCrumb(episodeId, "");
+    navigation.up(page.to, page.isIt);
+  }, [fileId, pageFileId, leaveRef, episodeOfRef, navigation]);
+}
+
+/**
+ * The episodes the remote has read the cast's moves to and back to, by their files: what plays after
+ * and before each film the cast plays names its episode (useAroundFile), noted as it is read.
+ */
+function useEpisodesMovedTo(): {
+  readonly note: (around: AroundFile) => void;
+  readonly of: (fileId: number) => number | undefined;
+} {
+  const [episodes] = useState(() => new Map<number, number>());
+  return useMemo(
+    () => ({
+      note: (around) => {
+        for (const episode of [around.upNext?.episode, around.previous]) {
+          if (episode !== undefined) {
+            episodes.set(episode.fileId, episode.itemId);
+          }
+        }
+      },
+      of: (fileId) => episodes.get(fileId),
+    }),
+    [episodes],
+  );
 }
 
 /**
@@ -342,6 +388,8 @@ function RemoteOf(props: {
   readonly sent: CastSending;
   readonly cast: WorkedSession;
   readonly hosted: WorkedSession | undefined;
+  /** Told what plays around each film the cast plays, as it is read. */
+  readonly onAround: (around: AroundFile) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent } = props;
@@ -365,12 +413,18 @@ function RemotePlaying(props: {
   readonly sent: CastSending;
   readonly cast: WorkedSession;
   readonly hosted: WorkedSession | undefined;
+  readonly onAround: (around: AroundFile) => void;
 }): JSX.Element {
-  const { sent, hosted } = props;
+  const { sent, hosted, onAround } = props;
   const worked = hosted ?? props.cast;
   const source = useRemoteSource({ ...worked, durationMs: sent.durationMs });
   // What plays after the cast's film and before it, read once for its ⏮ and its Up next (D477 §2).
   const around = useAroundFile(sent.fileId, true);
+  useEffect(() => {
+    if (around !== undefined) {
+      onAround(around);
+    }
+  }, [around, onAround]);
   const moves = useRemotePrevious(sent, around?.previous);
   // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
   // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at

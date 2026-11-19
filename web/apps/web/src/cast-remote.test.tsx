@@ -630,6 +630,33 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(onPlayHere).not.toHaveBeenCalled();
   });
 
+  it("leaves for the episode the cast had moved on to, in its page's place, as that episode ends with nothing next", async () => {
+    // The plan file's "A film played to its end with nothing next goes back to its page", the
+    // case it left open: the cast moved on by Up next, the page above is the episode that ended.
+    const heard: Heard[] = [];
+    const cat = { itemId: 3, name: "Cat", groupNumber: 1, numberInGroup: 2, fileId: 5 };
+    const { services, sockets } = await casting(
+      {
+        "GET /files/4/up-next": [
+          200,
+          { upNext: { episode: { ...cat, isPartway: false }, ordering: "aired" } },
+        ],
+        "GET /files/5/up-next": [200, {}],
+      },
+      heard,
+      { upward: filmsPage },
+    );
+    services.navigation.go({ screen: "title", itemId: 40 });
+    services.navigation.go({ screen: "play", fileId: 4 });
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /files/4/up-next"));
+    await sockets.live.say({
+      type: "sending",
+      sending: { ...sending, fileId: 5, itemName: "Cat" },
+    });
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0, itemName: "" } });
+    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 3 });
+  });
+
   it("stays on its page as a cast that has played nothing from its start is said again", async () => {
     const { services, sockets } = await casting({}, [], {
       upward: filmsPage,
