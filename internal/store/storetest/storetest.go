@@ -19,8 +19,10 @@ import (
 )
 
 // OpenOptions are the store options tests use: in production they come from the config file.
+// They skip the disk's syncs, as ExecRaw's connection does: a test's file outlives no power cut,
+// and a database's first commit and its close each waited on one (test-weight.md §35).
 func OpenOptions() store.OpenOptions {
-	return store.OpenOptions{MinimumReaders: 4}
+	return store.OpenOptions{MinimumReaders: 4, SkipsDiskSyncs: true}
 }
 
 // MigrateOptions are the runner options tests use, snapshotting into directory.

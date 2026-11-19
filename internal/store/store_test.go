@@ -14,9 +14,9 @@ import (
 )
 
 // testOpenOptions are the store options these tests use; in production they come from the
-// config file.
+// config file. They skip the disk's syncs, as storetest.OpenOptions do (test-weight.md §35).
 func testOpenOptions() OpenOptions {
-	return OpenOptions{MinimumReaders: 4}
+	return OpenOptions{MinimumReaders: 4, SkipsDiskSyncs: true}
 }
 
 // testMigrateOptions are the runner options these tests use, snapshotting into directory.
@@ -116,7 +116,7 @@ func TestVerifyPragmas_RefusesAConnectionWithoutThem(t *testing.T) {
 			t.Error(closeErr)
 		}
 	}()
-	err = verifyPragmas(t.Context(), plain)
+	err = verifyPragmas(t.Context(), plain, synchronousNormal)
 	if err == nil || !strings.Contains(err.Error(), "journal_mode") {
 		t.Errorf("verifyPragmas(no pragmas) = %v, want a journal_mode refusal", err)
 	}
@@ -130,17 +130,26 @@ func TestVerifyPragmas_RefusesAConnectionWithoutThem(t *testing.T) {
 			t.Error(closeErr)
 		}
 	}()
-	err = verifyPragmas(t.Context(), withoutTempStore)
+	err = verifyPragmas(t.Context(), withoutTempStore, synchronousNormal)
 	if err == nil || !strings.Contains(err.Error(), "temp_store") {
 		t.Errorf("verifyPragmas(no temp_store) = %v, want a temp_store refusal", err)
 	}
 
-	database := openTemporary(t)
+	// Production's options: these tests' own skip the disk's syncs.
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), OpenOptions{MinimumReaders: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	pools := map[string]*sql.DB{
 		"writer": database.writer, "readers": database.readers, "maintenance": database.maintenance,
 	}
 	for name, pool := range pools {
-		if err := verifyPragmas(t.Context(), pool); err != nil {
+		if err := verifyPragmas(t.Context(), pool, synchronousNormal); err != nil {
 			t.Errorf("verifyPragmas(%s) = %v, want nil", name, err)
 		}
 	}
@@ -237,12 +246,53 @@ func TestVerifyPragmas_RefusesAConnectionWithoutItsCacheOrLogLimit(t *testing.T)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = verifyPragmas(t.Context(), pool)
+		err = verifyPragmas(t.Context(), pool, synchronousNormal)
 		if closeErr := pool.Close(); closeErr != nil {
 			t.Error(closeErr)
 		}
 		if err == nil || !strings.Contains(err.Error(), pragma) {
 			t.Errorf("verifyPragmas(no %s) = %v, want a %s refusal", pragma, err, pragma)
 		}
+	}
+}
+
+// Every connection runs at NORMAL unless the options skip the disk's syncs, a test's choice; a
+// connection at OFF is refused where NORMAL was asked for, so production's open, which sets
+// nothing, can never run unsynced (test-weight.md §35).
+func TestOpen_SyncsTheDiskUnlessToldToSkipIt(t *testing.T) {
+	t.Parallel()
+	for _, skips := range []bool{false, true} {
+		options := OpenOptions{MinimumReaders: 1, SkipsDiskSyncs: skips}
+		database, err := Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), options)
+		if err != nil {
+			t.Fatalf("Open(SkipsDiskSyncs %v): %v", skips, err)
+		}
+		want := map[bool]int{false: synchronousNormal, true: synchronousOff}[skips]
+		pools := map[string]*sql.DB{
+			"writer": database.writer, "readers": database.readers, "maintenance": database.maintenance,
+		}
+		for name, pool := range pools {
+			var synchronous int
+			if err := pool.QueryRowContext(t.Context(), "PRAGMA synchronous").Scan(&synchronous); err != nil {
+				t.Fatal(err)
+			}
+			if synchronous != want {
+				t.Errorf("SkipsDiskSyncs %v: the %s's synchronous is %d, want %d", skips, name, synchronous, want)
+			}
+		}
+		if err := database.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+	unsynced, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "plain.db")+"?"+unsyncedPragmas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = verifyPragmas(t.Context(), unsynced, synchronousNormal)
+	if closeErr := unsynced.Close(); closeErr != nil {
+		t.Error(closeErr)
+	}
+	if err == nil || !strings.Contains(err.Error(), "synchronous") {
+		t.Errorf("verifyPragmas(synchronous OFF, want NORMAL) = %v, want a synchronous refusal", err)
 	}
 }

@@ -29,6 +29,10 @@
 //     TestGeneratedQueries_HaveNoUntypedValues.
 //   - Every connection's pragmas read back as set, on the writer and the readers, or Open refuses.
 //     Enforced by TestVerifyPragmas_RefusesAConnectionWithoutThem.
+//   - Every connection runs synchronous NORMAL unless its options set SkipsDiskSyncs, a test's
+//     choice (OFF: a test's file outlives no power cut); left unset it is NORMAL, and Open refuses
+//     a connection at anything but what was asked. Enforced by
+//     TestOpen_SyncsTheDiskUnlessToldToSkipIt.
 //   - A non-empty file without our application_id is refused, never migrated. Enforced by
 //     TestOpen_RefusesAFileThatIsNotOurs.
 //   - Writes go through Write on the one writer; the reader pool is query_only. Enforced by

@@ -28,16 +28,22 @@ const busyTimeoutMs = 15000
 
 // The pragmas every connection gets, in the pure-Go driver's DSN form, so the pool applies them
 // to each connection it opens rather than to whichever one ran an Exec (standards/sql.md §7).
+// A test's are unsyncedPragmas (OpenOptions.SkipsDiskSyncs): the same, but synchronous OFF.
 const (
-	connectionPragmas = "_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)" +
+	pragmasButSynchronous = "_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)" +
 		"&_pragma=busy_timeout(15000)&_pragma=temp_store(MEMORY)&_pragma=cache_size(-16384)" +
 		"&_pragma=journal_size_limit(67108864)"
-	writerOptions = "&_txlock=immediate"
-	readerOptions = "&_pragma=query_only(1)"
+	connectionPragmas = pragmasButSynchronous + "&_pragma=synchronous(NORMAL)"
+	unsyncedPragmas   = pragmasButSynchronous + "&_pragma=synchronous(OFF)"
+	writerOptions     = "&_txlock=immediate"
+	readerOptions     = "&_pragma=query_only(1)"
 )
 
-// synchronousNormal is PRAGMA synchronous's value for NORMAL.
-const synchronousNormal = 1
+// PRAGMA synchronous's values for OFF and NORMAL.
+const (
+	synchronousOff    = 0
+	synchronousNormal = 1
+)
 
 // cacheSizeKiB is each connection's page cache, in KiB (PRAGMA cache_size takes a negative number
 // for KiB): 16 MiB, against SQLite's default of about 2 MiB, which made every pass over a library
@@ -97,6 +103,20 @@ type OpenOptions struct {
 	// (waiting.ForAReader), with the database file's name and the function outside the store that
 	// wrote: reading never writes (D303, DL10).
 	OnReaderWrite func(file, caller string)
+	// SkipsDiskSyncs, set, opens every connection with synchronous OFF rather than NORMAL, and Open
+	// checks for OFF: SQLite then never syncs the disk, neither at the first commit into a new
+	// write-ahead log nor at the checkpoint the last connection's close runs, about 16 ms of wall
+	// together for a database that wrote (test-weight.md §35). It is a test's choice: a test's file
+	// outlives no power cut. Unset, as production leaves it, is NORMAL.
+	SkipsDiskSyncs bool
+}
+
+// pragmas are the options' connection pragmas, in the DSN's form, and the synchronous they set.
+func (options OpenOptions) pragmas() (dsn string, synchronous int) {
+	if options.SkipsDiskSyncs {
+		return unsyncedPragmas, synchronousOff
+	}
+	return connectionPragmas, synchronousNormal
 }
 
 // SlowWriteAfter is how long a write may wait for the writer, or hold it, before it is reported.
@@ -146,12 +166,13 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 		// (backup-restore.md, from Navidrome).
 		return nil, fmt.Errorf("open database %q: a path may not contain '?'", path)
 	}
-	writer, err := sql.Open("sqlite", path+"?"+connectionPragmas+writerOptions)
+	pragmas, synchronous := options.pragmas()
+	writer, err := sql.Open("sqlite", path+"?"+pragmas+writerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("open database %q for writing: %w", path, err)
 	}
 	writer.SetMaxOpenConns(1)
-	readers, err := sql.Open("sqlite", path+"?"+connectionPragmas+readerOptions)
+	readers, err := sql.Open("sqlite", path+"?"+pragmas+readerOptions)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
 	}
@@ -160,7 +181,7 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 	// Every reader stays open once made: database/sql keeps 2 idle by default, and a connection
 	// closed past them takes its parsed schema and its page cache with it (audit 2026-10-25, S1).
 	readers.SetMaxIdleConns(readerCount)
-	maintenance, err := sql.Open("sqlite", path+"?"+connectionPragmas)
+	maintenance, err := sql.Open("sqlite", path+"?"+pragmas)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("open database %q for maintenance: %w", path, err), readers.Close(),
 			writer.Close())
@@ -171,7 +192,7 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 		slowWrites:    slowWrites{file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite},
 		onReaderWrite: options.OnReaderWrite,
 	}
-	if err := database.verify(ctx, applicationID); err != nil {
+	if err := database.verify(ctx, synchronous, applicationID); err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
 	return database, nil
@@ -314,10 +335,11 @@ func OrNotFound[Row any](row Row, err error) (Row, error) {
 	return row, err
 }
 
-// verify reads back every pragma on every pool and checks the application_id.
-func (database *Database) verify(ctx context.Context, wantApplicationID int64) error {
+// verify reads back every pragma on every pool, synchronous as wantSynchronous, and checks the
+// application_id.
+func (database *Database) verify(ctx context.Context, wantSynchronous int, wantApplicationID int64) error {
 	for _, pool := range []*sql.DB{database.writer, database.readers, database.maintenance} {
-		if err := verifyPragmas(ctx, pool); err != nil {
+		if err := verifyPragmas(ctx, pool, wantSynchronous); err != nil {
 			return fmt.Errorf("database %q: %w", database.path, err)
 		}
 	}
@@ -331,8 +353,9 @@ func (database *Database) verify(ctx context.Context, wantApplicationID int64) e
 	return nil
 }
 
-// verifyPragmas refuses a connection whose pragmas are not the ones the DSN asked for.
-func verifyPragmas(ctx context.Context, pool *sql.DB) error {
+// verifyPragmas refuses a connection whose pragmas are not the ones the DSN asked for, its
+// synchronous wantSynchronous (NORMAL, or a test's OFF).
+func verifyPragmas(ctx context.Context, pool *sql.DB, wantSynchronous int) error {
 	var journalMode string
 	var synchronous, foreignKeys, busyTimeout, tempStore, cacheSize, journalSizeLimit int
 	checks := []struct {
@@ -355,8 +378,8 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 	switch {
 	case journalMode != "wal":
 		return fmt.Errorf("journal_mode is %q, want wal", journalMode)
-	case synchronous != synchronousNormal:
-		return fmt.Errorf("synchronous is %d, want %d (NORMAL)", synchronous, synchronousNormal)
+	case synchronous != wantSynchronous:
+		return fmt.Errorf("synchronous is %d, want %d", synchronous, wantSynchronous)
 	case foreignKeys != 1:
 		return fmt.Errorf("foreign_keys is %d, want 1", foreignKeys)
 	case busyTimeout != busyTimeoutMs:

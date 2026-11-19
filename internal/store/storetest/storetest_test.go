@@ -33,6 +33,17 @@ func TestExecRaw_CommitsWithoutSyncingTheDisk(t *testing.T) {
 			"ELSE abs(-9223372036854775808) END")
 }
 
+// The store's own connections in a test skip the disk's syncs, as ExecRaw's do: at NORMAL, a test
+// database's first commit and the checkpoint its close runs each waited on a sync, about 16 ms of
+// wall a database (test-weight.md §35). That the option turns every connection's synchronous OFF,
+// and that Open then checks for OFF, is TestOpen_SyncsTheDiskUnlessToldToSkipIt's.
+func TestOpenOptions_SkipTheDisksSyncs(t *testing.T) {
+	t.Parallel()
+	if !storetest.OpenOptions().SkipsDiskSyncs {
+		t.Error("storetest.OpenOptions() syncs the disk; a test's database outlives no power cut")
+	}
+}
+
 // A test's reads of one file share one connection, so a read pays the schema's parse once rather
 // than on every call (audit 2026-10-25, G1). The connection's cache size, set by one read, is the
 // next read's only if both run on the same connection.

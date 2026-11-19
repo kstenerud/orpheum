@@ -715,6 +715,29 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Fix:** ExecRaw's connection runs `synchronous(OFF)`: a test's file outlives no power cut, so
   nothing a test sees depends on it (`TestExecRaw_CommitsWithoutSyncingTheDisk`). 1.0 s to 0.17 s
   alone, and none of ExecRaw's 200-odd calls in the tests pays a sync.
+- **Second instance** (2026-11-19): the store's own connections in a test, at NORMAL. A test
+  database that writes pays two syncs: the first commit into a new write-ahead log syncs the
+  log's header, and the checkpoint the last connection's close runs syncs the log and the file.
+  Timed alone over 40 migrated copies, one insert each: the write 4.1 ms and the close 12.3 ms at
+  NORMAL, 0.17 ms and 0.34 ms at OFF; a database that wrote nothing syncs nothing at its close.
+  **Fix:** `store.OpenOptions.SkipsDiskSyncs` opens every connection at OFF, and `Open`'s
+  read-back then checks for OFF; `storetest.OpenOptions` sets it, and so `OpenMigrated`,
+  `OpenCache` and the template, and so do the store's own tests' options. Left unset, as
+  production's options leave it, it is NORMAL and still checked
+  (`TestOpen_SyncsTheDiskUnlessToldToSkipIt`). Alternating runs back to back, three each, nothing
+  else running:
+
+  | Run | Wall at NORMAL | Wall at OFF | CPU (user) at NORMAL | CPU (user) at OFF |
+  | --- | --- | --- | --- | --- |
+  | `go test -count=1 ./internal/core/api/ ./internal/store/...` | 22.6–23.0 s | 20.2–20.9 s | 50–53 s | 82–85 s |
+  | `go test -count=1 ./...` | 47.1–48.1 s | 43.3–43.8 s | 234–240 s | 249–253 s |
+
+  The CPU rises with no more work done: what was a wait on the disk is now work running beside
+  other work. The api package's profile ran at 223% of a CPU at NORMAL and 421% at OFF, and every
+  function cost more for the same calls (SQLite's parser 20.7 s to 36.1 s, the lock around the
+  driver's allocator 5.0 s to 9.9 s): this machine's eight threads are two performance cores'
+  four and four efficiency cores, and the allocator's lock spins longer the more threads ask. The
+  whole suite, already busy on every thread, gained 15 s of CPU and lost 4 s of wall.
 - **Warning sign:** a test whose wall time is several times its CPU profile's total; `Xfsync` in
   a trace's syscall profile.
 - **Not taken: the Go tests' temporary files on a RAM disk** (the owner's go, 2026-11-19, tried
@@ -772,10 +795,9 @@ or the store's checks, so for the owner to order:
 - **`api.NewServer` in every api harness:** 12.75 ms of CPU each, mostly huma registering the
   routes; about 5.6 s over 440 harnesses, 12% of the package's CPU. Cutting it means caching the
   registration's schema work in the server, or test servers sharing one built API.
-- **Each test database's `Close`:** the WAL checkpoint syncs the disk, about 16 ms of wall a
-  database with almost no CPU (0.66 s over 41 databases in one trace): §35's cost, at the store's
-  own connections. Cutting it means a test-only `store.OpenOptions` that turns syncing off, with
-  `verifyPragmas`, which insists on NORMAL, told of it.
+- **Each test database's `Close`:** done (the owner's go, 2026-11-19): §35's second instance. The
+  checkpoint the close runs, and a new log's first commit, synced the disk, about 16 ms of wall a
+  database; the tests' options now open at synchronous OFF, the whole suite 4 s quicker.
 - **`verifyPragmas` on every `store.Open`:** about 5.7 ms of CPU, the schema parsed on each new
   connection (§36's 5 s in api).
 
