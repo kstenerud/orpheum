@@ -113,34 +113,32 @@ box already runs apps in **Services > Compose**, skip to step 1. Otherwise, firs
   comes with it. (It also installs openmediavault-sharerootfs: leave that installed.)
 - **Where compose files live.** Make the `appdata` folder of step 1 below, then in **Services >
   Compose > Settings** choose it as **Compose Files**' **Shared folder**, and **Save**.
-- **The user apps run as.** omv-extras' guide makes a user for apps alone, `appuser`, and that is
-  the best: if **Users > Users** has none, **+ (Create)**, name `appuser`, a password, **Save**.
-  (OpenMediaVault asks a password for every user; an AI agent helping you leaves it to you to
-  type.) An existing user that is not `root` or `admin` works too, one in the `sudo` group
-  included: the server sees only its own data folder and your media, so what that user may do
-  elsewhere on the box gives it nothing. What you give up is the other way round: anything that
-  user signs in to or runs can then read and change the server's data, its keys among them, which a
-  user for apps alone keeps apart. Never add the user to the `docker` group.
+- **The user it runs as.** Any existing user that is not `root` or `admin` works, your own
+  included, one in the `sudo` group too: no user of its own is needed. The server sees only its own
+  data folder and your media, so what that user may do elsewhere on the box gives it nothing. If you
+  would rather keep its data apart from everything else that user signs in to or runs, omv-extras'
+  guide makes a user for apps alone, `appuser`: **Users > Users**, **+ (Create)**, name `appuser`,
+  a password (OpenMediaVault asks one for every user; an AI agent helping you leaves it to you to
+  type), **Save**. Never add the user to the `docker` group.
 
 1. **Shared folders.** In **Storage > Shared Folders** you have, or make, a folder for your media
    (`Media`) and one for app data (`appdata`), as omv-extras' guide sets up. Each lies on a disk at
    a path like `/srv/dev-disk-by-uuid-1234abcd-…/Media`, or on a mergerfs pool at one like
-   `/srv/mergerfs/Storage/Media` (a pool works as a disk does): the **Absolute Path** column shows
+   `/srv/mergerfs/<pool>/Media` (a pool works as a disk does): the **Absolute Path** column shows
    it (switch it on from the column menu if it is hidden). To make one, **+ (Create)**, give it its
    name, the disk or pool, and its **Relative path** on it, and **Save**. After each change
    OpenMediaVault shows a yellow bar asking to apply it: press its tick (**Apply**), or the change
    does not take.
 
    If your films are in a folder inside a shared folder (`Storage/Video`, say), OpenMediaVault
-   shows only the shared folder's path. Make a shared folder for the inner one too, its
-   **Relative path** that folder's (`Storage/Video/`): its **Absolute Path** is then the exact path,
-   capitals included, to copy into step 4.
-2. **The values every app reads.** Orpheum reads `PATH_TO_APPDATA` (the appdata folder's absolute
-   path), `APPUSER_PUID` and `APPUSER_PGID` (the user apps run as) and `TIME_ZONE_VALUE`, as
-   omv-extras' apps do. Where a box set up by omv-extras' guide has them, they are in **Services >
-   Compose > Files**, **Edit global environment file**, and there is nothing to do. If that file is
-   empty (a box whose apps came from Portainer, say), leave it so: write them into Orpheum's own
-   file in step 4 instead, where they change no other app. Note your own values:
+   shows only the shared folder's path. Find the inner folder's path one of two ways, capitals
+   included, to copy into step 4:
+
+   - make a shared folder for the inner one too, its **Relative path** that folder's
+     (`Storage/Video/`): its **Absolute Path** is then the exact path; or
+   - on the box, over SSH, list what the shared folder holds: `ls /srv/mergerfs/<pool>/Storage`
+     shows `Video` as it is spelled, so the path is `/srv/mergerfs/<pool>/Storage/Video`.
+2. **Your values.** Note these four, your own in place of the examples:
 
    ```sh
    PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
@@ -149,28 +147,41 @@ box already runs apps in **Services > Compose**, skip to step 1. Otherwise, firs
    TIME_ZONE_VALUE=Europe/Berlin
    ```
 
-   The user's number is its **UID** in **Users > Users** (switch the column on if it is hidden),
-   and 100 is the group `users`, which OpenMediaVault puts every user in. The app user needs read
-   access to the media folder: **Storage > Shared Folders**, select `Media`, **Permissions**,
-   *Read-only* or *Read/Write* for that user, **Save**.
+   `PATH_TO_APPDATA` is the appdata folder's **Absolute Path** from step 1. `APPUSER_PUID` and
+   `APPUSER_PGID` are the user's numbers, its UID and its group's GID: on the box, over SSH, `id
+   <user>` prints them, as `uid=1000(anna) gid=100(users) …` for `id anna`. **Users > Users**
+   shows the **UID** too (switch the column on if it is hidden), and 100 is the group `users`, which
+   OpenMediaVault puts every user in. That user needs read access to the media folder: **Storage >
+   Shared Folders**, select `Media`, **Permissions**, *Read-only* or *Read/Write* for that user,
+   **Save**.
 3. **The port.** OpenMediaVault's own web interface takes port 80, and 443 when its HTTPS is on;
    omv-extras' guide moves it to 8443 to free them. Orpheum takes none of these: its plain page is
    on 8440 and its HTTPS on 8444. If something else has 8440, set `ORPHEUM_HTTP_PORT` to a free
    one in step 4's **Environment**; the HTTPS port is changed later on the server's **System**
    page.
-4. **The file.** In **Services > Compose > Files**, **Add** (on some versions **Add**, then **Add**
-   again; not *Add from example*): name it `orpheum`, and paste the whole of
+4. **The file.** In **Services > Compose > Files**, press **Add** (not *Add from example*). It
+   opens one form: name it `orpheum`, and paste the whole of
    [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    into **File**. Paste it, don't type it: the editor indents as you type, which breaks the file.
-   Tick **Show environment file** if the **Environment** box (this file's own variables) is hidden,
-   and write into it:
+   Tick **Show environment file** to see the **Environment** box, this file's own variables, which
+   change no other app, and paste your values from step 2 into it, with the media folder below
+   them:
 
    ```sh
+   PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
+   APPUSER_PUID=1000
+   APPUSER_PGID=100
+   TIME_ZONE_VALUE=Europe/Berlin
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
    ```
 
-   with the media folder's own **Absolute Path** from step 1, capitals included, and, if step 2
-   found the global environment file empty, the four values from step 2 below it. **Save**.
+   `ORPHEUM_MEDIA` is the media folder's own path from step 1, capitals included. **Save**. (Some
+   versions open a small menu at **Add** first: choose **Add** in it, and the form is the same.)
+
+   Instead of the box, the first four may come from OpenMediaVault's global environment file
+   (**Services > Compose > Files**, **Edit global environment file**), which every app on the box
+   reads; where omv-extras' guide set them up there, leave them out of the box. Put each value in
+   one place or the other, not both. If that file is empty, leave it so: the box is the place.
 5. **Start it.** Select the `orpheum` file and press **Up**. The first time it pulls the image, so
    give it a minute. Three containers appear in **Services > Compose > Containers**:
    `orpheum-folders`, which prepares the data folder and stops (*exited* is right), then
@@ -435,6 +446,9 @@ macOS, iPhone and iPad) or newer (D271). An older one says the browser is too ol
 - **At home**, open `http://<the machine's address>:8440`.
 - **Anywhere**, open `https://orpheum.cc` and sign in with your **Household**, your **Name** and your
   **Password** on the server. This works for you once the claim is done.
+- **On a TV**, where a password is hard to type, open the same address and choose **Get a code**:
+  scan the code it shows with a phone that is signed in, and tap **Activate**, or enter the code on
+  a signed-in phone or computer under **Your account**, **Activate a device**.
 
 To add someone, in the menu under **Manage**, **Users**, **Invite someone** makes a link for them.
 Each person signs in once at home, or through their own link, before signing in by the household
