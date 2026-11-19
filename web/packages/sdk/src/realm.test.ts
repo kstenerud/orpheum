@@ -77,7 +77,8 @@ describe("a realm sign-in through a discovery", () => {
     (url, init) => {
       const asked: unknown = JSON.parse(typeof init?.body === "string" ? init.body : "null");
       heard.push(asked);
-      const [status, body] = String(url).endsWith("/realm-salt") ? salt() : answer(asked);
+      const address = url instanceof Request ? url.url : url.toString();
+      const [status, body] = address.endsWith("/realm-salt") ? salt() : answer(asked);
       return Promise.resolve(new Response(JSON.stringify(body), { status }));
     };
   const coreAnswer = (tag: string): unknown => ({

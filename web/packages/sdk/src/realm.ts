@@ -185,23 +185,30 @@ export async function realmSignIn(client: DiscoveryClient, typed: RealmTyped): P
   const keySalt = await keySaltOf(client, realm);
   if (keySalt !== undefined) {
     try {
-      return await signInUnder(client, realm, person, await personKey(keySalt, name, password));
+      return await signInUnder(client, {
+        realm,
+        person,
+        key: await personKey(keySalt, name, password),
+      });
     } catch (error) {
       if (!(error instanceof NotFound)) {
         throw error;
       }
     }
   }
-  return await signInUnder(client, realm, person, await realmKey(realm, name, password));
+  return await signInUnder(client, {
+    realm,
+    person,
+    key: await realmKey(realm, name, password),
+  });
 }
 
 /** The realm sign-in of person proven under key: what realmSignIn finds, under one key. */
 async function signInUnder(
   client: DiscoveryClient,
-  realm: string,
-  person: string,
-  key: Uint8Array<ArrayBuffer>,
+  under: { realm: string; person: string; key: Uint8Array<ArrayBuffer> },
 ): Promise<RealmFound> {
+  const { realm, person, key } = under;
   const answer = await postToDiscovery({
     ...client,
     path: "/realm",
