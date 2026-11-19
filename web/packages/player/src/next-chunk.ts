@@ -91,8 +91,7 @@ export interface NextChunkLink {
  * stall reads (refillAfterStallOf, D414 §2). Returns the end of it.
  */
 export function tellNextChunkLoad(
-  listing: ChunkListing,
-  room: PictureRoom,
+  { listing, room }: { readonly listing: ChunkListing; readonly room: PictureRoom },
   video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
   nextChunkLink: () => NextChunkLink | undefined,
 ): () => void {
