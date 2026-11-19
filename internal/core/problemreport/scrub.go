@@ -64,16 +64,20 @@ type candidate struct {
 // scrubber replaces what can identify in free text by named segments (D524 "How").
 type scrubber struct {
 	names *names
-	// byFirstWord are the values to look for by their first word in lower case, the longest first
-	// once sorted; paths are kept apart, looked for before any other value.
-	byFirstWord, pathsByFirstWord map[string][]candidate
-	sorted                        bool
-	seen                          map[entryKey]bool
+	// byFirstWords are the values to look for by their leading words (leadingWords), the longest
+	// first once sorted; paths are kept apart, looked for before any other value. Keyed by two
+	// words, a word as common as "the" leads to the few titles of its next word, not to thousands.
+	byFirstWords, pathsByFirstWords map[string][]candidate
+	sorted                          bool
+	seen                            map[entryKey]bool
+	// compared counts the candidates known has checked against free text: its test reads it to
+	// keep the lookup indexed.
+	compared int
 }
 
 func newScrubber(names *names) *scrubber {
 	return &scrubber{
-		names: names, byFirstWord: map[string][]candidate{}, pathsByFirstWord: map[string][]candidate{},
+		names: names, byFirstWords: map[string][]candidate{}, pathsByFirstWords: map[string][]candidate{},
 		seen: map[entryKey]bool{},
 	}
 }
@@ -90,10 +94,13 @@ func (scrubber *scrubber) know(kind Kind, value string, other bool) {
 		return
 	}
 	scrubber.seen[key] = true
-	word := strings.ToLower(firstWord(value[lead:]))
-	index := scrubber.byFirstWord
+	word, words := leadingWords(value[lead:])
+	if words != "" {
+		word = words
+	}
+	index := scrubber.byFirstWords
 	if kind == KindPath {
-		index = scrubber.pathsByFirstWord
+		index = scrubber.pathsByFirstWords
 	}
 	index[word] = append(index[word], candidate{kind: kind, value: value, other: other, lead: lead})
 	scrubber.sorted = false
@@ -109,11 +116,26 @@ func firstWord(words string) string {
 	return words[:end]
 }
 
+// leadingWords are the keys words is looked up by: its first word in lower case, and, when another
+// word follows the non-word runes after it, the two in lower case, a NUL between them. A value of
+// two words or more is indexed by the two, a value of one by its word; free text looks up both,
+// the two first: a value of two words is longer than one of the same first word that matches there.
+func leadingWords(words string) (word, twoWords string) {
+	first := firstWord(words)
+	word = strings.ToLower(first)
+	rest := words[len(first):]
+	next := strings.IndexFunc(rest, isWordRune)
+	if next < 0 {
+		return word, ""
+	}
+	return word, word + "\x00" + strings.ToLower(firstWord(rest[next:]))
+}
+
 func (scrubber *scrubber) sort() {
 	if scrubber.sorted {
 		return
 	}
-	for _, index := range []map[string][]candidate{scrubber.byFirstWord, scrubber.pathsByFirstWord} {
+	for _, index := range []map[string][]candidate{scrubber.byFirstWords, scrubber.pathsByFirstWords} {
 		for word, candidates := range index {
 			slices.SortStableFunc(candidates, func(a, b candidate) int { return len(b.value) - len(a.value) })
 			index[word] = candidates
@@ -133,11 +155,11 @@ func (scrubber *scrubber) scrub(words string) text {
 	scrubbed = eachLiteral(scrubbed, scrubber.urls)
 	scrubbed = eachLiteral(scrubbed, scrubber.emails)
 	scrubbed = eachLiteral(scrubbed, func(words string) text {
-		return scrubber.known(words, scrubber.pathsByFirstWord)
+		return scrubber.known(words, scrubber.pathsByFirstWords)
 	})
 	scrubbed = eachLiteral(scrubbed, scrubber.paths)
 	scrubbed = eachLiteral(scrubbed, scrubber.addresses)
-	return eachLiteral(scrubbed, func(words string) text { return scrubber.known(words, scrubber.byFirstWord) })
+	return eachLiteral(scrubbed, func(words string) text { return scrubber.known(words, scrubber.byFirstWords) })
 }
 
 // eachLiteral replaces each literal segment of scrubbed by what replace makes of it.
@@ -313,7 +335,9 @@ func (scrubber *scrubber) known(words string, index map[string][]candidate) text
 			continue
 		}
 		matched := false
-		for _, each := range index[strings.ToLower(firstWord(words[offset:]))] {
+		word, twoWords := leadingWords(words[offset:])
+		for _, each := range slices.Concat(index[twoWords], index[word]) {
+			scrubber.compared++
 			start := offset - each.lead
 			end := start + len(each.value)
 			if start < cursor || end > len(words) || !matches(words, start, end, each) {

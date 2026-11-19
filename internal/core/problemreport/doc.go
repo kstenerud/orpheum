@@ -48,6 +48,10 @@
 //     TestRender_TheSummaryFitsAnIssueAndSaysWhatItLeavesOut.
 //   - The form has no default: an empty or unknown one is an error. Enforced by
 //     TestRender_TheFormIsRequired.
+//   - Free text looks a known value up by its first two words, so a common first word ("the")
+//     does not compare every title it starts at each of its uses: a download of a day's log with a
+//     household's titles takes a fraction of a second. Enforced by
+//     TestScrub_LooksUpATitleByItsFirstTwoWords.
 //   - Nothing gathered is read as HTML: a person's words cannot end the report's `<details>`.
 //     Enforced by TestRender_AWordCannotEndTheReportsHTML.
 //
