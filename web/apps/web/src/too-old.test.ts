@@ -7,8 +7,8 @@ import { runInNewContext } from "node:vm";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-/** The page's "too old" script, as the build copies it from public/ (public/too-old.js). */
-const script = readFileSync(path.join(import.meta.dirname, "../public/too-old.js"), "utf8");
+// Imported, not read, so the module graph sees what tests it (the dependency check's no-orphans).
+import script from "../public/too-old.js?raw";
 
 /** The page every part loads from (index.html). */
 const page = readFileSync(path.join(import.meta.dirname, "../index.html"), "utf8");
