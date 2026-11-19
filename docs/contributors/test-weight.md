@@ -769,7 +769,8 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   longest, gained less (28.4–29.3 s to 25.3–27.7 s): its writes are short, and the 20 s of its 47 s
   of CPU still in `prepareV2` are each statement's first compile in a transaction (3.4 s), the
   readers' queries, the seeds' `ExecRaw` (3.9 s), and the pragma reads of every `Open` (5 s, the
-  schema parsed on each new connection).
+  schema parsed on each new connection, a cost moved there rather than added: "Looked for and
+  left", below).
 - **Warning sign:** `prepareV2` under `tallying.ExecContext`, or under `keptStatements.statement`
   for a statement that a run of short writes each prepare once.
 
@@ -798,8 +799,17 @@ or the store's checks, so for the owner to order:
 - **Each test database's `Close`:** done (the owner's go, 2026-11-19): §35's second instance. The
   checkpoint the close runs, and a new log's first commit, synced the disk, about 16 ms of wall a
   database; the tests' options now open at synchronous OFF, the whole suite 4 s quicker.
-- **`verifyPragmas` on every `store.Open`:** about 5.7 ms of CPU, the schema parsed on each new
-  connection (§36's 5 s in api).
+- **`verifyPragmas` on every `store.Open`:** looked at and left (2026-11-19): it is moved, not
+  added. The parse is the connection's opening, not the check: the DSN's own `cache_size` pragma
+  reads the schema as the driver opens the connection, about 1.2 ms of CPU, after which the seven
+  pragma reads cost 30 µs together and a connection's first real query 14 to 24 µs, read back or
+  not (60 migrated copies, timed alone). Of the three connections the check opens, the writer
+  and a reader are opened by nearly every test's first write and read anyway. Only the
+  maintenance connection, which nothing but a backup and a statistics reload uses, is opened for
+  the check alone: about 1.2 ms an `Open`, near 0.5 s of the api package's 47 s of CPU, under
+  its run-to-run spread. Saving it means checking that connection at its first use rather than
+  at `Open`, so a server whose maintenance connection lacked its pragmas would start and fail at
+  its first backup; not as strong, so not done.
 
 ## What makes these hard to see
 
