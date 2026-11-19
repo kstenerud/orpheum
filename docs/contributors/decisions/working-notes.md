@@ -30338,15 +30338,18 @@ D347 §1, which kept a node's level its config file's.
 
 **Status:** decided (2026-11-19); to build.
 
-## D526 — What a household signs in by is called its server's name, not its realm
+## D526 — What a household signs in by is called its household, not its realm
 
 **Decided** (2026-11-19), by the project owner, from the first beta tester's install: "'realm' is
-another issue that we'll have to fix. It's too much jargon. We should call it 'server' instead."
+another issue that we'll have to fix. It's too much jargon." The owner first said "server", then,
+as a household will have more than one core: "Maybe 'household'?"
 
-1. **The word a person reads is "server",** wherever they read "realm" now: the sign-in at
-   orpheum.cc, the account's pages at account.orpheum.cc, the System page and the user guides.
-2. **The wording, and whether the code's and the wire's names follow, is to be proposed** to the
-   owner before it is built: "server" already names the machine itself ("your server", "the
-   server's password"), so the field may need a fuller label, such as "Your server's name".
+1. **The word a person reads is "household",** wherever they read "realm" now: the sign-in at
+   orpheum.cc ("Household", with a hint such as "the name your household signs in by, such as
+   annanas"), the account's pages at account.orpheum.cc, the System page and the user guides. The
+   web client already speaks of a household ("signed in to a household", "Your households"), and
+   "server" stays the machine, of which a household may have several.
+2. **The code's and the wire's names** (realm in the API, the discovery protocol and connectd) are
+   to be proposed to the owner before they change, if they do.
 
-**Status:** decided (2026-11-19); wording to propose, then to build.
+**Status:** decided (2026-11-19); to build.
