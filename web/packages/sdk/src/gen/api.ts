@@ -2211,6 +2211,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/discovery/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Connect: enrol the core if it is not, and the account page that links it to the account signed in there (D527 §2.1) */
+        post: operations["linkDiscovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/network": {
         parameters: {
             query?: never;
@@ -4288,6 +4305,18 @@ export interface components {
              * @description Of them, those matched again
              */
             matchedCount: number;
+        };
+        LinkDiscoveryInputBody: {
+            /** @description The discovery's identity, od1-...; needed for any but the suggested one */
+            identity?: string;
+            /** @description The discovery's issuer, the name typed; the suggested one when empty */
+            issuer?: string;
+            /** @description The admin's own password, needed only when the core holds no away-from-home key for them */
+            password?: string;
+        };
+        LinkDiscoveryOutputBody: {
+            /** @description The account site's page that links the server, with its one-use token */
+            linkUrl: string;
         };
         LinkKindInputBody: {
             secret: string;
@@ -11498,6 +11527,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdentifiedDiscoveryOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    linkDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The page's origin, which the browser sends */
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkDiscoveryInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkDiscoveryOutputBody"];
                 };
             };
             /** @description Error */

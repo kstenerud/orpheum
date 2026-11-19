@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -168,8 +169,33 @@ type ClaimDiscoveryInput struct {
 	}
 }
 
+// LinkDiscoveryInput is an admin pressing Connect: the discovery to enrol with when the core is
+// enrolled with none, the suggested one unless they name another, given with its identity; and their
+// password, needed only when the core holds no away-from-home key for them yet (D527 §2.2). Origin
+// is the page's own, which the account site sends the browser back to.
+type LinkDiscoveryInput struct {
+	AuthorizationHeader
+	Origin string `doc:"The page's origin, which the browser sends" header:"Origin"`
+	Body   struct {
+		Issuer   string `doc:"The discovery's issuer, the name typed; the suggested one when empty" json:"issuer,omitempty" maxLength:"2048"`                       //nolint:lll // one struct tag
+		Identity string `doc:"The discovery's identity, od1-...; needed for any but the suggested one" json:"identity,omitempty" maxLength:"128"`                   //nolint:lll // one struct tag
+		Password string `doc:"The admin's own password, needed only when the core holds no away-from-home key for them" json:"password,omitempty" maxLength:"1024"` //nolint:lll // one struct tag
+	}
+}
+
+// LinkDiscoveryOutput is the account site's page the admin's browser goes to, to link the server to
+// the account signed in there (D527 §2.1).
+type LinkDiscoveryOutput struct {
+	Body struct {
+		LinkURL string `doc:"The account site's page that links the server, with its one-use token" json:"linkUrl"`
+	}
+}
+
 // discoveryPath is the core's discovery, which an admin reads, connects and leaves.
 const discoveryPath = "/system/discovery"
+
+// linkReturnPath is the page the account site sends the admin's browser back to once linked.
+const linkReturnPath = "/system"
 
 func (server *Server) registerDiscovery() {
 	huma.Register(server.humaAPI, huma.Operation{
@@ -189,6 +215,13 @@ func (server *Server) registerDiscovery() {
 		Summary:    "Enrol the core with a discovery, which answers with the code its owner claims it by (D273)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.connectDiscovery)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "linkDiscovery", Method: http.MethodPost, Path: discoveryPath + "/link",
+		Tags: []string{tagRunningIt},
+		Summary: "Connect: enrol the core if it is not, and the account page that links it to the account " +
+			"signed in there (D527 §2.1)",
+		Extensions: callableBy(capabilityAdmin),
+	}, server.linkDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "claimDiscovery", Method: http.MethodPost, Path: discoveryPath + "/claim",
 		Tags:       []string{tagRunningIt},
@@ -306,6 +339,80 @@ func (server *Server) claimDiscovery(ctx context.Context, input *ClaimDiscoveryI
 		err = dependencies.Auth.MakeRealmKey(ctx, principal.UserID, input.Body.Password)
 	}
 	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrNotPending))
+}
+
+// linkDiscovery is the admin's Connect (D527 §2.1): the admin's away-from-home key made first from
+// their password when the core holds none for them, and refused naming the password, saying it is
+// needed, when they gave none, or that it is not theirs; the core enrolled with the discovery named,
+// the suggested one when none is, when it is enrolled with none, refused as connectDiscovery's are; and
+// then the account page with the link token the discovery made, which brings the browser back to
+// this page. A page that sent no origin is refused naming it, and a discovery that does not answer is
+// the failing leg.
+func (server *Server) linkDiscovery(ctx context.Context, input *LinkDiscoveryInput) (*LinkDiscoveryOutput, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	isWeb := strings.HasPrefix(input.Origin, "https://") || strings.HasPrefix(input.Origin, "http://")
+	origin, err := url.Parse(input.Origin)
+	if err != nil || !isWeb || origin.Host == "" {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "header.Origin",
+			"the page sent no origin to come back to: open the server's page in a browser and press Connect there")
+	}
+	if keyErr := server.adminsKey(ctx, dependencies, principal.UserID, input.Body.Password); keyErr != nil {
+		return nil, keyErr
+	}
+	if dependencies.Discovery.Status().BaseURL == "" {
+		issuer := input.Body.Issuer
+		if issuer == "" {
+			issuer = discovery.Suggested().Issuer
+		}
+		_, connectErr := dependencies.Discovery.Connect(ctx, issuer, input.Body.Identity)
+		if refused := issuerRefusal(connectErr); refused != nil {
+			return nil, refused
+		}
+		if connectErr != nil && !errors.Is(connectErr, discovery.ErrAlreadyEnrolled) {
+			return nil, failingLeg(connectErr)
+		}
+	}
+	token, err := dependencies.Discovery.LinkToken(ctx, origin.Scheme+"://"+origin.Host+linkReturnPath, origin.Host)
+	if errors.Is(err, discovery.ErrNotEnrolled) {
+		return nil, newError(http.StatusConflict, CodeConflict, err.Error())
+	}
+	if err != nil {
+		return nil, failingLeg(err)
+	}
+	output := &LinkDiscoveryOutput{}
+	output.Body.LinkURL = token.LinkURL
+	return output, nil
+}
+
+// adminsKey makes the admin's away-from-home key from password when the core holds none for them, so
+// a sign-in from away works once the server is linked (D527 §2.2): an admin who has not signed in with
+// their password since the core first made such keys. Their password is refused as needed when they
+// gave none, and as not theirs when it is wrong; an admin who has a key gives none.
+func (server *Server) adminsKey(ctx context.Context, dependencies *Dependencies, userID int64, password string) error {
+	has, err := dependencies.Auth.HasPersonKey(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("find the admin's key: %w", err)
+	}
+	if has {
+		return nil
+	}
+	if password == "" {
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.password",
+			"your password is needed once, so you can sign in from away: enter it and press Connect again")
+	}
+	if checkErr := dependencies.Auth.CheckPassword(ctx, userID, password); checkErr != nil {
+		if errors.Is(checkErr, auth.ErrWrongPassword) {
+			return invalidRequestAt(http.StatusUnprocessableEntity, "body.password", "that is not your password")
+		}
+		return fmt.Errorf("check the admin's password: %w", checkErr)
+	}
+	if keyErr := dependencies.Auth.MakeRealmKey(ctx, userID, password); keyErr != nil {
+		return fmt.Errorf("make the admin's key: %w", keyErr)
+	}
+	return nil
 }
 
 // conflictingAs is err as the API refuses it: conflicting is a conflict; any other error is the

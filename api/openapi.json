@@ -4209,6 +4209,39 @@
         ],
         "type": "object"
       },
+      "LinkDiscoveryInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "description": "The discovery's identity, od1-...; needed for any but the suggested one",
+            "maxLength": 128,
+            "type": "string"
+          },
+          "issuer": {
+            "description": "The discovery's issuer, the name typed; the suggested one when empty",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "password": {
+            "description": "The admin's own password, needed only when the core holds no away-from-home key for them",
+            "maxLength": 1024,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LinkDiscoveryOutputBody": {
+        "properties": {
+          "linkUrl": {
+            "description": "The account site's page that links the server, with its one-use token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "linkUrl"
+        ],
+        "type": "object"
+      },
       "LinkKindInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18612,6 +18645,64 @@
           }
         ],
         "summary": "What a discovery's issuer shows: its identity and name, to compare before enrolling (D393 §4)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/discovery/link": {
+      "post": {
+        "operationId": "linkDiscovery",
+        "parameters": [
+          {
+            "description": "The page's origin, which the browser sends",
+            "in": "header",
+            "name": "Origin",
+            "schema": {
+              "description": "The page's origin, which the browser sends",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkDiscoveryInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkDiscoveryOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Connect: enrol the core if it is not, and the account page that links it to the account signed in there (D527 §2.1)",
         "tags": [
           "Running it"
         ],

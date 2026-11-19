@@ -4,8 +4,10 @@ package api_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -19,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // enrollingDiscovery serves its root chain and its signed address document at its issuer, its own
@@ -65,6 +68,12 @@ func enrollingDiscovery(t *testing.T) (*httptest.Server, string) {
 			}
 			claimed.Store(true)
 			answer = discoveryproto.ClaimResponse{Account: "karl@example.com"}
+		case discoveryproto.PathLinkToken:
+			var asked discoveryproto.LinkTokenRequest
+			_ = json.NewDecoder(request.Body).Decode(&asked) //nolint:errcheck // a wrong body shows in the page
+			page := "https://account.example/link?" +
+				url.Values{"back": {asked.ReturnTo}, "name": {asked.Name}}.Encode()
+			answer = discoveryproto.LinkTokenResponse{Token: "t", ExpiresAt: 1, LinkURL: page}
 		default:
 			http.NotFound(writer, request)
 			return
@@ -276,4 +285,61 @@ func TestDiscovery_AnAdminComparesTheDiscoverysIdentityBeforeEnrolling(t *testin
 	if connected.status != http.StatusOK {
 		t.Errorf("the identity shown = %d %s; want enrolled", connected.status, connected.body)
 	}
+}
+
+// An admin's Connect enrols the core with the discovery named when it has none, and answers the
+// account page with the token the discovery made, which brings the browser back to this server's
+// System page; it asks the admin's password only when the core holds no away-from-home key for them,
+// and makes the key from it; a page that sent no origin is refused naming it, and only an admin
+// connects (D527 §2.1, §2.2).
+func TestDiscovery_ConnectEnrolsWhenNeededAndAnswersTheAccountPageThatLinksIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	fake, identity := enrollingDiscovery(t)
+	from := http.Header{"Origin": {"https://home.example:8443"}}
+	body := map[string]any{"issuer": fake.URL, "identity": identity}
+	wantError(t, harness.do(t, http.MethodPost, "/system/discovery/link", admin, body),
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	linked := harness.doWithHeader(t, http.MethodPost, "/system/discovery/link", admin, from, body)
+	var page api.LinkDiscoveryOutput
+	if err := json.Unmarshal([]byte(linked.body), &page.Body); err != nil || linked.status != http.StatusOK {
+		t.Fatalf("POST /system/discovery/link = %d %s", linked.status, linked.body)
+	}
+	want := "https://account.example/link?back=https%3A%2F%2Fhome.example%3A8443%2Fsystem&name=home.example%3A8443"
+	if page.Body.LinkURL != want {
+		t.Errorf("the account page is %q; want %q, back to this page", page.Body.LinkURL, want)
+	}
+	var status api.DiscoveryStatusBody
+	got := harness.do(t, http.MethodGet, "/system/discovery", admin, nil)
+	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.Issuer != fake.URL {
+		t.Errorf("after Connect the core stands %s; want enrolled at the discovery named", got.body)
+	}
+	// An admin with no key yet, from before the core made them, gives their password once.
+	ownerID := storetest.QueryRaw(t, harness.databasePath, "SELECT id FROM user WHERE name = 'owner'")[0]
+	storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf("DELETE FROM person_key WHERE user_id = %s", ownerID))
+	for _, password := range []string{"", "a guess"} {
+		refused := harness.doWithHeader(t, http.MethodPost, "/system/discovery/link", admin, from,
+			map[string]any{"password": password})
+		wantError(t, refused, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+		if !strings.Contains(refused.body, "body.password") {
+			t.Errorf("Connect with the password %q = %s; want it refused naming the password", password, refused.body)
+		}
+	}
+	again := harness.doWithHeader(t, http.MethodPost, "/system/discovery/link", admin, from,
+		map[string]any{"password": "owner-password"})
+	if again.status != http.StatusOK {
+		t.Fatalf("Connect with the admin's password = %d %s", again.status, again.body)
+	}
+	if keys := storetest.QueryRaw(t, harness.databasePath,
+		"SELECT count(*) FROM person_key WHERE user_id = "+ownerID); keys[0] != "1" {
+		t.Errorf("after Connect with the password the admin has %v keys; want 1", keys)
+	}
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	wantError(t, harness.doWithHeader(t, http.MethodPost, "/system/discovery/link", partner, from, body),
+		http.StatusForbidden, api.CodeForbidden)
 }

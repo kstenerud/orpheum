@@ -107,6 +107,10 @@ type fakeDiscovery struct {
 	// core was removed from an account, which a pending core's status says.
 	account   string
 	removedAt int64
+	// linkAsks are the link tokens the core asked for, in turn; linkPage the account page a token's
+	// answer names, the fake's own when empty.
+	linkAsks []discoveryproto.LinkTokenRequest
+	linkPage string
 	// release is the release record it serves, signed by recordSigner, the publisher's key unless a
 	// test names another; nil serves none. releaseFetches is how many times the core read it.
 	release        *release.Record
@@ -376,6 +380,8 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		})
 	case "POST /claim":
 		fake.claimByKey(writer, request)
+	case "POST /link-token":
+		fake.linkToken(writer, request)
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest
 		fake.read(request, &heartbeat)
@@ -611,4 +617,17 @@ func (fake *fakeDiscovery) claimByKey(writer http.ResponseWriter, request *http.
 	}
 	fake.state, fake.account, fake.removedAt = discoveryproto.StateClaimed, "karl@example.com", 0
 	fake.answer(writer, discoveryproto.ClaimResponse{Account: fake.account})
+}
+
+// linkToken answers a link token for the account site's page, linkPage unless a test names another,
+// keeping what the core asked it with.
+func (fake *fakeDiscovery) linkToken(writer http.ResponseWriter, request *http.Request) {
+	var asked discoveryproto.LinkTokenRequest
+	fake.read(request, &asked)
+	fake.linkAsks = append(fake.linkAsks, asked)
+	page := fake.linkPage
+	if page == "" {
+		page = "https://account.orpheum-core.example/link?token=a-link-token"
+	}
+	fake.answer(writer, discoveryproto.LinkTokenResponse{Token: "a-link-token", ExpiresAt: 1, LinkURL: page})
 }
