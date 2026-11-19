@@ -4299,8 +4299,9 @@ an episode for the episode's own page (not its series'), back to that entry wher
 else in the player's place, never a new entry; an up-next answer that cannot be read counts as
 nothing next. `web/apps/web/src/play-end.test.tsx`. A host's film ending so stops the group's film
 as Stop does, and a guest's Play page then goes to `/together`, the page before the host played
-anything (`web/apps/web/src/together-end.test.tsx`). Open: a host who left the player before the
-end still leaves the group's film playing past it on the server's clock (D364 §15).
+anything (`web/apps/web/src/together-end.test.tsx`). A host who left the player before the end:
+the core chooses a new leader and the group plays on as if the host watched passively (the owner,
+2026-11-19), its film's end on that leader's player stopping the group (D516).
 
 **Built (2026-11-18):** the cast. A Chromecast whose cast's film ends with nothing next has its cast
 play nothing, as a browser receiver waits ready (D364 §5): its black screen, still connected
@@ -4655,8 +4656,10 @@ What the plan left for the next batch that needs no answer from the owner:
   file, the page's own way up, as before.
 
 Left for the AirPlay piece of work, where they were filed: the guest's join that sent nothing for
-45 s (2026-11-18, 16:32 UTC), and the grant's sound. Left for the owner: the host who left the
-player before the end (D364 §15).
+45 s (2026-11-18, 16:32 UTC), and the grant's sound. The host who left the player before the end,
+listed here as open, was already settled by D516: the owner, 2026-11-19, "whenever the host leaves
+the player, the core chooses a new leader (as we already designed), but otherwise the whole
+playback proceeds as if the host were present and only passively watching."
 
 ## Loop playback, later (the owner, 2026-11-19)
 
