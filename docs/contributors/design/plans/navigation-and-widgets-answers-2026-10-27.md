@@ -4630,7 +4630,33 @@ owner agreed the lead's proposals ("yes to both, go ahead"):
 - **Next batch:** the node's device report shows a mergerfs pool's mount as kind unknown,
   filesystem `fuse.mergerfs` (`internal/node/hardware/storage.go`, which knows `fuse.sshfs` and
   `fuse.rclone` as network filesystems and every FUSE one as "may wait forever"). Recognise it as a
-  pool and, where its branches can be read, follow them to their disks.
+  pool and, where its branches can be read, follow them to their disks. **Built in the 11-20
+  batch**, below.
+
+## The 11-20 batch (the owner, 2026-11-19: "do the next batch")
+
+What the plan left for the next batch that needs no answer from the owner:
+
+- **A mergerfs pool's device:** "feat(node): a mergerfs pool is the devices its branches are on,
+  where the node sees them". mergerfs names a pool's folder's branches in its
+  `user.mergerfs.allpaths` attribute, through a bind mount too (tried on mergerfs 2.40 in the
+  sandbox). Where the node sees every branch, on a machine running it directly, the pool is the
+  devices they are on together: their disks, spinning when one spins, the most waiting of their
+  shares, one key (`mergerfs:<key>+<key>`) for every root on it
+  (`TestDevices_AMergerfsPoolIsItsBranchesDevicesWhereTheNodeSeesThem`). In a container, as on the
+  friend's OpenMediaVault, the branches are the host's and not there, so the pool stays a FUSE
+  mount of unknown kind: harmless, as the report said, one reader as for a spinning disk.
+- **The live socket's hello:** "fix(web): the page's live connection names the client it runs under
+  a discovery's loader", as the together hellos do (`together-client-name.test.tsx`).
+- **A cast moved on to another episode:** "fix(web): a cast moved on to another episode leaves, at
+  its end, for that episode's page", the case "A film played to its end with nothing next goes back
+  to its page" left open. The remote notes the episodes its reads of what plays around each film
+  name, and leaves for the one that ended (`cast-remote.test.tsx`). Where it read none for the
+  file, the page's own way up, as before.
+
+Left for the AirPlay piece of work, where they were filed: the guest's join that sent nothing for
+45 s (2026-11-18, 16:32 UTC), and the grant's sound. Left for the owner: the host who left the
+player before the end (D364 §15).
 
 ## Loop playback, later (the owner, 2026-11-19)
 
