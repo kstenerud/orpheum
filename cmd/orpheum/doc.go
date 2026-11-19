@@ -78,6 +78,12 @@
 //     the deployment, mode 0600, naming the HTTP port start was given, the one the compose file
 //     publishes, and removes it with the first admin (D449 §3). Enforced by
 //     TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin.
+//   - The setup code is also given as a magic link (D527 §1.2), one for each private IPv4 address of
+//     the machine (no loopback, link-local or container network's), carrying the code after a #, so
+//     no log sees it: in the start log, in SETUP-CODE.txt and on the standard error of `orpheum
+//     setup-code`, whose standard output stays the code alone for the install script. Enforced by
+//     TestSetupReach_LinksOneForEachAddressAtHomeWithTheCodeInTheFragment and
+//     TestSetupCode_PrintsTheCodeAloneAndTheLinksBesideIt.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestDispatch_PlannedSubcommandsAreNotImplementedYet in main_test.go.

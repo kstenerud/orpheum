@@ -14,6 +14,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
@@ -195,6 +196,9 @@ type wiring struct {
 	// looks in the data folder, and the port it tells them to open: a compose file's start names its
 	// deployment's file and its published HTTP port (D449 §3); no file writes none.
 	setupCodeShown setupCodeShown
+	// interfaces are the machine's network interfaces, which the setup links are made from (D527
+	// §1.2); nil, a release's, reads the system's.
+	interfaces func() []home.Interface
 }
 
 // setupCodeShown is the file a compose file's start shows the setup code in while no admin exists
@@ -330,7 +334,7 @@ func wireCore(
 		StartID:  startID,
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
 		SecretKey:  secretKey,
-		SetupCodes: runSetupCodes{directories: opened.directories, shown: outside.setupCodeShown},
+		SetupCodes: setupCodesOf(opened.directories, config, outside),
 		Clock:      config.servicesClock(), Random: rand.Reader, Logger: logger, Recent: outside.recent,
 		Build:       thisBuild(),
 		TMDBBaseURL: outside.tmdbBaseURL, TMDBImagesBaseURL: outside.tmdbImagesBaseURL,
@@ -340,7 +344,7 @@ func wireCore(
 		return opened, api.Dependencies{}, err
 	}
 	opened = opened.with(core)
-	codes := runSetupCodes{directories: opened.directories, shown: outside.setupCodeShown}
+	codes := setupCodesOf(opened.directories, config, outside)
 	if setupErr := ensureSetupCode(ctx, core.API.Auth, codes, logger); setupErr != nil {
 		return opened, api.Dependencies{}, setupErr
 	}
@@ -513,10 +517,10 @@ func logUnusedSettings(ctx context.Context, unused []settings.UnusedSetting, log
 }
 
 // ensureSetupCode makes sure a server with no users has a setup code, which it logs at every start
-// until the first admin is made, saying where it goes: the log is all a NAS's panel shows of a server
-// installed from a compose file (D447), with no terminal to run `orpheum setup-code` at. It also
-// writes the code to the data folder's file, when there is one, where a person browsing it looks
-// (D449 §3).
+// until the first admin is made, with the links that open the setup page with it filled in (D527
+// §1.2), saying where it goes: the log is all a NAS's panel shows of a server installed from a compose
+// file (D447), with no terminal to run `orpheum setup-code` at. It also writes the code to the data
+// folder's file, when there is one, where a person browsing it looks (D449 §3).
 func ensureSetupCode(
 	ctx context.Context, authService *auth.Service, codes runSetupCodes, logger *slog.Logger,
 ) error {
@@ -530,9 +534,15 @@ func ensureSetupCode(
 	if showErr := codes.show(code); showErr != nil {
 		return showErr
 	}
+	if links := codes.reach.links(code); len(links) > 0 {
+		logger.WarnContext(ctx, "no one can sign in yet: open one of these links in a browser at home to make the "+
+			"first admin; it fills the one-time setup code in (`orpheum setup-code` prints both again)",
+			"open", strings.Join(links, " "), "setupCode", code)
+		return nil
+	}
 	logger.WarnContext(ctx, "no one can sign in yet: open Orpheum in a browser at home, at open, and make the "+
-		"first admin there with this one-time setup code (POST /api/v1/setup); `orpheum setup-code` prints it again",
-		"open", codes.whereToOpen(), "setupCode", code)
+		"first admin there with this one-time setup code; `orpheum setup-code` prints it again",
+		"open", codes.addressInWords(), "setupCode", code)
 	return nil
 }
 
@@ -560,10 +570,28 @@ func loadOrCreateSecretKey(directories *instancedir.Directories, logger *slog.Lo
 
 // runSetupCodes keeps the setup code in the instance's run directory, mode 0600 (D242 §3), and, when
 // shown names a file, shows it there too while no admin exists, for a person who looks in the data
-// folder rather than the log (D449 §3).
+// folder rather than the log (D449 §3). Its reach makes the links that carry the code (D527 §1.2).
 type runSetupCodes struct {
 	directories *instancedir.Directories
 	shown       setupCodeShown
+	reach       setupReach
+}
+
+// setupCodesOf are the setup codes of a core running with config: the port a browser at home opens it
+// on is the compose file's published one when start names it, else the plain listener's.
+func setupCodesOf(directories *instancedir.Directories, config Config, outside wiring) runSetupCodes {
+	port := outside.setupCodeShown.httpPort
+	if port == 0 {
+		port = portOf(config.Server.Listen)
+	}
+	interfaces := outside.interfaces
+	if interfaces == nil {
+		interfaces = systemInterfaces
+	}
+	return runSetupCodes{
+		directories: directories, shown: outside.setupCodeShown,
+		reach: setupReach{port: port, interfaces: interfaces},
+	}
 }
 
 func (codes runSetupCodes) Read() (string, error) {
@@ -590,24 +618,32 @@ func (codes runSetupCodes) Remove() error {
 }
 
 // show writes code to the shown file, readable by the server's user alone, as its run-directory copy
-// is, with a line saying where it goes; with no file it writes nothing.
+// is: the code first, then the links that open the setup page with it filled in (D527 §1.2) and where
+// else it is entered; with no file it writes nothing.
 func (codes runSetupCodes) show(code string) error {
 	if codes.shown.file == "" {
 		return nil
 	}
-	text := code + "\n\nOrpheum's one-time setup code. Open Orpheum in a browser at home, " +
-		codes.whereToOpen() + ", and enter it on the first page to make the first admin; " +
-		"this file is removed once you have.\n"
+	text := code + "\n\nOrpheum's one-time setup code. "
+	if links := codes.reach.links(code); len(links) > 0 {
+		text += "Open one of these links in a browser at home to make the first admin; it fills the code " +
+			"in:\n\n" + strings.Join(links, "\n") + "\n\nOr open Orpheum at its address alone, " +
+			codes.addressInWords() + ", and enter the code on the first page."
+	} else {
+		text += "Open Orpheum in a browser at home, at " + codes.addressInWords() +
+			", and enter it on the first page to make the first admin."
+	}
+	text += " This file is removed once the first admin is made.\n"
 	return instancedir.WriteFileBeside(codes.shown.file, []byte(text))
 }
 
-// whereToOpen is the address a browser at home opens to make the first admin: on the port the
-// compose file publishes when start names it, and in words when nothing does.
-func (codes runSetupCodes) whereToOpen() string {
-	if codes.shown.httpPort == 0 {
+// addressInWords is the address a browser at home opens Orpheum at, with this machine's address left
+// for the person to fill in: on the port the compose file publishes when start names it.
+func (codes runSetupCodes) addressInWords() string {
+	if codes.reach.port <= 0 {
 		return "http://<this machine's address>:<its HTTP port>"
 	}
-	return "http://<this machine's address>:" + strconv.Itoa(codes.shown.httpPort)
+	return "http://<this machine's address>:" + strconv.Itoa(codes.reach.port)
 }
 
 // mountDebug serves pprof on the API's mux when the shouldServeDebugPprof setting says so, and only on a

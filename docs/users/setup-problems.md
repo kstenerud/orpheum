@@ -254,12 +254,14 @@ It fails where the app data lies on a filesystem that refuses a change of owner,
 share (NFS, SMB). Put `PATH_TO_APPDATA` on a local disk, or make `appdata/orpheum` and its `node`
 and `run` folders yourself, owned by that user.
 
-### Where is the setup code? The core's log has scrolled away
+### Where is the link that makes the first admin? The core's log has scrolled away
 
-Until the first admin is made, it is in `SETUP-CODE.txt` in `appdata/orpheum` (D449), readable by
-the app user (`APPUSER_PUID`) alone: on OpenMediaVault, where that user is not the one you browse
-the shared folders as, the log is the way. The core also writes it to its log at every start: restart
-`orpheum-core`, or run `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
+Until the first admin is made, the link, with the setup code in it, is in `SETUP-CODE.txt` in
+`appdata/orpheum` (D449), readable by the app user (`APPUSER_PUID`) alone: on OpenMediaVault, where
+that user is not the one you browse the shared folders as, the log is the way. The core also writes it
+to its log at every start: restart `orpheum-core`, or run
+`docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`, which prints the code
+and the links to open. Open one in a browser on your home network.
 
 ### Admin is refused: "only from the home network"
 

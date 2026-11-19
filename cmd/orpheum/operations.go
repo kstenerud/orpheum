@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/deployment"
@@ -32,6 +33,9 @@ type invocation struct {
 	stdin     io.Reader
 	stdout    io.Writer
 	stderr    io.Writer
+	// interfaces are the machine's network interfaces, which setup-code makes its links from; nil
+	// reads the system's.
+	interfaces func() []home.Interface
 }
 
 // fail writes a failure to stderr and returns the failure status.
@@ -276,9 +280,15 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	code, err := runSetupCodes{directories: directories}.Read()
+	codes := setupCodesOf(directories, config, wiring{interfaces: call.interfaces})
+	code, err := codes.Read()
 	if err == nil {
-		return write(call.stdout, code+"\n", exitSuccess)
+		// The code alone is the standard output, which the install script and other scripts read as the
+		// code; the links that carry it are for the person, on the standard error.
+		if status := write(call.stdout, code+"\n", exitSuccess); status != exitSuccess {
+			return status
+		}
+		return write(call.stderr, setupLinksText(codes.reach.links(code)), exitSuccess)
 	}
 	logger, closeLog, err := call.logger(config)
 	if err != nil {
@@ -299,6 +309,16 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 		return write(call.stdout, "setup is complete: an admin exists; sign in instead\n", exitFailure)
 	}
 	return call.fail(errors.New("there is no setup code yet; start the server and it writes one"))
+}
+
+// setupLinksText is what `orpheum setup-code` tells a person beside the code: the links that open the
+// setup page with it filled in (D527 §1.2), one on a line; nothing when there are none.
+func setupLinksText(links []string) string {
+	if len(links) == 0 {
+		return ""
+	}
+	return "\nOr open one of these in a browser at home, which fills the code in:\n" +
+		strings.Join(links, "\n") + "\n"
 }
 
 // commandOpenAPI prints the API's OpenAPI document, which `make generate` commits (D85).

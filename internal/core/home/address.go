@@ -337,17 +337,28 @@ func (keeper *AddressAtHome) Guess() netip.Addr {
 	if networks := keeper.parts.Rule.networks.Load(); networks != nil {
 		notHome = networks.NotHome
 	}
-	for _, each := range keeper.parts.Interfaces() {
+	if found := AddressesAtHome(keeper.parts.Interfaces(), notHome); len(found) > 0 {
+		return found[0]
+	}
+	return netip.Addr{}
+}
+
+// AddressesAtHome are the private IPv4 addresses of interfaces that a browser in the house may
+// reach the machine by, in the interfaces' order: no container network's (a bridge or a pair's end),
+// no loopback or link-local address (IsAtHome), and none in a network of notHome.
+func AddressesAtHome(interfaces []Interface, notHome []netip.Prefix) []netip.Addr {
+	var found []netip.Addr
+	for _, each := range interfaces {
 		if isContainerInterface(each.Name) {
 			continue
 		}
 		for _, address := range each.Addresses {
 			if address = address.Unmap(); IsAtHome(address) && !isInAny(address, notHome) {
-				return address
+				found = append(found, address)
 			}
 		}
 	}
-	return netip.Addr{}
+	return found
 }
 
 // isContainerInterface is whether name is one of the interfaces Docker and its kin make: a bridge or

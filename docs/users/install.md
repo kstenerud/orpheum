@@ -27,7 +27,7 @@ anywhere, the whole way is:
    ([your account](#your-account-at-orpheumcc)). You can do this at any point before step 5.
 2. Install the server, on [OpenMediaVault](#openmediavault), a [Synology](#synology) or
    [any machine with Docker](#on-any-machine-with-docker).
-3. Make yourself its [first admin](#the-first-admin), with the setup code.
+3. Make yourself its [first admin](#the-first-admin), by opening the link the server prints.
 4. Add a [library](#your-first-library) of your films or series.
 5. [Connect the server to your account](#connect-it-to-your-account), with a key from your account's
    page.
@@ -186,8 +186,8 @@ box already runs apps in **Services > Compose**, skip to step 1. Otherwise, firs
    give it a minute. Three containers appear in **Services > Compose > Containers**:
    `orpheum-folders`, which prepares the data folder and stops (*exited* is right), then
    `orpheum-core` and `orpheum-node`, both *healthy* once up.
-6. Make the [first admin](#the-first-admin), reading the setup code from the log: **Services >
-   Compose > Containers**, select `orpheum-core`, then **Logs**. (The code's file in `appdata` is
+6. Make the [first admin](#the-first-admin) by opening the link in the log: **Services >
+   Compose > Containers**, select `orpheum-core`, then **Logs**. (The link's file in `appdata` is
    readable by the app user alone, so the log is the easier way here.)
 
 To update, follow the server's **Update** page, in the admin's menu: select the `orpheum` file,
@@ -276,7 +276,7 @@ the sandbox still holds.
    `orpheum`, **Action → Stop**, then **YAML Configurations**, change the line, **Save**, and
    **Action → Start**. Keep a copy of the whole file somewhere of your own: the server's **Update**
    page hands you a newer one when an update brings it, and keeps only the lines under `# Yours`.
-5. Make the [first admin](#the-first-admin). The setup code is in the log: **Container Manager →
+5. Make the [first admin](#the-first-admin). The link to open is in the log: **Container Manager →
    Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is also in
    `SETUP-CODE.txt` in the `data` folder (`/volume1/docker/orpheum/data`), which File Station can
    download for you to open.
@@ -352,30 +352,35 @@ the groups it is given. Without a GPU, films that need preparing are encoded in 
 
 ## The first admin
 
-On its first start, and on every start until someone is made admin, the core makes a one-time
-**setup code**. It is in the file **`SETUP-CODE.txt`** in `PATH_TO_APPDATA/orpheum` (on
-OpenMediaVault, the `appdata` shared folder's `orpheum` folder), readable by the app user alone and
-removed once the first admin is made. It is also in the core's log, in a line that says
-`no one can sign in yet` and ends `setupCode=` and the code, three groups of four letters and
-digits such as `7kqm-2xhp-9rtw`:
+On its first start, and on every start until someone is made admin, the core prints a **link** that
+makes the first admin, one for each of the machine's addresses on your home network, such as
+`http://192.168.1.30:8440/#code=7kqm-2xhp-9rtw`. Open it in a browser **on your home network**: the
+page that opens, **Set up this server**, has the one-time setup code filled in already, so you type
+only a name and a password. The link works until someone is made admin. It is in:
 
-- OpenMediaVault: **Services > Compose > Containers**, `orpheum-core`, **Logs**.
-- Synology: **Container Manager → Container**, `orpheum-core`, **Details**, **Log**.
-- Elsewhere: `docker logs orpheum-core 2>&1 | grep setupCode`.
-- Or ask for it: `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
+- the core's log, in a line that says `no one can sign in yet` and names the links. OpenMediaVault:
+  **Services > Compose > Containers**, `orpheum-core`, **Logs**. Synology: **Container Manager →
+  Container**, `orpheum-core`, **Details**, **Log**. Elsewhere: `docker logs orpheum-core 2>&1 | grep
+  "no one can sign in"`.
+- the file **`SETUP-CODE.txt`** in `PATH_TO_APPDATA/orpheum` (on OpenMediaVault, the `appdata` shared
+  folder's `orpheum` folder), readable by the app user alone and removed once the first admin is made.
+- `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`, which prints the
+  code and, beneath it, the links.
 
-No file and no such line, and no one made admin yet? Restart `orpheum-core`: each start writes both
+No such line and no file, and no one made admin yet? Restart `orpheum-core`: each start writes them
 again until an admin exists. If they are gone because the admin was made, sign in as that admin.
 
-Then open `http://<the machine's address>:8440` (or the port `ORPHEUM_HTTP_PORT` names, which the
-file and the log line give) in a browser **on your home network**. The machine's address is the one
-in your browser's address bar when you open the NAS's own page, without the port after it: open
-that page at `192.168.1.30:5000`, and Orpheum is at `http://192.168.1.30:8440`. The page that
-opens, **Set up this server**, asks the **Setup code**, a name and a password: these are the name
-and password you sign in to Orpheum with, your own, not the NAS's. If it also asks for this
-server's address in the house, give the same address. **Create the admin**: you are the admin. An
-admin can administer only from the home network; the server learns the machine's address there
-from this first browser.
+The link carries the code after a `#`, which a browser never sends to the server, so no log of the
+server or of a proxy holds it. The code is printed too, three groups of four letters and digits such
+as `7kqm-2xhp-9rtw`, for a time the link does not do: a machine that shows no address on the home
+network, or one where the address you reach the server by differs. Then open
+`http://<the machine's address>:8440` (or the port `ORPHEUM_HTTP_PORT` names) in a browser on your
+home network, and type the code on the page. The machine's address is the one in your browser's
+address bar when you open the NAS's own page, without the port after it: open that page at
+`192.168.1.30:5000`, and Orpheum is at `http://192.168.1.30:8440`. These are the name and password you
+sign in to Orpheum with, your own, not the NAS's. If the page also asks for this server's address in
+the house, give the same address. **Create the admin**: you are the admin. An admin can administer
+only from the home network; the server learns the machine's address there from this first browser.
 
 If the server refuses admin because it does not count your browser as at home (a VPN, a second
 network), open it on the machine itself instead: `http://127.0.0.1:8441` (`ORPHEUM_THIS_MACHINE_PORT`)

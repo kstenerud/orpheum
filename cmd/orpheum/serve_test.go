@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -246,6 +248,9 @@ func serveOn(
 type serveAlongside struct {
 	node           func(ctx context.Context) error
 	setupCodeShown setupCodeShown
+	// interfaces are the machine's interfaces as the setup links see them; none, a machine with no
+	// address at home, so a test never reads the real ones.
+	interfaces func() []home.Interface
 	// recent is the process's recent log, as a release's run hands it the serve; nil keeps none.
 	recent *slogx.Recent
 }
@@ -257,12 +262,17 @@ func serveWithOn(
 ) runningServer {
 	t.Helper()
 	node, shown := alongside.node, alongside.setupCodeShown
+	interfaces := alongside.interfaces
+	if interfaces == nil {
+		interfaces = func() []home.Interface { return nil }
+	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
 			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
 			setupCodeShown: shown, recent: alongside.recent,
+			interfaces: interfaces,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -577,11 +587,19 @@ func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) 
 	}
 	seedPersistentDatabase(t, config)
 	// The compose file publishes another port than the default (ORPHEUM_HTTP_PORT), which start hands on.
-	alongside := serveAlongside{setupCodeShown: setupCodeShown{file: shown, httpPort: 28440}}
+	alongside := serveAlongside{
+		setupCodeShown: setupCodeShown{file: shown, httpPort: 28440},
+		interfaces: func() []home.Interface {
+			return []home.Interface{{Name: "eth0", Addresses: []netip.Addr{netip.MustParseAddr("192.168.1.20")}}}
+		},
+	}
 	captured := newCapturedLog("ready")
 	server := serveWithOn(t, listener, config, captured, "ready", alongside)
-	if !strings.Contains(captured.String(), "http://<this machine's address>:28440") {
-		t.Errorf("the setup code's log line names no published port, 28440:\n%s", captured)
+	code := strings.TrimSpace(runCommand(t, "setup-code", "--instance", path).stdout)
+	link := "http://192.168.1.20:28440/#code=" + code
+	// The log names the link, which carries the code (D527 §1.2), and the code itself.
+	if !strings.Contains(captured.String(), link) || !strings.Contains(captured.String(), code) {
+		t.Errorf("the setup code's log line names no link %q and the code:\n%s", link, captured)
 	}
 	info, err := os.Stat(shown)
 	if err != nil {
@@ -594,11 +612,13 @@ func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	code := strings.TrimSpace(runCommand(t, "setup-code", "--instance", path).stdout)
 	if code == "" || !strings.HasPrefix(string(text), code+"\n") || !strings.Contains(string(text), "browser at home") {
 		t.Errorf("the setup code's file says %q; want the code %q first, then where it is entered", text, code)
 	}
-	if !strings.Contains(string(text), ":28440,") {
+	if !strings.Contains(string(text), "\n"+link+"\n") {
+		t.Errorf("the setup code's file says %q; want the link %q on a line of its own", text, link)
+	}
+	if !strings.Contains(string(text), "http://<this machine's address>:28440") {
 		t.Errorf("the setup code's file says %q; want it to name the published port, 28440", text)
 	}
 	setUpOwner(t, server, path, "owner")

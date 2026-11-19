@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -244,6 +245,27 @@ func TestHomeAddress_TheGuessIsAPrivateIPv4AddressOfNoContainerInterface(t *test
 	running := keeperOver(t, storetest.OpenMigrated(t), home.AddressParts{Rule: rule, Interfaces: interfaces})
 	if got := running.Guess(); got != netip.MustParseAddr("192.168.1.20") {
 		t.Errorf("the guess is %v; want eth0's 192.168.1.20", got)
+	}
+}
+
+// Every private IPv4 address a browser in the house may reach the machine by is listed, in order: not
+// loopback or link-local, not IPv6, not a container network's, not a network the rule excepts.
+func TestAddressesAtHome_AreEveryPrivateIPv4AddressOfNoContainerInterface(t *testing.T) {
+	t.Parallel()
+	interfaces := []home.Interface{
+		{Name: "lo", Addresses: []netip.Addr{netip.MustParseAddr("127.0.0.1")}},
+		{Name: "docker0", Addresses: []netip.Addr{netip.MustParseAddr("172.17.0.1")}},
+		{Name: "eth0", Addresses: []netip.Addr{
+			netip.MustParseAddr("fd00::5"), netip.MustParseAddr("192.168.1.20"),
+			netip.MustParseAddr("169.254.3.4"), netip.MustParseAddr("8.8.4.4"),
+		}},
+		{Name: "eth1", Addresses: []netip.Addr{netip.MustParseAddr("10.0.0.7"), netip.MustParseAddr("10.77.0.2")}},
+	}
+	notHome := []netip.Prefix{netip.MustParsePrefix("10.77.0.0/24")}
+	got := home.AddressesAtHome(interfaces, notHome)
+	want := []netip.Addr{netip.MustParseAddr("192.168.1.20"), netip.MustParseAddr("10.0.0.7")}
+	if !slices.Equal(got, want) {
+		t.Errorf("AddressesAtHome = %v; want %v", got, want)
 	}
 }
 
