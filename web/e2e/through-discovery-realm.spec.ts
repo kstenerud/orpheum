@@ -48,10 +48,10 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
       .toBe(true);
     // The realm sign-in is at the loader's own origin, which hands the browser on to the core's.
     await page.goto(discovery.loaderOrigin);
-    await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
+    await page.getByLabel("Household", { exact: true }).fill("KarlNAS");
     await page.getByLabel("Name", { exact: true }).fill(owner.name);
     await page.getByLabel("Password", { exact: true }).fill(owner.password);
-    await page.getByLabel("This is my own device: remember my realm").check();
+    await page.getByLabel("This is my own device: remember my household").check();
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
     expect(new URL(page.url()).hostname.endsWith(".localhost")).toBe(true);

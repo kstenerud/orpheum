@@ -79,3 +79,26 @@ func TestRegistry_TheChunkLengthsHelpSaysItsKeyframesDecide(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistry_TheLogLevelsHelpSaysItSetsTheNodesToo(t *testing.T) {
+	t.Parallel()
+	definition, ok := Lookup(LogLevel)
+	if !ok {
+		t.Fatalf("no definition for %s", LogLevel)
+	}
+	for _, want := range []string{"every node's log", "next poll", "D525"} {
+		if !strings.Contains(definition.Description, want) {
+			t.Errorf("the help %q says nothing of %q", definition.Description, want)
+		}
+	}
+}
+
+func TestRegistry_NoSettingsHelpSaysRealm(t *testing.T) {
+	t.Parallel()
+	// D526: what a person reads names a household, not a realm; the help is read on the Settings page.
+	for _, definition := range built().definitions {
+		if strings.Contains(strings.ToLower(definition.Description), "realm") {
+			t.Errorf("%s's help says realm: %q", definition.Key, definition.Description)
+		}
+	}
+}
