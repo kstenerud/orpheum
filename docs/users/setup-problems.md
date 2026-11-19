@@ -72,6 +72,17 @@ It says the same, for everyone, until the server is connected to your account an
 whether a server was enrolled. At home you need none of this: open the server's own address,
 `http://<the machine's address>:8440`.
 
+## The page is blank, or says "This browser is too old for Orpheum"
+
+The browser is older than the web client reads. It needs **Chrome or Edge 120, Firefox 140, or
+Safari 17.1** (on macOS, iPhone and iPad) or newer (D271). An older one that loads the page says
+"This browser is too old for Orpheum" since 2026-11-19; before then it showed a blank page. Update
+the browser, or use another one on the same device.
+
+A TV or a TV box often keeps an old browser the app store no longer updates: an NVIDIA Shield whose
+Chrome was 67 showed a blank page until a current Chrome was installed on it. Where no current
+browser can be installed and the TV has Chromecast built in, cast to it from a phone instead.
+
 ## After the server was replaced, a device says "This link no longer finds its server"
 
 A device that used the old server opened the page it had kept from then. **Reload the page once**;

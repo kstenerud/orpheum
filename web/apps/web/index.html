@@ -36,6 +36,9 @@
         <a href="/llms.txt">/llms.txt</a>.
       </p>
     </div>
+    <!-- Says "too old" in a browser that cannot read the client's script, where the page would stay
+    blank: a classic ES5 file, which every browser reads and the page's policy allows (too-old.js). -->
+    <script src="/too-old.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

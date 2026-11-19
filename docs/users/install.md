@@ -428,6 +428,10 @@ With the server installed and you its admin, on a computer at home:
 
 ### Watching
 
+Any device with a current browser watches: **Chrome or Edge 120, Firefox 140, or Safari 17.1** (on
+macOS, iPhone and iPad) or newer (D271). An older one says the browser is too old
+([the page is blank](setup-problems.md#the-page-is-blank-or-says-this-browser-is-too-old-for-orpheum)).
+
 - **At home**, open `http://<the machine's address>:8440`.
 - **Anywhere**, open `https://orpheum.cc` and sign in with your **Household**, your **Name** and your
   **Password** on the server. This works for you once the claim is done.
