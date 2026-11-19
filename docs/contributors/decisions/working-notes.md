@@ -30385,9 +30385,14 @@ Amends D448 §9 (the approval from the account, built this way) and D297 §3 (§
       household's name, which it learns only at the link (amends D297 §3). The household's key
       follows from it when the link is made, so a household's name given or changed later leaves
       every key working.
-   3. **No invitation yet**: the discovery says how to get one, and keeps what the server sent in the
-      browser while the person finds it; an invitation opened in the same browser makes the account
-      and goes on to the link. One left unfinished is started again from the server's page.
+   3. **No invitation yet**: the discovery's page, in the browser that pressed Connect (most likely
+      the computer's), keeps what the server sent, says to open the invitation (most likely on a
+      phone, from an e-mail or a message), and says that the account it makes, an e-mail and a
+      password, is the discovery's, not the same as the name and password on the server. An
+      invitation opened in that same browser makes the account and goes on to the link by itself.
+      One opened elsewhere makes the account there, and the waiting page then asks for that e-mail
+      and password, one step, and goes on (the owner, 2026-11-19). One left unfinished is started
+      again from the server's page.
    4. **The household's other people never need the home network**: the admin's invite link does
       everything through the discovery.
    5. **The link ends with a test from outside** that says whether the server can be reached from
