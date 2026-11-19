@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { forgetSteps, PageNotControlled, stepsSoFar } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { installGuideOnGitHub } from "./agent-help.ts";
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
 import {
@@ -241,6 +242,15 @@ describe("the loader at its own origin (D308)", () => {
   it("with none, opens the realm sign-in", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+  });
+
+  // A household's first install, 2026-11-19: its agent found the sign-in and no way to the guide.
+  it("links the realm sign-in to the install guide, for a person come to set up a server", async () => {
+    mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
+    const install = [...mounted.container.querySelectorAll("a")].find(
+      (link) => link.textContent === "Install a server",
+    );
+    expect(install?.getAttribute("href")).toBe(installGuideOnGitHub);
   });
 
   it("offers a television a code beside the realm sign-in, and keeps its household as a sign-in does (D293 §2)", async () => {

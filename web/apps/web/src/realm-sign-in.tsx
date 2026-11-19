@@ -3,6 +3,7 @@
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { installGuideOnGitHub } from "./agent-help.ts";
 import {
   CredentialsField,
   CredentialsForm,
@@ -108,7 +109,11 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
   );
 }
 
-/** The other ways in than a realm: the link sent, and a code where one is offered. */
+/**
+ * The other ways in than a realm: the link sent, and a code where one is offered; and, for a person
+ * who came to set up a server rather than to sign in, the install guide (a household's first
+ * install, 2026-11-19: the page showed no way to it).
+ */
 function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -119,6 +124,12 @@ function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX
           {t("discovery.realm.useCode")}
         </button>
       )}
+      <p>
+        {t("discovery.realm.ownServer")}{" "}
+        <a href={installGuideOnGitHub} rel="noreferrer noopener" target="_blank">
+          {t("discovery.realm.install")}
+        </a>
+      </p>
     </>
   );
 }

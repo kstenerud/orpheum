@@ -20,6 +20,9 @@ export const llmsTxtFile = "llms.txt";
 /** The public repository's tree of the user documentation, which the help's links point into. */
 const usersGuideOnGitHub = "https://github.com/kstenerud/orpheum/blob/main/docs/users/";
 
+/** The install guide in the public repository, which /llms.txt and the realm sign-in link to. */
+export const installGuideOnGitHub = `${usersGuideOnGitHub}install.md`;
+
 /** A Markdown link's target: what is between `](` and `)`. */
 const linkTarget = /\]\(([^)\s]+)\)/gu;
 
@@ -47,7 +50,7 @@ export const llmsTxt = `# Orpheum
 - [Setup help for an AI agent](/${agentHelpFile}): what to ask the person, which section of the
   install guide each answer leads to, and the agent's rules.
 - [The same help in the public repository](${usersGuideOnGitHub}agent-setup.md)
-- [The install guide](${usersGuideOnGitHub}install.md)
+- [The install guide](${installGuideOnGitHub})
 `;
 
 /** One file the build writes beside the client's. */

@@ -113,6 +113,8 @@ export const enDiscovery = {
         "This device needs to sign in again: your server no longer knows its sign-in, as when the device was removed from it.",
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",
+      ownServer: "Setting up a server of your own?",
+      install: "Install a server",
     },
   },
   loader: {
