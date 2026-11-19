@@ -22,7 +22,7 @@ import {
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { RepointDialog, type Place } from "./repoint-root.tsx";
 import { RootWarning } from "./root-warning.tsx";
@@ -490,7 +490,8 @@ interface LibraryActions {
   readonly answerAboutRoot: (root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: () => void;
   readonly repoint: (root: Root, to: Place) => void;
-  readonly addRoot: (to: Place) => void;
+  /** Adds a folder to the library, whose folders are roots. */
+  readonly addRoot: (to: Place, roots: readonly Root[]) => void;
   readonly setChangeDetection: (choice: ChangeDetection) => Promise<void>;
 }
 
@@ -580,9 +581,24 @@ function useFolderActions(
         reload();
       });
     },
-    addRoot: (to) => {
+    addRoot: (to, roots) => {
       act(async (idempotencyKey) => {
-        await addLibraryRoot(api, { libraryId, to }, idempotencyKey);
+        try {
+          await addLibraryRoot(api, { libraryId, to }, idempotencyKey);
+        } catch (cause: unknown) {
+          // The server refuses a folder at or inside one the library reads; the note names that one
+          // (the first beta install, 2026-11-19, #17), any other refusal problemText's words.
+          const covering = isRefusedAt(cause, "body.path") ? coveringRoot(roots, to) : undefined;
+          if (covering === undefined) {
+            throw cause;
+          }
+          setNote(
+            covering.rootPath === to.path
+              ? t("libraries.rootAlready", { path: to.path })
+              : t("libraries.rootInside", { path: to.path, covering: covering.rootPath }),
+          );
+          return;
+        }
         setNote(t("libraries.rootAdded", { path: to.path }));
         reload();
       });
@@ -687,6 +703,16 @@ async function addLibraryRoot(
   );
 }
 
+/** The library's folder on place's node that place is at or inside; none when it is in none. */
+function coveringRoot(roots: readonly Root[], place: Place): Root | undefined {
+  return roots.find(
+    (root) =>
+      root.nodeName === place.nodeName &&
+      (place.path === root.rootPath ||
+        place.path.startsWith(root.rootPath === "/" ? "/" : `${root.rootPath}/`)),
+  );
+}
+
 /**
  * Every place a root can move to, or a folder be added from: each connected node's configured roots,
  * and the folders browsed to inside them (D359).
@@ -723,7 +749,9 @@ export function LibraryPage(props: { readonly libraryId: number }): JSX.Element 
       onDelete={actions.deleteLibrary}
       places={placeList}
       onRepoint={actions.repoint}
-      onAddRoot={actions.addRoot}
+      onAddRoot={(to) => {
+        actions.addRoot(to, library.roots ?? []);
+      }}
       onChangeDetection={actions.setChangeDetection}
     />
   );

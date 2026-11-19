@@ -101,6 +101,12 @@ func TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary(t *testing.T) {
 		wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries/1/roots", admin,
 			map[string]any{"nodeName": "local", "path": refused}), http.StatusUnprocessableEntity, "body.path")
 	}
+	// The refusal names the library's folder it is inside (the first beta install, 2026-11-19, #17).
+	inside := harness.do(t, http.MethodPost, "/libraries/1/roots", admin,
+		map[string]any{"nodeName": "local", "path": "/media/video/shows/Dark"})
+	if want := "is inside /media/video/shows, which this library already reads"; !strings.Contains(inside.body, want) {
+		t.Errorf("POST /libraries/1/roots inside a folder of the library = %s; want it to say %q", inside.body, want)
+	}
 	overlapping := harness.do(t, http.MethodPost, "/libraries", admin, map[string]any{
 		"name": "Films", "kind": "film", "metadataSource": "tmdb", "changeDetection": "manual",
 		"isWritable": false, "nodeName": "local", "rootPaths": []string{"/media/video"},

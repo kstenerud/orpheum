@@ -146,6 +146,8 @@ export const enLibraries = {
     addRootHeading: "Add a folder to the library",
     repointHeading: "Choose where the folder is now",
     rootAdded: "Added {{path}}. A scan of it is under way.",
+    rootInside: "Not added: {{path}} is inside {{covering}}, which this library already reads.",
+    rootAlready: "Not added: {{path}} is already one of this library's folders.",
     noNodes:
       "No node has connected since the server started. Start one, and its folders show here.",
     noRootsYet:

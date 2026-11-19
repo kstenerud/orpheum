@@ -339,4 +339,48 @@ describe("the admin's Libraries pages (D361)", () => {
     await click(root);
     expect(root?.hasAttribute("aria-invalid")).toBe(false);
   });
+
+  // The first beta install, 2026-11-19, #17: a folder inside one the library reads was refused in
+  // the general words, which named neither folder.
+  it("names the library's folder a folder added is inside, when the server refuses it", async () => {
+    const listing = (path: string, folders: readonly string[]): readonly [number, unknown] => [
+      200,
+      { path, state: "readable", folders },
+    ];
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [films] }],
+      "GET /nodes": nodesOfOne,
+      "GET /nodes/nas/folders": [
+        listing("/tank", ["media"]),
+        listing("/tank/media", ["films"]),
+        listing("/tank/media/films", ["extras"]),
+        listing("/tank/media/films/extras", []),
+      ],
+      "POST /libraries/3/roots": [
+        422,
+        {
+          error: {
+            code: "invalidRequest",
+            message: "covered",
+            detail: { problems: [{ location: "body.path", message: "covered" }] },
+          },
+        },
+      ],
+    });
+    mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
+    const page = mounted.container;
+    await settleAnswers();
+    await click(buttonWithText(page, "Add a folder…"));
+    await click(buttonWithText(page, "Browse nas: /tank"));
+    await settleAnswers();
+    for (const name of ["media", "films", "extras"]) {
+      await click(buttonWithText(page, name));
+      await settleAnswers();
+    }
+    await click(buttonWithText(page, "Choose this folder"));
+    await settleAnswers();
+    expect(page.textContent).toContain(
+      "Not added: /tank/media/films/extras is inside /tank/media/films, which this library already reads.",
+    );
+  });
 });

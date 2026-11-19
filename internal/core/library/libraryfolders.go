@@ -204,14 +204,24 @@ func (admin *Admin) refuseCovered(
 				slogx.EventKey, "folderCovered",
 				"nodeName", nodeName,
 				"path", path, "coveredBy", root.RootPath, "libraryId", root.LibraryID)
-			return nil, fmt.Errorf("%s on node %q: %w: library %d has %s", path, nodeName, ErrRootCovered,
-				root.LibraryID, root.RootPath)
+			return nil, fmt.Errorf("%s on node %q %s: %w", path, nodeName, coveredBy(path, root.RootPath),
+				ErrRootCovered)
 		}
 		if pathtree.IsAtOrUnder(root.RootPath, path) {
 			replaced = append(replaced, root.RootPath)
 		}
 	}
 	return replaced, nil
+}
+
+// coveredBy says how the library's folder at covers path, which is at or inside it, naming it: an
+// admin adding a folder is told which of the library's folders already reads it (the first beta
+// install, 2026-11-19, #17).
+func coveredBy(path, at string) string {
+	if path == at {
+		return "is already one of this library's folders"
+	}
+	return "is inside " + at + ", which this library already reads"
 }
 
 // outermostOfNew are a new library's folders less those beneath another of them, which a parent takes
