@@ -19,8 +19,8 @@ import { useWarmsPlay } from "./warm-play.ts";
 
 /**
  * Home (the owner, 2026-10-25: "an actual home page", which "should list half-finished stuff and also
- * newly added things. We'll also add more things later"): Continue Watching, then the newest films
- * and the newest series, each a row of posters. A row with nothing in it is not shown; with no library
+ * newly added things. We'll also add more things later"): Continue Watching, then Next Up
+ * (plans/b1.md §A), then the newest films and the newest series, each a row of posters. A row with nothing in it is not shown; with no library
  * at all, it says so (NoLibrariesYet). Every row comes in one read of GET /home, which one poll keeps
  * (D476, principles §30). Once it has settled it warms the Play page's code under a loader
  * (warm-play.ts).
@@ -38,7 +38,8 @@ export function Home(): JSX.Element {
         {t("home.heading")}
       </h1>
       <NoLibrariesYet />
-      <ContinueWatching home={home} reload={readHomeAgain} />
+      <ContinueWatching kind="continueWatching" home={home} reload={readHomeAgain} />
+      <ContinueWatching kind="nextUp" home={home} reload={readHomeAgain} />
       <NewestRow kind="film" home={home} />
       <NewestRow kind="series" home={home} />
     </section>

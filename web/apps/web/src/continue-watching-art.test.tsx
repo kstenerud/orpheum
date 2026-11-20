@@ -34,7 +34,13 @@ const row = (
 function rendered(rows: readonly ContinueWatchingRow[]): string {
   return renderToStaticMarkup(
     withServices(
-      <ContinueWatchingView rows={rows} hiddenName={undefined} onHide={nothing} onUndo={nothing} />,
+      <ContinueWatchingView
+        kind="continueWatching"
+        rows={rows}
+        hiddenName={undefined}
+        onHide={nothing}
+        onUndo={nothing}
+      />,
     ),
   );
 }

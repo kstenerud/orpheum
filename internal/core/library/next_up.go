@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -38,16 +39,28 @@ type Member struct {
 	// PartwayAtMs where in it; 0 when they are partway through none.
 	PartwayFileID, PartwayAtMs int64
 	partwayWatchedAt           int64
+	// HiddenAt is when its person last hid it from Home (D188), 0 for never.
+	HiddenAt int64
 }
 
-// MembersOf are a collection's members, from its files in its ordering, as a person stands in them.
+// FileToPlay is the file a member's Play plays: the one its person is partway through, else its
+// first.
+func (member Member) FileToPlay() int64 {
+	if member.IsPartway {
+		return member.PartwayFileID
+	}
+	return member.FileIDs[0]
+}
+
+// MembersOf are a collection's members, from its files in its ordering, as a person stands in them:
+// rows of one collection.
 func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, thresholds ResumeThresholds) []Member {
 	var members []Member
 	for _, row := range rows {
 		if len(members) == 0 || members[len(members)-1].TitleID != row.WorkID {
 			members = append(members, Member{
 				TitleID: row.WorkID, Group: row.GroupNumber, NumberInGroup: row.NumberInGroup, Name: row.Name,
-				partwayWatchedAt: -1,
+				partwayWatchedAt: -1, HiddenAt: ptr.ValueOrZero(row.HiddenAt),
 			})
 		}
 		last := &members[len(members)-1]
@@ -143,20 +156,50 @@ func ReadMembers(
 	ctx context.Context, queries *sqlcgen.Queries, config IntSettings, viewer Viewer, collectionID int64,
 	ordering string,
 ) ([]Member, error) {
-	reach, userID := viewer.Reach, viewer.UserID
+	members, err := readMembersOf(ctx, queries, config, viewer, []int64{collectionID},
+		map[int64]string{collectionID: ordering})
+	if err != nil {
+		return nil, fmt.Errorf("collection %d's members in its %s ordering: %w", collectionID, ordering, err)
+	}
+	return members[collectionID], nil
+}
+
+// readMembersOf are ReadMembers for each of collectionIDs, in the ordering orderings names for it, in
+// one statement: Home's Next Up row reads every series it may offer at once.
+func readMembersOf(
+	ctx context.Context, queries *sqlcgen.Queries, config IntSettings, viewer Viewer, collectionIDs []int64,
+	orderings map[int64]string,
+) (map[int64][]Member, error) {
 	thresholds, err := ReadResumeThresholds(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	named := make([][2]any, 0, len(collectionIDs))
+	for _, id := range collectionIDs {
+		named = append(named, [2]any{id, orderings[id]})
+	}
+	encoded, err := json.Marshal(named)
+	if err != nil {
+		return nil, fmt.Errorf("encode %d collections' orderings: %w", len(collectionIDs), err)
+	}
+	isEveryLibrary, libraryIDsJSON := viewer.Reach.QueryArgs()
 	rows, err := queries.ListOrderingMemberFilesWithPositions(ctx, sqlcgen.ListOrderingMemberFilesWithPositionsParams{
-		SequenceID: collectionID, UserID: userID, OrderingName: ordering,
+		OrderingsJSON: string(encoded), UserID: viewer.UserID,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list collection %d's members in its %s ordering: %w", collectionID, ordering, err)
+		return nil, fmt.Errorf("list the members of %d collections: %w", len(collectionIDs), err)
 	}
-	return MembersOf(rows, thresholds), nil
+	membersByCollection := make(map[int64][]Member, len(collectionIDs))
+	for start := 0; start < len(rows); {
+		end := start + 1
+		for end < len(rows) && rows[end].SequenceID == rows[start].SequenceID {
+			end++
+		}
+		membersByCollection[rows[start].SequenceID] = MembersOf(rows[start:end], thresholds)
+		start = end
+	}
+	return membersByCollection, nil
 }
 
 // NextUp is a person's next member of a collection's ordering (D160), what its page offers to play:
@@ -198,10 +241,7 @@ func (browser *Browser) nextUpOf(
 	if err != nil {
 		return NextUp{}, err
 	}
-	next := NextUp{Member: member, FileID: member.FileIDs[0], GroupName: names[member.Group]}
-	if next.IsPartway {
-		next.FileID = next.PartwayFileID
-	}
+	next := NextUp{Member: member, FileID: member.FileToPlay(), GroupName: names[member.Group]}
 	unreadable, err := browser.unreadableItems(ctx, reach, []int64{next.TitleID}, false)
 	if err != nil {
 		return NextUp{}, err

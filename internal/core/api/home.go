@@ -17,7 +17,8 @@ import (
 const homeNewestShown = 18
 
 // InProgressBody is one row of Continue Watching: a work, and the file of it the person was most
-// recently partway through.
+// recently partway through; or of Next Up: an episode, and the file of it its Play plays, from its
+// start (position 0, length 0).
 type InProgressBody struct {
 	ID int64 `json:"id"`
 	// Kind is what the work is, so its card keeps the rule of an item with no poster (D496, D498).
@@ -31,7 +32,7 @@ type InProgressBody struct {
 	NoPosterStillSha256 string            `doc:"The 16:9 picture shown in the top half of its poster's place when it has no poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
 	FileID              int64             `json:"fileId"`
 	PositionMs          int64             `json:"positionMs"`
-	DurationMs          int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
+	DurationMs          int64             `doc:"0 when the file's length is unknown, and in Next Up" json:"durationMs"`
 	FileName            string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
 	Episode             *EpisodePlaceBody `json:"episode,omitempty"`
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
@@ -40,11 +41,15 @@ type InProgressBody struct {
 }
 
 // HomeOutput is the home screen (D188): every row of it in one answer, so the rows come together and
-// one poll keeps them (D476, principles §30). Continue Watching first, then the newest films and the
-// newest series, each of the libraries the person keeps on Home (D366 §5). Next Up comes after M3.
+// one poll keeps them (D476, principles §30). Continue Watching first, then Next Up (plans/b1.md §A),
+// then the newest films and the newest series, each of the libraries the person keeps on Home (D366
+// §5).
 type HomeOutput struct {
 	Body struct {
 		ContinueWatching []InProgressBody `json:"continueWatching"`
+		// NextUp is each series' next episode for the person, where they finished one and are partway
+		// through none: library.Browser.NextUpRow.
+		NextUp []InProgressBody `json:"nextUp"`
 		// NewestFilms and NewestSeries are the newest films and series, newest first, at most 18 of
 		// each, as GET /items?sort=added lists them.
 		NewestFilms  []ItemEntryBody `maxItems:"18" json:"newestFilms"`
@@ -52,7 +57,7 @@ type HomeOutput struct {
 	}
 }
 
-// HideInput hides a work from Continue Watching, or undoes that.
+// HideInput hides a work from Continue Watching or Next Up, or undoes that.
 type HideInput struct {
 	AuthorizationHeader
 	ItemID int64 `minimum:"1" path:"id"`
@@ -61,13 +66,13 @@ type HideInput struct {
 func (server *Server) registerHome() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getHome", Method: http.MethodGet, Path: "/home",
-		Summary:    "The home screen: what the person stopped in the middle of, and the newest films and series",
+		Summary:    "The home screen: what the person is partway through, what is next, the newest films and series",
 		Tags:       []string{"Browse"},
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.getHome)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "markHidden", Method: http.MethodPut, Path: "/items/{id}/hidden",
-		Summary:       "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
+		Summary:       "Hide a work from Continue Watching or Next Up until its next activity; not a completion (D188)",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
 		Extensions:    callableBy(capabilitySignedIn),
@@ -94,18 +99,14 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	if err != nil {
 		return nil, server.libraryError(ctx, "list Continue Watching", err)
 	}
-	output := &HomeOutput{}
-	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))
-	nodeName := server.nodeNamer(ctx, dependencies)
-	for _, row := range rows {
-		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
-			ID: row.ID, Kind: row.Kind, Name: row.Name, Year: row.Year,
-			PosterSha256: row.PosterSha256, NoPosterStillSha256: row.NoPosterStillSha256,
-			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
-			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
-			IsWatched: row.IsWatched,
-		})
+	nextUp, err := dependencies.Browser.NextUpRow(ctx, principal.UserID, reach)
+	if err != nil {
+		return nil, server.libraryError(ctx, "list Next Up", err)
 	}
+	output := &HomeOutput{}
+	nodeName := server.nodeNamer(ctx, dependencies)
+	output.Body.ContinueWatching = inProgressBodies(rows, nodeName)
+	output.Body.NextUp = inProgressBodies(nextUp, nodeName)
 	output.Body.NewestFilms, err = server.homeNewest(ctx, dependencies, principal, reach, library.ListFilms)
 	if err != nil {
 		return nil, err
@@ -115,6 +116,21 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 		return nil, err
 	}
 	return output, nil
+}
+
+// inProgressBodies are rows of Continue Watching or Next Up as GET /home sends them.
+func inProgressBodies(rows []library.InProgress, nodeName func(int64) string) []InProgressBody {
+	bodies := make([]InProgressBody, 0, len(rows))
+	for _, row := range rows {
+		bodies = append(bodies, InProgressBody{
+			ID: row.ID, Kind: row.Kind, Name: row.Name, Year: row.Year,
+			PosterSha256: row.PosterSha256, NoPosterStillSha256: row.NoPosterStillSha256,
+			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
+			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
+			IsWatched: row.IsWatched,
+		})
+	}
+	return bodies
 }
 
 // homeNewest is a row of Home's newest of kind, ListFilms or ListSeries, of the libraries reach holds.

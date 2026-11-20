@@ -449,6 +449,10 @@ export const en = {
     hidden: "{{name}} is hidden until you watch it again.",
     undo: "Undo",
   },
+  nextUp: {
+    heading: "Next up",
+    hidden: "{{name}} is hidden until you next watch its series.",
+  },
   extraType: {
     trailer: "Trailer",
     teaser: "Teaser",

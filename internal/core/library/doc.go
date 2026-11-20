@@ -423,6 +423,15 @@
 //     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup,
 //     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds.
 //
+//   - Home's Next Up (NextUpRow) is that MembersAhead's first, for each series its person finished
+//     an episode of and is partway through none of by the same thresholds, so a series is in
+//     Continue Watching or Next Up, never both; most recent watching in the series first, at most
+//     continueWatchingMaxWorks, of what reach reaches; an episode hidden since the person's latest
+//     watching of any episode of the series not at all (D188, plans/b1.md §A). Enforced by
+//     TestNextUp_OnHomeIsTheEpisodeAfterTheLatestFinishedOfASeriesPartwayThroughNone,
+//     TestNextUp_AHiddenSeriesStaysOutUntilItsNextActivity and
+//     TestNextUp_HoldsTheSeriesOfTheLibrariesThePersonReachesMostRecentFirst (internal/core/api).
+//
 //   - What plays after a file (UpNext) is the member after its title in the ordering its person
 //     watches its series in, offered as Next Up's is, its partway file first; none for a film, an
 //     episode that ordering leaves out, or the last (plans/up-next.md). Enforced by
@@ -507,7 +516,7 @@
 //     lists.go, lists_other.go, lists_released.go: each list's reads, either way (D366);
 //     watched.go: whether a person watched titles, a mark's fresh start, and what they may mark by
 //     hand (D370);
-//     home.go: Continue Watching and the resume thresholds;
+//     home.go: Continue Watching and the resume thresholds; home_next_up.go: Home's Next Up;
 //     next_up.go: a collection's members as a person stands in them, their Next Up, what plays
 //     after a file (UpNext), and the members either side of it (NeighboursOf);
 //     ordering.go: the ordering a person sees a series in, and an episode's place in it;

@@ -2798,10 +2798,20 @@
               "array",
               "null"
             ]
+          },
+          "nextUp": {
+            "items": {
+              "$ref": "#/components/schemas/InProgressBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
           "continueWatching",
+          "nextUp",
           "newestFilms",
           "newestSeries"
         ],
@@ -2994,7 +3004,7 @@
       "InProgressBody": {
         "properties": {
           "durationMs": {
-            "description": "0 when the file's length is unknown",
+            "description": "0 when the file's length is unknown, and in Next Up",
             "format": "int64",
             "type": "integer"
           },
@@ -12759,7 +12769,7 @@
             "session": []
           }
         ],
-        "summary": "The home screen: what the person stopped in the middle of, and the newest films and series",
+        "summary": "The home screen: what the person is partway through, what is next, the newest films and series",
         "tags": [
           "Browse"
         ],
@@ -13819,7 +13829,7 @@
             "session": []
           }
         ],
-        "summary": "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
+        "summary": "Hide a work from Continue Watching or Next Up until its next activity; not a completion (D188)",
         "tags": [
           "Playback"
         ],

@@ -64,6 +64,78 @@ describe("home (the owner, 2026-10-25)", () => {
     expect(cards[1]?.querySelector("progress")).toBeNull();
   });
 
+  /** Home's read with one film partway and one series' next episode, 23, on file 4. */
+  const withNextUp = {
+    continueWatching: [
+      { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+    ],
+    nextUp: [
+      {
+        id: 23,
+        kind: "episode",
+        name: "Pilot",
+        fileId: 4,
+        positionMs: 0,
+        durationMs: 0,
+        episode: { seriesId: 9, seriesName: "Test Show", seasonNumber: 1, episodeNumber: 3 },
+      },
+    ],
+    newestFilms: [entry(8, "Nosferatu")],
+    newestSeries: [entry(9, "Test Show")],
+  };
+
+  it("shows Next up second, each card playing its episode at once when chosen (plans/b1.md §A)", async () => {
+    const services = servedBy(
+      {
+        "GET /home": [200, withNextUp],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
+        "POST /playback": [200, directDecision()],
+      },
+      [],
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, services));
+    const { container } = mounted;
+    const headings = [...container.querySelectorAll("h2")].map((each) => each.textContent);
+    expect(headings).toEqual(["Continue watching", "Next up", "New films", "New series"]);
+    const nextUp = container.querySelector('[aria-labelledby="next-up-heading"]');
+    const card = nextUp?.querySelector(".poster-card");
+    // Named by its series, its place and its own name.
+    expect(card?.textContent).toMatch(/Test Show · .+ · Pilot/u);
+    // It plays from the start: no part of it is watched.
+    expect(card?.querySelector("progress")).toBeNull();
+    await click(nextUp?.querySelector('a[href="/play/4"]') ?? null);
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
+  });
+
+  it("hides a Next up card with PUT, says until when, and undoes it with DELETE (D188)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /home": [200, withNextUp],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
+        "PUT /items/23/hidden": [204, undefined],
+        "DELETE /items/23/hidden": [204, undefined],
+      },
+      heard,
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, services));
+    const { container } = mounted;
+    const nextUp = container.querySelector('[aria-labelledby="next-up-heading"]');
+    await click(nextUp?.querySelector(".continue-watching__more") ?? null);
+    const hide = [...document.querySelectorAll('dialog .list-box [role="button"]')].find(
+      (each) => each.textContent === "Hide",
+    );
+    await click(hide ?? null);
+    await settleUntil(() => container.querySelector(".continue-watching__hidden") !== null);
+    expect(heard.map((each) => each.methodAndPath)).toContain("PUT /items/23/hidden");
+    const hidden = container.querySelector(".continue-watching__hidden");
+    expect(hidden?.textContent).toContain("Pilot is hidden until you next watch its series.");
+    await click(hidden?.querySelector("button") ?? null);
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "DELETE /items/23/hidden"));
+  });
+
   it("asks the server for the libraries once, the banner's and Home's reading shared (the web client's architecture audit of 2026-11-10, Startup 10)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(

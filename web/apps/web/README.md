@@ -562,6 +562,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   series'), else the full-size "No poster" card with its 16:9 picture in the top half, else that
   card bare** (D498 §1): a row mixing kinds keeps one shape, an other video's card too.
   `src/continue-watching-art.test.tsx`.
+- **Next Up is Home's second row, Continue Watching's card with its own heading and hidden
+  message** (plans/b1.md §A): each card plays its episode from the start at once when chosen, and
+  hides with undo as Continue Watching's do (D188). `src/home.test.tsx`.
 - **A grid's tiles in view say so** (`PUT /tiles/interest`) once they settle, again while the tab is
   visible, and that none is shown when the grid goes, so the work their pictures need comes first
   (D362 §4, `src/tile-interest.ts`). `src/tile-interest.test.tsx`.

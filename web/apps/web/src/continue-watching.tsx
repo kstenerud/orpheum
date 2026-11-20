@@ -19,18 +19,31 @@ import type { Resource } from "./use-resource.ts";
 import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { placeCode, type OrderingPlace } from "./episode-place.ts";
 
-/** One row of Continue Watching, as the server sends it. */
+/** One row of Continue Watching or Next Up, as the server sends it. */
 export type ContinueWatchingRow = components["schemas"]["InProgressBody"];
+
+/**
+ * Which of Home's rows of things to play at once (D188): Continue Watching, what the person stopped
+ * in the middle of, or Next Up, each series' next episode for them (plans/b1.md §A). The two share
+ * a card, its hide and its undo; each has its own heading and hidden message.
+ */
+export type PlayRowKind = "continueWatching" | "nextUp";
+
+/** The id of a play row's heading, which names its section. */
+const headingIds: Readonly<Record<PlayRowKind, string>> = {
+  continueWatching: "continue-watching-heading",
+  nextUp: "next-up-heading",
+};
 
 /** Home's rows, as the server sends them, every one in one answer (D476, principles §30). */
 export type HomeRows = components["schemas"]["HomeOutputBody"];
 
-/** Reads Home's rows: Continue Watching, the newest films and the newest series. */
+/** Reads Home's rows: Continue Watching, Next Up, the newest films and the newest series. */
 export async function loadHome(api: Api, signal?: AbortSignal): Promise<HomeRows> {
   return dataOrThrow(await api.GET("/home", { signal: signal ?? null }));
 }
 
-/** Hides a work from Continue Watching when isHidden, or brings it back (D188). */
+/** Hides a work from Continue Watching or Next Up when isHidden, or brings it back (D188). */
 export async function setItemHidden(
   api: Api,
   item: { readonly itemId: number; readonly isHidden: boolean },
@@ -137,17 +150,19 @@ function useFocusAfterHide(
 }
 
 /**
- * The rows, each playing its file at once when chosen (D188), with a way to hide it; and after a
- * hide, a way to undo it, focus moved off the hidden card by useFocusAfterHide.
+ * The rows of Continue Watching or Next Up (kind), each playing its file at once when chosen (D188),
+ * with a way to hide it; and after a hide, a way to undo it, focus moved off the hidden card by
+ * useFocusAfterHide.
  */
 export function ContinueWatchingView(props: {
+  readonly kind: PlayRowKind;
   readonly rows: readonly ContinueWatchingRow[];
   readonly hiddenName: string | undefined;
   readonly onHide: (row: ContinueWatchingRow) => void;
   readonly onUndo: () => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { rows } = props;
+  const { kind, rows } = props;
   const { sectionRef, undoRef, hide } = useFocusAfterHide(rows, props.onHide);
   // A tile's press warms its film up as it goes to play it (warm-on-press.ts).
   const warmsUp = useWarmsUpOnPress((fileId) =>
@@ -169,13 +184,13 @@ export function ContinueWatchingView(props: {
     <section
       ref={sectionRef}
       className="continue-watching"
-      aria-labelledby="continue-watching-heading"
+      aria-labelledby={headingIds[kind]}
       onClickCapture={warmsUp}
     >
-      <h2 id="continue-watching-heading">{t("continueWatching.heading")}</h2>
+      <h2 id={headingIds[kind]}>{t(`${kind}.heading`)}</h2>
       {props.hiddenName === undefined ? null : (
         <output className="continue-watching__hidden">
-          {t("continueWatching.hidden", { name: props.hiddenName })}{" "}
+          {t(`${kind}.hidden`, { name: props.hiddenName })}{" "}
           <button ref={undoRef} type="button" onClick={props.onUndo}>
             {t("continueWatching.undo")}
           </button>
@@ -247,15 +262,16 @@ function ContinueWatchingRowView(props: {
 }
 
 /**
- * Continue Watching, of Home's read (home), with hide and undo; a hide or an undo reads Home again
- * (reload).
+ * Continue Watching or Next Up (kind), of Home's read (home), with hide and undo; a hide or an undo
+ * reads Home again (reload).
  */
 export function ContinueWatching(props: {
+  readonly kind: PlayRowKind;
   readonly home: Resource<HomeRows>;
   readonly reload: () => void;
 }): JSX.Element | null {
   const { api } = useServices();
-  const { home, reload } = props;
+  const { kind, home, reload } = props;
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
   // A refusal shows the rows as the server has them, as success does.
   const hiding = useRequest(() => "");
@@ -275,7 +291,8 @@ export function ContinueWatching(props: {
   return (
     <BusyGroup isBusy={hiding.isBusy}>
       <ContinueWatchingView
-        rows={home.value.continueWatching ?? []}
+        kind={kind}
+        rows={home.value[kind] ?? []}
         hiddenName={hiddenRow?.name}
         onHide={(row) => {
           setRowHidden(row, true);

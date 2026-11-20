@@ -528,7 +528,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The home screen: what the person stopped in the middle of, and the newest films and series */
+        /** The home screen: what the person is partway through, what is next, the newest films and series */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -740,7 +740,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Hide a work from Continue Watching until it next has activity; not a completion (D188) */
+        /** Hide a work from Continue Watching or Next Up until its next activity; not a completion (D188) */
         put: operations["markHidden"];
         post?: never;
         /** Undo hiding a work */
@@ -3774,6 +3774,7 @@ export interface components {
             continueWatching: components["schemas"]["InProgressBody"][] | null;
             newestFilms: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
             newestSeries: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
+            nextUp: components["schemas"]["InProgressBody"][] | null;
         };
         HostBody: {
             codename?: string;
@@ -3846,7 +3847,7 @@ export interface components {
         InProgressBody: {
             /**
              * Format: int64
-             * @description 0 when the file's length is unknown
+             * @description 0 when the file's length is unknown, and in Next Up
              */
             durationMs: number;
             episode?: components["schemas"]["EpisodePlaceBody"];

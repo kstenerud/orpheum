@@ -4,7 +4,7 @@
 
 # Play state
 
-- **Status:** PLANNED — designed 2026-09-19 ([D81](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §3); the position moved to the File ([D157](../../decisions/working-notes.md)); **a signed-in Watch Together participant's viewing is recorded as their own, 2026-09-23** ([D191](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md)): play state and Continue Watching; a prepared rendition's play state is its source File's ([D180](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-19 ([D81](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §3); the position moved to the File ([D157](../../decisions/working-notes.md)); **a signed-in Watch Together participant's viewing is recorded as their own, 2026-09-23** ([D191](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md)): play state and Continue Watching; a prepared rendition's play state is its source File's ([D180](../../decisions/working-notes.md)). **Home's Next Up row is built, 2026-11-20** ([b1.md](b1.md) Phase A), on b1.md §A.2's assumptions where this plan is silent, the owner's to change: it comes second on Home, after Continue Watching; it is ordered by the person's latest watching in the series, most recent first; it holds at most `continueWatchingMaxWorks` series; it has no age limit; series only, a franchise's films waiting for collections. A hide attaches to the episode it offers and lasts until the series next has activity.
 - **Depends on:** library-model.md
 - **Blocks:** [library-model.md](library-model.md) — the position guard and the event log are schema
 

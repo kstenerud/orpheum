@@ -453,6 +453,8 @@ func weakSearchesAllowed() map[string]string {
 		"DeletePlayPositionsOfUser": person + "their removal",
 		"DeleteWorksWatchedOfUser":  person + "their removal",
 		"GetWatchStats":             person + "their watching's totals",
+		"ListSeriesWithEpisodesAhead": person + "Home's Next Up, the series they finished an episode of " +
+			"with one still unwatched (plans/b1.md §A)",
 	}
 }
 

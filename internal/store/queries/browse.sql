@@ -450,22 +450,27 @@ WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND pla
 ORDER BY file.id;
 
 -- name: ListOrderingMemberFilesWithPositions :many
--- A collection's members in one of its named orderings (D159; 'aired' for a series today), each
--- live file of each with a person's position in it and when it was watched, and the file's length
--- where its probe knows it: where the person is in the sequence, for its Next Up (D160) and the
--- members a look at its page raises (D324 section 3). Each member's group, a series' season, 0 for
--- the specials and those with none, which a look at one season keeps to, and its number in it and
--- name, which its Next Up shows; and when the person watched it, NULL while they have not, and last
--- marked it by hand (D370). A member's files come as its page lists them, so the first is the one its
--- page plays first.
-SELECT position.work_id, CAST(coalesce(grp.number, 0) AS INTEGER) AS group_number,
+-- Some collections' members, each collection in one of its named orderings (D159; 'aired' for a
+-- series today), named [collection id, name] as CountOrderingMembers names them; each live file of
+-- each member with a person's position in it and when it was watched, and the file's length where its
+-- probe knows it: where the person is in each sequence, for its Next Up (D160), Home's row of them and
+-- the members a look at its page raises (D324 section 3). Each member's group, a series' season, 0
+-- for the specials and those with none, which a look at one season keeps to, and its number in it
+-- and name, which its Next Up shows; when the person watched it, NULL while they have not, and last
+-- marked it by hand (D370); and when they last hid it (D188). The collections come in the order they
+-- are named, and a member's files as its page lists them, so the first is the one its page plays
+-- first.
+SELECT ordering.sequence_id, position.work_id, CAST(coalesce(grp.number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   file_filing.file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.file_id), 0) AS INTEGER)
     AS duration_ms,
-  play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
-FROM ordering
+  play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at,
+  item_hidden.hidden_at
+FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
+CROSS JOIN ordering ON ordering.sequence_id = json_extract(named.value, '$[0]')
+  AND ordering.name = json_extract(named.value, '$[1]')
 JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
@@ -475,13 +480,33 @@ LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_ori
 LEFT JOIN grp ON grp.id = position.grp_id
 LEFT JOIN play_position ON play_position.file_id = own.file_id AND play_position.user_id = sqlc.arg(user_id)
 LEFT JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = position.work_id
-WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
-  AND EXISTS (
+LEFT JOIN item_hidden ON item_hidden.user_id = sqlc.arg(user_id) AND item_hidden.item_id = position.work_id
+WHERE EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
       AND version_library.file_id = own.file_id
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
-ORDER BY position.sort_order, version.id, file_filing.part_index, own.file_id;
+ORDER BY named.key, position.sort_order, version.id, file_filing.part_index, own.file_id;
+
+-- name: ListSeriesWithEpisodesAhead :many
+-- The series a person finished an episode of, by playing or by hand (D370), that have an episode
+-- they have not: those whose Next Up Home's row may offer (play-state.md), the rest finished. Each
+-- is found from the person's watched titles, by their key, and the series' places of them.
+SELECT ordering.sequence_id
+FROM work_watched
+CROSS JOIN position ON position.work_id = work_watched.work_id
+CROSS JOIN ordering ON ordering.id = position.ordering_id
+WHERE work_watched.user_id = sqlc.arg(user_id) AND work_watched.watched_at IS NOT NULL
+GROUP BY ordering.sequence_id
+HAVING EXISTS (
+  SELECT 1 FROM ordering AS any_ordering
+  CROSS JOIN position AS member ON member.ordering_id = any_ordering.id
+  CROSS JOIN item ON item.id = member.work_id AND item.removed_at IS NULL
+  WHERE any_ordering.sequence_id = ordering.sequence_id
+    AND NOT EXISTS (
+      SELECT 1 FROM work_watched AS seen WHERE seen.user_id = sqlc.arg(user_id)
+        AND seen.work_id = member.work_id AND seen.watched_at IS NOT NULL))
+ORDER BY ordering.sequence_id;
 
 -- name: CountOrderingMembers :many
 -- How many members each of some series' orderings has with a live file, as

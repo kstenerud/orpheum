@@ -37,6 +37,7 @@ describe("Continue Watching", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
+          kind="continueWatching"
           rows={[{ ...metropolis, unavailable: { reason: "nodeAway", nodeName: "devnas" } }]}
           hiddenName={undefined}
           onHide={nothing}
@@ -53,6 +54,7 @@ describe("Continue Watching", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
+          kind="continueWatching"
           rows={[metropolis]}
           hiddenName={undefined}
           onHide={nothing}
@@ -70,6 +72,7 @@ describe("Continue Watching", () => {
     const hidden = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
+          kind="continueWatching"
           rows={[]}
           hiddenName="Metropolis"
           onHide={nothing}
@@ -81,7 +84,13 @@ describe("Continue Watching", () => {
     expect(hidden).toContain("Undo");
     const empty = renderToStaticMarkup(
       withServices(
-        <ContinueWatchingView rows={[]} hiddenName={undefined} onHide={nothing} onUndo={nothing} />,
+        <ContinueWatchingView
+          kind="continueWatching"
+          rows={[]}
+          hiddenName={undefined}
+          onHide={nothing}
+          onUndo={nothing}
+        />,
       ),
     );
     expect(empty).toBe("");
