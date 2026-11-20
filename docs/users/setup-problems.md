@@ -257,12 +257,15 @@ Read the core's log: in OpenMediaVault, **Services > Compose > Containers**, sel
 **Logs**; on a Synology, **Container Manager → Container**, `orpheum-core`, **Details**, **Log**;
 elsewhere, `docker logs orpheum-core`. Its last `ERROR` line says `the server could not start`,
 and its `err=` names the cause. Look for its words on this page; the most common is
-the next entry.
+the next entry. From a terminal, a compose file from a release after v0.8.7 also keeps the reason in the health
+check: `docker inspect --format '{{json .State.Health}}' orpheum-core`.
 
 ### The core's log says `disk I/O error (5386)`
 
 The whole line reads like `database "/var/lib/orpheum/core/persistent/persistent.db": read PRAGMA
-journal_mode: disk I/O error (5386)`, and **Up** said `orpheum-core is unhealthy`.
+journal_mode: disk I/O error (5386)`, and **Up** said `orpheum-core is unhealthy`. A release after
+v0.8.7 starts it with the cause in words: `the data folder's filesystem refuses the shared memory
+map the database needs`.
 
 The app data folder (`PATH_TO_APPDATA`) is on a filesystem that refuses a shared memory map of a
 file, which the server's database needs (SQLite's write-ahead log maps its `-shm` file). A mergerfs
