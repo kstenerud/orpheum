@@ -593,7 +593,7 @@ it("links to the discovery's page once clients can find the server there, and no
   const atTheLoader = { ...pendingAtTheService, loaderOrigin: "https://loader.example" };
   const linkTo = (container: HTMLElement): HTMLAnchorElement | undefined =>
     [...container.querySelectorAll("a")].find((each) =>
-      (each.textContent ?? "").startsWith("Open this server from anywhere"),
+      each.textContent.startsWith("Open this server from anywhere"),
     );
   for (const state of ["claimed", "grace"]) {
     mounted = await mount(
