@@ -9,6 +9,7 @@
 import {
   createContext,
   use,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -357,6 +358,39 @@ export function useMediaSeeks(tracks: MediaTracks = {}): void {
           }),
     [told, hasPrevious, hasNext],
   );
+}
+
+/** What a hearing of the browser's media controls' play and pause gives: its last action, and its stopping. */
+export interface HeardPlayPause<A> {
+  readonly lastAction: () => A | undefined;
+  readonly stop: () => void;
+}
+
+/**
+ * Has hear offer the browser's media controls' play and pause as commands while a film is shown
+ * (hearMediaPlayPause, player-commands.ts); undefined while there is none, the browser then keeping
+ * its own answer. hear is held as given: a new one hears again. Returns the reading of the last
+ * action, for the reports' context: the same function for the whole of the film's life.
+ */
+export function useMediaPlayPause<A>(
+  hear:
+    | ((dispatch: (command: Command, source: CommandSource) => boolean) => HeardPlayPause<A>)
+    | undefined,
+): () => A | undefined {
+  const told = use(InputContext);
+  const lastActionRef = useRef<(() => A | undefined) | undefined>(undefined);
+  useEffect(() => {
+    if (told === undefined || hear === undefined) {
+      return undefined;
+    }
+    const heard = hear(told.dispatch);
+    lastActionRef.current = heard.lastAction;
+    return () => {
+      lastActionRef.current = undefined;
+      heard.stop();
+    };
+  }, [told, hear]);
+  return useCallback(() => lastActionRef.current?.(), []);
 }
 
 /**

@@ -511,8 +511,7 @@ function mediaActionsOf(tracks: MediaTracks): (readonly [MediaSessionAction, Com
 /**
  * Offers the browser's media controls' seeking (a keyboard's media keys, a headset's, the desktop's
  * controls) as commands while a film plays, and their previous and next track where tracks asks for
- * them; their play and pause are the player's own (`watchMediaSession` in @orpheum/player), which
- * reports a pause they made. Returns the stopping.
+ * them; their play and pause are offered by hearMediaPlayPause. Returns the stopping.
  */
 export function hearMediaSeeks(
   dispatch: (command: Command, source: CommandSource) => boolean,

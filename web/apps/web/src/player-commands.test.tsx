@@ -7,6 +7,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BarePlayer } from "./bare-player.tsx";
+import { onCommand, type CommandDetail } from "./input-commands.ts";
 import {
   answerPlayerCommand,
   markPlayersControls,
@@ -321,5 +322,65 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     expect(document.activeElement).toBe(video);
     mounted.unmount();
     vi.useRealTimers();
+  });
+});
+
+describe("the browser's media controls in the player (D268 §4)", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    Reflect.deleteProperty(navigator, "mediaSession");
+    vi.restoreAllMocks();
+  });
+
+  // A Watch Together host's lock screen moved its own video by the player's own answer, never as
+  // the player's control does: its play and pause are now the command the control and a remote's
+  // key give, so the group follows them as it follows the control.
+  it("plays and pauses the video by the play/pause command, heard as the media's", async () => {
+    const handlers = new Map<MediaSessionAction, MediaSessionActionHandler | null>();
+    Object.defineProperty(navigator, "mediaSession", {
+      configurable: true,
+      value: {
+        setActionHandler: (
+          action: MediaSessionAction,
+          handler: MediaSessionActionHandler | null,
+        ) => {
+          handlers.set(action, handler);
+        },
+      },
+    });
+    const video = videoAt(30);
+    const pause = vi.spyOn(video, "pause").mockImplementation(() => undefined);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    Object.defineProperty(video, "paused", { configurable: true, value: false });
+    const heard: CommandDetail[] = [];
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    const stopHearing = onCommand(
+      document,
+      (detail) => {
+        heard.push(detail);
+      },
+      { isCapture: true },
+    );
+    act(() => {
+      handlers.get("pause")?.({ action: "pause" });
+    });
+    expect(pause).toHaveBeenCalledOnce();
+    act(() => {
+      handlers.get("play")?.({ action: "play" }); // play while it plays asks nothing
+    });
+    expect(play).not.toHaveBeenCalled();
+    Object.defineProperty(video, "paused", { configurable: true, value: true });
+    act(() => {
+      handlers.get("play")?.({ action: "play" });
+    });
+    expect(play).toHaveBeenCalledOnce();
+    expect(heard.map((detail) => [detail.command, detail.source])).toEqual([
+      ["playPause", "media"],
+      ["playPause", "media"],
+    ]);
+    stopHearing();
+    mounted.unmount();
+    expect(handlers.get("play")).toBeNull();
+    expect(handlers.get("pause")).toBeNull();
   });
 });

@@ -11,8 +11,10 @@ import {
   onCommand,
   startInput,
   type CommandDetail,
+  type CommandSource,
   type Input,
 } from "./input-commands.ts";
+import { hearMediaPlayPause } from "./player-commands.ts";
 
 /** A page of a banner with a link, and a main content of three buttons, and a field outside it. */
 function pageOfButtons(): { readonly main: HTMLElement; readonly field: HTMLInputElement } {
@@ -385,5 +387,54 @@ describe("the browser's media controls", () => {
     handlers.get("previoustrack")?.({ action: "previoustrack" });
     expect(offered).toEqual(["next", "previous"]);
     both();
+  });
+
+  it("offers play and pause as the play/pause command the player's own control gives", () => {
+    const handlers = fakeMediaSession();
+    const offered: (readonly [Command, CommandSource])[] = [];
+    let showsPlay = false;
+    let nowMs = 5000;
+    const heard = hearMediaPlayPause(
+      (command, source) => {
+        offered.push([command, source]);
+        return true;
+      },
+      { showsPlay: () => showsPlay, nowMs: () => nowMs },
+    );
+    expect([...handlers.keys()]).toEqual(["play", "pause"]);
+    // A lock screen's pause while the film plays, then its play while it is paused.
+    handlers.get("pause")?.({ action: "pause" });
+    expect(offered).toEqual([["playPause", "media"]]);
+    expect(heard.lastAction()).toBe("pause");
+    showsPlay = true;
+    handlers.get("play")?.({ action: "play" });
+    expect(offered).toEqual([
+      ["playPause", "media"],
+      ["playPause", "media"],
+    ]);
+    expect(heard.lastAction()).toBe("play");
+    nowMs += 1001;
+    expect(heard.lastAction()).toBeUndefined();
+    heard.stop();
+    expect([...handlers.values()]).toEqual([null, null]);
+  });
+
+  it("asks nothing of an action that asks for what already is", () => {
+    const handlers = fakeMediaSession();
+    const offered: Command[] = [];
+    let showsPlay = true;
+    const heard = hearMediaPlayPause(
+      (command) => {
+        offered.push(command);
+        return true;
+      },
+      { showsPlay: () => showsPlay, nowMs: () => 0 },
+    );
+    // A pause while paused, and a play while playing (a media key's keydown already toggled it).
+    handlers.get("pause")?.({ action: "pause" });
+    showsPlay = false;
+    handlers.get("play")?.({ action: "play" });
+    expect(offered).toEqual([]);
+    heard.stop();
   });
 });

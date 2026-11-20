@@ -4,7 +4,6 @@ import {
   eventContextOf,
   seekTo,
   skippedByOf,
-  watchMediaSession,
   type MediaSessionAction,
   type PlayEventContext,
   type PlayReporter,
@@ -17,7 +16,6 @@ import { seekAskedEvent, soughtByOf } from "./seek-ahead.ts";
 import { startGateFieldsOf, timeSeeks } from "./seek-timing.ts";
 import { soundOf } from "./startup-sound.ts";
 import type { PathMoves } from "./services.tsx";
-import { monotonicMs } from "./use-together.ts";
 
 /** The video's position, in milliseconds. */
 export function positionMs(video: HTMLVideoElement): number {
@@ -186,21 +184,37 @@ function eventContexts(
   };
 }
 
+/** Each shown video's reading of the media session's last action, as its player's commands keep it. */
+const mediaActionsOf = new WeakMap<HTMLVideoElement, () => MediaSessionAction | undefined>();
+
 /**
- * Watches the page for what the reports carry beside the video's events: the media session's
- * actions, which a pause they made says, and each path the page moves to (the owner, 2026-10-17).
+ * Has the reports of video read the media session's last action by lastAction, until the returned
+ * stopping: the player's commands hear the actions (hearMediaPlayPause in input-commands.ts), so
+ * nothing here registers them again.
+ */
+export function keepMediaActionsOf(
+  video: HTMLVideoElement,
+  lastAction: () => MediaSessionAction | undefined,
+): () => void {
+  mediaActionsOf.set(video, lastAction);
+  return () => {
+    if (mediaActionsOf.get(video) === lastAction) {
+      mediaActionsOf.delete(video);
+    }
+  };
+}
+
+/**
+ * Watches the page for what the reports carry beside the video's events: the media session's last
+ * action, which a pause it made says (keepMediaActionsOf), and each path the page moves to (the
+ * owner, 2026-10-17).
  */
 export function watchPage(
   video: HTMLVideoElement,
   reporter: PlayReporter,
   pathMoves: PathMoves | undefined,
 ): { readonly contexts: EventContexts; readonly stop: () => void } {
-  const session = watchMediaSession(
-    "mediaSession" in navigator ? navigator.mediaSession : undefined,
-    video,
-    monotonicMs,
-  );
-  const contexts = eventContexts(video, session.lastAction);
+  const contexts = eventContexts(video, () => mediaActionsOf.get(video)?.());
   const stopHearingMoves = pathMoves?.subscribe(() => {
     reporter.recordPathMove(pathMoves.to() ?? "another path");
   });
@@ -209,7 +223,6 @@ export function watchPage(
     stop: () => {
       stopHearingMoves?.();
       contexts.stop();
-      session.stop();
     },
   };
 }

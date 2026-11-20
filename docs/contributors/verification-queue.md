@@ -3612,3 +3612,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   claimed server and both accounts, and the loader and its `sw.js` answered 200. Litestream's
   replica is not built, so the drill restored the nightly snapshot alone. orpheum-connect's own
   tests (internal/store/backup_test.go, cmd/connectd/backup_test.go) cover the command there.
+- [ ] **VQ373** — A Watch Together host's lock screen moves the group, and an episode's intro and
+  credits chapters on a TV (D268 §4, B1 Phase E). On staging:
+  1. On the Pixel 3a in Chrome, sign in as `admin`, play a film, open Watch Together and start a
+     session; on the computer, open the link and join, and press Play there if asked.
+  2. On the Pixel, lock the screen while the film plays for both, and press the lock screen's
+     pause. Report whether the computer's film pauses within a second or two.
+  3. Press the lock screen's play. Report whether the computer's film plays again, and whether the
+     two stay together (within a second) once the Pixel is unlocked.
+  4. On the Fire TV in Silk, play an episode whose file has an intro chapter, from its start.
+     Report whether Skip intro shows alone over the film (no other controls), with focus on it,
+     and whether OK skips past the intro.
+  5. On the same TV, play an episode whose file has a credits chapter, and press Fast forward to
+     a little before the credits. Report whether Up next is offered as the credits start, rather
+     than 30 seconds before the end.

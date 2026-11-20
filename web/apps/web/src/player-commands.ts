@@ -11,18 +11,25 @@
  * hears it.
  */
 
-import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
+import {
+  heardVolumeOf,
+  setHeardVolume,
+  watchMediaSession,
+  type MediaSessionAction,
+} from "@orpheum/player";
 import { startGateOf } from "@orpheum/sdk";
-import { useEffect, type RefObject } from "react";
+import { useEffect, useMemo, type RefObject } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
-import { isMeantToPlay } from "./film-waits.tsx";
+import { isMeantToPlay, isPausedAsAsked } from "./film-waits.tsx";
 import { volumeAfter } from "./volume-step.ts";
-import { useCommands, useMediaSeeks } from "./input-layer.tsx";
+import { useCommands, useMediaPlayPause, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
 import type { CommandHold, CommandSource, MediaTracks } from "./input-commands.ts";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
+import { keepMediaActionsOf } from "./play-state-video-events.ts";
+import { monotonicMs } from "./use-together.ts";
 
 /**
  * Plays video where it is paused as asked (isPausedAsAsked in film-waits.tsx), else pauses it, making
@@ -282,15 +289,75 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
 }
 
 /**
- * Answers the commands for video while it is shown, the browser's media controls' seeking too, and
- * their previous and next track where tracks has them, and Space wherever focus is in the player.
+ * Answers the commands for video while it is shown, the browser's media controls' play, pause and
+ * seeking too, and their previous and next track where tracks has them, and Space wherever focus is
+ * in the player. The media controls' last play or pause is kept for the video's reports to say
+ * (keepMediaActionsOf).
  */
 export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: MediaTracks): void {
   useSpacePlaysAndPauses(video);
   useMediaSeeks(tracks);
+  const hear = useMemo(
+    () =>
+      video === null
+        ? undefined
+        : (dispatch: (command: Command, source: CommandSource) => boolean) =>
+            hearMediaPlayPause(dispatch, {
+              showsPlay: () => isPausedAsAsked(video),
+              nowMs: monotonicMs,
+            }),
+    [video],
+  );
+  const lastMediaAction = useMediaPlayPause(hear);
+  useEffect(
+    () => (video === null ? undefined : keepMediaActionsOf(video, lastMediaAction)),
+    [video, lastMediaAction],
+  );
   useCommands("document", (detail, event) => {
     if (video !== null && answerPlayerCommand(video, detail.command, detail)) {
       event.preventDefault();
     }
   });
+}
+
+/** The film the browser's media controls' play and pause act on, as far as they ask of it. */
+export interface MediaPlayed {
+  /** Whether the film shows Play now: paused as its person asked (isPausedAsAsked, film-waits.tsx). */
+  readonly showsPlay: () => boolean;
+  /** The clock an action's time is read by, for whether it caused the pause or play after it. */
+  readonly nowMs: () => number;
+}
+
+/**
+ * Offers the browser's media controls' play and pause (a lock screen's, a keyboard's or a headset's
+ * media keys, the desktop's controls, an iPhone's own full-screen player) as the play/pause command,
+ * the one a remote's key and the player's own control give (D268 §4): play while the film shows Play,
+ * pause while it shows Pause, so an action that asks for what already is asks nothing. On a Watch
+ * Together host's player its play and pause are then the group's as its skinned control's are, the
+ * film moved by the player and the session following it (D371 §1). Registered here alone, with the
+ * last action remembered (watchMediaSession in @orpheum/player), so a pause a media key made says
+ * so. Returns the action of the last mediaSessionActionLastsMs, and the stopping.
+ */
+export function hearMediaPlayPause(
+  dispatch: (command: Command, source: CommandSource) => boolean,
+  played: MediaPlayed,
+): { readonly lastAction: () => MediaSessionAction | undefined; readonly stop: () => void } {
+  const askIf = (isAsked: boolean): void => {
+    if (isAsked) {
+      dispatch("playPause", "media");
+    }
+  };
+  return watchMediaSession(
+    "mediaSession" in navigator ? navigator.mediaSession : undefined,
+    {
+      play: () => {
+        askIf(played.showsPlay());
+        return Promise.resolve();
+      },
+      pause: () => {
+        askIf(!played.showsPlay());
+      },
+    },
+    played.nowMs,
+  );
 }
