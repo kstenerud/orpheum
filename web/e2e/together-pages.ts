@@ -14,6 +14,32 @@ import { openFilm, playFromTheStart, serverUrl, shownOverTheFilm } from "./pages
 const voiceOneWayAtMostMs = 300;
 const voiceConcealedAtMostShare = 0.02;
 
+/** D243 §9: two clients in step are within 200 ms of each other. */
+export const inStepWithinMs = 200;
+
+/** Where a page's player is, and when it was read, on the machine's clock both pages share. */
+async function positionOf(
+  page: Page,
+): Promise<{ atMs: number; positionMs: number; isPlaying: boolean }> {
+  return await page
+    .locator("video")
+    .first()
+    .evaluate((video: HTMLVideoElement) => ({
+      atMs: Date.now(),
+      positionMs: video.currentTime * 1000,
+      isPlaying: !video.paused && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA,
+    }));
+}
+
+/**
+ * How far apart the two players are, in ms: each one's position taken back to a common moment
+ * along its own clock, the group playing at rate 1.
+ */
+export async function offsetMs(host: Page, guest: Page): Promise<number> {
+  const [hostAt, guestAt] = await Promise.all([positionOf(host), positionOf(guest)]);
+  return hostAt.positionMs - hostAt.atMs - (guestAt.positionMs - guestAt.atMs);
+}
+
 /**
  * Opens Watch Together's dialog over the host's home page by the tray's sign (D384 §2), which is
  * where its session is started and run.

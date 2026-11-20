@@ -3,7 +3,9 @@
 /**
  * Watch Together between two browsers, a host signed in and a guest by their link (M4's
  * acceptance, D252): the link works once, and only once joined; no credential is ever in an
- * address; a film the browser would play only muted offers its sound at a tap; and voice between two fake microphones arrives within D243 §9's bounds.
+ * address; a film the browser would play only muted offers its sound at a tap; the group plays on
+ * from one episode into the next together; and voice between two fake microphones arrives within
+ * D243 §9's bounds.
  */
 
 import { readFileSync } from "node:fs";
@@ -11,8 +13,8 @@ import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
-import { isPlaying, signIn } from "./pages.ts";
-import { warmUpFilm } from "./server.ts";
+import { isPlaying, openSeries, signIn } from "./pages.ts";
+import { series, warmUpFilm } from "./server.ts";
 import {
   endSession,
   expectHeard,
@@ -20,7 +22,9 @@ import {
   expectTalkRingMoves,
   expectVoiceWithinBounds,
   hostPlays,
+  inStepWithinMs,
   join,
+  offsetMs,
   pageWithMicrophone,
   startSessionWithLink,
   talkAlone,
@@ -227,6 +231,62 @@ test(
       // Stop, in the dialog, stops it for everyone.
       await host.getByRole("button", { name: "Stop the film for everyone" }).click();
       await expect.poll(() => isPlaying(guest), { timeout: 10_000 }).toBe(false);
+      await endSession(host);
+    } finally {
+      await hostContext.close();
+      await guestContext.close();
+    }
+  },
+);
+
+/** How long the page's film is, in whole seconds: what tells the series' two episodes apart. */
+async function lengthOf(page: Page): Promise<number> {
+  try {
+    return await page
+      .locator("video")
+      .evaluate((video: HTMLVideoElement) => Math.round(video.duration), undefined, {
+        timeout: 1000,
+      });
+  } catch {
+    return Number.NaN; // no video on the page, or two as one player hands over to the next
+  }
+}
+
+test(
+  "the group plays on from one episode into the next together, the host's Up next putting it on for everyone (D339)",
+  { tag: oneBrowserTag },
+  async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+    try {
+      const host = await hostContext.newPage();
+      const guest = await guestContext.newPage();
+      await signIn(host);
+      const link = await startSessionWithLink(host);
+      await guest.goto(link);
+      await join(guest, link);
+      // The series' page plays its next episode, the first (series.tsx's NextUpPlay).
+      await openSeries(host, series);
+      await host.getByRole("link", { name: /^Play /u }).click();
+      await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+      expect(await lengthOf(guest), "the guest plays the first episode").toBe(10);
+      // The first ends, and the host's Up next puts the second on.
+      await expect
+        .poll(() => host.locator("video").evaluate((video: HTMLVideoElement) => video.ended), {
+          timeout: 30_000,
+        })
+        .toBe(true);
+      await host.getByRole("button", { name: /Up next: /u }).click();
+      await expect.poll(() => lengthOf(host), { timeout: 30_000 }).toBe(20);
+      // The guest follows into it, sent no stop as the host's player moved on (D246 §5), and plays
+      // it in step with the host.
+      await expect
+        .poll(() => lengthOf(guest), { timeout: 30_000, message: "the guest plays the second" })
+        .toBe(20);
+      await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+      await expect
+        .poll(async () => Math.abs(await offsetMs(host, guest)), { timeout: 30_000 })
+        .toBeLessThanOrEqual(inStepWithinMs);
       await endSession(host);
     } finally {
       await hostContext.close();

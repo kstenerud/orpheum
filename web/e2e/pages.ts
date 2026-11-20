@@ -27,11 +27,21 @@ export async function signIn(page: Page): Promise<void> {
  * not its row under Continue Watching, which a film played before also has and which plays it.
  */
 export async function openFilm(page: Page, name: string): Promise<void> {
+  await openFromItsList(page, "films", name);
+}
+
+/** Opens a series' page from Series, waiting for the scan to have found it, as openFilm a film's. */
+export async function openSeries(page: Page, name: string): Promise<void> {
+  await openFromItsList(page, "series", name);
+}
+
+/** Opens the page of the title named name from its list, its card in the grid, once it is there. */
+async function openFromItsList(page: Page, list: "films" | "series", name: string): Promise<void> {
   const card = page
     .locator(".poster-grid a.poster-card__link")
     .filter({ hasText: new RegExp(name) });
   await expect(async () => {
-    await page.goto(`${serverUrl()}/films`);
+    await page.goto(`${serverUrl()}/${list}`);
     await expect(card).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 60_000 });
   await card.click();

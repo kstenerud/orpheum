@@ -25,7 +25,9 @@ import {
   expectVoiceMeasureWithinBounds,
   expectVoiceWithinBounds,
   hostPlays,
+  inStepWithinMs,
   join,
+  offsetMs,
   pageWithMicrophone,
   startSessionWithLink,
   talkBothWays,
@@ -33,8 +35,7 @@ import {
   voiceReports,
 } from "./together-pages.ts";
 
-/** D243 §9: two clients within 200 ms of each other 95% of the time. */
-const inStepWithinMs = 200;
+/** D243 §9: two clients within inStepWithinMs of each other 95% of the time. */
 const inStepAtLeastShare = 0.95;
 /** How long a voice call may take to connect under a profile's loss and delay. */
 const voiceConnectsWithinMs = 120_000;
@@ -69,29 +70,6 @@ function tc(...tcArguments: readonly string[]): void {
     throw new Error("tc is not installed: run the acceptance in the development image (./dev)");
   }
   execFileSync(binary, tcArguments, { stdio: "pipe" });
-}
-
-/** Where a page's player is, and when it was read, on the machine's clock both pages share. */
-async function positionOf(
-  page: Page,
-): Promise<{ atMs: number; positionMs: number; isPlaying: boolean }> {
-  return await page
-    .locator("video")
-    .first()
-    .evaluate((video: HTMLVideoElement) => ({
-      atMs: Date.now(),
-      positionMs: video.currentTime * 1000,
-      isPlaying: !video.paused && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA,
-    }));
-}
-
-/**
- * How far apart the two players are, in ms: each one's position taken back to a common moment
- * along its own clock, the group playing at rate 1.
- */
-async function offsetMs(host: Page, guest: Page): Promise<number> {
-  const [hostAt, guestAt] = await Promise.all([positionOf(host), positionOf(guest)]);
-  return hostAt.positionMs - hostAt.atMs - (guestAt.positionMs - guestAt.atMs);
 }
 
 /** The value at the share of the sorted values, e.g. 0.95 for the 95th percentile. */

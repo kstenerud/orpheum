@@ -37,6 +37,12 @@ export const secondFilm = "Second Film";
 export const preparedFilm = "Prepared Film";
 
 /**
+ * A series of two episodes, for a test that plays one into the next: made as the warm-up's 10 s film
+ * is, then as the second film's 20 s one, so a page tells which it plays by its length.
+ */
+export const series = "Show Name";
+
+/**
  * Where the last run's server logs are kept, beside the dev loop's state and ignored by git: one per
  * server, named by who started it ("browser-server-chromium-0.log", a worker's).
  */
@@ -207,14 +213,14 @@ format = "text"
 /** The node instance's full config: the core's socket it dials, its media and its FFmpeg. */
 function nodeConfigToml(paths: {
   coreSocket: string;
-  library: string;
+  libraries: readonly string[];
   ffmpegDirectory: string;
 }): string {
-  const { coreSocket, library, ffmpegDirectory } = paths;
+  const { coreSocket, libraries, ffmpegDirectory } = paths;
   return `[node]
 name = "browser-test"
 core_socket = "${coreSocket}"
-root_paths = ["${library}"]
+root_paths = [${libraries.map((library) => `"${library}"`).join(", ")}]
 ffmpeg_dir = "${ffmpegDirectory}"
 confinement_policy = "report"
 prepared_budget_gib = 1
@@ -225,7 +231,20 @@ format = "text"
 `;
 }
 
-function seedToml(library: string): string {
+/** The seed's series library, over shows: its series' metadata from their NFOs, as the films'. */
+function seriesLibraryToml(shows: string): string {
+  return `
+[[library]]
+name = "Shows"
+kind = "series"
+root_path = "${shows}"
+metadata_source = "nfo"
+change_detection = "watch"
+is_writable = false
+`;
+}
+
+function seedToml(library: string, shows: string | undefined): string {
   return `node_name = "browser-test"
 
 [[user]]
@@ -240,7 +259,7 @@ root_path = "${library}"
 metadata_source = "nfo"
 change_detection = "watch"
 is_writable = false
-
+${shows === undefined ? "" : seriesLibraryToml(shows)}
 [settings]
 shouldCheckForUpdates = false
 `;
@@ -307,11 +326,11 @@ function startRole(
 function makeInstances(paths: {
   binary: string;
   root: string;
-  library: string;
+  libraries: readonly string[];
   ffmpegDirectory: string;
   port: number;
 }): Launch["instances"] {
-  const { binary, root, library, ffmpegDirectory, port } = paths;
+  const { binary, root, libraries, ffmpegDirectory, port } = paths;
   const instances = { core: path.join(root, "core"), node: path.join(root, "node") };
   execFileSync(binary, ["default-config", instances.core]);
   execFileSync(binary, ["default-config", "--node", instances.node]);
@@ -320,7 +339,7 @@ function makeInstances(paths: {
     path.join(instances.node, "persistent", "config.toml"),
     nodeConfigToml({
       coreSocket: path.join(instances.core, "run", "core.sock"),
-      library,
+      libraries,
       ffmpegDirectory,
     }),
   );
@@ -388,6 +407,32 @@ function specFilms(root: string): Film[] {
   ];
 }
 
+/**
+ * Makes the series in shows: its folder with the tvshow.nfo naming it, and its two episodes in its
+ * first season's folder, numbered by their names alone, each from the film cache. Each carries a
+ * comment of its own, so its bytes are not its film's: the server takes the same bytes for one file
+ * in two places, and played it as the film, which has no Up next.
+ */
+async function makeSeries(ffmpeg: string, shows: string): Promise<void> {
+  const folder = path.join(shows, series);
+  const season = path.join(folder, "Season 1");
+  mkdirSync(season, { recursive: true });
+  writeFileSync(
+    path.join(folder, "tvshow.nfo"),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<tvshow>\n  <title>${series}</title>\n  <year>2023</year>\n</tvshow>\n`,
+  );
+  await Promise.all(
+    [warmUpArguments, secondFilmArguments].map(async (ffmpegInputArguments, index) => {
+      const episode = `Episode ${String(index + 1)}`;
+      await filmCache.put(
+        ffmpeg,
+        [...ffmpegInputArguments, "-metadata", `comment=${series}, ${episode}`],
+        path.join(season, `${episode}.mp4`),
+      );
+    }),
+  );
+}
+
 /** Makes films in library, all at once, each from the film cache where it has it. */
 async function makeFilms(ffmpeg: string, library: string, films: readonly Film[]): Promise<void> {
   filmCache.prune();
@@ -399,7 +444,7 @@ async function makeFilms(ffmpeg: string, library: string, films: readonly Film[]
 }
 
 /**
- * Makes the library, with extraFilms beside the films every spec uses, or alone when
+ * Makes the library, with extraFilms beside the films and the series every spec uses, or alone when
  * shouldMakeSpecFilms is false, as for the acceptance, which plays none of them (the test audit, 2026-10-08); starts
  * the server — the core, then the node beside it, two services as in deployment (D235 §4) — and
  * returns what stops both, keeps its log as logName's, and removes everything.
@@ -414,15 +459,18 @@ export async function startServer(
   const ffmpeg = path.join(ffmpegDirectory, "ffmpeg");
   const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-"));
   const library = path.join(root, "films");
-  await makeFilms(ffmpeg, library, [
-    ...(shouldMakeSpecFilms ? specFilms(root) : []),
-    ...extraFilms,
+  // The series is the specs' too: the acceptance, which plays none of their films, has none.
+  const shows = shouldMakeSpecFilms ? path.join(root, "shows") : undefined;
+  await Promise.all([
+    makeFilms(ffmpeg, library, [...(shouldMakeSpecFilms ? specFilms(root) : []), ...extraFilms]),
+    ...(shows === undefined ? [] : [makeSeries(ffmpeg, shows)]),
   ]);
 
   const port = await freePort();
-  const instances = makeInstances({ binary, root, library, ffmpegDirectory, port });
+  const libraries = shows === undefined ? [library] : [library, shows];
+  const instances = makeInstances({ binary, root, libraries, ffmpegDirectory, port });
   const seedPath = path.join(root, "seed.toml");
-  writeFileSync(seedPath, seedToml(library));
+  writeFileSync(seedPath, seedToml(library, shows));
   execFileSync(binary, ["dev", "seed", "--instance", instances.core, "--seed", seedPath]);
 
   let log = "";
