@@ -137,7 +137,7 @@ func TestOMVCompose_ThisMachinesPortIsOnTheLoopbackAndToldToStart(t *testing.T) 
 	text := omvCompose(t)
 	for _, want := range []string{
 		"exec 3<>/dev/tcp/127.0.0.1/$$0 && ",
-		`grep -q ' 200 ' <&3", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]`,
+		`== *' 200 '* ]]", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]`,
 		"      - --this-machine-port\n      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}\n",
 	} {
 		if !strings.Contains(text, want) {

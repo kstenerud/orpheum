@@ -132,12 +132,15 @@ type Installation struct {
 // with any change to a published file but its comments, which ComposeFileChanges says, and each
 // version is frozen in cmd/orpheum/testdata/released/compose-v<n>/ (`make freeze-compose`), where
 // TestReleasedCompose_EveryReleasedFileStillStartsThisServer holds every later start to it (D462 §6).
-const ComposeFileVersion = 1
+const ComposeFileVersion = 2
 
 // ComposeFileChanges says what each compose file version after the first brings, by its version, for
 // the System page to tell a household whose file is older, in a sentence each.
 func ComposeFileChanges() map[int]string {
-	return map[int]string{}
+	return map[int]string{
+		2: "The server's health check says why the server is not ready, where Docker and your NAS show " +
+			"its health, not only that it is unhealthy.",
+	}
 }
 
 // thisMachinePortDefault is the port a browser on this machine reaches the core on, as home, unless the

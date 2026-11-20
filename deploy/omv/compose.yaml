@@ -63,7 +63,7 @@ services:
       - start
       # Which file this is, so the Update page shows its own steps.
       - --compose-version
-      - "1"
+      - "2"
       - --compose-file
       - omv
       - --image-tag
@@ -94,9 +94,10 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
-      # Asked on this machine's loopback, where the core takes the port a browser here opens.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/$$0 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]
+      # /api/v1/health answers while the server starts, migrates or is degraded, and says which and
+      # why. Asked on this machine's loopback, where the core takes the port a browser here opens. It
+      # prints the answer, which docker inspect orpheum-core shows under Health: why it is unhealthy.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/$$0 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && answer=$$(cat <&3) && body=$${answer#*$$'\\r\\n\\r\\n'} && printf '/api/v1/health: %s\\n' \"$$body\" && [[ $${answer%%$$'\\r'*} == *' 200 '* ]]", "${ORPHEUM_THIS_MACHINE_PORT:-8441}"]
       interval: 10s
       start_period: 60s
 
