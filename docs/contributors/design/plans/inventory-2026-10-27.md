@@ -234,6 +234,7 @@ VQ53 is ticked.
 | G-12 | Device check: OpenSubtitles on request | VQ11, search and fetch a subtitle on the dev loop | verification-queue.md | device | — | — |
 | G-13 | Device checks: TV lab runs | Fire TV sound and WebRTC (VQ55), the phone remote's endurance (VQ56), extending to a TV from Windows (VQ57), our Cast receiver (VQ58) | tv-device-tests.md | device | — | B-10 waits on VQ58 |
 | G-14 | **An optimisation sweep** | Once most features are in; first loads after a deploy pay one-off costs | the owner's *Later* (2026-10-18) | decided (later) | M–L | — |
+| G-15 | **FFmpeg 9.x, from jellyfin-ffmpeg's first 9.x build** | Rebuild `make ffmpeg` on it, the fdproxy patches carried over; check the NVENC arguments (9.0 removed old options and pre-11.1 SDKs); run the node's tests; a listening test of 9.0's new AAC encoder (its NMR coder, tuned again in 9.1) at our lowest sound bitrate against 8.1's; measure whether the AAC priming seam (idiosyncrasies.md) still needs its early run start; note 9.0's Dolby Vision layer split. Read 2026-11-20 against FFmpeg 9.1's Changelog; we are on jellyfin-ffmpeg 8.1.3-1 | the owner, 2026-11-20 ("queue it as a future item") | queued | M | jellyfin-ffmpeg releasing a 9.x ([D330](../../decisions/working-notes.md#d330--ffmpeg-reads-its-input-through-the-node-over-a-protocol-of-our-own-patched-into-jellyfin-ffmpeg)) |
 
 ## 9. Code debt
 
