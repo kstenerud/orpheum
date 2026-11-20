@@ -20,7 +20,13 @@ This page is for an AI agent helping a person install Orpheum, a server that pla
 and series to their browsers, phones and televisions. They may have said no more than "set up
 Orpheum, which is at orpheum.cc". Ask them the questions below, then follow the section of the
 [install guide](install.md) each answer leads to. The guide holds every step; this page only says
-which of them are the person's.
+which of them are the person's. Its [Before you start](install.md#before-you-start) checks are worth
+running with the person first.
+
+Anyone may install Orpheum and use it at home, with no account and no invitation. Only watching
+away from home needs an account at orpheum.cc, and during the closed beta the project's owner
+invites the people who get one, about ten; the beta opens to the public later. Mac and Windows are
+not supported yet.
 
 ## Your rules
 
@@ -36,7 +42,7 @@ which of them are the person's.
 
 1. **The machine, and its system.** Which machine will run the server, and what runs on it:
    - **OpenMediaVault**: [OpenMediaVault](install.md#openmediavault), whose opening installs Docker
-     and the compose plugin when the box has neither. The compose file's link redirects to
+     and the compose plugin when the machine has neither. The compose file's link redirects to
      release-assets.githubusercontent.com: if your tool follows redirects, as `curl -L` does, fetch
      the file yourself and show it to the person; if it does not, ask them to open the link in their
      own browser. Either way the person pastes the whole file into OpenMediaVault themselves, as
@@ -52,11 +58,19 @@ which of them are the person's.
      [a change first](setup-problems.md#the-installer-says-rootless-docker-its-userland-proxy-hides-each-devices-address).
    - **x86 or arm64**: a 64-bit PC (amd64, `x86_64`) or a 64-bit ARM board such as a Raspberry Pi
      4 or 5 (arm64, `aarch64`); `uname -m` on the machine says which. Nothing 32-bit runs it.
+   - **A Mac or a Windows PC** is not supported yet: say so, and offer a Linux machine or a NAS
+     instead.
 2. **Where the films and series are, and how they are arranged.**
    - The folder or folders that hold them, as the machine names them, capitals included
      (`/srv/media`, `/volume1/video`): they are `ORPHEUM_MEDIA` and up to three more, in
      [one compose file](install.md#one-compose-file). The user the server runs as must be able to
      read them.
+   - Where the server's own data goes (`PATH_TO_APPDATA`): a local disk. Not a network share, and
+     not a mergerfs pool mounted `cache.files=off`, as OpenMediaVault's plugin mounts its pools:
+     the database cannot open there ([the variables](install.md#the-variables)). The media may be
+     on either.
+   - Whether the films are on another NAS: on OpenMediaVault, follow
+     [films on another NAS](install.md#films-on-another-nas) too.
    - Whether films and series are apart: a library holds one kind, so films are one library and
      series another, and a library may read a folder inside the media folder
      ([your first library](install.md#your-first-library)).
@@ -66,8 +80,9 @@ which of them are the person's.
    an ARM board, or a machine with none, encodes on the processor. A slow NAS cannot re-encode a
    film as fast as it plays, as [Synology](install.md#synology) explains for its older models.
 4. **Watching away from home.** At home no account is needed. Away from home needs an Orpheum
-   account at orpheum.cc, which is made from an invitation: ask whether they have one, and when it came: its link lasts 14 days and makes one account,
-   so one older than that needs a new link from whoever sent it, before anything else. Making the
+   account at orpheum.cc, which is made from an invitation; during the closed beta the project's
+   owner sends them. Ask whether they have one, and when it came: its link lasts 14 days and makes
+   one account, so one older than that needs a new link from whoever sent it, before anything else. Making the
    account first, while the link is good, is safest
    ([from away from home](install.md#from-away-from-home-optional),
    [the account](install.md#your-account-at-orpheumcc),

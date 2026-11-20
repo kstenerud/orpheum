@@ -45,6 +45,23 @@ GitHub's image registry, `ghcr.io`, has no IPv6 address, so the machine needs wo
 install or update the server, whatever IPv6 does. Check that `ip route show default` prints a
 `default via …` line; in a Proxmox container, restarting it restores the IPv4 route.
 
+## Pulling the image is refused: `denied`, `unauthorized`, `403 Forbidden` or a timeout from ghcr.io
+
+The image is published on GitHub's image registry, `ghcr.io`, alone, and anyone may pull it without
+signing in. A refused pull comes from between the machine and the registry:
+
+- **A firewall, proxy or sandbox that blocks GitHub's hosts.** The pull reaches `ghcr.io`, and the
+  image's layers come from `pkg-containers.githubusercontent.com`; both must be allowed. An AI
+  agent's own sandbox often allows neither: run the pull at a terminal of your own instead.
+- **An old sign-in to ghcr.io** that has expired or been revoked makes the registry answer `denied`,
+  though the image needs no sign-in. Sign out, **as the user who runs Docker**:
+  `docker logout ghcr.io`, then pull again.
+- **A name typed wrong** answers `denied` or `manifest unknown`, as an image that does not exist
+  does. The name is `ghcr.io/kstenerud/orpheum`, with a tag such as `latest`.
+
+To check, `docker pull ghcr.io/kstenerud/orpheum:latest` on the machine should end with
+`Status: Downloaded newer image` or `Status: Image is up to date`.
+
 ## A phone away from home says "Your server was found, but can't be reached from this network right now"
 
 The sign-in worked; the phone and the server found no way to each other. Common causes:
@@ -225,9 +242,51 @@ in OpenMediaVault their logs are under **Services > Compose > Containers**, else
 Compose stops before anything starts: the file needs that value. In OpenMediaVault, put it in the
 file's **Environment** (tick **Show environment file** to see it): `ORPHEUM_MEDIA`, and
 `PATH_TO_APPDATA` with the user and time zone unless the global environment file sets them
-([step 4](install.md#openmediavault));
+([Add the compose file](install.md#add-the-compose-file), step 5);
 elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
 `ORPHEUM_LAN_ADDRESS` too; the server now learns the address.)
+
+### Up says "container orpheum-core is unhealthy"
+
+Or "dependency failed to start", or `orpheum-node` "not started". Compose waits for the core to say
+it is well before it starts the node, and the core did not. While it starts, **Up** stops at
+`orpheum-core Waiting` for up to a minute or two: that is normal. When it ends unhealthy instead, the
+core could not start, and its log says why. The core stays up to report it.
+
+Read the core's log: in OpenMediaVault, **Services > Compose > Containers**, select `orpheum-core`,
+**Logs**; on a Synology, **Container Manager → Container**, `orpheum-core`, **Details**, **Log**;
+elsewhere, `docker logs orpheum-core`. Its last `ERROR` line says `the server could not start`,
+and its `err=` names the cause. Look for its words on this page; the most common is
+the next entry.
+
+### The core's log says `disk I/O error (5386)`
+
+The whole line reads like `database "/var/lib/orpheum/core/persistent/persistent.db": read PRAGMA
+journal_mode: disk I/O error (5386)`, and **Up** said `orpheum-core is unhealthy`.
+
+The app data folder (`PATH_TO_APPDATA`) is on a filesystem that refuses a shared memory map of a
+file, which the server's database needs (SQLite's write-ahead log maps its `-shm` file). A mergerfs
+pool mounted with `cache.files=off` refuses it, and OpenMediaVault's mergerfs plugin mounts its pools
+so. Media on such a pool is fine; only the app data folder must move.
+
+Put `PATH_TO_APPDATA` on a single disk instead. On OpenMediaVault, a pool's folder lies on one of the
+pool's disks, under `/srv/dev-disk-by-uuid-…`, and that path can be used directly:
+
+1. Over SSH, find the disk that holds the folder: `ls -ld /srv/dev-disk-by-uuid-*/appdata`. It
+   prints each disk's `appdata`, such as `/srv/dev-disk-by-uuid-1234abcd-…/appdata`. If it prints
+   more than one, use the one that holds Orpheum's data, which
+   `ls -ld /srv/dev-disk-by-uuid-*/appdata/orpheum` shows.
+2. Select the `orpheum` file and press **Down**.
+3. Edit the file, and in **Environment** set `PATH_TO_APPDATA` to that path. **Save**. (If the global
+   environment file sets it, change it there.)
+4. Press **Up**. The core starts, with the data it already had.
+
+Without a shell, make a new shared folder on one disk (not the pool), such as `orpheum-data`, in
+**Storage > Shared Folders**, and set `PATH_TO_APPDATA` to its **Absolute Path**; the server starts
+there afresh.
+
+A pool mounted with `cache.files=partial`, `auto-full` or `per-process` allows the map, and holds the
+app data as a disk does. `systemctl cat srv-mergerfs-<pool>.mount` prints how a pool is mounted.
 
 ### Up says "bind source path does not exist" and names a folder
 

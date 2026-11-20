@@ -3,6 +3,9 @@
 A self-hosted media server for your own films and series. Its home on the web is
 [orpheum.cc](https://orpheum.cc).
 
+Anyone can install Orpheum and use it at home. Only watching away from home needs an invitation,
+which the project's owner sends during the closed beta.
+
 - Your own hardware.
 - Your own videos.
 - Play from anywhere.
@@ -38,7 +41,7 @@ endorsed or certified by TMDB.</sub>
 - **Posters & artwork.** Matches your media with TMDB for posters and details, and episode orderings.
 - **Safety first.** Every part that takes in data from files or from 3rd party sites is isolated, sandboxed, and cannot write.
 - **Accounts and invitations.** As many as you want, with each person's own watch state and settings.
-- **Easy deployment.** It's a single go binary, with quick deployment available via Docker.
+- **Easy deployment.** One Go binary with its own FFmpeg, run through Docker: one compose file, or one command.
 - **Your data stays yours.** Rebuildable database. Metadata can be written back as NFO files.
 
 ## What it's for
@@ -57,7 +60,8 @@ where you live, including when you share access with others.
 
 ## Install
 
-Orpheum runs on any Linux machine with Docker, including NAS systems such as OpenMediaVault. See
+Orpheum runs on any 64-bit Linux machine with Docker, including NAS systems such as OpenMediaVault
+and Synology. Mac and Windows are not supported yet. See
 **[docs/users/install.md](docs/users/install.md)**, and
 [setup-problems.md](docs/users/setup-problems.md) when something goes wrong.
 
