@@ -450,14 +450,19 @@ def _flock_until(lock: IO[str], deadline: float | None) -> bool:
         signal.signal(signal.SIGALRM, previous)
 
 
-def end_group(group: int, first: int = signal.SIGTERM, grace: float = GRACE_SECONDS) -> None:
-    """Asks a process group to end (first), and kills what is left of it after grace."""
+def end_group(group: int, first: int = signal.SIGTERM, grace: float = GRACE_SECONDS,
+              child: subprocess.Popen[Any] | None = None) -> None:
+    """Asks a process group to end (first), and kills what is left of it after grace. child is its
+    leader when this process started it: reaped as the group is watched, since a zombie keeps its group,
+    and unreaped every end waited out the whole grace and killed a group already gone (2026-11-20)."""
     try:
         os.killpg(group, first)
     except (ProcessLookupError, PermissionError):
         return
     given_up_at = time.monotonic() + grace
     while time.monotonic() < given_up_at:
+        if child is not None:
+            child.poll()
         try:
             os.killpg(group, 0)
         except (ProcessLookupError, PermissionError):
@@ -582,18 +587,18 @@ def run_holding(command: list[str], kind: str = GATE, lease: float | None = None
     with _held(None, kind, lease) as (lock, env):
         if lock is None:
             return subprocess.run(command, env=env, check=False).returncode
-        group: list[int] = []
+        group: list[subprocess.Popen[bytes]] = []
 
         def forward(signum, _frame):
             if group:
-                end_group(group[0], first=signum)
+                end_group(group[0].pid, first=signum, child=group[0])
             sys.exit(128 + signum)
 
         # Before the command starts, so no signal finds it running and the wrapper without its handler.
         for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
             signal.signal(signum, forward)
         child = subprocess.Popen(command, env=env, pass_fds=(lock.fileno(),), start_new_session=True)
-        group.append(child.pid)
+        group.append(child)
         record = holder_record() or {}
         mark(lock, kind, lease, group=child.pid, started=float(record.get("started") or time.time()))
         try:
@@ -602,7 +607,7 @@ def run_holding(command: list[str], kind: str = GATE, lease: float | None = None
             print(f"gate lock: the {kind} run held the test lock for its whole lease ({lease / MINUTE:.0f} min) "
                   "and is ended. A run that needs longer names it: gate_lock.py --as KIND --lease SECONDS.",
                   file=sys.stderr, flush=True)
-            end_group(child.pid)
+            end_group(child.pid, child=child)
             return 124
 
 

@@ -202,11 +202,23 @@ class TheLockGoesWithTheRun(unittest.TestCase):
         self.addCleanup(lambda: alive(pid) and os.kill(pid, 9))
         return run, pid
 
+    def test_ending_a_group_led_by_its_own_child_waits_for_no_grace(self):
+        # The leader, this process's child, is a zombie until reaped, and a zombie keeps its group: unreaped,
+        # every end waited out the whole grace and killed a group already gone (2026-11-20).
+        child = subprocess.Popen(["sleep", "60"], start_new_session=True)
+        self.addCleanup(child.kill)
+        started = time.monotonic()
+        gate_lock.end_group(child.pid, child=child)
+        self.assertLess(time.monotonic() - started, gate_lock.GRACE_SECONDS / 2)
+        self.assertEqual(child.returncode, -signal.SIGTERM, "ended by the asking, not killed after the grace")
+
     def test_a_wrapper_asked_to_end_ends_its_whole_run_and_lets_the_lock_go(self):
         root = repository(self)
         run, grandchild = self.started_run(root)
+        asked = time.monotonic()
         run.terminate()
         run.wait(timeout=30)
+        self.assertLess(time.monotonic() - asked, gate_lock.GRACE_SECONDS / 2, "its command ended when asked")
         until(lambda: not alive(grandchild))
         self.assertIsNone(gate_lock.holder(root))
 
