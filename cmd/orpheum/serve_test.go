@@ -574,6 +574,21 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	}
 }
 
+// checkSetupLinkSaidAlone fails t unless logged says link once on a short line of its own, for a
+// person reading a NAS panel's log for the next step.
+func checkSetupLinkSaidAlone(t *testing.T, logged, link string) {
+	t.Helper()
+	var saidAlone []string
+	for line := range strings.Lines(logged) {
+		if strings.Contains(line, `"msg":"`+finishSetupMessage+`"`) {
+			saidAlone = append(saidAlone, line)
+		}
+	}
+	if len(saidAlone) != 1 || !strings.Contains(saidAlone[0], `"link":"`+link+`"`) {
+		t.Errorf("the link %q is not said on a line of its own, with %q:\n%s", link, finishSetupMessage, logged)
+	}
+}
+
 // A compose file's server also shows the setup code in a file of the data folder, its user's alone,
 // saying where it goes, while no admin exists, and removes the file once the first admin is made
 // (D449 §3).
@@ -601,6 +616,7 @@ func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) 
 	if !strings.Contains(captured.String(), link) || !strings.Contains(captured.String(), code) {
 		t.Errorf("the setup code's log line names no link %q and the code:\n%s", link, captured)
 	}
+	checkSetupLinkSaidAlone(t, captured.String(), link)
 	info, err := os.Stat(shown)
 	if err != nil {
 		t.Fatalf("a server with no admin shows no setup code in the data folder: %v", err)
