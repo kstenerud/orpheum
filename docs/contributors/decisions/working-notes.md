@@ -30467,4 +30467,9 @@ in Docker, on OpenMediaVault, on a Synology or under any installer still to come
    leaves, as the core's and the nodes' are (D347, D525 §1). A level that cannot be read leaves the
    log as it was and says so.
 
-**Status:** decided (2026-11-20); to build in orpheum-connect.
+**Proven by:**
+- 1: VQ370
+- 2: VQ370
+- 3: VQ370
+
+**Status:** decided (2026-11-20); built (2026-11-20) in orpheum-connect, `internal/loglevel`.

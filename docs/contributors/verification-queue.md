@@ -3579,3 +3579,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   page rather than going back to the server's page at home; and, pressing Connect again on the same
   core, whether it links again with no question. orpheum-connect's own tests of the link page
   (internal/panel/link_test.go) cover it there, where this repository's gate cannot see them.
+- [x] **VQ370** — connectd's log level is kept in its database and the running connectd follows it
+  (D529). Passed (the lead, 2026-11-20, staging connectd at "feat(connectd): the log's level is set
+  from the command line or the panel, and the running connectd follows it"): `serve -migrate` took
+  the database to step 17 and the Overview printed `log level info`; `connectd log level set debug`
+  in the container was logged `the log's level changes` from info to debug 8 s later, with no
+  restart; setting info again was logged at DEBUG, the level it left; the Activity listed both, as
+  the command line's, info to debug and debug to info. orpheum-connect's own tests cover it there
+  (internal/loglevel, cmd/connectd/operate_log_test.go, the panel's Overview test); the panel's
+  form is not yet pressed in a browser.
