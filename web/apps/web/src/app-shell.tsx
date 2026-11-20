@@ -40,7 +40,7 @@ import { LinkCapBadge } from "./link-debug-tools.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
-import { ShellReadContext } from "./shell-read.ts";
+import { ShellReadContext, useShellPart } from "./shell-read.ts";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { isUpdateKnown, UpdateProvider, useUpdate } from "./update.tsx";
 
@@ -291,7 +291,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
               >
                 <MenuSection
                   heading={t("nav.manage")}
-                  places={managePlaces(props.administersFromHomeAt, links("manage"))}
+                  places={managePlaces(props, links("manage"))}
                 />
                 <MenuSection heading={t("nav.develop")} places={links("develop")} />
                 {links("own")}
@@ -434,14 +434,34 @@ function MenuSection(props: {
   );
 }
 
-/** Manage's places: the admin's, or for an admin away from home where they administer instead. */
+/**
+ * The admin's way to their account at the discovery, last under Manage, opened in a tab of its own:
+ * where the server is connected to a discovery that keeps its households' admin accounts, and
+ * nothing otherwise (the owner, 2026-11-20). Where it is comes in the shell's first read alone: a
+ * read that carried none offers none, and the System page's Remote access still links there.
+ */
+function AdminAccountPlace(): JSX.Element | null {
+  const { t } = useTranslation();
+  const fromShell = useShellPart((shell) => shell.adminAccountAt);
+  const accountAt = fromShell === undefined || fromShell === "waiting" ? "" : fromShell.value;
+  if (accountAt === "") {
+    return null;
+  }
+  return <ListOption outside={accountAt}>{t("nav.adminAccount")}</ListOption>;
+}
+
+/**
+ * Manage's places: the admin's, their account at the discovery last, or for an admin away from home
+ * where they administer instead.
+ */
 function managePlaces(
-  administersFromHomeAt: string | undefined,
+  shell: Pick<AppShellProps, "isAdmin" | "administersFromHomeAt">,
   places: JSX.Element[],
 ): JSX.Element[] {
-  return administersFromHomeAt === undefined
-    ? places
-    : [<AdministerFromHome key="home" address={administersFromHomeAt} />];
+  if (shell.administersFromHomeAt !== undefined) {
+    return [<AdministerFromHome key="home" address={shell.administersFromHomeAt} />];
+  }
+  return shell.isAdmin ? [...places, <AdminAccountPlace key="admin-account" />] : places;
 }
 
 /**

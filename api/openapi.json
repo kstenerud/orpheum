@@ -8194,6 +8194,9 @@
       },
       "ShellBody": {
         "properties": {
+          "adminAccountAt": {
+            "type": "string"
+          },
           "clientSettings": {
             "$ref": "#/components/schemas/ClientSettingsBody"
           },

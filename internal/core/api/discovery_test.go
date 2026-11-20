@@ -86,7 +86,7 @@ func enrollingDiscovery(t *testing.T) (*httptest.Server, string) {
 		ID: chain.ID(), RootVersion: 1, Sequence: 1, Issued: trusttest.Issued(),
 		Expires: trusttest.Issued().Add(365 * 24 * time.Hour), Name: "Discovery", Issuer: fake.URL, CoreAPI: fake.URL,
 		ClientAPI: fake.URL + "/client", LoaderOrigin: "https://loader.example",
-		ClientOrigins: "https://{core}.client.example",
+		ClientOrigins: "https://{core}.client.example", AccountOrigin: "https://account.example",
 	}).Payload()
 	if err != nil {
 		t.Fatal(err)

@@ -12,6 +12,7 @@ import { DebugToolsContext } from "./debug-tools.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
 import { createNavigation } from "./navigation.ts";
+import { ShellReadContext, type ShellBody } from "./shell-read.ts";
 import { buttonNamed, buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
 import { fakePlace, testServices, withServices } from "./test-services.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
@@ -177,6 +178,47 @@ describe("AppShell", () => {
     await click(mounted.container.querySelector(".app-shell__home"));
     expect(services.navigation.route()).toEqual({ screen: "home" });
     mounted.unmount();
+  });
+
+  // An admin who connected the server to a discovery with accounts reaches theirs from the menu
+  // (the owner, 2026-11-20).
+  it("links an admin to their account at the discovery, last under Manage, where the shell's read says one is", async () => {
+    const drawn = async (isAdmin: boolean, adminAccountAt: string): Promise<Document> => {
+      const shell = { adminAccountAt } as unknown as ShellBody;
+      const markup = await drawnWithMenuOpen(
+        <ShellReadContext value={{ state: "read", shell }}>
+          <AppShell
+            isAdmin={isAdmin}
+            canHostWatchTogether={true}
+            currentScreen="about"
+            onSignOut={ignore}
+            signedInAs={undefined}
+          >
+            <p>screen</p>
+          </AppShell>
+        </ShellReadContext>,
+      );
+      return new DOMParser().parseFromString(markup, "text/html");
+    };
+    const linked = await drawn(true, "https://account.example");
+    const link = [...linked.querySelectorAll("a")].find(
+      (each) => each.textContent === "To your Orpheum admin account",
+    );
+    expect(link?.getAttribute("href")).toBe("https://account.example");
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
+    // Last under Manage: the entry before it is Update, Manage's last place.
+    expect(
+      link?.closest("li")?.previousElementSibling?.querySelector("a")?.getAttribute("href"),
+    ).toBe("/update");
+    for (const [isAdmin, adminAccountAt] of [
+      [true, ""],
+      [false, "https://account.example"],
+    ] as const) {
+      expect((await drawn(isAdmin, adminAccountAt)).body.textContent).not.toContain(
+        "To your Orpheum admin account",
+      );
+    }
   });
 
   it("shows the admin's destinations to an admin", async () => {

@@ -5662,6 +5662,7 @@ export interface components {
             isRequired: boolean;
         };
         ShellBody: {
+            adminAccountAt?: string;
             clientSettings: components["schemas"]["ClientSettingsBody"];
             libraries: components["schemas"]["LibraryBody"][] | null;
             needsAttention?: components["schemas"]["NeedsAttentionBody"];

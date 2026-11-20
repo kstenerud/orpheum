@@ -63,10 +63,11 @@ func (harness testHarness) wantPart(t *testing.T, label string, part json.RawMes
 	}
 }
 
-// The shell's one read, GET /me?shell=true, and a sign-in's answer carry what the shell read at four
+// The shell's one read, GET /me?shell=true, and a sign-in's answer carry what the shell read at five
 // endpoints after it, so its first screen waits on one request (D476, principles §30): for an admin,
-// the client settings, the libraries, what needs them and the update state, each as its endpoint
-// says it. A check that the session still works (GET /me) carries none of it.
+// the client settings, the libraries, what needs them, the update state, each as its endpoint says
+// it, and where their account at a discovery is, none while the server is connected to none. A check
+// that the session still works (GET /me) carries none of it.
 func TestMe_TheShellsReadCarriesWhatTheShellReadsApart(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -86,8 +87,11 @@ func TestMe_TheShellsReadCarriesWhatTheShellReadsApart(t *testing.T) {
 		"GET /me?shell=true's": json.RawMessage(harness.do(t, http.MethodGet, "/me?shell=true", admin, nil).body),
 	} {
 		shell := shellOf(t, label, user)
-		if len(shell) != 4 {
-			t.Fatalf("%s shell = %v; want its four parts", label, shell)
+		if len(shell) != 5 {
+			t.Fatalf("%s shell = %v; want its five parts", label, shell)
+		}
+		if got := string(shell["adminAccountAt"]); got != `""` {
+			t.Errorf("%s admin account = %s; want none, connected to no discovery", label, got)
 		}
 		harness.wantPart(t, label+" client settings", shell["clientSettings"], "/client-settings", admin)
 		harness.wantPart(t, label+" libraries", shell["libraries"], "/libraries", admin)
@@ -121,7 +125,29 @@ func TestMe_TheShellOfSomeoneWhoDoesNotAdministerCarriesNoAdminsData(t *testing.
 		if _, has := shell["update"]; has {
 			t.Errorf("%s shell carries update %s; want none to someone who does not administer", label, shell["update"])
 		}
+		if _, has := shell["adminAccountAt"]; has {
+			t.Errorf("%s shell carries adminAccountAt %s; want none to someone who does not administer",
+				label, shell["adminAccountAt"])
+		}
 		harness.wantPart(t, label+" client settings", shell["clientSettings"], "/client-settings", friend)
 		harness.wantPart(t, label+" libraries", shell["libraries"], "/libraries", friend)
+	}
+}
+
+// Connected to a discovery that keeps its households' admin accounts, the admin's shell says where,
+// for the menu's link to their account there (the owner, 2026-11-20).
+func TestMe_TheAdminsShellSaysWhereTheirAccountAtTheDiscoveryIs(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	fake, identity := enrollingDiscovery(t)
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, identity))
+	if connected.status != http.StatusOK {
+		t.Fatalf("connect = %d %s", connected.status, connected.body)
+	}
+	shell := shellOf(t, "GET /me?shell=true's",
+		json.RawMessage(harness.do(t, http.MethodGet, "/me?shell=true", admin, nil).body))
+	if got := string(shell["adminAccountAt"]); got != `"https://account.example"` {
+		t.Errorf("the admin account = %s; want the discovery's, https://account.example", got)
 	}
 }

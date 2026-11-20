@@ -46,6 +46,7 @@ export const en = {
     system: "System",
     update: "Update",
     updateKnown: "! Update",
+    adminAccount: "To your Orpheum admin account",
     users: "Users",
     thisDevice: "This device",
     account: "Your account",

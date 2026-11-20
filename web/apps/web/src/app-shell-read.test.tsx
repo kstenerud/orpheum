@@ -33,6 +33,7 @@ const shell = {
     unknownFailureAlertCount: 0,
   },
   update: { isAvailable: false },
+  adminAccountAt: "",
 };
 
 /** An admin, as GET /me?shell=true answers, the shell's parts with it. */
@@ -49,7 +50,13 @@ const admin = {
 } as unknown as components["schemas"]["UserBody"];
 
 /** The paths the shell reads apart, which its one read carries. */
-const carriedApart = ["/client-settings", "/libraries", "/needs-attention", "/system/update"];
+const carriedApart = [
+  "/client-settings",
+  "/libraries",
+  "/needs-attention",
+  "/system/update",
+  "/system/discovery",
+];
 
 /**
  * A server that answers GET /me with me as meAnswer says (never, for "never"; once answerMe is

@@ -85,6 +85,10 @@ type ShellBody struct {
 	// person administers (isAdmin), as those endpoints refuse anyone else.
 	NeedsAttention *NeedsAttentionBody `json:"needsAttention,omitempty"`
 	Update         *UpdateBody         `json:"update,omitempty"`
+	// AdminAccountAt is GET /system/discovery's accountOrigin, also only where the person administers:
+	// where the household's admin keeps their account at the discovery, which the menu links to (the
+	// owner, 2026-11-20), or "" when the server is connected to no discovery that has one.
+	AdminAccountAt *string `json:"adminAccountAt,omitempty"`
 }
 
 // CurrentDeviceBody is the device a session is on; a client keeps its id to resume it (D221).
@@ -461,7 +465,7 @@ func (server *Server) shellBody(
 }
 
 // readShell is the client settings and the libraries reached, and where the person administers, what
-// needs them and the update state.
+// needs them, the update state and where their account at the discovery is.
 func (server *Server) readShell(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
 ) (*ShellBody, error) {
@@ -482,6 +486,11 @@ func (server *Server) readShell(
 		return nil, err
 	}
 	shell.NeedsAttention, shell.Update = &attention.Body, &knownUpdateOutput(dependencies).Body
+	accountAt := ""
+	if dependencies.Discovery != nil {
+		accountAt = dependencies.Discovery.Status().AccountOrigin
+	}
+	shell.AdminAccountAt = &accountAt
 	return shell, nil
 }
 

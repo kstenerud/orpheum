@@ -142,38 +142,63 @@ interface ListOptionTold {
 
 /**
  * A choice of a list (ListBox), drawn as one, the width of the list: a link to a route (`to`, its
- * history's entry replaced where isReplacing, D367 §9), or a button that does something (`onChoose`),
- * a button by role (ButtonByRole), as a pop-up of a long list's page holds them. Choosing it closes
- * the pop-up it is in (popover.tsx).
+ * history's entry replaced where isReplacing, D367 §9), a link to a page elsewhere (`outside`),
+ * opened in a tab of its own and told nothing of this one, or a button that does something
+ * (`onChoose`), a button by role (ButtonByRole), as a pop-up of a long list's page holds them.
+ * Choosing it closes the pop-up it is in (popover.tsx).
  */
-export function ListOption(
-  props: ListOptionTold &
-    ({ readonly to: Route; readonly isReplacing?: boolean } | { readonly onChoose: () => void }),
-): JSX.Element {
+export function ListOption(props: ListOptionTold & ListOptionDoes): JSX.Element {
   const isHidden = useIsUnderASubmenu();
   return (
     <li className="list-box__entry" hidden={isHidden}>
-      {"to" in props ? (
-        <Link
-          to={props.to}
-          className="list-box__option"
-          isCurrent={props.isCurrent === true}
-          isReplacing={props.isReplacing === true}
-          {...(props.spoken === undefined ? {} : { label: props.spoken })}
-        >
-          {props.children}
-        </Link>
-      ) : (
-        <ButtonByRole
-          className="list-box__option"
-          aria-current={props.isCurrent === true ? "true" : undefined}
-          aria-label={props.spoken}
-          onClick={props.onChoose}
-        >
-          {props.children}
-        </ButtonByRole>
-      )}
+      <ListOptionControl {...props} />
     </li>
+  );
+}
+
+/** What a choice of a list does: goes to a route, to a page elsewhere, or does something. */
+type ListOptionDoes =
+  | { readonly to: Route; readonly isReplacing?: boolean }
+  | { readonly outside: string }
+  | { readonly onChoose: () => void };
+
+/** A choice's control: its link or its button (ListOption). */
+function ListOptionControl(props: ListOptionTold & ListOptionDoes): JSX.Element {
+  if ("outside" in props) {
+    return (
+      <a
+        href={props.outside}
+        className="list-box__option"
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={props.spoken}
+      >
+        {props.children}
+      </a>
+    );
+  }
+  if ("to" in props) {
+    return (
+      <Link
+        to={props.to}
+        className="list-box__option"
+        isCurrent={props.isCurrent === true}
+        isReplacing={props.isReplacing === true}
+        {...(props.spoken === undefined ? {} : { label: props.spoken })}
+      >
+        {props.children}
+      </Link>
+    );
+  }
+  return (
+    <ButtonByRole
+      className="list-box__option"
+      aria-current={props.isCurrent === true ? "true" : undefined}
+      aria-label={props.spoken}
+      onClick={props.onChoose}
+    >
+      {props.children}
+    </ButtonByRole>
   );
 }
 
