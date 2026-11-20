@@ -1,15 +1,19 @@
 # Installing Orpheum
 
-Orpheum is a media server you run at home. It plays your own films and series to the browsers,
-phones and TVs in your household.
+Orpheum is a free and open source media server you run at home. It plays your own films and
+series to browsers, phones and TVs in your household.
 
-**Anyone can install Orpheum and use it at home; no account or invitation is needed.** Only
-watching away from home needs one: it goes through the Orpheum service at orpheum.cc, and during
-the closed beta the project's owner invites the people who use it, about ten. The beta opens to the
-public later.
+## Private beta
 
-Something went wrong? [setup-problems.md](setup-problems.md) lists the problems other installs have
-met, and their fixes.
+Orpheum is currently in private beta. You can still use it if you want, but there will be no
+support outside of those invited to the private beta. This is because the list of things to fix is
+still huge, but enough of it works for testing in a few real households to make sense.
+
+A public beta will likely begin somewhere between Q4 2026 and Q1 2027.
+
+## If something goes wrong
+
+[setup-problems.md](setup-problems.md) lists the problems other installs have met, and their fixes.
 
 ## What you need
 
@@ -22,7 +26,7 @@ met, and their fixes.
   on both; `v0.3.0` ran on amd64 only. Nothing 32-bit can run it.
 - **Your films and series in folders that machine can read.**
 
-Mac and Windows are not supported yet.
+Mac and Windows are not officially supported yet. It may work on Windows/Mac Docker. It may not.
 
 Orpheum runs as two containers from one image:
 
@@ -65,38 +69,26 @@ On OpenMediaVault and on a Synology you may have no terminal. There:
 These are the shortest routes. Each links to its full steps below, which also say what to expect
 and what to do when a step fails.
 
-### Quick start: any Linux machine with Docker
+### Quick start: the install script
 
-At a terminal, as the user who will own the server's data (not root). Change the two folders and the
-time zone first, to your own:
+At a terminal on the machine, as a user in the `docker` group or as root:
 
 ```sh
-mkdir -p ~/orpheum-compose && cd ~/orpheum-compose
-curl -fL -o compose.yaml https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml
-cat > .env <<EOF
-PATH_TO_APPDATA=/srv/appdata
-ORPHEUM_MEDIA=/srv/media
-APPUSER_PUID=$(id -u)
-APPUSER_PGID=$(id -g)
-TIME_ZONE_VALUE=Europe/Berlin
-EOF
-docker compose up -d
-docker logs orpheum-core 2>&1 | grep -E "to finish setting up|no one can sign in"
+docker pull ghcr.io/kstenerud/orpheum:latest
+docker run --rm ghcr.io/kstenerud/orpheum:latest install-script | sh -s -- --media /path/to/films
 ```
 
-Run the `docker` lines with `sudo` in front if your user is not in the `docker` group. The last
-line prints the link that makes you the server's first admin: open it in a browser at home
-([the first admin](#the-first-admin)). The full steps are in
-[On any machine with Docker](#on-any-machine-with-docker).
+It asks for the first admin at the terminal. The full steps, and how to read the script before you
+run it, are in [The install script](#the-install-script).
 
 ### Quick start: OpenMediaVault
 
 1. If **Services** has no **Compose**,
    [install it](#install-compose-only-if-services-has-no-compose).
-2. Make an `appdata` shared folder **on a single disk, not on a mergerfs pool**, and note its
-   **Absolute Path** ([shared folders](#make-the-shared-folders)).
+2. Choose `appdata`'s path **on a single disk, not on a mergerfs pool**: with a pool, one of the
+   disks **Storage > mergerfs** lists for it ([shared folders](#make-the-shared-folders)).
 3. Note the media folder's **Absolute Path**, and the UID of the user the server will run as
-   ([the user](#choose-the-user-the-server-runs-as)).
+   ([the user](#choose-the-user-the-server-runs-as)); the web interface does not show the UID.
 4. **Services > Compose > Files**, **Add**, name it `orpheum`, and paste the whole of
    [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    into **File**.
@@ -117,6 +109,8 @@ The full steps are in [OpenMediaVault](#openmediavault).
 
 ### Quick start: Synology
 
+**Note**: Unconfirmed. Please verify and send a report.
+
 1. Read your media folder's path and make a folder for the server
    ([steps 1 and 2](#synology)).
 2. Read your user's uid and gid with `id` over SSH ([step 3](#synology)).
@@ -135,17 +129,33 @@ The full steps are in [OpenMediaVault](#openmediavault).
 
 The full steps are in [Synology](#synology).
 
-### Quick start: the install script
+### Quick start: any Linux machine with Docker
 
-At a terminal on the machine, as a user in the `docker` group or as root:
+Type this at a terminal, as the user who will own the server's data (not root).
+
+**Notes**:
+
+- The paths `/srv/appdata` and `/srv/media`, and the time zone `Europe/Berlin`, are examples. Use
+  values that match your actual machine.
+- Run the `docker` lines with `sudo` in front if your user is not in the `docker` group.
 
 ```sh
-docker pull ghcr.io/kstenerud/orpheum:latest
-docker run --rm ghcr.io/kstenerud/orpheum:latest install-script | sh -s -- --media /path/to/films
+mkdir -p ~/orpheum-compose && cd ~/orpheum-compose
+curl -fL -o compose.yaml https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml
+cat > .env <<EOF
+PATH_TO_APPDATA=/srv/appdata
+ORPHEUM_MEDIA=/srv/media
+APPUSER_PUID=$(id -u)
+APPUSER_PGID=$(id -g)
+TIME_ZONE_VALUE=Europe/Berlin
+EOF
+docker compose up -d
+docker logs orpheum-core 2>&1 | grep -E "to finish setting up|no one can sign in"
 ```
 
-It asks for the first admin at the terminal. The full steps, and how to read the script before you
-run it, are in [The install script](#the-install-script).
+The last line prints the link that makes you the server's first admin: open it in a browser at home
+([the first admin](#the-first-admin)). The full steps are in
+[On any machine with Docker](#on-any-machine-with-docker).
 
 ### After any of them
 
@@ -322,8 +332,8 @@ You may turn SSH off again in **Services > SSH** once you no longer need a termi
 
 #### Make the shared folders
 
-The server needs two shared folders: `appdata` for its data, and one for your media (`Media` here).
-If you already have them, check where `appdata` is (step 1) and go on to step 4.
+The server needs a folder for its data (`appdata`), and your media's folder (`Media` here). If you
+already have them, check where `appdata` is (step 1) and go on to step 4.
 
 **Put `appdata` on a single disk, not on a mergerfs pool.** It holds the server's database, which
 needs a feature (a shared memory map of a file) that a mergerfs pool refuses when it is mounted with
@@ -338,12 +348,22 @@ pool; for media on another NAS, see [Films on another NAS](#films-on-another-nas
 
    A folder on a disk has a path like `/srv/dev-disk-by-uuid-1234abcd-…/appdata`; one on a mergerfs
    pool has a path like `/srv/mergerfs/<pool>/appdata`.
-2. To make `appdata`, press **+ (Create)**. Name it `appdata`, choose a disk (not a pool) as its
-   file system, give its **Relative path** on that disk (`appdata/`), and press **Save**, then
-   apply.
-3. To make the media folder, if you have none, press **+ (Create)** again. Name it `Media`, choose a
-   disk or a pool, give its **Relative path** (`Media/`), and press **Save**, then apply.
-4. Write down both **Absolute Path**s exactly, capitals included.
+2. Choose where `appdata` goes:
+
+   - **With no mergerfs pool**, press **+ (Create)**. Name it `appdata`, choose a file system, give
+     its **Relative path** (`appdata/`), and press **Save**, then apply. Its **Absolute Path** is
+     the one to use.
+   - **With a mergerfs pool**, the file system list shows each disk only as `/dev/sdb1` and its size,
+     which does not say which disk is which. Open **Storage > mergerfs** instead: the pool's row
+     lists the disks it is made of, each as a path like
+     `/srv/dev-disk-by-uuid-1234abcd-…`. Choose any one, and add
+     `/appdata` to it: `/srv/dev-disk-by-uuid-1234abcd-…/appdata`.
+     Nothing needs making there: the first **Up** makes the folder.
+3. To make the media folder, if you have none, press **+ (Create)**. Name it `Media`, choose a disk
+   or a pool, give its **Relative path** (`Media/`), and press **Save**, then apply. A pool's
+   folders have paths like `/srv/mergerfs/<pool>/Media`, `<pool>` being the name the pool was given
+   when it was made.
+4. Write down both paths exactly, capitals included.
 
 If your films are in a folder inside a shared folder (`Storage/Video`, say), OpenMediaVault shows
 only the shared folder's path. Find the inner folder's path in one of two ways, capitals included:
@@ -356,7 +376,8 @@ only the shared folder's path. Find the inner folder's path in one of two ways, 
 #### Tell Compose where its files go
 
 1. Open **Services > Compose > Settings**.
-2. Under **Compose Files**, choose `appdata` as the **Shared folder**, and press **Save**, then
+2. Under **Compose Files**, choose a **Shared folder** for the compose files themselves: `appdata`
+   if you made it as a shared folder, or any other (a pool is fine for these). Press **Save**, then
    apply.
 
 #### Choose the user the server runs as
@@ -372,9 +393,11 @@ apply.
 
 **Never add the user the server runs as to the `docker` group.**
 
-1. Find its UID. Open **Users > Users**. The **UID** column is hidden at first: turn it on from the
-   column menu at the top right of the table. (Over SSH, `id <user>` prints it too, as
-   `uid=1000(anna) gid=100(users) …` for `id anna`.)
+1. Find its UID. OpenMediaVault's web interface does not show it. On a machine installed from
+   OpenMediaVault's own installer, the first user made in **Users > Users** is usually 1000, and
+   each later one the next number, in the order they were made. To be certain, sign in over SSH
+   ([steps 1 to 3 above](#install-compose-only-if-services-has-no-compose)) and type `id <user>`:
+   `id anna` prints `uid=1000(anna) gid=100(users) …`.
 2. Its GID is 100. That is the group `users`, which OpenMediaVault puts every user it makes in.
 3. Let it read the media folder. Open **Storage > Shared Folders**, select `Media`, and press
    **Permissions**. Give the user *Read-only* or *Read/Write*, and press **Save**, then apply.
@@ -399,8 +422,8 @@ below. The HTTPS port is changed later, on the server's **System** page.
    TIME_ZONE_VALUE=Europe/Berlin
    ```
 
-   `PATH_TO_APPDATA` is the `appdata` folder's **Absolute Path**, and `ORPHEUM_MEDIA` the media
-   folder's, capitals included. `APPUSER_PUID` is the user's UID.
+   `PATH_TO_APPDATA` is the `appdata` path you chose, and `ORPHEUM_MEDIA` the media folder's path,
+   capitals included. `APPUSER_PUID` is the user's UID.
 2. Open **Services > Compose > Files** and press **Add** (not *Add from example*). Some versions
    open a small menu first: choose **Add** in it. A form opens.
 3. In **Name**, type `orpheum`.

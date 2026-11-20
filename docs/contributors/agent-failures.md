@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A87 — Wrote that OpenMediaVault's Users table shows a hidden UID column, and that appdata's disk is easy to choose (2026-11-20)
+
+- **What happened:** the install guide told a household to read the server's UID from a **UID**
+  column of **Users > Users**, turned on from the column menu. The owner, installing on
+  OpenMediaVault 7, found no way to read a UID in the web interface and had to turn SSH on and run
+  `id`. The claim came from the owner's install agent's report, whose suggestion for its finding 9
+  was to "turn on the UID column": a guess at what such a table offers, written as a fact. The lead
+  triaged it into the plan (W9) as a fact and the docs agent wrote it into the guide; neither asked
+  whether anyone had seen the column. The same rewrite said to choose "a disk (not a pool)" for
+  `appdata` in the shared folder's file system list, which shows only `/dev/sdX1` names and sizes,
+  with nothing to say which disk is a pool's branch; the owner's agent found the path over SSH.
+- **Caught by:** the owner's walkthrough install.
+- **Gate:** none: no test can open OpenMediaVault's web interface. The guide now names only steps
+  someone has done on it, and the OMV test VMs (orpheum-ops) are where a step is checked before it
+  is written.
+
 ### A86 — Explained an install agent's "nothing on orpheum.cc" by a deploy it came after, and said a person sees no install link (2026-11-20)
 
 - **What happened:** a second install-test agent reported (its F1) that orpheum.cc tells a plain
