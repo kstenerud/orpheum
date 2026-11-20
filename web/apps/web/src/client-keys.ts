@@ -60,6 +60,8 @@ const clientKeys = new Set([
   "orpheum.sound.latencyMs",
   // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).
   "orpheum.localNetwork.noteDismissed",
+  // That the note on what a page over plain http cannot do was dismissed (plain-http-note.tsx).
+  "orpheum.plainHttp.noteDismissed",
   // Until when, and for which fix, the admin snoozed the security update's banner (update.tsx
   // securityUpdateSnoozeKey).
   "orpheum.securityUpdate.snoozed",

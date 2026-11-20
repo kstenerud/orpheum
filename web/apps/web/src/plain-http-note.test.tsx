@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PlainHttpNote } from "./plain-http-note.tsx";
+import { PlainHttpNote, plainHttpNoteDismissedKey } from "./plain-http-note.tsx";
 import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -13,6 +13,7 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  localStorage.clear();
 });
 
 // A browser keeps the microphone, the clipboard and installing the app to secure pages; over plain
@@ -23,6 +24,15 @@ describe("PlainHttpNote", () => {
     expect(mounted.container.textContent).toContain("plain http");
     expect(mounted.container.textContent).toContain("voice");
     await click(buttonWithText(mounted.container, "Dismiss"));
+    expect(mounted.container.textContent).toBe("");
+  });
+
+  it("stays dismissed when the page is loaded again", async () => {
+    mounted = await mount(<PlainHttpNote isSecure={false} />);
+    await click(buttonWithText(mounted.container, "Dismiss"));
+    expect(localStorage.getItem(plainHttpNoteDismissedKey)).toBe("1");
+    mounted.unmount();
+    mounted = await mount(<PlainHttpNote isSecure={false} />);
     expect(mounted.container.textContent).toBe("");
   });
 
