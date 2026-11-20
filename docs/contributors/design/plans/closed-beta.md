@@ -62,6 +62,8 @@ for anything else (D524 §1).
 
 ## B1 — between episodes
 
+Phased in [b1.md](b1.md) (proposed, 2026-11-20).
+
 | Item | Source | Size | Notes |
 | --- | --- | --- | --- |
 | Next Up: the Home row and a series' next episode | [play-state.md](play-state.md); cut-a §1 | S–M | |
