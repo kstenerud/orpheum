@@ -3588,3 +3588,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   the command line's, info to debug and debug to info. orpheum-connect's own tests cover it there
   (internal/loglevel, cmd/connectd/operate_log_test.go, the panel's Overview test); the panel's
   form is not yet pressed in a browser.
+- [x] **VQ371** — The exit path, walked live (discovery-core K11; the paid spec §3.10). Passed (the
+  lead, 2026-11-20, staging core at "fix(sdk): the service worker is registered with its updates
+  fetched past the HTTP cache", staging connectd at D529's build): `connectd core lapse <id> grace`
+  was logged by the core as claimed to grace at its next heartbeat, published and heartbeating;
+  `core lapse <id> frozen` closed its signalling at once (policy violation, "the core was removed,
+  disabled or lapsed"), its redials were refused 403 with a growing backoff, and its next heartbeat,
+  4 m 48 s later, logged grace to frozen, after which it dialled no more; the core stayed healthy
+  at home through it all; `core renew` and a restart of the core logged claimed, signalling open,
+  and `core standing` said good standing, under the same id and realm. Released was not walked on
+  staging, since it deletes the core's records; TestStep_TheExitPathWalksGraceFrozenAndReleasedAndARenewalRestoresTheCore
+  covers it. Seen on the way: between the lapse and the heartbeat the core redials a signalling
+  that refuses it, about six times in five minutes; asking the core's state on a 403 would end
+  that at once (a proposal, not built).
