@@ -193,9 +193,25 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 		onReaderWrite: options.OnReaderWrite,
 	}
 	if err := database.verify(ctx, synchronous, applicationID); err != nil {
-		return nil, errors.Join(err, database.Close())
+		return nil, errors.Join(explainOpenFailure(err), database.Close())
 	}
 	return database, nil
+}
+
+// sharedMemoryRefusedAdvice says, to the person who chose the data folder, what a refused shared memory
+// map means and what to do; the core logs it and /api/v1/health gives it as its reason.
+const sharedMemoryRefusedAdvice = "the data folder's filesystem refuses the shared memory map the database needs, " +
+	"as a mergerfs pool mounted cache.files=off does; put the data folder (PATH_TO_APPDATA) on one disk, " +
+	"or mount the pool with cache.files=partial"
+
+// explainOpenFailure is err, wrapped and led by plain words when its cause is one the person
+// installing can fix: a filesystem refusing the shared memory map (the walkthrough install on
+// OpenMediaVault 7, 2026-11-20, W1). Any other err is returned as it is.
+func explainOpenFailure(err error) error {
+	if isSharedMemoryRefused(err) {
+		return fmt.Errorf("%s: %w", sharedMemoryRefusedAdvice, err)
+	}
+	return err
 }
 
 // Path is the database file's path.

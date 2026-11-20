@@ -229,6 +229,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Unicode61 makes a CJK run one token and shreds Thai. | [FTS5 tokeniser gaps](#fts5-tokeniser-gaps) |
 | `modernc.org/libc` imports `os/exec`, which trips "the core never execs" | [`modernc.org/libc` imports `os/exec`, which trips "the core never execs"](#moderncorglibc-imports-osexec-which-trips-the-core-never-execs) |
 | SQLite's locking is unreliable on network filesystems | [SQLite's locking is unreliable on network filesystems](#sqlites-locking-is-unreliable-on-network-filesystems) |
+| The core stopped at start with `read PRAGMA journal_mode: disk I/O error (5386)`, its data folder on an OpenMediaVault mergerfs pool; compose said only "unhealthy". | [mergerfs mounted `cache.files=off` refuses the shared memory map SQLite's WAL needs](#mergerfs-mounted-cachefilesoff-refuses-the-shared-memory-map-sqlites-wal-needs) |
 | A backup with a row its CHECK forbids passed `integrity_check` | [On a file opened `mode=ro`, `integrity_check` skips CHECK constraints](#on-a-file-opened-modero-integrity_check-skips-check-constraints) |
 | `COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR | [`COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR](#collate-nocase-folds-only-ascii-and-temp-files-follow-tmpdir) |
 | Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie" | [Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie"](#go-regexps-w-d-s-and-b-are-ascii-only-and-fail-silently-on-names-like-amélie) |
@@ -4475,6 +4476,29 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[web]** [SQLite Over a Network](https://www.sqlite.org/useovernet.html) and [WAL
   mode](https://www.sqlite.org/wal.html): "WAL does not work over a network filesystem", because WAL needs
   shared memory between processes; the FAQ's advice holds. Documented, no bug to track (checked 2026-10-08).
+
+
+### mergerfs mounted `cache.files=off` refuses the shared memory map SQLite's WAL needs
+
+- **Symptom:** the core stops at start with `database ".../persistent.db": read PRAGMA journal_mode:
+  disk I/O error (5386)`, its data folder on a mergerfs pool as OpenMediaVault's mergerfs plugin
+  mounts one; the same folder on one of the pool's disks works.
+- **Cause:** 5386 is `SQLITE_IOERR_SHMMAP`: WAL maps its `-shm` file `MAP_SHARED`, and Linux's FUSE
+  refuses a shared mmap while the page cache is off, which `cache.files=off` (direct I/O) turns off.
+  Linux 6.6 and later can allow it with mergerfs's `direct-io-allow-mmap`, unverified here. A media
+  folder on such a pool is unaffected: nothing maps a film shared.
+- **What we do:** the store says the cause and the fix in plain words when an open fails with 5386
+  (`explainOpenFailure`, `internal/store/open.go`; `TestOpen_SaysPlainlyAFilesystemThatRefusesTheSharedMemoryMap`),
+  and the core's log and `/api/v1/health` carry it: put the data folder on one disk, or mount the
+  pool with `cache.files=partial` (or `auto-full`, `per-process`).
+- **Evidence:** **[owner]** the walkthrough install on OpenMediaVault 7, 2026-11-20 (W1).
+  **[web]** mergerfs's [known issues](https://trapexit.github.io/mergerfs/known_issues_bugs): "Shared
+  mmap is not supported by Linux's FUSE implementation when page caching is disabled", to be fixed
+  by placing the data elsewhere or enabling `cache.files`; a
+  [Syncthing forum thread](https://forum.syncthing.net/t/syncthing-2-0-db-cannot-be-accessed/24908)
+  met the same `disk I/O error` at `PRAGMA journal_mode` on OpenMediaVault and removed
+  `cache.files=off`; a [virtiofs guide](https://docs.rrchnm.org/guides/virtiofs-map-shared/) meets
+  the same 5386 on virtiofs without shared mmap (checked 2026-11-20).
 
 
 ### `COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR

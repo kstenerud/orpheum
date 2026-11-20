@@ -35,6 +35,9 @@
 //     TestOpen_SyncsTheDiskUnlessToldToSkipIt.
 //   - A non-empty file without our application_id is refused, never migrated. Enforced by
 //     TestOpen_RefusesAFileThatIsNotOurs.
+//   - An open its filesystem refused WAL's shared memory map (SQLITE_IOERR_SHMMAP, a mergerfs pool
+//     mounted cache.files=off) says so and what to do in plain words, the driver's error wrapped.
+//     Enforced by TestOpen_SaysPlainlyAFilesystemThatRefusesTheSharedMemoryMap.
 //   - Writes go through Write on the one writer; the reader pool is query_only. Enforced by
 //     TestRead_RefusesAWrite and TestWrite_RollsBackWhenTheChangeFails.
 //   - Every reader a pool opens stays open, on persistent.db and cache.db, with or without a load

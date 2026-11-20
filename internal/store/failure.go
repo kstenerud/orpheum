@@ -26,3 +26,20 @@ func IsStorageFailure(err error) bool {
 	}
 	return errors.Is(err, syscall.ENOSPC) || errors.Is(err, syscall.EIO) || errors.Is(err, syscall.EDQUOT)
 }
+
+// codedFailure is an error carrying SQLite's extended result code, as the driver's *sqlite.Error
+// does; it is matched by its method rather than its type, since that type cannot be made outside
+// the driver and a test stands one in.
+type codedFailure interface {
+	error
+	Code() int
+}
+
+// isSharedMemoryRefused is whether err is SQLite's SQLITE_IOERR_SHMMAP (5386): the filesystem
+// under the database refused the shared memory map of its -shm file that WAL needs, as a mergerfs
+// pool mounted cache.files=off does (idiosyncrasies.md, "mergerfs mounted cache.files=off refuses
+// the shared memory map SQLite's WAL needs").
+func isSharedMemoryRefused(err error) bool {
+	failure, isCoded := errors.AsType[codedFailure](err)
+	return isCoded && failure.Code() == sqlite3.SQLITE_IOERR_SHMMAP
+}
