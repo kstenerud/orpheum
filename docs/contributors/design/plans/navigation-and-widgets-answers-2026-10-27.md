@@ -4704,3 +4704,48 @@ its report joins this one before the batch is cut.
     implementation itself resolves to a single go binary, but it's not our preferred method of
     running the software." The README's Features line says that: one Go binary, with its own
     FFmpeg, run through Docker.
+
+### The owner's walkthrough install on OpenMediaVault 7 (2026-11-20), next batch
+
+The owner's agent installed v0.8.7 on a fresh OpenMediaVault 7 (no omv-extras, no SSH user), with
+the media on another NAS's NFS share (omv-extras' remotemount, `nfs4`, `vers=4.2,hard`) and appdata
+first on a mergerfs pool. It worked in the end, at home and through orpheum.cc. Fifteen findings
+(the report is the owner's, in the shared files as `orpheum-setup-report.md`); the lead's triage:
+
+- **Serious, first in the batch (W1):** appdata on a mergerfs pool mounted `cache.files=off`
+  (OpenMediaVault's plugin mounts so) cannot hold the database: WAL needs a shared mmap of the
+  `-shm` file, which mergerfs refuses there, and the core stops with `read PRAGMA journal_mode: disk
+  I/O error (5386)` (`SQLITE_IOERR_SHMMAP`); compose shows only "unhealthy". install.md says "a pool
+  works as a disk does", true for the media and wrong for appdata. The workaround was the branch disk
+  that held the folder. Fixes: install.md's OMV step and variables table say appdata goes on one disk
+  (or a pool mounted `cache.files=partial`, `auto-full` or `per-process`); setup-problems.md keyed on
+  5386; idiosyncrasies.md; the store names 5386 in plain words; `orpheum-folders`, which runs before
+  the core, tries a shared mmap in appdata and stops `Up` with that message. The friend's install
+  (2026-11-19) had only the media on the pool, which is why it was not met.
+- **Documentation, no answer needed:** W2, a fresh OMV needs a shell once, for omv-extras: say so
+  first, with the web steps (Services → SSH, a user in `_ssh` and `sudo`; `admin` cannot SSH), and
+  that with Compose already there no shell is needed. W3, a subsection for films on another NAS:
+  appdata on a local disk, remotemount's options (setup-problems.md's `soft,timeo=100,retrans=3`),
+  Shared Folders' permissions do not govern a remote mount, `sudo -u <user> ls <path>` to check. W4,
+  the wait at `orpheum-core Waiting` is normal for up to a minute; on failure, the core's log. W6,
+  ticking **Show environment file** is its own step. W9, the UID column is hidden: turn it on from
+  the column menu; GID 100 for every user OMV makes. W10, `sudo -v` first (wget's progress hides the
+  password prompt) and the new user's "Could not chdir to home directory" is harmless. W11 = F8 and
+  F12 (PGID 1000 against 100; v0.3.3/v0.4.0 examples). W12, make the shared folders before the
+  prerequisites refer to them. W13 = F16 (decision numbers in the shipped compose files). W14, the
+  guide's prose: one action a step, the expected result after each, plainer words.
+- **Small code fixes, no answer needed:** W5, the first-admin link said on its own line, plainly, at
+  INFO, besides the structured WARN (`cmd/orpheum/serve.go`). W7, the plain-HTTP note's Dismiss is
+  `useState` only (`web/apps/web/src/plain-http-note.tsx`), so it is back at every load: remember it
+  in localStorage. W4's other half, the healthcheck saying the health endpoint's reason, so compose
+  and OMV show why.
+- **To check:** the node's hello logged the NFS share with an empty `WhenGone`, though `whenGone`
+  (`internal/node/hardware/storage.go`) makes an `nfs`/`nfs4` mount without `soft` wait forever, and
+  the doctor's "network shares" check would then warn. Find which device that line was (the share,
+  or another) before calling it a bug.
+- **The owner's call:** W8, after Claim, a link to the server from anywhere (realm filled in) and a
+  QR code for phones, on the System and account pages: a new feature. W15, discoverability: orpheum.cc
+  served its title, description and visible noscript from 12:15 (build 13d1825-bbc0d08fc, checked
+  again at 13:50); when the report's agent fetched it is not known, so nothing is concluded from its
+  "only app config" (agent-failures A86). Serving install.md from orpheum.cc itself is the open
+  question.
