@@ -389,3 +389,23 @@ func TestRender_AWordCannotEndTheReportsHTML(t *testing.T) {
 		t.Errorf("the person's words are read as HTML:\n%s", whole)
 	}
 }
+
+// A report made on the command line says so, by the command that made it, where one made in the
+// app names its person, device and page, and calls its facts the machine's (D524 §5).
+func TestRender_AReportFromTheCommandLineSaysTheCommandThatMadeIt(t *testing.T) {
+	t.Parallel()
+	report := fixture()
+	report.Reporter, report.Page, report.Playback = problemreport.Reporter{}, "", nil
+	report.Command = "orpheum bugreport safe"
+	whole := shareable(t, report).Whole
+	for _, said := range []string{"Made on the command line, by `orpheum bugreport safe`", "## The machine"} {
+		if !strings.Contains(whole, said) {
+			t.Errorf("the report does not say %q:\n%s", said, whole)
+		}
+	}
+	for _, unsaid := range []string{"Made by", "## The device"} {
+		if strings.Contains(whole, unsaid) {
+			t.Errorf("the report made on the command line says %q:\n%s", unsaid, whole)
+		}
+	}
+}

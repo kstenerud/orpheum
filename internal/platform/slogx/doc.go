@@ -18,8 +18,9 @@
 //     sloglint (no-global: all) and the forbidigo rule tagged [ambient].
 //   - Every log call has a constant message and camelCase keys. Enforced by sloglint
 //     (static-msg, key-naming-case: camel).
-//   - This package imports nothing from the module. Enforced by the depguard rule
-//     platform-is-a-leaf.
+//   - This package imports nothing from the module above it: of the module, only pkg/strictjson,
+//     the one way to read JSON (D456), which written.go reads a log file's lines with. Enforced by
+//     the depguard rule platform-is-a-leaf.
 //   - Every line logged with a request's context carries its ID (WithRequestID) as requestId, through a
 //     logger's own attributes and groups; a line logged with none carries none (D347). Enforced by
 //     TestNew_ALineLoggedWithARequestsContextCarriesItsID.
@@ -36,6 +37,10 @@
 //     TestRecent_KeepsEveryLineHalfAnHourAndThoseAtInfoADay,
 //     TestRecent_KeepsNoMoreThanItsCountOfEachKind,
 //     TestRecent_ALineHasTheLoggersFieldsItsGroupsAndItsRequestsID.
+//   - A written log read back (KeepWritten) keeps what its logger kept: each line's time, level,
+//     message and fields in order, a JSON line's values of their kinds and a text line's as strings,
+//     bounded as a logged line is, from the newest line's time; a line of neither format is counted
+//     unread, not guessed at (D524 §5). Enforced by TestRecent_KeepsWhatALoggerWroteAsItKeptIt.
 //
 // # Read before changing
 //
@@ -51,5 +56,6 @@
 //   - slogx.go: formats and handler options. A new Format needs a case in every switch over
 //     Format; exhaustive fails the build until it has one. failing.go: Failing, when a loop's
 //     lasting failure is said. request.go: a request's ID, on every line it causes.
-//     recent.go: the recent log (Recent); line.go: its Line.
+//     recent.go: the recent log (Recent); line.go: its Line; written.go: a log file read back into
+//     one, for `orpheum bugreport` (D524 §5).
 package slogx

@@ -30,8 +30,8 @@ type channel struct {
 
 // TestCanary_ASecretAppearsNowhereButAsCiphertext is M1's acceptance test for D194 §5. Every
 // secret is set to a canary through the real API of a real server, then the API's responses, the
-// log at debug level, doctor's output, a backup and the database file itself are searched.
-// Bug reports do not exist in Cut A yet; they join this test when they land.
+// log at debug level, doctor's output, the command line's full problem report (D524 §5), a backup
+// and the database file itself are searched.
 func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
@@ -70,6 +70,7 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	}
 
 	doctor := runCommand(t, "doctor", "--instance", configPath)
+	bugreport := runCommand(t, "bugreport", "unsafe", "--instance", configPath)
 	written := runCommand(t, "backup", "--instance", configPath)
 	backupFile := strings.Fields(written.stdout)[1]
 	backupContents := archiveContents(t, backupFile)
@@ -78,6 +79,7 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 		{"API responses", responses.String(), adminName},
 		{"the log", captured.String(), setupCode},
 		{"doctor's output", doctor.stdout + doctor.stderr, config.Instance.PersistentDir},
+		{"the command line's problem report", bugreport.stdout + bugreport.stderr, config.Instance.PersistentDir},
 		{"a backup", backupContents, adminName},
 		{"persistent.db", string(databaseBytes), adminName},
 	}

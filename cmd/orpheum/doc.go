@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (core, node) or the operation (migrate, backup, restore, doctor, setup-code, reset-admin, openapi,
-// version, and dev in dev builds). The core and each node are services of their own, `orpheum core` and
+// (core, node) or the operation (migrate, backup, restore, doctor, bugreport, setup-code, reset-admin,
+// openapi, version, and dev in dev builds). The core and each node are services of their own, `orpheum core` and
 // `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
 // `orpheum start` is the core of a deployment installed from one compose file, which writes the
 // deployment from its flags the first time (D447).
@@ -99,6 +99,14 @@
 //   - A secret appears in no API response, log, doctor output, backup or database file except as
 //     ciphertext (D194 §5). Enforced by TestCanary_ASecretAppearsNowhereButAsCiphertext, seen to
 //     fail against a planted leak.
+//   - bugreport has no default form: safe hides every name the database holds and the instance's
+//     paths, unsafe names them with the table of their tags, and a database that does not open, a
+//     core that logs to standard error and every node are named, with why, rather than refused; it
+//     opens the database without migrating it (D524 §5). Enforced by
+//     TestBugreport_SafeHidesTheNamesTheDatabaseHoldsAndUnsafeNamesThemWithTheirTags,
+//     TestBugreport_RefusesAMissingOrWrongFormWord,
+//     TestBugreport_ADatabaseThatDoesNotOpenStillGivesAReportSayingWhy and
+//     TestBugreport_HoldsTheCoresRecentLogFromItsLogFile.
 //   - The discovery's heartbeat sends the machine's public addresses and, of its private ones, the
 //     address at home alone, never a container bridge's gateway (D452 §3). Enforced by
 //     TestPublicOrAtHome_SendsNoPrivateAddressButTheAddressAtHome.
@@ -126,7 +134,8 @@
 //     reset_admin.go: reset-admin, the operator's way back in (D294), terminal_linux.go its
 //     password read without echo.
 //     deployment.go: write-deployment and install-script; start.go: start, the first start (D447).
-//     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
+//     doctor.go: doctor, the one list of what to fix. bugreport.go: bugreport, a problem report
+//     from the command line (D524 §5). dev_seed.go: orpheum dev seed, in dev
 //     builds only.
 //   - serve.go's openAndWire and wireCore: what is opened, seeded and read for the assembly, and what
 //     is made beside it. A service of the core's, or its wiring to another, is

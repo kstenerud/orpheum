@@ -19,7 +19,9 @@
 // downloaded; Expiring's sweep deletes it, as the core starts and each hour after, logging
 // EventExpired. The API (internal/core/api/problem_reports.go) makes a report for anyone signed in
 // and lists, downloads and deletes them for the admin; the assembly hands the keeper the process's
-// recent log and the node byte socket's client as its NodeLogs.
+// recent log and the node byte socket's client as its NodeLogs. `orpheum bugreport` (cmd/orpheum,
+// D524 §5) gathers a report itself for a core that does not start, and renders it the same way,
+// with the same names looked up (AddKnown) and the command that made it in place of the page.
 //
 // A tag is `kind:xxxxxx`, a salted hash's first hex digits, lengthened where two values would share
 // one; one salt per report, so the core's and the nodes' lines name one file by one tag, and every
@@ -82,6 +84,9 @@
 //   - A played file's shape keeps codecs, depths, sizes, rates, layouts and languages, and no
 //     container's or track's title (D74). Enforced by
 //     TestShape_KeepsTheFilesShapeAndLeavesItsTitlesBehind.
+//   - A report made on the command line says the command that made it, and its facts are the
+//     machine's, not a page's device's. Enforced by
+//     TestRender_AReportFromTheCommandLineSaysTheCommandThatMadeIt.
 //
 // # Read before changing
 //

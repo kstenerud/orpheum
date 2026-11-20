@@ -119,10 +119,8 @@ func (keeper *Keeper) Make(ctx context.Context, request Request) (int64, error) 
 	if made >= PerPersonPerHour {
 		return 0, ErrTooMany
 	}
-	salt := make([]byte, saltBytes)
-	_, _ = rand.Read(salt) // crypto/rand.Read never fails (Go 1.24)
 	gathered := gatheredReport{
-		Salt: salt, DeviceName: request.DeviceName, Page: request.Page, Components: keeper.components(ctx, now),
+		Salt: NewSalt(), DeviceName: request.DeviceName, Page: request.Page, Components: keeper.components(ctx, now),
 	}
 	for _, fact := range request.Device {
 		gathered.Device = append(gathered.Device, gatheredFact(fact))
@@ -265,16 +263,29 @@ func (keeper *Keeper) Download(ctx context.Context, reportID int64, options Opti
 	if row.UserName != nil {
 		report.Reporter.UserName = *row.UserName
 	}
-	if knownErr := keeper.addKnown(ctx, &report); knownErr != nil {
+	house := ""
+	if keeper.parts.House != nil {
+		house = keeper.parts.House()
+	}
+	if knownErr := AddKnown(ctx, keeper.parts.Database, house, &report); knownErr != nil {
 		return Rendered{}, knownErr
 	}
 	return Render(report, options)
 }
 
-// addKnown adds to report every name the database holds that can say whose it is, and the other
-// libraries' roots.
-func (keeper *Keeper) addKnown(ctx context.Context, report *Report) error {
-	names, err := keeper.parts.Database.Read().ListProblemReportKnownNames(ctx)
+// NewSalt is a new report's own salt, random: every report has one (Report.Salt).
+func NewSalt() []byte {
+	salt := make([]byte, saltBytes)
+	_, _ = rand.Read(salt) // crypto/rand.Read never fails (Go 1.24)
+	return salt
+}
+
+// AddKnown sets report's Known to every name database holds that can say whose the report is, and
+// house, the household's name, when not empty, and adds the other libraries' roots to its
+// OtherRoots. A download from the System page and a report made on the command line (D524 §5) both
+// look the names up by it.
+func AddKnown(ctx context.Context, database *store.Database, house string, report *Report) error {
+	names, err := database.Read().ListProblemReportKnownNames(ctx)
 	if err != nil {
 		return fmt.Errorf("list the names a problem report hides: %w", err)
 	}
@@ -289,10 +300,8 @@ func (keeper *Keeper) addKnown(ctx context.Context, report *Report) error {
 			report.OtherRoots = append(report.OtherRoots, known.Value)
 		}
 	}
-	if keeper.parts.House != nil {
-		if house := keeper.parts.House(); house != "" {
-			report.Known = append(report.Known, Known{Kind: KindHouse, Value: house})
-		}
+	if house != "" {
+		report.Known = append(report.Known, Known{Kind: KindHouse, Value: house})
 	}
 	return nil
 }

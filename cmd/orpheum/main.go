@@ -99,6 +99,11 @@ func plannedSubcommands() []subcommand {
 		},
 		{name: "doctor", summary: "report what is wrong and how to fix it", implementation: commandDoctor},
 		{
+			name: "bugreport", summary: "print a problem report, safe to share or unsafe, for a core that does " +
+				"not start (D524 §5)",
+			implementation: commandBugreport,
+		},
+		{
 			name: "setup-code", summary: "print the one-time code that creates the first admin",
 			implementation: commandSetupCode,
 		},

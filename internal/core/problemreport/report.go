@@ -47,6 +47,10 @@ type Report struct {
 	Words string
 	// Page is the path of the page the report was made from; its query and fragment are dropped.
 	Page string
+	// Command, for a report made on the command line, is the command that made it ("orpheum
+	// bugreport safe", D524 §5): the report says so where one made in the app names its person,
+	// device and page, and its Device facts are the machine's. Empty for a report made in the app.
+	Command string
 	// Device are the device's facts in the order it gave them: a name of the client's, and a value
 	// scrubbed.
 	Device []Fact
@@ -221,6 +225,7 @@ type model struct {
 	device      text
 	words       text
 	page        text
+	command     string
 	facts       []factRow
 	playback    []factRow
 	file        []factRow
@@ -258,7 +263,7 @@ func (builder *builder) build(report Report) *model {
 		made: report.Made, version: report.Version,
 		user:   builder.person(KindUser, report.Reporter.UserName),
 		device: builder.person(KindDevice, report.Reporter.DeviceName),
-		page:   builder.page(report.Page),
+		page:   builder.page(report.Page), command: report.Command,
 	}
 	for _, each := range report.Components {
 		component := componentModel{node: each.Node, version: each.Version, isAbsent: each.Absent != ""}

@@ -104,7 +104,11 @@ func (built *model) markdown() string {
 	built.heading(&out)
 	built.wordsSection(&out)
 	built.versions(&out)
-	writeLines(&out, "## The device", "")
+	if built.command != "" {
+		writeLines(&out, "## The machine", "")
+	} else {
+		writeLines(&out, "## The device", "")
+	}
 	built.factTable(&out, built.facts)
 	built.playbackSection(&out)
 	built.logs(&out)
@@ -150,6 +154,11 @@ func (built *model) wordsSection(out *strings.Builder) {
 	writeLines(out, "## In their words", "")
 	for each := range strings.SplitSeq(built.words.read(built.options), "\n") {
 		writeLines(out, "> "+escape(each))
+	}
+	if built.command != "" {
+		writeLines(out, "", fmt.Sprintf("Made on the command line, by `%s`, on the machine below.",
+			strings.ReplaceAll(built.command, "`", "'")), "")
+		return
 	}
 	writeLines(out, "", fmt.Sprintf("Made by %s on %s, from the page `%s`.", escape(built.user.read(built.options)),
 		escape(built.device.read(built.options)), strings.ReplaceAll(built.page.read(built.options), "`", "'")), "")

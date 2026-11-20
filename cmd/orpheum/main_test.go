@@ -75,6 +75,10 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		if planned.name == "compose-files" {
 			want = composeFilesUsage
 		}
+		// bugreport's form word comes first, and its usage names the instance it needs too.
+		if planned.name == "bugreport" {
+			want = "Usage: orpheum bugreport safe|unsafe --instance <directory>"
+		}
 		// start's instance is its deployment's, at a fixed path the compose file mounts.
 		if planned.name == "start" {
 			want = "the deployment's directory is not there"

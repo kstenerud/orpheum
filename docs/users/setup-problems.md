@@ -269,6 +269,16 @@ and its `err=` names the cause. Look for its words on this page; the most common
 the next entry. From a terminal, a compose file from a release after v0.8.7 also keeps the reason in the health
 check: `docker inspect --format '{{json .State.Health}}' orpheum-core`.
 
+### Asked for a problem report, and the core does not start, so System cannot make one
+
+Make it from a terminal instead:
+`docker exec orpheum-core orpheum bugreport safe --instance /var/lib/orpheum/core --words "what went wrong"`
+prints a report to share, each title, path and name in it replaced by a tag. Read it before you post
+it. `unsafe` in place of `safe` prints everything, with what each tag stands for: keep that one to
+yourself. Either says what doctor finds, whether the database opens, and the core's recent log when
+it writes one to a file; a core that logs to the container's log has none to give, so add the end of
+`docker logs orpheum-core` yourself, read first. A report made this way asks no node for its log.
+
 ### The core's log says `disk I/O error (5386)`
 
 The whole line reads like `database "/var/lib/orpheum/core/persistent/persistent.db": read PRAGMA
