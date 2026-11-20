@@ -20,6 +20,8 @@ the working tree's uncommitted and untracked files), and runs, at once:
 * **Python:** the gates' tests (`scripts/py_tests.py`), when a script, a hook, ./dev or the
   Makefile changed.
 * **Documentation:** the docs gate (`scripts/check_docs.py`), when Markdown changed.
+* **The owner's domains:** the test that only suggested.go names them, when a shipped source changed
+  and its package is not already run whole.
 
 What it cannot run in the time (the web type check and lint, the dev build's Go lint, generated code, the integration and browser
 tiers) it names, so a green is never read as `make check`'s.
@@ -55,6 +57,16 @@ GENERATED_FROM = re.compile(r"^(internal/store/(cache/)?queries/.*\.sql|internal
 # The media-name gate and its registry: a change to either is checked against every file.
 MEDIA_NAMES_GATE = {"scripts/check_media_names.py", "scripts/media_names.allow"}
 
+# The test that only suggested.go of the shipped sources names the owner's domains: it reads every
+# file, so a change to any shipped source runs it, about a second. It was met only at the turn's end
+# twice in a day, a comment quoting the owner (the owner, 2026-11-20: "make it run the domain test").
+# SHIPPED_SOURCE is the test's own isShippedSource, by extension, a test file excepted.
+DOMAIN_TEST = "TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains"
+DOMAIN_TEST_PACKAGE = "internal/core/discovery"
+SHIPPED_SOURCE = re.compile(r"\.(go|ts|tsx|mts|js|mjs|sh|html|yaml|toml)$")
+UNSHIPPED_TEST = re.compile(r"(_test\.go|\.test\.|\.spec\.)")
+GO_TEST_ONE = ["go", "test", "-run"]
+
 
 @dataclass
 class Plan:
@@ -69,6 +81,8 @@ class Plan:
     # gate or its registry changed.
     named: list[str] = field(default_factory=list)
     named_all: bool = False
+    # Whether a shipped source changed, so the domain test runs (DOMAIN_TEST).
+    shipped: bool = False
     not_run: list[str] = field(default_factory=list)
 
 
@@ -92,6 +106,7 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
     to the packages that import it directly, their tests included."""
     result = Plan()
     result.named, result.named_all = list(paths), bool(MEDIA_NAMES_GATE & set(paths))
+    result.shipped = any(SHIPPED_SOURCE.search(path) and not UNSHIPPED_TEST.search(Path(path).name) for path in paths)
     changed_packages: set[str] = set()
     styles = []
     for path in paths:
@@ -175,6 +190,9 @@ def runs(spot: Plan, module: str) -> list[Run]:
     if spot.named or spot.named_all:
         named = [] if spot.named_all else spot.named
         out.append(Run("the media-name gate", [sys.executable, "scripts/check_media_names.py", *named]))
+    # The whole package's run, when it is planned, runs the domain test with the rest.
+    if spot.shipped and f"{module}/{DOMAIN_TEST_PACKAGE}" not in spot.go_packages:
+        out.append(Run("the owner's-domains test", [*GO_TEST_ONE, f"^{DOMAIN_TEST}$", f"./{DOMAIN_TEST_PACKAGE}"]))
     return out
 
 

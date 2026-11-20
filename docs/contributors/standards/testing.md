@@ -216,7 +216,8 @@ exists, and every `TestArch_` test is cited.
   [D279](../decisions/working-notes.md)):
   - **while working, a spot check** of what changed: `make spot` runs the Go packages that
     changed and those importing them, vitest's related tests of the changed web files, the gates'
-    Python tests when a script changed and the docs gate for Markdown, at once, and names what it
+    Python tests when a script changed, the docs gate for Markdown and, when a shipped source
+    changed, the test that only suggested.go names the owner's domains, at once, and names what it
     left to `make check` (stylesheets, the type check, generated code); or one test by hand,
     `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`. Within **30 seconds**;
   - **at each commit, `make check`** (the hooks run it), within about **90 seconds**;

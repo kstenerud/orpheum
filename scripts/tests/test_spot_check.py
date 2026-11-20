@@ -64,6 +64,18 @@ class Planning(unittest.TestCase):
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
         self.assertIn([sys.executable, "scripts/check_media_names.py"], commands)
 
+    def test_a_shipped_source_runs_the_domain_test_unless_its_package_runs_whole(self):
+        domain = [*spot_check.GO_TEST_ONE, f"^{spot_check.DOMAIN_TEST}$", f"./{spot_check.DOMAIN_TEST_PACKAGE}"]
+        for shipped in ("web/apps/web/src/a.tsx", "deploy/omv/compose.yaml", "install.sh", "internal/a/x.go"):
+            spot = spot_check.plan([shipped], MODULE, IMPORTERS)
+            self.assertIn(domain, [run.command for run in spot_check.runs(spot, MODULE)], shipped)
+        for unshipped in ("docs/a.md", "internal/a/x_test.go", "web/apps/web/src/a.test.tsx", "scripts/x.py"):
+            spot = spot_check.plan([unshipped], MODULE, IMPORTERS)
+            self.assertNotIn(domain, [run.command for run in spot_check.runs(spot, MODULE)], unshipped)
+        # The package's own change runs its every test, this one among them.
+        spot = spot_check.plan([f"{spot_check.DOMAIN_TEST_PACKAGE}/suggested.go"], MODULE, {})
+        self.assertNotIn(domain, [run.command for run in spot_check.runs(spot, MODULE)])
+
     def test_the_runs_are_the_planned_commands(self):
         spot = spot_check.plan(["internal/a/x.go", "web/apps/web/src/a.tsx", "scripts/x.py"], MODULE, IMPORTERS)
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
