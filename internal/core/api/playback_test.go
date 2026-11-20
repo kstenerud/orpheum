@@ -145,9 +145,10 @@ type decision struct {
 	TitleName        string            `json:"titleName"`
 	OnLadder         *api.LadderBody   `json:"onLadder"`
 	// IsOriginalWaitingForTheLink is the original chosen on a link remembered short of it.
-	IsOriginalWaitingForTheLink bool           `json:"isOriginalWaitingForTheLink"`
-	Tracks                      api.TracksBody `json:"tracks"`
-	Plays                       *api.PlaysBody `json:"plays"`
+	IsOriginalWaitingForTheLink bool              `json:"isOriginalWaitingForTheLink"`
+	Tracks                      api.TracksBody    `json:"tracks"`
+	Plays                       *api.PlaysBody    `json:"plays"`
+	Segments                    []api.SegmentBody `json:"segments"`
 }
 
 type subtitleTrack struct {
@@ -286,6 +287,30 @@ func TestPlayback_NamesTheTitleItPlaysAndNeverAPath(t *testing.T) {
 	harness.fileFilmAsTitle(t, "Metropolis")
 	if named := harness.play(t, user, chrome(1)); named.TitleName != "Metropolis" {
 		t.Errorf("the title's name = %q, want Metropolis", named.TitleName)
+	}
+}
+
+// The decision carries the segments of the file it plays, in order, for its player to skip and to place
+// the next episode's prompt by (D82): of a type a person corrected, the person's alone; an episode
+// boundary and a range of no known type are not sent yet; a file with none has an empty list.
+func TestPlayback_CarriesTheSegmentsOfTheFileItPlays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	if none := harness.play(t, user, chrome(1)); none.Segments == nil || len(none.Segments) != 0 {
+		t.Errorf("a file with no segments has %+v; want an empty list", none.Segments)
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence) VALUES "+
+			"(1, 'credits', 1100000, 1200000, 'chapters', 1), (1, 'intro', 0, 90000, 'chapters', 1), "+
+			"(1, 'intro', 5000, 85000, 'person', 1), (1, 'unknown', 300000, 310000, 'chapters', 1), "+
+			"(1, 'episode_boundary', 600000, 600001, 'chapters', 1), (2, 'recap', 0, 30000, 'chapters', 1)")
+	want := []api.SegmentBody{
+		{Type: "intro", StartMs: 5000, EndMs: 85000}, {Type: "credits", StartMs: 1100000, EndMs: 1200000},
+	}
+	if got := harness.play(t, user, chrome(1)).Segments; !slices.Equal(got, want) {
+		t.Errorf("the segments = %+v; want %+v", got, want)
 	}
 }
 

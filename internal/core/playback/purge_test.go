@@ -53,7 +53,9 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 			 VALUES (%d, 'file', %d, 'subtitle_offset_ms', '500', 1)`, userID, fileID),
 			fmt.Sprintf(`INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, language, format,
 			 body_gzip, fetched_by_user_id, fetched_at) VALUES (%d, 'opensubtitles', '%d', 'en', 'srt', X'00', %d, 1)`,
-				fileID, fileID, userID))
+				fileID, fileID, userID),
+			fmt.Sprintf(`INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence)
+			 VALUES (%d, 'intro', 0, 90000, 'person', 1)`, fileID))
 	}
 	storetest.ExecRaw(t, database.Path(), statements...)
 	librarytest.File(t, database, librarytest.FileSpec{
@@ -78,6 +80,7 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 	for table, column := range map[string]string{
 		"play_span": "file_id", "play_event": "file_id", "play_position": "file_id", "file_probe": "file_id",
 		"fetched_subtitle": "video_file", "stream": "video_file", "preference": "scope_id",
+		"media_segment": "file_id",
 	} {
 		got := storetest.QueryRaw(t, database.Path(), "SELECT "+column+" FROM "+table+" ORDER BY "+column)
 		if !slices.Equal(got, []string{"3", "4"}) {

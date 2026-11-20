@@ -88,6 +88,7 @@ func purgeFiles(
 	}{
 		{"streams", queries.DeleteStreamsOfPurgedFiles},
 		{"probes", queries.DeleteProbesOfPurgedFiles},
+		{"segments", queries.DeleteSegmentsOfPurgedFiles},
 		{"NFOs", queries.DeleteNFOsOfPurgedFiles},
 		{"filings", queries.DeleteFilingsOfPurgedFiles},
 		{"whole-file hashes", queries.DeleteWholeHashesOfPurgedFiles},

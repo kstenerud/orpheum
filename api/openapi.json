@@ -7636,6 +7636,36 @@
         ],
         "type": "object"
       },
+      "SegmentBody": {
+        "properties": {
+          "endMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "startMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "intro",
+              "recap",
+              "preview",
+              "credits",
+              "commercial"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "startMs",
+          "endMs"
+        ],
+        "type": "object"
+      },
       "SeriesBody": {
         "properties": {
           "art": {
@@ -8693,6 +8723,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/SegmentBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "soundOffsetMs": {
             "format": "int64",
             "maximum": 2000,
@@ -8735,7 +8774,8 @@
           "soundOffsetMs",
           "levelling",
           "fileBitRateKbps",
-          "tracks"
+          "tracks",
+          "segments"
         ],
         "type": "object"
       },

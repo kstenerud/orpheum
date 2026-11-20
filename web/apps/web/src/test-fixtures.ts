@@ -20,6 +20,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     notDirectReasons: [],
     subtitles: [],
     audioTracks: [],
+    segments: [],
     preferences: {
       subtitleOffsetMs: 0,
       isDialogueBoostOn: false,

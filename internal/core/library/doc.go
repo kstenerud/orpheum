@@ -238,6 +238,19 @@
 //     only a track its probe no longer has, so an id a job or an address names holds.
 //     TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost.
 //
+//   - A media segment attaches to the file, whose timeline it is on, and the version's are its
+//     files' (D82, D157). A chapter whose whole title, trimmed and in any case, is one
+//     chapterTitleType names becomes a segment of that type from the chapter provider; any other
+//     chapter, one that ends where or before it starts, or one past the file's length, is none.
+//     TestChapterSegments_AChapterTitledAsASegmentTypeIsOne, TestChapterSegments_ABadChapterIsSkipped.
+//
+//   - A probe kept replaces the chapter provider's segments of its file and no other provider's: a
+//     person's correction survives every re-detection, and of its type it is the one read; a file
+//     read again unchanged writes none. A copy merged gives its file the segments a person set of it.
+//     TestIngest_AProbeReadAgainReplacesTheChapterSegmentsAndLeavesAPersons,
+//     TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces,
+//     TestPlayback_CarriesTheSegmentsOfTheFileItPlays (internal/core/api).
+//
 //   - A subtitle file keeps its payload hash and, while it belongs to a video, is one track of it,
 //     with the language and flags its name gives after the video's name; its row keeps its id
 //     across scans. TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone,
@@ -464,6 +477,7 @@
 // # Read before changing
 //
 //   - D79: four levels, Title, Edition, Version, File.
+//   - D82: media segments are typed and carry their provider; a person's beats any detector.
 //   - D163: every observed file carries a filing with a reason.
 //   - D173: a replaced file is a deletion and an addition; tombstones, not deletes.
 //   - D179: a file's identity is a hash of its media payload.
@@ -486,7 +500,8 @@
 //     the library's rules; extensions.go: the extensions a scan reads; batches.go: the batches a scan's
 //     node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
-//     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
+//     derives; segments.go: the media segments a probe's chapters name, and a file's as its player
+//     reads them (D82); create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
 //     lists.go, lists_other.go, lists_released.go: each list's reads, either way (D366);

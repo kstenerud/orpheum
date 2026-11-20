@@ -344,8 +344,9 @@ func (copies *Copies) merge(ctx context.Context, queries *sqlcgen.Queries, copyI
 // errCopyNotMade is a candidate no longer one to make a copy of: gone, or not a video, since it was read.
 var errCopyNotMade = errors.New("the file is no longer a video to make a copy")
 
-// moveCopysOwn drops a copy's own tracks and probe, its file's being the same, and makes the tracks of
-// the subtitles beside it its file's, the sidecars staying at the copy's place (D363 §3).
+// moveCopysOwn drops a copy's own tracks, probe and detected segments, its file's being the same, and
+// makes the tracks of the subtitles beside it its file's, the sidecars staying at the copy's place
+// (D363 §3), and the segments a person set of it its file's.
 func moveCopysOwn(ctx context.Context, queries *sqlcgen.Queries, copyID, fileID int64) error {
 	if err := queries.DeleteOwnStreamsOfFile(ctx, copyID); err != nil {
 		return fmt.Errorf("drop copy %d's own tracks: %w", copyID, err)
@@ -354,8 +355,16 @@ func moveCopysOwn(ctx context.Context, queries *sqlcgen.Queries, copyID, fileID 
 	if err != nil {
 		return fmt.Errorf("give copy %d's subtitles to file %d: %w", copyID, fileID, err)
 	}
-	if err := queries.DeleteFileProbe(ctx, copyID); err != nil {
+	if err = queries.DeleteFileProbe(ctx, copyID); err != nil {
 		return fmt.Errorf("drop copy %d's probe: %w", copyID, err)
+	}
+	err = queries.MovePersonSegmentsToFile(ctx,
+		sqlcgen.MovePersonSegmentsToFileParams{ToFile: fileID, FromFile: copyID})
+	if err == nil {
+		err = queries.DeleteSegmentsOfFile(ctx, copyID)
+	}
+	if err != nil {
+		return fmt.Errorf("give copy %d's segments a person set to file %d: %w", copyID, fileID, err)
 	}
 	return nil
 }

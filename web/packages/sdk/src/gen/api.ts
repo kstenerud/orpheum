@@ -5470,6 +5470,14 @@ export interface components {
             /** Format: int64 */
             waitedForAheadMs?: number;
         };
+        SegmentBody: {
+            /** Format: int64 */
+            endMs: number;
+            /** Format: int64 */
+            startMs: number;
+            /** @enum {string} */
+            type: "intro" | "recap" | "preview" | "credits" | "commercial";
+        };
         SeriesBody: {
             art: components["schemas"]["ArtBody"];
             /** @description Its cast, directors and writers in billing order; absent when it credits no one */
@@ -5838,6 +5846,7 @@ export interface components {
             profile?: "remux" | "h264";
             /** Format: int64 */
             resumePositionMs: number;
+            segments: components["schemas"]["SegmentBody"][] | null;
             /** Format: int64 */
             soundOffsetMs: number;
             /** Format: int64 */

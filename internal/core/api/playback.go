@@ -145,6 +145,17 @@ type StartPlaybackOutputBody struct {
 	// page of the app is behind it (the owner, 2026-10-27); absent for a file filed as no title,
 	// and to a Watch Together viewer, who sees none of the app (D246 §3).
 	Plays *PlaysBody `json:"plays,omitempty"`
+	// Segments are the typed ranges of the file's timeline its player acts on, in order: what it
+	// offers to skip, and the credits, where it places the next episode's prompt (D82,
+	// plans/media-segments.md). Of each type a person's correction stands where they set one.
+	Segments []SegmentBody `json:"segments"`
+}
+
+// SegmentBody is one typed range of a file's timeline.
+type SegmentBody struct {
+	Type    string `enum:"intro,recap,preview,credits,commercial" json:"type"`
+	StartMs int64  `json:"startMs" minimum:"0"`
+	EndMs   int64  `json:"endMs" minimum:"0"`
 }
 
 // PlaysBody is the title a playback plays and where it lives: a film's page is its own, an
@@ -359,7 +370,30 @@ func (server *Server) namedOutput(
 	}
 	output := startedOutput(started)
 	output.Body.TitleName = work.Name
+	if output.Body.Segments, err = segmentBodies(ctx, dependencies, fileID); err != nil {
+		return nil, library.FileWork{}, server.libraryError(ctx, "read the segments of what a playback plays", err)
+	}
 	return output, work, nil
+}
+
+// segmentBodies are a file's segments as its player acts on them: an episode boundary and a range of no
+// known type are not yet (media-segments.md), so it is not sent them.
+func segmentBodies(ctx context.Context, dependencies *Dependencies, fileID int64) ([]SegmentBody, error) {
+	segments, err := dependencies.Browser.SegmentsOfFile(ctx, fileID)
+	if err != nil {
+		return nil, fmt.Errorf("the segments of a playback: %w", err)
+	}
+	bodies := make([]SegmentBody, 0, len(segments))
+	for _, segment := range segments {
+		switch segment.Type {
+		case library.SegmentIntro, library.SegmentRecap, library.SegmentPreview, library.SegmentCredits,
+			library.SegmentCommercial:
+			bodies = append(bodies,
+				SegmentBody{Type: string(segment.Type), StartMs: segment.StartMs, EndMs: segment.EndMs})
+		case library.SegmentUnknown, library.SegmentEpisodeBoundary:
+		}
+	}
+	return bodies, nil
 }
 
 // playsBody is the title work is and where it lives, an episode's place as userID sees it; nil for a

@@ -4,7 +4,13 @@
 
 # Media segments
 
-- **Status:** PLANNED — designed 2026-09-19 ([D82](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §4).
+- **Status:** PARTLY BUILT — designed 2026-09-19 ([D82](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §4).
+  Built for the closed beta ([b1.md](b1.md) Phase B, 2026-11-20): the table (`media_segment`, step
+  0094), the chapter-derived detector (`internal/core/library/segments.go`), and a file's segments
+  in the playback the player starts (`segments` of `POST /playback`), an episode boundary and an
+  `unknown` range left out. Not built: the skip and the credits cue in the player (b1.md Phase C),
+  a person's corrections' API, the fingerprint and black-frame detectors, and derivation across
+  sibling files.
 - **Depends on:** library-model.md
 - **Blocks:** [library-model.md](library-model.md) — the table is schema
 
@@ -72,6 +78,12 @@ This is where we differ from Jellyfin, whose `MediaSegment.ItemId` points at a `
 differ in lead-in; a PAL-speedup rip differs throughout. So segments attach at the **Version**.
 Deriving a sibling Version's segments by runtime alignment is allowed and cheaper than a second
 detection pass, and is recorded as a derivation rather than as an observation.
+
+**Built, at the file** (step 0094). Here a Version is one or more files, a multi-part one's parts
+in order, and a timecode is right for only the one file whose timeline it is on, which is why a
+position is File-relative too ([D157](../../decisions/working-notes.md)). So a segment attaches to
+the file, and a Version's segments are its files'. That keeps D82's point: two encodings of one
+episode are two files, each with its own.
 
 Each segment carries its **provider** and a **confidence**, and a **user override** beats any
 detector and survives re-detection ([principles §3](../../principles/03-explain-the-decision.md)).

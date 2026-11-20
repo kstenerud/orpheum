@@ -310,6 +310,19 @@ CREATE TABLE file_probe (                                  -- class O: what the 
   probe_json  TEXT NOT NULL,             -- the raw probe output, the input D59 replays
   duration_ms INTEGER NOT NULL DEFAULT 0 -- its format's duration; 0 when it gave none
 );
+-- Step 0094 (D82, media-segments.md): typed ranges of a file's timeline, at the file because a
+-- version's parts each have their own (D157). A detector replaces only its own rows; a person's beat it.
+CREATE TABLE media_segment (                               -- class O; a person's rows class A
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
+  type        TEXT NOT NULL CHECK (type IN ('intro','recap','preview','credits','commercial','unknown',
+                'episode_boundary')),
+  start_ms    INTEGER NOT NULL CHECK (start_ms >= 0),
+  end_ms      INTEGER NOT NULL CHECK (end_ms > start_ms),
+  provider    TEXT NOT NULL CHECK (provider IN ('chapters','fingerprint','person')),
+  confidence  REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1)
+);
+CREATE INDEX media_segment_file ON media_segment(file_id, provider);
 CREATE TABLE file_nfo (                                    -- class O: a rescan sends it again
   file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
   body        BLOB NOT NULL              -- the NFO's bytes, which identification reads (D182)
@@ -1478,6 +1491,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `place` | persistent.db | `internal/core/library` | one row per place a file is found at, the file it holds; a confirmed copy is a place holding the file found before it (D363 §2, D426 §4) |
 | `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
+| `media_segment` | persistent.db | `internal/core/library` | a file's typed ranges, its chapters' found at each probe kept; a person's are theirs (D82) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
 | `genre` | persistent.db | `internal/core/identify` | the pass, as a source first names each (step 0067) |
 | `grant` | persistent.db | `internal/core/auth` | |
@@ -1554,7 +1568,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removedFilesKeptDays` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `media_segment`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removedFilesKeptDays` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `endedCredentialsKeptDays` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
@@ -1575,7 +1589,7 @@ budgets; a `resource_use` row older than a month is deleted at the next minute's
 Each arrives with its feature as a new table or column, precluding nothing
 ([D180](../../decisions/working-notes.md)): artists and a track's featured artist, as more roles of
 the `credit` table step 0067 added for a film's cast and crew, keyed on `item`
-([D186](../../decisions/working-notes.md)); certifications and the descriptor vector, external scores, media segments,
+([D186](../../decisions/working-notes.md)); certifications and the descriptor vector, external scores,
 loudness columns on `stream`, the speech map and subtitle verification columns, trickplay, home
 rows, the rules field registry, retention marks, download registrations, the change journal
 ([D166](../../decisions/working-notes.md)), and Watch Together's persisted state if it ever needs

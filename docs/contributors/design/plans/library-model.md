@@ -176,6 +176,8 @@ each lands here rather than being bolted on — the same argument
   with a user override. At the **Version** rather than the Item because a timecode indexes an
   encoding: a 4K remux and a web-dl differ in lead-in, and a PAL-speedup rip differs
   throughout. Distinct from chapters, which are authored container metadata and have no type.
+  Built at the File (step 0094), the Version's being its files': a multi-part Version's parts each
+  have a timeline of their own, as a position is File-relative.
 - **Loudness per audio track** ([D83](../../decisions/working-notes.md),
   [audio-presentation.md](audio-presentation.md)). Integrated loudness, loudness range and true
   peak, measured by the node with `ebur128` and stored as observed facts. Netflix normalises its

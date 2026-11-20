@@ -146,11 +146,16 @@ func itoa(value int64) string { return strconv.FormatInt(value, 10) }
 // D363 §2: a video found at a second place whose payload a live video found before it has is a
 // candidate; both are read whole (D116), and the same bytes make the second the first's place from
 // then on: one file, its tracks and probe the first's, the subtitle beside the second place the file's
-// track, what each kind of library filed it as and what other packages held of it moved onto the file,
-// its work cancelled and its library passed again. The merge is logged.
+// track, what each kind of library filed it as, the segments a person set of it and what other
+// packages held of it moved onto the file, its work cancelled and its library passed again. The merge
+// is logged.
 func TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces(t *testing.T) {
 	t.Parallel()
 	bench := newCopiesBench(t)
+	storetest.ExecRaw(t, bench.database.Path(),
+		"INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence) VALUES "+
+			"("+itoa(bench.second)+", 'intro', 0, 90000, 'chapters', 1), "+
+			"("+itoa(bench.second)+", 'credits', 2000000, 2100000, 'person', 1)")
 	if owed := bench.sweep(); !slices.Equal(owed, []int64{bench.first, bench.second}) {
 		t.Fatalf("the sweep queued the whole reads of %v; want both places' files", owed)
 	}
@@ -176,6 +181,10 @@ func TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces(t *
 	if probes := storetest.QueryRaw(t, bench.database.Path(), "SELECT file_id FROM file_probe"); !slices.Equal(
 		probes, []string{itoa(bench.first)}) {
 		t.Errorf("the probes are of %v; want the file's alone", probes)
+	}
+	segments := storetest.QueryRaw(t, bench.database.Path(), "SELECT file_id, type, provider FROM media_segment")
+	if want := []string{itoa(bench.first) + "|credits|person"}; !slices.Equal(segments, want) {
+		t.Errorf("the segments = %v; want the one a person set of the copy, now the file's: %v", segments, want)
 	}
 	filings := storetest.QueryRaw(t, bench.database.Path(),
 		"SELECT file_id, version_id FROM file_filing ORDER BY file_id")

@@ -70,8 +70,9 @@ type derivedThing struct {
 // derivedFromProbe is everything kept that was made from a file's probe, each with the facts it was
 // made from (D392 §3). A store of chunks names the facts it was made from in its directory too
 // (chunks.StoreKey), so one made before they changed is never served again, whoever reads the file
-// again. The stream rows are the probe's own, re-derived on every read (syncStreams), and what a person
-// set or watched is no probe's (D357 §3).
+// again. The stream rows are the probe's own, re-derived on every read (syncStreams), as are the
+// segments its chapters name (syncChapterSegments), and what a person set or watched is no probe's
+// (D357 §3).
 func derivedFromProbe() []derivedThing {
 	return []derivedThing{
 		{

@@ -55,6 +55,7 @@ INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, f
 INSERT INTO whole_file_hash (file_id, sha256, size_bytes, modified_at, failure, hashed_at)
   VALUES (1, X'0F0F', 1048576, 1780000000000, NULL, 1790000001500);
 INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{"format":{"durationMs":5400000}}', 5400000);
+INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence) VALUES (1, 'intro', 0, 90000, 'chapters', 1);
 INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason,
                    attached_to_place, first_seen_at, last_seen_at)
   VALUES (2, 2, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt',

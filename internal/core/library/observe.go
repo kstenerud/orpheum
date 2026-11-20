@@ -248,8 +248,9 @@ func (batch *ingestBatch) updateObservedFile(
 }
 
 // keepProbe keeps a file's probe beside its row, with its duration, written only when either
-// changed (D303, M8). A probe read again is first compared with the one kept, and what its changed
-// facts touch is thrown out (D392 §3, correctProbe); the scan counts it.
+// changed (D303, M8), and the segments its chapters name (syncChapterSegments). A probe read again
+// is first compared with the one kept, and what its changed facts touch is thrown out (D392 §3,
+// correctProbe); the scan counts it.
 func (batch *ingestBatch) keepProbe(ctx context.Context, scan *scanState, id int64, seenFile observation) error {
 	kept, err := store.OrNotFound(batch.queries.GetFileProbeJSON(ctx, id))
 	switch {
@@ -272,7 +273,7 @@ func (batch *ingestBatch) keepProbe(ctx context.Context, scan *scanState, id int
 	if err != nil {
 		return fmt.Errorf("keep the probe of %s: %w", seenFile.path, err)
 	}
-	return nil
+	return batch.syncChapterSegments(ctx, id, seenFile.observed.Probe)
 }
 
 // recordFiling records a path the node skipped or could not read: an existing row keeps its identity

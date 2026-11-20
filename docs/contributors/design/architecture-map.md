@@ -202,6 +202,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | file_filing | persistent.db | T1 identity (the version, a person's match) + TO | yes | how each kind of library files a video, one row a kind (D363 §5, §6) |
 | whole_file_hash | persistent.db | T3 (reads the whole file) | yes | a likely copy's and its file's every byte hashed (D363 §2, D116); kept so a copy is not read again |
 | file_probe | persistent.db | TO | yes | what a scan probed, beside its file (D303, M8) |
+| media_segment | persistent.db | TO | yes | a file's typed ranges; a person's rows are theirs, kept through re-detection (D82) |
 | file_nfo | persistent.db | TO | yes | an NFO's bytes, beside its file (D303, M8) |
 | root_state | persistent.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
 | root_scan, root_mount, stream | persistent.db | TO | yes | — |
