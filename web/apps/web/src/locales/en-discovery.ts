@@ -112,7 +112,7 @@ export const enDiscovery = {
       again: "Your server couldn't be reached as this device last reached it. Sign in again.",
       keyRefused:
         "This device needs to sign in again: your server no longer knows its sign-in, as when the device was removed from it.",
-      atHome: "At home? Open your server's own address, such as http://192.168.1.20:8440, instead.",
+      atHome: "At home? Use your server's address, such as http://192.168.1.20:8440.",
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",
       install: "How to install your own server",

@@ -257,7 +257,7 @@ describe("the loader at its own origin (D308)", () => {
   it("tells a person at home to open the server's own address instead", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(mounted.container.textContent).toContain(
-      "At home? Open your server's own address, such as http://192.168.1.20:8440, instead.",
+      "At home? Use your server's address, such as http://192.168.1.20:8440.",
     );
   });
 
