@@ -297,7 +297,7 @@ function StandingView(props: {
 /**
  * The way to this server from anywhere once its discovery can lead clients to it: the discovery's
  * page, which takes a person signed in there on to the server (the owner, 2026-11-20: "a link that
- * takes them to https://orpheum.cc so that it auto-forwards them to their server"), so a household
+ * takes them to [the discovery's page] so that it auto-forwards them to their server"), so a household
  * that claimed it need not come back by the house's plain http address. Shown while clients can
  * find the server, claimed or in its grace, and only where the discovery names its page.
  */
