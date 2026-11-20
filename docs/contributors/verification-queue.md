@@ -3572,3 +3572,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   and pick the Mac. Report: what plays where (picture, sound, on the iPhone or the Mac); what Cast's
   menu says; and, choosing the iPhone again in Control Center, whether the film plays on in the page
   from where it stood. A fix follows from what it shows.
+- [ ] **VQ369** — Linking a server says so on the discovery's page and stays there (D528 §2). On
+  staging, sign in to a test account at the account site, then press Connect on a fresh test core's
+  Remote access page and link it. Report: whether the account site's page names the server, says the
+  household reaches it from anywhere at the loader, and links to the loader; whether it stays on that
+  page rather than going back to the server's page at home; and, pressing Connect again on the same
+  core, whether it links again with no question. orpheum-connect's own tests of the link page
+  (internal/panel/link_test.go) cover it there, where this repository's gate cannot see them.

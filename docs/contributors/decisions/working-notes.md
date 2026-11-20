@@ -30332,6 +30332,7 @@ D347 §1, which kept a node's level its config file's.
    logged. Where it is kept is open: the command line acts on connectd's database (the owner,
    2026-10-19, every panel action a command too), so a level it sets as well is a row the running
    connectd reads, a migration of production's schema; one kept in memory alone is the panel's.
+   D529 settles it: a row of connectd's database.
 3. **Levels per part of the program come later** (D347 §4). Every process's recent log keeps its
    debug lines whatever it writes (D524 §3), so a problem report carries them without anyone having
    turned them on.
@@ -30440,5 +30441,30 @@ and the return to the server).
    address, now Remote access, since the discovery asks for one, but no page of it goes back now,
    so the web app no longer reads the `?linked=1` it came back with.
 
-**Status:** decided (2026-11-20); to build: the web app and the core's return address in Orpheum,
-the link page in orpheum-connect (which needs connectd deployed).
+**Proven by:**
+- 1: web/apps/web/src/app-shell.test.tsx ("lists Remote access under Manage, after System and before Update (D528 §1)"), web/apps/web/src/system-discovery-connect.test.tsx ("puts Connect under the Remote access page's one heading, now that it is a page of its own (D528 §1)"), web/apps/web/src/system.test.tsx ("the System page leaves Remote access to its own page, and links to it there (D528 §1)"), web/apps/web/src/welcome.test.tsx ("end on discovery, which says the server works without one and links to staying at home or to Remote access (D528 §1)"; "end by going home, or to Remote access, in the page's place"; "say outside access takes an account at the discovery the core suggests, by invitation in the beta")
+- 2: VQ369, which names orpheum-connect's tests of the link page (internal/panel/link_test.go)
+
+**Status:** decided (2026-11-20); built (2026-11-20): the web app and the core's return address in
+v0.8.9, the link page in orpheum-connect, deployed to production.
+
+## D529 — connectd's log level is a row of its database, set from the command line or the panel, which the running connectd reads every ten seconds
+
+**Decided** (2026-11-20), by the project owner, choosing the first of the lead's options for where
+D525 §2 keeps connectd's level, after asking how a level set only from a command line would be set
+in Docker, on OpenMediaVault, on a Synology or under any installer still to come. It settles D525
+§2's open question.
+
+1. **The level is a row of connectd's database**, a table of the service's settings
+   (`service_setting`, production's step 17), whose first is the log's level. A database with none
+   writes at `info`, as before.
+2. **The command line and the panel both set it.** `connectd log level set debug|info|warn|error`
+   writes the row, as every panel action is a command too (the owner, 2026-10-19); the Overview
+   shows the level and sets it from a list. Each change is recorded in the operators' Activity, who
+   set it, from what to what, and a name that is no level is refused.
+3. **The running connectd reads it again every ten seconds**, so the command line's change reaches
+   the process with no restart, and its own panel's at once. Each change is logged at the level it
+   leaves, as the core's and the nodes' are (D347, D525 §1). A level that cannot be read leaves the
+   log as it was and says so.
+
+**Status:** decided (2026-11-20); to build in orpheum-connect.

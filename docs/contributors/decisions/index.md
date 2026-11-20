@@ -534,6 +534,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D526](working-notes.md#d526--what-a-household-signs-in-by-is-called-its-household-not-its-realm) What a household signs in by is called its household, not its realm
 - [D527](working-notes.md#d527--setting-up-a-server-made-from-the-home-network-then-linked-to-a-discovery-by-one-button) Setting up: a server made from the home network, then linked to a discovery by one button — *revisited by D528*
 - [D528](working-notes.md#d528--remote-access-is-a-page-of-its-own-and-the-discoverys-page-says-a-server-is-linked-and-stays-there) Remote access is a page of its own, and the discovery's page says a server is linked and stays there
+- [D529](working-notes.md#d529--connectds-log-level-is-a-row-of-its-database-set-from-the-command-line-or-the-panel-which-the-running-connectd-reads-every-ten-seconds) connectd's log level is a row of its database, set from the command line or the panel, which the running connectd reads every ten seconds
 
 ## Archived
 
