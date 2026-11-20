@@ -4749,3 +4749,19 @@ first on a mergerfs pool. It worked in the end, at home and through orpheum.cc. 
   again at 13:50); when the report's agent fetched it is not known, so nothing is concluded from its
   "only app config" (agent-failures A86). Serving install.md from orpheum.cc itself is the open
   question.
+
+## The 11-21 batch: the install reports (the owner, 2026-11-20: "Go ahead and start now")
+
+The two install reports above, in whatever order works; one deploy when all is done. The owner's
+answers to the walkthrough's questions:
+
+- **W8:** "After they connect their home server to the discovery service, they don't need to
+  connect via http over lan anymore. I just wanted a link that takes them to https://orpheum.cc so
+  that it auto-forwards them to their server (they're already logged in so this should work)." A
+  link to the discovery after Claim, no QR code.
+- **W15:** "I'm fine with hosting a copy of it if that's a real problem, but I'd prefer not to have
+  copies that can drift." No copy unless an agent is shown failing to read GitHub; llms.txt and
+  agent-setup.md already give install.md's raw.githubusercontent.com address, which is plain text.
+- **W1's preflight in `orpheum-folders`** is not built: the folders step is a shell command in a
+  versioned compose file, and a failed step stops `Up` with "didn't complete successfully", which
+  sends the reader to a log as the core's does. The core says the cause plainly instead.
