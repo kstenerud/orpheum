@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A86 — Explained an install agent's "nothing on orpheum.cc" by a deploy it came after, and said a person sees no install link (2026-11-20)
+
+- **What happened:** a second install-test agent reported (its F1) that orpheum.cc tells a plain
+  fetcher nothing about what Orpheum is or how to install it. The lead told the owner the page was
+  fixed and the agent had "most likely read it before your deploy", and that a person, who sees
+  the sign-in, finds no word of what Orpheum is nor any install link. Both were wrong. The owner had
+  run the test after deploying both, and a summarizing fetch of the live page returns the
+  description and "Install a server" first. The sign-in a browser draws links "How to install your
+  own server" (`en-discovery.ts`), as A85 had already recorded. The lead guessed at a cause instead
+  of fetching the page as the agent's tool does, and answered the browser half from memory instead
+  of from the code.
+- **Caught by:** the owner, who had deployed first and checked the link themselves.
+- **Gate:** none. The lesson: before saying why another agent missed something, reproduce its read
+  (the same kind of fetch) and read the code for what a browser draws. An agent's report of absence
+  shows what that agent took in, not what the site holds.
+
 ### A85 — Confirmed orpheum.cc had nothing for a person to read, from the HTML a fetch gets (2026-11-19)
 
 - **What happened:** an install-test agent reported that orpheum.cc's front page held only a note
