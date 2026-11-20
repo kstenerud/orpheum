@@ -1722,7 +1722,11 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   focus, the ring and Enter's click; `web/e2e/frame-focus.browser.test.ts` opens a page beside a kept
   frame and fails without it. The app is unchanged: a person's browser opens no page behind their back.
   Running the browsers one after the other instead (`sequence.groupOrder`) took 143 s against 113 s
-  and still lost one Enter in `modal-dialog`.
+  and still lost one Enter in `modal-dialog`. The focus given back still lost the keys a test typed
+  before it came back (make check, 2026-11-20: "karl" typed into the sign-in's name, which held "k";
+  passed alone three times), so make check now runs each browser in a vitest run of its own, one
+  after the other (`scripts/web_tests.py`'s `runs_of`): a run of one browser opens no page mid-run.
+  A full run took 217 s against 208 s together.
 - **Evidence:** **[measured]** a Playwright probe of two contexts, each a page with a frame: a new
   page made the older frame's focused button lose `:focus` and `:focus-visible` and its Enter's
   click, every time; a blur listener calling `window.focus()` kept all three over three opens. Vitest's

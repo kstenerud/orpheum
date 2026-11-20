@@ -127,7 +127,34 @@ class WebTestsTest(unittest.TestCase):
             self.assertEqual(web_tests.main(["--browser"]), 0)
             self.assertEqual(web_tests.main(["--browser", "--due"]), 1, "nothing changed since: not due")
             self.assertEqual(web_tests.main(["--due"]), 0, "the unit suite's record is its own")
-        self.assertEqual(ran, [web_tests.BROWSER.whole])
+        self.assertEqual(ran, web_tests.runs_of(web_tests.BROWSER.whole, web_tests.BROWSER))
+
+    def test_each_browser_runs_in_a_run_of_its_own_one_after_the_other_stopping_at_a_failure(self) -> None:
+        # Run together, vitest opened Firefox pages as Chromium's files ended, and each took the
+        # focus from a running test's frame, which lost the keys it pressed (2026-11-20).
+        ran: list[list[str]] = []
+        failing = "chromium"
+
+        def run(command, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if command[0] == "git":
+                return REAL_RUN(command, *args, **kwargs)
+            ran.append(command)
+            return mock.Mock(returncode=1 if command[-1] == failing else 0)
+
+        whole = web_tests.BROWSER.whole
+        self.assertEqual(web_tests.runs_of(whole, web_tests.BROWSER),
+                         [[*whole, "--", "--project", "chromium"], [*whole, "--", "--project", "firefox"]])
+        related = [*web_tests.BROWSER.related, "apps/web/src/b.ts"]
+        self.assertEqual(web_tests.runs_of(related, web_tests.BROWSER),
+                         [[*related, "--project", "chromium"], [*related, "--project", "firefox"]])
+        self.assertEqual(web_tests.runs_of(web_tests.UNIT.whole, web_tests.UNIT), [web_tests.UNIT.whole])
+        with self.repo.cwd(), mock.patch.object(web_tests.subprocess, "run", side_effect=run):
+            self.assertEqual(web_tests.main(["--browser"]), 1)
+            self.assertEqual([command[-1] for command in ran], ["chromium"], "Firefox's run waits on Chromium's")
+            self.assertEqual(web_tests.main(["--browser", "--due"]), 0, "a failed run records no pass")
+            failing = "none"
+            self.assertEqual(web_tests.main(["--browser"]), 0)
+            self.assertEqual([command[-1] for command in ran], ["chromium", "chromium", "firefox"])
 
 
 REAL_RUN = web_tests.subprocess.run

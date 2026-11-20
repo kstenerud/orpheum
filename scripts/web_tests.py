@@ -25,7 +25,12 @@ the tests of both trees' differences (the lock's wargaming, 2026-11-04).
 
 `--browser` does the same for the browser-mode tests (web/vitest.browser.config.ts), under their own
 record: any change under web/ ran all of them, 66 s and growing, last in make check, where every
-turn that touched the web waited for them (the caching audit's finding 8, 2026-10-28).
+turn that touched the web waited for them (the caching audit's finding 8, 2026-10-28). Each browser
+runs in a run of its own, one after the other: run together, vitest opened Firefox pages mid-run as
+Chromium's files ended, and each took the keyboard's focus from a running test's frame, which lost
+the keys pressed meanwhile (idiosyncrasies.md, "A page opening in Firefox takes the focus from the
+test frame opened before it"; make check typed "k" for "karl", 2026-11-20). Apart, a full run took
+217 s against 208 s.
 """
 
 from __future__ import annotations
@@ -48,17 +53,19 @@ EVERY_TEST_READS = ("package.json", "package-lock.json", "vitest.config.ts", "vi
 
 @dataclass(frozen=True)
 class Suite:
-    """A vitest suite: its record's name, its whole run, and its related run's command."""
+    """A vitest suite: its record's name, its whole run, its related run's command, and the vitest
+    projects it runs one after the other, each in a run of its own (none: one run of them all)."""
 
     step: str
     whole: list[str]
     related: list[str]
+    apart: tuple[str, ...] = ()
 
 
 RELATED = ["npx", "--prefix", WEB, "vitest", "related", "--run", "--passWithNoTests", "--root", WEB]
 UNIT = Suite("web-test", ["npm", "--prefix", WEB, "run", "--silent", "test"], RELATED)
 BROWSER = Suite("web-test-browser-related", ["npm", "--prefix", WEB, "run", "--silent", "test:browser"],
-                [*RELATED, "--config", "vitest.browser.config.ts"])
+                [*RELATED, "--config", "vitest.browser.config.ts"], apart=("chromium", "firefox"))
 # Kept for the tests and callers that name the unit suite's.
 STEP, WHOLE_SUITE = UNIT.step, UNIT.whole
 
@@ -83,6 +90,15 @@ def command_for(changes: list[tuple[str, str]], root: str, suite: Suite = UNIT) 
             return suite.whole
     within = [path.removeprefix(WEB + "/") for _, path in changes]
     return [*suite.related, *within, *web_source_readers(root)]
+
+
+def runs_of(command: list[str], suite: Suite) -> list[list[str]]:
+    """The runs command makes in suite: one per project it keeps apart, else itself."""
+    if not suite.apart:
+        return [command]
+    # npm passes what follows "--" to its script; npx and vitest take them as they are.
+    split = ["--"] if command[:2] == ["npm", "--prefix"] else []
+    return [[*command, *split, "--project", project] for project in suite.apart]
 
 
 # The passed trees each suite keeps.
@@ -138,9 +154,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if command is not suite.whole:
         print(f"{suite.step}: only the tests the changes since the nearest pass reach")
-    done = subprocess.run(command, check=False)
-    if done.returncode != 0:
-        return done.returncode
+    for each in runs_of(command, suite):
+        done = subprocess.run(each, check=False)
+        if done.returncode != 0:
+            return done.returncode
     record_pass(stamp, tree)
     return 0
 
