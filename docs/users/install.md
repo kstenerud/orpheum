@@ -87,8 +87,8 @@ run it, are in [The install script](#the-install-script).
    [install it](#install-compose-only-if-services-has-no-compose).
 2. Choose `appdata`'s path **on a single disk, not on a mergerfs pool**: with a pool, one of the
    disks **Storage > mergerfs** lists for it ([shared folders](#make-the-shared-folders)).
-3. Note the media folder's **Absolute Path**, and the UID of the user the server will run as
-   ([the user](#choose-the-user-the-server-runs-as)); the web interface does not show the UID.
+3. Note the media folder's **Absolute Path**. The server runs as user 1000, most often the first
+   user made in **Users > Users**; for another, see [the user](#choose-the-user-the-server-runs-as).
 4. **Services > Compose > Files**, **Add**, name it `orpheum`, and paste the whole of
    [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    into **File**.
@@ -97,8 +97,6 @@ run it, are in [The install script](#the-install-script).
    ```sh
    PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
-   APPUSER_PUID=1000
-   APPUSER_PGID=100
    TIME_ZONE_VALUE=Europe/Berlin
    ```
 
@@ -393,13 +391,17 @@ apply.
 
 **Never add the user the server runs as to the `docker` group.**
 
-1. Find its UID. OpenMediaVault's web interface does not show it. On a machine installed from
-   OpenMediaVault's own installer, the first user made in **Users > Users** is usually 1000, and
-   each later one the next number, in the order they were made. To be certain, sign in over SSH
+1. Unless told otherwise, the server runs as user 1000 in group 100. On a machine installed from
+   OpenMediaVault's own installer, 1000 is the first user made in **Users > Users**, and 100 is the
+   group `users`, which OpenMediaVault puts every user it makes in. With that user, there is
+   nothing to set.
+
+   For another user, its number is needed: each later user has the next number, in the order they
+   were made, but OpenMediaVault's web interface does not show it. To be certain, sign in over SSH
    ([steps 1 to 3 above](#install-compose-only-if-services-has-no-compose)) and type `id <user>`:
-   `id anna` prints `uid=1000(anna) gid=100(users) …`.
-2. Its GID is 100. That is the group `users`, which OpenMediaVault puts every user it makes in.
-3. Let it read the media folder. Open **Storage > Shared Folders**, select `Media`, and press
+   `id appuser` prints `uid=1001(appuser) gid=100(users) …`. Then add `APPUSER_PUID=1001` to your
+   values below.
+2. Let it read the media folder. Open **Storage > Shared Folders**, select `Media`, and press
    **Permissions**. Give the user *Read-only* or *Read/Write*, and press **Save**, then apply.
    (This does not apply to media on another NAS: see [Films on another NAS](#films-on-another-nas).)
 
@@ -417,13 +419,11 @@ below. The HTTPS port is changed later, on the server's **System** page.
    ```sh
    PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
-   APPUSER_PUID=1000
-   APPUSER_PGID=100
    TIME_ZONE_VALUE=Europe/Berlin
    ```
 
    `PATH_TO_APPDATA` is the `appdata` path you chose, and `ORPHEUM_MEDIA` the media folder's path,
-   capitals included. `APPUSER_PUID` is the user's UID.
+   capitals included. For a user other than 1000, add `APPUSER_PUID=` with its number.
 2. Open **Services > Compose > Files** and press **Add** (not *Add from example*). Some versions
    open a small menu first: choose **Add** in it. A form opens.
 3. In **Name**, type `orpheum`.

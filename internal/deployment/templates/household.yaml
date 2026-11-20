@@ -69,7 +69,11 @@ x-yours:
 #   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
 #                         one not set is none
 {{- if ne .Route "casaos"}}
-#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data{{if eq .Route "omv"}}: the Environment box{{end}}
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data, 1000 and 100 if not set
+{{- if eq .Route "omv"}}
+#                         (most often the first user made in Users > Users, in the group users):
+#                         the Environment box, for another user
+{{- end}}
 #   TIME_ZONE_VALUE       the time zone, Europe/Berlin{{if eq .Route "omv"}}: the Environment box{{end}}
 {{- end}}
 #   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version

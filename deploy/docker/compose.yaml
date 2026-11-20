@@ -17,7 +17,7 @@
 # Optional:
 #   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
 #                         one not set is none
-#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data, 1000 and 100 if not set
 #   TIME_ZONE_VALUE       the time zone, Europe/Berlin
 #   ORPHEUM_TAG           the release to run: latest, the default, follows each release; a version
 #                         such as v0.4.0 stays on it
