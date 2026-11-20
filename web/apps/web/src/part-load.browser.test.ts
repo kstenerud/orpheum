@@ -15,6 +15,12 @@ import type { StringStorage } from "./browser-storage.ts";
 import { exportingFunction, loadRole, type PartLoadParts, type WaitingNote } from "./part-load.ts";
 import { refusedRolePath } from "./test-refusing-worker.ts";
 
+/**
+ * How long a wait for the page and its worker's answers polls: the browser configuration's polls'
+ * time, not waitFor's second, which make check's load outran (2026-11-20). Nothing here is about time.
+ */
+const pollMs = 10_000;
+
 /** The pages and workers a test set up, taken down after it. */
 const made: { frames: HTMLIFrameElement[]; registrations: ServiceWorkerRegistration[] } = {
   frames: [],
@@ -75,9 +81,12 @@ async function pageAt(scope: string): Promise<PageImport> {
   if (page?.navigator.serviceWorker.controller === null) {
     throw new Error("the page under the worker's scope is not controlled by it");
   }
-  await vi.waitFor(() => {
-    expect(isPageImport(Reflect.get(page ?? {}, "importAt"))).toBe(true);
-  });
+  await vi.waitFor(
+    () => {
+      expect(isPageImport(Reflect.get(page ?? {}, "importAt"))).toBe(true);
+    },
+    { timeout: pollMs },
+  );
   const found: unknown = Reflect.get(page ?? {}, "importAt");
   if (!isPageImport(found)) {
     throw new Error("the page has no import");
@@ -151,9 +160,12 @@ describe("loadRole across a deploy, under a worker", () => {
       { load: roleImport(firstImport, role), isRole },
       { ...first, note: quiet },
     );
-    await vi.waitFor(() => {
-      expect(first.reloads).toHaveLength(1);
-    });
+    await vi.waitFor(
+      () => {
+        expect(first.reloads).toHaveLength(1);
+      },
+      { timeout: pollMs },
+    );
 
     const reloadedImport = await pageAt(scope);
     const reloaded = partsOf(tab, reloadedImport);
