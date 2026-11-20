@@ -47,12 +47,24 @@
         <a href="/llms.txt">/llms.txt</a>.
       </p>
       <p class="for-agents">
-        If you read this, you see this page without its script, and a person sees more than you do:
-        the pages the script draws. The install guide is at
-        https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md. Do not report the page
-        as empty.
+        This text is the page as it is served, without its script. In a browser the script replaces
+        it with Orpheum's sign-in, which on orpheum.cc links the install guide as "How to install
+        your own server". The install guide is at
+        https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md.
       </p>
     </div>
+    <!-- Shown, unlike the note above, where no script runs: a reader that keeps only the text a
+    browser would show, which drops what is hidden, still finds what Orpheum is and how to install
+    it (an agent's install, 2026-11-20). A browser running the script never shows it. -->
+    <noscript>
+      <p>
+        Orpheum: a self-hosted server that plays a household's own films and series to its browsers,
+        phones and televisions.
+        <a href="https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md"
+          >Install a server</a
+        >
+      </p>
+    </noscript>
     <!-- Says "too old" in a browser that cannot read the client's script, where the page would stay
     blank: a classic ES5 file, which every browser reads and the page's policy allows (too-old.js). -->
     <script src="/too-old.js"></script>

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
-import { agentHelpFiles, agentHelpSource } from "./src/agent-help";
+import { agentHelpFiles, agentHelpSource, buildMetaName, buildOf } from "./src/agent-help";
 import { chunkModules } from "./src/chunk-modules";
 import { devAllowedHosts } from "./src/dev-hosts";
 
@@ -38,19 +39,36 @@ import { devServerOrigin } from "./src/dev-server";
 /**
  * Writes the setup help for a person's AI agent beside the client's files, from its one source
  * under docs/users/, and /llms.txt naming it (src/agent-help.ts): the core and the loader serve them
- * as they serve the client's other files.
+ * as they serve the client's other files. The page and /llms.txt name build where one is named.
  */
-function agentHelp(): Plugin {
+function agentHelp(build: string | undefined): Plugin {
   return {
     name: "orpheum-agent-help",
     apply: "build",
+    transformIndexHtml() {
+      return build === undefined
+        ? []
+        : [{ tag: "meta", attrs: { name: buildMetaName, content: build }, injectTo: "head" }];
+    },
     generateBundle() {
       const source = readFileSync(path.join(repoRoot, agentHelpSource), "utf8");
-      for (const file of agentHelpFiles(source)) {
+      for (const file of agentHelpFiles(source, build)) {
         this.emitFile({ type: "asset", fileName: file.fileName, source: file.source });
       }
     },
   };
+}
+
+/** What git names the checkout the client is built from, or undefined where there is no git. */
+function describedCheckout(): string | undefined {
+  try {
+    return execFileSync("git", ["-C", repoRoot, "describe", "--tags", "--always"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 // The WebRTC path's service worker (src/sw.ts), built on its own into dist/sw.js beside the app: one
@@ -84,7 +102,12 @@ export default defineConfig(({ command, mode }) => {
   }
   const target = devServerOrigin(env["ORPHEUM_DEV_SERVER"], command);
   return {
-    plugins: [react(), recordChunkModules(mapDirectory, "client"), agentHelp()],
+    plugins: [
+      react(),
+      recordChunkModules(mapDirectory, "client"),
+      // Built, the client names its build; the dev loop's names none, and runs no git for it.
+      agentHelp(command === "build" ? buildOf(env["ORPHEUM_BUILD"], describedCheckout) : undefined),
+    ],
     // No .env files: the configuration is what the process was given (D204).
     envDir: false,
     build: {

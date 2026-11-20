@@ -91,16 +91,53 @@ reach an agent only as a summary.
   exact text: ${usersGuideRaw}setup-problems.md
 `;
 
+/**
+ * The meta element naming the build the page is from, and /llms.txt's last line naming it too: an
+ * agent whose fetch tool handed it a copy older than the site's can tell, and a check after a deploy
+ * can see the new build is served (an agent's install, 2026-11-20).
+ */
+export const buildMetaName = "orpheum-build";
+
+/** A build's name as the marker takes it: a version, a commit or both, never markup. */
+const buildName = /^[\w.+-]+$/u;
+
+/** /llms.txt, ending with the build it is from when the build is named. */
+export function llmsTxtOf(build: string | undefined): string {
+  return build === undefined ? llmsTxt : `${llmsTxt}\nThis copy is from Orpheum build ${build}.\n`;
+}
+
+/**
+ * The build the client is built as: ORPHEUM_BUILD where the build is given it (orpheum-connect's
+ * package, built from a copy without git's history), else what describe names, the version tag
+ * and any commits after it; undefined when neither names one.
+ */
+export function buildOf(
+  given: string | undefined,
+  describe: () => string | undefined,
+): string | undefined {
+  const build = given === undefined || given === "" ? describe()?.trim() : given;
+  if (build === undefined || build === "") {
+    return undefined;
+  }
+  if (!buildName.test(build)) {
+    throw new Error(`the build's name ${JSON.stringify(build)} is not a version or a commit`);
+  }
+  return build;
+}
+
 /** One file the build writes beside the client's. */
 export interface AgentHelpFile {
   readonly fileName: string;
   readonly source: string;
 }
 
-/** The files the build writes from the help's source: the help as served, and /llms.txt. */
-export function agentHelpFiles(source: string): readonly AgentHelpFile[] {
+/** The files the build writes from the help's source: the help as served, and /llms.txt naming build. */
+export function agentHelpFiles(
+  source: string,
+  build: string | undefined,
+): readonly AgentHelpFile[] {
   return [
     { fileName: agentHelpFile, source: servedAgentHelp(source) },
-    { fileName: llmsTxtFile, source: llmsTxt },
+    { fileName: llmsTxtFile, source: llmsTxtOf(build) },
   ];
 }

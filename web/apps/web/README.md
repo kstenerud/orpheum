@@ -481,17 +481,23 @@ The web client: the browser and phone interface, served embedded by the core. MP
   plan's "Help for a person's own AI agent at orpheum.cc"): a `<link rel="help">` and an `alternate`
   `text/markdown` link in its head, and in its root plain paragraphs: what Orpheum is (the head's
   `description` too) with an **Install a server** link to the install guide on GitHub, the help's
-  `/agent-setup.md` and `/llms.txt`, and a sentence telling the agent that a person sees more than it
-  does, so it does not report the page as empty (an agent's install, 2026-11-19). The client's first
+  `/agent-setup.md` and `/llms.txt`, and, as facts and not as an instruction, that this is the page
+  without its script and that a browser draws a sign-in linking the install guide (agents' installs,
+  2026-11-19 and 2026-11-20). The client's first
   drawing replaces them, so neither a person nor a screen reader
   meets it once the page is drawn. Until then the page's own style hides it (`.for-agents`), as a
   phone shows each page on the way to its core while the script starts (the owner, 2026-11-14); an
-  agent reading the text takes no style. The build writes the help from its one source,
+  agent reading the text takes no style. A `<noscript>` after the root says what Orpheum is and
+  links the install guide, unhidden, for a reader keeping only the text a browser without script
+  would show. The build writes the help from its one source,
   `docs/users/agent-setup.md`, its relative links made the public repository's, and `/llms.txt`
   naming it (`src/agent-help.ts`, the `orpheum-agent-help` plugin in `vite.config.ts`). Both open
   with the same short facts, each address written out, and `/llms.txt` gives each guide's
   raw.githubusercontent.com copy beside its page, so a fetch that summarizes or drops links keeps
-  them.
+  them. A built client names its build, in the page's `orpheum-build` meta and `/llms.txt`'s last
+  line: `ORPHEUM_BUILD` where the build is given it (orpheum-connect's package, built without git's
+  history), else `git describe --tags --always`; an agent handed an old copy can tell, and the
+  deploy's check sees the new build served.
   `agent-help.test.ts`, `agent-help-page.test.tsx`.
 - **A loader whose path is lost waits it out; a refusal stays a refusal** (principles §28; the owner's
   train, 2026-11-13, where one channel lost mid-manifest ended the page for good): a try that fails

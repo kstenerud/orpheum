@@ -3,15 +3,18 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   agentHelpFile,
   agentHelpSource,
+  buildMetaName,
+  buildOf,
   installFacts,
   installGuideOnGitHub,
   llmsTxt,
   llmsTxtFile,
+  llmsTxtOf,
   servedAgentHelp,
 } from "./agent-help.ts";
 
@@ -21,8 +24,12 @@ const helpSource = readFileSync(
   "utf8",
 );
 
-/** What the build writes from the help's source, by the plugin vite.config.ts builds with. */
-async function builtFiles(): Promise<Record<string, string>> {
+/** The build a test builds as, given the build as orpheum-connect's package gives it. */
+const givenBuild = "b8266a2-7975fb51d";
+
+/** The plugin vite.config.ts builds with, the build given as ORPHEUM_BUILD. */
+async function helpPlugin(): Promise<Record<string, unknown>> {
+  vi.stubEnv("ORPHEUM_BUILD", givenBuild);
   const { default: config } = await import("../vite.config.ts");
   const resolved = await Promise.resolve(
     config({ command: "build", mode: "production", isSsrBuild: false, isPreview: false }),
@@ -36,11 +43,35 @@ async function builtFiles(): Promise<Record<string, string>> {
         "name" in plugin &&
         plugin.name === "orpheum-agent-help",
     );
-  if (typeof help !== "object" || help === null || !("generateBundle" in help)) {
+  if (typeof help !== "object" || help === null) {
     throw new Error("the build has no orpheum-agent-help plugin");
   }
-  const hook = help.generateBundle;
-  const generate = typeof hook === "function" ? hook : hook.handler;
+  return help as unknown as Record<string, unknown>;
+}
+
+/** A plugin's hook, called with whatever the hook is given. */
+type Hook = (...given: unknown[]) => unknown;
+
+/** A plugin's hook as a function, whether given bare or as its handler. */
+function hookOf(plugin: Record<string, unknown>, name: string): Hook {
+  const hook = plugin[name];
+  if (typeof hook === "function") {
+    return hook as Hook;
+  }
+  if (
+    typeof hook === "object" &&
+    hook !== null &&
+    "handler" in hook &&
+    typeof hook.handler === "function"
+  ) {
+    return hook.handler as Hook;
+  }
+  throw new Error(`the plugin has no ${name}`);
+}
+
+/** What the build writes from the help's source, by the plugin vite.config.ts builds with. */
+async function builtFiles(): Promise<Record<string, string>> {
+  const generate = hookOf(await helpPlugin(), "generateBundle");
   const written: Record<string, string> = {};
   const context = {
     emitFile: (file: { fileName?: string; source?: unknown }) => {
@@ -52,16 +83,19 @@ async function builtFiles(): Promise<Record<string, string>> {
   return written;
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("the setup help for a person's AI agent, as built", () => {
   it("is written from its one source, docs/users/agent-setup.md, with /llms.txt naming it", async () => {
     const written = await builtFiles();
     expect(written).toEqual({
       [agentHelpFile]: servedAgentHelp(helpSource),
-      [llmsTxtFile]: llmsTxt,
+      [llmsTxtFile]: llmsTxtOf(givenBuild),
     });
     expect(llmsTxt).toContain(`](/${agentHelpFile})`);
   });
-
   it("points its relative links into the public repository, the rest kept", () => {
     expect(
       servedAgentHelp(
@@ -75,6 +109,36 @@ describe("the setup help for a person's AI agent, as built", () => {
         "[d](#your-rules) [e](https://docs.nvidia.com/x)",
     );
     expect(servedAgentHelp(helpSource)).not.toMatch(/\]\((?!https:\/\/|#)/u);
+  });
+});
+
+// An agent's fetch tool handed it a copy of the site an hour older than the one served, and nothing
+// in it said so (an agent's install, 2026-11-20).
+describe("the build the client names", () => {
+  it("is in the page's head, as the build was given it", async () => {
+    const transform = hookOf(await helpPlugin(), "transformIndexHtml");
+    expect(await Promise.resolve(transform("<html></html>", {}))).toEqual([
+      { tag: "meta", attrs: { name: "orpheum-build", content: givenBuild }, injectTo: "head" },
+    ]);
+    expect(buildMetaName).toBe("orpheum-build");
+  });
+
+  it("ends /llms.txt, and nothing is added where no build is named", () => {
+    expect(llmsTxtOf(givenBuild)).toBe(
+      `${llmsTxt}\nThis copy is from Orpheum build ${givenBuild}.\n`,
+    );
+    expect(llmsTxtOf(undefined)).toBe(llmsTxt);
+  });
+
+  it("is the given build, else what git describes, else none, and never markup", () => {
+    const unasked = (): string => {
+      throw new Error("git was asked though the build was given");
+    };
+    expect(buildOf(givenBuild, unasked)).toBe(givenBuild);
+    expect(buildOf(undefined, () => "v0.8.7-3-gabc1234\n")).toBe("v0.8.7-3-gabc1234");
+    expect(buildOf("", () => "v0.8.7")).toBe("v0.8.7");
+    expect(buildOf(undefined, () => undefined)).toBeUndefined();
+    expect(() => buildOf('v1"><script>', () => undefined)).toThrow(/not a version or a commit/u);
   });
 });
 
