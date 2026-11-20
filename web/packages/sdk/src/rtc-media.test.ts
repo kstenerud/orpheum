@@ -529,7 +529,7 @@ interface FakeWorkers {
   readonly container: EventTarget & {
     controller: { state: string; postMessage: (message: unknown) => void } | null;
     readonly ready: Promise<{ readonly active: { postMessage: (message: unknown) => void } }>;
-    register: () => Promise<void>;
+    register: (url: string, options?: RegistrationOptions) => Promise<void>;
     startMessages: () => void;
   };
   /** What each worker the page posted to was told, by the worker's name. */
@@ -613,6 +613,20 @@ describe("the page's side of its path, to its service worker", () => {
     }
     container.dispatchEvent(new MessageEvent("message", { data: { kind: "orpheum-path" } }));
     expect(reported).toEqual(["silent", "no page"]);
+  });
+
+  it("registers its worker with every update fetched past the HTTP cache, so a replaced worker reaches it at its next load", async () => {
+    const media = await import("./rtc-media.ts");
+    const { container, worker } = fakeWorkers();
+    container.controller = worker("active");
+    const registered: [string, RegistrationOptions | undefined][] = [];
+    container.register = (url, options) => {
+      registered.push([url, options]);
+      return Promise.resolve();
+    };
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    expect(registered).toEqual([["/sw.js", { updateViaCache: "none" }]]);
   });
 
   it("says its path again to each worker that takes it over", async () => {

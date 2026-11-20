@@ -730,6 +730,13 @@ export function networkFetch(request: Request): Promise<Response> {
 export const serviceWorkerUrl = "/sw.js";
 
 /**
+ * How the service worker is registered: its updates fetched past the HTTP cache, every script, so a
+ * worker the discovery replaces, a bad build's or its kill switch's, reaches each device at its next
+ * load (the paid spec §7.1; the correctness audit's C16).
+ */
+export const serviceWorkerOptions: RegistrationOptions = { updateViaCache: "none" };
+
+/**
  * Moves the loads the browser makes by itself onto send, the page's transport (WebRTC, or the core's
  * own name on another origin): registers the service worker, answers each load it asks for, signed
  * in with the session's token at the time, and tells it this page carries its media; resolves once
@@ -767,7 +774,7 @@ export async function carryMediaOver(
   noteStep(
     `service worker: registering (the page is ${isControlled(workers) ? "" : "not "}controlled)`,
   );
-  await workers.register(serviceWorkerUrl).catch((refused: unknown) => {
+  await workers.register(serviceWorkerUrl, serviceWorkerOptions).catch((refused: unknown) => {
     noteStep("service worker: the browser refused it");
     throw new NoServiceWorker(refused);
   });
