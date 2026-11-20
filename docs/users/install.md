@@ -643,9 +643,9 @@ makes the first admin. It prints one for each of the machine's addresses on your
 as `http://192.168.1.30:8440/#code=7kqm-2xhp-9rtw`.
 
 1. Find the link. It is in:
-   - the core's log, on a line of its own that starts
-     `to finish setting up, open this link in a browser at home:`, just after a warning that says
-     `no one can sign in yet`.
+   - the core's log, on a short line of its own that says
+     `to finish setting up, open this link in a browser at home` and ends with the link, just after
+     a warning that says `no one can sign in yet`.
      - OpenMediaVault: **Services > Compose > Containers**, `orpheum-core`, **Logs**.
      - Synology: **Container Manager → Container**, `orpheum-core`, **Details**, **Log**.
      - Elsewhere:
