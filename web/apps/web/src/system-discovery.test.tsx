@@ -595,7 +595,7 @@ it("links to the household's admin account where the discovery names one, and sh
     withServices(<SystemDiscovery />, servedBy({ "GET /system/discovery": [200, atTheAccount] })),
   );
   const link = [...mounted.container.querySelectorAll("a")].find(
-    (each) => each.textContent === "To your Orpheum admin account",
+    (each) => each.textContent === "Go to your Orpheum account",
   );
   expect(link?.getAttribute("href")).toBe("https://account.example");
   mounted.unmount();
@@ -605,5 +605,5 @@ it("links to the household's admin account where the discovery names one, and sh
       servedBy({ "GET /system/discovery": [200, pendingAtTheService] }),
     ),
   );
-  expect(mounted.container.textContent).not.toContain("To your Orpheum admin account");
+  expect(mounted.container.textContent).not.toContain("Go to your Orpheum account");
 });

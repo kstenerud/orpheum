@@ -202,7 +202,7 @@ describe("AppShell", () => {
     };
     const linked = await drawn(true, "https://account.example");
     const link = [...linked.querySelectorAll("a")].find(
-      (each) => each.textContent === "To your Orpheum admin account",
+      (each) => each.textContent === "Go to your Orpheum account",
     );
     expect(link?.getAttribute("href")).toBe("https://account.example");
     expect(link?.getAttribute("target")).toBe("_blank");
@@ -216,7 +216,7 @@ describe("AppShell", () => {
       [false, "https://account.example"],
     ] as const) {
       expect((await drawn(isAdmin, adminAccountAt)).body.textContent).not.toContain(
-        "To your Orpheum admin account",
+        "Go to your Orpheum account",
       );
     }
   });

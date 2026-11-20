@@ -258,7 +258,7 @@ describe("the loader at its own origin (D308)", () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     const named = (container: HTMLElement): HTMLAnchorElement | undefined =>
       [...container.querySelectorAll("a")].find(
-        (link) => link.textContent === "To your Orpheum admin account",
+        (link) => link.textContent === "Go to your Orpheum account",
       );
     expect(named(mounted.container)).toBeUndefined();
     mounted.unmount();

@@ -116,7 +116,7 @@ export const enDiscovery = {
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",
       install: "How to install your own server",
-      adminAccount: "To your Orpheum admin account",
+      adminAccount: "Go to your Orpheum account",
     },
   },
   loader: {

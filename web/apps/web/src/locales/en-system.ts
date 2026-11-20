@@ -263,7 +263,7 @@ export const enSystem = {
       claim:
         "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
       key: "Your account's key",
-      accountLink: "To your Orpheum admin account",
+      accountLink: "Go to your Orpheum account",
       keyHint:
         "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here, with your own password on this server: it lets you sign in by your household from anywhere. The key works for an hour.",
       yourPassword: "Your password",
