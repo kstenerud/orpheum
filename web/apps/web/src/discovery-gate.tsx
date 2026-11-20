@@ -110,6 +110,8 @@ export interface GateParts {
   readonly changedFrom?: (found: KeptCore) => KeptCore | undefined;
   /** Whether the discovery has realms, so a person with no link signs in by one (D298 §1). */
   readonly hasRealms: boolean;
+  /** Where the discovery's households keep their admin accounts, which the realm sign-in links to. */
+  readonly accountOrigin?: string | undefined;
   /**
    * Offers a code from the discovery's service beside the realm sign-in, for a device no one types a
    * password on (D293 §2); absent offers none.
@@ -708,6 +710,7 @@ function RealmGate(props: RealmGateProps): JSX.Element {
       isSending={isSending}
       problem={props.problem}
       onUseCode={parts.onUseCode}
+      accountOrigin={parts.accountOrigin}
       after={props.after}
       onSubmit={(typed) => {
         rememberRealm(

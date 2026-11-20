@@ -43,6 +43,8 @@ interface RealmSignInProps {
   readonly onSubmit: (typed: RealmCredentials) => void;
   /** Offers a code instead, for a device no one types a password on: a television (D293 §2). */
   readonly onUseCode?: (() => void) | undefined;
+  /** Where the discovery's households keep their admin accounts, linked below the form; absent, none. */
+  readonly accountOrigin?: string | undefined;
   /** What comes below the form, as what happened to copy (CredentialsForm's after). */
   readonly after?: ReactNode;
 }
@@ -104,7 +106,7 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
       <button type="submit" disabled={props.isSending}>
         {props.isSending ? t("discovery.realm.signingIn") : t("discovery.realm.submit")}
       </button>
-      <OtherWays onUseCode={props.onUseCode} />
+      <OtherWays onUseCode={props.onUseCode} accountOrigin={props.accountOrigin} />
     </CredentialsForm>
   );
 }
@@ -113,9 +115,13 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
  * The other ways in than a realm: at home, the server's own address, which needs no account at all;
  * the link sent, and a code where one is offered; and, for a person who came to set up a server
  * rather than to sign in, the install guide (a household's first install, 2026-11-19: the page
- * showed no way to it, and a phone and a TV at home were pointed at it first).
+ * showed no way to it, and a phone and a TV at home were pointed at it first); and, for a household's
+ * admin come for a key, the way to their admin account at the discovery (the owner, 2026-11-20).
  */
-function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX.Element {
+function OtherWays(props: {
+  readonly onUseCode: (() => void) | undefined;
+  readonly accountOrigin: string | undefined;
+}): JSX.Element {
   const { t } = useTranslation();
   return (
     <>
@@ -131,6 +137,13 @@ function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX
           {t("discovery.realm.install")}
         </a>
       </p>
+      {props.accountOrigin === undefined ? null : (
+        <p>
+          <a href={props.accountOrigin} rel="noreferrer noopener" target="_blank">
+            {t("discovery.realm.adminAccount")}
+          </a>
+        </p>
+      )}
     </>
   );
 }

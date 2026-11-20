@@ -253,7 +253,25 @@ describe("the loader at its own origin (D308)", () => {
     expect(install?.getAttribute("href")).toBe(installGuideOnGitHub);
   });
 
-  // The same install: a phone and a TV at home were pointed at orpheum.cc, not at the server.
+  // The owner, 2026-11-20: a household's admin come for a key had no way to the account from here.
+  it("links the realm sign-in to the household's admin account where the discovery names one", async () => {
+    mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
+    const named = (container: HTMLElement): HTMLAnchorElement | undefined =>
+      [...container.querySelectorAll("a")].find(
+        (link) => link.textContent === "To your Orpheum admin account",
+      );
+    expect(named(mounted.container)).toBeUndefined();
+    mounted.unmount();
+    const withAccounts = {
+      ...loaderAt({}, memoryStorage(), []),
+      config: { ...config, accountOrigin: "https://account.example" },
+    };
+    mounted = await mount(startAtLoaderOrigin(withAccounts) ?? <p>nothing</p>);
+    expect(named(mounted.container)?.getAttribute("href")).toBe("https://account.example");
+  });
+
+  // The household's first install, 2026-11-19: a phone and a TV at home were pointed at orpheum.cc,
+  // not at the server.
   it("tells a person at home to open the server's own address instead", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(mounted.container.textContent).toContain(

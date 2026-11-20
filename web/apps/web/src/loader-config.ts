@@ -2,8 +2,8 @@
 
 /**
  * What a discovery's loader is told by the page the discovery serves it in (D308): the discovery's
- * client API, whether it has realms, and the pattern of its client origins, each in a meta element,
- * since the loader reads no environment (D204).
+ * client API, whether it has realms, the pattern of its client origins, and where its households'
+ * admin accounts are, each in a meta element, since the loader reads no environment (D204).
  */
 
 import { discoveryClientApiOf, discoveryHasRealms } from "./discovery-page.ts";
@@ -13,6 +13,12 @@ const clientOriginsMetaName = "orpheum-client-origins";
 
 /** The meta element a discovery names the loader's own origin by: "https://discovery.example". */
 const loaderOriginMetaName = "orpheum-loader-origin";
+
+/**
+ * The meta element a discovery with accounts names where its households' admins keep them by:
+ * "https://account.discovery.example". The sign-in links there (the owner, 2026-11-20).
+ */
+const accountOriginMetaName = "orpheum-account-origin";
 
 /** The part of the pattern a core's id takes. */
 const corePlace = "{core}";
@@ -28,6 +34,8 @@ export interface LoaderConfig {
   readonly clientOrigins: string;
   /** The loader's own origin, where the household list is (D308 §8). */
   readonly loaderOrigin: string;
+  /** Where the discovery's households keep their admin accounts; absent at one with none. */
+  readonly accountOrigin?: string | undefined;
 }
 
 /** What page tells the loader, or undefined for a page that is no discovery's loader. */
@@ -40,7 +48,14 @@ export function loaderConfigOf(page: Pick<Document, "querySelector">): LoaderCon
   if (clientApi === "" || loaderOrigin === "" || clientOrigins.split(corePlace).length !== 2) {
     return undefined;
   }
-  return { clientApi, hasRealms: discoveryHasRealms(page), clientOrigins, loaderOrigin };
+  const accountOrigin = named(accountOriginMetaName);
+  return {
+    clientApi,
+    hasRealms: discoveryHasRealms(page),
+    clientOrigins,
+    loaderOrigin,
+    accountOrigin: accountOrigin === "" ? undefined : accountOrigin,
+  };
 }
 
 /** The core whose client origin origin is, or undefined at an origin that is none's: the loader's. */

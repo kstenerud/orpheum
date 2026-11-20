@@ -306,6 +306,7 @@ export function joinParts(at: AtLoaderOrigin, then = "/"): GateParts {
   return {
     client: { clientApi: at.config.clientApi },
     hasRealms: at.config.hasRealms,
+    accountOrigin: at.config.accountOrigin,
     realmStorage: at.storage,
     shouldSkipLanNames: true,
     sessionOf: () => undefined,

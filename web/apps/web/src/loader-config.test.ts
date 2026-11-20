@@ -41,6 +41,12 @@ describe("what a discovery's page tells its loader (D308)", () => {
         pageWith({ ...discoveryPage, "orpheum-client-origins": "https://client.example" }),
       ),
     ).toBeUndefined();
+    // A discovery with accounts names where they are kept, which the sign-in links to.
+    expect(
+      loaderConfigOf(
+        pageWith({ ...discoveryPage, "orpheum-account-origin": "https://account.example" }),
+      )?.accountOrigin,
+    ).toBe("https://account.example");
     // The core's own page names no discovery: no loader runs there.
     expect(loaderConfigOf(pageWith({}))).toBeUndefined();
   });
