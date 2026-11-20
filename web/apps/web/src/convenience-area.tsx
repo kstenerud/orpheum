@@ -2,7 +2,7 @@
 
 import "./play-words.ts";
 
-import type { ComponentType, JSX, RefObject } from "react";
+import { useEffect, type ComponentType, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { FilmParts } from "./film-player.tsx";
@@ -16,8 +16,8 @@ export interface OfferPlace {
 }
 
 /**
- * An offer the player draws: Up next or Still watching (up-next.tsx); Skip intro once intros are
- * detected. Given to the overlay rather than imported, so the overlay knows no offer's module.
+ * An offer the player draws: Skip intro and its kind (segments.tsx), Up next or Still watching
+ * (up-next.tsx). Given to the overlay rather than imported, so the overlay knows no offer's module.
  */
 export type OfferPiece = ComponentType<FilmParts & OfferPlace>;
 
@@ -69,4 +69,40 @@ const endsAtClock = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-di
 /** When the film ends if it plays on from now, as the viewer's clock says it. */
 function endsAt(leftMs: number): string {
   return endsAtClock.format(new Date(Date.now() + leftMs));
+}
+
+/** Tells onOffered, where given, whether an offer shows, and that it does not once it goes. */
+export function useTellsOffered(
+  isShown: boolean,
+  onOffered: ((isOffered: boolean) => void) | undefined,
+): void {
+  useEffect(() => {
+    if (!isShown || onOffered === undefined) {
+      return undefined;
+    }
+    onOffered(true);
+    return () => {
+      onOffered(false);
+    };
+  }, [isShown, onOffered]);
+}
+
+/**
+ * Focuses an offer's button in buttonRef as it shows where nothing but the video or the page has
+ * focus, so a remote's OK presses it, and wherever focus is where isTaken (Up next as the film ends);
+ * never from another control, so a press already on its way goes where it was aimed.
+ */
+export function useFocusAsItShows(
+  isShown: boolean,
+  isTaken: boolean,
+  buttonRef: RefObject<HTMLButtonElement | null>,
+): void {
+  useEffect(() => {
+    const focused = document.activeElement;
+    const isFree =
+      focused === null || focused === document.body || focused instanceof HTMLVideoElement;
+    if (isShown && (isTaken || isFree)) {
+      buttonRef.current?.focus();
+    }
+  }, [isShown, isTaken, buttonRef]);
 }

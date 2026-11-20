@@ -28,6 +28,7 @@ import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts"
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { comingAndGoingShownMs } from "./together-over-the-film.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
+import type { PlaybackDecision } from "./watching.ts";
 
 const joined = {
   sessionId: 1,
@@ -389,6 +390,65 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "canNext true: offered true, asked true",
       "canNext false: offered false, asked false",
     ]);
+  });
+
+  it("offers a follower no skip, and no commercial skips itself under the host, but Up next shows from the credits (D246 §8, D139)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const upNext = {
+      episode: { itemId: 9, name: "Bag", groupNumber: 1, numberInGroup: 3, fileId: 6 },
+      ordering: "aired",
+      isOnlyGroup: false,
+    };
+    const segments: PlaybackDecision["segments"] = [
+      { type: "intro", startMs: 60_000, endMs: 90_000 },
+      { type: "commercial", startMs: 300_000, endMs: 330_000 },
+      { type: "credits", startMs: 1_100_000, endMs: 1_200_000 },
+    ];
+    const { services, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis", segments })],
+      "GET /together/up-next": [200, { upNext }],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await server.accept();
+    await server.say({
+      ...welcome,
+      rights: { canPlayPause: true, canSeek: true, canNext: true },
+    });
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: {
+        state: "paused",
+        positionMs: 70_000,
+        rate: 1,
+        fileId: 5,
+        event: "paused",
+        byMemberId: 1,
+      },
+    });
+    const video = mounted.container.querySelector("video");
+    expect(video).not.toBe(null);
+    if (video !== null) {
+      Object.defineProperty(video, "duration", { configurable: true, get: () => 1200 });
+    }
+    const standAt = async (atS: number): Promise<void> => {
+      if (video !== null) {
+        video.currentTime = atS;
+      }
+      await fire(video, new Event("timeupdate"));
+    };
+    await standAt(70);
+    expect(mounted.container.textContent).not.toContain("Skip");
+    await standAt(310);
+    expect(video?.currentTime).toBe(310);
+    await standAt(1150);
+    expect(mounted.container.querySelector(".up-next__play")?.textContent).toContain("· Bag");
+    expect(mounted.container.textContent).not.toContain("Skip");
+    mounted.unmount();
   });
 
   it("draws ⏮ and ⏭ beside Full screen for a viewer whose link lets them put the episode before or after on, each where there is one, and puts it on for everyone; none to one whose link does not (D471)", async () => {

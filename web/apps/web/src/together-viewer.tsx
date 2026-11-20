@@ -58,6 +58,7 @@ import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
 import { requestTogetherAround, useGroupFilmDecision } from "./together-playback.ts";
+import { creditsStartOf } from "./segments.tsx";
 import { UpNextOffer } from "./up-next.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
@@ -584,11 +585,12 @@ function FollowingGroup(props: FilmParts): JSX.Element {
  * For a guest whose link lets them put on the episode after or before the group's film (D471 §2):
  * read once from GET /together/up-next, ⏮ and ⏭ beside Full screen, each where there is one, as the
  * host's own bar draws them (D407 §2), and the episode after offered near the film's end as the
- * host's own player offers it; each puts it on for everyone. The offer does not count down: only the
- * host's player does (D471, the owner's answers).
+ * host's own player offers it, from the film's credits where a segment says where they start (D139);
+ * each puts it on for everyone. The offer does not count down: only the host's player does (D471,
+ * the owner's answers).
  */
 function MovesTheGroup(props: FilmButtonsParts): JSX.Element {
-  const { fileId, following, headers } = useGuestFilm();
+  const { fileId, following, headers, decision } = useGuestFilm();
   const { api } = useServices();
   const [read] = useResource(`together-up-next/${String(fileId)}`, () =>
     requestTogetherAround(api, headers),
@@ -620,6 +622,7 @@ function MovesTheGroup(props: FilmButtonsParts): JSX.Element {
         <UpNextOffer
           upNext={upNext}
           isAutoplayOn={false}
+          creditsStartMs={creditsStartOf(decision.segments ?? [])}
           videoRef={props.videoRef}
           onPlay={moves.next}
         />

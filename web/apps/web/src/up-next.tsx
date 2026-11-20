@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
   type JSX,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { isNearItsEnd, type Ending } from "@orpheum/sdk";
@@ -18,7 +19,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import { moveBack, moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
-import type { OfferPlace } from "./convenience-area.tsx";
+import { useFocusAsItShows, useTellsOffered, type OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
@@ -37,6 +38,14 @@ import {
   useAnyPressForgetsAutoplays,
   useIsAskingStillWatching,
 } from "./still-watching.tsx";
+import {
+  creditsStartOf,
+  segmentsOf,
+  SegmentsContext,
+  SkipOffer,
+  SkipsCommercials,
+  type MediaSegment,
+} from "./segments.tsx";
 import { useServices } from "./services.tsx";
 import { parentOf } from "./upward.ts";
 import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
@@ -44,8 +53,9 @@ import { watchingOf } from "./watching.ts";
 
 /**
  * How long autoplay counts down before it plays the next episode, in ms: long enough to read the
- * offer and press, as every service's countdown is. A justified constant. It starts at the film's
- * end, so a fixed lead never cuts the programme's last seconds (D139; plans/up-next.md §3).
+ * offer and press, as every service's countdown is. A justified constant. It starts at the start
+ * of the film's credits, where a segment says where they are, else at its end, so a fixed lead never
+ * cuts the programme's last seconds (D139, D339; plans/up-next.md §3, §9).
  */
 export const upNextCountdownMs = 10_000;
 
@@ -89,6 +99,27 @@ export interface UpNextOffered {
 
 /** The Play page's Up next, which the offer drawn over its film reads. */
 export const UpNextContext = createContext<UpNextOffered | undefined>(undefined);
+
+/**
+ * What the Play page gives the offers over its film (PlayersOffers): its Up next (UpNextContext) and
+ * the segments of its file (SegmentsContext), whose commercials skip themselves as video plays them.
+ */
+export function PlaysOffered(props: {
+  readonly offered: UpNextOffered | undefined;
+  readonly segments: readonly MediaSegment[] | null;
+  readonly video: HTMLVideoElement | null;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const segments = useMemo(() => segmentsOf(props.segments), [props.segments]);
+  return (
+    <UpNextContext value={props.offered}>
+      <SegmentsContext value={segments}>
+        <SkipsCommercials video={props.video} segments={segments} />
+        {props.children}
+      </SegmentsContext>
+    </UpNextContext>
+  );
+}
 
 /**
  * What the Play page of fileId gives its Up next offer, the same object while nothing changes. What
@@ -226,9 +257,10 @@ export interface OfferChoice {
 const noChoice: OfferChoice = { isDismissed: false, isCancelled: false };
 
 /**
- * Whether the film is near its end, and whether the offer shows and counts down: it shows within
- * upNextLeadMs of the end and on the end screen, unless dismissed; it counts once the film has
- * ended, with autoplay on, unless stopped.
+ * Whether the film is near its end, and whether the offer shows and counts down: it shows from its
+ * credits' start where the file has a credits segment, else within upNextLeadMs of the end, and on
+ * the end screen, unless dismissed (isNearItsEnd); it counts from the credits' start, else once the
+ * film has ended, with autoplay on, unless stopped.
  */
 export function offerState(
   ending: Ending,
@@ -240,8 +272,14 @@ export function offerState(
   return {
     isNearTheEnd,
     isShown,
-    isCounting: isShown && ending.hasEnded && isAutoplayOn && !choice.isCancelled,
+    isCounting: isShown && isAtItsCredits(ending) && isAutoplayOn && !choice.isCancelled,
   };
+}
+
+/** Whether the film has ended, or plays its credits where a segment says where they start. */
+function isAtItsCredits(ending: Ending): boolean {
+  const { creditsStartMs } = ending;
+  return ending.hasEnded || (creditsStartMs !== undefined && ending.atMs >= creditsStartMs);
 }
 
 /**
@@ -249,13 +287,17 @@ export function offerState(
  * On a cast's receiver it is shown and counts, but presses there are Take back control's: its film
  * is the cast's next episode, which the remote follows (D337's §9 answers, Q4). In the overlay's
  * convenience area it is told where it is (OfferPlace). As it shows, the next episode is warmed up
- * (useWarmsUpNext), so its start is fetched before it plays (the owner's request, 2026-11-11).
+ * (useWarmsUpNext), so its start is fetched before it plays (the owner's request, 2026-11-11). It
+ * shows and counts from the credits where the file has a credits segment (SegmentsContext; D139),
+ * but on a cast's receiver, whose remote and Chromecast twin know no segments (D471).
  */
 export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const offered = use(UpNextContext);
+  const segments = use(SegmentsContext);
   const { next } = useSequenceMoves(offered);
   const upNext = offered?.upNext;
-  const warmUpNext = useWarmsUpNext(upNext?.episode.fileId, offered?.receiving === undefined);
+  const isHere = offered?.receiving === undefined;
+  const warmUpNext = useWarmsUpNext(upNext?.episode.fileId, isHere);
   if (upNext === undefined || next === undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
@@ -264,6 +306,7 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
       key={upNext.episode.fileId}
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
+      creditsStartMs={isHere ? creditsStartOf(segments) : undefined}
       videoRef={props.videoRef}
       isOverlayFull={props.isOverlayFull}
       onOffered={props.onOffered}
@@ -301,31 +344,63 @@ export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
   return hasTelevisionControls ? OverlayOpeningFullScreen : OverlayOnAComputer;
 }
 
-/** A television's overlay, the Up next offer and ⏮ ⏭ in it, its stage full screen as it opens. */
+/** A television's overlay, the page's offers and ⏮ ⏭ in it, its stage full screen as it opens. */
 function OverlayOpeningFullScreen(props: FilmParts): JSX.Element {
   const moves = useSequenceMoves(use(UpNextContext));
-  return <OverTheFilm {...props} shouldOpenFullScreen offer={UpNextOver} moves={moves} />;
+  return <OverTheFilm {...props} shouldOpenFullScreen offer={PlayersOffers} moves={moves} />;
 }
 
-/** A computer's and a phone's overlay, the Up next offer and ⏮ ⏭ in it, and the film's clicks. */
+/** A computer's and a phone's overlay, the page's offers and ⏮ ⏭ in it, and the film's clicks. */
 function OverlayOnAComputer(props: FilmParts): JSX.Element {
   const moves = useSequenceMoves(use(UpNextContext));
-  return <OverTheFilm {...props} hasPressesOnTheFilm offer={UpNextOver} moves={moves} />;
+  return <OverTheFilm {...props} hasPressesOnTheFilm offer={PlayersOffers} moves={moves} />;
 }
 
 /**
  * The player's controls under the film outside full screen, every device's (D407 §9,
- * page-controls.tsx), the Up next offer and Still watching among them as ordinary buttons.
+ * page-controls.tsx), the page's offers among them as ordinary buttons.
  */
 export function ControlsUnderTheFilm(props: FilmParts): JSX.Element | null {
   const moves = useSequenceMoves(use(UpNextContext));
-  return <PageControls {...props} offer={UpNextOver} moves={moves} />;
+  return <PageControls {...props} offer={PlayersOffers} moves={moves} />;
+}
+
+/**
+ * The Play page's offers over its film, one at a time (D82; plans/media-segments.md): Skip intro,
+ * recap, preview or credits while one of those segments plays (SkipOffer), and Up next or Still
+ * watching near the end (UpNextOver), which takes the place of Skip credits on an episode with a next
+ * one, and of any skip while it shows. The overlay is told an offer shows while either does. A cast's
+ * receiver offers no skip: its presses are Take back control's (plans/up-next.md §8).
+ */
+export function PlayersOffers(props: FilmParts & OfferPlace): JSX.Element {
+  const offered = use(UpNextContext);
+  const segments = use(SegmentsContext);
+  const { next } = useSequenceMoves(offered);
+  const [isSkipOffered, setIsSkipOffered] = useState(false);
+  const [isNextOffered, setIsNextOffered] = useState(false);
+  useTellsOffered(isSkipOffered || isNextOffered, props.onOffered);
+  const isSkipHere = offered?.receiving === undefined && !isNextOffered;
+  return (
+    <>
+      {isSkipHere ? (
+        <SkipOffer
+          videoRef={props.videoRef}
+          segments={segments}
+          isCreditsLeftToUpNext={next !== undefined}
+          onOffered={setIsSkipOffered}
+        />
+      ) : null}
+      <UpNextOver {...props} onOffered={setIsNextOffered} />
+    </>
+  );
 }
 
 /** What the Up next offer is given: where it is, what it offers, and what it tells. */
 interface UpNextOfferParts extends OfferPlace {
   readonly upNext: UpNext;
   readonly isAutoplayOn: boolean;
+  /** Where the film's credits start, where a segment says so: the offer shows and counts from it. */
+  readonly creditsStartMs?: number | undefined;
   /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
   readonly isPressable?: boolean;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -342,7 +417,7 @@ interface UpNextOfferParts extends OfferPlace {
  * focus as the film ends, and as it shows where nothing else has it, so OK presses it.
  */
 export function UpNextOffer(props: UpNextOfferParts): JSX.Element | null {
-  const ending = useEnding(props.videoRef);
+  const ending = useEnding(props.videoRef, props.creditsStartMs);
   const { isShown, isCounting, setChoice } = useOfferChoice(ending, props);
   useTellsShown(isShown, props.onShown);
   const playRef = useRef<HTMLButtonElement>(null);
@@ -487,22 +562,6 @@ function useTellsShown(isShown: boolean, onShown: (() => void) | undefined): voi
   }, [isShown, onShownRef]);
 }
 
-/** Tells onOffered, where given, whether the offer shows, and that it does not once it goes. */
-function useTellsOffered(
-  isShown: boolean,
-  onOffered: ((isOffered: boolean) => void) | undefined,
-): void {
-  useEffect(() => {
-    if (!isShown || onOffered === undefined) {
-      return undefined;
-    }
-    onOffered(true);
-    return () => {
-      onOffered(false);
-    };
-  }, [isShown, onOffered]);
-}
-
 /**
  * The presses the offer hears while it shows: Back dismisses it, before anything else hears it,
  * unless isBackLeft, where all of the overlay shows and Back hides it (D407 §5); any other, OK on
@@ -553,25 +612,6 @@ function useChoiceOfPresses(parts: {
 }
 
 /**
- * Focuses the offer's button as the film ends, and as the offer shows where nothing but the video or
- * the page has focus, so a remote's OK presses it; never from another control.
- */
-function useFocusAsItShows(
-  isShown: boolean,
-  hasEnded: boolean,
-  playRef: RefObject<HTMLButtonElement | null>,
-): void {
-  useEffect(() => {
-    const focused = document.activeElement;
-    const isFree =
-      focused === null || focused === document.body || focused instanceof HTMLVideoElement;
-    if (isShown && (hasEnded || isFree)) {
-      playRef.current?.focus();
-    }
-  }, [isShown, hasEnded, playRef]);
-}
-
-/**
  * The seconds autoplay has left while isCounting, one less each second from upNextCountdownMs, and
  * onPlay once they run out.
  */
@@ -608,30 +648,40 @@ function useCountdown(isCounting: boolean, onPlay: () => void): number {
 /** The events at which the offer reads where the film stands. */
 const endingEvents = ["loadedmetadata", "durationchange", "timeupdate", "seeked", "play", "ended"];
 
-function endingOf(standing: VideoStanding): Ending {
-  return { atMs: standing.atMs, durationMs: standing.durationMs, hasEnded: standing.hasEnded };
-}
-
-/** The offer's taking of the video's reading: drawn again only when it means something new. */
-const endingTaking: StandingTaken<Ending> = {
-  take: endingOf,
-  isSame: isSameEnding,
-  initial: { atMs: 0, durationMs: 0, hasEnded: false },
-  isReadAtOnce: false,
-};
-
 /**
- * Where the film stands for the offer, as the video says it at its own events, from the one reading
- * every hearer of the video takes (useVideoStanding), the bar's too: a video that plays says so
- * within a timeupdate's quarter second.
+ * The offer's taking of the video's reading, for a film whose credits start at creditsStartMs, where
+ * known: drawn again only when it means something new.
  */
-function useEnding(videoRef: RefObject<HTMLVideoElement | null>): Ending {
-  return useVideoStanding(videoRef, endingEvents, endingTaking);
+function endingTakingOf(creditsStartMs: number | undefined): StandingTaken<Ending> {
+  return {
+    take: (standing: VideoStanding) => ({
+      atMs: standing.atMs,
+      durationMs: standing.durationMs,
+      hasEnded: standing.hasEnded,
+      creditsStartMs,
+    }),
+    isSame: isSameEnding,
+    initial: { atMs: 0, durationMs: 0, hasEnded: false, creditsStartMs },
+    isReadAtOnce: false,
+  };
 }
 
 /**
- * Whether two readings mean the same to the offer: both far from the end, where it shows nothing
- * whatever the second (the web client's architecture audit of 2026-11-10,
+ * Where the film stands for the offer, its credits at creditsStartMs where known, as the video says
+ * it at its own events, from the one reading every hearer of the video takes (useVideoStanding),
+ * the bar's too: a video that plays says so within a timeupdate's quarter second.
+ */
+function useEnding(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  creditsStartMs: number | undefined,
+): Ending {
+  const taking = useMemo(() => endingTakingOf(creditsStartMs), [creditsStartMs]);
+  return useVideoStanding(videoRef, endingEvents, taking);
+}
+
+/**
+ * Whether two readings mean the same to the offer: both far from the end and its credits, where it
+ * shows nothing whatever the second (the web client's architecture audit of 2026-11-10,
  * Playback 8); or within a second, the same end.
  */
 function isSameEnding(one: Ending, other: Ending): boolean {

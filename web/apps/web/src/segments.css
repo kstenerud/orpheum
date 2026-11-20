@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The skip over the film (segments.tsx): an offer of the convenience area, drawn as Up next's. */
+.skip-segment {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+  font: inherit;
+  font-weight: 600;
+}

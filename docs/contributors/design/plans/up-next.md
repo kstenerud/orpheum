@@ -6,7 +6,8 @@
 
 - **Status:** IN-PROGRESS — 2026-10-25, at the owner's request: *"Add 'up next' button and
   user-configurable autoplay."* Built: §1–§8 below, and D339's
-  *Still watching?* and group following (§10); on devices, VQ67–VQ70; left, §9. It is closed-beta B1's *"The next-episode countdown, which a
+  *Still watching?* and group following (§10), and the credits cue (§9, b1.md Phase C,
+  2026-11-20); on devices, VQ67–VQ70; left, §9. It is closed-beta B1's *"The next-episode countdown, which a
   person can turn off"* ([D313](../../decisions/working-notes.md) §2), built before the
   intro and credits detection it would sit on ([D82](../../decisions/working-notes.md)).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering, D160),
@@ -39,11 +40,13 @@ Where nothing above decides, the build chose the conventional behaviour:
    (which, while an episode plays, is that episode). An episode the ordering leaves out has none.
    It plays as Next Up's Play does: the file the person is partway through, else its first.
    `GET /files/{id}/up-next`.
-2. **No credits cue exists yet** (no segment table nor detector, D82), so the offer shows a fixed
-   **30 s before the end** (`upNextLeadMs`, a justified constant), and on the end screen.
+2. **Where the file has no credits segment** (media-segments.md), the offer shows a fixed
+   **30 s before the end** (`upNextLeadMs`, a justified constant), and on the end screen (D339);
+   where it has one, at the credits' start (§9).
 3. **The countdown is 10 s and starts at the film's end** (`upNextCountdownMs`), not when the offer
    shows: a fixed lead counting down would cut the programme's last seconds on a show with short
-   credits, which is D139's complaint. Once credits are detected it should start at the credits.
+   credits, which is D139's complaint. Where the file has a credits segment it starts with the
+   offer, at the credits (§9).
 4. **Autoplay is a person's own switch, on until they turn it off** (the convention of every
    service), kept as the axis `autoplay` at the person's scope beside the boost and levelling;
    *Play the next episode automatically* on the Account page, the person's own settings.
@@ -59,7 +62,16 @@ Where nothing above decides, the build chose the conventional behaviour:
    again and the remote following. With autoplay off the receiver waits at the end with the offer.
    The remote offers *Up next* while its film has a next one. With none, the receiver goes home and
    the remote is told, as before.
-9. **Not built:** the credits cue; and *Still watching?* on a cast's receiver, which keeps
+9. **The credits cue** (D139, D339; b1.md Phase C): where the playing file has a credits segment
+   (`segments` of `POST /playback`, the last one's start), the offer shows and its countdown starts
+   at the credits' start, in place of the fixed lead, which stays for a file without one
+   (`isNearItsEnd`, `creditsStartOf`). *Still watching?* comes where the countdown would, so at the
+   credits too, and a host's autoplay moves their group on from there as at the end (§10). A Watch
+   Together guest whose link puts the next episode on sees the offer from the credits as well
+   (D471 §2). On an episode with a next one the offer takes the place of *Skip credits*: the player
+   never shows both (media-segments.md). **Not built:** the credits cue on a cast, whose receiver,
+   remote and Chromecast show the offer together on the fixed lead (D471: the remote and the
+   Chromecast are told no segments); and *Still watching?* on a cast's receiver, which keeps
    counting, since its presses are Take back control's and its remote has no card yet.
 10. **Built by D339:** after `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no
    press on the page (a remote's command, a key, a tap or a click), the next film's end shows *Still

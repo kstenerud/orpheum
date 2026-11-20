@@ -88,7 +88,7 @@ import {
   ControlsUnderTheFilm,
   LeavesAtTheEnd,
   overTheFilm,
-  UpNextContext,
+  PlaysOffered,
   useIsNothingNext,
   useSequenceCommands,
   useUpNextOffered,
@@ -223,7 +223,7 @@ function PlayerView(
   const isOwn = receiving === undefined;
   useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs });
   return (
-    <UpNextContext value={offered}>
+    <PlaysOffered offered={offered} segments={decision.segments} video={video}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
         <LeavesAtTheEnd video={video} isNothingNext={isNothingNext} />
         <PlayContext value={ways}>
@@ -247,7 +247,7 @@ function PlayerView(
         startPositionMs={resumePositionMs}
         hasNext={tracks.hasNext}
       />
-    </UpNextContext>
+    </PlaysOffered>
   );
 }
 

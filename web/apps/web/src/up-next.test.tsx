@@ -78,6 +78,21 @@ describe("when Up next shows and counts (plans/up-next.md)", () => {
     });
     expect(offerState(ended, { isDismissed: true, isCancelled: true }, true).isShown).toBe(false);
   });
+
+  it("shows and counts from the credits' start where the file has a credits segment (D139, D339)", () => {
+    const creditsStartMs = 1_100_000;
+    const at = (atMs: number) =>
+      offerState({ atMs, durationMs, hasEnded: false, creditsStartMs }, noChoice, true);
+    // Credits a minute and more before the fixed lead: the offer shows and counts from them.
+    expect(at(creditsStartMs - 1000)).toMatchObject({ isShown: false, isCounting: false });
+    expect(at(creditsStartMs)).toMatchObject({ isShown: true, isCounting: true });
+    expect(at(durationMs - upNextLeadMs + 1000)).toMatchObject({ isShown: true, isCounting: true });
+    // Credits shorter than the lead: nothing shows in the lead before them.
+    const late = { atMs: 0, durationMs, hasEnded: false, creditsStartMs: durationMs - 5000 };
+    expect(
+      offerState({ ...late, atMs: durationMs - upNextLeadMs + 1000 }, noChoice, true),
+    ).toMatchObject({ isShown: false, isCounting: false });
+  });
 });
 
 /** A video the offer reads: where it stands, its length and whether it ended, told by its events. */
@@ -332,6 +347,42 @@ describe("the Up next offer over the film", () => {
       "1185000",
     );
     expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
+  });
+
+  it("shows and counts down from the credits' start where a segment says it, playing the next as the count ends (D139)", async () => {
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <UpNextOffer
+          upNext={bag}
+          isAutoplayOn
+          creditsStartMs={900_000}
+          videoRef={videoRef}
+          onPlay={() => {
+            played += 1;
+          }}
+        />,
+      ),
+    );
+    video.stand(899);
+    expect(mounted.container.textContent).not.toContain("Up next");
+    video.stand(900);
+    expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
+    expect(mounted.container.textContent).toContain("Plays in 10 s");
+    waitMs(upNextCountdownMs);
+    expect(played).toBe(1);
+  });
+
+  it("keeps the fixed lead where the file has no credits segment, counting only at the end", async () => {
+    const container = await offer(true);
+    video.stand(900);
+    expect(container.textContent).not.toContain("Up next");
+    video.stand(1185);
+    expect(container.textContent).toContain("Up next: S1E3 · Bag");
+    expect(container.textContent).not.toContain("Plays in");
+    waitMs(upNextCountdownMs);
+    expect(played).toBe(0);
   });
 
   it("shows the No poster card in a screenshot's shape where the next episode has no still (D497 §2)", async () => {

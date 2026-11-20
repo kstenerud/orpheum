@@ -8,9 +8,15 @@
   Built for the closed beta ([b1.md](b1.md) Phase B, 2026-11-20): the table (`media_segment`, step
   0094), the chapter-derived detector (`internal/core/library/segments.go`), and a file's segments
   in the playback the player starts (`segments` of `POST /playback`), an episode boundary and an
-  `unknown` range left out. Not built: the skip and the credits cue in the player (b1.md Phase C),
-  a person's corrections' API, the fingerprint and black-frame detectors, and derivation across
-  sibling files.
+  `unknown` range left out. Built in the web player (Phase C, 2026-11-20): *Skip intro*, *Skip
+  recap*, *Skip preview* and *Skip credits* while the position is inside one (`segments.tsx`), a
+  commercial skipping itself once in a playback, and Up next from the credits' start
+  ([up-next.md](up-next.md) §9). The skip shows alone over the film for its segment's first 10 s,
+  then with the controls; on a television it takes focus as it shows where nothing else has it;
+  on an episode with a next one Up next takes the place of *Skip credits*; a Watch Together guest
+  and a cast's receiver offer none (D246 §8). Not built: chapters on the scrub bar, settings to
+  skip by themselves, the credits cue on a cast, a person's corrections' API, the fingerprint and
+  black-frame detectors, and derivation across sibling files.
 - **Depends on:** library-model.md
 - **Blocks:** [library-model.md](library-model.md) — the table is schema
 

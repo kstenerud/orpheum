@@ -673,10 +673,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A playing episode offers what plays next, and the person's autoplay plays it** (plans/up-next.md):
   the server's `GET /files/{id}/up-next`, asked once the film has played so it does not compete with
   its first chunks (the efficiency audit's finding 4), the next episode in the person's ordering, shows as *Up
-  next: S1E3 · ‹name›* with its still over the film from `upNextLeadMs` (30 s) before its end and on
-  the end screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the
-  person's own switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s)
-  down from the end and plays it; any press stops the count, Back, Escape or its × dismisses it; it
+  next: S1E3 · ‹name›* with its still over the film from the start of its credits where the file has
+  a credits segment (D139), else from `upNextLeadMs` (30 s) before its end (D339), and on the end
+  screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the person's own
+  switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s) down from the
+  credits, else from the end, and plays it (a cast's receiver keeps the fixed lead, as its remote
+  does; plans/up-next.md §9); any press stops the count, Back, Escape or its × dismisses it; it
   takes focus as the film ends, and a television's overlay leaves OK on it to it. Over the film
   without the rest of the overlay (alone, or through a seek's scrub bar and the pause sign) it sits
   in the film's top-right corner, clear of the action, at row 0's end only while all of the overlay
@@ -687,6 +689,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   it again (the owner, 2026-11-17; `LeavesAtTheEnd`, `src/play-end.test.tsx`). `src/up-next.test.tsx`,
   `src/autoplay-setting.test.tsx`, `src/player-overlay.test.tsx`, `src/up-next-place.browser.test.tsx`;
   on devices, VQ67.
+- **A playing file's intro, recap, preview and credits offer a skip, and its commercials skip
+  themselves** (plans/media-segments.md; b1.md Phase C): from the segments of `POST /playback`,
+  *Skip intro* (*recap*, *preview*, *credits*) shows while the position is inside one, from its start
+  to just before its end, and its press seeks to the segment's end. It shows alone over the film, as an
+  offer in the convenience area, for `skipShownAloneMs` (10 s) from the segment's start, then while the
+  controls show and in the bar under the film; a press, or a seek out of the segment, hides it. On a
+  television it takes focus as it shows where nothing else has it (never from a control), so OK
+  presses it. On an episode with a next one Up next takes the place of *Skip credits*, and any skip
+  goes while Up next shows: one offer at a time (`PlayersOffers`). A commercial seeks to its end as the
+  film comes to it, once in the playback, so a seek back into it plays it. A cast's receiver offers no
+  skip, and a Watch Together guest neither skips nor sees one: the host's player leads (D246 §8).
+  `src/segments.test.tsx`, `src/up-next.test.tsx`, `src/together-viewer.test.tsx`.
 - **A run of autoplays asks before it goes on, and a host's moves their group** (D339): after
   `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no press on the page, the next
   film's end shows *Still watching?*, Continue (focused) or Stop (leaves the film), and counts
