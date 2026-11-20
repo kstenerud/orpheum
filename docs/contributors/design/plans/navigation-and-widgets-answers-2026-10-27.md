@@ -4665,3 +4665,42 @@ playback proceeds as if the host were present and only passively watching."
 
 Recorded as [loop-playback.md](loop-playback.md), UNSPECIFIED: a video or a set looping without
 end, never asking Still watching. "To do at a later time, possibly after beta."
+
+## The second install agent's report (2026-11-20), next batch
+
+An agent asked to install Orpheum from what is public, on a Linux machine with Docker, at v0.8.7
+(the owner, 2026-11-20, after deploying both v0.8.7 and Connect). Its pull from ghcr.io was refused
+by its own sandbox, so it stopped before the first start. The owner runs a walkthrough test next;
+its report joins this one before the batch is cut.
+
+- **Done, not ours:** F1 (orpheum.cc says nothing to a plain fetch): a summarizing fetch of the live
+  page returns the description and "Install a server" first, and the sign-in a browser draws links
+  "How to install your own server"; the agent missed them (agent-failures A86). F2 (the name shared
+  with an unrelated package in search): the owner has set the GitHub description and topics. F9
+  (ghcr.io refused): the agent's sandbox; a setup-problems.md entry for a refused pull is still worth
+  adding; a second registry is the owner's call.
+- **Documentation fixes, no answer needed:** F3, one sentence near the top of the README and
+  install.md: anyone can install and use Orpheum at home; only watching away from home needs an
+  invitation. F7, F10, F15, a copy-paste quick start for each platform and a "Before you start"
+  check (Docker and Compose versions, the daemon running, `uname -m`) above the detailed text. F8,
+  say `id -g` gives the group and 100 suits OpenMediaVault and Synology only. F11, the
+  install-script command names a real tag, not `<tag>`. F12, install.md's v0.3.x and the compose
+  file's v0.4.0 examples become neutral or current. F13, name which user "the docker group" means
+  in each place. F14, offer to read the install script before running it. F16, the shipped compose
+  files carry no decision numbers (`deploy/docker/compose.yaml` has seven), as the user guides
+  already do not.
+- **The owner's answers (2026-11-20):**
+  - **F4, invitations:** "Invitations are by me, via the paid discovery service. I create an invite
+    link and send it to the person I want to invite. Closed beta will be max 10 people or so, and
+    then once I'm satisfied at the quality of both orpheum and orpheum-connect (and probably also
+    the self-hosted discovery), I'll open the beta to the public." The guides say so: invitations
+    come from the project's owner during the closed beta, about ten people, and the beta opens to
+    the public later.
+  - **F5, Mac and Windows:** "I'm not explicitly supporting mac or windows yet. We'd likely support
+    those only via Docker, but haven't done any research yet." The guides say they are not
+    supported yet.
+  - **F6, "a single go binary":** "It is a single go binary, but deployment is always via docker,
+    which is more than just a binary - there's also our own ffmpeg that we call. We can say that the
+    implementation itself resolves to a single go binary, but it's not our preferred method of
+    running the software." The README's Features line says that: one Go binary, with its own
+    FFmpeg, run through Docker.
