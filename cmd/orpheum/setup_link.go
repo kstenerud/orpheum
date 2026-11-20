@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"log/slog"
 	"net"
 	"net/netip"
 	"net/url"
@@ -49,4 +51,16 @@ func setupLink(address netip.Addr, port int, code string) string {
 	}
 	link := url.URL{Scheme: "http", Host: host, Path: setupLinkRoute}
 	return link.String() + "#" + setupLinkCodeKey + "=" + url.QueryEscape(code)
+}
+
+// finishSetupMessage is what each link to finish setting up is said with, on its own short line.
+const finishSetupMessage = "to finish setting up, open this link in a browser at home"
+
+// logFinishSetup says each link on a line of its own, at info, after the warning that names them all
+// among its fields: a person reading a NAS panel's log for the next step passed the link by inside the
+// long warning, which read as an error (the owner's install, 2026-11-20).
+func logFinishSetup(ctx context.Context, logger *slog.Logger, links []string) {
+	for _, link := range links {
+		logger.InfoContext(ctx, finishSetupMessage, "link", link)
+	}
 }

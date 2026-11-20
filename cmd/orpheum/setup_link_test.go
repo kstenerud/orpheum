@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"log/slog"
 	"net/netip"
 	"os"
 	"strings"
@@ -90,5 +91,26 @@ func TestSetupCode_PrintsTheCodeAloneAndTheLinksBesideIt(t *testing.T) {
 	}
 	if err = server.stop(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The link to finish setting up is said on its own short line, the link alone beside the message,
+// for a person who reads a NAS panel's log for the next step and passes a link by among a warning's
+// fields.
+func TestLogFinishSetup_SaysEachLinkAsALineOfItsOwn(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logged, nil))
+	links := (setupReach{port: 8440, interfaces: houseInterfaces}).links("abc")
+	logFinishSetup(t.Context(), logger, links)
+	lines := strings.Split(strings.TrimSpace(logged.String()), "\n")
+	if len(lines) != len(links) || len(links) != 2 {
+		t.Fatalf("logged %d lines for %d links:\n%s", len(lines), len(links), logged.String())
+	}
+	for index, line := range lines {
+		want := `level=INFO msg="` + finishSetupMessage + `" link="` + links[index] + `"`
+		if !strings.Contains(line, want) {
+			t.Errorf("line %d does not say its link plainly at info: %s", index, line)
+		}
 	}
 }

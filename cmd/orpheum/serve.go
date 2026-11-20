@@ -553,6 +553,7 @@ func ensureSetupCode(
 		logger.WarnContext(ctx, "no one can sign in yet: open one of these links in a browser at home to make the "+
 			"first admin; it fills the one-time setup code in (`orpheum setup-code` prints both again)",
 			"open", strings.Join(links, " "), "setupCode", code)
+		logFinishSetup(ctx, logger, links)
 		return nil
 	}
 	logger.WarnContext(ctx, "no one can sign in yet: open Orpheum in a browser at home, at open, and make the "+
