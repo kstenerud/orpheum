@@ -3601,3 +3601,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   covers it. Seen on the way: between the lapse and the heartbeat the core redials a signalling
   that refuses it, about six times in five minutes; asking the core's state on a 403 would end
   that at once (a proposal, not built).
+- [x] **VQ372** — The discovery's first restore drill (the paid spec §7.1: a restore drill on
+  staging before production). Passed (the lead, 2026-11-20, staging connectd at
+  "feat(connectd): connectd backup keeps a copy of the database, made while it serves and checked
+  whole"): `connectd backup /data/drill-2026-11-20.db` in the running container kept a copy at
+  version 17, checked whole, while the core heartbeated; `core list` printed the same from the copy
+  as from the live database; with connectd stopped, the live database moved aside and the copy put
+  in its place, connectd started at version 17, the core reopened its signalling with its stored
+  token 1.6 s after the restart, `core standing` said good standing, the Overview listed the
+  claimed server and both accounts, and the loader and its `sw.js` answered 200. Litestream's
+  replica is not built, so the drill restored the nightly snapshot alone. orpheum-connect's own
+  tests (internal/store/backup_test.go, cmd/connectd/backup_test.go) cover the command there.
