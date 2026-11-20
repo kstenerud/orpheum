@@ -131,7 +131,7 @@ it("puts Connect under the Remote access page's one heading, now that it is a pa
   const { services } = servedAt("/remote-access", { "GET /system/discovery": [200, none] });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const headings = [...mounted.container.querySelectorAll("h1, h2")].map(
-    (heading) => `${heading.tagName}: ${heading.textContent ?? ""}`,
+    (heading) => `${heading.tagName}: ${heading.textContent}`,
   );
   expect(headings).toEqual(["H1: Remote access", "H2: Connect to a discovery service"]);
 });
