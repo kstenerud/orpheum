@@ -57,8 +57,9 @@ type Status struct {
 	ICEServers []discoveryproto.ICEServer
 	// ClientOrigin is where the discovery serves the core's own client, which its links lead to, and
 	// LoaderOrigin where it serves the loader that hands a browser on to it (D293 §4, D308): its
-	// address document's, and no other (D391 §3). Homepage says what the discovery is.
-	ClientOrigin, LoaderOrigin, Homepage string
+	// address document's, and no other (D391 §3). Homepage says what the discovery is, and
+	// AccountOrigin where its households' admins keep their accounts, empty at a discovery with none.
+	ClientOrigin, LoaderOrigin, Homepage, AccountOrigin string
 	// Identity is the discovery's, its root chain's genesis hash ("od1-…"), which the core's
 	// signatures are bound to; Name is what its document calls it, and IsSuggested whether it is the
 	// suggested service (the root key audit's §3.8).

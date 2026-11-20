@@ -353,6 +353,7 @@ func (service *Service) Status() Status {
 			status.ClientOrigin = document.ClientOrigin(status.CoreID)
 		}
 		status.LoaderOrigin, status.Homepage, status.Name = document.LoaderOrigin, document.Homepage, document.Name
+		status.AccountOrigin = document.AccountOrigin
 		status.Identity, status.RootKeys = service.held.chain.ID(), service.held.chain.Fingerprints()
 		status.RootVersion, status.DocumentIssuedAt = service.held.chain.Version(), document.Issued
 		status.IsSuggested = status.Issuer == service.parts.Suggested.Issuer

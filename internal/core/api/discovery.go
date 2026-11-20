@@ -38,6 +38,7 @@ type DiscoveryStatusBody struct {
 	CoreAPI         string   `doc:"The core API the discovery's address document names, which the server calls" json:"coreApi,omitempty"`                                                                  //nolint:lll // one struct tag
 	LoaderOrigin    string   `doc:"Where the discovery serves the loader, as its address document names it" json:"loaderOrigin,omitempty"`                                                                 //nolint:lll // one struct tag
 	Homepage        string   `doc:"What the discovery is, as its address document names it" json:"homepage,omitempty"`                                                                                     //nolint:lll // one struct tag
+	AccountOrigin   string   `doc:"Where the discovery's households keep their admin accounts, as its address document names it; absent at a discovery with none" json:"accountOrigin,omitempty"`          //nolint:lll // one struct tag
 	Identity        string   `doc:"The discovery's identity, its root chain's genesis hash (od1-...), which the server's signatures are bound to (D393 §4)" json:"identity,omitempty"`                     //nolint:lll // one struct tag
 	Name            string   `doc:"What the discovery's address document calls it" json:"name,omitempty"`                                                                                                  //nolint:lll // one struct tag
 	IsSuggested     bool     `doc:"Whether the discovery is the one this build suggests, the known Orpheum service" json:"isSuggested"`                                                                    //nolint:lll // one struct tag
@@ -475,7 +476,8 @@ func failingLeg(err error) error {
 func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	body := DiscoveryStatusBody{
 		Issuer: status.Issuer, SuggestedIssuer: status.SuggestedIssuer, CoreAPI: status.BaseURL,
-		LoaderOrigin: status.LoaderOrigin, Homepage: status.Homepage, RootKeys: append([]string{}, status.RootKeys...),
+		LoaderOrigin: status.LoaderOrigin, Homepage: status.Homepage, AccountOrigin: status.AccountOrigin,
+		RootKeys:    append([]string{}, status.RootKeys...),
 		RootVersion: status.RootVersion, DocumentProblem: status.DocumentProblem, Identity: status.Identity,
 		Name: status.Name, IsSuggested: status.IsSuggested,
 		CoreID: status.CoreID, State: string(status.State), Zone: status.Zone,

@@ -587,3 +587,23 @@ it("tells the serving copy that a copy of it tried to start, from where, and was
   );
   expect(buttonWithText(mounted.container, "Ask again")).toBeUndefined();
 });
+
+// The owner, 2026-11-20: an admin come back for a new key had no way to the account but its address.
+it("links to the household's admin account where the discovery names one, and shows no link where it names none", async () => {
+  const atTheAccount = { ...pendingAtTheService, accountOrigin: "https://account.example" };
+  mounted = await mount(
+    withServices(<SystemDiscovery />, servedBy({ "GET /system/discovery": [200, atTheAccount] })),
+  );
+  const link = [...mounted.container.querySelectorAll("a")].find(
+    (each) => each.textContent === "To your Orpheum admin account",
+  );
+  expect(link?.getAttribute("href")).toBe("https://account.example");
+  mounted.unmount();
+  mounted = await mount(
+    withServices(
+      <SystemDiscovery />,
+      servedBy({ "GET /system/discovery": [200, pendingAtTheService] }),
+    ),
+  );
+  expect(mounted.container.textContent).not.toContain("To your Orpheum admin account");
+});

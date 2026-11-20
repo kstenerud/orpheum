@@ -256,6 +256,7 @@ function StandingView(props: {
   const { standing } = props;
   return (
     <>
+      <AccountLink standing={standing} />
       <Trusted standing={standing} />
       {standing.realm === undefined ? null : (
         <p>{t("system.discovery.realm", { realm: standing.realm })}</p>
@@ -289,6 +290,27 @@ function StandingView(props: {
         onConfirm={props.onLeave}
       />
     </>
+  );
+}
+
+/**
+ * The way to the household's admin account at the discovery, where its admin makes a key, as the
+ * discovery's signed document names it: an admin come back months later for a new key had only the
+ * install guide to find its address in (the owner, 2026-11-20). A discovery with no accounts names
+ * none, and the page shows none.
+ */
+function AccountLink(props: { readonly standing: Standing }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { accountOrigin } = props.standing;
+  if (accountOrigin === undefined || accountOrigin === "") {
+    return null;
+  }
+  return (
+    <p>
+      <a href={accountOrigin} rel="noreferrer noopener" target="_blank">
+        {t("system.discovery.accountLink")}
+      </a>
+    </p>
   );
 }
 

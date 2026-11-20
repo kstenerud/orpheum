@@ -32,22 +32,24 @@ func TestConnect_RefusesAnIssuerThatIsNotAnHTTPSOrigin(t *testing.T) {
 	}
 }
 
-// The core takes its discovery's core API, client origin and loader origin from the issuer's signed
-// address document and from nowhere else; a document of another issuer, or one no key of the chain
+// The core takes its discovery's core API, client origin, loader origin and account origin from the
+// issuer's signed address document and from nowhere else; a document of another issuer, or one no key of the chain
 // signed, enrols nothing (D391 §3; RFC 8414 §3.3).
 func TestConnect_TakesItsAddressesFromTheIssuersSignedDocumentAlone(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	built.fake.document.ClientOrigins = "https://" + addressdoc.CorePlace + ".client.example"
 	built.fake.document.LoaderOrigin = "https://loader.example"
+	built.fake.document.AccountOrigin = "https://account.example"
 	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(t.Context())
 	status := built.service.Status()
 	if status.ClientOrigin != "https://"+fakeCoreID+".client.example" ||
-		status.LoaderOrigin != "https://loader.example" || status.Name != "Fake" || status.BaseURL != built.issuer ||
-		status.Identity != built.fake.chain.ID() || len(status.RootKeys) != 2 ||
+		status.LoaderOrigin != "https://loader.example" || status.AccountOrigin != "https://account.example" ||
+		status.Name != "Fake" || status.BaseURL != built.issuer || status.Identity != built.fake.chain.ID() ||
+		len(status.RootKeys) != 2 ||
 		!strings.HasPrefix(status.RootKeys[0], "recovery SHA256:") {
 		t.Errorf("the core holds %+v; want the document's addresses and the chain's keys", status)
 	}

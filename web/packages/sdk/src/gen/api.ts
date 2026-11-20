@@ -3317,6 +3317,8 @@ export interface components {
         DiscoveryStatusBody: {
             /** @description The address of the account the server is enrolled with, at a discovery with accounts (D310 §5) */
             account?: string;
+            /** @description Where the discovery's households keep their admin accounts, as its address document names it; absent at a discovery with none */
+            accountOrigin?: string;
             claimCode?: string;
             /**
              * Format: int64
