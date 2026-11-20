@@ -66,10 +66,10 @@ export const en = {
   },
   signIn: {
     heading: "Sign in",
-    name: "Name",
+    name: "Username",
     password: "Password",
     submit: "Sign in",
-    wrongNameOrPassword: "The name or password is wrong.",
+    wrongNameOrPassword: "The username or password is wrong.",
     tooManyAttempts: "Too many failed sign-ins. Wait a few minutes and try again.",
     noAdminYet:
       "No one can sign in until the first admin is created with the setup code from the server's log.",
@@ -164,7 +164,7 @@ export const en = {
       "Your other device now shows a check code too. If it is this same code, say so there.",
     renewed: "The last code ended, so here is a new one.",
     signingIn: "Signed in.",
-    back: "Sign in with a name and password instead",
+    back: "Sign in with a username and password instead",
   },
   register: {
     heading: "Choose your password",

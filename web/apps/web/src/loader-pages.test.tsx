@@ -248,7 +248,7 @@ describe("the loader at its own origin (D308)", () => {
   it("links the realm sign-in to the install guide, for a person come to set up a server", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     const install = [...mounted.container.querySelectorAll("a")].find(
-      (link) => link.textContent === "Install a server",
+      (link) => link.textContent === "How to install your own server",
     );
     expect(install?.getAttribute("href")).toBe(installGuideOnGitHub);
   });

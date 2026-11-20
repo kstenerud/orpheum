@@ -44,7 +44,7 @@ async function problemShownFor(answer: Answers[string]): Promise<string | undefi
 describe("sign-in", () => {
   it("names each failure so a person knows what to do", async () => {
     expect(await problemShownFor(refusal(401, "authRequired"))).toBe(
-      "The name or password is wrong.",
+      "The username or password is wrong.",
     );
     expect(await problemShownFor(refusal(429, "rateLimited"))).toContain("Too many failed");
     expect(await problemShownFor(refusal(409, "setupRequired"))).toContain("setup code");
@@ -94,7 +94,7 @@ describe("sign-in", () => {
       />,
     );
     expect(markup).toContain("<label");
-    expect(markup).toContain(">Name<");
+    expect(markup).toContain(">Username<");
     expect(markup).toContain(">Password<");
     expect(markup).not.toContain('role="alert"');
   });

@@ -49,7 +49,7 @@ interface RealmSignInProps {
 
 /**
  * The sign-in at a paid discovery's page for a person with no link: realm, name and password
- * together, and "this is my own device: remember my realm", ticked when a realm was kept (D297 §2,
+ * together, and "remember my household", ticked when a realm was kept (D297 §2,
  * §5). Any part wrong says so as one, as the discovery does.
  */
 export function RealmSignIn(props: RealmSignInProps): JSX.Element {
@@ -127,7 +127,6 @@ function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX
         </button>
       )}
       <p>
-        {t("discovery.realm.ownServer")}{" "}
         <a href={installGuideOnGitHub} rel="noreferrer noopener" target="_blank">
           {t("discovery.realm.install")}
         </a>

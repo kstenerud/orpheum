@@ -462,7 +462,7 @@ macOS, iPhone and iPad) or newer. An older one says the browser is too old
 ([the page is blank](setup-problems.md#the-page-is-blank-or-says-this-browser-is-too-old-for-orpheum)).
 
 - **At home**, open `http://<the machine's address>:8440`.
-- **Anywhere**, open `https://orpheum.cc` and sign in with your **Household**, your **Name** and your
+- **Anywhere**, open `https://orpheum.cc` and sign in with your **Household**, your **Username** and your
   **Password** on the server. This works for you once the claim is done.
 - **On a TV**, where a password is hard to type, open the same address and choose **Get a code**:
   scan the code it shows with a phone that is signed in, and tap **Activate**, or enter the code on

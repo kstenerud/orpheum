@@ -91,13 +91,14 @@ export const enDiscovery = {
     realm: {
       heading: "Sign in",
       realm: "Household",
-      realmHint: "The name your household signs in by, such as annanas.",
-      name: "Name",
+      realmHint: "Ask your admin for the household.",
+      name: "Username",
       password: "Password",
-      remember: "This is my own device: remember my household",
+      remember: "Remember my household",
       submit: "Sign in",
       signingIn: "Signing in…",
-      wrong: "The household, name or password is wrong, or the server can't be reached right now.",
+      wrong:
+        "The household, username or password is wrong, or the server can't be reached right now.",
       unreached:
         "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       unreachedNoIpv6:
@@ -114,8 +115,7 @@ export const enDiscovery = {
       atHome: "At home? Open your server's own address, such as http://192.168.1.20:8440, instead.",
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",
-      ownServer: "Setting up a server of your own?",
-      install: "Install a server",
+      install: "How to install your own server",
     },
   },
   loader: {
