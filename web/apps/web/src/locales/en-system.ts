@@ -201,6 +201,9 @@ export const enSystem = {
     },
     discovery: {
       heading: "Remote access",
+      movedWhat:
+        "Reaching this server from outside the house, through a discovery service, has a page of its own.",
+      open: "Open Remote access",
       what: "A discovery tells your devices where to find this server, so you reach it from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
       invitation:
         "None of this works without an account at the discovery, and an account needs an invitation: you need an invitation from whoever runs your Orpheum service. At home, you need none of it.",
@@ -210,7 +213,7 @@ export const enSystem = {
       notLinked:
         "Not linked to an account yet. The server works at home as it is; linked, your household reaches it from away too.",
       connectHint:
-        "Connect takes you to the discovery's page, where you approve the link with your account there, and brings you back here.",
+        "Connect takes you to the discovery's page, where you approve the link with your account there. That page says when your server is linked.",
       justLinked: "Linked: this server is on your account at the discovery now.",
       passwordNeeded:
         "Your password on this server is needed once, so you can sign in from away. Enter it and press Connect again.",

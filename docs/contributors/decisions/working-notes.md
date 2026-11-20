@@ -30414,3 +30414,30 @@ Amends D448 §9 (the approval from the account, built this way) and D297 §3 (§
 
 **Status:** decided (2026-11-19); top priority, ahead of the B0 queue (the owner, 2026-11-19); to build, in this order: the first-time pages (§1.3), the link
 (§2), the start per platform (§1.1).
+
+## D528 — Remote access is a page of its own, and the discovery's page says a server is linked and stays there
+
+**Decided** (2026-11-20), by the project owner, after their mock install on OpenMediaVault 8, run as
+a first-time user. Amends D527 §1.3 (the first-time pages' last page) and §2.1 (where Connect is,
+and the return to the server).
+
+1. **Remote access has its own page**, in the menu under **Manage** (`/remote-access`). It was the
+   System page's last section, so the first-time pages' link put the admin at the top of a long page
+   about something else. The System page keeps the section's heading, with a line saying it moved
+   and a link to it. The wider tidying of the System page is not part of this.
+   1. **The first-time pages' last page ends in two links** that say what each does: **Keep using
+      Orpheum locally**, which ends the pages and goes home, and **Connect to a discovery service for
+      outside access**, which opens Remote access, with a note that it can be done later. The old
+      pair, a link to System and a button, read as two choices that each changed something; neither
+      did.
+   2. **It says in one line that outside access takes an account** at the discovery the core
+      suggests, named from the core's suggestion (D391 §7), and that accounts are by invitation
+      during the beta.
+2. **Once linked, the discovery's page says so and stays.** It names the server, says the household
+   reaches it from anywhere at the loader, and links to the loader itself, not to the server's home
+   address: the loader already sends each person to their server. It used to send the browser back
+   to the server's page at home with no word of what happened. The return address the core sends
+   stays, now Remote access, for the pages that still go back.
+
+**Status:** decided (2026-11-20); to build: the web app and the core's return address in Orpheum,
+the link page in orpheum-connect (which needs connectd deployed).

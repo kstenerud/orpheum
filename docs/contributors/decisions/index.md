@@ -532,7 +532,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D524](working-notes.md#d524--a-problem-report-is-made-from-inside-the-app-kept-for-the-households-admin-alone-from-logs-every-process-keeps-in-memory-and-downloaded-shareable-or-full) A problem report is made from inside the app, kept for the household's admin alone, from logs every process keeps in memory, and downloaded shareable or full
 - [D525](working-notes.md#d525--the-loglevel-setting-moves-the-nodes-too-and-connectds-level-is-an-operators-control-while-it-runs) The logLevel setting moves the nodes too, and connectd's level is an operator's control while it runs
 - [D526](working-notes.md#d526--what-a-household-signs-in-by-is-called-its-household-not-its-realm) What a household signs in by is called its household, not its realm
-- [D527](working-notes.md#d527--setting-up-a-server-made-from-the-home-network-then-linked-to-a-discovery-by-one-button) Setting up: a server made from the home network, then linked to a discovery by one button
+- [D527](working-notes.md#d527--setting-up-a-server-made-from-the-home-network-then-linked-to-a-discovery-by-one-button) Setting up: a server made from the home network, then linked to a discovery by one button — *revisited by D528*
+- [D528](working-notes.md#d528--remote-access-is-a-page-of-its-own-and-the-discoverys-page-says-a-server-is-linked-and-stays-there) Remote access is a page of its own, and the discovery's page says a server is linked and stays there
 
 ## Archived
 

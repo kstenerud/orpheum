@@ -28,7 +28,6 @@ import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
 import { SystemResourceUse } from "./system-resource-use.tsx";
 import { SystemUnusedSettings } from "./system-unused-settings.tsx";
 import { SystemFilingReports } from "./filing-report.tsx";
-import { SystemDiscovery } from "./system-discovery.tsx";
 import { UpdateSystem } from "./update-page.tsx";
 import { SystemNetwork } from "./system-network.tsx";
 import { SystemReachability } from "./system-reachability.tsx";
@@ -115,11 +114,28 @@ export function System(): JSX.Element {
       <SystemUnusedSettings />
       <SystemFilingReports />
       <SystemReachability />
-      <SystemDiscovery />
+      <SystemRemoteAccess />
       <DebugTool>
         <SystemVideos />
       </DebugTool>
     </SystemSectionsContext>
+  );
+}
+
+/**
+ * Where Remote access went: a page of its own (D528 §1), which this section names and links to, so
+ * an admin who looks for it here still finds it.
+ */
+function SystemRemoteAccess(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="system-discovery">
+      <h2 id="system-discovery">{t("system.discovery.heading")}</h2>
+      <p>
+        {t("system.discovery.movedWhat")}{" "}
+        <Link to={{ screen: "remote-access" }}>{t("system.discovery.open")}</Link>
+      </p>
+    </section>
   );
 }
 

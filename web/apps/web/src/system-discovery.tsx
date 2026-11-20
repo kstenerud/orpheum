@@ -36,7 +36,7 @@ type WebRTCPath = components["schemas"]["WebRTCPathBody"];
 type HouseNetwork = components["schemas"]["HouseNetworkBody"];
 
 /**
- * The core's discovery on the System page (D273): at its top Connect, which links the server to an
+ * The core's discovery, the Remote access page (D273, D528 §1): at its top Connect, which links the server to an
  * account at the discovery by one press (D527 §2.1, §2.3), with where the server stands; behind
  * "Link another way", connecting by its issuer, the suggested discovery the core names or the
  * owner's own, with the admin's password (D391 §3), and the key the account made; for any but the
@@ -71,7 +71,7 @@ export function SystemDiscovery(): JSX.Element {
   };
   return (
     <section aria-labelledby="system-discovery">
-      <h2 id="system-discovery">{t("system.discovery.heading")}</h2>
+      <h1 id="system-discovery">{t("system.discovery.heading")}</h1>
       <p>{t("system.discovery.what")}</p>
       {isJustLinked ? (
         <p>

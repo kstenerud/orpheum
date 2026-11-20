@@ -120,6 +120,8 @@ export type Route =
   | { readonly screen: "settings" }
   | { readonly screen: "jobs" }
   | { readonly screen: "system" }
+  /** Where the server is reached from outside the house: linking it to a discovery (D528 §1). */
+  | { readonly screen: "remote-access" }
   /** How to update the server, for an admin (security-updates.md Part B). */
   | { readonly screen: "update" }
   | { readonly screen: "needs-attention" }
@@ -204,6 +206,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/settings\/?$/u, toRoute: () => ({ screen: "settings" }) },
   { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
+  { pattern: /^\/remote-access\/?$/u, toRoute: () => ({ screen: "remote-access" }) },
   { pattern: /^\/update\/?$/u, toRoute: () => ({ screen: "update" }) },
   { pattern: /^\/needs-attention\/?$/u, toRoute: () => ({ screen: "needs-attention" }) },
   { pattern: /^\/users\/?$/u, toRoute: () => ({ screen: "users" }) },

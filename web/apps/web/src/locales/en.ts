@@ -44,6 +44,7 @@ export const en = {
     settings: "Settings",
     jobs: "Jobs",
     system: "System",
+    remoteAccess: "Remote access",
     update: "Update",
     updateKnown: "! Update",
     adminAccount: "Go to your Orpheum account",

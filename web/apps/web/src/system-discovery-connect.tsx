@@ -124,7 +124,7 @@ export function ConnectSection(props: {
   const { standing, linking } = props;
   return (
     <section aria-labelledby="system-discovery-connect">
-      <h3 id="system-discovery-connect">{t("system.discovery.connectHeading")}</h3>
+      <h2 id="system-discovery-connect">{t("system.discovery.connectHeading")}</h2>
       {standing.issuer === "" ? (
         <p>{t("system.discovery.notLinked")}</p>
       ) : (

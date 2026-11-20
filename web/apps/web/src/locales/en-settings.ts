@@ -149,7 +149,7 @@ export const enSettingsCatalogue = {
     timeZone:
       "Work the server does at set hours, like backups, runs by this time zone. Use a name from the time zone database, such as Europe/Berlin or America/New_York.",
     tmdbApiKey:
-      "TMDB (The Movie Database) is where the server finds what each film and series is: titles, years, plots, cast and artwork. A free API key comes from your TMDB account's settings. Without one, nothing is identified.",
+      "TMDB (The Movie Database) is where the server finds what each film and series is: titles, years, plots, cast and artwork. Left empty, the server uses Orpheum's own key. A key of your own, free from your TMDB account's settings, is used in its place.",
     tmdbBackgroundRateSharePercent:
       "TMDB limits how often it may be asked. The server's own work, such as identifying a new library, may use this share, so a person's search or match never waits behind it.",
     togetherDriftLeftAloneMs:

@@ -150,6 +150,9 @@ describe("App", () => {
     const system = await markupAt("/system");
     expect(system).toContain("Loading…");
     expect(system).not.toContain("There is nothing at this address.");
+    // Remote access, a page of its own (D528 §1).
+    const remoteAccess = await markupAt("/remote-access");
+    expect(remoteAccess).toContain('<h1 id="system-discovery">Remote access</h1>');
     // The first-time pages (D527 §3), each at its own address.
     expect(await markupAt("/welcome")).toContain("<h1>Add your videos</h1>");
     expect(await markupAt("/welcome/discovery")).toContain("<h1>Watching away from home</h1>");

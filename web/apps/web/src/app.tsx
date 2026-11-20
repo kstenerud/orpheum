@@ -41,6 +41,7 @@ import {
   Settings,
   SignIn,
   System,
+  RemoteAccess,
   ThisDevice,
   Title,
   TogetherLeft,
@@ -543,6 +544,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "system") {
     return <System />;
+  }
+  if (route.screen === "remote-access") {
+    return <RemoteAccess />;
   }
   if (route.screen === "update") {
     return <HowToUpdate />;

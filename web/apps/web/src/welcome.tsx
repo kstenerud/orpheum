@@ -5,6 +5,7 @@ import "./libraries-words.ts";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { dataOrThrow } from "./problem.ts";
 import { CreateLibrary } from "./create-library.tsx";
 import { Link } from "./link.tsx";
 import { LibraryOffer } from "./library-offer.tsx";
@@ -12,6 +13,8 @@ import { stepAfter } from "./library-offer-kinds.ts";
 import type { WelcomeStep } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
+import { typedName } from "./system-discovery-connecting.tsx";
+import { useResource } from "./use-resource.ts";
 
 /**
  * The first-time pages the first admin meets after being made (D527 §3), in order: libraries, then
@@ -58,10 +61,14 @@ function LibrariesStep(): JSX.Element {
   );
 }
 
-/** The last page: what a discovery gives, that the server works without one, and where to connect. */
+/**
+ * The last page: what a discovery gives, that the server works without one, whose account it takes,
+ * and two links that say what each does (D528 §1): one ends the first-time pages, the other opens
+ * Remote access, where Connect is. A tester read the old pair, a link to System and a button, as two
+ * choices that each changed something (the OpenMediaVault mock install, 2026-11-20).
+ */
 function DiscoveryStep(): JSX.Element {
   const { t } = useTranslation();
-  const goOn = useGoOn("discovery");
   return (
     <section>
       <h1>{t("welcome.discoveryHeading")}</h1>
@@ -72,14 +79,41 @@ function DiscoveryStep(): JSX.Element {
         <li>{t("welcome.discoveryInvite")}</li>
       </ul>
       <p>{t("welcome.discoveryNotNeeded")}</p>
-      <p>
-        <Link to={{ screen: "system" }}>{t("welcome.discoveryLater")}</Link>
-      </p>
-      <p>
-        <button type="button" onClick={goOn}>
-          {t("welcome.finish")}
-        </button>
-      </p>
+      <AccountNote />
+      <ul>
+        <li>
+          <Link to={stepAfter("discovery")} isReplacing>
+            {t("welcome.keepLocal")}
+          </Link>
+        </li>
+        <li>
+          <Link to={{ screen: "remote-access" }} isReplacing>
+            {t("welcome.connectOutside")}
+          </Link>{" "}
+          {t("welcome.connectLater")}
+        </li>
+      </ul>
     </section>
+  );
+}
+
+/**
+ * Whose account outside access takes: the discovery the core suggests, by its name, when it suggests
+ * one (D391 §7: never this page's own), and by invitation while Orpheum is in beta.
+ */
+function AccountNote(): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [standing] = useResource("discovery", async () =>
+    dataOrThrow(await api.GET("/system/discovery")),
+  );
+  const suggested =
+    standing.state === "loaded" ? typedName(standing.value.suggestedIssuer ?? "") : "";
+  return (
+    <p>
+      {suggested === ""
+        ? t("welcome.accountSomewhere")
+        : t("welcome.accountAt", { discovery: suggested })}
+    </p>
   );
 }

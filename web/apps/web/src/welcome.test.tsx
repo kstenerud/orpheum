@@ -11,7 +11,15 @@ import { guessKind, holdsTwoKinds, offerRows, stepAfter } from "./library-offer-
 import { createNavigation } from "./navigation.ts";
 import { parseRoute, welcomeSteps } from "./router.ts";
 import type { Services } from "./services.tsx";
-import { buttonWithText, click, mount, refusal, servedBy, type Answers } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  settleUntil,
+  type Answers,
+} from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { Welcome } from "./welcome.tsx";
 
@@ -25,6 +33,9 @@ function houseServing(folders: readonly string[], more: Answers = {}): Answers {
     ...more,
   };
 }
+
+/** A core connected to no discovery, which suggests none. */
+const noSuggestion: Answers = { "GET /system/discovery": [200, { issuer: "" }] };
 
 /** The services opened at address, the server answering answers. */
 function openedAt(address: string, answers: Answers): Services {
@@ -156,13 +167,55 @@ describe("the first-time pages (D527 §3)", () => {
     expect(parseRoute("/welcome/posters", "")).toEqual({ screen: "not-found" });
   });
 
-  it("end on discovery, which says the server works without one and links to System", async () => {
-    const mounted = await mount(withServices(<Welcome step="discovery" />, servedBy({})));
+  it("end on discovery, which says the server works without one and links to staying at home or to Remote access (D528 §1)", async () => {
+    const mounted = await mount(withServices(<Welcome step="discovery" />, servedBy(noSuggestion)));
     const text = mounted.container.textContent;
     expect(text).toContain("works fully at home without one");
     expect(text).not.toMatch(/realm/iu);
-    expect(mounted.container.querySelector('a[href="/system"]')?.textContent).toBe(
-      "Connect later from System",
+    expect(mounted.container.querySelector('a[href="/"]')?.textContent).toBe(
+      "Keep using Orpheum locally",
+    );
+    expect(mounted.container.querySelector('a[href="/remote-access"]')?.textContent).toBe(
+      "Connect to a discovery service for outside access",
+    );
+    expect(text).toContain("You can also do this later, from Manage → Remote access.");
+    // Two links that say where they go, not a link and a button that read as two settings.
+    expect(mounted.container.querySelector("button")).toBeNull();
+    mounted.unmount();
+  });
+
+  it("end by going home, or to Remote access, in the page's place", async () => {
+    for (const [label, route] of [
+      ["Keep using Orpheum locally", { screen: "home" }],
+      ["Connect to a discovery service for outside access", { screen: "remote-access" }],
+    ] as const) {
+      const services = openedAt("/welcome/discovery", noSuggestion);
+      const mounted = await mount(withServices(<Welcome step="discovery" />, services));
+      const link = [...mounted.container.querySelectorAll("a")].find(
+        (each) => each.textContent === label,
+      );
+      await click(link);
+      expect(services.navigation.route()).toEqual(route);
+      mounted.unmount();
+    }
+  });
+
+  it("say outside access takes an account at the discovery the core suggests, by invitation in the beta", async () => {
+    const suggesting = servedBy({
+      "GET /system/discovery": [200, { issuer: "", suggestedIssuer: "https://discovery.example/" }],
+    });
+    let mounted = await mount(withServices(<Welcome step="discovery" />, suggesting));
+    await settleUntil(() => mounted.container.textContent.includes("discovery.example"));
+    expect(mounted.container.textContent).toContain(
+      "Outside access takes an account at discovery.example, which is by invitation while Orpheum is in beta.",
+    );
+    mounted.unmount();
+    // A core that suggests none: the page names none of its own (D391 §7).
+    const suggestingNone = servedBy(noSuggestion);
+    mounted = await mount(withServices(<Welcome step="discovery" />, suggestingNone));
+    await settleUntil(() => mounted.container.textContent.includes("a discovery service, which"));
+    expect(mounted.container.textContent).toContain(
+      "Outside access takes an account at a discovery service, which is by invitation while Orpheum is in beta.",
     );
     mounted.unmount();
   });

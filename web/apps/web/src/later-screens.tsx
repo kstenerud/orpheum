@@ -12,6 +12,7 @@ import type { UiGallery as UiGalleryComponent } from "./ui-gallery.tsx";
 import type { Identify as IdentifyComponent } from "./identify.tsx";
 import type { Jobs as JobsComponent } from "./jobs.tsx";
 import type { System as SystemComponent } from "./system.tsx";
+import type { RemoteAccess as RemoteAccessComponent } from "./remote-access.tsx";
 import type { HowToUpdate as HowToUpdateComponent } from "./update-page.tsx";
 import type { NeedsAttention as NeedsAttentionComponent } from "./needs-attention.tsx";
 import type { Users as UsersComponent } from "./users.tsx";
@@ -75,6 +76,9 @@ const loadJobs = async (): Promise<{ default: typeof JobsComponent }> => ({
 const loadSystem = async (): Promise<{ default: typeof SystemComponent }> => ({
   default: (await import("./system.tsx")).System,
 });
+const loadRemoteAccess = async (): Promise<{ default: typeof RemoteAccessComponent }> => ({
+  default: (await import("./remote-access.tsx")).RemoteAccess,
+});
 const loadHowToUpdate = async (): Promise<{ default: typeof HowToUpdateComponent }> => ({
   default: (await import("./update-page.tsx")).HowToUpdate,
 });
@@ -136,7 +140,7 @@ const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }
  * The screens whose code loads only when one is first shown, each with what only it needs: a
  * title's and a series' pages, which make a film ready to play, the player and hls.js with it,
  * a cast's ready page, the server's settings and the admin's other screens (D361's libraries, users,
- * jobs, matching, what needs attention, System and How to update, which only an admin opens), the
+ * jobs, matching, what needs attention, System, Remote access and How to update, which only an admin opens), the
  * device lab and its player, and the UI gallery, the lab's and the gallery's words with them
  * (lab-words.ts, gallery-words.ts). They were
  * all in the one script every page loaded before it drew, most of it hls.js, which a TV parses
@@ -167,6 +171,7 @@ export let UiGallery = lazyScreen("ui-gallery", loadUiGallery);
 export let Identify = lazyScreen("identify", loadIdentify);
 export let Jobs = lazyScreen("jobs", loadJobs);
 export let System = lazyScreen("system", loadSystem);
+export let RemoteAccess = lazyScreen("remote-access", loadRemoteAccess);
 export let HowToUpdate = lazyScreen("update", loadHowToUpdate);
 export let NeedsAttention = lazyScreen("needs-attention", loadNeedsAttention);
 export let Users = lazyScreen("users", loadUsers);
@@ -282,6 +287,7 @@ export function resetLazyScreensForTests(): void {
   Identify = lazyScreen("identify", loadIdentify);
   Jobs = lazyScreen("jobs", loadJobs);
   System = lazyScreen("system", loadSystem);
+  RemoteAccess = lazyScreen("remote-access", loadRemoteAccess);
   HowToUpdate = lazyScreen("update", loadHowToUpdate);
   NeedsAttention = lazyScreen("needs-attention", loadNeedsAttention);
   Users = lazyScreen("users", loadUsers);

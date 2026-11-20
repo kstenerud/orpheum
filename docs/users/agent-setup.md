@@ -37,6 +37,18 @@ not supported yet.
   invitation makes an account, and a link from a server's **Invite someone** lets a person in.
   Never paste one into a chat, a document or an issue that anyone else can read. If the person
   gives you one, use it only to tell them to open it themselves.
+- **Follow the guide's steps in order, with every condition in them.** A summary that drops a
+  condition has cost installs before: the pool rule for `appdata`, the Compose shared folder made to
+  look optional, a TMDB step that no longer exists (the OpenMediaVault mock install, 2026-11-20).
+  Where a step branches (a pool or none, Compose installed or not, media here or on another NAS),
+  ask which applies and give that branch whole.
+- **On OpenMediaVault, before the person presses Up, confirm with them** that:
+  - **Services > Compose > Settings** has a **Shared folder** under **Compose Files**, saved and
+    applied;
+  - `appdata`'s shared folder is on a **File system** that starts with `/dev/`, not a pool;
+  - for media on another NAS, the mount's **Options** are set as
+    [films on another NAS](install.md#films-on-another-nas) gives them, and
+    `sudo -u <the user> ls <the media folder>` lists the folders.
 
 ## What to ask
 
@@ -46,7 +58,7 @@ not supported yet.
      release-assets.githubusercontent.com: if your tool follows redirects, as `curl -L` does, fetch
      the file yourself and show it to the person; if it does not, ask them to open the link in their
      own browser. Either way the person pastes the whole file into OpenMediaVault themselves, as
-     the guide's step 4 says.
+     [Add the compose file](install.md#add-the-compose-file) says.
    - **A NAS**: its make, and its model. A Synology follows [Synology](install.md#synology), whose
      model matters: some models need an unofficial script first, and the 32-bit ones cannot run it
      at all. A NAS of another make, or Portainer or CasaOS, follows
@@ -67,8 +79,9 @@ not supported yet.
      read them.
    - Where the server's own data goes (`PATH_TO_APPDATA`): a local disk. Not a network share, and
      not a mergerfs pool mounted `cache.files=off`, as OpenMediaVault's plugin mounts its pools:
-     the database cannot open there ([the variables](install.md#the-variables)). The media may be
-     on either.
+     the database cannot open there ([the variables](install.md#the-variables)). On
+     OpenMediaVault, that is a shared folder whose **File system** starts with `/dev/`
+     ([the shared folders](install.md#make-the-shared-folders)). The media may be on either.
    - Whether the films are on another NAS: on OpenMediaVault, follow
      [films on another NAS](install.md#films-on-another-nas) too.
    - Whether films and series are apart: a library holds one kind, so films are one library and
@@ -87,7 +100,9 @@ not supported yet.
    ([from away from home](install.md#from-away-from-home-optional),
    [the account](install.md#your-account-at-orpheumcc),
    [connecting the server to it](install.md#connect-it-to-your-account)). Without one, set up for
-   home alone; the guide marks the rest optional.
+   home alone; the guide marks the rest optional. A server installed again on an account that
+   held one before takes its place
+   ([installing again](install.md#installing-again-on-the-same-account)).
 
 ## Then
 

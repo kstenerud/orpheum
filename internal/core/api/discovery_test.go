@@ -306,7 +306,8 @@ func TestDiscovery_ConnectEnrolsWhenNeededAndAnswersTheAccountPageThatLinksIt(t 
 	if err := json.Unmarshal([]byte(linked.body), &page.Body); err != nil || linked.status != http.StatusOK {
 		t.Fatalf("POST /system/discovery/link = %d %s", linked.status, linked.body)
 	}
-	want := "https://account.example/link?back=https%3A%2F%2Fhome.example%3A8443%2Fsystem&name=home.example%3A8443"
+	want := "https://account.example/link?back=https%3A%2F%2Fhome.example%3A8443%2Fremote-access" +
+		"&name=home.example%3A8443"
 	if page.Body.LinkURL != want {
 		t.Errorf("the account page is %q; want %q, back to this page", page.Body.LinkURL, want)
 	}

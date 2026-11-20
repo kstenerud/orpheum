@@ -13,7 +13,7 @@ Devices away from home then reach the server only where IPv4 lets them. If your 
 IPv4 of its own, as with DS-Lite (common in Germany), or behind a provider's shared address
 (carrier-grade NAT), IPv6 is the only way a phone away from home reaches the server without a
 relay. The server has no relay, so a device that can meet it only through one does not connect;
-the System page counts each time.
+the server's Remote access page counts each time.
 
 - **A Proxmox container has no IPv6 until its network is given it.** In the Proxmox web UI: the
   container → **Network** → `net0` → **Edit** → **IPv6: SLAAC** → **OK**, then restart the
@@ -72,7 +72,7 @@ The sign-in worked; the phone and the server found no way to each other. Common 
   data or on Wi-Fi, with any VPN off; `test-ipv6.com` on the phone shows whether it has IPv6.
 - **The server has no IPv6 route out**: the two entries above.
 
-Each such failure is counted in the **Remote access** section of the server's **System** page
+Each such failure is counted on the server's **Remote access** page, in the menu under **Manage**
 ("Times in the last week a device found no way to reach this server").
 
 ## Signing in by household says "The household, name or password is wrong" just after the household was given or changed
@@ -242,9 +242,18 @@ in OpenMediaVault their logs are under **Services > Compose > Containers**, else
 Compose stops before anything starts: the file needs that value. In OpenMediaVault, put it in the
 file's **Environment** (tick **Show environment file** to see it): `ORPHEUM_MEDIA`, and
 `PATH_TO_APPDATA` with the user and time zone unless the global environment file sets them
-([Add the compose file](install.md#add-the-compose-file), step 5);
+([Add the compose file](install.md#add-the-compose-file), step 6);
 elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
 `ORPHEUM_LAN_ADDRESS` too; the server now learns the address.)
+
+### Save says "Please set shared folder for file storage"
+
+The whole message reads `500 - Internal Server Error: Please set shared folder for file storage.`,
+and comes when **Save** is pressed in **Services > Compose > Files**. Compose has nowhere to keep
+the file: open **Services > Compose > Settings**, choose a **Shared folder** under **Compose
+Files** (`appdata`, or any other), press **Save**, then apply
+([Tell Compose where its files go](install.md#tell-compose-where-its-files-go)). Then **Add** the
+file again, and **Save** works.
 
 ### Up says "container orpheum-core is unhealthy"
 
@@ -284,9 +293,9 @@ pool's disks, under `/srv/dev-disk-by-uuid-…`, and that path can be used direc
    environment file sets it, change it there.)
 4. Press **Up**. The core starts, with the data it already had.
 
-Without a shell, make a new shared folder on one disk (not the pool), such as `orpheum-data`, in
-**Storage > Shared Folders**, and set `PATH_TO_APPDATA` to its **Absolute Path**; the server starts
-there afresh.
+Without a shell, make a new shared folder, such as `orpheum-data`, in **Storage > Shared Folders**,
+choosing a **File system** that starts with `/dev/` (each is a single disk; a pool is listed by its
+own name), and set `PATH_TO_APPDATA` to its **Absolute Path**; the server starts there afresh.
 
 A pool mounted with `cache.files=partial`, `auto-full` or `per-process` allows the map, and holds the
 app data as a disk does. `systemctl cat srv-mergerfs-<pool>.mount` prints how a pool is mounted.

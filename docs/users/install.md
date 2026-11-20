@@ -85,14 +85,16 @@ run it, are in [The install script](#the-install-script).
 
 1. If **Services** has no **Compose**,
    [install it](#install-compose-only-if-services-has-no-compose).
-2. Choose `appdata`'s path **on a single disk, not on a mergerfs pool**: with a pool, one of the
-   disks **Storage > mergerfs** lists for it ([shared folders](#make-the-shared-folders)).
-3. Note the media folder's **Absolute Path**. The server runs as user 1000, most often the first
+2. In **Services > Compose > Settings**, set the **Shared folder** under **Compose Files**, and
+   apply ([where its files go](#tell-compose-where-its-files-go)).
+3. Make an `appdata` shared folder whose **File system** starts with `/dev/`, never a pool
+   ([shared folders](#make-the-shared-folders)), and note its **Absolute Path**.
+4. Note the media folder's **Absolute Path**. The server runs as user 1000, most often the first
    user made in **Users > Users**; for another, see [the user](#choose-the-user-the-server-runs-as).
-4. **Services > Compose > Files**, **Add**, name it `orpheum`, and paste the whole of
+5. **Services > Compose > Files**, **Add**, name it `orpheum`, and paste the whole of
    [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    into **File**.
-5. Tick **Show environment file**, and paste your values into **Environment**:
+6. Tick **Show environment file**, and paste your values into **Environment**:
 
    ```sh
    PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
@@ -100,8 +102,8 @@ run it, are in [The install script](#the-install-script).
    TIME_ZONE_VALUE=Europe/Berlin
    ```
 
-6. **Save**, select `orpheum`, and press **Up**.
-7. Open the link in `orpheum-core`'s log in a browser at home ([the first admin](#the-first-admin)).
+7. **Save**, select `orpheum`, and press **Up**.
+8. Open the link in `orpheum-core`'s log in a browser at home ([the first admin](#the-first-admin)).
 
 The full steps are in [OpenMediaVault](#openmediavault).
 
@@ -346,22 +348,25 @@ pool; for media on another NAS, see [Films on another NAS](#films-on-another-nas
 
    A folder on a disk has a path like `/srv/dev-disk-by-uuid-1234abcd-…/appdata`; one on a mergerfs
    pool has a path like `/srv/mergerfs/<pool>/appdata`.
-2. Choose where `appdata` goes:
+2. Press **+ (Create)** and name it `appdata`. In **File system**, choose an entry that **starts
+   with `/dev/`**, such as `/dev/sdb1`: each is a single disk. **Never choose a pool**: a pool is
+   listed by its own name (such as `pool`), not as `/dev/…`. A disk that is part of a pool is fine,
+   and which disk it is does not matter. Give its **Relative path** (`appdata/`), and press
+   **Save**, then apply. Its **Absolute Path**, `/srv/dev-disk-by-uuid-1234abcd-…/appdata`, is the
+   one to use.
 
-   - **With no mergerfs pool**, press **+ (Create)**. Name it `appdata`, choose a file system, give
-     its **Relative path** (`appdata/`), and press **Save**, then apply. Its **Absolute Path** is
-     the one to use.
-   - **With a mergerfs pool**, the file system list shows each disk only as `/dev/sdb1` and its size,
-     which does not say which disk is which. Open **Storage > mergerfs** instead: the pool's row
-     lists the disks it is made of, each as a path like
-     `/srv/dev-disk-by-uuid-1234abcd-…`. Choose any one, and add
-     `/appdata` to it: `/srv/dev-disk-by-uuid-1234abcd-…/appdata`.
-     Nothing needs making there: the first **Up** makes the folder.
+   - If every data disk is in a pool, the system disk is still listed (the Compose plugin adds it),
+     and works for `appdata`; **Storage > File Systems** shows it with the mount point `/`. A data
+     disk is better where it has room: `appdata` holds the database, the images and what the server
+     converts for playing, and can grow to several gigabytes.
+   - The folder shows through the pool too, as `/srv/mergerfs/<pool>/appdata`. Always use its
+     `/srv/dev-disk-by-uuid-…` path.
 3. To make the media folder, if you have none, press **+ (Create)**. Name it `Media`, choose a disk
    or a pool, give its **Relative path** (`Media/`), and press **Save**, then apply. A pool's
    folders have paths like `/srv/mergerfs/<pool>/Media`, `<pool>` being the name the pool was given
    when it was made.
-4. Write down both paths exactly, capitals included.
+4. Write down both paths exactly, capitals included. The `/` the **Absolute Path** column shows at
+   the end may stay or go: the server reads `…/Media/` and `…/Media` as the same folder.
 
 If your films are in a folder inside a shared folder (`Storage/Video`, say), OpenMediaVault shows
 only the shared folder's path. Find the inner folder's path in one of two ways, capitals included:
@@ -374,9 +379,11 @@ only the shared folder's path. Find the inner folder's path in one of two ways, 
 #### Tell Compose where its files go
 
 1. Open **Services > Compose > Settings**.
-2. Under **Compose Files**, choose a **Shared folder** for the compose files themselves: `appdata`
-   if you made it as a shared folder, or any other (a pool is fine for these). Press **Save**, then
-   apply.
+2. Under **Compose Files**, choose a **Shared folder** for the compose files themselves: `appdata`,
+   or any other (a pool is fine for these). Press **Save**, then apply.
+
+   Do not skip this. Without it, **Save** in **Services > Compose > Files** fails with
+   `500 - Internal Server Error: Please set shared folder for file storage.`
 
 #### Choose the user the server runs as
 
@@ -424,19 +431,21 @@ below. The HTTPS port is changed later, on the server's **System** page.
 
    `PATH_TO_APPDATA` is the `appdata` path you chose, and `ORPHEUM_MEDIA` the media folder's path,
    capitals included. For a user other than 1000, add `APPUSER_PUID=` with its number.
-2. Open **Services > Compose > Files** and press **Add** (not *Add from example*). Some versions
+2. Check that **Services > Compose > Settings** has a **Shared folder** under **Compose Files**
+   ([where its files go](#tell-compose-where-its-files-go)): without one, **Save** below fails.
+3. Open **Services > Compose > Files** and press **Add** (not *Add from example*). Some versions
    open a small menu first: choose **Add** in it. A form opens.
-3. In **Name**, type `orpheum`.
-4. Open [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
+4. In **Name**, type `orpheum`.
+5. Open [`orpheum-omv.yaml`](https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml)
    in a text editor, copy all of it, and paste it into **File**. Paste it; do not type it: the
    editor indents as you type, which breaks the file.
-5. Tick **Show environment file**. An **Environment** field appears below **File**.
+6. Tick **Show environment file**. An **Environment** field appears below **File**.
 
    Do not skip this. Without it, **Up** fails with
    `required variable PATH_TO_APPDATA is missing a value`.
-6. Paste your values from step 1 into **Environment**. They belong to this file alone and change no
+7. Paste your values from step 1 into **Environment**. They belong to this file alone and change no
    other app.
-7. Press **Save**.
+8. Press **Save**.
 
 Instead of the **Environment** field, the first four values may come from OpenMediaVault's global
 environment file (**Services > Compose > Files**, **Edit global environment file**), which every app
@@ -469,10 +478,17 @@ omv-extras' **remotemount** plugin, the steps above hold, with these differences
 
 - **Keep `appdata` on a local disk.** It cannot be on the network share: `orpheum-folders` cannot
   change the owner of a folder there, and stops with an error.
-- **Mount the share so that its reads give up when the NAS is away.** For NFS, use the options
-  `vers=3,soft,timeo=100,retrans=3,nolock`, and `ro` if the server only reads it. A share mounted
-  the default way (`hard`, or NFS 4.1 and later) makes the server wait for good whenever the other
-  NAS is off or rebooting ([why](setup-problems.md#films-on-a-nas-stop-playing-when-the-nas-is-off-or-system-warns-mounted-to-wait-for-its-server-for-good)).
+- **Mount the share so that its reads give up when the NAS is away.** For NFS, open **Storage >
+  Remote Mount**, edit the mount, and set **Options** to the whole of
+  `ro,nofail,vers=3,soft,timeo=100,retrans=3,nolock`, in place of what is there; press **Save**,
+  then apply. (Leave out `ro` if the server is to write there; it only reads.) A share mounted the
+  default way (`hard`, or NFS 4.1 and later) makes the server wait for good whenever the other NAS
+  is off or rebooting ([why](setup-problems.md#films-on-a-nas-stop-playing-when-the-nas-is-off-or-system-warns-mounted-to-wait-for-its-server-for-good)),
+  and the server's **System** page warns of it.
+
+  `vers=3` needs NFS version 3 turned on in the other NAS's NFS settings. Where it is off, applying
+  the mount fails with `mount.nfs: requested NFS version or transport protocol is not supported`,
+  and the mount's folder stays empty.
 - **`ORPHEUM_MEDIA` is the mount's path**, under `/srv/remotemount/`, such as
   `/srv/remotemount/<name>/Films`.
 - **Shared Folders' Permissions do not decide who can read it.** The mount and the other NAS's own
@@ -710,7 +726,7 @@ the same address there.
 
 ### Your first library
 
-Once the first admin is made, Orpheum takes you through three pages. You can skip each one.
+Once the first admin is made, Orpheum takes you through two pages. You can skip each one.
 
 1. **Add your videos.** It lists the folders inside your media folder and offers to make a library
    of each. Tick the ones you want and check the kind it guessed: **Films**, **Series** or
@@ -718,14 +734,18 @@ Once the first admin is made, Orpheum takes you through three pages. You can ski
    Shows or Series as Series. One press makes each ticked library. A folder the server refuses is
    named with the reason, and the others are made. A library holds one kind, so films and series
    are a library each. Below the offer you can instead make one library of a whole folder.
-2. **Posters, descriptions and cast** come from TMDB, which needs a free key. Make an account at
-   themoviedb.org, open its **Settings**, then **API**, request a Developer key, and paste the **API
-   Read Access Token** on the page. If you skip it, nothing is identified until you add the key
-   under **Manage**, **Settings**. The page does not appear when a key is set already.
-3. **Watching away from home** says what connecting a discovery gives (watching away from home,
-   signing in on a TV by a short code, and the household's other people joining by a link), and
-   that the server works fully at home without one. **Connect later from System** leads to the page
-   that connects it.
+2. **Watching away from home** says what connecting a discovery gives (watching away from home,
+   signing in on a TV by a short code, and the household's other people joining by a link), that
+   the server works fully at home without one, and that it takes an account at orpheum.cc, by
+   invitation during the beta. **Keep using Orpheum locally** ends the first-time pages. **Connect
+   to a discovery service for outside access** opens **Remote access**, where you connect it
+   ([Connect it to your account](#connect-it-to-your-account)); the menu reaches the same page
+   later, under **Manage**.
+
+Posters, descriptions and cast come from TMDB, and are found with nothing to set: Orpheum carries
+its own TMDB key. A key of your own, free from your TMDB account's settings, goes under **Manage**,
+**Settings**, and is used in its place: should TMDB ever stop answering to Orpheum's key, yours
+keeps your server's matching going.
 
 Later, **Manage**, **Libraries**, **Create a library** makes more, with the same offer above its
 form. The scan finds the films as it goes, and they appear in the libraries as it finds them.
@@ -739,8 +759,8 @@ its address at home, as above.
 ## From away from home (optional)
 
 At home, devices reach the server directly. To reach it from away, you pair the server with your
-Orpheum account at orpheum.cc, from the **Remote access** section of the server's **System** page,
-as an admin at home. Devices away from home then sign in at orpheum.cc with your household's name,
+Orpheum account at orpheum.cc, from the server's **Remote access** page (in the menu, under
+**Manage**), as an admin at home. Devices away from home then sign in at orpheum.cc with your household's name,
 and reach the server over WebRTC, with no port to open.
 
 An account needs an invitation. During the closed beta, the project's owner sends them, to about
@@ -748,8 +768,8 @@ ten people; the beta opens to the public later.
 
 Your router's address, on the **System** page under **The house's network**, lets the server ask the
 router to forward its HTTPS port, which helps where the router allows it. There is no relay: a
-device that can reach the server only through one does not connect, and the System page counts
-each time this happens.
+device that can reach the server only through one does not connect, and the Remote access page
+counts each time this happens.
 
 ### Your account at orpheum.cc
 
@@ -772,18 +792,29 @@ another link for the same invitation.
 
 With the server installed and you its admin, on a computer at home:
 
-1. **Make a key.** Sign in to your account at `https://account.orpheum.cc`, where the invitation
-   took you. Under **Your server**, type your orpheum.cc password again, then press **Make a key**.
-   The key shows on the page, with the time it works until. Leave the page open.
-2. **Connect.** In Orpheum, at `http://<the machine's address>:8440`, open the menu, then under
-   **Manage**, **System**, and find **Remote access**. **The discovery's name** already says
-   `orpheum.cc`. Type **Your password**, the one you sign in to Orpheum with, and press
-   **Connect**. It says *Connected to the Orpheum service* and *Waiting to be claimed.* (Your
-   account's page calls this place **System → Discovery**.)
-3. **Claim it.** Under **Your account's key**, type or paste the key from step 1, type your Orpheum
-   password again, and press **Claim**. It says *Claimed: clients can find this server.* and names
-   your household. Your account's page says your server was enrolled. If the key is refused, make a
-   new one and try again.
+1. **Connect.** In Orpheum, at `http://<the machine's address>:8440`, open the menu, then under
+   **Manage**, **Remote access**, and press **Connect**. If it asks for **Your password**, the one
+   you sign in to Orpheum with, type it and press **Connect** again.
+2. **Link it.** Your browser goes to `account.orpheum.cc`, at **Link your server**. Sign in to your
+   account there if it asks. The page names your server and its fingerprint, which the server's
+   Remote access page shows too. If your account has no household name yet, choose it here (see
+   [Your account](#your-account-at-orpheumcc), step 3). Press **Link**.
+3. **Done.** The page says **Your server is linked** and stays there. **Go to orpheum.cc** opens
+   the page your household signs in at from anywhere
+   ([Watching](#watching)).
+
+**Link another way**, on the Remote access page, is the older way, for a discovery that has no
+**Link** page: connect there with your password, make a key on your account's page, and type it
+under **Your account's key**.
+
+#### Installing again, on the same account
+
+An account holds one server. A server installed afresh (a new NAS, or the same one wiped) is a new
+server to the account, even with the same name: connect it as above. **Link your server** says it
+takes the place of your account's server, and once linked, the old one is no longer found. Each
+device that signed in through orpheum.cc before is told once, at its next sign-in, that the server
+has changed, and goes on to the new one. The new server has its own users: sign in with the names
+and passwords you gave it.
 
 ### Watching
 

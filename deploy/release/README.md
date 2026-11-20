@@ -90,7 +90,7 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    server**, which takes the code and the first admin's name and password, and signs in. Then add
    the libraries.
 7. In Settings, under Keys and passwords, enter the Cloudflare token as `dns_provider_token`; the
-   certificate follows. Enter `tmdb_api_key` too: without it nothing is identified.
+   certificate follows. `tmdb_api_key` may stay empty: the server then uses Orpheum's own key (D527 §1.3).
 8. In Settings, answer `serverUploadMbps` (the house's upload the films may use, D286 §5) and the
    time zone.
 9. Tell the agent which schema version the production NAS runs (the core's log says it at start), so it

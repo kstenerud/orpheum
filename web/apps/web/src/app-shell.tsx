@@ -123,6 +123,7 @@ interface Destination {
     | "settings"
     | "jobs"
     | "system"
+    | "remoteAccess"
     | "update"
     | "thisDevice"
     | "account"
@@ -194,6 +195,12 @@ const destinations: readonly Destination[] = [
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },
+  {
+    route: { screen: "remote-access" },
+    labelKey: "remoteAccess",
+    audience: "admin",
+    group: "manage",
+  },
   // Always there, marked while an update is known (D462 §8).
   { route: { screen: "update" }, labelKey: "update", audience: "admin", group: "manage" },
   {

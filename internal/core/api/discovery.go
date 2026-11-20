@@ -195,8 +195,9 @@ type LinkDiscoveryOutput struct {
 // discoveryPath is the core's discovery, which an admin reads, connects and leaves.
 const discoveryPath = "/system/discovery"
 
-// linkReturnPath is the page the account site sends the admin's browser back to once linked.
-const linkReturnPath = "/system"
+// linkReturnPath is the page the account site sends the admin's browser back to once linked: Remote
+// access, where Connect was pressed (D528 §1).
+const linkReturnPath = "/remote-access"
 
 func (server *Server) registerDiscovery() {
 	huma.Register(server.humaAPI, huma.Operation{

@@ -17,8 +17,13 @@ export const enLibraries = {
     discoveryTv: "signing in a TV by a short code,",
     discoveryInvite: "the household's other people joining by a link you send them.",
     discoveryNotNeeded: "This server works fully at home without one.",
-    discoveryLater: "Connect later from System",
-    finish: "Start using Orpheum",
+    accountAt:
+      "Outside access takes an account at {{discovery}}, which is by invitation while Orpheum is in beta.",
+    accountSomewhere:
+      "Outside access takes an account at a discovery service, which is by invitation while Orpheum is in beta.",
+    keepLocal: "Keep using Orpheum locally",
+    connectOutside: "Connect to a discovery service for outside access",
+    connectLater: "You can also do this later, from Manage → Remote access.",
   },
   libraries: {
     offerHeading: "Your media folder holds these folders. Make a library of each?",
