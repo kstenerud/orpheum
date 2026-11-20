@@ -43,3 +43,19 @@ func TestComposeFileVersion_IsThePublishedFilesAndEachLaterOneSaysWhatItBrings(t
 		}
 	}
 }
+
+// decisionReference is a contributor's citation of a decision, D454 or D454 §2.
+var decisionReference = regexp.MustCompile(`\bD\d{2,4}\b(?: §[\d.]+)?`)
+
+// A household reads its compose file's comments and has no decision record to look a citation up
+// in, so the files say what they mean in plain words and cite none (the walkthrough install on
+// OpenMediaVault 7, 2026-11-20, W13); the template's own comments, which no rendering carries, may.
+func TestHouseholdComposeFiles_CiteNoDecisionAHouseholdCannotLookUp(t *testing.T) {
+	t.Parallel()
+	for _, route := range ComposeRoutes() {
+		name := "../../" + route.PublishedPath()
+		if cited := decisionReference.FindAllString(householdCompose(t, name), -1); len(cited) > 0 {
+			t.Errorf("%s cites %q, which a household cannot look up; say it in plain words", name, cited)
+		}
+	}
+}

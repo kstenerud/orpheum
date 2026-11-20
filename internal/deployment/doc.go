@@ -75,6 +75,9 @@
 //     TestHouseholdComposeFiles_EachNamesItsOwnRouteToStart,
 //     TestFilledComposeFile_KeepsASynologysValuesUnderYours,
 //     TestSynologyCompose_NeedsNoEnvFileAndSaysToKeepACopy.
+//   - A published compose file's comments cite no decision, which a household cannot look up; the
+//     template's own comments, which no rendering carries, may.
+//     TestHouseholdComposeFiles_CiteNoDecisionAHouseholdCannotLookUp.
 //   - The house's network settings are taken once from the values file and kept in the core's
 //     network.toml from then on, never one with a problem (D462 §2, §10.6).
 //     TestWrite_TakesTheNetworkSettingsOnceFromTheValuesFileThenKeepsThem,
