@@ -214,7 +214,6 @@ export const enSystem = {
         "Not linked to an account yet. The server works at home as it is; linked, your household reaches it from away too.",
       connectHint:
         "Connect takes you to the discovery's page, where you approve the link with your account there. That page says when your server is linked.",
-      justLinked: "Linked: this server is on your account at the discovery now.",
       passwordNeeded:
         "Your password on this server is needed once, so you can sign in from away. Enter it and press Connect again.",
       wrongPasswordToLink: "That isn't your password. Nothing was linked.",

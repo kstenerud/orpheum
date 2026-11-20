@@ -159,22 +159,6 @@ it("connects a server already waiting at its discovery without naming one, and o
   expect(mounted.container.querySelector("details")).toBeNull();
 });
 
-it("says it is linked on coming back with linked=1, and takes the parameter from the address without a reload", async () => {
-  const { place, services } = servedAt("/system?linked=1", {
-    "GET /system/discovery": [200, { ...pending, state: "claimed", claimCode: undefined }],
-  });
-  mounted = await mount(withServices(<SystemDiscovery />, services));
-  expect(mounted.container.querySelector("output")?.textContent).toBe(
-    "Linked: this server is on your account at the discovery now.",
-  );
-  expect(place.location.search).toBe("");
-  expect(place.addresses).toEqual(["/system"]);
-  mounted.unmount();
-  const again = servedAt("/system", { "GET /system/discovery": [200, pending] });
-  mounted = await mount(withServices(<SystemDiscovery />, again.services));
-  expect(mounted.container.querySelector("output")).toBeNull();
-});
-
 it("asks the admin's password only when the server asks for it, and says when it isn't theirs (D527 §2.2)", async () => {
   const heard: Heard[] = [];
   const { place, services } = servedAt(

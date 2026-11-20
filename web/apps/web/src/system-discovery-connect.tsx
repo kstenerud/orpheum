@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// The System page's Connect (D527 §2.3): one button that links the server to an account at the
-// discovery, by the account page the core answers, and what the page says on coming back.
+// Remote access's Connect (D527 §2.3, D528 §1): one button that links the server to an account at
+// the discovery, by the account page the core answers, which says itself that the server is linked
+// (D528 §2).
 
 import "./system-words.ts";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useEffect, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { idempotent } from "./idempotent.ts";
@@ -24,27 +25,6 @@ import {
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 
-/** The query parameter the discovery's account page comes back with once it linked the server. */
-const linkedParameter = "linked";
-
-/**
- * Whether the page came back from the discovery's account page with the server linked
- * (`?linked=1`, D527 §2.1), which it says: the parameter leaves the address at once, without a
- * reload, so a reload or the address copied never says it again.
- */
-export function useJustLinked(): boolean {
-  const { navigation } = useServices();
-  const [isJustLinked] = useState(
-    () => new URLSearchParams(navigation.query()).get(linkedParameter) === "1",
-  );
-  useEffect(() => {
-    if (isJustLinked) {
-      navigation.replace(navigation.route());
-    }
-  }, [isJustLinked, navigation]);
-  return isJustLinked;
-}
-
 /** Connect's request, as connecting's, and whether the core asked for the admin's password. */
 export interface Linking extends Connecting {
   readonly isPasswordAsked: boolean;
@@ -52,7 +32,7 @@ export interface Linking extends Connecting {
 
 /**
  * Connect (D527 §2.1): the core enrolled if it is not, and the browser sent to the discovery's
- * account page that links it, which comes back to this page; the admin's password given only once
+ * account page that links it, which stays there once it has (D528 §2); the admin's password given only once
  * the core asked for it, holding no away-from-home key for them (§2.2). A refusal reads the core's
  * standing again, which an enrolment before it may have changed.
  */

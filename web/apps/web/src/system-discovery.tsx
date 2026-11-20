@@ -18,7 +18,7 @@ import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { ConnectSection, useJustLinked, useLink } from "./system-discovery-connect.tsx";
+import { ConnectSection, useLink } from "./system-discovery-connect.tsx";
 import {
   ConfirmIdentity,
   issuerProblem,
@@ -53,7 +53,6 @@ export function SystemDiscovery(): JSX.Element {
     async () => dataOrThrow(await api.GET("/system/discovery")),
     { poller: useBackgroundChangesPoller() },
   );
-  const isJustLinked = useJustLinked();
   const linking = useLink(reload);
   const connecting = useEnrolling(reload);
   const claiming = useClaim(reload);
@@ -73,11 +72,6 @@ export function SystemDiscovery(): JSX.Element {
     <section aria-labelledby="system-discovery">
       <h1 id="system-discovery">{t("system.discovery.heading")}</h1>
       <p>{t("system.discovery.what")}</p>
-      {isJustLinked ? (
-        <p>
-          <output>{t("system.discovery.justLinked")}</output>
-        </p>
-      ) : null}
       {connecting.problem === undefined ? null : <p role="alert">{connecting.problem}</p>}
       <Loaded
         resource={standing}

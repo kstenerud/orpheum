@@ -30436,8 +30436,9 @@ and the return to the server).
 2. **Once linked, the discovery's page says so and stays.** It names the server, says the household
    reaches it from anywhere at the loader, and links to the loader itself, not to the server's home
    address: the loader already sends each person to their server. It used to send the browser back
-   to the server's page at home with no word of what happened. The return address the core sends
-   stays, now Remote access, for the pages that still go back.
+   to the server's page at home with no word of what happened. The core still sends a return
+   address, now Remote access, since the discovery asks for one, but no page of it goes back now,
+   so the web app no longer reads the `?linked=1` it came back with.
 
 **Status:** decided (2026-11-20); to build: the web app and the core's return address in Orpheum,
 the link page in orpheum-connect (which needs connectd deployed).
