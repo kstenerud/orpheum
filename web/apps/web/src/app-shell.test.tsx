@@ -296,6 +296,24 @@ describe("AppShell", () => {
     );
   });
 
+  it("lists Remote access under Manage, after System and before Update (D528 §1)", async () => {
+    const shell = (
+      <AppShell
+        isAdmin={true}
+        canHostWatchTogether={true}
+        currentScreen="jobs"
+        onSignOut={ignore}
+        signedInAs={{ name: "karl", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>
+    );
+    const menu = await drawnWithMenuOpen(shell);
+    expect(menu).toMatch(
+      /href="\/system"[^]*?href="\/remote-access"[^>]*>[^]*?Remote access[^]*?href="\/update"/u,
+    );
+  });
+
   it("marks Libraries under Manage on the screens beneath it: a library's own page, creating one, its files", async () => {
     const drawnAt = (
       currentScreen: "library" | "new-library" | "files" | "users",

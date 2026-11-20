@@ -229,6 +229,12 @@ describe("settings", () => {
       "How long a title's TMDB data is kept before it is fetched again. 0 never fetches again.",
     );
     expect(await shown("a_setting_the_catalogue_lacks")).toBe("days, for developers");
+    // TMDB's key may stay empty: the server ships Orpheum's own (D527 §1.3). Its more, after the
+    // short words, is the dialog's second paragraph.
+    await shown("tmdbApiKey");
+    expect(mounted?.container.querySelector("dialog")?.textContent).toContain(
+      "Left empty, the server uses Orpheum's own key. A key of your own, free from your TMDB account's settings, is used in its place.",
+    );
   });
 
   it("names a starting value in words: on or off, nothing, or unanswered", () => {

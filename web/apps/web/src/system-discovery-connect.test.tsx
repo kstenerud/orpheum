@@ -127,6 +127,15 @@ it("connects by one press: the suggested discovery prefilled, and the browser se
   expect(place.left).toEqual([linkUrl]);
 });
 
+it("puts Connect under the Remote access page's one heading, now that it is a page of its own (D528 §1)", async () => {
+  const { services } = servedAt("/remote-access", { "GET /system/discovery": [200, none] });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const headings = [...mounted.container.querySelectorAll("h1, h2")].map(
+    (heading) => `${heading.tagName}: ${heading.textContent ?? ""}`,
+  );
+  expect(headings).toEqual(["H1: Remote access", "H2: Connect to a discovery service"]);
+});
+
 it("connects a server already waiting at its discovery without naming one, and offers no Connect once it is linked, naming the account", async () => {
   const heard: Heard[] = [];
   const { place, services } = servedAt(
