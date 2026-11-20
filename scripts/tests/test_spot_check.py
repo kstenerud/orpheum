@@ -51,6 +51,25 @@ class Planning(unittest.TestCase):
         self.assertTrue(spot_check.plan(["docs/a.md"], MODULE, {}).docs)
         self.assertFalse(spot_check.plan(["docs/a.md"], MODULE, {}).python)
 
+    def test_a_script_runs_only_the_gate_tests_reaching_it_and_what_it_cannot_follow_runs_them_all(self):
+        def reach(paths):
+            return None if "Makefile" in paths else [f"scripts/tests/test_{Path(p).stem}.py" for p in paths]
+
+        spot = spot_check.plan(["scripts/a.py", "docs/b.md"], MODULE, {}, python_reach=reach)
+        commands = [run.command for run in spot_check.runs(spot, MODULE)]
+        self.assertIn([sys.executable, "scripts/py_tests.py", "scripts/tests/test_a.py"], commands)
+        spot = spot_check.plan(["scripts/a.py", "Makefile"], MODULE, {}, python_reach=reach)
+        self.assertIn([sys.executable, "scripts/py_tests.py"], [run.command for run in spot_check.runs(spot, MODULE)])
+        # A script no test reaches runs none, and says so.
+        spot = spot_check.plan(["scripts/a.py"], MODULE, {}, python_reach=lambda paths: [])
+        self.assertFalse(any("py_tests.py" in " ".join(run.command) for run in spot_check.runs(spot, MODULE)))
+        self.assertIn("scripts/a.py", " ".join(spot.not_run))
+
+    def test_the_real_reach_runs_a_scripts_own_test_and_not_every_module(self):
+        spot = spot_check.plan(["scripts/gate_lock.py"], MODULE, {})
+        self.assertIn("scripts/tests/test_gate_lock.py", spot.python_tests)
+        self.assertLess(len(spot.python_tests), len(list(Path("scripts/tests").glob("test_*.py"))))
+
     def test_what_it_cannot_run_is_named(self):
         gaps = " ".join(spot_check.plan(["internal/store/queries/q.sql", "go.mod"], MODULE, {}).not_run)
         self.assertIn("make generate", gaps)
@@ -77,7 +96,8 @@ class Planning(unittest.TestCase):
         self.assertNotIn(domain, [run.command for run in spot_check.runs(spot, MODULE)])
 
     def test_the_runs_are_the_planned_commands(self):
-        spot = spot_check.plan(["internal/a/x.go", "web/apps/web/src/a.tsx", "scripts/x.py"], MODULE, IMPORTERS)
+        spot = spot_check.plan(["internal/a/x.go", "web/apps/web/src/a.tsx", "scripts/x.py"], MODULE, IMPORTERS,
+                               python_reach=lambda paths: None)
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
         # As make check's go-test runs them, so Go's test cache serves one from the other.
         self.assertEqual(commands[0][:4], ["bash", "-o", "pipefail", "-c"])

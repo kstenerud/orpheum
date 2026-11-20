@@ -190,22 +190,37 @@ def python_tests_reaching(root: str, path: str) -> list[str] | None:
     """The test modules, "scripts/tests/test_x.py", that import a changed Python file, directly or
     not, or name it (a test that runs it as a command); None when it has no module name to follow
     (`./dev`, `./staging`), which every test module may run."""
-    if not path.endswith(".py"):
+    return python_tests_reaching_any(root, [path])
+
+
+def python_tests_reaching_any(root: str, paths: list[str]) -> list[str] | None:
+    """The test modules that python_tests_reaching gives for any of paths, each module read and
+    parsed once, not once for each test that reaches it: 1.3 s a path, read again for each, made the
+    spot check's own choice of tests slower than the tests it saved (2026-11-20). None when a path has
+    no module name to follow."""
+    if not paths or not all(path.endswith(".py") for path in paths):
         return None
     modules = _python_modules(root)
-    stem, name = Path(path).stem, Path(path).name
+    stems, names = {Path(path).stem for path in paths}, {Path(path).name for path in paths}
+    parsed: dict[Path, tuple[str, set[str]]] = {}
+
+    def read(file: Path) -> tuple[str, set[str]]:
+        if file not in parsed:
+            parsed[file] = (file.read_text(encoding="utf-8", errors="replace"), _imports(file))
+        return parsed[file]
+
     reaching = []
     for test in sorted((Path(root) / "scripts" / "tests").glob("test_*.py")):
         seen, queue = {test.stem}, [test]
         texts = []
         while queue:
-            file = queue.pop()
-            texts.append(file.read_text(encoding="utf-8", errors="replace"))
-            for imported in _imports(file):
+            text, imports = read(queue.pop())
+            texts.append(text)
+            for imported in imports:
                 if imported in modules and imported not in seen:
                     seen.add(imported)
                     queue.append(modules[imported])
-        if stem in seen or any(name in text for text in texts):
+        if stems & seen or any(name in text for text in texts for name in names):
             reaching.append(str(test.relative_to(root)))
     return reaching
 

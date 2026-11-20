@@ -17,8 +17,10 @@ the working tree's uncommitted and untracked files), and runs, at once:
   relative imports (revert_red_web.py). vitest's `related` follows every importer and took 44 s
   for one player file; the tests further out are `make check`'s. A stylesheet only a browser
   renders, so the spot check names it and runs nothing for it.
-* **Python:** the gates' tests (`scripts/py_tests.py`), when a script, a hook, ./dev or the
-  Makefile changed.
+* **Python:** the gates' test modules that import a changed script or hook, directly or not, or
+  name it (revert_red_dependents.py), and every module when ./dev, the Makefile or a git hook
+  changed, which no import follows: every module for any script took 20 s, the spot check's floor (the
+  owner, 2026-11-20: test duration "sets the minimum duration of a dev cycle").
 * **Documentation:** the docs gate (`scripts/check_docs.py`), when Markdown changed.
 * **The owner's domains:** the test that only suggested.go names them, when a shipped source changed
   and its package is not already run whole.
@@ -39,7 +41,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import Callable
 
+from revert_red_dependents import python_tests_reaching_any
 from revert_red_web import VITEST_RUN, importing_tests
 
 BUDGET_S = 30
@@ -76,6 +80,8 @@ class Plan:
     lint_packages: list[str] = field(default_factory=list)
     web_files: list[str] = field(default_factory=list)
     python: bool = False
+    # The gate test modules to run, when python: None for every one.
+    python_tests: list[str] | None = None
     docs: bool = False
     # The changed files the media-name gate reads, and whether it reads every file instead: when the
     # gate or its registry changed.
@@ -101,10 +107,13 @@ def without_removed_packages(paths: list[str], is_dir=os.path.isdir) -> list[str
     return [path for path in paths if not path.endswith(".go") or is_dir(str(Path(path).parent))]
 
 
-def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
+def plan(paths: list[str], module: str, importers: dict[str, set[str]],
+         python_reach: Callable[[list[str]], list[str] | None] | None = None) -> Plan:
     """What to run for `paths`: `module` is go.mod's module path, and `importers` maps each Go package
-    to the packages that import it directly, their tests included."""
+    to the packages that import it directly, their tests included. python_reach gives the gate test
+    modules that changed Python paths reach, None for every one; by default, by their imports."""
     result = Plan()
+    python_paths = []
     result.named, result.named_all = list(paths), bool(MEDIA_NAMES_GATE & set(paths))
     result.shipped = any(SHIPPED_SOURCE.search(path) and not UNSHIPPED_TEST.search(Path(path).name) for path in paths)
     changed_packages: set[str] = set()
@@ -123,10 +132,17 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
             styles.append(path)
         elif PYTHON_GATES.match(path):
             result.python = True
+            python_paths.append(path)
         elif path.endswith(".md"):
             result.docs = True
         elif path in ("go.mod", "go.sum") or path.startswith("web/package"):
             result.not_run.append(f"{path}: a dependency change is `make check`'s")
+    if result.python:
+        reach = python_reach or (lambda changed: python_tests_reaching_any(".", changed))
+        result.python_tests = reach(python_paths)
+        if result.python_tests == []:
+            result.python = False
+            result.not_run.append("the gates' Python tests: none reaches " + ", ".join(python_paths))
     packages = set(changed_packages)
     for package in changed_packages:
         packages |= importers.get(package, set())
@@ -180,7 +196,9 @@ def runs(spot: Plan, module: str) -> list[Run]:
     if tests:
         out.append(Run(f"vitest, {len(tests)} test file(s)", [*VITEST_RUN, *tests]))
     if spot.python:
-        out.append(Run("the gates' Python tests", [sys.executable, "scripts/py_tests.py"]))
+        some = spot.python_tests or []
+        label = f"the gates' Python tests, {len(some)} module(s)" if some else "the gates' Python tests"
+        out.append(Run(label, [sys.executable, "scripts/py_tests.py", *some]))
     if spot.docs:
         out.append(Run("the docs gate", [sys.executable, "scripts/check_docs.py"]))
     linted = [relative_package(p, module) for p in spot.lint_packages]
