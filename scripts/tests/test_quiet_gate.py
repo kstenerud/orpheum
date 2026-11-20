@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from contextlib import redirect_stdout
@@ -151,6 +152,9 @@ class Running(unittest.TestCase):
         self.assertIn(qg.STOPPED_NOTE, printed)
         self.assertNotIn("slow step finished", log.read_text())
         self.assertIn("make gate: FAILED", printed)
+        # Its steps ended on the asking: no killer is left to keep the gate's process alive for the grace,
+        # which held every failed make check 10 s after it had said so (2026-11-20).
+        self.assertEqual([t for t in threading.enumerate() if isinstance(t, threading.Timer) and t.is_alive()], [])
 
     def test_without_fail_fast_every_running_step_finishes(self):
         makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"

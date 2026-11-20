@@ -140,6 +140,14 @@ def steps_report(label: str, clock: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _group_alive(group: int) -> bool:
+    try:
+        os.killpg(group, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
 def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     """Runs make: its exit code, its whole output, and the part a summary reads, which with
     fail_fast ends at the first failed step, whose stopping ends the run."""
@@ -156,6 +164,7 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
 
     lines: list[str] = []
     read_up_to: int | None = None
+    killer: list[threading.Timer] = []
     try:
         assert process.stdout is not None
         for line in process.stdout:
@@ -163,11 +172,17 @@ def run_make(make_args: list[str], fail_fast: bool, env: dict[str, str] | None =
             if fail_fast and read_up_to is None and STEP_FAILED.search(line):
                 read_up_to = len(lines)
                 stop(signal.SIGTERM)
-                threading.Timer(STOP_GRACE_SECONDS, stop, (signal.SIGKILL,)).start()
+                killer.append(threading.Timer(STOP_GRACE_SECONDS, stop, (signal.SIGKILL,)))
+                killer[0].start()
     except KeyboardInterrupt:
         stop(signal.SIGTERM)
         raise
     code = process.wait()
+    # The killer is for steps that outlive the asking; when none did, it would only keep this process
+    # alive for the whole grace, which held every failed make check 10 s after it said so (2026-11-20).
+    if killer and not _group_alive(process.pid):
+        killer[0].cancel()
+        killer[0].join()
     output = "".join(lines)
     if read_up_to is None:
         return code, output, output
