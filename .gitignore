@@ -7,7 +7,9 @@
 /cmd/discovery-watch/discovery-watch
 /cmd/orpheum/orpheum
 /cmd/release-record/release-record
-/.tools/
+# no trailing slash: check-pr's tree links it (scripts/check_pr_snapshot.py), and a link left
+# untracked kept that tree from ever being clean, so the browser map was never stamped complete
+/.tools
 /.dev/
 /dist/
 *.test
