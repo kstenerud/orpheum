@@ -423,7 +423,7 @@ mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner
 	@$(PYTHON) scripts/branch_base.py --mark '$(or $(REV),HEAD)'
 
 .PHONY: web-lint-full
-web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed; given BASE, only the changed web files and what imports them (scripts/impact.py)
+web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed; given BASE, only the changed web files and what uses an export whose type changed (scripts/impact.py)
 	@if $(DOCUMENTATION_ONLY); then echo "web-lint-full: skipped; documentation alone changed since $(BASE)"; \
 	  elif [ -z '$(BASE)' ]; then npm --prefix web run --silent lint:full; \
 	  else files="$$($(PYTHON) scripts/impact.py web-lint --base '$(BASE)')" || files=.; case "$$files" in \

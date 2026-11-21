@@ -309,8 +309,9 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Why it was invisible:** each step was skipped for documentation alone, which read as narrowed.
 - **Fix** (the owner: "check-pr only checks what is actually possible to break based on the changes
   made"): `scripts/impact.py` scopes each to what the change reaches: the integration packages
-  whose tests build a changed package; the changed web files and what imports them, by
-  dependency-cruiser; the browser tests that loaded a chunk holding a changed client source, by the
+  whose tests build a changed package; the changed web files and what uses an export whose
+  declared type changed, followed by name (`scripts/web_lint_reach.cjs`; until `isolatedDeclarations`,
+  2026-11-21, every file importing a changed one, by dependency-cruiser); the browser tests that loaded a chunk holding a changed client source, by the
   last complete browser map, read from the map's own commit, with the tests whose pages drew what
   a changed stylesheet's rules select, and each changed spec whole. What it cannot place runs
   whole, and `make check-everything` runs all three whole each night.

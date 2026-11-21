@@ -13,8 +13,10 @@ behind it. At nas.10 the three steps took 41 s, 132 s and 396 s of check-pr what
                                               every one when a change may reach any (go.mod, the
                                               Makefile, the pinned tools), none when no change does
     impact.py web-lint --base REV             "." for every file, or the web files, relative to web/,
-                                              that are changed or import one, directly or not (a type
-                                              flows through imports); nothing when web/ is unchanged
+                                              that are changed or use an export whose declared type
+                                              changed, followed by name through imports and
+                                              re-exports (web_lint_reach.cjs); nothing when web/ is
+                                              unchanged
     impact.py browser                         "all", or the JSON list (ORPHEUM_E2E_ONLY) of the tests
                                               that loaded a chunk holding a changed client source or
                                               drew what a changed stylesheet's rules select, by the last
@@ -140,18 +142,39 @@ def integration_scope(paths: list[str], packages: list[str], base: str,
 # --- the full web lint --------------------------------------------------------------------------
 
 
-def importers(sources: list[str]) -> list[str]:
-    """The web sources, relative to web/, that import any of sources (relative to web/), directly or
-    not, the sources among them: dependency-cruiser's reverse closure, type-only imports too."""
-    reaches = "|".join(f"^{re.escape(source)}$" for source in sources)
-    done = subprocess.run(["npx", "depcruise", "--config", ".dependency-cruiser.cjs", "--reaches", reaches,
-                           "--output-type", "json", "packages", "apps", "e2e"], cwd="web", capture_output=True,
-                          text=True, check=True)
-    return sorted(module["source"] for module in json.loads(done.stdout)["modules"]
-                  if not module.get("coreModule") and not module["source"].startswith("node_modules/"))
+# The script that follows a change by exported name, run by node in web/.
+WEB_LINT_REACH = Path(__file__).resolve().parent / "web_lint_reach.cjs"
 
 
-def web_lint_scope(paths: list[str], importers_of=importers) -> tuple[list[str], str]:
+def web_sources() -> list[str]:
+    """Every web source of the working tree eslint lints, relative to web/: its tracked files and the
+    new ones git does not ignore."""
+    done = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "apps", "packages",
+                           "e2e"], cwd="web", capture_output=True, text=True, check=True)
+    return sorted({path for path in done.stdout.splitlines()
+                   if WEB_SOURCE.match(f"web/{path}") and Path("web", path).is_file()})
+
+
+def reach(base: str, sources: list[str]) -> tuple[list[str] | None, str]:
+    """The web files, relative to web/, whose lint a change of sources (relative to web/) since base
+    can alter: each source and each file using an export whose declared type changed, followed by name
+    through imports and re-exports (web_lint_reach.cjs); None, and why, for every file."""
+    typescript = Path(__file__).resolve().parents[1] / "web" / "node_modules" / "typescript"
+    try:
+        done = subprocess.run(["node", str(WEB_LINT_REACH)], cwd="web", capture_output=True, text=True, check=False,
+                              input=json.dumps({"typescript": str(typescript), "base": base, "changed": sources,
+                                                "universe": web_sources()}), timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as failed:
+        return None, f"{WEB_LINT_REACH.name} did not run: {failed}"
+    if done.returncode != 0:
+        return None, f"{WEB_LINT_REACH.name} failed: {done.stderr.strip().splitlines()[-1:] or done.returncode}"
+    answer = json.loads(done.stdout)
+    if "wide" in answer:
+        return None, answer["wide"]
+    return answer["lint"], ""
+
+
+def web_lint_scope(paths: list[str], base: str, reach_of=reach) -> tuple[list[str], str]:
     """["."] for every file, the web files to lint, or none; and why."""
     web = [path for path in paths if path.startswith("web/") and not WEB_UNLINTED.search(path)]
     if not web:
@@ -160,12 +183,14 @@ def web_lint_scope(paths: list[str], importers_of=importers) -> tuple[list[str],
     for path in web:
         if not WEB_SOURCE.match(path) or WEB_DECLARATIONS.search(path):
             return ["."], f"{path} may change any file's lint"
-        if Path(path).exists():
-            sources.append(path.removeprefix("web/"))
-    if not sources:
+        sources.append(path.removeprefix("web/"))
+    scoped, why = reach_of(base, sources)
+    if scoped is None:
+        return ["."], why
+    if not scoped:
         return [], "only deleted web files, whose importers changed with them"
-    scoped = sorted(set(importers_of(sources)) | set(sources))
-    return scoped, f"{len(sources)} changed web file(s) and what imports them: {len(scoped)} file(s)"
+    return scoped, (f"{len(sources)} changed web file(s) and what uses an export whose type changed: "
+                    f"{len(scoped)} file(s)")
 
 
 # --- the browser tier ---------------------------------------------------------------------------
@@ -236,7 +261,7 @@ def main(argv: list[str]) -> int:
         scope, why = integration_scope(changed(args.base), args.packages, args.base)
         print(" ".join(scope))
     elif args.step == "web-lint":
-        scope, why = web_lint_scope(changed(args.base))
+        scope, why = web_lint_scope(changed(args.base), args.base)
         print(" ".join(scope))
     else:
         tests, why = browser_scope()

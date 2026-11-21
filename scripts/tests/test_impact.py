@@ -53,12 +53,12 @@ class Integration(unittest.TestCase):
 
 class WebLint(unittest.TestCase):
     def scope(self, *paths: str) -> list[str]:
-        return impact.web_lint_scope(list(paths), lambda sources: ["apps/web/src/importer.tsx", *sources])[0]
+        return impact.web_lint_scope(list(paths), "base",
+                                     lambda base, sources: (["apps/web/src/importer.tsx", *sources], ""))[0]
 
-    def test_a_web_source_lints_with_what_imports_it(self):
-        with Repo({"web/apps/web/src/a.ts": "export {};\n"}).cwd():
-            self.assertEqual(self.scope("web/apps/web/src/a.ts", "docs/a.md"),
-                             ["apps/web/src/a.ts", "apps/web/src/importer.tsx"])
+    def test_a_web_source_lints_with_what_its_reach_names(self):
+        self.assertEqual(self.scope("web/apps/web/src/a.ts", "docs/a.md"),
+                         ["apps/web/src/importer.tsx", "apps/web/src/a.ts"])
 
     def test_nothing_eslint_reads_lints_nothing(self):
         self.assertEqual(self.scope("docs/a.md", "internal/a.go", "web/apps/web/src/a.css"), [])
@@ -67,6 +67,94 @@ class WebLint(unittest.TestCase):
         for path in ("web/eslint.config.js", "web/tsconfig.base.json", "web/package-lock.json",
                      "web/apps/web/src/env.d.ts"):
             self.assertEqual(self.scope(path), ["."], path)
+
+    def test_a_reach_that_cannot_tell_lints_everything(self):
+        self.assertEqual(impact.web_lint_scope(["web/apps/web/src/a.ts"], "base",
+                                               lambda base, sources: (None, "a.ts declares a global"))[0], ["."])
+
+
+SRC = "web/apps/web/src"
+# The base every Reach test changes: a.ts exports two things; b.ts uses one, c.ts the other; d.ts
+# passes a's Body on in a declaration of its own, which e.ts uses; index.ts re-exports a by name and
+# whole, and f.ts and g.ts use one name of each.
+REACH_BASE = {
+    f"{SRC}/a.ts": "export type Body = { a: number };\n"
+                   "export const make = (a: number): Body => ({ a });\n"
+                   "export const count = (a: number): number => a + 1;\n",
+    f"{SRC}/b.ts": 'import { make } from "./a.ts";\nexport const b: number = make(1).a;\n',
+    f"{SRC}/c.ts": 'import { count } from "./a.ts";\nexport const c: number = count(1);\n',
+    f"{SRC}/d.ts": 'import type { Body } from "./a.ts";\nexport const wrap = (body: Body): { body: Body } => ({ body });\n'
+                   "export const plain = (n: number): number => n;\n",
+    f"{SRC}/e.ts": 'import { wrap } from "./d.ts";\nexport const e: number = wrap({ a: 1 }).body.a;\n',
+    f"{SRC}/e2.ts": 'import { plain } from "./d.ts";\nexport const e2: number = plain(1);\n',
+    f"{SRC}/index.ts": 'export { make as made } from "./a.ts";\nexport * from "./c.ts";\n',
+    f"{SRC}/f.ts": 'import { made } from "./index.ts";\nexport const f: number = made(1).a;\n',
+    f"{SRC}/g.ts": 'import { c } from "./index.ts";\nexport const g: number = c;\n',
+}
+
+
+class Reach(unittest.TestCase):
+    def setUp(self):
+        self.repo = Repo(REACH_BASE)
+        self.base = self.repo.commit("chore: base")
+
+    def reach(self, files: dict[str, str | None]) -> list[str] | None:
+        self.repo.write(files)
+        with self.repo.cwd():
+            scoped, why = impact.reach(self.base, [path.removeprefix("web/") for path in files])
+        return None if scoped is None else sorted(path.removeprefix("apps/web/src/") for path in scoped)
+
+    def test_a_change_inside_a_body_lints_the_file_alone(self):
+        self.assertEqual(self.reach({f"{SRC}/a.ts": REACH_BASE[f"{SRC}/a.ts"].replace("a + 1", "a + 2")}), ["a.ts"])
+
+    def test_an_export_s_changed_type_lints_what_uses_it_and_not_what_uses_another(self):
+        changed = REACH_BASE[f"{SRC}/a.ts"].replace("count = (a: number): number", "count = (a: number): string")
+        self.assertEqual(self.reach({f"{SRC}/a.ts": changed.replace("a + 1", "`${a}`")}), ["a.ts", "c.ts"],
+                         "c.ts uses count, and its own c is declared a number still, so g.ts sees nothing new")
+
+    def test_a_change_passes_through_a_star_re_export(self):
+        self.assertEqual(self.reach({f"{SRC}/c.ts": 'import { count } from "./a.ts";\n'
+                                                    "export const c: string = String(count(1));\n"}),
+                         ["c.ts", "g.ts", "index.ts"], "g.ts uses c through index.ts's export *")
+
+    def test_a_changed_type_follows_a_declaration_naming_it(self):
+        changed = REACH_BASE[f"{SRC}/a.ts"].replace("{ a: number }", "{ a: number; b?: string }")
+        self.assertEqual(self.reach({f"{SRC}/a.ts": changed}),
+                         ["a.ts", "b.ts", "d.ts", "e.ts", "f.ts", "index.ts"],
+                         "make and Body changed: b.ts and d.ts use them, e.ts d's wrap of Body, f.ts index's "
+                         "made; c.ts, e2.ts and g.ts use none of it")
+
+    def test_a_new_export_lints_nothing_but_its_file(self):
+        self.assertEqual(self.reach({f"{SRC}/a.ts": REACH_BASE[f"{SRC}/a.ts"] + "export const more = 1;\n"}),
+                         ["a.ts"], "index.ts re-exports only a.ts's make")
+
+    def test_a_deprecation_reaches_what_uses_it(self):
+        changed = REACH_BASE[f"{SRC}/a.ts"].replace("export const count", "/** @deprecated Use make. */\nexport const count")
+        self.assertIn("c.ts", self.reach({f"{SRC}/a.ts": changed}))
+
+    def test_a_namespace_or_dynamic_import_uses_every_export(self):
+        self.repo.commit("chore: more", {f"{SRC}/n.ts": 'import * as a from "./a.ts";\nexport const n: number = a.count(1);\n',
+                                         f"{SRC}/l.ts": 'export const l = async (): Promise<number> => (await import("./a.ts")).count(1);\n'})
+        self.base = self.repo.git("rev-parse", "HEAD")
+        changed = REACH_BASE[f"{SRC}/a.ts"].replace("{ a: number }", "{ a: number; b?: string }")
+        reached = self.reach({f"{SRC}/a.ts": changed})
+        self.assertIn("n.ts", reached)
+        self.assertIn("l.ts", reached)
+
+    def test_a_new_or_undeclarable_file_changes_every_export(self):
+        inferred = REACH_BASE[f"{SRC}/a.ts"].replace("(a: number): number => a + 1", "(a: number) => a + 2")
+        self.assertEqual(self.reach({f"{SRC}/a.ts": inferred}), ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts", "index.ts"],
+                         "count's type is inferred, so every export of a.ts may have changed: e.ts sees Body "
+                         "through d.ts's wrap; g.ts uses c.ts's c, declared a number still")
+
+    def test_a_global_lints_everything(self):
+        self.assertIsNone(self.reach({f"{SRC}/a.ts": REACH_BASE[f"{SRC}/a.ts"] + "declare global { var x: number }\n"}))
+
+    def test_a_gone_file_lints_what_changed_with_it(self):
+        self.assertEqual(self.reach({f"{SRC}/c.ts": None, f"{SRC}/g.ts": None,
+                                     f"{SRC}/index.ts": 'export { make as made } from "./a.ts";\n'}),
+                         ["f.ts", "index.ts"], "index.ts's export * changed, so each of its exports may have")
+        self.assertEqual(self.reach({f"{SRC}/e2.ts": None}), [])
 
 
 CLIENT = "web/apps/web/src/a.ts"

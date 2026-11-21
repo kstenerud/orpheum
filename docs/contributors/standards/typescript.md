@@ -58,7 +58,7 @@ each package is its tarball, and one that needs its script to work is the owner'
 | `allowUnreachableCode: false`, `allowUnusedLabels: false` | Same. |
 | `useUnknownInCatchVariables` | A caught value is `unknown` until narrowed. |
 | `verbatimModuleSyntax`, `isolatedModules` | Type-only imports are written `import type`, so what is erased is visible and every file compiles alone (Vite compiles file by file). |
-| `isolatedDeclarations` | Every export's type is written or plain from its own line (a literal, an annotated function), so a reader need not chase it, and a file's declarations come from the file alone (`ts.transpileDeclaration`), without its imports. Name a type rather than spelling it out (`Context<PageRead<SystemSections>>`, `ScreenOf<typeof Title>`). Tool configs export `const config: UserConfig = defineConfig(…)`. |
+| `isolatedDeclarations` | Every export's type is written or plain from its own line (a literal, an annotated function), so a reader need not chase it, and a file's declarations come from the file alone (`ts.transpileDeclaration`), without its imports: check-pr's lint compares them with the base's and lints only what uses an export whose type changed (`scripts/web_lint_reach.cjs`). Name a type rather than spelling it out (`Context<PageRead<SystemSections>>`, `ScreenOf<typeof Title>`). Tool configs export `const config: UserConfig = defineConfig(…)`. |
 | `noUncheckedSideEffectImports` | `import "./missing.css"` fails. |
 | `forceConsistentCasingInFileNames` | macOS forgives a wrong case; Linux CI does not. |
 | `moduleResolution: bundler`, `allowImportingTsExtensions` | Relative imports name the file with its extension (`./app-shell.tsx`), so the import says what it points at. |
