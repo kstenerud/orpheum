@@ -72,6 +72,9 @@ export const enStatus = {
     heading: "Jobs",
     none: "No work has been done yet.",
     target: "{{kind}} #{{target}}",
+    // A season's job names the season, a group of the series' aired ordering, by its id: the job
+    // view is given no series' name nor season number for it, as for no other target.
+    seasonTarget: "{{kind}}: season group #{{season}}",
     kind: {
       fetchMetadata: "Looking up",
       makeArtworkSizes: "Making artwork sizes",

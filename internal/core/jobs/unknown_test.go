@@ -53,10 +53,11 @@ func TestIsPassingFailure_KnowsTheCausesThatPassAndNoOther(t *testing.T) {
 func TestSubject_NamesEachTargetAndItemIDsOfReadsTheItemsBack(t *testing.T) {
 	t.Parallel()
 	subjects := []string{
-		Subject(Target{ItemID: 12}), Subject(Target{FileID: 7}), Subject(Target{ChunkStoreID: 9}), Subject(Target{}),
-		Subject(Target{ItemID: 4}),
+		Subject(Target{ItemID: 12}), Subject(Target{FileID: 7}), Subject(Target{ChunkStoreID: 9}),
+		Subject(Target{GroupID: 3}), Subject(Target{}), Subject(Target{ItemID: 4}),
 	}
-	if want := []string{"item 12", "file 7", "chunk store 9", "the server", "item 4"}; !slices.Equal(subjects, want) {
+	want := []string{"item 12", "file 7", "chunk store 9", "season group 3", "the server", "item 4"}
+	if !slices.Equal(subjects, want) {
 		t.Errorf("subjects = %v, want %v", subjects, want)
 	}
 	if got := ItemIDsOf(subjects); !slices.Equal(got, []int64{12, 4}) {

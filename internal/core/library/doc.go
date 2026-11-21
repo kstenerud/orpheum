@@ -251,11 +251,14 @@
 //     TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces,
 //     TestPlayback_CarriesTheSegmentsOfTheFileItPlays (internal/core/api).
 //
-//   - The fingerprint detector's sweep queues one find_repeats job for each season of an aired
-//     ordering, on each node, of two episodes or more, with a video whose bytes are not measured at
-//     the measurement version, aimed at the lowest such video; one video of each episode, at most
-//     repeatsVideosPerJob, a video whose sound failed left out. A node's spans become the opening's
-//     intro and the closing's credits, provider fingerprint, as sure as the share of the videos
+//   - The fingerprint detector's sweep queues a find_repeats job for each season of an aired
+//     ordering, on a node, of two episodes or more, with a video whose bytes are not measured at
+//     the measurement version, aimed at the season (its group) and naming the node in its
+//     arguments, so the job is the season's and one is open for a season at a time; a season on
+//     two nodes is compared on one, then the other. It parks on the lowest such video and names
+//     one video of each episode, at most repeatsVideosPerJob, a video whose sound failed left out.
+//     A node's spans become the opening's intro and the closing's credits, provider
+//     fingerprint, as sure as the share of the videos
 //     compared they are heard in, replacing only the fingerprint's earlier rows; a failure is kept
 //     as the bytes' measurement, a refusal is not, and an answer for a video no longer in the season
 //     is not kept (D101, D115). TestQueueRepeats_QueuesEachSeasonNotMeasuredOnce,

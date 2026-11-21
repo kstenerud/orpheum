@@ -37,7 +37,8 @@ type JobBody struct {
 	// What it works on, one field by kind (D227 §2): an item for fetch_metadata and
 	// make_artwork_sizes, a file for extract_subtitle, a fetched subtitle
 	// for convert_fetched_subtitle, a file for read_through, a scan for scan, a scan's batch for
-	// examine, a chunk store, one stream of a film on one grid, for make_chunks.
+	// examine, a chunk store, one stream of a film on one grid, for make_chunks, and a season, a
+	// group of a series' aired ordering, for find_repeats.
 	ItemID            int64 `json:"itemId,omitempty"`
 	StreamID          int64 `json:"streamId,omitempty"`
 	FetchedSubtitleID int64 `json:"fetchedSubtitleId,omitempty"`
@@ -45,6 +46,7 @@ type JobBody struct {
 	ScanID            int64 `json:"scanId,omitempty"`
 	ScanBatchID       int64 `json:"scanBatchId,omitempty"`
 	ChunkStoreID      int64 `json:"chunkStoreId,omitempty"`
+	GroupID           int64 `json:"groupId,omitempty"`
 	// State is a job given to a node (assigned) as running: to a person, its work runs on the
 	// node, and OnNode says where it is there.
 	State string `enum:"queued,running,done,failed,cancelled" json:"state"`
@@ -144,7 +146,8 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 			ID: view.ID, Kind: JobKind(saidValue(string(view.Kind))), ItemID: view.ItemID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			ScanID: view.ScanID, ScanBatchID: view.ScanBatchID, ChunkStoreID: view.ChunkStoreID,
-			State: view.State, OnNode: view.OnNode, ProgressFraction: view.ProgressFraction,
+			GroupID: view.GroupID,
+			State:   view.State, OnNode: view.OnNode, ProgressFraction: view.ProgressFraction,
 			Reason: view.Reason, LastFailure: view.LastFailure, AttemptCount: view.AttemptCount,
 			CreatedAt: view.CreatedAt.UnixMilli(), Destination: string(view.Destination),
 		}

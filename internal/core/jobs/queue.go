@@ -61,8 +61,8 @@ const (
 	// whether it is a rebuild (D435 §4, §7).
 	KindMakeSystemVideos Kind = "make_system_videos"
 	// KindFindRepeats fingerprints the sound of a season's videos on one node and keeps the stretches
-	// they share as intro and credits segments (D101, D115); its target is the season's lowest file
-	// not yet measured, and its arguments name the season.
+	// they share as intro and credits segments (D101, D115); its target is the season (GroupID), and
+	// its arguments name the node whose videos of the season it compares.
 	KindFindRepeats Kind = "find_repeats"
 )
 
@@ -78,7 +78,7 @@ func Kinds() []Kind {
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a file
 // for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for read_through and hash_whole_file, a season's file for find_repeats,
+// convert_fetched_subtitle, a file for read_through and hash_whole_file, a season (GroupID) for find_repeats,
 // a chunk store for make_chunks, a scan for scan
 // and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
@@ -114,7 +114,7 @@ func requireOneTarget(kind Kind, target Target) error {
 	setCount := 0
 	for _, id := range []int64{
 		target.ItemID, target.StreamID, target.FetchedSubtitleID, target.FileID,
-		target.ScanID, target.ScanBatchID, target.ChunkStoreID,
+		target.ScanID, target.ScanBatchID, target.ChunkStoreID, target.GroupID,
 	} {
 		if id != 0 {
 			setCount++

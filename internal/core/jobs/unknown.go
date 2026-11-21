@@ -56,6 +56,7 @@ func targetSubjects(target Target) []targetSubject {
 		{"scan", target.ScanID},
 		{"scan batch", target.ScanBatchID},
 		{"chunk store", target.ChunkStoreID},
+		{"season group", target.GroupID},
 	}
 }
 

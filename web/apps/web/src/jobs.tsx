@@ -46,6 +46,9 @@ export async function cancelJob(api: Api, jobId: number, idempotencyKey: string)
  */
 function jobName(t: TFunction, job: Job): string {
   const kindText = t(`jobs.kind.${camelKey(job.kind)}`);
+  if (job.groupId !== undefined) {
+    return t("jobs.seasonTarget", { kind: kindText, season: job.groupId });
+  }
   const target = targetId(job);
   return target === undefined ? kindText : t("jobs.target", { kind: kindText, target });
 }
@@ -59,7 +62,8 @@ export function targetId(job: Job): number | undefined {
     job.fileId ??
     job.scanId ??
     job.scanBatchId ??
-    job.chunkStoreId
+    job.chunkStoreId ??
+    job.groupId
   );
 }
 

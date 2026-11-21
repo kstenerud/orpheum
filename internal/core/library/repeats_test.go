@@ -96,13 +96,34 @@ func (bench *repeatsBench) sweep() []jobs.Job {
 	return queued
 }
 
-// targets are the files the jobs are aimed at.
+// targets are the seasons the jobs are aimed at, each a job's one target: a job aimed at anything
+// else is none.
 func targets(queued []jobs.Job) []int64 {
-	var fileIDs []int64
+	var groupIDs []int64
 	for _, job := range queued {
-		fileIDs = append(fileIDs, job.FileID)
+		if job.Target != (jobs.Target{GroupID: job.GroupID}) {
+			groupIDs = append(groupIDs, 0)
+			continue
+		}
+		groupIDs = append(groupIDs, job.GroupID)
 	}
-	return fileIDs
+	return groupIDs
+}
+
+// seasonOfFile is the season a file's video is in, a group of the aired ordering.
+func (bench *repeatsBench) seasonOfFile(fileID int64) int64 {
+	bench.t.Helper()
+	rows, err := bench.repeats.listSeasonVideos(bench.t.Context(), 0)
+	if err != nil {
+		bench.t.Fatal(err)
+	}
+	for _, row := range rows {
+		if row.FileID == fileID {
+			return row.GroupID
+		}
+	}
+	bench.t.Fatalf("file %d is in no season", fileID)
+	return 0
 }
 
 // run runs a job and returns what it gave its node, or nil when it gave nothing.
@@ -160,9 +181,10 @@ func span(startMs, endMs int64, heardIn, comparedWith int) *nodeproto.RepeatedSp
 	return &nodeproto.RepeatedSpan{StartMs: startMs, EndMs: endMs, HeardIn: heardIn, ComparedWith: comparedWith}
 }
 
-// The sweep queues one comparison for each season with a video not measured yet, aimed at its lowest
-// such video, naming one video of each of its episodes with their sound track and length, and the
-// opening and closing minutes the detector compares; a season whose videos were all measured is
+// The sweep queues one comparison for each season with a video not measured yet, aimed at the season
+// and naming its node, the job showing as the season's and not one of its files'; the comparison
+// names one video of each of its episodes with their sound track and length, and the opening and
+// closing minutes the detector compares; a season whose videos were all measured is
 // asked for nothing, and nor is a season of one episode, which has nothing to be compared with (D101).
 func TestQueueRepeats_QueuesEachSeasonNotMeasuredOnce(t *testing.T) {
 	t.Parallel()
@@ -170,9 +192,13 @@ func TestQueueRepeats_QueuesEachSeasonNotMeasuredOnce(t *testing.T) {
 	first, second := bench.season(1, 3), bench.season(2, 2)
 	bench.season(3, 1)
 	queued := bench.sweep()
-	if got, want := targets(queued), []int64{first[0], second[0]}; !slices.Equal(got, want) {
-		t.Fatalf("the sweep queued comparisons aimed at %v; want one for each season of two episodes or more, %v",
-			got, want)
+	seasons := []int64{bench.seasonOfFile(first[0]), bench.seasonOfFile(second[0])}
+	if got := targets(queued); !slices.Equal(got, seasons) {
+		t.Fatalf("the sweep queued comparisons aimed at seasons %v; want one for each season of two episodes "+
+			"or more, %v", got, seasons)
+	}
+	if want := fmt.Sprintf(`{"nodeId":%d}`, bench.nodeID); queued[0].ArgsJSON != want {
+		t.Errorf("the comparison's arguments are %s; want its node's, %s", queued[0].ArgsJSON, want)
 	}
 	sent := bench.run(queued[1])
 	if sent == nil {
@@ -187,7 +213,7 @@ func TestQueueRepeats_QueuesEachSeasonNotMeasuredOnce(t *testing.T) {
 			*sent)
 	}
 	bench.answer(queued[1], sent, nodeproto.VideoRepeats{FileID: second[0]}, nodeproto.VideoRepeats{FileID: second[1]})
-	if got, want := targets(bench.sweep()), []int64{first[0]}; !slices.Equal(got, want) {
+	if got, want := targets(bench.sweep()), []int64{bench.seasonOfFile(first[0])}; !slices.Equal(got, want) {
 		t.Errorf("after the second season was measured, the sweep queued %v; want the first's alone, %v", got, want)
 	}
 }
@@ -264,8 +290,8 @@ func TestRepeats_AFailedVideoIsNotAskedAgainAndARefusedOneIs(t *testing.T) {
 		t.Errorf("the video refused was measured %q; want it left for the next sweep", got)
 	}
 	queued := bench.sweep()
-	if got, want := targets(queued), []int64{files[1]}; !slices.Equal(got, want) {
-		t.Fatalf("the next sweep queued %v; want the refused video's season again, aimed at it, %v", got, want)
+	if got, want := targets(queued), []int64{bench.seasonOfFile(files[1])}; !slices.Equal(got, want) {
+		t.Fatalf("the next sweep queued %v; want the refused video's season again, %v", got, want)
 	}
 	if got, want := videosOf(bench.run(queued[0])), files[1:]; !slices.Equal(got, want) {
 		t.Errorf("the next comparison named %v; want all but the video that failed, %v", got, want)

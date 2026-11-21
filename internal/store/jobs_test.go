@@ -177,6 +177,26 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 	}
 }
 
+// A season's comparison is the season's job (D101): its target is the group by its own column, read
+// back as written, and a second request for the season is shown the one open, not a job of a file.
+func TestJobStorage_KeepsASeasonTargetByItsColumn(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	season := JobTarget{GroupID: 12}
+	storage.insert("find_repeats", season, 0, jobStart)
+	if open := storage.insert("find_repeats", season, 0, jobStart); open.Queued == nil ||
+		open.Queued.Target != season {
+		t.Errorf("a second request for season 12 was shown %+v; want the one queued for it", open)
+	}
+	if open := storage.insert("find_repeats", JobTarget{FileID: 12}, 0, jobStart); open.Queued != nil {
+		t.Errorf("a request for file 12 was shown %+v; want no open job: a season is not a file", open.Queued)
+	}
+	listed, err := storage.jobs.ListOpen(t.Context())
+	if err != nil || len(listed) != 3 || listed[0].Target != season {
+		t.Errorf("ListOpen = %+v, %v; want season 12's jobs by its column, then file 12's", listed, err)
+	}
+}
+
 func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasParked(t *testing.T) {
 	t.Parallel()
 	fixed := newJobStorageFixture(t)

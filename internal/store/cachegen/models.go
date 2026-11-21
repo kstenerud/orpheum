@@ -26,6 +26,7 @@ type Job struct {
 	ScanID                *int64
 	ScanBatchID           *int64
 	ChunkStoreID          *int64
+	GroupID               *int64
 	ArgsJSON              string
 	Priority              int64
 	State                 string

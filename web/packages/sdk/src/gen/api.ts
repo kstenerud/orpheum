@@ -4015,6 +4015,8 @@ export interface components {
              */
             finishedAt?: number;
             /** Format: int64 */
+            groupId?: number;
+            /** Format: int64 */
             id: number;
             /** Format: int64 */
             itemId?: number;

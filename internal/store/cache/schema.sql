@@ -13,8 +13,8 @@ CREATE TABLE job (                                         -- the one work queue
   kind        TEXT NOT NULL CHECK (kind <> ''),  -- one of jobs.Kinds(), checked where a job is queued
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, extract_subtitle the file its tracks are in (D340), convert_fetched_subtitle a fetched subtitle,
-  -- read_through and hash_whole_file a file, find_repeats a season's first file not yet measured (D101),
-  -- make_chunks a chunk store, scan a scan (its listing), examine a scan's
+  -- read_through and hash_whole_file a file, find_repeats a season (a group of an aired ordering,
+  -- D101), make_chunks a chunk store, scan a scan (its listing), examine a scan's
   -- batch. At most one is set;
   -- backup, renew_certificate and make_system_videos set none: they work on the whole server (D243
   -- sections 6, 11; D435).
@@ -25,8 +25,10 @@ CREATE TABLE job (                                         -- the one work queue
   scan_id             INTEGER,
   scan_batch_id       INTEGER,
   chunk_store_id      INTEGER,
+  group_id            INTEGER,
   -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
-  -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
+  -- artworkSource, refs, sourceSha256 and sizeNames; find_repeats' nodeId, the node whose
+  -- videos of the season it compares. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   -- 'assigned' is a job whose work a node does: no runner waits for it (D234 section 7).
@@ -56,7 +58,7 @@ CREATE TABLE job (                                         -- the one work queue
   wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
-         (scan_batch_id IS NOT NULL) + (chunk_store_id IS NOT NULL) <= 1)
+         (scan_batch_id IS NOT NULL) + (chunk_store_id IS NOT NULL) + (group_id IS NOT NULL) <= 1)
 ) STRICT;
 -- The paths the queue's statements take (D303; the independent audit's S4): each read the whole
 -- table, an enqueue's once per job queued, so a sweep that queued N jobs read the queue N times.
@@ -64,7 +66,7 @@ CREATE TABLE job (                                         -- the one work queue
 CREATE INDEX job_claim ON job(kind, priority DESC, runnable_at, id) WHERE state = 'queued';
 -- An open job of a kind on a target: an enqueue's look for one to merge into, and a wait's mark.
 CREATE INDEX job_open_target ON job(kind, item_id, stream_id, fetched_subtitle_id, file_id,
-  scan_id, scan_batch_id, chunk_store_id) WHERE state IN ('queued', 'running', 'assigned');
+  scan_id, scan_batch_id, chunk_store_id, group_id) WHERE state IN ('queued', 'running', 'assigned');
 -- The open jobs about an item, and about a file: the work a person's interest raises, looked up by
 -- the items and files it is in (D324 section 3; the audit of 2026-10-25, C4).
 CREATE INDEX job_open_item ON job(item_id) WHERE state IN ('queued', 'running', 'assigned');

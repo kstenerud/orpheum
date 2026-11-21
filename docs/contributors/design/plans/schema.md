@@ -1302,7 +1302,8 @@ to its end, and each film and series it matches again with what its files say it
 Version 54 dropped the list of kinds from `job.kind`'s CHECK, leaving it non-empty: a job's kind is
 checked in Go where a job is queued (`internal/core/jobs`' `Enqueue`, against `jobs.Kinds()`), so a
 new kind no longer changes this schema nor discards every cache.db (the code audit of 2026-11-21,
-finding 2).
+finding 2); and gave a job its `group_id`, a season of an aired ordering, the target of
+`find_repeats`, which had been aimed at one of the season's files (the owner, 2026-11-21).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)

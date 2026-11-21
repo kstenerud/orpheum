@@ -252,6 +252,24 @@ describe("each kind of job", () => {
     );
   });
 
+  it("names a season's comparison by its season, not one of its files (D101)", async () => {
+    const comparing: Job = {
+      id: 9,
+      kind: "findRepeats",
+      groupId: 12,
+      state: "queued",
+      reason: "finds the intro and credits a season's episodes share",
+      attemptCount: 0,
+      createdAt: 1,
+    };
+    mounted = await mount(
+      withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs: [comparing] }] })),
+    );
+    expect(mounted.container.querySelector("strong")?.textContent).toBe(
+      "Finding a season's intros and credits: season group #12",
+    );
+  });
+
   it("has words on the jobs screen", () => {
     expect(isEveryKind).toBe(true);
     for (const kind of everyKind) {

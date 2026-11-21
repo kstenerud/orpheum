@@ -77,9 +77,10 @@ func NewRepeats(parts RepeatsParts) *Repeats {
 	return &Repeats{parts: parts}
 }
 
-// repeatsArgs are a find_repeats job's arguments: the season, a group of an aired ordering.
+// repeatsArgs are a find_repeats job's arguments: the node whose videos of its season, the job's
+// target, it compares, for the node reads only its own.
 type repeatsArgs struct {
-	GroupID int64 `json:"groupId"`
+	NodeID int64 `json:"nodeId"`
 }
 
 // seasonOnNode is the videos of one season whose bytes are on one node: what one job compares, for
@@ -158,9 +159,11 @@ func (repeats *Repeats) listSeasonVideos(ctx context.Context, groupID int64) ([]
 	return rows, nil
 }
 
-// QueueRepeats is the fingerprint detector's sweep: one job for each season, on each node, of at least
-// repeatsLeastVideos episodes, one of whose videos is not measured yet, aimed at the lowest of them. It
-// says how many it queued.
+// QueueRepeats is the fingerprint detector's sweep: a job for each season, on a node, of at least
+// repeatsLeastVideos episodes, one of whose videos is not measured yet. The job is the season's, its
+// target, and its arguments name the node; a season's open job takes a second node's request into
+// it, so a season on two nodes is compared on one, then on the other at a sweep after. It says how
+// many it queued.
 func (repeats *Repeats) QueueRepeats(ctx context.Context) (int, error) {
 	rows, err := repeats.listSeasonVideos(ctx, 0)
 	if err != nil {
@@ -172,12 +175,12 @@ func (repeats *Repeats) QueueRepeats(ctx context.Context) (int, error) {
 		if len(set) < repeatsLeastVideos || isMeasured(set[0]) {
 			continue
 		}
-		args, err := json.Marshal(repeatsArgs{GroupID: season.groupID})
+		args, err := json.Marshal(repeatsArgs{NodeID: season.nodeID})
 		if err != nil {
 			return queued, fmt.Errorf("encode season %d's arguments: %w", season.groupID, err)
 		}
 		isQueued, err := repeats.parts.Jobs.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindFindRepeats, Target: jobs.Target{FileID: set[0].FileID}, ArgsJSON: string(args),
+			Kind: jobs.KindFindRepeats, Target: jobs.Target{GroupID: season.groupID}, ArgsJSON: string(args),
 			Priority: jobs.PriorityBackground,
 			Reason:   "finds the intro and credits a season's episodes share by their sound (D101)",
 		})
@@ -191,39 +194,41 @@ func (repeats *Repeats) QueueRepeats(ctx context.Context) (int, error) {
 	return queued, nil
 }
 
-// seasonOfJob is the season a job's arguments name.
-func seasonOfJob(job jobs.Job) (int64, error) {
+// nodeOfJob is the node a job's arguments name, the season being its target.
+func nodeOfJob(job jobs.Job) (int64, error) {
 	var args repeatsArgs
-	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil || args.GroupID == 0 {
-		return 0, jobs.MarkPermanent(fmt.Errorf("job %d's arguments %q name no season", job.ID, job.ArgsJSON))
+	err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args)
+	if err != nil || args.NodeID == 0 || job.GroupID == 0 {
+		return 0, jobs.MarkPermanent(fmt.Errorf("job %d's target and arguments %q name no season on a node",
+			job.ID, job.ArgsJSON))
 	}
-	return args.GroupID, nil
+	return args.NodeID, nil
 }
 
-// seasonOf is the season on its node of a job's target, as it is now; false when the target is not in
-// it any more, or was measured since.
+// seasonOf is the job's season on its node, as it is now; false when none of its videos is there any
+// more, or all were measured since.
 func (repeats *Repeats) seasonOf(ctx context.Context, job jobs.Job) (seasonOnNode, bool, error) {
-	groupID, err := seasonOfJob(job)
+	nodeID, err := nodeOfJob(job)
 	if err != nil {
 		return seasonOnNode{}, false, err
 	}
-	rows, err := repeats.listSeasonVideos(ctx, groupID)
+	rows, err := repeats.listSeasonVideos(ctx, job.GroupID)
 	if err != nil {
 		return seasonOnNode{}, false, err
 	}
 	for _, season := range seasonsOnNodes(rows) {
-		for _, video := range season.videos {
-			if video.FileID == job.FileID {
-				return season, !isMeasured(video), nil
-			}
+		if season.nodeID == nodeID {
+			set := season.set()
+			return season, len(set) > 0 && !isMeasured(set[0]), nil
 		}
 	}
 	return seasonOnNode{}, false, nil
 }
 
 // HandleFindRepeats runs one find_repeats job (jobs.KindFindRepeats): the node that holds its season's
-// videos fingerprints their opening and closing minutes. A target no longer in its season, or measured
-// since, ends the job: the next sweep asks for what is owed then.
+// videos fingerprints their opening and closing minutes. A season with no video on its node not yet
+// measured ends the job: the next sweep asks for what is owed then. It parks on its lowest video not
+// measured, as a file's job would.
 func (repeats *Repeats) HandleFindRepeats(ctx context.Context, job jobs.Job) error {
 	season, isOwed, err := repeats.seasonOf(ctx, job)
 	if err != nil || !isOwed {
@@ -232,7 +237,8 @@ func (repeats *Repeats) HandleFindRepeats(ctx context.Context, job jobs.Job) err
 	queries := repeats.parts.Database.Read()
 	command := nodeproto.FindRepeats{OpeningMs: repeatsOpening.Milliseconds(), ClosingMs: repeatsClosing.Milliseconds()}
 	var target Located
-	for _, video := range season.set() {
+	set := season.set()
+	for _, video := range set {
 		file, err := PlayableFile(ctx, queries, video.FileID)
 		if err != nil {
 			continue // not readable now: compared when it is
@@ -247,7 +253,7 @@ func (repeats *Repeats) HandleFindRepeats(ctx context.Context, job jobs.Job) err
 		if !hasSound || probe.Format.DurationMs <= 0 || err != nil {
 			continue
 		}
-		if video.FileID == job.FileID {
+		if video.FileID == set[0].FileID {
 			target = located
 		}
 		command.Videos = append(command.Videos, nodeproto.RepeatVideo{
@@ -272,7 +278,7 @@ func (repeats *Repeats) Assignee(runner nodes.Resolver) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
-			about := fmt.Sprintf("finding the repeats of the season of file %d", job.FileID)
+			about := fmt.Sprintf("finding the repeats of season group %d", job.GroupID)
 			if result.Repeats == nil {
 				return fmt.Errorf("node %d answered %s with something other than its repeats", attempt.NodeID, about)
 			}
@@ -325,10 +331,10 @@ func (repeats *Repeats) keep(
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("keep the repeats of the season of file %d: %w", job.FileID, err)
+		return fmt.Errorf("keep the repeats of season group %d: %w", job.GroupID, err)
 	}
 	repeats.parts.Logger.InfoContext(ctx, "compared a season's videos by their sound", slogx.EventKey,
-		"seasonRepeatsFound", "fileId", job.FileID, "videos", len(answer.Videos), "compared", compared, "kept", kept)
+		"seasonRepeatsFound", "groupId", job.GroupID, "videos", len(answer.Videos), "compared", compared, "kept", kept)
 	return nil
 }
 
@@ -358,11 +364,10 @@ func comparedVideos(answer nodeproto.Repeats) int {
 func (repeats *Repeats) seasonVideosByFile(
 	ctx context.Context, job jobs.Job,
 ) (map[int64]sqlcgen.ListSeasonVideosRow, error) {
-	groupID, err := seasonOfJob(job)
-	if err != nil {
+	if _, err := nodeOfJob(job); err != nil {
 		return nil, err
 	}
-	rows, err := repeats.listSeasonVideos(ctx, groupID)
+	rows, err := repeats.listSeasonVideos(ctx, job.GroupID)
 	if err != nil {
 		return nil, err
 	}

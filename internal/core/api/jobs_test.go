@@ -261,3 +261,20 @@ func TestJobs_AScansJobsNameTheirScanAndBatch(t *testing.T) {
 		t.Errorf("the run of chunks shows %+v, want chunk store 3", run)
 	}
 }
+
+// A season's comparison of its videos' sound names its season, not one of its files (D101).
+func TestJobs_ASeasonsComparisonNamesItsSeason(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	request := jobs.Request{
+		Kind: jobs.KindFindRepeats, Target: jobs.Target{GroupID: 12}, ArgsJSON: `{"nodeId":1}`, Reason: "test",
+	}
+	if _, err := harness.queue.Enqueue(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	if found := newestOf(t, harness.listedJobs(t, admin), jobs.KindFindRepeats); found.GroupID != 12 ||
+		found.FileID != 0 {
+		t.Errorf("the season's comparison shows %+v, want season group 12", found)
+	}
+}

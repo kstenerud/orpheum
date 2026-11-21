@@ -212,11 +212,11 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 
 const insertJob = `-- name: InsertJob :one
 
-INSERT INTO job (kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, runnable_at, reason,
+INSERT INTO job (kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, runnable_at, reason,
   destination, created_at)
 VALUES (?1, ?2, ?3, ?4,
-        ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-        ?13, ?14)
+        ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+        ?14, ?15)
 RETURNING id
 `
 
@@ -229,6 +229,7 @@ type InsertJobParams struct {
 	ScanID            *int64
 	ScanBatchID       *int64
 	ChunkStoreID      *int64
+	GroupID           *int64
 	ArgsJSON          string
 	Priority          int64
 	RunnableAt        int64
@@ -250,6 +251,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 		arg.ScanID,
 		arg.ScanBatchID,
 		arg.ChunkStoreID,
+		arg.GroupID,
 		arg.ArgsJSON,
 		arg.Priority,
 		arg.RunnableAt,
@@ -263,7 +265,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 }
 
 const listEveryOpenJob = `-- name: ListEveryOpenJob :many
-SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE state IN ('queued', 'running', 'assigned')
@@ -291,6 +293,7 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 			&i.ScanID,
 			&i.ScanBatchID,
 			&i.ChunkStoreID,
+			&i.GroupID,
 			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
@@ -321,7 +324,7 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE CAST(?1 AS INTEGER) = 0 OR id < CAST(?1 AS INTEGER)
@@ -354,6 +357,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, erro
 			&i.ScanID,
 			&i.ScanBatchID,
 			&i.ChunkStoreID,
+			&i.GroupID,
 			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
@@ -443,13 +447,13 @@ func (q *Queries) ListOpenJobsOfItemsAndFiles(ctx context.Context, arg ListOpenJ
 }
 
 const listOpenJobsOfTarget = `-- name: ListOpenJobsOfTarget :many
-SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE kind = ?1 AND item_id IS ?2 AND stream_id IS ?3
   AND fetched_subtitle_id IS ?4 AND file_id IS ?5
   AND scan_id IS ?6 AND scan_batch_id IS ?7
-  AND chunk_store_id IS ?8
+  AND chunk_store_id IS ?8 AND group_id IS ?9
   AND state IN ('queued', 'running', 'assigned')
 ORDER BY id
 `
@@ -463,6 +467,7 @@ type ListOpenJobsOfTargetParams struct {
 	ScanID            *int64
 	ScanBatchID       *int64
 	ChunkStoreID      *int64
+	GroupID           *int64
 }
 
 // The queued and running jobs of this kind for this target, an assigned job counting as running: at
@@ -477,6 +482,7 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 		arg.ScanID,
 		arg.ScanBatchID,
 		arg.ChunkStoreID,
+		arg.GroupID,
 	)
 	if err != nil {
 		return nil, err
@@ -495,6 +501,7 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 			&i.ScanID,
 			&i.ScanBatchID,
 			&i.ChunkStoreID,
+			&i.GroupID,
 			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
@@ -760,7 +767,7 @@ WHERE kind = ?3 AND state IN ('queued', 'running', 'assigned')
   AND item_id IS ?4 AND stream_id IS ?5
   AND fetched_subtitle_id IS ?6 AND file_id IS ?7
   AND scan_id IS ?8 AND scan_batch_id IS ?9
-  AND chunk_store_id IS ?10
+  AND chunk_store_id IS ?10 AND group_id IS ?11
 `
 
 type SetJobWantedParams struct {
@@ -774,6 +781,7 @@ type SetJobWantedParams struct {
 	ScanID            *int64
 	ScanBatchID       *int64
 	ChunkStoreID      *int64
+	GroupID           *int64
 }
 
 // When a person stops waiting for an open job of a kind on a target. Kept wanted (is_release 0),
@@ -792,6 +800,7 @@ func (q *Queries) SetJobWanted(ctx context.Context, arg SetJobWantedParams) erro
 		arg.ScanID,
 		arg.ScanBatchID,
 		arg.ChunkStoreID,
+		arg.GroupID,
 	)
 	return err
 }
@@ -799,7 +808,7 @@ func (q *Queries) SetJobWanted(ctx context.Context, arg SetJobWantedParams) erro
 const startJob = `-- name: StartJob :one
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = ?1 AND state = 'queued'
-RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -818,6 +827,7 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 		&i.ScanID,
 		&i.ScanBatchID,
 		&i.ChunkStoreID,
+		&i.GroupID,
 		&i.ArgsJSON,
 		&i.Priority,
 		&i.State,
@@ -840,7 +850,7 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 const takeAssignedJob = `-- name: TakeAssignedJob :one
 UPDATE job SET state = 'running'
 WHERE id = ?1 AND state = 'assigned'
-RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -860,6 +870,7 @@ func (q *Queries) TakeAssignedJob(ctx context.Context, id int64) (Job, error) {
 		&i.ScanID,
 		&i.ScanBatchID,
 		&i.ChunkStoreID,
+		&i.GroupID,
 		&i.ArgsJSON,
 		&i.Priority,
 		&i.State,
@@ -884,7 +895,7 @@ UPDATE job SET state = 'running'
 WHERE id = (SELECT overdue.id FROM job AS overdue
             WHERE overdue.state = 'assigned' AND overdue.kind = ?1 AND overdue.assigned_until <= ?2
             ORDER BY overdue.assigned_until, overdue.id LIMIT 1)
-RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, group_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -908,6 +919,7 @@ func (q *Queries) TakeOverdueAssignedJob(ctx context.Context, arg TakeOverdueAss
 		&i.ScanID,
 		&i.ScanBatchID,
 		&i.ChunkStoreID,
+		&i.GroupID,
 		&i.ArgsJSON,
 		&i.Priority,
 		&i.State,
