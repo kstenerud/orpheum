@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // ErrStalled is an operation on a root its disk did not answer, or one not tried because an earlier
@@ -75,15 +76,10 @@ func (gate *Gate) placeOf(root, path string) string {
 		return root
 	}
 	mountPoint, isKnown := gate.mountPointOf(path)
-	if !isKnown || mountPoint == root || !isUnder(mountPoint, root) {
+	if !isKnown || mountPoint == strings.TrimSuffix(root, "/") || !pathtree.IsAtOrUnder(mountPoint, root) {
 		return root
 	}
 	return mountPoint
-}
-
-// isUnder is whether path is under directory, not at it.
-func isUnder(path, directory string) bool {
-	return strings.HasPrefix(path, strings.TrimSuffix(directory, "/")+"/")
 }
 
 // Operation is what an operation on a root reads, and how long it may take before it is stalled.

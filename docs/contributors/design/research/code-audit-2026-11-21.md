@@ -113,6 +113,9 @@ forgets the separator matches `/media/films2` under `/media/films`.
   `/`-only form, if the helper is `filepath`-based). **S, agent.** A forbidigo rule on
   `HasPrefix(…, …+"/")` would keep it so: **owner's** (lint configuration).
 
+*Fixed:* refactor: the path-at-or-under checks written by hand call pathtree.IsAtOrUnder. None had a
+missed separator. `library/compare.go:185` stays: it asks for below a skipped directory, not at it.
+
 ### 5. The rule for a file's main picture is in five places
 
 A video stream flagged `attached_pic` (cover art in the container) is not the film's picture. The

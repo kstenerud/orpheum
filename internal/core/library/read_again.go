@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
@@ -35,7 +35,7 @@ func (paths ReadAgain) cleaned() ReadAgain {
 	}
 	return slices.DeleteFunc(kept, func(each string) bool {
 		return slices.ContainsFunc(kept, func(other string) bool {
-			return other != each && strings.HasPrefix(each, other+"/")
+			return other != each && pathtree.IsAtOrUnder(each, other)
 		})
 	})
 }
@@ -49,7 +49,7 @@ func (paths ReadAgain) with(other ReadAgain) ReadAgain {
 // paths.
 func (paths ReadAgain) covers(relative string) bool {
 	return slices.ContainsFunc(paths, func(each string) bool {
-		return each == wholeRoot || relative == each || strings.HasPrefix(relative, each+"/")
+		return each == wholeRoot || pathtree.IsAtOrUnder(relative, each)
 	})
 }
 

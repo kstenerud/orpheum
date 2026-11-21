@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // wholeRoot is a notice's folder for the whole root.
@@ -288,7 +289,7 @@ func cleanFolder(folder string) string {
 // widerFolder is the folder holding both.
 func widerFolder(first, second string) string {
 	first, second = cleanFolder(first), cleanFolder(second)
-	for first != wholeRoot && second != first && !strings.HasPrefix(second, first+"/") {
+	for first != wholeRoot && !pathtree.IsAtOrUnder(second, first) {
 		first = path.Dir(first)
 	}
 	return first

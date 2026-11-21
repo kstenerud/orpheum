@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // contentSecurityPolicy is what the client's files and the lab's probes may load and run, and the
@@ -71,7 +73,7 @@ func policyFor(name string) string {
 		return receiverPolicy
 	case name == castSenderLabPath:
 		return castSenderPolicy
-	case name == labDirectory || strings.HasPrefix(name, labDirectory+"/"):
+	case pathtree.IsAtOrUnder(name, labDirectory):
 		return contentSecurityPolicy
 	case isScreenPath(name):
 		return castSenderPolicy
@@ -94,7 +96,7 @@ func isCastPage(name string) bool {
 
 // isReceiverPath is whether name, a path without its leading slash, is the cast receiver's.
 func isReceiverPath(name string) bool {
-	return name == receiverDirectory || strings.HasPrefix(name, receiverDirectory+"/")
+	return pathtree.IsAtOrUnder(name, receiverDirectory)
 }
 
 // typesGoLacks are the types of the client's files that Go's own table does not know, and that the
@@ -176,7 +178,7 @@ func indexOf(files fs.FS, name string) string {
 // isServerPath is a path the server answers itself, never with the client.
 func isServerPath(cleanPath, apiPrefix string) bool {
 	for _, prefix := range []string{apiPrefix, "/debug"} {
-		if cleanPath == prefix || strings.HasPrefix(cleanPath, prefix+"/") {
+		if pathtree.IsAtOrUnder(cleanPath, prefix) {
 			return true
 		}
 	}

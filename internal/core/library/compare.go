@@ -182,6 +182,8 @@ func (listing *listingComparison) readStored(ctx context.Context) error {
 func (listing *listingComparison) takeListed(ctx context.Context, scan *scanState, listed *nodeproto.Listed) error {
 	relative := string(listed.Path.Bytes())
 	for _, skipped := range listing.skippedDirectories {
+		// Below the skipped directory, not at it, so not pathtree.IsAtOrUnder: the directory itself is
+		// filed as skipped, below, with the rule that skipped it.
 		if strings.HasPrefix(relative, skipped+"/") {
 			return nil
 		}

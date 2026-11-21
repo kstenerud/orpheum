@@ -13,7 +13,6 @@ import (
 	"os"
 	"path"
 	"slices"
-	"strings"
 	"sync"
 	"unsafe"
 
@@ -21,6 +20,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
@@ -356,5 +356,5 @@ func (kernel *kernelWatch) takeEvent(ctx context.Context, descriptor int32, mask
 
 // isAtOrBelow reports whether folder is below, or is, above, both relative to one root.
 func isAtOrBelow(folder, above string) bool {
-	return above == wholeRoot || folder == above || strings.HasPrefix(folder, above+"/")
+	return above == wholeRoot || pathtree.IsAtOrUnder(folder, above)
 }

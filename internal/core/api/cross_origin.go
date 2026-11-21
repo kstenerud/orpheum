@@ -4,7 +4,8 @@ package api
 
 import (
 	"net/http"
-	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // What a page on the discovery's origin may send to the API and read from its answers (the
@@ -59,7 +60,7 @@ func (server *Server) crossOrigin(next http.Handler) http.Handler {
 // served there calls on the core's own names as it does over WebRTC (D467, amending D308 §4), and
 // never the core's client, which runs at the client origin alone (D308 §6).
 func isOpenToTheLoader(path string) bool {
-	return path == Prefix || strings.HasPrefix(path, Prefix+"/")
+	return pathtree.IsAtOrUnder(path, Prefix)
 }
 
 // loaderOriginOf is the loader's origin crossOrigin allows for pathsOpenToTheLoader: the discovery's,
