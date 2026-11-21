@@ -12,9 +12,10 @@ import {
   type TogetherConnection,
   type TogetherEndReason,
 } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { use, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { OpenedAsContext } from "./around-file.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { useToken } from "./services.tsx";
@@ -106,6 +107,8 @@ interface LeadingPlayer {
 export function useLeadingPlayer(leading: LeadingPlayer): void {
   const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
   const { readSound, readPicture, isPutOnPaused } = leading;
+  // The title the film plays as, which the session is told it plays as too (B0 question 20).
+  const itemId = use(OpenedAsContext);
   // The session it put its film on for: each it comes to lead, once (a cast's receiver taking its
   // host's part in a Watch Together session started while it played, D364 §11).
   const putOnForRef = useRef<TogetherConnection | undefined>(undefined);
@@ -116,9 +119,13 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
     const isFirst = putOnForRef.current === undefined;
     putOnForRef.current = connection;
     if (connection.snapshot().group?.fileId !== fileId) {
-      putOn(connection, { fileId, video, startPositionMs, putOnAtMs, isPutOnPaused }, isFirst);
+      putOn(
+        connection,
+        { fileId, itemId, video, startPositionMs, putOnAtMs, isPutOnPaused },
+        isFirst,
+      );
     }
-  }, [connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, isPutOnPaused]);
+  }, [connection, isWelcomed, fileId, itemId, video, startPositionMs, putOnAtMs, isPutOnPaused]);
   useEffect(
     () =>
       video === null || connection === undefined
@@ -146,15 +153,25 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
  */
 function putOn(
   connection: TogetherConnection,
-  film: Pick<LeadingPlayer, "fileId" | "video" | "startPositionMs" | "putOnAtMs" | "isPutOnPaused">,
+  film: Pick<
+    LeadingPlayer,
+    "fileId" | "video" | "startPositionMs" | "putOnAtMs" | "isPutOnPaused"
+  > & {
+    readonly itemId: number | undefined;
+  },
   isFirst: boolean,
 ): void {
-  const { fileId, video, startPositionMs, putOnAtMs } = film;
+  const { fileId, itemId, video, startPositionMs, putOnAtMs } = film;
   const standsAtMs = whereItStandsMs(video);
   const positionMs = isFirst
     ? (putOnAtMs ?? standsAtMs ?? startPositionMs)
     : (standsAtMs ?? putOnAtMs ?? startPositionMs);
-  connection.command({ command: "changeItem", fileId, positionMs });
+  connection.command({
+    command: "changeItem",
+    fileId,
+    ...(itemId === undefined ? {} : { itemId }),
+    positionMs,
+  });
   if (isFirst ? film.isPutOnPaused === true : video?.paused === true) {
     connection.command({ command: "pause" });
   }

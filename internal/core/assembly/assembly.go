@@ -303,14 +303,15 @@ func newTogether(dependencies *api.Dependencies, parts Parts) *together.Hub {
 // before, in the ordering the host watches its series in, as their own Up next and ⏮ play it, from
 // where they are partway through it; none that cannot be read now.
 func neighbourFor(dependencies *api.Dependencies) together.Neighbour {
-	return func(ctx context.Context, userID, fileID int64, isNext bool) (int64, int64, bool) {
+	return func(ctx context.Context, userID int64, from together.Played, isNext bool) (together.Played, int64, bool) {
 		reach, err := dependencies.Auth.ReachOfUser(ctx, userID)
 		if err != nil {
-			return 0, 0, false
+			return together.Played{}, 0, false
 		}
-		neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, userID, fileID)
+		neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, userID,
+			library.Opened{FileID: from.FileID, TitleID: from.ItemID})
 		if err != nil {
-			return 0, 0, false
+			return together.Played{}, 0, false
 		}
 		neighbour := neighbours.Previous
 		if isNext && neighbours.Next != nil {
@@ -319,13 +320,13 @@ func neighbourFor(dependencies *api.Dependencies) together.Neighbour {
 			neighbour = nil
 		}
 		if neighbour == nil || neighbour.Unreadable != nil {
-			return 0, 0, false
+			return together.Played{}, 0, false
 		}
 		var positionMs int64
 		if neighbour.IsPartway {
 			positionMs = neighbour.PartwayAtMs
 		}
-		return neighbour.FileID, positionMs, true
+		return together.Played{FileID: neighbour.FileID, ItemID: neighbour.TitleID}, positionMs, true
 	}
 }
 

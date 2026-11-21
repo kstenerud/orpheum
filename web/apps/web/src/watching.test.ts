@@ -293,11 +293,29 @@ describe("the film being watched (D258)", () => {
     expect(asked.map((request) => bodyField(request, "startsAtMs"))).toEqual([undefined, 982_680]);
   });
 
+  it("asks as the title the file was opened from, and lets go of a warm-up asked as another (B0 question 20)", async () => {
+    // One file filed both as a film and as an episode plays as the one opened: its playback is
+    // named as that title, whose Up next is the episode's.
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    watching.warmUp(7, playableFormats, { itemId: 2020 });
+    await settled(heard);
+    expect(
+      (await watching.decide(7, playableFormats, { cause: "playPage", itemId: 2020 })).mediaToken,
+    ).toBe("a");
+    watching.warmUp(8, playableFormats, { itemId: 2021 });
+    await settled(heard);
+    expect((await watching.decide(8, playableFormats, { cause: "playPage" })).mediaToken).toBe("c");
+    expect(await settled(heard)).toContain("DELETE /playback/b");
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "itemId"))).toEqual([2020, 2021, undefined]);
+  });
+
   it("preloads nothing where its media go over WebRTC, and plays on the warm-up's decision (the efficiency audit, finding 1)", async () => {
     const heard: Heard[] = [];
     const preloads = standInPreloads();
     const { watching } = watchingServed(heard, preloads);
-    watching.warmUp(7, playableFormats, () => true);
+    watching.warmUp(7, playableFormats, { isOverWebrtc: () => true });
     await settled(heard);
     expect(preloads.started).toEqual([]);
     const decision = await watching.decide(7, playableFormats);
@@ -305,7 +323,7 @@ describe("the film being watched (D258)", () => {
     expect(decision.onLadder?.startAtBps).toBe(4_000_000);
     expect(await settled(heard)).toEqual(["POST /playback"]);
     // On HTTP the browser keeps what the preload loaded for the Play page, so it preloads (D260 §3).
-    watching.warmUp(9, playableFormats, () => false);
+    watching.warmUp(9, playableFormats, { isOverWebrtc: () => false });
     await settled(heard);
     expect(preloads.started).toHaveLength(1);
   });
@@ -546,7 +564,7 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     expect(preloads.started).toEqual([]);
     expect((await watching.decide(8, playableFormats)).mediaToken).toBe("b");
     // Continue watching's press, a film page's warm-up, keeps its preload.
-    watching.warmUp(9, playableFormats, () => false);
+    watching.warmUp(9, playableFormats, { isOverWebrtc: () => false });
     await settled([]);
     expect(preloads.started.map((preload) => preload.url)).toEqual([
       "/api/v1/bytes/media/chunks/c/master.m3u8",

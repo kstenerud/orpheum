@@ -718,7 +718,7 @@ describe("the media keys' next and previous on a Play page, in a computer's brow
     );
     await expect
       .poll(() => routeHref(services.navigation.route()))
-      .toBe(routeHref({ screen: "play", fileId: 1040 }));
+      .toBe(routeHref({ screen: "play", fileId: 1040, itemId: 104 }));
   });
 });
 

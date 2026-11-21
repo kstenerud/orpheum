@@ -104,8 +104,8 @@ describe("home (the owner, 2026-10-25)", () => {
     expect(card?.textContent).toMatch(/Test Show · .+ · Pilot/u);
     // It plays from the start: no part of it is watched.
     expect(card?.querySelector("progress")).toBeNull();
-    await click(nextUp?.querySelector('a[href="/play/4"]') ?? null);
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
+    await click(nextUp?.querySelector('a[href="/play/4?item=23"]') ?? null);
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4, itemId: 23 });
   });
 
   it("hides a Next up card with PUT, says until when, and undoes it with DELETE (D188)", async () => {
@@ -192,11 +192,11 @@ describe("home (the owner, 2026-10-25)", () => {
     );
     mounted = await mount(withServices(<Home />, services));
     const { container } = mounted;
-    const tile = container.querySelector('.continue-watching a[href="/play/70"]');
+    const tile = container.querySelector('.continue-watching a[href="/play/70?item=7"]');
     expect(tile).not.toBeNull();
     expect(heard.some((each) => each.methodAndPath === "POST /playback")).toBe(false);
     await click(tile);
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 70 });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 70, itemId: 7 });
     // No Play page is drawn here: the press itself asked how the film plays.
     await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
     expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);

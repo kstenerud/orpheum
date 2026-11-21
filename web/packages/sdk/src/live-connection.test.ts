@@ -363,6 +363,18 @@ describe("a page's live connection (D337 §2)", () => {
     });
   });
 
+  it("reads the title a receiver's film plays as, the one it was opened from (B0 question 20)", () => {
+    const handed = (itemId?: number): unknown =>
+      parseLiveMessage(
+        JSON.stringify({
+          type: "receive",
+          receive: { castId: 1, membershipCredential: "c", fileId: 20, fromDeviceId: 3, itemId },
+        }),
+      );
+    expect(handed(2020)).toMatchObject({ receive: { fileId: 20, itemId: 2020 } });
+    expect(handed()).not.toHaveProperty("receive.itemId");
+  });
+
   it("reads a receiver's credential for the session its person is a guest in, which it follows (D371 §4)", () => {
     expect(
       parseLiveMessage(

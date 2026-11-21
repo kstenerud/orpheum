@@ -22,42 +22,43 @@ func (hub *Hub) findKeyframe(ctx context.Context, attachment Attachment, message
 	if message.Type != MessageCommand || message.Command != CommandSeek || hub.keyframeAtOrBefore == nil {
 		return
 	}
-	if fileID := hub.fileOf(attachment.SessionID); fileID != 0 {
+	if fileID := hub.playedOf(attachment.SessionID).FileID; fileID != 0 {
 		message.keyframeMs, message.isKeyframeKnown = hub.keyframeAtOrBefore(ctx, fileID, message.PositionMs)
 	}
 }
 
 // findNeighbour finds, for a next or a previous, the film after or before the session's in its
-// host's ordering, one the host may play, and where the host is partway through it; FileID stays 0
-// where there is none, which the command refuses.
+// host's ordering, as the title it plays as, one the host may play, and where the host is partway
+// through it; FileID stays 0 where there is none, which the command refuses.
 func (hub *Hub) findNeighbour(ctx context.Context, attachment Attachment, message *Inbound) {
 	isNext := message.Command == CommandNext
 	if message.Type != MessageCommand || (!isNext && message.Command != CommandPrevious) {
 		return
 	}
-	message.FileID = 0 // a next or a previous names no film of its own
-	message.movedFrom = hub.fileOf(attachment.SessionID)
+	message.FileID, message.ItemID = 0, 0 // a next or a previous names no film of its own
+	from := hub.playedOf(attachment.SessionID)
+	message.movedFrom = from.FileID
 	if message.movedFrom == 0 {
 		return
 	}
-	if neighbourID, positionMs, found := hub.neighbourOf(ctx, attachment.SessionID, message.movedFrom, isNext); found {
-		message.FileID, message.movedToMs = neighbourID, positionMs
+	if neighbour, positionMs, found := hub.neighbourOf(ctx, attachment.SessionID, from, isNext); found {
+		message.FileID, message.ItemID, message.movedToMs = neighbour.FileID, neighbour.ItemID, positionMs
 	}
 }
 
-// neighbourOf is the film after fileID (isNext) or before it in the host of sessionID's ordering, one
-// the host may play, and where the host is partway through it; false where there is none, or no
-// ordering is known (MovesAlongBy).
+// neighbourOf is the film after from (isNext) or before it in the host of sessionID's ordering, as
+// the title from plays as, one the host may play, and where the host is partway through it; false
+// where there is none, or no ordering is known (MovesAlongBy).
 func (hub *Hub) neighbourOf(
-	ctx context.Context, sessionID, fileID int64, isNext bool,
-) (neighbourID, positionMs int64, found bool) {
+	ctx context.Context, sessionID int64, from Played, isNext bool,
+) (neighbour Played, positionMs int64, found bool) {
 	if hub.neighbour == nil {
-		return 0, 0, false
+		return Played{}, 0, false
 	}
 	host := hub.hostOf(sessionID)
-	neighbourID, positionMs, found = hub.neighbour(ctx, host, fileID, isNext)
-	if !found || !hub.mayPlay(ctx, host, neighbourID) {
-		return 0, 0, false
+	neighbour, positionMs, found = hub.neighbour(ctx, host, from, isNext)
+	if !found || !hub.mayPlay(ctx, host, neighbour.FileID) {
+		return Played{}, 0, false
 	}
-	return neighbourID, positionMs, true
+	return neighbour, positionMs, true
 }

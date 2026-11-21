@@ -9,6 +9,7 @@
  */
 
 import type { components } from "@orpheum/sdk";
+import { createContext, use } from "react";
 
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -27,20 +28,35 @@ export interface AroundFile {
 }
 
 /**
+ * The title the Play page's file was opened from (its route's itemId), undefined where none was
+ * named: one file's bytes filed both as a film and as an episode play as the episode from its
+ * series, and what plays around it is the episode's (B0 question 20).
+ */
+export const OpenedAsContext = createContext<number | undefined>(undefined);
+
+/** The title the Play page's file was opened from (OpenedAsContext). */
+export function useOpenedAs(): number | undefined {
+  return use(OpenedAsContext);
+}
+
+/**
  * What plays after fileId and before it, undefined while unknown; asked for once isAsked, nothing
- * before. Where it cannot be read, nothing plays after it nor before, as a next episode that cannot
- * be read now is not offered (plans/up-next.md §7).
+ * before, as the title it was opened from (OpenedAsContext). Where it cannot be read, nothing plays
+ * after it nor before, as a next episode that cannot be read now is not offered (plans/up-next.md §7).
  */
 export function useAroundFile(fileId: number, isAsked: boolean): AroundFile | undefined {
   const { api } = useServices();
+  const openedAs = use(OpenedAsContext);
+  const asItem = openedAs === undefined ? "" : `/as/${String(openedAs)}`;
   const [around] = useResource(
-    `up-next/${String(fileId)}${isAsked ? "" : "/not-yet"}`,
+    `up-next/${String(fileId)}${asItem}${isAsked ? "" : "/not-yet"}`,
     async (): Promise<AroundFile | undefined> => {
       if (!isAsked) {
         return undefined;
       }
+      const query = openedAs === undefined ? {} : { query: { item: openedAs } };
       const answer = dataOrThrow(
-        await api.GET("/files/{id}/up-next", { params: { path: { id: fileId } } }),
+        await api.GET("/files/{id}/up-next", { params: { path: { id: fileId }, ...query } }),
       );
       return { upNext: answer.upNext ?? undefined, previous: answer.previous ?? undefined };
     },

@@ -256,7 +256,7 @@ func (server *Server) titleNeighbours(
 		return nil, nil, nil
 	}
 	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID,
-		detail.Versions[0].Files[0].ID)
+		library.Opened{FileID: detail.Versions[0].Files[0].ID, TitleID: detail.ID})
 	if err != nil {
 		return nil, nil, server.libraryError(ctx, "read what plays after an episode and before it", err)
 	}

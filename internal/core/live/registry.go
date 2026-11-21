@@ -534,7 +534,7 @@ func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive 
 	cast := held.Cast
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, ItemName: cast.ItemName, TitleName: cast.ItemName,
-		PositionMs: cast.PositionMs, IsPaused: cast.IsPaused,
+		ItemID: cast.ItemID, PositionMs: cast.PositionMs, IsPaused: cast.IsPaused,
 		FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
 		IsAccepted: cast.IsAccepted, TogetherCredential: partCredential,
 		IsTogetherFollower: partCredential != "" && !isHost,

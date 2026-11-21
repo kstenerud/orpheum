@@ -21,7 +21,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
-import type { Previous, UpNext } from "./around-file.ts";
+import { OpenedAsContext, useAroundFile, type Previous, type UpNext } from "./around-file.ts";
 import type { Services } from "./services.tsx";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -156,6 +156,32 @@ describe("what the Play page asks for what plays next", () => {
   });
 });
 
+describe("what plays around a file opened as a title", () => {
+  // One file's bytes filed both as a film and as an episode play as the title they were opened
+  // from, so what plays around them is asked of that title (B0 question 20).
+  it("asks what plays next as the title the file was opened from", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /files/3/up-next": [200, { upNext: bag }] }, heard);
+    function Around(): JSX.Element {
+      const around = useAroundFile(3, true);
+      return <p>{around?.upNext?.episode.name ?? "nothing yet"}</p>;
+    }
+    const page = await mount(
+      withServices(
+        <OpenedAsContext value={31}>
+          <Around />
+        </OpenedAsContext>,
+        services,
+      ),
+    );
+    await settleUntil(() => page.container.textContent === "Bag");
+    expect(heard.map((request) => [request.methodAndPath, request.query])).toEqual([
+      ["GET /files/3/up-next", "?item=31"],
+    ]);
+    page.unmount();
+  });
+});
+
 /** S1E1, "Pilot", which plays file 2: the episode before the one playing. */
 const pilot: Previous = {
   itemId: 21,
@@ -193,9 +219,10 @@ describe("previous and next in a sequence (D407 §2, §10)", () => {
     expect(JSON.parse(said())).toEqual({ hasPrevious: true, hasNext: true });
     press("next");
     press("previous");
+    // Each as the episode it is, which a file filed as a film too plays as (B0 question 20).
     expect(replace.mock.calls).toEqual([
-      [{ screen: "play", fileId: 4 }],
-      [{ screen: "play", fileId: 2 }],
+      [{ screen: "play", fileId: 4, itemId: 23 }],
+      [{ screen: "play", fileId: 2, itemId: 21 }],
     ]);
   });
 
@@ -656,9 +683,13 @@ describe("the next episode warmed up as Up next shows (the owner's request, 2026
     video.stand(600);
     video.stand(1185);
     expect(await settled(heard)).toEqual(["POST /playback", "POST /playback"]);
-    // Autoplay's Play of the next episode starts on the warmed decision, and only then lets go of
-    // the film played.
-    const decision = await watchingOf(services.api).decide(4, services.playableFormats());
+    // Autoplay's Play of the next episode, as the episode it is (B0 question 20), starts on the
+    // warmed decision, and only then lets go of the film played.
+    expect(heard.map((request) => bodyField(request, "itemId"))).toEqual([undefined, 23]);
+    const decision = await watchingOf(services.api).decide(4, services.playableFormats(), {
+      cause: "playPage",
+      itemId: 23,
+    });
     expect(decision.mediaToken).toBe("n");
     expect(await settled(heard)).toEqual([
       "POST /playback",

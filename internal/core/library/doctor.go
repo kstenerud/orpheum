@@ -80,7 +80,7 @@ func (admin *Admin) ItemsWhoseNFOsDisagree(ctx context.Context) ([]DisagreeingNF
 			for _, row := range rows[start:end] {
 				found.Paths = append(found.Paths, row.Path)
 			}
-			title, titleErr := queries.GetFilesWork(ctx, found.FileID)
+			title, titleErr := queries.GetFilesWork(ctx, sqlcgen.GetFilesWorkParams{ID: found.FileID})
 			if titleErr != nil {
 				return nil, fmt.Errorf("read what file %d is: %w", found.FileID, titleErr)
 			}

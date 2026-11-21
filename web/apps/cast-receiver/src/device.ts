@@ -138,7 +138,13 @@ export interface PlayerNow {
 
 /** One thing the receiver's player does to follow its session. */
 export type FollowStep =
-  | { readonly step: "load"; readonly fileId: number; readonly positionMs: number }
+  | {
+      readonly step: "load";
+      readonly fileId: number;
+      /** The title it plays as, the group's (B0 question 20). */
+      readonly itemId?: number | undefined;
+      readonly positionMs: number;
+    }
   | { readonly step: "stop" }
   | { readonly step: "seek"; readonly positionMs: number }
   | { readonly step: "play" }
@@ -179,7 +185,7 @@ export function stepsToFollow(
   const isPlaying = group.state === "playing" || group.state === "waiting";
   if (group.fileId !== player.fileId) {
     return [
-      { step: "load", fileId: group.fileId, positionMs },
+      { step: "load", fileId: group.fileId, itemId: group.itemId, positionMs },
       ...(isPlaying ? [{ step: "play" } as const] : []),
     ];
   }
@@ -194,15 +200,17 @@ export function stepsToFollow(
 /**
  * What the receiver commands the session it leads to put the cast's film on (D337: in a cast the
  * receiver leads, casts.go's startCast), as the web app's receiver does (together-host.tsx's putOn):
- * the film at positionMs, paused there where the sender had it paused (the owner, 2026-11-08).
+ * the film at positionMs, as the title itemId it was opened as (B0 question 20), paused there where
+ * the sender had it paused (the owner, 2026-11-08).
  */
 export function putOnCommands(
-  fileId: number,
+  film: { readonly fileId: number; readonly itemId?: number | undefined },
   positionMs: number,
   isPaused: boolean,
 ): readonly GroupCommand[] {
+  const { fileId, itemId } = film;
   return [
-    { command: "changeItem", fileId, positionMs },
+    { command: "changeItem", fileId, ...(itemId === undefined ? {} : { itemId }), positionMs },
     ...(isPaused ? [{ command: "pause" } as const] : []),
   ];
 }
@@ -408,10 +416,10 @@ export class CastDevice {
       this.stopFilm();
       return;
     }
-    const { fileId, isPaused } = handed;
-    void this.load(fileId, handed.positionMs).then((startedAtMs) => {
+    const { fileId, isPaused, itemId } = handed;
+    void this.load(fileId, handed.positionMs, itemId).then((startedAtMs) => {
       if (startedAtMs !== undefined && this.handedFileId === fileId) {
-        this.toPutOn = putOnCommands(fileId, startedAtMs, isPaused === true);
+        this.toPutOn = putOnCommands({ fileId, itemId }, startedAtMs, isPaused === true);
         this.putOn();
       }
     });
@@ -456,7 +464,7 @@ export class CastDevice {
     const { video, note } = this.options;
     switch (step.step) {
       case "load": {
-        void this.load(step.fileId, step.positionMs);
+        void this.load(step.fileId, step.positionMs, step.itemId);
         return;
       }
       case "stop": {
@@ -481,17 +489,26 @@ export class CastDevice {
   }
 
   /**
-   * Starts a film on the core's ladder, at positionMs, or where the person left it for undefined;
-   * gives where it started, or undefined where it did not.
+   * Starts a film on the core's ladder, at positionMs, or where the person left it for undefined, as
+   * the title itemId (B0 question 20); gives where it started, or undefined where it did not.
    */
-  private async load(fileId: number, atMs: number | undefined): Promise<number | undefined> {
+  private async load(
+    fileId: number,
+    atMs: number | undefined,
+    itemId?: number,
+  ): Promise<number | undefined> {
     const { api, token, reached, video, note } = this.options;
     this.stopFilm();
     this.playingFileId = fileId;
     try {
       const decision = dataOrThrow(
         await api.POST("/playback", {
-          body: { fileId, playableFormats: receiverFormats(), cause: "playPage" },
+          body: {
+            fileId,
+            ...(itemId === undefined ? {} : { itemId }),
+            playableFormats: receiverFormats(),
+            cause: "playPage",
+          },
         }),
       );
       if (this.playingFileId !== fileId) {

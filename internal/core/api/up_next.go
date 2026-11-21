@@ -40,10 +40,19 @@ func (server *Server) registerUpNext() {
 	}, server.getUpNext)
 }
 
+// UpNextInput asks what plays after a file and before it, as the title it was opened from.
+type UpNextInput struct {
+	AuthorizationHeader
+	ID int64 `path:"id"`
+	// ItemID is the title the person opened the file from: one file filed both as a film and as an
+	// episode plays as the one opened (B0 question 20), and only an episode has an Up next.
+	ItemID int64 `doc:"The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first" minimum:"0" query:"item" required:"false"` //nolint:lll // one struct tag
+}
+
 // getUpNext is what plays after a file and before it for its person. A guest receiver asks it of its
 // own cast's film alone, whose Up next and ⏮ ⏭ it shows and takes as the caster does (D471 §1); any
 // other file is refused it, as every route of a person's is (D465 §2).
-func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextOutput, error) {
+func (server *Server) getUpNext(ctx context.Context, input *UpNextInput) (*UpNextOutput, error) {
 	dependencies, principal, err := server.requireSignedInOrGuest(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -54,7 +63,8 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, input.ID); err != nil {
 		return nil, server.playbackError(ctx, "reach a file", err)
 	}
-	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, input.ID)
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID,
+		library.Opened{FileID: input.ID, TitleID: input.ItemID})
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what plays after a file and before it", err)
 	}
@@ -108,7 +118,8 @@ func (server *Server) getTogetherUpNext(ctx context.Context, input *TogetherUpNe
 	if err != nil {
 		return nil, server.logInternalError(ctx, "read a host's reach", err)
 	}
-	neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, viewer.HostUserID, viewer.FileID)
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, reach, viewer.HostUserID,
+		library.Opened{FileID: viewer.FileID, TitleID: viewer.ItemID})
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what plays after a session's film and before it", err)
 	}

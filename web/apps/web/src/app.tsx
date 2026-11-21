@@ -17,6 +17,7 @@ import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { castSignOverTheFilm } from "./status-tray.tsx";
 import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
+import { OpenedAsContext } from "./around-file.ts";
 import {
   About,
   Account,
@@ -434,14 +435,16 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     return <Series key={route.collectionId} id={route.collectionId} season={route.season} />;
   }
   if (route.screen === "play") {
+    // The file plays as the title it was opened from (B0 question 20).
     return (
-      <Play
-        key={route.fileId}
-        fileId={route.fileId}
-        atMs={route.atMs}
-        isPaused={route.isPaused === true}
-        shouldPlayHere={route.shouldPlayHere === true}
-      />
+      <OpenedAsContext key={`${String(route.fileId)}/${String(route.itemId)}`} value={route.itemId}>
+        <Play
+          fileId={route.fileId}
+          atMs={route.atMs}
+          isPaused={route.isPaused === true}
+          shouldPlayHere={route.shouldPlayHere === true}
+        />
+      </OpenedAsContext>
     );
   }
   if (route.screen === "browse") {

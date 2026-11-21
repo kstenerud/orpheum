@@ -24,25 +24,34 @@ export function useWarmsUpOnPress(
 ): (event: MouseEvent<HTMLElement>) => void {
   const { api, playableFormats, pathMoves } = useServices();
   return (event) => {
-    const fileId = playedOnPress(event);
-    if (fileId === undefined || !isWarmed(fileId)) {
+    const played = playedOnPress(event);
+    if (played === undefined || !isWarmed(played.fileId)) {
       return;
     }
+    const { fileId, itemId } = played;
     void import("./watching.ts").then(({ watchingOf }) => {
-      watchingOf(api).warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
+      const isOverWebrtc = (): boolean => pathMoves?.isOverWebrtc() === true;
+      watchingOf(api).warmUp(fileId, playableFormats(), { isOverWebrtc, itemId });
     });
   };
 }
 
-/** The file a press plays from where it resumes, when it is a plain press of a link to Play. */
-function playedOnPress(event: MouseEvent<HTMLElement>): number | undefined {
+/**
+ * The file a press plays from where it resumes, and the title it plays as, when it is a plain press
+ * of a link to Play.
+ */
+function playedOnPress(
+  event: MouseEvent<HTMLElement>,
+): { readonly fileId: number; readonly itemId: number | undefined } | undefined {
   const link = event.target instanceof Element ? event.target.closest("a") : null;
   const href = link?.getAttribute("href") ?? null;
   if (!isPlainPress(event) || href === null) {
     return undefined;
   }
   const route = routeOfHref(href);
-  return route.screen === "play" && route.atMs === undefined ? route.fileId : undefined;
+  return route.screen === "play" && route.atMs === undefined
+    ? { fileId: route.fileId, itemId: route.itemId }
+    : undefined;
 }
 
 /** Whether a press is one a link follows in this tab, as Link does: the main button, no key held. */

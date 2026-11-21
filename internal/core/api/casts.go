@@ -38,6 +38,9 @@ type StartCastInput struct {
 // ready for the next (D364 §5).
 type CastItem struct {
 	FileID int64 `doc:"What to play; absent, nothing, the receiver ready for the next" json:"fileId,omitempty" minimum:"1" required:"false"` //nolint:lll // one struct tag
+	// ItemID is the title the person opened the file from: one file filed both as a film and as an
+	// episode plays as the one opened, whose Up next the cast moves on by (B0 question 20).
+	ItemID int64 `doc:"The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first" json:"itemId,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film.
 	PositionMs *int64 `doc:"Where to start, in ms; absent, where the person left the film" json:"positionMs,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
@@ -182,14 +185,16 @@ func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way 
 		return nil, server.castRefused(ctx, principal, request, live.ErrNoCast, "castId", input.CastID)
 	}
 	cast := casts[index]
-	member, err := server.castMovesTo(ctx, dependencies, principal, cast.FileID, way)
+	member, err := server.castMovesTo(ctx, dependencies, principal,
+		library.Opened{FileID: cast.FileID, TitleID: cast.ItemID}, way)
 	if err != nil {
 		return nil, err
 	}
 	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, member.FileID); err != nil {
 		return nil, server.playbackError(ctx, "reach a file", err)
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, member.FileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach,
+		library.Opened{FileID: member.FileID, TitleID: member.TitleID})
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
@@ -209,12 +214,12 @@ func (server *Server) moveCast(ctx context.Context, input *MoveCastOnInput, way 
 	return &StartCastOutput{Body: castBodyOf(moved, principal.DeviceID, credential)}, nil
 }
 
-// castMovesTo is the member a cast of fileID moves to, way along its sequence for its person: a
-// conflict where none is there, or it cannot be read now.
+// castMovesTo is the member a cast of the opened file, as the title the cast holds it as, moves to,
+// way along its sequence for its person: a conflict where none is there, or it cannot be read now.
 func (server *Server) castMovesTo(
-	ctx context.Context, dependencies *Dependencies, principal auth.Principal, fileID int64, way castMove,
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, opened library.Opened, way castMove,
 ) (library.NextUp, error) {
-	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, fileID)
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, opened)
 	if err != nil {
 		return library.NextUp{}, server.libraryError(ctx, "read what plays after a cast's film and before it", err)
 	}
@@ -251,7 +256,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if err != nil {
 		return nil, err
 	}
-	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.FileID)
+	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.opened())
 	if err != nil {
 		return nil, err
 	}
@@ -281,18 +286,24 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	return &StartCastOutput{Body: castBodyOf(cast, principal.DeviceID, opened.SenderCredential)}, nil
 }
 
-// castFilmOf is the film fileID as a cast plays it, which the person must reach; nothing, the
-// receiver ready, for 0 (D364 §5).
+// opened is the file a cast is to play, as the title it was opened from.
+func (item CastItem) opened() library.Opened {
+	return library.Opened{FileID: item.FileID, TitleID: item.ItemID}
+}
+
+// castFilmOf is the opened file as a cast plays it, as the title it was opened from, which the
+// person must reach; nothing, the receiver ready, for 0 (D364 §5).
 func (server *Server) castFilmOf(
-	ctx context.Context, dependencies *Dependencies, principal auth.Principal, fileID int64,
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, opened library.Opened,
 ) (live.Film, error) {
+	fileID := opened.FileID
 	if fileID == 0 {
 		return live.Film{}, nil
 	}
 	if err := dependencies.Browser.ReachFile(ctx, principal.Reach, fileID); err != nil {
 		return live.Film{}, server.playbackError(ctx, "reach a file", err)
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, fileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, opened)
 	if err != nil {
 		return live.Film{}, server.libraryError(ctx, "read what a cast plays", err)
 	}
@@ -327,7 +338,7 @@ func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*
 			return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 		}
 	}
-	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.FileID)
+	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.opened())
 	if err != nil {
 		return nil, err
 	}

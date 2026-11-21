@@ -17,7 +17,13 @@ import (
 // by the same.
 func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int64) {
 	t.Helper()
-	seriesID := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: 1})
+	return seriesWithAnExtraIn(t, world, 1)
+}
+
+// seriesWithAnExtraIn is seriesWithAnExtra in the library libraryID.
+func seriesWithAnExtraIn(t *testing.T, world *shelf, libraryID int64) (files, titles map[string]int64) {
+	t.Helper()
+	seriesID := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: libraryID})
 	statements := []string{
 		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", seriesID),
@@ -36,10 +42,10 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 		{"special 2", "episode", "listed", 0, 2, 900002},
 		{"extra", "extra", "extra", 0, 0, 0},
 	} {
-		title := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1, Kind: each.kind})
+		title := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: libraryID, Kind: each.kind})
 		version := librarytest.Version(t, world.database, librarytest.VersionSpec{TitleID: title})
 		files[each.name] = librarytest.File(t, world.database, librarytest.FileSpec{
-			LibraryID: 1, NodeID: world.nodeID, Path: fmt.Sprintf("%s/%s.mkv", world.rootPath, each.name),
+			LibraryID: libraryID, NodeID: world.nodeID, Path: fmt.Sprintf("%s/%s.mkv", world.rootPath, each.name),
 			VersionID: version, Filing: each.filing,
 		})
 		titles[each.name] = title
@@ -85,20 +91,66 @@ func TestNeighboursOf_AreTheMembersEitherSideInTheSequence(t *testing.T) {
 		"special 2": at("special") + " < > none",
 		"extra":     "none < > none",
 	} {
-		neighbours, err := world.browser.NeighboursOf(t.Context(), auth.EveryLibrary(), 1, files[around])
+		neighbours, err := world.browser.NeighboursOf(t.Context(), auth.EveryLibrary(), 1,
+			Opened{FileID: files[around]})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if got := seen(neighbours); got != want {
 			t.Errorf("around %s: %s; want %s", around, got, want)
 		}
-		next, hasNext, err := world.browser.UpNext(t.Context(), auth.EveryLibrary(), 1, files[around])
+		next, hasNext, err := world.browser.UpNext(t.Context(), auth.EveryLibrary(), 1, Opened{FileID: files[around]})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if hasNext != (neighbours.Next != nil) || hasNext && next.TitleID != neighbours.Next.TitleID {
 			t.Errorf("after %s, Up next (%v, title %d) and the neighbours' next %+v differ", around, hasNext,
 				next.TitleID, neighbours.Next)
+		}
+	}
+}
+
+// One file's bytes filed both as a film and as an episode (the same copy in a films library and a
+// series library) play as the title they were opened from (B0 question 20): opened from the series,
+// the episode has its neighbours, so its Up next plays and a Watch Together group plays on; opened
+// as the film, or as no title in particular, the film it is filed as first, which has none.
+func TestNeighboursOf_AFileFiledAsAFilmAndAnEpisodePlaysAsTheTitleItWasOpenedFrom(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	shows := librarytest.LibraryOn(t, world.database, world.nodeID,
+		librarytest.Library{Name: "Shows", Kind: "series", MetadataSource: "nfo", Root: world.rootPath})
+	files, titles := seriesWithAnExtraIn(t, world, shows)
+	film := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1, Kind: "movie"})
+	filmVersion := librarytest.Version(t, world.database, librarytest.VersionSpec{TitleID: film})
+	both := files["S1E1"]
+	// The series library files the episode, and the films library over the same folder the same
+	// bytes as the film.
+	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf("INSERT INTO file_filing (file_id, library_kind, "+
+		"filing, version_id) VALUES (%d, 'movie', 'listed', %d)", both, filmVersion))
+	for _, each := range []struct {
+		openedAs, wantTitle, wantNext int64
+	}{
+		{titles["S1E1"], titles["S1E1"], titles["S1E2"]},
+		{film, film, 0},
+		{0, film, 0},
+		{titles["S2E1"], film, 0}, // a title the file is not filed as is no title it plays as
+	} {
+		opened := Opened{FileID: both, TitleID: each.openedAs}
+		work, err := world.browser.WorkOfFile(t.Context(), auth.EveryLibrary(), opened)
+		if err != nil {
+			t.Fatal(err)
+		}
+		neighbours, err := world.browser.NeighboursOf(t.Context(), auth.EveryLibrary(), 1, opened)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var next int64
+		if neighbours.Next != nil {
+			next = neighbours.Next.TitleID
+		}
+		if work.TitleID != each.wantTitle || next != each.wantNext {
+			t.Errorf("opened as title %d: plays as title %d, with title %d next; want title %d, with %d next",
+				each.openedAs, work.TitleID, next, each.wantTitle, each.wantNext)
 		}
 	}
 }

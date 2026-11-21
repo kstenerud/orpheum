@@ -12,13 +12,18 @@ import (
 
 // findNothingNext finds, for the state of a session's leader whose player played the group's film
 // to its end, whether nothing plays after it in the host's ordering, as a next would find it
-// (neighbourOf): the group then stops (stopsAtItsLeadersEnd, D516). Another device's end is not
-// looked up.
+// (neighbourOf), as the title the group plays it as: the group then stops (stopsAtItsLeadersEnd,
+// D516). Another device's end is not looked up. A file filed both as a film and as an episode,
+// played as the episode, plays on to the episode after it (B0 question 20).
 func (hub *Hub) findNothingNext(ctx context.Context, attachment Attachment, message *Inbound) {
 	if message.Type != MessageState || !message.IsAtTheEnd || !hub.isLeadersEnd(attachment, *message) {
 		return
 	}
-	_, _, found := hub.neighbourOf(ctx, attachment.SessionID, message.FileID, true)
+	played := hub.playedOf(attachment.SessionID)
+	if played.FileID != message.FileID {
+		played = Played{FileID: message.FileID}
+	}
+	_, _, found := hub.neighbourOf(ctx, attachment.SessionID, played, true)
 	message.isNothingNext = !found
 }
 

@@ -108,12 +108,14 @@ function playbackRequestUrl(): string {
 export async function openPlayback(parts: {
   readonly watching: Watching;
   readonly fileId: number;
+  /** The title the file was opened from, which it plays as (StartAsked's itemId). */
+  readonly itemId: number | undefined;
   readonly playableFormats: PlayableFormats;
   readonly cause: StartCause;
   readonly askedAt: ReopenAt | undefined;
   readonly reopen: Reopening | undefined;
 }): Promise<Opened> {
-  const { watching, fileId, playableFormats, cause, askedAt, reopen } = parts;
+  const { watching, fileId, itemId, playableFormats, cause, askedAt, reopen } = parts;
   const timing = timePlaybackStart({
     fileId,
     carrierOf: () => mediaCarrierOf(playbackRequestUrl()),
@@ -128,6 +130,7 @@ export async function openPlayback(parts: {
           await watching.decide(fileId, playableFormats, {
             cause,
             startsAtMs: askedAt?.positionMs,
+            itemId,
           }),
         reportFailure,
         { onAttempt: timing.onAttempt },
@@ -136,7 +139,7 @@ export async function openPlayback(parts: {
     }
     // The server may still be starting: asked again for about a minute.
     const decision = await askUntilAnswered(
-      () => watching.decide(fileId, playableFormats, { cause: reopen.cause }),
+      () => watching.decide(fileId, playableFormats, { cause: reopen.cause, itemId }),
       undefined,
       { onAttempt: timing.onAttempt },
     );

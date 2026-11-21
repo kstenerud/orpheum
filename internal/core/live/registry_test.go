@@ -370,11 +370,12 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 		t.Fatalf("moved on by its receiver: %+v (%v); want file 2, Cat, from where the person left it", moved, err)
 	}
 	received, isTold := receiver.last(MessageReceive)
-	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 ItemName:Cat TitleName:Cat " +
+	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 ItemName:Cat TitleName:Cat ItemID:22 " +
 		"PositionMs:<nil> IsPaused:false FromDeviceID:10 " +
 		"FromDeviceName: IsAccepted:false TogetherCredential: IsTogetherFollower:false}"
 	if got := fmt.Sprintf("%v %d %+v", isTold, receiver.count(MessageReceive), received.Receive); got != want {
-		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, playing, by a new credential", got)
+		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2 as title 22, Cat, playing, "+
+			"by a new credential", got)
 	}
 	if listed := registry.CastsOf(owner, phone); len(listed) != 1 || listed[0].FileID != 2 {
 		t.Errorf("the sender's casts = %+v; want the one, now of file 2", listed)

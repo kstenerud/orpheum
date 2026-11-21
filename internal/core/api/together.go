@@ -366,7 +366,8 @@ func (server *Server) togetherDetails(
 	body.SessionID, body.FileID = details.SessionID, details.Group.FileID
 	if details.Group.FileID != 0 {
 		// What plays is the host's, in a library they reach; one not read now leaves its name out.
-		work, workErr := dependencies.Browser.WorkOfFile(ctx, principal.Reach, details.Group.FileID)
+		work, workErr := dependencies.Browser.WorkOfFile(ctx, principal.Reach,
+			library.Opened{FileID: details.Group.FileID, TitleID: details.Group.ItemID})
 		if workErr == nil {
 			body.TitleName, body.DurationMs = work.Name, work.DurationMs
 		}
@@ -560,11 +561,22 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 		return nil, server.playbackError(ctx, "start a viewer's playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	named, _, err := server.namedOutput(ctx, dependencies, holder.Reach, holder.OnlyFileID, started)
+	named, _, err := server.namedOutput(ctx, dependencies, holder.Reach,
+		library.Opened{FileID: holder.OnlyFileID, TitleID: playsAs(dependencies, credential, holder.OnlyFileID)},
+		started)
 	if err != nil {
 		return nil, err
 	}
 	return &ViewerPlaybackOutput{SetCookie: viewerCookies(credential, input.isOverTLS), Body: named.Body}, nil
+}
+
+// playsAs is the title a viewer's session plays fileID as, the one its host put it on as (B0 question
+// 20); 0, the title it is filed as first, once the session plays another.
+func playsAs(dependencies *Dependencies, credential string, fileID int64) int64 {
+	if viewer, isViewer := dependencies.Together.ViewerOf(credential); isViewer && viewer.FileID == fileID {
+		return viewer.ItemID
+	}
+	return 0
 }
 
 func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICEOutput, error) {

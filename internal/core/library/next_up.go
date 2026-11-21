@@ -291,12 +291,12 @@ func sequenceAround(members []Member, at int) []Member {
 	return slices.DeleteFunc(slices.Clone(members), func(each Member) bool { return (each.Group == 0) != isSpecial })
 }
 
-// sequencePlaceOf is fileID's title's place in the sequence userID watches it in, of what reach
-// reaches; false for a file of no series and one its person's ordering leaves out.
-func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, userID, fileID int64) (
+// sequencePlaceOf is the opened file's title's place in the sequence userID watches it in, of what
+// reach reaches; false for a file of no series and one its person's ordering leaves out.
+func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, userID int64, opened Opened) (
 	sequencePlace, bool, error,
 ) {
-	work, err := browser.WorkOfFile(ctx, reach, fileID)
+	work, err := browser.WorkOfFile(ctx, reach, opened)
 	if err != nil || work.TitleID == 0 {
 		return sequencePlace{}, false, err
 	}
@@ -324,23 +324,26 @@ func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, u
 	}, true, nil
 }
 
-// UpNext is what plays after fileID for userID, of what reach reaches; false for a file of no series,
-// one its person's ordering leaves out, and its last. ErrNoFile for a file there is not.
-func (browser *Browser) UpNext(ctx context.Context, reach auth.Reach, userID, fileID int64) (UpNext, bool, error) {
-	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, fileID)
+// UpNext is what plays after the opened file for userID, as the title it was opened as (WorkOfFile),
+// of what reach reaches; false for a file of no series, one its person's ordering leaves out, and
+// its last. ErrNoFile for a file there is not.
+func (browser *Browser) UpNext(ctx context.Context, reach auth.Reach, userID int64, opened Opened) (
+	UpNext, bool, error,
+) {
+	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, opened)
 	if err != nil || !isInOne {
 		return UpNext{}, false, err
 	}
 	return browser.upNextIn(ctx, reach, sequence)
 }
 
-// NeighboursOf are the members either side of fileID's title in the sequence userID watches it in,
-// of what reach reaches: neither for a file of no series and one its person's ordering leaves out.
-// ErrNoFile for a file there is not.
-func (browser *Browser) NeighboursOf(ctx context.Context, reach auth.Reach, userID, fileID int64) (
+// NeighboursOf are the members either side of the opened file's title, the one it was opened as
+// (WorkOfFile), in the sequence userID watches it in, of what reach reaches: neither for a file of
+// no series and one its person's ordering leaves out. ErrNoFile for a file there is not.
+func (browser *Browser) NeighboursOf(ctx context.Context, reach auth.Reach, userID int64, opened Opened) (
 	Neighbours, error,
 ) {
-	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, fileID)
+	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, opened)
 	if err != nil || !isInOne {
 		return Neighbours{}, err
 	}

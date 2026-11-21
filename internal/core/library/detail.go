@@ -535,11 +535,22 @@ type FileWork struct {
 	DurationMs  int64
 }
 
-// WorkOfFile is what a file is, the library named one reach reaches; library.ErrNoFile for one there
-// is not.
-func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID int64) (FileWork, error) {
+// Opened is a file as a person opened it: the file, and the title they opened it from, 0 for none
+// in particular. One file's bytes can be filed as two titles, a film and an episode (the same copy
+// in a films library and a series library); it plays as the title opened (B0 question 20).
+type Opened struct {
+	FileID  int64
+	TitleID int64
+}
+
+// WorkOfFile is what an opened file is: the title it was opened from where it is filed as that one,
+// else the one it is filed as first (GetFilesWork); the library named one reach reaches;
+// library.ErrNoFile for a file there is not.
+func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, opened Opened) (FileWork, error) {
+	fileID := opened.FileID
 	queries := browser.database.Read()
-	row, err := store.OrNotFound(queries.GetFilesWork(ctx, fileID))
+	row, err := store.OrNotFound(queries.GetFilesWork(ctx,
+		sqlcgen.GetFilesWorkParams{ID: fileID, OpenedAs: opened.TitleID}))
 	if errors.Is(err, store.ErrNotFound) {
 		return FileWork{}, fmt.Errorf("file %d: %w", fileID, ErrNoFile)
 	}

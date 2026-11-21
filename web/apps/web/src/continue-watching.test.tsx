@@ -62,7 +62,7 @@ describe("Continue Watching", () => {
         />,
       ),
     );
-    expect(markup).toContain('href="/play/3"');
+    expect(markup).toContain('href="/play/3?item=10"');
     expect(markup).toContain("Metropolis (1927) - 720p.mkv");
     expect(markup).toContain('value="50"');
     expect(markup).toContain('aria-label="More for Metropolis"');

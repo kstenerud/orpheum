@@ -478,6 +478,17 @@ describe("reading the server's messages", () => {
     expect(parseTogetherMessage('{"type":"rtc","sdp":"x"}')).toBeUndefined();
   });
 
+  it("reads the title the group's film plays as, the one its host opened it from (B0 question 20)", () => {
+    expect(
+      parseTogetherMessage(
+        '{"type":"group","group":{"state":"playing","fileId":20,"itemId":2020}}',
+      ),
+    ).toMatchObject({ group: { fileId: 20, itemId: 2020 } });
+    expect(
+      parseTogetherMessage('{"type":"group","group":{"state":"playing","fileId":20}}'),
+    ).toMatchObject({ group: { fileId: 20, itemId: undefined } });
+  });
+
   it("reads a cast's end by its reason, and the gone movedHere, which no receiver now sends, as gone (D446 §4)", () => {
     expect(parseTogetherMessage('{"type":"ended","reason":"takenBack"}')).toEqual({
       type: "ended",

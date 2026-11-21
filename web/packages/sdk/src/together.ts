@@ -55,6 +55,12 @@ export interface GroupView {
   readonly rate: number;
   /** What plays; 0 while nothing does, every screen black (D246 §5). */
   readonly fileId: number;
+  /**
+   * The title fileId plays as, the one the host opened it from: one file filed both as a film and as
+   * an episode plays as the episode put on from its series (B0 question 20). Undefined for the title
+   * it is filed as first.
+   */
+  readonly itemId?: number | undefined;
   /** What changed, as a code the client words (D188); undefined for none, or one it does not know. */
   readonly event: GroupEvent | undefined;
   /** Where a seek jumped from; positionMs is where it jumped to. 0 for any other event. */
@@ -334,11 +340,13 @@ function parseGroup(value: unknown): GroupView | undefined {
     return undefined;
   }
   const byMemberId = numberIn(record, "byMemberId");
+  const itemId = numberIn(record, "itemId");
   return {
     state,
     positionMs: numberIn(record, "positionMs"),
     rate: numberIn(record, "rate", 1),
     fileId: numberIn(record, "fileId"),
+    itemId: itemId === 0 ? undefined : itemId,
     event: groupEvents.find((each) => each === record["event"]),
     seekedFromMs: numberIn(record, "seekedFromMs"),
     byMemberId: byMemberId === 0 ? undefined : byMemberId,

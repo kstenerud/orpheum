@@ -529,6 +529,12 @@
             "minimum": 1,
             "type": "integer"
           },
+          "itemId": {
+            "description": "The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "positionMs": {
             "description": "Where to start, in ms; absent, where the person left the film",
             "format": "int64",
@@ -8588,6 +8594,12 @@
             "description": "Whether the receiver opens the film paused at positionMs, as the sender had it",
             "type": "boolean"
           },
+          "itemId": {
+            "description": "The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "positionMs": {
             "description": "Where to start, in ms; absent, where the person left the film",
             "format": "int64",
@@ -8649,6 +8661,12 @@
           "isWebAudioLate": {
             "description": "Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself",
             "type": "boolean"
+          },
+          "itemId": {
+            "description": "The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "networkKind": {
             "description": "The kind of network this device is on, as its browser says, whose data cap the core applies: wifi (a wired link too), mobile, or unknown where the browser does not say",
@@ -12399,6 +12417,18 @@
             "required": true,
             "schema": {
               "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first",
+            "explode": false,
+            "in": "query",
+            "name": "item",
+            "schema": {
+              "description": "The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first",
+              "format": "int64",
+              "minimum": 0,
               "type": "integer"
             }
           }

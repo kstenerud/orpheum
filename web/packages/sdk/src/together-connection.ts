@@ -98,7 +98,13 @@ export type GroupCommand =
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "seek"; readonly positionMs: number }
-  | { readonly command: "changeItem"; readonly fileId: number; readonly positionMs: number }
+  /** itemId is the title fileId plays as, the one it was opened from (GroupView's itemId). */
+  | {
+      readonly command: "changeItem";
+      readonly fileId: number;
+      readonly itemId?: number | undefined;
+      readonly positionMs: number;
+    }
   /** The episode after or before the session's film, which the server finds (D471 §2). */
   | { readonly command: "next" }
   | { readonly command: "previous" }

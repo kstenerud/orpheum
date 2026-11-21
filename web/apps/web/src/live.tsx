@@ -485,7 +485,12 @@ function isSamePart(received: CastToReceive, handed: CastToReceive): boolean {
 
 /** Where a cast received shows: its film's Play page, or the ready page between videos (D364 §5). */
 function receivedRoute(handed: CastToReceive): Route {
-  return handed.fileId === 0 ? { screen: "cast-ready" } : { screen: "play", fileId: handed.fileId };
+  if (handed.fileId === 0) {
+    return { screen: "cast-ready" };
+  }
+  // It plays as the title it was opened from (B0 question 20).
+  const { fileId, itemId } = handed;
+  return itemId === undefined ? { screen: "play", fileId } : { screen: "play", fileId, itemId };
 }
 
 const subscribeToNothing = (): (() => void) => () => undefined;

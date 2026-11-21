@@ -159,7 +159,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
         />,
       ),
     );
-    expect(markup).toContain('href="/play/7"');
+    expect(markup).toContain('href="/play/7?item=33"');
     expect(markup).toContain(">Continue S1E3</a>");
     expect(markup).not.toContain("Play S1E3");
   });
@@ -172,7 +172,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
         />,
       ),
     );
-    expect(after).toContain('href="/play/8"');
+    expect(after).toContain('href="/play/8?item=34"');
     expect(after).toContain(">Play S1E4</a>");
     const first = renderToStaticMarkup(
       withServices(
@@ -189,7 +189,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
     const season = renderToStaticMarkup(
       withServices(<SeriesView series={{ ...series, nextUp: next }} season={2} />),
     );
-    expect(season).toContain('href="/play/7"');
+    expect(season).toContain('href="/play/7?item=33"');
   });
 
   it("shows the season of the next episode where none is chosen", () => {

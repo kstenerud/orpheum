@@ -485,7 +485,12 @@ type Inbound struct {
 	// state, the film the device's player has loaded, 0 when it has none: its player gone, its film
 	// handed to a cast's receiver, or not yet loaded. Only a device whose player has the session's
 	// film contends for the lead (D374 §1).
-	FileID     int64         `json:"fileId,omitempty"`
+	FileID int64 `json:"fileId,omitempty"`
+	// ItemID is a changeItem's title its film plays as, the one the host opened it from (a next's or
+	// a previous's, found by the hub): one file filed both as a film and as an episode plays as the
+	// one opened, whose Up next and end are the group's (B0 question 20). 0 for the title the file is
+	// filed as first.
+	ItemID     int64         `json:"itemId,omitempty"`
 	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
 	Reason     SuspendReason `json:"reason,omitempty"`
 	// Note is a note's: one thing the device's player did, for the server's log.
@@ -622,6 +627,8 @@ type GroupView struct {
 	PositionMs int64      `json:"positionMs"`
 	Rate       float64    `json:"rate"`
 	FileID     int64      `json:"fileId"`
+	// ItemID is the title FileID plays as (Played), 0 for the one it is filed as first.
+	ItemID int64 `json:"itemId,omitempty"`
 	// Event is what changed, by the member ByMemberID; a client words it (D188).
 	Event      EventKind `json:"event,omitempty"`
 	ByMemberID int64     `json:"byMemberId,omitempty"`

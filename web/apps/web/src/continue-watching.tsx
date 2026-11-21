@@ -222,7 +222,7 @@ function ContinueWatchingRowView(props: {
     <PosterCard
       to={
         row.unavailable === undefined
-          ? { screen: "play", fileId: row.fileId }
+          ? { screen: "play", fileId: row.fileId, itemId: row.id }
           : { screen: "title", itemId: row.id }
       }
       posterSha256={row.posterSha256}

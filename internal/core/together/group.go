@@ -32,7 +32,8 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 			refuse(codeNotFound) // one the host may not play was given as 0 (Handle)
 			return
 		}
-		current.changeItem(now, sender, from, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
+		current.changeItem(now, sender, from, Played{FileID: message.FileID, ItemID: message.ItemID},
+			time.Duration(message.PositionMs)*time.Millisecond)
 	case CommandNext, CommandPrevious:
 		current.moveAlong(now, sender, from, message, refuse)
 	case CommandStop:
@@ -51,7 +52,7 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 // stop leaves nothing on, no one leading (D374 §1), every device told byMember stopped it: the
 // host's Stop, and its leader's player at the end of a film nothing plays after, for the host (D516).
 func (current *session) stop(now time.Time, byMember int64) {
-	current.group.fileID, current.group.position = 0, 0
+	current.group.fileID, current.group.itemID, current.group.position = 0, 0, 0
 	current.filmChanged(now)
 	current.change(now, GroupIdle, EventStopped, byMember)
 }
@@ -124,7 +125,8 @@ func (current *session) moveAlong(
 	case message.FileID == 0:
 		refuse(codeNotFound)
 	default:
-		current.changeItem(now, sender, from, message.FileID, time.Duration(message.movedToMs)*time.Millisecond)
+		current.changeItem(now, sender, from, Played{FileID: message.FileID, ItemID: message.ItemID},
+			time.Duration(message.movedToMs)*time.Millisecond)
 	}
 }
 
@@ -138,16 +140,18 @@ func (current *session) playingState() GroupState {
 	return GroupPlaying
 }
 
-// changeItem puts fileID on for everyone, from position, as the host played it (D246 §5). A host's
-// device that plays and puts it on puts on its own player's film (useLeadingPlayer, the one page
-// that sends it): it is the screen that is the film, a contender while it loads, and leads (D371 §3,
-// D374 §1), so a film put on still stands for its leader's loading, the start rule (D373 §4). The
-// group stands where the film is put on until its leader plays, and no one else is waited for (D371
-// §2). A leader that does not play the new film hands the lead on (filmChanged).
-func (current *session) changeItem(now time.Time, sender *member, from *device, fileID int64, position time.Duration) {
-	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
+// changeItem puts the film on for everyone, as the title it plays as, from position, as the host
+// played it (D246 §5). A host's device that plays and puts it on puts on its own player's film
+// (useLeadingPlayer, the one page that sends it): it is the screen that is the film, a contender
+// while it loads, and leads (D371 §3, D374 §1), so a film put on still stands for its leader's
+// loading, the start rule (D373 §4). The group stands where the film is put on until its leader
+// plays, and no one else is waited for (D371 §2). A leader that does not play the new film hands
+// the lead on (filmChanged).
+func (current *session) changeItem(now time.Time, sender *member, from *device, on Played, position time.Duration) {
+	current.group.fileID, current.group.itemID = on.FileID, on.ItemID
+	current.group.position, current.group.rate = position, 1
 	if sender.isHost && from.role.plays() {
-		from.playerFileID = fileID
+		from.playerFileID = on.FileID
 		if current.contends(from) {
 			from.hasContended = true
 			current.lead(now, sender, from, leadPutOn)
@@ -373,7 +377,8 @@ func (current *session) positionAt(now time.Time) time.Duration {
 func (current *session) groupView(now time.Time) *GroupView {
 	return &GroupView{
 		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
-		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
+		FileID: current.group.fileID, ItemID: current.group.itemID,
+		Event: current.group.event, ByMemberID: current.group.byMember,
 		SeekedFromMs: current.group.seekedFrom.Milliseconds(), IsHeldPlaying: current.group.isHeldPlaying,
 	}
 }

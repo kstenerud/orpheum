@@ -161,6 +161,6 @@ describe("Up next over a television's film", () => {
     await press("{Enter}");
     await expect
       .poll(() => routeHref(services.navigation.route()))
-      .toBe(routeHref({ screen: "play", fileId: 1040 }));
+      .toBe(routeHref({ screen: "play", fileId: 1040, itemId: 104 }));
   });
 });

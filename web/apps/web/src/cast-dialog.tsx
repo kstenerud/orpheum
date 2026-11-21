@@ -30,10 +30,11 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   const route = useRoute();
   const { sending, isSendingKnown } = useLive();
   const fileId = route.screen === "play" ? route.fileId : undefined;
+  const itemId = route.screen === "play" ? route.itemId : undefined; // what it plays as (B0 question 20)
   const film = (): CastFilm | undefined =>
     fileId === undefined || isTheGroupsFilmShown()
       ? undefined
-      : { fileId, positionMs: positionPlayedHere(fileId), isPaused: isPausedHere(fileId) };
+      : { fileId, itemId, positionMs: positionPlayedHere(fileId), isPaused: isPausedHere(fileId) };
   const taken = sending?.isAccepted === true ? sending : undefined;
   useClosesOnceTaken(taken?.castId, props.onClose);
   return (

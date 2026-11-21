@@ -6,8 +6,9 @@
  * picture up, stood (play.tsx's PlayHere).
  */
 
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { use, useCallback, useRef, useState, type RefObject } from "react";
 
+import { OpenedAsContext } from "./around-file.ts";
 import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
 import { reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import { useServices } from "./services.tsx";
@@ -119,6 +120,7 @@ export function useOpenedPlayback(
   readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { api, playableFormats } = useServices();
+  const itemId = use(OpenedAsContext); // the title it plays as (B0 question 20)
   // Why the next decision is asked for: the page's opening, unless something asked it again; and
   // where the video stood when it did, for the next to start from, when it said.
   const nextCauseRef = useRef<StartCause>(first?.cause ?? "playPage");
@@ -131,7 +133,7 @@ export function useOpenedPlayback(
   const reopenRef = useRef<Reopening | undefined>(undefined);
   const [held, setHeld] = useState<Opened | undefined>(undefined);
   const [opened, reload] = useResource(
-    `play/${String(fileId)}`,
+    `play/${String(fileId)}/${String(itemId)}`,
     async (): Promise<Opened> => {
       const cause = nextCauseRef.current;
       const askedAt = nextAtRef.current;
@@ -145,6 +147,7 @@ export function useOpenedPlayback(
       return await openPlayback({
         watching: watchingOf(api),
         fileId,
+        itemId,
         playableFormats: playableFormats(),
         cause,
         askedAt,

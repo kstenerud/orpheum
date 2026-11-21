@@ -35,6 +35,11 @@ export type StartCause = NonNullable<components["schemas"]["StartPlaybackInputBo
 export interface StartAsked {
   readonly cause: StartCause;
   readonly startsAtMs?: number | undefined;
+  /**
+   * The title the file was opened from, which it plays as: one file filed both as a film and as an
+   * episode plays as the one opened (B0 question 20). Undefined for the title it is filed as first.
+   */
+  readonly itemId?: number | undefined;
 }
 
 /**
@@ -64,6 +69,7 @@ export async function requestPlayback(
     await api.POST("/playback", {
       body: {
         fileId,
+        ...(asked.itemId === undefined ? {} : { itemId: asked.itemId }),
         playableFormats: asked.playableFormats,
         cause: asked.cause,
         pageStarts: pageStart,
@@ -256,15 +262,21 @@ export class Watching {
   warmUp(
     fileId: number,
     playableFormats: PlayableFormats,
-    isOverWebrtc: () => boolean = () => false,
+    asked: {
+      /** Whether the media go over WebRTC, known once the decision is in. */
+      readonly isOverWebrtc?: () => boolean;
+      /** The title the file plays as, the one it was opened from (B0 question 20). */
+      readonly itemId?: number | undefined;
+    } = {},
   ): void {
+    const { isOverWebrtc = () => false, itemId } = asked;
     this.watch(fileId);
     // Warmed already: on this film's page, or as Up next showed it (warmUpNext).
     if (this.warm !== undefined) {
       return;
     }
-    const decision = this.ask(fileId, { playableFormats, cause: "filmPage" });
-    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
+    const decision = this.ask(fileId, { playableFormats, cause: "filmPage", itemId });
+    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined, itemId };
     this.warm = warm;
     decision.then(
       (decided) => {
@@ -294,15 +306,17 @@ export class Watching {
    * film chosen lets go of it, as of any warm-up, and a later next replaces it, so at most one is
    * kept.
    */
-  warmUpNext(fileId: number, playableFormats: PlayableFormats): void {
+  warmUpNext(fileId: number, playableFormats: PlayableFormats, itemId?: number): void {
     if (this.fileId === fileId || this.next?.fileId === fileId) {
       return;
     }
     this.letGoOfNext();
-    const decision = requestPlayback(this.api, fileId, { playableFormats, cause: "upNext" }).then(
-      startedAsThisBrowserStarts,
-    );
-    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
+    const decision = requestPlayback(this.api, fileId, {
+      playableFormats,
+      cause: "upNext",
+      itemId,
+    }).then(startedAsThisBrowserStarts);
+    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined, itemId };
     const next: NextWarm = { fileId, warm, mediaToken: undefined };
     this.next = next;
     decision.then(
@@ -327,7 +341,8 @@ export class Watching {
    * says where the page starts the playback, each request says so (StartAsked), and a warm-up, made
    * and preloaded for where the film resumes, is let go of for a new one asked from there: a Play
    * here mid-film took the warm-up's, which the server never heard of, and played from 0:00
-   * (staging, 2026-10-27).
+   * (staging, 2026-10-27). A warm-up asked as another title than the Play page plays the file as is
+   * let go of too: its playback is named as that title (B0 question 20).
    */
   decide(
     fileId: number,
@@ -337,17 +352,17 @@ export class Watching {
     this.watch(fileId);
     const warm = this.warm;
     this.warm = undefined;
-    const { startsAtMs } = asked;
+    const { startsAtMs, itemId } = asked;
     if (warm === undefined) {
       return this.ask(fileId, { playableFormats, ...asked });
     }
-    if (startsAtMs !== undefined) {
+    if (startsAtMs !== undefined || warm.itemId !== itemId) {
       this.letGoOf(warm);
       return this.ask(fileId, { playableFormats, ...asked });
     }
     if (this.nowMs() - warm.askedMs >= warmUpKeptMs) {
       warm.preload?.stop();
-      return this.ask(fileId, { playableFormats, cause: "warmUpStale", startsAtMs });
+      return this.ask(fileId, { playableFormats, cause: "warmUpStale", startsAtMs, itemId });
     }
     // Its start is timed from Play, not from opening the page: what the person waits for.
     const pressedMs = performance.now();
@@ -360,7 +375,12 @@ export class Watching {
           // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
           this.tokens.delete(decision.mediaToken);
           this.leave(decision.mediaToken);
-          return this.ask(fileId, { playableFormats, cause: "warmUpOffLadder", startsAtMs });
+          return this.ask(fileId, {
+            playableFormats,
+            cause: "warmUpOffLadder",
+            startsAtMs,
+            itemId,
+          });
         }
         noteDecisionTimes(decision.mediaToken, {
           askedMs: pressedMs,
@@ -373,7 +393,7 @@ export class Watching {
       },
       // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
       // first press of Play instead (the M4 closing audit, 2026-10-08).
-      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed", startsAtMs }),
+      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed", startsAtMs, itemId }),
     );
   }
 
@@ -459,11 +479,15 @@ export class Watching {
   }
 }
 
-/** A film page's decision, until the Play page takes it, when it was asked for, and its preload. */
+/**
+ * A film page's decision, until the Play page takes it, when it was asked for, its preload, and the
+ * title it was asked as (StartAsked's itemId).
+ */
 interface Warm {
   readonly decision: Promise<PlaybackDecision>;
   readonly askedMs: number;
   preload: Preload | undefined;
+  readonly itemId: number | undefined;
 }
 
 /** The next episode's warm-up (warmUpNext), and its playback's token once it is decided. */

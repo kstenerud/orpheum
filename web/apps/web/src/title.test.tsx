@@ -195,11 +195,11 @@ describe("TitleView", () => {
         />,
       ),
     );
-    expect(playable).toContain('href="/play/1"');
+    expect(playable).toContain('href="/play/1?item=10"');
     expect(missing).toContain(
       "This cannot be played now: the folder /media/films on devnas is missing.",
     );
-    expect(missing).not.toContain('href="/play/1"');
+    expect(missing).not.toContain('href="/play/1?item=10"');
     expect(missing).toContain("<h1>Metropolis</h1>");
   });
 
@@ -434,7 +434,7 @@ describe("Title", () => {
       );
       const play = (): Element | null => page.container.querySelector("a.title__play");
       await settleUntil(() => play() !== null);
-      expect(play()?.getAttribute("href")).toBe("/play/1");
+      expect(play()?.getAttribute("href")).toBe(`/play/1?item=${String(id)}`);
       // Play came from asking again: the first answer said the file could not play.
       const reads = heard.filter((each) => each.methodAndPath === `GET /items/${String(id)}`);
       expect(reads.length).toBeGreaterThan(1);
@@ -473,7 +473,7 @@ describe("Title", () => {
     );
     const play = (): Element | null => page.container.querySelector("a.title__play");
     await settleUntil(() => play() !== null);
-    expect(play()?.getAttribute("href")).toBe("/play/1");
+    expect(play()?.getAttribute("href")).toBe("/play/1?item=15");
     const reads = heard.filter((each) => each.methodAndPath === "GET /items/15");
     // The first read, the one never answered, and at least one after it, which offered Play.
     expect(reads.length).toBeGreaterThanOrEqual(3);
@@ -657,11 +657,11 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const play = (): Element | null => page.querySelector("a.title__play");
     await settleUntil(() => play()?.textContent === "Resume from 12:34");
     // Resume plays where the server says it left off, as Play always has; Start over, from 0.
-    expect(play()?.getAttribute("href")).toBe("/play/1");
+    expect(play()?.getAttribute("href")).toBe("/play/1?item=10");
     const startOver = [...page.querySelectorAll(".title-head__actions a")].find(
       (link) => link.textContent === "Start over",
     );
-    expect(startOver?.getAttribute("href")).toBe("/play/1?at=0");
+    expect(startOver?.getAttribute("href")).toBe("/play/1?item=10&at=0");
     mounted.unmount();
   });
 
@@ -711,7 +711,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
         (link) => link.textContent === "Next episode",
       );
     await settleUntil(() => next() !== undefined);
-    expect(next()?.getAttribute("href")).toBe("/play/7");
+    expect(next()?.getAttribute("href")).toBe("/play/7?item=41");
     // Its one read (D477 §2): no second for what plays after it.
     expect(heard.map((request) => request.methodAndPath)).not.toContain("GET /files/1/up-next");
     // Its series and season sit above its name, the breadcrumb line.
@@ -757,7 +757,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const mounted = await mount(withServices(<TitleView title={twoVersions} />));
     const page = mounted.container;
     expect(page.querySelectorAll("a.title__play")).toHaveLength(1);
-    expect(page.querySelector("a.title__play")?.getAttribute("href")).toBe("/play/1");
+    expect(page.querySelector("a.title__play")?.getAttribute("href")).toBe("/play/1?item=10");
     await click(buttonNamed(page, "More actions"));
     await click(buttonWithText(page, "Versions"));
     const offered = [...(page.querySelector("dialog")?.querySelectorAll("a") ?? [])].map((link) => [
@@ -765,8 +765,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       link.getAttribute("href"),
     ]);
     expect(offered).toEqual([
-      ["Play version 1", "/play/1"],
-      ["Play version 2", "/play/5"],
+      ["Play version 1", "/play/1?item=10"],
+      ["Play version 2", "/play/5?item=10"],
     ]);
     mounted.unmount();
   });

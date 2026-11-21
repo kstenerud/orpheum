@@ -190,12 +190,25 @@ describe("a Chromecast taking a cast, which it leads (D337: the group has no fil
   const playing = { fileId: 7, positionMs: 30_000, isPlaying: true };
 
   it("puts the handed film on its session at where it started it, paused where the sender was", () => {
-    expect(putOnCommands(1504, 185_000, false)).toEqual([
+    expect(putOnCommands({ fileId: 1504 }, 185_000, false)).toEqual([
       { command: "changeItem", fileId: 1504, positionMs: 185_000 },
     ]);
-    expect(putOnCommands(1504, 185_000, true)).toEqual([
+    expect(putOnCommands({ fileId: 1504 }, 185_000, true)).toEqual([
       { command: "changeItem", fileId: 1504, positionMs: 185_000 },
       { command: "pause" },
+    ]);
+  });
+
+  it("puts the handed film on as the title it was opened from, and loads the group's as the group plays it (B0 question 20)", () => {
+    // One file filed both as a film and as an episode plays as the one opened: as the episode, its
+    // Up next plays on, where the film's would end the cast's group.
+    expect(putOnCommands({ fileId: 1504, itemId: 2020 }, 185_000, false)).toEqual([
+      { command: "changeItem", fileId: 1504, itemId: 2020, positionMs: 185_000 },
+    ]);
+    const stopped = { fileId: 0, positionMs: 0, isPlaying: false };
+    expect(stepsToFollow(groupOf({ positionMs: 1000, itemId: 2020 }), 1000, stopped)).toEqual([
+      { step: "load", fileId: 7, itemId: 2020, positionMs: 1000 },
+      { step: "play" },
     ]);
   });
 

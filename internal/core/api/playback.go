@@ -58,7 +58,10 @@ func (DeliveryKind) Schema(huma.Registry) *huma.Schema {
 type StartPlaybackInput struct {
 	AuthorizationHeader
 	Body struct {
-		FileID            int64               `json:"fileId" minimum:"1"`
+		FileID int64 `json:"fileId" minimum:"1"`
+		// ItemID is the title the person opened the file from: one file filed both as a film and as
+		// an episode plays as the one opened (B0 question 20).
+		ItemID            int64               `doc:"The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first" json:"itemId,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
 		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
@@ -303,7 +306,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.chunksError(ctx, "start a playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	output, work, err := server.namedOutput(ctx, dependencies, principal.Reach, input.Body.FileID, started)
+	output, work, err := server.namedOutput(ctx, dependencies, principal.Reach,
+		library.Opened{FileID: input.Body.FileID, TitleID: input.Body.ItemID}, started)
 	if err != nil {
 		return nil, err
 	}
@@ -362,9 +366,10 @@ func startingPlaylists(
 // namedOutput is a playback started, as the API says it, with the name of the title it plays, and
 // what the file is.
 func (server *Server) namedOutput(
-	ctx context.Context, dependencies *Dependencies, reach auth.Reach, fileID int64, started playback.Started,
+	ctx context.Context, dependencies *Dependencies, reach auth.Reach, opened library.Opened, started playback.Started,
 ) (*StartPlaybackOutput, library.FileWork, error) {
-	work, err := dependencies.Browser.WorkOfFile(ctx, reach, fileID)
+	fileID := opened.FileID
+	work, err := dependencies.Browser.WorkOfFile(ctx, reach, opened)
 	if err != nil {
 		return nil, library.FileWork{}, server.libraryError(ctx, "read what a playback plays", err)
 	}

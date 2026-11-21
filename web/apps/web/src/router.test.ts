@@ -22,6 +22,8 @@ describe("parseRoute and routeHref", () => {
       { screen: "play", fileId: 9, atMs: 982_680, shouldPlayHere: true },
       { screen: "play", fileId: 9, shouldPlayHere: true },
       { screen: "play", fileId: 9, atMs: 982_680, shouldPlayHere: true, isPaused: true },
+      { screen: "play", fileId: 9, itemId: 31 },
+      { screen: "play", fileId: 9, itemId: 31, atMs: 0 },
       { screen: "browse" },
       { screen: "browse", library: "all" },
       { screen: "browse", library: 3 },
@@ -87,7 +89,7 @@ describe("parseRoute and routeHref", () => {
     ]) {
       expect(parseRoute("/films", chips)).toEqual({ screen: "films" });
     }
-    for (const at of ["?at=-5", "?at=1.5", "?at=soon", "?at="]) {
+    for (const at of ["?at=-5", "?at=1.5", "?at=soon", "?at=", "?item=0", "?item=-3", "?item=x"]) {
       expect(parseRoute("/play/9", at)).toEqual({ screen: "play", fileId: 9 });
     }
   });

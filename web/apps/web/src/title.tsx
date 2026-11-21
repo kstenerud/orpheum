@@ -125,10 +125,13 @@ export function TitleView(props: {
         actions={
           <>
             {fileId === undefined ? null : (
-              <PlayActions fileId={fileId} resumeMs={resumeMsOf(title)} />
+              <PlayActions fileId={fileId} itemId={title.id} resumeMs={resumeMsOf(title)} />
             )}
             {nextEpisode === undefined || nextEpisode.unavailable !== undefined ? null : (
-              <Link to={{ screen: "play", fileId: nextEpisode.fileId }} className="title__action">
+              <Link
+                to={{ screen: "play", fileId: nextEpisode.fileId, itemId: nextEpisode.itemId }}
+                className="title__action"
+              >
                 {t("title.nextEpisode")}
               </Link>
             )}
@@ -162,19 +165,24 @@ export function TitleView(props: {
  * The actions row's first: Play, or, where its person stopped partway, Resume with the point, which
  * plays from there as Play always has (the server's resume position), and Start over, from its start.
  */
-function PlayActions(props: { readonly fileId: number; readonly resumeMs: number }): JSX.Element {
+function PlayActions(props: {
+  readonly fileId: number;
+  /** The title the page shows, which its file plays as (B0 question 20). */
+  readonly itemId: number;
+  readonly resumeMs: number;
+}): JSX.Element {
   const { t } = useTranslation();
-  const { fileId, resumeMs } = props;
+  const { fileId, itemId, resumeMs } = props;
   const isResuming = resumeMs > 0;
   return (
     <>
-      <Link to={{ screen: "play", fileId }} className="title__play">
+      <Link to={{ screen: "play", fileId, itemId }} className="title__play">
         {isResuming
           ? t("title.resumeFrom", { at: clockText(resumeMs, i18n.language) })
           : t("title.play")}
       </Link>
       {isResuming ? (
-        <Link to={{ screen: "play", fileId, atMs: 0 }} className="title__action">
+        <Link to={{ screen: "play", fileId, itemId, atMs: 0 }} className="title__action">
           {t("play.startOver")}
         </Link>
       ) : null}
@@ -214,7 +222,7 @@ function TitleMoreActions(props: {
       dialog: (close) => (
         <ModalDialog label={t("title.chooseVersion")} onClose={close}>
           <h2>{t("title.chooseVersion")}</h2>
-          <VersionChoice versions={versions} />
+          <VersionChoice itemId={title.id} versions={versions} />
         </ModalDialog>
       ),
     });
@@ -224,6 +232,8 @@ function TitleMoreActions(props: {
 
 /** Each version of a title by its number, a Play for each of its files: the "…"'s choice. */
 function VersionChoice(props: {
+  /** The title the page shows, which each file plays as (B0 question 20). */
+  readonly itemId: number;
   readonly versions: readonly components["schemas"]["VersionBody"][];
 }): JSX.Element {
   const { t } = useTranslation();
@@ -231,7 +241,11 @@ function VersionChoice(props: {
     <div className="more-actions__offers">
       {props.versions.map((version, index) =>
         (version.files ?? []).map((file) => (
-          <Link key={file.id} to={{ screen: "play", fileId: file.id }} className="title__action">
+          <Link
+            key={file.id}
+            to={{ screen: "play", fileId: file.id, itemId: props.itemId }}
+            className="title__action"
+          >
             {t("title.playVersion", { index: index + 1 })}
           </Link>
         )),
@@ -532,15 +546,17 @@ function resumeMsOf(title: TitleDetail): number {
 /**
  * Warms up fileId, the first file a title's page plays, while the page shows it (D258 §1); its
  * preload is made only where the page's media do not go over WebRTC (D260 §3's revision of
- * 2026-10-28). Its answer readies the start; the page waits on nothing of it (D477 §3).
+ * 2026-10-28). Its answer readies the start; the page waits on nothing of it (D477 §3). It is asked
+ * as itemId, the title the page shows, which the file plays as (B0 question 20).
  */
-function useWarmsUp(fileId: number | undefined): void {
+function useWarmsUp(fileId: number | undefined, itemId: number): void {
   const { api, playableFormats, pathMoves } = useServices();
   useEffect(() => {
     if (fileId !== undefined) {
-      watchingOf(api).warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
+      const isOverWebrtc = (): boolean => pathMoves?.isOverWebrtc() === true;
+      watchingOf(api).warmUp(fileId, playableFormats(), { isOverWebrtc, itemId });
     }
-  }, [api, playableFormats, pathMoves, fileId]);
+  }, [api, playableFormats, pathMoves, fileId, itemId]);
 }
 
 /** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
@@ -565,7 +581,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   useEpisodeReached(shown);
   const context = useLibraryContext();
   const fileId = shown === undefined ? undefined : firstPlayableFile(shown);
-  useWarmsUp(fileId);
+  useWarmsUp(fileId, props.id);
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {

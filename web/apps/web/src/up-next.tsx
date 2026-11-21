@@ -206,7 +206,7 @@ export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMo
         return undefined;
       }
       return () => {
-        navigation.replace({ screen: "play", fileId: episode.fileId });
+        navigation.replace({ screen: "play", fileId: episode.fileId, itemId: episode.itemId });
       };
     };
     if (receiving === undefined) {
@@ -297,7 +297,7 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const { next } = useSequenceMoves(offered);
   const upNext = offered?.upNext;
   const isHere = offered?.receiving === undefined;
-  const warmUpNext = useWarmsUpNext(upNext?.episode.fileId, isHere);
+  const warmUpNext = useWarmsUpNext(upNext?.episode, isHere);
   if (upNext === undefined || next === undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
@@ -322,16 +322,21 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
  * Nothing where it plays on a cast's receiver, not here (isHere false), whose cast moves on to it
  * instead.
  */
-function useWarmsUpNext(fileId: number | undefined, isHere: boolean): (() => void) | undefined {
+function useWarmsUpNext(
+  next: { readonly fileId: number; readonly itemId: number } | undefined,
+  isHere: boolean,
+): (() => void) | undefined {
   const { api, playableFormats } = useServices();
+  const fileId = next?.fileId;
+  const itemId = next?.itemId;
   return useMemo(() => {
     if (fileId === undefined || !isHere) {
       return undefined;
     }
     return () => {
-      watchingOf(api).warmUpNext(fileId, playableFormats());
+      watchingOf(api).warmUpNext(fileId, playableFormats(), itemId);
     };
-  }, [api, playableFormats, fileId, isHere]);
+  }, [api, playableFormats, fileId, itemId, isHere]);
 }
 
 /**

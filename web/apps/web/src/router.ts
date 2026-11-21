@@ -81,11 +81,14 @@ export type Route =
    * a cast's remote playing here from where its receiver stood (D337's §9 answers, Q5). With
    * shouldPlayHere, it plays on this device while it casts, not on the receiver: the remote's "Play on this
    * device instead" (D364 §4). With isPaused, it waits paused at atMs: a cast's film taken over
-   * from a receiver that had it paused (D385 §2).
+   * from a receiver that had it paused (D385 §2). With itemId, the file plays as that title, the
+   * one it was opened from: one file's bytes filed both as a film and as an episode play as the
+   * episode from its series, with its Up next (B0 question 20).
    */
   | {
       readonly screen: "play";
       readonly fileId: number;
+      readonly itemId?: number;
       readonly atMs?: number;
       readonly shouldPlayHere?: true;
       readonly isPaused?: true;
@@ -232,14 +235,17 @@ const shapes: readonly Shape[] = [
 ];
 
 /**
- * The Play page's route, with where it starts, `at` in ms, where the address says a whole number,
- * whether it plays here while the device casts (`here`), and whether it waits paused there (`paused`).
+ * The Play page's route, with the title it plays as (`item`, a positive whole number), where it
+ * starts, `at` in ms, where the address says a whole number, whether it plays here while the device
+ * casts (`here`), and whether it waits paused there (`paused`).
  */
 function playRoute(fileId: number, search: URLSearchParams): Route {
   const at = search.get("at") ?? "";
+  const item = search.get("item") ?? "";
   return {
     screen: "play",
     fileId,
+    ...(/^[1-9]\d{0,15}$/u.test(item) ? { itemId: Number(item) } : {}),
     ...(/^\d{1,12}$/u.test(at) ? { atMs: Number(at) } : {}),
     ...(search.get("here") === "1" ? { shouldPlayHere: true } : {}),
     ...(search.get("paused") === "1" ? { isPaused: true } : {}),
@@ -343,9 +349,12 @@ function queryRouteHref(route: Route): string | undefined {
   return undefined;
 }
 
-/** A film's player's address: where it starts, whether here, whether paused. */
+/** A film's player's address: the title it plays as, where it starts, whether here, whether paused. */
 function playRouteHref(route: Extract<Route, { screen: "play" }>): string {
   const query = new URLSearchParams();
+  if (route.itemId !== undefined) {
+    query.set("item", String(route.itemId));
+  }
   if (route.atMs !== undefined) {
     query.set("at", String(Math.round(route.atMs)));
   }

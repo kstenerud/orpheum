@@ -40,19 +40,29 @@ export type CastEnded = components["schemas"]["EndCastOutputBody"];
 /** What a cast plays: a film from a position, or, from undefined, where the person left it. */
 export interface CastFilm {
   readonly fileId: number;
+  /** The title it was opened from, which it plays as (B0 question 20); undefined for the first. */
+  readonly itemId?: number | undefined;
   readonly positionMs?: number | undefined;
   /** Whether it stands paused here, so a cast started from it opens it paused (the owner, 2026-11-08). */
   readonly isPaused?: boolean | undefined;
 }
 
 /** A film's fields in a cast request: none for nothing, the receiver ready (D364 §5). */
-function filmFields(film: CastFilm | undefined): { readonly fileId?: number; positionMs?: number } {
+function filmFields(film: CastFilm | undefined): {
+  readonly fileId?: number;
+  readonly itemId?: number;
+  readonly positionMs?: number;
+} {
   if (film === undefined) {
     return {};
   }
-  return film.positionMs === undefined
-    ? { fileId: film.fileId }
-    : { fileId: film.fileId, positionMs: Math.max(0, Math.round(film.positionMs)) };
+  return {
+    fileId: film.fileId,
+    ...(film.itemId === undefined ? {} : { itemId: film.itemId }),
+    ...(film.positionMs === undefined
+      ? {}
+      : { positionMs: Math.max(0, Math.round(film.positionMs)) }),
+  };
 }
 
 /**

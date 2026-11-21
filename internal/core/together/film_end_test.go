@@ -79,6 +79,34 @@ func TestHub_AFilmEndingOnItsLeadersPlayerWithNothingNextStopsTheGroup(t *testin
 	}
 }
 
+// A file filed both as a film and as an episode, put on as the episode, is the episode to the group:
+// its leader's end plays on, where the film's would stop it, a guest's next puts on the episode
+// after it, as the episode it is, and the group and its viewers say which title each plays as. The
+// file was taken as the film, and the group stopped at the episode's end (B0 question 20).
+func TestHub_AFileFiledAsAFilmAndAnEpisodePlaysForTheGroupAsTheTitleItWasPutOnAs(t *testing.T) {
+	t.Parallel()
+	stage := filmEndStage(t, 20)
+	stage.hub.Handle(t.Context(), stage.host, Inbound{
+		Type: MessageCommand, Command: CommandChangeItem, FileID: 20, ItemID: episodeOfFilm20,
+	})
+	if group := stage.guestBox.last(MessageGroup).Group; group.FileID != 20 || group.ItemID != episodeOfFilm20 {
+		t.Errorf("the group put on as the episode: %+v; want file 20 as title %d", group, episodeOfFilm20)
+	}
+	if viewer, _ := stage.hub.ViewerOf(stage.guestCredential); viewer.ItemID != episodeOfFilm20 {
+		t.Errorf("the viewer of the episode: %+v; want title %d", viewer, episodeOfFilm20)
+	}
+	stage.ready(t, stage.host, false)
+	stage.atTheEnd(t, stage.host)
+	if film := stage.filmOn(stage.opened.SessionID); film != 20 {
+		t.Fatalf("the episode's end, the episode after it next: film %d on; want 20, the group not stopped", film)
+	}
+	given, _ := stage.guestWith(t, Rights{CanNext: true})
+	stage.command(t, given, CommandNext, 0)
+	if group := stage.guestBox.last(MessageGroup).Group; group.FileID != 21 || group.ItemID != 21+episodesAbove {
+		t.Errorf("a guest's next from the episode: %+v; want file 21 as title %d", group, 21+episodesAbove)
+	}
+}
+
 // A player that does not lead saying it played the group's film to its end changes nothing, though
 // nothing plays after it: only the leader's end is the group's (D516 §1).
 func TestHub_AFollowersEndOfTheFilmChangesNothing(t *testing.T) {

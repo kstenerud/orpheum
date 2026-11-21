@@ -381,17 +381,32 @@ func TestHub_AGuestPutsOnTheNextOrPreviousEpisodeOnlyWithTheRight(t *testing.T) 
 // neighbourOneAlong is a host's ordering in which the film after each is the next id and the one
 // before the last, from two minutes in, with none after or before 20; another user has none.
 func neighbourOneAlong(hostUserID int64) Neighbour {
-	return func(_ context.Context, userID, fileID int64, isNext bool) (int64, int64, bool) {
+	return func(_ context.Context, userID int64, from Played, isNext bool) (Played, int64, bool) {
+		// A neighbour of a file played as a title of its own plays as one too (episodeOfFilm20).
+		along := func(fileID int64) Played {
+			if from.ItemID == 0 {
+				return Played{FileID: fileID}
+			}
+			return Played{FileID: fileID, ItemID: fileID + episodesAbove}
+		}
 		switch {
-		case userID != hostUserID || fileID == 20:
-			return 0, 0, false
+		case userID != hostUserID || (from.FileID == 20 && from.ItemID != episodeOfFilm20):
+			return Played{}, 0, false
 		case isNext:
-			return fileID + 1, 0, true
+			return along(from.FileID + 1), 0, true
 		default:
-			return fileID - 1, 120_000, true
+			return along(from.FileID - 1), 120_000, true
 		}
 	}
 }
+
+// episodesAbove is how far each file's episode's id is above the file's in neighbourOneAlong's
+// ordering, and episodeOfFilm20 the episode film 20's file is filed as too: the film has nothing after
+// it, the episode film 21's file as its episode (B0 question 20).
+const (
+	episodesAbove   = 2000
+	episodeOfFilm20 = 20 + episodesAbove
+)
 
 // guestWith is a guest joined by a link giving rights, attached with its video.
 func (stage sessionStage) guestWith(t *testing.T, rights Rights) (Attachment, *inbox) {

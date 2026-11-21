@@ -25,6 +25,11 @@ export interface CastToReceive {
   readonly fileId: number;
   /** The film's name, which the receiver asks whether to play (D358 §1); empty for none. */
   readonly itemName: string;
+  /**
+   * The title fileId plays as, the one it was opened from: one file filed both as a film and as an
+   * episode plays as the one opened (B0 question 20). Undefined for the title it is filed as first.
+   */
+  readonly itemId?: number | undefined;
   /** Where the sender stood, in ms; undefined to start where the person left the film. */
   readonly positionMs: number | undefined;
   /** Whether it opens the film paused at positionMs, as the sender had it (the owner, 2026-11-08). */
@@ -143,6 +148,12 @@ function numberIn(record: Readonly<Record<string, unknown>>, name: string): numb
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+/** The title a receive message's film plays as, where it names one (B0 question 20). */
+function itemIdIn(record: Record<string, unknown>): { readonly itemId?: number } {
+  const itemId = numberIn(record, "itemId");
+  return itemId === undefined || itemId === 0 ? {} : { itemId };
+}
+
 /** A receive message's cast, or undefined for one malformed. */
 function parseReceive(value: unknown): CastToReceive | undefined {
   const record = recordOf(value);
@@ -167,6 +178,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     membershipCredential: credential,
     fileId,
     itemName: stringIn(record, "itemName"),
+    ...itemIdIn(record),
     positionMs: numberIn(record, "positionMs"),
     ...(record["isPaused"] === true ? { isPaused: true } : {}),
     fromDeviceId,

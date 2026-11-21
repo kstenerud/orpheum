@@ -345,10 +345,10 @@ export function useRemotePrevious(
   if (previous === undefined || previous.unavailable !== undefined) {
     return {};
   }
-  const { fileId } = previous;
+  const { fileId, itemId } = previous;
   return {
     previous: () => {
-      playInCast(api, sent.castId, { fileId }).catch(() => undefined); // the cast goes on as it was
+      playInCast(api, sent.castId, { fileId, itemId }).catch(() => undefined); // the cast goes on as it was
     },
   };
 }

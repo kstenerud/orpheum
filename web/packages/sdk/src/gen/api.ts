@@ -3018,6 +3018,11 @@ export interface components {
             fileId?: number;
             /**
              * Format: int64
+             * @description The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first
+             */
+            itemId?: number;
+            /**
+             * Format: int64
              * @description Where to start, in ms; absent, where the person left the film
              */
             positionMs?: number;
@@ -5804,6 +5809,11 @@ export interface components {
             isPaused?: boolean;
             /**
              * Format: int64
+             * @description The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first
+             */
+            itemId?: number;
+            /**
+             * Format: int64
              * @description Where to start, in ms; absent, where the person left the film
              */
             positionMs?: number;
@@ -5832,6 +5842,11 @@ export interface components {
             hasGivenUpOwnPicture?: boolean;
             /** @description Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself */
             isWebAudioLate?: boolean;
+            /**
+             * Format: int64
+             * @description The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first
+             */
+            itemId?: number;
             /**
              * @description The kind of network this device is on, as its browser says, whose data cap the core applies: wifi (a wired link too), mobile, or unknown where the browser does not say
              * @enum {string}
@@ -7528,7 +7543,10 @@ export interface operations {
     };
     getUpNext: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The title the file was opened from, which it plays as where it is filed as that one; absent for the title it is filed as first */
+                item?: number;
+            };
             header?: never;
             path: {
                 id: number;

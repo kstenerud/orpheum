@@ -84,6 +84,9 @@ type Receive struct {
 	// TitleName is ItemName by its old name, for a client of the last release (D425 §3, goes next
 	// batch).
 	TitleName string `json:"titleName"`
+	// ItemID is the title FileID plays as, the one it was opened from: one file filed both as a film
+	// and as an episode plays as the one opened, whose Up next is the cast's (B0 question 20).
+	ItemID int64 `json:"itemId,omitempty"`
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film, as a cast from a title's page does.
 	PositionMs *int64 `json:"positionMs,omitempty"`

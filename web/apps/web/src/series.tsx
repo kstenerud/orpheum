@@ -364,7 +364,10 @@ export function NextUpPlay(props: {
     );
   }
   return (
-    <Link to={{ screen: "play", fileId: nextUp.fileId }} className="title__play">
+    <Link
+      to={{ screen: "play", fileId: nextUp.fileId, itemId: nextUp.itemId }}
+      className="title__play"
+    >
       {nextUp.isPartway
         ? t("title.continueEpisode", { episode })
         : t("title.playEpisode", { episode })}

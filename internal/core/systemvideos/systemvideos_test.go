@@ -427,7 +427,7 @@ func TestWorkOfFile_ASystemVideoNamesNoLibrary(t *testing.T) {
 	}
 	config := settingstest.Seeded(t, world.database)
 	for _, reach := range []auth.Reach{auth.EveryLibrary(), auth.LibrariesOnly()} {
-		work, err := library.NewBrowser(world.database, config).WorkOfFile(ctx, reach, clip.ID)
+		work, err := library.NewBrowser(world.database, config).WorkOfFile(ctx, reach, library.Opened{FileID: clip.ID})
 		if err != nil || work.LibraryID != 0 || work.LibraryName != "" {
 			t.Errorf("the clip's work = %+v, %v; want it with no library", work, err)
 		}

@@ -39,6 +39,7 @@ import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken, type AskGuestCastGrant } from "./services.tsx";
+import { useOpenedAs } from "./around-file.ts";
 import { useRequest } from "./use-request.ts";
 import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
@@ -772,6 +773,7 @@ function useSendsOn(
 ): void {
   const { api } = useServices();
   const { fileId, atMs } = film;
+  const itemId = useOpenedAs(); // the title it plays as (B0 question 20)
   const castId = where.kind === "sending" ? where.castId : undefined;
   const sentRef = useRef<number | undefined>(undefined);
   const waysRef = useLatest(ways);
@@ -780,7 +782,7 @@ function useSendsOn(
       return;
     }
     sentRef.current = castId;
-    playInCast(api, castId, { fileId, positionMs: atMs }).then(
+    playInCast(api, castId, { fileId, itemId, positionMs: atMs }).then(
       () => {
         waysRef.current.onSent(castId);
       },
@@ -788,7 +790,7 @@ function useSendsOn(
         waysRef.current.onFailed(atMs);
       },
     );
-  }, [api, castId, fileId, atMs, waysRef]);
+  }, [api, castId, fileId, itemId, atMs, waysRef]);
   const isRemote = where.kind === "remote";
   useEffect(() => {
     if (isRemote) {

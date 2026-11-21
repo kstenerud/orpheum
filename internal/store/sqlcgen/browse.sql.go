@@ -224,13 +224,22 @@ SELECT place.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
 FROM file
 CROSS JOIN place ON place.id = coalesce(
   (SELECT file_place.place_id FROM file_place WHERE file_place.file_id = file.id), file.id)
-LEFT JOIN version ON version.id = (
-  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
-  ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
+LEFT JOIN version ON version.id = coalesce(
+  (SELECT file_filing.version_id FROM file_filing
+   CROSS JOIN version AS filed ON filed.id = file_filing.version_id
+   WHERE file_filing.file_id = file.id AND filed.work_id = ?1),
+  (SELECT file_filing.version_id FROM file_filing
+   WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1))
 LEFT JOIN work ON work.id = version.work_id
 LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
-WHERE file.id = ?1
+WHERE file.id = ?2
 `
+
+type GetFilesWorkParams struct {
+	OpenedAs int64
+	ID       int64
+}
 
 type GetFilesWorkRow struct {
 	Path       string
@@ -241,10 +250,12 @@ type GetFilesWorkRow struct {
 }
 
 // What a file is, for now playing and a cast's remote: its title, its kind and name when one is
-// filed, a film's or an episode's before an other video's (D363 section 5), its own place's path,
-// and how long it plays, 0 before it is probed.
-func (q *Queries) GetFilesWork(ctx context.Context, id int64) (GetFilesWorkRow, error) {
-	row := q.db.QueryRowContext(ctx, getFilesWork, id)
+// filed, the title it was opened as (opened_as) where it is filed as that one, else a film's or an
+// episode's before an other video's (D363 section 5): one file filed both as a film and as an
+// episode plays as whichever a person opened (B0 question 20). Then its own place's path, and how
+// long it plays, 0 before it is probed. An opened_as of 0 opened it as no title in particular.
+func (q *Queries) GetFilesWork(ctx context.Context, arg GetFilesWorkParams) (GetFilesWorkRow, error) {
+	row := q.db.QueryRowContext(ctx, getFilesWork, arg.OpenedAs, arg.ID)
 	var i GetFilesWorkRow
 	err := row.Scan(
 		&i.Path,

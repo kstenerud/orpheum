@@ -191,7 +191,7 @@ describe("a series' next episode pressed", () => {
     await settleUntil(() => container.querySelector(".title__play") !== null);
     expect(heard.some((each) => each.methodAndPath === "POST /playback")).toBe(false);
     await click(container.querySelector(".title__play"));
-    expect(navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 7, itemId: 41 });
     // No Play page is drawn here: the press itself asked how the episode plays.
     await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
     expect(heard.filter((each) => each.methodAndPath === "POST /playback")).toHaveLength(1);

@@ -61,10 +61,20 @@ type MayPlay func(ctx context.Context, userID, fileID int64) bool
 // start of the chunk holding it, and whether the file is cut so it is known (D285 §1).
 type KeyframeAtOrBefore func(ctx context.Context, fileID, positionMs int64) (int64, bool)
 
-// Neighbour is the film after fileID (isNext) or before it in the ordering userID watches its
-// series in, and where userID is partway through it, else 0; false where none plays there or none
-// can be read now (D407 §2, D471 §2).
-type Neighbour func(ctx context.Context, userID, fileID int64, isNext bool) (neighbourID, positionMs int64, found bool)
+// Neighbour is the film after from (isNext) or before it in the ordering userID watches its series
+// in, as the title it plays as, and where userID is partway through it, else 0; false where none
+// plays there or none can be read now (D407 §2, D471 §2).
+type Neighbour func(ctx context.Context, userID int64, from Played, isNext bool) (
+	neighbour Played, positionMs int64, found bool,
+)
+
+// Played is a file as the title it plays as: one file filed both as a film and as an episode plays
+// as the one the host opened it from, whose Up next and end are the group's (B0 question 20).
+// ItemID 0 is the title the file is filed as first.
+type Played struct {
+	FileID int64
+	ItemID int64
+}
 
 // Hub holds the live sessions, in memory: they end with the process (D119).
 type Hub struct {
@@ -150,6 +160,9 @@ type group struct {
 	at       time.Time
 	rate     float64
 	fileID   int64
+	// itemID is the title fileID plays as, the one the host opened it from (Played); 0 for the one
+	// it is filed as first.
+	itemID   int64
 	event    EventKind
 	byMember int64
 	// seekedFrom is where the last event, a seek, jumped from.
@@ -465,8 +478,10 @@ type Viewer struct {
 	SessionID  int64
 	MemberID   int64
 	HostUserID int64
-	// FileID is what the session plays now, or 0 while nothing does.
+	// FileID is what the session plays now, or 0 while nothing does, and ItemID the title it plays
+	// as (Played).
 	FileID int64
+	ItemID int64
 	// Rights are what the viewer may do to playback, their link's (D271 §4).
 	Rights Rights
 }
@@ -487,7 +502,7 @@ func (hub *Hub) viewerByCredential(credential string) (Viewer, bool) {
 	}
 	return Viewer{
 		SessionID: viewed.id, MemberID: viewing.id, HostUserID: viewed.hostUserID, FileID: viewed.group.fileID,
-		Rights: viewing.rightsHeld(),
+		ItemID: viewed.group.itemID, Rights: viewing.rightsHeld(),
 	}, true
 }
 
@@ -713,14 +728,14 @@ func (hub *Hub) IsMember(sessionID, memberID int64) bool {
 	return false
 }
 
-// fileOf is the file a session plays, or 0.
-func (hub *Hub) fileOf(sessionID int64) int64 {
+// playedOf is the file a session plays, as the title it plays as; FileID 0 for none.
+func (hub *Hub) playedOf(sessionID int64) Played {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	if playing, found := hub.sessions[sessionID]; found {
-		return playing.group.fileID
+		return Played{FileID: playing.group.fileID, ItemID: playing.group.itemID}
 	}
-	return 0
+	return Played{}
 }
 
 // hostOf is the user who hosts a session, or 0.

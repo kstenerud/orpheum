@@ -189,7 +189,10 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     );
     await click(buttonNamed(mounted!.container, "Previous episode"));
     expect(heard).toContainEqual(
-      expect.objectContaining({ methodAndPath: "POST /me/casts/9/play", body: { fileId: 3 } }),
+      expect.objectContaining({
+        methodAndPath: "POST /me/casts/9/play",
+        body: { fileId: 3, itemId: 3 },
+      }),
     );
   });
 
