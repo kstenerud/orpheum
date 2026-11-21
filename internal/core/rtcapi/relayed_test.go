@@ -134,7 +134,7 @@ func TestAnswerRelayed_TellsAConnectionProvenAtHome(t *testing.T) {
 	proven := make(chan rtcapi.ProvenAtHome, 1)
 	rtcapitest.Connect(t, func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 		return server.AnswerRelayed(ctx, offer, func(each rtcapi.ProvenAtHome) { proven <- each })
-	}, rtcapitest.OverIPv4())
+	}, rtcapitest.OverIPv4(), rtcapitest.OnLoopback())
 	if told := testutil.Receive(t, proven, "the connection proven at home"); told.Path != rtcapi.PathDirectIPv4 ||
 		!told.Device.Is4() {
 		t.Errorf("the connection was told proven at home as %+v; want direct over IPv4 from the client", told)
