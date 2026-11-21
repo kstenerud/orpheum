@@ -30,7 +30,7 @@ import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-choose
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { TitleHead } from "./title-head.tsx";
+import { GenreLinks, TitleHead } from "./title-head.tsx";
 import { rememberedInTheTab, useRemembered } from "./remembered.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { usePages, type Page } from "./use-pages.ts";
@@ -57,6 +57,17 @@ const episodesPerPage = 100; // the server's shownSeasonPageSize, the page its a
 /** The name of a season, a group of the ordering the series is shown in: "Season 2", "Disc 2". */
 function seasonName(t: TFunction, series: SeriesDetail, season: Season): string {
   return groupName(t, series.ordering, { number: season.seasonNumber, name: season.name });
+}
+
+/** A series' facts, one line (R8): its year and its genres, each where it has them. */
+function SeriesFacts(props: { readonly series: SeriesDetail }): JSX.Element {
+  const { series } = props;
+  return (
+    <>
+      {series.year === undefined ? null : <span>{series.year}</span>}
+      <GenreLinks genres={series.genres} list="series" />
+    </>
+  );
 }
 
 /**
@@ -103,7 +114,7 @@ export function SeriesView(props: {
           />
         }
         name={series.name}
-        facts={series.year === undefined ? null : <span>{series.year}</span>}
+        facts={<SeriesFacts series={series} />}
         notes={
           <>
             <StatusNotes subject={series} />

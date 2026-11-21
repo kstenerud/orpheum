@@ -25,7 +25,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { isPictureAlone, Poster, WideArt } from "./poster.tsx";
-import { TitleHead } from "./title-head.tsx";
+import { GenreLinks, TitleHead } from "./title-head.tsx";
 import { clockText } from "./timeline.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
@@ -328,9 +328,9 @@ function InOrdering(props: {
 }
 
 /**
- * A title's facts, one line (R8): its year, its length, the sound of the file its Play plays, and
- * that it is not identified yet. What the server does not send, a rating or a picture's size, is
- * left out.
+ * A title's facts, one line (R8): its year, its length, a film's genres (an episode's are its
+ * series', shown on the series' page), the sound of the file its Play plays, and that it is not
+ * identified yet. What the server does not send, a rating or a picture's size, is left out.
  */
 function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   const { t } = useTranslation();
@@ -342,6 +342,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
       {title.runtimeMs === undefined ? null : (
         <span>{t("title.runtime", { minutes: Math.round(title.runtimeMs / 60_000) })}</span>
       )}
+      {title.kind === "film" ? <GenreLinks genres={title.genres} list="films" /> : null}
       {sound === undefined ? null : <span>{sound}</span>}
       {title.identificationState === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
     </>

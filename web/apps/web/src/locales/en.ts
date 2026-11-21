@@ -372,6 +372,7 @@ export const en = {
     seasons: "Seasons",
     seasonEpisodeCount: "episodes: {{count}}",
     placeBetween: " · ",
+    genresBetween: ", ",
     placeSeason: "season {{season}}",
     placeEpisode: ", episode {{number}}",
     versions: "Versions",

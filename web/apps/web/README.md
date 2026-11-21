@@ -773,6 +773,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/listing-tools.tsx`, `src/list-filters.ts`, `src/list-chips.tsx`; `src/list-filters.test.ts`,
   `src/list-chips.test.tsx`, `src/library-browse.test.tsx`, `src/list-criteria.browser.test.tsx`,
   `src/input-pages.browser.test.tsx`.
+- **A film's and a series' genres open their list filtered by each** (b2.md Phase A): among the
+  facts under the name, in the order the server sends, each a link to Films (or Series) at the list
+  pop-up's own `genre` address (`routeHref`), which a remote reaches by Up from Play; an episode's
+  page shows none, its genres being its series', and a title with none shows no line
+  (`GenreLinks`, `src/title-head.tsx`). `src/title-genres.test.tsx`,
+  `src/title-head.browser.test.tsx`.
 - **Libraries replaces Search in the top bar** (D349): one page for every library the person
   reaches, the first chosen by name on a fresh visit and the chosen library, the view, the folder,
   the sort and a search query all held in its address (`/browse`), so Back and a reload return to

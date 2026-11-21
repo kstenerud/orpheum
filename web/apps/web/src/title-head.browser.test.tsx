@@ -276,6 +276,41 @@ describe("a title's actions row, by a remote", () => {
   });
 });
 
+describe("a title's genres, by a remote", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+  });
+
+  // b2.md Phase A: each genre is a link among the facts, above the actions row, which a remote
+  // reaches by Up from Play, moves along by Right, and follows by OK to Films filtered by it.
+  it("reaches a film's genres by Up from Play, and OK opens Films filtered by one", async () => {
+    await page.viewport(1280, 800);
+    const genred = {
+      ...film,
+      id: 106,
+      genres: [
+        { id: 80, name: "Crime" },
+        { id: 18, name: "Drama" },
+      ],
+    };
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /items/106": genred }, "/titles/106"),
+    );
+    await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
+    expect(focusedName()).toBe("Play");
+    await userEvent.keyboard("{ArrowUp}");
+    expect(focusedName()).toBe("Crime");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedName()).toBe("Drama");
+    await userEvent.keyboard("{Enter}");
+    await expect
+      .poll(() => walking?.services.navigation.route())
+      .toEqual({ screen: "films", genre: 18 });
+  });
+});
+
 describe("a title's cast list under its backdrop", () => {
   let walking: Walking | undefined;
   afterEach(() => {

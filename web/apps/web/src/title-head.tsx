@@ -2,7 +2,9 @@
 
 import "./title-head.css";
 
+import type { components } from "@orpheum/sdk";
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -15,12 +17,14 @@ import { useTranslation } from "react-i18next";
 
 import { focusableSelector } from "./focus-engine.ts";
 import { arrivalMark, arrivalValue, focusStartAttribute } from "./focus-navigation.ts";
+import { Link } from "./link.tsx";
 import { WideArt } from "./poster.tsx";
 
 /**
  * The first screen of a film's, an episode's and a series' page, one template (ui-audit-2026-11-04.md
  * R8): the backdrop behind it, not a band above it; the art; then, in reading order, the line above
- * the name (an episode's series and season), the name, one line of facts, the status notes, the
+ * the name (an episode's series and season), the name, one line of facts (a film's and a series'
+ * genres among them, GenreLinks), the status notes, the
  * actions row, its main action first and the page's arrival, so a remote's first OK plays (R1, R3),
  * and what it is about, clamped with More. What else the page has follows it. The actions row is a
  * focus container, a row as a poster row is: Right at its end goes nowhere (Q3), where it fell back
@@ -88,6 +92,34 @@ export function TitleHead(props: {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A film's or a series' genres, one of its facts (b2.md Phase A): in its source's order, as the server
+ * sends them, each a link to Films or Series filtered by it, the list pop-up's own genre address
+ * (router.ts's ListFilters), so a remote reaches each as it does any link above the actions row.
+ * Nothing where it has none, not even a separator: the facts are spaced by the line, not by words.
+ */
+export function GenreLinks(props: {
+  readonly genres: readonly components["schemas"]["GenreBody"][] | null | undefined;
+  /** The list each genre opens filtered: Films for a film's, Series for a series'. */
+  readonly list: "films" | "series";
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const genres = props.genres ?? [];
+  if (genres.length === 0) {
+    return null;
+  }
+  return (
+    <span className="title-head__genres">
+      {genres.map((genre, index) => (
+        <Fragment key={genre.id}>
+          {index === 0 ? null : t("title.genresBetween")}
+          <Link to={{ screen: props.list, genre: genre.id }}>{genre.name}</Link>
+        </Fragment>
+      ))}
+    </span>
   );
 }
 
