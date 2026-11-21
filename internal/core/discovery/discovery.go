@@ -209,6 +209,11 @@ type Service struct {
 	// for the network to come back (D437 §5).
 	failures      int64
 	isUnreachable bool
+	// standingAsked is whether the next step asks the discovery how the core stands at once, rather
+	// than at its next heartbeat, because the discovery refused the signalling connection; and
+	// standingAskedAt when a refusal last had it asked (askStandingSoon).
+	standingAsked   bool
+	standingAskedAt time.Time
 	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
 	// sentUnder the session's token it was told under: a new session, a discovery that may have
 	// forgotten, is told again.
@@ -661,14 +666,17 @@ func (service *Service) keep() error {
 }
 
 // heartbeat sends the core's addresses and the house's networks when they changed, or every
-// heartbeatEvery, and returns the wait until it looks again.
+// heartbeatEvery, or at once when a refused signalling connection asked it to (askStandingSoon), and
+// returns the wait until it looks again.
 func (service *Service) heartbeat(ctx context.Context, status Status) time.Duration {
 	candidates := service.parts.Candidates()
 	service.mutex.Lock()
 	houseNetworks := heartbeatHouseNetworks(service.houseNetworksAt(service.parts.Clock.Now()))
 	isDue := !slices.Equal(candidates, service.lastSent) ||
 		!slices.Equal(houseNetworks, service.sentHouseNetworks) ||
-		service.parts.Clock.Now().Sub(service.status.LastHeartbeatAt) >= heartbeatEvery
+		service.parts.Clock.Now().Sub(service.status.LastHeartbeatAt) >= heartbeatEvery ||
+		service.standingAsked
+	service.standingAsked = false
 	service.mutex.Unlock()
 	if !isDue {
 		return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)

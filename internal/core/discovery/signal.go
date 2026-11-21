@@ -43,6 +43,15 @@ const (
 // maxSignalBytes bounds one signalling message: an SDP with its candidates is a few kilobytes.
 const maxSignalBytes = 64 << 10
 
+// standingAskEvery is the least time between two asks of the core's standing that a refused
+// signalling dial brings forward (askStandingSoon): a discovery refusing every redial is asked no
+// more often than this, however fast the dials come.
+const standingAskEvery = 30 * time.Second
+
+// errSignallingRefused is the discovery's refusal (403) of the signalling connection to a core it
+// holds a session for: one whose subscription lapsed, frozen or released, or one disabled.
+var errSignallingRefused = errors.New("the discovery refused the core's signalling connection")
+
 // signal holds the signalling connection while the core is claimed (discovery-core.md C3): the
 // offers the discovery passes on are answered by the core's WebRTC server, which checks each itself;
 // every request over a connection still carries its own sign-in. A dropped connection is dialled
@@ -156,6 +165,9 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 			return false, err
 		}
 		connection, err = service.dialSignalling(ctx, baseURL, token)
+	}
+	if errors.Is(err, errSignallingRefused) {
+		service.askStandingSoon(ctx)
 	}
 	if err != nil {
 		return false, err
@@ -358,8 +370,32 @@ func (service *Service) dialSignalling(ctx context.Context, baseURL, token strin
 		return connection, nil
 	case response != nil && response.StatusCode == http.StatusUnauthorized:
 		return nil, errUnauthorised
+	case response != nil && response.StatusCode == http.StatusForbidden:
+		return nil, fmt.Errorf("dial the signalling connection: %w", errSignallingRefused)
 	}
 	return nil, fmt.Errorf("dial the signalling connection: %w", err)
+}
+
+// askStandingSoon has the step loop ask the discovery at once how the core stands, after the
+// discovery refused its signalling connection: a lapsed subscription closes the connection at once
+// and refuses each redial, and the System page then says so within seconds, not at the next
+// heartbeat up to heartbeatEvery later (VQ371). A refusal under standingAskEvery after the last one
+// that asked asks nothing more.
+func (service *Service) askStandingSoon(ctx context.Context) {
+	now := service.parts.Clock.Now()
+	service.mutex.Lock()
+	isTooSoon := !service.standingAskedAt.IsZero() && now.Sub(service.standingAskedAt) < standingAskEvery
+	if !isTooSoon {
+		service.standingAsked, service.standingAskedAt = true, now
+	}
+	service.mutex.Unlock()
+	if isTooSoon {
+		return
+	}
+	service.parts.Logger.InfoContext(ctx,
+		"discovery: the signalling connection was refused; asking how the core stands",
+		slogx.EventKey, "signallingRefused")
+	service.nudge()
 }
 
 // answerOffer is the core's answer to an offer, or its refusal and why.

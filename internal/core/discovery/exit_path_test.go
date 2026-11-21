@@ -3,7 +3,9 @@
 package discovery
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 )
@@ -56,5 +58,65 @@ func TestStep_TheExitPathWalksGraceFrozenAndReleasedAndARenewalRestoresTheCore(t
 	if restarted := built.restart(t).Status(); restarted.CertificateName() != claimed.CertificateName() {
 		t.Errorf("after the walk and a restart the core's names are %q; want %q", restarted.CertificateName(),
 			claimed.CertificateName())
+	}
+}
+
+// A lapse closes the core's signalling connection at once and refuses each redial (403). The refusal
+// has the core ask how it stands at once, not at its next heartbeat up to five minutes later, so the
+// System page says frozen within seconds (VQ371); a discovery refusing every redial while it says the
+// core is claimed is asked at most once each standingAskEvery, however fast the redials come.
+func TestSignal_ARefusedRedialAsksHowTheCoreStandsAtOnceAndAtMostOnceAWhile(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	refused := func(t *testing.T, built *world) bool {
+		t.Helper()
+		select { // a nudge left from connecting is no refusal's
+		case <-built.service.wake:
+		default:
+		}
+		_, err := built.service.holdSignalling(ctx, built.service.Status().BaseURL, &lostSignalling{})
+		if !errors.Is(err, errSignallingRefused) {
+			t.Fatalf("the refused dial said %v; want %v", err, errSignallingRefused)
+		}
+		select {
+		case <-built.service.wake:
+			return true
+		default:
+			return false
+		}
+	}
+	heartbeats := func(built *world) int {
+		built.fake.mutex.Lock()
+		defer built.fake.mutex.Unlock()
+		return len(built.fake.heartbeats)
+	}
+
+	lapsed := claimedWorld(t)
+	lapsed.fake.become(discoveryproto.StateFrozen)
+	if !refused(t, lapsed) {
+		t.Error("a refused redial did not wake the step loop")
+	}
+	lapsed.service.step(ctx)
+	if state := lapsed.service.Status().State; state != discoveryproto.StateFrozen {
+		t.Errorf("the step after the refused redial left the core %q; want %q, asked at once", state,
+			discoveryproto.StateFrozen)
+	}
+
+	looping := claimedWorld(t)
+	looping.fake.mutex.Lock()
+	looping.fake.refusesSignalling = true
+	looping.fake.mutex.Unlock()
+	for _, look := range []struct {
+		after    time.Duration
+		isAsking bool
+	}{{0, true}, {time.Second, false}, {standingAskEvery - time.Second, true}} {
+		looping.clock.Advance(look.after)
+		sent := heartbeats(looping)
+		isWoken := refused(t, looping)
+		looping.service.step(ctx)
+		if isAsked := heartbeats(looping) > sent; isWoken != look.isAsking || isAsked != look.isAsking {
+			t.Errorf("a refusal %s after the last: woke the loop %t and asked %t; want %t", look.after, isWoken,
+				isAsked, look.isAsking)
+		}
 	}
 }

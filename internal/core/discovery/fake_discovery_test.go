@@ -78,7 +78,10 @@ type fakeDiscovery struct {
 	// it goes unanswered, as on a connection a proxy dropped.
 	failing         map[string]bool
 	dropsSignalling bool
-	answersPings    bool
+	// refusesSignalling refuses every signalling dial (403), as a core in good standing is not; one
+	// frozen, released or disabled is refused so whatever it says (connect's cores, VQ371).
+	refusesSignalling bool
+	answersPings      bool
 	// passesAtOnce, offers are passed on as they come, each reply taken as it comes, as the real
 	// discovery passes a page's offers (discovery/single); without it, each waits for the last's reply.
 	passesAtOnce bool
@@ -528,6 +531,8 @@ func (fake *fakeDiscovery) takeSignalMode() signalMode {
 func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	isSignedIn := fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")]
+	isRefused := fake.refusesSignalling || (fake.state != discoveryproto.StateClaimed &&
+		fake.state != discoveryproto.StateGrace)
 	onSignal := fake.onSignal
 	fake.mutex.Unlock()
 	mode := fake.takeSignalMode()
@@ -536,6 +541,10 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 	}
 	if !isSignedIn {
 		http.Error(writer, "no session", http.StatusUnauthorized)
+		return
+	}
+	if isRefused {
+		http.Error(writer, "the core is not claimed", http.StatusForbidden)
 		return
 	}
 	// The ending is set before the handshake: the core says the connection is open once Accept

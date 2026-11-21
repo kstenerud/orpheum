@@ -87,6 +87,9 @@
 //     certificate of its names can be asked for. TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone.
 //   - A claimed core asks how it stands with each heartbeat, and stops sending its addresses once
 //     its subscription ends. TestStep_AClaimedCoreLearnsWhenItsSubscriptionEnds.
+//   - A signalling dial the discovery refuses (403, as on a lapse) has the core ask how it stands at
+//     once, not at its next heartbeat, at most once each standingAskEvery (VQ371).
+//     TestSignal_ARefusedRedialAsksHowTheCoreStandsAtOnceAndAtMostOnceAWhile.
 //   - The certificate of the core's names is proven through the discovery, which sets and clears
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.
