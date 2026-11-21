@@ -12,17 +12,22 @@ import (
 
 // listKind is up to a page of one kind's entries from a place in a list's order, each with its key.
 func (browser *Browser) listKind(
-	ctx context.Context, kind string, query ListQuery, after listPosition,
+	ctx context.Context, kind ListKind, query ListQuery, after listPosition,
 ) ([]keyedEntry, error) {
-	switch {
-	case kind == ListOther:
+	switch kind {
+	case ListOther:
 		return browser.listOther(ctx, query, after)
-	case query.Sort == SortName:
-		return browser.listFilmsOrSeriesByName(ctx, kind, query, after)
-	case query.Sort == SortReleased:
-		return browser.listFilmsOrSeriesByReleased(ctx, kind, query, after)
+	case ListFilms, ListSeries:
+		switch query.Sort {
+		case SortName:
+			return browser.listFilmsOrSeriesByName(ctx, kind, query, after)
+		case SortReleased:
+			return browser.listFilmsOrSeriesByReleased(ctx, kind, query, after)
+		}
+		return browser.listFilmsOrSeriesByAdded(ctx, kind, query, after)
+	default:
+		return nil, fmt.Errorf("list %q: %w", kind, ErrNoSuchKind)
 	}
-	return browser.listFilmsOrSeriesByAdded(ctx, kind, query, after)
 }
 
 // countListed is how many entries a list holds, of every kind it names, in every sort and either way:
@@ -38,12 +43,14 @@ func (browser *Browser) countListed(ctx context.Context, query ListQuery) (int64
 		var count int64
 		var err error
 		switch kind {
+		case ListFilms:
+			count, err = queries.CountFilmsListed(ctx, params)
 		case ListSeries:
 			count, err = queries.CountSeriesListed(ctx, sqlcgen.CountSeriesListedParams(params))
 		case ListOther:
 			count, err = queries.CountOtherListed(ctx, sqlcgen.CountOtherListedParams(params))
 		default:
-			count, err = queries.CountFilmsListed(ctx, params)
+			return 0, fmt.Errorf("count %q: %w", kind, ErrNoSuchKind)
 		}
 		if err != nil {
 			return 0, fmt.Errorf("count the %s listed: %w", kind, err)
@@ -80,7 +87,7 @@ func (list eitherWay[ForwardParams, ReversedParams, ForwardRow, ReversedRow]) re
 
 // listFilmsOrSeriesByName is films or series in the sortLocale's order (D47), A to Z or Z to A.
 func (browser *Browser) listFilmsOrSeriesByName(
-	ctx context.Context, kind string, query ListQuery, after listPosition,
+	ctx context.Context, kind ListKind, query ListQuery, after listPosition,
 ) ([]keyedEntry, error) {
 	sorter, err := browser.sorter(ctx)
 	if err != nil {
@@ -139,7 +146,7 @@ func (browser *Browser) listFilmsOrSeriesByName(
 // it, then by its file's own time, then by id (the owner, 2026-10-25; step 0058's found_at). A film
 // is as new as the scan that first found it; a series as its newest episode.
 func (browser *Browser) listFilmsOrSeriesByAdded(
-	ctx context.Context, kind string, query ListQuery, from listPosition,
+	ctx context.Context, kind ListKind, query ListQuery, from listPosition,
 ) ([]keyedEntry, error) {
 	foundAt, modifiedAt := keyTimes(from.key)
 	queries := browser.database.Read()

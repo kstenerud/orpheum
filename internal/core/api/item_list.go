@@ -122,7 +122,7 @@ type ItemCreditBody struct {
 // itemEntryBody is a list's entry as the API says it.
 func itemEntryBody(entry library.Entry, nodeName func(nodeID int64) string) ItemEntryBody {
 	return ItemEntryBody{
-		Kind: saidKind(entry.Kind),
+		Kind: saidKind(string(entry.Kind)),
 		ItemEntryCommon: ItemEntryCommon{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year,
 			IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed,
@@ -183,7 +183,6 @@ func (server *Server) registerItemList() {
 }
 
 func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*ListItemsOutput, error) {
-	input.Kinds = keptKinds(input.Kinds)
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -200,12 +199,13 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 	if limit == 0 {
 		limit = library.WholeList
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
+	kinds := listKinds(input.Kinds)
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: kinds, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
 	page, err := dependencies.Browser.List(ctx, input.withFilters(library.ListQuery{
-		Kinds: input.Kinds, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
+		Kinds: kinds, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
 		Limit: limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
 	}))
 	if err != nil {
@@ -232,7 +232,7 @@ func (server *Server) addAsked(
 	output *ListItemsOutput,
 ) error {
 	if input.WithGenres && input.Cursor == "" {
-		genres, err := server.genresOf(ctx, dependencies, reach, input.Kinds)
+		genres, err := server.genresOf(ctx, dependencies, reach, listKinds(input.Kinds))
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ func (server *Server) addCredits(
 func (server *Server) listItemsByIdentification(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, input *ListItemsInput,
 ) (*ListItemsOutput, error) {
-	if !isEveryListKind(input.Kinds) || input.Sort != library.SortName || input.Order != "" ||
+	if !isEveryListKind(listKinds(input.Kinds)) || input.Sort != library.SortName || input.Order != "" ||
 		input.From != "" || input.Query != "" || input.ListFilters != (ListFilters{}) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.identification",
 			"a list by identification is of every kind, by name, and takes no other filter than library")

@@ -72,7 +72,7 @@ func (world *shelf) fileAsFilm(text, path string) int64 {
 		if err != nil {
 			return err
 		}
-		nameItem(world.t, queries, titleID, ListFilms, text)
+		nameItem(world.t, queries, titleID, string(ListFilms), text)
 		version, err := queries.InsertVersion(world.t.Context(),
 			sqlcgen.InsertVersionParams{WorkID: titleID, CreatedAt: 1})
 		if err != nil || fileID == 0 {
@@ -105,13 +105,13 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	world.fileAsFilm("Élan Vital", "a.mkv")
 	world.fileAsFilm("Gone Film", "gone.mkv")
 	first, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 2,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Limit: 2,
 	})
 	if err != nil || !slices.Equal(entryNames(first), []string{"Élan Vital", "Ödet"}) || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
 	next := ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Cursor: first.NextCursor, Limit: 2,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Cursor: first.NextCursor, Limit: 2,
 	}
 	rest, err := world.browser.List(t.Context(), next)
 	if err != nil || !slices.Equal(entryNames(rest), []string{"Zelkova Lane"}) || rest.NextCursor != "" {
@@ -119,13 +119,13 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
 	swedish, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 10,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Limit: 10,
 	})
 	if err != nil || !slices.Equal(entryNames(swedish), []string{"Élan Vital", "Zelkova Lane", "Ödet"}) {
 		t.Errorf("in Swedish = %v, %v; Ö comes after Z", entryNames(swedish), err)
 	}
 	if _, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Cursor: "!", Limit: 1,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Cursor: "!", Limit: 1,
 	}); err == nil {
 		t.Error("a cursor this server did not give was accepted")
 	}
@@ -150,7 +150,7 @@ func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
 	from := func(name string, limit int64) Page {
 		t.Helper()
 		page, err := world.browser.List(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, From: name, Limit: limit,
+			Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, From: name, Limit: limit,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -162,7 +162,8 @@ func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
 		t.Errorf("from M = %v", entryNames(page))
 	} else {
 		rest, err := world.browser.List(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Cursor: page.NextCursor, Limit: 10,
+			Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Cursor: page.NextCursor,
+			Limit: 10,
 		})
 		if err != nil || !slices.Equal(entryNames(rest), []string{"Ödet", "Zelkova Lane"}) {
 			t.Errorf("after from M = %v, %v", entryNames(rest), err)
@@ -193,13 +194,13 @@ func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	world.fileAsFilm("Second", "b.mkv")
 	world.fileAsFilm("Third", "c.mkv")
 	first, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortAdded, Limit: 2,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortAdded, Limit: 2,
 	})
 	if err != nil || !slices.Equal(entryNames(first), []string{"Third", "Second"}) {
 		t.Fatalf("first page = %v, %v", entryNames(first), err)
 	}
 	next := ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2,
 	}
 	rest, err := world.browser.List(t.Context(), next)
 	if err != nil || !slices.Equal(entryNames(rest), []string{"First"}) {

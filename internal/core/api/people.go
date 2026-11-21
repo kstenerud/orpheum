@@ -176,12 +176,12 @@ func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonO
 }
 
 func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*GenresOutput, error) {
-	input.Kinds = keptKinds(input.Kinds)
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
+	kinds := listKinds(input.Kinds)
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: kinds, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 	if err != nil {
 		return nil, err
 	}
-	genres, err := dependencies.Browser.GenresAfter(ctx, reach, input.Kinds, string(afterName), afterID, input.Limit)
+	genres, err := dependencies.Browser.GenresAfter(ctx, reach, kinds, string(afterName), afterID, input.Limit)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list the genres", err)
 	}
@@ -205,7 +205,7 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 // genresOf is every genre with a title of kinds in reach, by name, as a list's genre chip offers
 // them (D480 §1).
 func (server *Server) genresOf(
-	ctx context.Context, dependencies *Dependencies, reach auth.Reach, kinds []string,
+	ctx context.Context, dependencies *Dependencies, reach auth.Reach, kinds []library.ListKind,
 ) ([]GenreBody, error) {
 	genres, err := dependencies.Browser.GenresAfter(ctx, reach, kinds, "", 0, library.WholeList)
 	if err != nil {
@@ -243,7 +243,7 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 			Year: ptr.ValueOrZero(hit.Year),
 		})
 		if hit.TitleKind == nil {
-			body.Titles.Hits[len(body.Titles.Hits)-1].Kind = library.ListSeries
+			body.Titles.Hits[len(body.Titles.Hits)-1].Kind = string(library.ListSeries)
 		}
 	}
 	body.People.Hits = make([]GroupHitBody, 0, len(hits.People))

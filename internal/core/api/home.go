@@ -123,7 +123,7 @@ func inProgressBodies(rows []library.InProgress, nodeName func(int64) string) []
 	bodies := make([]InProgressBody, 0, len(rows))
 	for _, row := range rows {
 		bodies = append(bodies, InProgressBody{
-			ID: row.ID, Kind: row.Kind, Name: row.Name, Year: row.Year,
+			ID: row.ID, Kind: string(row.Kind), Name: row.Name, Year: row.Year,
 			PosterSha256: row.PosterSha256, NoPosterStillSha256: row.NoPosterStillSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
@@ -135,13 +135,14 @@ func inProgressBodies(rows []library.InProgress, nodeName func(int64) string) []
 
 // homeNewest is a row of Home's newest of kind, ListFilms or ListSeries, of the libraries reach holds.
 func (server *Server) homeNewest(
-	ctx context.Context, dependencies *Dependencies, principal auth.Principal, reach auth.Reach, kind string,
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, reach auth.Reach, kind library.ListKind,
 ) ([]ItemEntryBody, error) {
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
-		Kinds: []string{kind}, Sort: library.SortAdded, Limit: homeNewestShown, Reach: reach, UserID: principal.UserID,
+		Kinds: []library.ListKind{kind}, Sort: library.SortAdded, Limit: homeNewestShown, Reach: reach,
+		UserID: principal.UserID,
 	})
 	if err != nil {
-		return nil, server.libraryError(ctx, "list Home's newest "+kind, err)
+		return nil, server.libraryError(ctx, "list Home's newest "+string(kind), err)
 	}
 	nodeName := server.nodeNamer(ctx, dependencies)
 	entries := make([]ItemEntryBody, 0, len(page.Entries))

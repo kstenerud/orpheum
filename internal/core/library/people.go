@@ -144,14 +144,14 @@ func (browser *Browser) CreditsOn(
 
 // Genres are the genres with a film, series or other video of one of kinds (ListFilms, ListSeries,
 // ListOther; ListKinds for every one) that reach reaches, each with how many, by name.
-func (browser *Browser) Genres(ctx context.Context, reach auth.Reach, kinds []string) ([]Genre, error) {
+func (browser *Browser) Genres(ctx context.Context, reach auth.Reach, kinds []ListKind) ([]Genre, error) {
 	return browser.GenresAfter(ctx, reach, kinds, "", 0, -1)
 }
 
 // GenresAfter is a page of Genres: at most limit (-1 for every one) after the genre named afterName
 // with afterID ("" and 0 for the first page).
 func (browser *Browser) GenresAfter(
-	ctx context.Context, reach auth.Reach, kinds []string, afterName string, afterID, limit int64,
+	ctx context.Context, reach auth.Reach, kinds []ListKind, afterName string, afterID, limit int64,
 ) ([]Genre, error) {
 	kindsJSON, err := json.Marshal(distinctKinds(kinds))
 	if err != nil {

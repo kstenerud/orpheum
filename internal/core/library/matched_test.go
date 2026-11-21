@@ -38,7 +38,7 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 	world := searchedShelf(t)
 	list := func(query ListQuery) Page {
 		t.Helper()
-		query.Reach, query.Kinds, query.Query = auth.EveryLibrary(), []string{ListFilms}, "metropolis"
+		query.Reach, query.Kinds, query.Query = auth.EveryLibrary(), []ListKind{ListFilms}, "metropolis"
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
 			t.Fatal(err)
@@ -96,7 +96,7 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 		"metropolis": {"M"}, "orchard": {"O"}, "u": {"U"}, "zzz": nil, "   ": nil,
 	} {
 		page, err := world.browser.List(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: WholeList, Query: query,
+			Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Limit: WholeList, Query: query,
 		})
 		var letters []string
 		for _, entry := range page.Entries {
@@ -118,7 +118,7 @@ func TestList_EveryPageHoldsTheWholeListsTotal(t *testing.T) {
 	world := searchedShelf(t)
 	list := func(query ListQuery) Page {
 		t.Helper()
-		query.Reach, query.Kinds = auth.EveryLibrary(), []string{ListFilms}
+		query.Reach, query.Kinds = auth.EveryLibrary(), []ListKind{ListFilms}
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
 			t.Fatal(err)
@@ -144,7 +144,7 @@ func TestList_EveryPageHoldsTheWholeListsTotal(t *testing.T) {
 		t.Errorf("a query matching nothing: total = %d; want 0", page.Total)
 	}
 	page, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms, ListSeries, ListFilms}, Sort: SortName, Limit: 2,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms, ListSeries, ListFilms}, Sort: SortName, Limit: 2,
 	})
 	if err != nil || page.Total != 7 {
 		t.Errorf("films and series, films named twice: total = %d, %v; want 7, each kind counted once", page.Total, err)

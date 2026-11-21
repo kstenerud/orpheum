@@ -54,7 +54,7 @@ func (server *Server) registerLibraryBrowsing() {
 
 // listOf is which list a request asks for: its kinds, and one library's or 0.
 type listOf struct {
-	kinds     []string
+	kinds     []library.ListKind
 	libraryID int64
 }
 
@@ -83,13 +83,13 @@ func (server *Server) listReach(
 // isFilmsOrSeriesAlone is whether a list names films alone or series alone, the lists a person
 // leaves libraries out of (D349 §8). A list of several kinds is All libraries' and leaves none out,
 // as the "any" it replaced did (D432 §1).
-func isFilmsOrSeriesAlone(kinds []string) bool {
+func isFilmsOrSeriesAlone(kinds []library.ListKind) bool {
 	return len(kinds) > 0 && (kinds[0] == library.ListFilms || kinds[0] == library.ListSeries) &&
-		!slices.ContainsFunc(kinds, func(kind string) bool { return kind != kinds[0] })
+		!slices.ContainsFunc(kinds, func(kind library.ListKind) bool { return kind != kinds[0] })
 }
 
 // isEveryListKind is whether a list names every kind there is, and no other.
-func isEveryListKind(kinds []string) bool {
+func isEveryListKind(kinds []library.ListKind) bool {
 	named := slices.Clone(kinds)
 	slices.Sort(named)
 	every := library.ListKinds()

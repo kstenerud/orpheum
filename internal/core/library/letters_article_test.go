@@ -23,7 +23,7 @@ func TestLetters_ATitleIsUnderItsFirstWordThatIsNoArticle(t *testing.T) {
 	world.fileAsFilm("A Woman of Paris", "b.mkv")
 	world.fileAsFilm("The", "t.mkv")
 	page, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: WholeList,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Limit: WholeList,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestList_SaysEachEntrysRailLetter(t *testing.T) {
 	world.fileAsFilm("7th Heaven", "n.mkv")
 	world.fileAsFilm("A Woman of Paris", "b.mkv")
 	page, err := world.browser.List(t.Context(), ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Limit: 10,
+		Reach: auth.EveryLibrary(), Kinds: []ListKind{ListFilms}, Sort: SortName, Limit: 10,
 	})
 	if err != nil {
 		t.Fatal(err)

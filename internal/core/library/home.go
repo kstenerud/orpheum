@@ -79,7 +79,8 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 		rowIndexByTitle[row.WorkID] = len(inProgress)
 		inProgress = append(inProgress, InProgress{
 			Entry: Entry{
-				ID: row.WorkID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				ID: row.WorkID, Kind: ListKind(row.Kind), Name: ptr.ValueOrZero(row.Name),
+				Year: ptr.ValueOrZero(row.Year),
 			},
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})

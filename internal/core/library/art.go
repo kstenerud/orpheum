@@ -132,6 +132,7 @@ func (browser *Browser) withNoPosterStills(ctx context.Context, page Page) (Page
 			films = append(films, entry.ID)
 		case ListSeries:
 			series = append(series, entry.ID)
+		case ListOther: // films and series alone take one
 		}
 	}
 	stills, err := noPosterStills(ctx, browser.database.Read(), films, series)

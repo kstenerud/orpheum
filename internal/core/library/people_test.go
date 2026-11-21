@@ -67,7 +67,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 func (world *creditedShelf) dateFilms(queries *sqlcgen.Queries) error {
 	for name, year := range map[string]int64{"Faust": 1995, "The Lodger": 1999, "Sparrows": 1983, "Ulme": 2009} {
 		if err := queries.UpdateWorkResolved(world.t.Context(), sqlcgen.UpdateWorkResolvedParams{
-			Kind: ListFilms, Year: new(year), IdentificationState: new("identified"), ID: world.films[name],
+			Kind: string(ListFilms), Year: new(year), IdentificationState: new("identified"), ID: world.films[name],
 		}); err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func TestList_FiltersByGenrePersonDecadeAndUnwatchedCombine(t *testing.T) {
 	world := newCreditedShelf(t)
 	list := func(query ListQuery) []string {
 		t.Helper()
-		query.Reach, query.Kinds, query.Sort = auth.EveryLibrary(), []string{ListFilms}, SortName
+		query.Reach, query.Kinds, query.Sort = auth.EveryLibrary(), []ListKind{ListFilms}, SortName
 		query.Limit, query.UserID = 10, world.userID
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
@@ -278,7 +278,7 @@ func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 func TestGenres_CountTheReachedTitles(t *testing.T) {
 	t.Parallel()
 	world := newCreditedShelf(t)
-	genres, err := world.browser.Genres(t.Context(), auth.EveryLibrary(), []string{ListFilms})
+	genres, err := world.browser.Genres(t.Context(), auth.EveryLibrary(), []ListKind{ListFilms})
 	if err != nil {
 		t.Fatal(err)
 	}

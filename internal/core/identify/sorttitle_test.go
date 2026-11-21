@@ -18,7 +18,7 @@ func filmsByName(t *testing.T, lib *testLibrary) []string {
 	t.Helper()
 	browser := library.NewBrowser(lib.database, lib.settings)
 	listed, err := browser.List(t.Context(), library.ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{library.ListFilms}, Sort: library.SortName, Limit: 20,
+		Reach: auth.EveryLibrary(), Kinds: []library.ListKind{library.ListFilms}, Sort: library.SortName, Limit: 20,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func seriesByName(t *testing.T, lib *testLibrary) []string {
 	t.Helper()
 	browser := library.NewBrowser(lib.database, lib.settings)
 	listed, err := browser.List(t.Context(), library.ListQuery{
-		Reach: auth.EveryLibrary(), Kinds: []string{library.ListSeries}, Sort: library.SortName, Limit: 20,
+		Reach: auth.EveryLibrary(), Kinds: []library.ListKind{library.ListSeries}, Sort: library.SortName, Limit: 20,
 	})
 	if err != nil {
 		t.Fatal(err)

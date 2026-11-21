@@ -3,8 +3,6 @@
 package api
 
 import (
-	"slices"
-
 	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
@@ -30,11 +28,11 @@ func keptKind(said string) string {
 	return said
 }
 
-// keptKinds is each of said as the library keeps it.
-func keptKinds(said []string) []string {
-	kept := slices.Clone(said)
-	for index, each := range kept {
-		kept[index] = keptKind(each)
+// listKinds is each of said, kinds as the API says them, as the library's lists name them.
+func listKinds(said []string) []library.ListKind {
+	kinds := make([]library.ListKind, 0, len(said))
+	for _, each := range said {
+		kinds = append(kinds, library.ListKind(keptKind(each)))
 	}
-	return kept
+	return kinds
 }

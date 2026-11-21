@@ -217,6 +217,8 @@ count as films without a failure.
 - **Fix:** a named `ListKind` type with its constants, a `switch` the linter checks, and an error
   for an unknown one. **S, agent.**
 
+*Fixed:* fix(library): a kind no list holds fails the list, never counted as films
+
 ## Smaller findings
 
 - **The persistent store's set-aside name is built twice:** `cmd/orpheum/operations.go:252` and

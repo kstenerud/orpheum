@@ -57,7 +57,7 @@ type releasedReads struct {
 // listFilmsOrSeriesByReleased is films by their release date or series by their first air date,
 // newest or oldest first, those with none after them (D366 §1, §3).
 func (browser *Browser) listFilmsOrSeriesByReleased(
-	ctx context.Context, kind string, query ListQuery, from listPosition,
+	ctx context.Context, kind ListKind, query ListQuery, from listPosition,
 ) ([]keyedEntry, error) {
 	reads := browser.filmsReleased(ctx, query.isReversed())
 	if kind == ListSeries {
