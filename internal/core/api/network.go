@@ -173,7 +173,7 @@ func (server *Server) networkState(ctx context.Context, dependencies *Dependenci
 		Kept: networkBody(state.Kept), Running: networkBody(state.Running), FellBack: []string{},
 		Pending: state.Kept != state.KeptAtStart, AppliedBy: "restart",
 	}
-	if dependencies.InstallRoute == installRouteScript {
+	if dependencies.Installation.Route == installRouteScript {
 		body.AppliedBy = installRouteScript
 	}
 	if state.KeptAtStart.HTTPSPort != state.Running.HTTPSPort {
@@ -204,7 +204,7 @@ func (server *Server) restartServer(ctx context.Context, input *AuthorizationHea
 	if err != nil {
 		return nil, err
 	}
-	if dependencies.Restart == nil || dependencies.InstallRoute == installRouteScript {
+	if dependencies.Restart == nil || dependencies.Installation.Route == installRouteScript {
 		return nil, newError(http.StatusConflict, CodeConflict,
 			"this server is not restarted from here: its install script's next run restarts it")
 	}

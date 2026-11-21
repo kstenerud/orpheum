@@ -40,7 +40,7 @@ func TestNetwork_AnAdminKeepsTheSettingsForTheNextStartAndIsToldWhatIsWrong(t *t
 	}
 	started := api.Network{HTTPSPort: 8443, WebRTCPort: 8443, Router: "192.168.1.1"}
 	kept := &keptNetwork{state: api.NetworkState{Kept: started, KeptAtStart: started, Running: started}}
-	dependencies.Network, dependencies.InstallRoute = kept, "omv"
+	dependencies.Network, dependencies.Installation.Route = kept, "omv"
 	read := func(got response) api.NetworkStateBody {
 		t.Helper()
 		var body api.NetworkStateBody
@@ -69,7 +69,7 @@ func TestNetwork_AnAdminKeepsTheSettingsForTheNextStartAndIsToldWhatIsWrong(t *t
 	if kept.state.Kept.Router != "" {
 		t.Errorf("a refused PUT kept %+v", kept.state.Kept)
 	}
-	dependencies.InstallRoute = "script"
+	dependencies.Installation.Route = "script"
 	if script := read(harness.do(t, http.MethodGet, "/system/network", admin, nil)); script.AppliedBy != "script" {
 		t.Errorf("on the install script's route, applied by %q; want script", script.AppliedBy)
 	}
@@ -113,12 +113,12 @@ func TestNetwork_AnAdminRestartsAServerItsComposeFileStarted(t *testing.T) {
 		t.Errorf("with no network settings, GET = %d %s; want 409", got.status, got.body)
 	}
 	restarts := 0
-	dependencies.Restart, dependencies.InstallRoute = func() { restarts++ }, "synology"
+	dependencies.Restart, dependencies.Installation.Route = func() { restarts++ }, "synology"
 	if got := harness.do(t, http.MethodPost, "/system/restart", admin, nil); got.status != http.StatusAccepted ||
 		restarts != 1 {
 		t.Errorf("POST /system/restart = %d %s, %d restarts; want 202 and one", got.status, got.body, restarts)
 	}
-	dependencies.InstallRoute = "script"
+	dependencies.Installation.Route = "script"
 	if got := harness.do(t, http.MethodPost, "/system/restart", admin, nil); got.status != http.StatusConflict ||
 		restarts != 1 {
 		t.Errorf("on the install script's route = %d, %d restarts; want 409 and none more", got.status, restarts)

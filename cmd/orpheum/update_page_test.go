@@ -15,11 +15,11 @@ func TestTellTheUpdatePage_HandsItTheRouteTheTagAndTheFolder(t *testing.T) {
 	var dependencies api.Dependencies
 	tellTheUpdatePage(&dependencies,
 		ServerConfig{InstallRoute: "script", ImageTag: "v0.8.3", InstallDirectory: "/srv/orpheum"})
-	if dependencies.PublishedImage != publishedImage || dependencies.InstallRoute != "script" ||
-		dependencies.ImageTag != "v0.8.3" || dependencies.InstallDirectory != "/srv/orpheum" {
+	installation := dependencies.Installation
+	if installation.PublishedImage != publishedImage || installation.Route != "script" ||
+		installation.ImageTag != "v0.8.3" || installation.Directory != "/srv/orpheum" {
 		t.Errorf("the Update page was told %q, %q, %q and %q; want the image, script, v0.8.3 and /srv/orpheum",
-			dependencies.PublishedImage, dependencies.InstallRoute, dependencies.ImageTag,
-			dependencies.InstallDirectory)
+			installation.PublishedImage, installation.Route, installation.ImageTag, installation.Directory)
 	}
 }
 

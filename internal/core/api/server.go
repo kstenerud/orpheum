@@ -111,23 +111,10 @@ type Dependencies struct {
 	// Discovery keeps the core enrolled with its discovery, which an admin connects and leaves (D273).
 	Discovery *discovery.Service
 	// Releases says what the server knows of releases newer than its own, from its discovery
-	// (security-updates.md); nil knows of none. Version is this build's, and PublishedImage the
-	// repository its releases are published in, which an update's command installs from (D314).
-	Releases       Releases
-	Version        string
-	PublishedImage string
-	// InstallRoute is how the server was installed, "script" or a compose file's route, as its deployment wrote
-	// in its config; empty when unknown (D450 §2).
-	InstallRoute string
-	// InstallDirectory is the folder on the server's machine the install script installed it in, as
-	// its deployment wrote in its config, which the update's command names; empty when unknown.
-	InstallDirectory string
-	// ComposeFile is the version of the compose file that started the server and the newest, from
-	// its config and this build (D461 §3).
-	ComposeFile ComposeFile
-	// ImageTag is the image tag the compose file runs, a pinned one said on the Update page (D462
-	// §10.7); empty when no compose file started it.
-	ImageTag string
+	// (security-updates.md); nil knows of none.
+	Releases Releases
+	// Installation is this build and how it was installed, which the Update page's steps name.
+	Installation Installation
 	// Network keeps the house's network settings the System page sets (D462 §2); nil when the config
 	// file alone sets them.
 	Network NetworkSettings
@@ -165,6 +152,27 @@ type Dependencies struct {
 	ConfigFileKeys []ConfigFileKey
 	// Clock is the server's time: how long an answer is kept for a repeat of its Idempotency-Key.
 	Clock clock.Clock
+}
+
+// Installation is this build and how it was installed: what the Update page's steps to update name,
+// and what the network settings may change.
+type Installation struct {
+	// Version is this build's, and PublishedImage the repository its releases are published in,
+	// which an update's command installs from (D314).
+	Version        string
+	PublishedImage string
+	// Route is how the server was installed, "script" or a compose file's route, as its deployment
+	// wrote in its config; empty when unknown (D450 §2).
+	Route string
+	// Directory is the folder on the server's machine the install script installed it in, as its
+	// deployment wrote in its config, which the update's command names; empty when unknown.
+	Directory string
+	// ComposeFile is the version of the compose file that started the server and the newest, from
+	// its config and this build (D461 §3).
+	ComposeFile ComposeFile
+	// ImageTag is the image tag the compose file runs, a pinned one said on the Update page (D462
+	// §10.7); empty when no compose file started it.
+	ImageTag string
 }
 
 // health is the state /health reports. It is safe for concurrent use.

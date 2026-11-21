@@ -120,7 +120,7 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 // knownUpdateOutput is what the server knows of an update now, as GET /system/update and an admin's
 // shell read of /me say it (D476).
 func knownUpdateOutput(dependencies *Dependencies) *UpdateOutput {
-	known := discovery.Release{Version: dependencies.Version}
+	known := discovery.Release{Version: dependencies.Installation.Version}
 	if dependencies.Releases != nil {
 		known = dependencies.Releases.Release()
 	}
@@ -152,17 +152,17 @@ func (server *Server) checkSystemUpdate(ctx context.Context, input *Authorizatio
 func updateOutput(dependencies *Dependencies, known discovery.Release) *UpdateOutput {
 	body := UpdateBody{Version: known.Version}
 	if dependencies.Releases != nil {
-		body = updateBody(known, dependencies.PublishedImage)
+		body = updateBody(known, dependencies.Installation.PublishedImage)
 	}
-	body.InstallRoute = dependencies.InstallRoute
+	body.InstallRoute = dependencies.Installation.Route
 	// The script's folder written out, so the command is right as copied (the owner, 2026-11-17):
 	// without it the script installs over ~/orpheum, which a server elsewhere is not.
-	if body.Command != "" && dependencies.InstallDirectory != "" {
-		body.Command += " -s -- --dir " + shellWord(dependencies.InstallDirectory)
-		body.InstallDirectory = dependencies.InstallDirectory
+	if body.Command != "" && dependencies.Installation.Directory != "" {
+		body.Command += " -s -- --dir " + shellWord(dependencies.Installation.Directory)
+		body.InstallDirectory = dependencies.Installation.Directory
 	}
-	body.ComposeFile = newerComposeFile(dependencies.ComposeFile)
-	if tag := dependencies.ImageTag; tag != "" && tag != latestTag {
+	body.ComposeFile = newerComposeFile(dependencies.Installation.ComposeFile)
+	if tag := dependencies.Installation.ImageTag; tag != "" && tag != latestTag {
 		body.PinnedTag = tag
 	}
 	return &UpdateOutput{Body: body}

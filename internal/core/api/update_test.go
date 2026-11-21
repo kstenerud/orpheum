@@ -55,7 +55,7 @@ func TestUpdate_AnAdminIsToldTheFixPendingAndTheCommandThatInstallsIt(t *testing
 		Version: "v0.3.1", Latest: "v0.3.3", Digest: "sha256:abc", CheckedAt: checked,
 		Security: &release.Fix{Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"},
 	}}
-	dependencies.Releases, dependencies.PublishedImage = releases, "ghcr.io/example/orpheum"
+	dependencies.Releases, dependencies.Installation.PublishedImage = releases, "ghcr.io/example/orpheum"
 	read := func() api.UpdateBody {
 		t.Helper()
 		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
@@ -118,7 +118,7 @@ func TestUpdate_SaysHowTheServerWasInstalled(t *testing.T) {
 	if unknown := read(); unknown.InstallRoute != "" {
 		t.Errorf("a server that does not know its route: installRoute %q; want none", unknown.InstallRoute)
 	}
-	dependencies.InstallRoute = "omv"
+	dependencies.Installation.Route = "omv"
 	if told := read(); told.InstallRoute != "omv" {
 		t.Errorf("knowing no release: installRoute %q; want omv", told.InstallRoute)
 	}
@@ -140,7 +140,7 @@ func TestUpdate_TheCommandNamesTheFolderTheServerWasInstalledIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	dependencies.Releases = &knownRelease{known: discovery.Release{Version: "v0.3.1", Latest: "v0.3.3"}}
-	dependencies.PublishedImage, dependencies.InstallRoute = "ghcr.io/example/orpheum", "script"
+	dependencies.Installation.PublishedImage, dependencies.Installation.Route = "ghcr.io/example/orpheum", "script"
 	read := func() api.UpdateBody {
 		t.Helper()
 		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
@@ -161,7 +161,7 @@ func TestUpdate_TheCommandNamesTheFolderTheServerWasInstalledIn(t *testing.T) {
 		"/home/it's/orpheum":      command + ` -s -- --dir '/home/it'\''s/orpheum'`,
 		"/volume1/$HOME/orpheum~": command + ` -s -- --dir '/volume1/$HOME/orpheum~'`,
 	} {
-		dependencies.InstallDirectory = folder
+		dependencies.Installation.Directory = folder
 		if told := read(); told.Command != want || told.InstallDirectory != folder {
 			t.Errorf("installed in %q: command %q, installDirectory %q; want %q and the folder",
 				folder, told.Command, told.InstallDirectory, want)
@@ -195,9 +195,9 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 		return body
 	}
 	changes := map[int]string{2: "Hardware transcoding on Intel.", 3: "Subtitles from the media folders."}
-	dependencies.InstallRoute = "omv"
+	dependencies.Installation.Route = "omv"
 	filled := "# the newest file, the household's values in it\n"
-	dependencies.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes, Filled: filled}
+	dependencies.Installation.ComposeFile = api.ComposeFile{Running: 1, Newest: 3, Changes: changes, Filled: filled}
 	want := &api.ComposeFileBody{
 		Version: 1, Newest: 3, Brings: []string{"Hardware transcoding on Intel.", "Subtitles from the media folders."},
 		File: filled,
@@ -205,7 +205,7 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 	if told := read(); !reflect.DeepEqual(told.ComposeFile, want) {
 		t.Errorf("started from version 1 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
 	}
-	dependencies.ComposeFile.Running = 2
+	dependencies.Installation.ComposeFile.Running = 2
 	want = &api.ComposeFileBody{
 		Version: 2, Newest: 3, Brings: []string{"Subtitles from the media folders."}, File: filled,
 	}
@@ -213,7 +213,7 @@ func TestUpdate_SaysWhatANewerComposeFileBrings(t *testing.T) {
 		t.Errorf("started from version 2 of 3: composeFile %+v; want %+v", told.ComposeFile, want)
 	}
 	for _, running := range []int{3, 0} {
-		dependencies.ComposeFile.Running = running
+		dependencies.Installation.ComposeFile.Running = running
 		if told := read(); told.ComposeFile != nil {
 			t.Errorf("started from compose file version %d of 3: composeFile %+v; want none", running, told.ComposeFile)
 		}
@@ -260,7 +260,7 @@ func TestUpdate_SaysWhenTheComposeFilePinsAVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range []struct{ tag, want string }{{"v0.3.3", "v0.3.3"}, {"latest", ""}, {"", ""}} {
-		dependencies.ImageTag = test.tag
+		dependencies.Installation.ImageTag = test.tag
 		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
 		var body api.UpdateBody
 		if err := json.Unmarshal([]byte(got.body), &body); err != nil || body.PinnedTag != test.want {
