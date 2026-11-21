@@ -12,6 +12,35 @@
  */
 export const controlWaitMs = 5000;
 
+/** The path a page's media goes over, named as its console says, and the build the page is from. */
+export interface MediaPath {
+  readonly name: string;
+  readonly build: string | undefined;
+}
+
+/** Where the service worker is served, beside the app, so its scope is the whole app. */
+export const serviceWorkerUrl = "/sw.js";
+
+/**
+ * The worker's address for the build the page is from: the build named, so a worker a discovery
+ * answered for another build, or before the page's build was served, is never the one this page
+ * registers, and a copy a browser or a proxy kept for another address cannot answer it (VQ374: a
+ * kill worker Chrome kept for /sw.js answered the next build's registrations). Unnamed, as the dev
+ * loop's is, it is the bare address.
+ */
+export function serviceWorkerUrlOf(build: string | undefined): string {
+  return build === undefined
+    ? serviceWorkerUrl
+    : `${serviceWorkerUrl}?build=${encodeURIComponent(build)}`;
+}
+
+/**
+ * How the service worker is registered: its updates fetched past the HTTP cache, every script, so a
+ * worker the discovery replaces, a bad build's or its kill switch's, reaches each device at its next
+ * load (the paid spec §7.1; the correctness audit's C16).
+ */
+export const serviceWorkerOptions: RegistrationOptions = { updateViaCache: "none" };
+
 /**
  * The page is not controlled by a live worker, ready and asked to claim it, after controlWaitMs: its
  * loads go past every worker, so the media it loads by itself goes to its origin. Chrome can commit a

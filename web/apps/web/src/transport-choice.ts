@@ -14,6 +14,7 @@ import {
   type SwitchableFetch,
 } from "@orpheum/sdk";
 
+import { buildOfPage } from "./page-build.ts";
 import type { Session } from "./session.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
 import { pathName } from "./transport-wanted.ts";
@@ -88,7 +89,10 @@ export function moveToWebrtcWhenSignedIn(
         app.pathBack.moveTo(transport);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
         ways.tellMediaCarriers((url) => transport.carrierOf(url));
-        await ways.carryMediaOver(transport.fetch, mediaCredentialsOf(session), pathName);
+        await ways.carryMediaOver(transport.fetch, mediaCredentialsOf(session), {
+          name: pathName,
+          build: buildOfPage(document),
+        });
         app.pathMoves.carriedOverWebrtc();
       })
       .catch((problem: unknown) => {

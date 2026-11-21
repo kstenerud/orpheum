@@ -177,6 +177,7 @@ export {
   responseFromPort,
   sayMediaGoesOverHttp,
 } from "./rtc-media.ts";
+export type { MediaPath } from "./worker-control.ts";
 export {
   controlWaitMs,
   isPageWorkerBypassed,

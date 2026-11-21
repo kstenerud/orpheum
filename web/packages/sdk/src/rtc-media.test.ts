@@ -587,7 +587,7 @@ describe("the page's side of its path, to its service worker", () => {
     media.sayMediaGoesOverHttp(container);
     expect(await pathAnswerFrom(container)).toEqual({ kind: "orpheum-path", path: "http" });
 
-    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, webrtc);
     // Carrying, only carryMediaOver's answer comes, once.
     const { port1, port2 } = new MessageChannel();
     const heard = heardOn(port1);
@@ -625,8 +625,26 @@ describe("the page's side of its path, to its service worker", () => {
       return Promise.resolve();
     };
     vi.stubGlobal("navigator", { serviceWorker: container });
-    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, webrtc);
     expect(registered).toEqual([["/sw.js", { updateViaCache: "none" }]]);
+  });
+
+  it("registers the worker at an address naming the page's build, so a worker kept for another address never answers it (VQ374)", async () => {
+    const media = await import("./rtc-media.ts");
+    const { container, worker } = fakeWorkers();
+    container.controller = worker("active");
+    const registered: string[] = [];
+    container.register = (url) => {
+      registered.push(url);
+      return Promise.resolve();
+    };
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    const send = (): Promise<Response> => Promise.reject(new Error("unused"));
+    await media.carryMediaOver(send, noCredentials, {
+      name: "WebRTC",
+      build: "v0.8.9-61-g44ebca1+x",
+    });
+    expect(registered).toEqual(["/sw.js?build=v0.8.9-61-g44ebca1%2Bx"]);
   });
 
   it("says its path again to each worker that takes it over", async () => {
@@ -634,7 +652,7 @@ describe("the page's side of its path, to its service worker", () => {
     const { container, told, worker } = fakeWorkers();
     container.controller = worker("before");
     vi.stubGlobal("navigator", { serviceWorker: container });
-    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, webrtc);
     container.controller = worker("after");
     container.dispatchEvent(new Event("controllerchange"));
     const said = { kind: "orpheum-path", path: "webrtc" };
@@ -653,7 +671,7 @@ describe("the page's side of its path, to its service worker", () => {
     const carried = media.carryMediaOver(
       () => Promise.reject(new Error("unused")),
       noCredentials,
-      "WebRTC",
+      webrtc,
     );
     const failed = expect(carried).rejects.toBeInstanceOf(control.PageNotControlled);
     await vi.advanceTimersByTimeAsync(control.controlWaitMs);
@@ -669,7 +687,7 @@ describe("the page's side of its path, to its service worker", () => {
     const control = await import("./worker-control.ts");
     const send = (): Promise<Response> => Promise.reject(new Error("unused"));
     vi.stubGlobal("navigator", {});
-    await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
+    await expect(media.carryMediaOver(send, noCredentials, webrtc)).rejects.toBeInstanceOf(
       control.NoServiceWorker,
     );
     const { stepsSoFar } = await import("./steps.ts");
@@ -677,7 +695,7 @@ describe("the page's side of its path, to its service worker", () => {
     const { container } = fakeWorkers();
     container.register = () => Promise.reject(new DOMException("refused", "SecurityError"));
     vi.stubGlobal("navigator", { serviceWorker: container });
-    await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
+    await expect(media.carryMediaOver(send, noCredentials, webrtc)).rejects.toBeInstanceOf(
       control.NoServiceWorker,
     );
     expect(stepsSoFar().at(-1)).toMatch(/service worker: the browser refused it$/);
@@ -692,7 +710,7 @@ describe("the page's side of its path, to its service worker", () => {
     const carried = media.carryMediaOver(
       () => Promise.reject(new Error("unused")),
       noCredentials,
-      "WebRTC",
+      webrtc,
     );
     await vi.advanceTimersByTimeAsync(control.controlWaitMs / 2);
     container.controller = worker("active");
@@ -708,6 +726,9 @@ describe("the page's side of its path, to its service worker", () => {
     ]);
   });
 });
+
+/** The WebRTC path, from a page that names no build, as the dev loop's does. */
+const webrtc = { name: "WebRTC", build: undefined };
 
 const noCredentials = (): { token: undefined; viewer: undefined } => ({
   token: undefined,

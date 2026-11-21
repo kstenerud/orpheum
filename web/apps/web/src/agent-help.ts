@@ -8,6 +8,9 @@
  * plan's "Help for a person's own AI agent", navigation-and-widgets-answers-2026-10-27.md).
  */
 
+/** The page's build marker, which the build writes into index.html's head (vite.config.ts). */
+export { buildMetaName } from "./page-build.ts";
+
 /** The help's one source, from the repository's root. */
 export const agentHelpSource = "docs/users/agent-setup.md";
 
@@ -90,13 +93,6 @@ reach an agent only as a summary.
 - [What has gone wrong in an install before, and the fix](${usersGuideOnGitHub}setup-problems.md); its
   exact text: ${usersGuideRaw}setup-problems.md
 `;
-
-/**
- * The meta element naming the build the page is from, and /llms.txt's last line naming it too: an
- * agent whose fetch tool handed it a copy older than the site's can tell, and a check after a deploy
- * can see the new build is served (an agent's install, 2026-11-20).
- */
-export const buildMetaName = "orpheum-build";
 
 /** A build's name as the marker takes it: a version, a commit or both, never markup. */
 const buildName = /^[\w.+-]+$/u;

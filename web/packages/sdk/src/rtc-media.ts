@@ -9,6 +9,9 @@ import {
   isControlled,
   NoServiceWorker,
   PageNotControlled,
+  serviceWorkerOptions,
+  serviceWorkerUrlOf,
+  type MediaPath,
 } from "./worker-control.ts";
 
 /**
@@ -726,29 +729,21 @@ export function networkFetch(request: Request): Promise<Response> {
   return fetch(request);
 }
 
-/** Where the service worker is served, beside the app, so its scope is the whole app. */
-export const serviceWorkerUrl = "/sw.js";
-
-/**
- * How the service worker is registered: its updates fetched past the HTTP cache, every script, so a
- * worker the discovery replaces, a bad build's or its kill switch's, reaches each device at its next
- * load (the paid spec §7.1; the correctness audit's C16).
- */
-export const serviceWorkerOptions: RegistrationOptions = { updateViaCache: "none" };
-
 /**
  * Moves the loads the browser makes by itself onto send, the page's transport (WebRTC, or the core's
  * own name on another origin): registers the service worker, answers each load it asks for, signed
  * in with the session's token at the time, and tells it this page carries its media; resolves once
  * it controls the page, and says in the console that media now goes over name; rejects with
  * NoServiceWorker when the browser runs none or refuses it, and with PageNotControlled when no live worker controls it within controlWaitMs of asking. It says so again
- * to each worker that takes the page over.
+ * to each worker that takes the page over. path names the page's path and the build the page is
+ * from, which the worker's address names (serviceWorkerUrlOf).
  */
 export async function carryMediaOver(
   send: (request: Request) => Promise<Response>,
   credentials: () => MediaCredentials,
-  name: string,
+  path: MediaPath,
 ): Promise<void> {
+  const { name, build } = path;
   carriesMediaOver(name);
   if (!("serviceWorker" in navigator)) {
     noteStep("service worker: the browser has none");
@@ -774,10 +769,12 @@ export async function carryMediaOver(
   noteStep(
     `service worker: registering (the page is ${isControlled(workers) ? "" : "not "}controlled)`,
   );
-  await workers.register(serviceWorkerUrl, serviceWorkerOptions).catch((refused: unknown) => {
-    noteStep("service worker: the browser refused it");
-    throw new NoServiceWorker(refused);
-  });
+  await workers
+    .register(serviceWorkerUrlOf(build), serviceWorkerOptions)
+    .catch((refused: unknown) => {
+      noteStep("service worker: the browser refused it");
+      throw new NoServiceWorker(refused);
+    });
   const ready = await workers.ready;
   noteStep("service worker: ready");
   if (!isControlled(workers)) {

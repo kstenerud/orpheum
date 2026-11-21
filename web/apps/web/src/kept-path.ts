@@ -22,11 +22,13 @@ import {
   type CarrierSeen,
   type FetchRequest,
   type MediaCredentials,
+  type MediaPath,
   type OpenTogetherSocket,
   type RtcTransport,
 } from "@orpheum/sdk";
 
 import type { Reached, Reaching } from "./discovery-start.ts";
+import { buildOfPage } from "./page-build.ts";
 import { pageOpenedOf, reportPathChoice, type PathChoice } from "./path-choice.ts";
 import { pathName } from "./transport-wanted.ts";
 
@@ -136,6 +138,11 @@ function choiceTeller(
   };
 }
 
+/** The path a page's media goes over, named, and the build the page is from (serviceWorkerUrlOf). */
+function mediaPathOf(reached: Reached): MediaPath {
+  return { name: sendingOn(reached).name, build: buildOfPage(document) };
+}
+
 /**
  * Keeps the paths reaching found, moving to another when the one in use fails and to a better one
  * when it answers later, as at home once Firefox's local-network prompt is allowed; media loads are
@@ -184,7 +191,7 @@ export function keepPath(
   // Media is carried over once, on whichever path the keeper holds when each load is asked for: one
   // carried over per path would answer each load once for every path the page ever used.
   tellMediaCarriers((url) => carrierOn(inUse, url));
-  const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
+  const carried = carryMediaOver(keeper.fetch, () => credentials(), mediaPathOf(reaching.first));
   tellChoice(reaching.first.kind === "webrtc" ? reaching.first.transport : undefined);
   carried.catch(reportFailure);
   const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));

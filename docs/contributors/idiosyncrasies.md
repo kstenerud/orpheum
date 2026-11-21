@@ -73,6 +73,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A guest who opened her link from Telegram on an iPhone was told "This browser can't play from the server"; the same link in Safari played. | [An app's built-in browser on iOS runs no service worker](#an-apps-built-in-browser-on-ios-runs-no-service-worker) |
 | A guest's link said "Can't reach the server from this network" while the core logged the connection held and ended at once, with no request. | [Firefox runs no service worker in a private window](#firefox-runs-no-service-worker-in-a-private-window) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
+| After the kill switch was on and off again, a fresh Chrome tab said "Can't reach the server from this network"; its registered worker had no fetch handler, and incognito worked. | [Cloudflare's Browser Cache TTL rewrites an origin's `no-cache` on a proxied page, and Chrome then served a kept kill worker to new registrations](#cloudflares-browser-cache-ttl-rewrites-an-origins-no-cache-on-a-proxied-page-and-chrome-then-served-a-kept-kill-worker-to-new-registrations) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | Signing out on a Fire TV in Silk, and in Chrome on the desktop, stayed on "Signed out. Taking you to sign in…" for good. | [A step through the history cancels a link's navigation that has begun](#a-step-through-the-history-cancels-a-links-navigation-that-has-begun) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
@@ -4984,6 +4985,35 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Evidence:** observed 2026-10-14. **[web]** [Add CAA records · Cloudflare SSL/TLS docs](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/):
   "Cloudflare adds CAA records automatically when you have Universal SSL and add any CAA records to your
   zone", and they "will not appear in the Cloudflare dashboard".
+
+### Cloudflare's Browser Cache TTL rewrites an origin's `no-cache` on a proxied page, and Chrome then served a kept kill worker to new registrations
+
+- **Technology:** Cloudflare's proxy with a zone's Browser Cache TTL set (4 hours on orpheum.cc and
+  orpheum.dev), and Chrome's service workers (the owner's Chrome, 2026-11-21; unverified which
+  versions).
+- **Symptom:** after the kill switch was turned on and off again on staging (VQ374 step 5), a fresh
+  tab at orpheum.dev said "Can't reach the server from this network": the steps showed the service
+  worker ready, then "it did not take the page over in time", a reload, and the same again. Chrome's
+  `chrome://serviceworker-internals` showed the registered worker with "Fetch handler: NO_HANDLER",
+  the kill worker, though connectd was serving the build's own; clearing the site's data did not mend
+  it, and an incognito window worked.
+- **Cause:** connectd answers `sw.js` with `Cache-Control: no-cache`, and Cloudflare's edge handed it on
+  as `max-age=14400`: the zone's Browser Cache TTL replaces an origin's shorter or absent lifetime
+  (seen with `curl -sI` against staging and production, 2026-11-21). Chrome kept the kill worker it
+  fetched while the switch was on, and used that copy for the next registrations at the same address,
+  `updateViaCache: "none"` notwithstanding; clearing site data leaves the HTTP cache. Which fetch
+  Chrome takes from the HTTP cache for a new registration is unverified: the kept copy was the only
+  source of a worker with no fetch handler.
+- **What we do:** the page registers its worker at an address naming its build,
+  `/sw.js?build=<build>` (`serviceWorkerUrlOf`, `web/packages/sdk/src/worker-control.ts`; the build
+  from the page's `orpheum-build` meta element, `web/apps/web/src/page-build.ts`), so no copy kept
+  for another build or for the bare address answers it; and connectd, while killing, answers the page
+  of the build it serves with the build's own worker, and only a page of another build or of none with
+  the kill worker (orpheum-connect `internal/webclient`). The owner sets the zones' Browser Cache TTL
+  to "Respect Existing Headers", so the origin's lifetimes reach the browser. VQ374.
+- **Evidence:** **[owner]** the report and screenshots above, 2026-11-21. **[ours]** `curl -sI` of
+  `sw.js` through each zone: `cache-control: max-age=14400` where connectd sent `no-cache`, the same
+  day.
 
 ### A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video
 
