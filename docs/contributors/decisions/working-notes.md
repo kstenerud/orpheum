@@ -16333,6 +16333,11 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
    images after a grace period; sizes made on request and JPEG; other large sizes; bases
    (fetched again when next needed). A live item's poster-wall size is never evicted. When it
    was last served is kept to the day, in memory, written hourly.
+
+   > **Amended by [D530](#d530--the-cache-evicts-by-what-each-entry-is-worth-keeping-what-remaking-it-costs-the-space-it-frees-and-how-lately-it-was-served)** (2026-11-21): the
+   > steps' fixed order is replaced by one weighing of what remaking an entry costs, the space it
+   > frees and how lately it was served.
+
 7. **High water:** when what is never evicted exceeds the ceiling, artwork keeps being served
    and fetched on demand, and the admin is warned, lastingly, with the size needed and a
    ceiling to set (the need plus 15%), shown again beside the setting.
@@ -30473,3 +30478,33 @@ in Docker, on OpenMediaVault, on a Synology or under any installer still to come
 - 3: VQ370
 
 **Status:** decided (2026-11-20); built (2026-11-20) in orpheum-connect, `internal/loglevel`.
+
+## D530 — The cache evicts by what each entry is worth keeping: what remaking it costs, the space it frees, and how lately it was served
+
+**Decided** (2026-11-21), by the project owner, answering question 2 of
+[trickplay.md](../design/plans/trickplay.md), where to put a film's scrub-bar pictures in the
+cache's eviction order: *"Evict cache items based on a balance of the cost of regenerating them,
+space recovery from eviction, and LRU."* It amends
+[D212](#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade)
+§6, whose fixed order of steps it replaces.
+
+1. **Every entry the cache may evict is weighed by three things together:** what remaking it
+   costs (an image size cut again from its base is milliseconds of the node; a base, a provider's
+   download; a film's scrub-bar pictures, a read of the whole film), the space evicting it frees,
+   and how long since it was last served. Over the ceiling, the entries least worth keeping go
+   first, down to D212's 90%. A costly entry served lately stays over a cheap one; a large entry
+   cheap to remake goes before a small one.
+2. **The weighing is GreedyDual-Size's** (Cao and Irani, 1997), the cache literature's way of
+   balancing exactly these: each entry's worth is its cost over its size, plus the cache's
+   running inflation, which rises to each evicted entry's worth, so an entry not served since falls
+   behind in time as LRU's would. Its costs are measured device time where the core knows it (a
+   film's pictures by its length) and a fixed estimate per kind otherwise. The constants are the
+   build's to set and test, not a setting.
+3. **What D212 kept outside the order stays outside it:** a live item's poster-wall size and each
+   shape's smallest size are never evicted, a removed item's images are worth nothing after their
+   grace, and D212 §7's high water warns as before.
+
+**Proven by:** the tests trickplay.md phase F2 names, when it is built.
+
+**Status:** decided (2026-11-21); not built. Artwork's ceiling (`internal/core/artwork`,
+ceiling.go) changes with trickplay.md phase F2, when the pictures join the cache.

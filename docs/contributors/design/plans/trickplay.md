@@ -5,9 +5,9 @@
 
 # Trickplay: thumbnails on the scrub bar
 
-- **Status:** PROPOSED — written 2026-11-21 by the agent for [b1.md](b1.md) phase F, from the
+- **Status:** AGREED — written 2026-11-21 by the agent for [b1.md](b1.md) phase F, from the
   owner's answer to question 17 the same day: *every file, at idle priority, with a bump on
-  interest*. The questions at the end are the owner's.
+  interest*. The owner answered its five questions the same day (at the end); F1 is next.
 - **Depends on:** [b1.md](b1.md), [work-scheduling.md](work-scheduling.md) (D329),
   [artwork.md](artwork.md) (D212)
 
@@ -119,7 +119,8 @@ back to decoding every frame for that file alone, which the job's estimate shows
   playback that raised it (question 4).
 - **The store:** a table in `cache.db` (rebuildable, not `persistent.db`) of each file's sheets,
   by payload hash and version, each sheet's bytes content-addressed in the cache directory as
-  artwork's images are, under the same ceiling. Its place in the eviction order is question 2.
+  artwork's images are, under the same ceiling, evicted by D530's weighing of cost, size and how lately it was served
+  (question 2).
 - **Forgotten** when the probe facts it was made from change (`library.DerivedDroppers`, D392 §3),
   so the sweep makes it again.
 
@@ -145,7 +146,7 @@ Each phase ends green, with tests that fail when reverted (D190).
 | --- | --- | --- |
 | F0 | **Measure** (done 2026-11-21 on the NUC7, §2; ainas and MPEG-2 left): keyframes-only against a full decode, on the NUC7 and ainas, three codecs; the WebP quality at 320 px | The numbers are in this file and question 1 is answered |
 | F1 | **The node:** `makeTrickplay`, `SCHED_IDLE` through `execx`, one slot, sheets as pieces | A generated fixture's sheets have each picture at its mark within one keyframe gap; a run stopped mid-film resumes at the next sheet; the run's scheduling class is idle (Linux) |
-| F2 | **The core:** the job, the sweep, the table, interest's raise, the store and its eviction, forgetting | A swept library queues every video once; a page shown raises its film's job; FFmpeg's failure is not asked again |
+| F2 | **The core:** the job, the sweep, the table, interest's raise, the store, D530's eviction for every cache entry, forgetting | A swept library queues every video once; a page shown raises its film's job; FFmpeg's failure is not asked again |
 | F3 | **The API and the scrub bar** | Hovering, dragging and arrow keys show the right picture of a made film; an unmade film shows the time alone (vitest and a Playwright run) |
 | F4 | **On devices:** a VQ item for the Fire TV and a phone, and the staging library swept start to end with playback unaffected | The owner's run |
 
@@ -160,21 +161,16 @@ Each phase ends green, with tests that fail when reverted (D190).
 - The API answers 404 before the first sheet and lists the sheets made after it.
 - The scrub bar shows the picture of the hovered point, cut from the right sheet at the right place.
 
-## The owner's questions
+## The owner's questions, answered 2026-11-21
 
-1. **Keyframe pictures, or exact marks?** Pictures from keyframes, up to one keyframe gap early,
-   measured 29 to 34 times cheaper (§2); exact 10 s marks cost a full decode, about a month of one
-   core for the reference library on the NUC7. *Recommendation:* keyframes.
-2. **Their place in the cache's eviction order (D212 §6):** remaking a film's pictures costs a read
-   of the whole film, far more than cutting an image size again. *Recommendation:* evicted after
-   every image size that can be cut again from its base, least recently served first, before a
-   removed item's images are kept past their grace, and never the pictures of a film in Continue
-   Watching or Next Up.
-3. **Hardware decoding for trickplay:** *Recommendation:* no. The hardware decoder's slots stay
-   playback's, and keyframes-only software decoding at idle priority is expected to be cheap
-   enough; revisited if F0 says the Celeron would take weeks.
+1. **Keyframe pictures, or exact marks?** Keyframes: *"It doesn't need to be exact; it needs to be
+   fast."* Measured 29 to 34 times cheaper than exact 10 s marks (§2).
+2. **Their place in the cache's eviction order:** not a place in an order. The owner: *"Evict
+   cache items based on a balance of the cost of regenerating them, space recovery from eviction,
+   and LRU."* Recorded as D530, which replaces D212 §6's fixed order for every entry the cache
+   evicts; F2 builds it, with the pictures' cost set by the film's length.
+3. **Hardware decoding for trickplay:** none; the hardware decoder's slots stay playback's.
 4. **A play raises its film's trickplay to a play's place in the queue, but never its CPU or disk
-   tier** (§4). *Recommendation:* yes, so a film played today previews tomorrow at the latest,
-   and the playback is never slowed by it.
+   tier** (§4): yes.
 5. **TV arrow keys** step the position with the picture shown (§5), Fire TV's and the web
-   client's alike. *Recommendation:* yes, in F3; it is the place a preview helps most.
+   client's alike: yes, in F3.
