@@ -36,6 +36,22 @@ func (q *Queries) DeleteDetectedSegmentsNotIn(ctx context.Context, arg DeleteDet
 	return err
 }
 
+const deleteProviderSegmentsOfFile = `-- name: DeleteProviderSegmentsOfFile :exec
+DELETE FROM media_segment WHERE media_segment.file_id = ?1 AND media_segment.provider = ?2
+`
+
+type DeleteProviderSegmentsOfFileParams struct {
+	FileID   int64
+	Provider string
+}
+
+// A detector's segments of a file, before it keeps what it found again: every other provider's, a
+// person's above all, stay.
+func (q *Queries) DeleteProviderSegmentsOfFile(ctx context.Context, arg DeleteProviderSegmentsOfFileParams) error {
+	_, err := q.db.ExecContext(ctx, deleteProviderSegmentsOfFile, arg.FileID, arg.Provider)
+	return err
+}
+
 const deleteSegmentsOfFile = `-- name: DeleteSegmentsOfFile :exec
 DELETE FROM media_segment WHERE file_id = ?1
 `
@@ -84,6 +100,34 @@ func (q *Queries) InsertDetectedSegmentsMissing(ctx context.Context, arg InsertD
 		arg.Provider,
 		arg.Confidence,
 		arg.Found,
+	)
+	return err
+}
+
+const insertSegment = `-- name: InsertSegment :exec
+INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence)
+VALUES (?1, ?2, ?3, ?4, ?5,
+  ?6)
+`
+
+type InsertSegmentParams struct {
+	FileID     int64
+	Type       string
+	StartMs    int64
+	EndMs      int64
+	Provider   string
+	Confidence float64
+}
+
+// One segment of a file, as a detector found it, with how sure it is.
+func (q *Queries) InsertSegment(ctx context.Context, arg InsertSegmentParams) error {
+	_, err := q.db.ExecContext(ctx, insertSegment,
+		arg.FileID,
+		arg.Type,
+		arg.StartMs,
+		arg.EndMs,
+		arg.Provider,
+		arg.Confidence,
 	)
 	return err
 }

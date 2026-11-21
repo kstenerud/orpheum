@@ -59,6 +59,10 @@ const (
 	// its folder; it names no target, the system library being one per server, and its arguments say
 	// whether it is a rebuild (D435 §4, §7).
 	KindMakeSystemVideos Kind = "make_system_videos"
+	// KindFindRepeats fingerprints the sound of a season's videos on one node and keeps the stretches
+	// they share as intro and credits segments (D101, D115); its target is the season's lowest file
+	// not yet measured, and its arguments name the season.
+	KindFindRepeats Kind = "find_repeats"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -67,13 +71,14 @@ func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindExtractSubtitle, KindConvertFetchedSubtitle,
 		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate, KindHashWholeFile,
-		KindMakeSystemVideos,
+		KindMakeSystemVideos, KindFindRepeats,
 	}
 }
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a file
 // for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for read_through and hash_whole_file, a chunk store for make_chunks, a scan for scan
+// convert_fetched_subtitle, a file for read_through and hash_whole_file, a season's file for find_repeats,
+// a chunk store for make_chunks, a scan for scan
 // and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
 // at a time, since every such job of a kind is one target. Enqueue refuses any other target with ErrNotOneTarget.

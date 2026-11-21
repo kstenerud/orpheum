@@ -323,6 +323,19 @@ CREATE TABLE media_segment (                               -- class O; a person'
   confidence  REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1)
 );
 CREATE INDEX media_segment_file ON media_segment(file_id, provider);
+-- Step 0095 (D101, D115, media-segments.md): each video's bytes measured by the fingerprint
+-- detector, by payload hash, as the loudness is, and by the core's measurement version, so a better
+-- comparison measures every video again. A failure is a fact about the bytes, never asked again; a
+-- video the node refused has no row, and the next sweep asks again.
+CREATE TABLE repeat_measurement (                          -- class O: what the node measured
+  payload_hash BLOB NOT NULL,
+  version      INTEGER NOT NULL CHECK (version > 0),
+  outcome      TEXT NOT NULL CHECK (outcome IN ('found','none','failed')),
+  failure      TEXT,                                         -- FFmpeg's words; set only when it failed
+  measured_at  INTEGER NOT NULL,
+  CHECK ((outcome = 'failed') = (failure IS NOT NULL)),
+  PRIMARY KEY (payload_hash, version)
+) WITHOUT ROWID, STRICT;
 CREATE TABLE file_nfo (                                    -- class O: a rescan sends it again
   file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
   body        BLOB NOT NULL              -- the NFO's bytes, which identification reads (D182)
@@ -1492,6 +1505,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
 | `media_segment` | persistent.db | `internal/core/library` | a file's typed ranges, its chapters' found at each probe kept; a person's are theirs (D82) |
+| `repeat_measurement` | persistent.db | `internal/core/library` | each video's bytes compared with its season's others, kept when the node answers (D101) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
 | `genre` | persistent.db | `internal/core/identify` | the pass, as a source first names each (step 0067) |
 | `grant` | persistent.db | `internal/core/auth` | |
@@ -1568,7 +1582,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `media_segment`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removedFilesKeptDays` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `media_segment`, `repeat_measurement`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removedFilesKeptDays` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `endedCredentialsKeptDays` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |

@@ -109,6 +109,12 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 			services.copies.Assignee,
 		},
 		{
+			// A comparison that gave up keeps nothing, so the next sweep asks again (D101).
+			jobs.KindFindRepeats, services.repeats.HandleFindRepeats, nil, nil, 1,
+			[]string{sweepRepeats},
+			services.repeats.Assignee,
+		},
+		{
 			// A make that gave up keeps nothing: the next use of a video not there asks again (D435 §5).
 			jobs.KindMakeSystemVideos, services.systemVideos.HandleMakeSystemVideos, nil, nil, 1,
 			derivedByAPlay(),
@@ -174,6 +180,7 @@ const (
 	sweepOwedPasses       = "identification passes owed"
 	sweepReadThroughs     = "read-throughs"
 	sweepCopies           = "copies found at a second place"
+	sweepRepeats          = "seasons' intros and credits"
 	sweepScheduledBackup  = "the scheduled backup"
 	sweepCertificate      = "the certificate's renewal"
 	sweepScheduledScans   = "the scheduled scans"
@@ -280,7 +287,7 @@ const scheduledBackupCheckEvery = 5 * time.Minute
 func sweepsAfterAPass() []string {
 	return []string{
 		sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs, sweepRescans,
-		sweepCopies,
+		sweepCopies, sweepRepeats,
 	}
 }
 
@@ -373,5 +380,8 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		// The copies a scan found are settled after the pass that follows it, and hourly with the
 		// read-throughs, which read whole files too (D363 §2).
 		{Name: sweepCopies, Derive: services.copies.QueueCopyChecks, Every: every(settings.ReadThroughSweepEveryHours)},
+		// A season's videos not measured yet are compared after the pass that files them, and hourly
+		// (D101).
+		{Name: sweepRepeats, Derive: services.repeats.QueueRepeats, Every: derivedWorkEvery},
 	}
 }

@@ -51,3 +51,14 @@ WHERE media_segment.file_id = sqlc.arg(from_file) AND media_segment.provider = '
 -- name: DeleteSegmentsOfFile :exec
 -- A copy's detected segments, once its person's are moved: its file's detectors find the same.
 DELETE FROM media_segment WHERE file_id = sqlc.arg(file_id);
+
+-- name: DeleteProviderSegmentsOfFile :exec
+-- A detector's segments of a file, before it keeps what it found again: every other provider's, a
+-- person's above all, stay.
+DELETE FROM media_segment WHERE media_segment.file_id = sqlc.arg(file_id) AND media_segment.provider = sqlc.arg(provider);
+
+-- name: InsertSegment :exec
+-- One segment of a file, as a detector found it, with how sure it is.
+INSERT INTO media_segment (file_id, type, start_ms, end_ms, provider, confidence)
+VALUES (sqlc.arg(file_id), sqlc.arg(type), sqlc.arg(start_ms), sqlc.arg(end_ms), sqlc.arg(provider),
+  sqlc.arg(confidence));

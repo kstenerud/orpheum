@@ -289,6 +289,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListLibrarySeries":     "a library's series, which are few, read whole by the statistics",
 		"ListLibraryUnnumberedEpisodePaths": "the series' orderings, which are few, each searched for its " +
 			"unnumbered positions; a pass reads it once (D307 section 2)",
+		"ListSeasonVideos": "the series' orderings, which are few, for the aired one's seasons: the repeats sweep " +
+			"reads every season's videos, after a pass and hourly, and a job its one season's (D101)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
 		"ListWorksAwaitingMatch":  sweep + "the first-match sweep reads the titles never answered",
 		// Whether a library covers a place (D363).

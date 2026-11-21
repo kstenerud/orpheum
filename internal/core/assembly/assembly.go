@@ -159,6 +159,8 @@ type Services struct {
 	scanSchedule *library.ScanSchedule
 	// copies confirms the files found at a second place that are copies of one found before (D363 §2).
 	copies *library.Copies
+	// repeats finds the intro and credits a season's episodes share by their sound (D101, D115).
+	repeats *library.Repeats
 	// systemVideos keeps the server's own videos in the hidden system library (D435).
 	systemVideos *library.SystemVideos
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).

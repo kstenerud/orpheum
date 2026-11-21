@@ -38,7 +38,7 @@ type SegmentProvider string
 const (
 	// ProviderChapters found it as a chapter of the file whose title names it.
 	ProviderChapters SegmentProvider = "chapters"
-	// ProviderFingerprint is audio found repeated across a season's episodes (D115); not built yet.
+	// ProviderFingerprint is audio found repeated across a season's episodes (D115), kept by Repeats.
 	ProviderFingerprint SegmentProvider = "fingerprint"
 	// ProviderPerson is a person's correction, which beats every detector and survives re-detection.
 	ProviderPerson SegmentProvider = "person"

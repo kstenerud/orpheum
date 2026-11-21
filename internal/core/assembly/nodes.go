@@ -91,6 +91,10 @@ func (services *Services) openNodeWork(parts Parts) {
 		parts.Database, services.Scans, parts.Settings, parts.Clock, parts.Logger)
 	services.nodes.SetChanges(services.scanSchedule)
 	services.copies = openCopies(services, parts)
+	services.repeats = library.NewRepeats(library.RepeatsParts{
+		Database: parts.Database, Jobs: services.Queue, Assigner: services.Exchanges, Nodes: services.nodes,
+		Clock: parts.Clock, Logger: parts.Logger,
+	})
 }
 
 // openCopies is the confirmation of the files found at a second place: what other packages hold of a

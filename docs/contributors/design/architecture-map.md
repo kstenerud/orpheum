@@ -217,6 +217,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct; one per file and provider's file (step 0032, D244 §4) |
 | artwork | persistent.db | T1 (chosen) + T2 (the provider's list) | yes | the image bytes are the cache's (below) |
 | loudness | persistent.db | T3 (reads the whole file; the schema calls it "class O") | yes | the T3 kept with T1, as subtitle_text is |
+| repeat_measurement | persistent.db | T3 (reads each video's opening and closing minutes, compared across a season; the schema calls it "class O") | yes | whether a video's bytes were compared, by payload hash and version, so a season is not read again; what it found is media_segment's, provider `fingerprint` (step 0095, D101) |
 | video_timeline (a picture's keyframes and bytes in each second, by payload hash) | persistent.db | T3 (reads the whole file, copying the picture's packets) | yes | the T3 kept with T1, as loudness is, whose read gathers it (step 0035; one version in cache.db before, F1) |
 | subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by step 0029 (F1) |
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |

@@ -85,11 +85,12 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		// A measurement that gave up keeps nothing: only FFmpeg's word on the file is the file's own
 		// failure, which its node's answer keeps, so the next sweep asks again (D244 §1); so does a
 		// whole-file read of a likely copy, which stays a file of its own until a read finishes (D363
-		// §2). A backup and the certificate's renewal have no item: a failure is the job's own, which
+		// §2), and so does a season's comparison, which keeps what a video's bytes failed at as their
+		// measurement (D101). A backup and the certificate's renewal have no item: a failure is the job's own, which
 		// the job view shows (D243 §6, §11).
 		isKeptByItsItem := !slices.Contains([]jobs.Kind{
 			jobs.KindReadThrough, jobs.KindBackup, jobs.KindRenewCertificate, jobs.KindHashWholeFile,
-			jobs.KindMakeSystemVideos,
+			jobs.KindMakeSystemVideos, jobs.KindFindRepeats,
 		}, runner.kind)
 		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != isKeptByItsItem {
 			t.Errorf("%s keeps a job that gave up as its item's own failure: %v (D231 §4, §10; D244 §1)",

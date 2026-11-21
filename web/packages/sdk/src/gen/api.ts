@@ -4002,7 +4002,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetchMetadata" | "makeArtworkSizes" | "extractSubtitle" | "convertFetchedSubtitle" | "readThrough" | "makeChunks" | "scan" | "examine" | "backup" | "renewCertificate" | "hashWholeFile" | "makeSystemVideos";
+            kind: "fetchMetadata" | "makeArtworkSizes" | "extractSubtitle" | "convertFetchedSubtitle" | "readThrough" | "makeChunks" | "scan" | "examine" | "backup" | "renewCertificate" | "hashWholeFile" | "makeSystemVideos" | "findRepeats";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";

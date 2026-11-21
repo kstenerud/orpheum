@@ -85,6 +85,7 @@ export const enStatus = {
       renewCertificate: "Renewing the server's certificate",
       hashWholeFile: "Comparing a file with its likely copy",
       makeSystemVideos: "Making the server's own videos",
+      findRepeats: "Finding a season's intros and credits",
     },
     state: {
       queued: "Waiting",

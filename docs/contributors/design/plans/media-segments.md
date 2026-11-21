@@ -17,10 +17,17 @@
   and a cast's receiver offer none (D246 §8). Half built (Phase D, 2026-11-21): the node's side of
   the fingerprint detector, the `findRepeats` command (protocol 67), which fingerprints each of a
   season's videos' opening and closing with chromaprint after a stereo mix (D115) and answers the
-  stretch the others share in each (`internal/node/fingerprint`); the core's job that names the
-  season and keeps the segments is not built. Not built: chapters on the scrub bar, settings to
-  skip by themselves, the credits cue on a cast, a person's corrections' API, the fingerprint and
-  black-frame detectors, and derivation across sibling files.
+  stretch the others share in each (`internal/node/fingerprint`). Built for the core (Phase D,
+  2026-11-21, as proposed; the owner has not answered b1.md's questions): the `find_repeats` job
+  (`internal/core/library/repeats.go`), which a sweep after each identification pass and hourly
+  queues for each season of an aired ordering, on each node, with a video not measured yet: one
+  video of each episode, at most 30, the opening 10 min and the closing 6 min; the node's spans
+  become `intro` and `credits`, provider `fingerprint`, confidence the share of the videos compared
+  that a span is heard in, replacing only the fingerprint's earlier rows; and each video's bytes
+  are kept measured (`repeat_measurement`, step 0095), found, none or failed, a refused one left for
+  the next sweep. Not built: chapters on the scrub bar, settings to skip by themselves, the credits
+  cue on a cast, a person's corrections' API, the black-frame detector, derivation across sibling
+  files, and the acceptance's generated test season (b1.md Phase D §2).
 - **Depends on:** library-model.md
 - **Blocks:** [library-model.md](library-model.md) — the table is schema
 
