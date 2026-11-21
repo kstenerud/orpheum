@@ -430,7 +430,7 @@ func openAndMigrateOrStartOver(
 	if err == nil || config.Database.WhenUnmigratable != whenStartOver || !isUnmigratable(err) {
 		return database, err
 	}
-	asideName := "persistent-set-aside-" + now.Now().UTC().Format("20060102T150405Z") + ".db"
+	asideName := instancedir.SetAsideName(now.Now())
 	aside, moveErr := directories.SetPersistentDatabaseAside(asideName)
 	if moveErr != nil {
 		return nil, errors.Join(err, moveErr)

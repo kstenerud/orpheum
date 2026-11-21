@@ -20,7 +20,7 @@ import (
 )
 
 // timestampLayout names backups so they sort by when they were taken.
-const timestampLayout = "20060102T150405Z"
+const timestampLayout = instancedir.TimeLayout
 
 // archiveSuffix ends every backup's name: a gzipped tar of the persistent directory (D242 §5).
 const archiveSuffix = ".tar.gz"

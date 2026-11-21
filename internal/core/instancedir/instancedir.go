@@ -24,6 +24,16 @@ const (
 	fileMode               = 0o600
 )
 
+// TimeLayout is how a file's name says when it was made, in UTC to the second, so the names of one
+// kind sort by time: a backup's, a set-aside database's, a report's.
+const TimeLayout = "20060102T150405Z"
+
+// SetAsideName is the name persistent.db is set aside under at moment, for SetPersistentDatabaseAside
+// (D249 §4).
+func SetAsideName(moment time.Time) string {
+	return "persistent-set-aside-" + moment.UTC().Format(TimeLayout) + ".db"
+}
+
 // ErrNotFound is returned when a persistent or run file, or a stored artwork file, does not exist.
 var ErrNotFound = errors.New("file not found")
 

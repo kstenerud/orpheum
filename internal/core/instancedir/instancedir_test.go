@@ -136,6 +136,16 @@ func TestReplacePersistentDatabase_RemovesTheOldWAL(t *testing.T) {
 	}
 }
 
+// A set-aside database is named by the moment it was set aside, to the second, so the names sort by
+// time.
+func TestSetAsideName_NamesTheMomentToTheSecond(t *testing.T) {
+	t.Parallel()
+	moment := time.Date(2026, 11, 21, 6, 30, 5, 0, time.UTC)
+	if got, want := SetAsideName(moment), "persistent-set-aside-20261121T063005Z.db"; got != want {
+		t.Errorf("SetAsideName = %q, want %q", got, want)
+	}
+}
+
 func TestLockInstance_RefusesASecondHolder(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)

@@ -249,7 +249,7 @@ func commandStartOver(_ context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	asideName := "persistent-set-aside-" + clock.System{}.Now().UTC().Format("20060102T150405Z") + ".db"
+	asideName := instancedir.SetAsideName(clock.System{}.Now())
 	plan := fmt.Sprintf("The database %s is set aside as %s in %s. The server then starts with an empty "+
 		"one: a new setup code, and its people, libraries, settings and secrets made again. Its identity, "+
 		"certificate and discovery claim stay.\n", directories.PersistentDatabasePath(), asideName,

@@ -73,7 +73,7 @@ func (reports *FilingReports) Report(ctx context.Context, itemID int64) (FilingR
 	}
 	now := reports.clock.Now().UTC()
 	text := work.markdown(reports.version, now, files)
-	name := "filed-wrongly-" + strconv.FormatInt(itemID, 10) + "-" + now.Format("20060102T150405Z") + ".md"
+	name := "filed-wrongly-" + strconv.FormatInt(itemID, 10) + "-" + now.Format(instancedir.TimeLayout) + ".md"
 	path, err := reports.reports.WriteReport(name, []byte(text))
 	if err != nil {
 		return FilingReport{}, fmt.Errorf("keep the report of item %d: %w", itemID, err)

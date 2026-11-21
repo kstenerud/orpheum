@@ -44,7 +44,7 @@
 // # Where to change
 //
 //   - instancedir.go: the layout (persistent.db, cache.db, the backups, persistent and run files) and
-//     atomic writes.
+//     atomic writes; TimeLayout and SetAsideName: the time a file's name says it was made.
 //   - archive.go: a backup's archive, written and read back (D242 §5).
 //   - art.go: the artwork store under the cache directory. lock_unix.go: the instance's lock. The
 //     sockets are internal/platform/unixsocket's, since the node listens on one too.
