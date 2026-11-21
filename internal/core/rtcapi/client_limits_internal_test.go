@@ -13,14 +13,15 @@ import (
 )
 
 // webClientConstant is the integer the web client's SDK exports as name in file, under
-// web/packages/sdk/src: a number, or a product of numbers ("64 * 1024"), as the SDK writes them.
+// web/packages/sdk/src: a number, or a product of numbers ("64 * 1024"), as the SDK writes them,
+// with or without the ": number" isolatedDeclarations asks of a product.
 func webClientConstant(t *testing.T, file, name string) int64 {
 	t.Helper()
 	source, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "packages", "sdk", "src", file))
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := regexp.MustCompile(`export const ` + name + ` = ([\d_ *]+);`).FindSubmatch(source)
+	found := regexp.MustCompile(`export const ` + name + `(?:: number)? = ([\d_ *]+);`).FindSubmatch(source)
 	if found == nil {
 		t.Fatalf("%s has no %s this test can read; say where the client's went", file, name)
 	}
