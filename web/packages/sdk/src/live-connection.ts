@@ -7,6 +7,7 @@
  * that changes, and hands a device a cast to receive on it.
  */
 
+import { noteForTheLog } from "./problem.ts";
 import { ShownCheck } from "./shown-check.ts";
 import { whenPageChanges, type PageOfConnection } from "./shown-page.ts";
 import { deadAfterUnansweredPings, nextReconnect, pingEveryMs } from "./together-connection.ts";
@@ -233,6 +234,16 @@ function idsIn(ids: unknown): number[] {
   return Array.isArray(ids) ? ids.filter((id): id is number => typeof id === "number") : [];
 }
 
+/** The type a message the server sent names, for the log: "malformed" for one naming none. */
+function messageTypeOf(text: string): string {
+  try {
+    const type = recordOf(JSON.parse(text))?.["type"];
+    return typeof type === "string" ? `type ${JSON.stringify(type.slice(0, 40))}` : "malformed";
+  } catch {
+    return "malformed";
+  }
+}
+
 /** Reads one message the server sent; undefined for one malformed or unknown. */
 export function parseLiveMessage(text: string): LiveMessage | undefined {
   let parsed: unknown;
@@ -431,6 +442,9 @@ class PageLiveConnection implements LiveConnection {
     this.#unansweredPings = 0;
     const message = parseLiveMessage(text);
     if (message === undefined) {
+      // A server newer or older than the page sends what it cannot read: dropped, but said at the
+      // debug level, so a report shows why an answer never came (the code audit of 2026-11-21, 3).
+      noteForTheLog(`the live connection dropped a message it cannot read: ${messageTypeOf(text)}`);
       return;
     }
     switch (message.type) {

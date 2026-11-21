@@ -87,6 +87,9 @@ web, the SDK's `parseLiveMessage` (`web/packages/sdk/src/live-connection.ts:237-
 - **Fix:** a `default:` that refuses with `codeInvalid` and logs at debug in `Handle` and the live
   reader; a debug log for the SDK's drop. **S, agent.**
 
+*Fixed, the web's side:* fix(sdk): the live connection notes a message it cannot read at the debug
+level. `#hear` notes the drop through `noteForTheLog`, naming the type or "malformed".
+
 ### 4. "Is this path at or under that one" is written again beside the helper that does it
 
 `internal/platform/pathtree/pathtree.go:11` (`IsAtOrUnder`) is the helper, and

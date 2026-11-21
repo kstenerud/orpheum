@@ -59,6 +59,28 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot()).toMatchObject({ isConnected: true, deviceIds: [3, 4] });
   });
 
+  it("notes at the debug level a message it cannot read, and goes on (the code audit of 2026-11-21, finding 3)", () => {
+    const noted = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      client: "index-T3st.js",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "aNewerKind", deviceIds: [3] }));
+    sockets.opened[0]!.onMessage("{not json");
+    expect(noted.mock.calls.map((call) => call.join(" "))).toEqual([
+      'Orpheum: the live connection dropped a message it cannot read: type "aNewerKind"',
+      "Orpheum: the live connection dropped a message it cannot read: malformed",
+    ]);
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3, 4] }));
+    expect(connection.snapshot()).toMatchObject({ isConnected: true, deviceIds: [3, 4] });
+    noted.mockRestore();
+  });
+
   it("connects again after a drop, with the growing wait, and pings as the session socket does", () => {
     vi.useFakeTimers();
     const sockets = fakeSockets();
