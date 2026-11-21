@@ -464,7 +464,7 @@ it("says a password that isn't the admin's was refused, and that the key still w
   );
 });
 
-it("tells a frozen server that remembered devices still reach it, in the spec's words (§3.10, U7)", async () => {
+it("tells a frozen server its subscription ended, that remembered devices still reach it, and the two ways on (§3.10, U7; the owner, 2026-11-21)", async () => {
   const services = servedBy({
     "GET /system/discovery": [
       200,
@@ -473,7 +473,7 @@ it("tells a frozen server that remembered devices still reach it, in the spec's 
   });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   expect(mounted.container.textContent).toContain(
-    "Remote access is paused. Devices that already know this server keep working until its address changes. Renew it with the discovery's operator.",
+    "Your discovery subscription ended. Devices that already know this server keep working until its address changes. Renew it with your discovery's operator, or run your own discovery to keep reaching this server from outside your home.",
   );
 });
 
