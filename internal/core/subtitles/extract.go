@@ -149,40 +149,50 @@ func trackFailures(tracks []nodeproto.TrackText) string {
 	return strings.Join(failures, "; ")
 }
 
-// RecordFailure records an extract_subtitle or convert_fetched_subtitle job that failed as the
-// failure of each track it was to make and has no text or failure kept (D231 §4, §10, D340): the
-// playback shows it failed, and the next play of its video asks again, a play being the request.
-func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
-	var keys []sqlcgen.GetSubtitleTextParams
-	switch job.Kind {
-	case jobs.KindExtractSubtitle:
-		streams, err := service.database.Read().ListSubtitleStreamsInFile(ctx, job.FileID)
-		if err != nil {
-			return fmt.Errorf("read the subtitle tracks in file %d: %w", job.FileID, err)
-		}
-		if len(streams) == 0 || streams[0].PayloadHash == nil {
-			return nil // its file was scanned again or is gone
-		}
-		unmade, err := service.tracksWithoutText(ctx, streams)
-		if err != nil {
-			return err
-		}
-		for _, stream := range unmade {
-			keys = append(keys, textKey(stream.PayloadHash, stream.StreamIndex))
-		}
-	case jobs.KindConvertFetchedSubtitle:
-		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
-		}
-		keys = append(keys, fetchedKey(fetched.BodyGzip))
-	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindReadThrough, jobs.KindMakeChunks,
-		jobs.KindScan, jobs.KindExamine, jobs.KindBackup, jobs.KindRenewCertificate, jobs.KindMakeSystemVideos,
-		jobs.KindFindRepeats:
-		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
+// RecordExtractSubtitleFailure records an extract_subtitle job that failed as the failure of each
+// track of its video that has no text or failure kept (D231 §4, §10): the playback shows it failed,
+// and the next play of its video asks again, a play being the request. A job of another kind is
+// refused.
+func (service *Service) RecordExtractSubtitleFailure(ctx context.Context, job jobs.Job, failure string) error {
+	if job.Kind != jobs.KindExtractSubtitle {
+		return fmt.Errorf("job %d: %s is not an extraction of a subtitle", job.ID, job.Kind)
 	}
+	streams, err := service.database.Read().ListSubtitleStreamsInFile(ctx, job.FileID)
+	if err != nil {
+		return fmt.Errorf("read the subtitle tracks in file %d: %w", job.FileID, err)
+	}
+	if len(streams) == 0 || streams[0].PayloadHash == nil {
+		return nil // its file was scanned again or is gone
+	}
+	unmade, err := service.tracksWithoutText(ctx, streams)
+	if err != nil {
+		return err
+	}
+	keys := make([]sqlcgen.GetSubtitleTextParams, 0, len(unmade))
+	for _, stream := range unmade {
+		keys = append(keys, textKey(stream.PayloadHash, stream.StreamIndex))
+	}
+	return service.recordGivenUp(ctx, keys, failure)
+}
+
+// RecordConvertFetchedSubtitleFailure records a convert_fetched_subtitle job that failed as its
+// fetched subtitle's failure (D340), as RecordExtractSubtitleFailure records a track's. A job of
+// another kind is refused.
+func (service *Service) RecordConvertFetchedSubtitleFailure(ctx context.Context, job jobs.Job, failure string) error {
+	if job.Kind != jobs.KindConvertFetchedSubtitle {
+		return fmt.Errorf("job %d: %s is not a conversion of a fetched subtitle", job.ID, job.Kind)
+	}
+	fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
+	}
+	return service.recordGivenUp(ctx, []sqlcgen.GetSubtitleTextParams{fetchedKey(fetched.BodyGzip)}, failure)
+}
+
+// recordGivenUp keeps failure, prefixed "given up: ", as the text of each key.
+func (service *Service) recordGivenUp(ctx context.Context, keys []sqlcgen.GetSubtitleTextParams, failure string) error {
 	return service.finishSubtitles(ctx, keptAlike(keys, nodeproto.SubtitleText{Failure: "given up: " + failure}))
 }

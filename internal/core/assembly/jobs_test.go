@@ -82,16 +82,13 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 	for _, runner := range services.runners(nil) {
 		run[runner.kind] = true
 		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
-		// A measurement that gave up keeps nothing: only FFmpeg's word on the file is the file's own
-		// failure, which its node's answer keeps, so the next sweep asks again (D244 §1); so does a
-		// whole-file read of a likely copy, which stays a file of its own until a read finishes (D363
-		// §2), and so does a season's comparison, which keeps what a video's bytes failed at as their
-		// measurement (D101). A backup and the certificate's renewal have no item: a failure is the job's own, which
-		// the job view shows (D243 §6, §11).
-		isKeptByItsItem := !slices.Contains([]jobs.Kind{
-			jobs.KindReadThrough, jobs.KindBackup, jobs.KindRenewCertificate, jobs.KindHashWholeFile,
-			jobs.KindMakeSystemVideos, jobs.KindFindRepeats,
-		}, runner.kind)
+		// Every runner says where a job that gave up is kept, and keeps it there: one that keeps it as
+		// its item's own failure records it, and one that keeps nothing records nothing (D231 §4, §10;
+		// D244 §1).
+		isKeptByItsItem := runner.givenUp == keptByItsItem
+		if runner.givenUp != keptByItsItem && runner.givenUp != keptByNothing {
+			t.Errorf("%s does not say where a job that gave up is kept", runner.kind)
+		}
 		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != isKeptByItsItem {
 			t.Errorf("%s keeps a job that gave up as its item's own failure: %v (D231 §4, §10; D244 §1)",
 				runner.kind, isGivenUpKept)

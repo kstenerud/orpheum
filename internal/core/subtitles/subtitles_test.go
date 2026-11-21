@@ -373,7 +373,7 @@ func TestSubtitles_RecordFailureKeepsAGivenUpExtractionAsItsTracksFailure(t *tes
 	t.Parallel()
 	bench := newBench(t)
 	job := bench.extractJob()
-	if err := bench.service.RecordFailure(t.Context(), job, "FFmpeg stalled twice"); err != nil {
+	if err := bench.service.RecordExtractSubtitleFailure(t.Context(), job, "FFmpeg stalled twice"); err != nil {
 		t.Fatal(err)
 	}
 	text := bench.text(t)
@@ -388,7 +388,10 @@ func TestSubtitles_RecordFailureRefusesASeasonsComparison(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
 	job := jobs.Job{ID: extractJobID, Kind: jobs.KindFindRepeats, Target: jobs.Target{FileID: bareVideoFileID}}
-	if err := bench.service.RecordFailure(t.Context(), job, "FFmpeg stalled twice"); err == nil {
-		t.Errorf("a find_repeats job's failure was taken as a subtitle's; want it refused as no subtitle's job")
+	if err := bench.service.RecordExtractSubtitleFailure(t.Context(), job, "FFmpeg stalled twice"); err == nil {
+		t.Errorf("a find_repeats job's failure was taken as an extraction's; want it refused as no subtitle's job")
+	}
+	if err := bench.service.RecordConvertFetchedSubtitleFailure(t.Context(), job, "FFmpeg stalled twice"); err == nil {
+		t.Errorf("a find_repeats job's failure was taken as a conversion's; want it refused as no subtitle's job")
 	}
 }

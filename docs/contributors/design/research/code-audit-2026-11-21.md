@@ -158,6 +158,9 @@ web labels are compile-checked against it (`web/apps/web/src/jobs.test.tsx:19-37
   switch goes; let `runners` say whether a kind is kept by its item and the test read it. **S,
   agent.** No new registry is needed.
 
+*Fixed:* refactor(subtitles): one failure recorder per subtitle kind, and each runner says where a
+failure is kept
+
 ### 7. Files at the length cap, and packages past one job
 
 Fifteen files were within 20 lines of the 800-line cap on 2026-11-21, among them

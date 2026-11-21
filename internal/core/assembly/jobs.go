@@ -46,7 +46,24 @@ type jobRunner struct {
 	derivedBy []string
 	// assignee, for a kind whose work a node does, is how its jobs given to a node are resolved.
 	assignee func(runner nodes.Resolver) nodes.Assignee
+	// givenUp says where a job of the kind that gave up is kept: as its item's own failure, by
+	// recordFailure, or by nothing, the work's sweep or next play asking again, or the job view
+	// showing it. The runners test holds it to recordFailure.
+	givenUp givenUpKept
 }
+
+// givenUpKept is where a job that gave up is kept.
+type givenUpKept int
+
+const (
+	// A kind keptByItsItem keeps a job that gave up as its item's own failure (D231 §4, §10).
+	keptByItsItem givenUpKept = iota + 1
+	// A kind keptByNothing keeps nothing of its item's for a job that gave up: a measurement or a comparison
+	// that gave up is asked again by the next sweep (D244 §1, D363 §2, D101), the system videos by
+	// their next use (D435 §5), and a job with no item, a backup or the certificate's renewal, is its
+	// own failure, which the job view shows (D243 §6, §11).
+	keptByNothing
+)
 
 // derivedByAPlay names what derives the work a play asks for: a run of chunks, a subtitle's text. It
 // needs no sweep, since the next play asks again (D231 §4).
@@ -60,7 +77,7 @@ func derivedByAScanRequest() []string { return []string{"the next scan asked for
 // by the caller: one fetch per provider; a node's job is given to its node and answered at once,
 // the core holding each node to its slots and devices (D234 §7, D240 §5).
 func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunners {
-	return jobRunners{
+	return append(jobRunners{
 		{
 			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
 			[]string{
@@ -68,60 +85,83 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 				sweepRescans,
 			},
 			nil,
+			keptByItsItem,
 		},
 		{
 			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
 			artworkRetrySchedule, 1,
 			[]string{sweepPasses},
 			services.artwork.Assignee,
+			keptByItsItem,
 		},
 		{
-			jobs.KindExtractSubtitle, services.subtitles.HandleExtractSubtitle, services.subtitles.RecordFailure,
-			nil, 1, derivedByAPlay(), services.subtitles.Assignee,
+			jobs.KindExtractSubtitle, services.subtitles.HandleExtractSubtitle,
+			services.subtitles.RecordExtractSubtitleFailure,
+			nil, 1, derivedByAPlay(), services.subtitles.Assignee, keptByItsItem,
 		},
 		{
 			jobs.KindConvertFetchedSubtitle, services.subtitles.HandleConvertFetchedSubtitle,
-			services.subtitles.RecordFailure, nil, 1, derivedByAPlay(), services.subtitles.Assignee,
+			services.subtitles.RecordConvertFetchedSubtitleFailure, nil, 1, derivedByAPlay(),
+			services.subtitles.Assignee, keptByItsItem,
 		},
 		{
 			// A read-through that gave up keeps nothing, so the next sweep asks again (D244 §1).
 			jobs.KindReadThrough, services.ReadThrough.HandleReadThrough, nil, nil, 1,
 			[]string{sweepReadThroughs},
-			services.ReadThrough.Assignee,
+			services.ReadThrough.Assignee, keptByNothing,
 		},
 		{
 			// A run lost is forgotten, so the next player's ask for its chunks queues another.
 			jobs.KindMakeChunks, services.chunks.HandleMakeChunks, services.chunks.RecordMakeChunksFailure, nil, 1,
 			derivedByAPlay(), services.chunks.Assignee,
+			keptByItsItem,
 		},
 		{
 			jobs.KindScan, services.Scans.HandleScan, services.Scans.RecordScanFailure, nil, 1,
 			derivedByAScanRequest(), services.Scans.ScanAssignee,
+			keptByItsItem,
 		},
 		{
 			jobs.KindExamine, services.Scans.HandleExamine, services.Scans.RecordExamineFailure, nil, 1,
 			derivedByAScanRequest(), services.Scans.ExamineAssignee,
+			keptByItsItem,
 		},
 		{
 			// A whole read that gave up keeps nothing, so the next sweep asks again (D363 §2).
 			jobs.KindHashWholeFile, services.copies.HandleHashWhole, nil, nil, 1,
 			[]string{sweepCopies},
-			services.copies.Assignee,
+			services.copies.Assignee, keptByNothing,
 		},
 		{
 			// A comparison that gave up keeps nothing, so the next sweep asks again (D101).
 			jobs.KindFindRepeats, services.repeats.HandleFindRepeats, nil, nil, 1,
 			[]string{sweepRepeats},
-			services.repeats.Assignee,
+			services.repeats.Assignee, keptByNothing,
 		},
+	}, services.wholeServerRunners()...)
+}
+
+// wholeServerRunners are the kinds of job that name no target, the server's own: none has an item
+// to keep a failure as, so each keeps nothing (D243 §6, §11).
+func (services *Services) wholeServerRunners() jobRunners {
+	return jobRunners{
 		{
 			// A make that gave up keeps nothing: the next use of a video not there asks again (D435 §5).
 			jobs.KindMakeSystemVideos, services.systemVideos.HandleMakeSystemVideos, nil, nil, 1,
-			derivedByAPlay(),
-			services.systemVideos.Assignee,
+			derivedByAPlay(), services.systemVideos.Assignee, keptByNothing,
 		},
-		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
-		{jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1, []string{sweepCertificate}, nil},
+		{
+			jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1,
+			[]string{sweepScheduledBackup},
+			nil,
+			keptByNothing,
+		},
+		{
+			jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1,
+			[]string{sweepCertificate},
+			nil,
+			keptByNothing,
+		},
 	}
 }
 

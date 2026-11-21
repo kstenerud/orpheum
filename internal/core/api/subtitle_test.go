@@ -321,7 +321,8 @@ func TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain(t *testin
 	harness.shelveSubtitles(t)
 	decided := harness.play(t, user, chrome(2))
 	job := jobs.Job{ID: 94, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID}}
-	if err := harness.subtitles.RecordFailure(t.Context(), job, "node 1 said nothing five times"); err != nil {
+	failure := "node 1 said nothing five times"
+	if err := harness.subtitles.RecordExtractSubtitleFailure(t.Context(), job, failure); err != nil {
 		t.Fatal(err)
 	}
 	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
