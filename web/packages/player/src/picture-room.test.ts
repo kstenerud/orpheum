@@ -184,7 +184,7 @@ describe("the chunk judged is the one after a chunk held at any quality (D503 §
     });
     expect(roomAheadS(hls, room, 3)).toBeUndefined();
     const steps: string[] = [];
-    expect(new StepDown(hls, room, (each) => steps.push(each)).level(3)).toBe(3);
+    expect(new StepDown(hls, room, { note: (each) => steps.push(each) }).level(3)).toBe(3);
     expect(steps).toEqual([]);
   });
 
@@ -283,7 +283,7 @@ describe("the step-down between hls.js and the quality chosen (D464 §3)", () =>
   it("notes each chunk's step once, keeps why, and knows hls.js's echo of it", () => {
     const { room } = roomHolding([3, 3, 15]);
     const steps: string[] = [];
-    const step = new StepDown(hlsAt(), room, (each) => steps.push(each));
+    const step = new StepDown(hlsAt(), room, { note: (each) => steps.push(each) });
     expect([step.level(3), step.level(3), step.chosen()]).toEqual([2, 2, 3]);
     const why =
       "chunk 5 steps down from level 3: 15.0 MB beside 15.0 MB held is over the room's 27.0 MB;" +
@@ -321,33 +321,37 @@ describe("a step-down after the next chunk, foreseen for the server to make ahea
     const hls = namedHls([5, 6]);
     const pair = pairLevel(hls, room, 3);
     expect(pair.level).toBe(3);
-    expect(foreseenStep(hls, room, 3, pair)).toEqual({ level: 2, sn: 6, startS: 36 });
+    expect(foreseenStep(hls, room, { chosen: 3, pair })).toEqual({ level: 2, sn: 6, startS: 36 });
   });
 
   it("looks as far ahead as the buffer holds chunks, and is none where all fit or the next steps there", () => {
     const { room } = roomHolding([3, 3, 3]);
     const far = namedHls([7, 8]);
-    expect(foreseenStep(far, room, 3, pairLevel(far, room, 3))).toEqual({
+    expect(foreseenStep(far, room, { chosen: 3, pair: pairLevel(far, room, 3) })).toEqual({
       level: 2,
       sn: 8,
       startS: 48,
     });
     const beyond = namedHls([8, 9]);
-    expect(foreseenStep(beyond, room, 3, pairLevel(beyond, room, 3))).toBeUndefined();
+    expect(
+      foreseenStep(beyond, room, { chosen: 3, pair: pairLevel(beyond, room, 3) }),
+    ).toBeUndefined();
     const light = namedHls([5]);
-    expect(foreseenStep(light, room, 3, pairLevel(light, room, 3))).toBeUndefined();
+    expect(
+      foreseenStep(light, room, { chosen: 3, pair: pairLevel(light, room, 3) }),
+    ).toBeUndefined();
     const { room: heavyHeld } = roomHolding([3, 3, 15]);
     const both = namedHls([5, 6]);
     const pair = pairLevel(both, heavyHeld, 3);
     expect(pair.level).toBe(2);
-    expect(foreseenStep(both, heavyHeld, 3, pair)).toBeUndefined();
+    expect(foreseenStep(both, heavyHeld, { chosen: 3, pair })).toBeUndefined();
   });
 
   it("is told once by its quality's stream as it changes, and as none once gone", () => {
     const { room } = roomHolding([3, 3, 3]);
     const told: unknown[] = [];
     const hls = { ...namedHls([5, 6]) };
-    const step = new StepDown(hls, room, undefined, (each) => told.push(each));
+    const step = new StepDown(hls, room, { foresee: (each) => told.push(each) });
     expect([step.level(3), step.level(3)]).toEqual([3, 3]);
     expect(told).toEqual([{ pictureStream: "q3000k720p", fromMs: 36_000 }]);
     hls.levels = namedHls([5]).levels;
@@ -364,7 +368,7 @@ describe("a step-down after the next chunk, foreseen for the server to make ahea
       ...named,
       levels: named.levels.map((level, index) => (index === 2 ? { ...level, uri: "x" } : level)),
     };
-    new StepDown(hls, room, undefined, (each) => told.push(each)).level(3);
+    new StepDown(hls, room, { foresee: (each) => told.push(each) }).level(3);
     expect(told).toEqual([]);
   });
 });
@@ -390,7 +394,7 @@ describe("a stepped-down chunk asked again (D503 §3)", () => {
         },
       },
       room,
-      (each) => steps.push(each),
+      { note: (each) => steps.push(each) },
     );
     // Chunk 5's 15 MB beside chunk 4's 13 steps down to level 2.
     expect(step.level(3)).toBe(2);

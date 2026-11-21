@@ -288,9 +288,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   lower, kept in the browser's storage for its user agent alone. Each step-down is noted, and said
   as why its quality was chosen. The first chunk past the next that will step down, over as many
   chunks as the buffer holds and at least `foreseenChunksAtLeast`, is told the video by its
-  quality's stream and start (`playerForesawStepDownEvent`), for its page to tell the server,
-  which makes it ahead (D532 §1; `foreseenStep`, `src/step-foresight.ts`). The sound's buffer is
-  as above. `src/picture-room.ts`; `picture-room.test.ts`, `step-foresight.test.ts`,
+  quality's stream and start (`playerForesawStepDownEvent`, the sdk's, which a page reads without
+  the player), for its page to tell the server, which makes it ahead (D532 §1; `foreseenStep`,
+  `src/step-foresight.ts`). The sound's buffer is as above. `src/picture-room.ts`;
+  `picture-room.test.ts`, `step-foresight.test.ts`, the sdk's `step-down-foresight.test.ts`,
   `forward-buffer.test.ts`; only a device shows the whole: VQ300, VQ376.
 - **A film loads deeper ahead once its link was out** (D487): the page's outages
   (`pageLinkOutages`, which the web app gives each film's playback) run from the first sign that

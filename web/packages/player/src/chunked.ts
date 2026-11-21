@@ -2,7 +2,7 @@
 
 import type Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
-import type { FetchRequest } from "@orpheum/sdk";
+import { stepDownForeseer, type FetchRequest } from "@orpheum/sdk";
 
 import { SoundShift } from "./audio-shift.ts";
 
@@ -21,7 +21,7 @@ import type { PlaybackFailed } from "./failure.ts";
 import { chunkLoadPolicy } from "./chunk-load-policy.ts";
 import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
 import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
-import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
+import { diagnose, diagnosisOf, samplesNoter, stepAndLinkNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
 import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
 import type { StartingPlaylists } from "./loaded-playlists.ts";
@@ -61,7 +61,6 @@ import {
 } from "./main-thread.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { skipChunksNotMade } from "./skip-unmade.ts";
-import { stepDownForeseer } from "./step-foresight.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { stepOverHoles } from "./holes.ts";
@@ -577,23 +576,6 @@ export function rememberedLinkOf(offer: RememberedOffer): RememberedLink | undef
 function isBrowserOffline(): boolean {
   const said: unknown = Reflect.get(globalThis.navigator, "onLine");
   return said === false;
-}
-
-/**
- * What keeps each of video's quality steps: among its diagnosis's steps, sent beside a stall or a
- * seek, and, as "step: ceiling 4 to 0: ...", among its link's notes, which reach the core's log with
- * every play report, so a solo play's every step is there as a Watch Together player's are (D382 §4).
- */
-function stepAndLinkNoter(
-  video: HTMLVideoElement,
-  monotonicMs: () => number,
-): (step: string) => void {
-  const noteStep = stepNoter(video, monotonicMs);
-  const noteLink = linkNoter(video);
-  return (step) => {
-    noteStep(step);
-    noteLink(`step: ${step}`);
-  };
 }
 
 /**

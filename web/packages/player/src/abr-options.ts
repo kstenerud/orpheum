@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { ForeseenStepDown } from "@orpheum/sdk";
 import type { HlsProgressivePerformanceTiming, LoaderStats } from "hls.js";
 
 import type { ChoiceLevel, FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 import type { LongTasks } from "./main-thread.ts";
-import type { ForeseenStepDown } from "./step-foresight.ts";
 
 /**
  * What the chunked player's bitrate controller (abr.ts) is given: the chunks it follows, what it reads

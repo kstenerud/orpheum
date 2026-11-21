@@ -313,6 +313,12 @@ export {
 export type { NextChunkLoad, NextChunkLoadFrom, ReadyAhead } from "./ready-ahead.ts";
 export type { GatedMedia, StartGate, StartWait } from "./start-gate.ts";
 export {
+  foreseenStepDownOf,
+  playerForesawStepDownEvent,
+  stepDownForeseer,
+} from "./step-down-foresight.ts";
+export type { ForeseenStepDown } from "./step-down-foresight.ts";
+export {
   catchUpSeekEvent,
   chunkLoadedOf,
   groupJumpedEvent,

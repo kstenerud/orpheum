@@ -138,7 +138,10 @@ class OrpheumAbrController extends AbrController {
         ? undefined
         : {
             picture: room,
-            step: new StepDown(hls, room, options.noteStep, options.foreseeStepDown),
+            step: new StepDown(hls, room, {
+              note: options.noteStep,
+              foresee: options.foreseeStepDown,
+            }),
           };
     // hls.js's own giving up of a chunk on its way is off: choosing's is the one (D265 §3, D323). It
     // timed a chunk from its first ask, so one the core answered 425 while it made it looked stalled,

@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { playerForesawStepDownEvent, type ForeseenStepDown } from "@orpheum/player";
-import { startGateOf, startGateWaitChangedEvent, type Api } from "@orpheum/sdk";
+import {
+  foreseenStepDownOf,
+  playerForesawStepDownEvent,
+  startGateOf,
+  startGateWaitChangedEvent,
+  type Api,
+  type ForeseenStepDown,
+} from "@orpheum/sdk";
 
 import { isPausedAsAsked } from "./film-waits.tsx";
 import { isPressKeepersPause } from "./start-refused.ts";
@@ -45,15 +51,7 @@ export function sayInterestOf(
   let isHeldSaidPlaying = false;
   let foreseen: ForeseenStepDown | undefined;
   const sayWith = (said: SaidInterest): void => {
-    say(
-      foreseen === undefined
-        ? said
-        : {
-            ...said,
-            stepDownPictureStream: foreseen.pictureStream,
-            stepDownFromMs: foreseen.fromMs,
-          },
-    );
+    say(withForeseen(said, foreseen));
   };
   const listeners: Record<string, (event: Event) => void> = {
     pause: () => {
@@ -86,8 +84,7 @@ export function sayInterestOf(
       }
     },
     [playerForesawStepDownEvent]: (event) => {
-      const step = event instanceof CustomEvent ? (event.detail as ForeseenStepDown | null) : null;
-      foreseen = step ?? undefined;
+      foreseen = foreseenStepDownOf(event);
       if (!video.ended) {
         sayWith({ positionMs: at(), isPaused: isPausedAsAsked(video) });
       }
@@ -101,6 +98,13 @@ export function sayInterestOf(
       video.removeEventListener(event, listener);
     }
   };
+}
+
+/** said, with the step-down foreseen where there is one (D532 §1). */
+function withForeseen(said: SaidInterest, foreseen: ForeseenStepDown | undefined): SaidInterest {
+  return foreseen === undefined
+    ? said
+    : { ...said, stepDownPictureStream: foreseen.pictureStream, stepDownFromMs: foreseen.fromMs };
 }
 
 /** Why a player let go of its playback (D309 §7): it left its page, or went on to another film. */

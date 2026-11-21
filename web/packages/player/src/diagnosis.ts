@@ -4,6 +4,8 @@ import { playerBufferedFirstEvent } from "@orpheum/sdk";
 import type { Events } from "hls.js";
 import Hls, { type BufferCodecsData, type ErrorData } from "hls.js";
 
+import { linkNoter } from "./link-estimate.ts";
+
 /**
  * What a chunked playback's video holds and what went wrong last, for a stall's report (D266):
  * a video that sat paused at readyState 1 on one device while the same chunks played on others
@@ -363,6 +365,23 @@ export function stepNoter(video: object, monotonicMs?: () => number): (step: str
       diagnosis.choices.push({ text: step, atMs: monotonicMs?.() });
       diagnosis.choices.splice(0, Math.max(0, diagnosis.choices.length - choicesKept));
     }
+  };
+}
+
+/**
+ * What keeps each of video's quality steps: among its diagnosis's steps, sent beside a stall or a
+ * seek, and, as "step: ceiling 4 to 0: ...", among its link's notes, which reach the core's log with
+ * every play report, so a solo play's every step is there as a Watch Together player's are (D382 §4).
+ */
+export function stepAndLinkNoter(
+  video: HTMLVideoElement,
+  monotonicMs: () => number,
+): (step: string) => void {
+  const noteStep = stepNoter(video, monotonicMs);
+  const noteLink = linkNoter(video);
+  return (step) => {
+    noteStep(step);
+    noteLink(`step: ${step}`);
   };
 }
 

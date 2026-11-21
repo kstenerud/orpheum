@@ -9,9 +9,10 @@
  * how far ahead to load so it fits beside what is held (roomAheadS).
  */
 
+import type { ForeseenStepDown } from "@orpheum/sdk";
 import { ownPictureLevel, type ChoiceLevel } from "./abr-choice.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
-import { pictureStreamOf, type ForeseenStepDown } from "./step-foresight.ts";
+import { pictureStreamOf } from "./step-foresight.ts";
 
 /**
  * The share of the picture buffer the chunks held and the next may take together: the rest is the
@@ -403,8 +404,7 @@ export interface ForeseenStep {
 export function foreseenStep(
   hls: RoomHls,
   room: PictureRoom,
-  chosen: number,
-  pair: PairChoice,
+  { chosen, pair }: { readonly chosen: number; readonly pair: PairChoice },
 ): ForeseenStep | undefined {
   const span = hls.mainForwardBufferInfo;
   const fragments = gridOf(hls);
@@ -434,6 +434,19 @@ export function foreseenStep(
   return undefined;
 }
 
+/** step, as the server is told it: by its quality's stream; undefined where its playlist names none. */
+function saidStepOf(hls: RoomHls, step: ForeseenStep): ForeseenStepDown | undefined {
+  const pictureStream = pictureStreamOf(hls.levels[step.level]?.uri);
+  return pictureStream === undefined
+    ? undefined
+    : { pictureStream, fromMs: Math.round(step.startS * 1000) };
+}
+
+/** Whether two step-downs told are the same, none being the same as none. */
+function isSameStep(a: ForeseenStepDown | undefined, b: ForeseenStepDown | undefined): boolean {
+  return a?.pictureStream === b?.pictureStream && a?.fromMs === b?.fromMs;
+}
+
 /**
  * A playback's step-down of the one chunk that does not fit (D464 §3), between hls.js and the
  * quality its controller chose: level gives hls.js the quality pairLevel says, keeping the one
@@ -457,26 +470,28 @@ export class StepDown {
   #keptNoted: number | undefined;
   readonly #why = new Map<number, ChoiceWhy>();
   readonly #foresee: ((step: ForeseenStepDown | undefined) => void) | undefined;
-  /** The step-down last told to foresee, by its quality and chunk; undefined for none. */
-  #foreseen: ForeseenStep | undefined;
+  /** The step-down last told to foresee; undefined for none. */
+  #foreseen: ForeseenStepDown | undefined;
 
   constructor(
     hls: RoomHls,
     room: PictureRoom,
-    note?: (step: string) => void,
-    foresee?: (step: ForeseenStepDown | undefined) => void,
+    tell: {
+      readonly note?: ((step: string) => void) | undefined;
+      readonly foresee?: ((step: ForeseenStepDown | undefined) => void) | undefined;
+    } = {},
   ) {
     this.#hls = hls;
     this.#room = room;
-    this.#note = note;
-    this.#foresee = foresee;
+    this.#note = tell.note;
+    this.#foresee = tell.foresee;
   }
 
   /** The quality the next chunk loads at, where its controller chose chosen. */
   level(chosen: number): number {
     this.#chosen = chosen;
     const pair = pairLevel(this.#hls, this.#room, chosen);
-    this.#tellForeseen(foreseenStep(this.#hls, this.#room, chosen, pair));
+    this.#tellForeseen(foreseenStep(this.#hls, this.#room, { chosen, pair }));
     const kept = this.#keptDown(pair);
     if (kept !== undefined) {
       this.#steppedTo = kept;
@@ -538,23 +553,17 @@ export class StepDown {
       : undefined;
   }
 
-  /** Tells foresee the step-down foreseen, where it is not the one told last. */
+  /**
+   * Tells foresee the step-down foreseen, by its quality's stream, where it is not the one told
+   * last; one to a quality whose playlist names no stream is none.
+   */
   #tellForeseen(step: ForeseenStep | undefined): void {
-    const told = this.#foreseen;
-    if (this.#foresee === undefined || (told?.sn === step?.sn && told?.level === step?.level)) {
+    const said = step === undefined ? undefined : saidStepOf(this.#hls, step);
+    if (isSameStep(this.#foreseen, said)) {
       return;
     }
-    const pictureStream =
-      step === undefined ? undefined : pictureStreamOf(this.#hls.levels[step.level]?.uri);
-    if (step !== undefined && pictureStream === undefined) {
-      return;
-    }
-    this.#foreseen = step;
-    this.#foresee(
-      step === undefined || pictureStream === undefined
-        ? undefined
-        : { pictureStream, fromMs: Math.round(step.startS * 1000) },
-    );
+    this.#foreseen = said;
+    this.#foresee?.(said);
   }
 
   /** The quality its controller last chose, before any step-down; undefined before it chose. */

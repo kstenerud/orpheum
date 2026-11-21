@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { playerForesawStepDownEvent } from "@orpheum/player";
-import { startGateOf } from "@orpheum/sdk";
+import { playerForesawStepDownEvent, startGateOf } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { leavePlayback, sayInterestOf, sendInterest, type SaidInterest } from "./interest.ts";
