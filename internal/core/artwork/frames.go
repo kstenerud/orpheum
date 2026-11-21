@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -189,7 +190,7 @@ func (service *Service) frameToTake(ctx context.Context, want wantedImage) (gath
 	if err != nil {
 		return gathered{}, service.recordRefusal(ctx, want, "its video was never probed")
 	}
-	streamIndex, hasPicture := pictureStreamOf(probe)
+	picture, hasPicture := decide.MainVideo(probe)
 	if !hasPicture {
 		return gathered{}, service.recordNoFrame(ctx, want, "its video has no picture")
 	}
@@ -203,7 +204,7 @@ func (service *Service) frameToTake(ctx context.Context, want wantedImage) (gath
 	}
 	image := &nodeproto.Artwork{
 		Shape: nodeproto.ShapeLandscape, SizeNames: fetchedSizes(nodeproto.ShapeLandscape), Video: &video,
-		FrameStreamIndex: streamIndex, FrameAtMs: probe.Format.DurationMs * frameAtPercent / 100,
+		FrameStreamIndex: picture.StreamIndex, FrameAtMs: probe.Format.DurationMs * frameAtPercent / 100,
 	}
 	return gathered{image: image, nodeID: file.NodeID}, nil
 }
@@ -236,16 +237,6 @@ func (service *Service) isStillNeedless(ctx context.Context, want wantedImage) (
 	return slices.ContainsFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
 		return row.Source != SourceFrame && row.SourceSha256 != nil && slices.Contains(kinds, row.Kind)
 	}), nil
-}
-
-// pictureStreamOf is a probe's first picture stream, not a cover attached to the file.
-func pictureStreamOf(probe nodeproto.Probe) (int, bool) {
-	for _, stream := range probe.Streams {
-		if stream.Kind == "video" && !slices.Contains(stream.Disposition, "attached_pic") {
-			return stream.StreamIndex, true
-		}
-	}
-	return 0, false
 }
 
 // recordNoFrame records a video with no frame to take a still of, as a still missing at its source,

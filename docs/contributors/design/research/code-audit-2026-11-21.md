@@ -131,6 +131,9 @@ and `:574`, and `internal/store/queries/read_through.sql:35`. The bit itself is 
   the SQL names the bit through a stored `is_attached_picture` column or view. **S** for Go,
   **agent**; the column is a schema change, **owner's**.
 
+*Fixed (the Go part):* refactor(artwork): a still's picture stream is decide.MainVideo's. The SQL's
+three `(disposition_flags & 1024) = 0` stay: a stored column is the owner's call.
+
 ### 6. Job kinds: one registry exists; one switch and one test list stand beside it
 
 The audit was asked whether a job-kind registry would make the roughly eight places a new kind
