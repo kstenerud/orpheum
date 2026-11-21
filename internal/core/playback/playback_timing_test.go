@@ -32,7 +32,7 @@ func TestRefreshTiming_IsTheSettingsAndInterestLapsesByIt(t *testing.T) {
 	if got := service.timingNow(); got != want {
 		t.Errorf("the timing read is %+v; want %+v, the link speed's, unread, at its start", got, want)
 	}
-	playing.wantFetched(askedFile{stream: "q2000k540p", dir: "1/chunks-q2000k540p/g", startMs: 30_000, isChunk: true})
+	playing.wantFetched(chunkOf("q2000k540p", 30_000), clock.Now())
 	clock.Advance(41 * time.Second)
 	if got := service.InterestsIn(1); len(got) != 0 {
 		t.Errorf("playing and silent 41 s, the lapse at 40 s: %+v; want none", got)

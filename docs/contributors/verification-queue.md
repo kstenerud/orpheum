@@ -3687,3 +3687,14 @@ An item is ticked only by the person who did it, and only with what they saw.
      Report whether focus moves to the Films icon (not off the page).
   6. On Films, press OK on a poster to open its film, then Back. Report whether Films shows with
      that poster focused, and whether opening a film from the list felt any slower than before.
+- [ ] **VQ376** — Film 200 plays through on the Fire TV without the stalls it had (D532; the owner,
+  2026-11-21). Only the Fire TV's buffer limit makes it step between the film's own picture and
+  720p, which no test's browser does. On staging, with "feat(playback): a player says ahead of time
+  that it will step down, and a quality just left keeps being made", on the Fire TV in Silk, signed
+  in as yourself:
+  1. Play film 200 from the start and let it play for 20 minutes, with nothing else playing on the
+     server. Report how many times it stopped to load, and for how long each, roughly.
+  2. Seek to about the middle of the film and let it play 10 minutes. Report the same.
+  3. Open the menu that says who is signed in, choose Report a problem, and send one saying
+     "VQ376". Report that you sent it, so I can read which chunks stepped down and whether their
+     quality was made ahead.

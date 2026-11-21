@@ -4809,6 +4809,13 @@ export interface components {
             positionMs: number;
             /** @description The sound's stream, as the master playlist names it; empty keeps the one wanted */
             soundStream?: string;
+            /**
+             * Format: int64
+             * @description Where in the film the player will step down to stepDownPictureStream from
+             */
+            stepDownFromMs?: number;
+            /** @description The picture the player will step down to, as the master playlist names it; empty for none (D532 §1) */
+            stepDownPictureStream?: string;
         };
         PlaylistBody: {
             /** @description The playlist, as that path answers it */

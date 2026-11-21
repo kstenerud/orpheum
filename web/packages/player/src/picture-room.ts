@@ -5,12 +5,13 @@
  * each quality by its own bytes, the chunks the buffer holds, and the buffer's limit, the device's
  * table's or, after the browser first refused a chunk for its memory, what it was seen to hold,
  * remembered in the browser's storage for its user agent. From them, the quality the next chunk
- * fits at beside the chunk before it (pairLevel), and how far ahead to load so it fits beside what
- * is held (roomAheadS).
+ * fits at beside the chunk before it (pairLevel), the first step-down after it (foreseenStep), and
+ * how far ahead to load so it fits beside what is held (roomAheadS).
  */
 
 import { ownPictureLevel, type ChoiceLevel } from "./abr-choice.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
+import { pictureStreamOf, type ForeseenStepDown } from "./step-foresight.ts";
 
 /**
  * The share of the picture buffer the chunks held and the next may take together: the rest is the
@@ -296,13 +297,18 @@ export function nextChunkOf(
   room: PictureRoom,
 ): (GridChunk & { readonly sn: number }) | undefined {
   const span = hls.mainForwardBufferInfo;
-  const fragments = hls.levels.find((each) => each.details !== undefined)?.details?.fragments;
+  const fragments = gridOf(hls);
   if (span === null || fragments === undefined) {
     return undefined;
   }
   const endsIn = fragments.find((chunk) => chunk.start + chunk.duration > span.end);
   const isHeld = typeof endsIn?.sn === "number" && room.holds(endsIn.sn, span);
   return numbered(isHeld ? fragments.find((chunk) => chunk.sn === Number(endsIn.sn) + 1) : endsIn);
+}
+
+/** The film's chunks, the same at every quality, from the first quality whose playlist is loaded. */
+function gridOf(hls: RoomHls): readonly GridChunk[] | undefined {
+  return hls.levels.find((each) => each.details !== undefined)?.details?.fragments;
 }
 
 /** A chunk of picture with its number on the grid; undefined for none, or an init segment. */
@@ -373,11 +379,69 @@ export function pairLevel(hls: RoomHls, room: PictureRoom, chosen: number): Pair
 }
 
 /**
+ * The fewest chunks after the next that foreseenStep looks over, where the buffer holds fewer: a
+ * quality's run, started as it says, takes FFmpeg's open of 5 to 8 s and its first chunk to make
+ * (file 15497, production, 2026-11-17), about one chunk of film at 2x, so two give it one to spare.
+ * A justified constant.
+ */
+export const foreseenChunksAtLeast = 2;
+
+/** A step-down foreseen: the quality a chunk after the next will step down to, and that chunk. */
+export interface ForeseenStep {
+  readonly level: number;
+  readonly sn: number;
+  readonly startS: number;
+}
+
+/**
+ * The first chunk after the next that will step down from chosen, and the quality it will (D532 §1),
+ * judged as pairLevel judges the next beside the chunk before it, each at chosen until the first
+ * that steps, the next at the quality pair loads it at; over as many chunks as the buffer holds
+ * before the next, and at least foreseenChunksAtLeast. Undefined for none, or one to the quality
+ * the next loads at, which the player asks for already.
+ */
+export function foreseenStep(
+  hls: RoomHls,
+  room: PictureRoom,
+  chosen: number,
+  pair: PairChoice,
+): ForeseenStep | undefined {
+  const span = hls.mainForwardBufferInfo;
+  const fragments = gridOf(hls);
+  const next = pair.chunk;
+  if (span === null || fragments === undefined || next === undefined) {
+    return undefined;
+  }
+  const roomBytes = room.roomBytes();
+  const lastSn = next.sn + Math.max(foreseenChunksAtLeast, room.heldBefore(next.sn, span).length);
+  let beforeBytes = next.bytes;
+  for (let sn = next.sn + 1; sn <= lastSn; sn += 1) {
+    const chunk = numbered(fragments.find((each) => each.sn === sn));
+    if (chunk === undefined) {
+      return undefined;
+    }
+    let level = chosen;
+    let bytes = chunkBytesAt(hls.levels, level, chunk);
+    while (level > hls.minAutoLevel && beforeBytes + bytes > roomBytes) {
+      level -= 1;
+      bytes = chunkBytesAt(hls.levels, level, chunk);
+    }
+    if (level < chosen) {
+      return level === pair.level ? undefined : { level, sn, startS: chunk.start };
+    }
+    beforeBytes = bytes;
+  }
+  return undefined;
+}
+
+/**
  * A playback's step-down of the one chunk that does not fit (D464 §3), between hls.js and the
  * quality its controller chose: level gives hls.js the quality pairLevel says, keeping the one
  * chosen for the room's pacing (chosen); hls.js sets the quality it loads back on its controller at
  * every tick, and that echo (isEcho) is no quality forced (D266). Each step-down is noted once for
  * its chunk and quality, and kept as why its quality was chosen, for the switch to it (whyChose).
+ * The first step-down after the next chunk (foreseenStep) is told to foresee, by its quality's
+ * stream, each time it changes, and undefined once there is none (D532 §1).
  */
 export class StepDown {
   readonly #hls: RoomHls;
@@ -392,17 +456,27 @@ export class StepDown {
   /** The chunk last noted kept at its step-down (keptDown). */
   #keptNoted: number | undefined;
   readonly #why = new Map<number, ChoiceWhy>();
+  readonly #foresee: ((step: ForeseenStepDown | undefined) => void) | undefined;
+  /** The step-down last told to foresee, by its quality and chunk; undefined for none. */
+  #foreseen: ForeseenStep | undefined;
 
-  constructor(hls: RoomHls, room: PictureRoom, note?: (step: string) => void) {
+  constructor(
+    hls: RoomHls,
+    room: PictureRoom,
+    note?: (step: string) => void,
+    foresee?: (step: ForeseenStepDown | undefined) => void,
+  ) {
     this.#hls = hls;
     this.#room = room;
     this.#note = note;
+    this.#foresee = foresee;
   }
 
   /** The quality the next chunk loads at, where its controller chose chosen. */
   level(chosen: number): number {
     this.#chosen = chosen;
     const pair = pairLevel(this.#hls, this.#room, chosen);
+    this.#tellForeseen(foreseenStep(this.#hls, this.#room, chosen, pair));
     const kept = this.#keptDown(pair);
     if (kept !== undefined) {
       this.#steppedTo = kept;
@@ -462,6 +536,25 @@ export class StepDown {
     return aheadS !== undefined && next !== undefined && aheadS < next.duration
       ? aheadS
       : undefined;
+  }
+
+  /** Tells foresee the step-down foreseen, where it is not the one told last. */
+  #tellForeseen(step: ForeseenStep | undefined): void {
+    const told = this.#foreseen;
+    if (this.#foresee === undefined || (told?.sn === step?.sn && told?.level === step?.level)) {
+      return;
+    }
+    const pictureStream =
+      step === undefined ? undefined : pictureStreamOf(this.#hls.levels[step.level]?.uri);
+    if (step !== undefined && pictureStream === undefined) {
+      return;
+    }
+    this.#foreseen = step;
+    this.#foresee(
+      step === undefined || pictureStream === undefined
+        ? undefined
+        : { pictureStream, fromMs: Math.round(step.startS * 1000) },
+    );
   }
 
   /** The quality its controller last chose, before any step-down; undefined before it chose. */

@@ -6,6 +6,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 type stoppingChunks struct {
 	cutAfterChunks
 	stopped, released, forgotten []int64
+	foreseen                     []string
 }
 
 func (fake *stoppingChunks) ForgetFile(fileID int64) {
@@ -37,6 +39,12 @@ func (fake *stoppingChunks) StopUnwanted(_ context.Context, fileID int64) error 
 	return nil
 }
 
+// Foresee records each step down it was told of (Chunks.Foresee), as "stream@positionMs".
+func (fake *stoppingChunks) Foresee(_ context.Context, _ chunks.Playback, streamName string, positionMs int64) error {
+	fake.foreseen = append(fake.foreseen, streamName+"@"+strconv.FormatInt(positionMs, 10))
+	return nil
+}
+
 // keepingSettings answer D309 §8's times as the registry starts them, and every other length nothing.
 type keepingSettings struct{ uploadSettings }
 
@@ -49,40 +57,157 @@ func (keepingSettings) Duration(_ context.Context, key settings.Key) (time.Durat
 }
 
 // A playback wants the picture and sound its player last asked for, each from the chunk it last asked
-// for of it (D355 §1); an init moves nothing; a paused player's position is its own word, and it
-// wants only what is kept ahead; a playing player silent for interestLapsesAfter wants nothing (D309 §1, §3, §7).
+// for of it (D355 §1), and the picture it moved off from where its picture is (D532 §2); an init moves
+// nothing; a paused player's position is its own word, and it wants only what is kept ahead, of the
+// picture and sound it plays; a playing player silent for interestLapsesAfter wants nothing (D309 §1,
+// §3, §7).
 func TestInterestsIn_AreWhatEachPlayerLastAskedFor(t *testing.T) {
 	t.Parallel()
 	clock := clocktest.NewFake(time.Date(2026, 10, 17, 20, 0, 0, 0, time.UTC))
 	playing := &tokenPlayback{fileID: 1, lastUsedAt: clock.Now()}
 	service := uploadService(clock, 0, map[string]*tokenPlayback{"mac": playing, "other": {fileID: 2}})
-	playing.wantFetched(askedFile{stream: "q2000k540p", dir: "1/chunks-q2000k540p/g", startMs: 30_000, isChunk: true})
+	playing.wantFetched(chunkOf("q2000k540p", 30_000), clock.Now())
 	playing.wantFetched(askedFile{
 		stream: "sound0-96k", dir: "1/chunks-sound0-96k/g", startMs: 20_000,
 		isSound: true, isChunk: true,
-	})
+	}, clock.Now())
 	// The sound's init.
-	playing.wantFetched(askedFile{stream: "sound0-96k", dir: "1/chunks-sound0-96k/g", isSound: true})
-	playing.wantFetched(askedFile{stream: "q1200k480p", dir: "1/chunks-q1200k480p/g", startMs: 40_000, isChunk: true})
+	playing.wantFetched(askedFile{stream: "sound0-96k", dir: "1/chunks-sound0-96k/g", isSound: true}, clock.Now())
+	playing.wantFetched(chunkOf("q1200k480p", 40_000), clock.Now())
 	want := []chunks.Interest{
-		{StreamName: "q1200k480p", PositionMs: 40_000}, {StreamName: "sound0-96k", PositionMs: 20_000},
+		{StreamName: "q1200k480p", PositionMs: 40_000},
+		{StreamName: "sound0-96k", PositionMs: 20_000},
+		{StreamName: "q2000k540p", PositionMs: 40_000},
 	}
 	if got := service.InterestsIn(1); !slices.Equal(got, want) {
-		t.Fatalf("the interests = %+v; want the 480p it moved to from 40 s, and its sound from 20 s", got)
+		t.Fatalf("the interests = %+v; want the 480p it moved to from 40 s, its sound from 20 s, "+
+			"and the 540p it left from where its picture is", got)
 	}
 	clock.Advance(interestLapsesAfter + time.Second)
 	if got := service.InterestsIn(1); len(got) != 0 {
 		t.Errorf("playing and silent past interestLapsesAfter: %+v; want none", got)
 	}
 	playing.lastUsedAt = clock.Now() // a report, a chunk asked for, a word
-	if got := service.InterestsIn(1); len(got) != 2 {
-		t.Errorf("heard from again: %+v; want both wanted again", got)
+	if got := service.InterestsIn(1); len(got) != 3 {
+		t.Errorf("heard from again: %+v; want all three wanted again", got)
 	}
 	playing.interest.disposition = Paused
 	// Filling its buffer.
-	playing.wantFetched(askedFile{stream: "q1200k480p", dir: "1/chunks-q1200k480p/g", startMs: 90_000, isChunk: true})
+	playing.wantFetched(chunkOf("q1200k480p", 90_000), clock.Now())
 	if got := service.InterestsIn(1); len(got) != 2 || got[0].PositionMs != 40_000 || !got[0].IsStopped {
-		t.Errorf("paused, the interests = %+v; want both stopped where it paused, 40 s", got)
+		t.Errorf("paused, the interests = %+v; want both stopped where it paused, 40 s, and not the 540p it left", got)
+	}
+}
+
+// The picture a playing player moved off is wanted from where its picture is for leftPictureKeptFor,
+// so a step back down finds it made (D532 §2); not while it is paused, nor once the time is past,
+// nor once it moves back to it, when the one it moves off is the one kept. Stopped at once, a Fire TV
+// stepping between the film's own picture and 720p met 720p unmade at each step down, and stalled
+// (film 200 on staging, 2026-11-21).
+func TestInterestsIn_APictureLeftIsWantedFromWhereThePictureIsForFiveMinutes(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 11, 21, 20, 0, 0, 0, time.UTC))
+	playing := &tokenPlayback{fileID: 1, lastUsedAt: clock.Now()}
+	service := uploadService(clock, 0, map[string]*tokenPlayback{"tv": playing})
+	own := chunkOf("picture", 30_000)
+	made := chunkOf("q3000k720p", 40_000)
+	playing.wantFetched(own, clock.Now())
+	playing.wantFetched(made, clock.Now())
+	want := []chunks.Interest{
+		{StreamName: "q3000k720p", PositionMs: 40_000},
+		{StreamName: "picture", PositionMs: 40_000},
+	}
+	if got := service.InterestsIn(1); !slices.Equal(got, want) {
+		t.Fatalf("stepped down to 720p at 40 s: %+v; want %+v", got, want)
+	}
+	service.settings = keepingSettings{}
+	tiers, err := service.StoreTiers(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, isKept := tiers[own.dir]; !isKept {
+		t.Errorf("the store tiers = %v; want the picture left, %s, kept", tiers, own.dir)
+	}
+	playing.interest.disposition = Paused
+	if got := service.InterestsIn(1); len(got) != 1 || got[0].StreamName != "q3000k720p" {
+		t.Errorf("paused: %+v; want only the 720p it plays", got)
+	}
+	playing.interest.disposition = Playing
+	clock.Advance(leftPictureKeptFor - time.Second)
+	playing.lastUsedAt = clock.Now()
+	made.startMs = 330_000
+	playing.wantFetched(made, clock.Now())
+	if got := service.InterestsIn(1); len(got) != 2 ||
+		got[1] != (chunks.Interest{StreamName: "picture", PositionMs: 330_000}) {
+		t.Errorf("a second short of five minutes on: %+v; want the picture left from 330 s, where the 720p is", got)
+	}
+	clock.Advance(2 * time.Second)
+	playing.lastUsedAt = clock.Now()
+	if got := service.InterestsIn(1); len(got) != 1 {
+		t.Errorf("five minutes on: %+v; want only the 720p", got)
+	}
+	own.startMs = 340_000
+	playing.wantFetched(own, clock.Now())
+	want = []chunks.Interest{
+		{StreamName: "picture", PositionMs: 340_000},
+		{StreamName: "q3000k720p", PositionMs: 340_000},
+	}
+	if got := service.InterestsIn(1); !slices.Equal(got, want) {
+		t.Errorf("back on the film's own picture: %+v; want %+v, the 720p it left kept", got, want)
+	}
+}
+
+// A player's word that it will step down to a picture asks the chunks to start that picture's run
+// from where it will (D532 §1), and the picture is wanted from there, stopped where the player is
+// paused, until it asks for a chunk of it, or says its wants again without it.
+func TestSayInterest_APictureItWillStepDownToIsWantedFromWhereItWillUntilItDoes(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 11, 21, 20, 0, 0, 0, time.UTC))
+	fake := &stoppingChunks{}
+	holder := Holder{UserID: 1, SessionKey: "s", Reach: auth.EveryLibrary()}
+	playing := &tokenPlayback{userID: 1, sessionKey: "s", fileID: 1, lastUsedAt: clock.Now()}
+	service := uploadService(clock, 0, map[string]*tokenPlayback{"tv": playing})
+	service.chunks = fake
+	playing.wantFetched(chunkOf("picture", 30_000), clock.Now())
+	foreseeing := Interest{PositionMs: 35_000, StepDownPictureStream: "q3000k720p", StepDownFromMs: 60_000}
+	if err := service.SayInterest(t.Context(), "tv", holder, foreseeing); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"q3000k720p@60000"}; !slices.Equal(fake.foreseen, want) {
+		t.Errorf("the chunks were told of %v; want %v", fake.foreseen, want)
+	}
+	want := []chunks.Interest{
+		{StreamName: "picture", PositionMs: 35_000},
+		{StreamName: "q3000k720p", PositionMs: 60_000},
+	}
+	if got := service.InterestsIn(1); !slices.Equal(got, want) {
+		t.Errorf("told it will step down at 60 s: %+v; want %+v", got, want)
+	}
+	foreseeing.IsPaused = true
+	if err := service.SayInterest(t.Context(), "tv", holder, foreseeing); err != nil {
+		t.Fatal(err)
+	}
+	if got := service.InterestsIn(1); len(got) != 2 ||
+		got[1] != (chunks.Interest{StreamName: "q3000k720p", PositionMs: 60_000, IsStopped: true}) {
+		t.Errorf("paused: %+v; want the 720p it will step down to stopped at 60 s", got)
+	}
+	if err := service.SayInterest(t.Context(), "tv", holder, Interest{PositionMs: 35_000}); err != nil {
+		t.Fatal(err)
+	}
+	if got := service.InterestsIn(1); len(got) != 1 {
+		t.Errorf("its word again, of no step down: %+v; want its picture alone", got)
+	}
+	foreseeing.IsPaused = false
+	if err := service.SayInterest(t.Context(), "tv", holder, foreseeing); err != nil {
+		t.Fatal(err)
+	}
+	playing.wantFetched(chunkOf("q3000k720p", 60_000), clock.Now())
+	want = []chunks.Interest{
+		{StreamName: "q3000k720p", PositionMs: 60_000},
+		{StreamName: "picture", PositionMs: 60_000},
+	}
+	if got := service.InterestsIn(1); !slices.Equal(got, want) {
+		t.Errorf("stepped down as it said: %+v; want %+v, the 720p its picture and the one it left kept", got, want)
 	}
 }
 
@@ -117,14 +242,14 @@ func TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth(t *testin
 	if got := positions(); got != [2]int64{30_000, 30_000} {
 		t.Errorf("started on its ladder from 30 s: %v; want both there", got)
 	}
-	playing.wantFetched(startingAt(sound, 40_000))
-	playing.wantFetched(startingAt(picture, 70_000))
+	playing.wantFetched(startingAt(sound, 40_000), clock.Now())
+	playing.wantFetched(startingAt(picture, 70_000), clock.Now())
 	if got := positions(); got != [2]int64{70_000, 40_000} {
 		t.Errorf("a picture loaded 30 s ahead of its sound: %v; want each where it asked, 70 s and 40 s", got)
 	}
 	sought := startingAt(picture, 300_000)
 	sought.isSought = true
-	playing.wantFetched(sought)
+	playing.wantFetched(sought, clock.Now())
 	if got := positions(); got != [2]int64{300_000, 300_000} {
 		t.Errorf("a seek's picture at 300 s: %v; want both moved there", got)
 	}
@@ -135,12 +260,12 @@ func TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth(t *testin
 	if got := positions(); got != [2]int64{120_000, 120_000} {
 		t.Errorf("the player's word, paused at 120 s: %v; want both moved there", got)
 	}
-	playing.wantFetched(startingAt(picture, 150_000))
+	playing.wantFetched(startingAt(picture, 150_000), clock.Now())
 	if got := positions(); got != [2]int64{120_000, 120_000} {
 		t.Errorf("a picture loaded ahead while paused: %v; want both where it paused", got)
 	}
 	sought.startMs = 110_000
-	playing.wantFetched(sought)
+	playing.wantFetched(sought, clock.Now())
 	if got := positions(); got != [2]int64{110_000, 110_000} {
 		t.Errorf("a seek's picture asked for while paused, the chunk before where it paused: %v; want both there",
 			got)
@@ -165,7 +290,8 @@ func TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy(t *testing.T) 
 	playing := &tokenPlayback{userID: 1, sessionKey: "s", fileID: 1, lastUsedAt: clock.Now()}
 	service := uploadService(clock, 0, map[string]*tokenPlayback{"mac": playing})
 	service.chunks = fake
-	playing.wantFetched(askedFile{stream: "sound0-96k", dir: "1/chunks-sound0-96k/g", isSound: true, isChunk: true})
+	playing.wantFetched(
+		askedFile{stream: "sound0-96k", dir: "1/chunks-sound0-96k/g", isSound: true, isChunk: true}, clock.Now())
 	said := Interest{PictureStream: "q400k360p", PositionMs: 600_000}
 	if err := service.SayInterest(t.Context(), "mac", holder, said); err != nil {
 		t.Fatal(err)
@@ -287,4 +413,9 @@ func TestSayInterest_APlayerOffTheLadderSaysTheSoundAStallStartsAndWantsNoChunks
 	if got := chunksPlaybackOf(*direct); got.PlayingSound != "sound1-own" || got.StartingAudioTrackIndex != 0 {
 		t.Errorf("as the chunks see it = %+v; want it playing the second track, started on the first", got)
 	}
+}
+
+// chunkOf is a player's ask of film 1's chunk of picture stream starting at startMs.
+func chunkOf(stream string, startMs int64) askedFile {
+	return askedFile{stream: stream, dir: "1/chunks-" + stream + "/g", startMs: startMs, isChunk: true}
 }

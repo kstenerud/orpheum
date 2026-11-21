@@ -8,6 +8,7 @@ import { orpheumAbr } from "./abr-controller.ts";
 import {
   bufferRoomOf,
   chunkBytesAt,
+  foreseenStep,
   learntLimitKeptMs,
   limitMemoryIn,
   nextChunkOf,
@@ -292,6 +293,79 @@ describe("the step-down between hls.js and the quality chosen (D464 §3)", () =>
     expect([step.isEcho(2), step.isEcho(3)]).toEqual([true, false]);
     expect(step.level(1)).toBe(1);
     expect(step.isEcho(2)).toBe(false);
+  });
+});
+
+describe("a step-down after the next chunk, foreseen for the server to make ahead (D532 §1)", () => {
+  /** The test ladder with each made quality's stream named, the film's own chunks heavy at heavy. */
+  function namedHls(heavy: readonly number[]): RoomHls {
+    const levels = ladder();
+    const named = ["q400k360p", "q1200k480p", "q3000k720p"];
+    return {
+      ...hlsAt(),
+      levels: levels.map((level, index) =>
+        index < named.length
+          ? { ...level, uri: `${named[index]!}/stream.m3u8` }
+          : {
+              ...level,
+              details: {
+                fragments: gridOf(Object.fromEntries(heavy.map((sn) => [sn, 20_000_000]))),
+              },
+            },
+      ),
+    };
+  }
+
+  it("is the first chunk past the next that will not fit at the quality chosen, and where it starts", () => {
+    const { room } = roomHolding([3, 3, 3]);
+    const hls = namedHls([5, 6]);
+    const pair = pairLevel(hls, room, 3);
+    expect(pair.level).toBe(3);
+    expect(foreseenStep(hls, room, 3, pair)).toEqual({ level: 2, sn: 6, startS: 36 });
+  });
+
+  it("looks as far ahead as the buffer holds chunks, and is none where all fit or the next steps there", () => {
+    const { room } = roomHolding([3, 3, 3]);
+    const far = namedHls([7, 8]);
+    expect(foreseenStep(far, room, 3, pairLevel(far, room, 3))).toEqual({
+      level: 2,
+      sn: 8,
+      startS: 48,
+    });
+    const beyond = namedHls([8, 9]);
+    expect(foreseenStep(beyond, room, 3, pairLevel(beyond, room, 3))).toBeUndefined();
+    const light = namedHls([5]);
+    expect(foreseenStep(light, room, 3, pairLevel(light, room, 3))).toBeUndefined();
+    const { room: heavyHeld } = roomHolding([3, 3, 15]);
+    const both = namedHls([5, 6]);
+    const pair = pairLevel(both, heavyHeld, 3);
+    expect(pair.level).toBe(2);
+    expect(foreseenStep(both, heavyHeld, 3, pair)).toBeUndefined();
+  });
+
+  it("is told once by its quality's stream as it changes, and as none once gone", () => {
+    const { room } = roomHolding([3, 3, 3]);
+    const told: unknown[] = [];
+    const hls = { ...namedHls([5, 6]) };
+    const step = new StepDown(hls, room, undefined, (each) => told.push(each));
+    expect([step.level(3), step.level(3)]).toEqual([3, 3]);
+    expect(told).toEqual([{ pictureStream: "q3000k720p", fromMs: 36_000 }]);
+    hls.levels = namedHls([5]).levels;
+    step.level(3);
+    step.level(3);
+    expect(told).toEqual([{ pictureStream: "q3000k720p", fromMs: 36_000 }, undefined]);
+  });
+
+  it("is told nothing for a quality whose playlist names no stream", () => {
+    const { room } = roomHolding([3, 3, 3]);
+    const told: unknown[] = [];
+    const named = namedHls([5, 6]);
+    const hls: RoomHls = {
+      ...named,
+      levels: named.levels.map((level, index) => (index === 2 ? { ...level, uri: "x" } : level)),
+    };
+    new StepDown(hls, room, undefined, (each) => told.push(each)).level(3);
+    expect(told).toEqual([]);
   });
 });
 

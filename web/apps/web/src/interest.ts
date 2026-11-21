@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { playerForesawStepDownEvent, type ForeseenStepDown } from "@orpheum/player";
 import { startGateOf, startGateWaitChangedEvent, type Api } from "@orpheum/sdk";
 
 import { isPausedAsAsked } from "./film-waits.tsx";
@@ -18,6 +19,12 @@ export interface SaidInterest {
    * switched its file's track in place, whose stall's offer then starts that sound.
    */
   readonly soundStream?: string;
+  /**
+   * The picture it will step down to for its buffer's memory, and where in the film, which the
+   * server starts making ahead (D532 §1); absent for none, which ends one said before.
+   */
+  readonly stepDownPictureStream?: string;
+  readonly stepDownFromMs?: number;
 }
 
 /**
@@ -26,7 +33,8 @@ export interface SaidInterest {
  * Paused is said of a film paused as its person asked (isPausedAsAsked), never of one meant to play
  * that waits for enough to be loaded: a seek's, which its start gate pauses until then, was said
  * paused, so the core made it only the half minute ahead, and the run cut there paid FFmpeg's 5 to
- * 8 s open again (file 15497, production, 2026-11-17). Returns the stopping.
+ * 8 s open again (file 15497, production, 2026-11-17). Each step-down its player foresees is said
+ * as it does, and with every word after while it stands (D532 §1). Returns the stopping.
  */
 export function sayInterestOf(
   video: HTMLVideoElement,
@@ -35,7 +43,19 @@ export function sayInterestOf(
   const at = (): number => Math.round(video.currentTime * 1000);
   // Whether the film is paused, its start gate holding a seek, with the core told it plays.
   let isHeldSaidPlaying = false;
-  const listeners: Record<string, () => void> = {
+  let foreseen: ForeseenStepDown | undefined;
+  const sayWith = (said: SaidInterest): void => {
+    say(
+      foreseen === undefined
+        ? said
+        : {
+            ...said,
+            stepDownPictureStream: foreseen.pictureStream,
+            stepDownFromMs: foreseen.fromMs,
+          },
+    );
+  };
+  const listeners: Record<string, (event: Event) => void> = {
     pause: () => {
       // The end pauses the video too: nothing is left ahead to keep. The pause that keeps the
       // press for the start is not the person's, nor the start gate's own, holding a seek.
@@ -46,23 +66,30 @@ export function sayInterestOf(
         isHeldSaidPlaying = true;
         return;
       }
-      say({ positionMs: at(), isPaused: true });
+      sayWith({ positionMs: at(), isPaused: true });
     },
     playing: () => {
       isHeldSaidPlaying = false;
-      say({ positionMs: at(), isPaused: false });
+      sayWith({ positionMs: at(), isPaused: false });
     },
     seeking: () => {
       const isPaused = isPausedAsAsked(video);
       isHeldSaidPlaying = !isPaused && video.paused;
-      say({ positionMs: at(), isPaused });
+      sayWith({ positionMs: at(), isPaused });
     },
     // A held seek's wait given up, the film left paused (a press of Pause while it waits), is the
     // person's pause, which no pause event tells: the gate had paused it already.
     [startGateWaitChangedEvent]: () => {
       if (isHeldSaidPlaying && !video.ended && isPausedAsAsked(video)) {
         isHeldSaidPlaying = false;
-        say({ positionMs: at(), isPaused: true });
+        sayWith({ positionMs: at(), isPaused: true });
+      }
+    },
+    [playerForesawStepDownEvent]: (event) => {
+      const step = event instanceof CustomEvent ? (event.detail as ForeseenStepDown | null) : null;
+      foreseen = step ?? undefined;
+      if (!video.ended) {
+        sayWith({ positionMs: at(), isPaused: isPausedAsAsked(video) });
       }
     },
   };

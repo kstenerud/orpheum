@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { playerForesawStepDownEvent } from "@orpheum/player";
 import { startGateOf } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -64,6 +65,28 @@ describe("what a player says it wants (D309)", () => {
       { positionMs: 61_235, isPaused: true },
       { positionMs: 600_000, isPaused: true },
       { positionMs: 600_000, isPaused: false },
+    ]);
+  });
+
+  it("says the step-down its player foresees as it does and with each word after, until it is gone (D532 §1)", () => {
+    const video = fakeVideo();
+    const said: SaidInterest[] = [];
+    const stop = sayInterestOf(video, (interest) => said.push(interest));
+    const foresee = (detail: unknown): void => {
+      video.dispatchEvent(new CustomEvent(playerForesawStepDownEvent, { detail }));
+    };
+    video.currentTime = 30;
+    foresee({ pictureStream: "q3000k720p", fromMs: 36_000 });
+    video.fire("pause");
+    Object.assign(video, { paused: true });
+    foresee(null);
+    stop();
+    foresee({ pictureStream: "q400k360p", fromMs: 42_000 });
+    const step = { stepDownPictureStream: "q3000k720p", stepDownFromMs: 36_000 };
+    expect(said).toEqual([
+      { positionMs: 30_000, isPaused: false, ...step },
+      { positionMs: 30_000, isPaused: true, ...step },
+      { positionMs: 30_000, isPaused: true },
     ]);
   });
 

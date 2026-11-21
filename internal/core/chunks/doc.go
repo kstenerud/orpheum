@@ -232,7 +232,9 @@
 //     TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops,
 //     TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade and
 //     TestEnsure_AJumpJustBeforeAQueuedRunStartsOneRunWhereItLanded; through the API by
-//     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
+//     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api). A player's word that it
+//     will step down to a picture plans that picture's run from there as its ask would (Foresee,
+//     D532 §1): TestForesee_PlansThePicturesRunFromWhereThePlayerWillStepDown.
 //
 //   - Every run on a node stays faster than playback (D250 §6): when one of two or more measures
 //     below chunkRunSlowestSpeedPercent of it over chunkRunSpeedWindowSeconds, one is cancelled: the oldest no

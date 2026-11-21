@@ -39,11 +39,17 @@
 //     moves the position its player reports, which it resumes from; and where its player stands: playing, lapsing
 //     after chunkInterestLapsesAfterSeconds of silence; paused or gone from its page, wanting
 //     only what it keeps ahead; gone to another film, said so or by starting one, wanting nothing.
+//     Beside its picture, while it plays, the picture it moved off, from where its picture is, for
+//     leftPictureKeptFor; and a picture it says it will step down to, from where it will, until it
+//     asks for it or says its wants without it, its run started at its word (D532).
 //     TestInterestsIn_AreWhatEachPlayerLastAskedFor,
+//     TestInterestsIn_APictureLeftIsWantedFromWhereThePictureIsForFiveMinutes,
+//     TestSayInterest_APictureItWillStepDownToIsWantedFromWhereItWillUntilItDoes,
 //     TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth,
 //     TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy,
 //     TestReplaceOthers_APlayerStartingAnotherFilmLeavesTheOthersForGood; through the API,
-//     TestInterest_ARunOfAQualityThePlayerLeftStops and
+//     TestInterest_ARunOfAQualityThePlayerLeftStops,
+//     TestInterest_APlayersWordOfAStepDownStartsThatQualitysRun and
 //     TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere (internal/core/api).
 //
 //   - Each chunk store a player asked for is kept at the highest tier any playback gives it, by

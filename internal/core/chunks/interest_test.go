@@ -428,3 +428,34 @@ func TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted(t *testing.T) {
 		}
 	}
 }
+
+// A player's word that it will step down to a picture plans that picture's run from the chunk it will
+// step down at, as its ask there would, before it asks for any of it (D532 §1): a Fire TV stepping
+// down for its buffer's memory met the quality unmade and stalled (film 200 on staging,
+// 2026-11-21). A name it is not offered, or one of sound, plans nothing and refuses nothing.
+func TestForesee_PlansThePicturesRunFromWhereThePlayerWillStepDown(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	quality, isStream := StreamNamed("q1200k480p")
+	if !isStream {
+		t.Fatal("q1200k480p names no stream")
+	}
+	wantedBy(service).say(playingAt(quality, 3))
+	playback := Playback{FileID: 1, IsSourcePictureDecodable: true}
+	fromMs := mustGrid(t, service).StartsMs[3]
+	for _, name := range []string{"q1k1p", "sound0-96k"} {
+		if err := service.Foresee(t.Context(), playback, name, fromMs); err != nil {
+			t.Errorf("a step down to %s = %v; want nothing refused", name, err)
+		}
+	}
+	if runs := queue.runs(t, service); len(runs) != 0 {
+		t.Fatalf("the runs asked for = %+v; want none for a picture not offered", runs)
+	}
+	if err := service.Foresee(t.Context(), playback, quality.Name(), fromMs); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 1 || runs[0].stream != quality.Name() || runs[0].firstChunk != 3 {
+		t.Errorf("the runs asked for = %+v; want one of %s from chunk 3", runs, quality.Name())
+	}
+}

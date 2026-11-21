@@ -50,6 +50,8 @@ func (cut *cutAfterChunks) Offered(context.Context, chunks.Playback) (chunks.Off
 	return cut.offered, nil
 }
 
+func (*cutAfterChunks) Foresee(context.Context, chunks.Playback, string, int64) error { return nil }
+
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
 func (*cutAfterChunks) ForgetFile(int64) {}

@@ -5598,6 +5598,17 @@
             "description": "The sound's stream, as the master playlist names it; empty keeps the one wanted",
             "maxLength": 64,
             "type": "string"
+          },
+          "stepDownFromMs": {
+            "description": "Where in the film the player will step down to stepDownPictureStream from",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stepDownPictureStream": {
+            "description": "The picture the player will step down to, as the master playlist names it; empty for none (D532 §1)",
+            "maxLength": 64,
+            "type": "string"
           }
         },
         "required": [

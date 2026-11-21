@@ -4,17 +4,21 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// A player that moves to another quality stops the run of the one it left: one player wants one
-// quality at a time (D309 §1, §2). On the production NAS two runs of 720p left from before the player moved to
-// 360p went on, one measured slow, and the 360p run it needed was evicted in their place (the owner's
-// Arkons, 2026-10-17). Its word that it paused, by its own token, is taken; another's is refused.
+// A player that moves to another quality keeps the run of the one it left for leftPictureKeptFor,
+// then stops it (D532 §2, amending D309 §2). On the production NAS two runs of 720p left from before
+// the player moved to 360p went on, one measured slow, and the 360p run it needed was evicted in their
+// place (the owner's film, 2026-10-17); stopped at once, a Fire TV stepping back down met the quality
+// it left unmade, and stalled (film 200 on staging, 2026-11-21). Its word that it paused, by its own
+// token, is taken; another's is refused.
 func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -29,6 +33,19 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 			http.StatusTooEarly {
 			t.Fatalf("%s's chunk 1, not made yet: %d %s; want 425", stream, answer.status, answer.body)
 		}
+	}
+	playing := map[string]any{"pictureStream": "q400k360p", "positionMs": 10_000, "isPaused": false}
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, playing); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("the player's word, playing: %d %s; want 204", answer.status, answer.body)
+	}
+	if logged := harness.logs.String(); strings.Contains(logged, `"logEvent":"unwantedChunkRunStopped"`) {
+		t.Fatalf("a run stopped within five minutes of the player leaving its quality:\n%s", logged)
+	}
+	harness.clock.Advance(5*time.Minute + time.Second)
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, playing); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("the player's word, five minutes on: %d %s; want 204", answer.status, answer.body)
 	}
 	harness.logs.AwaitEvent(t, "unwantedChunkRunStopped",
 		`"storeDir":"1/chunks-q700k432p/`, `"firstChunk":1,`)
@@ -52,6 +69,40 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 		t.Errorf("a leave for another film: %d %s; want 204", answer.status, answer.body)
 	}
 	harness.logs.AwaitEvent(t, "playerLeft", `"reason":"replaced"`)
+}
+
+// A player's word that it will step down to a quality starts that quality's run from where it will,
+// before it asks for any of it (D532 §1): a Fire TV stepping down for its buffer's memory met the
+// quality unmade and stalled (film 200 on staging, 2026-11-21). A quality it is not offered is
+// refused nothing: its own ask meets it as it would.
+func TestInterest_APlayersWordOfAStepDownStartsThatQualitysRun(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	token := harness.play(t, user, chrome(1)).MediaToken
+	harness.keepFilmOnesTimeline(t)
+	harness.measureFilmOnesLoudness(t)
+	// Playing on its ladder, on 432p.
+	chunk := api.Prefix + "/bytes/media/chunks/" + token + "/q700k432p/00001.m4s"
+	if answer := harness.getBytePath(t, chunk, user, true, ""); answer.status != http.StatusTooEarly {
+		t.Fatalf("432p's chunk 1, not made yet: %d %s; want 425", answer.status, answer.body)
+	}
+	unknown := map[string]any{
+		"positionMs": 0, "isPaused": false, "stepDownPictureStream": "q1k1p", "stepDownFromMs": 10_000,
+	}
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, unknown); answer.status !=
+		http.StatusNoContent {
+		t.Errorf("a word of a step down to a quality not offered: %d %s; want 204", answer.status, answer.body)
+	}
+	said := map[string]any{
+		"positionMs": 0, "isPaused": false, "stepDownPictureStream": "q400k360p", "stepDownFromMs": 10_000,
+	}
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, said); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("the player's word of its step down: %d %s; want 204", answer.status, answer.body)
+	}
+	harness.logs.AwaitEvent(t, "chunkRunQueued", `"storeDir":"1/chunks-q400k360p/`, `"firstChunk":1,`)
 }
 
 // A player paused where a seek took it wants the chunk it asks for there, though the chunk starts

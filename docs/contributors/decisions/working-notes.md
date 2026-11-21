@@ -30578,5 +30578,17 @@ was decided and never built, and extends it; amends D309 §2.
    stepping back down within those minutes finds its chunks made. After five minutes, or when the
    player stops, it is stopped as any run no player wants.
 
-**Proven by:** to be named when built.
+**Built** (2026-11-21): §1 for the buffer's room, and §2. A step-down for the link is not
+foreseen yet: the bitrate controller decides one only as it picks the next chunk, from the link's
+samples then, and has no rule that says a chunk ahead which quality the link will want; the
+player's own ask meets it as before. It waits on a rule, the owner's to decide (rule 1).
+
+**Proven by:** §1, `TestForesee_PlansThePicturesRunFromWhereThePlayerWillStepDown`
+(internal/core/chunks), `TestSayInterest_APictureItWillStepDownToIsWantedFromWhereItWillUntilItDoes`
+(internal/core/playback), `TestInterest_APlayersWordOfAStepDownStartsThatQualitysRun`
+(internal/core/api), and the player's "a step-down after the next chunk, foreseen for the server
+to make ahead" (`picture-room.test.ts`), `step-foresight.test.ts` and "says the step-down its
+player foresees" (`apps/web/src/interest.test.ts`); §2,
+`TestInterestsIn_APictureLeftIsWantedFromWhereThePictureIsForFiveMinutes` and
+`TestInterest_ARunOfAQualityThePlayerLeftStops`. Only a device shows the stalls gone: VQ376.
 

@@ -87,6 +87,9 @@ type Chunks interface {
 	Stalled(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	StartOnLadder(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
+	// Foresee starts the run of the picture a player says it will step down to, from where it will
+	// (D532 §1).
+	Foresee(ctx context.Context, playback chunks.Playback, streamName string, positionMs int64) error
 	// InterestsBy is where the runs learn who wants them: this service's playbacks (D309).
 	InterestsBy(interests chunks.Interests)
 	ChunksLetGo

@@ -23,6 +23,10 @@ type PlaybackWantsInput struct {
 		SoundStream string `doc:"The sound's stream, as the master playlist names it; empty keeps the one wanted" json:"soundStream,omitempty" maxLength:"64"`
 		PositionMs  int64  `doc:"Where in the film the player plays from" json:"positionMs" minimum:"0"`
 		IsPaused    bool   `doc:"Paused, it wants only the minute after its position (D309 §4)" json:"isPaused"`
+		//nolint:lll // one struct tag
+		StepDownPictureStream string `doc:"The picture the player will step down to, as the master playlist names it; empty for none (D532 §1)" json:"stepDownPictureStream,omitempty" maxLength:"64"`
+		//nolint:lll // one struct tag
+		StepDownFromMs int64 `doc:"Where in the film the player will step down to stepDownPictureStream from" json:"stepDownFromMs,omitempty" minimum:"0"`
 	}
 }
 
@@ -60,6 +64,7 @@ func (server *Server) setPlaybackWants(ctx context.Context, input *PlaybackWants
 	said := playback.Interest{
 		PictureStream: input.Body.PictureStream, SoundStream: input.Body.SoundStream,
 		PositionMs: input.Body.PositionMs, IsPaused: input.Body.IsPaused,
+		StepDownPictureStream: input.Body.StepDownPictureStream, StepDownFromMs: input.Body.StepDownFromMs,
 	}
 	if err := reporter.dependencies.Playback.SayInterest(ctx, input.Token, reporter.holder, said); err != nil {
 		return nil, server.playbackError(ctx, "take what a player wants", err)

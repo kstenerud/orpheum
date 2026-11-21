@@ -41,43 +41,82 @@ type playerInterest struct {
 	// both, jumped back and forth between them.
 	picturePositionMs, soundPositionMs int64
 	disposition                        Disposition
+	// foreseen is the picture its player said it will step down to, and from where (D532 §1).
+	foreseen foreseenPicture
+	// left is the picture its player last moved off, kept wanted for a while (D532 §2).
+	left leftPicture
 }
+
+// foreseenPicture is a picture a player said it will step down to, from fromMs (D532 §1): wanted as
+// its picture is, until it asks for it or says its wants again without it.
+type foreseenPicture struct {
+	stream string
+	fromMs int64
+}
+
+// leftPicture is a picture a player moved off, and its store: wanted from where the player's picture
+// is until until, while it plays, so a player stepping back to it within leftPictureKeptFor finds its
+// chunks made (D532 §2).
+type leftPicture struct {
+	stream, dir string
+	until       time.Time
+}
+
+// leftPictureKeptFor is how long a picture a player moved off stays wanted (D532 §2): a film whose
+// own picture fits a Fire TV's buffer in some stretches and not in others stepped between it and
+// 720p every few minutes, and 720p's run, stopped at each step up, was not made at the next step
+// down, so the player stalled (film 200 on staging, 2026-11-21).
+const leftPictureKeptFor = 5 * time.Minute
 
 // Interest is what a player says it wants of its film's chunks (SayInterest): a picture's and a
 // sound's streams, by the names its master playlist gives them, either empty to keep the one it
-// wants; where it plays from; and whether it is paused.
+// wants; where it plays from; whether it is paused; and the picture it will step down to and from
+// where, if it foresees one (D532 §1), empty for none.
 type Interest struct {
 	PictureStream, SoundStream string
 	PositionMs                 int64
 	IsPaused                   bool
+	StepDownPictureStream      string
+	StepDownFromMs             int64
 }
 
 // SayInterest takes a player's word on what it wants of its film's chunks, which replaces what it
-// wanted (D309 §1): said as it starts, switches quality, seeks, pauses and plays again. The film's
-// runs no player wants then stop. A token not the holder's, or gone, is ErrNoToken.
+// wanted (D309 §1): said as it starts, switches quality, seeks, pauses and plays again, and as it
+// foresees a step down (D532 §1). The film's runs no player wants then stop, and the run of the
+// picture it will step down to starts. A token not the holder's, or gone, is ErrNoToken.
 func (service *Service) SayInterest(ctx context.Context, token string, holder Holder, said Interest) error {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return err
 	}
-	playback, found := service.tokens.use(token, holder, service.clock.Now(), idle)
+	now := service.clock.Now()
+	playback, found := service.tokens.use(token, holder, now, idle)
 	if !found {
 		return ErrNoToken
 	}
 	service.tokens.mutex.Lock()
 	if known, isKnown := service.tokens.playbackByToken[token]; isKnown {
-		known.interest.take(said)
+		known.interest.take(said, now)
 	}
 	service.tokens.mutex.Unlock()
-	return service.stopUnwanted(ctx, playback.fileID)
+	if err := service.stopUnwanted(ctx, playback.fileID); err != nil {
+		return err
+	}
+	if said.StepDownPictureStream == "" || service.chunks == nil {
+		return nil
+	}
+	return service.chunks.Foresee(ctx, chunksPlaybackOf(playback), said.StepDownPictureStream, said.StepDownFromMs)
 }
 
 // take replaces what a player wanted with what it said: a stream it names that is not the one it
 // wanted is wanted from a store not yet known, until it asks for a file of it. Its word, said as it
-// starts, seeks, pauses and plays again, moves both its streams to where it plays (D355 §2).
-func (interest *playerInterest) take(said Interest) {
+// starts, seeks, pauses and plays again, moves both its streams to where it plays (D355 §2), and
+// says the picture it will step down to, or none (D532 §1).
+func (interest *playerInterest) take(said Interest, now time.Time) {
+	interest.foreseen = foreseenPicture{stream: said.StepDownPictureStream, fromMs: said.StepDownFromMs}
 	if said.PictureStream != "" && said.PictureStream != interest.picture {
-		interest.picture, interest.pictureDir = said.PictureStream, ""
+		interest.movePicture(said.PictureStream, now)
+		interest.pictureDir = ""
 	}
 	if said.SoundStream != "" && said.SoundStream != interest.sound {
 		interest.sound, interest.soundDir = said.SoundStream, ""
@@ -87,6 +126,50 @@ func (interest *playerInterest) take(said Interest) {
 	if said.IsPaused {
 		interest.disposition = Paused
 	}
+}
+
+// movePicture makes stream its picture at now: the one it moves off stays wanted for
+// leftPictureKeptFor (D532 §2), and a picture it said it would step down to, once it has, is wanted
+// as its picture (§1).
+func (interest *playerInterest) movePicture(stream string, now time.Time) {
+	if stream == interest.picture {
+		return
+	}
+	if interest.picture != "" {
+		interest.left = leftPicture{
+			stream: interest.picture, dir: interest.pictureDir, until: now.Add(leftPictureKeptFor),
+		}
+	}
+	interest.picture = stream
+	if interest.foreseen.stream == stream {
+		interest.foreseen = foreseenPicture{}
+	}
+}
+
+// besidePicture is what the player wants of its film's pictures beside its picture at now: the one
+// it said it will step down to, from where it will (D532 §1), and, while it plays, the one it moved
+// off within leftPictureKeptFor, from where its picture is (§2).
+func (interest *playerInterest) besidePicture(now time.Time) []chunks.Interest {
+	var beside []chunks.Interest
+	if foreseen := interest.foreseen; foreseen.stream != "" && foreseen.stream != interest.picture {
+		beside = append(beside, chunks.Interest{
+			StreamName: foreseen.stream, PositionMs: foreseen.fromMs, IsStopped: interest.disposition != Playing,
+		})
+	}
+	if interest.isLeftWanted(now) {
+		beside = append(beside, chunks.Interest{
+			StreamName: interest.left.stream, PositionMs: interest.picturePositionMs,
+		})
+	}
+	return beside
+}
+
+// isLeftWanted is whether the picture the player moved off is still wanted at now (D532 §2): it
+// plays, on another picture, within leftPictureKeptFor of moving.
+func (interest *playerInterest) isLeftWanted(now time.Time) bool {
+	left := interest.left
+	return left.stream != "" && left.stream != interest.picture && interest.disposition == Playing &&
+		now.Before(left.until)
 }
 
 // moveBoth moves the picture's and the sound's positions together to positionMs (D355 §2).
@@ -104,7 +187,8 @@ func (service *Service) stopUnwanted(ctx context.Context, fileID int64) error {
 
 // InterestsIn is every interest the playbacks of fileID hold now (chunks.Interests): each one's
 // picture and sound, each from its own position (D355), stopped once its player paused or left,
-// and the lower quality and sound a stall made ready for it (D247 §2); none once its player went to
+// the picture it will step down to and the one it just moved off (besidePicture, D532), and the
+// lower quality and sound a stall made ready for it (D247 §2); none once its player went to
 // another film, or fell silent while playing for chunkInterestLapsesAfterSeconds (D309 §3).
 func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	now := service.clock.Now()
@@ -128,6 +212,7 @@ func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 				})
 			}
 		}
+		interests = append(interests, interest.besidePicture(now)...)
 		if offer := playback.offer; offer != nil && interest.disposition != Left {
 			for _, stream := range []string{offer.StreamName, offer.SoundStreamName} {
 				if stream != "" {
@@ -169,16 +254,18 @@ func askedFileOf(file chunks.StoreFile) askedFile {
 // Watch Together group waiting on the jump, its players paused on that start, wanted nothing behind
 // it, planned no run for the chunk every player asked for, and never played (staging, 2026-10-30).
 // Its buffer filled after the seek is not sought (the player's markSeeks), and moves nothing, as
-// before. An init says nothing of where the
-// player is: its run is made from where the playback last reported, the film's start for a guest
-// that has reported nothing (the owner's VQ38 run, 2026-10-12). A player that asks after it left, as
-// a player page that takes over its film page's token does, plays again. Locked by its caller.
-func (playback *tokenPlayback) wantFetched(asked askedFile) {
+// before. An init says nothing of where the player is: its run is made from where the playback last
+// reported, the film's start for a guest that has reported nothing (the owner's VQ38 run,
+// 2026-10-12). A player that asks after it left, as a player page that takes over its film page's
+// token does, plays again. A picture it moves to at now leaves the one it moved off wanted a while
+// (movePicture, D532 §2). Locked by its caller.
+func (playback *tokenPlayback) wantFetched(asked askedFile, now time.Time) {
 	interest := &playback.interest
 	if asked.isSound {
 		interest.sound, interest.soundDir = asked.stream, asked.dir
 	} else {
-		interest.picture, interest.pictureDir = asked.stream, asked.dir
+		interest.movePicture(asked.stream, now)
+		interest.pictureDir = asked.dir
 	}
 	if interest.disposition == Paused && (!asked.isChunk || !asked.isSought) {
 		return
@@ -272,7 +359,12 @@ func (service *Service) StoreTiers(ctx context.Context) (map[string]nodeproto.Ke
 		if tier == nodeproto.KeepUnlikely {
 			continue
 		}
-		for _, dir := range []string{playback.interest.pictureDir, playback.interest.soundDir} {
+		dirs := []string{playback.interest.pictureDir, playback.interest.soundDir}
+		if playback.interest.isLeftWanted(now) {
+			// Kept as its picture's, so a step back finds what was made (D532 §2).
+			dirs = append(dirs, playback.interest.left.dir)
+		}
+		for _, dir := range dirs {
 			if dir != "" && tier.IsAbove(tiers[dir]) {
 				tiers[dir] = tier
 			}

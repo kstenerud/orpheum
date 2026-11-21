@@ -48,6 +48,8 @@ export { linkShareForQuality } from "./abr-choice.ts";
 export { shapeChunkLoads } from "./link-shaping.ts";
 export type { LinkShaping } from "./link-shaping.ts";
 export { playChunked, playerFoundUnplayableEvent, unplayableOf } from "./chunked.ts";
+export { playerForesawStepDownEvent } from "./step-foresight.ts";
+export type { ForeseenStepDown } from "./step-foresight.ts";
 export { offeredRungsOf, playerOfferedRungsEvent, tellOfferedRungs } from "./offered-rungs.ts";
 export { LinkOutages, pageLinkOutages, type Outage } from "./link-outage.ts";
 export {

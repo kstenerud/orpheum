@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -196,4 +197,30 @@ func (service *Service) storeIDOf(ctx context.Context, fileID int64, stream Stre
 		return 0, fmt.Errorf("record the store of %s: %w", StoreDir(fileID, stream, storeKey), err)
 	}
 	return storeID, nil
+}
+
+// Foresee starts the run of a picture a player says it will step down to, from positionMs, before it
+// asks for any of it (D532 §1): planned as its ask from there would be, wanted by the interest its
+// word recorded. A player waited on the quality it stepped down to, unmade since its run stopped at
+// the step up, and stalled with only the picture it had buffered (film 200 on staging, 2026-11-21).
+// A name the playback is not offered as a picture, its own or a quality made of it, a film not cut
+// yet, and a chunk its node has no room for or FFmpeg has given up on are said at debug and refused
+// nothing: the player's own ask then meets them as it does today.
+func (service *Service) Foresee(ctx context.Context, playback Playback, streamName string, positionMs int64) error {
+	film, stream, err := service.offeredStream(ctx, playback, streamName)
+	if err == nil && stream.Kind != nodeproto.StreamPicture && stream.Kind != nodeproto.StreamQuality {
+		err = fmt.Errorf("%w: %q is not a picture", ErrNoStream, streamName)
+	}
+	if err == nil {
+		err = service.askedFor(ctx, playback.FileID, playback.gridKind(), stream, film.grid.chunkAt(positionMs))
+	}
+	for _, foreseeable := range []error{ErrNoStream, ErrNoGrid, ErrNoRoomToMake, ErrCannotBeMade} {
+		if errors.Is(err, foreseeable) {
+			service.logger.DebugContext(ctx, "made nothing ahead of a step down",
+				slogx.EventKey, "stepDownNotForeseen", "fileId", playback.FileID, "stream", streamName,
+				"positionMs", positionMs, "err", err)
+			return nil
+		}
+	}
+	return err
 }

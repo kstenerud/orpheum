@@ -5,6 +5,7 @@ import type { HlsProgressivePerformanceTiming, LoaderStats } from "hls.js";
 import type { ChoiceLevel, FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 import type { LongTasks } from "./main-thread.ts";
+import type { ForeseenStepDown } from "./step-foresight.ts";
 
 /**
  * What the chunked player's bitrate controller (abr.ts) is given: the chunks it follows, what it reads
@@ -105,6 +106,12 @@ export interface ChoosingOptions {
    * Firefox on the production NAS, 2026-10-20).
    */
   readonly noteStep?: (step: string) => void;
+  /**
+   * Told each step-down for the buffer's memory foreseen after the next chunk, and undefined once
+   * there is none, for the player's page to tell the core, which starts the quality's run ahead
+   * (D532 §1); absent where nothing listens.
+   */
+  readonly foreseeStepDown?: ((step: ForeseenStepDown | undefined) => void) | undefined;
   /**
    * Told the link's last samples in a line (samplesText) each time one is taken, for every stall's
    * and seek's report (D352 §5).

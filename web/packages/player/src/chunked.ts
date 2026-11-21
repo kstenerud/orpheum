@@ -61,6 +61,7 @@ import {
 } from "./main-thread.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { skipChunksNotMade } from "./skip-unmade.ts";
+import { stepDownForeseer } from "./step-foresight.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { stepOverHoles } from "./holes.ts";
@@ -602,7 +603,7 @@ function stepAndLinkNoter(
  * why, among the video's steps, and its steadiness level and its link's spread for its play reports;
  * its estimate of the link starting from what its offer says its device remembers (P2); and telling
  * the page's outages, where given, each sign that its link was lost (D487); under the device's data
- * cap, where given (D488).
+ * cap, where given (D488); and telling video each step-down for its memory it foresees (D532 §1).
  */
 export function choosingOptionsOf(
   video: HTMLVideoElement,
@@ -637,6 +638,7 @@ export function choosingOptionsOf(
     longTasks: longTasksOf(globalThis),
     onUnplayable: sendUnplayable(video),
     noteStep: stepAndLinkNoter(video, options.monotonicMs),
+    foreseeStepDown: stepDownForeseer(video),
     noteSamples: samplesNoter(video),
     noteSteadiness: steadinessNoter(video),
     noteLinkSpread: linkSpreadNoter(video),
