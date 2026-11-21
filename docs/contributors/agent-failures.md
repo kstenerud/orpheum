@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A88 — Called a device walk's step a fail when the owner had not been asked plainly to act (2026-11-21)
+
+- **What happened:** walking VQ374 with the owner, the lead's step said to "keep DevTools open on
+  Network and reload the tab once", inside a list of what to report. The owner waited for the page
+  to reload itself, sent screenshots, and the lead called the step a fail: "the worker should have
+  been replaced at that reload". No reload had happened. The lead read "nothing changed" as the
+  switch failing, rather than asking first whether the action the step needed was taken.
+- **Caught by:** the owner: "I didn't see any instructions in step 4 to reload."
+- **Gate:** none. A device step now puts the action alone on its own line, first, and a result that
+  shows no change is checked against whether the action was taken before it is called a fail. The
+  walk's diagnosis moves to the lead's own headless browser, so the owner walks a confirmation.
+
 ### A87 — Wrote that OpenMediaVault's Users table shows a hidden UID column, and that appdata's disk is easy to choose (2026-11-20)
 
 - **What happened:** the install guide told a household to read the server's UID from a **UID**
