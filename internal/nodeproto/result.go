@@ -55,7 +55,10 @@ type Result struct {
 	Repeats      *Repeats            `json:"repeats,omitempty"`
 }
 
-// Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.
+// Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil. A
+// result has no type to switch on: TestResult_StallAnswersEveryResultThatCarriesOne walks every
+// payload, so one added with a Stall this does not read fails. An artwork batch and the system
+// videos carry none.
 func (result Result) Stall() *Stall {
 	switch {
 	case result.Subtitle != nil:

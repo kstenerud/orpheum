@@ -54,7 +54,8 @@ func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 			command.VideoTimeline = &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true}
 		}
 		service.timeRead(t.Context(), job, nodes.Attempt{
-			NodeID: 1, Work: nodeproto.Work{ReadThrough: command}, RunningSince: runningSince,
+			NodeID: 1, Work: nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: command},
+			RunningSince: runningSince,
 		})
 	}
 	read(true, now.Now().Add(-time.Second))
@@ -76,7 +77,7 @@ func TestTimeRead_AnIndexReadLogsHowLongItTook(t *testing.T) {
 	job := jobs.Job{ID: 9, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}}
 	service.timeRead(t.Context(), job, nodes.Attempt{
 		NodeID: 1, RunningSince: now.Now().Add(-1500 * time.Millisecond),
-		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+		Work: nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{
 			VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
 		}},
 	})
@@ -89,7 +90,7 @@ func TestTimeRead_AnIndexReadLogsHowLongItTook(t *testing.T) {
 	logged.Reset()
 	service.timeRead(t.Context(), job, nodes.Attempt{
 		NodeID: 1, RunningSince: now.Now().Add(-time.Second),
-		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+		Work: nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{
 			LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: 1}},
 		}},
 	})
@@ -116,7 +117,9 @@ func TestTakeProgress_ARunningReadsPositionIsItsJobsProgress(t *testing.T) {
 	t.Parallel()
 	queue := &progressing{}
 	service := &Service{queue: queue}
-	attempt := nodes.Attempt{JobID: 9, Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{DurationMs: 40_000}}}
+	attempt := nodes.Attempt{JobID: 9, Work: nodeproto.Work{
+		Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{DurationMs: 40_000},
+	}}
 	for _, progress := range []nodeproto.Progress{
 		{State: nodeproto.ProgressRunning, ReadThroughMs: 10_000},
 		{State: nodeproto.ProgressWaiting, ReadThroughMs: 20_000},
@@ -126,7 +129,9 @@ func TestTakeProgress_ARunningReadsPositionIsItsJobsProgress(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	unknownLength := nodes.Attempt{JobID: 9, Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{}}}
+	unknownLength := nodes.Attempt{JobID: 9, Work: nodeproto.Work{
+		Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{},
+	}}
 	if err := service.takeProgress(t.Context(), unknownLength,
 		nodeproto.Progress{State: nodeproto.ProgressRunning, ReadThroughMs: 10_000}); err != nil {
 		t.Fatal(err)

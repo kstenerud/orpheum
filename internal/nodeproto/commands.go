@@ -84,28 +84,86 @@ type Commands struct {
 }
 
 // MediaFile is the file of the node's media a command reads, and whether it reads one: the device it
-// is on is the one the work holds a reader of (D240 §5).
+// is on is the one the work holds a reader of (D240 §5). It answers by the work's type, so a type
+// added without an answer here fails the exhaustive lint.
 func (work Work) MediaFile() (BytesFile, bool) {
-	switch {
-	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil:
-		return *work.ExtractSubtitle.Video, true
-	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Sidecar != nil:
-		return *work.ExtractSubtitle.Sidecar, true
-	case work.ReadThrough != nil:
-		return work.ReadThrough.Video, true
-	case work.MakeChunks != nil:
-		return work.MakeChunks.Video, true
-	case work.HashWhole != nil:
-		return work.HashWhole.File, true
-	case work.FindRepeats != nil && len(work.FindRepeats.Videos) > 0:
-		// A season's episodes are on one disk, as a library folder's files mostly are.
-		return work.FindRepeats.Videos[0].Video, true
-	case work.List != nil:
-		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
-	case work.Examine != nil && len(work.Examine.Files) > 0:
-		return BytesFile{RootPath: work.Examine.RootPath, Path: work.Examine.Files[0].Path.Bytes()}, true
+	switch work.Type {
+	case CommandExtractSubtitle:
+		return work.ExtractSubtitle.mediaFile()
+	case CommandReadThrough:
+		if work.ReadThrough != nil {
+			return work.ReadThrough.Video, true
+		}
+	case CommandMakeChunks:
+		return work.MakeChunks.mediaFile()
+	case CommandHashWhole:
+		return work.HashWhole.mediaFile()
+	case CommandFindRepeats:
+		return work.FindRepeats.mediaFile()
+	case CommandList:
+		return work.List.mediaFile()
+	case CommandExamine:
+		return work.Examine.mediaFile()
+	case CommandEncodeArtwork, CommandMakeSystemVideos, CommandCancel, CommandReprioritize:
+		// An artwork batch carries its images, and the system videos are made from nothing on a disk;
+		// a cancel and a reprioritizing carry no work.
 	}
 	return BytesFile{}, false
+}
+
+// mediaFile is the video a subtitle is extracted from, or the sidecar converted; a fetched
+// subtitle's conversion reads neither. Each payload's mediaFile answers none for a work that carries
+// no payload.
+func (command *ExtractSubtitle) mediaFile() (BytesFile, bool) {
+	switch {
+	case command == nil:
+	case command.Video != nil:
+		return *command.Video, true
+	case command.Sidecar != nil:
+		return *command.Sidecar, true
+	}
+	return BytesFile{}, false
+}
+
+// mediaFile is the video the chunks are made from.
+func (command *MakeChunks) mediaFile() (BytesFile, bool) {
+	if command == nil {
+		return BytesFile{}, false
+	}
+	return command.Video, true
+}
+
+// mediaFile is the file hashed.
+func (command *HashWhole) mediaFile() (BytesFile, bool) {
+	if command == nil {
+		return BytesFile{}, false
+	}
+	return command.File, true
+}
+
+// mediaFile is the set's first video: a season's episodes are on one disk, as a library folder's
+// files mostly are.
+func (command *FindRepeats) mediaFile() (BytesFile, bool) {
+	if command == nil || len(command.Videos) == 0 {
+		return BytesFile{}, false
+	}
+	return command.Videos[0].Video, true
+}
+
+// mediaFile is the folder listed.
+func (command *List) mediaFile() (BytesFile, bool) {
+	if command == nil {
+		return BytesFile{}, false
+	}
+	return BytesFile{RootPath: command.RootPath, Path: []byte(command.Path)}, true
+}
+
+// mediaFile is the first file examined, by its raw bytes.
+func (command *Examine) mediaFile() (BytesFile, bool) {
+	if command == nil || len(command.Files) == 0 {
+		return BytesFile{}, false
+	}
+	return BytesFile{RootPath: command.RootPath, Path: command.Files[0].Path.Bytes()}, true
 }
 
 // WithoutBytes is the work as a result echoes it, and the core keeps it: without the bytes it
@@ -143,25 +201,41 @@ const (
 )
 
 // Slot is the slot the work runs in, or "" for work that holds none: a listing, an examining or a
-// read of a video's index alone, which hold only a reader of their device, a scan, a cancel.
+// read of a video's index alone, which hold only a reader of their device, a scan, a cancel. It
+// answers by the work's type, so a type added without an answer here fails the exhaustive lint.
 func (work Work) Slot() Slot {
-	switch {
-	case work.ExtractSubtitle != nil:
+	switch work.Type {
+	case CommandExtractSubtitle:
 		return SlotExtract
-	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly(), work.HashWhole != nil,
-		work.FindRepeats != nil:
+	case CommandReadThrough:
+		// A read of a video's index alone holds no slot.
+		if work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly() {
+			return SlotReadThrough
+		}
+	case CommandHashWhole, CommandFindRepeats:
 		// A whole-file hash reads a whole video too, as a read-through does (D116, D363 §2), and finding
 		// repeats decodes the sound of a season's videos, one after another.
 		return SlotReadThrough
-	case work.MakeChunks != nil && work.MakeChunks.Stream.Kind == StreamQuality:
-		return SlotEncode
-	case work.MakeChunks != nil:
-		return SlotRemux
-	case work.EncodeArtwork != nil, work.MakeSystemVideos != nil:
+	case CommandMakeChunks:
+		return work.MakeChunks.slot()
+	case CommandEncodeArtwork, CommandMakeSystemVideos:
 		// The system videos are a few seconds' small encodes, made once, as an image's are.
 		return SlotArtwork
+	case CommandList, CommandExamine, CommandCancel, CommandReprioritize:
 	}
 	return ""
+}
+
+// slot is the encode slot for a run that encodes a quality, else the remux slot.
+func (command *MakeChunks) slot() Slot {
+	switch {
+	case command == nil:
+		return ""
+	case command.Stream.Kind == StreamQuality:
+		return SlotEncode
+	default:
+		return SlotRemux
+	}
 }
 
 // Slots are every kind of slot a node runs work in.

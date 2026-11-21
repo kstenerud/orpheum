@@ -56,6 +56,8 @@ just met, and every new node command pays it again, silently, until a device sho
   already enabled, with `Slot()` and `MediaFile()` as its methods. **M, agent** (the sealed
   interface changes the wire types' Go shape, not their JSON).
 
+*Fixed:* refactor(nodeproto): a work's slot and media file are answered by its type, which the lint checks
+
 ### 2. A new job kind discards the whole cache
 
 `internal/store/cache/schema.sql:10` lists the job kinds in a `CHECK`. A new kind changes the

@@ -53,7 +53,7 @@ func TestBuild_TheReadThroughLogsAnIndexReadsTime(t *testing.T) {
 	job := jobs.Job{ID: 9, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}}
 	attempt := nodes.Attempt{
 		NodeID: 1, RunningSince: parts.Clock.Now().Add(-time.Second),
-		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+		Work: nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{
 			VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
 		}},
 	}

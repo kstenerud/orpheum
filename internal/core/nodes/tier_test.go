@@ -13,10 +13,13 @@ import (
 // not wait for a scan's quick pass; a read through is slow work, which does (D255, D269 §5).
 func TestTierOf_AReadOfAVideosIndexAloneIsFastWork(t *testing.T) {
 	t.Parallel()
-	indexOnly := nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+	indexOnly := nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &nodeproto.ReadThrough{
 		VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
 	}}
-	whole := nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{VideoTimeline: &nodeproto.VideoTimelineAsk{}}}
+	whole := nodeproto.Work{
+		Type:        nodeproto.CommandReadThrough,
+		ReadThrough: &nodeproto.ReadThrough{VideoTimeline: &nodeproto.VideoTimelineAsk{}},
+	}
 	if got := tierOf(indexOnly, jobs.PriorityIndexFirst); got != tierFast || readsWholeFiles(indexOnly) {
 		t.Errorf("a read of the index alone is tier %d, reading whole files %t; want fast, not", got,
 			readsWholeFiles(indexOnly))

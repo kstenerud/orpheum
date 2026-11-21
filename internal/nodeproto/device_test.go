@@ -36,17 +36,17 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 		work Work
 		want string
 	}{
-		"extract":  {Work{ExtractSubtitle: &ExtractSubtitle{Video: &video}}, "a.mkv"},
-		"sidecar":  {Work{ExtractSubtitle: &ExtractSubtitle{Sidecar: &sidecar}}, "a.srt"},
-		"read":     {Work{ReadThrough: &ReadThrough{Video: video}}, "a.mkv"},
-		"chunks":   {Work{MakeChunks: &MakeChunks{Video: video}}, "a.mkv"},
-		"artwork":  {Work{EncodeArtwork: &ArtworkBatch{}}, ""},
-		"converts": {Work{ExtractSubtitle: &ExtractSubtitle{}}, ""},
-		"list":     {Work{List: &List{RootPath: "/media", Path: "Films"}}, "Films"},
-		"examine": {Work{Examine: &Examine{RootPath: "/media", Files: []ExamineFile{
+		"extract":  {Work{Type: CommandExtractSubtitle, ExtractSubtitle: &ExtractSubtitle{Video: &video}}, "a.mkv"},
+		"sidecar":  {Work{Type: CommandExtractSubtitle, ExtractSubtitle: &ExtractSubtitle{Sidecar: &sidecar}}, "a.srt"},
+		"read":     {Work{Type: CommandReadThrough, ReadThrough: &ReadThrough{Video: video}}, "a.mkv"},
+		"chunks":   {Work{Type: CommandMakeChunks, MakeChunks: &MakeChunks{Video: video}}, "a.mkv"},
+		"artwork":  {Work{Type: CommandEncodeArtwork, EncodeArtwork: &ArtworkBatch{}}, ""},
+		"converts": {Work{Type: CommandExtractSubtitle, ExtractSubtitle: &ExtractSubtitle{}}, ""},
+		"list":     {Work{Type: CommandList, List: &List{RootPath: "/media", Path: "Films"}}, "Films"},
+		"examine": {Work{Type: CommandExamine, Examine: &Examine{RootPath: "/media", Files: []ExamineFile{
 			{Path: Path{Text: "b?.mkv", Raw: []byte("b\xff.mkv")}}, {Path: Path{Text: "c.mkv"}},
 		}}}, "b\xff.mkv"},
-		"examine nothing": {Work{Examine: &Examine{RootPath: "/media"}}, ""},
+		"examine nothing": {Work{Type: CommandExamine, Examine: &Examine{RootPath: "/media"}}, ""},
 	} {
 		file, isMedia := each.work.MediaFile()
 		if string(file.Path) != each.want || isMedia != (each.want != "") {
@@ -62,7 +62,8 @@ func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.
 	for kind, want := range map[ChunkStreamKind]Slot{
 		StreamQuality: SlotEncode, StreamPicture: SlotRemux, StreamSound: SlotRemux, StreamSoundCopied: SlotRemux,
 	} {
-		if got := (Work{MakeChunks: &MakeChunks{Stream: ChunkStream{Kind: kind}}}).Slot(); got != want {
+		work := Work{Type: CommandMakeChunks, MakeChunks: &MakeChunks{Stream: ChunkStream{Kind: kind}}}
+		if got := work.Slot(); got != want {
 			t.Errorf("a run of a %s holds %q, want %q", kind, got, want)
 		}
 	}
@@ -72,11 +73,13 @@ func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.
 // a read through holds the read-through slot (D255 §1, D269 §5).
 func TestSlot_AReadOfAVideosIndexAloneHoldsNoSlot(t *testing.T) {
 	t.Parallel()
-	indexOnly := Work{ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{IsFromIndexOnly: true}}}
+	indexOnly := Work{
+		Type: CommandReadThrough, ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{IsFromIndexOnly: true}},
+	}
 	if got := indexOnly.Slot(); got != "" {
 		t.Errorf("a read of the index alone holds %q, want no slot", got)
 	}
-	whole := Work{ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{}}}
+	whole := Work{Type: CommandReadThrough, ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{}}}
 	if got := whole.Slot(); got != SlotReadThrough {
 		t.Errorf("a read through holds %q, want %q", got, SlotReadThrough)
 	}

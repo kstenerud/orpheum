@@ -356,7 +356,7 @@ func TestRecord_KeepsEachAnswerWhereItsSourceSays(t *testing.T) {
 	ctx := t.Context()
 	recordOf := func(command nodeproto.ExtractSubtitle, answer nodeproto.SubtitleText) error {
 		return bench.service.record(ctx, fakeNodeID, nodeproto.Result{
-			Work: &nodeproto.Work{ExtractSubtitle: &command}, Subtitle: &answer,
+			Work: &nodeproto.Work{Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &command}, Subtitle: &answer,
 		})
 	}
 	sidecar := nodeproto.ExtractSubtitle{Sidecar: &nodeproto.BytesFile{PayloadHash: "0a"}}
