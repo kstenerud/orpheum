@@ -3626,3 +3626,22 @@ An item is ticked only by the person who did it, and only with what they saw.
   5. On the same TV, play an episode whose file has a credits chapter, and press Fast forward to
      a little before the credits. Report whether Up next is offered as the credits start, rather
      than 30 seconds before the end.
+- [ ] **VQ374** — The central client's kill switch brings a device on an old build to the build
+  served now (the paid spec §7.1, C16; the owner's answer to question 1 of the B0 proposals,
+  2026-11-20: all realms at once). orpheum-connect has no browser harness, so this is the
+  proposal's Playwright run, walked by hand; connect's own tests (in internal/killswitch,
+  internal/webclient, cmd/connectd/operate_client_test.go and the panel's Overview test) cover the
+  switch and what sw.js is. On staging, with connectd at "feat(connectd): the web client's kill switch, set from the
+  command line or the panel, has every page's worker empty its caches and step aside":
+  1. The lead serves build A at app-staging. In Chrome on the computer, open app-staging. and sign
+     in; reload once. In DevTools, Application, note that Service workers shows `sw.js` activated
+     and Cache storage lists the client's caches.
+  2. The lead serves build B, and runs `connectd client kill on` in staging's connectd container
+     (or sets Client kill switch to on in the operator panel's Overview), then waits 10 s.
+  3. Reload the tab once. Report whether the page reloads itself once more, by itself, and then:
+     whether Service workers shows no worker for the origin, Cache storage is empty, and Network
+     shows `index.html` and the `assets/` files fetched from the network with build B's names.
+  4. Reload again, twice. Report whether the page loads each time without reloading itself again.
+  5. The lead runs `connectd client kill off`, waits 10 s. Reload twice. Report whether Service
+     workers shows build B's `sw.js` activated again and the Activity lists both changes, off to
+     on and on to off.
