@@ -93,8 +93,13 @@ func (images *ImageFetcher) fetch(ctx context.Context, ref string) (artwork.Unsa
 		return artwork.Unsanitised{}, refused
 	}
 	// A 200 that is not an image, such as a captive portal's page, is the host failing, not the
-	// image: it is not passed on to be refused for good (D213 §5).
+	// image: it is not passed on to be refused for good (D213 §5). An answer that names no type is
+	// judged by its first bytes, since TMDB's CDN serves some images with no Content-Type at all
+	// (idiosyncrasies.md, "TMDB's CDN").
 	contentType := answer.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(answer.Body)
+	}
 	if mediaType, _, err := mime.ParseMediaType(contentType); err != nil || !strings.HasPrefix(mediaType, "image/") {
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w: answered %q, not an image",
 			ref, outbound.ErrUnavailable, contentType)

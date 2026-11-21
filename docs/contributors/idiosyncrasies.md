@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| Production stopped downloading posters a moment after it started: TMDB's image server "down", never back, though the host reached it. | [TMDB's CDN serves some images with no Content-Type](#tmdbs-cdn-serves-some-images-with-no-content-type) |
 | Back in the browser on a phone after another app: a moment of the page, about 7 s of black, then drawn again; a film page said a failure the app does not expect. | [A phone freezes a page in the background, and hands it back with its WebRTC connection still saying connected](#a-phone-freezes-a-page-in-the-background-and-hands-it-back-with-its-webrtc-connection-still-saying-connected) |
 | On a phone in the player, about half the taps on the film paused it, though a touch's click was meant to do nothing there. | [Some mobile browsers give a tap's click a mouse's pointerType, or none](#some-mobile-browsers-give-a-taps-click-a-mouses-pointertype-or-none) |
 | A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
@@ -5112,6 +5113,27 @@ miss was our own bug (Appendix B).*
   refused it, and it is not tried again until an admin changes it
   (`TestCurrentSession_ALoginAnswered400IsRefused`). A 400 to any other request stays an error.
 - **Evidence:** observed on staging, 2026-11-02 (VQ11). [doc] opensubtitles-api.md §3 speaks of a 401.
+
+### TMDB's CDN serves some images with no Content-Type
+
+- **Technology:** TMDB's image server (`image.tmdb.org`, served by BunnyCDN).
+- **Symptom:** production's core logged `a destination is down; its work waits destination=tmdbImages
+  reason=unreachable` a moment after it started, and never `a destination is back`: no poster was
+  downloaded after it. The one queued artwork job's last failure read `unavailable: answered "", not an
+  image`. The host reached the image server over IPv4 and IPv6.
+- **Cause:** for one image's `original` size, the CDN answered 200 with a valid JPEG (its bytes begin
+  `ff d8 ff e0`, JFIF) and no `Content-Type` header, over both families and from two edges; the same
+  image at a smaller size came with `image/jpeg`. The fetcher took a 200 that names no image type for a
+  captive portal, the host failing (D213 §5), so it parked TMDB's whole image server. That job was the
+  only one queued for it, so every probe was the same request, failed the same way, and backed the next
+  off (30 s doubling to an hour): it stayed parked for good.
+- **What we do:** an answer naming no type is judged by its first bytes (`http.DetectContentType`); a
+  declared type that is not an image is still the host failing
+  (`internal/core/providers/tmdb/images.go`, `TestImageFetcher_AnImageNamingNoTypeIsJudgedByItsBytes`).
+- **Evidence:** observed on production (ainas, v0.8.10), 2026-11-21, item 2535's still; headers read with
+  `curl -D -` from the production host. [web] No report of TMDB omitting the header was found; a
+  [Jellyfin forum thread](https://forum.jellyfin.org/t-jellyfin-can-not-download-poster-from-tmdb) has
+  poster downloads from TMDB failing on a read of the image's type.
 
 ## Google's consoles
 

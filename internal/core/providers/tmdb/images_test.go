@@ -116,3 +116,29 @@ func TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing(t *testing.T) {
 		t.Errorf("a 200 that is a web page: %v, want the host failing, not the image missing (D213 §5)", err)
 	}
 }
+
+func TestImageFetcher_AnImageNamingNoTypeIsJudgedByItsBytes(t *testing.T) {
+	t.Parallel()
+	jpeg := []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01 the rest of a JPEG")
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header()["Content-Type"] = nil // no type at all, as TMDB's CDN answers some images
+		body := jpeg
+		if request.URL.Path == "/portal.jpg" {
+			body = []byte("<html>Sign in to the hotel's Wi-Fi</html>")
+		}
+		_, _ = writer.Write(body) //nolint:errcheck // a test server
+	}))
+	t.Cleanup(server.Close)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	images := newImageFetcher(t, httpClient, server.URL)
+	image, err := images.Fetch(t.Context(), "/untyped.jpg")
+	if err != nil || image.Len() != len(jpeg) {
+		t.Errorf("a JPEG with no Content-Type = %d bytes, %v; want the image, not the host down", image.Len(), err)
+	}
+	if _, err := images.Fetch(t.Context(), "/portal.jpg"); !errors.Is(err, outbound.ErrUnavailable) {
+		t.Errorf("a web page with no Content-Type: %v, want the host failing", err)
+	}
+}
