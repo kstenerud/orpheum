@@ -7,6 +7,7 @@ import { act, useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { myDevicesKey } from "./accounts.ts";
+import { OpenedAsContext } from "./around-file.ts";
 import { castTakenWithinMs } from "./cast.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider } from "./live.tsx";
@@ -602,12 +603,12 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
 
   /**
    * The Play page's film 8, from 30 s, on a device whose live connection says what it sends; the page
-   * shows where its film plays here from.
+   * shows where its film plays here from. The page plays it as the title openedAs, where given.
    */
   async function playOn(
     heard: Heard[],
     sending: Readonly<Record<string, unknown>> | undefined,
-    shouldPlayHere = false,
+    { shouldPlayHere = false, openedAs }: { shouldPlayHere?: boolean; openedAs?: number } = {},
   ): Promise<
     ReturnType<typeof servedBy> & { readonly sockets: ReturnType<typeof liveAndSession> }
   > {
@@ -624,14 +625,16 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     const sockets = liveAndSession();
     mounted = await mount(
       withServices(
-        <LiveProvider>
-          <PlayOrSendOn
-            fileId={8}
-            atMs={30_000}
-            shouldPlayHere={shouldPlayHere}
-            playHere={(from) => <p>{`playing here from ${String(from.atMs)}`}</p>}
-          />
-        </LiveProvider>,
+        <OpenedAsContext value={openedAs}>
+          <LiveProvider>
+            <PlayOrSendOn
+              fileId={8}
+              atMs={30_000}
+              shouldPlayHere={shouldPlayHere}
+              playHere={(from) => <p>{`playing here from ${String(from.atMs)}`}</p>}
+            />
+          </LiveProvider>
+        </OpenedAsContext>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
     );
@@ -674,6 +677,18 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     expect(mounted?.container.textContent).not.toContain("playing here");
   });
 
+  // One file's bytes filed as a film and as an episode play as the title they were opened from
+  // (B0 question 20): the receiver plays the page's file as that title, not as the file's first.
+  it("goes on to the receiver as the title the page's film was opened from", async () => {
+    const heard: Heard[] = [];
+    await playOn(heard, { ...sendingToTheTv, isAccepted: true }, { openedAs: 12 });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({
+      fileId: 8,
+      itemId: 12,
+      positionMs: 30_000,
+    });
+  });
+
   it("plays here where the device casts nothing, its receiver has not said Use, or the remote said to play here", async () => {
     for (const [sending, shouldPlayHere] of [
       [undefined, false],
@@ -681,7 +696,7 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
       [{ ...sendingToTheTv, isAccepted: true }, true],
     ] as const) {
       const heard: Heard[] = [];
-      await playOn(heard, sending, shouldPlayHere);
+      await playOn(heard, sending, { shouldPlayHere });
       expect(mounted?.container.textContent).toContain("playing here from 30000");
       expect(heard).toEqual([]);
       mounted?.unmount();

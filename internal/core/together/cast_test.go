@@ -152,7 +152,9 @@ func TestCast_ADeviceComingBackHasACredentialOfItsOwn(t *testing.T) {
 }
 
 // A cast made ready between videos plays nothing, every device told, so the next video, even the one
-// before, is put on afresh rather than followed where the group had gone on to (D364 §5).
+// before, is put on afresh rather than followed where the group had gone on to (D364 §5). Nothing
+// on is no title either: the title its film was put on as goes with it, so the next file put on is
+// not taken as that title (B0 question 20).
 func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -162,15 +164,24 @@ func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
 	}
 	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
 	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
-	stage.command(t, receiver, CommandChangeItem, 12)
+	const titleOf12 = 34
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageCommand, Command: CommandChangeItem, FileID: 12, ItemID: titleOf12,
+	})
+	if group := receiverBox.last(MessageGroup).Group; group.FileID != 12 || group.ItemID != titleOf12 {
+		t.Fatalf("the cast put on %+v; want file 12 as title %d", group, titleOf12)
+	}
 	stage.ready(t, receiver, false)
 	if err = stage.hub.CastReady(cast.SessionID, stage.owner.UserID); err != nil {
 		t.Fatal(err)
 	}
 	for name, box := range map[string]*inbox{"receiver": receiverBox, "remote": remoteBox} {
-		if group := box.last(MessageGroup).Group; group.State != GroupIdle || group.FileID != 0 {
-			t.Errorf("the %s sees %+v once ready, want nothing on", name, group)
+		if group := box.last(MessageGroup).Group; group.State != GroupIdle || group.FileID != 0 || group.ItemID != 0 {
+			t.Errorf("the %s sees %+v once ready, want nothing on, as no title", name, group)
 		}
+	}
+	if played := stage.hub.playedOf(cast.SessionID); played != (Played{}) {
+		t.Errorf("the cast once ready plays %+v; want nothing, as no title", played)
 	}
 	if err := stage.hub.CastReady(cast.SessionID, 99); !errors.Is(err, ErrNoSession) {
 		t.Errorf("someone else made the cast ready: %v; want ErrNoSession", err)

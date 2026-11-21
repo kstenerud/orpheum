@@ -13,6 +13,7 @@ import { App, Screen } from "./app.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import {
+  bodyField,
   buttonWithText,
   click,
   mount,
@@ -26,6 +27,7 @@ import {
 import { isFilmAndSeriesLoaded, isPlayLoaded, isSignInLoaded } from "./later-screens.tsx";
 import { createPathMoves } from "./services.tsx";
 import { signedInMarkupAt } from "./test-app.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 
@@ -701,5 +703,30 @@ describe("a page signed in for one cast (D469 §4)", () => {
     expect(container.querySelector(".app-shell")).toBeNull();
     mounted.unmount();
     expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /me"]);
+  });
+});
+
+// One file's bytes filed as a film and as an episode play as the title they were opened from
+// (B0 question 20): the play route's title is the one its Play page asks to play.
+describe("the play route's title", () => {
+  it("is the title the Play page asks its playback as", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    const mounted = await mount(
+      withServices(<Screen route={{ screen: "play", fileId: 2, itemId: 20 }} />, services),
+    );
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
+    const playback = heard.find((each) => each.methodAndPath === "POST /playback");
+    expect(playback === undefined ? undefined : bodyField(playback, "itemId")).toBe(20);
+    mounted.unmount();
   });
 });

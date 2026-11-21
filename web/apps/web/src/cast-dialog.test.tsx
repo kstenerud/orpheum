@@ -76,6 +76,49 @@ describe("Cast's dialog (D384 §2)", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  // One file's bytes filed as a film and as an episode play as the title they were opened from
+  // (B0 question 20): the cast the dialog starts plays the Play page's file as its route's title.
+  it("starts a cast of the Play page's film as the title it was opened from", async () => {
+    const heard: Heard[] = [];
+    const live = fakeTogetherServer();
+    const device = (id: number, name: string): Record<string, unknown> => ({
+      id,
+      name,
+      platform: "web",
+      addedAt: 0,
+      lastUsedAt: 0,
+      isSignedIn: true,
+      isByCode: false,
+      isThisDevice: id === 1,
+    });
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [device(1, "Laptop"), device(2, "Fire TV")] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+      },
+      heard,
+      "token",
+    );
+    services.navigation.go({ screen: "play", fileId: 4, itemId: 40 });
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastDialog onClose={vi.fn()} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: live.openSocket },
+      ),
+    );
+    await live.accept();
+    await live.say({ type: "sending" });
+    await live.say({ type: "devices", deviceIds: [1, 2] });
+    await click(buttonWithText(mounted.container, "Fire TV"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toMatchObject({
+      toDeviceId: 2,
+      fileId: 4,
+      itemId: 40,
+    });
+  });
+
   it("closes as the film goes to AirPlay from it (D473)", async () => {
     const started: string[] = [];
     const unoffer = offerAirPlayHere({

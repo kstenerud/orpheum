@@ -125,6 +125,23 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4; D
     }
   });
 
+  // One file's bytes filed as a film and as an episode play as the title they were opened from
+  // (B0 question 20): the Play page a cast opens plays its file as the title the cast was handed.
+  it("opens the Play page of a cast's film as the title it was handed as", async () => {
+    Object.defineProperty(navigator, "userActivation", {
+      configurable: true,
+      value: { isActive: false, hasBeenActive: true },
+    });
+    try {
+      const { services, server, container } = await receiver();
+      await server.say({ type: "receive", receive: { ...handed, itemId: 70, positionMs: 0 } });
+      await settleUntil(() => container.textContent.includes("receiving cast 5"));
+      expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7, itemId: 70 });
+    } finally {
+      Reflect.deleteProperty(navigator, "userActivation");
+    }
+  });
+
   it("takes a cast at once on a page never pressed, so its sender hands it off, and holds the film for the press that starts it (D468 §2, §3)", async () => {
     const { services, server, accepts, container } = await receiver();
     const before = services.navigation.route();

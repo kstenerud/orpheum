@@ -8,6 +8,7 @@ import { stallAfterMs } from "@orpheum/player";
 import { playedMutedEvent } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OpenedAsContext } from "./around-file.ts";
 import { PlayView } from "./play.tsx";
 import { buttonWithText, click, mount, servedBy, settleUntil } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
@@ -79,6 +80,40 @@ describe("the host's player in a session (D246 §5)", () => {
     mounted.unmount();
     // Leaving the player stops nothing for the group: Stop, or another film, does (D246 §5 withdrawn).
     expect(server.heard.filter((message) => message["command"] === "stop")).toEqual([]);
+  });
+
+  // One file's bytes filed as a film and as an episode play as the title they were opened from
+  // (B0 question 20): the group is told the title, so it plays on as the episode, not the film.
+  it("puts the film on for everyone as the title it was opened from", async () => {
+    hostSession();
+    const server = fakeTogetherServer();
+    const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+    const mounted = await mount(
+      withServices(
+        <OpenedAsContext value={50}>
+          <HostPlaysTogether
+            fileId={5}
+            video={null}
+            startPositionMs={61_000}
+            cannotKeepUp={undefined}
+          />
+        </OpenedAsContext>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 1,
+      isHost: true,
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
+      roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
+    });
+    expect(server.heard).toContainEqual(
+      expect.objectContaining({ command: "changeItem", fileId: 5, itemId: 50 }),
+    );
+    mounted.unmount();
   });
 
   it("leaves the film's volume out of the panel in Watch Together's dialog over the film, the slider row carrying it (D440 §8)", async () => {
