@@ -24,11 +24,17 @@ export type UserSections = components["schemas"]["UserSectionsBody"];
 export type UsersSections = components["schemas"]["UsersSectionsBody"];
 
 /** The System page's first read, for its sections; none outside it, where each reads its own. */
-export const SystemSectionsContext = createContext<PageRead<SystemSections> | undefined>(undefined);
+export const SystemSectionsContext: Context<PageRead<SystemSections> | undefined> = createContext<
+  PageRead<SystemSections> | undefined
+>(undefined);
 /** A user's page's first read, for its sections. */
-export const UserSectionsContext = createContext<PageRead<UserSections> | undefined>(undefined);
+export const UserSectionsContext: Context<PageRead<UserSections> | undefined> = createContext<
+  PageRead<UserSections> | undefined
+>(undefined);
 /** The Users page's first read, for its sections. */
-export const UsersSectionsContext = createContext<PageRead<UsersSections> | undefined>(undefined);
+export const UsersSectionsContext: Context<PageRead<UsersSections> | undefined> = createContext<
+  PageRead<UsersSections> | undefined
+>(undefined);
 
 /**
  * The page read a page's first read stands for: waited on while it loads; read, with the sections

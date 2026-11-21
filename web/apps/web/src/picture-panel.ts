@@ -10,7 +10,7 @@
  */
 
 import type { PictureChoice, PlaybackPicture, SubtitleOption } from "@orpheum/sdk";
-import { createContext, use, useEffect } from "react";
+import { createContext, use, useEffect, type Context } from "react";
 
 import { useLatest } from "./latest.ts";
 
@@ -83,9 +83,8 @@ export function newPicturePanel(): PicturePanel & PicturePanelControls {
 }
 
 /** The Play page's panel, for its controls; undefined on a page with none. */
-export const PicturePanelContext = createContext<(PicturePanel & PicturePanelControls) | undefined>(
-  undefined,
-);
+export const PicturePanelContext: Context<(PicturePanel & PicturePanelControls) | undefined> =
+  createContext<(PicturePanel & PicturePanelControls) | undefined>(undefined);
 
 /**
  * Has the subtitle menu say how it stands, the track showing among those offered, each named as the

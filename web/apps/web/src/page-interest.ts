@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, type Context } from "react";
 
 import { useServices } from "./services.tsx";
 
@@ -8,7 +8,7 @@ import { useServices } from "./services.tsx";
  * How often, in seconds, a shown film's or series' page says so: the server's
  * interestSaidEverySeconds, its starting value until the client settings are read (D324 §1).
  */
-export const InterestSaidEveryContext = createContext(15);
+export const InterestSaidEveryContext: Context<number> = createContext(15);
 
 /**
  * Says the server's work for itemId comes first while its page is shown (D324 §1): at once, again

@@ -151,7 +151,7 @@ export interface FocusEngine {
  * What may take focus: links, buttons, form fields, a details' summary, a video with its own
  * controls and anything with a tabindex, each as long as it is not switched off.
  */
-export const focusableSelector = [
+export const focusableSelector: string = [
   "a[href]",
   "button:not([disabled])",
   'input:not([disabled]):not([type="hidden"])',

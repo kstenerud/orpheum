@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -65,7 +66,9 @@ export interface PlayerMenusWays {
 }
 
 /** The page's ways for the overlay's menus; undefined where the page gives none, a cast's receiver. */
-export const PlayerMenusContext = createContext<PlayerMenusWays | undefined>(undefined);
+export const PlayerMenusContext: Context<PlayerMenusWays | undefined> = createContext<
+  PlayerMenusWays | undefined
+>(undefined);
 
 /**
  * The menu open now, if one is: 🔈, Subtitles, Sound track, ⁝, or the dialog one opened (Find subtitles,

@@ -21,7 +21,10 @@ import type { FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 
 /** A film's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
-export const levels = [
+export const levels: {
+  bitrate: number;
+  averageBitrate: number;
+}[] = [
   { bitrate: 696_000, averageBitrate: 496_000 },
   { bitrate: 1_896_000, averageBitrate: 1_296_000 },
   { bitrate: 4_596_000, averageBitrate: 3_096_000 },
@@ -316,7 +319,10 @@ export function pastStarting(chosen: Chosen, level: number, ...mbps: number[]): 
 }
 
 /** File 5664's ladder on staging, its top 15.6 Mb/s HEVC; the rungs between made up. */
-export const fireTvLadder = [696_000, 2_000_000, 4_000_000, 8_000_000, 15_635_000].map((bps) => ({
+export const fireTvLadder: {
+  bitrate: number;
+  averageBitrate: number;
+}[] = [696_000, 2_000_000, 4_000_000, 8_000_000, 15_635_000].map((bps) => ({
   bitrate: bps,
   averageBitrate: bps,
 }));

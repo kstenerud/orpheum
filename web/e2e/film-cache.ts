@@ -114,6 +114,6 @@ export class FilmCache {
 }
 
 /** The browser tier's films, kept in the checkout's ignored .dev/, which outlives the dev container. */
-export const filmCache = new FilmCache(
+export const filmCache: FilmCache = new FilmCache(
   new URL("../../.dev/browser-films/", import.meta.url).pathname,
 );

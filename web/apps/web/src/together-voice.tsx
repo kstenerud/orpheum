@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -139,7 +140,9 @@ export function useHostVoice(): VoiceInUse | undefined {
  * guest's (together-viewer.tsx): what the player's overlay reaches the people's volumes and Talk
  * from (D440 §2, §3); undefined outside a session.
  */
-export const SessionVoiceContext = createContext<VoiceInUse | undefined>(undefined);
+export const SessionVoiceContext: Context<VoiceInUse | undefined> = createContext<
+  VoiceInUse | undefined
+>(undefined);
 
 /** This page's voice in its session (SessionVoiceContext); undefined outside one. */
 export function useSessionVoice(): VoiceInUse | undefined {

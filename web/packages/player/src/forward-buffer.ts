@@ -51,7 +51,7 @@ export const loadsAheadAtTopS = 60;
  * not the buffer's (forward-buffer-2026-10-29.md P2). A group's runway and hls.js's own cut may go
  * lower; the memory estimate does not.
  */
-export const loadsAheadAtLeastS = holdsQualityAheadS;
+export const loadsAheadAtLeastS: number = holdsQualityAheadS;
 
 /**
  * The share of the browser's memory for a page's picture, and of its memory for its sound, that what
@@ -59,7 +59,7 @@ export const loadsAheadAtLeastS = holdsQualityAheadS;
  * (keptBehindS) and a chunk being appended (forward-buffer-2026-10-29.md P2). A justified constant,
  * the owner's (2026-10-29).
  */
-export const aheadShareOfBufferLimit = 1 / 3;
+export const aheadShareOfBufferLimit: number = 1 / 3;
 
 /**
  * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
@@ -95,7 +95,7 @@ export const loadsAheadAfterOutageS = 480;
  * after a refusal still lowers it, kept for the playback, so a refusal is not met again. A justified
  * constant, the lead's.
  */
-export const deeperShareOfBufferLimit = 2 / 3;
+export const deeperShareOfBufferLimit: number = 2 / 3;
 
 /**
  * What a playback loading deeper holds besides what is loaded ahead, in seconds: keptBehindS and a
@@ -122,13 +122,13 @@ const mebibyte = 1024 * 1024;
  * read from the browsers' sources or reports of them. A Fire TV's Silk refused a chunk with 31.5 MB
  * held (VQ294's run, 2026-11-11): lowMemory's 30 MiB.
  */
-export const videoLimitBytes = {
+export const videoLimitBytes: Readonly<Record<BufferLimitKind, number>> = {
   ordinary: 150 * mebibyte,
   lowMemory: 30 * mebibyte,
   cast: 30 * mebibyte,
   firefox: 100 * mebibyte,
   webkit: 100_000_000,
-} as const satisfies Record<BufferLimitKind, number>;
+};
 
 /**
  * The browser's memory for a page's sound (its audio SourceBuffer), in bytes, by the same kinds of
@@ -142,13 +142,13 @@ export const videoLimitBytes = {
  * loaded ahead (staging, 2026-10-29). Justified constants, read from the browsers' sources or reports
  * of them; the Fire TV's is not yet shown (VQ121, the report's T4).
  */
-export const soundLimitBytes = {
+export const soundLimitBytes: Readonly<Record<BufferLimitKind, number>> = {
   ordinary: 12 * mebibyte,
   lowMemory: 2 * mebibyte,
   cast: 2 * mebibyte,
   firefox: 30 * mebibyte,
   webkit: 100_000_000,
-} as const satisfies Record<BufferLimitKind, number>;
+};
 
 /**
  * The most memory, in GB as navigator.deviceMemory says it, of a device Chromium treats as low-end:

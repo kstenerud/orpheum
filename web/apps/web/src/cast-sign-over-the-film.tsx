@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, type ReactNode } from "react";
+import { createContext, type Context, type ReactNode } from "react";
 
 /**
  * Cast's sign over the film (D422), drawn for the player's overlay by the signed-in app, which draws
@@ -9,6 +9,6 @@ import { createContext, type ReactNode } from "react";
  * or closed, it gives the sign; nothing where no one is signed in, as on a guest's page by link
  * alone, which has no devices to cast to.
  */
-export const CastSignOverTheFilmContext = createContext<
+export const CastSignOverTheFilmContext: Context<
   (onOpenChange: (isOpen: boolean) => void) => ReactNode
->(() => null);
+> = createContext<(onOpenChange: (isOpen: boolean) => void) => ReactNode>(() => null);

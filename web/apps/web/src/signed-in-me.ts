@@ -6,7 +6,7 @@
  */
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use } from "react";
+import { createContext, use, type Context } from "react";
 
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -22,7 +22,9 @@ export interface SignedInMe {
 }
 
 /** The shell's read of who is signed in (app.tsx's SignedIn provides it). */
-export const MeContext = createContext<SignedInMe | undefined>(undefined);
+export const MeContext: Context<SignedInMe | undefined> = createContext<SignedInMe | undefined>(
+  undefined,
+);
 
 /** A read the shell's makes needless: it never answers, so it asks nothing and sets nothing. */
 const readsNothing = (): Promise<Me> => new Promise(() => undefined);

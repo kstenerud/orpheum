@@ -88,10 +88,10 @@ export const scrubShownForMs = 1500;
  * How long the volume shows after + or −, in ms: as long as the scrub bar alone after a seek, the
  * other change shown alone for a moment. A justified constant.
  */
-export const volumeShownForMs = scrubShownForMs;
+export const volumeShownForMs: 1500 = scrubShownForMs;
 
 /** The volume keys, + and −: the player's (player-commands.ts), the overlay only showing the volume. */
-const volumeKeys: ReadonlySet<Command> = new Set<Command>(["volumeUp", "volumeDown"]);
+const volumeKeys: ReadonlySet<Command> = new Set(["volumeUp", "volumeDown"]);
 
 /**
  * What of the overlay shows, hasOffer saying whether an offer is on: hidden, the convenience area
@@ -115,11 +115,7 @@ function seekOfArrow(command: Command): number | undefined {
 }
 
 /** The commands that stay the player's whatever the overlay shows: play, pause and the seeking keys. */
-const playersKeys: ReadonlySet<Command> = new Set<Command>([
-  "playPause",
-  "seekBack",
-  "seekForward",
-]);
+const playersKeys: ReadonlySet<Command> = new Set(["playPause", "seekBack", "seekForward"]);
 
 /**
  * What a press does to the overlay (D407 §4–§5). Play, pause and the seeking keys stay the
@@ -430,7 +426,7 @@ const overlayControlsInOrder: readonly OverlayControl[] = [
 export const doubleTapWaitMs = 250;
 
 /** How far a double tap seeks, in ms (D415 §3): the remote's step, back or forward by side. */
-export const doubleTapSeekMs = seekStepMs;
+export const doubleTapSeekMs: 10000 = seekStepMs;
 
 /** Where on the picture a tap fell, by thirds of its width. */
 export type TapZone = "left" | "middle" | "right";

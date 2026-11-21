@@ -88,7 +88,7 @@ const limitKey = "orpheum.pictureBufferLimit";
  * hold the device's buffer low for good (D494); a week on, the device learns it again (the owner,
  * 2026-11-16: "7 days is fine").
  */
-export const learntLimitKeptMs = 7 * 24 * 60 * 60 * 1000;
+export const learntLimitKeptMs: number = 7 * 24 * 60 * 60 * 1000;
 
 /** Of a kept limit, its bytes and when it was learnt; undefined where it is not a limit. */
 function keptLimitOf(

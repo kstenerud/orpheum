@@ -50,7 +50,9 @@ export const focusStartAttribute = "data-focus-start";
 export const arrivalValue = "arrival";
 
 /** The attribute marking an element as its page's or dialog's arrival, spread into its JSX. */
-export const arrivalMark = { [focusStartAttribute]: arrivalValue } as const;
+export const arrivalMark: { readonly [focusStartAttribute]: typeof arrivalValue } = {
+  [focusStartAttribute]: arrivalValue,
+};
 
 /**
  * Where focus goes into an element marked as a start: the element itself where it takes focus; else
@@ -90,7 +92,9 @@ export function arrivalIn(root: ParentNode): HTMLElement | undefined {
 export const dangerousActionAttribute = "data-dangerous-action";
 
 /** The attribute marking a choice as a dangerous action (D421), spread into its JSX. */
-export const dangerousMark = { [dangerousActionAttribute]: "" } as const;
+export const dangerousMark: { readonly [dangerousActionAttribute]: "" } = {
+  [dangerousActionAttribute]: "",
+};
 
 /**
  * The attribute marking a dialog's standard Close (modal-dialog.tsx): a way out, never where focus

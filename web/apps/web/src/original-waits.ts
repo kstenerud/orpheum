@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, use, useEffect, useEffectEvent } from "react";
+import { createContext, use, useEffect, useEffectEvent, type Context } from "react";
 
 import { deviceDataCaps, isWithinCap, type DataCaps } from "./data-cap.ts";
 import type { FilmParts } from "./film-player.tsx";
@@ -85,7 +85,9 @@ export class OriginalTries {
 }
 
 /** The film's playback's try at the original (OriginalTries), given by the Play page; undefined where none is kept. */
-export const OriginalTriesContext = createContext<OriginalTries | undefined>(undefined);
+export const OriginalTriesContext: Context<OriginalTries | undefined> = createContext<
+  OriginalTries | undefined
+>(undefined);
 
 /**
  * Whether a film plays on its ladder waiting for the original its person chose: the decision says so

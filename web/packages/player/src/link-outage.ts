@@ -27,7 +27,7 @@ export const deeperAfterOutageAtLeastMs = 10_000;
  * home on Wi-Fi is back to its 30 s within an episode. A justified constant, the lead's (D487 §2),
  * of low confidence until VQ332 shows it on a journey.
  */
-export const deeperForMs = 10 * 60_000;
+export const deeperForMs: number = 10 * 60_000;
 
 /** An outage that ended: how long it lasted, when it ended, and the first sign of it. */
 export interface Outage {
@@ -86,7 +86,7 @@ export class LinkOutages {
  * The page's own: one for every film played in it, so a playback opened again after an outage, or the
  * next film, knows of it. A page loaded again starts with none.
  */
-export const pageLinkOutages = new LinkOutages();
+export const pageLinkOutages: LinkOutages = new LinkOutages();
 
 /** An outage's words for a note: "out 381.3 s (its loading stopped)". */
 export function outageText(outage: Outage): string {

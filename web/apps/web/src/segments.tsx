@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type Context,
   type JSX,
   type RefObject,
 } from "react";
@@ -30,7 +31,8 @@ const noSegments: readonly MediaSegment[] = [];
  * The segments of the file the Play page plays (StartPlaybackOutputBody's segments), which its skip,
  * its commercials and its Up next read; none outside a Play page.
  */
-export const SegmentsContext = createContext<readonly MediaSegment[]>(noSegments);
+export const SegmentsContext: Context<readonly MediaSegment[]> =
+  createContext<readonly MediaSegment[]>(noSegments);
 
 /** The segments a decision gives, none where it gives null. */
 export function segmentsOf(given: readonly MediaSegment[] | null): readonly MediaSegment[] {

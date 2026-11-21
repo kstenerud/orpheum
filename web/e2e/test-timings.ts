@@ -11,7 +11,7 @@ import { join } from "node:path";
  */
 
 /** Where every suite keeps its timings, a directory each: check-pr's own tree links it, so its runs are kept too. */
-export const timingsRoot = new URL("../../.dev/test-timings/", import.meta.url).pathname;
+export const timingsRoot: string = new URL("../../.dev/test-timings/", import.meta.url).pathname;
 /** How many passes of each suite are kept, the newest. */
 export const keptPasses = 20;
 
@@ -55,7 +55,7 @@ export interface PassTiming {
 }
 
 /** Writes one pass's timings into its suite's directory under root, and keeps only the newest keptPasses. */
-export function writePass(timing: PassTiming, root = timingsRoot): void {
+export function writePass(timing: PassTiming, root: string = timingsRoot): void {
   const directory = join(root, timing.suite);
   mkdirSync(directory, { recursive: true });
   const stamp = timing.startedAt.toISOString().replaceAll(":", "-");

@@ -23,7 +23,7 @@ export const composeUpdateCommand = "docker compose pull && docker compose up -d
 export const securityUpdateSnoozeKey = "orpheum.securityUpdate.snoozed";
 
 /** How long a snooze hides the banner: a day (security-updates.md Part B). */
-export const snoozeLastsMs = 24 * 60 * 60 * 1000;
+export const snoozeLastsMs: number = 24 * 60 * 60 * 1000;
 
 /**
  * Whether this browser's admin snoozed the banner of the fix in fixedIn, and the day has not passed
@@ -40,7 +40,7 @@ export function snooze(storage: StringStorage, fixedIn: string, nowMs: number): 
 }
 
 /** How often a shown page reads the update state again (D462 §10.9): ten minutes. */
-export const updateReadEveryMs = 10 * 60 * 1000;
+export const updateReadEveryMs: number = 10 * 60 * 1000;
 
 /** The update state the shell reads for an admin and keeps current, and how to read it again now. */
 interface SharedUpdate {

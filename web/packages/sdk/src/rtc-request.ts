@@ -14,7 +14,7 @@
  */
 
 /** The most a message holds, which every browser carries; the core's rtcapi.MaxMessageBytes. */
-export const maxMessageBytes = 64 * 1024;
+export const maxMessageBytes: number = 64 * 1024;
 
 /** What a request's head names, with its value, to have its response end in endMessage. */
 const endHeader = "x-orpheum-end";

@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin, type UserConfigFnObject } from "vite";
 
 import { agentHelpFiles, agentHelpSource, buildMetaName, buildOf } from "./src/agent-help";
 import { chunkModules } from "./src/chunk-modules";
@@ -93,7 +93,7 @@ const serviceWorkerBuild = (mapDirectory: string | undefined) => ({
 // is the server's — the API, media bytes and the Watch Together socket — is proxied to the Go
 // server the dev loop started. scripts/dev.py sets ORPHEUM_DEV_SERVER in the process
 // environment. Nothing is read from .env files (D204).
-export default defineConfig(({ command, mode }) => {
+const config: UserConfigFnObject = defineConfig(({ command, mode }) => {
   // envDir false: the process environment only, never .env files.
   const env = loadEnv(mode, false, "ORPHEUM_");
   const mapDirectory = env["ORPHEUM_BROWSER_MAP_DIR"];
@@ -140,3 +140,5 @@ export default defineConfig(({ command, mode }) => {
     },
   };
 });
+
+export default config;

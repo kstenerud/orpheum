@@ -3,7 +3,7 @@
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import { searchForWorkspaceRoot } from "vite";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type ViteUserConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 import { chromiumArguments, firefoxUserPrefs } from "./e2e/browsers.ts";
@@ -61,7 +61,7 @@ const focusAfterAPageOpens: BrowserCommand<[keeper: string]> = async ({ page }, 
   }
 };
 
-export default defineConfig({
+const config: ViteUserConfig = defineConfig({
   plugins: [react()],
   // Vite's own deny list but for its "**/.git/**": revert-red's worktrees and check-pr's tree live
   // under .git/, where it refused every test file, so each browser-mode probe there failed before a
@@ -107,3 +107,5 @@ export default defineConfig({
     },
   },
 });
+
+export default config;

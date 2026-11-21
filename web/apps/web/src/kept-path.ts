@@ -100,7 +100,7 @@ function socketOn(path: Reached): OpenTogetherSocket {
  * the production NAS, 2026-10-18).
  */
 export const betterPathFirstMs = 30_000;
-export const betterPathMostMs = 10 * 60_000;
+export const betterPathMostMs: number = 10 * 60_000;
 
 /**
  * How many times a page moves away from a path for a failed request before it moves to it no more:

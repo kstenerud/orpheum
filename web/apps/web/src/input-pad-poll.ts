@@ -298,7 +298,7 @@ const memories = new Map<number, PadMemory>();
  * than this may go unread; a hold's repeats keep their times, which are measured, not counted in
  * polls (input-pads.ts).
  */
-export const padPollEveryMs = Math.floor(1000 / 15);
+export const padPollEveryMs: number = Math.floor(1000 / 15);
 
 /** The timer polling the pads, while one is. */
 let polling: ReturnType<typeof setInterval> | undefined;

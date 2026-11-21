@@ -113,7 +113,7 @@ export type ArtSize =
   | "logo-m";
 
 /** Where every image's address begins (artUrl), which the WebRTC transport ranks below a read (D479). */
-export const artPathPrefix = `${apiPrefix}/bytes/art/`;
+export const artPathPrefix: "/api/v1/bytes/art/" = `${apiPrefix}/bytes/art/`;
 
 /**
  * The address of one size of an image, by the source SHA-256 a title's artwork names. An <img> sends the

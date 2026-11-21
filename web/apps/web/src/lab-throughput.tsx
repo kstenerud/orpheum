@@ -19,7 +19,7 @@ const lanAddressKey = "orpheum.lab.lanAddress";
  * 270, long enough that a connection's start counts little. A justified constant, within the core's
  * bounds for the body (lab_throughput.go).
  */
-export const throughputBytes = 32 * 1024 * 1024;
+export const throughputBytes: number = 32 * 1024 * 1024;
 
 /**
  * The ways the page loads the body (webrtc-throughput-2026-10-28.md): its own requests' path, as the

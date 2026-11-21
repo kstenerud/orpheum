@@ -57,7 +57,7 @@ export function playFromTheStart(page: Page): Locator {
 }
 
 /** A request for one of a film's chunks, which a film page makes only for a film on its ladder. */
-export const chunkRequest = /\/bytes\/media\/chunks\/.+\.m4s/u;
+export const chunkRequest: RegExp = /\/bytes\/media\/chunks\/.+\.m4s/u;
 
 /**
  * Opens a film's page once the film is on its ladder: its page then fills the player's first buffer

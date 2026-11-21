@@ -14,6 +14,7 @@ import {
   use,
   useMemo,
   useState,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -54,7 +55,9 @@ export interface PlayerTracks {
 }
 
 /** The film's tracks, for what the page draws over or under it; undefined outside a film. */
-export const PlayerTracksContext = createContext<PlayerTracks | undefined>(undefined);
+export const PlayerTracksContext: Context<PlayerTracks | undefined> = createContext<
+  PlayerTracks | undefined
+>(undefined);
 
 /** The film's tracks, for a piece drawn over or under it. */
 export function usePlayerTracks(): PlayerTracks {

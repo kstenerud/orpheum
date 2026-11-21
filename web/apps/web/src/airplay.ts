@@ -17,7 +17,7 @@ import {
   reloadOnAirPlay,
   showAirPlayPicker,
 } from "@orpheum/player";
-import { createContext, use, useEffect, useRef, type RefObject } from "react";
+import { createContext, use, useEffect, useRef, type Context, type RefObject } from "react";
 
 import { offerAirPlayHere, tellAirPlayChanged, type AirPlayHere } from "./airplay-here.ts";
 import type {
@@ -118,7 +118,8 @@ export const sessionAirPlayGrants: AirPlayGrants = {
 };
 
 /** Whose grants the player under it AirPlays by: the person's session's, but a guest's page's. */
-export const AirPlayGrantsContext = createContext<AirPlayGrants>(sessionAirPlayGrants);
+export const AirPlayGrantsContext: Context<AirPlayGrants> =
+  createContext<AirPlayGrants>(sessionAirPlayGrants);
 
 // The revocation sent as AirPlay's last player went: a grant asked for after it waits for it, so that
 // a revocation of everything the page made cannot land after the grant, revoking it too.

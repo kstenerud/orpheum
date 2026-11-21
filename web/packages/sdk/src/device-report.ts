@@ -98,7 +98,7 @@ export function codecAnswersFrom(probe: CodecProbe): CodecAnswer[] {
 }
 
 /** A Fire TV's model code, which its user agent names it by: AFTSSS, AFTKA, AFTMM, AFTCA002... */
-export const fireTvPattern = /\bAFT[A-Z0-9]+\b/u;
+export const fireTvPattern: RegExp = /\bAFT[A-Z0-9]+\b/u;
 
 /** Whether this browser runs on a Fire TV, by the model code its user agent names it by. */
 export function isFireTv(userAgent: string): boolean {

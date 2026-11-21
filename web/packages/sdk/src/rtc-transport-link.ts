@@ -188,7 +188,7 @@ export class Link {
   sockets = 0;
   isNew = true;
   /** Its number among the page's connections, from 1, for its log. */
-  readonly number = (connectionsOpened += 1);
+  readonly number: number = (connectionsOpened += 1);
   /** When a byte of any request's answer last came over it, on the transport's clock; undefined before one. */
   deliveredAtMs: number | undefined;
   private idle: ReturnType<typeof setTimeout> | undefined;

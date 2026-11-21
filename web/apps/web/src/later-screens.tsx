@@ -36,7 +36,13 @@ import type { ThisDevice as ThisDeviceComponent } from "./this-device.tsx";
 
 import { useEffect } from "react";
 
-import { lazyScreen, preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
+import {
+  lazyScreen,
+  preloadableScreen,
+  resetOnEachTestMount,
+  type LazyScreenOf,
+  type ScreenOf,
+} from "./screen-load.tsx";
 import { whenIdle } from "./when-idle.ts";
 
 /** Each screen's own loader, named so resetLazyScreensForTests can give it a fresh lazy() too. */
@@ -157,40 +163,85 @@ const loadThisDevice = async (): Promise<{ default: typeof ThisDeviceComponent }
  * module load, same as a const would.
  */
 let title = preloadableScreen("title", loadTitle);
-export let Title = title.component;
+export let Title: ScreenOf<typeof TitleComponent> = title.component;
 let series = preloadableScreen("series", loadSeries);
-export let Series = series.component;
+export let Series: ScreenOf<typeof SeriesComponent> = series.component;
 let play = preloadableScreen("play", loadPlay);
-export let Play = play.component;
-export let TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
-export let CastReady = lazyScreen("cast-ready", loadCastReady);
-export let Lab = lazyScreen("lab", loadLab);
-export let LabExtendPlayer = lazyScreen("lab-extend-player", loadLabExtendPlayer);
-export let Settings = lazyScreen("settings", loadSettings);
-export let UiGallery = lazyScreen("ui-gallery", loadUiGallery);
-export let Identify = lazyScreen("identify", loadIdentify);
-export let Jobs = lazyScreen("jobs", loadJobs);
-export let System = lazyScreen("system", loadSystem);
-export let RemoteAccess = lazyScreen("remote-access", loadRemoteAccess);
-export let HowToUpdate = lazyScreen("update", loadHowToUpdate);
-export let NeedsAttention = lazyScreen("needs-attention", loadNeedsAttention);
-export let Users = lazyScreen("users", loadUsers);
-export let UserPage = lazyScreen("user", loadUserPage);
-export let Libraries = lazyScreen("libraries", loadLibraries);
-export let LibraryPage = lazyScreen("library", loadLibraryPage);
-export let CreateLibraryPage = lazyScreen("new-library", loadCreateLibraryPage);
-export let Welcome = lazyScreen("welcome", loadWelcome);
-export let Files = lazyScreen("files", loadFiles);
-export let About = lazyScreen("about", loadAbout);
-export let Account = lazyScreen("account", loadAccount);
-export let CreditedPerson = lazyScreen("person", loadCreditedPerson);
-export let LibraryBrowse = lazyScreen("browse", loadLibraryBrowse);
-export let CastingLeft = lazyScreen("casting", loadCastingLeft);
-export let TogetherLeft = lazyScreen("watch-together", loadTogetherLeft);
-export let Register = lazyScreen("register", loadRegister);
+export let Play: ScreenOf<typeof PlayComponent> = play.component;
+export let TogetherViewer: LazyScreenOf<typeof TogetherViewerComponent> = lazyScreen(
+  "together-viewer",
+  loadTogetherViewer,
+);
+export let CastReady: LazyScreenOf<typeof CastReadyComponent> = lazyScreen(
+  "cast-ready",
+  loadCastReady,
+);
+export let Lab: LazyScreenOf<typeof LabComponent> = lazyScreen("lab", loadLab);
+export let LabExtendPlayer: LazyScreenOf<typeof LabExtendPlayerComponent> = lazyScreen(
+  "lab-extend-player",
+  loadLabExtendPlayer,
+);
+export let Settings: LazyScreenOf<typeof SettingsComponent> = lazyScreen("settings", loadSettings);
+export let UiGallery: LazyScreenOf<typeof UiGalleryComponent> = lazyScreen(
+  "ui-gallery",
+  loadUiGallery,
+);
+export let Identify: LazyScreenOf<typeof IdentifyComponent> = lazyScreen("identify", loadIdentify);
+export let Jobs: LazyScreenOf<typeof JobsComponent> = lazyScreen("jobs", loadJobs);
+export let System: LazyScreenOf<typeof SystemComponent> = lazyScreen("system", loadSystem);
+export let RemoteAccess: LazyScreenOf<typeof RemoteAccessComponent> = lazyScreen(
+  "remote-access",
+  loadRemoteAccess,
+);
+export let HowToUpdate: LazyScreenOf<typeof HowToUpdateComponent> = lazyScreen(
+  "update",
+  loadHowToUpdate,
+);
+export let NeedsAttention: LazyScreenOf<typeof NeedsAttentionComponent> = lazyScreen(
+  "needs-attention",
+  loadNeedsAttention,
+);
+export let Users: LazyScreenOf<typeof UsersComponent> = lazyScreen("users", loadUsers);
+export let UserPage: LazyScreenOf<typeof UserPageComponent> = lazyScreen("user", loadUserPage);
+export let Libraries: LazyScreenOf<typeof LibrariesComponent> = lazyScreen(
+  "libraries",
+  loadLibraries,
+);
+export let LibraryPage: LazyScreenOf<typeof LibraryPageComponent> = lazyScreen(
+  "library",
+  loadLibraryPage,
+);
+export let CreateLibraryPage: LazyScreenOf<typeof CreateLibraryPageComponent> = lazyScreen(
+  "new-library",
+  loadCreateLibraryPage,
+);
+export let Welcome: LazyScreenOf<typeof WelcomeComponent> = lazyScreen("welcome", loadWelcome);
+export let Files: LazyScreenOf<typeof FilesComponent> = lazyScreen("files", loadFiles);
+export let About: LazyScreenOf<typeof AboutComponent> = lazyScreen("about", loadAbout);
+export let Account: LazyScreenOf<typeof AccountComponent> = lazyScreen("account", loadAccount);
+export let CreditedPerson: LazyScreenOf<typeof CreditedPersonComponent> = lazyScreen(
+  "person",
+  loadCreditedPerson,
+);
+export let LibraryBrowse: LazyScreenOf<typeof LibraryBrowseComponent> = lazyScreen(
+  "browse",
+  loadLibraryBrowse,
+);
+export let CastingLeft: LazyScreenOf<typeof CastingLeftComponent> = lazyScreen(
+  "casting",
+  loadCastingLeft,
+);
+export let TogetherLeft: LazyScreenOf<typeof TogetherLeftComponent> = lazyScreen(
+  "watch-together",
+  loadTogetherLeft,
+);
+export let Register: LazyScreenOf<typeof RegisterComponent> = lazyScreen("register", loadRegister);
 let signIn = preloadableScreen("sign-in", loadSignIn);
-export let SignIn = signIn.component;
-export let ThisDevice = lazyScreen("this-device", loadThisDevice);
+export let SignIn: ScreenOf<typeof SignInComponent> = signIn.component;
+export let ThisDevice: LazyScreenOf<typeof ThisDeviceComponent> = lazyScreen(
+  "this-device",
+  loadThisDevice,
+);
 
 /**
  * How long a page shows before the code of the pages it leads to is asked for, in ms: past the page's

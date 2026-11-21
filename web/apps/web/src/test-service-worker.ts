@@ -227,7 +227,9 @@ export async function nameFiles(
   return word;
 }
 
-export const script = new TextEncoder().encode("console.log('the client');");
+export const script: Uint8Array<ArrayBuffer> = new TextEncoder().encode(
+  "console.log('the client');",
+);
 
 export function answer(bytes: Uint8Array<ArrayBuffer> | string, status = 200): Response {
   return new Response(bytes, { status, headers: { "Content-Type": "text/javascript" } });

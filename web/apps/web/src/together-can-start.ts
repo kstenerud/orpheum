@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext } from "react";
+import { createContext, type Context } from "react";
 
 /**
  * Whether the person may start a Watch Together session (their role's canHostWatchTogether), as the
@@ -9,4 +9,4 @@ import { createContext } from "react";
  * (cast-sign-over-the-film.tsx), so the app's first chunk does not take the player's code; false,
  * the default, where no one is signed in, as on a guest's page by link alone (D246 §3).
  */
-export const CanStartTogetherContext = createContext(false);
+export const CanStartTogetherContext: Context<boolean> = createContext(false);

@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, use, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useRef,
+  useState,
+  type Context,
+  type JSX,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -10,7 +19,9 @@ import { createPortal } from "react-dom";
  * shown when ⁝'s For testers opens its dialog (player-menus.tsx). Undefined outside a player that
  * gives one, or drawn with no document, where they show in place.
  */
-export const ForTestersContext = createContext<HTMLElement | undefined>(undefined);
+export const ForTestersContext: Context<HTMLElement | undefined> = createContext<
+  HTMLElement | undefined
+>(undefined);
 
 /** Where each panel is kept, hidden, while its dialog is closed (ForTestersHome). */
 const homes = new WeakMap<HTMLElement, HTMLElement>();

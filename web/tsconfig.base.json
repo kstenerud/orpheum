@@ -10,6 +10,7 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "isolatedDeclarations": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": [],

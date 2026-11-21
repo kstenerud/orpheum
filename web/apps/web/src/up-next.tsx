@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -98,7 +99,9 @@ export interface UpNextOffered {
 }
 
 /** The Play page's Up next, which the offer drawn over its film reads. */
-export const UpNextContext = createContext<UpNextOffered | undefined>(undefined);
+export const UpNextContext: Context<UpNextOffered | undefined> = createContext<
+  UpNextOffered | undefined
+>(undefined);
 
 /**
  * What the Play page gives the offers over its film (PlayersOffers): its Up next (UpNextContext) and

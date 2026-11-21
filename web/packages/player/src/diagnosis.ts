@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { playerBufferedFirstEvent } from "@orpheum/sdk";
+import type { Events } from "hls.js";
 import Hls, { type BufferCodecsData, type ErrorData } from "hls.js";
 
 /**
@@ -76,7 +77,16 @@ const stepsTextMost = 400;
  * play, was thrown away and loaded again, and the video, its picture loaded nine seconds ahead,
  * waited 2.5 s for it with nothing to say why (the owner's cast, staging, 2026-10-28).
  */
-const stepEvents = [
+const stepEvents: readonly [
+  Events.BUFFER_FLUSHING,
+  Events.LEVEL_SWITCHING,
+  Events.LEVEL_LOADING,
+  Events.LEVEL_LOADED,
+  Events.FRAG_LOADING,
+  Events.FRAG_LOADED,
+  Events.FRAG_LOAD_EMERGENCY_ABORTED,
+  Events.MEDIA_DETACHED,
+] = [
   Hls.Events.BUFFER_FLUSHING,
   Hls.Events.LEVEL_SWITCHING,
   Hls.Events.LEVEL_LOADING,

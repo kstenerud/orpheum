@@ -50,7 +50,7 @@ import { busyText, type BusyPage } from "./abr-busy.ts";
  * step-up's own (stepUpBufferMs): what is enough to climb on is enough to stay on, and a climb that
  * does not hold is followed down once the buffer it spent falls under it.
  */
-export const holdsQualityAheadS = stepUpBufferMs / 1000;
+export const holdsQualityAheadS: number = stepUpBufferMs / 1000;
 
 /** What is loaded ahead of hls's playhead, in seconds. */
 export function bufferAheadS(hls: ChoosingHls): number {

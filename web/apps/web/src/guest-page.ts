@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type Context } from "react";
 
 /**
  * Whether the page plays for a guest, whom the core refuses every route of a person's own, their
@@ -11,7 +11,7 @@ import { createContext, useContext } from "react";
  * no sound or subtitle choice as the person's. False on every other page, and before the page knows
  * who is signed in.
  */
-export const IsGuestContext = createContext(false);
+export const IsGuestContext: Context<boolean> = createContext(false);
 
 /** Whether the page plays for a guest (IsGuestContext). */
 export function useIsGuest(): boolean {

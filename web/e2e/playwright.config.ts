@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 
 import { chromiumArguments, firefoxUserPrefs } from "./browsers.ts";
 import { oneBrowserTag, testsOfThisPass } from "./only-these-tests.ts";
@@ -22,7 +22,7 @@ const pass = testsOfThisPass(process.env["ORPHEUM_E2E_ONLY"], isTimingPass);
 const sideBySide = Number(process.env["ORPHEUM_E2E_WORKERS"] ?? "2");
 
 /** The browser tier: real browsers against a real server (D217 §4). `make test-browser` runs it. */
-export default defineConfig({
+const config: PlaywrightTestConfig = defineConfig({
   testDir: ".",
   // Browser specs alone: a *.test.ts beside them is a unit test of a helper, vitest's to run.
   testMatch: "*.spec.ts",
@@ -68,3 +68,5 @@ export default defineConfig({
     },
   ],
 });
+
+export default config;

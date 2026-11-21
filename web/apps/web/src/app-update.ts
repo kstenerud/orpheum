@@ -115,4 +115,4 @@ export function createUpdateWatch(storage: () => StringStorage = tabStorage): Up
 }
 
 /** This page's watch. */
-export const pageUpdateWatch = createUpdateWatch();
+export const pageUpdateWatch: UpdateWatch = createUpdateWatch();

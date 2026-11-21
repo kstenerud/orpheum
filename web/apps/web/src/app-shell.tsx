@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type Context,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -373,7 +374,7 @@ function isShownTo(
  * Whether a screen renders in the shell, under its banner and in its one main landmark: a screen that
  * is also a page of its own (a Watch Together guest's, D372 §9) draws no second landmark or logo.
  */
-export const InShellContext = createContext(false);
+export const InShellContext: Context<boolean> = createContext(false);
 
 /**
  * The screen, under any word the page has about what the browser is doing, an admin's banner of a

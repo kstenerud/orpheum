@@ -6,7 +6,7 @@
  * call each other (D252 §3).
  */
 
-export const chromiumArguments = [
+export const chromiumArguments: string[] = [
   "--use-fake-device-for-media-stream",
   "--use-fake-ui-for-media-stream",
   "--disable-features=WebRtcHideLocalIpsWithMdns",

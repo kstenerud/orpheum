@@ -9,7 +9,7 @@
  */
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use, useMemo } from "react";
+import { createContext, use, useMemo, type Context } from "react";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -35,7 +35,9 @@ export interface LibrariesRead {
  * The one reading of the libraries every reader under it shares; the shell provides it
  * (useLibrariesRead). Where none is provided, a reader reads them itself.
  */
-export const LibrariesReachedContext = createContext<LibrariesRead | undefined>(undefined);
+export const LibrariesReachedContext: Context<LibrariesRead | undefined> = createContext<
+  LibrariesRead | undefined
+>(undefined);
 
 /** The libraries the person reaches, as the server lists them, read again as the server changes. */
 export function useLibrariesReached(): Resource<readonly LibraryBody[]> {

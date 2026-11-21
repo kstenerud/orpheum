@@ -61,6 +61,7 @@ import { Loaded } from "./loaded.tsx";
 import { useListDrawsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
+import type { Remembered } from "./remembered.ts";
 import { rememberedInTheTab } from "./remembered.ts";
 import { itemsToCome, usePages, type Page, type ReadPage } from "./use-pages.ts";
 import type { Resource } from "./use-resource.ts";
@@ -89,7 +90,7 @@ const listsKeptAtMost = 5;
  * The lists read whole kept in the tab, by what each lists: Films, Series and a library's page, so
  * Back draws one at once, its focus put back, while it is read again (D475).
  */
-export const listsKept = rememberedInTheTab<ReadPage<Entry>[]>(listsKeptAtMost);
+export const listsKept: Remembered<ReadPage<Entry>[]> = rememberedInTheTab(listsKeptAtMost);
 
 /**
  * A grid of films, series or other videos, each a poster or a 16:9 tile with its name and year or

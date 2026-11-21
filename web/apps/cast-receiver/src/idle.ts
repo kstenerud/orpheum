@@ -10,13 +10,13 @@
  */
 
 /** How long a receiver no film was ever put on stays before it closes: 5 minutes. */
-export const idleClosesAfterMs = 5 * 60_000;
+export const idleClosesAfterMs: number = 5 * 60_000;
 
 /**
  * How long the receiver stays with its film paused or ended, or with nothing on once a film was,
  * before it closes: 20 minutes.
  */
-export const pausedClosesAfterMs = 20 * 60_000;
+export const pausedClosesAfterMs: number = 20 * 60_000;
 
 /** How the receiver's video stands, for its idle close. */
 export type Standing = "playing" | "paused" | "idle";

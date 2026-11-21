@@ -8,7 +8,7 @@ import { sha256Of } from "./client-files.ts";
  * A core's client page for the loader's tests: its own style and script under its assets, and a
  * script from elsewhere and an inline one, which the loader runs neither of.
  */
-export const clientPage =
+export const clientPage: string =
   "<!doctype html><html><head>" +
   '<link rel="stylesheet" href="/assets/index-a.css">' +
   '<script type="module" crossorigin src="/assets/index-b.js"></script>' +

@@ -2,7 +2,7 @@
 
 import "./warning-sign.css";
 
-import { createContext, use, useId, useState, type JSX, type ReactNode } from "react";
+import { createContext, use, useId, useState, type Context, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { WarningIcon } from "./icons.tsx";
@@ -11,7 +11,7 @@ import { WarningIcon } from "./icons.tsx";
  * it, or only that something is and to tell whoever does (D278 §3). Anyone not known to be one is
  * not.
  */
-export const IsAdminContext = createContext(false);
+export const IsAdminContext: Context<boolean> = createContext(false);
 
 /**
  * The sign beside something with a problem that affects it (D278 §1): the warning triangle, which

@@ -131,7 +131,7 @@ const offSnapshot: VoiceSnapshot = {
  * credentials' day (D243 §8), so a call made late in a long session is not refused by the relay
  * (M4's audit).
  */
-export const iceServersFreshForMs = 12 * 60 * 60 * 1000;
+export const iceServersFreshForMs: number = 12 * 60 * 60 * 1000;
 
 /**
  * How long a failed call waits before it is made again, by how many times in a row it has failed;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use } from "react";
+import { createContext, use, type Context } from "react";
 
 import type { Given } from "./use-resource.ts";
 
@@ -20,7 +20,10 @@ export type ShellRead =
  * The shell's read for everything within it. With none above (a screen drawn alone, as a test draws
  * one), each part is read at its own endpoint, as it is when the read carried none.
  */
-export const ShellReadContext = createContext<ShellRead>({ state: "read", shell: undefined });
+export const ShellReadContext: Context<ShellRead> = createContext<ShellRead>({
+  state: "read",
+  shell: undefined,
+});
 
 /**
  * The part of the shell's read that stands for a resource's first read (useResource's given): waited

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, use, useEffect, useMemo, type JSX, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  type Context,
+  type JSX,
+  type ReactNode,
+} from "react";
 
 import { noteEpisodeReached } from "./episode-reached.ts";
 import { i18n } from "./i18n.ts";
@@ -100,7 +108,9 @@ export function playUp(plays: Plays, context: LibraryContext = { t: i18n.t, behi
  * A Play page's upward, for the player's full-screen overlay, which shows its Up and what plays
  * (player-overlay.tsx); undefined where the page plays no film of its own, a cast's receiver.
  */
-export const PlayUpwardContext = createContext<Upward | undefined>(undefined);
+export const PlayUpwardContext: Context<Upward | undefined> = createContext<Upward | undefined>(
+  undefined,
+);
 
 /**
  * The Play page's way up, at its top (D367 §8): on a computer or a phone its trail; on a television

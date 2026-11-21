@@ -124,7 +124,7 @@ export class FakeMedia {
   /** What is loaded, as [start, end] in seconds: all of it unless a test says otherwise. */
   loaded: [number, number][] = [[0, 7200]];
   /** Each event's listeners, in the order they were added, as an element keeps them. */
-  readonly listeners = new Map<string, ((event: Event) => void)[]>();
+  readonly listeners: Map<string, ((event: Event) => void)[]> = new Map();
 
   get buffered(): Pick<TimeRanges, "length" | "start" | "end"> {
     const { loaded } = this;

@@ -11,7 +11,7 @@
  */
 
 import type { PlaybackSound, SoundChoice, SoundTrack } from "@orpheum/sdk";
-import { createContext, use, useEffect } from "react";
+import { createContext, use, useEffect, type Context } from "react";
 import { useLatest } from "./latest.ts";
 
 /** One control's part of the sound, as it stands. */
@@ -101,9 +101,8 @@ export function newSoundPanel(): SoundPanel & SoundPanelControls {
 }
 
 /** The Play page's panel, for its controls; undefined on a page with none. */
-export const SoundPanelContext = createContext<(SoundPanel & SoundPanelControls) | undefined>(
-  undefined,
-);
+export const SoundPanelContext: Context<(SoundPanel & SoundPanelControls) | undefined> =
+  createContext<(SoundPanel & SoundPanelControls) | undefined>(undefined);
 
 /**
  * Has one control of the page's sound panel say how it stands, part, while it is drawn or offered,

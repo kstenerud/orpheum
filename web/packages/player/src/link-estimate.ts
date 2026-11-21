@@ -24,7 +24,7 @@ export const samplesAgreeWithinError = 0.2;
  * (predictionError): all linkSamplesKept, so what is left rests on three errors at least, and two
  * slow samples of five still count (D352 §4).
  */
-export const trimsErrorFromSamples = linkSamplesKept;
+export const trimsErrorFromSamples: 5 = linkSamplesKept;
 
 /**
  * How many spreads from the centre a sample counts at most: one further counts as if it were this

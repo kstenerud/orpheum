@@ -15,6 +15,8 @@ import { enSettingLabels } from "./locales/en-setting-labels.ts";
 import { enSettingsCatalogue } from "./locales/en-settings.ts";
 
 /** The words this adds, as the catalogue holds them. */
-export const settingsWords = { settings: { ...enSettingLabels, ...enSettingsCatalogue } };
+export const settingsWords: {
+  settings: typeof enSettingLabels & typeof enSettingsCatalogue;
+} = { settings: { ...enSettingLabels, ...enSettingsCatalogue } };
 
 addWords(settingsWords);

@@ -10,23 +10,8 @@ import { enNavigation } from "./en-navigation.ts";
 import { enUpdate } from "./en-update.ts";
 import { enFind } from "./en-find.ts";
 
-/**
- * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
- * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
- * gallery's, the settings pages', a credited person's page's, the devices pages', the player's and
- * the casting pages' words come with their screens' code (lab-words.ts, gallery-words.ts,
- * settings-words.ts, credits-words.ts, devices-words.ts, play-words.ts, cast-words.ts), not here.
- */
-export const en = {
-  ...enTogether,
-  ...enDiscovery,
-  ...enStatus,
-  ...enWarning,
-  ...enWatched,
-  ...enOrderings,
-  ...enNavigation,
-  ...enUpdate,
-  ...enFind,
+/** The words that are this module's own, the rest coming from the modules it spreads in. */
+const enOwn = {
   waits: {
     underAMinute: "less than a minute",
     aMinute: "about a minute",
@@ -580,6 +565,36 @@ export const en = {
     saved: "Saved",
   },
 } as const;
+
+/**
+ * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
+ * server once translations exist. Keys name what the text is for, never what it says. The lab's, the
+ * gallery's, the settings pages', a credited person's page's, the devices pages', the player's and
+ * the casting pages' words come with their screens' code (lab-words.ts, gallery-words.ts,
+ * settings-words.ts, credits-words.ts, devices-words.ts, play-words.ts, cast-words.ts), not here. Its
+ * type is its parts' together: their keys never overlap.
+ */
+export const en: typeof enTogether &
+  typeof enDiscovery &
+  typeof enStatus &
+  typeof enWarning &
+  typeof enWatched &
+  typeof enOrderings &
+  typeof enNavigation &
+  typeof enUpdate &
+  typeof enFind &
+  typeof enOwn = {
+  ...enTogether,
+  ...enDiscovery,
+  ...enStatus,
+  ...enWarning,
+  ...enWatched,
+  ...enOrderings,
+  ...enNavigation,
+  ...enUpdate,
+  ...enFind,
+  ...enOwn,
+};
 
 /** The catalogue's shape, which every other language's catalogue must have. */
 export type Catalogue = typeof en;

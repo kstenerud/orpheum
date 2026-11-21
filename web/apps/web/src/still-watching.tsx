@@ -23,7 +23,7 @@ export const stillWatchingAfterAutoplays = 3;
  * 11-minute episodes asked after half an hour (starts-chunks-remote-2026-10-29.md §4, S1). Elsewhere
  * the three autoplays alone ask, as Netflix does. A justified constant.
  */
-export const stillWatchingOnATvAfterMs = 90 * 60_000;
+export const stillWatchingOnATvAfterMs: number = 90 * 60_000;
 
 /** The episodes autoplay has played in a row in this tab, with no press since. */
 let autoplayedInARow = 0;

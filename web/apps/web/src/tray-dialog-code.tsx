@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import type { CastDialog as CastDialogComponent } from "./cast-dialog.tsx";
-import { preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
+import { preloadableScreen, resetOnEachTestMount, type ScreenOf } from "./screen-load.tsx";
 import { isTogetherDialogLoaded, preloadTogetherDialog } from "./together-dialog-code.tsx";
 import { whenIdle } from "./when-idle.ts";
 
@@ -25,7 +25,7 @@ const loadCastDialog = async (): Promise<{ default: typeof CastDialogComponent }
  * Cast's is `let`, not `const`, for resetTrayDialogsForTests, as later-screens.tsx's are.
  */
 let castDialog = preloadableScreen("cast-dialog", loadCastDialog);
-export let CastDialog = castDialog.component;
+export let CastDialog: ScreenOf<typeof CastDialogComponent> = castDialog.component;
 
 /**
  * How long the first page shows before the tray's dialogs' code is asked for, in ms: past its own

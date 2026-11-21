@@ -9,7 +9,7 @@
  */
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use } from "react";
+import { createContext, use, type Context } from "react";
 
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -32,7 +32,9 @@ export interface AroundFile {
  * named: one file's bytes filed both as a film and as an episode play as the episode from its
  * series, and what plays around it is the episode's (B0 question 20).
  */
-export const OpenedAsContext = createContext<number | undefined>(undefined);
+export const OpenedAsContext: Context<number | undefined> = createContext<number | undefined>(
+  undefined,
+);
 
 /** The title the Play page's file was opened from (OpenedAsContext). */
 export function useOpenedAs(): number | undefined {

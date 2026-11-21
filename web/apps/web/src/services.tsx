@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api, BrowserVoiceDevices, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
-import { createContext, use, useSyncExternalStore } from "react";
+import { createContext, use, useSyncExternalStore, type Context } from "react";
 
 import type { LinkDebug } from "./link-debug.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
@@ -222,7 +222,9 @@ export function usePathMoveCount(): number {
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */
-export const ServicesContext = createContext<Services | undefined>(undefined);
+export const ServicesContext: Context<Services | undefined> = createContext<Services | undefined>(
+  undefined,
+);
 
 /** The services, from the nearest provider. */
 export function useServices(): Services {

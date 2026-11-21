@@ -565,7 +565,7 @@ export const signedIn: WalkAnswers = {
 };
 
 /** A series of two seasons in two orderings, its next episode the second. */
-export const glassTide = {
+export const glassTide: Readonly<Record<string, unknown>> = {
   id: 20,
   kind: "series",
   name: "Glass Tide",

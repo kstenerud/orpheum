@@ -20,7 +20,12 @@ import {
   type Browser,
   type BrowserContext,
   type Page,
+  type PlaywrightTestArgs,
+  type PlaywrightTestOptions,
+  type PlaywrightWorkerArgs,
+  type PlaywrightWorkerOptions,
   type TestInfo,
+  type TestType,
 } from "@playwright/test";
 
 import { startServer } from "./server.ts";
@@ -172,7 +177,18 @@ function writeRecord(
   );
 }
 
-export const test = base.extend<{ browserMap: undefined }, { server: undefined }>({
+/** What this adds to each test (the browser map's recording) and to each worker (its server). */
+interface MapFixtures {
+  browserMap: undefined;
+}
+interface ServerFixtures {
+  server: undefined;
+}
+
+export const test: TestType<
+  PlaywrightTestArgs & PlaywrightTestOptions & MapFixtures,
+  PlaywrightWorkerArgs & PlaywrightWorkerOptions & ServerFixtures
+> = base.extend<MapFixtures, ServerFixtures>({
   // A server of each worker's own, started before its first test and stopped after its last, so
   // workers run side by side and no test meets another's state (server.ts). The address is the
   // worker's environment's, which serverUrl reads.

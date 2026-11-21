@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
+import { preloadableScreen, resetOnEachTestMount, type ScreenOf } from "./screen-load.tsx";
 import type { TogetherDialog as TogetherDialogComponent } from "./together-dialog.tsx";
 
 const loadTogetherDialog = async (): Promise<{ default: typeof TogetherDialogComponent }> => ({
@@ -16,7 +16,7 @@ const loadTogetherDialog = async (): Promise<{ default: typeof TogetherDialogCom
  * `let`, not `const`, for resetTogetherDialogForTests, as later-screens.tsx's are.
  */
 let togetherDialog = preloadableScreen("together-dialog", loadTogetherDialog);
-export let TogetherDialog = togetherDialog.component;
+export let TogetherDialog: ScreenOf<typeof TogetherDialogComponent> = togetherDialog.component;
 
 /** Loads the dialog's code ahead; a failure is left to the press. */
 export async function preloadTogetherDialog(): Promise<void> {

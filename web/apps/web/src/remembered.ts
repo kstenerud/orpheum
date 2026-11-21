@@ -22,7 +22,7 @@ export class Remembered<T> {
    * atMost: how many it keeps, rememberedAtMost unless a kind's values are larger; sizeAtMost: how
    * large they may be together, as set measures each (a tab's answers by their characters, D478).
    */
-  constructor(atMost = rememberedAtMost, sizeAtMost = Number.POSITIVE_INFINITY) {
+  constructor(atMost: number = rememberedAtMost, sizeAtMost: number = Number.POSITIVE_INFINITY) {
     this.#atMost = atMost;
     this.#sizeAtMost = sizeAtMost;
   }

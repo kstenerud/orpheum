@@ -96,7 +96,7 @@ export async function requestPlayback(
  * the least mediaTokenIdleExpiryHours can be, an hour, so its token is never idled out by the
  * time it plays.
  */
-export const warmUpKeptMs = 30 * 60_000;
+export const warmUpKeptMs: number = 30 * 60_000;
 
 /** A hidden player filling a film's first buffer on its page (D260 §3). */
 export interface Preload {

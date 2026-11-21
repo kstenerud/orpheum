@@ -4,7 +4,7 @@ import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import react from "@vitejs/plugin-react";
-import { configDefaults, defineConfig } from "vitest/config";
+import { configDefaults, defineConfig, type ViteUserConfig } from "vitest/config";
 
 import { VitestTimings } from "./e2e/vitest-timings.ts";
 
@@ -60,7 +60,7 @@ const SHARED = {
   fsModuleCache: true,
 };
 
-export default defineConfig({
+const config: ViteUserConfig = defineConfig({
   plugins: [react()],
   server: FS_DENY,
   test: {
@@ -98,3 +98,5 @@ export default defineConfig({
     ],
   },
 });
+
+export default config;

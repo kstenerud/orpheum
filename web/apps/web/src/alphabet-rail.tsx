@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type Context,
   type JSX,
   type RefObject,
 } from "react";
@@ -25,7 +26,7 @@ export interface LetterJump {
 }
 
 /** The letters of the alphabet rail, a list's names' first characters: digits and marks, then A to Z. */
-export const railLetters = [
+export const railLetters: string[] = [
   "#",
   ...Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x41 + index)),
 ];
@@ -88,7 +89,7 @@ export type StandRailAt = (letter: string | undefined) => void;
  * or an arrow from the poster to the rail comes to its letter (the owner, 2026-11-11); nowhere by
  * default, a grid with no rail.
  */
-export const RailStandContext = createContext<StandRailAt>(() => undefined);
+export const RailStandContext: Context<StandRailAt> = createContext<StandRailAt>(() => undefined);
 
 /**
  * A list's alphabet rail, and how to stand it at a letter: its letter becomes the rail's Tab stop and

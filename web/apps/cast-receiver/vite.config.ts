@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 
-export default defineConfig({
+const config: UserConfig = defineConfig({
   // Served from https://media.<domain>/cast/ (plans/cut-a.md §2).
   base: "/cast/",
   build: {
@@ -17,3 +17,5 @@ export default defineConfig({
     emptyOutDir: true,
   },
 });
+
+export default config;

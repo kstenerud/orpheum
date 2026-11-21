@@ -253,6 +253,22 @@ export function resetLazyScreensOnMount(): void {
   }
 }
 
+/** A function component's props: `object` for one of none, as lazyScreen infers them. */
+type PropsOf<C extends (props: never) => ReactNode> = C extends (props: infer P) => ReactNode
+  ? unknown extends P
+    ? object
+    : P
+  : never;
+
+/**
+ * The component a screen of C's code is shown by (preloadableScreen's component), named by C, so a
+ * module exporting one declares it without its props written out again.
+ */
+export type ScreenOf<C extends (props: never) => ReactNode> = ComponentType<PropsOf<C>>;
+
+/** What lazyScreen gives for C's code, named by C, as ScreenOf is. */
+export type LazyScreenOf<C extends (props: never) => ReactNode> = LazyExoticComponent<ScreenOf<C>>;
+
 /** A screen whose code loads as it is first shown, by loadScreenCode. */
 export function lazyScreen<P extends object>(
   screen: string,

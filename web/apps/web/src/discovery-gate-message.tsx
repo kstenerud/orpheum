@@ -81,7 +81,7 @@ function Offline(props: { readonly onRetry: () => void }): JSX.Element {
  * pathLostRetryMostMs. Justified constants: a person watching the page sees it try within seconds,
  * and a page left open on a network that carries nothing tries once a minute.
  */
-export const pathLostRetryFirstMs = offlineRetryAfterMs;
+export const pathLostRetryFirstMs: 5000 = offlineRetryAfterMs;
 export const pathLostRetryMostMs = 60_000;
 
 /** The wait before the next try once tries reaches in a row lost the path (at least one). */

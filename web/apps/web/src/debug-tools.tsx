@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createContext, use, useState, type JSX, type ReactNode } from "react";
+import { createContext, use, useState, type Context, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { problemText, throwIfRefused } from "./problem.ts";
@@ -20,7 +20,7 @@ export interface DebugToolsChoice {
  * The person's Show debug tools, given by the page that read who they are: the signed-in shell, and
  * a signed-in guest's Watch Together page (app.tsx). Hidden where nothing gives it.
  */
-export const DebugToolsContext = createContext<DebugToolsChoice>({
+export const DebugToolsContext: Context<DebugToolsChoice> = createContext<DebugToolsChoice>({
   isShown: false,
   onChanged: () => undefined,
 });

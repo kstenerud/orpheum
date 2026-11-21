@@ -46,7 +46,7 @@ export const partAskCapMs = 30_000;
  * that asks on, or whose asks are slow, shows it within a few seconds. A justified constant, not a
  * setting.
  */
-export const partNoteAfterMs = 2 * partRetryMs;
+export const partNoteAfterMs: number = 2 * partRetryMs;
 
 /** The tab's key for the reload a page made because its part's code did not load. */
 const reloadedForPartKey = "orpheum.main.reloadedForPart";

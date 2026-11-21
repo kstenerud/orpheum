@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 
 import { acceptanceMinutes } from "./acceptance-server.ts";
 import { chromiumArguments } from "./browsers.ts";
@@ -10,7 +10,7 @@ import { chromiumArguments } from "./browsers.ts";
  * ORPHEUM_ACCEPTANCE_MINUTES under each network profile. `make test-acceptance` runs it, at a
  * milestone's end.
  */
-export default defineConfig({
+const config: PlaywrightTestConfig = defineConfig({
   testDir: ".",
   testMatch: "acceptance.spec.ts",
   outputDir: "../../.dev/acceptance-results",
@@ -28,3 +28,5 @@ export default defineConfig({
     },
   ],
 });
+
+export default config;

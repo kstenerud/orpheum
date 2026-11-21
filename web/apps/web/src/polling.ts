@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { createContext, use } from "react";
+import { createContext, use, type Context } from "react";
 
 /**
  * How a screen asks the server again (D237): after firstMs, then, while the answer is unchanged,
@@ -232,7 +232,8 @@ export function clientWaits(
  * the server's client settings say the waits an admin set (screenRefreshFirstWaitSeconds,
  * screenRefreshLongestWaitSeconds and screenRefreshFailedWaitSeconds).
  */
-export const BackgroundChangesContext = createContext<Poller>(backgroundChangesPoller);
+export const BackgroundChangesContext: Context<Poller> =
+  createContext<Poller>(backgroundChangesPoller);
 
 /** The poller of a screen showing what the server changes in the background (D237). */
 export function useBackgroundChangesPoller(): Poller {

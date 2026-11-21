@@ -30,7 +30,7 @@ const usersGuideOnGitHub = "https://github.com/kstenerud/orpheum/blob/main/docs/
 const usersGuideRaw = "https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/";
 
 /** The install guide in the public repository, which /llms.txt and the realm sign-in link to. */
-export const installGuideOnGitHub = `${usersGuideOnGitHub}install.md`;
+export const installGuideOnGitHub: "https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md" = `${usersGuideOnGitHub}install.md`;
 
 /** The latest release's compose files, one for each way to install (install.md, One compose file). */
 const composeFiles = "https://github.com/kstenerud/orpheum/releases/latest/download/";
@@ -44,7 +44,7 @@ export const orpheumInOneSentence =
  * them word for word): short and plain, with each address written out, so a fetch that summarizes
  * the file or drops its links keeps them (an agent's install, 2026-11-19).
  */
-export const installFacts = `- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin) on a 64-bit machine, amd64 or arm64.
+export const installFacts: "- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin) on a 64-bit machine, amd64 or arm64.\n- Install guide: https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\n- Its exact text: https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/install.md\n- Compose file for OpenMediaVault: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml\n- Compose file for a Synology: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml\n- Compose file for any other machine with Docker: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml\n- Never ask for a password: the person types it themselves.\n- An invitation link is a secret: never paste one into a chat, a document or an issue that anyone else can read.\n" = `- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin) on a 64-bit machine, amd64 or arm64.
 - Install guide: ${installGuideOnGitHub}
 - Its exact text: ${usersGuideRaw}install.md
 - Compose file for OpenMediaVault: ${composeFiles}orpheum-omv.yaml
@@ -74,7 +74,7 @@ export function servedAgentHelp(source: string): string {
  * /llms.txt: the site named, the facts an agent needs first, then the help, by the address the page
  * names it at, and each guide with its exact text beside it.
  */
-export const llmsTxt = `# Orpheum
+export const llmsTxt: "# Orpheum\n\n> A self-hosted server that plays a household's own films and series to its browsers, phones and televisions. An AI agent helping a person set it up starts with the\n> facts and the setup help below.\n\n- Orpheum is a self-hosted media server. It runs in Docker (Docker Engine and its compose plugin) on a 64-bit machine, amd64 or arm64.\n- Install guide: https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\n- Its exact text: https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/install.md\n- Compose file for OpenMediaVault: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-omv.yaml\n- Compose file for a Synology: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-synology.yaml\n- Compose file for any other machine with Docker: https://github.com/kstenerud/orpheum/releases/latest/download/orpheum-docker.yaml\n- Never ask for a password: the person types it themselves.\n- An invitation link is a secret: never paste one into a chat, a document or an issue that anyone else can read.\n\n## Setting up\n\nEach guide's raw.githubusercontent.com address gives its exact text, where its github.com page may\nreach an agent only as a summary.\n\n- [Setup help for an AI agent](/agent-setup.md): what to ask the person, which section of the\n  install guide each answer leads to, and the agent's rules.\n- [The same help in the public repository](https://github.com/kstenerud/orpheum/blob/main/docs/users/agent-setup.md); its exact text:\n  https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/agent-setup.md\n- [The install guide](https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md); its exact text: https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/install.md\n- [What has gone wrong in an install before, and the fix](https://github.com/kstenerud/orpheum/blob/main/docs/users/setup-problems.md); its\n  exact text: https://raw.githubusercontent.com/kstenerud/orpheum/main/docs/users/setup-problems.md\n" = `# Orpheum
 
 > ${orpheumInOneSentence} An AI agent helping a person set it up starts with the
 > facts and the setup help below.

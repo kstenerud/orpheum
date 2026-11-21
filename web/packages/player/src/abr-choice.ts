@@ -109,7 +109,7 @@ export const cacheHitUnderMs = 10;
  * measured a LAN as 676 kbit/s and started the film at its lowest quality (the owner's test on
  * staging, 2026-10-18). The lowest quality's 10 s chunk is about 500 KB.
  */
-export const measuresFromBytesAtLeast = 128 * 1024;
+export const measuresFromBytesAtLeast: number = 128 * 1024;
 
 /**
  * The share of its pace a paced chunk arrives at or below to count: slower than that, the link
@@ -129,7 +129,7 @@ export function startingLevel(levels: readonly ChoiceLevel[], startAtBps: number
  * The share of the link a quality may take with bufferAheadS loaded ahead (D265 §4): rising from
  * forQuality, the share with little loaded ahead, to linkShareWhenAhead.
  */
-export function linkShare(bufferAheadS: number, forQuality = linkShareForQuality): number {
+export function linkShare(bufferAheadS: number, forQuality: number = linkShareForQuality): number {
   const along = (bufferAheadS - shareRisesFromS) / (shareRisesToS - shareRisesFromS);
   const clamped = Math.min(1, Math.max(0, along));
   return forQuality + clamped * (Math.max(forQuality, linkShareWhenAhead) - forQuality);

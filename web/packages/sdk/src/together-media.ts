@@ -73,7 +73,7 @@ export function hasRefilled(
     FollowedMedia,
     "readyState" | "networkState" | "buffered" | "currentTime" | "duration"
   >,
-  aheadMs = refillAheadMs,
+  aheadMs: number = refillAheadMs,
 ): boolean {
   if (media.readyState < haveFutureData) {
     return false;

@@ -149,7 +149,13 @@ export default tseslint.config(
   eslintComments.recommended,
   {
     languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+        // As tsconfig.base.json has it, so consistent-generic-constructors leaves an exported
+        // property's written type where the compiler asks for it.
+        isolatedDeclarations: true,
+      },
       globals: { ...globals.browser },
     },
     plugins: { unicorn },
@@ -182,6 +188,9 @@ export default tseslint.config(
         { considerDefaultExhaustiveForUnions: false, requireDefaultForNonUnion: true },
       ],
       "@typescript-eslint/explicit-module-boundary-types": "error",
+      // isolatedDeclarations (tsconfig.base.json) has the compiler say which exports need their
+      // type written: an exported regular expression does, so a rule calling it inferable cannot hold.
+      "@typescript-eslint/no-inferrable-types": "off",
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-import-type-side-effects": "error",
       "@typescript-eslint/prefer-readonly": "error",

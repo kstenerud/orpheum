@@ -110,7 +110,7 @@ export type BodyRequestMessage =
  * 15–18 Mb/s (staging, 2026-10-28); a mebibyte at a round trip of 10 ms carries some 800 Mb/s, what
  * the data channel itself carries, and a few loads at once hold a few mebibytes, no film.
  */
-export const relayedAheadBytes = 1024 * 1024;
+export const relayedAheadBytes: number = 1024 * 1024;
 
 /**
  * The share of `relayedAheadBytes` the worker grants at least at a time, so a reader's every piece
@@ -152,7 +152,7 @@ type ChunkHeaders = NonNullable<operations["getChunkFile"]["parameters"]["header
  * The header a viewer's membership goes in (internal/core/api.ViewerHeaderName), checked against the
  * API's declaration, so a rename on the server fails the type check rather than the guest's film.
  */
-export const viewerHeaderName = "Orpheum-Viewer" satisfies keyof ChunkHeaders;
+export const viewerHeaderName: "Orpheum-Viewer" = "Orpheum-Viewer" satisfies keyof ChunkHeaders;
 
 export interface PortLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
