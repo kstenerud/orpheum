@@ -28,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/fingerprint"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -231,9 +232,10 @@ func runNodeWith(ctx context.Context, config Config, log processLog, seams nodeS
 	}
 	workers := agent.Workers{
 		Scanner: activeScanner, Artworker: deriver, StillTaker: deriver,
-		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
+		Subtitler:          subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		ThroughReader:      readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		SoundFingerprinter: fingerprint.NewFingerprinter(runner),
+		HeldResults:        heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
 		Disks: disks, Films: runner, ReadSelfUse: selfuse.Read,
 		SystemVideoMaker: systemVideoMaker(runner, systemFolder), SetLogLevel: nodeLogLevelSetter(log),
 	}

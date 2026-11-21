@@ -33,6 +33,10 @@
 //     TestAgent_AReprioritizeCommandGivesTheAttemptItsNewPriority.
 //   - Each hello lists the devices the roots are on as found then (D240 §5).
 //     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
+//   - A season's repeats are found from the opening and closing of each video checked to be the one
+//     the core named (D100), each said in its video's own time with how many others share it of how
+//     many compared; a video changed or gone is refused and compared with none (D101).
+//     TestAgent_FindsTheStretchOfEachOfASeasonsVideosTheOthersShare.
 //   - Each hello evicts the makings in the prepared directory that never finished, and what a
 //     whole-film prepare left (D238 §2, D344 §1). TestAgent_EachHelloEvictsTheMakingsThatNeverFinished.
 //   - An examining checks, after reading its files, the stores of chunks of each video a full rescan
@@ -201,8 +205,8 @@
 //     open.go: opening the file a command names; film.go: a run's film, from the file the node
 //     opened; chunks.go: runs of chunks;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
-//     readthrough.go: reading a video through; working.go: the work held, its slots and priority order,
-//     and cancel.
+//     readthrough.go: reading a video through; repeats.go: a season's repeats; working.go: the work
+//     held, its slots and priority order, and cancel.
 //   - held.go: results too large to post, held for the byte socket until acknowledged (D234 §5);
 //     movement.go: when held work last moved, for the watchdog; stall.go: what the core is told
 //     of a run stopped as stalled; stuck.go: a listing's or examining's own reading left stuck.

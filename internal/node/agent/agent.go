@@ -66,6 +66,9 @@ type Workers struct {
 	Subtitler Subtitler
 	// ThroughReader is nil on a node that does not read videos through.
 	ThroughReader ThroughReader
+	// SoundFingerprinter is nil on a node that does not fingerprint sound, which refuses to find a
+	// season's repeats.
+	SoundFingerprinter SoundFingerprinter
 	// SystemVideoMaker makes the server's own videos into the node's system folder (D435 §4); nil on
 	// a node that has no system folder, which answers each ask with why.
 	SystemVideoMaker SystemVideoMaker
@@ -548,8 +551,8 @@ func (agent *Agent) workFor(
 	return agent.fileWorkFor(nodeCtx, nodeID, held, command)
 }
 
-// fileWorkFor is workFor for the work that reads a file whole or makes one: a whole-file hash and the
-// system videos.
+// fileWorkFor is workFor for the work that reads a file whole or makes one: a whole-file hash, the
+// system videos and a season's repeats.
 func (agent *Agent) fileWorkFor(
 	nodeCtx context.Context, nodeID int64, held attempt, command nodeproto.Command,
 ) (heldWork, bool) {
@@ -558,6 +561,8 @@ func (agent *Agent) fileWorkFor(
 		return agent.hashWholeWork(nodeCtx, nodeID, held, *command.HashWhole), true
 	case command.Type == nodeproto.CommandMakeSystemVideos && command.MakeSystemVideos != nil:
 		return agent.systemVideosWork(nodeCtx, nodeID, held, *command.MakeSystemVideos), true
+	case command.Type == nodeproto.CommandFindRepeats && command.FindRepeats != nil:
+		return agent.findRepeatsWork(nodeCtx, nodeID, held, *command.FindRepeats), true
 	}
 	return heldWork{}, false
 }

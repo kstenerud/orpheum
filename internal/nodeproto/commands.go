@@ -60,6 +60,8 @@ type Work struct {
 	HashWhole *HashWhole `json:"hashWhole,omitempty"`
 	// MakeSystemVideos is set for CommandMakeSystemVideos.
 	MakeSystemVideos *MakeSystemVideos `json:"makeSystemVideos,omitempty"`
+	// FindRepeats is set for CommandFindRepeats.
+	FindRepeats *FindRepeats `json:"findRepeats,omitempty"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none
@@ -95,6 +97,9 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return work.MakeChunks.Video, true
 	case work.HashWhole != nil:
 		return work.HashWhole.File, true
+	case work.FindRepeats != nil && len(work.FindRepeats.Videos) > 0:
+		// A season's episodes are on one disk, as a library folder's files mostly are.
+		return work.FindRepeats.Videos[0].Video, true
 	case work.List != nil:
 		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
 	case work.Examine != nil && len(work.Examine.Files) > 0:
@@ -143,8 +148,10 @@ func (work Work) Slot() Slot {
 	switch {
 	case work.ExtractSubtitle != nil:
 		return SlotExtract
-	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly(), work.HashWhole != nil:
-		// A whole-file hash reads a whole video too, as a read-through does (D116, D363 §2).
+	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly(), work.HashWhole != nil,
+		work.FindRepeats != nil:
+		// A whole-file hash reads a whole video too, as a read-through does (D116, D363 §2), and finding
+		// repeats decodes the sound of a season's videos, one after another.
 		return SlotReadThrough
 	case work.MakeChunks != nil && work.MakeChunks.Stream.Kind == StreamQuality:
 		return SlotEncode

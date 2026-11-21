@@ -16,6 +16,7 @@ func TestNames_TheValuesTheWireSaysAreCamelCase(t *testing.T) {
 		{string(CommandReadThrough), "readThrough"},
 		{string(CommandExtractSubtitle), "extractSubtitle"},
 		{string(CommandHashWhole), "hashWhole"},
+		{string(CommandFindRepeats), "findRepeats"},
 		{string(SlotReadThrough), "readThrough"},
 		{string(ShareWaitsForever), "waitsForever"},
 		{string(ShareMayWaitForever), "mayWaitForever"},

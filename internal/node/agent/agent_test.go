@@ -44,6 +44,7 @@ type fakeCore struct {
 	readThroughs chan nodeproto.Result
 	wholeHashes  chan nodeproto.Result
 	systemVideos chan nodeproto.Result
+	repeats      chan nodeproto.Result
 	chunkRuns    chan nodeproto.Result
 	crashes      chan nodeproto.Result
 	refusals     chan nodeproto.Result
@@ -126,6 +127,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
 		wholeHashes: make(chan nodeproto.Result, 4), systemVideos: make(chan nodeproto.Result, 4),
+		repeats:   make(chan nodeproto.Result, 4),
 		chunkRuns: make(chan nodeproto.Result, 16), crashes: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
@@ -264,6 +266,7 @@ const (
 	readThroughResult resultKind = "read-through"
 	wholeHashResult   resultKind = "whole-hash"
 	systemVideoResult resultKind = "system-videos"
+	repeatsResult     resultKind = "repeats"
 	chunksResult      resultKind = "chunks"
 	// A listing and an examining, a scan's work, share one channel.
 	scanResult resultKind = "scan"
@@ -283,6 +286,7 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 		artworkResult:  result.Artwork != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
 		wholeHashResult: result.WholeHash != nil, systemVideoResult: result.SystemVideos != nil,
+		repeatsResult: result.Repeats != nil,
 		chunksResult:  result.MakeChunks != nil,
 		refusalResult: result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
 		scanResult: result.Listing != nil || result.Examined != nil,
@@ -327,7 +331,8 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 			artworkResult:  core.artwork,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
 			wholeHashResult: core.wholeHashes, systemVideoResult: core.systemVideos,
-			chunksResult: core.chunkRuns, crashedResult: core.crashes,
+			repeatsResult: core.repeats,
+			chunksResult:  core.chunkRuns, crashedResult: core.crashes,
 			heldResult: core.held, scanResult: core.scans,
 		}[kind]
 		if !handOn(core, into, result) {

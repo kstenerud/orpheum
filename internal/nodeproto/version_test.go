@@ -163,6 +163,9 @@ var wireShapeByVersion = map[int]string{
 	// 66 adds the tuning's LogLevel, the core's logLevel setting each node's log follows (D525 §1):
 	// a node of 65 would ignore it and keep its file's level.
 	66: "96d225ce8271db66cbcab907e017c04a4b9cbe7179880bca2d98ed624c83f845",
+	// 67 adds the findRepeats command and its answer, a season's sound fingerprinted and compared
+	// (D101, D115): a node of 66 would refuse it.
+	67: "d6fc81a5fd4d2eef169067297253604b1287a8876391e316b679ec13491e966b",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

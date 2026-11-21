@@ -14,7 +14,11 @@
   ([up-next.md](up-next.md) §9). The skip shows alone over the film for its segment's first 10 s,
   then with the controls; on a television it takes focus as it shows where nothing else has it;
   on an episode with a next one Up next takes the place of *Skip credits*; a Watch Together guest
-  and a cast's receiver offer none (D246 §8). Not built: chapters on the scrub bar, settings to
+  and a cast's receiver offer none (D246 §8). Half built (Phase D, 2026-11-21): the node's side of
+  the fingerprint detector, the `findRepeats` command (protocol 67), which fingerprints each of a
+  season's videos' opening and closing with chromaprint after a stereo mix (D115) and answers the
+  stretch the others share in each (`internal/node/fingerprint`); the core's job that names the
+  season and keeps the segments is not built. Not built: chapters on the scrub bar, settings to
   skip by themselves, the credits cue on a cast, a person's corrections' API, the fingerprint and
   black-frame detectors, and derivation across sibling files.
 - **Depends on:** library-model.md
