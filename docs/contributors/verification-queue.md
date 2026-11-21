@@ -3670,3 +3670,20 @@ An item is ticked only by the person who did it, and only with what they saw.
      Report whether it signs in and shows the library, not "Can't reach the server from this
      network" (the failure of 2026-11-21: Cloudflare kept the kill worker in the browser for hours,
      idiosyncrasies.md).
+- [ ] **VQ375** — Back on a list takes focus up to the banner's place for it, on the Fire TV's
+  remote (the owner, 2026-11-21). Silk's Back is a step of the history, which no test's browser
+  sends as Silk does. On staging, with "feat(web): Back on a film list moves focus to the banner's
+  place for it", on the Fire TV in Silk:
+  1. Open Films from the banner, and press Down a few times, until a film's poster has focus.
+     Press Back. Report whether focus moves to the banner's Films icon, its ring shown, and the
+     page stays on Films.
+  2. Press Back again. Report whether it leaves Films for the page before it, as Back did before.
+  3. Open Series, press Down onto a series' poster, then Back, then Down onto a poster again and
+     Back again. Report whether each Back takes focus up to the Series icon, staying on Series.
+  4. Open one of the libraries from the banner's Libraries menu, press Down onto a poster, and
+     press Back. Report whether focus moves to the Libraries icon, and whether a second Back leaves
+     the page.
+  5. On Films, open Sort and filter, choose another sort, then press Down onto a poster and Back.
+     Report whether focus moves to the Films icon (not off the page).
+  6. On Films, press OK on a poster to open its film, then Back. Report whether Films shows with
+     that poster focused, and whether opening a film from the list felt any slower than before.

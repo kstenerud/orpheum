@@ -614,6 +614,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   base laid under a page it opened on. `src/navigation.test.ts`, `src/upward.test.ts` (the research's
   scenarios over the history), `src/up-trail.test.tsx`, `src/play.test.tsx`,
   `src/input-player.browser.test.tsx`, `src/up-trail.browser.test.tsx`.
+- **Back on a list first takes focus up to the banner's place for it** (the owner, 2026-11-21:
+  "Pressing back while on a film list should bring the cursor to the top bar, over whichever item
+  the view belongs to"): on Films, Series and a library's list, Back with focus anywhere but the
+  banner focuses the banner's place marked current (Films, Series, or Libraries, its menu's button
+  where it is one), shown as an arrow's focus is, and goes nowhere; from the banner, Back goes back
+  as on any other page. On a television, Silk's Back, a step of the history, is taken by an entry
+  held over the list's while focus is outside the banner (`holdBack`), let go as focus enters it and
+  held again for each view of the list; a computer's history holds none, its browser's Back leaving
+  the list at once (`src/banner-back.ts`). `src/banner-back.test.tsx`; on a device, VQ375.
 - **Back or Forward never starts a film** (D383 §1): a Play page the browser's history returns to,
   by a popstate or by loading the page again (`isLoadedByHistory`), shows in its entry's place its
   title's page, which the Play page noted on its entry once its playback named it

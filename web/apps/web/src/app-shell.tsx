@@ -16,6 +16,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
+import { useBackToBannerPlace } from "./banner-back.ts";
 import { DropDown } from "./drop-down.tsx";
 import { ProblemReportDialog } from "./problem-report.tsx";
 import { dangerousMark } from "./focus-navigation.ts";
@@ -218,6 +219,9 @@ const destinations: readonly Destination[] = [
   { route: { screen: "about" }, labelKey: "about", audience: "everyone", group: "own" },
 ];
 
+/** The lists, where Back takes focus up to the banner's place for them first (banner-back.ts). */
+const listScreens: readonly Route["screen"][] = ["films", "series", "browse"];
+
 /** What the shell is drawn for. */
 export interface AppShellProps {
   readonly isAdmin: boolean;
@@ -279,6 +283,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
   const isIn = (group: Destination["group"]): boolean =>
     inGroup(group).some((destination) => isAt(destination, props.currentScreen));
   const bannerRef = useBannerHeight();
+  useBackToBannerPlace(bannerRef, listScreens.includes(props.currentScreen));
   return (
     <UpdateProvider isAdmin={props.isAdmin}>
       <SharesLibrariesReached>
