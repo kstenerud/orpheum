@@ -71,6 +71,27 @@ func TestOpenCache_QueuesAHashWholeFileJob(t *testing.T) {
 	}
 }
 
+// D101: a season's sound is compared by a find_repeats job aimed at its first file not yet measured;
+// the schema's job.kind CHECK names it among the kinds the queue may hold.
+func TestOpenCache_QueuesAFindRepeatsJob(t *testing.T) {
+	t.Parallel()
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	fileID := int64(9)
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		_, insertErr := queries.InsertJob(t.Context(), cachegen.InsertJobParams{
+			Kind: "find_repeats", FileID: &fileID, ArgsJSON: "{}", RunnableAt: 1, CreatedAt: 1,
+		})
+		return insertErr //nolint:wrapcheck // the test reads it as is
+	})
+	if err != nil {
+		t.Fatalf("InsertJob: %v", err)
+	}
+	jobs, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
+	if err != nil || len(jobs) != 1 || jobs[0].Kind != "find_repeats" {
+		t.Errorf("the queued jobs = %+v, %v; want the one find_repeats job", jobs, err)
+	}
+}
+
 func TestOpenCache_ReportsAnotherVersionAsOutdated(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "cache.db")
