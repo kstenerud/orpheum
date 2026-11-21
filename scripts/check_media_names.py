@@ -263,7 +263,17 @@ def library_roots() -> tuple[str, ...]:
     """The library's folders this machine has: ORPHEUM_MEDIA_LIBRARY's, else the owner's."""
     named = os.environ.get(LIBRARY_ENV)
     roots = (named.split(os.pathsep) if named else []) if named is not None else [DEFAULT_LIBRARY]
-    return tuple(root for root in roots if root and Path(root).is_dir())
+    return tuple(root for root in roots if root and readable_folder(root))
+
+
+def readable_folder(root: str) -> bool:
+    """Whether root is a folder this machine can read. A network mount whose server is down answers
+    an I/O error rather than "no such folder" (nas.lan's crash, 2026-11-21: every commit's message
+    lint failed with OSError), and an unreadable library is no library here."""
+    try:
+        return Path(root).is_dir()
+    except OSError:
+        return False
 
 
 def library_title(name: str) -> tuple[str, ...]:

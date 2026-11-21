@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -239,6 +240,12 @@ class Library(unittest.TestCase):
         os.environ[cmn.LIBRARY_ENV] = os.pathsep.join([self.root.name + "/absent", ""])
         self.addCleanup(os.environ.pop, cmn.LIBRARY_ENV)
         self.assertEqual(cmn.library_roots(), ())
+
+    def test_a_library_folder_that_answers_an_io_error_compares_none(self):
+        os.environ[cmn.LIBRARY_ENV] = self.root.name
+        self.addCleanup(os.environ.pop, cmn.LIBRARY_ENV)
+        with mock.patch.object(cmn.Path, "is_dir", side_effect=OSError(5, "Input/output error")):
+            self.assertEqual(cmn.library_roots(), ())
 
     def test_the_commit_lint_compares_the_machines_library(self):
         os.environ[cmn.LIBRARY_ENV] = self.root.name
