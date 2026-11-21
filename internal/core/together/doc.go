@@ -286,7 +286,8 @@
 //
 //   - messages.go: the wire messages, as cut-a §5.1 lists them; note_known.go, which of a device's
 //     notes the server logs.
-//   - hub.go: sessions, memberships and devices. links.go: the links a person joins by, and the
+//   - hub.go: sessions, memberships and devices; moves.go, its seek's keyframe and a next or a
+//     previous film's lookup. links.go: the links a person joins by, and the
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the commands, and following the leader.
