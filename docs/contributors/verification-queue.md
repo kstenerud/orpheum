@@ -3626,9 +3626,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   5. On the same TV, play an episode whose file has a credits chapter, and press Fast forward to
      a little before the credits. Report whether Up next is offered as the credits start, rather
      than 30 seconds before the end.
-- [ ] **VQ374** — The central client's kill switch brings a device on an old build to the build
+- [x] **VQ374** — The central client's kill switch brings a device on an old build to the build
   served now (the paid spec §7.1, C16; the owner's answer to question 1 of the B0 proposals,
-  2026-11-20: all realms at once). orpheum-connect has no browser harness, so this is the
+  2026-11-20: all realms at once). Passed (the owner, 2026-11-21, Chrome then Firefox on a Mac, the
+  steps below): after two minutes idle on build A, the first reload with build B served and the
+  switch on loaded the library in about a second in Chrome (2–3 s in Firefox, as every reload
+  there), without reloading itself and with no `#handoff=`; B's worker installed, waited a moment
+  and activated within that second (DevTools' update cycle in Chrome) and kept the page through
+  every later reload, the switch on and off; a new tab signed in and showed the library; the
+  Activity listed off to on and on to off for each walk (the lead, `connectd activity`). Whether the
+  asking again is what cured the five-minute wait is not shown: the hand walk passed with it, the
+  headless one passed without it. orpheum-connect has no browser harness, so this is the
   proposal's Playwright run, walked by hand; connect's own tests (in internal/killswitch,
   internal/webclient, cmd/connectd/operate_client_test.go and the panel's Overview test) cover the
   switch and what sw.js is. On staging, with connectd at "fix(webclient): the kill worker asks again
