@@ -335,3 +335,42 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 		t.Errorf("while it waits: %s; want %s, its episodes all listed apart", got, want)
 	}
 }
+
+// An admin sets the ordering a series' files are numbered in, which the series' page says, and which a
+// person who never chose an ordering watches it in (D210 §1, §5); a person who is not an admin cannot
+// set it, and one who chose keeps their choice.
+func TestOrderings_AnAdminSetsTheFilesOrderWhichOneWhoNeverChoseWatchesIn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	partner := harness.signInPartner(t)
+	harness.shelveDVDOrder(t)
+	setFilesOrder := func(token, ordering string) response {
+		return harness.do(t, http.MethodPut, "/items/20/files-ordering", token,
+			map[string]string{"filesOrdering": ordering})
+	}
+	wantError(t, setFilesOrder(partner, "tmdb:dvd"), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, setFilesOrder(admin, "tmdb:none"), http.StatusBadRequest, api.CodeInvalidRequest)
+	if got, want := harness.seriesSummary(t, partner), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
+		t.Errorf("after the refusals: %s; want %s", got, want)
+	}
+	if series := harness.do(t, http.MethodGet, "/items/20", admin, nil); strings.Contains(series.body,
+		"filesOrdering") {
+		t.Errorf("the series = %s; want no files' order said, aired", series.body)
+	}
+	if set := setFilesOrder(admin, "tmdb:dvd"); set.status != http.StatusNoContent {
+		t.Fatalf("an admin's files' order: %d %s", set.status, set.body)
+	}
+	if series := harness.do(t, http.MethodGet, "/items/20", admin, nil); !strings.Contains(series.body,
+		`"filesOrdering":"tmdb:dvd"`) {
+		t.Errorf("the series = %s; want its files' order said", series.body)
+	}
+	if got, want := harness.seriesSummary(t, partner), "tmdb:dvd seasons[1:2,2:1] next 23:1:1"; got != want {
+		t.Errorf("never chosen, files in DVD order: %s; want %s", got, want)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"aired"', 1)`)
+	if got, want := harness.seriesSummary(t, admin), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
+		t.Errorf("chosen aired: %s; want %s", got, want)
+	}
+}

@@ -9,7 +9,7 @@
   episode ordering, *aired, DVD, absolute, production, custom*, with every ordering the same
   mechanism ([D160](../../decisions/working-notes.md): a sequence is what a Collection produces,
   and Next Up is a query over any of them). The owner answered §7 the same day. Building the
-  viewing order, §6's steps 1–4; steps 1 to 4 are built (each step says so below); 5 to 7 are not.
+  viewing order, §6's steps 1–4; steps 1 to 6 are built (each step says so below), 6 without its cues; 7 is not.
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering),
   [schema.md](schema.md) (`ordering`, `position`, `group_text`, `preference`),
   [closed-beta.md](closed-beta.md) (B2, "Episode orderings", D96 and D210, size M).
@@ -392,16 +392,32 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
    then missing lists behind other work; a fetch that gives up records the series' own failure,
    which the sweep passes over until a person's refresh clears it. A new kind of missing part is a
    query added beside `ListSeriesOwingOrderingParts` (`identify/missing.go`). A refresh refetches
-   stored groups as it does seasons and takes the list again from the new record; step 5's marking
-   of a group no longer listed is not built. **Flagged for the owner:** a provider whose record
+   stored groups as it does seasons and takes the list again from the new record, and marks a group
+   no longer listed (step 5). **Flagged for the owner:** a provider whose record
    cannot carry the list costs one request per series for it (TMDB's can).
 5. **Refresh.** A series' refresh refetches its fetched groups and re-materialises them; a group
    no longer listed is kept and marked. *Test:* a changed fixture group moves positions and no
-   play state; a removed one keeps them.
+   play state; a removed one keeps them. **Built** (B2 Phase B): `ordering.is_unlisted` (step
+   0096), set by `deriveGroupList` and cleared when the group is listed again; the series' page
+   says it (`isUnlisted`). *Tests:* `TestOrderings_ARefreshThatMovesAGroupsEpisodesLeavesWhatWasWatched`,
+   `TestOrderings_AGroupItsProviderNoLongerListsIsKeptWithItsPlacesAndMarked`.
 6. **The files' order** (D210 §1). An admin sets a series' files' order; identification looks
    numbers up in it, and places aired from the entries (§3.3); the **F** queries of §5 read it;
    optionally Kodi's `tvshow.nfo` group URL sets it. *Test:* a library numbered in a fixture's
-   DVD order is named correctly, and its aired positions are the entries'.
+   DVD order is named correctly, and its aired positions are the entries'. **Built** (B2 Phase
+   B): `sequence.files_ordering_id` (step 0096), set by an admin through `PUT
+   /items/{id}/files-ordering` (`Refresher.SetFilesOrdering`, which queues the series' match: the
+   group's fetch if owed, then a pass). A pass looks a provider library's numbered file up in the
+   group's entries, which carry their aired episode (`EpisodeGroupEntry.Aired`), and keys, names and
+   places it in aired from the entry (`identify/files_order.go`); a number the group lists nowhere
+   is filed as an unnumbered special; a file whose place its numbers no longer give is filed again
+   (`contradictedPlacements`), so a change of the files' order, aired included, re-files. The **F**
+   queries still read aired, which is the identity key and where the entries place the files; the
+   files' order enters at the lookup. A person who never chose a viewing order watches in the files'
+   order (`ListChosenOrderings`, D210 §5). Not built: the cues of §7 answer 6 (runtimes, titles in
+   names, two-part files) and Kodi's `tvshow.nfo` group URL. *Tests:*
+   `TestOrderings_ALibraryNumberedInADVDOrderIsFiledInAiredByTheGroupsEntries` (identify),
+   `TestOrderings_AnAdminSetsTheFilesOrderWhichOneWhoNeverChoseWatchesIn` (api).
 7. **A person's own ordering** (D159 §2): start from a copy of any ordering, then move, renumber
    and omit episodes. *Test:* it survives a full rescan and a provider refresh, name included
    (D159's assertion).

@@ -8092,6 +8092,20 @@
         },
         "type": "object"
       },
+      "SetSeriesFilesOrderingInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "filesOrdering": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "filesOrdering"
+        ],
+        "type": "object"
+      },
       "SettingBody": {
         "properties": {
           "description": {
@@ -13513,6 +13527,58 @@
           "Identification"
         ],
         "x-orpheum-capability": "editMetadata"
+      }
+    },
+    "/items/{id}/files-ordering": {
+      "put": {
+        "operationId": "setSeriesFilesOrdering",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSeriesFilesOrderingInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set, for the household, the ordering a series' files are numbered in, which identification looks their numbers up in and which a person who never chose an ordering watches it in",
+        "tags": [
+          "Browse"
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/items/{id}/filing-report": {

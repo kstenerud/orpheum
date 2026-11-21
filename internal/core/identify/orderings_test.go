@@ -5,6 +5,7 @@ package identify_test
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
@@ -344,5 +345,77 @@ func TestOrderings_ASeriesAiredOrderHasAGroupForEachSeasonItsProviderLists(t *te
 		 WHERE ordering.sequence_id = %d AND ordering.name = 'aired' ORDER BY grp.number`, seriesID))
 	if want := []string{"0", "1", "2"}; !slices.Equal(groups, want) {
 		t.Errorf("aired groups %q; want %q, one for each season listed", groups, want)
+	}
+}
+
+// A library whose files are numbered in a DVD order is filed in aired by the group's entries once an
+// admin sets that order as its files' (D210 §1; episode-orderings.md §3.3, §3.4): each file is named
+// as the entry its numbers find, at the entry's aired place; a number the group lists nowhere is no
+// aired episode's; and setting aired again files them by their own numbers.
+func TestOrderings_ALibraryNumberedInADVDOrderIsFiledInAiredByTheGroupsEntries(t *testing.T) {
+	t.Parallel()
+	lib := emberwingLibrary(t)
+	aired := func(number int) identify.Episode {
+		return identify.Episode{
+			ID: fmt.Sprintf("e%d", number), Season: 1, Number: number, Name: fmt.Sprintf("Episode %d", number),
+		}
+	}
+	lib.provider.EpisodeGroups["dvd"] = []identify.EpisodeGroupPart{{
+		Order: 1, Name: "Disc 1", Episodes: []identify.EpisodeGroupEntry{
+			{EpisodeID: "e2", Order: 0, Aired: aired(2)},
+			{EpisodeID: "e1", Order: 1, Aired: aired(1)},
+			{EpisodeID: "e4", Order: 2, Aired: aired(4)},
+		},
+	}}
+	seriesID := lib.matchEmberwing(emberwingFiles...)
+	filedAs := func() []string {
+		files := lib.titlesByPath()
+		names := make([]string, 0, len(emberwingFiles))
+		for _, path := range emberwingFiles {
+			names = append(names, titleName(files[path]))
+		}
+		return names
+	}
+	inAired := []string{"Episode 1", "Episode 2", "Episode 3", "Episode 4"}
+	if got := filedAs(); !slices.Equal(got, inAired) {
+		t.Errorf("in aired: filed as %q; want %q", got, inAired)
+	}
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	setFilesOrder := func(ordering string) {
+		t.Helper()
+		*queue = (*queue)[:0]
+		if changed, err := refresher.SetFilesOrdering(t.Context(), seriesID, ordering); err != nil || !changed ||
+			len(*queue) != 1 || (*queue)[0].Priority != jobs.PriorityPersonsRequest {
+			t.Fatalf("set the files' order %s: %v, queued %+v (%v); want the series' match, at the person's priority",
+				ordering, changed, *queue, err)
+		}
+		for range 2 { // the job the queue runs, and again
+			if _, err := lib.matcher.Match(t.Context(), seriesID); err != nil {
+				t.Fatal(err)
+			}
+			lib.runOwedPasses()
+		}
+	}
+	setFilesOrder("tmdb:dvd")
+	if changed, err := refresher.SetFilesOrdering(t.Context(), seriesID, "tmdb:dvd"); err != nil || changed {
+		t.Errorf("the same files' order again: changed %v (%v); want nothing", changed, err)
+	}
+	// S01E01 is the DVDs' first, aired's second; S01E04 is on no disc.
+	if got, want := filedAs(), []string{"Episode 2", "Episode 1", "Episode 4", "Special"}; !slices.Equal(got, want) {
+		t.Errorf("in its DVD order: filed as %q; want %q", got, want)
+	}
+	places, _ := lib.placesIn(seriesID, "aired")
+	numbered := slices.DeleteFunc(places, func(place string) bool { return strings.HasPrefix(place, "S01E04") })
+	if want := []string{"S01E02.mkv|1|1", "S01E01.mkv|1|2", "S01E03.mkv|1|4"}; !slices.Equal(numbered, want) {
+		t.Errorf("aired places %q; want the entries' %q", numbered, want)
+	}
+	if places, _ := lib.placesIn(seriesID, "tmdb:dvd"); !slices.Equal(places,
+		[]string{"S01E01.mkv|1|1", "S01E02.mkv|1|2", "S01E03.mkv|1|3"}) {
+		t.Errorf("DVD places %q; want the files' own numbers", places)
+	}
+	setFilesOrder("aired")
+	if got := filedAs(); !slices.Equal(got, inAired) {
+		t.Errorf("in aired again: filed as %q; want %q", got, inAired)
 	}
 }

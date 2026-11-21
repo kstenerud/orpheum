@@ -680,6 +680,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/files-ordering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set, for the household, the ordering a series' files are numbered in, which identification looks their numbers up in and which a person who never chose an ordering watches it in */
+        put: operations["setSeriesFilesOrdering"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items/{id}/filing-report": {
         parameters: {
             query?: never;
@@ -5630,6 +5647,9 @@ export interface components {
             leftOutOfHomeLibraryIds?: number[] | null;
             showsDebugTools?: boolean;
         };
+        SetSeriesFilesOrderingInputBody: {
+            filesOrdering: string;
+        };
         SettingBody: {
             description: string;
             /** @description In the settings page's normal view */
@@ -8112,6 +8132,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setSeriesFilesOrdering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSeriesFilesOrderingInputBody"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {

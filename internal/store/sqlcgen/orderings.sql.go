@@ -157,6 +157,52 @@ func (q *Queries) ListChosenGroupsToFetch(ctx context.Context, arg ListChosenGro
 	return items, nil
 }
 
+const listLibrarySeriesFilesOrderings = `-- name: ListLibrarySeriesFilesOrderings :many
+SELECT item.id AS sequence_id, ordering.name, ordering.provider, ordering.source_id
+FROM item
+CROSS JOIN sequence ON sequence.id = item.id -- the library's series first, by their filing library
+JOIN ordering ON ordering.id = sequence.files_ordering_id
+WHERE item.filing_library_id = ?1 AND item.kind = 'series' AND item.removed_at IS NULL
+ORDER BY item.id
+`
+
+type ListLibrarySeriesFilesOrderingsRow struct {
+	SequenceID int64
+	Name       string
+	Provider   *string
+	SourceID   *string
+}
+
+// A library's series whose files are numbered in an ordering not aired (D210 section 1), with that
+// ordering, which a pass reads once.
+func (q *Queries) ListLibrarySeriesFilesOrderings(ctx context.Context, libraryID *int64) ([]ListLibrarySeriesFilesOrderingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibrarySeriesFilesOrderings, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibrarySeriesFilesOrderingsRow{}
+	for rows.Next() {
+		var i ListLibrarySeriesFilesOrderingsRow
+		if err := rows.Scan(
+			&i.SequenceID,
+			&i.Name,
+			&i.Provider,
+			&i.SourceID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibrarySeriesWithFetchedGroups = `-- name: ListLibrarySeriesWithFetchedGroups :many
 SELECT item.id AS sequence_id
 FROM item

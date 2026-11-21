@@ -17,6 +17,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
 
+// nfoEpisodeDetails is an episode's NFO's root element, Kodi's kind for it.
+const nfoEpisodeDetails = "episodedetails"
+
 // NFO is what a Kodi-family .nfo file says (identification.md, Reading the sidecars). Its
 // locked fields are a person's corrections and become overrides; the rest is the title's source
 // where the library was told to use NFO files (D182, D183). Watch counts in it belong to nobody
@@ -111,7 +114,7 @@ func ParseNFO(body []byte) (NFO, error) {
 	}
 	kind := strings.ToLower(document.XMLName.Local)
 	switch kind {
-	case KindMovie, "episodedetails", "tvshow", "season":
+	case KindMovie, nfoEpisodeDetails, "tvshow", "season":
 	default:
 		return NFO{}, fmt.Errorf("%w: the root element is <%s>", ErrNotNFO, document.XMLName.Local)
 	}

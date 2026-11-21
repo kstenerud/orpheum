@@ -314,6 +314,10 @@ type libraryFiler struct {
 	// contradicted are the files whose place their path now contradicts, filed again as a moved
 	// file is (contradictedPlacements).
 	contradicted map[int64]bool
+	// filesOrders are the series' files' orders, each read once, and filesOrdersSet the library's
+	// series set to one not aired, listed once a pass (filesOrderOf); nil until the first is asked for.
+	filesOrders    map[int64]filesOrder
+	filesOrdersSet map[int64]sqlcgen.ListLibrarySeriesFilesOrderingsRow
 	// leftFor are titles a file left this pass, each with the title the file is in: one it moved a
 	// version out of, or one made for a file that stayed where it was. retireEmptied merges each
 	// left with no version. added are the titles the pass made.
@@ -576,6 +580,9 @@ func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
 		if !isEpisode {
 			filer.contradicted[file.ID] = true // not an episode
 			continue
+		}
+		if markErr := filer.markAgainstFilesOrder(ctx, file, place, relativePath); markErr != nil {
+			return markErr
 		}
 		series, err := filer.cachedSeriesMatch(ctx, place.SequenceID)
 		if err != nil {

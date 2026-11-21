@@ -191,3 +191,13 @@ WHERE sequence.id = sqlc.arg(sequence_id)
     SELECT ordering.id FROM ordering
     WHERE ordering.sequence_id = sequence.id AND ordering.name = sqlc.arg(ordering_name) AND ordering.name <> 'aired'
   );
+
+-- name: ListLibrarySeriesFilesOrderings :many
+-- A library's series whose files are numbered in an ordering not aired (D210 section 1), with that
+-- ordering, which a pass reads once.
+SELECT item.id AS sequence_id, ordering.name, ordering.provider, ordering.source_id
+FROM item
+CROSS JOIN sequence ON sequence.id = item.id -- the library's series first, by their filing library
+JOIN ordering ON ordering.id = sequence.files_ordering_id
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.kind = 'series' AND item.removed_at IS NULL
+ORDER BY item.id;

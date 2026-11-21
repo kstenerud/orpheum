@@ -20,7 +20,8 @@ const airedOrdering = "aired"
 
 // fileEpisode files an episode: its series, found by where the file already was, the tvshow.nfo
 // above it or the name its folders give, and its title at (season, episode) in the series' aired
-// order. Its values come from its own NFO; else, where the library reads a provider, from its
+// order. Its values come from its own NFO; else, where the library reads a provider, from the entry
+// of the series' files' order, its numbers being that order's (fromFilesOrder, D210 §1), or from its
 // series' season listing (D209); else from the path.
 func (filer *libraryFiler) fileEpisode(
 	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, parsed ParsedPath,
@@ -46,17 +47,15 @@ func (filer *libraryFiler) fileEpisode(
 	}
 	nfo, hasNFO := filer.nfoFor(file)
 	switch {
-	case hasNFO && nfo.Kind == "episodedetails":
-		if nfo.Season > 0 || nfo.Episode > 0 {
-			season, number = nfo.Season, nfo.Episode
-		}
-		spec.fromNFO(nfo)
-		if nfo.Title == "" {
-			spec.name = fmt.Sprintf("Episode %d", number)
-		}
+	case hasNFO && nfo.Kind == nfoEpisodeDetails:
+		season, number = spec.fromEpisodeNFO(nfo, season, number)
 	case filer.library.MetadataSource != sourceNFO:
-		if listErr := filer.fromListing(ctx, seriesID, season, number, &spec); listErr != nil {
+		isNotInOrder, listErr := filer.fromProvider(ctx, seriesID, &season, &number, &spec)
+		if listErr != nil {
 			return listErr
+		}
+		if isNotInOrder {
+			return filer.fileUnnumberedSpecial(ctx, file, seriesID, parsed, spec)
 		}
 	case hasShowNFO:
 		spec.source, spec.identification = sourceNFO, identificationIdentified
@@ -285,6 +284,32 @@ func (filer *libraryFiler) currentSeries(ctx context.Context, file sqlcgen.ListI
 		return 0, err
 	}
 	return place.SequenceID, nil
+}
+
+// fromEpisodeNFO takes an episode's values from its own NFO, and its numbers where the NFO gives
+// them: the season and number it is filed at.
+func (spec *titleSpec) fromEpisodeNFO(nfo NFO, season, number int) (filedSeason, filedNumber int) {
+	if nfo.Season > 0 || nfo.Episode > 0 {
+		season, number = nfo.Season, nfo.Episode
+	}
+	spec.fromNFO(nfo)
+	if nfo.Title == "" {
+		spec.name = fmt.Sprintf("Episode %d", number)
+	}
+	return season, number
+}
+
+// fromProvider gives an episode numbered (season, number) in its series' files' order its aired
+// place and its values: from the order's entry (fromFilesOrder), or, numbered in aired, from its
+// season listing (fromListing). Its isNotInOrder says the order lists no such number.
+func (filer *libraryFiler) fromProvider(
+	ctx context.Context, seriesID int64, season, number *int, spec *titleSpec,
+) (isNotInOrder bool, err error) {
+	inOrder, err := filer.fromFilesOrder(ctx, seriesID, season, number, spec)
+	if err != nil || inOrder != numberedInAired {
+		return inOrder == notInFilesOrder, err
+	}
+	return false, filer.fromListing(ctx, seriesID, *season, *number, spec)
 }
 
 // fromListing gives an episode its values from its series' stored season listing, or says why

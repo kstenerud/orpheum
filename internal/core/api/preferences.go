@@ -91,6 +91,13 @@ func (server *Server) registerPreferences() {
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.setItemPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "setSeriesFilesOrdering", Method: http.MethodPut, Path: "/items/{id}/files-ordering",
+		Summary: "Set, for the household, the ordering a series' files are numbered in, which identification " +
+			"looks their numbers up in and which a person who never chose an ordering watches it in",
+		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityAdmin),
+	}, server.setSeriesFilesOrdering)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
 			"autoplay; and whether their pages show debug tools",
@@ -299,6 +306,40 @@ func (server *Server) setItemPreferences(ctx context.Context, input *SetItemPref
 	// says so until it is.
 	if _, err := dependencies.Refresher.QueueChosenOrderings(ctx, input.SeriesID); err != nil {
 		return nil, server.libraryError(ctx, "queue the fetch of a series' chosen ordering", err)
+	}
+	return &struct{}{}, nil
+}
+
+// SetSeriesFilesOrderingInput is an admin's choice of the ordering a series' files are numbered in.
+type SetSeriesFilesOrderingInput struct {
+	AuthorizationHeader
+	SeriesID int64 `minimum:"1" path:"id"`
+	Body     struct {
+		// FilesOrdering is the ordering, by its name, one the series has: aired, or a provider's
+		// (D210 §1; episode-orderings.md §3.4).
+		FilesOrdering string `json:"filesOrdering" maxLength:"200" minLength:"1"`
+	}
+}
+
+// setSeriesFilesOrdering keeps the ordering a series' files are numbered in, for the household, and
+// queues the series' filing in it: the group's fetch first, if it is not fetched yet.
+func (server *Server) setSeriesFilesOrdering(
+	ctx context.Context, input *SetSeriesFilesOrderingInput,
+) (*struct{}, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	ordering := input.Body.FilesOrdering
+	hasIt, err := dependencies.Browser.HasOrdering(ctx, principal.Reach, input.SeriesID, ordering)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read a series' orderings", err)
+	}
+	if !hasIt {
+		return nil, invalidRequestAt(http.StatusBadRequest, "body.filesOrdering", "this series has no such ordering")
+	}
+	if _, err := dependencies.Refresher.SetFilesOrdering(ctx, input.SeriesID, ordering); err != nil {
+		return nil, server.libraryError(ctx, "keep the order a series' files are numbered in", err)
 	}
 	return &struct{}{}, nil
 }

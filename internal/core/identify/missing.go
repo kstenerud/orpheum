@@ -67,6 +67,34 @@ func (refresher *Refresher) QueueChosenOrderings(ctx context.Context, seriesID i
 	return queued, nil
 }
 
+// SetFilesOrdering keeps an admin's choice of the ordering a series' files are numbered in, by its
+// name, aired among them (D210 §1; episode-orderings.md §3.4), and queues, at the person's
+// priority, the series' match: which fetches the group if it is not fetched yet and marks the
+// series' library as owing a pass, which files its episodes again by their numbers in it. It says
+// whether the choice changed anything; one that did not queues nothing.
+func (refresher *Refresher) SetFilesOrdering(ctx context.Context, seriesID int64, ordering string) (bool, error) {
+	var changed int64
+	err := refresher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var setErr error
+		changed, setErr = queries.SetSeriesFilesOrdering(ctx, sqlcgen.SetSeriesFilesOrderingParams{
+			OrderingName: ordering, SequenceID: seriesID,
+		})
+		return setErr //nolint:wrapcheck // wrapped below
+	})
+	if err != nil {
+		return false, fmt.Errorf("keep series %d's files' order: %w", seriesID, err)
+	}
+	if changed == 0 {
+		return false, nil
+	}
+	job := missingOrderingsJob(seriesID, true)
+	job.Reason = "the order its files are numbered in, an admin set"
+	if _, err := refresher.queue.Enqueue(ctx, job); err != nil {
+		return true, fmt.Errorf("queue series %d's filing in its files' order: %w", seriesID, err)
+	}
+	return true, nil
+}
+
 // FetchProvider is the provider a fetch_metadata job calls in Cut A, whose parts a sweep looks for.
 const FetchProvider = "tmdb"
 

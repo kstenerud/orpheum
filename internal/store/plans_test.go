@@ -420,6 +420,8 @@ func weakSearchesAllowed() map[string]string {
 		"ListIdentifyFiles":               library + "the identification pass",
 		"ListLibrarySeriesWithFetchedGroups": library + "a pass's last step, its series with an episode group " +
 			"fetched, whose episodes it keeps placed (episode-orderings.md)",
+		"ListLibrarySeriesFilesOrderings": library + "the identification pass, once, its series whose files " +
+			"are numbered in an order not aired (D210 section 1)",
 		"ListLibraryWorks": library + "the identification pass",
 		// Every page of a list but one from a name counts the whole list, of each kind it names, so the
 		// grid reserves its room before the other pages come (the owner, 2026-11-11).
