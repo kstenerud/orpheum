@@ -765,3 +765,21 @@ func TestTogether_TheHostsDetailsNameWhatPlays(t *testing.T) {
 			read.body)
 	}
 }
+
+// A live message of a type the server does not know, from a page of another build, is logged, with
+// the device that sent it, and the connection goes on: the live protocol has no refusal to answer it
+// with (the code audit of 2026-11-21, finding 3).
+func TestLiveSocket_AMessageOfAnUnknownTypeIsLoggedAndTheConnectionGoesOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	token := harness.createAdminAndSignIn(t)
+	socket := harness.dialLive(t, token)
+	socket.awaitConnected()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := wsjson.Write(ctx, socket.connection, live.Inbound{Type: "fromTheFuture"}); err != nil {
+		t.Fatal(err)
+	}
+	harness.logs.AwaitEvent(t, "liveUnknownType", `"level":"DEBUG"`, `"userId":1`, `"type":"fromTheFuture"`)
+	socket.awaitConnected()
+}

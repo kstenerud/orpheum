@@ -89,6 +89,7 @@ web, the SDK's `parseLiveMessage` (`web/packages/sdk/src/live-connection.ts:237-
 - **Fix:** a `default:` that refuses with `codeInvalid` and logs at debug in `Handle` and the live
   reader; a debug log for the SDK's drop. **S, agent.**
 
+*Fixed (the Go side):* fix(together): a message of an unknown type is refused and logged, and the live socket logs one
 *Fixed, the web's side:* fix(sdk): the live connection notes a message it cannot read at the debug
 level. `#hear` notes the drop through `noteForTheLog`, naming the type or "malformed".
 

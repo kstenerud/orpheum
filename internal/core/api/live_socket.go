@@ -101,7 +101,11 @@ func (server *Server) serveLiveSocket(
 		writeLive(ctx, connection, outbox, cancel)
 	}()
 	showFront := func(isInFront bool) { dependencies.Live.ShowFront(registered, isInFront) }
-	ended := readLive(ctx, connection, send, showFront, time.Duration(server.togetherSilence.Load()))
+	heardUnknown := func(kind live.MessageType) {
+		server.logger.DebugContext(ctx, "live: a device sent a message of a type this server does not know",
+			append(device, slogx.EventKey, "liveUnknownType", "type", string(kind))...)
+	}
+	ended := readLive(ctx, connection, send, showFront, heardUnknown, time.Duration(server.togetherSilence.Load()))
 	dependencies.Live.Disconnect(registered) // nothing is sent to it after this
 	server.logger.DebugContext(ctx, "live: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
@@ -109,11 +113,13 @@ func (server *Server) serveLiveSocket(
 }
 
 // readLive answers each ping the device sends and passes each move of its tab, to the front or
-// behind, to showFront (D338 §2), until the socket or ctx ends or the device sends nothing for
-// silence, and says why it ended.
+// behind, to showFront (D338 §2), and a message of a type it does not know, from a page of another
+// build, to heardUnknown, until the socket or ctx ends or the device sends nothing for silence, and
+// says why it ended. The live protocol has no refusal to answer an unknown type with, so it is only
+// logged; the server's own types, sent back, are ignored.
 func readLive(
 	ctx context.Context, connection togetherSocket, send live.Sender, showFront func(isInFront bool),
-	silence time.Duration,
+	heardUnknown func(live.MessageType), silence time.Duration,
 ) error {
 	for {
 		var message live.Inbound
@@ -137,6 +143,8 @@ func readLive(
 		case live.MessageHello, live.MessageOldHello, live.MessageDevices, live.MessageReceive,
 			live.MessageSending, live.MessagePong,
 			live.MessageSignedOut:
+		default:
+			heardUnknown(message.Type)
 		}
 	}
 }

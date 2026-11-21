@@ -137,6 +137,24 @@ func (stage sessionStage) groupPositionMs(sessionID int64) int64 {
 
 // A pong says where the group is as the server answers, so a follower places the group by the pong
 // whose round trip it measured shortest (D264).
+// A message of a type the server does not know, from a page of another build, is refused and
+// logged, as a server-only type is refused, so its sender is not left waiting on an answer that
+// never comes (the code audit of 2026-11-21, finding 3).
+func TestHub_AMessageOfAnUnknownTypeIsRefusedAndLogged(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: "fromTheFuture"})
+	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+		t.Errorf("an unknown type was answered %+v, want a refusal %q", rejected, codeInvalid)
+	}
+	refusal := `level=DEBUG msg="watch together: a message of an unknown type is refused"`
+	if logged := stage.logs.String(); !strings.Contains(logged, refusal) ||
+		!strings.Contains(logged, "type=fromTheFuture") {
+		t.Errorf("the log does not say an unknown type was refused:\n%s", stage.logs)
+	}
+}
+
 func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)

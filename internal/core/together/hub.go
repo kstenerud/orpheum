@@ -627,6 +627,12 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.takeAside(ctx, now, sender, from, message)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+	default:
+		// A type this server does not know, from a page of another build: refused, so the sender is
+		// not left waiting on an answer that never comes, and logged, so a report says why.
+		handled.logger.DebugContext(ctx, "watch together: a message of an unknown type is refused",
+			append(handled.deviceAttributes(sender, from), "type", string(message.Type))...)
+		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
 }
 
