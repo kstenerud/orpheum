@@ -3633,8 +3633,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   internal/webclient, cmd/connectd/operate_client_test.go and the panel's Overview test) cover the
   switch and what sw.js is. On staging, with connectd at "feat(connectd): the web client's kill switch, set from the
   command line or the panel, has every page's worker empty its caches and step aside":
-  1. The lead serves build A at app-staging. In Chrome on the computer, open app-staging. and sign
-     in; reload once. In DevTools, Application, note that Service workers shows `sw.js` activated
+  1. The lead serves build A at staging. In Chrome on the computer, open https://orpheum.dev, which
+     takes the browser to the staging core's client origin, and sign in; reload once. In DevTools, Application, note that Service workers shows `sw.js` activated
      and Cache storage lists the client's caches.
   2. The lead serves build B, and runs `connectd client kill on` in staging's connectd container
      (or sets Client kill switch to on in the operator panel's Overview), then waits 10 s.
