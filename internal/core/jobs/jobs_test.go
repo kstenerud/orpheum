@@ -536,3 +536,24 @@ func TestEnqueue_AWholeServerJobNamesNoTargetAndIsQueuedOnce(t *testing.T) {
 		t.Errorf("%d jobs (%v) after asking for each whole-server kind twice; want one of each", len(listed), err)
 	}
 }
+
+// The cache's job table takes every kind the queue has, read from its one list: a kind added to the
+// list and not to the schema's CHECK fails here, not at its first enqueue in a running server.
+func TestEnqueue_TheCacheTakesAJobOfEveryKind(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	for _, kind := range Kinds() {
+		request := Request{Kind: kind, Target: Target{FileID: 7}, ArgsJSON: "{}", Reason: "test"}
+		if isWholeServer(kind) {
+			request.Target = Target{}
+		}
+		if _, err := jobs.queue.Enqueue(t.Context(), request); err != nil {
+			t.Errorf("queue a %s: %v", kind, err)
+		}
+	}
+	listed, err := jobs.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
+	if err != nil || len(listed) != len(Kinds()) {
+		t.Errorf("%d jobs (%v) after queuing one of each of the %d kinds; want one of each",
+			len(listed), err, len(Kinds()))
+	}
+}

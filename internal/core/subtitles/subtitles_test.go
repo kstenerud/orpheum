@@ -381,3 +381,14 @@ func TestSubtitles_RecordFailureKeepsAGivenUpExtractionAsItsTracksFailure(t *tes
 		t.Errorf("the given-up extraction: %+v; want its failure kept, prefixed \"given up: \"", text)
 	}
 }
+
+// A season's comparison of its sound is no subtitle's job: given to the subtitles' failure keeper, it
+// is refused, not taken as a failure with nothing to keep.
+func TestSubtitles_RecordFailureRefusesASeasonsComparison(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t)
+	job := jobs.Job{ID: extractJobID, Kind: jobs.KindFindRepeats, Target: jobs.Target{FileID: bareVideoFileID}}
+	if err := bench.service.RecordFailure(t.Context(), job, "FFmpeg stalled twice"); err == nil {
+		t.Errorf("a find_repeats job's failure was taken as a subtitle's; want it refused as no subtitle's job")
+	}
+}
