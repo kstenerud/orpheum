@@ -161,6 +161,14 @@ changes those areas is tested so, and one that does not is spared its minutes.
 on a pass says how long it took, and says so when it took longer. A step or test added to it
 states what it adds, and one that would take it past the budget goes to the milestone's runs
 instead (agent-failures A24: it doubled unnoticed). Most of its minutes are in steps that passed.
+
+`make check` (90 s) and `make spot` (30 s) say the same on every pass, and over budget `make check`
+names its three longest steps, the ones that ran no sub-make. Every run of the three, however it was
+started and in whichever worktree, is recorded in the git common directory's `gate-logs/runs.jsonl`
+with its longest steps, and **`make gate-times`** reports each one's median, slowest tenth and runs over
+budget for the last `DAYS` (`scripts/gate_runs.py`; the owner, 2026-11-21: they are "lightweight
+alternatives to check-pr that keep dev loop velocity high"). A budget the record shows broken day after
+day is a finding to diagnose and propose a cut for, not a number to raise.
 While fixing a failure, re-run only what failed, then run the whole gate once:
 
 1. **Loop on the narrowest run that shows the failure**: `go test -run <Test> ./<pkg>/`,

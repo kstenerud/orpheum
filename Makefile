@@ -94,6 +94,12 @@ spot: hooks ## Spot check while working: tests of what changed since BASE (defau
 	@if $(PYTHON) scripts/run_gate.py --hops spot; then exec $(PYTHON) scripts/in_dev_image.py spot $(if $(BASE),BASE='$(BASE)') $(if $(SPOT_JOBS),SPOT_JOBS=$(SPOT_JOBS)); \
 	  else $(GATE_LOCK) --as spot $(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS)); fi
 
+# How long make check, check-pr and spot have taken, run by run, against their budgets, and the steps
+# that took them over (scripts/gate_runs.py; the owner, 2026-11-21: they "keep dev loop velocity high").
+.PHONY: gate-times
+gate-times: ## How long make check, check-pr and spot took over the last DAYS (default 7), against their budgets
+	@$(PYTHON) scripts/gate_runs.py $(if $(DAYS),--days $(DAYS))
+
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
@@ -109,7 +115,8 @@ check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 	@# failed to connect in vitest's 60 s twice, and they took 65 s for 10 s of tests (2026-10-20).
 	@$(MAKE) --no-print-directory web-test-browser
 	@$(PYTHON) scripts/check_stamp.py write
-	@echo "make check: all gates passed"
+	@# Named for itself: under make check the quiet gate says the pass, with its time (scripts/quiet_gate.py).
+	@echo "check-verbose: all gates passed"
 
 .PHONY: check-parallel
 # check-generated runs beside the rest: nothing reads what it generates, which goes to a temporary

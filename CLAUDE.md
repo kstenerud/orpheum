@@ -26,7 +26,7 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
   pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
   output. Fix it; don't argue with it. When the gate cannot run at all (no tools, or `./dev`'s image needs
-  building), it blocks once; the next stop ends the turn with a warning, so a declined `./dev true` cannot loop. Each run it starts is recorded in `.claude/.cache/gate-runs.jsonl`: its start, length,
+  building), it blocks once; the next stop ends the turn with a warning, so a declined `./dev true` cannot loop. Each run it starts is recorded in `.claude/.cache/gate-runs.jsonl` (the turn's wait; `make gate-times` reports the gates' own runs): its start, length,
   exit, the load before and after, and the FFmpeg jobs running as it started, so a slow turn can be explained.
   While it runs, `.claude/.cache/gate-running.json` marks it, and `.claude/hooks/gate_status.py <project
   folder>` prints `make check: 2m10s` from the mark (nothing otherwise) for a personal status line to show,

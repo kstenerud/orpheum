@@ -49,10 +49,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import Callable
 
+import gate_runs
 from revert_red_dependents import python_tests_reaching_any
 from revert_red_web import VITEST_RUN, importing_tests
 
-BUDGET_S = 30
+BUDGET_S = gate_runs.BUDGET_S["spot"]
 # How many of its runs go at once, by default: two, so a spot check beside staging or another
 # agent's gate does not take the machine (the owner's staging at a load of 46, 2026-10-11).
 DEFAULT_JOBS = 2
@@ -322,7 +323,7 @@ def main() -> int:
                     "uncommitted changes)")
     ap.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help=f"runs at once (default {DEFAULT_JOBS})")
     args = ap.parse_args()
-    started = time.monotonic()
+    started, began, load_before = time.monotonic(), time.time(), gate_runs.load()
     paths = changed_paths(args.base)
     if not paths:
         print(f"spot: nothing changed since {args.base}; give --base to check commits (e.g. --base HEAD~1)")
@@ -341,6 +342,11 @@ def main() -> int:
     for gap in spot.not_run:
         print(f"spot: not run here: {gap}")
     took = time.monotonic() - started
+    gate_runs.record({"start": gate_runs.started_at(began), "target": "spot", "seconds": round(took),
+                      "exit": 1 if failed else 0, "worktree": gate_runs.worktree(), "loadBefore": load_before,
+                      "loadAfter": gate_runs.load(), "paths": len(paths),
+                      "steps": [[run.label, round(seconds, 1)] for run, _, seconds, _ in
+                                sorted(results, key=lambda done: -done[2])][:gate_runs.STEPS_KEPT]})
     over = f", over its {BUDGET_S} s budget (D279)" if took > BUDGET_S else ""
     print(f"spot: {len(paths)} changed path(s), {'FAILED' if failed else 'passed'} in {took:.0f} s{over}. "
           "Not make check: run it before the commit.")

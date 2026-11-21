@@ -25,6 +25,12 @@ first: the run names a file in STEP_CLOCK, the Makefile then runs every recipe l
 `step_clock.sh`, which records its target's start and end there, and a step's time is its first
 line's start to its last line's end. Without it no cut to the gate could be ranked by measurement
 (gate-throughput G0; the owner, 2026-11-13).
+
+Each run is also recorded, its time and its longest steps, in the git common directory's
+`gate-logs/runs.jsonl` (scripts/gate_runs.py), and its line says how long it took, and when that was
+over its budget, which steps took it there: make check took 92 to 236 s a day's median over the week
+to 2026-11-21, against its 90 s, and nothing said so (the owner, 2026-11-21: "we should also be
+timing make check and make spot").
 """
 
 from __future__ import annotations
@@ -35,7 +41,10 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
+
+import gate_runs
 
 # Lines a passing step prints. Anything else is kept, so an unknown line is never hidden.
 NOISE = [re.compile(pattern) for pattern in (
@@ -108,28 +117,79 @@ def log_path(target: str) -> Path:
     return directory / f"{target}.log"
 
 
-def step_times(clock: str) -> list[tuple[str, float, float, bool]]:
-    """Each target step_clock.sh recorded, as (target, seconds from the run's first start, its
-    seconds, whether a line of it failed), the longest first. A malformed line is left out."""
-    spans: dict[str, list[float]] = {}
-    failed: dict[str, bool] = {}
+# A target's lines further apart than this are two runs of it: web-deps runs before the parallel
+# steps and again before the browser run, and one span from the first to the last read as 216 s.
+RUN_GAP_S = 1.0
+
+Span = tuple[str, float, float, bool, int]
+
+
+def parents(clock: str) -> set[str]:
+    """The steps whose recipe started a sub-make: the PARENT field step_clock.sh writes (since
+    2026-11-21), empty when the clock is older and names none."""
+    return {fields[5] for fields in (line.split("\t") for line in clock.splitlines())
+            if len(fields) == 6 and fields[5]}
+
+
+def step_spans(clock: str) -> list[Span]:
+    """Each run of a target step_clock.sh recorded, as (target, seconds from the run's first start,
+    its seconds, whether a line of it failed, make's level), the longest first: a run is the target's
+    consecutive lines, its first line's start to its last line's end. A malformed line is left out; a
+    line without a level (before 2026-11-21) is level 0."""
+    lines: dict[str, list[tuple[float, float, bool, int]]] = {}
     for line in clock.splitlines():
         fields = line.split("\t")
-        if len(fields) != 4:
+        if len(fields) not in (4, 5, 6):
             continue
-        target, start_text, end_text, code = fields
+        target, start_text, end_text, code = fields[:4]
         try:
             start, end = float(start_text), float(end_text)
+            level = int(fields[4]) if len(fields) >= 5 else 0
         except ValueError:
             continue
-        span = spans.setdefault(target, [start, end])
-        span[0], span[1] = min(span[0], start), max(span[1], end)
-        failed[target] = failed.get(target, False) or code != "0"
-    if not spans:
+        lines.setdefault(target, []).append((start, end, code != "0", level))
+    runs: list[tuple[str, float, float, bool, int]] = []
+    for target, recorded in lines.items():
+        recorded.sort()
+        start, end, failed, level = recorded[0]
+        for next_start, next_end, next_failed, next_level in recorded[1:]:
+            if next_start - end > RUN_GAP_S or next_level != level:
+                runs.append((target, start, end, failed, level))
+                start, end, failed, level = next_start, next_end, next_failed, next_level
+            else:
+                end, failed = max(end, next_end), failed or next_failed
+        runs.append((target, start, end, failed, level))
+    if not runs:
         return []
-    first = min(start for start, _ in spans.values())
-    times = [(target, start - first, end - start, failed[target]) for target, (start, end) in spans.items()]
-    return sorted(times, key=lambda time: (-time[2], time[0]))
+    first = min(run[1] for run in runs)
+    spans = [(target, start - first, end - start, failed, level) for target, start, end, failed, level in runs]
+    return sorted(spans, key=lambda span: (-span[2], span[0], span[1]))
+
+
+def step_times(clock: str) -> list[tuple[str, float, float, bool]]:
+    """step_spans without make's level: (target, seconds from the run's start, its seconds, failed)."""
+    return [span[:4] for span in step_spans(clock)]
+
+
+def leaf_steps(spans: list[Span], ran_others: set[str] | None = None) -> list[tuple[str, float]]:
+    """The steps that ran no sub-make, as (target, seconds), the longest first: a target that runs
+    others through `$(MAKE)` (check-parallel, check-generated) spans them, and naming it would hide
+    which of them took the time. `ran_others` names those steps (parents); without it, from a clock
+    that does not, a step holds another that ran at a deeper make level within its span."""
+    if ran_others:
+        return [(span[0], span[2]) for span in spans if span[0] not in ran_others]
+    def runs_within(outer: Span, inner: Span) -> bool:
+        return inner[4] > outer[4] and outer[1] <= inner[1] and inner[1] + inner[2] <= outer[1] + outer[2] + 0.05
+    return [(span[0], span[2]) for span in spans if not any(runs_within(span, other) for other in spans)]
+
+
+def pass_line(label: str, seconds: float, leaves: list[tuple[str, float]]) -> str:
+    """A pass's one line: its time, and over its budget, the three longest steps."""
+    over = gate_runs.over_budget(label.removeprefix("make "), seconds)
+    longest = ""
+    if over:
+        longest = ": the longest steps " + ", ".join(f"{target} {took:.0f} s" for target, took in leaves[:3])
+    return f"{label}: passed in {seconds:.0f} s{over}{longest}"
 
 
 def steps_report(label: str, clock: str) -> str:
@@ -204,20 +264,27 @@ def main(argv: list[str]) -> int:
     log = log_path(make_args[0])
     clock = log.with_name(f"{make_args[0]}.clock")
     clock.write_text("", encoding="utf-8")
+    started, load_before = time.time(), gate_runs.load()
     code, output, read = run_make(make_args, fail_fast, {**os.environ, "STEP_CLOCK": str(clock)})
+    seconds = time.time() - started
     log.write_text(output, encoding="utf-8")
-    log.with_name(f"{make_args[0]}.steps").write_text(
-        steps_report(label, clock.read_text(encoding="utf-8")), encoding="utf-8")
+    clocked = clock.read_text(encoding="utf-8")
+    log.with_name(f"{make_args[0]}.steps").write_text(steps_report(label, clocked), encoding="utf-8")
+    leaves = leaf_steps(step_spans(clocked), parents(clocked))
+    gate_runs.record({"start": gate_runs.started_at(started), "target": label.removeprefix("make "),
+                      "seconds": round(seconds), "exit": code, "worktree": gate_runs.worktree(),
+                      "loadBefore": load_before, "loadAfter": gate_runs.load(),
+                      "steps": [[target, round(took, 1)] for target, took in leaves[:gate_runs.STEPS_KEPT]]})
     if code == 0:
         last = next((line for line in reversed(output.splitlines()) if line.strip()), "")
         for line in shown_on_a_pass(output):
             print(line)
-        print(last if last.startswith(label) else f"{label}: passed")
+        print(last if last.startswith(label) else pass_line(label, seconds, leaves))
         return 0
     failed_log = log.with_name(f"{make_args[0]}.failed.log")
     failed_log.write_text(output, encoding="utf-8")
     print(summary(read, log, failed_log))
-    print(f"{label}: FAILED")
+    print(f"{label}: FAILED in {seconds:.0f} s")
     return code
 
 

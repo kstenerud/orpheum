@@ -2,6 +2,7 @@
 # ABOUTME: Tests for quiet_gate.py: a failure keeps every line that is not known passing noise,
 # ABOUTME: a pass prints one line, and the full output always reaches the log.
 import io
+import json
 import os
 import subprocess
 import sys
@@ -66,6 +67,31 @@ class StepTimes(unittest.TestCase):
     def test_a_steps_time_runs_from_its_first_lines_start_to_its_last_lines_end_the_longest_first(self):
         clock = "a\t100.0\t101.0\t0\na\t101.0\t104.5\t0\nb\t100.5\t102.0\t1\nbroken line\n"
         self.assertEqual(qg.step_times(clock), [("a", 0.0, 4.5, False), ("b", 0.5, 1.5, True)])
+
+    def test_a_targets_runs_apart_are_two_steps_and_a_line_without_a_level_is_level_zero(self):
+        clock = "deps\t100.0\t100.1\t0\t1\nlint\t100.2\t150.0\t0\t2\ndeps\t300.0\t300.2\t0\t1\n"
+        self.assertEqual([(target, round(began, 1), round(took, 1)) for target, began, took, _ in qg.step_times(clock)],
+                         [("lint", 0.2, 49.8), ("deps", 200.0, 0.2), ("deps", 0.0, 0.1)])
+        self.assertEqual(qg.step_spans("a\t1.0\t2.0\t0\n")[0][4], 0)
+
+    def test_the_leaves_are_the_steps_that_ran_no_sub_make_however_long_the_one_beside_them(self):
+        clock = ("gate\t0.0\t100.0\t0\t1\nparallel\t1.0\t90.0\t0\t2\n"
+                 "lint\t2.0\t80.0\t0\t3\nformat\t3.0\t40.0\t0\t3\nbrowser\t91.0\t99.0\t0\t2\n")
+        self.assertEqual([target for target, _ in qg.leaf_steps(qg.step_spans(clock))], ["lint", "format", "browser"])
+
+    def test_a_step_is_a_leaf_unless_a_line_names_it_the_parent_of_its_sub_make(self):
+        clock = ("parallel\t0.0\t60.0\t0\t1\t\ngo-test\t1.0\t40.0\t0\t2\tparallel\n"
+                 "check-generated\t1.0\t30.0\t0\t2\tparallel\ngenerate\t2.0\t29.0\t0\t3\tcheck-generated\n")
+        self.assertEqual(qg.parents(clock), {"parallel", "check-generated"})
+        self.assertEqual([target for target, _ in qg.leaf_steps(qg.step_spans(clock), qg.parents(clock))],
+                         ["go-test", "generate"], "go-test ran no sub-make, though generate ran deeper within it")
+
+    def test_a_pass_says_its_time_and_over_its_budget_the_longest_steps(self):
+        leaves = [("web-lint", 202.3), ("web-test", 133.0), ("go-test", 49.7), ("go-vet", 46.0)]
+        self.assertEqual(qg.pass_line("make check", 60.4, leaves), "make check: passed in 60 s")
+        self.assertEqual(qg.pass_line("make check", 346.2, leaves),
+                         "make check: passed in 346 s, over its 90 s budget: the longest steps web-lint 202 s, "
+                         "web-test 133 s, go-test 50 s")
 
     def test_the_report_names_each_step_and_its_failure(self):
         report = qg.steps_report("make gate", "lint\t10.0\t12.0\t2\n")
@@ -174,6 +200,16 @@ class Running(unittest.TestCase):
         steps = log.with_name("gate.steps").read_text().splitlines()
         self.assertEqual([line.split()[-1] for line in steps[1:]], ["gate", "slow", "fast"])
         self.assertGreaterEqual(float(steps[2].split()[0]), 0.4)
+
+    def test_each_run_is_recorded_with_its_time_and_longest_steps(self):
+        makefile = (f"SHELL := {STEP_CLOCK_SH}\n.SHELLFLAGS = $@ -eu -o pipefail -c\n"
+                    "gate:\n\t@$(MAKE) --no-print-directory slow\nslow:\n\t@sleep 0.3\n")
+        code, printed, log = self.run_gate(makefile)
+        self.assertEqual(code, 0)
+        self.assertRegex(printed.strip(), r"^make gate: passed in \d+ s$")
+        recorded = [json.loads(line) for line in log.with_name("runs.jsonl").read_text().splitlines()]
+        self.assertEqual([(r["target"], r["exit"], [step for step, _ in r["steps"]]) for r in recorded],
+                         [("gate", 0, ["slow"])])
 
     def test_verbose_prints_everything(self):
         code, _, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n", verbose=True)

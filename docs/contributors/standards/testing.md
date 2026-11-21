@@ -232,8 +232,10 @@ exists, and every `TestArch_` test is cited.
 
 **Enforced by:** the Makefile ([makefile.md](makefile.md)); `make spot` reports a run over its
 30 s budget, and `make check-pr` one over its 300 s, ending with each step's time, the longest
-first, so the overrun names its step. `make check`'s budget, and running `check-pr` only for a
-batch, are **review-only** (D279).
+first, so the overrun names its step; `make check` reports one over its 90 s, naming its three
+longest steps. Every run of the three is recorded, and `make gate-times` reports them against their
+budgets ([makefile.md](makefile.md) §4). Keeping `make check` within its budget, and running
+`check-pr` only for a batch, are **review-only** (D279).
 
 ## 11. The fake `ffmpeg`
 
