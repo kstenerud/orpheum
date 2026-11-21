@@ -754,8 +754,13 @@ CREATE TABLE sequence (                                    -- class A or O
   -- no state before step 0072, is unidentified.
   kind        TEXT NOT NULL CHECK (kind = 'series'),
   created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
+  -- 0096: the ordering the library's files are numbered in, which an admin sets for the household
+  -- (D210 §1; episode-orderings.md §3.4): a file's season and episode numbers are looked up in it,
+  -- and the file placed in aired from the entry (§3.3). NULL is aired. A person who never chose a viewing order follows it (D210 §5).
+  files_ordering_id INTEGER REFERENCES ordering(id) ON DELETE SET NULL,
   FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 );
+CREATE INDEX sequence_files_ordering ON sequence(files_ordering_id);  -- 0096: an ordering's delete
 
 CREATE TABLE ordering (                                    -- D96, D159
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -767,6 +772,9 @@ CREATE TABLE ordering (                                    -- D96, D159
   source_id     TEXT,                    -- 0057: the provider's id for it, a TMDB group's; NULL for aired
   label         TEXT,                    -- 0057: its provider's name for it ("DVD Order"); name stays the key
   listed_count  INTEGER,                 -- 0057: how many episodes its provider lists in it, before it is fetched
+  is_unlisted   INTEGER NOT NULL DEFAULT 0 CHECK (is_unlisted IN (0, 1)),
+                                         -- 0096: its provider's list no longer names it; kept with its last
+                                         -- places, and said so (episode-orderings.md §6 step 5); listed again, 0
   UNIQUE (sequence_id, name)
 );
 CREATE TABLE grp (                                         -- a season, or a disc (0079, D426 §5)

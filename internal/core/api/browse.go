@@ -172,6 +172,9 @@ type OrderingBody struct {
 	// IsAwaitingFetch is whether it is a provider's group whose contents are not fetched yet: choosing
 	// it fetches them, and it holds none until then.
 	IsAwaitingFetch bool `json:"isAwaitingFetch,omitempty"`
+	// IsUnlisted is whether its provider no longer lists it: it is kept, with its last places, and the
+	// selector says so (episode-orderings.md §3.4).
+	IsUnlisted bool `json:"isUnlisted,omitempty"`
 }
 
 // NextUpBody is a person's Next Up in a collection's ordering (D160), for a series the one they watch

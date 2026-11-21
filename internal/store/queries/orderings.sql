@@ -10,14 +10,20 @@ INSERT INTO ordering (sequence_id, name, provider, kind, source_id, label, liste
 VALUES (sqlc.arg(sequence_id), sqlc.arg(name), sqlc.arg(provider), sqlc.arg(kind), sqlc.arg(source_id),
   sqlc.arg(label), sqlc.arg(listed_count))
 ON CONFLICT (sequence_id, name) DO UPDATE SET provider = excluded.provider, kind = excluded.kind,
-  source_id = excluded.source_id, label = excluded.label, listed_count = excluded.listed_count
+  source_id = excluded.source_id, label = excluded.label, listed_count = excluded.listed_count,
+  is_unlisted = 0
 -- Only when it changes something (D303, DL9).
-WHERE (ordering.provider, ordering.kind, ordering.source_id, ordering.label, ordering.listed_count)
-  IS NOT (excluded.provider, excluded.kind, excluded.source_id, excluded.label, excluded.listed_count);
+WHERE (ordering.provider, ordering.kind, ordering.source_id, ordering.label, ordering.listed_count, ordering.is_unlisted)
+  IS NOT (excluded.provider, excluded.kind, excluded.source_id, excluded.label, excluded.listed_count, 0);
+
+-- name: MarkOrderingUnlisted :exec
+-- A provider's ordering its provider's list no longer names: kept, with its places, and marked so
+-- (D213 section 4; episode-orderings.md section 3.4); only when it is not marked yet (D303, DL9).
+UPDATE ordering SET is_unlisted = 1 WHERE id = sqlc.arg(id) AND is_unlisted = 0;
 
 -- name: ListProviderOrderingsOfSeries :many
 -- A series' orderings a provider listed, with what each says of itself.
-SELECT id, name, kind, source_id, label, listed_count
+SELECT id, name, kind, source_id, label, listed_count, is_unlisted
 FROM ordering
 WHERE sequence_id = sqlc.arg(sequence_id) AND provider = sqlc.arg(provider) AND source_id IS NOT NULL
 ORDER BY id;
@@ -95,14 +101,21 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.kind = 'series' AND
 ORDER BY item.id;
 
 -- name: ListChosenGroupsToFetch :many
--- The episode groups of a series that a person chose to watch it in and that are not fetched yet: a
--- first fetch, on their act (D170; episode-orderings.md section 3.4).
+-- The episode groups of a series that a person chose to watch it in, or an admin named its files'
+-- order (D210 section 1), and that are not fetched yet: a first fetch, on their act (D170;
+-- episode-orderings.md section 3.4).
 SELECT DISTINCT CAST(ordering.source_id AS TEXT) AS source_id
 FROM ordering
-JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
-  AND preference.axis = sqlc.arg(axis) AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.provider = sqlc.arg(provider)
   AND ordering.source_id IS NOT NULL
+  AND (
+    EXISTS (
+      SELECT 1 FROM preference
+      WHERE preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
+        AND preference.axis = sqlc.arg(axis) AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
+    )
+    OR ordering.id = (SELECT sequence.files_ordering_id FROM sequence WHERE sequence.id = ordering.sequence_id)
+  )
   AND NOT EXISTS (
     SELECT 1 FROM provider_response
     WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
@@ -157,3 +170,24 @@ WHERE sequence.kind = 'series' AND item.followed_source = sqlc.arg(provider)
   )
 ORDER BY is_chosen DESC, sequence.id
 LIMIT sqlc.arg(max_rows);
+
+-- name: GetSeriesFilesOrdering :one
+-- The ordering a series' files are numbered in (D210 section 1), with what finds its stored listing;
+-- no row is aired.
+SELECT ordering.id, ordering.name, ordering.provider, ordering.source_id
+FROM sequence
+JOIN ordering ON ordering.id = sequence.files_ordering_id
+WHERE sequence.id = sqlc.arg(sequence_id);
+
+-- name: SetSeriesFilesOrdering :execrows
+-- An admin's choice of the ordering a series' files are numbered in, by its name, one the series has;
+-- aired is NULL (D210 section 1). Only when it changes something (D303, DL9).
+UPDATE sequence SET files_ordering_id = (
+    SELECT ordering.id FROM ordering
+    WHERE ordering.sequence_id = sequence.id AND ordering.name = sqlc.arg(ordering_name) AND ordering.name <> 'aired'
+  )
+WHERE sequence.id = sqlc.arg(sequence_id)
+  AND files_ordering_id IS NOT (
+    SELECT ordering.id FROM ordering
+    WHERE ordering.sequence_id = sequence.id AND ordering.name = sqlc.arg(ordering_name) AND ordering.name <> 'aired'
+  );

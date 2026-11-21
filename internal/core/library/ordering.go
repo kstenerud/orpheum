@@ -118,6 +118,9 @@ type Ordering struct {
 	// IsAwaitingFetch is whether it is a provider's group whose contents are not fetched yet, which
 	// choosing it fetches (episode-orderings.md §3.4).
 	IsAwaitingFetch bool
+	// IsUnlisted is whether its provider's list no longer names it: it is kept, with its last places
+	// (D213 §4; episode-orderings.md §3.4).
+	IsUnlisted bool
 }
 
 // withOrderings gives a series' detail every ordering it has, the names its ordering gives its
@@ -132,8 +135,17 @@ func (browser *Browser) withOrderings(ctx context.Context, detail *SeriesDetail)
 		detail.Orderings = append(detail.Orderings, Ordering{
 			Name: row.Name, Kind: ptr.ValueOrZero(row.Kind), Label: ptr.ValueOrZero(row.Label),
 			ListedCount: ptr.ValueOrZero(row.ListedCount), EpisodeCount: row.EpisodeCount,
-			IsAwaitingFetch: row.IsAwaitingFetch != 0,
+			IsAwaitingFetch: row.IsAwaitingFetch != 0, IsUnlisted: row.IsUnlisted != 0,
 		})
+	}
+	files, err := store.OrNotFound(queries.GetSeriesFilesOrdering(ctx, detail.ID))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		detail.FilesOrdering = OrderingAired
+	case err != nil:
+		return fmt.Errorf("read the ordering series %d's files are numbered in: %w", detail.ID, err)
+	default:
+		detail.FilesOrdering = files.Name
 	}
 	names, err := groupNames(ctx, queries, detail.ID, detail.Ordering)
 	if err != nil {

@@ -249,6 +249,86 @@ func TestOrderings_ARefreshFetchesEachGroupItKeepsAgain(t *testing.T) {
 	lib.wantPlaces(seriesID, "after the group changed", []string{"S01E01.mkv|1|1", "S01E03.mkv|1|2"})
 }
 
+// A group TMDB's contributors changed moves its episodes at the series' refresh, and nothing anyone
+// watched moves with them: a play position and a play event belong to the file (D157; D159's first
+// assertion; episode-orderings.md §3.4, §7 Q11).
+func TestOrderings_ARefreshThatMovesAGroupsEpisodesLeavesWhatWasWatched(t *testing.T) {
+	t.Parallel()
+	lib := emberwingLibrary(t)
+	seriesID := lib.matchEmberwing(emberwingFiles...)
+	storetest.InsertUser(t, lib.database, "owner", "admin")
+	lib.choose(seriesID, "tmdb:intended")
+	if _, err := lib.matcher.Match(t.Context(), seriesID); err != nil {
+		t.Fatal(err)
+	}
+	lib.runOwedPasses()
+	storetest.ExecRaw(t, lib.database.Path(),
+		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at)
+		 SELECT 1, id, 60000, 1, 5 FROM place WHERE path LIKE '%S01E03.mkv'`,
+		`INSERT INTO play_event (user_id, file_id, kind, position_ms, happened_at)
+		 SELECT 1, id, 'completed', 90000, 6 FROM place WHERE path LIKE '%S01E01.mkv'`)
+	playState := func() []string {
+		return slices.Concat(
+			storetest.QueryRaw(t, lib.database.Path(), `SELECT user_id, file_id, position_ms, report_seq, updated_at
+			 FROM play_position ORDER BY user_id, file_id`),
+			storetest.QueryRaw(t, lib.database.Path(), `SELECT id, user_id, file_id, kind, position_ms, happened_at
+			 FROM play_event ORDER BY id`))
+	}
+	before := playState()
+	if len(before) != 2 {
+		t.Fatalf("play state %q; want a position and an event", before)
+	}
+	lib.provider.EpisodeGroups["intended"][0].Episodes = []identify.EpisodeGroupEntry{
+		{EpisodeID: "e2", Order: 0}, {EpisodeID: "e1", Order: 1}, {EpisodeID: "e3", Order: 2},
+	}
+	lib.refresh(seriesID)
+	lib.runOwedPasses()
+	lib.wantPlaces(seriesID, "after the group changed",
+		[]string{"S01E02.mkv|1|1", "S01E01.mkv|1|2", "S01E03.mkv|1|3"})
+	if after := playState(); !slices.Equal(after, before) {
+		t.Errorf("play state %q after the refresh; want %q, as it was", after, before)
+	}
+}
+
+// A group TMDB no longer lists, nor has, is kept at the series' refresh with every place it gave,
+// and marked no longer listed, which its page says; one it lists again is unmarked (D213 §4;
+// episode-orderings.md §3.4).
+func TestOrderings_AGroupItsProviderNoLongerListsIsKeptWithItsPlacesAndMarked(t *testing.T) {
+	t.Parallel()
+	lib := emberwingLibrary(t)
+	seriesID := lib.matchEmberwing(emberwingFiles...)
+	storetest.InsertUser(t, lib.database, "owner", "admin")
+	lib.choose(seriesID, "tmdb:intended")
+	if _, err := lib.matcher.Match(t.Context(), seriesID); err != nil {
+		t.Fatal(err)
+	}
+	lib.runOwedPasses()
+	places := []string{"S01E03.mkv|1|1", "S01E01.mkv|1|2", "S01E02.mkv|1|3"}
+	lib.wantPlaces(seriesID, "chosen and fetched", places)
+	unlisted := func() []string {
+		return storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
+			"SELECT name, is_unlisted FROM ordering WHERE sequence_id = %d ORDER BY name", seriesID))
+	}
+	if got, want := unlisted(), []string{"aired|0", "tmdb:dvd|0", "tmdb:intended|0"}; !slices.Equal(got, want) {
+		t.Errorf("listed: %q; want %q", got, want)
+	}
+	listed := lib.provider.EpisodeGroupLists["4807"]
+	lib.provider.EpisodeGroupLists["4807"] = listed[:1]
+	group := lib.provider.EpisodeGroups["intended"]
+	delete(lib.provider.EpisodeGroups, "intended")
+	lib.refresh(seriesID)
+	lib.runOwedPasses()
+	lib.wantPlaces(seriesID, "after TMDB dropped the group", places)
+	if got, want := unlisted(), []string{"aired|0", "tmdb:dvd|0", "tmdb:intended|1"}; !slices.Equal(got, want) {
+		t.Errorf("after TMDB dropped the group: %q; want %q, kept and marked", got, want)
+	}
+	lib.provider.EpisodeGroupLists["4807"], lib.provider.EpisodeGroups["intended"] = listed, group
+	lib.refresh(seriesID)
+	if got, want := unlisted(), []string{"aired|0", "tmdb:dvd|0", "tmdb:intended|0"}; !slices.Equal(got, want) {
+		t.Errorf("listed again: %q; want %q", got, want)
+	}
+}
+
 // A matched series' aired order has a group for each season its provider lists, the specials and a
 // season none of whose episodes is found among them, so that a season's poster has its group to name:
 // identify makes the groups and artwork only looks them up (D426 section 5).

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/preferences"
@@ -48,7 +49,7 @@ const groupNameLanguage = "und"
 // group its stored list names, and, for each group fetched, its episodes placed as the group places
 // them and its parts' names. It compares before it writes, so a series as stored writes nothing
 // (D303, DL9): run it through store.WriteUnlessUnchanged. A group the list no longer names is kept
-// (D213 §4); an episode a group leaves out has no place in it (D96).
+// (D213 §4) and marked no longer listed; an episode a group leaves out has no place in it (D96).
 func deriveOrderings(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) error {
 	if err := deriveListedSeasons(ctx, queries, provider, seriesID); err != nil {
 		return err
@@ -125,7 +126,8 @@ func makeGroup(ctx context.Context, queries *sqlcgen.Queries, orderingID, number
 	return nil
 }
 
-// deriveGroupList keeps an ordering for each group a series' stored list names.
+// deriveGroupList keeps an ordering for each group a series' stored list names, and marks one it no
+// longer names, which is kept with its last places (D213 §4; episode-orderings.md §3.4).
 func deriveGroupList(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) error {
 	body, isStored, err := storedPart(ctx, queries, provider, seriesID, groupListPart)
 	if err != nil || !isStored || len(body) == 0 {
@@ -145,15 +147,20 @@ func deriveGroupList(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 	for _, ordering := range existing {
 		byName[ordering.Name] = ordering
 	}
+	kept := maps.Clone(byName)
+	for _, group := range groups {
+		delete(byName, groupOrderingName(provider.Name(), group.ID))
+	}
+	if err := markUnlisted(ctx, queries, byName); err != nil {
+		return fmt.Errorf("series %d: %w", seriesID, err)
+	}
 	for _, group := range groups {
 		listed := sqlcgen.UpsertProviderOrderingParams{
 			SequenceID: seriesID, Name: groupOrderingName(provider.Name(), group.ID), Provider: new(provider.Name()),
 			Kind: ptr.NilIfZero(group.Kind), SourceID: new(group.ID), Label: ptr.NilIfZero(group.Name),
 			ListedCount: ptr.NilIfZero(int64(group.EpisodeCount)),
 		}
-		if was, isKept := byName[listed.Name]; isKept && ptr.ValueOrZero(was.Kind) == ptr.ValueOrZero(listed.Kind) &&
-			ptr.ValueOrZero(was.SourceID) == group.ID && ptr.ValueOrZero(was.Label) == ptr.ValueOrZero(listed.Label) &&
-			ptr.ValueOrZero(was.ListedCount) == ptr.ValueOrZero(listed.ListedCount) {
+		if was, isKept := kept[listed.Name]; isKept && isListedAs(was, listed) {
 			continue
 		}
 		if err := queries.UpsertProviderOrdering(ctx, listed); err != nil {
@@ -161,6 +168,29 @@ func deriveGroupList(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 		}
 	}
 	return nil
+}
+
+// markUnlisted marks each of a series' orderings its provider's list no longer names, once.
+func markUnlisted(
+	ctx context.Context, queries *sqlcgen.Queries, unlisted map[string]sqlcgen.ListProviderOrderingsOfSeriesRow,
+) error {
+	for _, ordering := range unlisted {
+		if ordering.IsUnlisted != 0 {
+			continue
+		}
+		if err := queries.MarkOrderingUnlisted(ctx, ordering.ID); err != nil {
+			return fmt.Errorf("mark the %s ordering no longer listed: %w", ordering.Name, err)
+		}
+	}
+	return nil
+}
+
+// isListedAs is whether an ordering kept is already as its provider's list now gives it, listed.
+func isListedAs(was sqlcgen.ListProviderOrderingsOfSeriesRow, listed sqlcgen.UpsertProviderOrderingParams) bool {
+	return was.IsUnlisted == 0 && ptr.ValueOrZero(was.Kind) == ptr.ValueOrZero(listed.Kind) &&
+		ptr.ValueOrZero(was.SourceID) == ptr.ValueOrZero(listed.SourceID) &&
+		ptr.ValueOrZero(was.Label) == ptr.ValueOrZero(listed.Label) &&
+		ptr.ValueOrZero(was.ListedCount) == ptr.ValueOrZero(listed.ListedCount)
 }
 
 // storedPart is one stored part of a series' response, ungzipped, and whether it is stored.

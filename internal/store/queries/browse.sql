@@ -221,15 +221,19 @@ WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(
   AND position.work_id = sqlc.arg(work_id);
 
 -- name: ListChosenOrderings :many
--- The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
--- series' work scope, when the series still has it; a series they chose none for, or one it no
--- longer has, is not listed.
-SELECT ordering.sequence_id, ordering.name
-FROM json_each(CAST(sqlc.arg(sequence_ids_json) AS TEXT)) AS chosen
-JOIN preference ON preference.user_id = sqlc.arg(user_id) AND preference.scope = 'item'
-  AND preference.scope_id = chosen.value AND preference.axis = sqlc.arg(axis)
-JOIN ordering ON ordering.sequence_id = preference.scope_id
-  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT);
+-- The ordering a person watches each of some series in: the one they chose (D159 section 1), a
+-- preference at the series' work scope, when the series still has it; else the series' files' order,
+-- which an admin names (D210 sections 1 and 5); else aired.
+SELECT CAST(chosen.value AS INTEGER) AS sequence_id, CAST(coalesce(
+    (SELECT ordering.name FROM preference
+     JOIN ordering ON ordering.sequence_id = preference.scope_id
+       AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+     WHERE preference.user_id = sqlc.arg(user_id) AND preference.scope = 'item'
+       AND preference.scope_id = chosen.value AND preference.axis = sqlc.arg(axis)),
+    (SELECT ordering.name FROM sequence JOIN ordering ON ordering.id = sequence.files_ordering_id
+     WHERE sequence.id = chosen.value),
+    'aired') AS TEXT) AS name
+FROM json_each(CAST(sqlc.arg(sequence_ids_json) AS TEXT)) AS chosen;
 
 -- name: GetSeriesDetail :one
 -- A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
@@ -295,7 +299,7 @@ LIMIT sqlc.arg(max_rows);
 -- provider's by its label, then the household's own; each with its kind, its provider's label and
 -- how many episodes the provider lists in it, how many of the series' live episodes it holds, and
 -- whether it is a provider's group whose contents are not fetched yet.
-SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
+SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count, ordering.is_unlisted,
   (SELECT count(*) FROM position JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
    WHERE position.ordering_id = ordering.id) AS episode_count,
   CAST(ordering.source_id IS NOT NULL AND NOT EXISTS (

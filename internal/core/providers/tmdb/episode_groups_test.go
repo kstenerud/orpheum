@@ -72,8 +72,8 @@ func TestEpisodeGroups_ASeriesRecordCarriesItsListOfGroups(t *testing.T) {
 	}
 }
 
-// A group's contents are its parts, each with its name, its order and its episodes by their TMDB ids
-// and their order (episode-orderings.md §2.1).
+// A group's contents are its parts, each with its name, its order and its episodes by their TMDB ids,
+// their order and their aired season and number (episode-orderings.md §2.1).
 func TestEpisodeGroups_AGroupIsItsPartsAndTheirEpisodes(t *testing.T) {
 	t.Parallel()
 	client := emberwingAtTMDB(t)
@@ -85,7 +85,14 @@ func TestEpisodeGroups_AGroupIsItsPartsAndTheirEpisodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts, err := client.ParseEpisodeGroup(body)
-	want := []identify.EpisodeGroupEntry{{EpisodeID: "2003", Order: 0}, {EpisodeID: "2001", Order: 1}}
+	// Each entry carries its episode at its aired place, which places a file numbered in the group
+	// (episode-orderings.md §3.3).
+	want := []identify.EpisodeGroupEntry{
+		{EpisodeID: "2003", Order: 0, Aired: identify.Episode{ID: "2003", Season: 1, Number: 11, Name: "Stillness"}},
+		{EpisodeID: "2001", Order: 1, Aired: identify.Episode{
+			ID: "2001", Season: 1, Number: 1, Name: "The Kettle Job",
+		}},
+	}
 	if err != nil || len(parts) != 2 || parts[0].Name != "Season 1" || parts[0].Order != 1 ||
 		!slices.Equal(parts[0].Episodes, want) || parts[1].Order != 0 || parts[1].Episodes[0].EpisodeID != "2900" {
 		t.Errorf("the group's parts = %+v, %v", parts, err)

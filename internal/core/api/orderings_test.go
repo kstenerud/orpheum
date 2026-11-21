@@ -186,7 +186,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	}
 	harness.readJSON(t, "/items/20", user, &offered)
 	if got, want := fmt.Sprint(offered.Orderings),
-		"[{aired aired  0 4 false} {tmdb:dvd dvd DVD Order 5 3 false}]"; got != want {
+		"[{aired aired  0 4 false false} {tmdb:dvd dvd DVD Order 5 3 false false}]"; got != want {
 		t.Errorf("orderings offered %s; want %s", got, want)
 	}
 	choose := func(ordering string) response {
@@ -286,6 +286,27 @@ func TestOrderings_AnOrderingsKindIsSaidInCamelCase(t *testing.T) {
 	}
 }
 
+// A group its provider no longer lists is still offered, with its places, and said to be unlisted
+// (episode-orderings.md §6 step 5); one listed says nothing.
+func TestOrderings_AGroupNoLongerListedIsOfferedAndSaidSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	if series := harness.do(t, http.MethodGet, "/items/20", user, nil); strings.Contains(series.body, "isUnlisted") {
+		t.Errorf("the series = %s; want no ordering said unlisted", series.body)
+	}
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE ordering SET is_unlisted = 1 WHERE id = 2")
+	var offered struct {
+		Orderings []api.OrderingBody `json:"orderings"`
+	}
+	harness.readJSON(t, "/items/20", user, &offered)
+	if got, want := fmt.Sprint(offered.Orderings),
+		"[{aired aired  0 4 false false} {tmdb:dvd dvd DVD Order 5 3 false true}]"; got != want {
+		t.Errorf("orderings offered %s; want %s", got, want)
+	}
+}
+
 func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -299,7 +320,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 		Orderings []api.OrderingBody `json:"orderings"`
 	}
 	harness.readJSON(t, "/items/20", admin, &offered)
-	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true}" {
+	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true false}" {
 		t.Errorf("a group not fetched is offered as %s; want it awaiting its fetch, holding none", got)
 	}
 	if answer := harness.do(t, http.MethodPut, "/items/20/preferences", admin,

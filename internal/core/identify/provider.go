@@ -74,10 +74,14 @@ type EpisodeGroupPart struct {
 }
 
 // EpisodeGroupEntry is one episode of a part: its id at the provider, the one a season listing gives
-// it, and its order in the part, from 0.
+// it, and its order in the part, from 0. Aired is the episode as the entry carries it, at its aired
+// season and number, with its name, overview, still and runtime (episode-orderings.md §2.1): what
+// places a file numbered in the group in aired, and names it, with no season listing (§3.3). Its
+// Number is 0 where the provider did not say.
 type EpisodeGroupEntry struct {
 	EpisodeID string
 	Order     int
+	Aired     Episode
 }
 
 // The kinds of work a provider is asked about: a title's kind, or a series.

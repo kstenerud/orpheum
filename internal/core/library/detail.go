@@ -205,6 +205,9 @@ type SeriesDetail struct {
 	// has, as its page offers them.
 	Ordering  string
 	Orderings []Ordering
+	// FilesOrdering is the ordering its files' numbers are in, which an admin sets (D210 §1): aired
+	// until one does.
+	FilesOrdering string
 	// NotInOrderingCount is how many of its episodes Ordering leaves out, listed after its groups.
 	NotInOrderingCount int64
 	// Seasons are the ordering's groups in its order, aired's seasons with the specials last: the

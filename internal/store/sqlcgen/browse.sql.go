@@ -459,18 +459,22 @@ func (q *Queries) IsItemReached(ctx context.Context, arg IsItemReachedParams) (i
 }
 
 const listChosenOrderings = `-- name: ListChosenOrderings :many
-SELECT ordering.sequence_id, ordering.name
-FROM json_each(CAST(?1 AS TEXT)) AS chosen
-JOIN preference ON preference.user_id = ?2 AND preference.scope = 'item'
-  AND preference.scope_id = chosen.value AND preference.axis = ?3
-JOIN ordering ON ordering.sequence_id = preference.scope_id
-  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+SELECT CAST(chosen.value AS INTEGER) AS sequence_id, CAST(coalesce(
+    (SELECT ordering.name FROM preference
+     JOIN ordering ON ordering.sequence_id = preference.scope_id
+       AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+     WHERE preference.user_id = ?1 AND preference.scope = 'item'
+       AND preference.scope_id = chosen.value AND preference.axis = ?2),
+    (SELECT ordering.name FROM sequence JOIN ordering ON ordering.id = sequence.files_ordering_id
+     WHERE sequence.id = chosen.value),
+    'aired') AS TEXT) AS name
+FROM json_each(CAST(?3 AS TEXT)) AS chosen
 `
 
 type ListChosenOrderingsParams struct {
-	SequenceIdsJSON string
 	UserID          int64
 	Axis            string
+	SequenceIdsJSON string
 }
 
 type ListChosenOrderingsRow struct {
@@ -478,11 +482,11 @@ type ListChosenOrderingsRow struct {
 	Name       string
 }
 
-// The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
-// series' work scope, when the series still has it; a series they chose none for, or one it no
-// longer has, is not listed.
+// The ordering a person watches each of some series in: the one they chose (D159 section 1), a
+// preference at the series' work scope, when the series still has it; else the series' files' order,
+// which an admin names (D210 sections 1 and 5); else aired.
 func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderingsParams) ([]ListChosenOrderingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listChosenOrderings, arg.SequenceIdsJSON, arg.UserID, arg.Axis)
+	rows, err := q.db.QueryContext(ctx, listChosenOrderings, arg.UserID, arg.Axis, arg.SequenceIdsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -1858,7 +1862,7 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEp
 }
 
 const listSeriesOrderings = `-- name: ListSeriesOrderings :many
-SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
+SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count, ordering.is_unlisted,
   (SELECT count(*) FROM position JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
    WHERE position.ordering_id = ordering.id) AS episode_count,
   CAST(ordering.source_id IS NOT NULL AND NOT EXISTS (
@@ -1876,6 +1880,7 @@ type ListSeriesOrderingsRow struct {
 	Kind            *string
 	Label           *string
 	ListedCount     *int64
+	IsUnlisted      int64
 	EpisodeCount    int64
 	IsAwaitingFetch int64
 }
@@ -1898,6 +1903,7 @@ func (q *Queries) ListSeriesOrderings(ctx context.Context, sequenceID int64) ([]
 			&i.Kind,
 			&i.Label,
 			&i.ListedCount,
+			&i.IsUnlisted,
 			&i.EpisodeCount,
 			&i.IsAwaitingFetch,
 		); err != nil {

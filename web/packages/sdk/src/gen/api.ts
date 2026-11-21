@@ -4640,6 +4640,7 @@ export interface components {
              */
             episodeCount: number;
             isAwaitingFetch?: boolean;
+            isUnlisted?: boolean;
             /** @description What order it is: aired, or a TMDB group's type (dvd, absolute, digital, storyArc, production, tv, airedAlternate) */
             kind?: string;
             label?: string;
@@ -5484,6 +5485,8 @@ export interface components {
             /** @description Its cast, directors and writers in billing order; absent when it credits no one */
             credits?: components["schemas"]["CreditsBody"];
             fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description The ordering its files' episode numbers are in, which an admin sets (D210 §1); absent for aired */
+            filesOrdering?: string;
             /** @description Its genres in its source's order; absent when it has none */
             genres?: components["schemas"]["GenreBody"][] | null;
             /** Format: int64 */

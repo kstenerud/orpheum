@@ -59,6 +59,34 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (int64, erro
 	return id, err
 }
 
+const getSeriesFilesOrdering = `-- name: GetSeriesFilesOrdering :one
+SELECT ordering.id, ordering.name, ordering.provider, ordering.source_id
+FROM sequence
+JOIN ordering ON ordering.id = sequence.files_ordering_id
+WHERE sequence.id = ?1
+`
+
+type GetSeriesFilesOrderingRow struct {
+	ID       int64
+	Name     string
+	Provider *string
+	SourceID *string
+}
+
+// The ordering a series' files are numbered in (D210 section 1), with what finds its stored listing;
+// no row is aired.
+func (q *Queries) GetSeriesFilesOrdering(ctx context.Context, sequenceID int64) (GetSeriesFilesOrderingRow, error) {
+	row := q.db.QueryRowContext(ctx, getSeriesFilesOrdering, sequenceID)
+	var i GetSeriesFilesOrderingRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Provider,
+		&i.SourceID,
+	)
+	return i, err
+}
+
 const insertGroup = `-- name: InsertGroup :exec
 INSERT INTO grp (ordering_id, number) VALUES (?1, ?2)
 ON CONFLICT (ordering_id, number) DO NOTHING
@@ -79,10 +107,16 @@ func (q *Queries) InsertGroup(ctx context.Context, arg InsertGroupParams) error 
 const listChosenGroupsToFetch = `-- name: ListChosenGroupsToFetch :many
 SELECT DISTINCT CAST(ordering.source_id AS TEXT) AS source_id
 FROM ordering
-JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
-  AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
-WHERE ordering.sequence_id = ?2 AND ordering.provider = ?3
+WHERE ordering.sequence_id = ?1 AND ordering.provider = ?2
   AND ordering.source_id IS NOT NULL
+  AND (
+    EXISTS (
+      SELECT 1 FROM preference
+      WHERE preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
+        AND preference.axis = ?3 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
+    )
+    OR ordering.id = (SELECT sequence.files_ordering_id FROM sequence WHERE sequence.id = ordering.sequence_id)
+  )
   AND NOT EXISTS (
     SELECT 1 FROM provider_response
     WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
@@ -92,15 +126,16 @@ ORDER BY 1
 `
 
 type ListChosenGroupsToFetchParams struct {
-	Axis       string
 	SequenceID int64
 	Provider   *string
+	Axis       string
 }
 
-// The episode groups of a series that a person chose to watch it in and that are not fetched yet: a
-// first fetch, on their act (D170; episode-orderings.md section 3.4).
+// The episode groups of a series that a person chose to watch it in, or an admin named its files'
+// order (D210 section 1), and that are not fetched yet: a first fetch, on their act (D170;
+// episode-orderings.md section 3.4).
 func (q *Queries) ListChosenGroupsToFetch(ctx context.Context, arg ListChosenGroupsToFetchParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listChosenGroupsToFetch, arg.Axis, arg.SequenceID, arg.Provider)
+	rows, err := q.db.QueryContext(ctx, listChosenGroupsToFetch, arg.SequenceID, arg.Provider, arg.Axis)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +279,7 @@ func (q *Queries) ListOrderingPositions(ctx context.Context, orderingID int64) (
 }
 
 const listProviderOrderingsOfSeries = `-- name: ListProviderOrderingsOfSeries :many
-SELECT id, name, kind, source_id, label, listed_count
+SELECT id, name, kind, source_id, label, listed_count, is_unlisted
 FROM ordering
 WHERE sequence_id = ?1 AND provider = ?2 AND source_id IS NOT NULL
 ORDER BY id
@@ -262,6 +297,7 @@ type ListProviderOrderingsOfSeriesRow struct {
 	SourceID    *string
 	Label       *string
 	ListedCount *int64
+	IsUnlisted  int64
 }
 
 // A series' orderings a provider listed, with what each says of itself.
@@ -281,6 +317,7 @@ func (q *Queries) ListProviderOrderingsOfSeries(ctx context.Context, arg ListPro
 			&i.SourceID,
 			&i.Label,
 			&i.ListedCount,
+			&i.IsUnlisted,
 		); err != nil {
 			return nil, err
 		}
@@ -423,6 +460,44 @@ func (q *Queries) ListSeriesOwingOrderingParts(ctx context.Context, arg ListSeri
 	return items, nil
 }
 
+const markOrderingUnlisted = `-- name: MarkOrderingUnlisted :exec
+UPDATE ordering SET is_unlisted = 1 WHERE id = ?1 AND is_unlisted = 0
+`
+
+// A provider's ordering its provider's list no longer names: kept, with its places, and marked so
+// (D213 section 4; episode-orderings.md section 3.4); only when it is not marked yet (D303, DL9).
+func (q *Queries) MarkOrderingUnlisted(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, markOrderingUnlisted, id)
+	return err
+}
+
+const setSeriesFilesOrdering = `-- name: SetSeriesFilesOrdering :execrows
+UPDATE sequence SET files_ordering_id = (
+    SELECT ordering.id FROM ordering
+    WHERE ordering.sequence_id = sequence.id AND ordering.name = ?1 AND ordering.name <> 'aired'
+  )
+WHERE sequence.id = ?2
+  AND files_ordering_id IS NOT (
+    SELECT ordering.id FROM ordering
+    WHERE ordering.sequence_id = sequence.id AND ordering.name = ?1 AND ordering.name <> 'aired'
+  )
+`
+
+type SetSeriesFilesOrderingParams struct {
+	OrderingName string
+	SequenceID   int64
+}
+
+// An admin's choice of the ordering a series' files are numbered in, by its name, one the series has;
+// aired is NULL (D210 section 1). Only when it changes something (D303, DL9).
+func (q *Queries) SetSeriesFilesOrdering(ctx context.Context, arg SetSeriesFilesOrderingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setSeriesFilesOrdering, arg.OrderingName, arg.SequenceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const upsertGroupText = `-- name: UpsertGroupText :exec
 INSERT INTO group_text (grp_id, language, name)
 VALUES ((SELECT grp.id FROM grp WHERE grp.ordering_id = ?1 AND grp.number = ?2),
@@ -457,9 +532,10 @@ INSERT INTO ordering (sequence_id, name, provider, kind, source_id, label, liste
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7)
 ON CONFLICT (sequence_id, name) DO UPDATE SET provider = excluded.provider, kind = excluded.kind,
-  source_id = excluded.source_id, label = excluded.label, listed_count = excluded.listed_count
-WHERE (ordering.provider, ordering.kind, ordering.source_id, ordering.label, ordering.listed_count)
-  IS NOT (excluded.provider, excluded.kind, excluded.source_id, excluded.label, excluded.listed_count)
+  source_id = excluded.source_id, label = excluded.label, listed_count = excluded.listed_count,
+  is_unlisted = 0
+WHERE (ordering.provider, ordering.kind, ordering.source_id, ordering.label, ordering.listed_count, ordering.is_unlisted)
+  IS NOT (excluded.provider, excluded.kind, excluded.source_id, excluded.label, excluded.listed_count, 0)
 `
 
 type UpsertProviderOrderingParams struct {

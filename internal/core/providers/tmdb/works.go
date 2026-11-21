@@ -287,31 +287,41 @@ func (client *Client) FetchSeason(ctx context.Context, seriesID string, season i
 	return client.get(ctx, "/tv/"+seriesID+"/season/"+strconv.Itoa(season), url.Values{})
 }
 
+// episodeAnswer is one episode as TMDB answers it, in a season's listing and in an episode group's
+// part alike: at its aired season and number.
+//
+//nolint:tagliatelle // TMDB's field names
+type episodeAnswer struct {
+	ID             int64  `json:"id"`
+	SeasonNumber   int    `json:"season_number"`
+	EpisodeNumber  int    `json:"episode_number"`
+	Name           string `json:"name"`
+	Overview       string `json:"overview"`
+	AirDate        string `json:"air_date"`
+	RuntimeMinutes int64  `json:"runtime"`
+	StillPath      string `json:"still_path"`
+}
+
+// episode is the episode TMDB's answer describes.
+func (episode episodeAnswer) episode() identify.Episode {
+	return identify.Episode{
+		ID: strconv.FormatInt(episode.ID, 10), Season: episode.SeasonNumber, Number: episode.EpisodeNumber,
+		Name: episode.Name, Overview: episode.Overview, Year: identify.YearOfDate(episode.AirDate),
+		RuntimeMs: episode.RuntimeMinutes * int64(time.Minute/time.Millisecond), StillRef: episode.StillPath,
+	}
+}
+
 // ParseSeason reads a stored season listing.
 func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
-	//nolint:tagliatelle // TMDB's field names
 	var listing struct {
-		Episodes []struct {
-			ID             int64  `json:"id"`
-			SeasonNumber   int    `json:"season_number"`
-			EpisodeNumber  int    `json:"episode_number"`
-			Name           string `json:"name"`
-			Overview       string `json:"overview"`
-			AirDate        string `json:"air_date"`
-			RuntimeMinutes int64  `json:"runtime"`
-			StillPath      string `json:"still_path"`
-		} `json:"episodes"`
+		Episodes []episodeAnswer `json:"episodes"`
 	}
 	if err := tmdbAnswers.Unmarshal(body, &listing); err != nil {
 		return nil, fmt.Errorf("tmdb: read a stored season: %w", err)
 	}
 	episodes := make([]identify.Episode, 0, len(listing.Episodes))
 	for _, episode := range listing.Episodes {
-		episodes = append(episodes, identify.Episode{
-			ID: strconv.FormatInt(episode.ID, 10), Season: episode.SeasonNumber, Number: episode.EpisodeNumber,
-			Name: episode.Name, Overview: episode.Overview, Year: identify.YearOfDate(episode.AirDate),
-			RuntimeMs: episode.RuntimeMinutes * int64(time.Minute/time.Millisecond), StillRef: episode.StillPath,
-		})
+		episodes = append(episodes, episode.episode())
 	}
 	return episodes, nil
 }
@@ -395,8 +405,8 @@ func (*Client) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, erro
 			Name     string `json:"name"`
 			Order    int    `json:"order"`
 			Episodes []struct {
-				ID    int64 `json:"id"`
-				Order int   `json:"order"`
+				episodeAnswer
+				Order int `json:"order"`
 			} `json:"episodes"`
 		} `json:"groups"`
 	}
@@ -408,7 +418,7 @@ func (*Client) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, erro
 		entries := make([]identify.EpisodeGroupEntry, 0, len(part.Episodes))
 		for _, episode := range part.Episodes {
 			entries = append(entries, identify.EpisodeGroupEntry{
-				EpisodeID: strconv.FormatInt(episode.ID, 10), Order: episode.Order,
+				EpisodeID: strconv.FormatInt(episode.ID, 10), Order: episode.Order, Aired: episode.episode(),
 			})
 		}
 		parts = append(parts, identify.EpisodeGroupPart{Order: part.Order, Name: part.Name, Episodes: entries})

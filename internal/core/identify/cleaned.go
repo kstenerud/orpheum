@@ -127,6 +127,9 @@ func (provider cleaningProvider) ParseEpisodeGroup(body []byte) ([]EpisodeGroupP
 		part.Name = textindex.Line(part.Name)
 		for entry := range part.Episodes {
 			part.Episodes[entry].EpisodeID = textindex.Line(part.Episodes[entry].EpisodeID)
+			aired := &part.Episodes[entry].Aired
+			aired.ID, aired.Name = textindex.Line(aired.ID), textindex.Line(aired.Name)
+			aired.Overview, aired.StillRef = textindex.Prose(aired.Overview), textindex.Line(aired.StillRef)
 		}
 		parts[index] = part
 	}

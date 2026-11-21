@@ -149,8 +149,9 @@ type SeriesBody struct {
 	IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"`                                     //nolint:lll // one struct tag
 	Ordering            string            `doc:"The ordering its person watches it in, which its seasons are the groups of; absent for aired" json:"ordering,omitempty"` //nolint:lll // one struct tag
 	Seasons             []SeasonBody      `json:"seasons"`
-	Orderings           []OrderingBody    `doc:"Every ordering it has, aired first; its page offers a choice when there is more than one" json:"orderings,omitempty"`       //nolint:lll // one struct tag
-	NotInOrderingCount  int64             `doc:"How many of its episodes the ordering in use leaves out: GET /items/{id}/not-in-order" json:"notInOrderingCount,omitempty"` //nolint:lll // one struct tag
+	Orderings           []OrderingBody    `doc:"Every ordering it has, aired first; its page offers a choice when there is more than one" json:"orderings,omitempty"`            //nolint:lll // one struct tag
+	FilesOrdering       string            `doc:"The ordering its files' episode numbers are in, which an admin sets (D210 §1); absent for aired" json:"filesOrdering,omitempty"` //nolint:lll // one struct tag
+	NotInOrderingCount  int64             `doc:"How many of its episodes the ordering in use leaves out: GET /items/{id}/not-in-order" json:"notInOrderingCount,omitempty"`      //nolint:lll // one struct tag
 	Art                 ArtBody           `json:"art"`
 	FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 	RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                                                                //nolint:lll // one struct tag
@@ -317,7 +318,11 @@ func (server *Server) seriesBody(
 			Name: ordering.Name, Kind: saidValue(ordering.Kind), Label: ordering.Label,
 			ListedCount:  ordering.ListedCount,
 			EpisodeCount: ordering.EpisodeCount, IsAwaitingFetch: ordering.IsAwaitingFetch,
+			IsUnlisted: ordering.IsUnlisted,
 		})
+	}
+	if series.FilesOrdering != library.OrderingAired {
+		body.FilesOrdering = series.FilesOrdering
 	}
 	body.NotInOrderingCount = series.NotInOrderingCount
 	body.IsWatched = series.IsWatched

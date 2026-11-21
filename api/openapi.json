@@ -5195,6 +5195,9 @@
           "isAwaitingFetch": {
             "type": "boolean"
           },
+          "isUnlisted": {
+            "type": "boolean"
+          },
           "kind": {
             "description": "What order it is: aired, or a TMDB group's type (dvd, absolute, digital, storyArc, production, tv, airedAlternate)",
             "type": "string"
@@ -7689,6 +7692,10 @@
           },
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "filesOrdering": {
+            "description": "The ordering its files' episode numbers are in, which an admin sets (D210 §1); absent for aired",
+            "type": "string"
           },
           "genres": {
             "description": "Its genres in its source's order; absent when it has none",
