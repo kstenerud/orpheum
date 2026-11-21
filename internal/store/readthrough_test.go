@@ -17,21 +17,24 @@ import (
 // TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline checks the sweep's
 // query: a live video whose bytes lack loudness though it has sound, or a timeline though it has a
 // picture, or have only what the file's index said of it, its keyframes without its bytes in each
-// second (D259 §2); never a cover alone, bytes with both, a skipped or removed file, one without a
-// probe, or one no library's folder covers (D363 §10).
+// second (D259 §2); a picture beside a cover, before it or after it, is a picture; never a cover
+// alone, bytes with both, a skipped or removed file, one without a probe, or one no library's folder
+// covers (D363 §10).
 func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	// 1 lacks both; 2 has its loudness and lacks its timeline; 3 has its loudness and only a cover;
 	// 4 has a picture alone; 5 is removed; 6 was skipped; 7 has both; 8 has a timeline and no sound; 9
-	// has a timeline read from its index, and no sound; 10 lacks both, under no library's folder.
+	// has a timeline read from its index, and no sound; 10 lacks both, under no library's folder; 11
+	// has its loudness, and its picture after a cover; 12 has its loudness, and a cover after its
+	// picture.
 	storetest.ExecRaw(t, database.Path(),
 		rowstest.Node(rowstest.NodeSpec{ID: 1, Name: "local"}),
 		rowstest.Library(rowstest.LibrarySpec{ID: 1, NodeID: 1}),
 		readThroughFile(readThrough{id: 1, path: "/m/1.mkv", hasSound: true}),
 		readThroughFile(readThrough{id: 2, path: "/m/2.mkv", hasSound: true}),
 		readThroughFile(readThrough{
-			id: 3, path: "/m/3.mkv", videoCodec: "mjpeg", videoDisposition: 1024, hasSound: true,
+			id: 3, path: "/m/3.mkv", videoCodec: "mjpeg", videoDisposition: attachedPic, hasSound: true,
 		}),
 		readThroughFile(readThrough{id: 4, path: "/m/4.mkv", videoDisposition: 1}),
 		readThroughFile(readThrough{id: 5, path: "/m/5.mkv", removedAt: 9}),
@@ -40,12 +43,15 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		readThroughFile(readThrough{id: 8, path: "/m/8.mkv"}),
 		readThroughFile(readThrough{id: 9, path: "/m/9.mkv"}),
 		readThroughFile(readThrough{id: 10, path: "/x/10.mkv", hasSound: true}),
+		readThroughFile(readThrough{id: 11, path: "/m/11.mkv", hasSound: true, cover: coverFirst}),
+		readThroughFile(readThrough{id: 12, path: "/m/12.mkv", hasSound: true, cover: coverAfter}),
 		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, measured_at)
-		 VALUES (X'02', 1, 'stereo', -20, 1), (X'03', 1, 'stereo', -20, 1), (X'07', 1, 'stereo', -20, 1)`,
+		 VALUES (X'02', 1, 'stereo', -20, 1), (X'03', 1, 'stereo', -20, 1), (X'07', 1, 'stereo', -20, 1),
+		 (X'0b', 1, 'stereo', -20, 1), (X'0c', 1, 'stereo', -20, 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json,
 		 made_at) VALUES (X'07', 0, '[0]', '[1]', 1), (X'08', 0, '[0]', '[1]', 1), (X'09', 0, '[0]', '[]', 1)`)
 	rows, err := database.Read().ListFilesToReadThrough(t.Context(),
-		sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 10})
+		sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 12})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,9 +59,9 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 	for _, row := range rows {
 		ids = append(ids, row.ID)
 	}
-	if !slices.Equal(ids, []int64{1, 2, 4, 9}) {
-		t.Errorf("listed files %v; want 1, lacking both, 2 and 4, lacking their pictures' timelines, and 9, "+
-			"whose timeline is its index's alone", ids)
+	if !slices.Equal(ids, []int64{1, 2, 4, 9, 11, 12}) {
+		t.Errorf("listed files %v; want 1, lacking both, 2 and 4, lacking their pictures' timelines, 9, "+
+			"whose timeline is its index's alone, and 11 and 12, whose pictures beside a cover lack theirs", ids)
 	}
 	if limited, err := database.Read().ListFilesToReadThrough(t.Context(),
 		sqlcgen.ListFilesToReadThroughParams{AfterID: 1, ThroughID: 2}); err != nil || len(limited) != 1 ||
@@ -65,7 +71,7 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 }
 
 // readThrough is a probed video under library 1's folder, of ten bytes whose hash is its id, with a
-// picture at stream 0 and, if it has sound, AAC at stream 1.
+// picture at stream 0 and, if it has sound, AAC at stream 1, and perhaps a cover beside the picture.
 type readThrough struct {
 	id               byte // its file's, and its payload hash's one byte
 	path             string
@@ -74,11 +80,28 @@ type readThrough struct {
 	videoCodec       string // "": H.264
 	videoDisposition int64
 	hasSound         bool
+	cover            coverPlace
 }
+
+// coverPlace is where a file's cover art is among its streams, beside its picture.
+type coverPlace int
+
+const (
+	noCover    coverPlace = iota
+	coverFirst            // the cover at stream 0, the picture at stream 2
+	coverAfter            // the picture at stream 0, the cover at stream 2
+)
+
+// attachedPic is FFmpeg's AV_DISPOSITION_ATTACHED_PIC, the flag a cover carries.
+const attachedPic = 1024
 
 // readThroughFile inserts the file, its place, its probe and its streams.
 func readThroughFile(file readThrough) string {
 	id := int64(file.id)
+	pictureIndex, coverIndex := int64(0), int64(2)
+	if file.cover == coverFirst {
+		pictureIndex, coverIndex = 2, 0
+	}
 	video := rowstest.Join(
 		rowstest.File(rowstest.FileSpec{
 			ID: id, SizeBytes: 10, PayloadHash: []byte{file.id}, NodeID: 1, Path: file.path,
@@ -86,9 +109,14 @@ func readThroughFile(file readThrough) string {
 		}),
 		rowstest.Probe(rowstest.ProbeSpec{FileID: id}),
 		rowstest.Stream(rowstest.StreamSpec{
-			BytesFile: id, Kind: "video", Codec: cmp.Or(file.videoCodec, "h264"),
+			BytesFile: id, StreamIndex: pictureIndex, Kind: "video", Codec: cmp.Or(file.videoCodec, "h264"),
 			DispositionFlags: file.videoDisposition,
 		}))
+	if file.cover != noCover {
+		video = rowstest.Join(video, rowstest.Stream(rowstest.StreamSpec{
+			BytesFile: id, StreamIndex: coverIndex, Kind: "video", Codec: "mjpeg", DispositionFlags: attachedPic,
+		}))
+	}
 	if !file.hasSound {
 		return video
 	}

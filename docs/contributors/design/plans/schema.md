@@ -366,6 +366,9 @@ CREATE TABLE stream (                                      -- class O; not "trac
   container_title   TEXT,
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
+  -- Step 0097: cover art in the container (FFmpeg's attached_pic, bit 1024), computed from the
+  -- flags and never written; the one place the queries read the cover rule (decide.MainVideo's).
+  is_attached_picture INTEGER NOT NULL GENERATED ALWAYS AS ((disposition_flags & 1024) <> 0) VIRTUAL,
   UNIQUE (bytes_file, stream_index)
 );
 CREATE INDEX stream_media ON stream(video_file, kind);

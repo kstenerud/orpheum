@@ -554,7 +554,7 @@ JOIN file_place ON file_place.file_id = file_filing.file_id
 JOIN place ON place.id = file_place.place_id
 WHERE work.kind = 'movie'
   AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'video'
-    AND (stream.disposition_flags & 1024) = 0)
+    AND stream.is_attached_picture = 0)
   AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio')
 ORDER BY work.id, place.path
 LIMIT sqlc.arg(max_rows);
@@ -571,7 +571,7 @@ JOIN file_place ON file_place.file_id = file_filing.file_id
 JOIN place ON place.id = file_place.place_id
 WHERE work.kind = 'movie'
   AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'video'
-    AND (stream.disposition_flags & 1024) = 0)
+    AND stream.is_attached_picture = 0)
   AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio');
 
 -- name: ListFilesOfWork :many

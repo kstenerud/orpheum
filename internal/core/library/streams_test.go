@@ -3,9 +3,12 @@
 package library
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *testing.T) {
@@ -42,5 +45,27 @@ func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *te
 	}
 	if len(streams) != 1 || streams[0].ID != first[0] || *streams[0].Codec != "hevc" {
 		t.Errorf("after the audio went and the video changed: %+v, want the video's row, changed in place", streams)
+	}
+}
+
+// TestIngest_AStreamFFmpegCallsAnAttachedPictureIsTheStoresCover checks that the store's cover
+// rule, stream.is_attached_picture, which its queries read, is the attached_pic disposition the
+// probe names and DispositionBit stores: Go and SQL tell a cover from a picture alike.
+func TestIngest_AStreamFFmpegCallsAnAttachedPictureIsTheStoresCover(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	record := observedRecord("Metropolis.mkv", "metropolis")
+	record.Observed.Probe.Streams = []nodeproto.ProbeStream{
+		{StreamIndex: 0, Kind: "video", Codec: "mjpeg", Disposition: []string{"attached_pic"}},
+		{StreamIndex: 1, Kind: "video", Codec: "h264", Disposition: []string{"default"}},
+		{StreamIndex: 2, Kind: "video", Codec: "png", Disposition: []string{"default", "attached_pic"}},
+	}
+	world.scan([]nodeproto.ScanRecord{record}, true)
+	fileID := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	covers := storetest.QueryRaw(t, world.database.Path(), fmt.Sprintf(
+		"SELECT stream_index, is_attached_picture FROM stream WHERE bytes_file = %d ORDER BY stream_index", fileID))
+	if want := []string{"0|1", "1|0", "2|1"}; !slices.Equal(covers, want) {
+		t.Errorf("each stream's index and whether it is a cover: %v; want %v, the two attached pictures covers",
+			covers, want)
 	}
 }

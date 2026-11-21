@@ -86,7 +86,7 @@ WHERE f.id > ?1 AND f.id <= ?2 AND own.removed_at IS NULL
   AND (
     ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)
-    OR ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'video' AND (s.disposition_flags & 1024) = 0
+    OR ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'video' AND s.is_attached_picture = 0
         LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash
         AND (v.bytes_in_each_second_json <> '[]' OR v.failure IS NOT NULL OR v.read_failure IS NOT NULL)
@@ -111,7 +111,7 @@ type ListFilesToReadThroughRow struct {
 // reads the files a range of ids at a time, by the primary key, so no one query reads them all.
 // Whether a file is under a root or disk that is unavailable is the library's one rule
 // (library.Unavailability), which the sweep asks of each. A picture is a video stream that is not
-// a cover: disposition bit 1024 is FFmpeg's AV_DISPOSITION_ATTACHED_PIC. A timeline is looked for
+// a cover (stream.is_attached_picture, migration 0097). A timeline is looked for
 // by payload hash alone; the read-through picks the main picture. A timeline read from the file's
 // index has its keyframes but not its bytes in each second, which only a read through finds (D259
 // section 2), so it is read through still, unless that read failed (read_failure, D270 section 1). has_timeline is 1 when the bytes have any timeline, so
