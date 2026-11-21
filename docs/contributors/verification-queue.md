@@ -3631,24 +3631,34 @@ An item is ticked only by the person who did it, and only with what they saw.
   2026-11-20: all realms at once). orpheum-connect has no browser harness, so this is the
   proposal's Playwright run, walked by hand; connect's own tests (in internal/killswitch,
   internal/webclient, cmd/connectd/operate_client_test.go and the panel's Overview test) cover the
-  switch and what sw.js is. On staging, with connectd at "fix(webclient): the kill worker reloads
-  a held page at its address without the fragment", which follows "fix(webclient): while killing,
-  the page of the build served gets the build's own worker" (a page names its build in its worker's
-  address, `sw.js?build=<build>`, and only a page of another build is answered the kill worker):
-  1. The lead serves build A at staging. In Chrome on the computer, open https://orpheum.dev, which
-     takes the browser to the staging core's client origin, and sign in; reload once. In DevTools,
-     Application, note that Service workers shows `sw.js?build=` and build A's name activated, and
-     Cache storage lists the client's caches.
-  2. The lead serves build B, and runs `connectd client kill on` in staging's connectd container
-     (or sets Client kill switch to on in the operator panel's Overview), then waits 10 s.
-  3. Reload the tab once. Report whether the page reloads itself once more, by itself, and then:
-     whether Service workers shows `sw.js?build=` with build B's name activated, the address bar
-     holds no `#handoff=`, Network shows `index.html` and the `assets/` files fetched from the
-     network with build B's names, and the home page shows the library.
-  4. Reload again, twice. Report whether the page loads each time without reloading itself again.
-  5. The lead runs `connectd client kill off`, waits 10 s. Reload twice. Report whether Service
-     workers still shows build B's worker activated, the page loads each time, and the Activity
-     lists both changes, off to on and on to off.
-  6. Open a new tab at https://orpheum.dev. Report whether it signs in and shows the library, not
-     "Can't reach the server from this network" (the step-5 failure of 2026-11-21: Cloudflare kept
-     the kill worker in the browser for hours, idiosyncrasies.md).
+  switch and what sw.js is. On staging, with connectd at "fix(webclient): the kill worker asks again
+  to take over until it does" and build B at "fix(web): the service worker asks again to take over
+  until it does" (a waiting worker's `skipWaiting()` Chrome missed left it waiting five minutes and
+  hung the reload that handed over, idiosyncrasies.md). The lead's headless walk passed this first
+  (`deploy/staging/kill-switch-walk.mjs` in orpheum-connect, Chromium and Firefox, 2026-11-21);
+  it passed with the fix taken out too, so only a hand walk tests the fix. Walk it in Chrome, then
+  again in Firefox:
+  1. Open https://orpheum.dev in a new window, and sign in.
+     The lead has served build A. Report whether it shows the library.
+  2. Reload the tab.
+     In DevTools, Application, report whether Service workers shows `sw.js?build=` with build A's
+     name activated, and whether Cache storage lists the client's caches.
+  3. Leave the tab alone for two minutes, until the lead says go.
+     Meanwhile the lead serves build B and turns the kill switch on (`connectd client kill on`).
+  4. Reload the tab.
+     Report whether the page loads within a few seconds, whether it then reloads itself once by
+     itself, and whether Service workers shows `sw.js?build=` with build B's name activated within
+     about 5 s. Report too whether the address bar holds a `#handoff=` (it should not).
+  5. Reload the tab.
+     Report whether it loads within a few seconds and shows the library, without reloading itself.
+  6. Reload the tab.
+     Report the same as step 5.
+  7. Wait for the lead to say the switch is off (`connectd client kill off`), then reload the tab.
+     Report whether it loads and Service workers still shows build B's worker activated.
+  8. Reload the tab.
+     Report the same as step 7, and whether the operator panel's Activity lists both changes, off to
+     on and on to off.
+  9. Open a new tab at https://orpheum.dev.
+     Report whether it signs in and shows the library, not "Can't reach the server from this
+     network" (the failure of 2026-11-21: Cloudflare kept the kill worker in the browser for hours,
+     idiosyncrasies.md).

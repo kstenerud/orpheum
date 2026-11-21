@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clientFilesCache, clientFilesListKey, sha256Of } from "./client-files.ts";
 import { keptImagesCache, keptImagesMost } from "./kept-images.ts";
+import { takeOverAskMs } from "./sw.ts";
 import {
   answer,
   answeringLate,
@@ -705,5 +706,34 @@ describe("the service worker's kept images (D485)", () => {
     expect(kept.at(-1)).toBe(newest);
     expect(kept).not.toContain(imageAt(0));
     expect(kept[0]).toBe(imageAt(keptImagesMost + 1 - kept.length));
+  });
+});
+
+describe("the service worker's taking over (VQ374)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("asks again each takeOverAskMs while it waits to take over, and stops once it is active", async () => {
+    vi.useFakeTimers();
+    const worker = await startWorker(
+      new Map(),
+      [],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    const skipWaiting = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("skipWaiting", skipWaiting);
+    const event = { waitUntil: vi.fn() };
+
+    worker.listeners.get("install")?.(event);
+    expect(skipWaiting).toHaveBeenCalledTimes(1);
+    // Chrome missed the first ask: the old worker, stopped for the hand-over, was started again.
+    await vi.advanceTimersByTimeAsync(takeOverAskMs * 3);
+    expect(skipWaiting).toHaveBeenCalledTimes(4);
+
+    worker.listeners.get("activate")?.(event);
+    await vi.advanceTimersByTimeAsync(takeOverAskMs * 3);
+    expect(skipWaiting).toHaveBeenCalledTimes(4);
   });
 });

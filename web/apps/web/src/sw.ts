@@ -113,12 +113,29 @@ const patientPathQueryMs = 5000;
 /** The client's files' hashes by path, as the loader last said; read back after a restart. */
 let clientFiles: Map<string, string> | undefined;
 
+/**
+ * How often an installed worker asks again to take over from the active one, until it does. In a
+ * headless walk of the kill switch (VQ374, 2026-11-21), Chrome stopped the old worker for the
+ * hand-over, started it again, and left the new one waiting until the next navigation, which hung;
+ * the owner's Chrome waited five minutes. Whether the restart was the walk's probe is unverified
+ * (idiosyncrasies.md). Asked again, Chrome found the old worker idle and handed over within the
+ * second; where the first ask was heard, asking again costs nothing.
+ */
+export const takeOverAskMs = 1000;
+
+/** The installed worker's asking to take over, stopped once it is active. */
+let askingToTakeOver: ReturnType<typeof setInterval> | undefined;
+
 const scope: unknown = globalThis;
 if (isWorkerScope(scope)) {
   scope.addEventListener("install", (event) => {
     event.waitUntil(scope.skipWaiting());
+    askingToTakeOver = setInterval(() => {
+      void scope.skipWaiting();
+    }, takeOverAskMs);
   });
   scope.addEventListener("activate", (event) => {
+    clearInterval(askingToTakeOver);
     event.waitUntil(scope.clients.claim());
   });
   scope.addEventListener("message", (event) => {

@@ -1681,6 +1681,34 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   [Service Workers, §4.2.1](https://w3c.github.io/ServiceWorker/#client-url): "The url getter steps
   are to return this's associated service worker client's serialized creation URL" (read 2026-11-21).
 
+### Chrome can miss a waiting worker's skipWaiting() when the old worker is started again, and the navigation that hands over then hangs
+
+- **Technology:** Chrome's service workers (the Playwright 1.63 Chromium headless, and the owner's
+  Chrome on a Mac, 2026-11-21; unverified in Firefox and Safari).
+- **Symptom:** walking the kill switch (VQ374) on staging, after a page sat idle for 90 s and a new
+  build was served, the new build's worker installed and stayed waiting, though it had called
+  `skipWaiting()` and the old worker held no open event. It took over only at the next navigation,
+  and that navigation hung: the page's reload never loaded. After a 30 s sit, it took over at once.
+  The owner's Chrome, walking it by hand, waited about five minutes before the kill worker took over.
+- **Cause:** unverified, and possibly our probe's. As seen: Chrome stopped the idle old worker for
+  the hand-over, something started it again, and nothing checked the hand-over again until a
+  navigation, which had been sent to the old worker as it was made redundant. The walks that showed
+  it ran script in each worker every 15 s (Playwright's `worker.evaluate`, which starts a stopped
+  worker), and a walk that did not, with the fix below taken out, passed. So the restart may have
+  been the probe's, and whether the page's own loads can do the same, as the owner's five-minute
+  wait suggests, is not known.
+- **What we do:** an installed worker calls `skipWaiting()` again each second until it activates:
+  the build's (`takeOverAskMs`, `web/apps/web/src/sw.ts`) and the kill worker (orpheum-connect
+  `internal/webclient/kill-worker.js`). Asked again, Chrome found the old worker idle and handed
+  over within a second. Asking again costs nothing where the first ask was heard.
+- **Evidence:** **[ours]** headless walks, 2026-11-21, each worker's every `respondWith` and
+  `waitUntil` traced: with a 90 s sit and the probe, the old worker stopped and started again and
+  the new one waited (two of two walks), and the step's reload hung for 30 s. With the repeated
+  `skipWaiting()` injected into the waiting worker, it activated within a second of the first repeat
+  and every reload after loaded. orpheum-connect's `deploy/staging/kill-switch-walk.mjs`, which
+  runs nothing in the workers, passed with the fix and without it. **[owner]** the five-minute wait,
+  2026-11-21.
+
 ### Some mobile browsers give a tap's click a mouse's pointerType, or none
 
 - **Technology:** the `click` a finger's tap makes, in Safari on iOS from 18.2 and in Firefox on
