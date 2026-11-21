@@ -6,8 +6,8 @@ import { playerSkippedEvent, skippedStretchOf, type SkippedStretch } from "@orph
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { clockText } from "./date-time-text.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { clockText } from "./timeline.tsx";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**
@@ -49,9 +49,9 @@ export function useSkippedStretches(
   return stretches;
 }
 
-/** "42:13 to 42:40", a stretch as the timeline tells its times. */
-function stretchText(stretch: SkippedStretch): string {
-  return `${clockText(stretch.fromMs)}–${clockText(stretch.toMs)}`;
+/** "42:13 to 42:40", a stretch as the timeline tells its times, in locale's digits. */
+function stretchText(stretch: SkippedStretch, locale: string): string {
+  return `${clockText(stretch.fromMs, locale)}–${clockText(stretch.toMs, locale)}`;
 }
 
 /**
@@ -61,12 +61,14 @@ function stretchText(stretch: SkippedStretch): string {
 export function SkippedSign(props: {
   readonly stretches: readonly SkippedStretch[];
 }): JSX.Element | null {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { stretches } = props;
   if (stretches.length === 0) {
     return null;
   }
-  const told = t("skipped.told", { stretches: stretches.map(stretchText).join(", ") });
+  const told = t("skipped.told", {
+    stretches: stretches.map((stretch) => stretchText(stretch, i18n.language)).join(", "),
+  });
   return (
     <WarningSign
       summary={t("skipped.summary")}
@@ -92,7 +94,7 @@ function popUpOf(stretch: SkippedStretch): string {
 export function SkippedPopUp(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element | null {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const stretches = useSkippedStretches(props.videoRef);
   const [closed, setClosed] = useState<readonly string[]>([]);
   const shown = stretches.find(
@@ -106,8 +108,8 @@ export function SkippedPopUp(props: {
   const summary = shown.isWhereItStops === true ? t("skipped.cannotGoOn") : t("skipped.summary");
   const told =
     shown.isWhereItStops === true
-      ? t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs) })
-      : t("skipped.told", { stretches: stretchText(shown) });
+      ? t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs, i18n.language) })
+      : t("skipped.told", { stretches: stretchText(shown, i18n.language) });
   return (
     <ModalDialog
       label={summary}

@@ -3,22 +3,13 @@
 import "./timeline.css";
 
 import { useRef, useState, type JSX, type PointerEvent, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 
+import { clockText } from "./date-time-text.ts";
 import { fractionAlong, useTouchAnywhere } from "./range-touch.ts";
 
 /** How finely a drag along a timeline moves the film: a second. */
 const dragStepMs = 1000;
-
-/** A length of film as a player shows it: m:ss under an hour, h:mm:ss from one. */
-export function clockText(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const rest = String(seconds % 60).padStart(2, "0");
-  return hours === 0
-    ? `${String(minutes)}:${rest}`
-    : `${String(hours)}:${String(minutes).padStart(2, "0")}:${rest}`;
-}
 
 /** Where the film stands and its length, "1:01 / 10:00"; where it alone while its length is not known. */
 export function ClockTimes(props: {
@@ -26,9 +17,12 @@ export function ClockTimes(props: {
   readonly durationMs: number;
 }): JSX.Element {
   const { atMs, durationMs } = props;
+  const { language } = useTranslation().i18n;
   return (
     <span className="timeline__times">
-      {durationMs > 0 ? `${clockText(atMs)} / ${clockText(durationMs)}` : clockText(atMs)}
+      {durationMs > 0
+        ? `${clockText(atMs, language)} / ${clockText(durationMs, language)}`
+        : clockText(atMs, language)}
     </span>
   );
 }
@@ -59,6 +53,7 @@ export function Timeline(props: {
   readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
 }): JSX.Element {
   const { label, atMs, durationMs, onSeek, isDisabled, hasArrowsAsCommands } = props;
+  const { language } = useTranslation().i18n;
   const ownRef = useRef<HTMLInputElement | null>(null);
   const inputRef = props.inputRef ?? ownRef;
   const mostMs = Math.max(durationMs, 1);
@@ -85,7 +80,7 @@ export function Timeline(props: {
           type="range"
           className="timeline__range"
           aria-label={label}
-          aria-valuetext={clockText(shownMs)}
+          aria-valuetext={clockText(shownMs, language)}
           min={0}
           max={mostMs}
           step={dragStepMs}
@@ -119,13 +114,14 @@ function TimeUnderPointer(props: {
   readonly fraction: number;
   readonly durationMs: number;
 }): JSX.Element {
+  const { language } = useTranslation().i18n;
   return (
     <span
       className="timeline__pointed"
       style={{ insetInlineStart: `${String(props.fraction * 100)}%` }}
       aria-hidden="true"
     >
-      {clockText(props.fraction * props.durationMs)}
+      {clockText(props.fraction * props.durationMs, language)}
     </span>
   );
 }

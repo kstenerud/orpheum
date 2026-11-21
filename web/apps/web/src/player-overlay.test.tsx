@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { act, createRef, useEffect, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { clockText } from "./date-time-text.ts";
 import { commandEventName } from "./input-commands.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
@@ -16,7 +17,6 @@ import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf, stopSeekAheadOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { clockText } from "./timeline.tsx";
 
 /** The full-screen button, found by its name as a viewer finds it (it takes no class of its own). */
 const FULL_SCREEN = 'button:is([aria-label="Full screen"], [aria-label="Leave full screen"])';
@@ -94,9 +94,9 @@ const overlayButtons = '.player-overlay__buttons :is(button, [role="button"])';
 
 describe("the film's times", () => {
   it("are said as a player says them", () => {
-    expect(clockText(0)).toBe("0:00");
-    expect(clockText(1_466_000)).toBe("24:26");
-    expect(clockText(3_725_000)).toBe("1:02:05");
+    expect(clockText(0, "en")).toBe("0:00");
+    expect(clockText(1_466_000, "en")).toBe("24:26");
+    expect(clockText(3_725_000, "en")).toBe("1:02:05");
   });
 });
 

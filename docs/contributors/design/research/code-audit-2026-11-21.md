@@ -199,6 +199,11 @@ through `timeText(epochMs, locale)` (`date-time-text.ts:20`) and the person's ch
 - **Fix:** one position formatter taking the locale, used by all three; `convenience-area.tsx` calls
   `timeText`. **S, agent.**
 
+*Fixed:* fix(web): a film's clock is written one way, and its end time in the chosen language.
+`clockText` (`date-time-text.ts`) is the one, in the locale's digits; `lab-timing.ts`'s
+`elapsedText` stays, as it writes a lab run's elapsed time as h:mm:ss from zero ("0:01:05", where
+the film's clock says "1:05"): which form the lab pages show is the owner's call.
+
 ### 10. Library lists by kind fall to films for anything they do not know
 
 `countListed` (`internal/core/library/lists.go:40-47`) ends in `default: CountFilmsListed`, and

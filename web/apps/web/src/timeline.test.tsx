@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { useSeekAhead } from "./seek-ahead.ts";
 import { enter, fire, mount, settleUntil, type Mounted } from "./test-dom.tsx";
-import { clockText, Timeline } from "./timeline.tsx";
+import { clockText } from "./date-time-text.ts";
+import { Timeline } from "./timeline.tsx";
 
 /**
  * A timeline whose seeks wait for its moves to rest restMs, as a remote's (session-remote.tsx), its
@@ -165,8 +166,8 @@ describe("a film's timeline (D369 §1)", () => {
   });
 
   it("says a film's times as a player does", () => {
-    expect(clockText(0)).toBe("0:00");
-    expect(clockText(61_999)).toBe("1:01");
-    expect(clockText(3_725_000)).toBe("1:02:05");
+    expect(clockText(0, "en")).toBe("0:00");
+    expect(clockText(61_999, "en")).toBe("1:01");
+    expect(clockText(3_725_000, "en")).toBe("1:02:05");
   });
 });

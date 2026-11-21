@@ -3,20 +3,8 @@
 import type { GroupEvent, GroupView, RosterMember } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
+import { clockText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
-
-/** A place in a film as a person reads it: 41:12, or 1:02:03 past the first hour. */
-export function filmPositionText(positionMs: number, locale: string): string {
-  const totalSeconds = Math.max(0, Math.floor(positionMs / 1000));
-  const twoDigits = new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, useGrouping: false });
-  const plain = new Intl.NumberFormat(locale, { useGrouping: false });
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return hours === 0
-    ? `${plain.format(minutes)}:${twoDigits.format(seconds)}`
-    : `${plain.format(hours)}:${twoDigits.format(minutes)}:${twoDigits.format(seconds)}`;
-}
 
 /** The catalogue key, under together.event, of each event the server names by its code. */
 const eventKeys: Readonly<Record<Exclude<GroupEvent, "seeked">, string>> = {
@@ -46,9 +34,9 @@ export function groupEventText(
   }
   const name =
     roster.find((member) => member.id === group.byMemberId)?.name ?? t("together.someone");
-  const at = filmPositionText(group.positionMs, i18n.language);
+  const at = clockText(group.positionMs, i18n.language);
   if (group.event === "seeked") {
-    const from = filmPositionText(group.seekedFromMs, i18n.language);
+    const from = clockText(group.seekedFromMs, i18n.language);
     return t("together.event.seeked", { name, from, to: at });
   }
   if (group.event === "everyoneLeft" && group.isHeldPlaying) {

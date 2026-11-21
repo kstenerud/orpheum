@@ -6,7 +6,8 @@ import { parseTogetherMessage, type GroupEvent, type GroupView } from "@orpheum/
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { filmPositionText, groupEventText } from "./together-events.ts";
+import { clockText } from "./date-time-text.ts";
+import { groupEventText } from "./together-events.ts";
 
 const roster = [{ id: 1, name: "Karl", isHost: true, devices: [] }];
 
@@ -94,7 +95,7 @@ describe("the group's changes as named events (D188)", () => {
   });
 
   it("reads a place past the first hour with its hours", () => {
-    expect(filmPositionText(3_723_000, "en")).toBe("1:02:03");
-    expect(filmPositionText(5000, "en")).toBe("0:05");
+    expect(clockText(3_723_000, "en")).toBe("1:02:03");
+    expect(clockText(5000, "en")).toBe("0:05");
   });
 });

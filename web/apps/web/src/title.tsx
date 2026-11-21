@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { clockText } from "./date-time-text.ts";
 import { TitlePeople } from "./credits.tsx";
 import { languageName } from "./language-name.ts";
 import { channelsText } from "./tracks-note.tsx";
@@ -26,7 +27,6 @@ import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { isPictureAlone, Poster, WideArt } from "./poster.tsx";
 import { GenreLinks, TitleHead } from "./title-head.tsx";
-import { clockText } from "./timeline.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { noteEpisodeReached } from "./episode-reached.ts";
@@ -169,7 +169,9 @@ function PlayActions(props: { readonly fileId: number; readonly resumeMs: number
   return (
     <>
       <Link to={{ screen: "play", fileId }} className="title__play">
-        {isResuming ? t("title.resumeFrom", { at: clockText(resumeMs) }) : t("title.play")}
+        {isResuming
+          ? t("title.resumeFrom", { at: clockText(resumeMs, i18n.language) })
+          : t("title.play")}
       </Link>
       {isResuming ? (
         <Link to={{ screen: "play", fileId, atMs: 0 }} className="title__action">

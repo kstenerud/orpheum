@@ -5,6 +5,7 @@ import "./play-words.ts";
 import { useEffect, type ComponentType, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { timeText } from "./date-time-text.ts";
 import type { FilmParts } from "./film-player.tsx";
 
 /** What the overlay tells the offer it draws in its convenience area (D407 §3, §5). */
@@ -50,25 +51,23 @@ export function ConvenienceArea(props: {
 
 /** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
 function EndsAt(props: { readonly leftMs: number | undefined }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { leftMs } = props;
   return (
     <span className="convenience-area__ends">
-      {leftMs === undefined ? "" : t("playerControls.endsAt", { time: endsAt(leftMs) })}
+      {leftMs === undefined
+        ? ""
+        : t("playerControls.endsAt", { time: endsAt(leftMs, i18n.language) })}
     </span>
   );
 }
 
 /**
- * The clock time a film ends at, as the viewer's clock says it, made once: toLocaleTimeString built
- * a formatter at each call, 38 µs here against 1.8 µs for one kept, four times a second (the
- * efficiency audit's finding 7).
+ * When the film ends if it plays on from now, as the viewer's clock says it, in their chosen
+ * language as every time on a page is (timeText), not the browser's.
  */
-const endsAtClock = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" });
-
-/** When the film ends if it plays on from now, as the viewer's clock says it. */
-function endsAt(leftMs: number): string {
-  return endsAtClock.format(new Date(Date.now() + leftMs));
+function endsAt(leftMs: number, locale: string): string {
+  return timeText(Date.now() + leftMs, locale);
 }
 
 /** Tells onOffered, where given, whether an offer shows, and that it does not once it goes. */
