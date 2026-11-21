@@ -39,6 +39,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
@@ -92,7 +93,7 @@ type Dependencies struct {
 	// Browser is what a person browses and searches.
 	Browser *library.Browser
 	// SystemVideos keeps the server's own videos, found by what they are (D435).
-	SystemVideos *library.SystemVideos
+	SystemVideos *systemvideos.Service
 	// Artwork serves the images titles show.
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.

@@ -1,22 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package library
+package systemvideos
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"log/slog"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
+
+// root is the films library's one root, as its node names it.
+const root = "/media/films"
 
 // systemFolder is node local's system folder in these tests.
 const systemFolder = "/var/orpheum/system-videos"
@@ -52,32 +63,166 @@ func (assigner *fakeAssigner) Assign(_ context.Context, nodeID int64, _ jobs.Job
 	return nil
 }
 
-// systemVideosWorld is the films harness, its node local connected with its system folder among its
-// roots, and the system videos over it.
+// fakeNodes is the node channel with one connected node, "local", that named its roots, and any
+// others: the nodes and the scan requests the library's admin asks.
+type fakeNodes struct {
+	id    int64
+	roots []string
+	// others are other connected nodes by name, each with roots.
+	others map[string]*fakeNodes
+	// scanned are the roots a person asked to scan.
+	scanned []string
+}
+
+func (nodes *fakeNodes) NodeConnection(context.Context, int64) (corenodes.Connection, time.Time) {
+	return corenodes.Connected, time.Time{}
+}
+
+func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
+	if other, isOther := nodes.others[name]; isOther {
+		return other.id, other.roots, true
+	}
+	if name != "local" {
+		return 0, nil, false
+	}
+	return nodes.id, nodes.roots, true
+}
+
+func (nodes *fakeNodes) RemoveNode(context.Context, int64) error { return nil }
+
+func (nodes *fakeNodes) RootWatches(int64) map[string]nodeproto.RootWatch { return nil }
+
+func (nodes *fakeNodes) WatchedFoldersChanged() {}
+
+func (nodes *fakeNodes) InProgress(context.Context) (map[library.ScanRoot]library.ScanProgress, error) {
+	return map[library.ScanRoot]library.ScanProgress{}, nil
+}
+
+func (nodes *fakeNodes) Request(ctx context.Context, nodeID int64, root string, priority int64) error {
+	for _, other := range nodes.others {
+		if other.id == nodeID {
+			return other.Request(ctx, nodeID, root, priority)
+		}
+	}
+	if nodeID == nodes.id && priority == jobs.PriorityPersonsRequest {
+		nodes.scanned = append(nodes.scanned, root)
+	}
+	return nil
+}
+
+func (nodes *fakeNodes) RequestUnder(context.Context, int64, string, string, int64) error { return nil }
+
+func (nodes *fakeNodes) RequestReadingAgain(
+	context.Context, int64, string, string, library.ReadAgain, int64,
+) error {
+	return nil
+}
+
+// fakeWork is the job queue, keeping nothing a retire asks it to cancel.
+type fakeWork struct{}
+
+func (fakeWork) CancelRetired(_ context.Context, retired jobs.RetiredWork) (int, error) {
+	return len(retired.FileIDs), nil
+}
+
+// readableFolders lists a node's folders as its byte socket would: readable, and empty.
+type readableFolders struct{}
+
+func (readableFolders) ListFolders(context.Context, int64, string) (nodeproto.FolderListing, error) {
+	return nodeproto.FolderListing{State: nodeproto.ProbeReadable, Folders: []string{}}, nil
+}
+
+// systemVideosWorld is a database with node local and a films library over root, its node connected
+// with its system folder among its roots, the ingest, and the system videos over it.
 type systemVideosWorld struct {
-	*harness
+	t        *testing.T
+	database *store.Database
+	clock    *clocktest.Fake
+	nodeID   int64
+	ingester *library.Ingester
 	nodes    *fakeNodes
 	folders  *fakeSystemFolders
 	queue    *fakeMakeJobs
 	assigner *fakeAssigner
-	videos   *SystemVideos
+	videos   *Service
 }
 
 func newSystemVideosWorld(t *testing.T) *systemVideosWorld {
 	t.Helper()
+	database := storetest.OpenMigrated(t)
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
+	nodeID, _ := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: root})
 	world := &systemVideosWorld{
-		harness: newHarness(t), folders: &fakeSystemFolders{}, queue: &fakeMakeJobs{}, assigner: &fakeAssigner{},
+		t: t, database: database, clock: fakeClock, nodeID: nodeID,
+		ingester: library.NewIngester(
+			database, fakeClock, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler),
+		),
+		folders: &fakeSystemFolders{}, queue: &fakeMakeJobs{}, assigner: &fakeAssigner{},
 	}
 	world.nodes = &fakeNodes{id: world.nodeID, roots: []string{"/media", systemFolder}}
 	world.folders.folders = []corenodes.SystemFolder{{NodeID: world.nodeID, NodeName: "local", Path: systemFolder}}
-	admin := NewAdmin(world.database, world.clock, world.nodes, world.nodes, retirementOf(&fakeWork{}))
-	admin.ListFoldersThrough(readableFolders())
-	world.videos = NewSystemVideos(SystemVideosParts{
+	retirement := library.Retirement{Work: fakeWork{}}
+	admin := library.NewAdmin(world.database, world.clock, world.nodes, world.nodes, retirement)
+	admin.ListFoldersThrough(readableFolders{})
+	world.videos = New(Parts{
 		Database: world.database, Clock: world.clock, Admin: admin, Folders: world.folders, Jobs: world.queue,
 		Assigner: world.assigner, Scans: world.nodes,
 	})
 	return world
 }
+
+// hashOf is a stand-in payload hash for a file's content.
+func hashOf(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+// observedRecord is a video observed at path with content, read whole.
+func observedRecord(path, content string) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+		Path: nodeproto.Path{Text: path}, SizeBytes: int64(len(content)), ModifiedAt: 1,
+		Identity: nodeproto.Identity{
+			Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: 1,
+		},
+		Probe: nodeproto.Probe{Streams: []nodeproto.ProbeStream{
+			{StreamIndex: 0, Kind: "video", Codec: "h264"},
+			{
+				StreamIndex: 1, Kind: "audio", Codec: "aac", ContainerLanguage: "ger", Language: "de",
+				ContainerTitle: "Deutsch",
+				Disposition:    []string{"default", "forced"}, Audio: nodeproto.ProbeAudio{ChannelCount: 6},
+			},
+			{StreamIndex: 2, Kind: "data", Codec: "bin_data"},
+		}},
+	}}
+}
+
+// scan sends one complete scan of the films library's root.
+func (world *systemVideosWorld) scan(records []nodeproto.ScanRecord) {
+	world.t.Helper()
+	world.clock.Advance(time.Minute)
+	facts := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}
+	if err := world.ingester.IngestScan(world.t.Context(), world.nodeID, root,
+		librarytest.Scan(facts, records, true)); err != nil {
+		world.t.Fatal(err)
+	}
+}
+
+// liveFilesByPath is the live file rows of node local by path.
+func (world *systemVideosWorld) liveFilesByPath() map[string]sqlcgen.ListLiveFilesByNodeRow {
+	world.t.Helper()
+	rows, err := world.database.Read().ListLiveFilesByNode(world.t.Context(), world.nodeID)
+	if err != nil {
+		world.t.Fatal(err)
+	}
+	byPath := map[string]sqlcgen.ListLiveFilesByNodeRow{}
+	for _, row := range rows {
+		byPath[row.Path] = row
+	}
+	return byPath
+}
+
+func itoa(value int64) string { return strconv.FormatInt(value, 10) }
 
 // makeVideos runs the make job last queued: given to its node, answered as made into folder.
 func (world *systemVideosWorld) makeVideos(nodeID int64, folder string) {
@@ -112,15 +257,15 @@ func (world *systemVideosWorld) scanSystemFolder(nodeID int64) {
 func (world *systemVideosWorld) requireMadeOnLocal() {
 	t := world.t
 	t.Helper()
-	library := storetest.QueryRaw(t, world.database.Path(), "SELECT library.kind, library_root.root_path "+
+	systemLibrary := storetest.QueryRaw(t, world.database.Path(), "SELECT library.kind, library_root.root_path "+
 		"FROM system_library JOIN library ON library.id = system_library.library_id "+
 		"JOIN library_root ON library_root.library_id = library.id")
-	if !slices.Equal(library, []string{"other|" + systemFolder}) {
-		t.Errorf("the system library = %v; want an other library over the node's system folder", library)
+	if !slices.Equal(systemLibrary, []string{"other|" + systemFolder}) {
+		t.Errorf("the system library = %v; want an other library over the node's system folder", systemLibrary)
 	}
 	command := world.assigner.commands[0].MakeSystemVideos
 	if world.assigner.nodeIDs[0] != world.nodeID || command == nil ||
-		!slices.Equal(command.Videos, SystemVideoList()) || command.IsRebuild {
+		!slices.Equal(command.Videos, List()) || command.IsRebuild {
 		t.Errorf("gave %+v to node %v; want every system video made on local", command, world.assigner.nodeIDs)
 	}
 	if !slices.Equal(world.nodes.scanned, []string{systemFolder}) {
@@ -197,13 +342,13 @@ func TestSystemVideos_NoNodeToHoldThemIsUnavailable(t *testing.T) {
 	world := newSystemVideosWorld(t)
 	world.folders.folders = nil
 	_, err := world.videos.Find(t.Context(), nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC)
-	if !errors.Is(err, ErrSystemVideosUnavailable) {
+	if !errors.Is(err, ErrUnavailable) {
 		t.Errorf("a use with no node = %v; want unavailable", err)
 	}
 	if got := storetest.QueryRaw(t, world.database.Path(), "SELECT count(*) FROM system_library"); got[0] != "0" {
 		t.Errorf("system libraries = %v; want none made", got)
 	}
-	if _, err = world.videos.Find(t.Context(), "soundTiming", "vp9-opus"); !errors.Is(err, ErrNoSuchSystemVideo) {
+	if _, err = world.videos.Find(t.Context(), "soundTiming", "vp9-opus"); !errors.Is(err, ErrNoSuchVideo) {
 		t.Errorf("a video no recipe makes = %v; want no such video", err)
 	}
 }
@@ -249,17 +394,17 @@ func TestReachFile_ASystemVideoIsReachedByAnyoneAndNothingElseIs(t *testing.T) {
 	}
 	world.makeVideos(world.nodeID, systemFolder)
 	world.scanSystemFolder(world.nodeID)
-	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon (1979)/Arkon.mkv", "arkon")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon (1979)/Arkon.mkv", "arkon")})
 	clip := world.liveFilesByPath()[systemFolder+"/soundTiming.h264-aac.mp4"]
 	film := world.liveFilesByPath()[root+"/Arkon (1979)/Arkon.mkv"]
 	if clip.ID == 0 || film.ID == 0 {
 		t.Fatalf("files %+v; want the clip and the film scanned", world.liveFilesByPath())
 	}
 	none := auth.LibrariesOnly()
-	if err := ReachFile(ctx, world.database.Read(), none, clip.ID); err != nil {
+	if err := library.ReachFile(ctx, world.database.Read(), none, clip.ID); err != nil {
 		t.Errorf("the clip for a person who reaches no library = %v; want it reached", err)
 	}
-	if err := ReachFile(ctx, world.database.Read(), none, film.ID); !errors.Is(err, ErrNoFile) {
+	if err := library.ReachFile(ctx, world.database.Read(), none, film.ID); !errors.Is(err, library.ErrNoFile) {
 		t.Errorf("a film of a library the person does not reach = %v; want it refused as absent", err)
 	}
 }
@@ -282,7 +427,7 @@ func TestWorkOfFile_ASystemVideoNamesNoLibrary(t *testing.T) {
 	}
 	config := settingstest.Seeded(t, world.database)
 	for _, reach := range []auth.Reach{auth.EveryLibrary(), auth.LibrariesOnly()} {
-		work, err := NewBrowser(world.database, config).WorkOfFile(ctx, reach, clip.ID)
+		work, err := library.NewBrowser(world.database, config).WorkOfFile(ctx, reach, clip.ID)
 		if err != nil || work.LibraryID != 0 || work.LibraryName != "" {
 			t.Errorf("the clip's work = %+v, %v; want it with no library", work, err)
 		}

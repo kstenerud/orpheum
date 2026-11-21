@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package library
+package systemvideos
 
 import (
 	"context"
@@ -12,30 +12,27 @@ import (
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 var (
-	// ErrSystemVideosUnavailable is no connected node with a system folder: nothing can make or hold the
+	// ErrUnavailable is no connected node with a system folder: nothing can make or hold the
 	// server's own videos now (D435 §5).
-	ErrSystemVideosUnavailable = errors.New("no connected node can hold the server's own videos")
-	// ErrNoSuchSystemVideo is a purpose and codec no system video has.
-	ErrNoSuchSystemVideo = errors.New("no system video is that purpose in that codec")
+	ErrUnavailable = errors.New("no connected node can hold the server's own videos")
+	// ErrNoSuchVideo is a purpose and codec no system video has.
+	ErrNoSuchVideo = errors.New("no system video is that purpose in that codec")
 )
 
-// systemLibraryName is the system library's name, which no listing shows (D435 §1).
-const systemLibraryName = "System videos"
-
-// SystemVideoList are the server's own videos, each named by what it is and the file the core names
+// List are the server's own videos, each named by what it is and the file the core names
 // for it in the system folder: the one list (D435 §6). A new video adds its recipe to the node's
 // systemvideo package too.
-func SystemVideoList() []nodeproto.SystemVideo {
+func List() []nodeproto.SystemVideo {
 	videos := []nodeproto.SystemVideo{{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC}}
 	for index := range videos {
 		videos[index].FileName = videos[index].Purpose + "." + videos[index].Codec + ".mp4"
@@ -43,49 +40,49 @@ func SystemVideoList() []nodeproto.SystemVideo {
 	return videos
 }
 
-// SystemFolders are the connected nodes' system folders: the node service's ConnectedSystemFolders.
-type SystemFolders interface {
+// Folders are the connected nodes' system folders: the node service's ConnectedSystemFolders.
+type Folders interface {
 	ConnectedSystemFolders(ctx context.Context) []nodes.SystemFolder
 }
 
-// SystemVideosParts are what the system videos are kept with.
-type SystemVideosParts struct {
+// Parts are what the system videos are kept with.
+type Parts struct {
 	Database *store.Database
 	Clock    clock.Clock
 	// Admin adds the library's folder and repoints it (D429), the one way a library folder moves.
-	Admin    *Admin
-	Folders  SystemFolders
-	Jobs     ScanJobs
-	Assigner Assigner
-	Scans    ScanRequests
+	Admin    *library.Admin
+	Folders  Folders
+	Jobs     library.ScanJobs
+	Assigner library.Assigner
+	Scans    library.ScanRequests
 	Logger   *slog.Logger
 }
 
-// SystemVideos keeps the server's own videos in the hidden system library (D435): made on a node on
+// Service keeps the server's own videos in the hidden system library (D435): made on a node on
 // their first use, found by what they are, moved to another node when theirs is gone.
-type SystemVideos struct {
-	parts SystemVideosParts
+type Service struct {
+	parts Parts
 }
 
-// NewSystemVideos returns the system videos.
-func NewSystemVideos(parts SystemVideosParts) *SystemVideos {
-	return &SystemVideos{parts: parts}
+// New returns the system videos.
+func New(parts Parts) *Service {
+	return &Service{parts: parts}
 }
 
-// SystemVideoState is one system video: what it is, and its file once a scan found it, zero while it
+// State is one system video: what it is, and its file once a scan found it, zero while it
 // is being made.
-type SystemVideoState struct {
+type State struct {
 	Video     nodeproto.SystemVideo
 	FileID    int64
 	SizeBytes int64
 }
 
-// SystemVideosView is the system library as the debug view shows it (D435 §7): its node and folder,
+// View is the system library as the debug view shows it (D435 §7): its node and folder,
 // and each video.
-type SystemVideosView struct {
+type View struct {
 	NodeName string
 	Folder   string
-	Videos   []SystemVideoState
+	Videos   []State
 }
 
 // systemLibrary is the system library's row: its folder on its node, both zero when it has none live.
@@ -105,16 +102,16 @@ type makeArgs struct {
 // FileID is zero and a make is queued, which makes the library on its first use and moves it to
 // another connected node when its own is gone (D435 §5, §6). Find itself only reads and queues: a
 // play's GET writes nothing else (D303).
-func (videos *SystemVideos) Find(ctx context.Context, purpose, codec string) (SystemVideoState, error) {
-	index := slices.IndexFunc(SystemVideoList(), func(video nodeproto.SystemVideo) bool {
+func (videos *Service) Find(ctx context.Context, purpose, codec string) (State, error) {
+	index := slices.IndexFunc(List(), func(video nodeproto.SystemVideo) bool {
 		return video.Purpose == purpose && video.Codec == codec
 	})
 	if index < 0 {
-		return SystemVideoState{}, fmt.Errorf("%s/%s: %w", purpose, codec, ErrNoSuchSystemVideo)
+		return State{}, fmt.Errorf("%s/%s: %w", purpose, codec, ErrNoSuchVideo)
 	}
 	view, isPlaced, err := videos.current(ctx)
 	if err != nil {
-		return SystemVideoState{}, err
+		return State{}, err
 	}
 	state := view.Videos[index]
 	if !isPlaced {
@@ -127,16 +124,16 @@ func (videos *SystemVideos) Find(ctx context.Context, purpose, codec string) (Sy
 }
 
 // View is the system library and its videos as they are: no node and no files before the first use.
-func (videos *SystemVideos) View(ctx context.Context) (SystemVideosView, error) {
-	library, err := videos.read(ctx)
+func (videos *Service) View(ctx context.Context) (View, error) {
+	system, err := videos.read(ctx)
 	if err != nil {
-		return SystemVideosView{}, err
+		return View{}, err
 	}
-	return videos.view(ctx, library)
+	return videos.view(ctx, system)
 }
 
 // Rebuild makes every system video again, over the files there (D435 §7).
-func (videos *SystemVideos) Rebuild(ctx context.Context) error {
+func (videos *Service) Rebuild(ctx context.Context) error {
 	if _, _, err := videos.current(ctx); err != nil {
 		return err
 	}
@@ -144,7 +141,7 @@ func (videos *SystemVideos) Rebuild(ctx context.Context) error {
 }
 
 // queueMake queues the make of the system videos.
-func (videos *SystemVideos) queueMake(ctx context.Context, isRebuild bool) error {
+func (videos *Service) queueMake(ctx context.Context, isRebuild bool) error {
 	args, err := json.Marshal(makeArgs{IsRebuild: isRebuild})
 	if err != nil {
 		return fmt.Errorf("encode a system video make's arguments: %w", err)
@@ -161,39 +158,39 @@ func (videos *SystemVideos) queueMake(ctx context.Context, isRebuild bool) error
 
 // current is the system library's videos, and whether the library is on a connected node's system
 // folder; with no such folder anywhere, the videos are unavailable (D435 §5).
-func (videos *SystemVideos) current(ctx context.Context) (SystemVideosView, bool, error) {
-	library, err := videos.read(ctx)
+func (videos *Service) current(ctx context.Context) (View, bool, error) {
+	system, err := videos.read(ctx)
 	if err != nil {
-		return SystemVideosView{}, false, err
+		return View{}, false, err
 	}
 	folders := videos.parts.Folders.ConnectedSystemFolders(ctx)
 	isPlaced := slices.ContainsFunc(folders, func(folder nodes.SystemFolder) bool {
-		return folder.NodeID == library.nodeID && folder.Path == library.folder
+		return folder.NodeID == system.nodeID && folder.Path == system.folder
 	})
 	if !isPlaced && len(folders) == 0 {
-		return SystemVideosView{}, false, ErrSystemVideosUnavailable
+		return View{}, false, ErrUnavailable
 	}
-	view, err := videos.view(ctx, library)
+	view, err := videos.view(ctx, system)
 	return view, isPlaced, err
 }
 
 // ensure is the system library on a connected node's system folder: made when there is none, and
 // repointed to another node's when its node is gone or its folder moved (D435 §5).
-func (videos *SystemVideos) ensure(ctx context.Context) (systemLibrary, error) {
-	library, err := videos.read(ctx)
+func (videos *Service) ensure(ctx context.Context) (systemLibrary, error) {
+	system, err := videos.read(ctx)
 	if err != nil {
 		return systemLibrary{}, err
 	}
 	folders := videos.parts.Folders.ConnectedSystemFolders(ctx)
 	if slices.ContainsFunc(folders, func(folder nodes.SystemFolder) bool {
-		return folder.NodeID == library.nodeID && folder.Path == library.folder
+		return folder.NodeID == system.nodeID && folder.Path == system.folder
 	}) {
-		return library, nil
+		return system, nil
 	}
 	if len(folders) == 0 {
-		return systemLibrary{}, ErrSystemVideosUnavailable
+		return systemLibrary{}, ErrUnavailable
 	}
-	if err := videos.place(ctx, library, folders[0]); err != nil {
+	if err := videos.place(ctx, system, folders[0]); err != nil {
 		return systemLibrary{}, err
 	}
 	return videos.read(ctx)
@@ -201,50 +198,28 @@ func (videos *SystemVideos) ensure(ctx context.Context) (systemLibrary, error) {
 
 // place puts the system library on folder: made there when there is none, its folder repointed there
 // when it has one live, and added there when it has none (D429; D435 §5).
-func (videos *SystemVideos) place(ctx context.Context, library systemLibrary, folder nodes.SystemFolder) error {
+func (videos *Service) place(ctx context.Context, system systemLibrary, folder nodes.SystemFolder) error {
 	logger := videos.logger()
 	switch {
-	case library.id == 0:
+	case system.id == 0:
 		logger.InfoContext(ctx, "made the system library", "nodeName", folder.NodeName, "folder", folder.Path)
 		return videos.create(ctx, folder)
-	case library.nodeID == 0:
+	case system.nodeID == 0:
 		logger.InfoContext(ctx, "gave the system library a folder", "nodeName", folder.NodeName, "folder", folder.Path)
-		return videos.parts.Admin.AddRoot(ctx, library.id, folder.NodeName, folder.Path)
+		return videos.parts.Admin.AddRoot(ctx, system.id, folder.NodeName, folder.Path)
 	}
 	logger.InfoContext(ctx, "moved the system library to another node's system folder",
-		"nodeName", library.nodeName, "folder", library.folder,
+		"nodeName", system.nodeName, "folder", system.folder,
 		"newNodeName", folder.NodeName, "newFolder", folder.Path)
-	_, err := videos.parts.Admin.Repoint(ctx, FolderMove{
-		NodeName: library.nodeName, Path: library.folder, NewNodeName: folder.NodeName, NewPath: folder.Path,
+	_, err := videos.parts.Admin.Repoint(ctx, library.FolderMove{
+		NodeName: system.nodeName, Path: system.folder, NewNodeName: folder.NodeName, NewPath: folder.Path,
 	}, 0)
 	return err
 }
 
 // create makes the system library over folder, unless another use made one first.
-func (videos *SystemVideos) create(ctx context.Context, folder nodes.SystemFolder) error {
-	err := videos.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		_, err := store.OrNotFound(queries.GetSystemLibrary(ctx))
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, store.ErrNotFound) {
-			return fmt.Errorf("read the system library: %w", err)
-		}
-		id, err := queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
-			Name: systemLibraryName, Kind: LibraryKindOther, MetadataSource: "nfo", ChangeDetection: "manual",
-			CreatedAt: videos.parts.Clock.Now().UnixMilli(),
-		})
-		if err != nil {
-			return fmt.Errorf("create the system library: %w", err)
-		}
-		err = queries.InsertLibraryRoot(ctx, sqlcgen.InsertLibraryRootParams{
-			LibraryID: id, NodeID: folder.NodeID, Path: folder.Path,
-		})
-		if err != nil {
-			return fmt.Errorf("add the system library's folder: %w", err)
-		}
-		return queries.InsertSystemLibrary(ctx, id)
-	})
+func (videos *Service) create(ctx context.Context, folder nodes.SystemFolder) error {
+	err := library.CreateSystemLibrary(ctx, videos.parts.Database, videos.parts.Clock, folder.NodeID, folder.Path)
 	if err != nil {
 		return fmt.Errorf("make the system library: %w", err)
 	}
@@ -252,7 +227,7 @@ func (videos *SystemVideos) create(ctx context.Context, folder nodes.SystemFolde
 }
 
 // read is the system library's row, zero when there is none.
-func (videos *SystemVideos) read(ctx context.Context) (systemLibrary, error) {
+func (videos *Service) read(ctx context.Context) (systemLibrary, error) {
 	row, err := store.OrNotFound(videos.parts.Database.Read().GetSystemLibrary(ctx))
 	if errors.Is(err, store.ErrNotFound) {
 		return systemLibrary{}, nil
@@ -260,24 +235,24 @@ func (videos *SystemVideos) read(ctx context.Context) (systemLibrary, error) {
 	if err != nil {
 		return systemLibrary{}, fmt.Errorf("read the system library: %w", err)
 	}
-	library := systemLibrary{id: row.ID}
+	system := systemLibrary{id: row.ID}
 	if row.NodeID != nil && row.RootPath != nil && row.NodeName != nil {
-		library.nodeID, library.folder, library.nodeName = *row.NodeID, *row.RootPath, *row.NodeName
+		system.nodeID, system.folder, system.nodeName = *row.NodeID, *row.RootPath, *row.NodeName
 	}
-	return library, nil
+	return system, nil
 }
 
 // view is the library's videos, each with its file where a scan found it in the library's folder.
-func (videos *SystemVideos) view(ctx context.Context, library systemLibrary) (SystemVideosView, error) {
+func (videos *Service) view(ctx context.Context, system systemLibrary) (View, error) {
 	found, err := videos.parts.Database.Read().ListSystemVideos(ctx)
 	if err != nil {
-		return SystemVideosView{}, fmt.Errorf("list the system videos: %w", err)
+		return View{}, fmt.Errorf("list the system videos: %w", err)
 	}
-	view := SystemVideosView{NodeName: library.nodeName, Folder: library.folder}
-	for _, video := range SystemVideoList() {
-		state := SystemVideoState{Video: video}
+	view := View{NodeName: system.nodeName, Folder: system.folder}
+	for _, video := range List() {
+		state := State{Video: video}
 		for _, file := range found {
-			if file.NodeID == library.nodeID && file.Path == path.Join(library.folder, video.FileName) &&
+			if file.NodeID == system.nodeID && file.Path == path.Join(system.folder, video.FileName) &&
 				file.FileID != nil {
 				state.FileID, state.SizeBytes = *file.FileID, ptr.ValueOrZero(file.SizeBytes)
 			}
@@ -291,29 +266,29 @@ func (videos *SystemVideos) view(ctx context.Context, library systemLibrary) (Sy
 // it as it must, and gives the make of the system videos (jobs.KindMakeSystemVideos) to that node,
 // which makes them there. With no node connected to hold them, the job ends: the next use asks again
 // (D435 §5).
-func (videos *SystemVideos) HandleMakeSystemVideos(ctx context.Context, job jobs.Job) error {
+func (videos *Service) HandleMakeSystemVideos(ctx context.Context, job jobs.Job) error {
 	var args makeArgs
 	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
 		return jobs.MarkPermanent(fmt.Errorf("a system video make's arguments %q: %w", job.ArgsJSON, err))
 	}
-	library, err := videos.ensure(ctx)
-	if errors.Is(err, ErrSystemVideosUnavailable) {
+	system, err := videos.ensure(ctx)
+	if errors.Is(err, ErrUnavailable) {
 		return jobs.MarkPermanent(err)
 	}
 	if err != nil {
 		return err
 	}
-	return videos.parts.Assigner.Assign(ctx, library.nodeID, job, nodeproto.Command{Work: nodeproto.Work{
+	return videos.parts.Assigner.Assign(ctx, system.nodeID, job, nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandMakeSystemVideos,
 		MakeSystemVideos: &nodeproto.MakeSystemVideos{
-			Videos: SystemVideoList(), IsRebuild: args.IsRebuild,
+			Videos: List(), IsRebuild: args.IsRebuild,
 		},
 	}})
 }
 
 // Assignee is how a make given to a node is resolved: what it made is scanned, as any folder of a
 // library's, so the core finds each file there (D435 §4).
-func (videos *SystemVideos) Assignee(runner nodes.Resolver) nodes.Assignee {
+func (videos *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
 		Answer: func(ctx context.Context, _ jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
@@ -336,7 +311,7 @@ func (videos *SystemVideos) Assignee(runner nodes.Resolver) nodes.Assignee {
 }
 
 // logger is where it logs.
-func (videos *SystemVideos) logger() *slog.Logger {
+func (videos *Service) logger() *slog.Logger {
 	if videos.parts.Logger == nil {
 		return slog.New(slog.DiscardHandler)
 	}

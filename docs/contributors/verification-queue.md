@@ -2744,7 +2744,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   device lab's sound timing page). Passes when: (1) the node's log shows the make ending without a
   failure and `sound-timing.h264-aac.mp4` in its system folder; (2) a second ask, after the scan,
   answers `isReady: true` with a file; (3) the debug view lists the clip with its size, and its rebuild
-  makes it again. (`internal/core/library/systemvideos.go`, `internal/node/systemvideo/`)
+  makes it again. (`internal/core/systemvideos/systemvideos.go`, `internal/node/systemvideo/`)
 - [ ] **VQ275** — the TCL TV plays the system clip from the lab page, and each beep lines up with its
   flash (D435 §6). Only a device shows its sound against its picture. On staging, on the TCL TV in TV
   Bro, open the device lab's sound timing page once VQ274 passes. Passes when the clip plays through

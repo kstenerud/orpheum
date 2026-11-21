@@ -9,7 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 )
 
 // SystemVideoInput asks for one of the server's own videos by what it is (D435 §6).
@@ -114,7 +114,7 @@ func (server *Server) rebuildSystemVideos(ctx context.Context, input *SystemVide
 }
 
 // systemVideoBody is a system video as the API answers it.
-func systemVideoBody(state library.SystemVideoState) SystemVideoBody {
+func systemVideoBody(state systemvideos.State) SystemVideoBody {
 	return SystemVideoBody{
 		Purpose: state.Video.Purpose, Codec: state.Video.Codec, FileName: state.Video.FileName,
 		IsReady: state.FileID != 0, FileID: state.FileID, SizeBytes: state.SizeBytes,
@@ -125,10 +125,10 @@ func systemVideoBody(state library.SystemVideoState) SystemVideoBody {
 // (D435 §5).
 func (server *Server) systemVideoError(ctx context.Context, action string, err error) error {
 	switch {
-	case errors.Is(err, library.ErrSystemVideosUnavailable):
+	case errors.Is(err, systemvideos.ErrUnavailable):
 		return newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the server's own videos are unavailable: no connected node can make or hold them")
-	case errors.Is(err, library.ErrNoSuchSystemVideo):
+	case errors.Is(err, systemvideos.ErrNoSuchVideo):
 		return newError(http.StatusNotFound, CodeNotFound, "no such system video")
 	}
 	return server.libraryError(ctx, action, err)

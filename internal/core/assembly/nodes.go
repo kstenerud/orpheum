@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -47,7 +48,7 @@ type nodeFacts interface {
 	chunks.Encoders
 	waits.Nodes
 	library.Nodes
-	library.SystemFolders
+	systemvideos.Folders
 	api.NodeReports
 	resourceuse.Nodes
 }

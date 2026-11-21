@@ -32,6 +32,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/systemvideos"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/core/waits"
@@ -163,7 +164,7 @@ type Services struct {
 	// repeats finds the intro and credits a season's episodes share by their sound (D101, D115).
 	repeats *repeats.Detector
 	// systemVideos keeps the server's own videos in the hidden system library (D435).
-	systemVideos *library.SystemVideos
+	systemVideos *systemvideos.Service
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
 	// providerServices are each outside host's provider service, which every call to it asks
@@ -212,7 +213,7 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	dependencies := &services.API
 	dependencies.Chooser, dependencies.Refresher = services.chooser, services.refresher
 	dependencies.Libraries = services.libraryAdmin(parts)
-	services.systemVideos = library.NewSystemVideos(library.SystemVideosParts{
+	services.systemVideos = systemvideos.New(systemvideos.Parts{
 		Database: parts.Database, Clock: parts.Clock, Admin: dependencies.Libraries, Folders: services.nodes,
 		Jobs: services.Queue, Assigner: services.Exchanges, Scans: services.Scans, Logger: parts.Logger,
 	})

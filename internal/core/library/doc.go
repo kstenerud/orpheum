@@ -166,7 +166,7 @@
 //     TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead.
 //     The system library's folder alone never waits: its videos are the server's own, and one a
 //     scan finds gone is made again on its next use (D510, D435).
-//     TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain.
+//     TestSystemVideos_AVideoRemovedFromItsFolderIsMadeAgain (internal/core/systemvideos).
 //
 //   - A scan that would remove nothing completes though its root's device or mount changed, and
 //     the new one is recorded (D276).
@@ -515,6 +515,7 @@
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; segments.go: the media segments a probe's chapters name, and a file's as its player
 //     reads them (D82), and a detector's kept (ReplaceDetectedSegments); create.go: libraries;
+//     systemlibrary.go: the hidden system library internal/core/systemvideos makes (D435);
 //     admin.go: what an admin does with them (create over a node's roots, list, scan, the scanner
 //     view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
