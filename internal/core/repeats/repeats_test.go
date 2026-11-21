@@ -1,44 +1,85 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package library
+package repeats
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// repeatsBench is the fingerprint detector over a harness's library, with one series whose seasons
-// a test adds, the jobs its sweep queues and the work it gives.
+// queuedJobs keeps the jobs the sweep queues.
+type queuedJobs struct{ requests []jobs.Request }
+
+func (queued *queuedJobs) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
+	queued.requests = append(queued.requests, job)
+	return true, nil
+}
+
+// sentWork keeps the work given to nodes.
+type sentWork struct{ commands []nodeproto.Command }
+
+func (sent *sentWork) Assign(_ context.Context, _ int64, _ jobs.Job, command nodeproto.Command) error {
+	sent.commands = append(sent.commands, command)
+	return nil
+}
+
+// connectedNodes are the node connections, every node connected.
+type connectedNodes struct{}
+
+func (connectedNodes) NodeConnection(context.Context, int64) (nodes.Connection, time.Time) {
+	return nodes.Connected, time.Time{}
+}
+
+func itoa(value int64) string { return strconv.FormatInt(value, 10) }
+
+// repeatsBench is the fingerprint detector over a database with a node and one library, with one
+// series whose seasons a test adds, the jobs its sweep queues and the work it gives.
 type repeatsBench struct {
-	*harness
-	repeats  *Repeats
-	jobs     *queuedJobs
-	sent     *sentWork
-	seriesID int64
-	episodes map[int64]int64 // each episode's file, by its title
+	t         *testing.T
+	database  *store.Database
+	clock     *clocktest.Fake
+	nodeID    int64
+	libraryID int64
+	rootPath  string // the library's one root, as its node names it
+	repeats   *Detector
+	jobs      *queuedJobs
+	sent      *sentWork
+	seriesID  int64
+	episodes  map[int64]int64 // each episode's file, by its title
 }
 
 func newRepeatsBench(t *testing.T) *repeatsBench {
 	t.Helper()
-	bench := &repeatsBench{harness: newHarness(t), jobs: &queuedJobs{}, sent: &sentWork{}, episodes: map[int64]int64{}}
+	bench := &repeatsBench{
+		t: t, database: storetest.OpenMigrated(t), rootPath: "/media/films",
+		clock: clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
+		jobs:  &queuedJobs{}, sent: &sentWork{}, episodes: map[int64]int64{},
+	}
+	bench.nodeID, bench.libraryID = librarytest.NodeWithLibrary(t, bench.database,
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: bench.rootPath})
 	bench.seriesID = librarytest.Item(t, bench.database,
 		librarytest.ItemSpec{Kind: "series", LibraryID: bench.libraryID})
 	storetest.ExecRaw(t, bench.database.Path(),
 		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', 'scanner')", bench.seriesID),
 		fmt.Sprintf("INSERT INTO ordering (id, sequence_id, name) VALUES (%d, %d, 'aired')", bench.seriesID,
 			bench.seriesID))
-	bench.repeats = NewRepeats(RepeatsParts{
-		Database: bench.database, Jobs: bench.jobs, Assigner: bench.sent, Nodes: &fakeNodes{id: bench.nodeID},
+	bench.repeats = New(Parts{
+		Database: bench.database, Jobs: bench.jobs, Assigner: bench.sent, Nodes: connectedNodes{},
 		Clock: bench.clock, Logger: slog.New(slog.DiscardHandler),
 	})
 	return bench

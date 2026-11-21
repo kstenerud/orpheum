@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package library
+package repeats
 
 import (
 	"cmp"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -56,25 +57,25 @@ const (
 	repeatsFailed = "failed"
 )
 
-// RepeatsParts are what the fingerprint detector is built from.
-type RepeatsParts struct {
+// Parts are what the fingerprint detector is built from.
+type Parts struct {
 	Database *store.Database
-	Jobs     ScanJobs
-	Assigner Assigner
-	Nodes    NodeConnections
+	Jobs     library.ScanJobs
+	Assigner library.Assigner
+	Nodes    library.NodeConnections
 	Clock    clock.Clock
 	Logger   *slog.Logger
 }
 
-// Repeats queues and keeps the fingerprint detector's work: the intro and credits a season's videos
+// Detector queues and keeps the fingerprint detector's work: the intro and credits a season's videos
 // share (D101).
-type Repeats struct {
-	parts RepeatsParts
+type Detector struct {
+	parts Parts
 }
 
-// NewRepeats returns the fingerprint detector.
-func NewRepeats(parts RepeatsParts) *Repeats {
-	return &Repeats{parts: parts}
+// New returns the fingerprint detector.
+func New(parts Parts) *Detector {
+	return &Detector{parts: parts}
 }
 
 // repeatsArgs are a find_repeats job's arguments: the node whose videos of its season, the job's
@@ -149,8 +150,8 @@ func compareBool(one, other bool) int {
 }
 
 // listSeasonVideos lists the season videos, of every season for group 0.
-func (repeats *Repeats) listSeasonVideos(ctx context.Context, groupID int64) ([]sqlcgen.ListSeasonVideosRow, error) {
-	rows, err := repeats.parts.Database.Read().ListSeasonVideos(ctx, sqlcgen.ListSeasonVideosParams{
+func (detector *Detector) listSeasonVideos(ctx context.Context, groupID int64) ([]sqlcgen.ListSeasonVideosRow, error) {
+	rows, err := detector.parts.Database.Read().ListSeasonVideos(ctx, sqlcgen.ListSeasonVideosParams{
 		Version: repeatsMeasurementVersion, GroupID: &groupID,
 	})
 	if err != nil {
@@ -164,8 +165,8 @@ func (repeats *Repeats) listSeasonVideos(ctx context.Context, groupID int64) ([]
 // target, and its arguments name the node; a season's open job takes a second node's request into
 // it, so a season on two nodes is compared on one, then on the other at a sweep after. It says how
 // many it queued.
-func (repeats *Repeats) QueueRepeats(ctx context.Context) (int, error) {
-	rows, err := repeats.listSeasonVideos(ctx, 0)
+func (detector *Detector) QueueRepeats(ctx context.Context) (int, error) {
+	rows, err := detector.listSeasonVideos(ctx, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -179,7 +180,7 @@ func (repeats *Repeats) QueueRepeats(ctx context.Context) (int, error) {
 		if err != nil {
 			return queued, fmt.Errorf("encode season %d's arguments: %w", season.groupID, err)
 		}
-		isQueued, err := repeats.parts.Jobs.Enqueue(ctx, jobs.Request{
+		isQueued, err := detector.parts.Jobs.Enqueue(ctx, jobs.Request{
 			Kind: jobs.KindFindRepeats, Target: jobs.Target{GroupID: season.groupID}, ArgsJSON: string(args),
 			Priority: jobs.PriorityBackground,
 			Reason:   "finds the intro and credits a season's episodes share by their sound (D101)",
@@ -207,12 +208,12 @@ func nodeOfJob(job jobs.Job) (int64, error) {
 
 // seasonOf is the job's season on its node, as it is now; false when none of its videos is there any
 // more, or all were measured since.
-func (repeats *Repeats) seasonOf(ctx context.Context, job jobs.Job) (seasonOnNode, bool, error) {
+func (detector *Detector) seasonOf(ctx context.Context, job jobs.Job) (seasonOnNode, bool, error) {
 	nodeID, err := nodeOfJob(job)
 	if err != nil {
 		return seasonOnNode{}, false, err
 	}
-	rows, err := repeats.listSeasonVideos(ctx, job.GroupID)
+	rows, err := detector.listSeasonVideos(ctx, job.GroupID)
 	if err != nil {
 		return seasonOnNode{}, false, err
 	}
@@ -229,27 +230,27 @@ func (repeats *Repeats) seasonOf(ctx context.Context, job jobs.Job) (seasonOnNod
 // videos fingerprints their opening and closing minutes. A season with no video on its node not yet
 // measured ends the job: the next sweep asks for what is owed then. It parks on its lowest video not
 // measured, as a file's job would.
-func (repeats *Repeats) HandleFindRepeats(ctx context.Context, job jobs.Job) error {
-	season, isOwed, err := repeats.seasonOf(ctx, job)
+func (detector *Detector) HandleFindRepeats(ctx context.Context, job jobs.Job) error {
+	season, isOwed, err := detector.seasonOf(ctx, job)
 	if err != nil || !isOwed {
 		return err
 	}
-	queries := repeats.parts.Database.Read()
+	queries := detector.parts.Database.Read()
 	command := nodeproto.FindRepeats{OpeningMs: repeatsOpening.Milliseconds(), ClosingMs: repeatsClosing.Milliseconds()}
-	var target Located
+	var target library.Located
 	set := season.set()
 	for _, video := range set {
-		file, err := PlayableFile(ctx, queries, video.FileID)
+		file, err := library.PlayableFile(ctx, queries, video.FileID)
 		if err != nil {
 			continue // not readable now: compared when it is
 		}
-		probe, err := ProbeOf(file.ProbeJSON)
+		probe, err := library.ProbeOf(file.ProbeJSON)
 		if err != nil {
 			continue
 		}
 		sound, hasSound := decide.MainAudio(probe)
-		located := LocatedOf(file)
-		named, err := BytesFileOf(ctx, queries, located)
+		located := library.LocatedOf(file)
+		named, err := library.BytesFileOf(ctx, queries, located)
 		if !hasSound || probe.Format.DurationMs <= 0 || err != nil {
 			continue
 		}
@@ -264,17 +265,17 @@ func (repeats *Repeats) HandleFindRepeats(ctx context.Context, job jobs.Job) err
 	if target.Subject == "" || len(command.Videos) < repeatsLeastVideos {
 		return nil
 	}
-	if parked := ParkIfUnavailable(ctx, queries, repeats.parts.Nodes, job, target); parked != nil {
+	if parked := library.ParkIfUnavailable(ctx, queries, detector.parts.Nodes, job, target); parked != nil {
 		return parked
 	}
-	return repeats.parts.Assigner.Assign(ctx, season.nodeID, job, nodeproto.Command{Work: nodeproto.Work{
+	return detector.parts.Assigner.Assign(ctx, season.nodeID, job, nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandFindRepeats, FindRepeats: &command,
 	}})
 }
 
 // Assignee is how a season's comparison given to a node is resolved: what each video shares with the
 // others becomes its intro and credits.
-func (repeats *Repeats) Assignee(runner nodes.Resolver) nodes.Assignee {
+func (detector *Detector) Assignee(runner nodes.Resolver) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
@@ -290,7 +291,7 @@ func (repeats *Repeats) Assignee(runner nodes.Resolver) nodes.Assignee {
 				return nodes.StallOutcome(job, nodes.StallError(attempt.NodeID, about, *answer.Stall),
 					jobs.StalledTwice, nil)
 			}
-			return repeats.keep(ctx, job, attempt.Work.FindRepeats, answer)
+			return detector.keep(ctx, job, attempt.Work.FindRepeats, answer)
 		},
 		Unanswered: func(_ context.Context, job jobs.Job, _ nodes.Attempt, err error) error {
 			return nodes.UnansweredOutcome(job, err, nil)
@@ -302,18 +303,18 @@ func (repeats *Repeats) Assignee(runner nodes.Resolver) nodes.Assignee {
 // segments, an opening's an intro and a closing's the credits, and that its bytes were measured. A
 // video the node did not read is left for the next sweep, and so is one compared with no other; an
 // answer for a video no longer in the season, or whose bytes are not those sent, is not kept.
-func (repeats *Repeats) keep(
+func (detector *Detector) keep(
 	ctx context.Context, job jobs.Job, sent *nodeproto.FindRepeats, answer nodeproto.Repeats,
 ) error {
-	season, err := repeats.seasonVideosByFile(ctx, job)
+	season, err := detector.seasonVideosByFile(ctx, job)
 	if err != nil {
 		return err
 	}
 	sentHashes := sentPayloads(sent)
 	compared := comparedVideos(answer)
-	now := repeats.parts.Clock.Now().UnixMilli()
+	now := detector.parts.Clock.Now().UnixMilli()
 	kept := 0
-	err = repeats.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err = detector.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for _, video := range answer.Videos {
 			row, isInSeason := season[video.FileID]
 			if sentHash, isSent := sentHashes[video.FileID]; !isInSeason ||
@@ -333,7 +334,7 @@ func (repeats *Repeats) keep(
 	if err != nil {
 		return fmt.Errorf("keep the repeats of season group %d: %w", job.GroupID, err)
 	}
-	repeats.parts.Logger.InfoContext(ctx, "compared a season's videos by their sound", slogx.EventKey,
+	detector.parts.Logger.InfoContext(ctx, "compared a season's videos by their sound", slogx.EventKey,
 		"seasonRepeatsFound", "groupId", job.GroupID, "videos", len(answer.Videos), "compared", compared, "kept", kept)
 	return nil
 }
@@ -361,13 +362,13 @@ func comparedVideos(answer nodeproto.Repeats) int {
 }
 
 // seasonVideosByFile are a job's season's videos as they are now, of every node, by file id.
-func (repeats *Repeats) seasonVideosByFile(
+func (detector *Detector) seasonVideosByFile(
 	ctx context.Context, job jobs.Job,
 ) (map[int64]sqlcgen.ListSeasonVideosRow, error) {
 	if _, err := nodeOfJob(job); err != nil {
 		return nil, err
 	}
-	rows, err := repeats.listSeasonVideos(ctx, job.GroupID)
+	rows, err := detector.listSeasonVideos(ctx, job.GroupID)
 	if err != nil {
 		return nil, err
 	}
@@ -400,28 +401,25 @@ func keepVideoRepeats(
 func keepRepeatSegments(
 	ctx context.Context, queries *sqlcgen.Queries, video nodeproto.VideoRepeats, payloadHash []byte, now int64,
 ) error {
-	err := queries.DeleteProviderSegmentsOfFile(ctx, sqlcgen.DeleteProviderSegmentsOfFileParams{
-		FileID: video.FileID, Provider: string(ProviderFingerprint),
-	})
-	if err != nil {
-		return fmt.Errorf("forget file %d's fingerprint segments: %w", video.FileID, err)
-	}
-	outcome := repeatsNone
-	for _, found := range []struct {
+	var found []library.DetectedSegment
+	for _, repeat := range []struct {
 		span        *nodeproto.RepeatedSpan
-		segmentType SegmentType
-	}{{video.Opening, SegmentIntro}, {video.Closing, SegmentCredits}} {
-		confidence, isSpan := repeatConfidence(found.span)
+		segmentType library.SegmentType
+	}{{video.Opening, library.SegmentIntro}, {video.Closing, library.SegmentCredits}} {
+		confidence, isSpan := repeatConfidence(repeat.span)
 		if !isSpan {
 			continue
 		}
-		err := queries.InsertSegment(ctx, sqlcgen.InsertSegmentParams{
-			FileID: video.FileID, Type: string(found.segmentType), StartMs: found.span.StartMs, EndMs: found.span.EndMs,
-			Provider: string(ProviderFingerprint), Confidence: confidence,
+		found = append(found, library.DetectedSegment{
+			Type: repeat.segmentType, StartMs: repeat.span.StartMs, EndMs: repeat.span.EndMs, Confidence: confidence,
 		})
-		if err != nil {
-			return fmt.Errorf("keep file %d's %s: %w", video.FileID, found.segmentType, err)
-		}
+	}
+	err := library.ReplaceDetectedSegments(ctx, queries, video.FileID, library.ProviderFingerprint, found)
+	if err != nil {
+		return err
+	}
+	outcome := repeatsNone
+	if len(found) > 0 {
 		outcome = repeatsFound
 	}
 	return upsertMeasurement(ctx, queries, payloadHash, outcome, nil, now)

@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -160,7 +161,7 @@ type Services struct {
 	// copies confirms the files found at a second place that are copies of one found before (D363 §2).
 	copies *library.Copies
 	// repeats finds the intro and credits a season's episodes share by their sound (D101, D115).
-	repeats *library.Repeats
+	repeats *repeats.Detector
 	// systemVideos keeps the server's own videos in the hidden system library (D435).
 	systemVideos *library.SystemVideos
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).

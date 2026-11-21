@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/problemreport"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/waits"
@@ -91,7 +92,7 @@ func (services *Services) openNodeWork(parts Parts) {
 		parts.Database, services.Scans, parts.Settings, parts.Clock, parts.Logger)
 	services.nodes.SetChanges(services.scanSchedule)
 	services.copies = openCopies(services, parts)
-	services.repeats = library.NewRepeats(library.RepeatsParts{
+	services.repeats = repeats.New(repeats.Parts{
 		Database: parts.Database, Jobs: services.Queue, Assigner: services.Exchanges, Nodes: services.nodes,
 		Clock: parts.Clock, Logger: parts.Logger,
 	})

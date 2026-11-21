@@ -251,21 +251,9 @@
 //     TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces,
 //     TestPlayback_CarriesTheSegmentsOfTheFileItPlays (internal/core/api).
 //
-//   - The fingerprint detector's sweep queues a find_repeats job for each season of an aired
-//     ordering, on a node, of two episodes or more, with a video whose bytes are not measured at
-//     the measurement version, aimed at the season (its group) and naming the node in its
-//     arguments, so the job is the season's and one is open for a season at a time; a season on
-//     two nodes is compared on one, then the other. It parks on the lowest such video and names
-//     one video of each episode, at most repeatsVideosPerJob, a video whose sound failed left out.
-//     A node's spans become the opening's intro and the closing's credits, provider
-//     fingerprint, as sure as the share of the videos
-//     compared they are heard in, replacing only the fingerprint's earlier rows; a failure is kept
-//     as the bytes' measurement, a refusal is not, and an answer for a video no longer in the season
-//     is not kept (D101, D115). TestQueueRepeats_QueuesEachSeasonNotMeasuredOnce,
-//     TestRepeats_SpansBecomeIntroAndCreditsWithTheirConfidence,
-//     TestRepeats_APersonsSegmentSurvivesAFingerprintAgain,
-//     TestRepeats_AFailedVideoIsNotAskedAgainAndARefusedOneIs,
-//     TestRepeats_AnswersForAVideoGoneFromTheSeasonAreIgnored.
+//   - What a detector finds of a file is kept through ReplaceDetectedSegments, which replaces only
+//     that provider's rows: the fingerprint detector's sweep, jobs and spans are internal/core/repeats'
+//     (D101, D115). TestRepeats_APersonsSegmentSurvivesAFingerprintAgain (internal/core/repeats).
 //
 //   - A subtitle file keeps its payload hash and, while it belongs to a video, is one track of it,
 //     with the language and flags its name gives after the video's name; its row keeps its id
@@ -526,10 +514,9 @@
 //     node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; segments.go: the media segments a probe's chapters name, and a file's as its player
-//     reads them (D82); repeats.go: the fingerprint detector's seasons, their jobs and
-//     what their nodes hear repeated (D101); create.go: libraries; admin.go: what an admin does with
-//     them (create over a node's
-//     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
+//     reads them (D82), and a detector's kept (ReplaceDetectedSegments); create.go: libraries;
+//     admin.go: what an admin does with them (create over a node's roots, list, scan, the scanner
+//     view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
 //     lists.go, lists_other.go, lists_released.go: each list's reads, either way (D366);
 //     watched.go: whether a person watched titles, a mark's fresh start, and what they may mark by

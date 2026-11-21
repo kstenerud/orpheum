@@ -28,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -473,7 +474,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		rescans:    identify.NewRescans(world.matcher, world.queue, nil),
 		invariants: world.database, removedFiles: library.NewFilePurger(world.database), settings: world.config,
 		clock: world.clock,
-		repeats: library.NewRepeats(library.RepeatsParts{
+		repeats: repeats.New(repeats.Parts{
 			Database: world.database, Jobs: world.queue, Clock: world.clock, Logger: slog.New(slog.DiscardHandler),
 		}),
 	}

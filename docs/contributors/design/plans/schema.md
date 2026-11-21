@@ -1521,7 +1521,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
 | `media_segment` | persistent.db | `internal/core/library` | a file's typed ranges, its chapters' found at each probe kept; a person's are theirs (D82) |
-| `repeat_measurement` | persistent.db | `internal/core/library` | each video's bytes compared with its season's others, kept when the node answers (D101) |
+| `repeat_measurement` | persistent.db | `internal/core/repeats` | each video's bytes compared with its season's others, kept when the node answers (D101) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
 | `genre` | persistent.db | `internal/core/identify` | the pass, as a source first names each (step 0067) |
 | `grant` | persistent.db | `internal/core/auth` | |

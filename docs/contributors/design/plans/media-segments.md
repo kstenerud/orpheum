@@ -19,7 +19,7 @@
   season's videos' opening and closing with chromaprint after a stereo mix (D115) and answers the
   stretch the others share in each (`internal/node/fingerprint`). Built for the core (Phase D,
   2026-11-21, as proposed; the owner has not answered b1.md's questions): the `find_repeats` job
-  (`internal/core/library/repeats.go`), which a sweep after each identification pass and hourly
+  (`internal/core/repeats/repeats.go`), which a sweep after each identification pass and hourly
   queues for each season of an aired ordering, on each node, with a video not measured yet: one
   video of each episode, at most 30, the opening 10 min and the closing 6 min; the node's spans
   become `intro` and `credits`, provider `fingerprint`, confidence the share of the videos compared

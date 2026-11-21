@@ -38,7 +38,8 @@ type SegmentProvider string
 const (
 	// ProviderChapters found it as a chapter of the file whose title names it.
 	ProviderChapters SegmentProvider = "chapters"
-	// ProviderFingerprint is audio found repeated across a season's episodes (D115), kept by Repeats.
+	// ProviderFingerprint is audio found repeated across a season's episodes (D115), kept by
+	// internal/core/repeats.
 	ProviderFingerprint SegmentProvider = "fingerprint"
 	// ProviderPerson is a person's correction, which beats every detector and survives re-detection.
 	ProviderPerson SegmentProvider = "person"
@@ -111,6 +112,39 @@ func (batch *ingestBatch) syncChapterSegments(ctx context.Context, fileID int64,
 	}
 	if err != nil {
 		return fmt.Errorf("keep the chapter segments of file %d: %w", fileID, err)
+	}
+	return nil
+}
+
+// DetectedSegment is one range a detector found of a file, and how sure it is.
+type DetectedSegment struct {
+	Type       SegmentType
+	StartMs    int64
+	EndMs      int64
+	Confidence float64
+}
+
+// ReplaceDetectedSegments makes a file's segments of one detector's, provider, those found, in the
+// caller's transaction: the provider's earlier rows go, and no other provider's row is touched, a
+// person's above all. It is how a detector outside this package keeps what it found
+// (internal/core/repeats' fingerprint), for this package alone writes media_segment.
+func ReplaceDetectedSegments(
+	ctx context.Context, queries *sqlcgen.Queries, fileID int64, provider SegmentProvider, found []DetectedSegment,
+) error {
+	err := queries.DeleteProviderSegmentsOfFile(ctx, sqlcgen.DeleteProviderSegmentsOfFileParams{
+		FileID: fileID, Provider: string(provider),
+	})
+	if err != nil {
+		return fmt.Errorf("forget file %d's %s segments: %w", fileID, provider, err)
+	}
+	for _, segment := range found {
+		err := queries.InsertSegment(ctx, sqlcgen.InsertSegmentParams{
+			FileID: fileID, Type: string(segment.Type), StartMs: segment.StartMs, EndMs: segment.EndMs,
+			Provider: string(provider), Confidence: segment.Confidence,
+		})
+		if err != nil {
+			return fmt.Errorf("keep file %d's %s: %w", fileID, segment.Type, err)
+		}
 	}
 	return nil
 }
