@@ -43,8 +43,8 @@ pictures are not made yet shows the time alone, as today.
 - **In sheets of 10 × 10:** a sheet holds 100 pictures, 16 min 40 s of film; a two-hour film is
   eight sheets. One request fetches a hundred pictures, and a sheet is the unit made, stored and
   served.
-- **WebP**, our own encoder's (D212), at a quality the measure of phase F0 picks (about 60):
-  about 5 kB a picture, so about 3.6 MB for a two-hour film and about 6 GB for the reference
+- **WebP**, our own encoder's (D212), at quality 60, which phase F0 measured (§2):
+  1 to 3 kB a picture, so about 1.5 MB for a two-hour film and about 2.5 GB for the reference
   library. Rebuildable, so in the cache and not backed up.
 
 ## 2. The cost: keyframes, not every frame
@@ -60,6 +60,24 @@ offers the same as a setting ("keyframes only") for the same reason. **Phase F0 
 staging's library before anything else is built: ×realtime on the NUC7 and on ainas's Celeron,
 software decoding, for H.264, HEVC and an MPEG-2 disc rip, against the full decode, and how far
 off the pictures are.
+
+**Measured 2026-11-21** on staging's NUC7 (i5-7260U), in the node container with the pinned
+FFmpeg, one thread, at `nice 19`, ten minutes of film from ten minutes in, a picture every 10 s at
+320 px, WebP at quality 60:
+
+| Video | Every frame | Keyframes alone | Keyframe gap, mean and longest | A picture |
+| --- | --- | --- | --- | --- |
+| H.264 1080p | 5× realtime | **169×** (34 times faster) | 3.5 s, 5.0 s | 2 kB |
+| HEVC 1920 × 800 | 4× | **118×** (29 times faster) | 2.5 s, 15.3 s | 3 kB |
+| HEVC 1920 × 800, another file | — | **273×** | 7.5 s, 41.7 s | 1 kB |
+
+So the reference library's 3,167 hours take about **a day of one core** from keyframes, against
+about a month from every frame on this machine (D114's 9.2 days were on a faster one). A picture
+is 1 to 3 kB: about 1.5 MB for a two-hour film and about 2.5 GB for
+the reference library. Keyframe gaps of 15 s and 42 s occur, so some marks show the same picture
+as the one before. Not measured yet: an MPEG-2 file (none in staging's library), and ainas's
+Celeron J3455, which serves production and was left alone; it is likely two or three times
+slower, a few days for the reference library.
 
 A file whose keyframes are farther apart than the interval (a few encoders put one every 20 s or
 more) gets one picture per keyframe, each mark showing the nearest; one with almost none falls
@@ -125,7 +143,7 @@ Each phase ends green, with tests that fail when reverted (D190).
 
 | Phase | What | Done when |
 | --- | --- | --- |
-| F0 | **Measure:** keyframes-only against a full decode, on the NUC7 and ainas, three codecs; the WebP quality at 320 px | The numbers are in this file and question 1 is answered |
+| F0 | **Measure** (done 2026-11-21 on the NUC7, §2; ainas and MPEG-2 left): keyframes-only against a full decode, on the NUC7 and ainas, three codecs; the WebP quality at 320 px | The numbers are in this file and question 1 is answered |
 | F1 | **The node:** `makeTrickplay`, `SCHED_IDLE` through `execx`, one slot, sheets as pieces | A generated fixture's sheets have each picture at its mark within one keyframe gap; a run stopped mid-film resumes at the next sheet; the run's scheduling class is idle (Linux) |
 | F2 | **The core:** the job, the sweep, the table, interest's raise, the store and its eviction, forgetting | A swept library queues every video once; a page shown raises its film's job; FFmpeg's failure is not asked again |
 | F3 | **The API and the scrub bar** | Hovering, dragging and arrow keys show the right picture of a made film; an unmade film shows the time alone (vitest and a Playwright run) |
@@ -145,8 +163,8 @@ Each phase ends green, with tests that fail when reverted (D190).
 ## The owner's questions
 
 1. **Keyframe pictures, or exact marks?** Pictures from keyframes, up to one keyframe gap early,
-   are expected to be tens of times cheaper; exact 10 s marks cost a full decode, the 9.2 days of
-   D114. *Recommendation:* keyframes, confirmed by phase F0's numbers before F1 is built.
+   measured 29 to 34 times cheaper (§2); exact 10 s marks cost a full decode, about a month of one
+   core for the reference library on the NUC7. *Recommendation:* keyframes.
 2. **Their place in the cache's eviction order (D212 §6):** remaking a film's pictures costs a read
    of the whole film, far more than cutting an image size again. *Recommendation:* evicted after
    every image size that can be cut again from its base, least recently served first, before a
