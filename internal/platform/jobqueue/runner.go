@@ -205,7 +205,9 @@ func (runner *Runner[T]) claim(ctx context.Context) (claimedRow[T], bool, error)
 		}
 		claimed.probesOf = append(claimed.probesOf, storage)
 	}
-	row, found, err := queue.storage.Claim(ctx, Claim{Kind: runner.kind, Now: now, Unclaimable: queue.unclaimable(now)})
+	row, found, err := queue.storage.Claim(ctx, Claim{
+		Kind: runner.kind, Now: now, Unclaimable: queue.unclaimable(now), ProbedLast: queue.probedLast(),
+	})
 	if err != nil && queue.isStorageFailure(err) {
 		queue.Park(ctx, Parking{
 			Destination: storage, Reason: storageReason(err), IsProbeFailure: len(claimed.probesOf) > 0,
@@ -283,7 +285,7 @@ func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed cla
 		}
 		runner.queue.logger.WarnContext(ctx, "a job reached its attempt limit when claimed", "kind", job.Kind,
 			"target", job.Target, "attemptLimit", attemptLimit)
-		runner.endProbes(ctx, claimed.probesOf, nil)
+		runner.endProbes(ctx, job.ID, claimed.probesOf, nil)
 		runner.recordItemsFailure(ctx, job, refusal)
 		err := runner.record(ctx, Outcome{
 			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber - 1,
@@ -295,7 +297,7 @@ func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed cla
 	isCancelled, answer := runner.handle(ctx, job, claimed)
 	if isCancelled {
 		// Cancelled: it stays so whatever it answered, and a cancel is no failure of its item.
-		runner.endProbes(ctx, claimed.probesOf, answer)
+		runner.endProbes(ctx, job.ID, claimed.probesOf, answer)
 		return runner.record(ctx, Outcome{
 			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber,
 			LastFailure: errorText(answer),
@@ -304,15 +306,57 @@ func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed cla
 	if runner.queue.isStorageFailure(answer) {
 		answer = Park(Parking{Destination: runner.queue.storageDestination, Reason: storageReason(answer)}, answer)
 	}
-	runner.endProbes(ctx, claimed.probesOf, answer)
+	runner.endProbes(ctx, job.ID, claimed.probesOf, answer)
 	return runner.finish(ctx, job, claimed, answer)
+}
+
+// park keeps a job whose answer parked its destination with it, at no cost of an attempt, unless
+// the job has failed alone: its destination's last probes, or one another job's probe showed its
+// own (D531 §2, §3).
+func (runner *Runner[T]) park(
+	ctx context.Context, job Job[T], claimed claimedRow[T], parking Parking, answer error,
+) error {
+	if runner.queue.hasFailedAlone(job.ID) {
+		return runner.takeAsTheJobsFailure(ctx, job, parking, answer,
+			"another job found the destination up after this one's probe failed")
+	}
+	parking.IsProbeFailure = slices.Contains(claimed.probesOf, parking.Destination)
+	if parking.IsProbeFailure &&
+		runner.queue.probeFailedBy(parking.Destination, job.ID) >= ProbeFailuresThatAreTheJobs {
+		return runner.takeAsTheJobsFailure(ctx, job, parking, answer,
+			fmt.Sprintf("it failed %d of the destination's probes in a row", ProbeFailuresThatAreTheJobs))
+	}
+	runner.queue.Park(ctx, parking)
+	// A tool that failed in a way that parks the job, as a stall on a disk parks it on its root, is
+	// still a tool failure: the next attempt knows it.
+	_, isToolFailure := errors.AsType[*toolError](answer) //nolint:errcheck // AsType's second value is a bool
+	return runner.wait(ctx, job, Outcome{
+		At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber - 1, ToolFailed: isToolFailure,
+		Destination: cmp.Or(parking.Destination, claimed.row.Destination),
+	}, answer)
+}
+
+// takeAsTheJobsFailure takes the failure of a job that failed alone (park) as the job's own
+// (D531 §2, §3): the destination is up, and the job spends an attempt and waits its back-off, as
+// any failure of its own does.
+func (runner *Runner[T]) takeAsTheJobsFailure(
+	ctx context.Context, job Job[T], parking Parking, answer error, why string,
+) error {
+	runner.queue.logger.WarnContext(ctx, "a job's failure parks its destination no more; it is taken as the job's",
+		"destination", parking.Destination, "kind", job.Kind, "target", job.Target, "why", why, "err", answer)
+	runner.queue.Unpark(ctx, parking.Destination)
+	firstRetryDelay, err := runner.queue.policy.FirstRetryDelay(ctx)
+	if err != nil {
+		return fmt.Errorf("read the first retry delay: %w", err)
+	}
+	return runner.retryOrFail(ctx, job, parking.Destination, errors.Unwrap(answer), firstRetryDelay)
 }
 
 // endProbes says what a probe's answer found of each destination it probed: the destination
 // failing again backs its next probe off (Park, from finish); the tool failing says nothing,
 // and it is probed again at the same step; any other answer is the destination answering, and
 // it is unparked.
-func (runner *Runner[T]) endProbes(ctx context.Context, probesOf []Destination, answer error) {
+func (runner *Runner[T]) endProbes(ctx context.Context, job int64, probesOf []Destination, answer error) {
 	parking, isParked := ParkingOf(answer)
 	var toolFailure *toolError
 	isToolFailure := errors.As(answer, &toolFailure)
@@ -322,6 +366,7 @@ func (runner *Runner[T]) endProbes(ctx context.Context, probesOf []Destination, 
 		case isToolFailure:
 			runner.queue.endProbeUnanswered(ctx, destination)
 		default:
+			runner.queue.probeFoundUp(destination, job)
 			runner.queue.Unpark(ctx, destination)
 		}
 	}
@@ -364,6 +409,7 @@ func errorText(answer error) string {
 func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimedRow[T], answer error) error {
 	now, destination := runner.queue.clock.Now(), claimed.row.Destination
 	if answer == nil {
+		runner.queue.succeeded(job.ID)
 		err := runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
 		if unknownFailures := runner.queue.unknownFailuresTold(); err == nil && unknownFailures != nil {
 			unknownFailures.Done(ctx, job)
@@ -381,15 +427,7 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 	}
 	given := job.AttemptNumber - 1 // the attempt's count, given back
 	if parking, isParked := ParkingOf(answer); isParked {
-		parking.IsProbeFailure = slices.Contains(claimed.probesOf, parking.Destination)
-		runner.queue.Park(ctx, parking)
-		// A tool that failed in a way that parks the job, as a stall on a disk parks it on its root, is
-		// still a tool failure: the next attempt knows it.
-		_, isToolFailure := errors.AsType[*toolError](answer) //nolint:errcheck // AsType's second value is a bool
-		return runner.wait(ctx, job, Outcome{
-			At: now, AttemptCount: given, ToolFailed: isToolFailure,
-			Destination: cmp.Or(parking.Destination, destination),
-		}, answer)
+		return runner.park(ctx, job, claimed, parking, answer)
 	}
 	//nolint:errcheck // AsType's second value is a bool
 	if _, isBumped := errors.AsType[*bumped](answer); isBumped {

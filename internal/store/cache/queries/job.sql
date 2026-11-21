@@ -40,13 +40,15 @@ WHERE id = sqlc.arg(id) AND state = 'queued';
 
 -- name: NextQueuedJob :one
 -- The highest-priority queued job of a kind whose time has come and whose destination is not
--- parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names); the
+-- parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names), and
+-- that is not passed over (D531 section 1; passed_over_json is a JSON array of job ids); the
 -- earliest, then the oldest, among equals.
 SELECT id
 FROM job
 WHERE state = 'queued' AND kind = sqlc.arg(kind) AND runnable_at <= sqlc.arg(now)
   AND (destination IS NULL
        OR destination NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(unclaimable_json) AS TEXT))))
+  AND id NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(passed_over_json) AS TEXT)))
 ORDER BY priority DESC, runnable_at, id
 LIMIT 1;
 

@@ -179,16 +179,9 @@ func (memory *Memory[T]) Claim(_ context.Context, claim jobqueue.Claim) (jobqueu
 	if memory.writeFailure != nil {
 		return jobqueue.Row[T]{}, false, memory.writeFailure
 	}
-	var next *jobqueue.Row[T]
-	for index := range memory.rows {
-		row := &memory.rows[index]
-		if row.Kind != claim.Kind || row.State != jobqueue.StateQueued || row.RunnableAt.After(claim.Now) ||
-			slices.Contains(claim.Unclaimable, row.Destination) {
-			continue
-		}
-		if next == nil || claimsFirst(*row, *next) {
-			next = row
-		}
+	next := memory.nextDue(claim, claim.ProbedLast)
+	if next == nil {
+		next = memory.nextDue(claim, nil) // only a job passed over is due
 	}
 	if next == nil {
 		return jobqueue.Row[T]{}, false, nil
@@ -196,6 +189,23 @@ func (memory *Memory[T]) Claim(_ context.Context, claim jobqueue.Claim) (jobqueu
 	next.State = jobqueue.StateRunning
 	next.AttemptCount++
 	return *next, true, nil
+}
+
+// nextDue is the claim's next due job but those passed over; nil if there is none. The caller
+// holds the mutex.
+func (memory *Memory[T]) nextDue(claim jobqueue.Claim, passedOver []int64) *jobqueue.Row[T] {
+	var next *jobqueue.Row[T]
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.Kind != claim.Kind || row.State != jobqueue.StateQueued || row.RunnableAt.After(claim.Now) ||
+			slices.Contains(claim.Unclaimable, row.Destination) || slices.Contains(passedOver, row.ID) {
+			continue
+		}
+		if next == nil || claimsFirst(*row, *next) {
+			next = row
+		}
+	}
+	return next
 }
 
 // claimsFirst is whether a is claimed before b: the higher priority, then the earlier

@@ -150,6 +150,10 @@ type Claim struct {
 	// Unclaimable are the parked destinations whose probe is not due (D231 §6): a job kept with
 	// one of them is passed over, and spends nothing while it waits.
 	Unclaimable []Destination
+	// ProbedLast are the jobs whose probe of their parked destination failed last: each is passed
+	// over while any other job is due, so the next probe asks something else of the destination
+	// (D531 §1), and claimed when none is.
+	ProbedLast []int64
 }
 
 // Outcome is a claimed job's end, or its return to the queue.

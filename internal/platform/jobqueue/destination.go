@@ -77,13 +77,30 @@ type parkedDestination struct {
 	probeStep int64
 	// isBackPressure is a destination parked for want of room, not for a failure (Parking).
 	isBackPressure bool
+	// lastProber is the job whose probe failed last, and proberFailures how many of the
+	// destination's probes in a row it failed (D531).
+	lastProber     int64
+	proberFailures int
+	// isPersonsLook is a probe a person asked for (ProbeNow) not yet begun, and isProbePersons
+	// that the probe running is one: its failure passes no job over (D531 §1).
+	isPersonsLook  bool
+	isProbePersons bool
 }
+
+// ProbeFailuresThatAreTheJobs is how many of its destination's probes in a row one job fails,
+// with no other job to probe it, before its failure is taken as its own and the destination as up
+// (D531 §2): a request the host answers wrongly every time, which no other request is asked.
+const ProbeFailuresThatAreTheJobs = 3
 
 // destinations are the parked destinations, held in memory: after a restart, the first job for
 // each probes it again (D231 §6).
 type destinations struct {
 	mutex    sync.Mutex
 	parkedBy map[Destination]*parkedDestination // guarded by mutex
+	// failedAlone are the jobs whose failed probe another job's probe showed their own, by
+	// finding the destination up (D531 §3): their answers park nothing again. Guarded by mutex;
+	// a job leaves it when it succeeds, and the set ends with the program.
+	failedAlone map[int64]bool
 }
 
 // probeContextKey carries, in a handler's context, the destination its job is the probe of.
@@ -207,6 +224,7 @@ func (queue *Queue[T]) ProbeNow(destination Destination) {
 	isDue := isParked && !parked.state.AwaitsSignal
 	if isDue {
 		parked.state.NextProbeAt = queue.clock.Now()
+		parked.isPersonsLook = true
 	}
 	queue.destinations.mutex.Unlock()
 	if isDue {
@@ -278,6 +296,7 @@ func (queue *Queue[T]) beginProbe(destination Destination, now time.Time) bool {
 		return false
 	}
 	parked.state.IsProbing = true
+	parked.isProbePersons, parked.isPersonsLook = parked.isPersonsLook, false
 	return true
 }
 
@@ -292,6 +311,63 @@ func (queue *Queue[T]) endProbeUnanswered(ctx context.Context, destination Desti
 	}
 	parked.state.IsProbing = false
 	parked.state.NextProbeAt = queue.clock.Now().Add(queue.jittered(ctx, queue.probeDelay(ctx, parked.probeStep)))
+}
+
+// probeFailedBy notes that job's probe of destination failed, and says how many of its probes in
+// a row that job has failed (D531 §2). A different job's failure starts the count again; a look a
+// person asked for counts nothing, being the person's and not the back-off's (D531 §1).
+func (queue *Queue[T]) probeFailedBy(destination Destination, job int64) int {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	parked, isParked := queue.destinations.parkedBy[destination]
+	if !isParked || parked.isProbePersons {
+		return 0
+	}
+	if parked.lastProber != job {
+		parked.lastProber, parked.proberFailures = job, 0
+	}
+	parked.proberFailures++
+	return parked.proberFailures
+}
+
+// probeFoundUp notes that job's probe found destination up: a different job whose probe of it
+// failed last failed alone (D531 §3).
+func (queue *Queue[T]) probeFoundUp(destination Destination, job int64) {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	parked, isParked := queue.destinations.parkedBy[destination]
+	if isParked && parked.lastProber != 0 && parked.lastProber != job {
+		queue.destinations.failedAlone[parked.lastProber] = true
+	}
+}
+
+// hasFailedAlone is whether another job's probe showed job's failure its own (D531 §3).
+func (queue *Queue[T]) hasFailedAlone(job int64) bool {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	return queue.destinations.failedAlone[job]
+}
+
+// succeeded forgets that a job failed alone, once it succeeds.
+func (queue *Queue[T]) succeeded(job int64) {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	delete(queue.destinations.failedAlone, job)
+}
+
+// probedLast are the jobs whose probe of a parked destination failed last, for a claim to pass
+// over while another is due (D531 §1).
+func (queue *Queue[T]) probedLast() []int64 {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	var jobs []int64
+	for _, parked := range queue.destinations.parkedBy {
+		if parked.lastProber != 0 {
+			jobs = append(jobs, parked.lastProber)
+		}
+	}
+	slices.Sort(jobs)
+	return jobs
 }
 
 // isParked is whether a destination is parked.

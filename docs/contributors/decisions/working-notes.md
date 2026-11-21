@@ -17272,6 +17272,10 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
    person's synchronous call to a parked host always tries and counts as the probe. When a
    destination returns, its work resumes in priority order. Parked state is in memory: after a
    restart, the first job probes again.
+
+   > **Amended 2026-11-21 by [D531](#d531--a-failed-probe-hands-the-next-to-another-job-and-a-job-that-fails-every-probe-alone-fails-on-its-own).**
+   > After a probe fails, the next is another job of the destination's if one is due, and a job
+   > that fails three probes in a row with no other to try has its failure taken as its own.
 7. **Retiring.** A root, a node and a library each have a retire action (a library's is delete),
    which tombstones their files, keeping history on the Title (D173), and cancels their work. A
    deleted library's Titles are tombstoned, hidden with their history, so a film that reappears
@@ -30508,3 +30512,44 @@ space recovery from eviction, and LRU."* It amends
 
 **Status:** decided (2026-11-21); not built. Artwork's ceiling (`internal/core/artwork`,
 ceiling.go) changes with trickplay.md phase F2, when the pictures join the cache.
+
+## D531 — A failed probe hands the next to another job, and a job that fails every probe alone fails on its own
+
+**Decided** (2026-11-21), by the project owner (*"Yes, (a) and (b)"*), after production stopped
+fetching posters: TMDB's CDN answered an image with no type, the fetcher took that for the host
+down (fixed the same day: idiosyncrasies.md, "TMDB's CDN"), and the same job, the highest due, was
+the image host's probe on every back-off for hours, so nothing else for the host ran. **Amends**
+[D231](#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work)
+§6, whose probe was always the highest-priority job due.
+
+1. **After a probe fails, the next probe is another job.** The job whose probe failed last is
+   passed over while any other job for a parked destination is due, at any priority, and taken
+   only when none is. So one request a host answers wrongly holds up nothing else: the next probe
+   asks something else of it, and finds it up. A look a person asked for (D231 §6's "probes at
+   once") is the person's, not the back-off's: its failure passes no job over, so the person's
+   request is still the first asked when the host returns (S70).
+2. **A job that fails three probes in a row, with no other to try, fails on its own.** The
+   destination is taken as up and logged at WARN; the job spends an attempt and waits its back-off
+   as any failure of its own does, and ends as failed at the attempt limit. A host truly down
+   with only one job waiting is asked again after that job's back-off, as it would be after its
+   probe's.
+3. **A job whose failed probe another job's probe answered fails on its own from then on.**
+   *Found building it, the agent's, for the owner to confirm:* by §1 alone, the host back, the bad
+   job is still the highest and runs first, and parks the host again, so the rest would pass one a
+   back-off. So when a probe finds the destination up just after another job's probe of it failed,
+   that job's failure is shown to be its own: its answers park nothing again until it succeeds, and
+   each spends an attempt and waits its back-off, to the attempt limit. This is held in memory, as
+   parked state is.
+4. **What does not change:** a probe still costs nothing until the third, the back-off is still
+   30 s towards an hour, and when a probe finds the destination its work resumes in priority order.
+
+**Proven by:** `TestRunDue_AfterAFailedProbeAnotherJobProbesSoOneBadRequestHoldsNothingUp`,
+`TestRunDue_AJobFailingEveryProbeAloneHasItsFailureTakenAsItsOwnAndTheHostIsUp`,
+`TestRunDue_AJobAnotherProbeShowedFailingAloneParksNothingAgainSoEveryOtherJobRuns`,
+`TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`
+(`internal/core/assembly`) and
+`TestRunDue_OneProbeOnABackoffFrom30sToAnHourAFailedOneCostingNothingThenAllResumeByPriority`
+(`internal/platform/jobqueue`), and `TestJobStorage_AClaimTakesAJobProbedLastOnlyWhenNoOtherIsDue`
+(`internal/store`).
+
+**Status:** decided (2026-11-21).

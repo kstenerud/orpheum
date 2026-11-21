@@ -153,8 +153,10 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 		storage: storage, clock: clockSource, policy: config.Policy, random: config.Random, logger: config.Logger,
 		argsMerges: config.ArgsMerges, probes: config.Probes, personsRequestPriority: config.PersonsRequestPriority,
 		storageDestination: config.StorageDestination, isStorageFailure: orNever(config.IsStorageFailure),
-		isPassingFailure:     orNever(config.IsPassingFailure),
-		destinations:         destinations{parkedBy: map[Destination]*parkedDestination{}},
+		isPassingFailure: orNever(config.IsPassingFailure),
+		destinations: destinations{
+			parkedBy: map[Destination]*parkedDestination{}, failedAlone: map[int64]bool{},
+		},
 		sweeps:               sweeps{wake: make(chan struct{}, 1)},
 		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
 	}

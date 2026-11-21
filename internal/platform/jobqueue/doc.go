@@ -49,6 +49,14 @@
 //     TestRunDue_AProbeGoesAtTheTimeTheDestinationNamed. A failure that is not the probe's
 //     changes nothing of how a parked destination comes back, but for a later time it names.
 //     TestPark_AFailureThatIsNotTheProbeChangesNothingOfHowAParkedDestinationComesBack.
+//   - After a probe fails, the next is another job of the destination's if one is due, at any
+//     priority, but for a look a person asked for; a job that fails ProbeFailuresThatAreTheJobs
+//     probes in a row with no other to try, or whose failed probe another job's answered, has its
+//     failures taken as its own, and the destination as up (D531).
+//     TestRunDue_AfterAFailedProbeAnotherJobProbesSoOneBadRequestHoldsNothingUp,
+//     TestRunDue_AJobFailingEveryProbeAloneHasItsFailureTakenAsItsOwnAndTheHostIsUp,
+//     TestRunDue_AJobAnotherProbeShowedFailingAloneParksNothingAgainSoEveryOtherJobRuns,
+//     TestJobStorage_AClaimTakesAJobProbedLastOnlyWhenNoOtherIsDue (store).
 //   - A person's request for a job whose destination is parked probes it at once; a destination
 //     only a signal brings back is never probed, and resumes when unparked.
 //     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce,

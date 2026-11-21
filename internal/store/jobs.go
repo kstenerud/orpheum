@@ -273,24 +273,42 @@ func (jobStorage *JobStorage) PruneFinished(ctx context.Context, before time.Tim
 }
 
 // Claim marks the next due job of the claim's kind running, counts its attempt, and returns it.
+// A job the claim passes over (Claim.ProbedLast) is taken only when no other is due (D531 §1).
 func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (jobqueue.Row[JobTarget], bool, error) {
-	var claimed jobqueue.Row[JobTarget]
-	found := false
 	unclaimable, err := json.Marshal(append([]jobqueue.Destination{}, claim.Unclaimable...))
 	if err != nil {
-		return claimed, false, fmt.Errorf("claim: encode the parked destinations: %w", err)
+		return jobqueue.Row[JobTarget]{}, false, fmt.Errorf("claim: encode the parked destinations: %w", err)
+	}
+	passedOver, err := json.Marshal(append([]int64{}, claim.ProbedLast...))
+	if err != nil {
+		return jobqueue.Row[JobTarget]{}, false, fmt.Errorf("claim: encode the jobs passed over: %w", err)
 	}
 	next := cachegen.NextQueuedJobParams{
 		Kind: string(claim.Kind), Now: claim.Now.UnixMilli(), UnclaimableJSON: string(unclaimable),
+		PassedOverJSON: string(passedOver),
 	}
+	claimed, found, err := jobStorage.claimNext(ctx, claim.Kind, next)
+	if err != nil || found || len(claim.ProbedLast) == 0 {
+		return claimed, found, err
+	}
+	next.PassedOverJSON = "[]" // only a job passed over is due
+	return jobStorage.claimNext(ctx, claim.Kind, next)
+}
+
+// claimNext marks the job the query names running, counts its attempt, and returns it.
+func (jobStorage *JobStorage) claimNext(
+	ctx context.Context, kind jobqueue.Kind, next cachegen.NextQueuedJobParams,
+) (jobqueue.Row[JobTarget], bool, error) {
+	var claimed jobqueue.Row[JobTarget]
+	found := false
 	// Read first: an idle runner asks every second, and takes the writer only when a job is due
 	// (the audit of 2026-10-25, C6). The write looks again, since another may have claimed it.
-	_, err = OrNotFound(jobStorage.cache.Read().NextQueuedJob(ctx, next))
+	_, err := OrNotFound(jobStorage.cache.Read().NextQueuedJob(ctx, next))
 	if errors.Is(err, ErrNotFound) {
 		return claimed, false, nil
 	}
 	if err != nil {
-		return claimed, false, fmt.Errorf("claim: find the next %s job: %w", claim.Kind, err)
+		return claimed, false, fmt.Errorf("claim: find the next %s job: %w", kind, err)
 	}
 	err = jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, nextErr := OrNotFound(queries.NextQueuedJob(ctx, next))
@@ -298,7 +316,7 @@ func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (
 			return nil
 		}
 		if nextErr != nil {
-			return fmt.Errorf("find the next %s job: %w", claim.Kind, nextErr)
+			return fmt.Errorf("find the next %s job: %w", kind, nextErr)
 		}
 		row, startErr := queries.StartJob(ctx, id)
 		if startErr != nil {

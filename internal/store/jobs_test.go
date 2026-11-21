@@ -197,6 +197,44 @@ func TestJobStorage_KeepsASeasonTargetByItsColumn(t *testing.T) {
 	}
 }
 
+func TestJobStorage_AClaimTakesAJobProbedLastOnlyWhenNoOtherIsDue(t *testing.T) {
+	t.Parallel()
+	fixed := newJobStorageFixture(t)
+	ctx := t.Context()
+	for itemID, priority := range map[int64]int64{1: 10, 2: 1} {
+		err := fixed.jobs.Enqueue(ctx, "fetch_metadata", JobTarget{ItemID: itemID},
+			func(jobqueue.Open[JobTarget]) (jobqueue.Change, error) {
+				return jobqueue.Change{
+					Action: jobqueue.ActionInsert, ArgsJSON: "{}", Priority: priority, RunnableAt: jobStart,
+					Destination: "tmdbImages", CreatedAt: jobStart,
+				}, nil
+			})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	listed, err := fixed.jobs.ListOpen(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probedLast int64
+	for _, row := range listed {
+		if row.Target.ItemID == 1 {
+			probedLast = row.ID
+		}
+	}
+	claim := jobqueue.Claim{Kind: "fetch_metadata", Now: jobStart, ProbedLast: []int64{probedLast}}
+	first, found, err := fixed.jobs.Claim(ctx, claim)
+	if err != nil || !found || first.Target.ItemID != 2 {
+		t.Fatalf("the claim took %+v (found %v, %v); want item 2's, the higher one having probed last (D531 §1)",
+			first, found, err)
+	}
+	second, found, err := fixed.jobs.Claim(ctx, claim)
+	if err != nil || !found || second.ID != probedLast {
+		t.Errorf("with only the job probed last due, the claim took %+v (found %v, %v); want it", second, found, err)
+	}
+}
+
 func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasParked(t *testing.T) {
 	t.Parallel()
 	fixed := newJobStorageFixture(t)

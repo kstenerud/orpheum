@@ -102,9 +102,11 @@ func TestRunDue_OneProbeOnABackoffFrom30sToAnHourAFailedOneCostingNothingThenAll
 		}
 		jobs.clock.Set(state.NextProbeAt)
 		jobs.runDue(t, runner)
-		if len(fake.ran) != ranBefore+1 || fake.probes[len(fake.probes)-1] != "high" {
-			t.Fatalf("at probe %d, ran %q; want one job, the highest, as the host's probe", step+1,
-				fake.ran[ranBefore:])
+		// The highest first; after a failed probe, another job probes (D531 §1).
+		wantProbe := []target{"high", "middle"}[step%2]
+		if len(fake.ran) != ranBefore+1 || fake.probes[len(fake.probes)-1] != wantProbe {
+			t.Fatalf("at probe %d, ran %q; want one job, %s, as the host's probe", step+1,
+				fake.ran[ranBefore:], wantProbe)
 		}
 	}
 	for _, name := range []target{"low", "high", "middle"} {
@@ -117,8 +119,9 @@ func TestRunDue_OneProbeOnABackoffFrom30sToAnHourAFailedOneCostingNothingThenAll
 	state, _ := jobs.queue.DestinationState(host)
 	jobs.clock.Set(state.NextProbeAt)
 	jobs.runDue(t, runner)
-	if want := []target{"high", "middle", "low"}; !slices.Equal(fake.ran, want) {
-		t.Errorf("once the probe found the host, ran %q; want every job, in priority order: %q", fake.ran, want)
+	if want := []target{"middle", "high", "low"}; !slices.Equal(fake.ran, want) {
+		t.Errorf("once the probe found the host, ran %q; want the probe, then every other job in priority order: %q",
+			fake.ran, want)
 	}
 	if _, isParked := jobs.queue.DestinationState(host); isParked {
 		t.Error("the host is still parked after its probe succeeded")
@@ -388,5 +391,112 @@ func TestPark_BackPressureIsNoOutageAndIsNotLoggedAsOne(t *testing.T) {
 	queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable"})
 	if line := logged.String(); !strings.Contains(line, "level=WARN") {
 		t.Errorf("a failure logged %q; want a warning", line)
+	}
+}
+
+// badRequestHost is a host that is up but answers one request as though it were down, as TMDB's
+// CDN answered an image with no type (D531): it parks that job and runs every other.
+type badRequestHost struct {
+	bad    target
+	ran    []target
+	probes []target
+}
+
+func (fake *badRequestHost) handle(ctx context.Context, job jobqueue.Job[target]) error {
+	fake.ran = append(fake.ran, job.Target)
+	if probed, isProbe := jobqueue.ProbeOf(ctx); isProbe && probed == host {
+		fake.probes = append(fake.probes, job.Target)
+	}
+	if job.Target == fake.bad {
+		return jobqueue.Park(jobqueue.Parking{Destination: host, Reason: "unreachable"}, errUnreachable)
+	}
+	return nil
+}
+
+func TestRunDue_AfterAFailedProbeAnotherJobProbesSoOneBadRequestHoldsNothingUp(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "bad", Priority: 9, Destination: host})
+	fake := &badRequestHost{bad: "bad"}
+	runner := jobs.queue.NewRunner(kindFetch, fake.handle)
+	jobs.runDue(t, runner) // parks the host
+	state, _ := jobs.queue.DestinationState(host)
+	jobs.clock.Set(state.NextProbeAt)
+	jobs.runDue(t, runner) // the bad job's probe fails
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "good", Priority: 1, Destination: host})
+	state, _ = jobs.queue.DestinationState(host)
+	jobs.clock.Set(state.NextProbeAt)
+	jobs.runDue(t, runner)
+	if len(fake.probes) < 2 || fake.probes[1] != "good" {
+		t.Fatalf("probes %q; want the lower job to probe after the higher one's probe failed (D531 §1)", fake.probes)
+	}
+	if row := jobs.row(t, "good"); row.State != jobqueue.StateDone {
+		t.Errorf("the good request is %s; want it done, its probe having found the host", row.State)
+	}
+}
+
+func TestRunDue_AJobFailingEveryProbeAloneHasItsFailureTakenAsItsOwnAndTheHostIsUp(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "bad", Destination: host})
+	fake := &badRequestHost{bad: "bad"}
+	runner := jobs.queue.NewRunner(kindFetch, fake.handle)
+	jobs.runDue(t, runner) // parks the host
+	for probe := 1; probe <= jobqueue.ProbeFailuresThatAreTheJobs; probe++ {
+		state, isParked := jobs.queue.DestinationState(host)
+		if !isParked {
+			t.Fatalf("the host came back after %d failed probes; want it parked until %d", probe-1,
+				jobqueue.ProbeFailuresThatAreTheJobs)
+		}
+		jobs.clock.Set(state.NextProbeAt)
+		jobs.runDue(t, runner)
+	}
+	if _, isParked := jobs.queue.DestinationState(host); isParked {
+		t.Fatalf("the host is still parked after %d probes all failed on one job alone; "+
+			"want its failure the job's (D531 §2)", jobqueue.ProbeFailuresThatAreTheJobs)
+	}
+	row := jobs.row(t, "bad")
+	if row.State != jobqueue.StateQueued || row.AttemptCount != 1 || !row.RunnableAt.After(jobs.clock.Now()) ||
+		!strings.Contains(row.LastFailure, errUnreachable.Error()) {
+		t.Errorf("the bad job: %s, %d attempts, runnable at %v, failure %q; "+
+			"want it waiting its back-off with one attempt spent",
+			row.State, row.AttemptCount, row.RunnableAt, row.LastFailure)
+	}
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "next", Destination: host})
+	jobs.runDue(t, runner)
+	if next := jobs.row(t, "next"); next.State != jobqueue.StateDone {
+		t.Errorf("a new job for the host is %s; want it run at once, the host being up", next.State)
+	}
+}
+
+func TestRunDue_AJobAnotherProbeShowedFailingAloneParksNothingAgainSoEveryOtherJobRuns(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "bad", Priority: 9, Destination: host})
+	fake := &badRequestHost{bad: "bad"}
+	runner := jobs.queue.NewRunner(kindFetch, fake.handle)
+	jobs.runDue(t, runner) // parks the host
+	state, _ := jobs.queue.DestinationState(host)
+	jobs.clock.Set(state.NextProbeAt)
+	jobs.runDue(t, runner) // the bad job's probe fails
+	good := []target{"good1", "good2", "good3"}
+	for _, name := range good {
+		jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: name, Priority: 1, Destination: host})
+	}
+	state, _ = jobs.queue.DestinationState(host)
+	jobs.clock.Set(state.NextProbeAt)
+	jobs.runDue(t, runner) // a good job probes, finds the host, and every job runs again
+	for _, name := range good {
+		if row := jobs.row(t, name); row.State != jobqueue.StateDone {
+			t.Errorf("%s is %s after a probe found the host; want every good job done, the bad one parking "+
+				"nothing again (D531 §3)", name, row.State)
+		}
+	}
+	if _, isParked := jobs.queue.DestinationState(host); isParked {
+		t.Error("the host is parked again by the job another probe showed failing alone")
+	}
+	if row := jobs.row(t, "bad"); row.AttemptCount != 1 || !row.RunnableAt.After(jobs.clock.Now()) {
+		t.Errorf("the bad job: %d attempts, runnable at %v; want one attempt spent and its back-off to wait",
+			row.AttemptCount, row.RunnableAt)
 	}
 }

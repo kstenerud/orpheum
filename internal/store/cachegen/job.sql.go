@@ -637,6 +637,7 @@ FROM job
 WHERE state = 'queued' AND kind = ?1 AND runnable_at <= ?2
   AND (destination IS NULL
        OR destination NOT IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND id NOT IN (SELECT value FROM json_each(CAST(?4 AS TEXT)))
 ORDER BY priority DESC, runnable_at, id
 LIMIT 1
 `
@@ -645,13 +646,20 @@ type NextQueuedJobParams struct {
 	Kind            string
 	Now             int64
 	UnclaimableJSON string
+	PassedOverJSON  string
 }
 
 // The highest-priority queued job of a kind whose time has come and whose destination is not
-// parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names); the
+// parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names), and
+// that is not passed over (D531 section 1; passed_over_json is a JSON array of job ids); the
 // earliest, then the oldest, among equals.
 func (q *Queries) NextQueuedJob(ctx context.Context, arg NextQueuedJobParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, nextQueuedJob, arg.Kind, arg.Now, arg.UnclaimableJSON)
+	row := q.db.QueryRowContext(ctx, nextQueuedJob,
+		arg.Kind,
+		arg.Now,
+		arg.UnclaimableJSON,
+		arg.PassedOverJSON,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
