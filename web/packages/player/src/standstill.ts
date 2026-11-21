@@ -96,6 +96,12 @@ export function standstillOf(
  * position for standsStillReportAfterMs: what it showed then, which says whether it had the film,
  * decoded a frame or met an error. It is a report only; the stall watcher and the quality controller
  * act. Returns the stopping.
+ *
+ * It stays apart from the controller's StandingStill (abr-video.ts) by the owner's choice
+ * (2026-11-21): this one asks whether the person has been stuck, at any cause and on every
+ * playback, the original file's too, which has no controller; that one asks whether the quality
+ * loading fails to play, counting only while what it plays is loaded ahead, and a paused video that
+ * cannot play yet. One shared look would move when this report fires for no saving a person sees.
  */
 export function watchStandingStill(
   media: StandingMedia,

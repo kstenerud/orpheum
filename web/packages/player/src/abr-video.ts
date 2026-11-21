@@ -83,6 +83,8 @@ export interface StillJudged {
 /**
  * Where a video, asked to play, has stood still, and what came meanwhile (D266); its standing still
  * the decoder's only while what it plays is loaded ahead and its loads arrive, never the link's.
+ * The report's watchStandingStill (standstill.ts) times another question, whether the person is
+ * stuck, and stays apart from it (the owner, 2026-11-21).
  */
 export class StandingStill {
   #still: ({ -readonly [Fact in keyof StillAt]: StillAt[Fact] } & { isNoted: boolean }) | undefined;
