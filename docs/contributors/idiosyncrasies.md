@@ -74,6 +74,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A guest's link said "Can't reach the server from this network" while the core logged the connection held and ended at once, with no request. | [Firefox runs no service worker in a private window](#firefox-runs-no-service-worker-in-a-private-window) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | After the kill switch was on and off again, a fresh Chrome tab said "Can't reach the server from this network"; its registered worker had no fetch handler, and incognito worked. | [Cloudflare's Browser Cache TTL rewrites an origin's `no-cache` on a proxied page, and Chrome then served a kept kill worker to new registrations](#cloudflares-browser-cache-ttl-rewrites-an-origins-no-cache-on-a-proxied-page-and-chrome-then-served-a-kept-kill-worker-to-new-registrations) |
+| A worker's `client.navigate(client.url)` loaded nothing and left the page under the worker; its next reload spent the hand-off again (401). | [A service worker's `Client.url` is the page's creation URL, so navigating a client to it can move only the fragment](#a-service-workers-clienturl-is-the-pages-creation-url-so-navigating-a-client-to-it-can-move-only-the-fragment) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | Signing out on a Fire TV in Silk, and in Chrome on the desktop, stayed on "Signed out. Taking you to sign in…" for good. | [A step through the history cancels a link's navigation that has begun](#a-step-through-the-history-cancels-a-links-navigation-that-has-begun) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
@@ -1658,6 +1659,27 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   having begun its own handling of the touch.
 
 ## Web platform, all browsers
+
+### A service worker's `Client.url` is the page's creation URL, so navigating a client to it can move only the fragment
+
+- **Technology:** the Service Worker spec's `Client.url`, as Chrome follows it (seen 2026-11-21;
+  unverified in Firefox and Safari).
+- **Symptom:** walking the kill switch on staging headless (VQ374), the kill worker's
+  `client.navigate(client.url)` for a page at a client origin loaded nothing: the address went from
+  `/` to `/#handoff=<code>`, the page stayed under the kill worker and said developer tools bypass its
+  worker, and its next reload was answered 401 for the hand-off's code and ended on "Can't reach the
+  server from this network".
+- **Cause:** `Client.url` returns the client's creation URL, not its address now. The page is created
+  at `/#handoff=<code>` and drops the one-use code with `replaceState`; to the creation URL the
+  navigation differs from the current address in the fragment alone, a same-document navigation with
+  no load, and it puts the spent code back in the address.
+- **What we do:** the kill worker navigates to the creation URL without its fragment, a real load
+  (orpheum-connect `internal/webclient/kill-worker.js`, `reloadOf`). Anything a worker does with a
+  client's address takes it as where the page began, not where it is.
+- **Evidence:** **[ours]** the headless walk above, 2026-11-21: the navigation's only frame event was
+  the fragment's, and with the fragment dropped the page loaded and its worker took it over. **[web]**
+  [Service Workers, §4.2.1](https://w3c.github.io/ServiceWorker/#client-url): "The url getter steps
+  are to return this's associated service worker client's serialized creation URL" (read 2026-11-21).
 
 ### Some mobile browsers give a tap's click a mouse's pointerType, or none
 

@@ -3631,17 +3631,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   2026-11-20: all realms at once). orpheum-connect has no browser harness, so this is the
   proposal's Playwright run, walked by hand; connect's own tests (in internal/killswitch,
   internal/webclient, cmd/connectd/operate_client_test.go and the panel's Overview test) cover the
-  switch and what sw.js is. On staging, with connectd at "feat(connectd): the web client's kill switch, set from the
-  command line or the panel, has every page's worker empty its caches and step aside":
+  switch and what sw.js is. On staging, with connectd at "fix(webclient): the kill worker reloads
+  a held page at its address without the fragment", which follows "fix(webclient): while killing,
+  the page of the build served gets the build's own worker" (a page names its build in its worker's
+  address, `sw.js?build=<build>`, and only a page of another build is answered the kill worker):
   1. The lead serves build A at staging. In Chrome on the computer, open https://orpheum.dev, which
-     takes the browser to the staging core's client origin, and sign in; reload once. In DevTools, Application, note that Service workers shows `sw.js` activated
-     and Cache storage lists the client's caches.
+     takes the browser to the staging core's client origin, and sign in; reload once. In DevTools,
+     Application, note that Service workers shows `sw.js?build=` and build A's name activated, and
+     Cache storage lists the client's caches.
   2. The lead serves build B, and runs `connectd client kill on` in staging's connectd container
      (or sets Client kill switch to on in the operator panel's Overview), then waits 10 s.
   3. Reload the tab once. Report whether the page reloads itself once more, by itself, and then:
-     whether Service workers shows no worker for the origin, Cache storage is empty, and Network
-     shows `index.html` and the `assets/` files fetched from the network with build B's names.
+     whether Service workers shows `sw.js?build=` with build B's name activated, the address bar
+     holds no `#handoff=`, Network shows `index.html` and the `assets/` files fetched from the
+     network with build B's names, and the home page shows the library.
   4. Reload again, twice. Report whether the page loads each time without reloading itself again.
   5. The lead runs `connectd client kill off`, waits 10 s. Reload twice. Report whether Service
-     workers shows build B's `sw.js` activated again and the Activity lists both changes, off to
-     on and on to off.
+     workers still shows build B's worker activated, the page loads each time, and the Activity
+     lists both changes, off to on and on to off.
+  6. Open a new tab at https://orpheum.dev. Report whether it signs in and shows the library, not
+     "Can't reach the server from this network" (the step-5 failure of 2026-11-21: Cloudflare kept
+     the kill worker in the browser for hours, idiosyncrasies.md).
