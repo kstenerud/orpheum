@@ -117,15 +117,18 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
 
   it("lands on the poster a letter leads to deep in a long list, drawn through it at once", async () => {
     const heard: Heard[] = [];
-    const long = Array.from({ length: 300 }, (_, index) =>
-      film(index + 1, `${index < 250 ? "Arkon" : "Mabel"} ${String(index + 1).padStart(3, "0")}`),
+    // Past the 60 a list's first drawing draws at once (use-pages.ts' drawnAtOnce), and no longer:
+    // each piece drawn after them draws the whole list again, so 300 took a second alone and past
+    // 15 s at a load near 30, failing the tests after it in the file with it (2026-11-19).
+    const long = Array.from({ length: 90 }, (_, index) =>
+      film(index + 1, `${index < 75 ? "Arkon" : "Mabel"} ${String(index + 1).padStart(3, "0")}`),
     );
     mounted = await mountFilms(page(long), heard);
     await settleUntil(() => railLetter(mounted?.container ?? document.body, "M") !== undefined);
     const asked = heard.length;
     await click(railLetter(mounted.container, "M"));
     await settleUntil(() => focusedName() !== undefined);
-    expect(focusedName()).toBe("Mabel 251");
+    expect(focusedName()).toBe("Mabel 076");
     expect(heard).toHaveLength(asked);
   });
 
@@ -183,15 +186,16 @@ describe("Films' whole list, read in one request (D475)", () => {
 
   it("reads the whole list in one request, with no limit, and draws every entry", async () => {
     const heard: Heard[] = [];
-    const long = Array.from({ length: 150 }, (_, index) =>
+    // Past the first drawing's 60 and more than one piece after it, kept short as the jump's list is.
+    const long = Array.from({ length: 90 }, (_, index) =>
       film(index + 1, `Arkon ${String(index)}`),
     );
     mounted = await mountFilms(page(long), heard);
-    await settleUntil(() => mounted?.container.querySelector('a[href="/titles/150"]') !== null);
+    await settleUntil(() => mounted?.container.querySelector('a[href="/titles/90"]') !== null);
     expect(titlesHeard(heard)).toHaveLength(1);
     const asked = new URLSearchParams(titlesHeard(heard)[0]?.query);
     expect([asked.has("limit"), asked.has("cursor")]).toEqual([false, false]);
-    expect(mounted.container.querySelectorAll(".poster-grid > li")).toHaveLength(150);
+    expect(mounted.container.querySelectorAll(".poster-grid > li")).toHaveLength(90);
   });
 
   it("is drawn from the tab's memory at once on Back, while it is read again", async () => {
