@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: make check's web tests: only those a change since their last pass can reach, by vitest's
-# ABOUTME: import graph, or the whole suite when what every test reads changed or there is no record.
+# ABOUTME: make check's web tests: only those a change since their last pass can reach, by the names it
+# ABOUTME: changed, or the whole suite when what every test reads changed or there is no record.
 """Run the web tests a change can reach, rather than every one.
 
 Any change under web/ ran the whole suite, 60 to 125 s, for a one-file change whose importers' tests
@@ -13,9 +13,13 @@ suite last passed on is recorded, as area_stamp.py records it; against it:
 - something every test reads changed (a package manifest, the lockfile, the vitest or TypeScript
   configuration), a file was deleted (a test still importing it would fail, and no graph reaches it
   any more), or there is no record: the whole suite;
-- otherwise `vitest related` with every changed file, which runs the tests that import any of them,
-  directly or not, and any changed test itself, and the tests that read the sources by path
-  (revert_red_dependents.web_source_readers), which no import graph reaches.
+- otherwise the tests web_test_reach.cjs finds the changed files reach: what uses the declarations
+  they changed, followed by name through re-exports, and what loads them when their loading changed,
+  each suite's own run by name; and the tests
+  that read the sources by path (revert_red_dependents.web_source_readers), which no import graph
+  reaches. `vitest related` followed files, and through @orpheum/sdk's index.ts, which re-exports
+  every module, a change to one module ran 400 of the 540 tests (the owner, 2026-11-21: "go ahead").
+  A change the reach cannot follow (a stylesheet, JSON, a reach that fails) runs `vitest related`.
 
 A pass records the tree. That is sound by induction: the tests not run were passing on the recorded
 tree and import nothing that changed since. The last PASSES_KEPT passed trees are kept, newest first,
@@ -36,6 +40,7 @@ test frame opened before it"; make check typed "k" for "karl", 2026-11-20). Apar
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -44,6 +49,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from area_stamp import stamp_path  # noqa: E402
 from check_stamp import working_tree_id  # noqa: E402
+from impact import WEB_SOURCE, web_sources  # noqa: E402
 from revert_red_dependents import web_source_readers  # noqa: E402
 
 WEB = "web"
@@ -53,19 +59,34 @@ EVERY_TEST_READS = ("package.json", "package-lock.json", "vitest.config.ts", "vi
 
 @dataclass(frozen=True)
 class Suite:
-    """A vitest suite: its record's name, its whole run, its related run's command, and the vitest
-    projects it runs one after the other, each in a run of its own (none: one run of them all)."""
+    """A vitest suite: its record's name, its whole run, its related run's command, its run of named
+    test files, the files every test of it loads first (its setupFiles, relative to web/), and the
+    vitest projects it runs one after the other, each in a run of its own (none: one run of them all),
+    and whether its tests are the browser-mode ones (*.browser.test.*) or the others."""
 
     step: str
     whole: list[str]
     related: list[str]
+    named: list[str]
+    setup: tuple[str, ...] = ()
     apart: tuple[str, ...] = ()
+    browser: bool = False
+
+    def holds(self, test: str) -> bool:
+        """Whether test, a test file, is one of this suite's (its configuration's include)."""
+        return (".browser.test." in test) == self.browser
 
 
 RELATED = ["npx", "--prefix", WEB, "vitest", "related", "--run", "--passWithNoTests", "--root", WEB]
-UNIT = Suite("web-test", ["npm", "--prefix", WEB, "run", "--silent", "test"], RELATED)
+NAMED = ["npx", "--prefix", WEB, "vitest", "run", "--passWithNoTests", "--root", WEB]
+BROWSER_CONFIG = ["--config", "vitest.browser.config.ts"]
+UNIT = Suite("web-test", ["npm", "--prefix", WEB, "run", "--silent", "test"], RELATED, NAMED)
 BROWSER = Suite("web-test-browser-related", ["npm", "--prefix", WEB, "run", "--silent", "test:browser"],
-                [*RELATED, "--config", "vitest.browser.config.ts"], apart=("chromium", "firefox"))
+                [*RELATED, *BROWSER_CONFIG], [*NAMED, *BROWSER_CONFIG], setup=("e2e/frame-focus-setup.ts",),
+                apart=("chromium", "firefox"), browser=True)
+# The script that follows a change to the tests that can see it, run by node in web/.
+WEB_TEST_REACH = Path(__file__).resolve().parent / "web_test_reach.cjs"
+TEST_FILE = (".test.ts", ".test.tsx")
 # Kept for the tests and callers that name the unit suite's.
 STEP, WHOLE_SUITE = UNIT.step, UNIT.whole
 
@@ -81,15 +102,52 @@ def changes_since(passed_tree: str, tree: str) -> list[tuple[str, str]]:
     return changes
 
 
-def command_for(changes: list[tuple[str, str]], root: str, suite: Suite = UNIT) -> list[str] | None:
-    """The run the changes call for: None for none, the whole suite, or the related tests."""
+def reached_tests(base: str, changed: list[str], suite: Suite, typescript: Path) -> tuple[list[str] | None, str]:
+    """The test files, relative to web/, that changed (relative to web/) since base reach
+    (web_test_reach.cjs); None, and why, when it cannot tell, and ["*"] when every test is reached."""
+    unread = [path for path in changed if not WEB_SOURCE.match(f"{WEB}/{path}") or path.endswith(".d.ts")]
+    if unread:
+        return None, f"{unread[0]} is not a source the reach reads"
+    try:
+        done = subprocess.run(["node", str(WEB_TEST_REACH)], cwd=WEB, capture_output=True, text=True, check=False,
+                              input=json.dumps({"typescript": str(typescript), "base": base, "changed": changed,
+                                                "universe": web_sources(), "roots": list(suite.setup)}),
+                              timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as failed:
+        return None, f"{WEB_TEST_REACH.name} did not run: {failed}"
+    if done.returncode != 0:
+        return None, f"{WEB_TEST_REACH.name} failed: {done.stderr.strip().splitlines()[-1:] or done.returncode}"
+    answer = json.loads(done.stdout)
+    if "wide" in answer:
+        return ["*"], answer["wide"]
+    return [path for path in answer["reached"] if path.endswith(TEST_FILE)], ""
+
+
+def command_for(changes: list[tuple[str, str]], root: str, suite: Suite = UNIT, base: str = "",
+                reach_of=None) -> list[str] | None:
+    """The run the changes since base call for: None for none, the whole suite, the tests they reach
+    ([] when they reach none of the suite's: nothing runs, and the pass is recorded), or their related
+    tests when the reach cannot tell (or node_modules holds no TypeScript to read with)."""
     if not changes:
         return None
     for status, path in changes:
         if status == "D" or Path(path).name.startswith(EVERY_TEST_READS):
             return suite.whole
     within = [path.removeprefix(WEB + "/") for _, path in changes]
-    return [*suite.related, *within, *web_source_readers(root)]
+    readers = list(web_source_readers(root))
+    typescript = Path(root, WEB, "node_modules", "typescript")
+    tests = None
+    if base and typescript.is_dir():
+        tests, why = (reach_of or reached_tests)(base, within, suite, typescript)
+        if why:
+            print(f"{suite.step}: {why}")
+    if tests is None:
+        return [*suite.related, *within, *readers]
+    if tests == ["*"]:
+        return suite.whole
+    # vitest runs every test when given no file to filter by, so a run of none is no run.
+    named = sorted(test for test in set(tests) | set(readers) if suite.holds(test))
+    return [*suite.named, *named] if named else []
 
 
 def runs_of(command: list[str], suite: Suite) -> list[list[str]]:
@@ -111,19 +169,23 @@ def passed_trees(stamp: Path) -> list[str]:
 
 
 def nearest_command(trees: list[str], tree: str, root: str, suite: Suite) -> list[str] | None:
-    """The smallest run any passed tree calls for: None when one holds what tree holds under web/, the
-    whole suite when none is usable (a tree git has since pruned is passed over)."""
-    best = suite.whole
+    """The run the passed tree nearest tree calls for, the one fewest files under web/ differ from (the
+    newest of those): None when one holds what tree holds, the whole suite when none is usable (a tree
+    git has since pruned is passed over). Only the nearest is followed: following a change takes
+    seconds, and every passed tree's would take each make check that many times."""
+    nearest = None
     for passed in trees:
         try:
-            command = command_for(changes_since(passed, tree), root, suite)
+            changes = changes_since(passed, tree)
         except subprocess.CalledProcessError:
             continue
-        if command is None:
+        if not changes:
             return None
-        if command is not suite.whole and (best is suite.whole or len(command) < len(best)):
-            best = command
-    return best
+        if nearest is None or len(changes) < len(nearest[1]):
+            nearest = (passed, changes)
+    if nearest is None:
+        return suite.whole
+    return command_for(nearest[1], root, suite, nearest[0])
 
 
 def record_pass(stamp: Path, tree: str) -> None:
@@ -151,6 +213,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         command = suite.whole
     if arguments.due:
+        return 0
+    if command == []:
+        print(f"{suite.step}: the changes since the nearest pass reach none of its tests")
+        record_pass(stamp, tree)
         return 0
     if command is not suite.whole:
         print(f"{suite.step}: only the tests the changes since the nearest pass reach")

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for web_tests.py: make check runs only the web tests a change since their last pass
 # ABOUTME: reaches, and the whole suite when what every test reads changed or a file was deleted.
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -155,6 +156,146 @@ class WebTestsTest(unittest.TestCase):
             failing = "none"
             self.assertEqual(web_tests.main(["--browser"]), 0)
             self.assertEqual([command[-1] for command in ran], ["chromium", "chromium", "firefox"])
+
+
+SRC = "web/apps/web/src"
+# The modules the reach is tried on: a.ts's exports, re-exported by name through index.ts; b.ts using
+# one of them; c.ts's type and function; load.ts registering a use of a.ts as it loads.
+REACH_BASE = {
+    "web/package.json": "{}",
+    f"{SRC}/a.ts": ("export function one(): number {\n  return 1;\n}\n"
+                    "export function two(): number {\n  return 2;\n}\n"
+                    "const table = new Map<string, number>();\n"
+                    "export function remember(key: string): void {\n  table.set(key, 1);\n}\n"
+                    "export function recall(key: string): number | undefined {\n  return table.get(key);\n}\n"),
+    f"{SRC}/index.ts": ('export { one, two, remember, recall } from "./a.ts";\n'
+                        'export { made } from "./b.ts";\n'),
+    f"{SRC}/b.ts": ('import { two } from "./index.ts";\n'
+                    "export const made = (): number => two() * 2;\n"
+                    "export const other = (): number => 3;\n"),
+    f"{SRC}/c.ts": "export interface Thing {\n  x: number;\n}\nexport function c(): number {\n  return 1;\n}\n",
+    f"{SRC}/registry.ts": "const kept: (() => number)[] = [];\nexport function register(f: () => number): void {\n  kept.push(f);\n}\n",
+    f"{SRC}/load.ts": ('import { one } from "./index.ts";\nimport { register } from "./registry.ts";\n'
+                       "register(() => one());\n"),
+    f"{SRC}/one.test.ts": 'import { one } from "./index.ts";\nvoid one;\n',
+    f"{SRC}/two.test.ts": 'import { two } from "./index.ts";\nvoid two;\n',
+    f"{SRC}/made.test.ts": 'import { made } from "./index.ts";\nvoid made;\n',
+    f"{SRC}/other.test.ts": 'import { other } from "./b.ts";\nvoid other;\n',
+    f"{SRC}/recall.test.ts": 'import { recall } from "./index.ts";\nvoid recall;\n',
+    f"{SRC}/thing.test.ts": 'import type { Thing } from "./c.ts";\nconst t: Thing = { x: 1 };\nvoid t;\n',
+    f"{SRC}/mocked.test.ts": 'import { vi } from "vitest";\nvi.mock("./c.ts");\n',
+    f"{SRC}/loads.test.ts": 'import "./load.ts";\n',
+    f"{SRC}/poster.css": "a {}\n",
+    "web/e2e/setup.ts": 'import { register } from "../apps/web/src/registry.ts";\nvoid register;\n',
+}
+TYPESCRIPT = Path(__file__).resolve().parents[2] / "web" / "node_modules" / "typescript"
+SETUP = web_tests.Suite("unit", [], [], [], setup=("e2e/setup.ts",))
+
+
+class ReachTest(unittest.TestCase):
+    """web_test_reach.cjs, run as make check runs it, on REACH_BASE and a change to it."""
+
+    def setUp(self) -> None:
+        if not TYPESCRIPT.is_dir():
+            self.fail(f"{TYPESCRIPT} is missing: run `npm --prefix web ci`")  # a missing capability fails
+        self.repo = Repo(REACH_BASE)
+        self.base = self.repo.commit("chore: base")
+
+    def reach(self, edit: dict[str, str], suite: web_tests.Suite = web_tests.UNIT) -> list[str] | None:
+        self.repo.write(edit)
+        with self.repo.cwd():
+            tests, _ = web_tests.reached_tests(self.base, [path.removeprefix("web/") for path in edit], suite, TYPESCRIPT)
+        return None if tests is None else sorted(path.removeprefix("apps/web/src/") for path in tests)
+
+    def edited(self, path: str, old: str, new: str) -> dict[str, str]:
+        self.assertIn(old, REACH_BASE[path])
+        return {path: REACH_BASE[path].replace(old, new)}
+
+    def test_a_body_s_change_reaches_the_tests_using_it_by_name_through_a_barrel(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/a.ts", "return 2;", "return 3;")),
+                         ["made.test.ts", "two.test.ts"],
+                         "made uses two; one.test.ts and recall.test.ts load index.ts, which loads a.ts, "
+                         "but use nothing that changed")
+
+    def test_a_change_to_what_writes_shared_state_reaches_what_reads_it(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/a.ts", "table.set(key, 1)", "table.set(key, 2)")),
+                         ["recall.test.ts"], "remember writes the table recall reads")
+
+    def test_a_use_registered_as_a_module_loads_reaches_what_loads_it(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/a.ts", "return 1;", "return 4;")),
+                         ["loads.test.ts", "one.test.ts"],
+                         "load.ts hands one to another module as it loads, so what loads it may run it")
+
+    def test_a_changed_top_level_reaches_everything_loading_it(self) -> None:
+        self.assertEqual(self.reach({f"{SRC}/a.ts": REACH_BASE[f"{SRC}/a.ts"] + 'console.log("loaded");\n'}),
+                         ["loads.test.ts", "made.test.ts", "one.test.ts", "other.test.ts", "recall.test.ts",
+                          "two.test.ts"], "every importer of index.ts loads a.ts, and other.test.ts's b.ts too")
+
+    def test_a_type_only_import_is_not_reached_and_a_mock_takes_the_module_whole(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/c.ts", "return 1;", "return 2;")), ["mocked.test.ts"])
+
+    def test_a_comment_reaches_no_test(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/index.ts", 'export { made }', '// made\nexport { made }')), [])
+
+    def test_what_the_setup_files_load_reaches_every_test(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/registry.ts", "kept.push(f)", "kept.unshift(f)"), SETUP),
+                         ["*"])
+        self.assertEqual(self.reach(self.edited(f"{SRC}/registry.ts", "kept.push(f)", "kept.unshift(f)")),
+                         ["loads.test.ts"], "without the setup file, only what loads registry.ts")
+
+    def test_what_the_reach_cannot_read_falls_back(self) -> None:
+        self.assertIsNone(self.reach({f"{SRC}/poster.css": "a { color: red; }\n"}))
+
+    def test_the_browser_suite_s_setup_files_are_its_configuration_s(self) -> None:
+        config = (TYPESCRIPT.parents[1] / "vitest.browser.config.ts").read_text()
+        match = re.search(r"setupFiles:\s*\[([^\]]*)\]", config)
+        self.assertIsNotNone(match)
+        files = tuple(name.removeprefix("./") for name in re.findall(r'"([^"]+)"', match.group(1)))
+        self.assertEqual(web_tests.BROWSER.setup, files)
+
+
+class ReachedRunTest(unittest.TestCase):
+    """What command_for and main make of the reach's answer."""
+
+    def setUp(self) -> None:
+        self.repo = Repo({"web/package.json": "{}", "web/apps/web/src/a.ts": "export const a = 1;",
+                          "web/apps/web/src/reads.test.ts": "readFileSync('x');",
+                          "web/node_modules/typescript/package.json": "{}"})
+        self.repo.commit("first")
+        self.changes = [("M", "web/apps/web/src/a.ts")]
+
+    def command(self, tests: list[str] | None, suite: web_tests.Suite = web_tests.UNIT) -> list[str] | None:
+        return web_tests.command_for(self.changes, str(self.repo.root), suite, "base",
+                                     lambda base, changed, suite, typescript: (tests, "" if tests else "why"))
+
+    def test_each_suite_runs_its_own_reached_tests_by_name_and_the_source_readers(self) -> None:
+        reached = ["apps/web/src/b.test.ts", "apps/web/src/b.browser.test.tsx"]
+        self.assertEqual(self.command(reached), [*web_tests.UNIT.named, "apps/web/src/b.test.ts",
+                                                 "apps/web/src/reads.test.ts"])
+        self.assertEqual(self.command(reached, web_tests.BROWSER),
+                         [*web_tests.BROWSER.named, "apps/web/src/b.browser.test.tsx"])
+
+    def test_none_of_a_suite_s_tests_reached_is_no_run_and_every_one_the_whole(self) -> None:
+        self.assertEqual(self.command([], web_tests.BROWSER), [], "vitest given no file runs every test")
+        self.assertEqual(self.command(["*"]), web_tests.UNIT.whole)
+        self.assertEqual(self.command(None)[:len(web_tests.RELATED)], web_tests.RELATED)
+
+    def test_a_run_of_none_records_the_pass(self) -> None:
+        ran: list[list[str]] = []
+
+        def run(command, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if command[0] == "git":
+                return REAL_RUN(command, *args, **kwargs)
+            ran.append(command)
+            return mock.Mock(returncode=0)
+
+        with self.repo.cwd(), mock.patch.object(web_tests.subprocess, "run", side_effect=run), \
+                mock.patch.object(web_tests, "reached_tests", return_value=([], "")):
+            self.assertEqual(web_tests.main(["--browser"]), 0)  # no record: the whole suite
+            self.repo.write({"web/apps/web/src/a.ts": "export const a = 2;"})
+            self.assertEqual(web_tests.main(["--browser"]), 0)
+            self.assertEqual(web_tests.main(["--browser", "--due"]), 1, "the run of none was recorded as a pass")
+        self.assertEqual(ran, web_tests.runs_of(web_tests.BROWSER.whole, web_tests.BROWSER))
 
 
 REAL_RUN = web_tests.subprocess.run

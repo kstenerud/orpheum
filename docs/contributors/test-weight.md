@@ -211,7 +211,8 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   enough that we can test only the parts actually affected by a change"*):
   `scripts/revert_red_dependents.py` gives a Go file's dependents (from `go list -test` under both
   tag sets) and the tests that read sources; `scripts/web_tests.py` runs `vitest related` over the
-  files changed since the web tests' last pass; a package clause with comments is cosmetic; `api.ts`
+  files changed since the web tests' last pass (since 2026-11-21, the tests the changes reach by name:
+  entry 38); a package clause with comments is cosmetic; `api.ts`
   goes to the type check; `scripts/revert_red_stylesheets.py` settles stylesheets by halves and
   prints a failing run's last lines.
 - **Warning sign:** a run kind named "whole suite" in revert-red's timings summary; a one-file change
@@ -804,6 +805,27 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   to 44.4–44.9 s of wall, 311 s to 301 s of CPU, about 10 s less in each pair.
 - **Warning sign:** `mapRegistry.Schema` or `SchemaFromField` in a CPU profile of a test run.
 
+### 38. A change to one SDK module running every test that imports the SDK
+
+- **Mechanism:** `vitest related` follows files. `@orpheum/sdk` resolves to
+  `packages/sdk/src/index.ts`, which re-exports every module by name, so every test importing
+  anything of the SDK imports every module, and a change to any one of them ran those tests.
+- **Instance** (2026-11-21): a change to `realm.ts` or `throughput.ts` ran 382 of 543 test files,
+  `client.ts` 417, `problem.ts` 233.
+- **Why it was invisible:** each run was what vitest calls related, and a barrel is how a package
+  is meant to be imported, so neither looked wrong.
+- **Fix** (the owner, 2026-11-21: "go ahead"): `scripts/web_test_reach.cjs` follows the change by
+  top-level name: the declarations it changed, what names them, the mutable state they write, the
+  names each importer binds them to, through barrels by the names they pass on; and, apart, what
+  loads a module whose top level runs differently. `web_tests.py` runs the tests it reaches, by name,
+  in each suite, from the passed tree nearest the working tree. A one-function change to `realm.ts`
+  runs 7 files, `throughput.ts` 33 (12 unit, 21 browser: 19.5 s for the unit ones), `client.ts`'s
+  `createApi` 299, `problem.ts`'s `unavailableText` 201 (later-screens.tsx registers a reset as it
+  loads, so what loads the screens is reached), `app.tsx`'s `App` 28; following takes about 2 s.
+- **Warning sign:** "only the tests the changes since the nearest pass reach" followed by a run of
+  hundreds of files for a change inside one function; or a module that runs code at its top level
+  which hands a function to another module, which makes each of its importers' tests reached.
+
 ### Looked for and left: a seed built once and copied (2026-11-19)
 
 The owner asked whether the tests that spend their time seeding could copy a seeded database into
@@ -895,6 +917,12 @@ failed.
 - **`web_tests.py`** trusts its tree record as `area_stamp.py` does, and runs the whole suite when a
   manifest, the lockfile or a configuration changed, or a file was deleted; the browser-mode suite
   (`--browser`) the same, under its own record.
+- **`web_test_reach.cjs`** follows a change by top-level name, and so trusts that a test sees a
+  module only through the names it imports and what the module runs as it loads. It does not follow
+  a changed function writing into another module's state, nor what a getter or an iterator runs at
+  load; a stylesheet, JSON or a reach that fails falls back to `vitest related`, and a change to what
+  a setup file loads runs the whole suite. Unit tests run nowhere else before the nightly
+  `check-everything`, so a test it should have reached and did not is found there at the latest.
 - **The area stamps are shared by every worktree** (since 2026-10-28): a record names a tree by its
   content, so a pass holds wherever that tree is; what differs between worktrees outside the tree
   (an installed `node_modules`) must come from the same lockfile.
