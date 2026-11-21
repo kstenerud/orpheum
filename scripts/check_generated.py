@@ -14,6 +14,11 @@ disappeared. A hand edit fails (the generator overwrites it); output left stale 
 source fails (the generator rewrites it); correct output passes whether or not it is staged.
 Like the first form, it leaves the regenerated files in place, so a failure is fixed by
 reviewing and committing them.
+
+`check_generated.py generate-sql` and `check_generated.py generate-api` check one generator's files
+each, by running its own make target, so make check runs each only when what it reads changed: sqlc
+took 77 s of a make check beside the Go and web steps, re-run for a change to an SDK file it never
+reads (2026-11-21; the owner's go on the cut the same day).
 """
 
 from __future__ import annotations
@@ -25,10 +30,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Every path generated code lives under; scripts/gate_paths.py lists the same for the hooks.
-GENERATED = ("internal/store/sqlcgen", "internal/store/cachegen", "api/openapi.json", "web/packages/sdk/src/gen",
-             "deploy/omv/compose.yaml", "deploy/synology/compose.yaml", "deploy/portainer/compose.yaml",
-             "deploy/docker/compose.yaml", "deploy/catalogue/casaos/docker-compose.yml")
+# Every path generated code lives under, by the make target that writes it; scripts/gate_paths.py
+# lists the same for the hooks.
+GENERATED_BY = {
+    "generate-sql": ("internal/store/sqlcgen", "internal/store/cachegen"),
+    "generate-api": ("api/openapi.json", "web/packages/sdk/src/gen", "deploy/omv/compose.yaml",
+                     "deploy/synology/compose.yaml", "deploy/portainer/compose.yaml", "deploy/docker/compose.yaml",
+                     "deploy/catalogue/casaos/docker-compose.yml"),
+}
+GENERATED = tuple(path for paths in GENERATED_BY.values() for path in paths)
 
 
 def snapshot(root: Path, paths: tuple[str, ...] = GENERATED) -> dict[str, bytes]:
@@ -68,14 +78,17 @@ def short_diff(before: bytes, after: bytes, limit: int = 20) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=".", help="the repository root")
+    parser.add_argument("target", nargs="?", default="generate", choices=["generate", *GENERATED_BY],
+                        help="the generator to check (default: every one)")
     args = parser.parse_args()
     root = Path(args.root)
-    before = snapshot(root)
-    done = subprocess.run(["make", "--no-print-directory", "generate"], cwd=root, check=False)
+    paths = GENERATED_BY.get(args.target, GENERATED)
+    before = snapshot(root, paths)
+    done = subprocess.run(["make", "--no-print-directory", args.target], cwd=root, check=False)
     if done.returncode != 0:
-        print("check_generated: make generate failed", file=sys.stderr)
+        print(f"check_generated: make {args.target} failed", file=sys.stderr)
         return 1
-    found = differences(before, snapshot(root))
+    found = differences(before, snapshot(root, paths))
     if found:
         for finding, _ in found:
             print(finding)

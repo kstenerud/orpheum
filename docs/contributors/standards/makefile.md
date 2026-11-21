@@ -116,7 +116,9 @@ queries that read whole tables reached `main` because only CI ran it.
 - **Generated code is regenerated into place and compared**: `check-generated` records every
   generated file, runs `make generate`, and fails if any changed, appeared or disappeared, so
   sqlc output, the OpenAPI document and the TypeScript client cannot drift from their sources,
-  whether or not the correct output is staged yet.
+  whether or not the correct output is staged yet. It does so per generator (`generate-sql`,
+  `generate-api`), each skipped while nothing it reads changed since it passed: a list of what
+  each reads beside its target, which a test holds to the files it writes.
 
 ### The fix-and-re-run loop
 

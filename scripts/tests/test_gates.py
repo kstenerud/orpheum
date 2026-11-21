@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,8 @@ import gate_paths  # noqa: E402
 import lint_commits as lc  # noqa: E402
 import lint_speculative_api as lsa  # noqa: E402
 from gitrepo import git_repo  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 # A git hook runs these tests with GIT_DIR and GIT_INDEX_FILE set, and from a linked worktree they
 # are absolute paths into the shared repository: every git command below, and the gates' own,
@@ -373,6 +376,29 @@ class Generated(unittest.TestCase):
             self.assertTrue(gate_paths.is_generated(rel), rel)
             self.assertIn(rel, cg.GENERATED)
         self.assertFalse(gate_paths.is_generated("deploy/omv/README.md"))
+
+    @staticmethod
+    def read_by(variable: str) -> set[str]:
+        """The tracked files a Makefile list of what a generator reads names, as area_stamp.py's git
+        diff reads its pathspecs."""
+        makefile = (ROOT / "Makefile").read_text().replace("\\\n", " ")
+        values = dict(re.findall(r"^([A-Z_]+) := (.*)$", makefile, re.M))
+        pathspecs = shlex.split(re.sub(r"\$\(([A-Z_]+)\)", lambda m: values[m.group(1)], values[variable]))
+        listed = subprocess.run(["git", "ls-files", "--", *pathspecs], cwd=ROOT, capture_output=True,
+                                text=True, check=True).stdout
+        return set(listed.splitlines())
+
+    def test_each_generator_is_checked_on_what_it_reads_and_sqlc_not_on_the_go_or_the_sdk(self):
+        reads = {"generate-sql": self.read_by("GENERATED_SQL_READ"), "generate-api": self.read_by("GENERATED_API_READ")}
+        for target, paths in cg.GENERATED_BY.items():
+            for rel in paths:
+                self.assertTrue(any(path == rel or path.startswith(rel + "/") for path in reads[target]),
+                                f"{target} writes {rel}, so a hand edit of it must re-run its check")
+        self.assertIn("internal/store/queries/browse.sql", reads["generate-sql"])
+        self.assertEqual({path for path in reads["generate-sql"] if path.startswith(("cmd/", "web/", "internal/core/"))},
+                         set(), "sqlc reads no Go but its own output, and nothing of the web")
+        self.assertIn("internal/core/api/doc.go", reads["generate-api"])
+        self.assertNotIn("web/packages/sdk/src/client.ts", reads["generate-api"], "the SDK's own sources are not its input")
 
 
 class CommitLint(unittest.TestCase):

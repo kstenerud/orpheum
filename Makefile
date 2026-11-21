@@ -239,17 +239,27 @@ go-tidy: ## Fail if go.mod or go.sum is not tidy
 go-speculative: ## Fail on declarations whose only callers are tests
 	@$(PYTHON) scripts/lint_speculative_api.py
 
-.PHONY: check-generated
-check-generated: ## Fail if committed generated code differs from what its source generates; not again while nothing it reads changed since it passed
-	@$(PYTHON) scripts/area_stamp.py check-generated $(GENERATED_READ) -- $(PYTHON) scripts/check_generated.py
+.PHONY: check-generated check-generated-sql check-generated-api
+check-generated: check-generated-sql check-generated-api ## Fail if committed generated code differs from what its source generates; each generator not again while nothing it reads changed since it passed
+# Each generator on what it reads alone: as one, sqlc ran on every Go or SDK change, 77 s of a make
+# check under the load beside it for queries nothing had touched (the owner's go, 2026-11-21).
+check-generated-sql:
+	@$(PYTHON) scripts/area_stamp.py check-generated-sql $(GENERATED_SQL_READ) -- $(PYTHON) scripts/check_generated.py generate-sql
+# After sqlc, when both run: the Go it builds compiles what sqlc writes.
+check-generated-api: check-generated-sql
+	@$(PYTHON) scripts/area_stamp.py check-generated-api $(GENERATED_API_READ) -- $(PYTHON) scripts/check_generated.py generate-api
 
-# What make generate reads, and the generated files themselves (a hand edit fails): the Go that
-# `go run ./cmd/orpheum` builds, with what it embeds (no test file is built), the queries and
-# schemas, sqlc's and the SDK generator's pins, and how both run. 37 s of CPU on every run, most of
-# a short run's floor (make-check-time-2026-11-12.md option 2, the owner's go, 2026-11-13).
-GENERATED_READ := cmd internal pkg api deploy go.mod go.sum sqlc.yaml Makefile scripts/check_generated.py \
-  scripts/fetch_tools.py web/package.json web/package-lock.json web/packages/sdk \
-  ':(exclude,glob)**/*_test.go' ':(exclude,glob)**/testdata/**' ':(exclude,glob)**/*.md'
+# What each generator reads, and the files it writes (a hand edit fails), and how it runs (the
+# Makefile, check_generated.py); no test file is built. sqlc: the migrations and queries, its config
+# and its pin (make-check-time-2026-11-12.md option 2 made it one list, the owner's go, 2026-11-13).
+GENERATED_UNREAD := ':(exclude,glob)**/*_test.go' ':(exclude,glob)**/testdata/**' ':(exclude,glob)**/*.md'
+GENERATED_SQL_READ := internal/store/migrations internal/store/queries internal/store/cache/schema.sql \
+  internal/store/cache/queries internal/store/sqlcgen internal/store/cachegen sqlc.yaml scripts/fetch_tools.py \
+  Makefile scripts/check_generated.py $(GENERATED_UNREAD)
+# The OpenAPI document and the compose files: the Go that `go run ./cmd/orpheum` builds, with what it
+# embeds; the SDK's types: that document, the generator's pin in the lockfile, and the types it wrote.
+GENERATED_API_READ := cmd internal pkg api deploy go.mod go.sum Makefile scripts/check_generated.py \
+  web/package.json web/package-lock.json web/packages/sdk/package.json web/packages/sdk/src/gen $(GENERATED_UNREAD)
 
 .PHONY: check-web check-web-parallel
 check-web: check-web-parallel ## Typecheck, lint, format, dependency rules and tests for web/, the browser-mode tests last
@@ -663,12 +673,16 @@ deploy-published: ## Install the published image TAG to DIR as a household does:
 	@test -f "$(DIR)/values.toml" -o -n "$(MEDIA)" || { echo "$(DIR) holds no deployment yet: name the folders that hold the films and series, MEDIA=\"/path/to/films /path/to/shows\"" >&2; exit 2; }
 	docker run --rm ghcr.io/kstenerud/orpheum:$(TAG) install-script | sh -s -- --dir "$(DIR)" $(foreach folder,$(MEDIA),--media "$(folder)")
 
-.PHONY: generate
-generate: web-deps ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, the SDK's TS types, the compose files)
+.PHONY: generate generate-sql generate-api
+generate: ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, the SDK's TS types, the compose files)
+	@$(MAKE) --no-print-directory generate-sql
+	@$(MAKE) --no-print-directory generate-api
+generate-sql: ## Regenerate sqlc's Go for persistent.db and cache.db
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
 	  $(PYTHON) scripts/fetch_tools.py; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
+generate-api: web-deps ## Regenerate the OpenAPI document, the compose files and the SDK's TS types
 	@# Made in the system's temporary directory, removed however the run ends (one made beside it was left by a
 	@# stopped make check, 2026-10-08), and copied over only when it differs. Then each route's compose file (D462 §10.2).
 	@openapi_next=$$(mktemp "$${TMPDIR:-/tmp}/openapi.json.XXXXXX") && trap 'rm -f "$$openapi_next"' EXIT INT TERM && \
