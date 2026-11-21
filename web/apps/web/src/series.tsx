@@ -14,10 +14,9 @@ import { routeHref } from "./router.ts";
 import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
+import { dataOrThrow, unavailableText } from "./problem.ts";
 import { seriesOrThrow } from "./item-detail.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes, StatusTray } from "./status-cues.tsx";
@@ -26,7 +25,6 @@ import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { PosterRow } from "./poster-row.tsx";
 import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
-import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -36,9 +34,8 @@ import { useResource, type Resource } from "./use-resource.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useItemsInView } from "./items-in-view.ts";
-import { groupName, orderingAired, placeCode } from "./episode-place.ts";
-import { camelKey } from "./catalogue-key.ts";
-import { useRequest } from "./use-request.ts";
+import { groupName, placeCode } from "./episode-place.ts";
+import { FilesOrderingDialog, OrderingDialog, OrderingFetching } from "./series-orderings.tsx";
 import { useWarmsUpOnPress } from "./warm-on-press.ts";
 import { MarkWatched, WatchedRowMark } from "./watched-mark.tsx";
 
@@ -47,7 +44,6 @@ export type SeriesDetail = components["schemas"]["SeriesBody"];
 type Season = components["schemas"]["SeasonBody"];
 type Episode = components["schemas"]["EpisodeBody"];
 type NextUp = components["schemas"]["NextUpBody"];
-type Ordering = components["schemas"]["OrderingBody"];
 /** The season a series' page shows and its first page of episodes, as its own read carried them. */
 type ShownSeason = components["schemas"]["ShownSeasonBody"];
 
@@ -153,8 +149,9 @@ export function SeriesView(props: {
 
 /**
  * A series' rarely used actions, under its "…" (the owner, 2026-10-29): the order its episodes are
- * shown in, where it has more than one, and an admin's "Identified incorrectly", and, while its match
- * is a guess, "Identified correctly" (D301 §4).
+ * shown in, where it has more than one, and beside it an admin's order its files are numbered in
+ * (D210 §1, b2.md Phase B), an admin's "Identified incorrectly", and, while its match is a guess,
+ * "Identified correctly" (D301 §4).
  */
 function SeriesMoreActions(props: {
   readonly series: SeriesDetail;
@@ -174,6 +171,15 @@ function SeriesMoreActions(props: {
       ),
     });
   }
+  if (isAdmin && (series.orderings ?? []).length > 1) {
+    actions.push({
+      key: "files-ordering",
+      label: t("ordering.filesLabel"),
+      dialog: (close) => (
+        <FilesOrderingDialog series={series} onClose={close} onChosen={props.onOrderingChosen} />
+      ),
+    });
+  }
   if (isAdmin) {
     const onCorrected = onMatchCorrected ?? (() => undefined);
     actions.push(
@@ -188,41 +194,6 @@ function SeriesMoreActions(props: {
     }
   }
   return <MoreActions actions={actions} />;
-}
-
-/** The dialog the "…"'s Order opens: the choice of ordering, closed once one is chosen. */
-function OrderingDialog(props: {
-  readonly series: SeriesDetail;
-  readonly onClose: () => void;
-  readonly onChosen: (() => void) | undefined;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const heading = t("ordering.label");
-  return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
-      <OrderingChoice
-        series={props.series}
-        onChosen={() => {
-          props.onClose();
-          props.onChosen?.();
-        }}
-      />
-    </ModalDialog>
-  );
-}
-
-/**
- * That the ordering chosen is being fetched, on the page, until it is (episode-orderings.md §4):
- * its choice is in a dialog gone once chosen.
- */
-function OrderingFetching(props: { readonly series: SeriesDetail }): JSX.Element | null {
-  const { t } = useTranslation();
-  const { series } = props;
-  const chosen = (series.orderings ?? []).find((ordering) => ordering.name === series.ordering);
-  return chosen?.isAwaitingFetch === true ? (
-    <p className="series__absent">{t("ordering.fetching")}</p>
-  ) : null;
 }
 
 /**
@@ -399,81 +370,6 @@ export function NextUpPlay(props: {
         : t("title.playEpisode", { episode })}
     </Link>
   );
-}
-
-/**
- * The orderings a series has, to choose the one the person watches it in (D159 §1): offered only when
- * it has more than one, aired first, each by its label with its kind and how many of the series'
- * episodes it holds (or its provider lists, before it holds any). A choice keeps it and shows the
- * series at its default season, a season of the order left meaning nothing (episode-orderings.md §7
- * Q10); one chosen before its contents were fetched is said to be fetched on the page
- * (OrderingFetching, §4).
- */
-export function OrderingChoice(props: {
-  readonly series: SeriesDetail;
-  readonly onChosen?: (() => void) | undefined;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { api, navigation } = useServices();
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const { series } = props;
-  const orderings = series.orderings ?? [];
-  if (orderings.length < 2) {
-    return null;
-  }
-  const choose = (chosen: string): void => {
-    if (isBusy) {
-      return;
-    }
-    runRequest(async () => {
-      throwIfRefused(
-        await api.PUT("/items/{id}/preferences", {
-          params: { path: { id: series.id } },
-          body: { episodeOrdering: chosen },
-        }),
-      );
-      // Another ordering is a view of the same series: no step in the history (D367 §9).
-      navigation.replace({ screen: "series-page", collectionId: series.id });
-      props.onChosen?.();
-    });
-  };
-  const shown = series.ordering ?? orderingAired;
-  const options = orderings.map((ordering): ActionChoice => ({
-    key: ordering.name,
-    label: orderingName(t, ordering),
-    isCurrent: ordering.name === shown,
-    onChoose: () => {
-      choose(ordering.name);
-    },
-  }));
-  return (
-    <div className="series__ordering">
-      <ActionChooser
-        fieldLabel={t("ordering.label")}
-        current={currentLabelOf(options)}
-        options={options}
-      />
-      {problem === undefined ? null : (
-        <span className="series__absent">{t("ordering.failed", { why: problem })}</span>
-      )}
-    </div>
-  );
-}
-
-/** An ordering as the choice names it: "Aired", or "DVD Order (DVD) · episodes here: 23". */
-export function orderingName(t: TFunction, ordering: Ordering): string {
-  if (ordering.name === orderingAired) {
-    return t("ordering.aired");
-  }
-  const kind =
-    ordering.kind === undefined
-      ? t("orderingKind.authored")
-      : t(`orderingKind.${camelKey(ordering.kind)}`, { defaultValue: ordering.kind });
-  const label = ordering.label ?? ordering.name;
-  if (ordering.episodeCount === 0 && ordering.listedCount !== undefined) {
-    return t("ordering.optionListed", { label, kind, count: ordering.listedCount });
-  }
-  return t("ordering.option", { label, kind, count: ordering.episodeCount });
 }
 
 /**

@@ -669,7 +669,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   headed by their names ("Disc 1", else "Part 2"); Next Up, an episode's page and Continue Watching
   label an episode there ("Disc 1 · 2", "Episode 812"), its page with its aired place on a second
   line; what the ordering leaves out is listed under *Not in this order* (§7 Q4, Q8). Labels are
-  `src/episode-place.ts`'s. `src/episode-orderings.test.tsx`.
+  `src/episode-place.ts`'s. An ordering its provider no longer lists is named with *(no longer
+  listed)* (§6 step 5). Beside the choice, under the same "…", an admin alone chooses *Files are
+  numbered in*, the ordering the series' files' numbers are in (D210 §1), aired by default; a choice is
+  sent to `PUT /items/{id}/files-ordering` and the page read again (`src/series-orderings.tsx`).
+  `src/episode-orderings.test.tsx`.
 - **A playing episode offers what plays next, and the person's autoplay plays it** (plans/up-next.md):
   the server's `GET /files/{id}/up-next`, asked once the film has played so it does not compete with
   its first chunks (the efficiency audit's finding 4), the next episode in the person's ordering, shows as *Up

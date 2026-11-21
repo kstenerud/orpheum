@@ -7,8 +7,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { rowName, type EpisodeNaming } from "./continue-watching.tsx";
-import { OrderingChoice, SeriesView, type SeriesDetail } from "./series.tsx";
+import { SeriesView, type SeriesDetail } from "./series.tsx";
+import { FilesOrderingChoice, OrderingChoice } from "./series-orderings.tsx";
 import {
+  anyButton,
   buttonNamed,
   buttonWithText,
   chooseIn,
@@ -19,6 +21,7 @@ import {
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { TitleView, titleUp, type TitleDetail } from "./title.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 const aired = { name: "aired", kind: "aired", episodeCount: 4 };
 const dvd = {
@@ -171,6 +174,101 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     // (D367 §9; navigation-back-up-2026-10-27.md §3.23).
     expect(services.navigation.behind()).toHaveLength(1);
     expect(reads).toBe(1);
+  });
+});
+
+describe("the order a series' files are numbered in (D210 §1, b2.md Phase B)", () => {
+  /** The "…"'s actions a person is offered on a series' page, by their words. */
+  async function moreActionsOf(series: SeriesDetail, isAdmin: boolean): Promise<string[]> {
+    const page = await mount(
+      withServices(
+        <IsAdminContext value={isAdmin}>
+          <SeriesView series={series} />
+        </IsAdminContext>,
+      ),
+    );
+    await click(buttonNamed(page.container, "More actions"));
+    const actions = [...page.container.querySelectorAll(anyButton)].map((each) => each.textContent);
+    page.unmount();
+    return actions;
+  }
+
+  it('is offered to an admin alone, under the "…" beside the viewing order', async () => {
+    const forUser = await moreActionsOf(inAired, false);
+    expect(forUser).toContain("Order");
+    expect(forUser).not.toContain("Files are numbered in");
+    const forAdmin = await moreActionsOf(inAired, true);
+    expect(forAdmin).toContain("Order");
+    expect(forAdmin).toContain("Files are numbered in");
+  });
+
+  it("shows an admin the current choice, and keeps the one chosen, by its id, and reads the page again", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "PUT /items/20/files-ordering": [204, null],
+        "GET /items/20/not-in-order": [200, { episodes: [] }],
+        "GET /items/20/groups/1": [200, { episodes: [] }],
+      },
+      heard,
+      "token",
+    );
+    let reads = 0;
+    const page = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <SeriesView
+            series={inAired}
+            onOrderingChosen={() => {
+              reads++;
+            }}
+          />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+    await click(buttonNamed(page.container, "More actions"));
+    await click(buttonWithText(page.container, "Files are numbered in"));
+    // Aired, the default, while the series says no other.
+    const chooser = [...page.container.querySelectorAll("dialog .route-chooser")].find(
+      (each) =>
+        each.querySelector(".route-chooser__field")?.textContent === "Files are numbered in",
+    );
+    expect(chooser?.querySelector(".route-chooser__button")?.textContent).toBe("Aired");
+    await chooseIn(page.container, "Files are numbered in", "DVD Order (DVD) · episodes here: 3");
+    expect(page.container.querySelector("dialog")).toBeNull();
+    page.unmount();
+    const puts = heard.filter((each) => each.methodAndPath.startsWith("PUT "));
+    expect(puts.map((each) => [each.methodAndPath, each.body])).toEqual([
+      ["PUT /items/20/files-ordering", { filesOrdering: "tmdb:dvd" }],
+    ]);
+    expect(reads).toBe(1);
+    // The series' own files' order is the one shown as chosen.
+    const set = await mount(
+      withServices(<FilesOrderingChoice series={{ ...inAired, filesOrdering: "tmdb:dvd" }} />),
+    );
+    expect(set.container.querySelector(".route-chooser__button")?.textContent).toBe(
+      "DVD Order (DVD) · episodes here: 3",
+    );
+    set.unmount();
+  });
+
+  it("names an ordering its provider no longer lists so, in both choices", () => {
+    const series: SeriesDetail = { ...inAired, orderings: [aired, { ...dvd, isUnlisted: true }] };
+    const unlisted = "DVD Order (DVD) · episodes here: 3 (no longer listed)";
+    const watched = renderToStaticMarkup(
+      withServices(<OrderingChoice series={{ ...series, ordering: "tmdb:dvd" }} />),
+    );
+    expect(watched).toContain(unlisted);
+    const filed = renderToStaticMarkup(
+      withServices(<FilesOrderingChoice series={{ ...series, filesOrdering: "tmdb:dvd" }} />),
+    );
+    expect(filed).toContain(unlisted);
+    expect(
+      renderToStaticMarkup(
+        withServices(<OrderingChoice series={{ ...inAired, ordering: "tmdb:dvd" }} />),
+      ),
+    ).not.toContain("no longer listed");
   });
 });
 
