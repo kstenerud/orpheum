@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import { reportFailure, type components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useMemo, useRef } from "react";
 
 import { InterestSaidEveryContext } from "./page-interest.ts";
+import { shownAndEveryPoller } from "./polling.ts";
+import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useResource } from "./use-resource.ts";
 
 /** The work a file's viewer waits on, as the server says it (D324 §6). */
 export type FileWaits = components["schemas"]["FileWaitsOutputBody"];
@@ -15,36 +18,44 @@ export type FileWait = components["schemas"]["WaitBody"];
 
 /**
  * The work a file's viewer waits on and about how long each will take, asked for while isWanted, at
- * once and again every interestSaidEverySeconds; undefined before the server answers, and when it
- * does not.
+ * once and again every interestSaidEverySeconds while the page shows, through shownAndEveryPoller:
+ * one ask at a time, an ask with no answer given up, none while the page is hidden. Undefined before
+ * the server answers, and when it does not; an answer stands through a read that fails after it,
+ * the words without an estimate standing until one comes.
  */
 export function useFileWaits(fileId: number | undefined, isWanted: boolean): FileWaits | undefined {
   const { api } = useServices();
   const everySeconds = useContext(InterestSaidEveryContext);
-  const [waits, setWaits] = useState<FileWaits | undefined>(undefined);
-  useEffect(() => {
-    if (fileId === undefined || !isWanted) {
-      return undefined;
-    }
-    let isCurrent = true;
-    const ask = (): void => {
-      api.GET("/files/{id}/waits", { params: { path: { id: fileId } } }).then(
-        ({ data }) => {
-          if (isCurrent && data !== undefined) {
-            setWaits(data);
-          }
-        },
-        () => undefined, // the words without an estimate stand
-      );
-    };
-    ask();
-    const timer = setInterval(ask, everySeconds * 1000);
-    return () => {
-      isCurrent = false;
-      clearInterval(timer);
-    };
-  }, [api, fileId, isWanted, everySeconds]);
-  return waits;
+  const poller = useMemo(() => shownAndEveryPoller(everySeconds * 1000), [everySeconds]);
+  const lastReadRef = useRef<{ readonly fileId: number; readonly waits: FileWaits }>(undefined);
+  const isAsked = fileId !== undefined && isWanted;
+  const [waits] = useResource(
+    isAsked ? `file-waits-${String(fileId)}` : "file-waits-not-asked",
+    async (signal) => {
+      if (!isAsked) {
+        return undefined;
+      }
+      try {
+        const read = dataOrThrow(
+          await api.GET("/files/{id}/waits", {
+            params: { path: { id: fileId } },
+            signal: signal ?? null,
+          }),
+        );
+        lastReadRef.current = { fileId, waits: read };
+        return read;
+      } catch (cause) {
+        const last = lastReadRef.current;
+        if (signal?.aborted === true || last?.fileId !== fileId) {
+          throw cause;
+        }
+        reportFailure(cause);
+        return last.waits;
+      }
+    },
+    isAsked ? { poller } : {},
+  );
+  return isAsked && waits.state === "loaded" ? waits.value : undefined;
 }
 
 /**

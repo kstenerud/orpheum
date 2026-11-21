@@ -183,6 +183,8 @@ slow server or a lost connection the waits page stacks requests.
 - **Cost:** a person watching a file's waits on a weak network or a busy server.
 - **Fix:** run the ask through `shownAndEveryPoller(everySeconds * 1000)`. **S, agent.**
 
+*Fixed:* fix(web): a file's waits are asked through the pollers, one ask at a time
+
 ### 9. A film's clock is written three ways, and a page's end time in the browser's locale
 
 `clockText` (`web/apps/web/src/timeline.tsx:13`, used by `skipped-parts.tsx:10` and `title.tsx:29`)
