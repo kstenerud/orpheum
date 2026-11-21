@@ -5,7 +5,7 @@ import "./timeline.css";
 import { useRef, useState, type JSX, type PointerEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { clockText } from "./date-time-text.ts";
+import { clockText } from "./date-time-text.ts"; // the one way a film's clock is written
 import { fractionAlong, useTouchAnywhere } from "./range-touch.ts";
 
 /** How finely a drag along a timeline moves the film: a second. */

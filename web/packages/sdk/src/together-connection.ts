@@ -98,7 +98,7 @@ export type GroupCommand =
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "seek"; readonly positionMs: number }
-  /** itemId is the title fileId plays as, the one it was opened from (GroupView's itemId). */
+  /** itemId is the title fileId plays as, the one it was opened from; absent, the server picks. */
   | {
       readonly command: "changeItem";
       readonly fileId: number;

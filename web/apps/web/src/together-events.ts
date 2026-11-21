@@ -3,7 +3,7 @@
 import type { GroupEvent, GroupView, RosterMember } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
-import { clockText } from "./date-time-text.ts";
+import { clockText } from "./date-time-text.ts"; // the one way a film's clock is written
 import { i18n } from "./i18n.ts";
 
 /** The catalogue key, under together.event, of each event the server names by its code. */
