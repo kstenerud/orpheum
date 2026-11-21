@@ -10,6 +10,7 @@ import "./base.css";
 import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { LibraryBrowse } from "./library-browse.tsx";
 import { PosterCard } from "./poster-card.tsx";
@@ -126,6 +127,23 @@ async function otherGrid(items: readonly Record<string, unknown>[]): Promise<Mou
   return mounted;
 }
 
+/**
+ * Moves the pointer off the grid and lets every transition in mounted end: a hovered card lifts its
+ * poster 2 px over --duration-quick (poster-card.css), and the pointer an earlier test left where the
+ * grid draws a poster put a poster's middle 2 px off a still's beside it (make check, 2026-11-16),
+ * and 0.95 px caught mid-lift (2026-11-20).
+ */
+async function pointerOffTheGrid(mounted: Mounted): Promise<void> {
+  const elsewhere = document.createElement("div");
+  elsewhere.style.cssText = "position: fixed; right: 0; bottom: 0; width: 4px; height: 4px";
+  document.body.append(elsewhere);
+  await userEvent.hover(elsewhere);
+  elsewhere.remove();
+  await Promise.all(
+    mounted.container.getAnimations({ subtree: true }).map((each) => each.finished),
+  );
+}
+
 /** The box of the selector's first match within the card at place, by its place in the grid. */
 function boxIn(mounted: Mounted, place: number, selector: string): DOMRect {
   const card = mounted.container.querySelectorAll(".poster-grid .poster-card")[place];
@@ -157,6 +175,7 @@ describe("an other video's poster and the stills beside it (D495)", () => {
     // gate's load, a still's middle stood 2 px above the poster's (make check, 2026-11-16).
     await document.fonts.ready;
     await settleAnswers();
+    await pointerOffTheGrid(mounted);
     const poster = boxIn(mounted, 1, ".poster");
     // Upright, as a film's poster is.
     expect(poster.height).toBeGreaterThan(poster.width);
@@ -183,6 +202,7 @@ describe("an other video's poster and the stills beside it (D495)", () => {
           .querySelectorAll(".poster-grid .poster-card")[1]
           ?.querySelector(".poster--blank") !== null,
     );
+    await pointerOffTheGrid(mounted);
     const blank = boxIn(mounted, 0, ".poster--blank.poster--wide");
     expect(blank.width / blank.height).toBeCloseTo(16 / 9, 1);
     const poster = boxIn(mounted, 1, ".poster");
