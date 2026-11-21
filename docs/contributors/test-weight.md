@@ -630,6 +630,11 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   the review, which is the noise test-weight.md's own "What makes these hard to see" warns of, not a
   second fix; the gain the scan itself gives shows in `en-together.ts`'s and the unit tests
   (`scripts/tests/test_revert_red_locales.py`) built to prove the matching rather than only measure it.
+- **Narrowed further** (the owner, 2026-11-21, "yes" to the B1 batch's Q21): when the scan places
+  every key the change added or reworded, its runs, and the same rendering tests in browser mode,
+  are the probe's whole web run, so the whole-file scope no longer runs after they come back green.
+  The cost is a green, which fails the gate, where only a built key or the browser tier would have
+  turned red; never a pass.
 - **Warning sign:** a probe's "vitest related" row for a `locales/` file's revert taking seconds more
   than its catalogue test alone; a locale commit whose changed keys are all reached only through a
   built string (`` t(`a.${camelKey(b)}`) ``), where the scan can place nothing and every such probe
@@ -830,6 +835,22 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   hundreds of files for a change inside one function; or a module that runs code at its top level
   which hands a function to another module, which makes each of its importers' tests reached.
 
+### 39. A red of most of the web suite, run again whole to prove it
+
+- **Mechanism:** a red stands only once the tests that failed pass with nothing reverted
+  (`revert_red_clean.py`). A file nearly everything imports fails most of the suite when
+  reverted, so its proof was most of the suite again.
+- **Instance** (the B1 batch's check-pr, 2026-11-21): revert-red took 510 s of 798;
+  `input-commands.ts` alone 487 s, its red and its rerun each most of the web suite.
+- **Why it was invisible:** the rerun is timed as its own row, "nothing reverted", and each row
+  looked like one probe's run.
+- **Fix** (the owner, 2026-11-21, "yes" to Q21): when the suite's own record (`web_tests.py`) holds
+  a pass on the probed commit's tree, no test in it fails at HEAD, so only the worktree's running
+  them is left to show: the first three of each suite's failed files run again (`sampled`). A red
+  of three files or fewer, where one test failing under load could be all of it, still runs them
+  all.
+- **Warning sign:** a "nothing reverted" row as long as the red before it.
+
 ### Looked for and left: a seed built once and copied (2026-11-19)
 
 The owner asked whether the tests that spend their time seeding could copy a seeded database into
@@ -935,7 +956,8 @@ failed.
   web tree. A green is a failure or, once its claim is checked, a claim, so a stale one fails a
   file at worst; a stale red passes one, which is why the web key stays the whole tree until it can
   be narrowed by vitest's own module graph. A kept pass of a clean run (`revert_red_clean.py`) holds
-  for its worktree, commit and Go and Node versions.
+  for its worktree, commit and Go and Node versions. A red of many web test files trusts the web
+  suite's tree record to run only three of them again (§39).
 - **The tagged probe run** tests only the packages the dev tag builds otherwise
   (`revert_red_tags.py`, by `go list`'s file lists), and a file's own package whenever it names a
   build constraint, which its revert may change.

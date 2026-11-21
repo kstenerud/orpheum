@@ -12,8 +12,11 @@ from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import revert_red_clean as clean  # noqa: E402
 import revert_red_known as known  # noqa: E402
+from area_stamp import stamp_path  # noqa: E402
+from gitrepo import Repo  # noqa: E402
 
 HERMETIC = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
@@ -143,6 +146,51 @@ class BuildRedSettledByABuild(unittest.TestCase):
             (root / "x_test.go").write_text("package x\n\nfunc broken( {\n")
             done = subprocess.run(built, cwd=root, capture_output=True, text=True, env=env, check=False)
             self.assertNotEqual(done.returncode, 0, "a test file that fails to compile fails the build")
+
+
+class SampledReds(unittest.TestCase):
+    """A red of many web test files, on a commit whose tree the suite's record holds a pass on, runs
+    only a few of them again with nothing reverted (the B1 batch's Q21)."""
+
+    UNIT_FILES = [f"apps/web/src/t{n}.test.tsx" for n in range(6)]
+    BROWSER_FILES = [f"apps/web/src/b{n}.browser.test.tsx" for n in range(5)]
+
+    def setUp(self):
+        self.repo = Repo({"a.txt": "a\n"})
+        self.head = self.repo.commit("head")
+        self.tree = self.repo.git("rev-parse", f"{self.head}^{{tree}}").strip()
+
+    def passed(self, step: str, tree: str) -> None:
+        stamp = stamp_path(step)
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(tree + "\n")
+
+    def sampled(self, files: list[str]) -> list[str]:
+        failed = {"vitest": files, "go": {"./x": ["TestX"]}}
+        out = clean.sampled(failed, self.head)
+        self.assertEqual(out["go"], {"./x": ["TestX"]})
+        return out["vitest"]
+
+    def test_a_suite_that_passed_on_the_commits_tree_runs_the_first_few_of_its_failed_files(self):
+        with self.repo.cwd():
+            self.passed("web-test", self.tree)
+            self.assertEqual(self.sampled(self.UNIT_FILES), self.UNIT_FILES[:clean.SAMPLED])
+
+    def test_each_suite_is_cut_by_its_own_record(self):
+        with self.repo.cwd():
+            self.passed("web-test-browser-related", self.tree)
+            self.assertEqual(self.sampled(self.UNIT_FILES + self.BROWSER_FILES),
+                             self.UNIT_FILES + self.BROWSER_FILES[:clean.SAMPLED])
+
+    def test_a_pass_on_another_tree_cuts_nothing(self):
+        with self.repo.cwd():
+            self.passed("web-test", "0" * 40)
+            self.assertEqual(self.sampled(self.UNIT_FILES), self.UNIT_FILES)
+
+    def test_a_few_failed_files_are_all_run_again(self):
+        with self.repo.cwd():
+            self.passed("web-test", self.tree)
+            self.assertEqual(self.sampled(self.UNIT_FILES[:clean.SAMPLED]), self.UNIT_FILES[:clean.SAMPLED])
 
 
 if __name__ == "__main__":

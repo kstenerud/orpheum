@@ -99,13 +99,13 @@ from revert_red_changes import (GO_GENERATED_QUERIES, GO_TEST_SUPPORT, SHELL_SOU
 from revert_red_dependents import (GO_SHIPPED_SOURCE_READERS, git_run as _git, go_dependents, go_module,  # noqa: F401 (tests reach rev_exists here)
                                    python_tests_naming, python_tests_reaching, rev_exists, toplevel,
                                    web_source_readers, web_stylesheet_readers)
-from revert_red_locales import LOCALE_SOURCE, locale_runs
+from revert_red_locales import LOCALE_SOURCE, locale_runs, narrowed_runs
 from revert_red_naming import naming_runs
 from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach other_builds here)
 from revert_red_stylesheets import own_browser_mode_reds, settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
-from revert_red_clean import clean_failure, clean_run, failed_pass_clean, probe_kind, runs_clean
+from revert_red_clean import clean_failure, clean_run, failed_pass_clean, probe_kind, runs_clean, sampled
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope, direct_then_types
 from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
@@ -246,7 +246,12 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
         if users:
             attempts.append(Attempt(go_test(*users), ", found by the tests of the code that uses what it changed"))
     elif LOCALE_SOURCE.search(change.path) and base and head:
-        # The catalogue's own test, then the tests rendering its changed keys, first (revert_red_locales).
+        # The catalogue's own test, then the tests rendering its changed keys: the whole web probe when
+        # they place every changed key, else first (revert_red_locales).
+        narrow = narrowed_runs(toplevel(), base, head, change.path)
+        if narrow is not None:
+            return [*narrow, *(Attempt(go_test(package, tests=[test]), SHIPPED_SOURCE_LABEL)
+                               for package, test in GO_SHIPPED_SOURCE_READERS)]
         attempts = [*locale_runs(toplevel(), base, head, change.path), *attempts]
     elif TS_SOURCE.search(change.path) and change.status == "M" and change.path != GENERATED_API_TYPES:
         # The tests importing it directly, then the type check, seconds each, before every test that
@@ -407,7 +412,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             kind = probe_kind(attempt.command, attempt.label, attempt.env)
             combined = done.stdout + done.stderr
             failed_runs = [] if attempt.compile_only or is_build_failure(combined) else \
-                known_red.runs_of(known_red.failed_tests(combined, go_module(toplevel()), attempt.command))
+                known_red.runs_of(sampled(known_red.failed_tests(combined, go_module(toplevel()), attempt.command), head))
             again, said = failed_pass_clean(failed_runs, lambda command: timed(
                 TIMINGS, change.path, f"{kind_of(command, '', env)}, nothing reverted", None,
                 functools.partial(run_whole_group, command, tree, timeout, env)))

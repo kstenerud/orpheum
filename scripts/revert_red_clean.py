@@ -34,6 +34,15 @@ fails to compile with a file reverted names no test, so the clean run was the wh
 155 s for the core's API at the release's check-pr, on the run's busiest tree, to learn only that the
 clean tree compiles. Such a red is now settled by compiling the clean tree's test binaries and running
 none (`clean_run`), its own kind, "<kind>, compiled": seconds.
+
+**A red of many web tests, by a few of them** (the owner, 2026-11-21, "yes" to the B1 batch's Q21): a
+file nearly everything imports (`input-commands.ts`) failed most of the web suite when reverted, and
+the run of its failed tests with nothing reverted was most of the suite again: 487 s for that file
+alone. When the suite's own record (web_tests.py) says it passed on the probed commit's tree, no test
+in it fails at HEAD, so what is left to show is that this worktree runs them: `sampled` keeps the
+first SAMPLED of each suite's failed files. One that passes with nothing reverted and failed with the
+file reverted is a red that stands, whatever the rest did; a red of a few tests, where a test failing
+under load would be the whole of it, has them all run again as before.
 """
 
 from __future__ import annotations
@@ -45,8 +54,10 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from area_stamp import stamp_path
 from revert_red_commands import compiled
 from revert_red_timings import kind_of
+from web_tests import BROWSER, UNIT, passed_trees
 
 _CLEAN: dict[tuple[str, str], bool] = {}
 # What a clean run that failed printed, its end: the failing test had to be found by reproducing the
@@ -162,3 +173,28 @@ def failed_pass_clean(failed: list, run: Callable[[list[str]], subprocess.Comple
             output = (done.stdout or "") + (done.stderr or "")
             return False, "\n".join(output.strip().splitlines()[-KEPT_LINES:])
     return True, ""
+
+
+# How many of a suite's failed web test files a red runs again with nothing reverted, when the suite
+# passed on the probed commit's tree (`sampled`).
+SAMPLED = 3
+
+
+def tree_of(head: str) -> str:
+    """The tree head's commit holds, or "" when git cannot say."""
+    done = subprocess.run(["git", "rev-parse", f"{head}^{{tree}}"], capture_output=True, text=True, check=False)
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def sampled(failed: dict, head: str) -> dict:
+    """failed (revert_red_known.failed_tests' answer) with each web suite's failed files cut to the
+    first SAMPLED, for a suite whose record holds a pass on head's tree; the rest as they were."""
+    files = failed.get("vitest") or []
+    tree = tree_of(head) if head and len(files) > SAMPLED else ""
+    if not tree:
+        return failed
+    kept = []
+    for suite in (UNIT, BROWSER):
+        own = [file for file in files if suite.holds(file)]
+        kept += own[:SAMPLED] if tree in passed_trees(stamp_path(suite.step)) else own
+    return {**failed, "vitest": kept}

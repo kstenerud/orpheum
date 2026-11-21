@@ -121,7 +121,10 @@ class Attempts(unittest.TestCase):
     def setUp(self):
         self.repo = Repo(FILES)
         self.base = self.repo.commit("base")
-        self.head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('"Hello"', '"Hi"')})
+        # "General" no source asks for by a literal (built.tsx builds its key), so the scan cannot
+        # place every changed key and the probe's usual runs follow.
+        self.head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('"Hello"', '"Hi"').replace(
+            '"General"', '"Overall"')})
 
     def attempts(self) -> list[list[str]]:
         with self.repo.cwd():
@@ -145,6 +148,42 @@ class Attempts(unittest.TestCase):
             rr.locale_runs = saved
         with_them = self.attempts()
         self.assertEqual(with_them[len(with_them) - len(without):], without)
+
+
+class Narrowed(unittest.TestCase):
+    """When every changed key is asked for by a literal, the catalogue's test and the tests rendering
+    those keys are the probe's whole web run (the owner, 2026-11-21, the B1 batch's Q21)."""
+
+    def setUp(self):
+        self.repo = Repo(FILES)
+        self.base = self.repo.commit("base")
+
+    def attempts(self, head: str) -> list[list[str]]:
+        with self.repo.cwd():
+            return [attempt.command for attempt in rr.attempts_for(
+                rr.Change(LOCALE, "M"), rr.scope_for(LOCALE), self.base, head)]
+
+    def test_a_reworded_key_a_screen_asks_for_runs_only_that_screens_tests_and_the_shipped_source_readers(self):
+        head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('"Hello"', '"Hi"')})
+        self.assertEqual(self.attempts(head), [
+            loc.vitest("run", loc.CATALOGUE_TEST),
+            loc.vitest("related", "apps/web/src/greeter.tsx"),
+            loc.vitest("related", "apps/web/src/greeter.tsx", browser=True),
+            *(rr.go_test(package, tests=[test]) for package, test in rr.GO_SHIPPED_SOURCE_READERS),
+        ])
+        self.assertNotIn(rr.scope_for(LOCALE), self.attempts(head))
+
+    def test_a_removed_key_needs_no_asker(self):
+        head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('  farewell: "Bye",\n', "")})
+        self.assertNotIn(rr.scope_for(LOCALE), self.attempts(head))
+
+    def test_a_key_only_a_built_string_asks_for_keeps_every_usual_run(self):
+        head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('"General"', '"Overall"')})
+        self.assertIn(rr.scope_for(LOCALE), self.attempts(head))
+
+    def test_a_file_the_scan_cannot_parse_keeps_every_usual_run(self):
+        head = self.repo.commit("change", {LOCALE: CATALOGUE.replace('"Hello"', 'greeting()')})
+        self.assertIn(rr.scope_for(LOCALE), self.attempts(head))
 
 
 if __name__ == "__main__":

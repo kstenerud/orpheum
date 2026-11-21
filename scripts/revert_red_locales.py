@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: For a probe of a locale catalogue file, the catalogue's own test and the tests that render
-# ABOUTME: its changed keys, read from the source; run before the probe's usual runs, never instead.
+# ABOUTME: its changed keys, read from the source; the whole web probe when every changed key is placed.
 """The web tests that name a locale change (check_revert_red.attempts_for's first runs for one).
 
 103 of 167 app test files import `i18n.ts`, so `vitest related` on a locale file ran nearly the whole
@@ -30,8 +30,16 @@ never instead of them, so a change only reached through a built key is still fou
 A file this cannot parse (not the plain shape above) is the same: nothing is added, and the probe's
 usual runs are exactly as they were before this module existed.
 
-**It decides nothing.** As `revert_red_naming`'s Go tests that name a change: a red here settles the
-probe; a green goes on to every run the probe made before, so no verdict rests on the scan.
+**When it places every key, it is the probe** (the owner, 2026-11-21, "yes" to the B1 batch's Q21):
+the B1 batch changed `en.ts` and `en-play.ts`, and each probe's `vitest related` over the whole file,
+after these runs came back green, ran most of the web suite. When every key the change added or
+reworded is asked for by a literal somewhere (`asks_every_changed_key`), these runs, with the same
+rendering tests in browser mode, are the probe's whole web run (`narrowed_runs`): the screens that
+show the changed text are the tests that can see it. Its cost is a green where only a test reaching a
+key some other way, or the browser tier, would have turned red, and a green fails the gate, so it
+can ask for a test that was not needed, never pass a file that is uncovered. A key head no longer has
+needs no asker: putting back a key nothing asks for changes no screen. Otherwise, as before, a red here
+settles the probe and a green goes on to every run the probe made before.
 """
 
 from __future__ import annotations
@@ -240,6 +248,36 @@ def _key_usage(root: str) -> dict[str, frozenset[str]]:
 def matching_source_files(root: str, changed: set[str]) -> list[str]:
     """The source files (relative to web/) that ask for one of changed by its literal key, sorted."""
     return sorted(path for path, keys in _key_usage(root).items() if keys & changed)
+
+
+def asks_every_changed_key(root: str, base: str, head: str, path: str) -> bool:
+    """Whether every key the change added or reworded, as head has it, is asked for by a literal in
+    some source file, so the tests rendering them can see every change it made; False when either
+    version cannot be parsed. A key head no longer has is not asked: no source asks for one."""
+    changed = changed_locale_keys(root, base, head, path)
+    if changed is None:
+        return False
+    try:
+        kept = changed & _flatten(_parsed_tree(root, head, path)).keys()
+    except Unparseable:
+        return False
+    asked = frozenset().union(*_key_usage(root).values())
+    return kept <= asked
+
+
+def narrowed_runs(root: str, base: str, head: str, path: str) -> list[Attempt] | None:
+    """A locale file's whole web probe when the scan places every changed key (asks_every_changed_key):
+    the catalogue's own test and the tests rendering those keys, in jsdom and in browser mode, and not
+    the locale file's own importers, most of the app. None when it cannot place one: the probe then
+    makes its usual runs after locale_runs'."""
+    if not asks_every_changed_key(root, base, head, path):
+        return None
+    attempts = locale_runs(root, base, head, path)
+    matches = matching_source_files(root, changed_locale_keys(root, base, head, path) or set())
+    if matches:
+        attempts.append(Attempt(vitest("related", *matches, browser=True), ", found by the browser-mode "
+                                "tests that render its changed keys"))
+    return attempts
 
 
 def locale_runs(root: str, base: str, head: str, path: str) -> list[Attempt]:
