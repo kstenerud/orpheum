@@ -85,12 +85,14 @@ watching out of order. A Watch Together group plays on into the next episode tog
 
 ## B2 — the library and its people
 
+Phased in [b2.md](b2.md) (proposed, 2026-11-21).
+
 | Item | Source | Size | Notes |
 | --- | --- | --- | --- |
 | Genres on the title page and as a filter | D95 (the owner: genres first) | M | Cast, crew and ratings later |
 | Browse filters and more sorts | the feature-standing audit | S–M | |
 | Watched marks, and marking watched | the owner's note | S | One more icon in the poster's tray, which a person can toggle |
-| The watchlist | D140 §3, D150 §3 | S | Its tables exist |
+| The watchlist | D140 §3, D150 §3 | S | ~~Its tables exist~~ It has no table yet (b2.md, 2026-11-21) |
 | Episode orderings | D96, D210 | M | |
 | Missing episodes | D187 | S–M | |
 | Disc images (ISO, VIDEO_TS) | D306 §4–§5 | M | Filed as not supported today |
