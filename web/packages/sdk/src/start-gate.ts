@@ -189,7 +189,8 @@ export class StartGate {
   /**
    * Plays the element as how does: at once when enough is loaded ahead, else once it is. Only a
    * paused element is played; one that follows a group is played at once, its follower moving it.
-   * A play asked while another waits takes its place.
+   * A play asked while another waits takes its place, made at once too: the one waiting is given up,
+   * or a play the browser refused, leaving it paused, was made again by the wait's next look.
    */
   play(how: () => void): void {
     const media = this.#media;
@@ -198,7 +199,14 @@ export class StartGate {
     }
     if (media.ended || this.#isFollowing() || this.#isReady(readyAheadOf(media))) {
       this.#wait = undefined;
+      const wasWaiting = this.isWaiting();
+      this.#pending = undefined;
+      this.#stopChecking();
       this.#playNow(how);
+      if (wasWaiting) {
+        // Told after the play, as #lookAgain tells it, so its hearers find the element playing.
+        media.dispatchEvent(new Event(startGateWaitChangedEvent));
+      }
       return;
     }
     this.#waitToPlay(how);

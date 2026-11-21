@@ -231,6 +231,24 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     vi.advanceTimersByTime(startCheckEveryMs);
     expect(play.plays()).toBe(1);
   });
+
+  it("plays a start asked once enough is loaded at once, in place of one waiting, and only that once", () => {
+    const media = resumedMedia();
+    const gate = startGateOf(media);
+    let plays = 0;
+    // A play the browser refuses for want of a press: the element stays paused, and no play is heard.
+    const refused = (): void => {
+      plays += 1;
+    };
+    gate.play(refused); // as the page opens, too little loaded: it waits
+    expect(gate.isWaiting()).toBe(true);
+    media.loaded = [[1794.96, 1810.87]];
+    gate.play(refused); // at the load's start, enough loaded: at once
+    expect(plays).toBe(1);
+    expect(gate.isWaiting()).toBe(false);
+    vi.advanceTimersByTime(startCheckEveryMs * 4);
+    expect(plays).toBe(1);
+  });
 });
 
 describe("a player alone plays on after a seek only once what it loaded outlasts its next chunk's load", () => {
