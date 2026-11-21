@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -537,8 +538,30 @@ func TestEnqueue_AWholeServerJobNamesNoTargetAndIsQueuedOnce(t *testing.T) {
 	}
 }
 
-// The cache's job table takes every kind the queue has, read from its one list: a kind added to the
-// list and not to the schema's CHECK fails here, not at its first enqueue in a running server.
+// A job of a kind Kinds does not name is refused where it is queued, alone or in a batch, naming the
+// kind, and nothing is written: the job table lists no kinds (cache schema version 54; the code
+// audit of 2026-11-21, finding 2), so this is the one check of a job's kind.
+func TestEnqueue_RefusesAKindNotInKindsNamingIt(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	unknown := Request{Kind: "a_kind_added_later", Target: Target{FileID: 7}, ArgsJSON: "{}", Reason: "test"}
+	if _, err := jobs.queue.Enqueue(t.Context(), unknown); !errors.Is(err, ErrUnknownKind) ||
+		!strings.Contains(err.Error(), "a_kind_added_later") {
+		t.Errorf("queue a job of a kind not in Kinds: %v; want ErrUnknownKind naming the kind", err)
+	}
+	known := Request{Kind: KindReadThrough, Target: Target{FileID: 8}, ArgsJSON: "{}", Reason: "test"}
+	if _, err := jobs.queue.EnqueueBatch(t.Context(), []Request{known, unknown}); !errors.Is(err, ErrUnknownKind) ||
+		!strings.Contains(err.Error(), "a_kind_added_later") {
+		t.Errorf("queue a batch holding a kind not in Kinds: %v; want ErrUnknownKind naming the kind", err)
+	}
+	listed, err := jobs.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
+	if err != nil || len(listed) != 0 {
+		t.Errorf("the jobs written = %+v, %v; want none", listed, err)
+	}
+}
+
+// The cache's job table takes every kind the queue has, read from its one list, and the queue's
+// check of a kind refuses none of them.
 func TestEnqueue_TheCacheTakesAJobOfEveryKind(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)

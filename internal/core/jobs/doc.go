@@ -30,6 +30,9 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
+//   - A job's kind is one of Kinds, checked where every job is queued (Enqueue, EnqueueBatch):
+//     cache.db's job table lists no kinds, so a new kind discards no cache (the code audit of
+//     2026-11-21, finding 2). TestEnqueue_RefusesAKindNotInKindsNamingIt.
 //   - A job names exactly one target, but a backup, which names none (D243 §11).
 //     TestEnqueue_QueuesATargetOnceWhileItIsOpen reads it
 //     through the queue; ErrNotOneTarget refuses the rest.

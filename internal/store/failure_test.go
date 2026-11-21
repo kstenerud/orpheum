@@ -43,8 +43,9 @@ func TestIsStorageFailure_IsADiskWithNoRoomOrFailingNotAWriteRefusedForWhatItSay
 	if !IsStorageFailure(full) {
 		t.Errorf("a write to a full database: %v; want a storage failure", full)
 	}
+	// A job of no kind, which the job table's CHECK refuses.
 	refused := cache.Write(ctx, func(queries *cachegen.Queries) error {
-		_, insertErr := queries.InsertJob(ctx, cachegen.InsertJobParams{Kind: "not a kind", ArgsJSON: "{}"})
+		_, insertErr := queries.InsertJob(ctx, cachegen.InsertJobParams{Kind: "", ArgsJSON: "{}"})
 		if insertErr != nil {
 			return fmt.Errorf("insert a job: %w", insertErr)
 		}

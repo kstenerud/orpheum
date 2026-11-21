@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// Kind is what a job does; the job table's CHECK names the set.
+// Kind is what a job does; Kinds names the set, and Enqueue refuses any other.
 type Kind = jobqueue.Kind
 
 // The kinds of job (cut-a §5.3).
@@ -91,6 +92,20 @@ var ErrNotOneTarget = errors.New("a job works on one target, and a backup on non
 // certificate's renewal, one of each at a time.
 func isWholeServer(kind Kind) bool {
 	return kind == KindBackup || kind == KindRenewCertificate || kind == KindMakeSystemVideos
+}
+
+// ErrUnknownKind is a job of a kind Kinds does not name. The job table holds any kind, so that a
+// new kind changes no schema and discards no cache.db (cache schema version 54; the code audit of
+// 2026-11-21, finding 2): the kind is checked here, where every job is queued.
+var ErrUnknownKind = errors.New("a job's kind is not one of the kinds of job")
+
+// requireQueueable refuses a job of a kind Kinds does not name, and one whose target
+// requireOneTarget refuses.
+func requireQueueable(kind Kind, target Target) error {
+	if !slices.Contains(Kinds(), kind) {
+		return fmt.Errorf("%w: %q", ErrUnknownKind, kind)
+	}
+	return requireOneTarget(kind, target)
 }
 
 // requireOneTarget refuses a target that names no target or several, but for a backup, which
@@ -246,7 +261,7 @@ func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 // Enqueue queues a job, or folds it into the one already open for its kind and target
 // (jobqueue.Queue.Enqueue says how), and reports whether it added one.
 func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
-	if err := requireOneTarget(job.Kind, job.Target); err != nil {
+	if err := requireQueueable(job.Kind, job.Target); err != nil {
 		return false, err
 	}
 	if queue.isUnavailable(job.Kind, job.Target) {
@@ -274,7 +289,7 @@ func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, err
 	requests := make([]jobqueue.Request[Target], 0, len(batch))
 	available := make([]Request, 0, len(batch))
 	for _, job := range batch {
-		if err := requireOneTarget(job.Kind, job.Target); err != nil {
+		if err := requireQueueable(job.Kind, job.Target); err != nil {
 			return 0, err
 		}
 		if queue.isUnavailable(job.Kind, job.Target) {

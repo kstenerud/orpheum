@@ -3,11 +3,14 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 53
+-- A job's kind is checked in Go where a job is written (internal/core/jobs' Enqueue, against
+-- jobs.Kinds()), not by a CHECK here, since version 54: a new kind changes nothing here, so it
+-- discards no cache (the code audit of 2026-11-21, finding 2).
+-- cache schema version 54
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup','renew_certificate','hash_whole_file','make_system_videos','find_repeats')),
+  kind        TEXT NOT NULL CHECK (kind <> ''),  -- one of jobs.Kinds(), checked where a job is queued
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, extract_subtitle the file its tracks are in (D340), convert_fetched_subtitle a fetched subtitle,
   -- read_through and hash_whole_file a file, find_repeats a season's first file not yet measured (D101),

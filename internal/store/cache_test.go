@@ -50,8 +50,8 @@ func TestOpenCache_BuildsAnEmptyFileAndKeepsWhatItHolds(t *testing.T) {
 	}
 }
 
-// D363: a copy's candidate is read whole by a hash_whole_file job (node protocol 52); the schema's
-// job.kind CHECK names it among the kinds the queue may hold.
+// D363: a copy's candidate is read whole by a hash_whole_file job (node protocol 52), aimed at the
+// file.
 func TestOpenCache_QueuesAHashWholeFileJob(t *testing.T) {
 	t.Parallel()
 	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
@@ -71,15 +71,16 @@ func TestOpenCache_QueuesAHashWholeFileJob(t *testing.T) {
 	}
 }
 
-// D101: a season's sound is compared by a find_repeats job aimed at its first file not yet measured;
-// the schema's job.kind CHECK names it among the kinds the queue may hold.
-func TestOpenCache_QueuesAFindRepeatsJob(t *testing.T) {
+// The job table lists no kinds: a kind is checked where a job is queued (internal/core/jobs), so a
+// kind added later changes no schema and discards no cache.db (the code audit of 2026-11-21,
+// finding 2). A kind the schema has never heard of is stored and listed back.
+func TestOpenCache_HoldsAJobOfAKindTheSchemaDoesNotList(t *testing.T) {
 	t.Parallel()
 	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
 	fileID := int64(9)
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		_, insertErr := queries.InsertJob(t.Context(), cachegen.InsertJobParams{
-			Kind: "find_repeats", FileID: &fileID, ArgsJSON: "{}", RunnableAt: 1, CreatedAt: 1,
+			Kind: "a_kind_added_later", FileID: &fileID, ArgsJSON: "{}", RunnableAt: 1, CreatedAt: 1,
 		})
 		return insertErr //nolint:wrapcheck // the test reads it as is
 	})
@@ -87,8 +88,8 @@ func TestOpenCache_QueuesAFindRepeatsJob(t *testing.T) {
 		t.Fatalf("InsertJob: %v", err)
 	}
 	jobs, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
-	if err != nil || len(jobs) != 1 || jobs[0].Kind != "find_repeats" {
-		t.Errorf("the queued jobs = %+v, %v; want the one find_repeats job", jobs, err)
+	if err != nil || len(jobs) != 1 || jobs[0].Kind != "a_kind_added_later" {
+		t.Errorf("the queued jobs = %+v, %v; want the one a_kind_added_later job", jobs, err)
 	}
 }
 

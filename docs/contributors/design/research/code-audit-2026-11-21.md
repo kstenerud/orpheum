@@ -73,6 +73,8 @@ holds back one wanted column (`keptCandidates`' original name) for want of a bum
   store has. **S** for the first, **owner's** (the cache's versioning is a design choice and the
   schema a gate's input).
 
+*Fixed:* feat(jobs): a new job kind keeps the cache, as the kind is checked where a job is written
+
 ### 3. Watch Together and the live connection drop an unknown message unheard
 
 `together.Hub.Handle` (`internal/core/together/hub.go:609-635`) switches on `message.Type`, refuses

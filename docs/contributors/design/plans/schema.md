@@ -1299,11 +1299,15 @@ dropped `prepared_rendition`, the `prepare` kind and `job.rendition_id`: the who
 retired, and a film its device cannot play as it is plays from its ladder of chunks (D344). Version
 43 added `rescan` and `rematch`: an admin's rescan in progress, kept as a scan is from its request
 to its end, and each film and series it matches again with what its files say it is (D357).
+Version 54 dropped the list of kinds from `job.kind`'s CHECK, leaving it non-empty: a job's kind is
+checked in Go where a job is queued (`internal/core/jobs`' `Enqueue`, against `jobs.Kinds()`), so a
+new kind no longer changes this schema nor discards every cache.db (the code audit of 2026-11-21,
+finding 2).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup')),
+  kind        TEXT NOT NULL CHECK (kind <> ''),  -- one of jobs.Kinds(), checked where a job is queued
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, extract_subtitle the file its tracks are in (D340), convert_fetched_subtitle a fetched subtitle,
   -- read_through and make_chunks a file, scan a scan (its listing), examine a scan's batch. At most one is set;
