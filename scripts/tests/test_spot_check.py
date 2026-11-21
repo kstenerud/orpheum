@@ -123,6 +123,53 @@ class Planning(unittest.TestCase):
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
         self.assertFalse([c for c in commands if c[0] == "golangci-lint"])
 
+    def test_a_change_to_a_file_a_go_test_reads_runs_that_package_and_lints_nothing(self):
+        readers = {"web/packages/sdk/src": {f"{MODULE}/internal/r"}, "docs/users/install.md": {f"{MODULE}/d"},
+                   "internal/store/sqlcgen/*.sql.go": {f"{MODULE}/internal/s"}}
+        spot = spot_check.plan(["web/packages/sdk/src/rtc-request.ts"], MODULE, {}, readers=readers)
+        self.assertEqual(spot.go_packages, [f"{MODULE}/internal/r"])
+        self.assertEqual(spot.lint_packages, [])
+        self.assertEqual(spot_check.plan(["docs/users/install.md"], MODULE, {}, readers=readers).go_packages,
+                         [f"{MODULE}/d"])
+        self.assertEqual(spot_check.plan(["internal/store/sqlcgen/q.sql.go"], MODULE, {}, readers=readers).go_packages,
+                         [f"{MODULE}/internal/s", f"{MODULE}/internal/store/sqlcgen"])
+        self.assertEqual(spot_check.plan(["web/packages/sdk/srcx/a.ts", "docs/users/other.md"], MODULE, {},
+                                         readers=readers).go_packages, [], "a sibling of what is read is not it")
+
+
+class GoTestReaders(unittest.TestCase):
+    def setUp(self):
+        import tempfile  # noqa: PLC0415
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(self.root)], check=False))
+        self.cwd = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, self.cwd)
+
+    def readers(self, files: dict[str, str]) -> dict[str, list[str]]:
+        for name, text in files.items():
+            Path(name).parent.mkdir(parents=True, exist_ok=True)
+            Path(name).write_text(text)
+        return {path: sorted(packages) for path, packages in
+                spot_check.go_test_readers(MODULE, sorted(files)).items()}
+
+    def test_a_climbing_join_or_literal_maps_what_it_names_to_the_package(self):
+        found = self.readers({
+            "internal/core/r/r_test.go": 'os.ReadFile(filepath.Join("..", "..", "..", "web", "sdk",\n "src", file))\n'
+                                         'const page = "../../../docs/users/install.md"\n',
+            "internal/s/s_test.go": 'filepath.Glob(filepath.Join("..", "sqlcgen", "*.sql.go"))\n',
+        })
+        self.assertEqual(found, {"web/sdk/src": [f"{MODULE}/internal/core/r"],
+                                 "docs/users/install.md": [f"{MODULE}/internal/core/r"],
+                                 "internal/sqlcgen/*.sql.go": [f"{MODULE}/internal/s"]})
+
+    def test_its_own_package_the_root_and_what_names_no_climb_are_left_out(self):
+        found = self.readers({
+            "internal/a/a_test.go": 'filepath.Join("..", "a", "testdata")\nname := "../../" + route.Path()\n'
+                                    'filepath.Join("..", "..", "..", "outside")\nfilepath.Join(root, "..", "x")\n'
+                                    'filepath.Join("testdata", "y")\n',
+        })
+        self.assertEqual(found, {})
 
 
 class Wiring(unittest.TestCase):

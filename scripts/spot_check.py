@@ -21,6 +21,11 @@ the working tree's uncommitted and untracked files), and runs, at once:
   name it (revert_red_dependents.py), and every module when ./dev, the Makefile or a git hook
   changed, which no import follows: every module for any script took 20 s, the spot check's floor (the
   owner, 2026-11-20: test duration "sets the minimum duration of a dev cycle").
+* **Go tests that read other files:** a package whose tests climb out of it to read a file by path
+  (`filepath.Join("..", "..", "web", ...)`), when a changed path is under the one they name. A web
+  file's change ran no Go test, and a test reading the SDK's limits from its source failed only at
+  the turn's end (the owner, 2026-11-21: "yes that sounds good"). Go's test cache keys a result on
+  the files the test opened, so a package that read none of the changed files is served from it.
 * **Documentation:** the docs gate (`scripts/check_docs.py`), when Markdown changed.
 * **The owner's domains:** the test that only suggested.go names them, when a shipped source changed
   and its package is not already run whole.
@@ -32,6 +37,7 @@ tiers) it names, so a green is never read as `make check`'s.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import os
 import re
 import shlex
@@ -71,6 +77,12 @@ SHIPPED_SOURCE = re.compile(r"\.(go|ts|tsx|mts|js|mjs|sh|html|yaml|toml)$")
 UNSHIPPED_TEST = re.compile(r"(_test\.go|\.test\.|\.spec\.)")
 GO_TEST_ONE = ["go", "test", "-run"]
 
+# A Go test naming a path out of its package: filepath.Join, its leading string literals, the first "..".
+CLIMBING_JOIN = re.compile(r'filepath\.Join\(\s*((?:"[^"\n]*"\s*,\s*)*"[^"\n]*")')
+STRING_LITERAL = re.compile(r'"([^"\n]*)"')
+# Or a literal that climbs by itself: "../../deploy/omv/compose.yaml".
+CLIMBING_LITERAL = re.compile(r'"(\.\./[^"\n]*)"')
+
 
 @dataclass
 class Plan:
@@ -108,11 +120,16 @@ def without_removed_packages(paths: list[str], is_dir=os.path.isdir) -> list[str
 
 
 def plan(paths: list[str], module: str, importers: dict[str, set[str]],
-         python_reach: Callable[[list[str]], list[str] | None] | None = None) -> Plan:
+         python_reach: Callable[[list[str]], list[str] | None] | None = None,
+         readers: dict[str, set[str]] | None = None) -> Plan:
     """What to run for `paths`: `module` is go.mod's module path, and `importers` maps each Go package
     to the packages that import it directly, their tests included. python_reach gives the gate test
-    modules that changed Python paths reach, None for every one; by default, by their imports."""
+    modules that changed Python paths reach, None for every one; by default, by their imports.
+    `readers` maps a path to the Go packages whose tests read it or the files under it (go_test_readers)."""
     result = Plan()
+    read_by = {package for path in paths for read, packages in (readers or {}).items()
+               if path == read or path.startswith(read + "/") or fnmatch.fnmatchcase(path, read)
+               for package in packages}
     python_paths = []
     result.named, result.named_all = list(paths), bool(MEDIA_NAMES_GATE & set(paths))
     result.shipped = any(SHIPPED_SOURCE.search(path) and not UNSHIPPED_TEST.search(Path(path).name) for path in paths)
@@ -146,7 +163,7 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]],
     packages = set(changed_packages)
     for package in changed_packages:
         packages |= importers.get(package, set())
-    result.go_packages = sorted(packages)
+    result.go_packages = sorted(packages | read_by)
     # Lint takes the changed packages alone: an importer's lint does not change with them.
     result.lint_packages = sorted(changed_packages)
     if styles:
@@ -161,12 +178,51 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]],
     return result
 
 
-def go_importers() -> tuple[str, dict[str, set[str]]]:
-    """go.mod's module, and each package's direct importers, tests included, by `go list`."""
-    module = ""
+def go_module() -> str:
+    """go.mod's module path."""
     for line in Path("go.mod").read_text().splitlines():
         if line.startswith("module "):
-            module = line.split()[1]
+            return line.split()[1]
+    return ""
+
+
+def go_test_readers(module: str, test_files: list[str]) -> dict[str, set[str]]:
+    """Each path a Go package's tests climb out of the package to read, to those packages: the
+    leading literals of a filepath.Join that starts with "..", or a literal starting "../", resolved
+    from the test's directory, a glob kept as one (`*.sql.go`). A literal that names no file the
+    repository has (test data such as "../etc/passwd") maps a path no change touches. A path that ends in a directory stands for the files under it, which the test names at run time
+    (`filepath.Join("..", "..", "web", "src", file)`). A path inside the package, or one that
+    resolves to the repository's root or above it, is left out: the root would run the package on
+    every change, and the root's walkers have runs of their own (DOMAIN_TEST)."""
+    readers: dict[str, set[str]] = {}
+    for test in test_files:
+        directory = os.path.dirname(test) or "."
+        try:
+            source = Path(test).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        climbs = [STRING_LITERAL.findall(joined.group(1)) for joined in CLIMBING_JOIN.finditer(source)]
+        climbs += [[literal] for literal in CLIMBING_LITERAL.findall(source)]
+        for parts in climbs:
+            if not parts[0].startswith(".."):
+                continue
+            read = os.path.normpath(os.path.join(directory, *parts))
+            if read == "." or read.startswith("..") or read == directory or read.startswith(directory + "/"):
+                continue
+            readers.setdefault(read, set()).add(module if directory == "." else f"{module}/{directory}")
+    return readers
+
+
+def go_tests() -> list[str]:
+    """The repository's Go test files, tracked or new."""
+    listed = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*_test.go"],
+                            capture_output=True, text=True, check=False).stdout
+    return [line for line in listed.splitlines() if line]
+
+
+def go_importers() -> tuple[str, dict[str, set[str]]]:
+    """go.mod's module, and each package's direct importers, tests included, by `go list`."""
+    module = go_module()
     listed = subprocess.run(
         ["go", "list", "-e", "-f",
          "{{.ImportPath}}{{range .Imports}} {{.}}{{end}}{{range .TestImports}} {{.}}{{end}}"
@@ -271,8 +327,8 @@ def main() -> int:
     if not paths:
         print(f"spot: nothing changed since {args.base}; give --base to check commits (e.g. --base HEAD~1)")
         return 0
-    module, importers = go_importers() if any(p.endswith(".go") for p in paths) else ("", {})
-    spot = plan(without_removed_packages(paths), module, importers)
+    module, importers = go_importers() if any(p.endswith(".go") for p in paths) else (go_module(), {})
+    spot = plan(without_removed_packages(paths), module, importers, readers=go_test_readers(module, go_tests()))
     planned = runs(spot, module)
     with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(planned)))) as pool:
         results = list(pool.map(execute, planned))
