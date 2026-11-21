@@ -30534,7 +30534,7 @@ the image host's probe on every back-off for hours, so nothing else for the host
    with only one job waiting is asked again after that job's back-off, as it would be after its
    probe's.
 3. **A job whose failed probe another job's probe answered fails on its own from then on.**
-   *Found building it, the agent's, for the owner to confirm:* by §1 alone, the host back, the bad
+   *Found building it, the agent's; the owner confirmed it (2026-11-21, "yes to §3"):* by §1 alone, the host back, the bad
    job is still the highest and runs first, and parks the host again, so the rest would pass one a
    back-off. So when a probe finds the destination up just after another job's probe of it failed,
    that job's failure is shown to be its own: its answers park nothing again until it succeeds, and
@@ -30553,3 +30553,30 @@ the image host's probe on every back-off for hours, so nothing else for the host
 (`internal/store`).
 
 **Status:** decided (2026-11-21).
+
+## D532 — A player says ahead of time that it will step down, and a picture quality just left keeps being made for five minutes
+
+**Decided** (2026-11-21), by the project owner ("1 and 2, fold into v0.8.11"), of the agent's two
+proposals after film 200 stalled at random on staging's Fire TV. The film's copied picture fits
+the Fire TV's buffer in some stretches and not in others, so the player stepped between it and
+720p every few minutes; at each step up the core stopped 720p's run at once (D309 §2), and at the
+next step down 720p's chunk was not made, so the player waited on 425s with only the picture it
+had buffered, and stalled five times in 15 minutes on a 21 to 32 Mb/s link. Builds D503 §2, which
+was decided and never built, and extends it; amends D309 §2.
+
+**Status:** decided.
+
+1. **A player says ahead of time that it will step down** (D503 §2, extended): a new field of PUT
+   `/playback/{token}/wants` names the picture quality it will step down to and the position from
+   which, and the core starts that quality's run there before it is asked for. A step-down for the
+   buffer's room (D464) is foreseen from the playlist's size of each chunk, as many chunks ahead as
+   the buffer holds; one for the link, one chunk ahead, as D503 §2 said. The foreseen quality is
+   wanted as a player's picture is, until the player asks for it or says its wants again without
+   it.
+2. **A picture quality a player just left keeps being made for five minutes** (amends D309 §2's
+   "stopped at once"): it stays wanted from the player's position, as its picture was, so a player
+   stepping back down within those minutes finds its chunks made. After five minutes, or when the
+   player stops, it is stopped as any run no player wants.
+
+**Proven by:** to be named when built.
+
