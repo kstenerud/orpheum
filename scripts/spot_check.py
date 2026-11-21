@@ -13,10 +13,13 @@ the working tree's uncommitted and untracked files), and runs, at once:
   golangci-lint of each changed package alone, with make check's integration build tag: a long line
   or an unchecked error was found only by the turn's-end gate, four whole runs in one session (the
   owner, 2026-10-31: "lint the one package first" was a habit, not a check).
-* **Web:** the changed test files, and the tests that import a changed source directly, by the
-  relative imports (revert_red_web.py). vitest's `related` follows every importer and took 44 s
-  for one player file; the tests further out are `make check`'s. A stylesheet only a browser
-  renders, so the spot check names it and runs nothing for it.
+* **Web:** the changed test files, and the tests that use a changed declaration themselves, by
+  name, through the barrels that pass it on, or load a module whose loading changed
+  (web_test_reach.cjs at depth 1). vitest's `related` follows every importer and took 44 s for one
+  player file; the tests further out are `make check`'s. By relative imports alone, a test importing
+  the SDK as `@orpheum/sdk` was never run for a change to it (2026-11-21); they remain the fallback
+  when the reach cannot tell (a deleted file, a setup file's, no TypeScript). A stylesheet only a
+  browser renders, so the spot check names it and runs nothing for it.
 * **Python:** the gates' test modules that import a changed script or hook, directly or not, or
   name it (revert_red_dependents.py), and every module when ./dev, the Makefile or a git hook
   changed, which no import follows: every module for any script took 20 s, the spot check's floor (the
@@ -52,6 +55,7 @@ from collections.abc import Callable
 import gate_runs
 from revert_red_dependents import python_tests_reaching_any
 from revert_red_web import VITEST_RUN, importing_tests
+from web_tests import UNIT, reached_tests
 
 BUDGET_S = gate_runs.BUDGET_S["spot"]
 # How many of its runs go at once, by default: two, so a spot check beside staging or another
@@ -244,12 +248,12 @@ class Run:
     command: list[str]
 
 
-def runs(spot: Plan, module: str) -> list[Run]:
+def runs(spot: Plan, module: str, base: str = "HEAD") -> list[Run]:
     out = []
     if spot.go_packages:
         relative = [relative_package(p, module) for p in spot.go_packages]
         out.append(Run(f"go test, {len(relative)} package(s)", go_test_as_make_check(relative)))
-    tests = web_tests(spot.web_files)
+    tests = web_tests(spot.web_files, base)
     if tests:
         out.append(Run(f"vitest, {len(tests)} test file(s)", [*VITEST_RUN, *tests]))
     if spot.python:
@@ -291,10 +295,16 @@ def go_test_as_make_check(packages: list[str]) -> list[str]:
             f"go test -json {listed} | {shlex.quote(sys.executable)} scripts/go_test_timings.py go-spot"]
 
 
-def web_tests(paths: list[str]) -> list[str]:
-    """The test files to run for changed web files: each changed test, and the tests importing a
-    changed source directly; relative to web/, as vitest's root takes them."""
+def web_tests(paths: list[str], base: str = "HEAD", reach=reached_tests) -> list[str]:
+    """The test files to run for web files changed since base: each changed test, and the tests
+    using a changed declaration themselves (`reach`, reached_tests at depth 1), or, when it cannot
+    tell, importing a changed file directly; relative to web/, as vitest's root takes them."""
     tests: set[str] = set()
+    typescript = Path("web/node_modules/typescript")
+    if typescript.is_dir() and all(Path(path).is_file() for path in paths):
+        reached, _ = reach(base, [path.removeprefix("web/") for path in paths], UNIT, typescript.resolve(), 1)
+        if reached is not None and reached != ["*"]:
+            return sorted(test for test in reached if not is_browser_test(test))
     for path in paths:
         if re.search(r"\.test\.tsx?$", path) and Path(path).exists():
             tests.add(str(Path(path).relative_to("web")))
@@ -330,7 +340,7 @@ def main() -> int:
         return 0
     module, importers = go_importers() if any(p.endswith(".go") for p in paths) else (go_module(), {})
     spot = plan(without_removed_packages(paths), module, importers, readers=go_test_readers(module, go_tests()))
-    planned = runs(spot, module)
+    planned = runs(spot, module, args.base)
     with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(planned)))) as pool:
         results = list(pool.map(execute, planned))
     failed = False

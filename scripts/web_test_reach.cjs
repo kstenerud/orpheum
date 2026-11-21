@@ -100,7 +100,12 @@ function edgesOf(rel) {
   visit(file);
   const typeOnly = (s) => ts.isInterfaceDeclaration(s) || ts.isTypeAliasDeclaration(s) ||
     (ts.isImportDeclaration(s) && s.importClause?.isTypeOnly) || (ts.isExportDeclaration(s) && s.isTypeOnly);
-  const barrel = file.statements.every((s) => typeOnly(s) || (ts.isExportDeclaration(s) && s.moduleSpecifier));
+  // A const of a literal carries no change of another file's (the SDK's index.ts names its package).
+  const literal = (s) => ts.isVariableStatement(s) && s.declarationList.declarations.every((d) =>
+    d.initializer && !ts.isArrowFunction(d.initializer) && !ts.isFunctionExpression(d.initializer) &&
+    !mutable(d, s.declarationList));
+  const barrel = file.statements.every((s) => typeOnly(s) || literal(s) ||
+    (ts.isExportDeclaration(s) && s.moduleSpecifier));
   return { edges: [...edges.values()], barrel };
 }
 
@@ -395,28 +400,35 @@ function main() {
   }
   for (const rel of changed) if (setUpLoads.has(rel)) return { wide: `${rel} is loaded before every test` };
 
-  const reached = new Set();
+  // How far each reached file is from a change: a changed file is 0, a file using or loading one at
+  // distance d is d + 1, a barrel passing it on d. The work runs nearest first, so each file is first
+  // reached at its least distance, and `depth`, when given, keeps only the files within it.
+  const hops = new Map();
+  const reach = (file, hop) => {
+    if (!hops.has(file) || hops.get(file) > hop) hops.set(file, hop);
+  };
+  const queue = []; // queue[hop]: the work found at that distance, [kind, file, name]
+  const push = (hop, item) => (queue[hop] ??= []).push(item);
   const loadChanged = new Set();
-  const loadWork = [];
-  const loadChange = (rel) => {
+  const loadChange = (rel, hop) => {
     if (loadChanged.has(rel)) return;
     loadChanged.add(rel);
-    loadWork.push(rel);
+    push(hop, ["load", rel]);
   };
   const propagated = new Map(); // file → the exports whose change has been passed on
-  const work = [];
-  const change = (file, name) => {
+  const change = (file, name, hop) => {
     if (!propagated.has(file)) propagated.set(file, new Set());
     if (propagated.get(file).has(name)) return;
     propagated.get(file).add(name);
-    work.push([file, name]);
+    push(hop, ["name", file, name]);
   };
-  const changeAll = (file) => {
-    for (const name of exportNames(file)) change(file, name);
+  const changeAll = (file, hop) => {
+    for (const name of exportNames(file)) change(file, name, hop);
   };
+  const next = (user, hop) => (edges(user).barrel ? hop : hop + 1);
   const tainted = new Map(); // file → its top-level names whose behaviour may have changed
   /** Taints locals in file, and passes on what that changes: its exports, and its loading. */
-  const taintIn = (file, locals) => {
+  const taintIn = (file, locals, hop) => {
     if (!tainted.has(file)) tainted.set(file, new Set());
     const taint = tainted.get(file);
     const size = taint.size;
@@ -424,39 +436,48 @@ function main() {
     if (taint.size === size) return;
     const l = loading(file);
     growTaint(l, taint);
-    for (const [name, local] of l.exports) if (taint.has(local)) change(file, name);
-    if (loadsTainted(l, taint)) loadChange(file);
+    for (const [name, local] of l.exports) if (taint.has(local)) change(file, name, hop);
+    if (loadsTainted(l, taint)) loadChange(file, hop);
   };
 
   const before = baseTexts(changed);
   for (const rel of changed) {
-    reached.add(rel);
+    reach(rel, 0);
     const is = loading(rel);
     if (!before.has(rel)) {
-      changeAll(rel);
-      if (is.runNodes.length > 0) loadChange(rel);
+      changeAll(rel, 0);
+      if (is.runNodes.length > 0) loadChange(rel, 0);
       continue;
     }
     const was = loadingOf(rel, before.get(rel));
     const differs = (a, b) => [...new Set([...a.keys(), ...b.keys()])].filter((k) => JSON.stringify(a.get(k)) !== JSON.stringify(b.get(k)));
     const texts = (decls) => new Map([...decls].map(([name, d]) => [name, d.text]));
     const locals = [...differs(texts(was.decls), texts(is.decls)), ...differs(was.imports, is.imports)];
-    for (const name of [...differs(was.exports, is.exports), ...differs(was.from, is.from)]) change(rel, name);
-    if (JSON.stringify(was.stars) !== JSON.stringify(is.stars)) changeAll(rel);
+    for (const name of [...differs(was.exports, is.exports), ...differs(was.from, is.from)]) change(rel, name, 0);
+    if (JSON.stringify(was.stars) !== JSON.stringify(is.stars)) changeAll(rel, 0);
     // What it newly loads runs as it loads.
     const newlyLoaded = [...is.loads].some((target) => !was.loads.has(target) && loading(target).runNodes.length > 0);
-    if (was.shape !== is.shape || newlyLoaded) loadChange(rel);
-    taintIn(rel, locals);
+    if (was.shape !== is.shape || newlyLoaded) loadChange(rel, 0);
+    taintIn(rel, locals, 0);
   }
 
-  while (work.length > 0) {
-    const [file, name] = work.pop();
+  for (let hop = 0; hop < queue.length; hop++) {
+    const items = queue[hop] ?? [];
+    while (items.length > 0) step(hop, ...items.pop());
+  }
+  function step(hop, kind, file, name) {
+    if (kind === "load") {
+      reach(file, hop);
+      for (const { user, edge } of users.get(file) ?? []) if (edge.loads) loadChange(user, next(user, hop));
+      return;
+    }
     for (const { user, edge } of users.get(file) ?? []) {
       const starred = edge.star && name !== "default";
       if (!edge.all && !edge.names.has(name) && !starred) continue;
-      reached.add(user);
-      if (starred) change(user, name);
-      for (const r of edge.reexports) if (r.imported === name || r.imported === "*") change(user, r.exported);
+      const at = next(user, hop);
+      reach(user, at);
+      if (starred) change(user, name, at);
+      for (const r of edge.reexports) if (r.imported === name || r.imported === "*") change(user, r.exported, at);
       if (edges(user).barrel) continue;
       const l = loading(user);
       const locals = [...l.imports].filter(([, i]) => i.target === file && (i.imported === name || i.imported === "*"))
@@ -464,16 +485,12 @@ function main() {
       // An `import()` or a vitest mock takes the module whole: the declarations holding one change, and
       // what loads the user, when its top level holds one.
       const holders = l.whole.get(file) ?? new Set();
-      if (holders.has(LOAD)) loadChange(user);
-      taintIn(user, [...locals, ...[...holders].filter((name) => name !== LOAD)]);
+      if (holders.has(LOAD)) loadChange(user, at);
+      taintIn(user, [...locals, ...[...holders].filter((name) => name !== LOAD)], at);
     }
   }
-  while (loadWork.length > 0) {
-    const file = loadWork.pop();
-    reached.add(file);
-    for (const { user, edge } of users.get(file) ?? []) if (edge.loads) loadChange(user);
-  }
-  return { reached: [...reached].sort() };
+  const depth = input.depth ?? Infinity;
+  return { reached: [...hops].filter(([, hop]) => hop <= depth).map(([file]) => file).sort() };
 }
 
 process.stdout.write(JSON.stringify(main()));

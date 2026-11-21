@@ -169,7 +169,8 @@ REACH_BASE = {
                     "export function remember(key: string): void {\n  table.set(key, 1);\n}\n"
                     "export function recall(key: string): number | undefined {\n  return table.get(key);\n}\n"),
     f"{SRC}/index.ts": ('export { one, two, remember, recall } from "./a.ts";\n'
-                        'export { made } from "./b.ts";\n'),
+                        'export { made } from "./b.ts";\n'
+                        'export const packageName = "sdk";\n'),
     f"{SRC}/b.ts": ('import { two } from "./index.ts";\n'
                     "export const made = (): number => two() * 2;\n"
                     "export const other = (): number => 3;\n"),
@@ -201,10 +202,12 @@ class ReachTest(unittest.TestCase):
         self.repo = Repo(REACH_BASE)
         self.base = self.repo.commit("chore: base")
 
-    def reach(self, edit: dict[str, str], suite: web_tests.Suite = web_tests.UNIT) -> list[str] | None:
+    def reach(self, edit: dict[str, str], suite: web_tests.Suite = web_tests.UNIT,
+              depth: int | None = None) -> list[str] | None:
         self.repo.write(edit)
         with self.repo.cwd():
-            tests, _ = web_tests.reached_tests(self.base, [path.removeprefix("web/") for path in edit], suite, TYPESCRIPT)
+            tests, _ = web_tests.reached_tests(self.base, [path.removeprefix("web/") for path in edit], suite, TYPESCRIPT,
+                                               depth)
         return None if tests is None else sorted(path.removeprefix("apps/web/src/") for path in tests)
 
     def edited(self, path: str, old: str, new: str) -> dict[str, str]:
@@ -216,6 +219,11 @@ class ReachTest(unittest.TestCase):
                          ["made.test.ts", "two.test.ts"],
                          "made uses two; one.test.ts and recall.test.ts load index.ts, which loads a.ts, "
                          "but use nothing that changed")
+
+    def test_a_depth_keeps_the_tests_using_a_change_themselves_through_a_barrel(self) -> None:
+        self.assertEqual(self.reach(self.edited(f"{SRC}/a.ts", "return 2;", "return 3;"), depth=1),
+                         ["two.test.ts"], "two.test.ts uses two through index.ts, a barrel though it holds a "
+                         "literal; made.test.ts uses b.ts's made, which uses two: one further")
 
     def test_a_change_to_what_writes_shared_state_reaches_what_reads_it(self) -> None:
         self.assertEqual(self.reach(self.edited(f"{SRC}/a.ts", "table.set(key, 1)", "table.set(key, 2)")),

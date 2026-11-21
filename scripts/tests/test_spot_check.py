@@ -209,6 +209,38 @@ class WebTests(unittest.TestCase):
             finally:
                 os.chdir(saved)
 
+    def test_a_source_runs_the_tests_using_its_change_by_name_and_by_its_imports_when_that_cannot_tell(self):
+        # By relative imports alone, a test importing the SDK as @orpheum/sdk was never run (2026-11-21).
+        import tempfile
+        asked = []
+
+        def reach(base, changed, suite, typescript, depth):  # type: ignore[no-untyped-def]
+            asked.append((base, changed, suite.step, depth))
+            return answer, ""
+
+        with tempfile.TemporaryDirectory() as scratch:
+            src = Path(scratch) / "web/apps/web/src"
+            src.mkdir(parents=True)
+            (Path(scratch) / "web/node_modules/typescript").mkdir(parents=True)
+            (src / "a.tsx").write_text("export const a = 1;\n")
+            (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
+            saved = Path.cwd()
+            os.chdir(scratch)
+            try:
+                answer = ["apps/web/src/sdk.test.tsx", "apps/web/src/a.browser.test.tsx"]
+                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"], "base", reach),
+                                 ["apps/web/src/sdk.test.tsx"],
+                                 "what the reach names, the browser suite's left to make check")
+                self.assertEqual(asked, [("base", ["apps/web/src/a.tsx"], "web-test", 1)])
+                for answer in (None, ["*"]):
+                    self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"], "base", reach),
+                                     ["apps/web/src/a.test.tsx"], f"a reach of {answer}: by the relative imports")
+                self.assertEqual(spot_check.web_tests(["web/apps/web/src/gone.tsx"], "base", reach), [],
+                                 "a deleted file is not asked of the reach")
+                self.assertEqual(len(asked), 3)
+            finally:
+                os.chdir(saved)
+
     def test_a_browser_mode_test_is_left_to_make_check_and_named_not_run(self):
         # A commit of browser tests alone ran the plain vitest, which excludes them, and failed on no
         # test file (2026-10-30).

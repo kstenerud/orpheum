@@ -102,16 +102,20 @@ def changes_since(passed_tree: str, tree: str) -> list[tuple[str, str]]:
     return changes
 
 
-def reached_tests(base: str, changed: list[str], suite: Suite, typescript: Path) -> tuple[list[str] | None, str]:
+def reached_tests(base: str, changed: list[str], suite: Suite, typescript: Path,
+                  depth: int | None = None) -> tuple[list[str] | None, str]:
     """The test files, relative to web/, that changed (relative to web/) since base reach
-    (web_test_reach.cjs); None, and why, when it cannot tell, and ["*"] when every test is reached."""
+    (web_test_reach.cjs); None, and why, when it cannot tell, and ["*"] when every test is reached.
+    `depth` keeps the tests within that many uses or loads of a change, a barrel passing it on not
+    counted (spot_check.py's 1: the tests using a changed name themselves)."""
     unread = [path for path in changed if not WEB_SOURCE.match(f"{WEB}/{path}") or path.endswith(".d.ts")]
     if unread:
         return None, f"{unread[0]} is not a source the reach reads"
     try:
         done = subprocess.run(["node", str(WEB_TEST_REACH)], cwd=WEB, capture_output=True, text=True, check=False,
                               input=json.dumps({"typescript": str(typescript), "base": base, "changed": changed,
-                                                "universe": web_sources(), "roots": list(suite.setup)}),
+                                                "universe": web_sources(), "roots": list(suite.setup),
+                                                **({} if depth is None else {"depth": depth})}),
                               timeout=300)
     except (OSError, subprocess.TimeoutExpired) as failed:
         return None, f"{WEB_TEST_REACH.name} did not run: {failed}"

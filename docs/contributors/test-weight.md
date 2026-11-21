@@ -822,6 +822,10 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   runs 7 files, `throughput.ts` 33 (12 unit, 21 browser: 19.5 s for the unit ones), `client.ts`'s
   `createApi` 299, `problem.ts`'s `unavailableText` 201 (later-screens.tsx registers a reset as it
   loads, so what loads the screens is reached), `app.tsx`'s `App` 28; following takes about 2 s.
+  `make spot` runs, of the same reach, only the tests one use or load from a change, a barrel not
+  counted: before, it ran the tests importing a changed file by a relative path, so a test importing
+  `@orpheum/sdk` never ran for an SDK change. A change to `createApi` runs the 7 test files that call
+  it (9 s; by relative paths, 2), `realmName` 3 (1).
 - **Warning sign:** "only the tests the changes since the nearest pass reach" followed by a run of
   hundreds of files for a change inside one function; or a module that runs code at its top level
   which hands a function to another module, which makes each of its importers' tests reached.
