@@ -58,10 +58,11 @@ func newGivenUpWorld(t *testing.T) givenUpWorld {
 	for _, file := range []int64{world.file, world.other} {
 		id := strconv.FormatInt(file, 10)
 		payload := `(SELECT payload_hash FROM file WHERE id = ` + id + `)`
-		storetest.ExecRaw(t, path, `INSERT INTO loudness (payload_hash, stream_index, measured_mix, failure,
-			measured_at) VALUES (`+payload+`, 1, 'stereo', 'ffmpeg exited 1', 1)`)
-		storetest.ExecRaw(t, path, `INSERT INTO loudness (payload_hash, stream_index, measured_mix,
-			integrated_lufs, range_lu, true_peak_dbtp, measured_at) VALUES (`+payload+`, 2, 'stereo', -23, 7, -1, 1)`)
+		storetest.ExecRaw(t, path, `INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, failure,
+			measured_at) VALUES (`+payload+`, 1, 'stereo', 1, 'ffmpeg exited 1', 1)`)
+		storetest.ExecRaw(t, path, `INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe,
+			integrated_lufs, range_lu, true_peak_dbtp, measured_at)
+			VALUES (`+payload+`, 2, 'stereo', 1, -23, 7, -1, 1)`)
 		storetest.ExecRaw(t, path, `INSERT INTO video_timeline (payload_hash, video_stream_index, failure,
 			made_at) VALUES (`+payload+`, 0, 'ffmpeg exited 1', 1)`)
 		storetest.ExecRaw(t, path, `INSERT INTO video_timeline (payload_hash, video_stream_index,

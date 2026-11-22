@@ -19,9 +19,18 @@ func TestForget_ThrowsOutOneTracksLoudnessAndOnePicturesTimeline(t *testing.T) {
 	ctx, hash := t.Context(), []byte{7}
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for _, kept := range []sqlcgen.UpsertLoudnessParams{
-			{PayloadHash: hash, StreamIndex: 1, MeasuredMix: "stereo", IntegratedLUFS: new(-20.0), MeasuredAt: 1},
-			{PayloadHash: hash, StreamIndex: 1, MeasuredMix: "multichannel", IntegratedLUFS: new(-21.0), MeasuredAt: 1},
-			{PayloadHash: hash, StreamIndex: 2, MeasuredMix: "stereo", IntegratedLUFS: new(-22.0), MeasuredAt: 1},
+			{
+				PayloadHash: hash, StreamIndex: 1, MeasuredMix: "stereo", Recipe: 1, IntegratedLUFS: new(-20.0),
+				MeasuredAt: 1,
+			},
+			{
+				PayloadHash: hash, StreamIndex: 1, MeasuredMix: "multichannel", Recipe: 1, IntegratedLUFS: new(-21.0),
+				MeasuredAt: 1,
+			},
+			{
+				PayloadHash: hash, StreamIndex: 2, MeasuredMix: "stereo", Recipe: 1, IntegratedLUFS: new(-22.0),
+				MeasuredAt: 1,
+			},
 		} {
 			if err := queries.UpsertLoudness(ctx, kept); err != nil {
 				return err
@@ -51,7 +60,8 @@ func TestForget_ThrowsOutOneTracksLoudnessAndOnePicturesTimeline(t *testing.T) {
 	if !forget(ForgetLoudness, 1) || !forget(ForgetTimeline, 0) {
 		t.Fatal("a kept measurement or timeline was not thrown out")
 	}
-	measured, err := database.Read().ListLoudnessOfPayload(ctx, hash)
+	measured, err := database.Read().ListLoudnessOfPayload(ctx,
+		sqlcgen.ListLoudnessOfPayloadParams{PayloadHash: hash, Recipe: 1})
 	if err != nil || len(measured) != 1 || measured[0].StreamIndex != 2 {
 		t.Errorf("the measurements left = %+v, %v; want the other track's alone", measured, err)
 	}

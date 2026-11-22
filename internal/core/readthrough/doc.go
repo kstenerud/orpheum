@@ -79,9 +79,9 @@
 //   - How far into its film a running read-through is, as its node says, is its job's progress (D324
 //     §6). TestTakeProgress_ARunningReadsPositionIsItsJobsProgress.
 //
-//   - nodeproto.LoudnessRecipe stays at its first version while the loudness table's key has no place
-//     for it, so no measurement an earlier recipe made is kept as a raised one's (D536 §3).
-//     TestLoudnessRecipe_IsOneUntilTheLoudnessKeyHoldsIt.
+//   - A measurement is kept and read by nodeproto.LoudnessRecipe, in the loudness table's key: bytes
+//     another recipe alone measured lack their loudness, and the sweep reads them through again, once
+//     (D536 §3). TestLoudnessRecipe_AMeasurementOfAnotherRecipeIsNoneAndTheFileIsReadAgain.
 //
 // # Read before changing
 //

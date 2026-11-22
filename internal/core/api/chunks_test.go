@@ -212,8 +212,8 @@ func (harness testHarness) measureFilmOnesLoudness(t *testing.T) {
 	lufs := -20.0
 	if err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
-			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 1, MeasuredMix: "stereo", IntegratedLUFS: &lufs,
-			MeasuredAt: 1,
+			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 1, MeasuredMix: "stereo", Recipe: nodeproto.LoudnessRecipe,
+			IntegratedLUFS: &lufs, MeasuredAt: 1,
 		})
 	}); err != nil {
 		t.Fatal(err)

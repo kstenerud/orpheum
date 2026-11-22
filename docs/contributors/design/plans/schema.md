@@ -404,19 +404,23 @@ one kept, and one made while the first is underway waits for it, so neither spen
 receiver plays, and as the stereo mix a stereo device hears. It is kept **by payload hash and
 stream index**, not by file, because it cost a read of the whole file: a rescan rewrites the
 file's streams, a move changes its row, and a second copy is the same bytes. A row outlives its
-file, at a few dozen bytes, and serves the bytes again if they come back.
+file, at a few dozen bytes, and serves the bytes again if they come back. It is kept **by the
+recipe that measured it** too (step 0100, [D536](../../decisions/working-notes.md) §3): a
+measurement of another recipe is none of this one's, so a raised `nodeproto.LoudnessRecipe` has
+every file's sound measured again, once; the rows measured before the step are recipe 1.
 
 ```sql
 CREATE TABLE loudness (                                    -- class O: what the node measured
   payload_hash    BLOB NOT NULL,
   stream_index    INTEGER NOT NULL,
-  measured_mix           TEXT NOT NULL CHECK (measured_mix IN ('multichannel','stereo')),  -- as it is, or as stereo
+  measured_mix    TEXT NOT NULL CHECK (measured_mix IN ('multichannel','stereo')),  -- as it is, or as stereo
+  recipe          INTEGER NOT NULL CHECK (recipe >= 1),  -- how it was measured (step 0100, D536 §3)
   integrated_lufs REAL,                  -- -70 for silence; NULL when it failed
   range_lu        REAL,
   true_peak_dbtp  REAL,                  -- NULL for silence, which has no peak, or a failure
   failure         TEXT,                  -- FFmpeg's words when it could not be measured
   measured_at     INTEGER NOT NULL,
-  PRIMARY KEY (payload_hash, stream_index, measured_mix)
+  PRIMARY KEY (payload_hash, stream_index, measured_mix, recipe)
 ) WITHOUT ROWID;
 ```
 

@@ -13,6 +13,9 @@
 //     (internal/core/api), and end to end by TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled
 //     (cmd/orpheum).
 //
+//   - A sound is levelled by what nodeproto.LoudnessRecipe measured of it; another recipe's
+//     measurement levels nothing (D536 §3). TestLevels_AMeasurementOfAnotherRecipeLevelsNothing.
+//
 //   - It only reads the loudness table; internal/core/readthrough writes it. Enforced by
 //     TestArch_EachTableHasOneWritingPackage.
 //

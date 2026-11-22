@@ -22,17 +22,6 @@ type ItemProviderID struct {
 	ProviderID string
 }
 
-type Loudness struct {
-	PayloadHash    []byte
-	StreamIndex    int64
-	MeasuredMix    string
-	IntegratedLUFS *float64
-	RangeLU        *float64
-	TruePeakDBTP   *float64
-	Failure        *string
-	MeasuredAt     int64
-}
-
 type OtherVideo struct {
 	WorkID       int64
 	RecordedAt   int64

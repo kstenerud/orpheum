@@ -303,8 +303,8 @@ func (harness testHarness) shelveFilmsToReadThrough(t *testing.T) {
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
-			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLUFS: new(-20.0),
-			MeasuredAt: 1,
+			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", Recipe: nodeproto.LoudnessRecipe,
+			IntegratedLUFS: new(-20.0), MeasuredAt: 1,
 		})
 	})
 	if err != nil {
@@ -490,8 +490,8 @@ func TestFileWaits_SayTheLevellingOnceTheFileIsMeasured(t *testing.T) {
 	lufs, peak := -30.0, -12.0
 	if err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
-			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLUFS: &lufs,
-			TruePeakDBTP: &peak, MeasuredAt: 1,
+			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", Recipe: nodeproto.LoudnessRecipe,
+			IntegratedLUFS: &lufs, TruePeakDBTP: &peak, MeasuredAt: 1,
 		})
 	}); err != nil {
 		t.Fatal(err)

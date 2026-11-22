@@ -4788,10 +4788,12 @@ for the probe. Mechanical, not remembered (principles §17).
 
 A rescan stays selective meanwhile (D535 §5): revisited if a report shows someone stuck on bad data.
 
-**Built under D536** (2026-11-22): every thing above but the loudness measurement carries its
-recipe in its key, each recipe's first version leaving today's keys as they were; the loudness
-measurement has its recipe and its test, and its key gains the recipe with a migration, which the
-owner ordered for this batch (2026-11-22: "add the migration for loudness"), in the offsets' step.
+**Built under D536** (2026-11-22): every thing above carries its recipe in its key, each recipe's
+first version leaving today's keys as they were. The loudness measurement's key gained its recipe
+with migration step 0100, after the offsets' 0099, which the owner ordered for this batch
+(2026-11-22: "add the migration for loudness"): every measurement made before it is recipe 1, so the
+deploy measures nothing again, and the step raises the compatible version, since an older binary's
+write of a measurement names the key it had.
 
 ## A video's own sound offset, and a number input, next batch (the owner, 2026-11-22)
 

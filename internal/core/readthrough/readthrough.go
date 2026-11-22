@@ -140,7 +140,7 @@ func (service *Service) filesToReadThrough(ctx context.Context) ([]sweptFile, er
 	var files []sweptFile
 	for after := int64(0); after < lastFileID; after += fileIDsPerSweepRead {
 		rows, listErr := queries.ListFilesToReadThrough(ctx, sqlcgen.ListFilesToReadThroughParams{
-			AfterID: after, ThroughID: after + fileIDsPerSweepRead,
+			AfterID: after, ThroughID: after + fileIDsPerSweepRead, LoudnessRecipe: nodeproto.LoudnessRecipe,
 		})
 		if listErr != nil {
 			return nil, fmt.Errorf("list files to read through: %w", listErr)
@@ -433,13 +433,15 @@ func (service *Service) locate(
 }
 
 // whatIsLacking is the read-through a file's bytes need, without its video: the loudness of every
-// audio track when none is kept, and the timeline of its main picture when that has none, or has only
-// what its file's index said.
+// audio track when none is kept by this recipe (D536 §3), and the timeline of its main picture when
+// that has none, or has only what its file's index said.
 func (service *Service) whatIsLacking(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe,
 ) (nodeproto.ReadThrough, error) {
 	command := nodeproto.ReadThrough{DurationMs: probe.Format.DurationMs}
-	loudnessRows, err := service.database.Read().ListLoudnessOfPayload(ctx, file.PayloadHash)
+	loudnessRows, err := service.database.Read().ListLoudnessOfPayload(ctx, sqlcgen.ListLoudnessOfPayloadParams{
+		PayloadHash: file.PayloadHash, Recipe: nodeproto.LoudnessRecipe,
+	})
 	if err != nil {
 		return command, fmt.Errorf("read the loudness of file %d: %w", file.ID, err)
 	}
@@ -647,7 +649,8 @@ func (service *Service) keep(
 	return nil
 }
 
-// loudnessRows are each measured track's sounds, or FFmpeg's word for each asked track as stereo.
+// loudnessRows are each measured track's sounds, or FFmpeg's word for each asked track as stereo, each
+// keyed by the recipe that measured it (D536 §3).
 func loudnessRows(
 	payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.ReadThroughResult, now int64,
 ) []sqlcgen.UpsertLoudnessParams {
@@ -656,7 +659,7 @@ func loudnessRows(
 		for _, track := range tracks {
 			rows = append(rows, sqlcgen.UpsertLoudnessParams{
 				PayloadHash: payloadHash, StreamIndex: int64(track.StreamIndex), MeasuredMix: decide.MixStereo,
-				Failure: &answer.Failure, MeasuredAt: now,
+				Recipe: nodeproto.LoudnessRecipe, Failure: &answer.Failure, MeasuredAt: now,
 			})
 		}
 	}
@@ -675,7 +678,7 @@ func loudnessRow(
 	payloadHash []byte, streamIndex int, mix string, measured nodeproto.Measurement, now int64,
 ) sqlcgen.UpsertLoudnessParams {
 	return sqlcgen.UpsertLoudnessParams{
-		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: mix,
+		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: mix, Recipe: nodeproto.LoudnessRecipe,
 		IntegratedLUFS: &measured.IntegratedLUFS, RangeLU: &measured.RangeLU, TruePeakDBTP: measured.TruePeakDBTP,
 		MeasuredAt: now,
 	}

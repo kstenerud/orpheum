@@ -8,8 +8,8 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 
 -- name: ListFilesToReadThrough :many
 -- The live videos, among the ids after after_id and up to through_id, whose bytes have no loudness
--- though they have sound, or no timeline though they have a picture, with where each is. A sweep
--- reads the files a range of ids at a time, by the primary key, so no one query reads them all.
+-- by loudness_recipe though they have sound (one of another recipe is none, D536 section 3), or no
+-- timeline though they have a picture, with where each is. A sweep reads the files a range of ids at a time, by the primary key, so no one query reads them all.
 -- Whether a file is under a root or disk that is unavailable is the library's one rule
 -- (library.Unavailability), which the sweep asks of each. A picture is a video stream that is not
 -- a cover (stream.is_attached_picture, migration 0097). A timeline is looked for
@@ -31,7 +31,8 @@ WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND own.removed
   AND EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = own.id)
   AND (
     ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
-      AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)
+      AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash AND l.recipe = sqlc.arg(loudness_recipe)
+        LIMIT 1) IS NULL)
     OR ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'video' AND s.is_attached_picture = 0
         LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash

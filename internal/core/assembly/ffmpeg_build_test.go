@@ -51,10 +51,10 @@ func sayHello(t *testing.T, channel *httptest.Server, name, ffmpegSha256 string)
 // "<kind> failed" or "<kind> made".
 func givenUpAndMade(payload string) []string {
 	return []string{
-		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, failure, measured_at)
-			VALUES (` + payload + `, 1, 'stereo', 'ffmpeg exited 1', 1)`,
-		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, range_lu,
-			true_peak_dbtp, measured_at) VALUES (` + payload + `, 2, 'stereo', -23, 7, -1, 1)`,
+		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, failure, measured_at)
+			VALUES (` + payload + `, 1, 'stereo', 1, 'ffmpeg exited 1', 1)`,
+		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, integrated_lufs, range_lu,
+			true_peak_dbtp, measured_at) VALUES (` + payload + `, 2, 'stereo', 1, -23, 7, -1, 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, failure, made_at)
 			VALUES (` + payload + `, 0, 'ffmpeg exited 1', 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, made_at, read_failure)

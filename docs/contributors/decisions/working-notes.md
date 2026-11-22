@@ -30887,7 +30887,7 @@ would have been served as it was made before. Mechanical, not remembered (princi
    the copied picture's, an encoded quality's, a sound's (a track's mix as stereo AAC), a track's
    sound copied as it is, a loudness measurement's and a frame still's (`nodeproto`'s
    `PictureRecipe`, `QualityRecipe`, `SoundRecipe`, `SoundCopiedRecipe`, `LoudnessRecipe`,
-   `FrameStillRecipe`). Each but the loudness measurement's (§3) is named in the key of what it made, so a raised recipe makes it again,
+   `FrameStillRecipe`). Each is named in the key of what it made, so a raised recipe makes it again,
    once, where it is next wanted, and what an older recipe made is never served or continued as the
    new one's. The wire's shape counts every recipe, so a core and its nodes make at one recipe, a
    node at another refused as one with another probe is (D535 §1).
@@ -30898,11 +30898,15 @@ would have been served as it was made before. Mechanical, not remembered (princi
    Quick Sync, NVENC, VA-API). What the node does with FFmpeg's output (an init's rewriting, a
    chunk's bounds) is not in the arguments, and a change to it is the review's to raise the recipe
    for.
-3. **A loudness measurement has its recipe and its test, but no key holds it yet:** the loudness
-   table is keyed by a file's bytes, its stream and the mix measured, the mix held by the schema to
-   `multichannel` or `stereo`, so a raised `LoudnessRecipe` would keep every measurement an earlier
-   recipe made. A test holds it at 1 until the key holds it, which is a migration and so the
-   owner's.
+3. **A loudness measurement's key holds its recipe:** the loudness table is keyed by a file's
+   bytes, its stream, the mix measured and the recipe that measured it (migration step 0100, which
+   the owner ordered, 2026-11-22: "add the migration for loudness"). A measurement of another
+   recipe is none of this one's: the read-through sweep finds the bytes lacking their loudness and
+   measures them again, once, and the player levels by none until it has. Every measurement made
+   before the step is recipe 1, so its deploy measured nothing again. The step raises the
+   compatible version: an older binary's write of a measurement names the key it had, which no
+   longer is one. Until it was built, a test held `LoudnessRecipe` at 1, since a raise would have
+   kept every measurement an earlier recipe made.
 4. **A recipe's first version adds nothing to a key** (the lead's choice, easy to change: a first
    version that did would make every store again at the deploy): every key is as it was before
    recipes were counted, so the deploy that brought them made nothing again. A quality's key keeps
@@ -30916,7 +30920,7 @@ would have been served as it was made before. Mechanical, not remembered (princi
    disk needs the room; its record in cache.db stays until its file's facts change or a discarding
    rescan throws it out (D535 §6, §10).
 
-**Built** (2026-11-22): §1–5. The wire's protocol is 70. `chunks.StoreKey` names each stream's
+**Built** (2026-11-22): §1–5; §3's key by migration step 0100, the same day. The wire's protocol is 70. `chunks.StoreKey` names each stream's
 store by its recipe (`storeKeyAt`, `library.RecipeKey`); artwork names a frame still by
 `frameStillRef`, and its candidates are the videos whose still is not of their present bytes at the
 present recipe. Not covered: the trickplay thumbnails, not built yet, which get their recipe when
@@ -30925,7 +30929,7 @@ they are, and the picture's timeline the node reads beside the loudness (D247 §
 **Proven by:**
 - 1: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto)
 - 2: `TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments` (internal/node/chunks), `TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/artwork), `TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/readthrough)
-- 3: `TestLoudnessRecipe_IsOneUntilTheLoudnessKeyHoldsIt` (internal/core/readthrough)
+- 3: `TestLoudnessRecipe_AMeasurementOfAnotherRecipeIsNoneAndTheFileIsReadAgain` (internal/core/readthrough), `TestLevels_AMeasurementOfAnotherRecipeLevelsNothing` (internal/core/loudness), `TestMigrate_AMeasurementMadeBeforeTheLoudnessKeyHeldItsRecipeIsRecipeOne` (internal/store)
 - 4: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork)
 - 5: `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork), `TestEvict_RemovesChunkStoresByTheirPlayersTierFirst` (internal/node/prepared)
 

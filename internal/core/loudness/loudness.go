@@ -8,7 +8,9 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // Settings are the settings loudness reads.
@@ -47,13 +49,16 @@ func (service *Service) aim(ctx context.Context) (decide.LoudnessAim, error) {
 	return decide.LoudnessAim{TargetLUFS: float64(target), MaxRaiseDB: float64(maxRaise)}, nil
 }
 
-// Levels are the gains that level each measured sound of the bytes with payloadHash.
+// Levels are the gains that level each measured sound of the bytes with payloadHash, as this
+// recipe measured it: one of another recipe levels nothing (D536 §3).
 func (service *Service) Levels(ctx context.Context, payloadHash []byte) (decide.Levels, error) {
 	aim, err := service.aim(ctx)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := service.database.Read().ListLoudnessOfPayload(ctx, payloadHash)
+	rows, err := service.database.Read().ListLoudnessOfPayload(ctx, sqlcgen.ListLoudnessOfPayloadParams{
+		PayloadHash: payloadHash, Recipe: nodeproto.LoudnessRecipe,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("read the loudness: %w", err)
 	}

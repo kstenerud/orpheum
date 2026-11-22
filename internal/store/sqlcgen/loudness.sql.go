@@ -49,22 +49,39 @@ const listLoudnessOfPayload = `-- name: ListLoudnessOfPayload :many
 
 SELECT payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure, measured_at
 FROM loudness
-WHERE payload_hash = ?
+WHERE payload_hash = ?1 AND recipe = ?2
 ORDER BY stream_index, measured_mix
 `
 
+type ListLoudnessOfPayloadParams struct {
+	PayloadHash []byte
+	Recipe      int64
+}
+
+type ListLoudnessOfPayloadRow struct {
+	PayloadHash    []byte
+	StreamIndex    int64
+	MeasuredMix    string
+	IntegratedLUFS *float64
+	RangeLU        *float64
+	TruePeakDBTP   *float64
+	Failure        *string
+	MeasuredAt     int64
+}
+
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Each audio track's loudness, as the node measured it (D226 sections 1 and 2).
-// What was measured of a file's bytes: each track's sounds, or why they could not be measured.
-func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte) ([]Loudness, error) {
-	rows, err := q.db.QueryContext(ctx, listLoudnessOfPayload, payloadHash)
+// What was measured of a file's bytes by the recipe named: each track's sounds, or why they could not
+// be measured. A measurement of another recipe is none of this one's (D536 section 3).
+func (q *Queries) ListLoudnessOfPayload(ctx context.Context, arg ListLoudnessOfPayloadParams) ([]ListLoudnessOfPayloadRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLoudnessOfPayload, arg.PayloadHash, arg.Recipe)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Loudness{}
+	items := []ListLoudnessOfPayloadRow{}
 	for rows.Next() {
-		var i Loudness
+		var i ListLoudnessOfPayloadRow
 		if err := rows.Scan(
 			&i.PayloadHash,
 			&i.StreamIndex,
@@ -89,11 +106,11 @@ func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte)
 }
 
 const upsertLoudness = `-- name: UpsertLoudness :exec
-INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure,
-  measured_at)
+INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, integrated_lufs, range_lu, true_peak_dbtp,
+  failure, measured_at)
 VALUES (?1, ?2, ?3, ?4,
-  ?5, ?6, ?7, ?8)
-ON CONFLICT (payload_hash, stream_index, measured_mix) DO UPDATE SET
+  ?5, ?6, ?7, ?8, ?9)
+ON CONFLICT (payload_hash, stream_index, measured_mix, recipe) DO UPDATE SET
   integrated_lufs = excluded.integrated_lufs, range_lu = excluded.range_lu,
   true_peak_dbtp = excluded.true_peak_dbtp, failure = excluded.failure, measured_at = excluded.measured_at
 WHERE (loudness.integrated_lufs, loudness.range_lu, loudness.true_peak_dbtp, loudness.failure,
@@ -106,6 +123,7 @@ type UpsertLoudnessParams struct {
 	PayloadHash    []byte
 	StreamIndex    int64
 	MeasuredMix    string
+	Recipe         int64
 	IntegratedLUFS *float64
 	RangeLU        *float64
 	TruePeakDBTP   *float64
@@ -113,12 +131,14 @@ type UpsertLoudnessParams struct {
 	MeasuredAt     int64
 }
 
+// A measurement, keyed by the recipe it was made with (D536 section 3).
 // Only when it changes something (D303, DL9).
 func (q *Queries) UpsertLoudness(ctx context.Context, arg UpsertLoudnessParams) error {
 	_, err := q.db.ExecContext(ctx, upsertLoudness,
 		arg.PayloadHash,
 		arg.StreamIndex,
 		arg.MeasuredMix,
+		arg.Recipe,
 		arg.IntegratedLUFS,
 		arg.RangeLU,
 		arg.TruePeakDBTP,

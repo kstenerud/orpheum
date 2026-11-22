@@ -75,10 +75,10 @@ INSERT INTO fetched_subtitle (id, video_file, provider, provider_file_id, langua
                               release_name)
   VALUES (1, 1, 'opensubtitles', 'os-1', 'de', 'srt', CAST('1\n00:00:01,000 --> 00:00:02,000\nHallo\n' AS BLOB),
           2, 1790000003000, 'Direct.Play.Film.2020.German.srt');
-INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure,
-                      measured_at)
-  VALUES (X'0101', 1, 'stereo', -35.7, 22.8, -16.2, NULL, 1790000004000),
-         (X'0101', 2, 'stereo', NULL, NULL, NULL, 'FFmpeg could not decode it', 1790000004000);
+INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, integrated_lufs, range_lu, true_peak_dbtp,
+                      failure, measured_at)
+  VALUES (X'0101', 1, 'stereo', 1, -35.7, 22.8, -16.2, NULL, 1790000004000),
+         (X'0101', 2, 'stereo', 1, NULL, NULL, NULL, 'FFmpeg could not decode it', 1790000004000);
 INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure,
                             made_at)
   VALUES (X'0101', 0, '[0,10010]', '[90000,4000]', NULL, 1790000004000),

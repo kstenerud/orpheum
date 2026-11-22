@@ -45,13 +45,13 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		readThroughFile(readThrough{id: 10, path: "/x/10.mkv", hasSound: true}),
 		readThroughFile(readThrough{id: 11, path: "/m/11.mkv", hasSound: true, cover: coverFirst}),
 		readThroughFile(readThrough{id: 12, path: "/m/12.mkv", hasSound: true, cover: coverAfter}),
-		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, measured_at)
-		 VALUES (X'02', 1, 'stereo', -20, 1), (X'03', 1, 'stereo', -20, 1), (X'07', 1, 'stereo', -20, 1),
-		 (X'0b', 1, 'stereo', -20, 1), (X'0c', 1, 'stereo', -20, 1)`,
+		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, recipe, integrated_lufs, measured_at)
+		 VALUES (X'02', 1, 'stereo', 1, -20, 1), (X'03', 1, 'stereo', 1, -20, 1), (X'07', 1, 'stereo', 1, -20, 1),
+		 (X'0b', 1, 'stereo', 1, -20, 1), (X'0c', 1, 'stereo', 1, -20, 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json,
 		 made_at) VALUES (X'07', 0, '[0]', '[1]', 1), (X'08', 0, '[0]', '[1]', 1), (X'09', 0, '[0]', '[]', 1)`)
 	rows, err := database.Read().ListFilesToReadThrough(t.Context(),
-		sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 12})
+		sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 12, LoudnessRecipe: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,8 +64,8 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 			"whose timeline is its index's alone, and 11 and 12, whose pictures beside a cover lack theirs", ids)
 	}
 	if limited, err := database.Read().ListFilesToReadThrough(t.Context(),
-		sqlcgen.ListFilesToReadThroughParams{AfterID: 1, ThroughID: 2}); err != nil || len(limited) != 1 ||
-		limited[0].ID != 2 {
+		sqlcgen.ListFilesToReadThroughParams{AfterID: 1, ThroughID: 2, LoudnessRecipe: 1}); err != nil ||
+		len(limited) != 1 || limited[0].ID != 2 {
 		t.Errorf("the ids after 1 through 2: %+v, %v; want file 2 alone", limited, err)
 	}
 }
@@ -202,7 +202,7 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 	swept := func() int {
 		t.Helper()
 		rows, err := database.Read().ListFilesToReadThrough(t.Context(),
-			sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 10})
+			sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 10, LoudnessRecipe: 1})
 		if err != nil {
 			t.Fatal(err)
 		}
