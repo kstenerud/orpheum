@@ -104,8 +104,8 @@ These are two different things (D408), and each behaves its own way.
 - **A dialog's header and footer stay on screen while its body scrolls** (D538 §2), so a way out is
   always in view. A sheet uses `dvh` and the safe-area insets, so its header and footer never sit
   under a phone's browser bar or notch.
-- **A dialog starts on its main action, except a dangerous one's question, which starts on Cancel**
-  (D538 §4, amending D421).
+- **A dialog starts on its main action, except a confirm, which starts on Cancel** (D538 §4,
+  amending D421): every dangerous action asks first, and the question defaults to not doing it.
 - **A dialog opened from a dialog replaces it,** and going back brings the first one back with
   focus on what opened the second (D538 §5). Dialogs never stack.
 - A main action that fails keeps the dialog open and says why, next to the cause.
@@ -126,7 +126,8 @@ waits for a Save button is a Checkbox. The control table in rule 14 says the res
 
 An action that cannot be undone asks first, in a confirm Dialog whose action button is
 irreversible, with focus starting on Cancel (D538 §4). A confirm before something disruptive but
-harmless (restarting the server, renewing a link) uses a plain main button. The button that backs
+harmless (restarting the server, renewing a link) uses a plain main button, and its focus starts
+on Cancel too: every confirm defaults to not doing it. The button that backs
 out is always "Cancel". Where an action can be undone, do it and offer Undo instead. There is no
 other way to confirm.
 
