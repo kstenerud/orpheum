@@ -31041,8 +31041,8 @@ choices, all as recommended) and asking the lead to fit it into the UI revamp's 
 D349 §5 (only an other library has a Folders view) and D538 §5 (Back closes a dialog). The design is
 the second handoff's `file-browser-spec.md`; the standard gains the part in its catalogue.
 
-**Status:** decided; the server side (§7) is built; batch 3 of the UI revamp makes the rest, with the
-pages (§1–6, to come).
+**Status:** decided; the server side (§7) is built; §1–§6 are not built (batch 3 of the UI revamp makes
+them, with the pages).
 
 1. **One part, FileBrowser, has two uses:** Choose picks a folder on a machine (Create a library, Add
    a folder, A folder moved), and Browse lists a library's folders and videos. They share the path
@@ -31068,4 +31068,3 @@ pages (§1–6, to come).
 
 **Proven by:**
 - 7: `TestServeFolders_CountsEachFoldersVideosAsAScanWouldReadThem`, `TestServeFolders_AFolderNotCountedWithinTheBudgetCarriesNoCount` (internal/node/byteserver), `TestKindOf_ReadsAsAVideoWhatVideofileCallsOne` (internal/core/library), `TestLibraries_ANodesFoldersCarryTheirVideoCounts`, `TestBrowse_EveryKindOfLibrarysFolderListsItsVideoFiles` (internal/core/api), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto)
-- 1–6: to come, with the client.
