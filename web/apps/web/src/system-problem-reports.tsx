@@ -17,6 +17,7 @@ import { Loaded } from "./loaded.tsx";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { StatusNote } from "./status-note.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { StatusNote } from "./status-note.tsx";
@@ -146,9 +147,11 @@ function SuggestedSoundOffset(props: { readonly suggested: SuggestedOffset }): J
   return (
     <div className="system-problem-reports__sound-offset">
       <p>{suggestedOffsetText(t, props.suggested)}</p>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {isApplied ? (
-        <output>{t("system.problemReports.soundOffset.applied")}</output>
+        <StatusNote
+          told={{ kind: "success", text: t("system.problemReports.soundOffset.applied") }}
+        />
       ) : (
         <ConfirmButton
           label={t("system.problemReports.soundOffset.apply")}

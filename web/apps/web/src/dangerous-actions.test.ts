@@ -40,6 +40,7 @@ const dangerousActions: readonly (readonly [file: string, confirmKey: string])[]
   ["./system-discovery.tsx", "system.discovery.leaveConfirm"],
   ["./system-network.tsx", "system.network.restartConfirm"],
   ["./system-problem-reports.tsx", "system.problemReports.deleteConfirm"],
+  ["./system-problem-reports.tsx", "system.problemReports.soundOffset.applyConfirm"],
   ["./system-unused-settings.tsx", "system.unusedSettings.confirm"],
   ["./system-waiting.tsx", "system.waitingRemoveConfirm"],
   ["./system.tsx", "system.retireNodeConfirm"],
