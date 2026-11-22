@@ -34,7 +34,7 @@
 .player-overlay__shield {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: var(--layer-overlay);
   pointer-events: auto;
 }
 
@@ -57,7 +57,7 @@
    focus is not :focus-visible, so a pointer never fades it. Where the browser asks for more contrast,
    the focused scrub bar has the ring as well (focus-ring-contrast.test.ts). */
 .player-overlay .timeline__range {
-  transition: opacity 150ms ease-out;
+  transition: opacity var(--duration-quick) var(--easing-exit);
 }
 
 @media (forced-colors: none) and (prefers-contrast: no-preference) {
@@ -222,7 +222,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  transition: opacity 200ms ease-out;
+  transition: opacity var(--duration-normal) var(--easing-exit);
 }
 
 .player-overlay-seeked[data-side="left"] {
@@ -258,7 +258,7 @@
    one browser, a 4:3 film as tall as the screen's width made it. */
 .film-player__stage.film-player__stage--fills-window {
   position: fixed;
-  z-index: 50;
+  z-index: var(--layer-overlay);
   inset: 0;
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);

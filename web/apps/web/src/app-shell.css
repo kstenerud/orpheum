@@ -22,7 +22,7 @@
 .app-shell__banner {
   position: sticky;
   inset-block-start: 0;
-  z-index: 1;
+  z-index: var(--layer-sticky);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

@@ -42,7 +42,7 @@
   border-radius: 50%;
   background: var(--color-surface-raised);
   color: var(--color-muted);
-  transition: box-shadow 0.08s linear;
+  transition: box-shadow var(--duration-quick) linear;
 }
 
 .together-voice__talk[aria-pressed="true"],

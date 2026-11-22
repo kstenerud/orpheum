@@ -153,7 +153,36 @@
    */
   --popover-widest: max(50vw, 16rem);
 
+  /*
+   * Motion (interface rule 11, D538): how long a change takes, quick for hover and focus, normal for
+   * a pop-up opening, slow for a sheet rising; and how it moves, the standard easing for what comes
+   * in and the exit's for what goes. Reduced motion zeroes every duration (below).
+   */
   --duration-quick: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /*
+   * What lies over what (interface rule 11, D538): every z-index is one of these, never a number of
+   * its own (layer-tokens.test.ts). Page content, then the bars that stay in view, the player's
+   * overlay and what lies over a film in its order (a note, an offer, a receiver's prompt, the
+   * connection's alert), then pop-ups, dialogs and brief notes over everything. Beneath is a
+   * section's own backdrop, drawn under the rest of that section. A pop-up and a dialog are the
+   * browser's own top layer as well, over every number.
+   */
+  --layer-beneath: -1;
+  --layer-base: 0;
+  --layer-sticky: 100;
+  --layer-overlay: 200;
+  --layer-video-note: 210;
+  --layer-video-offer: 220;
+  --layer-video-prompt: 230;
+  --layer-video-alert: 240;
+  --layer-popup: 300;
+  --layer-dialog: 400;
+  --layer-toast: 500;
 
   --focus-ring-outer-color: #ffffff;
   --focus-ring-inner-color: #0b0b0f;
@@ -197,6 +226,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quick: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+
   *,
   *::before,
   *::after {

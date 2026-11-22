@@ -6,7 +6,7 @@
  */
 .loader-path-refused {
   position: fixed;
-  z-index: 70;
+  z-index: var(--layer-video-alert);
   inset: 0 0 auto;
   display: flex;
   flex-wrap: wrap;

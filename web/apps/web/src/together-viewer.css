@@ -59,7 +59,7 @@
   position: absolute;
   inset-block-end: var(--space-2);
   inset-inline-end: var(--space-2);
-  z-index: 2;
+  z-index: var(--layer-overlay);
   display: flex;
   gap: var(--space-2);
   align-items: center;

@@ -12,7 +12,7 @@
    drawn over the picture at its top, a card on the film, not lost in the hidden page. */
 .play:has(.film-player__stage--fills-window) {
   position: fixed;
-  z-index: 50;
+  z-index: var(--layer-overlay);
   inset: 0 0 auto;
   padding: var(--space-page);
 }
@@ -20,7 +20,7 @@
 .play:has(.film-player__stage--fills-window)
   :is([role="alert"], .needs-fixing):not(.film-player__stage *) {
   position: relative;
-  z-index: 51;
+  z-index: var(--layer-video-alert);
   margin: 0 0 var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-card);

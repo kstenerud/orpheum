@@ -22,7 +22,7 @@
 
 .warning-sign__detail {
   position: absolute;
-  z-index: 3;
+  z-index: var(--layer-popup);
   inset-block-start: 100%;
   inset-inline-start: 0;
   display: grid;

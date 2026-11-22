@@ -9,7 +9,7 @@
   position: absolute;
   inset-block-start: var(--space-2);
   inset-inline-start: 50%;
-  z-index: 2;
+  z-index: var(--layer-video-prompt);
   transform: translateX(-50%);
   font-size: var(--font-size-small);
   opacity: 0.9;
@@ -18,7 +18,7 @@
 /* Someone joined or left, a short note low over the film (ComingAndGoing). */
 .together-coming {
   position: absolute;
-  z-index: 2;
+  z-index: var(--layer-video-note);
   inset-block-end: var(--space-6);
   inset-inline-start: 50%;
   padding: var(--space-2) var(--space-4);

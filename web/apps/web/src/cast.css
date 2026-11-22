@@ -3,7 +3,7 @@
 /* A cast's receiver (cast-receiver.tsx): its "Controlled from" line over the film filling the window. */
 .cast-receiver {
   position: fixed;
-  z-index: 60;
+  z-index: var(--layer-video-note);
   inset: 0;
   pointer-events: none;
 }
@@ -74,7 +74,7 @@
    receiver's own layers, so a click or a tap anywhere lands on it. */
 .cast-start {
   position: fixed;
-  z-index: 61;
+  z-index: var(--layer-video-prompt);
   inset: 0;
   display: flex;
   align-items: center;
@@ -92,7 +92,7 @@
 /* The receiver's line, over its film, that a press turns the sound on (cast-receiver.tsx). */
 .cast-receiver__sound-on {
   position: absolute;
-  z-index: 1;
+  z-index: var(--layer-video-prompt);
   top: var(--space-4);
   left: 50%;
   padding: var(--space-2) var(--space-4);
@@ -107,7 +107,7 @@
    ground, a quiet line in its middle, read across a room. */
 .cast-ready {
   position: fixed;
-  z-index: 60;
+  z-index: var(--layer-video-prompt);
   inset: 0;
   display: flex;
   align-items: center;

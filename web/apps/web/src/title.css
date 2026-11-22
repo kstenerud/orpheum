@@ -90,7 +90,7 @@
 .title__loading {
   color: var(--color-muted);
   animation:
-    title-appear 0.2s ease-out 0.4s both,
+    title-appear var(--duration-normal) var(--easing-standard) 0.4s both,
     title-pulse 1.6s ease-in-out 0.6s infinite;
 }
 

@@ -89,7 +89,7 @@
 
 .settings__control[data-tip]:is(:hover, :focus-visible)::after {
   position: absolute;
-  z-index: 1;
+  z-index: var(--layer-popup);
   inset-block-end: calc(100% + var(--space-1));
   inset-inline-end: 0;
   padding: var(--space-1) var(--space-2);
