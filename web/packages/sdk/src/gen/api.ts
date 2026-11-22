@@ -5886,7 +5886,7 @@ export interface components {
             isOriginalWaitingForTheLink?: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
-            notDirectReasons: ("container" | "videoCodec" | "audioCodec" | "bandwidth" | "dialogueBoost" | "levellingRaise" | "audioTrack" | "userChoice")[] | null;
+            notDirectReasons: ("container" | "videoCodec" | "audioCodec" | "audioTiming" | "bandwidth" | "dialogueBoost" | "levellingRaise" | "audioTrack" | "userChoice")[] | null;
             onLadder?: components["schemas"]["LadderBody"];
             plays?: components["schemas"]["PlaysBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];

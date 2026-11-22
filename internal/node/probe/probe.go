@@ -35,23 +35,26 @@ func NewProber(runner *execx.Runner, timeout time.Duration) *Prober {
 }
 
 // packetsRead is how many of the file's first packets, of every stream together, ffprobe lists, by
-// which the node judges whether a picture's display times need rebuilding (needsRetiming). They are
-// read already, as ffprobe finds the file's streams, so listing them costs no further read.
+// which the node judges whether a picture's display times need rebuilding (needsRetiming) and whether
+// a sound's first packet alone lasts seconds (firstPacketStretchMs). They are read already, as ffprobe
+// finds the file's streams, so listing them costs no further read.
 const packetsRead = 200
 
 // arguments are ffprobe's, for film, read as its Input names it: the container, its streams and
-// chapters, and the times of its first packetsRead packets.
+// chapters, and the times and lengths of its first packetsRead packets.
 func arguments(film execx.Film) []string {
 	return append([]string{
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format", "-show_streams", "-show_chapters",
-		"-show_entries", "packet=stream_index,pts,dts", "-read_intervals", "%+#" + strconv.Itoa(packetsRead),
+		"-show_entries", "packet=stream_index,pts,dts,duration", "-read_intervals", "%+#" + strconv.Itoa(packetsRead),
 	}, film.Input()...)
 }
 
 // Probe returns what is inside film, a file at an absolute path: read by that path, or streamed
-// through the node (D330).
+// through the node (D330). A sound whose first packet, among the file's first, lasts seconds is judged
+// by its own first packets, listed alone, where the file's first hold too few of them
+// (withSoundsListedAlone).
 func (prober *Prober) Probe(ctx context.Context, film execx.Film) (nodeproto.Probe, error) {
 	if !filepath.IsAbs(film.Path) {
 		return nodeproto.Probe{}, fmt.Errorf("probe needs an absolute path, not %q", film.Path)
@@ -62,17 +65,36 @@ func (prober *Prober) Probe(ctx context.Context, film execx.Film) (nodeproto.Pro
 	if err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", film.Path, err)
 	}
-	if film.Disc != nil {
-		return ParseDisc(output, *film.Disc)
+	raw, err := parseRaw(output)
+	if err != nil {
+		return nodeproto.Probe{}, err
 	}
-	return Parse(output)
+	var record nodeproto.Probe
+	if film.Disc != nil {
+		record, err = raw.toDiscProbe(*film.Disc)
+	} else {
+		record, err = raw.toProbe()
+	}
+	if err != nil {
+		return nodeproto.Probe{}, err
+	}
+	return prober.withSoundsListedAlone(ctx, film, raw, record)
 }
 
 // Parse turns ffprobe's JSON into the bounded probe record.
 func Parse(output []byte) (nodeproto.Probe, error) {
-	var raw rawOutput
-	if err := ffprobeOutput.Unmarshal(output, &raw); err != nil {
-		return nodeproto.Probe{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
+	raw, err := parseRaw(output)
+	if err != nil {
+		return nodeproto.Probe{}, err
 	}
 	return raw.toProbe()
+}
+
+// parseRaw reads ffprobe's JSON as it wrote it.
+func parseRaw(output []byte) (rawOutput, error) {
+	var raw rawOutput
+	if err := ffprobeOutput.Unmarshal(output, &raw); err != nil {
+		return rawOutput{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
+	}
+	return raw, nil
 }

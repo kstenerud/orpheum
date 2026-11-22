@@ -164,6 +164,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 			command.LeadInMs, command.IsLedIn = film.grid.StartsMs[args.FirstChunk-1], true
 		}
 		command.IsSoundInterleaved = isSoundInterleaved(film.probe, track.AudioTrackIndex)
+		command.SoundFirstPacketStretchMs = firstPacketStretchMs(film.probe, track.AudioTrackIndex)
 	case nodeproto.StreamSoundCopied:
 		track, err := copiedTrack(film, stream)
 		if err != nil {
@@ -182,6 +183,17 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		}
 	}
 	return command, nil
+}
+
+// firstPacketStretchMs is how much longer a film's audio track's first packet, by its place among
+// them, lasts than a frame, as its probe says (nodeproto.ProbeAudio.FirstPacketStretchMs), which the
+// sound made of it reads past (D534 §1); zero for a track the probe has none of.
+func firstPacketStretchMs(probe nodeproto.Probe, audioTrackIndex int) int64 {
+	tracks := decide.AudioStreams(probe)
+	if audioTrackIndex < 0 || audioTrackIndex >= len(tracks) {
+		return 0
+	}
+	return tracks[audioTrackIndex].Audio.FirstPacketStretchMs
 }
 
 // isSoundInterleaved is whether a film's audio track, by its place among them, is interleaved in

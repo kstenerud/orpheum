@@ -166,6 +166,10 @@ var wireShapeByVersion = map[int]string{
 	// 67 adds the findRepeats command and its answer, a season's sound fingerprinted and compared
 	// (D101, D115): a node of 66 would refuse it.
 	67: "d6fc81a5fd4d2eef169067297253604b1287a8876391e316b679ec13491e966b",
+	// 68 adds a sound track's FirstPacketStretchMs to the probe and SoundFirstPacketStretchMs to
+	// makeChunks, a sound read that much later in the file (D534 §1): a node of 67 would drop both and
+	// make the sound starting the stretch late.
+	68: "916e26ed5a5e162b1939d2922b751ea82313dbf4f15e527c292c17155f3047c8",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -147,6 +147,13 @@ func TestMake_ACopiedPictureOfAnAVIIndexingEveryFrameAKeyframeStartsAtItsKeyfram
 // timeline: its first packet's time and the samples decoded before the tone.
 func toneOnset(t *testing.T, runner *execx.Runner, path string) float64 {
 	t.Helper()
+	return toneOnsetAfter(t, runner, path, 0)
+}
+
+// toneOnsetAfter is toneOnset of a tone that starts after seconds of path's sound decoded: the second
+// of two, when the first ends before then.
+func toneOnsetAfter(t *testing.T, runner *execx.Runner, path string, after float64) float64 {
+	t.Helper()
 	const rate = 8000
 	decoded, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-i", "file:" + path, "-map", "0:a:0", "-ac", "1", "-ar", "8000", "-f", "s16le", "pipe:1",
@@ -158,13 +165,13 @@ func toneOnset(t *testing.T, runner *execx.Runner, path string) float64 {
 	if times := sourceTimes(t, runner, path, "a:0", false); len(times) > 0 {
 		firstAt = times[0]
 	}
-	for at := 0; at+1 < len(decoded); at += 2 {
+	for at := 2 * int(after*rate); at+1 < len(decoded); at += 2 {
 		sample := int16(binary.LittleEndian.Uint16(decoded[at:])) //nolint:gosec // G115: a sample's bits
 		if sample > 4000 || sample < -4000 {
 			return firstAt + float64(at/2)/rate
 		}
 	}
-	t.Fatalf("%s has no tone", path)
+	t.Fatalf("%s has no tone after %.1f s", path, after)
 	return 0
 }
 

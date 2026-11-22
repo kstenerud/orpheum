@@ -349,3 +349,24 @@ func TestIsTextSubtitle_OffersTextTracksAndNoBitmaps(t *testing.T) {
 		}
 	}
 }
+
+// A film whose sound's first packet alone lasts seconds is not played directly, for audioTiming,
+// whatever plays its codec: a player taking the file's times played its sound that much late, as file
+// 18306's 31.9 s (D534 §2). Another track chosen, its first packet a frame, is not judged by it.
+func TestDecide_ASoundWhoseFirstPacketIsStretchedIsNotPlayedDirectly(t *testing.T) {
+	t.Parallel()
+	stretched := audioStream("aac", "LC", 2)
+	stretched.StreamIndex, stretched.Audio.FirstPacketStretchMs = 1, 31_902
+	other := audioStream("aac", "LC", 2)
+	other.StreamIndex = 2
+	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), stretched, other)
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser})
+	if got.Delivery != decide.HLS || got.Profile != decide.Remux ||
+		!slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonAudioTiming}) {
+		t.Errorf("Decide = %+v, want hls, remux, for audioTiming", got)
+	}
+	chosen := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, AudioStreamIndex: new(2)})
+	if !slices.Equal(chosen.NotDirectReasons, []decide.Reason{decide.ReasonAudioTrack}) {
+		t.Errorf("the other track chosen: %+v, want only audioTrack", chosen)
+	}
+}

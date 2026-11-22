@@ -74,11 +74,11 @@ const soundSeekEarlyMs = 2_000
 // run's start (idiosyncrasies.md). Ten seconds is past two of the longest.
 const interleavedSoundSeekEarlyMs = 10_000
 
-// seekMs is where FFmpeg is told to seek: a copied picture's cutEarlyMs before its run's first
-// keyframe (copiedPictureStart); a sound's soundSeekEarlyMs before its run's start, or an
-// interleaved one's interleavedSoundSeekEarlyMs, which its filter trims to (soundTrimMs); otherwise
-// the run's start, which a decode trims to exactly, and from which a sound copied copies what FFmpeg
-// lands on, a little before it.
+// seekMs is where, in the film's time, FFmpeg is told to seek (fileSeekMs): a copied picture's
+// cutEarlyMs before its run's first keyframe (copiedPictureStart); a sound's soundSeekEarlyMs before
+// its run's start, or an interleaved one's interleavedSoundSeekEarlyMs, which its filter trims to
+// (soundTrimMs); otherwise the run's start, which a decode trims to exactly, and from which a sound
+// copied copies what FFmpeg lands on, a little before it.
 func seekMs(command nodeproto.MakeChunks) int64 {
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
@@ -122,7 +122,33 @@ func copiedPictureStart(command nodeproto.MakeChunks) []string {
 // first keyframe; and RealMedia loses its first super-block, as any seek loses the one it lands in
 // (idiosyncrasies.md).
 func isSeeking(command nodeproto.MakeChunks) bool {
-	return seekMs(command) > 0
+	return fileSeekMs(command) > 0
+}
+
+// soundStretchMs is, for a run of a sound made whose track's first packet alone lasts seconds, how
+// much longer it lasts than a frame (nodeproto.MakeChunks.SoundFirstPacketStretchMs): a wrong time,
+// the samples after it belonging straight after it, with the picture (D534 §1). The run reads its
+// sound that much later in the file than the film's time: the film's time t is the file's t plus the
+// stretch, past the first packet, whose samples a seek to the stretch drops, as the gap fill
+// (soundGapFill) puts a frame of silence in their place. Zero for every other run.
+func soundStretchMs(command nodeproto.MakeChunks) int64 {
+	if command.Stream.Kind != nodeproto.StreamSound {
+		return 0
+	}
+	return max(0, command.SoundFirstPacketStretchMs)
+}
+
+// fileSeekMs is where FFmpeg is told to seek in the file: seekMs, the film's time, a sound read
+// soundStretchMs later, so a run of a sound whose first packet is stretched always seeks, from the
+// film's start to the stretch's end.
+func fileSeekMs(command nodeproto.MakeChunks) int64 {
+	return seekMs(command) + soundStretchMs(command)
+}
+
+// fileReadEndMs is where FFmpeg stops reading the file: readEndMs, the film's time, a sound read
+// soundStretchMs later.
+func fileReadEndMs(command nodeproto.MakeChunks) int64 {
+	return readEndMs(command) + soundStretchMs(command)
 }
 
 // soundGapFill fills a gap in a film's sound with silence, so a sound made is cut on its grid
@@ -245,7 +271,7 @@ func readEndMs(command nodeproto.MakeChunks) int64 {
 // StretchOf is the stretch of its film a run reads: from its seek to where it stops reading, to which
 // a long MP4 index is cut down (execx.OpenedFilm.Stretch, D512).
 func (*Maker) StretchOf(command nodeproto.MakeChunks) execx.Stretch {
-	return execx.Stretch{FromMs: seekMs(command), ToMs: readEndMs(command)}
+	return execx.Stretch{FromMs: fileSeekMs(command), ToMs: fileReadEndMs(command)}
 }
 
 // retimingFilter is FFmpeg's bitstream filter that rebuilds an H.264 or HEVC picture's display times
@@ -319,9 +345,9 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		arguments = append(arguments, "-copyts", "-start_at_zero")
 	}
 	if isSeeking(command) {
-		arguments = append(arguments, "-ss", seconds(seekMs(command)))
+		arguments = append(arguments, "-ss", seconds(fileSeekMs(command)))
 	}
-	arguments = append(arguments, "-to", seconds(readEndMs(command)))
+	arguments = append(arguments, "-to", seconds(fileReadEndMs(command)))
 	if isRetimed(command) && command.Stream.Kind == nodeproto.StreamQuality {
 		// The picture's stream alone, by its index: a cover picture beside it is no H.264 or HEVC.
 		arguments = append(arguments, "-bsf:"+strconv.Itoa(command.VideoStreamIndex), encodeRetimingFilters)

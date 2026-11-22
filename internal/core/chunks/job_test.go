@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strconv"
@@ -462,5 +463,44 @@ func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t 
 	defer service.runs.mutex.Unlock()
 	if len(service.runs.cancelledJobs) != 0 {
 		t.Errorf("after its end, the jobs held as cancelled = %v; want none", service.runs.cancelledJobs)
+	}
+}
+
+// stretchedTrackZero is chunksFixture's probe of its films, their first audio track's first packet
+// lasting 31.9 s, as file 18306's does (D534).
+func stretchedTrackZero(durationMs int64) string {
+	return fmt.Sprintf(`{"format":{"durationMs":%d,"bitRateBps":4000000},"streams":[`+
+		`{"kind":"video","codec":"h264","video":{"width":1920,"height":1080}},`+
+		`{"streamIndex":1,"kind":"audio","codec":"ac3","language":"en",`+
+		`"audio":{"channelCount":6,"firstPacketStretchMs":31902}},`+
+		`{"streamIndex":2,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`, durationMs)
+}
+
+// A track whose first packet alone lasts seconds is never offered copied, though its player plays it
+// as it is: a player takes a copy's times and played it that much late; the top plays the sound made
+// of it (D534 §2). The sound made's runs read past the stretch, as its probe says; another track's do
+// not.
+func TestStoreFileOf_ATrackWhoseFirstPacketIsStretchedIsNeverCopied(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	librarytest.Probe(t, service.database, librarytest.ProbeSpec{
+		FileID: 1, DurationMs: filmMinutes * 60_000, ProbeJSON: stretchedTrackZero(filmMinutes * 60_000),
+	})
+	_, err := service.StoreFileOf(t.Context(), playsOwnSound(), "sound0-own", "00009.m4s")
+	if !errors.Is(err, ErrNoStream) {
+		t.Errorf("track 0 copied, its first packet stretched = %v; want ErrNoStream", err)
+	}
+	fixture := runsOnAFakeNode(t)
+	librarytest.Probe(t, fixture.service.database, librarytest.ProbeSpec{
+		FileID: 1, DurationMs: filmMinutes * 60_000, ProbeJSON: stretchedTrackZero(filmMinutes * 60_000),
+	})
+	gridID := mustGrid(t, fixture.service).ID()
+	for index, want := range []int64{31_902, 0} {
+		stream := "sound" + strconv.Itoa(index) + "-96k-raw"
+		fixture.start(t, int64(11+index), testRun{stream, gridID, runArgs{FirstChunk: 0, LastChunk: 3}})
+		sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
+		if sent == nil || sent.SoundFirstPacketStretchMs != want {
+			t.Errorf("the node was sent %+v for %s; want its first packet's stretch, %d ms", sent, stream, want)
+		}
 	}
 }

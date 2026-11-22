@@ -81,6 +81,11 @@ type MakeChunks struct {
 	// lands in, so the node seeks further before the run, and not at all from the film's start
 	// (docs/contributors/idiosyncrasies.md).
 	IsSoundInterleaved bool `json:"isSoundInterleaved,omitempty"`
+	// SoundFirstPacketStretchMs is, for a run of a sound made, how much longer its track's first
+	// packet lasts than a frame, as its probe says (ProbeAudio.FirstPacketStretchMs): the node reads
+	// the sound that much later in the file than the film's time, so what follows the first packet
+	// follows straight on from it, with the picture (D534 §1). Zero for every other run.
+	SoundFirstPacketStretchMs int64 `json:"soundFirstPacketStretchMs,omitempty"`
 	// NeedsPictureRetiming says a run of the picture, copied or encoded, rebuilds its display times
 	// from the bitstream's picture order, as its probe says it must (ProbeVideo.NeedsRetiming), and
 	// reads a little past its end, so the frames before its last bound are re-timed from the ones

@@ -95,9 +95,18 @@
 //     it is trimmed to its run, so its chunks are cut on their grid however the film's packets are
 //     timed: the encoder counts samples, and a first packet lasting 31.9 s, read without the fill,
 //     started chunk 1 at 31.9 s (D533 §1). Enforced by
-//     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds and, with the pinned FFmpeg, from the
-//     film's start and from a seek inside the gap, by
+//     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds and, with the pinned FFmpeg, of a gap
+//     partway through the sound, from the film's start and from a seek inside the gap, by
 //     TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence (integration tier).
+//   - A sound made of a track whose first packet alone lasts seconds (its run's
+//     SoundFirstPacketStretchMs, from the probe) is read that much later in the file than the film's
+//     time, its seek and its read's end, and the stretch its MP4 index is cut to: what follows the
+//     first packet follows straight on from it, so the sound starts with the picture, from the film's
+//     start, which such a run always seeks from, and from any seek (D534 §1). Its trim and its cuts
+//     are the film's; no other kind of run is moved. Enforced by
+//     TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater and, with the pinned FFmpeg
+//     and the probe, from the film's start and led in mid-film, by
+//     TestMake_AMadeSoundOfAStretchedFirstPacketStartsWithThePicture (integration tier).
 //   - No run seeks to the film's start; one reading from it reads unsought: FFmpeg moves a seek into a
 //     film with B-frames 3/23 s earlier, before the start, and an AVI seeking there loses its first
 //     keyframe and the sound interleaved ahead of its picture, which put a sound half a second early

@@ -16,10 +16,15 @@ import (
 // its chapters when the stream has none, and each stream's language by the identifier the disc
 // gives it, where the stream carries none.
 func ParseDisc(output []byte, title disc.Title) (nodeproto.Probe, error) {
-	var raw rawOutput
-	if err := ffprobeOutput.Unmarshal(output, &raw); err != nil {
-		return nodeproto.Probe{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
+	raw, err := parseRaw(output)
+	if err != nil {
+		return nodeproto.Probe{}, err
 	}
+	return raw.toDiscProbe(title)
+}
+
+// toDiscProbe is ParseDisc's record of what ffprobe said.
+func (raw rawOutput) toDiscProbe(title disc.Title) (nodeproto.Probe, error) {
 	record, err := raw.toProbe()
 	if err != nil {
 		return nodeproto.Probe{}, err

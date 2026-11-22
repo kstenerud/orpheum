@@ -43,8 +43,12 @@ const (
 	// ReasonAudioCodec is a sound the device cannot play as it is: its codec, or, for AAC, its
 	// channels, since the menu names aac-stereo and aac-multi apart (D21, D336 §2).
 	ReasonAudioCodec Reason = "audioCodec"
-	ReasonVideoCodec Reason = "videoCodec"
-	ReasonBandwidth  Reason = "bandwidth"
+	// ReasonAudioTiming is a sound whose first packet alone lasts seconds, a wrong time: a player
+	// taking the file's times plays it that much late, so the server makes it, starting with the
+	// picture (D534 §2).
+	ReasonAudioTiming Reason = "audioTiming"
+	ReasonVideoCodec  Reason = "videoCodec"
+	ReasonBandwidth   Reason = "bandwidth"
 	// ReasonDialogueBoost is the person's dialogue boost, on, over a sound of more than two channels:
 	// the server makes the mix that raises its centre (D222, D336 §2).
 	ReasonDialogueBoost Reason = "dialogueBoost"
@@ -142,6 +146,9 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	// The same test decides which sound a ladder's top copies (D368 §1); heard on devices, VQ86.
 	if audio, present := playedAudio(input); present && !PlaysAsItIs(audio, input.PlayableFormats) {
 		reasons = append(reasons, ReasonAudioCodec)
+	}
+	if audio, present := playedAudio(input); present && audio.Audio.FirstPacketStretchMs > 0 {
+		reasons = append(reasons, ReasonAudioTiming)
 	}
 	return reasons, videoFits
 }

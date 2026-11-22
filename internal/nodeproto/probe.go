@@ -86,6 +86,13 @@ type ProbeAudio struct {
 	ChannelCount  int    `json:"channelCount"`
 	ChannelLayout string `json:"channelLayout"`
 	SampleRateHz  int    `json:"sampleRateHz"`
+	// FirstPacketStretchMs is, for a track whose first packet alone lasts seconds (more than a
+	// second, the packets after it a frame each), how much longer it lasts than the packet after it:
+	// a wrong time, the samples after it belonging straight after it, with the picture (D534 §1). A
+	// player taking the file's times plays the sound that much late, so the track is made, never
+	// copied or played directly (§2), and the sound made reads it that much later in the file than the
+	// film's time (MakeChunks.SoundFirstPacketStretchMs). Zero for every other track.
+	FirstPacketStretchMs int64 `json:"firstPacketStretchMs,omitempty"`
 }
 
 // ProbeAttachment names an attached file; zero for other kinds.

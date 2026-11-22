@@ -21,15 +21,18 @@ const unknownOwnSoundKbpsPerChannel = 128
 
 // copiedTracksOf are the playback's tracks the film has whose own sound its top plays copied: its
 // own picture copied there, and the tracks its player plays as they are (Playback.OwnSoundTracks),
-// in order.
+// in order. A track whose first packet alone lasts seconds is never copied: a player takes a copy's
+// times, and played its sound that much late; its top plays the sound made of it, which starts with
+// the picture (D534 §2).
 func copiedTracksOf(film cutFilm, playback Playback, top []Stream) []int {
 	if len(top) != 1 || top[0].Kind != nodeproto.StreamPicture {
 		return nil
 	}
-	count := len(decide.AudioStreams(film.probe))
+	tracks := decide.AudioStreams(film.probe)
 	var copied []int
 	for _, track := range playback.OwnSoundTracks {
-		if track >= 0 && track < count && !slices.Contains(copied, track) {
+		if track >= 0 && track < len(tracks) && tracks[track].Audio.FirstPacketStretchMs == 0 &&
+			!slices.Contains(copied, track) {
 			copied = append(copied, track)
 		}
 	}

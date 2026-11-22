@@ -8757,6 +8757,7 @@
                 "container",
                 "videoCodec",
                 "audioCodec",
+                "audioTiming",
                 "bandwidth",
                 "dialogueBoost",
                 "levellingRaise",

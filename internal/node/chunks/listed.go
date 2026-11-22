@@ -94,7 +94,8 @@ func checkSpan(command nodeproto.MakeChunks, raw listed, isClosedByTheEnd bool) 
 	if isStartOff || isEndOff {
 		return fmt.Errorf("raw %s holds %d to %d ms of the run, not its chunk %d's %d to %d ms "+
 			"(the run read from %d ms, its first cut at %s s): %w",
-			raw.name, raw.startMs, raw.endMs, raw.number, fromMs, toMs, seekMs(command), firstCut(command), errNotHeld)
+			raw.name, raw.startMs, raw.endMs, raw.number, fromMs, toMs, fileSeekMs(command), firstCut(command),
+			errNotHeld)
 	}
 	return nil
 }

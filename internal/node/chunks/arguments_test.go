@@ -512,3 +512,42 @@ func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilms
 		t.Errorf("a first chunk 21 ms in reads from %s and cuts at %s; want 0.021 and 2.005, no lead-in", start, cuts)
 	}
 }
+
+// A sound made of a track whose first packet alone lasts seconds is read that much later in the file
+// than the film's time, from its seek to its end, and from the stretch's end when its run is the film's
+// first: what follows the first packet follows straight on from it, with the picture (D534 §1). Its
+// trim, and its cuts, are the film's as any sound's; a picture and a sound copied are read at the
+// film's time, said a stretch or not.
+func TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater(t *testing.T) {
+	t.Parallel()
+	sound := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	sound.LeadInMs, sound.IsLedIn, sound.SoundFirstPacketStretchMs = 88_839, true, 31_902
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "118.741" || end != "154.483" ||
+		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=2.000,asetpts=PTS-STARTPTS,") {
+		t.Errorf("the sound reads %v; want from 118.741 to 154.483, 31.902 s past the film's times, dropping 2 s",
+			arguments)
+	}
+	if stretch := (&Maker{}).StretchOf(sound); stretch != (execx.Stretch{FromMs: 118_741, ToMs: 154_483}) {
+		t.Errorf("the run's stretch is %+v; want the file's, from 118.741 to 154.483 s", stretch)
+	}
+	sound.LeadInMs, sound.IsLedIn, sound.FirstChunk, sound.BoundsMs = 0, false, 0, []int64{0, 3_236, 6_400}
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "31.902" || end != "38.302" ||
+		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=0.000,") {
+		t.Errorf("the film's first chunks' sound reads %v; want from the stretch's end, 31.902, to 38.302", arguments)
+	}
+	for name, stream := range map[string]nodeproto.ChunkStream{
+		"a sound copied":   {Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2}},
+		"a copied picture": {Kind: nodeproto.StreamPicture},
+	} {
+		command := run(stream)
+		command.FirstChunk, command.BoundsMs, command.SoundFirstPacketStretchMs = 0, []int64{0, 2_000, 4_000}, 31_902
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264)
+		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
+			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)
+		}
+	}
+}

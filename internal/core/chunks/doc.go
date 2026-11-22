@@ -143,6 +143,11 @@
 //     TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackIsOffered
 //     (internal/core/api).
 //
+//   - A track whose first packet alone lasts seconds (its probe's FirstPacketStretchMs) is never
+//     copied, whatever its player plays: a player takes a copy's times and played it that much late;
+//     the sound made of it is sent its stretch, which its runs read past, so it starts with the picture
+//     (D534 §1–§2). Enforced by TestStoreFileOf_ATrackWhoseFirstPacketIsStretchedIsNeverCopied.
+//
 //   - The top of a ladder, the film's own picture copied, plays in an audio group of its own each
 //     track its player plays as it is (Playback.OwnSoundTracks) copied, "sound<track>-own", its
 //     channels said, and every other sound as the lower qualities do, the light stereo track at

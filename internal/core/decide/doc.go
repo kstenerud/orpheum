@@ -55,6 +55,11 @@
 //     is converted for levelling_raise: its ladder's sound carries the raise (D436). Enforced by
 //     TestDecide_ARaiseTheDeviceCannotMakeIsTheServers.
 //
+//   - A sound whose first packet alone lasts seconds, as its probe says, is converted for
+//     audioTiming, whatever plays its codec: a player taking the file's times plays it that much late,
+//     and the server's sound starts with the picture (D534 §2). Judged on the track that plays alone.
+//     Enforced by TestDecide_ASoundWhoseFirstPacketIsStretchedIsNotPlayedDirectly.
+//
 //   - Every switch over a codec, container or reason names every value; a new codec breaks each
 //     switch that does not handle it. Enforced by exhaustive (default-signifies-exhaustive:
 //     false).

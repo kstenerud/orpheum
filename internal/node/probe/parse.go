@@ -42,12 +42,13 @@ type rawOutput struct {
 	Packets  []rawPacket  `json:"packets"`
 }
 
-// rawPacket is one of the file's first packets: its stream and its times, each absent when the
-// container gives none.
+// rawPacket is one of the file's first packets: its stream, its times and how long it lasts, in its
+// stream's time base, each absent when the container gives none.
 type rawPacket struct {
 	StreamIndex int    `json:"stream_index"`
 	Pts         *int64 `json:"pts"`
 	Dts         *int64 `json:"dts"`
+	Duration    *int64 `json:"duration"`
 }
 
 type rawFormat struct {
@@ -73,6 +74,7 @@ type rawStream struct {
 	Channels       int               `json:"channels"`
 	ChannelLayout  string            `json:"channel_layout"`
 	SampleRate     string            `json:"sample_rate"`
+	TimeBase       string            `json:"time_base"`
 	Duration       string            `json:"duration"`
 	BitRate        string            `json:"bit_rate"`
 	Disposition    map[string]int    `json:"disposition"`
@@ -113,6 +115,7 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 	for _, stream := range raw.Streams {
 		probed := stream.toProbeStream()
 		probed.Video.NeedsRetiming = raw.needsRetiming(stream)
+		probed.Audio.FirstPacketStretchMs = stream.firstPacketStretchMs(raw.Packets)
 		record.Streams = append(record.Streams, probed)
 	}
 	for _, chapter := range raw.Chapters {

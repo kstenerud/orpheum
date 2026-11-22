@@ -3700,15 +3700,15 @@ An item is ticked only by the person who did it, and only with what they saw.
      quality was made ahead.
 - [ ] **VQ377** — Film 20597 plays past its first 32 s with sound in a Mac's Firefox, its copied
   sound given up for the sound the server makes (D533 §2; staging, 2026-11-22). Only that file's
-  first sound packet, 31.9 s long, makes its node refuse the copy, which no test's film has. On
-  staging, with "fix(playback): a player refused its copied sound starts again at the sound the
-  server makes" and D533 §1 built, on the Mac in Firefox, signed in as yourself:
+  first sound packet, 31.9 s long, makes its node refuse the copy, which no test's film has. Since
+  D534 that packet is taken as a wrong time: the sound is made, never copied, and starts with the
+  picture. On staging, with D533 §1 and D534 built and film 20597 re-probed by a full rescan (I run
+  it first), on the Mac in Firefox, signed in as yourself:
   1. Open film 20597 and press Play from the start. Report whether it plays, or shows "it could not
      be fetched from the server" or any other failure, and how long it took to start.
   2. Let it play to 0:45. Report whether it plays past 0:35 without stopping, whether there is
-     silence before the sound starts (expected, about the first 32 s), and whether the sound is in
-     sync with the picture once it starts (lips match the voices).
+     sound from the start, in sync with the picture (lips match the voices).
   3. Seek to about 10:00 and let it play a minute. Report whether the sound stays in sync.
   4. Open the menu that says who is signed in, choose Report a problem, and send one saying
-     "VQ377". Report that you sent it, so I can read that the playback started again with the
-     cause ownSoundGivenUp.
+     "VQ377". Report that you sent it, so I can read that the playback started on the sound the
+     server makes, for audioTiming, with no copied sound given up.

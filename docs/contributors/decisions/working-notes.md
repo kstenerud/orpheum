@@ -30635,7 +30635,19 @@ start with the picture, so the long first duration is a wrong time, not a gap. A
 sound starts late by stretching its first sample, as FFmpeg's `-use_editlist 0` does, but a file
 says so with an edit list as a rule, so a stretched first packet is taken as a wrong time.
 
-**Status:** decided.
+**Status:** decided and built.
+
+**Built** (2026-11-22): the probe marks a sound track whose first packet lasts more than a second,
+each of at least its next 8 a frame (at most 250 ms), with `firstPacketStretchMs`, how much longer
+the first lasts than the second; it judges by the file's first 200 packets, or, where they hold the
+first and too few after it (film 20597's hold one of its sound's), by a second ffprobe call listing
+that track's first 25 packets alone. A file probed before gets the field at its next full rescan
+(D392), which re-probes it; the new `audio.*` fact changes the made sound's facts key, so its stores
+are made again. The core sends the stretch with each run of a sound made of the track, and the node
+reads the sound that much later in the file than the film's time, its seek and its read's end, from
+the stretch's end on a run from the film's start: what follows the first packet follows straight
+on, the packet's own frame replaced by silence. The track is never offered copied, and a file whose
+playing sound is such a track is not played directly, for the new reason `audioTiming`.
 
 1. **A sound whose first packet alone lasts seconds starts with the picture:** when a sound
    track's first packet lasts more than a second and the packets after it a frame each, the probe
@@ -30646,3 +30658,8 @@ says so with an edit list as a rule, so a stretched first packet is taken as a w
    and a file whose sound plays such a track is not played directly, since a player taking the
    file's times as they are plays the sound late or stalls.
 3. **A gap later in a sound is still filled with silence** (D533 §1).
+
+**Proven by:**
+- 1: `TestParse_ASoundWhoseFirstPacketAloneLastsSecondsIsMarkedWithTheStretch` (internal/node/probe), `TestProbe_ASoundWhoseLongFirstPacketTheFirstPacketsCannotJudgeIsListedAlone` (internal/node/probe), `TestProbe_MarksASoundWhoseFirstPacketAloneLastsSeconds` (internal/node/probe, integration tier), `TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater` (internal/node/chunks), `TestMake_AMadeSoundOfAStretchedFirstPacketStartsWithThePicture` (internal/node/chunks, integration tier)
+- 2: `TestStoreFileOf_ATrackWhoseFirstPacketIsStretchedIsNeverCopied` (internal/core/chunks), `TestDecide_ASoundWhoseFirstPacketIsStretchedIsNotPlayedDirectly` (internal/core/decide); VQ377
+- 3: `TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence` (internal/node/chunks, integration tier), now of a gap partway through the sound
