@@ -30618,3 +30618,8 @@ unsteadiness. Amends D500 §2.
    playback is offered the sound the server makes.
 3. **A page that failed reports no stalls**: once it shows that the film could not play, its
    player's standing still is no stall of the link, and counts toward nothing.
+
+**Built** (2026-11-22): §3.
+
+**Proven by:** §3, "reports no stall of its player once the page shows the film could not play"
+(`apps/web/src/play-failure.test.tsx`).

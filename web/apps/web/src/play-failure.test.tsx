@@ -16,6 +16,7 @@ import {
 import { Play, PlayView } from "./play.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import {
+  bodyField,
   fire,
   mount,
   playbackCauses,
@@ -305,6 +306,88 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
       let turns = 0;
       await settleUntil(() => (turns += 1) > 20); // what a second opening would ask, answered
       expect(playbackCauses(heard)).toEqual(["playPage", "mediaBack"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/** How long a load that has left a player unable to play lasts before it counts as a stall (D247 §2). */
+const slowLoadMs = 8000;
+
+describe("a page that failed reports no stalls (D533 §3)", () => {
+  /**
+   * Mounts a film's page whose player is asked to play and has loaded nothing, as on staging
+   * (2026-11-22): its first load counts as a stall each slowLoadMs. Returns the requests heard and
+   * the video.
+   */
+  async function mountWaitingToLoad(): Promise<{
+    readonly heard: Heard[];
+    readonly video: HTMLVideoElement;
+  }> {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "GET /files/2/availability": [200, {}],
+        "POST /playback/t/report": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    mounted = await mount(
+      withServices(
+        <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
+        services,
+      ),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    await fire(video, new Event("loadstart")); // asked to play, nothing loaded yet
+    return { heard, video };
+  }
+
+  /** The stalls the reports heard carry. */
+  function stallsHeard(heard: readonly Heard[]): unknown[] {
+    return heard
+      .filter((each) => each.methodAndPath === "POST /playback/t/report")
+      .flatMap((each) => {
+        const stalls: unknown = bodyField(each, "stalls");
+        return Array.isArray(stalls) ? (stalls as unknown[]) : [];
+      });
+  }
+
+  it("reports the stall of a player waiting to load that has not failed", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const { heard } = await mountWaitingToLoad();
+      act(() => {
+        vi.advanceTimersByTime(slowLoadMs);
+      });
+      await settleUntil(() => stallsHeard(heard).length > 0);
+      expect(stallsHeard(heard)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports no stall of its player once the page shows the film could not play", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const { heard, video } = await mountWaitingToLoad();
+      await fire(video, new Event("error"));
+      expect(mounted?.container.querySelector('[role="alert"]')).not.toBeNull();
+      for (let wait = 0; wait < 3; wait += 1) {
+        act(() => {
+          vi.advanceTimersByTime(slowLoadMs);
+        });
+        let turns = 0;
+        await settleUntil(() => (turns += 1) > 5); // what a stall would send, answered
+      }
+      expect(stallsHeard(heard)).toEqual([]);
     } finally {
       vi.useRealTimers();
     }

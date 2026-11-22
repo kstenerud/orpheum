@@ -169,6 +169,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   gives the gate's play up, the film staying paused once enough is loaded. A pause asked for and a
   start the browser refused show ▶ and no spinner (`src/film-waits.tsx`'s isPausedAsAsked).
   `src/film-waits.test.tsx`.
+- **A page that failed reports no stalls** (D533 §3): once it shows that the film could not play
+  (the `failure` its Play page hands `usePlayState`, whatever the words), its player's standing
+  still, a load that never got going, is no stall of the link, so none is recorded, sent or
+  counted toward a move to a lower quality; its other reports go on as before
+  (`watchForReport`, `src/play-state.ts`). `src/play-failure.test.tsx`.
 - **Under the spinner, a bar shows a wait the link holds up, never one the server does** (the
   owner, 2026-11-17): once every chunk waited on has had its answer's head, the last of them for
   `linkWaitBarAfterMs`, with bytes still to come (a chunk the server makes again starts it anew), its filler as full as the bytes come against the lengths the heads said,

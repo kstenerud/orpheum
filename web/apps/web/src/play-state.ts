@@ -18,6 +18,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
+import { useLatest } from "./latest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
@@ -213,13 +214,21 @@ function reportWhilePlaying(
  * Reports what the video tells about its playing, at once: each stall, which may move it to a lower
  * quality (D247 §2), each quality its player gives up as unplayable here (D266), and each place it
  * keeps its position while asked to play, with what its video shows there. Returns the stopping.
+ *
+ * A page that has failed (hasFailed) records no stall: its player's standing still, once the page
+ * shows the film could not play, is no stall of the link, yet each one reported was counted as a
+ * drop of it (a film that could not be fetched reported 22 in 3 minutes, staging 2026-11-22, D533 §3).
  */
 function watchForReport(
   video: HTMLVideoElement,
   reporter: PlayReporter,
-  movingDown: Pick<MovingDown, "stalled">,
+  stalls: { readonly movingDown: Pick<MovingDown, "stalled">; readonly hasFailed: () => boolean },
 ): () => void {
+  const { movingDown, hasFailed } = stalls;
   const stopWatchingStalls = watchStalls(video, (stall) => {
+    if (hasFailed()) {
+      return;
+    }
     movingDown.stalled();
     reporter.recordStall(stall.positionMs, video);
   });
@@ -248,10 +257,10 @@ function reportPlayerOf(video: HTMLVideoElement, reporter: PlayReporter): void {
 
 function startReporting(
   video: HTMLVideoElement,
-  playback: PlayStateOf & { readonly api: Api },
+  playback: PlayStateOf & { readonly api: Api; readonly hasFailed: () => boolean },
   listener: ReportListener,
 ): Reporting {
-  const { api, mediaToken } = playback;
+  const { api, mediaToken, hasFailed } = playback;
   let isStopped = false;
   const movingDown = new MovingDown({
     readLinkKbps: playback.readLinkKbps,
@@ -284,7 +293,7 @@ function startReporting(
   reportPlayerOf(video, reporter);
   const page = watchPage(video, reporter, playback.pathMoves);
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
-  const stopWatching = watchForReport(video, reporter, movingDown);
+  const stopWatching = watchForReport(video, reporter, { movingDown, hasFailed });
   const stopTelling = reportWhilePlaying(video, reporter, videoEvents.lastPositionMs);
   const stopSaying = sayInterestOf(video, (said) => {
     sendInterest(api, { mediaToken }, said);
@@ -381,6 +390,18 @@ interface PlayStateOf {
   readonly failure?: string | undefined;
 }
 
+/** Sends a report at once when the page shows the film could not play, as the player failed. */
+function useReportsOnFailure(
+  failure: string | undefined,
+  reportNow: RefObject<(() => void) | undefined>,
+): void {
+  useEffect(() => {
+    if (failure !== undefined) {
+      reportNow.current?.();
+    }
+  }, [failure, reportNow]);
+}
+
 /**
  * Keeps a playing video's play state on the server (play-state.md): it starts where the person
  * left the file, without asking (D188), and reports each change of state, its stalls (D247 §2),
@@ -405,11 +426,11 @@ export function usePlayState(
   const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
   const { pathMoves } = useServices();
   const [lowerQuality, setLowerQuality] = useState<LadderOffer | undefined>(undefined);
-  // The link is read at each report, by what the latest render handed in.
-  const linkReader = useRef(playback.readLinkKbps);
-  linkReader.current = playback.readLinkKbps;
-  const goneHearer = useRef(playback.onGone);
-  goneHearer.current = playback.onGone;
+  // The link is read at each report, by what the latest render handed in; so is whether the page
+  // shows that the film could not play, when a stall would be recorded.
+  const linkReader = useLatest(playback.readLinkKbps);
+  const goneHearer = useLatest(playback.onGone);
+  const failureOf = useLatest(playback.failure);
   const reportNow = useRef<(() => void) | undefined>(undefined);
   useEffect(() => {
     const video = videoRef.current;
@@ -418,7 +439,14 @@ export function usePlayState(
     }
     const reporting = startReporting(
       video,
-      { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current(), pathMoves },
+      {
+        api,
+        mediaToken,
+        resumePositionMs,
+        readLinkKbps: () => linkReader.current(),
+        pathMoves,
+        hasFailed: () => failureOf.current !== undefined,
+      },
       {
         onStopped: setStopMessage,
         onLowerQuality: setLowerQuality,
@@ -432,14 +460,8 @@ export function usePlayState(
       reporting.stop();
     };
   }, [api, videoRef, mediaToken, resumePositionMs, pathMoves]);
-  const { failure } = playback;
-  useEffect(() => {
-    if (failure !== undefined) {
-      reportNow.current?.();
-    }
-  }, [failure]);
-  const ownPictureHearer = useRef(playback.onOwnPictureGivenUp);
-  ownPictureHearer.current = playback.onOwnPictureGivenUp;
+  useReportsOnFailure(playback.failure, reportNow);
+  const ownPictureHearer = useLatest(playback.onOwnPictureGivenUp);
   useEffect(() => {
     const video = videoRef.current;
     return video === null
@@ -486,7 +508,7 @@ export function useStallReports(
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
     reportPlayerOf(video, reporter);
-    const stopWatching = watchForReport(video, reporter, movingDown);
+    const stopWatching = watchForReport(video, reporter, { movingDown, hasFailed: () => false });
     return () => {
       movingDown.stop();
       stopWatching();
