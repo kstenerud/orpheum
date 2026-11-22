@@ -96,6 +96,34 @@ describe("Report a problem (D524 §2)", () => {
     expect(dialog?.querySelector("textarea")?.value).toBe("no sound");
   });
 
+  // D538 §2 and §5: Cancel and Send at its foot, Send never disabled; sent, a StatusNote and Done.
+  it("has Cancel and Send at its foot, Send never disabled, and says at the field that nothing is written", async () => {
+    const heard: Heard[] = [];
+    const on = await shell({ "POST /problem-reports": [201, { id: 7 }] }, heard);
+    const dialog = await reportFromTheMenu(on, "   ");
+    const foot = [...(dialog?.querySelectorAll(".modal-dialog__foot button") ?? [])];
+    expect(foot.map((button) => button.textContent)).toEqual(["Cancel", "Send"]);
+    expect(foot.some((button) => button.hasAttribute("disabled"))).toBe(false);
+    await click(buttonWithText(dialog ?? on.container, "Send"));
+    expect(heard.some((each) => each.methodAndPath === "POST /problem-reports")).toBe(false);
+    expect(dialog?.querySelector(".field__error")?.textContent).toBe("Say what went wrong");
+    expect(document.activeElement).toBe(dialog?.querySelector("textarea"));
+  });
+
+  it("once sent, says so in a StatusNote with Done alone at its foot (D538 §5)", async () => {
+    const on = await shell({ "POST /problem-reports": [201, { id: 7 }] }, []);
+    const dialog = await reportFromTheMenu(on, "no sound");
+    await click(buttonWithText(dialog ?? on.container, "Send"));
+    const sent = dialogOf(on);
+    expect(sent?.querySelector("output.status-line--success")?.textContent).toContain(
+      "This household's admin finds it on the System page",
+    );
+    expect(sent?.querySelector("textarea")).toBeNull();
+    expect(
+      [...(sent?.querySelectorAll(".modal-dialog__foot button") ?? [])].map((b) => b.textContent),
+    ).toEqual(["Done"]);
+  });
+
   it("is not offered to a page with no one signed in, whom the server refuses", async () => {
     const on = await shell({}, []);
     await click(on.container.querySelector(".app-shell__menu-button"));

@@ -312,7 +312,7 @@ describe("libraries", () => {
         />,
       ),
     );
-    expect(markup).toMatch(/type="number"[^>]*value="6"/u);
+    expect(markup).toMatch(/class="stepper__field"[^>]*value="6"/u);
   });
 
   it("says where its folders come from, and creates nothing until one is ticked", () => {
@@ -365,10 +365,12 @@ describe("libraries", () => {
     expect(source).toContain("<legend>Where information comes from</legend>");
     expect(source).toContain("May the server write beside the media");
     expect(scanning).toContain("<legend>How changes are noticed</legend>");
-    expect(scanning).toMatch(/Hours between checks<input type="number"/u);
+    // The hours a Stepper from 1 to 168 (D538 §9), the scanning group's last field.
+    expect(scanning).toMatch(/<span[^>]*class="stepper__label">Hours between checks<\/span>/u);
+    expect(scanning).toContain('aria-label="Hours between checks, from 1 to 168"');
     // Nothing to fill in after the last group's fields but the button.
-    expect(scanning.slice(scanning.lastIndexOf("<input"))).toMatch(
-      /^<input[^>]*\/><\/label><\/section><button type="submit"[^>]*>Create and scan<\/button><\/form>$/u,
+    expect(scanning.slice(scanning.lastIndexOf('<div class="stepper"'))).toMatch(
+      /^<div class="stepper">(?:(?!<section).)*<\/div><\/section><button type="submit"[^>]*>Create and scan<\/button><\/form>$/u,
     );
   });
 

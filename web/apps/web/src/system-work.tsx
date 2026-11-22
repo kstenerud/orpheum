@@ -13,6 +13,7 @@ import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { StatusNote } from "./status-note.tsx";
+import { Stepper } from "./stepper.tsx";
 
 type QueueKind = components["schemas"]["QueueKindBody"];
 type NodeWork = components["schemas"]["NodeWorkBody"];
@@ -155,26 +156,27 @@ function ReaderLimitControl(props: {
   readonly onSet: (readerLimit: number | undefined) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState(String(props.initial));
+  const [draft, setDraft] = useState(props.initial);
   return (
     <>
-      <label>
-        {t("system.devices.readersLabel")}{" "}
-        <input
-          type="number"
-          min={1}
-          max={64}
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.currentTarget.value);
-          }}
-        />
-      </label>{" "}
+      <Stepper
+        label={t("system.devices.readersLabel")}
+        fieldLabel={t("system.devices.readersField")}
+        valueText={t("system.devices.readersWords", { count: draft })}
+        value={draft}
+        min={1}
+        max={64}
+        step={1}
+        unit=""
+        stepDownLabel={t("system.devices.readersLess")}
+        stepUpLabel={t("system.devices.readersMore")}
+        onChange={setDraft}
+      />{" "}
       <button
         type="button"
         disabled={props.isBusy}
         onClick={() => {
-          props.onSet(Number(draft));
+          props.onSet(draft);
         }}
       >
         {t("system.devices.set")}

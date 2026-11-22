@@ -107,3 +107,13 @@ it("sets the address an admin types, and says in plain words why the server refu
   expect(changes).toBe(1);
   expect(container.querySelector('[role="alert"]')).toBeNull();
 });
+
+it("says at the field that the address is missing and sends nothing, its button never disabled (D538 rule 14)", async () => {
+  const heard: Heard[] = [];
+  const container = await shown({ address: "", origin: "" }, {}, { heard });
+  expect(container.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(false);
+  await submit(container.querySelector("form"));
+  expect(container.querySelector(".field__error")?.textContent).toBe("Enter address");
+  expect(document.activeElement).toBe(container.querySelector("input"));
+  expect(heard).toEqual([]);
+});

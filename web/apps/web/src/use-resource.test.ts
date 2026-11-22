@@ -460,7 +460,10 @@ type Name = "a" | "b" | "c";
  * Readers of "shared" a test mounts and unmounts by hand, all in one mount (each mount forgets the
  * tab's answers, as a new tab would): each keeps what it showed, and can reload.
  */
-function sharedReaders(load: () => Promise<number>, options: { readonly isSingleUse?: boolean }) {
+function sharedReaders(
+  load: () => Promise<number>,
+  options: { readonly isSingleUse?: boolean; readonly isKeptOnReload?: boolean },
+) {
   const seen: Partial<Record<Name, Resource<number>[]>> = {};
   const reloads: Partial<Record<Name, () => void>> = {};
   let show: (names: readonly Name[]) => void = () => undefined;
@@ -540,6 +543,35 @@ describe("useResource's answers, kept for the tab by key (D478)", () => {
     await readers.reload("b"); // a reload reads anew, and the other reader of its key hears it
     expect(reads()).toBe(4);
     expect(readers.seen.c?.at(-1)).toEqual({ state: "loaded", value: 4 });
+    mounted.unmount();
+  });
+
+  // D538 §4: going back to loading drew the view anew, and a setting's field lost its Saved.
+  it("kept on reload, keeps the value it shows through one, never loading, and shows its answer", async () => {
+    const { load, reads } = counted();
+    const readers = sharedReaders(load, { isKeptOnReload: true });
+    const mounted = await mount(readers.tree);
+    await readers.showOnly("a");
+    const before = readers.seen.a?.length ?? 0;
+    await readers.reload("a");
+    expect(reads()).toBe(2);
+    const after = readers.seen.a?.slice(before) ?? [];
+    expect(after.some((each) => each.state === "loading")).toBe(false);
+    expect(after.at(-1)).toEqual({ state: "loaded", value: 2 });
+    mounted.unmount();
+  });
+
+  // Playback's reload says "Opening the film again" while it loads (play.tsx).
+  it("not kept on reload, shows loading through one, then its answer", async () => {
+    const { load } = counted();
+    const readers = sharedReaders(load, {});
+    const mounted = await mount(readers.tree);
+    await readers.showOnly("a");
+    const before = readers.seen.a?.length ?? 0;
+    await readers.reload("a");
+    const after = readers.seen.a?.slice(before) ?? [];
+    expect(after.some((each) => each.state === "loading")).toBe(true);
+    expect(after.at(-1)).toEqual({ state: "loaded", value: 2 });
     mounted.unmount();
   });
 

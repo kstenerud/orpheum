@@ -10,6 +10,7 @@ import {
   buttonWithText,
   click,
   enter,
+  fire,
   mount,
   servedBy,
   type Heard,
@@ -100,7 +101,13 @@ it("sets how many may read a disk at once, and gives it back to its kind's (D240
   );
   const container = mounted.container;
   expect(container.textContent).toContain("1 may read it at once, as for its kind.");
-  await enter(container.querySelector("input"), "3");
+  // A Stepper from 1 to 64: a number typed holds on leaving the field, and Set sends it.
+  const readers = container.querySelector("input");
+  expect(readers?.getAttribute("aria-label")).toBe(
+    "How many may read this disk at once, from 1 to 64",
+  );
+  await enter(readers, "3");
+  await fire(readers, new FocusEvent("focusout", { bubbles: true }));
   await click(buttonWithText(container, "Set"));
   await click(buttonWithText(container, "Use its kind's"));
   expect(heard).toEqual([

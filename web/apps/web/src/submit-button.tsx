@@ -15,10 +15,13 @@ import type { JSX } from "react";
 export function SubmitButton(props: {
   readonly label: string;
   readonly isBusy: boolean;
+  /** The id of the form it sends, where it stands outside it: at a dialog's foot (D538 §2). */
+  readonly form?: string | undefined;
 }): JSX.Element {
   return (
     <button
       type="submit"
+      form={props.form}
       className="submit-button"
       aria-busy={props.isBusy ? "true" : undefined}
       onClick={(event) => {

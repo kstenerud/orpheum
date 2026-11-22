@@ -21,6 +21,7 @@ import { adminLibrariesCrumb } from "./upward.ts";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 import { StatusNote } from "./status-note.tsx";
+import { Stepper } from "./stepper.tsx";
 
 /** A node, and the roots it configured when it is connected. */
 export type LibraryNode = components["schemas"]["NodeBody"];
@@ -341,7 +342,6 @@ function ScanningQuestions(props: {
   readonly checkEveryHoursToStart: number;
   readonly setAnswer: SetAnswer;
   readonly onDraftChange: (draft: NewLibrary) => void;
-  readonly markOf: MarkOf;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft } = props;
@@ -361,21 +361,40 @@ function ScanningQuestions(props: {
         ]}
       />
       {draft.changeDetection === "interval" ? (
-        <label>
-          {t("libraries.checkEvery")}
-          <input
-            type="number"
-            min={1}
-            required
-            value={draft.checkEveryHours ?? props.checkEveryHoursToStart}
-            {...props.markOf("body.checkEveryHours")}
-            onChange={(event) => {
-              props.setAnswer("checkEveryHours", Number(event.target.value));
-            }}
-          />
-        </label>
+        <HoursStepper
+          hours={draft.checkEveryHours ?? props.checkEveryHoursToStart}
+          onChange={(hours) => {
+            props.setAnswer("checkEveryHours", hours);
+          }}
+        />
       ) : null}
     </>
+  );
+}
+
+/** The most hours between checks the form offers: a week (the review's 1 to 168, D538 §9). */
+const mostHoursBetweenChecks = 168;
+
+/** The hours between a library's checks, stepped an hour at a time from 1 to a week. */
+function HoursStepper(props: {
+  readonly hours: number;
+  readonly onChange: (hours: number) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <Stepper
+      label={t("libraries.checkEvery")}
+      fieldLabel={t("libraries.checkEveryField")}
+      valueText={t("libraries.checkEveryWords", { count: props.hours })}
+      value={props.hours}
+      min={1}
+      max={mostHoursBetweenChecks}
+      step={1}
+      unit={t("libraries.checkEveryUnit")}
+      stepDownLabel={t("libraries.checkEveryLess")}
+      stepUpLabel={t("libraries.checkEveryMore")}
+      onChange={props.onChange}
+    />
   );
 }
 
@@ -468,7 +487,6 @@ export function CreateLibraryForm(props: {
           checkEveryHoursToStart={props.checkEveryHoursToStart}
           setAnswer={setAnswer}
           onDraftChange={props.onDraftChange}
-          markOf={marks.markOf}
         />
       </FormGroup>
       {props.problem === "" ? null : (

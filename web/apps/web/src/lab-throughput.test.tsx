@@ -53,7 +53,7 @@ function legsAsked(heard: readonly Heard[]): string[] {
 describe("the throughput test", () => {
   it("loads the body each way in turn, shows each one's rate, and sends them all to the server's log", async () => {
     const { heard, page } = await mounted();
-    await enter(page.container.querySelector('input[type="url"]'), "https://lan.example:8443/");
+    await enter(page.container.querySelector(".lab__field input"), "https://lan.example:8443/");
     await click(buttonWithText(page.container, "Run"));
     await settleUntil(() => heard.some((request) => request.methodAndPath === "POST /lab/results"));
 
@@ -80,7 +80,7 @@ describe("the throughput test", () => {
     );
     expect(legsAsked(first.heard)).toEqual(["transport", "relay"]);
     expect(first.page.container.textContent).toContain("skipped: no address typed");
-    await enter(first.page.container.querySelector('input[type="url"]'), "https://lan.example");
+    await enter(first.page.container.querySelector(".lab__field input"), "https://lan.example");
     first.page.unmount();
 
     const again = await mounted();

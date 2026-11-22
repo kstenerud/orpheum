@@ -5,6 +5,7 @@ import "./lab-words.ts";
 import { useEffect, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Field } from "./field.tsx";
 import type { NotedEvent } from "./lab-events.ts";
 
 /** When an event came, on the page's clock, in whole milliseconds. */
@@ -40,26 +41,29 @@ export function FieldTest(props: { readonly noteEvent: (event: NotedEvent) => vo
       noteEvent({ kind, valueLength: event.currentTarget.value.length, atMs: nowMs() });
     };
   return (
-    <input
-      type="text"
-      className="lab__type"
-      autoComplete="off"
-      placeholder={t("lab.input.field.placeholder")}
-      aria-label={t("lab.input.field.label")}
-      onFocus={noteOf("fieldIn")}
-      onBlur={noteOf("fieldOut")}
-      onCompositionStart={noteOf("compositionStart")}
-      onCompositionEnd={noteOf("compositionEnd")}
-      onInput={(event) => {
-        const inputType = inputTypeOf(event);
-        noteEvent({
-          kind: "fieldInput",
-          valueLength: event.currentTarget.value.length,
-          ...(inputType === undefined ? {} : { inputType }),
-          atMs: nowMs(),
-        });
-      }}
-    />
+    <Field label={t("lab.input.field.label")}>
+      {(control) => (
+        <input
+          {...control}
+          type="text"
+          className="lab__type"
+          autoComplete="off"
+          onFocus={noteOf("fieldIn")}
+          onBlur={noteOf("fieldOut")}
+          onCompositionStart={noteOf("compositionStart")}
+          onCompositionEnd={noteOf("compositionEnd")}
+          onInput={(event) => {
+            const inputType = inputTypeOf(event);
+            noteEvent({
+              kind: "fieldInput",
+              valueLength: event.currentTarget.value.length,
+              ...(inputType === undefined ? {} : { inputType }),
+              atMs: nowMs(),
+            });
+          }}
+        />
+      )}
+    </Field>
   );
 }
 

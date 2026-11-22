@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
 import { timeText } from "./date-time-text.ts";
+import { missingText, TextField, useFormFields } from "./field.tsx";
 import { FormRow } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -100,24 +101,25 @@ export function MakeLink(props: {
   const { t } = useTranslation();
   const [hostNote, setHostNote] = useState("");
   const [rights, setRights] = useState(props.nextRights);
+  const fields = useFormFields(undefined, []);
   return (
     <FormRow
       onSubmit={() => {
-        props.onMake(hostNote, rights);
+        if (
+          fields.check([["hostNote", missingText(t, t("watchTogether.note"), hostNote.trim())]])
+        ) {
+          props.onMake(hostNote, rights);
+        }
       }}
     >
-      <label>
-        {t("watchTogether.note")}{" "}
-        <input
-          required
-          maxLength={200}
-          placeholder={t("watchTogether.noteExample")}
-          value={hostNote}
-          onChange={(event) => {
-            setHostNote(event.target.value);
-          }}
-        />
-      </label>
+      <TextField
+        {...fields.fieldOf("hostNote")}
+        label={t("watchTogether.note")}
+        hint={t("watchTogether.noteHint")}
+        maxLength={200}
+        value={hostNote}
+        onChange={fields.editing("hostNote", setHostNote)}
+      />
       <label>
         <input
           type="checkbox"

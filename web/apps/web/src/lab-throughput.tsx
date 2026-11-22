@@ -7,6 +7,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
+import { TextField } from "./field.tsx";
 import { LabFrame, LabSendButton } from "./lab-frame.tsx";
 import { useLabSending } from "./lab-send.ts";
 import { useServices, type Services } from "./services.tsx";
@@ -172,19 +173,19 @@ export function LabThroughput(): JSX.Element {
   return (
     <LabFrame id="lab-throughput" heading={t("lab.throughput.heading")}>
       <p className="lab__lead">{t("lab.throughput.explain")}</p>
-      <label className="lab__big lab__field">
-        {t("lab.throughput.lanAddress")}
-        <input
-          type="url"
+      <div className="lab__big lab__field">
+        <TextField
+          label={t("lab.throughput.lanAddress")}
+          hint={t("lab.throughput.lanAddressHint")}
+          isOptional
+          isVerbatim
           value={lanAddress}
-          placeholder={t("lab.throughput.lanAddressExample")}
-          onChange={(event) => {
-            const typed = event.target.value.trim();
-            setLanAddress(typed);
-            browserStorage().setItem(lanAddressKey, typed);
+          onChange={(typed) => {
+            setLanAddress(typed.trim());
+            browserStorage().setItem(lanAddressKey, typed.trim());
           }}
         />
-      </label>
+      </div>
       <div className="lab__actions">
         <button type="button" className="lab__button" disabled={isRunning} onClick={run}>
           {isRunning ? t("lab.throughput.running") : t("lab.throughput.run")}

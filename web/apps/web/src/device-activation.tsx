@@ -11,13 +11,14 @@ import { activateDevice, answerActivation, castToActivation, type Activation } f
 import { startCast } from "./cast.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
-import { useFormFields, type FormFields } from "./field.tsx";
+import { Field, missingText, TextField, useFormFields, type FormFields } from "./field.tsx";
 import { WarningIcon } from "./icons.tsx";
 import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { StatusNote } from "./status-note.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 /**
  * Where an activation stands on this device: being entered, being checked, done, or, cast to instead
@@ -190,42 +191,43 @@ function EnterCode(props: {
       </p>
       <FormRow
         onSubmit={() => {
-          props.onEnter(code, name);
+          if (marks.check([["body.code", missingText(t, t("activate.code"), code.trim())]])) {
+            props.onEnter(code, name);
+          }
         }}
       >
-        <label>
-          {t("activate.code")}{" "}
-          <input
-            className="device-activation__code-field"
-            {...arrivalMark}
-            required
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            maxLength={12}
-            placeholder={t("activate.codeExample")}
-            value={code}
-            {...marks.markOf("body.code")}
-            onChange={(event) => {
-              marks.editing("body.code", setCode)(event.target.value);
-            }}
-          />
-        </label>
-        <label>
-          {t("activate.deviceName")}{" "}
-          <input
-            maxLength={100}
-            placeholder={t("activate.deviceNameExample")}
-            value={name}
-            {...marks.markOf("body.deviceName")}
-            onChange={(event) => {
-              marks.editing("body.deviceName", setName)(event.target.value);
-            }}
-          />
-        </label>
-        <button type="submit" disabled={props.isBusy}>
-          {t("activate.submit")}
-        </button>
+        <Field
+          {...marks.fieldOf("body.code")}
+          label={t("activate.code")}
+          hint={t("activate.codeHint")}
+        >
+          {(control) => (
+            <input
+              {...control}
+              className="device-activation__code-field"
+              {...arrivalMark}
+              type="text"
+              autoComplete="one-time-code"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={12}
+              value={code}
+              onChange={(event) => {
+                marks.editing("body.code", setCode)(event.target.value);
+              }}
+            />
+          )}
+        </Field>
+        <TextField
+          {...marks.fieldOf("body.deviceName")}
+          label={t("activate.deviceName")}
+          hint={t("activate.deviceNameHint")}
+          isOptional
+          maxLength={100}
+          value={name}
+          onChange={marks.editing("body.deviceName", setName)}
+        />
+        <SubmitButton label={t("activate.submit")} isBusy={props.isBusy} />
       </FormRow>
     </>
   );

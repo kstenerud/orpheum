@@ -37,8 +37,8 @@ export const enPeople = {
     invite: "Invite someone",
     inviteExplain:
       "They choose their own name and password from the link. Your note is for you alone, so you can tell who is who once they have.",
-    adminNote: "Who it is for (only you see this)",
-    adminNoteExample: "Uncle Joe",
+    adminNote: "Note",
+    adminNoteHint: "Who it is for. Only you see this.",
     makeLink: "Make their link",
     createRole: "Create Role",
     createAccount: "Create Account",

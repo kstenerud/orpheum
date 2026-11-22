@@ -103,6 +103,24 @@ it("connects to the discovery the server suggests, by its name and the admin's p
   expect(text).toContain(invitationNeeded);
 });
 
+// D538 interface rule 14: the button is never disabled; a press with the password missing says so
+// at the field, focused, and sends nothing.
+it("says at the field that the password is missing and sends nothing, Connect here never disabled", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(<SystemDiscovery />, servedBy({ "GET /system/discovery": [200, none] }, heard)),
+  );
+  const container = mounted.container;
+  const connect = buttonWithText(container, "Connect here");
+  expect(connect?.hasAttribute("disabled")).toBe(false);
+  await click(connect);
+  expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /system/discovery"]);
+  const password = container.querySelector('details form input[type="password"]');
+  expect(password?.getAttribute("aria-invalid")).toBe("true");
+  expect(container.querySelector("details form .field__error")?.textContent).toMatch(/^Enter /u);
+  expect(document.activeElement).toBe(password);
+});
+
 it("says, before the server is connected, that remote access needs an invitation and whom to ask", async () => {
   mounted = await mount(
     withServices(<SystemDiscovery />, servedBy({ "GET /system/discovery": [200, none] })),

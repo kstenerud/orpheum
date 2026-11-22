@@ -29,26 +29,14 @@ type Banned = keyof typeof banned;
  * rule keeps.
  */
 const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
-  nativeSelect: {
-    // A person's role: chosen in the pop-up chooser, its Saved note did not survive the page read
-    // again after it (user.tsx's saved); left a select until that is understood.
-    "user.tsx": 1,
-  },
+  nativeSelect: {},
   numberField: {
-    "candidate-chooser.tsx": 1,
-    "create-library.tsx": 1,
+    // An interval that must be given, which has no client-side default to step from (D200).
     "library-manage.tsx": 1,
-    "system-work.tsx": 1,
   },
   placeholder: {
-    "candidate-chooser.tsx": 1,
-    "device-activation.tsx": 2,
-    "lab-field.tsx": 1,
-    "lab-throughput.tsx": 1,
     "listing-tools.tsx": 1,
-    "people-dialogs.tsx": 1,
     "server-settings.tsx": 1,
-    "together-people.tsx": 1,
   },
   alertParagraph: {
     // The player's menus, which another part of the revamp is moving onto the parts.
@@ -62,13 +50,6 @@ const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   },
   disabledSubmit: {
     "create-library.tsx": 1,
-    "device-activation.tsx": 1,
-    "discovery-gate.tsx": 1,
-    "problem-report.tsx": 1,
-    "system-address-at-home.tsx": 1,
-    "system-discovery-connect.tsx": 1,
-    "system-discovery.tsx": 2,
-    "system-network.tsx": 1,
   },
 };
 

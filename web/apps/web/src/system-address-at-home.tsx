@@ -13,6 +13,8 @@ import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { StatusNote } from "./status-note.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 export type AddressAtHome = components["schemas"]["AddressAtHomeBody"];
 
@@ -93,27 +95,29 @@ function AddressForm(props: { readonly onChanged?: (() => void) | undefined }): 
       props.onChanged?.();
     });
   };
+  const fields = useFormFields(undefined, []);
   return (
     <form
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        save();
+        if (
+          fields.check([
+            ["address", missingText(t, t("system.addressAtHome.field"), address.trim())],
+          ])
+        ) {
+          save();
+        }
       }}
     >
-      <label>
-        {t("system.addressAtHome.field")}{" "}
-        <input
-          type="text"
-          inputMode="decimal"
-          value={address}
-          onChange={(event) => {
-            setAddress(event.target.value);
-          }}
-        />
-      </label>{" "}
-      <button type="submit" disabled={isBusy || address.trim() === ""}>
-        {t("system.addressAtHome.save")}
-      </button>
+      <TextField
+        {...fields.fieldOf("address")}
+        label={t("system.addressAtHome.field")}
+        inputMode="decimal"
+        value={address}
+        onChange={fields.editing("address", setAddress)}
+      />
+      <SubmitButton label={t("system.addressAtHome.save")} isBusy={isBusy} />
       {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </form>
   );

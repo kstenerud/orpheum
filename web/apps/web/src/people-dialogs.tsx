@@ -11,7 +11,7 @@ import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { personWords } from "./person-words.ts";
-import { useFormFields, type FormFields } from "./field.tsx";
+import { TextField, useFormFields, type FormFields } from "./field.tsx";
 import { failedFields, fieldProblemText } from "./problem.ts";
 import { roleLabel, type Role } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
@@ -106,19 +106,15 @@ export function InviteDialog(props: {
         >
           <h2>{t("people.invite")}</h2>
           <p>{t("people.inviteExplain")}</p>
-          <label>
-            {t("people.adminNote")}{" "}
-            <input
-              required
-              maxLength={200}
-              placeholder={t("people.adminNoteExample")}
-              value={adminNote}
-              {...marks.markOf("body.adminNote")}
-              onChange={(event) => {
-                marks.editing("body.adminNote", setAdminNote)(event.target.value);
-              }}
-            />
-          </label>
+          <TextField
+            {...marks.fieldOf("body.adminNote")}
+            label={t("people.adminNote")}
+            hint={t("people.adminNoteHint")}
+            isOptional
+            maxLength={200}
+            value={adminNote}
+            onChange={marks.editing("body.adminNote", setAdminNote)}
+          />
           <RoleSelect choices={props.choices} role={role} onChange={setRole} />
           <button type="submit">{t("people.makeLink")}</button>
         </FormRow>
@@ -174,17 +170,17 @@ function AccountFields(props: {
           set({ role });
         }}
       />
-      <label>
-        {t("people.adminNote")}{" "}
-        <input
-          maxLength={200}
-          value={account.adminNote}
-          {...marks.markOf("body.adminNote")}
-          onChange={(event) => {
-            marks.editing("body.adminNote", set)({ adminNote: event.target.value });
-          }}
-        />
-      </label>
+      <TextField
+        {...marks.fieldOf("body.adminNote")}
+        label={t("people.adminNote")}
+        hint={t("people.adminNoteHint")}
+        isOptional
+        maxLength={200}
+        value={account.adminNote}
+        onChange={(adminNote) => {
+          marks.editing("body.adminNote", set)({ adminNote });
+        }}
+      />
     </>
   );
 }

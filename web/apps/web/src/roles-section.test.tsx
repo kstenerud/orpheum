@@ -11,13 +11,13 @@ import { Users } from "./users.tsx";
 import { UserPage } from "./user.tsx";
 import {
   buttonWithText,
-  choose,
   chooseIn,
   click,
   enter,
   fire,
   mount,
   servedBy,
+  settleAnswers,
   submit,
   type Heard,
   type Mounted,
@@ -380,15 +380,18 @@ it("gives a person another role from their page", async () => {
       ),
     ),
   );
-  // Saved as it is chosen (the owner, 2026-11-04, Q5): no button to press after.
-  const choice = [...mounted.container.querySelectorAll("label")]
-    .find((label) => label.textContent.startsWith("Role"))
-    ?.querySelector("select");
-  await choose(choice, "friends");
+  // Saved as it is chosen (the owner, 2026-11-04, Q5): no button to press after; chosen in the
+  // pop-up chooser, not a native select (D538 §3).
+  expect(mounted.container.querySelector("select")).toBeNull();
+  await chooseIn(mounted.container, "Role", "friends");
+  await settleAnswers();
   expect(heard.find((each) => each.methodAndPath === "PUT /users/5/role")?.body).toEqual({
     role: "friends",
   });
-  expect(
-    choice?.closest(".form-row")?.querySelector("output.status-line--success")?.textContent,
-  ).toBe("Saved");
+  const chooser = [...mounted.container.querySelectorAll(".route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === "Role",
+  );
+  expect(chooser?.parentElement?.querySelector("output.status-line--success")?.textContent).toBe(
+    "Saved",
+  );
 });

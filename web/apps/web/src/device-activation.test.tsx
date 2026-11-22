@@ -33,12 +33,10 @@ afterEach(() => {
 
 /** Types text into the input labelled label, as a person would. */
 async function type(container: HTMLElement, label: string, text: string): Promise<void> {
-  await enter(
-    [...container.querySelectorAll("label")]
-      .find((each) => each.textContent.startsWith(label))
-      ?.querySelector("input"),
-    text,
+  const named = [...container.querySelectorAll("label")].find((each) =>
+    each.textContent.startsWith(label),
   );
+  await enter(named === undefined ? null : document.getElementById(named.htmlFor), text);
 }
 
 /** The person signed in, as GET /me answers. */
@@ -76,7 +74,7 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
     ),
   );
   await type(shown.container, "Code", "ABCD EFGH");
-  await type(shown.container, "Its name", "Living room TV");
+  await type(shown.container, "Name", "Living room TV");
   await submit(shown.container.querySelector(".device-activation form"));
   return shown;
 }
@@ -162,10 +160,26 @@ describe("activating a device by the code it shows (D288)", () => {
     const code = mounted.container.querySelector(".device-activation__code-field");
     const line = mounted.container.querySelector('.device-activation [role="alert"]');
     expect(code?.getAttribute("aria-invalid")).toBe("true");
-    expect(code?.getAttribute("aria-describedby")).toBe(line?.id);
+    // Its hint first, then the line (D538 interface rule 14: a Field's hint describes its control).
+    expect(code?.getAttribute("aria-describedby")).toBe(`${code?.id ?? ""}-hint ${line?.id ?? ""}`);
     expect(mounted.container.querySelectorAll(".device-activation [aria-invalid]")).toHaveLength(1);
     await enter(code, "ABCD EFGJ");
     expect(code?.hasAttribute("aria-invalid")).toBe(false);
+  });
+
+  it("says at the field that the code is missing and sends nothing, Activate never disabled (D538 rule 14)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(<ActivateDevice onActivated={() => undefined} />, servedBy({}, heard)),
+    );
+    const code = mounted.container.querySelector(".device-activation__code-field");
+    expect(code?.getAttribute("autocomplete")).toBe("one-time-code");
+    expect(mounted.container.querySelector("[placeholder]")).toBeNull();
+    expect(mounted.container.textContent).toContain("Name (optional)");
+    await submit(mounted.container.querySelector("form"));
+    expect(mounted.container.querySelector(".field__error")?.textContent).toBe("Enter code");
+    expect(document.activeElement).toBe(code);
+    expect(heard).toEqual([]);
   });
 
   it("activates a device for the person an admin is looking at (D288 §2)", async () => {
@@ -180,7 +194,7 @@ describe("activating a device by the code it shows (D288)", () => {
       ),
     );
     await type(mounted.container, "Code", "abcd-efgh");
-    await type(mounted.container, "Its name", "Gran's TV");
+    await type(mounted.container, "Name", "Gran's TV");
     await submit(mounted.container.querySelector("form"));
     expect(heard).toEqual([
       {

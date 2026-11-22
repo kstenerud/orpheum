@@ -4,7 +4,7 @@ import "./system-words.ts";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { HomeAddress } from "./home-address.tsx";
@@ -30,6 +30,9 @@ import {
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { StatusNote } from "./status-note.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 type PortMapping = components["schemas"]["PortMappingBody"];
@@ -201,40 +204,66 @@ function ConnectForm(props: {
   readonly onConnect: (issuer: string, password: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [issuer, setIssuer] = useState(() => typedName(props.suggested));
+  return (
+    <NameAndPasswordForm
+      nameLabel={t("system.discovery.issuer")}
+      nameToStart={typedName(props.suggested)}
+      submitLabel={t("system.discovery.connectHere")}
+      isBusy={props.isBusy}
+      onSend={props.onConnect}
+    />
+  );
+}
+
+/**
+ * A name and the admin's password, sent by its button once both are typed (D538 interface rule 14):
+ * a press with either empty says so at its field, the button never disabled. Its own problem, and
+ * more words, follow the button (children).
+ */
+function NameAndPasswordForm(props: {
+  readonly nameLabel: string;
+  readonly nameToStart: string;
+  readonly submitLabel: string;
+  readonly isBusy: boolean;
+  readonly onSend: (name: string, password: string) => void;
+  readonly children?: ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [name, setName] = useState(props.nameToStart);
   const [password, setPassword] = useState("");
+  const fields = useFormFields(undefined, []);
   return (
     <form
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        props.onConnect(issuer.trim(), password);
+        if (
+          fields.check([
+            ["name", missingText(t, props.nameLabel, name.trim())],
+            ["password", missingText(t, t("system.discovery.yourPassword"), password)],
+          ])
+        ) {
+          props.onSend(name.trim(), password);
+        }
       }}
     >
-      <label>
-        {t("system.discovery.issuer")}{" "}
-        <input
-          autoComplete="off"
-          spellCheck={false}
-          value={issuer}
-          onChange={(event) => {
-            setIssuer(event.currentTarget.value);
-          }}
-        />
-      </label>{" "}
-      <label>
-        {t("system.discovery.yourPassword")}{" "}
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.currentTarget.value);
-          }}
-        />
-      </label>{" "}
-      <button type="submit" disabled={props.isBusy || issuer.trim() === "" || password === ""}>
-        {t("system.discovery.connectHere")}
-      </button>
+      <TextField
+        {...fields.fieldOf("name")}
+        label={props.nameLabel}
+        autoComplete="off"
+        isVerbatim
+        value={name}
+        onChange={fields.editing("name", setName)}
+      />
+      <PasswordField
+        {...fields.fieldOf("password")}
+        label={t("system.discovery.yourPassword")}
+        autoComplete="current-password"
+        value={password}
+        onChange={fields.editing("password", setPassword)}
+      />
+      <SubmitButton label={props.submitLabel} isBusy={props.isBusy} />
+      {props.children}
     </form>
   );
 }
@@ -437,43 +466,17 @@ interface Claiming {
 function KeyForm(props: { readonly claiming: Claiming }): JSX.Element {
   const { t } = useTranslation();
   const { isBusy, problem, onClaim } = props.claiming;
-  const [key, setKey] = useState("");
-  const [password, setPassword] = useState("");
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        onClaim(key.trim(), password);
-      }}
+    <NameAndPasswordForm
+      nameLabel={t("system.discovery.key")}
+      nameToStart=""
+      submitLabel={t("system.discovery.claimByKey")}
+      isBusy={isBusy}
+      onSend={onClaim}
     >
-      <label>
-        {t("system.discovery.key")}{" "}
-        <input
-          autoComplete="off"
-          spellCheck={false}
-          value={key}
-          onChange={(event) => {
-            setKey(event.currentTarget.value);
-          }}
-        />
-      </label>{" "}
-      <label>
-        {t("system.discovery.yourPassword")}{" "}
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.currentTarget.value);
-          }}
-        />
-      </label>{" "}
-      <button type="submit" disabled={isBusy || key.trim() === "" || password === ""}>
-        {t("system.discovery.claimByKey")}
-      </button>
       {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <p>{t("system.discovery.keyHint")}</p>
-    </form>
+    </NameAndPasswordForm>
   );
 }
 

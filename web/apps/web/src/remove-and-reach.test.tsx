@@ -16,6 +16,7 @@ import {
   fire,
   mount,
   servedBy,
+  settleAnswers,
   submit,
   type Answer,
   type Answers,
@@ -264,12 +265,54 @@ it("shows a person's five latest devices with All devices, their actions in a ro
   expect(name?.closest("form")?.querySelector("output.status-line--success")?.textContent).toBe(
     "Saved",
   );
-  const note = fieldLabelled(page, "Who it is for");
+  const note = fieldLabelled(page, "Note");
   await enter(note, "my brother");
   await submit(note?.closest("form"));
   expect(heard.find((each) => each.methodAndPath === "PUT /users/5/admin-note")?.body).toEqual({
     adminNote: "my brother",
   });
+});
+
+// D538 §4: the role is the pop-up chooser, and its Saved stays when the page is read again after
+// it, the chooser on the role chosen; it was drawn anew from loading, losing both.
+it("a person's role is chosen in the pop-up chooser and says Saved beside it, which stays while the page is read again", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <UserPage userId={5} />,
+      servedBy(
+        {
+          "GET /me": me(1),
+          "GET /users/5": [
+            200,
+            {
+              user: { id: 5, name: "Dan", role: "user", hasPassword: true },
+              watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+            },
+          ],
+          "GET /users/5/devices": [200, { devices: [] }],
+          "GET /roles": [200, roles],
+          "PUT /users/5/role": [204, null],
+        },
+        heard,
+      ),
+    ),
+  );
+  const page = mounted.container;
+  expect(page.querySelector("select")).toBeNull();
+  await chooseIn(page, "Role", "family");
+  await settleAnswers();
+  expect(heard.find((each) => each.methodAndPath === "PUT /users/5/role")?.body).toEqual({
+    role: "family",
+  });
+  expect(heard.filter((each) => each.methodAndPath === "GET /users/5").length).toBeGreaterThan(0);
+  const chooser = [...page.querySelectorAll(".route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === "Role",
+  );
+  expect(chooser?.querySelector("[aria-haspopup]")?.textContent).toContain("family");
+  expect(chooser?.parentElement?.querySelector("output.status-line--success")?.textContent).toBe(
+    "Saved",
+  );
 });
 
 it("a person's page asks once: its first read carries their devices and the roles, and who is signed in is the shell's (the client-server audit's finding 10)", async () => {

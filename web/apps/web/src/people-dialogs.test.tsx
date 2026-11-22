@@ -56,6 +56,6 @@ it("marks the admin's note of an invitation invalid while the server's refusal o
   await submit(mounted.container.ownerDocument.querySelector("dialog form"));
   const line = mounted.container.ownerDocument.querySelector('dialog [role="alert"]');
   expect(note?.getAttribute("aria-invalid")).toBe("true");
-  expect(note?.getAttribute("aria-describedby")).toBe(line?.id);
+  expect(note?.getAttribute("aria-describedby")).toBe(`${note?.id ?? ""}-hint ${line?.id ?? ""}`);
   mounted.unmount();
 });

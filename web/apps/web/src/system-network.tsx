@@ -13,7 +13,9 @@ import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
-import { StatusNote } from "./status-note.tsx";
+import { StatusNote, type SaveTold } from "./status-note.tsx";
+import { TextField } from "./field.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 type NetworkState = components["schemas"]["NetworkStateBody"];
 type Network = components["schemas"]["NetworkBody"];
@@ -43,7 +45,11 @@ export function SystemNetwork(): JSX.Element | null {
     },
     // Absent from the page's first read where the server keeps no network settings, as the endpoint
     // refuses then: no section.
-    { given: useSectionGiven(SystemSectionsContext, (sections) => ({ value: sections.network })) },
+    // Read again once saved, kept on screen meanwhile, so its Saved stays (D538 §4).
+    {
+      given: useSectionGiven(SystemSectionsContext, (sections) => ({ value: sections.network })),
+      isKeptOnReload: true,
+    },
   );
   if (state.state !== "loaded" || state.value === undefined) {
     return null;
@@ -84,6 +90,14 @@ export function SystemNetworkView(props: {
       {state.pending || state.fellBack.length > 0 ? <Takes appliedBy={state.appliedBy} /> : null}
     </section>
   );
+}
+
+/** How the form's last save went: why it was refused, else Saved, else nothing yet. */
+function toldOf(problem: string | undefined, saved: string | undefined): SaveTold {
+  if (problem !== undefined) {
+    return { kind: "problem", text: problem };
+  }
+  return saved === undefined ? undefined : { kind: "success", text: saved };
 }
 
 /** What takes the settings kept: this page's restart, or the install script's next run. */
@@ -136,9 +150,11 @@ function NetworkForm(props: {
     return setting === undefined ? problemText(t, cause) : t(refusalKey[setting]);
   });
   const field = (setting: Setting): JSX.Element => (
-    <NetworkField
+    <TextField
       label={t(`system.network.${setting}`)}
-      isPort={setting !== "router"}
+      hint={setting === "router" ? t("system.network.routerHint") : undefined}
+      isOptional={setting === "router"}
+      inputMode={setting === "router" ? "decimal" : "numeric"}
       value={entered[setting]}
       onChange={(value) => {
         setIsSaved(false);
@@ -148,6 +164,7 @@ function NetworkForm(props: {
   );
   return (
     <form
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
         setIsSaved(false);
@@ -169,38 +186,9 @@ function NetworkForm(props: {
       {field("httpsPort")}
       {field("webrtcPort")}
       {field("router")}
-      <p>
-        <button type="submit" disabled={isBusy}>
-          {t("system.network.save")}
-        </button>{" "}
-        {isSaved ? <output>{t("system.network.saved")}</output> : null}
-      </p>
-      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
+      <StatusNote told={toldOf(problem, isSaved ? t("system.network.saved") : undefined)} />
+      <SubmitButton label={t("system.network.save")} isBusy={isBusy} />
     </form>
-  );
-}
-
-/** One setting's field: a port, or the router's address. */
-function NetworkField(props: {
-  readonly label: string;
-  readonly isPort: boolean;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-}): JSX.Element {
-  return (
-    <p>
-      <label>
-        {props.label}{" "}
-        <input
-          type="text"
-          inputMode={props.isPort ? "numeric" : "decimal"}
-          value={props.value}
-          onChange={(event) => {
-            props.onChange(event.target.value);
-          }}
-        />
-      </label>
-    </p>
   );
 }
 

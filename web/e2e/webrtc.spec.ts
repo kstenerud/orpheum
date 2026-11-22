@@ -81,7 +81,7 @@ test(
     await start.click();
     // Inviting is a button that opens a dialog of its own (D281 §5).
     await host.getByRole("button", { name: "Invite someone" }).click();
-    await host.getByLabel("Who it is for (only you see this)").fill("Anna");
+    await host.getByLabel("Note", { exact: true }).fill("Anna");
     await host.getByRole("button", { name: "Make a link" }).click();
     const shown = host.locator("output.share__link");
     await expect(shown).toContainText("#");

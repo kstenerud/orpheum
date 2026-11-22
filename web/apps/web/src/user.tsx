@@ -30,7 +30,7 @@ import { IssuedInvitationView, type IssuedInvitation } from "./users.tsx";
 import { personWords, registrationText } from "./person-words.ts";
 import { fieldProblemText } from "./problem.ts";
 import { useMe } from "./signed-in-me.ts";
-import { listRoles, roleLabel, rolesListedOf, setUserRole } from "./roles.ts";
+import { listRoles, rolesListedOf, setUserRole } from "./roles.ts";
 import {
   ownGiven,
   pageReadOf,
@@ -39,6 +39,7 @@ import {
   UserSectionsContext,
   type UserSections,
 } from "./page-sections.ts";
+import { RoleChooser } from "./people-dialogs.tsx";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -71,9 +72,8 @@ export function UserPage(props: { readonly userId: number }): JSX.Element {
   const [person, reloadUser] = useResource(
     `user/${String(props.userId)}`,
     () => getUser(api, props.userId),
-    {
-      given: ownGiven(first, (value) => ({ value: personOf(value) })),
-    },
+    // Read again once a setting is saved, kept on screen meanwhile, so its Saved stays (D538 §4).
+    { given: ownGiven(first, (value) => ({ value: personOf(value) })), isKeptOnReload: true },
   );
   const [devices, reloadDevices] = useResource(
     `person-devices/${String(props.userId)}`,
@@ -363,7 +363,6 @@ function RoleChoice(props: {
   readonly current: string;
   readonly onSave: (role: string) => Promise<void>;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { api } = useServices();
   const [roles] = useResource("person-roles", () => listRoles(api), {
     given: useSectionGiven(UserSectionsContext, (sections) => ({
@@ -376,23 +375,14 @@ function RoleChoice(props: {
     roles.state === "loaded" ? roles.value.roles.map((each) => each.name) : [props.current];
   return (
     <div className="form-row">
-      <label>
-        {t("people.role")}{" "}
-        <select
-          value={role}
-          onChange={(event) => {
-            const chosen = event.target.value;
-            setRole(chosen);
-            void save(() => props.onSave(chosen));
-          }}
-        >
-          {names.map((name) => (
-            <option key={name} value={name}>
-              {roleLabel(t, name)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <RoleChooser
+        roleNames={names}
+        role={role}
+        onChoose={(chosen) => {
+          setRole(chosen);
+          void save(() => props.onSave(chosen));
+        }}
+      />
       <StatusNote told={told} />
       <NoLibraryNote
         roles={roles.state === "loaded" ? roles.value.roles : undefined}

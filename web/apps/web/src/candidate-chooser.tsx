@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
 import { submitWith } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
 import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
@@ -51,62 +52,73 @@ function OwnSearch(props: {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [year, setYear] = useState("");
+  const fields = useFormFields(undefined, []);
   return (
     <form
       className="form-row"
+      noValidate
       onSubmit={submitWith(() => {
-        props.onSearch(name, year === "" ? 0 : Number(year));
+        const typedYear = year.trim();
+        if (
+          fields.check([
+            ["name", missingText(t, t("identify.searchName"), name.trim())],
+            [
+              "year",
+              typedYear === "" || fourDigits.test(typedYear) ? undefined : t("identify.yearNotOne"),
+            ],
+          ])
+        ) {
+          props.onSearch(name, typedYear === "" ? 0 : Number(typedYear));
+        }
       })}
     >
-      <label>
-        {t("identify.searchName")}{" "}
-        <input
-          required
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-        />
-      </label>{" "}
-      <label>
-        {t("identify.searchYear")}{" "}
-        <input
-          type="number"
-          min={1870}
-          max={2100}
-          value={year}
-          onChange={(event) => {
-            setYear(event.target.value);
-          }}
-        />
-      </label>{" "}
+      <TextField
+        {...fields.fieldOf("name")}
+        label={t("identify.searchName")}
+        value={name}
+        onChange={fields.editing("name", setName)}
+      />
+      <TextField
+        {...fields.fieldOf("year")}
+        label={t("identify.searchYear")}
+        hint={t("identify.searchYearHint")}
+        isOptional
+        inputMode="numeric"
+        maxLength={4}
+        value={year}
+        onChange={fields.editing("year", setYear)}
+      />
       <button type="submit">{t("identify.search")}</button>
     </form>
   );
 }
 
+/** A year as a search takes it: four digits (D538 interface rule 14: a year is a numeric Field). */
+const fourDigits = /^\d{4}$/u;
+
 /** A pasted address or id of the work at TMDB or IMDb, which chooses it (the owner, 2026-10-21). */
 function PastedLink(props: { readonly onPaste: (link: string) => void }): JSX.Element {
   const { t } = useTranslation();
   const [link, setLink] = useState("");
+  const fields = useFormFields(undefined, []);
   return (
     <form
       className="form-row"
+      noValidate
       onSubmit={submitWith(() => {
-        props.onPaste(link);
+        if (fields.check([["link", missingText(t, t("identify.link"), link.trim())]])) {
+          props.onPaste(link);
+        }
       })}
     >
-      <label>
-        {t("identify.link")}{" "}
-        <input
-          required
-          placeholder={t("identify.linkHint")}
-          value={link}
-          onChange={(event) => {
-            setLink(event.target.value);
-          }}
-        />
-      </label>{" "}
+      <TextField
+        {...fields.fieldOf("link")}
+        label={t("identify.link")}
+        hint={t("identify.linkHint")}
+        isVerbatim
+        value={link}
+        onChange={fields.editing("link", setLink)}
+      />
       <button type="submit">{t("identify.useLink")}</button>
     </form>
   );

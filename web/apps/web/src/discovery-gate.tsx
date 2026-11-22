@@ -61,6 +61,7 @@ import {
 } from "./discovery-start.ts";
 import { i18n } from "./i18n.ts";
 import { StatusNote } from "./status-note.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 /** What the gate needs: the discovery, the remembered core's session, and who takes over. */
 export interface GateParts {
@@ -748,9 +749,7 @@ function ServerChanged(props: {
         }}
       />
       <p>{t("discovery.changed.ifNot")}</p>
-      <button type="submit" disabled={props.isSending}>
-        {t("discovery.changed.continue")}
-      </button>
+      <SubmitButton label={t("discovery.changed.continue")} isBusy={props.isSending} />
       <button type="button" className="quiet" disabled={props.isSending} onClick={props.onCancel}>
         {t("discovery.changed.cancel")}
       </button>

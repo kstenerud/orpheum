@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure } from "@orpheum/sdk";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import type { AskOutcome, Poller } from "./polling.ts";
 import { rememberedInTheTab } from "./remembered.ts";
 import { askWhileUnanswered, isUnanswered } from "./reopen.ts";
+import { useLatest } from "./latest.ts";
 import type { Resource } from "./resource.ts";
 import { resetOnEachTestMount } from "./screen-load.tsx";
 import { ServicesContext } from "./services.tsx";
@@ -27,6 +28,13 @@ export interface ResourceOptions<T> {
    * is neither kept for the tab nor shared with another reader of the key (D478).
    */
   readonly isSingleUse?: boolean | undefined;
+  /**
+   * Whether a reload keeps the value it shows until the reload answers, rather than going back to
+   * loading: a page of settings that save themselves, which reads itself again once one is saved,
+   * so the setting keeps its Saved and its value (D538 §4). A page whose loading says something,
+   * as playback's "Opening the film again", shows it.
+   */
+  readonly isKeptOnReload?: boolean | undefined;
 }
 
 /** An answer the tab holds for a key: read, or handed by the write that answered it (handAnswer). */
@@ -372,6 +380,22 @@ function readFirst<T>(
   reads.read(undefined, undefined, how.isReload ? "anew" : "join");
 }
 
+/**
+ * How a read shows that it loads: not over a value a reload's reader shows, which it keeps until the
+ * answer (D538 §4: drawn anew from loading, a setting's field lost its Saved and its value).
+ */
+function loadingUnlessKept<T>(
+  show: (resource: Resource<T>) => void,
+  isReload: boolean,
+  held: RefObject<{ readonly resource: Resource<T> }>,
+): () => void {
+  return () => {
+    if (!isReload || held.current.resource.state !== "loaded") {
+      show({ state: "loading" });
+    }
+  };
+}
+
 /** What a reader still loading shows before its effect runs: a value given, or the tab's answer. */
 function shownBeforeItsRead<T>(
   key: string,
@@ -403,9 +427,11 @@ function shownBeforeItsRead<T>(
  * its reader's alone. The tab forgets every answer on sign-out (forgetEveryAnswer).
  *
  * Given options' poller, it also asks again for as long as the component shows it, as the poller's
- * schedule says (D237): backgroundChangesPoller backs off while the answer is unchanged. It keeps what it shows meanwhile: a
- * reload does not go back to loading, so a view that follows something moving (the jobs, a scan's
- * films) does not flicker. A new key starts from loading, unless the tab holds an answer for it.
+ * schedule says (D237): backgroundChangesPoller backs off while the answer is unchanged. It keeps what it shows meanwhile,
+ * so a view that follows something moving (the jobs, a scan's films) does not flicker. Given
+ * isKeptOnReload, a reload keeps a value it shows too: going back to loading drew what showed it
+ * anew, and a setting's field lost its Saved and its value with it (a person's role, the house's
+ * network; D538 §4). A new key starts from loading, unless the tab holds an answer for it.
  * This is the one way the client polls the server; usePages polls a paged list the same way.
  *
  * Given options' given, a value another read holds, it shows that in place of its first read and
@@ -428,6 +454,7 @@ export function useResource<T>(
 ): [Resource<T>, () => void] {
   const { poller, given } = options;
   const isSingleUse = options.isSingleUse === true;
+  const isKeptOnReload = options.isKeptOnReload === true;
   const onPathBack = use(ServicesContext)?.onPathBack; // none in a test that renders no services
   const [held, setHeld] = useState<{ readonly key: string; readonly resource: Resource<T> }>({
     key,
@@ -442,6 +469,7 @@ export function useResource<T>(
   const givenFor = useRef<ReadFor | undefined>(undefined);
   // The key and attempt last read for: another attempt at the same key is a reload, which reads anew.
   const readFor = useRef<ReadFor | undefined>(undefined);
+  const heldRef = useLatest(held);
   useEffect(() => {
     if (givenState === "waiting") {
       return undefined;
@@ -457,9 +485,7 @@ export function useResource<T>(
       givenFor.current = { key, attempt };
       reads.showGiven(givenRef.current.value);
     } else {
-      const showLoading = (): void => {
-        show({ state: "loading" });
-      };
+      const showLoading = loadingUnlessKept(show, isReload && isKeptOnReload, heldRef);
       readFirst(reads, key, { isReload, isSingleUse, ...(poller ? {} : { showLoading }) });
     }
     const stopPolling = poller?.start(reads.read);

@@ -150,6 +150,11 @@ export const enLibraries = {
     changesInterval: "Check every so many hours",
     changesManual: "Only when I ask",
     checkEvery: "Hours between checks",
+    checkEveryField: "Hours between checks, from 1 to 168",
+    checkEveryWords: "Checked every {{count}} hours",
+    checkEveryUnit: "h",
+    checkEveryLess: "One hour less",
+    checkEveryMore: "One hour more",
     writable: "May the server write beside the media",
     writableHelp:
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",

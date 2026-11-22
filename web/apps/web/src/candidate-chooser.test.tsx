@@ -34,6 +34,34 @@ function formOf(label: string): HTMLFormElement | null | undefined {
 }
 
 describe("the candidate chooser, when the work is not among the candidates", () => {
+  // D538 interface rule 14: a year is a numeric Field, not type=number; no placeholders, the link's
+  // example under it; a wrong field said at it, nothing searched.
+  it("takes the year as four digits in a numeric field, saying at it when it is not, and shows the link's example under its field", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <CandidateChooser itemId={7} onChosen={() => undefined} />,
+        servedBy({ "GET /items/7/candidates": [200, { provider: "tmdb", candidates: [] }] }, heard),
+      ),
+    );
+    expect(mounted.container.querySelector("[placeholder]")).toBeNull();
+    expect(mounted.container.querySelector('input[type="number"]')).toBeNull();
+    const form = formOf("Search");
+    const [name, year] = [...(form?.querySelectorAll("input") ?? [])];
+    expect(year?.getAttribute("inputmode")).toBe("numeric");
+    await enter(name, "Hearthstead");
+    await enter(year, "69");
+    await submit(form);
+    expect(heard.filter((each) => each.methodAndPath === "GET /items/7/candidates").length).toBe(1);
+    expect(form?.querySelector(".field__error")?.textContent).toBe(
+      "Enter the year as four digits, such as 1999",
+    );
+    expect(document.activeElement).toBe(year);
+    expect(formOf("Use this match")?.querySelector(".field__hint")?.textContent).toContain(
+      "https://www.themoviedb.org/",
+    );
+  });
+
   it("searches for a name and year a person typed, and lists what it found to choose from", async () => {
     const heard: Heard[] = [];
     mounted = await mount(

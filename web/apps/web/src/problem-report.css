@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* Report a problem (problem-report.tsx): what to say, the words' field at the dialog's width, then
-   Cancel and Send side by side. */
+/* Report a problem (problem-report.tsx): what to say, then the words' field at the dialog's width;
+   Cancel and Send are the dialog's foot. */
 .problem-report {
   display: flex;
   flex-direction: column;
@@ -9,18 +9,6 @@
 }
 
 .problem-report__words {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.problem-report__words textarea {
   width: 100%;
   resize: vertical;
-}
-
-.problem-report__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
 }

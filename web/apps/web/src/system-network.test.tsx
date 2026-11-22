@@ -45,12 +45,10 @@ async function mountNetwork(
 
 /** Types value into the field labelled label, as a person does. */
 async function typeInto(shown: Mounted, label: string, value: string): Promise<void> {
-  await enter(
-    [...shown.container.querySelectorAll("label")]
-      .find((each) => each.textContent.startsWith(label))
-      ?.querySelector("input"),
-    value,
+  const named = [...shown.container.querySelectorAll("label")].find((each) =>
+    each.textContent.startsWith(label),
   );
+  await enter(named === undefined ? null : document.getElementById(named.htmlFor), value);
 }
 
 const saveButton = (shown: Mounted): HTMLElement | undefined =>
@@ -114,6 +112,9 @@ describe("The house's network", () => {
     const put = heard.find((each) => each.methodAndPath === "PUT /system/network");
     expect(put === undefined ? undefined : bodyField(put, "httpsPort")).toBe(9443);
     expect(put === undefined ? undefined : bodyField(put, "router")).toBe("192.168.1.1");
+    // D538 rule 14: the outcome a StatusNote's "Saved", the router's field marked optional.
+    expect(shown.container.querySelector("output.status-line--success")?.textContent).toBe("Saved");
+    expect(shown.container.textContent).toContain("Router's address (optional)");
     await click(buttonWithText(shown.container, "Restart the server"));
     await click(buttonWithText(shown.container, "Restart"));
     await settleUntil(() => shown.container.textContent.includes("The server is restarting."));

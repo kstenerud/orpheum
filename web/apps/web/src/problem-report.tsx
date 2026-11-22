@@ -4,18 +4,20 @@ import "./problem-report.css";
 
 import type { TFunction } from "i18next";
 import type { components, PlaybackReport } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { useId, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { connectionOf } from "./data-cap.ts";
 import { submitWith } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
+import { Field, useFormFields, type FormFields } from "./field.tsx";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { StatusNote } from "./status-note.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 /** One of the device's facts, as a report carries it: "Screen", "1920×1080". */
 type Fact = components["schemas"]["ProblemReportFactBody"];
@@ -69,8 +71,9 @@ function networkOf(connection: EventTarget | undefined): string {
 /**
  * Report a problem (D524 §2): the person's words, sent with the device's facts, the page they are
  * on and, from the player's ⁝, the player's state (playback), to the household's admin, who finds it
- * on the System page with the server's and every node's recent log. Sent, it says so and who reads
- * it. A press outside leaves it open, so a stray one does not lose what the person wrote.
+ * on the System page with the server's and every node's recent log. Its foot is Cancel and Send
+ * (D538 §2); sent, it is replaced by one that says so, a StatusNote, and who reads it, with Done
+ * (D538 §5). A press outside closes it, as every dialog (the owner, 2026-11-22).
  */
 export function ProblemReportDialog(props: {
   /** The player's state, taken as ⁝'s Report a problem was chosen; undefined from anywhere else. */
@@ -81,32 +84,35 @@ export function ProblemReportDialog(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const [isSent, setIsSent] = useState(false);
+  if (isSent) {
+    return (
+      <ModalDialog
+        key="sent"
+        label={t("problemReport.heading")}
+        heading={t("problemReport.heading")}
+        onClose={props.onClose}
+        footer={<DialogClose onClose={props.onClose} />}
+      >
+        <StatusNote told={{ kind: "success", text: t("problemReport.sent") }} />
+      </ModalDialog>
+    );
+  }
   return (
-    <ModalDialog label={t("problemReport.heading")} onClose={props.onClose}>
-      {isSent ? (
-        <>
-          <output>{t("problemReport.sent")}</output>
-          <button type="button" onClick={props.onClose}>
-            {t("problemReport.close")}
-          </button>
-        </>
-      ) : (
-        <ReportForm
-          playback={props.playback}
-          soundOffset={props.soundOffset}
-          onSent={() => {
-            setIsSent(true);
-          }}
-          onCancel={props.onClose}
-        />
-      )}
-    </ModalDialog>
+    <ReportForm
+      playback={props.playback}
+      soundOffset={props.soundOffset}
+      onSent={() => {
+        setIsSent(true);
+      }}
+      onCancel={props.onClose}
+    />
   );
 }
 
 /**
- * The report's form: what to say, the person's words, then Cancel and Send; refused, it says why,
- * and the words stay to send again.
+ * The report's dialog: what to say and the person's words, then Cancel and Send at its foot; Send
+ * with nothing written says so at the field (D538 interface rule 14), and refused, it says why above
+ * the foot, the words kept to send again.
  */
 function ReportForm(props: {
   readonly playback: ReportedPlayback | undefined;
@@ -116,11 +122,16 @@ function ReportForm(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, navigation } = useServices();
+  const formId = useId();
   const [words, setWords] = useState("");
+  const fields = useFormFields(undefined, []);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     problemText(t, cause, { rateLimited: t("problemReport.tooMany") }),
   );
   const send = submitWith(() => {
+    if (!fields.check([["words", words.trim() === "" ? t("problemReport.missing") : undefined]])) {
+      return;
+    }
     runRequest(async (idempotencyKey) => {
       throwIfRefused(
         await api.POST("/problem-reports", {
@@ -138,34 +149,53 @@ function ReportForm(props: {
     });
   });
   return (
-    <form className="problem-report" onSubmit={send}>
-      <h2>{t("problemReport.heading")}</h2>
-      <p>{t("problemReport.what")}</p>
-      {props.soundOffset === undefined ? null : (
-        <p>{suggestionText(t, props.soundOffset.soundOffsetMs)}</p>
-      )}
-      <label className="problem-report__words">
-        {t("problemReport.words")}
+    <ModalDialog
+      label={t("problemReport.heading")}
+      heading={t("problemReport.heading")}
+      onClose={props.onCancel}
+      footer={
+        <>
+          <button type="button" onClick={props.onCancel}>
+            {t("problemReport.cancel")}
+          </button>
+          <SubmitButton label={t("problemReport.send")} isBusy={isBusy} form={formId} />
+        </>
+      }
+    >
+      <form id={formId} className="problem-report" noValidate onSubmit={send}>
+        <p>{t("problemReport.what")}</p>
+        {props.soundOffset === undefined ? null : (
+          <p>{suggestionText(t, props.soundOffset.soundOffsetMs)}</p>
+        )}
+        <ReportWords fields={fields} words={words} onChange={setWords} />
+        {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
+      </form>
+    </ModalDialog>
+  );
+}
+/** The person's words, a few lines, their problem said under them (Field). */
+function ReportWords(props: {
+  readonly fields: FormFields;
+  readonly words: string;
+  readonly onChange: (words: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { fields } = props;
+  return (
+    <Field {...fields.fieldOf("words")} label={t("problemReport.words")}>
+      {(control) => (
         <textarea
-          required
+          {...control}
+          className="problem-report__words"
           rows={5}
           maxLength={wordsLimit}
-          value={words}
+          value={props.words}
           onChange={(event) => {
-            setWords(event.target.value);
+            fields.editing("words", props.onChange)(event.target.value);
           }}
         />
-      </label>
-      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
-      <div className="problem-report__buttons">
-        <button type="button" onClick={props.onCancel}>
-          {t("problemReport.cancel")}
-        </button>
-        <button type="submit" disabled={isBusy || words.trim() === ""}>
-          {t("problemReport.send")}
-        </button>
-      </div>
-    </form>
+      )}
+    </Field>
   );
 }
 

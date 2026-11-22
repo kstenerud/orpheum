@@ -23,6 +23,9 @@ import {
   type Connecting,
 } from "./system-discovery-connecting.tsx";
 import { StatusNote } from "./status-note.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 
@@ -158,53 +161,50 @@ function LinkForm(props: { readonly standing: Standing; readonly linking: Linkin
   const isConnected = standing.issuer !== "";
   const [issuer, setIssuer] = useState(() => typedName(suggested));
   const [password, setPassword] = useState("");
+  const fields = useFormFields(undefined, []);
   return (
     <form
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        linking.connect({ issuer: isConnected ? "" : issuer.trim(), password, suggested });
+        if (
+          fields.check([
+            [
+              "issuer",
+              isConnected ? undefined : missingText(t, t("system.discovery.issuer"), issuer.trim()),
+            ],
+            [
+              "password",
+              linking.isPasswordAsked
+                ? missingText(t, t("system.discovery.yourPassword"), password)
+                : undefined,
+            ],
+          ])
+        ) {
+          linking.connect({ issuer: isConnected ? "" : issuer.trim(), password, suggested });
+        }
       }}
     >
       {isConnected ? null : (
-        <>
-          <label>
-            {t("system.discovery.issuer")}{" "}
-            <input
-              autoComplete="off"
-              spellCheck={false}
-              value={issuer}
-              onChange={(event) => {
-                setIssuer(event.currentTarget.value);
-              }}
-            />
-          </label>{" "}
-        </>
+        <TextField
+          {...fields.fieldOf("issuer")}
+          label={t("system.discovery.issuer")}
+          autoComplete="off"
+          isVerbatim
+          value={issuer}
+          onChange={fields.editing("issuer", setIssuer)}
+        />
       )}
       {linking.isPasswordAsked ? (
-        <>
-          <label>
-            {t("system.discovery.yourPassword")}{" "}
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.currentTarget.value);
-              }}
-            />
-          </label>{" "}
-        </>
+        <PasswordField
+          {...fields.fieldOf("password")}
+          label={t("system.discovery.yourPassword")}
+          autoComplete="current-password"
+          value={password}
+          onChange={fields.editing("password", setPassword)}
+        />
       ) : null}
-      <button
-        type="submit"
-        disabled={
-          linking.isBusy ||
-          (!isConnected && issuer.trim() === "") ||
-          (linking.isPasswordAsked && password === "")
-        }
-      >
-        {t("system.discovery.connect")}
-      </button>
+      <SubmitButton label={t("system.discovery.connect")} isBusy={linking.isBusy} />
     </form>
   );
 }
