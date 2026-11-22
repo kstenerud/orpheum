@@ -601,8 +601,9 @@
             "type": "string"
           },
           "checkEveryHours": {
-            "description": "Hours between checks; interval only",
+            "description": "Hours between checks, 1 to 168 (a week); interval only",
             "format": "int64",
+            "maximum": 168,
             "minimum": 1,
             "type": "integer"
           }
@@ -1021,8 +1022,9 @@
             "type": "string"
           },
           "checkEveryHours": {
-            "description": "Hours between checks; interval only",
+            "description": "Hours between checks, 1 to 168 (a week); interval only",
             "format": "int64",
+            "maximum": 168,
             "minimum": 1,
             "type": "integer"
           },

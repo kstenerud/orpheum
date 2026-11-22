@@ -95,7 +95,7 @@ type CreateLibraryInput struct {
 		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
 		MetadataSource  string   `enum:"nfoThenTmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
-		CheckEveryHours *int64   `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"` //nolint:lll // one struct tag
+		CheckEveryHours *int64   `doc:"Hours between checks, 1 to 168 (a week); interval only" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
 		NodeName        string   `doc:"The node's configured name" json:"nodeName" minLength:"1"`
 		RootPaths       []string `doc:"The node's configured roots, or folders inside them (D359)" json:"rootPaths" minItems:"1"` //nolint:lll // one struct tag
@@ -115,7 +115,7 @@ type ChangeDetectionInput struct {
 	ID   int64 `path:"id"`
 	Body struct {
 		ChangeDetection string `enum:"watch,interval,manual" json:"changeDetection"`
-		CheckEveryHours *int64 `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"`
+		CheckEveryHours *int64 `doc:"Hours between checks, 1 to 168 (a week); interval only" json:"checkEveryHours,omitempty" maximum:"168" minimum:"1"` //nolint:lll // one struct tag
 	}
 }
 

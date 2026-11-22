@@ -496,6 +496,32 @@ func TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges(t *testing.T) {
 		map[string]any{"changeDetection": "manual"}), http.StatusForbidden, api.CodeForbidden)
 }
 
+// A library checks for changes at least once a week: the hours between checks are 1 to 168, when it is
+// made and when chosen again (D538 §12; the owner, 2026-11-22).
+func TestLibraries_TheHoursBetweenChecksAreAWeekAtMost(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	tooLong := newShows("/media/shows")
+	tooLong["changeDetection"], tooLong["checkEveryHours"] = "interval", 169
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries", admin, tooLong),
+		http.StatusUnprocessableEntity, "body.checkEveryHours")
+	weekly := newShows("/media/shows")
+	weekly["changeDetection"], weekly["checkEveryHours"] = "interval", 168
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, weekly); created.status != http.StatusCreated {
+		t.Fatalf("POST /libraries checking weekly = %d %s", created.status, created.body)
+	}
+	const path = "/libraries/1/change-detection"
+	wantInvalidAt(t, harness.do(t, http.MethodPut, path, admin,
+		map[string]any{"changeDetection": "interval", "checkEveryHours": 169}),
+		http.StatusUnprocessableEntity, "body.checkEveryHours")
+	weeklyAgain := map[string]any{"changeDetection": "interval", "checkEveryHours": 168}
+	if answered := harness.do(t, http.MethodPut, path, admin, weeklyAgain); answered.status != http.StatusNoContent {
+		t.Fatalf("PUT %s checking weekly = %d %s", path, answered.status, answered.body)
+	}
+}
+
 func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

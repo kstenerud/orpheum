@@ -3062,7 +3062,7 @@ export interface components {
             changeDetection: "watch" | "interval" | "manual";
             /**
              * Format: int64
-             * @description Hours between checks; interval only
+             * @description Hours between checks, 1 to 168 (a week); interval only
              */
             checkEveryHours?: number;
         };
@@ -3206,7 +3206,7 @@ export interface components {
             changeDetection: "watch" | "interval" | "manual";
             /**
              * Format: int64
-             * @description Hours between checks; interval only
+             * @description Hours between checks, 1 to 168 (a week); interval only
              */
             checkEveryHours?: number;
             /** @description May the server write beside the media */
