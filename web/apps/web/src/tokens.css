@@ -24,10 +24,16 @@
   --color-text: #f3eee4;
   --color-muted: #a3a3ad;
   /*
-   * A text box's example text: dimmer than secondary text and slanted (base.css), so it never reads as
-   * a value to delete (the owner, 2026-10-28, who took the muted grey for a pre-filled field).
+   * A text box's example text, a search box's alone (D538): dimmer than secondary text and slanted
+   * (base.css), so it never reads as a value to delete (the owner, 2026-10-28, who took the muted
+   * grey for a pre-filled field), yet bright enough to read, 4.5:1 on a surface (WCAG 1.4.3).
    */
-  --color-placeholder: #6b6b75;
+  --color-placeholder: #8e8e98;
+  /*
+   * The edge of a control whose edge is all that bounds it: a switch's track while off, a
+   * checkbox's box, a radio's ring, a stepper's frame (D538). 3:1 on a surface (WCAG 1.4.11).
+   */
+  --color-control-edge: #76767f;
   --color-accent: #ffa891;
   --color-accent-hover: #ffc2b2;
   --color-on-accent: #2e0e06;
