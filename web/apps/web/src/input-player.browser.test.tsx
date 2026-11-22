@@ -199,11 +199,15 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     expect(controls.map((control) => control.getAttribute("aria-label"))).toEqual(
       expect.arrayContaining(["Back 10 s", "Play", "Forward 10 s", "Full screen"]),
     );
-    // The subtitle and audio menus are choosers (the toolkit batch's step 6), no longer selects.
+    // The subtitle and Sound menus are pop-up choosers (the toolkit batch's step 6, D538 §8), no
+    // longer selects: each an opener of its pop-up.
     expect(controls.some((control) => control.tagName === "SELECT")).toBe(false);
-    expect(
-      controls.filter((control) => control.classList.contains("route-chooser__button")).length,
-    ).toBeGreaterThanOrEqual(2);
+    const menus = controls.filter(
+      (control) =>
+        /^(?:Subtitles: |Sound$)/u.test(control.getAttribute("aria-label") ?? "") &&
+        control.getAttribute("aria-haspopup") === "dialog",
+    );
+    expect(menus).toHaveLength(2);
     expect(video.closest(".film-player__stage")?.contains(overlay ?? null)).toBe(true);
     const unreached = controls.filter((control) => !reached.has(control));
     expect(unreached.map((control) => control.outerHTML.slice(0, 80))).toEqual([]);
