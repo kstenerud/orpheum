@@ -43,6 +43,23 @@ func (q *Queries) ForgetSubtitleTextFailure(ctx context.Context, arg ForgetSubti
 	return err
 }
 
+const forgetSubtitleTextFailuresOfFiles = `-- name: ForgetSubtitleTextFailuresOfFiles :execrows
+DELETE FROM subtitle_text
+WHERE failure IS NOT NULL AND source_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+`
+
+// The texts that could not be made of the own subtitle tracks of the files named, a JSON array of
+// ids: every rescan forgets them, so each is made again when it is next wanted (D535 section 8). A
+// fetched subtitle's is forgotten by its own key (ForgetSubtitleTextFailure).
+func (q *Queries) ForgetSubtitleTextFailuresOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetSubtitleTextFailuresOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getSubtitleText = `-- name: GetSubtitleText :one
 
 SELECT source_hash, stream_index, ass, vtt, failure, made_at

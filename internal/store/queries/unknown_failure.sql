@@ -32,3 +32,9 @@ ORDER BY kind, subject;
 -- name: DeleteUnknownFailure :exec
 -- One whose work has since succeeded.
 DELETE FROM unknown_failure WHERE kind = sqlc.arg(kind) AND subject = sqlc.arg(subject);
+
+-- name: DeleteUnknownFailuresOfSubjects :execrows
+-- Those of every kind whose subject is one named, a JSON array of subjects: a rescan forgets those of
+-- its films, series, episodes and files, so their work is tried again (D535 section 8).
+DELETE FROM unknown_failure
+WHERE subject IN (SELECT value FROM json_each(CAST(sqlc.arg(subjects_json) AS TEXT)));

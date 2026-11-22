@@ -23,6 +23,23 @@ func (q *Queries) DeleteRepeatMeasurements(ctx context.Context, payloadHash []by
 	return result.RowsAffected()
 }
 
+const forgetFailedRepeatMeasurementsOfFiles = `-- name: ForgetFailedRepeatMeasurementsOfFiles :execrows
+DELETE FROM repeat_measurement
+WHERE outcome = 'failed' AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+`
+
+// The failed measurements of the bytes of the files named, a JSON array of ids, at every version:
+// every rescan forgets them, and their seasons are measured again; one that found repeats, or found
+// none, is an answer and stays (D535 section 8).
+func (q *Queries) ForgetFailedRepeatMeasurementsOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetFailedRepeatMeasurementsOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const listSeasonVideos = `-- name: ListSeasonVideos :many
 
 SELECT DISTINCT CAST(position.grp_id AS INTEGER) AS group_id, own.node_id, version.work_id, f.id AS file_id, f.payload_hash,

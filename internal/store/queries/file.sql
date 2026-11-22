@@ -635,3 +635,10 @@ CROSS JOIN file_nfo ON file_nfo.file_id = nfo.file_id
 WHERE own.removed_at IS NULL AND own.file_id = own.id
   AND own.id IN (SELECT copy.file_id FROM place AS copy WHERE copy.file_id <> copy.id AND copy.removed_at IS NULL)
 ORDER BY own.id, place.id <> place.file_id, place.first_seen_at, place.id;
+
+-- name: ForgetWholeFileHashFailuresOfFiles :execrows
+-- The whole reads that failed of the files named, a JSON array of ids: every rescan forgets them, so
+-- the copies' sweep reads each whole again; a hash made stays (D535 section 8).
+DELETE FROM whole_file_hash
+WHERE failure IS NOT NULL
+  AND file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

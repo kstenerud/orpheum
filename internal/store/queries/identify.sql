@@ -676,3 +676,30 @@ SELECT count(*) FROM file_filing WHERE version_id = sqlc.arg(version_id);
 -- name: GetFilingLibraryOfItem :one
 -- The library whose pass files an item (D363 section 5); NULL for none.
 SELECT filing_library_id FROM item WHERE id = sqlc.arg(id);
+
+-- name: ListLiveFileIDsOfLibrary :many
+-- The files at a live place under a library's live roots: what a rescan of the library forgets the
+-- attempts given up on of (D535 section 8).
+SELECT DISTINCT CAST(library_place.file_id AS INTEGER) AS file_id
+FROM library_place
+WHERE library_place.library_id = sqlc.arg(library_id) AND library_place.file_id IS NOT NULL
+ORDER BY file_id;
+
+-- name: ListLiveItemIDsOfLibrary :many
+-- The live films, series, episodes, extras and other videos filed in a library: what a rescan of the
+-- library forgets the attempts given up on of (D535 section 8).
+SELECT item.id
+FROM item
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind <> 'person'
+ORDER BY item.id;
+
+-- name: ListAiredGroupIDsOfWorks :many
+-- The groups of the aired orderings that the works named, a JSON array of ids, have a place in:
+-- the seasons whose repeats a rescan of them forgets the failures of unknown cause of (D535
+-- section 8).
+SELECT DISTINCT CAST(position.grp_id AS INTEGER) AS group_id
+FROM position
+CROSS JOIN ordering ON ordering.id = position.ordering_id
+WHERE ordering.name = 'aired' AND position.grp_id IS NOT NULL
+  AND position.work_id IN (SELECT value FROM json_each(CAST(sqlc.arg(work_ids_json) AS TEXT)))
+ORDER BY group_id;

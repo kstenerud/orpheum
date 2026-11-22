@@ -28,6 +28,23 @@ func (q *Queries) DeleteLoudnessOfSound(ctx context.Context, arg DeleteLoudnessO
 	return result.RowsAffected()
 }
 
+const forgetLoudnessFailuresOfFiles = `-- name: ForgetLoudnessFailuresOfFiles :execrows
+DELETE FROM loudness
+WHERE failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+`
+
+// The failed measurements of the bytes of the files named, a JSON array of ids: every rescan forgets
+// them, and the read-through sweep measures those bytes again; a measurement made stays (D535
+// section 8).
+func (q *Queries) ForgetLoudnessFailuresOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetLoudnessFailuresOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const listLoudnessOfPayload = `-- name: ListLoudnessOfPayload :many
 
 SELECT payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure, measured_at

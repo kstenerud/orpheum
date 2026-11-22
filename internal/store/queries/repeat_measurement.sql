@@ -41,3 +41,11 @@ WHERE (repeat_measurement.outcome, repeat_measurement.failure) IS NOT (excluded.
 -- What was measured of a video's bytes, at every version: a discarding rescan throws it out, to be
 -- measured again (D535 section 6).
 DELETE FROM repeat_measurement WHERE payload_hash = sqlc.arg(payload_hash);
+
+-- name: ForgetFailedRepeatMeasurementsOfFiles :execrows
+-- The failed measurements of the bytes of the files named, a JSON array of ids, at every version:
+-- every rescan forgets them, and their seasons are measured again; one that found repeats, or found
+-- none, is an answer and stays (D535 section 8).
+DELETE FROM repeat_measurement
+WHERE outcome = 'failed' AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));

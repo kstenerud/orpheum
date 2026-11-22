@@ -208,6 +208,9 @@ func wholeReadsAllowed() map[string]string {
 			"as many as the kinds and subjects that failed (D509 section 3)",
 		"ListUnknownFailuresOfStartsBefore": "every failure of unknown cause is what it reads, once a start, " +
 			"for the failures an earlier start left to try once more (D511 section 4)",
+		"DeleteUnknownFailuresOfSubjects": "every failure of unknown cause is what it reads, as many as the " +
+			"kinds and subjects that failed, for those of a rescan's subjects, of any kind, once a rescan " +
+			"(D535 section 8)",
 		"MoveProgressHidesToItem": few + "people; a title merged into another gives it each one's hiding, " +
 			"found by its key",
 		"cache.SummarizeResourceUse": "every row kept is what it sums: a minute's row for the core and each node, " +
@@ -446,6 +449,8 @@ func weakSearchesAllowed() map[string]string {
 		"ListWorksNoLibraryLists":        library + "a retire's titles no library lists any more",
 		// A library's places, read by the range of their paths under each of its folders (D363).
 		"ListOtherVideosOfLibrary":  library + "its other videos",
+		"ListLiveFileIDsOfLibrary":  library + "its rescan forgets the attempts given up on of its files (D535 §8)",
+		"ListLiveItemIDsOfLibrary":  library + "its rescan forgets the attempts given up on of its items (D535 §8)",
 		"ListFileWorks":             library + "the identification pass",
 		"ListLibraryVersionWorks":   library + "the identification pass",
 		"ListLibraryNFOBodies":      library + snapshot,

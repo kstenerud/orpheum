@@ -5,6 +5,7 @@ package api_test
 import (
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -12,8 +13,52 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/unexpected"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
+
+// D535 §8: an admin's rescan that keeps what was made forgets, through the server's wiring, the
+// failures of unknown cause of its films and files and the subtitle texts of its files that could
+// not be made, so their work runs again this start.
+func TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFiles(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	seedTitles(t, harness.databasePath, titleRows{
+		firstID: 40, count: 1, kind: "movie", state: "unidentified", addedAt: 2,
+	})
+	seedListedFiles(t, harness, []listedFile{{
+		workID: 40, path: "/media/shows/a.mkv", sizeBytes: 10, versionCreatedAt: 2,
+	}})
+	file := strconv.FormatInt(nextID(t, harness.databasePath, "file")-1, 10)
+	for _, failure := range []unexpected.Failure{
+		{Kind: "fetch_metadata", Subject: "item 40", Error: "not JSON"},
+		{Kind: "hash_whole_file", Subject: "file " + file, Error: "the read stopped"},
+	} {
+		if err := harness.unknownFailures.Record(t.Context(), failure); err != nil {
+			t.Fatal(err)
+		}
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO subtitle_text (source_hash, stream_index, failure,
+		made_at) VALUES ((SELECT payload_hash FROM file WHERE id = `+file+`), 2, 'ffmpeg exited 1', 1)`)
+	if started := harness.do(t, http.MethodPost, "/libraries/1/rescan", admin, nil); started.status !=
+		http.StatusAccepted {
+		t.Fatalf("POST /libraries/1/rescan = %d %s", started.status, started.body)
+	}
+	if harness.unknownFailures.IsUnavailable("fetch_metadata", "item 40") ||
+		harness.unknownFailures.IsUnavailable("hash_whole_file", "file "+file) {
+		t.Error("after the rescan, a film's or a file's work is still unavailable this start")
+	}
+	if kept := storetest.QueryRaw(t, harness.databasePath,
+		`SELECT count(*) FROM subtitle_text WHERE failure IS NOT NULL`); !slices.Equal(kept, []string{"0"}) {
+		t.Errorf("after the rescan, %v subtitle texts that could not be made are kept; want none", kept)
+	}
+}
 
 // D357 §1, §5, D392 §6, D535 §5: the rescans are an admin's. An admin's press scans the library,
 // reading every file again, and starts its rescan, whose progress the Libraries page reads; a second

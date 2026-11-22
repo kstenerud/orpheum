@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided; §8–§10 not built.
+**Status:** decided; §9–§10 not built.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30773,7 +30773,7 @@ D357 §1's limit of a rescan to a film or a series.
     classified as one or the other, mechanically, so a new one cannot be missed. Amends §6, and §8's
     keeping of a device's give-up for a discarding rescan.
 
-**Built** (2026-11-22): §1–6 as follows, §7 below; §8–10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+**Built** (2026-11-22): §1–6 as follows, §7 and §8 below; §9–10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
 rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
 "files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
@@ -30801,6 +30801,26 @@ queues its conversion again in the background, with no download.
 §7: a title's and a series' details carry `isRescanning` (`identify.Rescans.IsRescanning`, from the
 rescan's record in cache.db); the page's facts say "Rescanning…" from it, and the page's Rescan reads
 the page again on its answer in place of the notice.
+§8: `identify.Rescans` forgets as each rescan starts, before it asks its scan, in its scope (a
+library's live items and the files at its live places; one item's, its files' works and its files):
+`fetch_failure` of its films, series and episodes; the failed `loudness` rows, `video_timeline`
+rows that could not be read (its `read_failure` alone is cleared, so the keyframes and the grid a
+playback is cut on stay), `repeat_measurement` rows that failed (one that found none is an answer
+and stays) and failed `whole_file_hash` rows of its files. The subtitles forget the failed
+`subtitle_text` of the files' own tracks and of each subtitle fetched for them
+(`ForgetTextFailures`), and the recorder of unknown failures forgets every kind's kept for the
+items, the files, the subtitles fetched for them and the seasons of its episodes, and holds none of
+them unavailable for the rest of the start (`unexpected.Recorder.Forget`). Each kind's sweep then
+queues its work again as for a thing never tried. A scan, asked for or automatic, and the sweep of
+files an older probe read forget nothing: only the rescan's request does. Kept:
+`own_picture_given_up`, which is how a device's player fared with a file's picture, not an attempt
+to gather information. The jobs' back-off needed no change: a request for a job already queued
+merges into it and brings a job waiting on its back-off to now, while a snoozed one (a provider's
+rate limit or a hold, not the job's fault) keeps its time; its attempt count is not reset.
+Confirmed already forgotten: a provider's "not found" (each film and series is matched as one
+never matched, D357 §1), a refused or missing image (asked again at the rescan's end), an errored
+place (read again by every scan) and a library's rescan given up (cleared when its next rescan
+ends).
 
 **Proven by:**
 - 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
@@ -30810,3 +30830,4 @@ the page again on its answer in place of the notice.
 - 5: `TestRescan_IsForAnAdminOnly` (internal/core/api), `TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot` (internal/core/library), `TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain` (internal/core/identify); `rescan.test.tsx`, `title.test.tsx`: no Full rescan anywhere, no rescan in "Identified incorrectly"
 - 6: `TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile`, `TestRescan_ADiscardingRescanAsksItsScanToDiscard` (internal/core/library), `TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing`, `TestRescan_AVideoPagesDiscardingRescanThrowsOutItsFetchedSubtitles` (internal/core/identify), `TestDiscardFetched_AVideoPagesThrowsOutTheSubtitlesAndTheirText`, `TestDiscardFetched_ALibrarysKeepsTheSubtitlesAndConvertsThemAgain` (internal/core/subtitles), `TestForgetMeasurements_ThrowsOutEveryVersionOfOneVideosMeasurement` (internal/core/repeats), `TestDiscardImages_RetiresEveryImageButAPersonsChoice` (internal/core/artwork), `TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI` (internal/core/api); `web/apps/web/src/rescan.test.tsx`: Scan now asks nothing, a rescan sends nothing until Yes nor on No, the box sends discard, a video's question says no hours
 - 7: `TestIsRescanning_FromThePressUntilTheRescanEnds` (internal/core/identify); `rescan.test.tsx`: the page read again says Rescanning…, no notice unless the rescan could not start
+- 8: `TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFiles` (internal/core/api), `TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded`, `TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn`, `TestScan_ForgetsNoAttemptGivenUpOn`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestForgetTextFailures_ForgetsEveryFailureOfTheFilesAndKeepsWhatWasMade` (internal/core/subtitles), `TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain` (internal/core/unexpected), `TestEnqueue_ARepeatRequestWakesAJobWaitingOnItsBackoffButNotASnoozedOne` (internal/platform/jobqueue)

@@ -50,3 +50,18 @@ WHERE payload_hash = sqlc.arg(payload_hash) AND video_stream_index = sqlc.arg(vi
 -- the sweep reads it again (D392 section 3).
 DELETE FROM video_timeline
 WHERE payload_hash = sqlc.arg(payload_hash) AND video_stream_index = sqlc.arg(video_stream_index);
+
+-- name: ForgetTimelineFailuresOfFiles :execrows
+-- The timelines that could not be read of the bytes of the files named, a JSON array of ids: every
+-- rescan forgets them, and the sweep reads those pictures again (D535 section 8).
+DELETE FROM video_timeline
+WHERE failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));
+
+-- name: ForgetTimelineReadFailuresOfFiles :execrows
+-- A read through that failed after the index gave a picture's keyframes, of the bytes of the files
+-- named: every rescan forgets it, so the sweep reads the picture through again; its keyframes stay,
+-- so the grid a playback is cut on does not move (D259 section 2, D535 section 8).
+UPDATE video_timeline SET read_failure = NULL
+WHERE read_failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));

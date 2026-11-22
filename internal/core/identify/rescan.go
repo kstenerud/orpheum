@@ -60,6 +60,9 @@ type Rescans struct {
 	scans   RescanScans
 	// onRequested asks for the rescans' sweep soon (OnRequested); nil asks for none.
 	onRequested func()
+	// givenUp forgets what another package keeps of the attempts given up on in a rescan's scope
+	// (SetGivenUpForgetters, D535 §8).
+	givenUp GivenUpForgetters
 	// waits is how many sweeps in a row found each rescan's library still changing, by rescan id;
 	// guarded by waitsMutex. A restart begins the count again.
 	waits      map[int64]int
@@ -127,7 +130,8 @@ func (rescans *Rescans) RescanEverything(ctx context.Context, isDiscarding bool)
 
 // RescanLibrary rescans a library, and says whether it started one: a second press while one runs
 // adds nothing (D357 §5, D392 §6). It reads every file again (D535 §5); a library of other videos has
-// nothing in it matched, other videos never are (D535 §4). With isDiscarding, it throws out everything
+// nothing in it matched, other videos never are (D535 §4). It forgets every attempt given up on in it,
+// discarding or not (D535 §8). With isDiscarding, it throws out everything
 // the app made or fetched for its files, whatever differs: what was made of each file, its films' and
 // series' kept search results and images, and their records fetched again; never what a person
 // chose, edited or watched (D535 §6).
@@ -143,6 +147,9 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, isDi
 	if err != nil || !isStarted {
 		return false, err
 	}
+	if err := rescans.forgetGivenUp(ctx, libraryID, nil); err != nil {
+		return true, err
+	}
 	if _, err := rescans.scans.ScanReadingAgain(ctx, libraryID, isDiscarding); err != nil {
 		return true, fmt.Errorf("scan library %d to rescan it: %w", libraryID, err)
 	}
@@ -153,7 +160,8 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, isDi
 // RescanItem rescans one film, series, episode or other video, and says whether it started one: none
 // while its own rescan or its library's runs (D357 §5, D392 §6). It reads its files again, a series'
 // every episode's (D535 §5); an episode or an other video is not matched: an episode is matched
-// through its series, and an other video never (D535 §3). With isDiscarding, it throws out what was
+// through its series, and an other video never (D535 §3). It forgets every attempt given up on for it
+// and its files (D535 §8). With isDiscarding, it throws out what was
 // made of its files and for it, as RescanLibrary says (D535 §6).
 func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, isDiscarding bool) (bool, error) {
 	item, err := rescans.matcher.readRescanned(ctx, itemID)
@@ -173,6 +181,9 @@ func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, isDiscardi
 	isStarted, err := rescans.start(ctx, libraryID, &itemID, isDiscarding)
 	if err != nil || !isStarted {
 		return false, err
+	}
+	if err := rescans.forgetGivenUp(ctx, libraryID, &itemID); err != nil {
+		return true, err
 	}
 	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID, isDiscarding); err != nil {
 		return true, fmt.Errorf("scan item %d's folders to rescan it: %w", itemID, err)

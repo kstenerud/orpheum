@@ -24,6 +24,21 @@ func (q *Queries) DeleteUnknownFailure(ctx context.Context, arg DeleteUnknownFai
 	return err
 }
 
+const deleteUnknownFailuresOfSubjects = `-- name: DeleteUnknownFailuresOfSubjects :execrows
+DELETE FROM unknown_failure
+WHERE subject IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// Those of every kind whose subject is one named, a JSON array of subjects: a rescan forgets those of
+// its films, series, episodes and files, so their work is tried again (D535 section 8).
+func (q *Queries) DeleteUnknownFailuresOfSubjects(ctx context.Context, subjectsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUnknownFailuresOfSubjects, subjectsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const listUnknownFailures = `-- name: ListUnknownFailures :many
 SELECT kind, subject, error_text, output, version, first_failed_at, last_failed_at, failure_count, start_id
 FROM unknown_failure

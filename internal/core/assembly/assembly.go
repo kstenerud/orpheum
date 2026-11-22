@@ -224,6 +224,11 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	dependencies.Browser = library.NewBrowser(parts.Database, parts.Settings)
 	dependencies.Browser.SetNodeConnections(services.nodes)
 	services.openPlayback(parts)
+	// Every rescan forgets, besides what identify forgets itself, the subtitle texts of its files that
+	// could not be made and the failures of unknown cause in its scope (D535 §8).
+	services.rescans.SetGivenUpForgetters(identify.GivenUpForgetters{
+		SubtitleText: services.subtitles.ForgetTextFailures, UnknownFailures: services.UnknownFailures.Forget,
+	})
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =
 		services.playback, services.subtitles, services.artwork, services.chunks
 	if err := services.wireJobsInto(parts); err != nil {

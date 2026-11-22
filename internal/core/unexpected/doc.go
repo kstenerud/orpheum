@@ -25,6 +25,9 @@
 //     TestRetryEarlierStarts_AKindsRetryThatFailsLeavesTheOthersTried.
 //   - Work that succeeds takes its failure off. Enforced by
 //     TestResolved_TakesTheFailureOffAndItsSubjectIsAvailable.
+//   - A rescan forgets the failures of its subjects, of every kind, and their work runs again this
+//     start (D535 §8). Enforced by
+//     TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain.
 //   - A kind past unknownFailuresAlertPerHour in an hour raises the alert, which clears after an hour
 //     under. Enforced by TestAlerts_AKindPastTheSettingInAnHourRaisesItAndItClearsAfterAnHourUnder.
 //

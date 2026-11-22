@@ -27,3 +27,11 @@ DELETE FROM subtitle_text WHERE source_hash = ? AND stream_index = ? AND failure
 -- An embedded track's text thrown out once the track's facts changed in its video's probe: the next
 -- play makes it again (D392 section 3).
 DELETE FROM subtitle_text WHERE source_hash = sqlc.arg(source_hash) AND stream_index = sqlc.arg(stream_index);
+
+-- name: ForgetSubtitleTextFailuresOfFiles :execrows
+-- The texts that could not be made of the own subtitle tracks of the files named, a JSON array of
+-- ids: every rescan forgets them, so each is made again when it is next wanted (D535 section 8). A
+-- fetched subtitle's is forgotten by its own key (ForgetSubtitleTextFailure).
+DELETE FROM subtitle_text
+WHERE failure IS NOT NULL AND source_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));

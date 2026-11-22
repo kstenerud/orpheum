@@ -76,6 +76,10 @@
 //     library.DerivedDroppers), and no other track's: the next play makes it again (D392 §3).
 //     TestForgetText_ThrowsOutOneTracksText.
 //
+//   - Every rescan forgets why the text of a subtitle of its files could not be made, its own
+//     tracks' and those fetched for it, and keeps every text made (ForgetTextFailures, D535 §8).
+//     TestForgetTextFailures_ForgetsEveryFailureOfTheFilesAndKeepsWhatWasMade.
+//
 //   - Imports nothing from internal/node, never os/exec, no database/sql: the depguard rules
 //     core-boundary and sql-only-in-store, TestArch_CoreNeverImportsNode and
 //     TestArch_OnlyStoreImportsDatabaseSQL.

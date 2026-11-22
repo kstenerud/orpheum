@@ -51,6 +51,39 @@ func (q *Queries) DeleteVideoTimelineFailedBefore(ctx context.Context, arg Delet
 	return result.RowsAffected()
 }
 
+const forgetTimelineFailuresOfFiles = `-- name: ForgetTimelineFailuresOfFiles :execrows
+DELETE FROM video_timeline
+WHERE failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+`
+
+// The timelines that could not be read of the bytes of the files named, a JSON array of ids: every
+// rescan forgets them, and the sweep reads those pictures again (D535 section 8).
+func (q *Queries) ForgetTimelineFailuresOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetTimelineFailuresOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const forgetTimelineReadFailuresOfFiles = `-- name: ForgetTimelineReadFailuresOfFiles :execrows
+UPDATE video_timeline SET read_failure = NULL
+WHERE read_failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+`
+
+// A read through that failed after the index gave a picture's keyframes, of the bytes of the files
+// named: every rescan forgets it, so the sweep reads the picture through again; its keyframes stay,
+// so the grid a playback is cut on does not move (D259 section 2, D535 section 8).
+func (q *Queries) ForgetTimelineReadFailuresOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetTimelineReadFailuresOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getVideoTimeline = `-- name: GetVideoTimeline :one
 
 SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at,

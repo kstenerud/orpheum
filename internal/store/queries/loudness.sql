@@ -26,3 +26,11 @@ WHERE (loudness.integrated_lufs, loudness.range_lu, loudness.true_peak_dbtp, lou
 -- What was measured of one track of a file's bytes, both mixes, thrown out once the track's facts in
 -- its probe changed: the sweep measures it again (D392 section 3).
 DELETE FROM loudness WHERE payload_hash = sqlc.arg(payload_hash) AND stream_index = sqlc.arg(stream_index);
+
+-- name: ForgetLoudnessFailuresOfFiles :execrows
+-- The failed measurements of the bytes of the files named, a JSON array of ids: every rescan forgets
+-- them, and the read-through sweep measures those bytes again; a measurement made stays (D535
+-- section 8).
+DELETE FROM loudness
+WHERE failure IS NOT NULL AND payload_hash IN (SELECT file.payload_hash FROM file
+  WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));

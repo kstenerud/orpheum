@@ -47,3 +47,8 @@ ORDER BY refresh_request.requested_at, refresh_request.item_id;
 -- The live libraries whose items are matched at a provider, which the first-match sweep looks
 -- through (D170).
 SELECT id FROM library WHERE removed_at IS NULL AND metadata_source <> 'nfo' ORDER BY id;
+
+-- name: ForgetFetchFailuresOfItems :execrows
+-- The failures to be fetched of the items named, a JSON array of ids: every rescan forgets them for
+-- its films, series and episodes, so each is fetched again (D535 section 8).
+DELETE FROM fetch_failure WHERE item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)));

@@ -400,6 +400,15 @@
 //     its scope's one rescan, so a press of either while it runs adds nothing (D392 §1, §2, §4, §6).
 //     TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages.
 //
+//   - Every rescan, discarding or not, forgets as it starts the attempts to gather information given
+//     up on in its scope: its films', series' and episodes' failures to be fetched, and its files'
+//     failed loudness measurements, picture timelines, repeat measurements and whole-file hashes, a
+//     timeline's keyframes kept; it asks the subtitles to forget their texts' failures and the
+//     recorder its subjects' failures of unknown cause (GivenUpForgetters). What succeeded stays, a
+//     scan forgets nothing, and a device's own_picture_given_up stays (D535 §8).
+//     TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded,
+//     TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn, TestScan_ForgetsNoAttemptGivenUpOn.
+//
 //   - A film is dated by its source's release date, a series by its first air date (an NFO's
 //     premiered or aired, a provider's), the year alone where no day is known or the resolved year,
 //     a person's included, is another; one with no year has no date (D366 §1).

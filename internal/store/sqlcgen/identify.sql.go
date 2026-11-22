@@ -381,6 +381,41 @@ func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
 	return err
 }
 
+const listAiredGroupIDsOfWorks = `-- name: ListAiredGroupIDsOfWorks :many
+SELECT DISTINCT CAST(position.grp_id AS INTEGER) AS group_id
+FROM position
+CROSS JOIN ordering ON ordering.id = position.ordering_id
+WHERE ordering.name = 'aired' AND position.grp_id IS NOT NULL
+  AND position.work_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+ORDER BY group_id
+`
+
+// The groups of the aired orderings that the works named, a JSON array of ids, have a place in:
+// the seasons whose repeats a rescan of them forgets the failures of unknown cause of (D535
+// section 8).
+func (q *Queries) ListAiredGroupIDsOfWorks(ctx context.Context, workIdsJson string) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listAiredGroupIDsOfWorks, workIdsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var group_id int64
+		if err := rows.Scan(&group_id); err != nil {
+			return nil, err
+		}
+		items = append(items, group_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileVersions = `-- name: ListFileVersions :many
 SELECT file_filing.library_kind, file_filing.version_id, version.work_id
 FROM file_filing
@@ -1491,6 +1526,70 @@ func (q *Queries) ListLibraryWorksForPass(ctx context.Context, libraryID *int64)
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiveFileIDsOfLibrary = `-- name: ListLiveFileIDsOfLibrary :many
+SELECT DISTINCT CAST(library_place.file_id AS INTEGER) AS file_id
+FROM library_place
+WHERE library_place.library_id = ?1 AND library_place.file_id IS NOT NULL
+ORDER BY file_id
+`
+
+// The files at a live place under a library's live roots: what a rescan of the library forgets the
+// attempts given up on of (D535 section 8).
+func (q *Queries) ListLiveFileIDsOfLibrary(ctx context.Context, libraryID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFileIDsOfLibrary, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiveItemIDsOfLibrary = `-- name: ListLiveItemIDsOfLibrary :many
+SELECT item.id
+FROM item
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind <> 'person'
+ORDER BY item.id
+`
+
+// The live films, series, episodes, extras and other videos filed in a library: what a rescan of the
+// library forgets the attempts given up on of (D535 section 8).
+func (q *Queries) ListLiveItemIDsOfLibrary(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveItemIDsOfLibrary, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

@@ -184,10 +184,14 @@ func TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing(t *testing.T) {
 	}
 	world.rescan.run()
 	if len(world.rescan.scans.discarding) != 0 || len(world.images.discarded) != 0 || len(world.candidates(t)) != 1 ||
-		len(world.subtitles.asked) != 0 || !world.isFetchFailureKept(t) {
-		t.Errorf("a rescan keeping what was made discarded scans %v, images %v, fetched subtitles %+v, its "+
-			"failure kept %v, and kept answers %+v; want nothing thrown out", world.rescan.scans.discarding,
-			world.images.discarded, world.subtitles.asked, world.isFetchFailureKept(t), world.candidates(t))
+		len(world.subtitles.asked) != 0 {
+		t.Errorf("a rescan keeping what was made discarded scans %v, images %v, fetched subtitles %+v, and kept "+
+			"answers %+v; want nothing thrown out", world.rescan.scans.discarding, world.images.discarded,
+			world.subtitles.asked, world.candidates(t))
+	}
+	// Every rescan forgets the attempts given up on in its scope, a fetch that failed among them (D535 §8).
+	if world.isFetchFailureKept(t) {
+		t.Error("a rescan keeping what was made kept the failed fetch; want it forgotten")
 	}
 	world.wantAPersonsDoingKept(t)
 }

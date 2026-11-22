@@ -156,6 +156,22 @@ func (q *Queries) DeleteWholeHashesOfPurgedFiles(ctx context.Context, fileIdsJso
 	return err
 }
 
+const forgetWholeFileHashFailuresOfFiles = `-- name: ForgetWholeFileHashFailuresOfFiles :execrows
+DELETE FROM whole_file_hash
+WHERE failure IS NOT NULL
+  AND file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// The whole reads that failed of the files named, a JSON array of ids: every rescan forgets them, so
+// the copies' sweep reads each whole again; a hash made stays (D535 section 8).
+func (q *Queries) ForgetWholeFileHashFailuresOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetWholeFileHashFailuresOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getFileForSubtitleSearch = `-- name: GetFileForSubtitleSearch :one
 SELECT f.id, f.opensubtitles_hash, v.work_id, t.kind AS work_kind
 FROM file f

@@ -18,6 +18,20 @@ func (q *Queries) ClearFetchFailure(ctx context.Context, itemID int64) error {
 	return err
 }
 
+const forgetFetchFailuresOfItems = `-- name: ForgetFetchFailuresOfItems :execrows
+DELETE FROM fetch_failure WHERE item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// The failures to be fetched of the items named, a JSON array of ids: every rescan forgets them for
+// its films, series and episodes, so each is fetched again (D535 section 8).
+func (q *Queries) ForgetFetchFailuresOfItems(ctx context.Context, itemIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetFetchFailuresOfItems, itemIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getRefreshRequest = `-- name: GetRefreshRequest :one
 SELECT item_id, requested_at, should_fetch_images FROM refresh_request WHERE item_id = ?1
 `

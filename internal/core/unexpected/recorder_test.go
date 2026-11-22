@@ -201,6 +201,36 @@ func TestResolved_TakesTheFailureOffAndItsSubjectIsAvailable(t *testing.T) {
 	}
 }
 
+// D535 §8: a rescan forgets the failures of unknown cause of its subjects, of every kind, and their
+// work runs again this start; another subject's stays.
+func TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	recorder := fixture.start(t, "aa", "v0.9.0")
+	record(t, recorder, "fetch_metadata", "item 12", "first")
+	record(t, recorder, "hash_whole_file", "file 7", "second")
+	record(t, recorder, "fetch_metadata", "item 13", "another's")
+	forgotten, err := recorder.Forget(t.Context(), []string{"item 12", "file 7", "file 99"})
+	if err != nil || forgotten != 2 {
+		t.Fatalf("Forget = %d, %v; want the two kept for the subjects named", forgotten, err)
+	}
+	if recorder.IsUnavailable("fetch_metadata", "item 12") || recorder.IsUnavailable("hash_whole_file", "file 7") {
+		t.Error("a forgotten subject is still unavailable this start")
+	}
+	if !recorder.IsUnavailable("fetch_metadata", "item 13") {
+		t.Error("a subject not named is available again; want it held unavailable")
+	}
+	var kept []string
+	for _, kind := range report(t, recorder).Kinds {
+		for _, failure := range kind.Failures {
+			kept = append(kept, failure.Subject)
+		}
+	}
+	if !slices.Equal(kept, []string{"item 13"}) {
+		t.Errorf("failures kept for %v; want only item 13's", kept)
+	}
+}
+
 func TestAlerts_AKindPastTheSettingInAnHourRaisesItAndItClearsAfterAnHourUnder(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)

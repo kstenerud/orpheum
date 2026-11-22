@@ -4,6 +4,7 @@ package unexpected
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -195,6 +196,42 @@ func (recorder *Recorder) Resolved(ctx context.Context, kind, subject string) er
 	delete(recorder.unavailable, key{kind, subject})
 	recorder.mutex.Unlock()
 	return nil
+}
+
+// Forget takes off the failures of unknown cause of every kind kept for the subjects named, and holds
+// none of them unavailable any more, so their work runs again this start: a rescan forgets those of
+// its films, series, episodes and files (D535 §8). It says how many persistent.db kept.
+func (recorder *Recorder) Forget(ctx context.Context, subjects []string) (int64, error) {
+	if len(subjects) == 0 {
+		return 0, nil
+	}
+	subjectsJSON, err := json.Marshal(subjects)
+	if err != nil {
+		return 0, fmt.Errorf("name the subjects whose unknown failures to forget: %w", err)
+	}
+	var forgotten int64
+	err = recorder.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var deleteErr error
+		forgotten, deleteErr = queries.DeleteUnknownFailuresOfSubjects(ctx, string(subjectsJSON))
+		return deleteErr
+	})
+	if err != nil {
+		return 0, fmt.Errorf("forget the unknown failures of %d subjects: %w", len(subjects), err)
+	}
+	named := make(map[string]bool, len(subjects))
+	for _, subject := range subjects {
+		named[subject] = true
+	}
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	for _, held := range []map[key]bool{recorder.kept, recorder.unavailable} {
+		for each := range held {
+			if named[each.subject] {
+				delete(held, each)
+			}
+		}
+	}
+	return forgotten, nil
 }
 
 // RegisterRetry has RetryEarlierStarts try once more, by retry, the failures of kind an earlier start
