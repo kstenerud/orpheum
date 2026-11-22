@@ -2,7 +2,7 @@
 
 import type { components } from "@orpheum/sdk";
 
-import { isFireTv } from "./tv-device.ts";
+import { isFireTv } from "./input-mode.ts";
 
 /**
  * How this client names itself when it signs in (D217 §8): the person can rename it later. Its

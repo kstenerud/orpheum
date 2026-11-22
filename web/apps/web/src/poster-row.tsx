@@ -2,19 +2,12 @@
 
 import "./poster-row.css";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type JSX,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
 import { IconButton } from "./icon-button.tsx";
+import { useIsMousePointer } from "./input-mode.ts";
 import { RowArrowIcon } from "./icons.tsx";
 import { useRovingTabStop } from "./roving-tab-stop.ts";
 
@@ -117,40 +110,10 @@ function rowClassOf(ends: RowEnds, own: string | undefined): string {
 }
 
 /**
- * The devices the arrows show on, as poster-row.css's own media query: one whose pointer hovers and
- * is fine, a mouse's. A justified constant, as phoneWidthQuery is: a stylesheet's query.
+ * No more either way: a row that fits, and the arrows on a device they show on none of, which is
+ * any but a mouse's (input-mode.ts's useIsMousePointer, poster-row.css's own media query).
  */
-const mousePointerQuery = "(hover: hover) and (pointer: fine)";
-
-/** No more either way: a row that fits, and the arrows on a device they show on none of. */
 const noEnds: RowEnds = { hasMoreBack: false, hasMoreOn: false };
-
-/**
- * Whether the device's pointer is a mouse's (mousePointerQuery), kept as it changes: a tablet's
- * keyboard and trackpad attached; false where the page cannot ask.
- */
-function useIsMousePointer(): boolean {
-  return useSyncExternalStore(watchMousePointer, isMousePointerNow, () => false);
-}
-
-/** Tells changed as the device's pointer becomes a mouse's or stops being one. */
-function watchMousePointer(changed: () => void): () => void {
-  if (typeof globalThis.matchMedia !== "function") {
-    return () => undefined;
-  }
-  const query = globalThis.matchMedia(mousePointerQuery);
-  query.addEventListener("change", changed);
-  return () => {
-    query.removeEventListener("change", changed);
-  };
-}
-
-/** Whether the device's pointer is a mouse's now. */
-function isMousePointerNow(): boolean {
-  return (
-    typeof globalThis.matchMedia === "function" && globalThis.matchMedia(mousePointerQuery).matches
-  );
-}
 
 /** How much of an end poster shows for the row to count it in view: all of it, but a pixel's rounding. */
 const wholeShown = 0.98;

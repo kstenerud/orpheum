@@ -35,7 +35,7 @@ import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
 import { keepThePressForTheStart } from "./start-refused.ts";
 import { useVideoPressedForPlay } from "./video-pressed-for-play.ts";
-import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
+import { isBrowserFullscreen, isOnTelevision, thisBrowserWindow } from "./input-mode.ts";
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
@@ -297,7 +297,7 @@ function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): J
 function useStageAsTheDeviceHasIt(video: HTMLVideoElement | null, isOwn: boolean): void {
   useFullscreenAsTheBrowserIs(video);
   useWholeWindow(isOwn ? video : null);
-  useFullScreenLeftAsBack(isOwn && isTelevision(navigator.userAgent));
+  useFullScreenLeftAsBack(isOwn && isOnTelevision());
 }
 
 /**
@@ -322,7 +322,7 @@ function useWholeWindow(video: HTMLVideoElement | null): void {
 function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
   useEffect(() => {
     const stage = video?.closest(".film-player__stage");
-    const isAsked = !isTelevision(navigator.userAgent) && isBrowserFullscreen(thisBrowserWindow());
+    const isAsked = !isOnTelevision() && isBrowserFullscreen(thisBrowserWindow());
     if (isAsked && video !== null && stage instanceof HTMLElement) {
       keepThePressForTheStart(video);
       fillTheScreen(stage, document);
@@ -346,7 +346,7 @@ function pageComposition(
   // finger: the browser's own were in a shadow the arrows could not reach (the owner, 2026-10-27).
   // A cast's receiver, on any device, has a television's controls alone, over the film filling the
   // window (D338 §5).
-  const hasTelevisionControls = isTelevision(navigator.userAgent) || props.receiving !== undefined;
+  const hasTelevisionControls = isOnTelevision() || props.receiving !== undefined;
   return {
     hasControls: false,
     over: overTheFilm(hasTelevisionControls),

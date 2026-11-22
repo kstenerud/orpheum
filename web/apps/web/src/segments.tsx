@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 
 import { useTellsOffered, type OfferPlace } from "./convenience-area.tsx";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 import { hearStanding, useVideoStanding, type StandingTaken } from "./video-standing.ts";
 
 /** A typed range of the file playing (plans/media-segments.md), as POST /playback gives it. */
@@ -133,7 +133,7 @@ export function SkipOffer(
   const isShown = segment !== undefined;
   useTellsOffered(isShown && isAlone, props.onOffered);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  useFocusAsItIsDrawn(isShown && isTelevision(navigator.userAgent), buttonRef);
+  useFocusAsItIsDrawn(isShown && isOnTelevision(), buttonRef);
   if (segment === undefined) {
     return null;
   }

@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { askPageFullScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { useLatest } from "./latest.ts";
 import { useToken } from "./services.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { inputModeNow } from "./input-mode.ts";
 import { useTogether } from "./use-together.ts";
 
 /** What a browser answered a request to put the page full screen. */
@@ -75,11 +75,11 @@ export interface PressWords {
  * screen's tap, or a pointer's click.
  */
 export function inThisDevicesWords(words: PressWords): string {
-  if (isTelevision(navigator.userAgent)) {
+  const mode = inputModeNow();
+  if (mode === "remote") {
     return words.television;
   }
-  const isTouch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  return isTouch ? words.touch : words.pointer;
+  return mode === "touch" ? words.touch : words.pointer;
 }
 
 /** "Press OK to start", in this device's words for a press. */

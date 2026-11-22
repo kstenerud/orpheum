@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { fireTvPattern, isFireTv } from "@orpheum/sdk";
+import { useSyncExternalStore } from "react";
+
+/*
+ * The one source of how the person presses (interface rule 12, D538): a remote's d-pad, a finger or
+ * a mouse. A single television flag stands for the d-pad, read from the user agent here alone; the
+ * pointer and hover media queries tell a finger from a mouse. Components ask this module, never the
+ * user agent or the pointer's queries themselves (input-mode.test.ts holds every source to it).
+ */
+
+/** How the person presses: a remote's arrows and OK, a finger, or a mouse (or a trackpad). */
+export type InputMode = "remote" | "touch" | "mouse";
 
 /**
  * Whether this browser runs on a television or a streaming stick, by what its user agent says of
@@ -8,10 +19,71 @@ import { fireTvPattern, isFireTv } from "@orpheum/sdk";
  * webOS, Sony's BRAVIA, and any that names itself a smart TV or HbbTV. There a film plays full
  * screen at once, with the player's own controls a remote can reach (the owner, 2026-10-25: "on a
  * streaming device like the amazon stick [it] should go fullscreen right away. Probably the only
- * place where you wouldn't fullscreen by default would be on a computer").
+ * place where you wouldn't fullscreen by default would be on a computer"). The user agent given is
+ * a test's; the app asks isOnTelevision.
  */
 export function isTelevision(userAgent: string): boolean {
   return televisionPattern.test(userAgent);
+}
+
+/**
+ * Whether this device is a television's, its remote's d-pad what presses (isTelevision of this
+ * browser's user agent), read as it is asked, so a test that names a television's is heard.
+ */
+export function isOnTelevision(): boolean {
+  return isTelevision(globalThis.navigator.userAgent);
+}
+
+/** Whether the media query matches, false where the page cannot ask. */
+function matches(query: string): boolean {
+  return typeof globalThis.matchMedia === "function" && globalThis.matchMedia(query).matches;
+}
+
+/** Whether the device's main pointer is a finger, a phone's or a tablet's: a coarse one. */
+export function isTouchPointer(): boolean {
+  return matches("(pointer: coarse)");
+}
+
+/**
+ * A mouse's pointer, one that hovers and is fine, as the stylesheets' own `(hover: hover)` queries
+ * say: a justified constant, a stylesheet's query, as phoneWidthQuery is.
+ */
+export const mousePointerQuery = "(hover: hover) and (pointer: fine)";
+
+/** Whether the device's pointer is a mouse's now (mousePointerQuery). */
+export function isMousePointer(): boolean {
+  return matches(mousePointerQuery);
+}
+
+/** Tells changed as the device's pointer becomes a mouse's or stops being one. */
+function watchMousePointer(changed: () => void): () => void {
+  if (typeof globalThis.matchMedia !== "function") {
+    return () => undefined;
+  }
+  const query = globalThis.matchMedia(mousePointerQuery);
+  query.addEventListener("change", changed);
+  return () => {
+    query.removeEventListener("change", changed);
+  };
+}
+
+/**
+ * Whether the device's pointer is a mouse's (mousePointerQuery), kept as it changes: a tablet's
+ * keyboard and trackpad attached; false where the page cannot ask.
+ */
+export function useIsMousePointer(): boolean {
+  return useSyncExternalStore(watchMousePointer, isMousePointer, () => false);
+}
+
+/**
+ * How the person presses now: the remote on a television, else a finger where the pointer is
+ * coarse, else a mouse.
+ */
+export function inputModeNow(): InputMode {
+  if (isOnTelevision()) {
+    return "remote";
+  }
+  return isTouchPointer() ? "touch" : "mouse";
 }
 
 /** Whether this browser runs on a Fire TV: the SDK's, which the player sizes its buffer by too. */
@@ -75,6 +147,6 @@ export function thisBrowserWindow(): BrowserWindow {
     screenHeight: window.screen.height,
     isFullscreenDisplay: window.matchMedia("(display-mode: fullscreen)").matches,
     isAutomated: navigator.webdriver,
-    isTouch: window.matchMedia("(pointer: coarse)").matches,
+    isTouch: isTouchPointer(),
   };
 }

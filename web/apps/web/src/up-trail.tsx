@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useBackTarget } from "./input-layer.tsx";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 import { parentOf, type Crumb, type LibraryContext, type Upward } from "./upward.ts";
 
 /**
@@ -54,7 +54,7 @@ function ShownTrail(props: { readonly upward: Upward; readonly parent: Crumb }):
   const { t } = useTranslation();
   const { parent, upward } = props;
   useBackTarget(parent.to);
-  if (isTelevision(navigator.userAgent)) {
+  if (isOnTelevision()) {
     return (
       <nav className="up-trail" aria-label={t("trail.label")}>
         <UpLink crumb={parent} className="up-trail__up">

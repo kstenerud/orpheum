@@ -8,9 +8,9 @@ import { declarationsOf, sourceHere, sourcesHere } from "./test-sources.ts";
 function rawLayers(sheets: readonly (readonly [string, string])[]): string[] {
   return sheets.flatMap(([name, text]) =>
     declarationsOf(text)
-      .map((declaration) => /^z-index\s*:\s*(?<value>.+)$/u.exec(declaration.text.trim()))
-      .filter((match) => match !== null)
-      .map((match) => match.groups?.value.trim() ?? "")
+      .map((declaration) => /^z-index\s*:\s*(.+)$/u.exec(declaration.text.trim())?.[1])
+      .filter((value) => value !== undefined)
+      .map((value) => value.trim())
       .filter((value) => !/^var\(--layer-[a-z-]+\)$/u.test(value))
       .map((value) => `${name}: ${value}`),
   );

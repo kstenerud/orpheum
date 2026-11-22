@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
 import { useServices } from "./services.tsx";
-import { isFireTv } from "./tv-device.ts";
+import { isFireTv } from "./input-mode.ts";
 
 /** The storage key that says this browser's person dismissed the note (client-keys.ts). */
 export const localNetworkNoteDismissedKey = "orpheum.localNetwork.noteDismissed";

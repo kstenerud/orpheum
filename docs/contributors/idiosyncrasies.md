@@ -1183,7 +1183,7 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
   Silk it reads so for good, and Silk has no prompt to show. No report of Silk's Local Network
   Access handling was found online.
 - **What we do:** the note is never shown on a Fire TV (`isFireTv` in
-  `web/apps/web/src/tv-device.ts`, used by `web/apps/web/src/local-network-note.tsx`); the page
+  `web/apps/web/src/input-mode.ts`, used by `web/apps/web/src/local-network-note.tsx`); the page
   races its paths as before.
 - **Evidence:** the owner's Fire TV, staging, 2026-10-28 and 2026-10-29.
 

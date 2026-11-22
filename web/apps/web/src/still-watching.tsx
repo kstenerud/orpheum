@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { commandEventName } from "./input-commands.ts";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 
 /**
  * After how many episodes autoplay has played in a row, with no press between, the next one waits
@@ -51,10 +51,7 @@ export function isStillWatchingDue(): boolean {
   if (autoplayedInARow < stillWatchingAfterAutoplays) {
     return false;
   }
-  return (
-    !isTelevision(navigator.userAgent) ||
-    performance.now() - lastPressAtMs >= stillWatchingOnATvAfterMs
-  );
+  return !isOnTelevision() || performance.now() - lastPressAtMs >= stillWatchingOnATvAfterMs;
 }
 
 /** The presses that say someone is watching: a remote's or a key's command, a key, a tap or a click. */

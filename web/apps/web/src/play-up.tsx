@@ -16,7 +16,7 @@ import { useBackTarget } from "./input-layer.tsx";
 import { BackIcon } from "./player-icons.tsx";
 import { routeHref, routeOfHref, type Route } from "./router.ts";
 import { useServices } from "./services.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 import { UpLink, UpTrail, useLibraryContext } from "./up-trail.tsx";
 import {
   episodeCrumbs,
@@ -120,7 +120,7 @@ export const PlayUpwardContext: Context<Upward | undefined> = createContext<Upwa
  */
 export function PlayTrail(props: { readonly upward: Upward; readonly plays: Plays }): JSX.Element {
   useEpisodePlayed(props.plays);
-  return isTelevision(navigator.userAgent) ? (
+  return isOnTelevision() ? (
     <UpByTheRemote up={parentOf(props.upward)?.to ?? { screen: "home" }} />
   ) : (
     <UpTrail upward={props.upward} />

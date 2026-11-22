@@ -29,7 +29,7 @@ export interface OverlayState {
 /** What the overlay knows as a press comes. */
 export interface PressContext {
   readonly isPaused: boolean;
-  /** Whether a remote drives this device: a television's (tv-device.ts). */
+  /** Whether a remote drives this device: a television's (input-mode.ts). */
   readonly isTelevision: boolean;
   /** Whether focus is on the scrub bar. */
   readonly isOnScrub: boolean;

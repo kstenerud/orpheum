@@ -908,7 +908,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Libraries on Home.
 - [x] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
   fresh Silk profile). Passes when *Your devices* names it "Silk on Fire TV"; a device signed in before
-  keeps its name until renamed. (`web/apps/web/src/device.ts`, `tv-device.ts`)
+  keeps its name until renamed. (`web/apps/web/src/device.ts`, `input-mode.ts`)
   Failed 2026-10-27 (the owner, the production NAS): signed out and in again on the Fire TV, it is still listed as
   "Chrome on Android". It signed in through the discovery's page over WebRTC, whose logged user agent is
   empty: the name likely comes from the discovery's sign-in, not device.ts. Fixed in this batch.

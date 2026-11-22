@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { isBrowserFullscreen, isTelevision, type BrowserWindow } from "./tv-device.ts";
+import { isBrowserFullscreen, isTelevision, type BrowserWindow } from "./input-mode.ts";
+import { sourcesHere } from "./test-sources.ts";
 
 describe("a television's browser, by its user agent", () => {
   it("knows the owner's Fire TV stick in Silk, and televisions of other makes", () => {
@@ -91,5 +92,37 @@ describe("a browser that is itself full screen", () => {
         sized([412, 915], [412, 915], { isTouch: true, isFullscreenDisplay: true }),
       ),
     ).toBe(true);
+  });
+});
+
+/**
+ * Each source but the input-mode module that asks the user agent for a television itself, or the
+ * pointer's own media queries, as `file: what`.
+ */
+function ownInputModeReads(sources: readonly (readonly [string, string])[]): string[] {
+  return sources
+    .filter(([name]) => name !== "input-mode.ts")
+    .flatMap(([name, text]) =>
+      [...text.matchAll(/\bisTelevision\(|\((?:pointer|hover)\s*:\s*[a-z]+\)/gu)].map(
+        (match) => `${name}: ${match[0]}`,
+      ),
+    );
+}
+
+describe("one source for the input mode (interface rule 12, D538)", () => {
+  it("leaves the television flag and the pointer's queries to input-mode.ts alone", () => {
+    const sources = [...sourcesHere(".ts"), ...sourcesHere(".tsx")];
+    expect(sources.map(([name]) => name)).toContain("player-overlay.tsx");
+    expect(ownInputModeReads(sources)).toEqual([]);
+  });
+
+  it("finds a component asking for itself, so the check above can fail", () => {
+    expect(
+      ownInputModeReads([
+        ["a.tsx", "const isTv = isTelevision(navigator.userAgent);"],
+        ["b.tsx", 'matchMedia("(pointer: coarse)")'],
+        ["input-mode.ts", "isTelevision(userAgent)"],
+      ]),
+    ).toEqual(["a.tsx: isTelevision(", "b.tsx: (pointer: coarse)"]);
   });
 });

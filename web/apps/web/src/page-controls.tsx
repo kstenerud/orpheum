@@ -21,7 +21,7 @@ import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay
 import { isAMousesClick, TouchClock, touchClockEvents } from "./player-taps.ts";
 import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
 import { Timeline } from "./timeline.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 
 /** What the player's controls draw beside the film's own parts: the offer, previous and next. */
 interface ControlsGiven {
@@ -118,7 +118,7 @@ function ControlsBar(props: {
   const { videoRef } = film;
   const barRef = useRef<HTMLDivElement>(null);
   const source = useVideoSource(videoRef);
-  const isTv = isTelevision(navigator.userAgent);
+  const isTv = isOnTelevision();
   const shown = useControlsShown(isTv, moves);
   usePlayersControls(barRef, videoRef);
   useDownFromTheFilm(videoRef, playRef);

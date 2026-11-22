@@ -57,7 +57,7 @@ import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { peopleOf, useSessionVoice } from "./together-voice.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 
 /**
  * The player's full-screen overlay (D407 §1–§7; plans/player-overlay.md): over the film inside its
@@ -159,7 +159,7 @@ function useOverlay(
   readonly signs: PictureSigns;
 } {
   const { hasOffer, isMenuOpen } = told;
-  const isTv = isTelevision(navigator.userAgent);
+  const isTv = isOnTelevision();
   const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
   const source = useVideoSource(refs.videoRef, isCovered);

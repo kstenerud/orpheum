@@ -19,7 +19,7 @@ import { focusAndShow } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
 import { routeHref } from "./router.ts";
 import { useRoute, useServices } from "./services.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision } from "./input-mode.ts";
 
 /** The banner's place for the page shown: its places for watching, the one marked current. */
 const currentPlaceSelector = '.app-shell__watching > li[aria-current="page"]';
@@ -60,7 +60,7 @@ export function useBackToBannerPlace(
   });
   useEffect(() => {
     const banner = bannerRef.current;
-    if (!isOn || banner === null || !isTelevision(navigator.userAgent)) {
+    if (!isOn || banner === null || !isOnTelevision()) {
       return undefined;
     }
     let release: (() => void) | undefined;

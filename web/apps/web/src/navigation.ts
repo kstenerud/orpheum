@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { isTelevision } from "./tv-device.ts";
+import { isOnTelevision as isThisATelevision } from "./input-mode.ts";
 import { parseRoute, routeHref, routeOfHref, type Route } from "./router.ts";
 
 /** What navigation reads and writes: the browser's location and history, or a test's. */
@@ -191,7 +191,7 @@ function noteOf(state: unknown): unknown {
  */
 export function createNavigation(
   place: Place,
-  isOnTelevision: boolean = isTelevision(globalThis.navigator.userAgent),
+  isOnTelevision: boolean = isThisATelevision(),
   isLoadedByBack: boolean = isLoadedByHistory(),
 ): Navigation {
   if (isLoadedByBack) {
