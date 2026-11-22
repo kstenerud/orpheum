@@ -226,13 +226,17 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	services.openPlayback(parts)
 	// Every rescan forgets, besides the failures to fetch that identify forgets itself, its files' failed
 	// measurements, timelines and whole reads, their subtitle texts that could not be made and the
-	// failures of unknown cause in its scope (D535 §8).
-	services.rescans.SetGivenUpForgetters(identify.GivenUpForgetters{
-		OfFiles: []identify.FileFailuresForgetter{
-			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles,
+	// failures of unknown cause in its scope (D535 §8); a node's new FFmpeg, the failures FFmpeg made of
+	// its files alone, after which the passes that make each again look (§9).
+	givenUp := identify.GivenUpForgetters{
+		FFmpegOfFiles: []identify.FileFailuresForgetter{
+			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles,
 		},
+		OfFiles:      []identify.FileFailuresForgetter{library.ForgetHashFailuresOfFiles},
 		SubtitleText: services.subtitles.ForgetTextFailures, UnknownFailures: services.UnknownFailures.Forget,
-	})
+	}
+	services.rescans.SetGivenUpForgetters(givenUp)
+	services.nodes.SetFFmpegFailures(givenUp, askForTheFFmpegSweeps(services.Queue))
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =
 		services.playback, services.subtitles, services.artwork, services.chunks
 	if err := services.wireJobsInto(parts); err != nil {

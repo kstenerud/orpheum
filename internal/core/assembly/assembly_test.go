@@ -95,10 +95,11 @@ func testParts(t *testing.T) Parts {
 // while they are built.
 type quietNodes struct{ Nodes }
 
-func (quietNodes) SetResultSink(nodes.ResultSink) {}
-func (quietNodes) SetScans(nodes.ScanRequester)   {}
-func (quietNodes) SetChanges(nodes.ChangeTaker)   {}
-func (quietNodes) SetStoreTiers(nodes.StoreTiers) {}
+func (quietNodes) SetResultSink(nodes.ResultSink)                 {}
+func (quietNodes) SetScans(nodes.ScanRequester)                   {}
+func (quietNodes) SetChanges(nodes.ChangeTaker)                   {}
+func (quietNodes) SetStoreTiers(nodes.StoreTiers)                 {}
+func (quietNodes) SetFFmpegFailures(nodes.FFmpegFailures, func()) {}
 
 // fakeNodeBytes reads no node's bytes.
 type fakeNodeBytes struct{}

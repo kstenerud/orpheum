@@ -104,6 +104,10 @@ type Service struct {
 	changes ChangeTaker
 	// storeTiers says how strongly each chunk store is kept (D309 §8); nil sends none.
 	storeTiers StoreTiers
+	// ffmpegFailures forget, and ffmpegFailuresForgotten is told once they have, the failures FFmpeg
+	// made of a node's files when it says hello with another FFmpeg build (D535 §9).
+	ffmpegFailures          FFmpegFailures
+	ffmpegFailuresForgotten func()
 
 	mutex                sync.Mutex
 	nodesHeardSinceStart map[int64]*connectedNode

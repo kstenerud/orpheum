@@ -25,12 +25,43 @@ import (
 // by the package that keeps it: set by the server's wiring (SetGivenUpForgetters). One left nil
 // forgets nothing.
 type GivenUpForgetters struct {
-	// OfFiles each forget, in the rescan's write, one package's attempts given up on of the files named,
-	// a JSON array of ids, and say how many: readthrough.ForgetFailuresOfFiles,
-	// repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles. One package writes each table.
+	// FFmpegOfFiles each forget, in the rescan's write, one package's attempts FFmpeg gave up on of the
+	// files named, a JSON array of ids, and say how many: readthrough.ForgetFailuresOfFiles,
+	// repeats.ForgetFailuresOfFiles. A node's new FFmpeg forgets these of its files too, with
+	// SubtitleText (ForgetFFmpegFailuresOfFiles, D535 §9). One package writes each table.
+	FFmpegOfFiles []FileFailuresForgetter
+	// OfFiles each forget, in the rescan's write, one package's other attempts given up on of the
+	// files named, as FFmpegOfFiles do: library.ForgetHashFailuresOfFiles, a whole-file hash not being
+	// FFmpeg's.
 	OfFiles         []FileFailuresForgetter
 	SubtitleText    func(ctx context.Context, fileIDs []int64) error            // subtitles.Service.ForgetTextFailures
 	UnknownFailures func(ctx context.Context, subjects []string) (int64, error) // unexpected.Recorder.Forget
+}
+
+// ForgetFFmpegFailuresOfFiles forgets, in a write, the attempts FFmpeg gave up on of the files named,
+// a JSON array of ids, by each FFmpegOfFiles, and says how many: a rescan's (D535 §8) and a node's
+// new FFmpeg's (§9). What succeeded stays.
+func (forgetters GivenUpForgetters) ForgetFFmpegFailuresOfFiles(
+	ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string,
+) (int64, error) {
+	var forgotten int64
+	for _, forget := range forgetters.FFmpegOfFiles {
+		count, err := forget(ctx, queries, fileIDsJSON)
+		if err != nil {
+			return forgotten, err
+		}
+		forgotten += count
+	}
+	return forgotten, nil
+}
+
+// ForgetFFmpegSubtitleFailures forgets, in a write of its own, why the subtitle texts of files could
+// not be made (SubtitleText): FFmpeg's, which a node's new FFmpeg forgets of its files (D535 §9).
+func (forgetters GivenUpForgetters) ForgetFFmpegSubtitleFailures(ctx context.Context, fileIDs []int64) error {
+	if forgetters.SubtitleText == nil {
+		return nil
+	}
+	return forgetters.SubtitleText(ctx, fileIDs)
 }
 
 // FileFailuresForgetter forgets, in a rescan's write, one kind of attempt given up on of the files
@@ -95,6 +126,11 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 		if forgotten, forgetErr = queries.ForgetFetchFailuresOfItems(ctx, string(itemsJSON)); forgetErr != nil {
 			return fmt.Errorf("forget the failures to fetch: %w", forgetErr)
 		}
+		ffmpeg, ffmpegErr := rescans.givenUp.ForgetFFmpegFailuresOfFiles(ctx, queries, string(filesJSON))
+		if ffmpegErr != nil {
+			return ffmpegErr
+		}
+		forgotten += ffmpeg
 		for _, forget := range rescans.givenUp.OfFiles {
 			count, ofFilesErr := forget(ctx, queries, string(filesJSON))
 			if ofFilesErr != nil {
@@ -107,10 +143,8 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 	if err != nil {
 		return fmt.Errorf("forget the failures in library %d's rescan: %w", libraryID, err)
 	}
-	if rescans.givenUp.SubtitleText != nil {
-		if subtitleErr := rescans.givenUp.SubtitleText(ctx, files); subtitleErr != nil {
-			return subtitleErr
-		}
+	if subtitleErr := rescans.givenUp.ForgetFFmpegSubtitleFailures(ctx, files); subtitleErr != nil {
+		return subtitleErr
 	}
 	unknown, err := rescans.forgetUnknownFailures(ctx, items, files, itemsJSON, filesJSON)
 	if err != nil {

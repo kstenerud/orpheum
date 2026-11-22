@@ -70,6 +70,18 @@ func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNo
 	return i, err
 }
 
+const getNodeFFmpegSha256 = `-- name: GetNodeFFmpegSha256 :one
+SELECT ffmpeg_sha256 FROM node WHERE id = ?1
+`
+
+// The FFmpeg build a node last said it runs, NULL before a hello said one (D535 section 9).
+func (q *Queries) GetNodeFFmpegSha256(ctx context.Context, id int64) (*string, error) {
+	row := q.db.QueryRowContext(ctx, getNodeFFmpegSha256, id)
+	var ffmpeg_sha256 *string
+	err := row.Scan(&ffmpeg_sha256)
+	return ffmpeg_sha256, err
+}
+
 const getUnconfinedLeave = `-- name: GetUnconfinedLeave :one
 SELECT node_unconfined_leave.accepted_at, user.name AS accepted_by
 FROM node_unconfined_leave
@@ -141,6 +153,38 @@ func (q *Queries) ListDeviceReaderLimits(ctx context.Context, nodeID int64) ([]L
 	return items, nil
 }
 
+const listLiveFileIDsOfNode = `-- name: ListLiveFileIDsOfNode :many
+SELECT DISTINCT CAST(file_id AS INTEGER) AS file_id
+FROM place
+WHERE node_id = ?1 AND removed_at IS NULL AND file_id IS NOT NULL
+ORDER BY file_id
+`
+
+// The files at a live place on a node: what its new FFmpeg forgets the failures FFmpeg made of
+// (D535 section 9).
+func (q *Queries) ListLiveFileIDsOfNode(ctx context.Context, nodeID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFileIDsOfNode, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveNodes = `-- name: ListLiveNodes :many
 SELECT id, name, enrolled_at
 FROM node
@@ -202,5 +246,21 @@ func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderL
 		arg.ReaderLimit,
 		arg.SetAt,
 	)
+	return err
+}
+
+const setNodeFFmpegSha256 = `-- name: SetNodeFFmpegSha256 :exec
+UPDATE node SET ffmpeg_sha256 = ?1
+WHERE id = ?2 AND ffmpeg_sha256 IS NOT ?1
+`
+
+type SetNodeFFmpegSha256Params struct {
+	FfmpegSha256 *string
+	ID           int64
+}
+
+// The FFmpeg build a node's hello says it runs (D535 section 9); only when it changes (D303, DL9).
+func (q *Queries) SetNodeFFmpegSha256(ctx context.Context, arg SetNodeFFmpegSha256Params) error {
+	_, err := q.db.ExecContext(ctx, setNodeFFmpegSha256, arg.FfmpegSha256, arg.ID)
 	return err
 }

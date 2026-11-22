@@ -325,6 +325,14 @@ func (services *Services) queueCertificateRenewal(ctx context.Context) (int, err
 // more (D305 §2).
 const scheduledBackupCheckEvery = 5 * time.Minute
 
+// askForTheFFmpegSweeps has a node's new FFmpeg, once it forgot the failures FFmpeg made of the
+// node's files, ask for the sweeps that make each again: the read-throughs, which measure loudness
+// and read the picture timeline, and the seasons' repeats (D535 §9). A subtitle's text is made again
+// when a play next wants it.
+func askForTheFFmpegSweeps(sweeps sweepRequester) func() {
+	return func() { sweeps.RequestSweeps(sweepReadThroughs, sweepRepeats) }
+}
+
 // sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
 func sweepsAfterAPass() []string {
 	return []string{

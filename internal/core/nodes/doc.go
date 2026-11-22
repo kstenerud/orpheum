@@ -17,6 +17,13 @@
 //     status names is that root's: scanned at the hello, unavailable when the root is not named or its
 //     disk is not answering, and scanned again when the disk answers (D359 §4).
 //     TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere.
+//   - The FFmpeg build each node last said in its hello it runs (the SHA-256 of its binary) is kept in
+//     its row; a hello naming another, before its work resumes, forgets the failures FFmpeg made of
+//     the files at a live place on it (loudness, the picture timeline, repeat measurements, subtitle
+//     text), each by the package that keeps them, and asks the background passes to try each again;
+//     what succeeded, and what is not FFmpeg's, stays. A node's first build and a hello that says
+//     none forget nothing (D535 §9). TestHello_AnotherFFmpegForgetsTheFailuresOfTheNodesFilesAlone,
+//     TestHello_TheSameFFmpegNoneOrAFirstForgetsNothing.
 //   - A locked node is enrolled by its report and shown locked until its hello; an admin's leave to run
 //     it unconfined is in the database with who gave it and when, and in its report's reply (D450 §1).
 //     TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined.

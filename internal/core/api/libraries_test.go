@@ -324,6 +324,9 @@ func (*fakeNodes) SetChanges(corenodes.ChangeTaker) {}
 // SetStoreTiers takes nothing: the fake node keeps no chunk stores.
 func (*fakeNodes) SetStoreTiers(corenodes.StoreTiers) {}
 
+// SetFFmpegFailures takes nothing: the fake node's FFmpeg forgets nothing.
+func (*fakeNodes) SetFFmpegFailures(corenodes.FFmpegFailures, func()) {}
+
 // InProgress is the scans in progress the test set.
 func (nodes *fakeNodes) InProgress(context.Context) (map[library.ScanRoot]library.ScanProgress, error) {
 	return nodes.scanning, nil

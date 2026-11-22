@@ -23,9 +23,10 @@ type givenUpForgotten struct {
 
 func (forgotten *givenUpForgotten) forgetters() identify.GivenUpForgetters {
 	return identify.GivenUpForgetters{
-		OfFiles: []identify.FileFailuresForgetter{
-			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles,
+		FFmpegOfFiles: []identify.FileFailuresForgetter{
+			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles,
 		},
+		OfFiles: []identify.FileFailuresForgetter{library.ForgetHashFailuresOfFiles},
 		SubtitleText: func(_ context.Context, fileIDs []int64) error {
 			for _, id := range fileIDs {
 				forgotten.subtitleFiles = append(forgotten.subtitleFiles, strconv.FormatInt(id, 10))

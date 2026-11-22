@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided; §9–§10 not built.
+**Status:** decided; §10 not built.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30773,7 +30773,7 @@ D357 §1's limit of a rescan to a film or a series.
     classified as one or the other, mechanically, so a new one cannot be missed. Amends §6, and §8's
     keeping of a device's give-up for a discarding rescan.
 
-**Built** (2026-11-22): §1–6 as follows, §7 and §8 below; §9–10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+**Built** (2026-11-22): §1–6 as follows, §7, §8 and §9 below; §10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
 rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
 "files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
@@ -30822,6 +30822,19 @@ Confirmed already forgotten: a provider's "not found" (each film and series is m
 never matched, D357 §1), a refused or missing image (asked again at the rescan's end), an errored
 place (read again by every scan) and a library's rescan given up (cleared when its next rescan
 ends).
+§9: the core keeps in the node's row the FFmpeg build its hello last said (`node.ffmpeg_sha256`,
+persistent.db step 0098), so a restart of the core does not take a node's next hello for a new
+build. A hello that names another, once it is accepted and before the node's work resumes, lists
+the files at a live place on the node and forgets, as §8 does and by the same forgetters
+(`identify.GivenUpForgetters`, its `FFmpegOfFiles` and `SubtitleText`), their failed loudness
+measurements, timelines that could not be read (keyframes kept) and failed repeat measurements, in
+the write that keeps the new build, and the failed texts of their subtitles in a write before it, so
+a stop between the two keeps the old build and the next hello forgets again (`nodes.takeFFmpegBuild`).
+It then asks for the read-throughs' and the repeats' sweeps; a subtitle's text is made again when a
+play next wants it. A node's first build (every node, at the first hello after the step) is kept and
+forgets nothing, as does a hello that says none, which keeps the build last said. Untouched:
+a whole-file hash, a provider's fetch failure and the failures of unknown cause (retried at a
+restart). The failures are kept by the bytes (payload hash), so a copy on another node shares them.
 
 **Proven by:**
 - 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
@@ -30832,3 +30845,4 @@ ends).
 - 6: `TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile`, `TestRescan_ADiscardingRescanAsksItsScanToDiscard` (internal/core/library), `TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing`, `TestRescan_AVideoPagesDiscardingRescanThrowsOutItsFetchedSubtitles` (internal/core/identify), `TestDiscardFetched_AVideoPagesThrowsOutTheSubtitlesAndTheirText`, `TestDiscardFetched_ALibrarysKeepsTheSubtitlesAndConvertsThemAgain` (internal/core/subtitles), `TestForgetMeasurements_ThrowsOutEveryVersionOfOneVideosMeasurement` (internal/core/repeats), `TestDiscardImages_RetiresEveryImageButAPersonsChoice` (internal/core/artwork), `TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI` (internal/core/api); `web/apps/web/src/rescan.test.tsx`: Scan now asks nothing, a rescan sends nothing until Yes nor on No, the box sends discard, a video's question says no hours
 - 7: `TestIsRescanning_FromThePressUntilTheRescanEnds` (internal/core/identify); `rescan.test.tsx`: the page read again says Rescanning…, no notice unless the rescan could not start
 - 8: `TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFiles` (internal/core/api), `TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded`, `TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn`, `TestScan_ForgetsNoAttemptGivenUpOn`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestForgetTextFailures_ForgetsEveryFailureOfTheFilesAndKeepsWhatWasMade` (internal/core/subtitles), `TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain` (internal/core/unexpected), `TestEnqueue_ARepeatRequestWakesAJobWaitingOnItsBackoffButNotASnoozedOne` (internal/platform/jobqueue)
+- 9: `TestHello_AnotherFFmpegForgetsTheFailuresOfTheNodesFilesAlone`, `TestHello_TheSameFFmpegNoneOrAFirstForgetsNothing` (internal/core/nodes), `TestBuild_ANodesNewFFmpegForgetsWhatFFmpegFailedAtOfItsFiles`, `TestAskForTheFFmpegSweeps_AsksForTheReadThroughsAndTheRepeats` (internal/core/assembly)

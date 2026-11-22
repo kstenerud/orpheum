@@ -50,3 +50,20 @@ SELECT node_unconfined_leave.accepted_at, user.name AS accepted_by
 FROM node_unconfined_leave
 JOIN user ON user.id = node_unconfined_leave.accepted_by_user_id
 WHERE node_unconfined_leave.node_id = sqlc.arg(node_id);
+
+-- name: GetNodeFFmpegSha256 :one
+-- The FFmpeg build a node last said it runs, NULL before a hello said one (D535 section 9).
+SELECT ffmpeg_sha256 FROM node WHERE id = sqlc.arg(id);
+
+-- name: SetNodeFFmpegSha256 :exec
+-- The FFmpeg build a node's hello says it runs (D535 section 9); only when it changes (D303, DL9).
+UPDATE node SET ffmpeg_sha256 = sqlc.arg(ffmpeg_sha256)
+WHERE id = sqlc.arg(id) AND ffmpeg_sha256 IS NOT sqlc.arg(ffmpeg_sha256);
+
+-- name: ListLiveFileIDsOfNode :many
+-- The files at a live place on a node: what its new FFmpeg forgets the failures FFmpeg made of
+-- (D535 section 9).
+SELECT DISTINCT CAST(file_id AS INTEGER) AS file_id
+FROM place
+WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL AND file_id IS NOT NULL
+ORDER BY file_id;

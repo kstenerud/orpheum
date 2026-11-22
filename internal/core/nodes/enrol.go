@@ -51,15 +51,12 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "read shouldScanOnNodeHello", err)
 		return
 	}
-	service.connect(node.ID, hello)
-	service.mutex.Lock()
-	delete(service.lockedByNodeID, node.ID)
-	service.mutex.Unlock()
-	// The work given to another start of the node is lost with it, whether or not the core heard
-	// that start: each attempt keeps the start it was given to (D238 §3).
-	if service.resultSink != nil {
-		service.resultSink.Interrupt(ctx, node.ID, hello.StartID)
+	// Before the node's work resumes, so the sweeps it brings back see what its new FFmpeg forgot.
+	if buildErr := service.takeFFmpegBuild(ctx, node.ID, hello.FFmpegSha256); buildErr != nil {
+		service.fail(ctx, writer, "keep the node's FFmpeg build", buildErr)
+		return
 	}
+	service.accept(ctx, node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello",
 		slogx.EventKey, "nodeHello",
 		"nodeName", hello.Name, "nodeId", node.ID,
@@ -99,6 +96,20 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
 		WatchFolders: service.watchFoldersNow(ctx, node.ID),
 	})
+}
+
+// accept connects a node whose hello was taken, no longer locked, and interrupts the work given to
+// another start of it.
+func (service *Service) accept(ctx context.Context, nodeID int64, hello nodeproto.Hello) {
+	service.connect(nodeID, hello)
+	service.mutex.Lock()
+	delete(service.lockedByNodeID, nodeID)
+	service.mutex.Unlock()
+	// The work given to another start of the node is lost with it, whether or not the core heard
+	// that start: each attempt keeps the start it was given to (D238 §3).
+	if service.resultSink != nil {
+		service.resultSink.Interrupt(ctx, nodeID, hello.StartID)
+	}
 }
 
 // isRefused answers a hello the core cannot take, and says so: one in another version of the

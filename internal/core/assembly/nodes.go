@@ -64,6 +64,9 @@ type nodeWiring interface {
 	// SetStoreTiers say how strongly the players want each chunk store, which a node keeps them by
 	// (D309 §8).
 	SetStoreTiers(tiers nodes.StoreTiers)
+	// SetFFmpegFailures forget the failures FFmpeg made of a node's files when it says hello with another
+	// FFmpeg build, and the call after asks the background passes to try each again (D535 §9).
+	SetFFmpegFailures(failures nodes.FFmpegFailures, forgotten func())
 }
 
 // commandPollHold is how long a node's long-poll for commands is held when there is nothing to

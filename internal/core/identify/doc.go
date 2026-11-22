@@ -405,7 +405,9 @@
 //     failed loudness measurements, picture timelines, repeat measurements and whole-file hashes, a
 //     timeline's keyframes kept; it asks the subtitles to forget their texts' failures and the
 //     recorder its subjects' failures of unknown cause (GivenUpForgetters). What succeeded stays, a
-//     scan forgets nothing, and a device's own_picture_given_up stays (D535 §8).
+//     scan forgets nothing, and a device's own_picture_given_up stays (D535 §8). The forgetters of
+//     what FFmpeg failed at (FFmpegOfFiles, SubtitleText) are the ones a node's new FFmpeg forgets
+//     its files' failures by (ForgetFFmpegFailuresOfFiles, D535 §9; internal/core/nodes).
 //     TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded,
 //     TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn, TestScan_ForgetsNoAttemptGivenUpOn.
 //

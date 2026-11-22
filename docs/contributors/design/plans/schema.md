@@ -110,7 +110,10 @@ CREATE TABLE node (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
-  removed_at  INTEGER
+  removed_at  INTEGER,
+  -- Step 0098: the FFmpeg build its hello last said it runs, the SHA-256 of its binary; NULL until one
+  -- says it. A hello naming another forgets the failures FFmpeg made of its files (D535 §9).
+  ffmpeg_sha256 TEXT
   -- Its last status is kept in memory alone (D303, step 0049): a report every few seconds wrote it
   -- here, and nothing read it back.
 );
