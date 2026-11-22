@@ -64,8 +64,7 @@ const minusSign = "−";
  */
 export function numberTyped(
   text: string,
-  min: number,
-  max: number,
+  range: { readonly min: number; readonly max: number },
   shownIn: ShownIn = asItIs,
 ): number | undefined {
   const trimmed = text.trim();
@@ -74,7 +73,7 @@ export function numberTyped(
     return undefined;
   }
   const typed = Number(trimmed.replace(minusSign, "-").replace(",", "."));
-  return Math.min(Math.max(Math.round(typed * shownIn.scale), min), max);
+  return Math.min(Math.max(Math.round(typed * shownIn.scale), range.min), range.max);
 }
 
 /**
@@ -221,7 +220,7 @@ function NumberField(props: {
       return;
     }
     setTyping(undefined);
-    const typed = numberTyped(typing, min, max, shownIn);
+    const typed = numberTyped(typing, { min, max }, shownIn);
     if (typed !== undefined) {
       props.onApply(typed);
     }

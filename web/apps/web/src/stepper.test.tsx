@@ -104,9 +104,9 @@ describe("a stepper, the number input's next form (the owner, 2026-11-22; D538 Â
       expect(field.value).toBe("25");
     }
     expect(heard).toEqual([]);
-    expect(numberTyped(" 30 ", -100, 100)).toBe(30);
-    expect(numberTyped("+30", -100, 100)).toBe(30);
-    expect(numberTyped("3 0", -100, 100)).toBeUndefined();
+    expect(numberTyped(" 30 ", { min: -100, max: 100 })).toBe(30);
+    expect(numberTyped("+30", { min: -100, max: 100 })).toBe(30);
+    expect(numberTyped("3 0", { min: -100, max: 100 })).toBeUndefined();
   });
 
   // The subtitles' timing is kept in ms and shown in seconds to a tenth, "+0.5" above zero (the
@@ -117,12 +117,12 @@ describe("a stepper, the number input's next form (the owner, 2026-11-22; D538 Â
     expect(numberShown(-1200, seconds, true)).toBe("âˆ’1.2");
     expect(numberShown(0, seconds, true)).toBe("0.0");
     expect(numberShown(40, undefined, true)).toBe("+40");
-    expect(numberTyped("1.25", -600000, 600000, seconds)).toBe(1250);
-    expect(numberTyped("âˆ’0,3", -600000, 600000, seconds)).toBe(-300);
-    expect(numberTyped(".5", -600000, 600000, seconds)).toBe(500);
-    expect(numberTyped("1.5.2", -600000, 600000, seconds)).toBeUndefined();
+    expect(numberTyped("1.25", { min: -600000, max: 600000 }, seconds)).toBe(1250);
+    expect(numberTyped("âˆ’0,3", { min: -600000, max: 600000 }, seconds)).toBe(-300);
+    expect(numberTyped(".5", { min: -600000, max: 600000 }, seconds)).toBe(500);
+    expect(numberTyped("1.5.2", { min: -600000, max: 600000 }, seconds)).toBeUndefined();
     // A field showing whole numbers still refuses a fraction.
-    expect(numberTyped("1.5", -100, 100)).toBeUndefined();
+    expect(numberTyped("1.5", { min: -100, max: 100 })).toBeUndefined();
   });
 
   it("is a field named for what it holds, described by its unit, as wide as its widest value, with arrows named for what they do", async () => {
