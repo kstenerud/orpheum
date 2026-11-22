@@ -4838,3 +4838,9 @@ the admin "This file needs this offset" so the admin can fix it for all users."
   offset would look like it has an offset chosen if the device has an offset." "Device" shows the
   device's offset and "This file" the file's (0 when none is set); the sound plays with both applied. A video's other version, or a
   file that replaces it, starts at 0.
+- **Every control of this nature takes the number input, after the owner tests it** (the owner,
+  2026-11-22): "yes, all controls of this nature should use the new widget, but I want to test it
+  before we do the rest". The number input is built ("feat(web): a number input, typed or stepped
+  by its arrows, sets the sound's timing", VQ378) and on "Sound on this device"; the rest, starting
+  with the subtitles' Earlier and Later (subtitles.tsx), whose Later a remote cannot reach in ⁝,
+  wait for the owner's walk of it on staging.
