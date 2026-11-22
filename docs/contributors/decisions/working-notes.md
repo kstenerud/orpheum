@@ -30691,3 +30691,14 @@ D357 §1's limit of a rescan to a film or a series.
 4. **Every library offers its rescans, whatever it holds:** a library of other videos offers
    Rescan and Full rescan as a library of films or of series does, its files read again (a full
    rescan reading every one, D392); a library has no match to make again where it holds none.
+5. **Two operations, Scan and Rescan** (the owner, 2026-11-22: "If someone has a problem with their
+   library, they'd probably want to rescan the file or library entirely in order to sort out an
+   incorrect conclusion the app has made in the past"; "yes that sounds good. We should put rescan
+   under the ... menu, not identified incorrectly"). **Scan**, scheduled or a library's "Scan now",
+   reads only new or changed files and leaves every answer the app has alone. **Rescan**, of a
+   library or of a video's page, is D392's full rescan: it reads every file again, changed or not,
+   and questions every conclusion the app drew, a film or a series then matched again; what a
+   person chose, edited or watched is left alone. The light rescan, a match again without reading
+   the files (D357), is gone, and with it the name Full rescan. A video's page offers Rescan in its
+   … menu alone; the "Identified incorrectly" dialog no longer offers one. Amends D357 and D392 §1's
+   two kinds of rescan (§4 above then offers Scan now and Rescan).
