@@ -18,6 +18,7 @@ import {
   CastIcon,
   ChevronDownIcon,
   Clapperboard,
+  EyeIcon,
   FilmsIcon,
   FilmStripIcon,
   FindDevicesIcon,
@@ -272,6 +273,8 @@ function Icons(): JSX.Element {
         <MicrophoneIcon isOn={false} />
         <AboutIcon />
         <ResetIcon />
+        <EyeIcon isCrossed={false} />
+        <EyeIcon isCrossed />
         <ChevronDownIcon />
         <span className="ui-gallery__blank-mark">
           <Clapperboard />

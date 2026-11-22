@@ -505,3 +505,27 @@ export function ResetIcon(): JSX.Element {
     </Icon>
   );
 }
+
+// ---- Forms ----
+
+/**
+ * An eye, open or crossed out: the mark of a password field's Show password button (password-field.tsx),
+ * crossed out while the password shows.
+ */
+export function EyeIcon(props: { readonly isCrossed: boolean }): JSX.Element {
+  return (
+    <Icon className="eye-icon">
+      <path
+        d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
+      {props.isCrossed ? (
+        <path d="M4 3l17 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      ) : null}
+    </Icon>
+  );
+}

@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A help button (help-button.tsx): an icon button, its icon in the accent while its help is open;
+   the help a paragraph no wider than a line is read at, in the pop-up's padding. */
+.help-button[aria-expanded="true"] {
+  color: var(--color-accent);
+}
+
+.help-button__note {
+  max-inline-size: var(--size-reading);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}

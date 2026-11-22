@@ -216,3 +216,9 @@
 .uncertain-match-icon__dot {
   fill: currentColor;
 }
+
+/* A password field's eye (password-field.tsx), a fingertip's button's icon, in its text's colour. */
+.eye-icon {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}

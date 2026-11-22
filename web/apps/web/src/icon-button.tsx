@@ -28,6 +28,11 @@ export function IconButton(props: {
   readonly isOverVideo?: boolean | undefined;
   /** Whether what it opens is open, for a button that opens a panel. */
   readonly isExpanded?: boolean | undefined;
+  /**
+   * Whether it is pressed, for a button that is a state kept on (a password field's Show password,
+   * password-field.tsx): aria-pressed, so its name stays the same in either state.
+   */
+  readonly isPressed?: boolean | undefined;
   readonly isDisabled?: boolean | undefined;
   /**
    * Whether what it does cannot be done now (a stepper's − at its least, stepper.tsx): marked
@@ -73,6 +78,7 @@ export function IconButton(props: {
       className={classes.join(" ")}
       aria-label={label}
       aria-expanded={isExpanded}
+      aria-pressed={props.isPressed}
       disabled={isDisabled}
       aria-disabled={isUnavailable ? true : undefined}
       tabIndex={isPointerOnly ? -1 : undefined}

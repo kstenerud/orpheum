@@ -6,6 +6,11 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Checkbox, RadioRows } from "./checkbox.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
+import { HelpButton } from "./help-button.tsx";
+import { PasswordField } from "./password-field.tsx";
+import { submitWith } from "./form-row.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 import { Switch } from "./switch.tsx";
 
 /**
@@ -19,6 +24,8 @@ export function FormParts(): JSX.Element {
       <h2 id="gallery-forms">{t("gallery.forms")}</h2>
       <GallerySwitches />
       <GalleryChoices />
+      <GalleryFields />
+      <GallerySubmit />
     </section>
   );
 }
@@ -65,5 +72,83 @@ function GalleryChoices(): JSX.Element {
         onChoose={setChosen}
       />
     </div>
+  );
+}
+
+/** Fields in each state: with a hint, optional, with an error; a password; and a help button. */
+function GalleryFields(): JSX.Element {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [note, setNote] = useState("");
+  const [port, setPort] = useState("70000");
+  const [password, setPassword] = useState("");
+  return (
+    <div className="ui-gallery__forms">
+      <TextField
+        label={t("gallery.field")}
+        hint={t("gallery.fieldHint")}
+        value={name}
+        onChange={setName}
+      />
+      <TextField label={t("gallery.fieldOptional")} isOptional value={note} onChange={setNote} />
+      <div className="ui-gallery__field-with-help">
+        <TextField
+          label={t("gallery.fieldError")}
+          inputMode="numeric"
+          error={t("gallery.fieldErrorText")}
+          value={port}
+          onChange={setPort}
+        />
+        <HelpButton label={t("gallery.help")} help={t("gallery.helpText")} />
+      </div>
+      <PasswordField
+        label={t("gallery.password")}
+        hint={t("gallery.passwordHint")}
+        autoComplete="new-password"
+        value={password}
+        onChange={setPassword}
+      />
+    </div>
+  );
+}
+
+/**
+ * A submit form as every one works: its button always enabled, a press with a field empty saying so
+ * at the field and moving focus there, and one with all filled busy, its spinner turning, until
+ * pressed again here, which stands for the answer coming.
+ */
+function GallerySubmit(): JSX.Element {
+  const { t } = useTranslation();
+  const [password, setPassword] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const fields = useFormFields(undefined, []);
+  return (
+    <form
+      className="ui-gallery__forms"
+      aria-label={t("gallery.submitForm")}
+      noValidate
+      onSubmit={submitWith(() => {
+        if (fields.check([["password", missingText(t, t("gallery.password"), password)]])) {
+          setIsBusy(true);
+        }
+      })}
+    >
+      <PasswordField
+        {...fields.fieldOf("password")}
+        label={t("gallery.password")}
+        autoComplete="current-password"
+        value={password}
+        onChange={fields.editing("password", setPassword)}
+      />
+      <SubmitButton label={t("gallery.submit")} isBusy={isBusy} />
+      <button
+        type="button"
+        onClick={() => {
+          setIsBusy(false);
+        }}
+      >
+        {t("gallery.submitAnswer")}
+      </button>
+    </form>
   );
 }

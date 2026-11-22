@@ -557,6 +557,11 @@ const enOwn = {
       back: "Back to {{name}}",
     },
   },
+  field: {
+    optional: "(optional)",
+    missing: "Enter {{label}}",
+    showPassword: "Show password",
+  },
   common: {
     loading: "Loading…",
     back: "Back",
