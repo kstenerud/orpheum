@@ -633,7 +633,8 @@ LIMIT sqlc.arg(max_rows);
 -- An other library's videos with where their files are, for its folders (D349 section 5): each title
 -- whose file the library covers, once, at the first of its places the library covers, by path (D363
 -- section 6); one the pass has not named and dated yet waits for it.
-SELECT work.id AS work_id, library_place.path, item_text.name, item.identification_state, item.added_at,
+SELECT work.id AS work_id, file_filing.file_id, library_place.path, item_text.name, item.identification_state,
+  item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key,
   item.found_at, item.found_file_modified_at
 FROM library_place
@@ -645,6 +646,45 @@ CROSS JOIN item ON item.id = work.id AND item.removed_at IS NULL
 CROSS JOIN other_video ON other_video.work_id = work.id
 JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = sqlc.arg(library_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM library_place AS earlier
+    WHERE earlier.file_id = library_place.file_id
+      AND earlier.library_id = library_place.library_id
+      AND (earlier.place_id <> earlier.file_id, earlier.first_seen_at, earlier.place_id)
+        < (library_place.place_id <> library_place.file_id, library_place.first_seen_at, library_place.place_id))
+ORDER BY library_place.path;
+
+-- name: ListVideoFilesOfLibrary :many
+-- A library's video files with where they are, for its folders whatever its kind (D539 section 7):
+-- each file a scan read whose place the library covers, once, at the first of its places the library
+-- covers, by path, as ListOtherVideosOfLibrary places them; with the live title it is filed as, none
+-- for one filed as no live title, its length where its probe knows it, 0 otherwise, and the person's
+-- position in it, 0 for none, with the latest of their marks by hand of the titles it is filed as, as
+-- ListWorkFilePlayPositions has them: where it resumes.
+SELECT file.id AS file_id, library_place.path, library_place.first_seen_at,
+  CAST(coalesce(item.id, 0) AS INTEGER) AS item_id, CAST(coalesce(item.kind, '') AS TEXT) AS item_kind,
+  CAST(coalesce(item_text.name, '') AS TEXT) AS item_name, item.year,
+  CAST(coalesce(item.identification_state, '') AS TEXT) AS identification_state,
+  CAST(coalesce(file_probe.duration_ms, 0) AS INTEGER) AS duration_ms,
+  CAST(coalesce(play_position.position_ms, 0) AS INTEGER) AS position_ms,
+  CAST(coalesce(play_position.position_read_at, 0) AS INTEGER) AS position_read_at,
+  CAST(coalesce((
+    SELECT max(work_watched.marked_at) FROM file_filing AS filed
+    CROSS JOIN version AS filed_version ON filed_version.id = filed.version_id
+    CROSS JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id)
+      AND work_watched.work_id = filed_version.work_id
+    WHERE filed.file_id = library_place.file_id), 0) AS INTEGER) AS marked_at
+FROM library_place
+CROSS JOIN file ON file.id = library_place.file_id AND file.sidecar_kind IS NULL
+LEFT JOIN file_filing ON file_filing.file_id = library_place.file_id
+  AND file_filing.library_kind = library_place.library_kind
+LEFT JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
+LEFT JOIN item ON item.id = version.work_id AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
+LEFT JOIN file_probe ON file_probe.file_id = library_place.file_id
+LEFT JOIN play_position ON play_position.user_id = sqlc.arg(user_id)
+  AND play_position.file_id = library_place.file_id
+WHERE library_place.library_id = sqlc.arg(library_id) AND library_place.filing = 'read'
   AND NOT EXISTS (
     SELECT 1 FROM library_place AS earlier
     WHERE earlier.file_id = library_place.file_id

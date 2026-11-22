@@ -1464,7 +1464,8 @@ func (q *Queries) ListOtherByRecorded(ctx context.Context, arg ListOtherByRecord
 }
 
 const listOtherVideosOfLibrary = `-- name: ListOtherVideosOfLibrary :many
-SELECT work.id AS work_id, library_place.path, item_text.name, item.identification_state, item.added_at,
+SELECT work.id AS work_id, file_filing.file_id, library_place.path, item_text.name, item.identification_state,
+  item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key,
   item.found_at, item.found_file_modified_at
 FROM library_place
@@ -1487,6 +1488,7 @@ ORDER BY library_place.path
 
 type ListOtherVideosOfLibraryRow struct {
 	WorkID              int64
+	FileID              int64
 	Path                string
 	Name                string
 	IdentificationState *string
@@ -1513,6 +1515,7 @@ func (q *Queries) ListOtherVideosOfLibrary(ctx context.Context, libraryID int64)
 		var i ListOtherVideosOfLibraryRow
 		if err := rows.Scan(
 			&i.WorkID,
+			&i.FileID,
 			&i.Path,
 			&i.Name,
 			&i.IdentificationState,
@@ -2053,6 +2056,102 @@ func (q *Queries) ListUnreadFilesOfWork(ctx context.Context, workID int64) ([]Li
 	for rows.Next() {
 		var i ListUnreadFilesOfWorkRow
 		if err := rows.Scan(&i.ID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVideoFilesOfLibrary = `-- name: ListVideoFilesOfLibrary :many
+SELECT file.id AS file_id, library_place.path, library_place.first_seen_at,
+  CAST(coalesce(item.id, 0) AS INTEGER) AS item_id, CAST(coalesce(item.kind, '') AS TEXT) AS item_kind,
+  CAST(coalesce(item_text.name, '') AS TEXT) AS item_name, item.year,
+  CAST(coalesce(item.identification_state, '') AS TEXT) AS identification_state,
+  CAST(coalesce(file_probe.duration_ms, 0) AS INTEGER) AS duration_ms,
+  CAST(coalesce(play_position.position_ms, 0) AS INTEGER) AS position_ms,
+  CAST(coalesce(play_position.position_read_at, 0) AS INTEGER) AS position_read_at,
+  CAST(coalesce((
+    SELECT max(work_watched.marked_at) FROM file_filing AS filed
+    CROSS JOIN version AS filed_version ON filed_version.id = filed.version_id
+    CROSS JOIN work_watched ON work_watched.user_id = ?1
+      AND work_watched.work_id = filed_version.work_id
+    WHERE filed.file_id = library_place.file_id), 0) AS INTEGER) AS marked_at
+FROM library_place
+CROSS JOIN file ON file.id = library_place.file_id AND file.sidecar_kind IS NULL
+LEFT JOIN file_filing ON file_filing.file_id = library_place.file_id
+  AND file_filing.library_kind = library_place.library_kind
+LEFT JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
+LEFT JOIN item ON item.id = version.work_id AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
+LEFT JOIN file_probe ON file_probe.file_id = library_place.file_id
+LEFT JOIN play_position ON play_position.user_id = ?1
+  AND play_position.file_id = library_place.file_id
+WHERE library_place.library_id = ?2 AND library_place.filing = 'read'
+  AND NOT EXISTS (
+    SELECT 1 FROM library_place AS earlier
+    WHERE earlier.file_id = library_place.file_id
+      AND earlier.library_id = library_place.library_id
+      AND (earlier.place_id <> earlier.file_id, earlier.first_seen_at, earlier.place_id)
+        < (library_place.place_id <> library_place.file_id, library_place.first_seen_at, library_place.place_id))
+ORDER BY library_place.path
+`
+
+type ListVideoFilesOfLibraryParams struct {
+	UserID    int64
+	LibraryID int64
+}
+
+type ListVideoFilesOfLibraryRow struct {
+	FileID              int64
+	Path                string
+	FirstSeenAt         int64
+	ItemID              int64
+	ItemKind            string
+	ItemName            string
+	Year                *int64
+	IdentificationState string
+	DurationMs          int64
+	PositionMs          int64
+	PositionReadAt      int64
+	MarkedAt            int64
+}
+
+// A library's video files with where they are, for its folders whatever its kind (D539 section 7):
+// each file a scan read whose place the library covers, once, at the first of its places the library
+// covers, by path, as ListOtherVideosOfLibrary places them; with the live title it is filed as, none
+// for one filed as no live title, its length where its probe knows it, 0 otherwise, and the person's
+// position in it, 0 for none, with the latest of their marks by hand of the titles it is filed as, as
+// ListWorkFilePlayPositions has them: where it resumes.
+func (q *Queries) ListVideoFilesOfLibrary(ctx context.Context, arg ListVideoFilesOfLibraryParams) ([]ListVideoFilesOfLibraryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listVideoFilesOfLibrary, arg.UserID, arg.LibraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVideoFilesOfLibraryRow{}
+	for rows.Next() {
+		var i ListVideoFilesOfLibraryRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.Path,
+			&i.FirstSeenAt,
+			&i.ItemID,
+			&i.ItemKind,
+			&i.ItemName,
+			&i.Year,
+			&i.IdentificationState,
+			&i.DurationMs,
+			&i.PositionMs,
+			&i.PositionReadAt,
+			&i.MarkedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

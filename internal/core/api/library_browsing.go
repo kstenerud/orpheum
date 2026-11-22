@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"slices"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
-// FolderInput asks for one folder of an other library.
+// FolderInput asks for one folder of a library, of any kind (D539 §7).
 type FolderInput struct {
 	AuthorizationHeader
 	ID     int64  `path:"id"`
@@ -33,13 +32,38 @@ type SubfolderBody struct {
 	VideoCount int64  `doc:"How many videos it holds, in the folders inside it too" json:"videoCount"`
 }
 
-// FolderOutput is one folder of an other library: the folders in it, and its own videos.
+// FolderVideoBody is a video file directly in a library's folder (D539 §7).
+type FolderVideoBody struct {
+	FileID int64  `doc:"The file, as POST /playback takes it" json:"fileId"`
+	Name   string `doc:"Its file's name" json:"name"`
+	// Title is absent for a file filed as no title, which is played by its fileId all the same.
+	Title            *FolderVideoTitleBody `doc:"The title it is filed as; absent for none" json:"title,omitempty"`
+	DurationMs       int64                 `doc:"Its length, where its probe knows it" json:"durationMs,omitempty"`
+	ResumePositionMs int64                 `doc:"Where the person's playback of it starts, as POST /playback's resumePositionMs says it, absent at its start" json:"resumePositionMs,omitempty"` //nolint:lll // one struct tag
+}
+
+// FolderVideoTitleBody is the title a folder's video file is filed as, named as a list's entry names
+// one.
+type FolderVideoTitleBody struct {
+	ID   int64  `json:"id"`
+	Kind string `enum:"film,episode,extra,other" json:"kind"`
+	Name string `json:"name"`
+	Year *int64 `json:"year,omitempty"`
+	// IdentificationState is unidentified for a film whose match was not found, which keeps its title
+	// all the same.
+	IdentificationState string `doc:"How it was identified: unidentified for a file whose match was not found" json:"identificationState"` //nolint:lll // one struct tag
+}
+
+// FolderOutput is one folder of a library: the folders in it, and its own videos. An other library's
+// are its titles, each one's file in videos at the same index; any other library's are its video
+// files, in videos alone, matched or not, titles empty (D539 §7).
 type FolderOutput struct {
 	Body struct {
-		Folder     string          `doc:"Its path below the library's folders; empty at their top" json:"folder"`
-		Subfolders []SubfolderBody `json:"subfolders"`
-		Titles     []ItemEntryBody `json:"titles"`
-		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
+		Folder     string            `doc:"Its path below the library's folders; empty at their top" json:"folder"`
+		Subfolders []SubfolderBody   `json:"subfolders"`
+		Titles     []ItemEntryBody   `doc:"An other library's videos in the folder, in the order asked for; empty for any other library" json:"titles"`                                                                 //nolint:lll // one struct tag
+		Videos     []FolderVideoBody `doc:"The video files in the folder, in the order asked for: an other library's, each its title's at the same index in titles; any other library's, matched or not" json:"videos"` //nolint:lll // one struct tag
+		NextCursor string            `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -47,7 +71,8 @@ func (server *Server) registerLibraryBrowsing() {
 	tags := []string{tagBrowse}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLibraryFolder", Method: http.MethodGet, Path: "/libraries/{id}/folders",
-		Summary: "One folder of an other library: the folders in it, and its videos (D349)", Tags: tags,
+		Summary:    "One folder of a library of any kind: the folders in it, and its videos (D349, D539)",
+		Tags:       tags,
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.getLibraryFolder)
 }
@@ -137,9 +162,6 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 		LibraryID: input.ID, Path: input.Folder, Sort: input.Sort, Order: input.Order, Reach: principal.Reach,
 		UserID: principal.UserID, Offset: offset, Limit: input.Limit,
 	})
-	if errors.Is(err, library.ErrNoFolders) {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
-	}
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a library's folder", err)
 	}
@@ -156,11 +178,29 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 	for _, entry := range folder.Entries {
 		output.Body.Titles = append(output.Body.Titles, itemEntryBody(entry, nodeName))
 	}
+	output.Body.Videos = make([]FolderVideoBody, 0, len(folder.Videos))
+	for _, video := range folder.Videos {
+		output.Body.Videos = append(output.Body.Videos, folderVideoBody(video))
+	}
 	// A folder is read whole and sorted afresh for each page, so its cursor is how many of its
-	// entries the pages before gave.
-	given := len(folder.Subfolders) + len(folder.Entries)
+	// folders and videos the pages before gave.
+	given := len(folder.Subfolders) + len(folder.Videos)
 	output.Body.NextCursor = nextCursorOf(given, input.Limit, func() string {
 		return library.EncodeCursor(nil, offset+int64(given))
 	})
 	return output, nil
+}
+
+// folderVideoBody is a folder's video file as the API says it.
+func folderVideoBody(video library.FolderVideo) FolderVideoBody {
+	body := FolderVideoBody{
+		FileID: video.FileID, Name: video.Name, DurationMs: video.DurationMs, ResumePositionMs: video.ResumeAtMs,
+	}
+	if title := video.Title; title != nil {
+		body.Title = &FolderVideoTitleBody{
+			ID: title.ID, Kind: saidKind(title.Kind), Name: title.Name, Year: title.Year,
+			IdentificationState: title.IdentificationState,
+		}
+	}
+	return body
 }

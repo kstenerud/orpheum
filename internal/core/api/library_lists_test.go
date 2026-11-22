@@ -198,8 +198,15 @@ func TestBrowse_AnOtherLibrarysFolders(t *testing.T) {
 	if len(trip.Body.Titles) != 1 || trip.Body.Titles[0].Name != "clip" || trip.Body.Folder != "Trip" {
 		t.Errorf("Trip = %+v; want the clip", trip.Body)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/1/folders?limit=500&sort=name", admin, nil),
-		http.StatusUnprocessableEntity, "path.id")
+	// A film library's folders are browsed too (D539 §7): TestBrowse_EveryKindOfLibrarysFolderListsItsVideoFiles.
+	if films := harness.do(t, http.MethodGet, "/libraries/1/folders?limit=500&sort=name", admin, nil); films.status !=
+		http.StatusOK {
+		t.Errorf("a film library's folders = %d %s; want them (D539 §7)", films.status, films.body)
+	}
+	if absent := harness.do(t, http.MethodGet, "/libraries/9/folders?sort=name", admin, nil); absent.status !=
+		http.StatusNotFound {
+		t.Errorf("an absent library's folders = %d %s; want 404", absent.status, absent.body)
+	}
 }
 
 // An other library's folder comes in pages, its folders first and then its videos, each page's

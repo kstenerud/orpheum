@@ -2643,6 +2643,7 @@
             ]
           },
           "titles": {
+            "description": "An other library's videos in the folder, in the order asked for; empty for any other library",
             "items": {
               "discriminator": {
                 "mapping": {
@@ -2667,12 +2668,96 @@
               "array",
               "null"
             ]
+          },
+          "videos": {
+            "description": "The video files in the folder, in the order asked for: an other library's, each its title's at the same index in titles; any other library's, matched or not",
+            "items": {
+              "$ref": "#/components/schemas/FolderVideoBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
           "folder",
           "subfolders",
-          "titles"
+          "titles",
+          "videos"
+        ],
+        "type": "object"
+      },
+      "FolderVideoBody": {
+        "properties": {
+          "durationMs": {
+            "description": "Its length, where its probe knows it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "fileId": {
+            "description": "The file, as POST /playback takes it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Its file's name",
+            "type": "string"
+          },
+          "resumePositionMs": {
+            "description": "Where the person's playback of it starts, as POST /playback's resumePositionMs says it, absent at its start",
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "$ref": "#/components/schemas/FolderVideoTitleBody",
+            "description": "The title it is filed as; absent for none"
+          }
+        },
+        "required": [
+          "fileId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "FolderVideoTitleBody": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "identificationState": {
+            "description": "How it was identified: unidentified for a file whose match was not found",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "film",
+              "episode",
+              "extra",
+              "other"
+            ],
+            "type": "string",
+            "x-extensible-enum": [
+              "film",
+              "episode",
+              "extra",
+              "other"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "identificationState"
         ],
         "type": "object"
       },
@@ -5223,6 +5308,14 @@
               "failed"
             ],
             "type": "string"
+          },
+          "videoCounts": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "description": "How many videos each folder on this page holds, by its name, in it and in every folder below it, as a scan of it would read them; a folder the node did not count within its time budget is absent, never a part of its count (D539 §7)",
+            "type": "object"
           }
         },
         "required": [
@@ -15444,7 +15537,7 @@
             "session": []
           }
         ],
-        "summary": "One folder of an other library: the folders in it, and its videos (D349)",
+        "summary": "One folder of a library of any kind: the folders in it, and its videos (D349, D539)",
         "tags": [
           "Browse"
         ],

@@ -4,6 +4,7 @@ package api_test
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -27,7 +28,41 @@ func (fake *fakeNodeBytes) ListFolders(_ context.Context, _ int64, path string) 
 		}
 	}
 	slices.Sort(listing.Folders)
+	for _, name := range listing.Folders {
+		if count, isCounted := fake.files["videos:"+path+"/"+name]; isCounted {
+			if listing.VideoCounts == nil {
+				listing.VideoCounts = map[string]int64{}
+			}
+			listing.VideoCounts[name] = int64(len(count))
+		}
+	}
 	return listing, nil
+}
+
+// Each folder of a page carries the node's count of its videos, and a folder the node did not count
+// in time carries none; a page carries the counts of its own folders alone (D539 §7).
+func TestLibraries_ANodesFoldersCarryTheirVideoCounts(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media")
+	harness.nodeBytes.mutex.Lock()
+	for _, folder := range []string{"movies", "other", "shows"} {
+		harness.nodeBytes.files["folder:/media/video/"+folder] = ""
+	}
+	harness.nodeBytes.files["videos:/media/video/movies"] = "123" // three videos, as the fake counts them
+	harness.nodeBytes.files["videos:/media/video/other"] = ""
+	harness.nodeBytes.mutex.Unlock()
+	var whole api.NodeFoldersOutput
+	harness.readJSON(t, "/nodes/local/folders?limit=500&path=/media/video", admin, &whole.Body)
+	if want := map[string]int64{"movies": 3, "other": 0}; !maps.Equal(whole.Body.VideoCounts, want) {
+		t.Errorf("the counts of /media/video's folders = %v; want %v, shows not counted", whole.Body.VideoCounts, want)
+	}
+	var first api.NodeFoldersOutput
+	harness.readJSON(t, "/nodes/local/folders?limit=1&path=/media/video", admin, &first.Body)
+	if want := map[string]int64{"movies": 3}; !maps.Equal(first.Body.VideoCounts, want) {
+		t.Errorf("the counts of a page of one = %v; want %v alone", first.Body.VideoCounts, want)
+	}
 }
 
 // An admin browses a node's folders inside its configured roots, and nothing outside them; a person

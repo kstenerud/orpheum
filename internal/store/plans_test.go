@@ -449,6 +449,7 @@ func weakSearchesAllowed() map[string]string {
 		"ListWorksNoLibraryLists":        library + "a retire's titles no library lists any more",
 		// A library's places, read by the range of their paths under each of its folders (D363).
 		"ListOtherVideosOfLibrary": library + "its other videos",
+		"ListVideoFilesOfLibrary":  library + "its video files, for its folders (D539 §7)",
 		"ListLiveFileIDsOfLibrary": library + "its rescan forgets the attempts given up on of its files (D535 §8)",
 		"ListLiveItemIDsOfLibrary": library + "its rescan forgets the attempts given up on of its items (D535 §8)",
 		"ListFileWorks":            library + "the identification pass",

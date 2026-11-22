@@ -28,10 +28,12 @@ type NodeFoldersOutput struct {
 		Path string `json:"path"`
 		// State: readable, with its folders; notAnswering, its disk or share not answering in time;
 		// missing, not there; failed, any other failure, a link in its path among them.
-		State      string   `enum:"readable,notAnswering,missing,failed" json:"state"`
-		Folders    []string `doc:"The names of the folders in it, in byte order: no link and no hidden folder" json:"folders"` //nolint:lll // one struct tag
-		Failure    string   `doc:"Why it could not be listed, in the node's words" json:"failure,omitempty"`
-		NextCursor string   `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
+		State   string   `enum:"readable,notAnswering,missing,failed" json:"state"`
+		Folders []string `doc:"The names of the folders in it, in byte order: no link and no hidden folder" json:"folders"` //nolint:lll // one struct tag
+		// VideoCounts covers this page's folders alone, so a page's answer stays its own.
+		VideoCounts map[string]int64 `doc:"How many videos each folder on this page holds, by its name, in it and in every folder below it, as a scan of it would read them; a folder the node did not count within its time budget is absent, never a part of its count (D539 §7)" json:"videoCounts,omitempty"` //nolint:lll // one struct tag
+		Failure     string           `doc:"Why it could not be listed, in the node's words" json:"failure,omitempty"`
+		NextCursor  string           `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -80,6 +82,14 @@ func (server *Server) getNodeFolders(ctx context.Context, input *NodeFoldersInpu
 	output := &NodeFoldersOutput{}
 	output.Body.Path, output.Body.State, output.Body.Failure = listing.Path, string(listing.State), listing.Failure
 	output.Body.Folders = foldersAfter(listing.Folders, string(after), input.Limit)
+	for _, folder := range output.Body.Folders {
+		if count, isCounted := listing.VideoCounts[folder]; isCounted {
+			if output.Body.VideoCounts == nil {
+				output.Body.VideoCounts = map[string]int64{}
+			}
+			output.Body.VideoCounts[folder] = count
+		}
+	}
 	output.Body.NextCursor = nextCursorOf(len(output.Body.Folders), input.Limit, func() string {
 		return library.EncodeCursor([]byte(output.Body.Folders[len(output.Body.Folders)-1]), 0)
 	})

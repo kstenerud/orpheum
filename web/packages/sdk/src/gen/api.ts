@@ -1066,7 +1066,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One folder of an other library: the folders in it, and its videos (D349) */
+        /** One folder of a library of any kind: the folders in it, and its videos (D349, D539) */
         get: operations["getLibraryFolder"];
         put?: never;
         post?: never;
@@ -3783,7 +3783,42 @@ export interface components {
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
             subfolders: components["schemas"]["SubfolderBody"][] | null;
+            /** @description An other library's videos in the folder, in the order asked for; empty for any other library */
             titles: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
+            /** @description The video files in the folder, in the order asked for: an other library's, each its title's at the same index in titles; any other library's, matched or not */
+            videos: components["schemas"]["FolderVideoBody"][] | null;
+        };
+        FolderVideoBody: {
+            /**
+             * Format: int64
+             * @description Its length, where its probe knows it
+             */
+            durationMs?: number;
+            /**
+             * Format: int64
+             * @description The file, as POST /playback takes it
+             */
+            fileId: number;
+            /** @description Its file's name */
+            name: string;
+            /**
+             * Format: int64
+             * @description Where the person's playback of it starts, as POST /playback's resumePositionMs says it, absent at its start
+             */
+            resumePositionMs?: number;
+            /** @description The title it is filed as; absent for none */
+            title?: components["schemas"]["FolderVideoTitleBody"];
+        };
+        FolderVideoTitleBody: {
+            /** Format: int64 */
+            id: number;
+            /** @description How it was identified: unidentified for a file whose match was not found */
+            identificationState: string;
+            /** @enum {string} */
+            kind: "film" | "episode" | "extra" | "other";
+            name: string;
+            /** Format: int64 */
+            year?: number;
         };
         GenreBody: {
             /** Format: int64 */
@@ -4671,6 +4706,10 @@ export interface components {
             path: string;
             /** @enum {string} */
             state: "readable" | "notAnswering" | "missing" | "failed";
+            /** @description How many videos each folder on this page holds, by its name, in it and in every folder below it, as a scan of it would read them; a folder the node did not count within its time budget is absent, never a part of its count (D539 §7) */
+            videoCounts?: {
+                [key: string]: number;
+            };
         };
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
