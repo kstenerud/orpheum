@@ -120,6 +120,13 @@
   opacity: 0.35;
 }
 
+/* Whether a key is set, its own line under its field (no placeholder, ui.md §14). */
+.settings__secret-state {
+  grid-column: 1 / -1;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
 .settings__problem {
   grid-column: 1 / -1;
   margin: 0;

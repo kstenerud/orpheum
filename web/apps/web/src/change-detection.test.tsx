@@ -51,7 +51,7 @@ it("saves how a library notices changes as it is chosen, an interval once it has
   expect(saved).toEqual([]);
   await fire(hours, new FocusEvent("focusout", { bubbles: true }));
   await settleAnswers();
-  expect(container.querySelector("output.save-note")?.textContent).toBe("Saved");
+  expect(container.querySelector("output.status-line--success")?.textContent).toBe("Saved");
   // Enter on the same hours sends nothing again.
   await submit(container.querySelector("form"));
   await choose(container.querySelector("select"), "watch");

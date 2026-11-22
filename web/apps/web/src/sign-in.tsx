@@ -8,7 +8,7 @@ import { ApiProblem } from "@orpheum/sdk";
 
 import { setupNeeded, signInThisDevice } from "./accounts.ts";
 import { CodeSignIn } from "./code-sign-in.tsx";
-import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm } from "./credentials-form.tsx";
 import { missingText, TextField, useFormFields } from "./field.tsx";
 import { PasswordField } from "./password-field.tsx";
 import { failedFields, fieldProblemText, signedOutText, type FormWords } from "./problem.ts";
@@ -17,6 +17,7 @@ import { SetUp } from "./set-up.tsx";
 import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** Why the last session ended, when the server ended it; nothing otherwise. */
 export function SessionEndedNotice(props: {
@@ -26,7 +27,11 @@ export function SessionEndedNotice(props: {
   if (props.reason === undefined) {
     return null;
   }
-  return <CredentialsProblem isAlert={false}>{signedOutText(t, props.reason)}</CredentialsProblem>;
+  return (
+    <StatusNote
+      told={{ kind: "problem", text: signedOutText(t, props.reason), isFromBefore: true }}
+    />
+  );
 }
 
 /**
@@ -94,9 +99,7 @@ export function SignInForm(props: {
         autoComplete="current-password"
       />
       {props.problem === undefined ? null : (
-        <CredentialsProblem isAlert id={fields.problemId}>
-          {props.problem}
-        </CredentialsProblem>
+        <StatusNote told={{ kind: "problem", text: props.problem, id: fields.problemId }} />
       )}
       <SubmitButton label={t("signIn.submit")} isBusy={props.isSending} />
       <button type="button" onClick={props.onUseCode}>

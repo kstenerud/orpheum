@@ -261,7 +261,9 @@ it("shows a person's five latest devices with All devices, their actions in a ro
   expect(
     heard.filter((each) => each.methodAndPath === "PUT /users/5").map((each) => each.body),
   ).toEqual([{ name: "Daniel" }]);
-  expect(name?.closest("form")?.querySelector("output.save-note")?.textContent).toBe("Saved");
+  expect(name?.closest("form")?.querySelector("output.status-line--success")?.textContent).toBe(
+    "Saved",
+  );
   const note = fieldLabelled(page, "Who it is for");
   await enter(note, "my brother");
   await submit(note?.closest("form"));

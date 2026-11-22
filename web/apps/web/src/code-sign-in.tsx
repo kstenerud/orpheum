@@ -16,11 +16,12 @@ import {
   type PairingState,
 } from "./pairing.ts";
 import { tabStorage } from "./browser-storage.ts";
-import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm } from "./credentials-form.tsx";
 import { backingOffPoller, type Poller } from "./polling.ts";
 import { problemText } from "./problem.ts";
 import { useServices, type Services } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * How often a device showing its code asks how its pairing stands: every 2 s, with no backing off,
@@ -97,7 +98,7 @@ export function CodeSignIn(props: {
     <CredentialsForm heading={t("codeSignIn.heading")} onSubmit={props.onBack}>
       {shown.state === "loaded" ? <PairingView shown={shown.value} /> : null}
       {shown.state === "failed" ? (
-        <CredentialsProblem isAlert>{problemText(t, shown.cause)}</CredentialsProblem>
+        <StatusNote told={{ kind: "problem", text: problemText(t, shown.cause) }} />
       ) : null}
       <button type="submit">{t("codeSignIn.back")}</button>
     </CredentialsForm>

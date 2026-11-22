@@ -5,7 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { linkKind, register, secretFromHash, type LinkKind } from "./accounts.ts";
-import { CredentialsForm, CredentialsNotice, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm, CredentialsNotice } from "./credentials-form.tsx";
 import { missingText, TextField, useFormFields, type FieldState } from "./field.tsx";
 import { PasswordField } from "./password-field.tsx";
 import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
@@ -14,6 +14,7 @@ import { useServices } from "./services.tsx";
 import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource, type Resource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Registration from a one-time link: an invitation, from which the person chooses their own name
@@ -105,9 +106,9 @@ function RegisterForm(props: {
         onChange={fields.editing("body.password", setPassword)}
       />
       {registration.refusalText === undefined ? null : (
-        <CredentialsProblem isAlert id={fields.problemId}>
-          {registration.refusalText}
-        </CredentialsProblem>
+        <StatusNote
+          told={{ kind: "problem", text: registration.refusalText, id: fields.problemId }}
+        />
       )}
       <SubmitButton label={t("register.submit")} isBusy={registration.isBusy} />
     </CredentialsForm>

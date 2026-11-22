@@ -7,7 +7,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { completeSetup, signInThisDevice } from "./accounts.ts";
-import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm } from "./credentials-form.tsx";
 import {
   missingText,
   TextField,
@@ -21,6 +21,7 @@ import { setupCodeFromFragment } from "./set-up-link.ts";
 import { useServices } from "./services.tsx";
 import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Setting up a server no one can sign in to yet: the one-time setup code it printed, and the first
@@ -68,9 +69,9 @@ export function SetUp(props: {
   };
   return (
     <CredentialsForm heading={t("setUp.heading")} onSubmit={submit}>
-      <CredentialsProblem isAlert={false}>
-        {linkedCode === undefined ? t("setUp.explain") : t("setUp.explainLinked")}
-      </CredentialsProblem>
+      <p>
+        <output>{linkedCode === undefined ? t("setUp.explain") : t("setUp.explainLinked")}</output>
+      </p>
       <CodeAndAdmin
         setupCode={field("setupCode", setupCode, setSetupCode)}
         name={field("name", name, setName)}
@@ -80,9 +81,7 @@ export function SetUp(props: {
         <AddressAtHomeField {...field("addressAtHome", addressAtHome, setAddressAtHome)} />
       ) : null}
       {problem === undefined ? null : (
-        <CredentialsProblem isAlert id={fields.problemId}>
-          {problem}
-        </CredentialsProblem>
+        <StatusNote told={{ kind: "problem", text: problem, id: fields.problemId }} />
       )}
       <SubmitButton label={t("setUp.submit")} isBusy={isBusy} />
       <button type="button" onClick={props.onBack}>

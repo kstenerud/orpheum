@@ -13,7 +13,6 @@ import { ConfirmDialog } from "./confirm-button.tsx";
 import { ResetIcon } from "./icons.tsx";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
-import { SaveNote, shownSaveState } from "./save-note.tsx";
 import {
   AboutButton,
   isFound,
@@ -27,6 +26,7 @@ import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { UpdateSettings } from "./update-page.tsx";
 import { useResource } from "./use-resource.ts";
+import { shownSaveTold, StatusNote } from "./status-note.tsx";
 
 /** A key or password, as the server shows it: never its value (D194). */
 export type Secret = components["schemas"]["SecretBody"];
@@ -114,9 +114,10 @@ function RemoveQuestion(props: {
  */
 function SecretControls(props: {
   readonly secret: Secret;
-  readonly onAsk: () => void;
+  readonly onRemove: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const [isAsking, setIsAsking] = useState(false);
   const { name, isSet } = props.secret;
   const remove = t("settings.removeSecret", { key: name });
   return (
@@ -128,20 +129,33 @@ function SecretControls(props: {
         disabled={!isSet}
         aria-label={remove}
         data-tip={isSet ? t("settings.tipRemove") : t("settings.tipNotSet")}
-        onClick={props.onAsk}
+        onClick={() => {
+          setIsAsking(true);
+        }}
       >
         <ResetIcon />
       </button>
+      {isAsking ? (
+        <RemoveQuestion
+          name={name}
+          onRemove={props.onRemove}
+          onKeep={() => {
+            setIsAsking(false);
+          }}
+        />
+      ) : null}
     </span>
   );
 }
 
 /**
- * What a secret's row says below it: why it must be entered again, and how its last change went:
- * "Saved", or why it was refused.
+ * What a secret's row says below its field: whether one is set, on its own line, never in the field
+ * (ui.md §14: no placeholder), which describes the field; why it must be entered again; and how its
+ * last change went: "Saved", or why it was refused.
  */
 function SecretNotes(props: {
-  readonly needsReentry: boolean;
+  readonly secret: Secret;
+  readonly fieldId: string;
   /** Why the server refused the secret's last change; "" when it did not. */
   readonly problem: string;
   readonly isSaved: boolean;
@@ -149,21 +163,23 @@ function SecretNotes(props: {
   const { t } = useTranslation();
   return (
     <>
-      {props.needsReentry ? (
+      <span id={`${props.fieldId}-state`} className="settings__secret-state">
+        {secretState(t, props.secret)}
+      </span>
+      {props.secret.needsReentry ? (
         <p className="settings__problem" role="alert">
           {t("settings.secretReentry")}
         </p>
       ) : null}
-      <SaveNote state={shownSaveState(props.problem, props.isSaved)} />
+      <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
     </>
   );
 }
 
-/** A secret's field: what is typed, never what is set, which its placeholder says is. */
+/** A secret's field: what is typed, never what is set, which the line under it says is. */
 function SecretField(props: {
   readonly id: string;
   readonly name: string;
-  readonly placeholder: string;
   readonly text: string;
   readonly onText: (text: string) => void;
   readonly onCommit: () => void;
@@ -175,38 +191,13 @@ function SecretField(props: {
       type="password"
       autoComplete="off"
       aria-labelledby={`secret-${props.name}`}
-      placeholder={props.placeholder}
+      aria-describedby={`${props.id}-state`}
       value={props.text}
       onChange={(event) => {
         props.onText(event.target.value);
       }}
       onBlur={props.onCommit}
     />
-  );
-}
-
-/** A secret's field and its controls, side by side in the row. */
-function SecretInput(props: {
-  readonly id: string;
-  readonly secret: Secret;
-  readonly text: string;
-  readonly onText: (text: string) => void;
-  readonly onCommit: () => void;
-  readonly onAsk: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <span className="settings__field">
-      <SecretField
-        id={props.id}
-        name={props.secret.name}
-        placeholder={secretState(t, props.secret)}
-        text={props.text}
-        onText={props.onText}
-        onCommit={props.onCommit}
-      />
-      <SecretControls secret={props.secret} onAsk={props.onAsk} />
-    </span>
   );
 }
 
@@ -226,7 +217,6 @@ const SecretRow = memo(function SecretRow(props: {
   const { t } = useTranslation();
   const { secret } = props;
   const { text, setText, commit } = useSecretField(secret.name, props.onSave);
-  const [isAsking, setIsAsking] = useState(false);
   const fieldId = `secret-field-${secret.name}`;
   return (
     <form
@@ -243,32 +233,27 @@ const SecretRow = memo(function SecretRow(props: {
         label={settingLabel(t, "secretLabels", secret.name)}
         settingKey={secret.name}
       />
-      <SecretInput
-        id={fieldId}
-        secret={secret}
-        text={text}
-        onText={setText}
-        onCommit={commit}
-        onAsk={() => {
-          setIsAsking(true);
-        }}
-      />
-      <SecretNotes
-        needsReentry={secret.needsReentry}
-        problem={props.problem}
-        isSaved={props.isSaved}
-      />
-      {isAsking ? (
-        <RemoveQuestion
+      <span className="settings__field">
+        <SecretField
+          id={fieldId}
           name={secret.name}
+          text={text}
+          onText={setText}
+          onCommit={commit}
+        />
+        <SecretControls
+          secret={secret}
           onRemove={() => {
             props.onRemove(secret.name);
           }}
-          onKeep={() => {
-            setIsAsking(false);
-          }}
         />
-      ) : null}
+      </span>
+      <SecretNotes
+        secret={secret}
+        fieldId={fieldId}
+        problem={props.problem}
+        isSaved={props.isSaved}
+      />
     </form>
   );
 });

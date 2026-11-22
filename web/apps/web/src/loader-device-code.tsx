@@ -30,10 +30,11 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import "./code-sign-in.css";
-import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm } from "./credentials-form.tsx";
 import { thisDevice } from "./device.ts";
 import { handOffFragment } from "./discovery-start.ts";
 import { QrCode } from "./qr-code.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /** How often the page asks how its code stands: the person is entering it now, so every 2 s. */
 const pollMs = 2000;
@@ -270,7 +271,7 @@ function CodeView(props: { readonly shown: Shown }): JSX.Element | null {
     case "asking":
       return null;
     case "failed":
-      return <CredentialsProblem isAlert>{t("loader.code.failed")}</CredentialsProblem>;
+      return <StatusNote told={{ kind: "problem", text: t("loader.code.failed") }} />;
     case "signingIn":
       return <p>{t("loader.code.signingIn")}</p>;
     case "refused":

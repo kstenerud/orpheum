@@ -387,7 +387,7 @@ it("gives a person another role from their page", async () => {
   expect(heard.find((each) => each.methodAndPath === "PUT /users/5/role")?.body).toEqual({
     role: "friends",
   });
-  expect(choice?.closest(".form-row")?.querySelector("output.save-note")?.textContent).toBe(
-    "Saved",
-  );
+  expect(
+    choice?.closest(".form-row")?.querySelector("output.status-line--success")?.textContent,
+  ).toBe("Saved");
 });

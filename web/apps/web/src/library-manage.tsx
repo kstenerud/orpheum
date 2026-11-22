@@ -26,13 +26,13 @@ import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { RepointDialog, type Place } from "./repoint-root.tsx";
 import { discardQuery, RescanQuestion } from "./rescan-action.tsx";
 import { RootWarning } from "./root-warning.tsx";
-import { SaveNote, useSaveState, type SaveState } from "./save-note.tsx";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote, useSaveState, type SaveTold } from "./status-note.tsx";
 
 type Root = components["schemas"]["RootBody"];
 
@@ -283,7 +283,7 @@ export function ChangeDetectionChoice(props: {
   const { library } = props;
   const [detection, setDetection] = useState(library.changeDetection);
   const [hours, setHours] = useState<number | undefined>(library.checkEveryHours);
-  const { state, send } = useSentOnce(library, props.onSave);
+  const { told, send } = useSentOnce(library, props.onSave);
   const isInterval = detection === "interval";
   const withHours = (chosen: Library["changeDetection"]): ChangeDetection =>
     chosen === "interval" && hours !== undefined
@@ -330,7 +330,7 @@ export function ChangeDetectionChoice(props: {
           />
         </label>
       ) : null}{" "}
-      <SaveNote state={state} />
+      <StatusNote told={told} />
     </form>
   );
 }
@@ -342,8 +342,8 @@ export function ChangeDetectionChoice(props: {
 function useSentOnce(
   library: Library,
   onSave: (choice: ChangeDetection) => Promise<void>,
-): { readonly state: SaveState; readonly send: (choice: ChangeDetection) => void } {
-  const { state, save } = useSaveState();
+): { readonly told: SaveTold; readonly send: (choice: ChangeDetection) => void } {
+  const { told, save } = useSaveState();
   const [sent, setSent] = useState(() => choiceKey(library));
   const send = (choice: ChangeDetection): void => {
     if (choice.changeDetection === "interval" && choice.checkEveryHours === undefined) {
@@ -361,7 +361,7 @@ function useSentOnce(
       }
     });
   };
-  return { state, send };
+  return { told, send };
 }
 
 /** A way of noticing changes as one string, to tell whether it is the one last sent. */

@@ -92,10 +92,19 @@ describe("settings", () => {
       ),
     );
     expect(markup).toContain("Set, ending in a1b2");
+    // Whether a key is set is a line of its own that describes its field, never a placeholder.
+    expect(markup).not.toContain("placeholder=");
+    expect(markup).toMatch(
+      /<input id="secret-field-tmdbApiKey"[^>]*aria-describedby="secret-field-tmdbApiKey-state"/u,
+    );
+    expect(markup).toContain(
+      '<span id="secret-field-tmdbApiKey-state" class="settings__secret-state">Set, ending in a1b2</span>',
+    );
     expect(markup).toContain("Not set");
     expect(markup).toContain("Must be entered again");
     expect(markup).toContain('type="password"');
-    expect(markup).toContain('role="alert">Refused.</p>');
+    expect(markup).toContain('role="alert">');
+    expect(markup).toContain('<span class="status-line__words">Refused.</span>');
     // Only a secret that is set has a bin to press.
     expect(markup).toMatch(/<button[^>]*aria-label="Remove tmdbApiKey"/u);
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*aria-label="Remove tmdbApiKey"/u);
@@ -361,7 +370,7 @@ describe("settings", () => {
     await enter(field, "debug");
     await submit(row);
     await settleAnswers();
-    expect(row.querySelector("output.save-note")?.textContent).toBe("Saved");
+    expect(row.querySelector("output.status-line--success")?.textContent).toBe("Saved");
   });
 
   it("says the server's and its media machines' log level can be changed at once (D347, D525)", async () => {

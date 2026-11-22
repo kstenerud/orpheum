@@ -25,7 +25,8 @@ type Banned = keyof typeof banned;
  * The sites there were when the rule came (the owner, 2026-11-22), by file and how many: each is
  * moved onto its part by batch 2 of the revamp and taken off this list, which then shrinks. A new
  * site, or one more in a file listed, fails; a site gone and still listed fails too, so the list
- * says what is left. A search box's placeholder (listing-tools.tsx) is the one the rule keeps.
+ * says what is left. A search box's placeholder (listing-tools.tsx, server-settings.tsx) is the one the
+ * rule keeps.
  */
 const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   nativeSelect: {
@@ -55,7 +56,6 @@ const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
     "listing-tools.tsx": 1,
     "people-dialogs.tsx": 1,
     "server-settings.tsx": 1,
-    "settings.tsx": 2,
     "together-people.tsx": 1,
   },
   alertParagraph: {

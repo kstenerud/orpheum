@@ -6,10 +6,11 @@ import { useTranslation } from "react-i18next";
 
 import { installGuideOnGitHub } from "./agent-help.ts";
 import { Checkbox } from "./checkbox.tsx";
-import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm } from "./credentials-form.tsx";
 import { missingText, TextField, useFormFields, type FieldProblem } from "./field.tsx";
 import { PasswordField } from "./password-field.tsx";
 import { SubmitButton } from "./submit-button.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /** What a person typed to sign in by realm, and whether this device keeps the realm (D297 §5). */
 /**
@@ -104,7 +105,7 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
         onChange={setIsRemembered}
       />
       {props.problem === undefined ? null : (
-        <CredentialsProblem isAlert>{t(`discovery.realm.${props.problem}`)}</CredentialsProblem>
+        <StatusNote told={{ kind: "problem", text: t(`discovery.realm.${props.problem}`) }} />
       )}
       <SubmitButton label={t("discovery.realm.submit")} isBusy={props.isSending} />
       <OtherWays onUseCode={props.onUseCode} accountOrigin={props.accountOrigin} />

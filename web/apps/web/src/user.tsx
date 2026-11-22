@@ -42,10 +42,10 @@ import {
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
-import { SaveNote, useSaveState } from "./save-note.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { RecentDevices } from "./your-devices.tsx";
+import { StatusNote, useSaveState } from "./status-note.tsx";
 
 /**
  * One person, for the admin: their name, which can be changed; a reset password link, one at a
@@ -151,7 +151,7 @@ function usePersonActions(
       reloads.reloadUser();
     });
   };
-  // A setting saved at once: its field says how it went (SaveNote), and the page is read again.
+  // A setting saved at once: its field says how it went (StatusNote), and the page is read again.
   const saved = async (request: Promise<void>): Promise<void> => {
     await request;
     reloads.reloadUser();
@@ -371,7 +371,7 @@ function RoleChoice(props: {
     })),
   });
   const [role, setRole] = useState(props.current);
-  const { state, save } = useSaveState();
+  const { told, save } = useSaveState();
   const names =
     roles.state === "loaded" ? roles.value.roles.map((each) => each.name) : [props.current];
   return (
@@ -393,7 +393,7 @@ function RoleChoice(props: {
           ))}
         </select>
       </label>
-      <SaveNote state={state} />
+      <StatusNote told={told} />
       <NoLibraryNote
         roles={roles.state === "loaded" ? roles.value.roles : undefined}
         roleName={role}
@@ -416,7 +416,7 @@ function SavedField(props: {
 }): JSX.Element {
   const [value, setValue] = useState(props.initialValue);
   const [sent, setSent] = useState<string | undefined>(props.initialValue);
-  const { state, save } = useSaveState();
+  const { told, save } = useSaveState();
   const send = (): void => {
     if (value === sent || (props.isOptional !== true && value.trim() === "")) {
       return;
@@ -442,7 +442,7 @@ function SavedField(props: {
           onBlur={send}
         />
       </label>
-      <SaveNote state={state} />
+      <StatusNote told={told} />
     </FormRow>
   );
 }

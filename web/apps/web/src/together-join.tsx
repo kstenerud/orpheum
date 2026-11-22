@@ -3,7 +3,7 @@
 import { useEffect, useState, type Dispatch, type JSX, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 
-import { CredentialsForm, CredentialsNotice, CredentialsProblem } from "./credentials-form.tsx";
+import { CredentialsForm, CredentialsNotice } from "./credentials-form.tsx";
 import { missingText, TextField, useFormFields, type FormFields } from "./field.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import {
@@ -18,6 +18,7 @@ import { useMe } from "./signed-in-me.ts";
 import { SubmitButton } from "./submit-button.tsx";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** An address with no link in it, and no session this tab is in: only what to do instead. */
 export function NoLink(): JSX.Element {
@@ -106,9 +107,7 @@ export function JoinForm(props: {
       <p>{t("together.joinExplain")}</p>
       <JoinNameField name={name} setTypedName={setTypedName} fields={fields} />
       {problem === undefined ? null : (
-        <CredentialsProblem isAlert id={fields.problemId}>
-          {problem}
-        </CredentialsProblem>
+        <StatusNote told={{ kind: "problem", text: problem, id: fields.problemId }} />
       )}
       {other === undefined ? (
         <SubmitButton label={t("together.join")} isBusy={isBusy} />
@@ -193,11 +192,14 @@ function LeaveOtherToJoin(props: {
   const { other } = props;
   return (
     <>
-      <CredentialsProblem isAlert>
-        {other.isHost
-          ? t("together.leaveOwnToJoin")
-          : t("together.leaveOtherToJoin", { host: other.hostName })}
-      </CredentialsProblem>
+      <StatusNote
+        told={{
+          kind: "problem",
+          text: other.isHost
+            ? t("together.leaveOwnToJoin")
+            : t("together.leaveOtherToJoin", { host: other.hostName }),
+        }}
+      />
       <SubmitButton label={t("together.leaveAndJoin")} isBusy={props.isBusy} />
       <button type="button" disabled={props.isBusy} onClick={props.onStay}>
         {t("together.stayInOther")}

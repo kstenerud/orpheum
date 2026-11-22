@@ -59,24 +59,3 @@ export function CredentialsNotice(props: {
     </main>
   );
 }
-
-/**
- * What went wrong, where the person is looking: an alert for what they just did, or a quiet
- * notice for what happened before they arrived (a session the server ended). id, where given, is
- * the one the fields it is about are described by (field.tsx's useFormFields).
- */
-export function CredentialsProblem(props: {
-  readonly isAlert: boolean;
-  readonly id?: string;
-  readonly children: ReactNode;
-}): JSX.Element {
-  return props.isAlert ? (
-    <p className="credentials-form__problem" role="alert" id={props.id}>
-      {props.children}
-    </p>
-  ) : (
-    <output className="credentials-form__problem" id={props.id}>
-      {props.children}
-    </output>
-  );
-}

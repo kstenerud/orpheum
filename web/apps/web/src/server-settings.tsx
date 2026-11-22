@@ -14,10 +14,10 @@ import { AboutIcon, ResetIcon } from "./icons.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
-import { SaveNote, shownSaveState } from "./save-note.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
+import { shownSaveTold, StatusNote } from "./status-note.tsx";
 
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
@@ -397,7 +397,7 @@ const SettingRow = memo(function SettingRow(props: {
         <ValueField id={fieldId} setting={setting} text={text} onText={setText} onCommit={commit} />
         <RowControls setting={setting} isResetting={props.isResetting} onReset={props.onReset} />
       </span>
-      <SaveNote state={shownSaveState(props.problem, props.isSaved)} />
+      <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
     </form>
   );
 });
