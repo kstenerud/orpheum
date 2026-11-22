@@ -29,6 +29,9 @@ type UserEntryBody struct {
 	// AdminNote is the admin's note of who the person is for, which only the admin sees (D246 §2).
 	AdminNote   string `json:"adminNote,omitempty"`
 	HasPassword bool   `doc:"False for an account from before D246 that never registered" json:"hasPassword"`
+	// LastWatchedAt is when they last watched, as their page's watchStats says (D306 §8); absent
+	// also in the answer to making an account, which does not read it.
+	LastWatchedAt int64 `doc:"When they last watched, in Unix milliseconds; absent when they never have" json:"lastWatchedAt,omitempty"` //nolint:lll // one struct tag
 }
 
 // IssuedSecretBody is a registration invitation's secret, and when it stops working.
@@ -215,7 +218,15 @@ func (server *Server) listUsers(ctx context.Context, input *UsersInput) (*UsersO
 	})
 	output.Body.Users = make([]UserEntryBody, 0, len(accounts))
 	for _, account := range accounts {
-		output.Body.Users = append(output.Body.Users, userEntryBody(account))
+		entry := userEntryBody(account)
+		stats, statsErr := dependencies.Playback.WatchStatsOf(ctx, account.ID)
+		if statsErr != nil {
+			return nil, server.playbackError(ctx, "read a person's watching", statsErr)
+		}
+		if !stats.LastWatchedAt.IsZero() {
+			entry.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
+		}
+		output.Body.Users = append(output.Body.Users, entry)
 	}
 	output.Body.Sections = withSections(ctx, server, input.IsSections, func() (*UsersSectionsBody, error) {
 		return server.usersSections(ctx, dependencies)
@@ -395,6 +406,7 @@ func (server *Server) getUser(ctx context.Context, input *UserPageInput) (*UserP
 	output.Body.WatchStats = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatchedCount: stats.TitlesWatched}
 	if !stats.LastWatchedAt.IsZero() {
 		output.Body.WatchStats.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
+		output.Body.User.LastWatchedAt = output.Body.WatchStats.LastWatchedAt
 	}
 	own, hasOwnLink, err := dependencies.Auth.OwnLink(ctx, input.UserID)
 	if err != nil {

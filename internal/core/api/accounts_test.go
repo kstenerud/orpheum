@@ -519,6 +519,40 @@ func TestPeople_ARemovedPersonsWatchingOfDeletedFilesGoesWithThem(t *testing.T) 
 	}
 }
 
+// The people list says when each person last watched, as their page does, and nothing for one who
+// never has (D538 §12, D306 §8).
+func TestPeople_TheListSaysWhenEachLastWatched(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 20, TitleID: 10})
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
+		 VALUES (2, 20, 1, 600000, 1700000000000)`)
+	listed := harness.do(t, http.MethodGet, "/users?limit=500", admin, nil)
+	var users api.UsersOutput
+	if err := json.Unmarshal([]byte(listed.body), &users.Body); err != nil || listed.status != http.StatusOK {
+		t.Fatalf("GET /users?limit=500 = %d %s", listed.status, listed.body)
+	}
+	lastWatched := map[string]int64{}
+	for _, user := range users.Body.Users {
+		lastWatched[user.Name] = user.LastWatchedAt
+	}
+	if lastWatched["partner"] != 1_700_000_000_000 || lastWatched["owner"] != 0 {
+		t.Errorf("GET /users says each last watched at %v; want partner at 1700000000000, the owner never", lastWatched)
+	}
+	if strings.Contains(listed.body, `"lastWatchedAt":0`) {
+		t.Errorf("GET /users = %s; want no lastWatchedAt for one who never watched", listed.body)
+	}
+	if page := harness.do(t, http.MethodGet, "/users/2", admin, nil); !strings.Contains(page.body,
+		`"hasPassword":true,"lastWatchedAt":1700000000000`) {
+		t.Errorf("GET /users/2 = %s; want the person's entry to say when they last watched", page.body)
+	}
+}
+
 // DELETE /session signs out on the device itself, which leaves the person's devices (D320 §1).
 func TestSignOut_TheDeviceSignedOutOnLeavesThePersonsDevices(t *testing.T) {
 	t.Parallel()

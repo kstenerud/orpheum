@@ -10515,6 +10515,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "lastWatchedAt": {
+            "description": "When they last watched, in Unix milliseconds; absent when they never have",
+            "format": "int64",
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },

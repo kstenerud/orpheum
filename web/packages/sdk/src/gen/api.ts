@@ -6524,6 +6524,11 @@ export interface components {
             hasPassword: boolean;
             /** Format: int64 */
             id: number;
+            /**
+             * Format: int64
+             * @description When they last watched, in Unix milliseconds; absent when they never have
+             */
+            lastWatchedAt?: number;
             name: string;
             /** @description The role's name, their whole access */
             role: string;
