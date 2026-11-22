@@ -2,28 +2,14 @@
 
 package library
 
-// The extensions a scan reads are the code's, not settings (D360, amending D240 §8): which
-// containers FFmpeg reads is no admin's judgement, and a stored list kept a container added later
-// from reaching an install that had one. An extension is lower case and without the dot.
+import "github.com/kstenerud/orpheum/internal/platform/videofile"
 
-// videoExtensions are the extensions of the files a scan reads as videos: the containers people keep
-// films in, Matroska and MP4 first, the broadcast and disc formats, and the older ones still found
-// in libraries, RealMedia among them (the owner, 2026-10-27). A file with another extension is never
-// probed, so a missing one hides films; one also used by files that are no video costs a probe of
-// each. Those D360 added are each proven listed, probed, decided and their first chunk made by the
-// integration tier's TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade.
-func videoExtensions() map[string]bool {
-	return setOf(
-		"mkv", "mp4", "m4v", "avi", "divx", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob",
-		"flv", "ogv", "3gp",
-		"rm", "rmvb", // RealMedia
-		"asf", "dvr-ms", "wtv", // Windows Media and Media Center's recordings
-		"ogm", "mxf", "dv", "nut", "ivf", "y4m", "xvid",
-		"f4v", "3g2", "qt", "mk3d", // MP4's and Matroska's relatives
-		"mpe", "m2p", "vro", "evo", // MPEG's program streams, DVD-VR's and HD DVD's
-		"trp", "tp", "m2t", "tod", // transport streams: broadcast recordings and camcorders
-	)
-}
+// The extensions a scan reads are the code's, not settings (D360, amending D240 §8); videofile says
+// why. An extension is lower case and without the dot.
+
+// videoExtensions are the extensions of the files a scan reads as videos: videofile's, the one list
+// the node's folder listing counts a folder's videos by too (D539 §7).
+func videoExtensions() map[string]bool { return videofile.Extensions() }
 
 // subtitleExtensions are the extensions of the text subtitle files a scan reads beside their videos:
 // the formats the node converts to ASS and WebVTT (D217 §6), SubRip, ASS and SSA, and WebVTT. Image

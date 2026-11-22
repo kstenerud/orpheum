@@ -32,6 +32,8 @@
 //     TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt.
 //     The extensions it reads as videos and as subtitles are the code's, not settings, whatever a
 //     stored row of the retired settings says (D360). TestReadRules_ReadTheOlderContainersByDefault.
+//     Which names are videos, and which folders are skipped, is internal/platform/videofile's, which
+//     the node's count of a folder's videos shares (D539 §7): TestKindOf_ReadsAsAVideoWhatVideofileCallsOne.
 //
 //   - A file whose size and modified time are as stored, and which was read whole, is seen and not
 //     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. A video listed at a

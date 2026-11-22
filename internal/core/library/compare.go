@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/videofile"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -337,43 +338,27 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 // where an export keeps the files it replaced (D144), a release's sample/ (D162), a folder a NAS
 // keeps for itself, or a disc's folder (D306 §5).
 func directoryRule(relative string) (nodeproto.SkipRule, bool) {
+	name := path.Base(relative)
 	switch {
-	case relative == ".trash":
+	case videofile.IsTrash(relative):
 		return nodeproto.SkipTrash, true
-	case strings.EqualFold(path.Base(relative), "sample"):
+	case videofile.IsSampleFolder(name):
 		return nodeproto.SkipSample, true
-	case isSystemFolder(path.Base(relative)):
+	case videofile.IsSystemFolder(name):
 		return nodeproto.SkipSystem, true
-	case strings.EqualFold(path.Base(relative), "VIDEO_TS") || strings.EqualFold(path.Base(relative), "BDMV"):
+	case videofile.IsDiscFolder(name):
 		return nodeproto.SkipDiscFolder, true
 	}
 	return "", false
 }
 
-// isSystemFolder is a folder, by its name, that a NAS or an operating system keeps for itself at
-// any depth: Synology's, QNAP's, ZFS's and NetApp's snapshots, Windows' and macOS's bins and
-// indexes, and a filesystem's lost+found. Jellyfin, Kodi and Plex's scanners skip the same.
-func isSystemFolder(name string) bool {
-	switch strings.ToLower(name) {
-	case "@eadir", "#recycle", "@recycle", "#snapshot", "@recently-snapshot", ".@__thumb", ".snapshot", ".snapshots",
-		".zfs", "$recycle.bin", "system volume information", "lost+found", ".trashes", ".spotlight-v100", ".fseventsd",
-		".appledouble", ".temporaryitems", ".documentrevisions-v100":
-		return true
-	}
-	return false
-}
-
-// discImageExtension is a DVD's or a Blu-ray's image, read as a video whatever the video extensions
-// say: its node serves its main title (D350).
-const discImageExtension = "iso"
-
 // kindOf is how a file named name is read: as a video, an NFO or a subtitle; "" and no rule for an
 // image beside the media, which is not read until it is needed (D215); or the rule that skips it.
 func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.SkipRule) {
-	if strings.HasPrefix(name, "._") {
+	if videofile.IsAppleDouble(name) {
 		return "", nodeproto.SkipAppleDouble
 	}
-	extension := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
+	extension := videofile.ExtensionOf(name)
 	switch {
 	case extension == "nfo":
 		return nodeproto.ExamineNFO, ""
@@ -381,9 +366,9 @@ func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.Ski
 		return nodeproto.ExamineSubtitle, ""
 	case isImage(extension):
 		return "", ""
-	case !rules.VideoExtensions[extension] && extension != discImageExtension:
+	case !rules.VideoExtensions[extension] && extension != videofile.DiscImageExtension:
 		return "", nodeproto.SkipExtension
-	case isSampleFile(name):
+	case videofile.IsSample(name):
 		return "", nodeproto.SkipSample
 	}
 	return nodeproto.ExamineVideo, ""
@@ -425,10 +410,4 @@ func isImage(extension string) bool {
 		return true
 	}
 	return false
-}
-
-// isSampleFile is sample.mkv, x.sample.mkv or x-sample.mkv, in any case (D162).
-func isSampleFile(name string) bool {
-	stem := strings.ToLower(strings.TrimSuffix(name, path.Ext(name)))
-	return stem == "sample" || strings.HasSuffix(stem, ".sample") || strings.HasSuffix(stem, "-sample")
 }
