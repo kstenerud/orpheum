@@ -30731,6 +30731,10 @@ D357 §1's limit of a rescan to a film or a series.
    misidentified when it was searched for) is only undone so; a library's or everything's keeps
    them, each download counting against the provider's quota, and only converts each again from its
    kept download. Repeat fingerprints and fetch failures, made by the app, go under every discard.
+   Why the page's rescan is the one that reaches furthest (the owner: "By now we can trust that our
+   detection code is at least 90% correct. The per-file rescan is the escape hatch for that last 10%
+   that we'll encounter going forward"): a library's rescan corrects what a change to the code
+   touches across many files; a page's is for the one the code still gets wrong.
 
 **Built** (2026-11-22): 1–5. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
