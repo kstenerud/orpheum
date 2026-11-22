@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -74,11 +75,15 @@ type JobsInput struct {
 }
 
 // JobsOutput is a page of the job view: the newest jobs first, the pages ending at the newest
-// jobViewMaxJobs.
+// jobViewMaxJobs; and how many jobs failed lately, for the Jobs page's Needs you (D538 §12).
 type JobsOutput struct {
 	Body struct {
 		Jobs       []JobBody `json:"jobs"`
 		NextCursor string    `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
+		// FailedCount is how many jobs of every kind failed in the last FailedWindowHours, the job
+		// health window (jobHealthWindowHours) the System page's queue counts within too (D233 §8).
+		FailedCount       int64 `doc:"How many jobs failed in the last failedWindowHours" json:"failedCount"`
+		FailedWindowHours int64 `doc:"The hours failedCount looks back: the setting jobHealthWindowHours" json:"failedWindowHours"` //nolint:lll // one struct tag
 	}
 }
 
@@ -128,6 +133,9 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 	limit := min(input.Limit, maxJobs-listedBefore)
 	output := &JobsOutput{}
 	output.Body.Jobs = []JobBody{}
+	if countErr := server.countFailedJobs(ctx, dependencies, output); countErr != nil {
+		return nil, countErr
+	}
 	if limit < 1 {
 		return output, nil
 	}
@@ -161,6 +169,23 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 		output.Body.Jobs = append(output.Body.Jobs, body)
 	}
 	return output, nil
+}
+
+// countFailedJobs puts into output how many jobs failed within the job health window, and the window.
+func (server *Server) countFailedJobs(ctx context.Context, dependencies *Dependencies, output *JobsOutput) error {
+	window, err := dependencies.Settings.Duration(ctx, settings.JobHealthWindowHours)
+	if err != nil {
+		return server.settingsError(ctx, "read jobHealthWindowHours", err)
+	}
+	health, err := dependencies.Jobs.Health(ctx)
+	if err != nil {
+		return server.logInternalError(ctx, "read the queue's health", err)
+	}
+	for _, kind := range health {
+		output.Body.FailedCount += kind.FailedCount
+	}
+	output.Body.FailedWindowHours = int64(window / time.Hour)
+	return nil
 }
 
 func (server *Server) cancelJob(ctx context.Context, input *JobInput) (*struct{}, error) {

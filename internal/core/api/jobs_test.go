@@ -5,6 +5,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -276,5 +278,46 @@ func TestJobs_ASeasonsComparisonNamesItsSeason(t *testing.T) {
 	if found := newestOf(t, harness.listedJobs(t, admin), jobs.KindFindRepeats); found.GroupID != 12 ||
 		found.FileID != 0 {
 		t.Errorf("the season's comparison shows %+v, want season group 12", found)
+	}
+}
+
+// The Jobs page's Needs you reads with its jobs how many failed within the job health window, the
+// System page's (D538 §12, D233 §8): two failed two hours ago count in a day's window, not an hour's.
+func TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	for fileID := range int64(2) {
+		if _, err := harness.queue.Enqueue(t.Context(), jobs.Request{
+			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: fileID + 1}, Reason: "test",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	failing := harness.queue.NewRunner(jobs.KindReadThrough, func(context.Context, jobs.Job) error {
+		return jobs.MarkPermanent(errors.New("the file is unreadable"))
+	})
+	for range 2 {
+		if err := failing.RunDue(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	harness.clock.Advance(2 * time.Hour)
+	listed := func() api.JobsOutput {
+		answer := harness.do(t, http.MethodGet, "/jobs?limit=1", admin, nil)
+		var output api.JobsOutput
+		if err := json.Unmarshal([]byte(answer.body), &output.Body); err != nil || answer.status != http.StatusOK {
+			t.Fatalf("GET /jobs = %d %s", answer.status, answer.body)
+		}
+		return output
+	}
+	if output := listed(); output.Body.FailedCount != 2 || output.Body.FailedWindowHours != 24 {
+		t.Errorf("two hours after two failed, GET /jobs counts %d failed in %d hours; want 2 in 24",
+			output.Body.FailedCount, output.Body.FailedWindowHours)
+	}
+	harness.setSetting(t, string(settings.JobHealthWindowHours), "1")
+	if output := listed(); output.Body.FailedCount != 0 || output.Body.FailedWindowHours != 1 {
+		t.Errorf("with the window an hour, GET /jobs counts %d failed in %d hours; want 0 in 1",
+			output.Body.FailedCount, output.Body.FailedWindowHours)
 	}
 }

@@ -4081,6 +4081,16 @@ export interface components {
             waitingFor?: components["schemas"]["DestinationBody"];
         };
         JobsOutputBody: {
+            /**
+             * Format: int64
+             * @description How many jobs failed in the last failedWindowHours
+             */
+            failedCount: number;
+            /**
+             * Format: int64
+             * @description The hours failedCount looks back: the setting jobHealthWindowHours
+             */
+            failedWindowHours: number;
             jobs: components["schemas"]["JobBody"][] | null;
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;

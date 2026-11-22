@@ -3556,6 +3556,16 @@
       },
       "JobsOutputBody": {
         "properties": {
+          "failedCount": {
+            "description": "How many jobs failed in the last failedWindowHours",
+            "format": "int64",
+            "type": "integer"
+          },
+          "failedWindowHours": {
+            "description": "The hours failedCount looks back: the setting jobHealthWindowHours",
+            "format": "int64",
+            "type": "integer"
+          },
           "jobs": {
             "items": {
               "$ref": "#/components/schemas/JobBody"
@@ -3571,7 +3581,9 @@
           }
         },
         "required": [
-          "jobs"
+          "jobs",
+          "failedCount",
+          "failedWindowHours"
         ],
         "type": "object"
       },
