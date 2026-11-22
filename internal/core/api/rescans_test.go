@@ -268,3 +268,34 @@ func expectRowsLeft(t *testing.T, harness testHarness, path, table, what, want s
 		t.Errorf("after POST %s, %s keeps %v rows of %s; want %s", path, table, left, what, want)
 	}
 }
+
+// D535 §7: a title's page says it is being rescanned from the press until the rescan ends, in place of
+// a notice; before the press it says nothing of a rescan.
+func TestRescan_ATitlesDetailsSayItIsBeingRescanned(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	seedTitles(t, harness.databasePath, titleRows{
+		firstID: 40, count: 1, kind: "movie", state: "unidentified", addedAt: 2,
+	})
+	seedListedFiles(t, harness, []listedFile{{
+		workID: 40, path: "/media/shows/a.mkv", sizeBytes: 10, versionCreatedAt: 2,
+	}})
+	before := harness.do(t, http.MethodGet, "/items/40", admin, nil)
+	if before.status != http.StatusOK || strings.Contains(before.body, `"isRescanning"`) {
+		t.Fatalf("GET /items/40 before a rescan = %d %s; want no isRescanning", before.status, before.body)
+	}
+	if started := harness.do(t, http.MethodPost, "/items/40/rescan", admin, nil); started.status !=
+		http.StatusAccepted || !strings.Contains(started.body, `"isStarted":true`) {
+		t.Fatalf("POST /items/40/rescan = %d %s", started.status, started.body)
+	}
+	during := harness.do(t, http.MethodGet, "/items/40", admin, nil)
+	if during.status != http.StatusOK || !strings.Contains(during.body, `"isRescanning":true`) {
+		t.Errorf("GET /items/40 while its rescan runs = %d %s; want isRescanning", during.status, during.body)
+	}
+}
