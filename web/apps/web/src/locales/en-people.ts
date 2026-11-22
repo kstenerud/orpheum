@@ -50,11 +50,13 @@ export const enPeople = {
     invitationFor: "Invitation for {{note}}",
     invitationEnded: "Its links have ended. Withdraw it, and invite them again.",
     withdraw: "Withdraw",
+    withdrawQuestion: "Withdraw this invitation?",
     withdrawConsequence: "Every link sent for it stops working.",
     withdrawConfirm: "Withdraw it",
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
+    newLinkQuestion: "Make {{name}} a new link?",
     newLinkConsequence:
       "Any link sent to {{name}} before keeps working until one of them is used. Using one sets a new password, ends the others and signs {{name}} out everywhere else.",
     newLinkConfirm: "Make a new link",
@@ -66,25 +68,30 @@ export const enPeople = {
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",
     remove: "Remove {{name}}…",
+    removeQuestion: "Remove {{name}}?",
     removeConsequence:
       "{{name}} is signed out everywhere at once, and what they watched, their places in films and their lists are deleted. This cannot be undone.",
     removeConfirm: "Remove them",
     ownLink:
       "The link they were sent leads them back to this server until {{date}}; each visit renews it.",
     revokeOwnLink: "End that link…",
+    revokeOwnLinkQuestion: "End {{name}}'s own link?",
     revokeOwnLinkConsequence:
       "The link {{name}} was sent stops leading back to this server. They stay signed in on their devices, and a new link from you gives them another.",
     revokeOwnLinkConfirm: "End it",
     newResetLink: "New reset password link",
+    newResetLinkQuestion: "Make {{name}} a reset password link?",
     newResetLinkConsequence:
       "{{name}} follows the link to set a new password, which signs them out everywhere else. Their password works until then.",
     newResetLinkConfirm: "Make a reset link",
     resetLink: "A reset password link is live until {{date}}.",
     cancelResetLink: "Cancel",
+    cancelResetLinkQuestion: "End {{name}}'s reset password link?",
     cancelResetLinkConsequence:
       "The reset password link sent to {{name}} stops working. Their password stays as it is.",
-    cancelResetLinkConfirm: "Cancel the link",
+    cancelResetLinkConfirm: "End the link",
     renewResetLink: "Renew",
+    renewResetLinkQuestion: "Make {{name}} a new reset password link?",
     renewResetLinkConsequence:
       "The reset password link sent to {{name}} stops working, and a new one is made in its place to send them.",
     renewResetLinkConfirm: "Make a new link",
@@ -108,6 +115,7 @@ export const enPeople = {
     noLibraryChosen:
       "This role has no library yet, so they will see no films or series until you tick some for it under Roles.",
     delete: "Delete the role",
+    deleteQuestion: "Delete this role?",
     deleteConsequence: "No one can be given this role any more.",
     deleteConfirm: "Delete it",
     refused: "That cannot be done: the name is taken, someone holds the role, or it is built in.",

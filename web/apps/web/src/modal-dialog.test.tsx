@@ -34,8 +34,8 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     showModal.mockRestore();
   });
 
-  // D538 §2: no dialog has a cross; one that only tells or shows has Close at its foot.
-  it("has no cross, and one that only shows closes by the Close at its foot", async () => {
+  // D538 §2: no dialog has a cross; one with nothing to do has Done at its foot (ui.md rule 6).
+  it("has no cross, and one with nothing to do closes by the Done at its foot", async () => {
     const onClose = vi.fn();
     const mounted = await mount(
       withServices(
@@ -49,7 +49,7 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     ];
     expect(
       buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent),
-    ).toEqual(["inside", "Close"]);
+    ).toEqual(["inside", "Done"]);
     expect(buttons[1]?.closest("footer")).not.toBeNull();
     await fire(buttons[1], new MouseEvent("click", { bubbles: true }));
     expect(onClose).toHaveBeenCalledOnce();

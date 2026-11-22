@@ -228,6 +228,7 @@ function EndSession(props: {
     <div className="watch-together__end">
       <ConfirmButton
         label={t("watchTogether.end")}
+        question={t("watchTogether.endQuestion")}
         consequence={t("watchTogether.endConsequence")}
         confirmLabel={t("watchTogether.endConfirm")}
         onConfirm={() => {

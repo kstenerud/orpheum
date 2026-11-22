@@ -238,6 +238,9 @@ export function HouseholdList(props: {
                 labelForReader={t("loader.households.forgetNamed", {
                   name: householdName(household),
                 })}
+                question={t("loader.households.forgetQuestion", {
+                  name: householdName(household),
+                })}
                 consequence={t("loader.households.forgetConsequence", {
                   name: householdName(household),
                 })}

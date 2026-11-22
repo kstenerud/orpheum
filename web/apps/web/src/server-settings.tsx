@@ -9,6 +9,7 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { ConfirmDialog } from "./confirm-button.tsx";
 import { AboutIcon, ResetIcon } from "./icons.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -301,13 +302,17 @@ function resetTip(
   return bin.isModified ? t("settings.tipReset", { start: bin.start }) : t("settings.tipAtDefault");
 }
 
-/** A row's buttons: what the setting is for, and its starting value back while it differs. */
+/**
+ * A row's buttons: what the setting is for, and its starting value back while it differs, which asks
+ * first in the confirm (ui.md rule 8): the value it replaces is lost.
+ */
 function RowControls(props: {
   readonly setting: Setting;
   readonly isResetting: boolean;
   readonly onReset: (key: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const [isAsking, setIsAsking] = useState(false);
   const { setting } = props;
   const start = startText(t, setting.startingValue);
   const reset = setting.isModified
@@ -329,12 +334,26 @@ function RowControls(props: {
           isResetting: props.isResetting,
           start,
         })}
+        aria-haspopup="dialog"
         onClick={() => {
-          props.onReset(setting.key);
+          setIsAsking(true);
         }}
       >
         <ResetIcon />
       </button>
+      {isAsking ? (
+        <ConfirmDialog
+          question={t("settings.resetQuestion", { key: setting.key, start })}
+          consequence={t("settings.resetConsequence")}
+          confirmLabel={t("settings.resetConfirm")}
+          onConfirm={() => {
+            props.onReset(setting.key);
+          }}
+          onClose={() => {
+            setIsAsking(false);
+          }}
+        />
+      ) : null}
     </span>
   );
 }

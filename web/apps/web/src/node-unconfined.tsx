@@ -83,6 +83,7 @@ function LockedNode(props: {
       <ConfirmButton
         label={t("system.unconfined.allow")}
         isDisabled={props.isBusy}
+        question={t("system.unconfined.question")}
         consequence={t("system.unconfined.consequence")}
         confirmLabel={t("system.unconfined.allowConfirm")}
         onConfirm={props.onAllow}

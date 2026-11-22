@@ -442,6 +442,7 @@ function VersionsDetail(props: {
               {retiring === undefined || file.path === undefined ? null : (
                 <ConfirmButton
                   label={t("title.retireFile")}
+                  question={t("title.retireFileQuestion")}
                   consequence={t("title.retireFileConsequence")}
                   confirmLabel={t("title.retireFileConfirm")}
                   onConfirm={() => {

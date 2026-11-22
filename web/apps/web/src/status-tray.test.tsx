@@ -132,7 +132,7 @@ it("has Cast's sign open its dialog over the page, which stays where it is, offe
   expect(dialog.textContent).toContain("Cast to");
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
   await act(async () => {
-    buttonNamed(dialog, "Close")?.click();
+    buttonNamed(dialog, "Done")?.click();
     await Promise.resolve();
   });
   expect(document.querySelector("dialog[open]")).toBeNull();
@@ -177,7 +177,7 @@ it("has Cast's sign over the film open its dialog in the player, telling the ove
   await settleUntil(() => dialog.textContent.includes("None of your other devices"));
   expect(opens).toEqual([true]);
   await act(async () => {
-    buttonNamed(dialog, "Close")?.click();
+    buttonNamed(dialog, "Done")?.click();
     await Promise.resolve();
   });
   expect(document.querySelector("dialog[open]")).toBeNull();

@@ -56,6 +56,7 @@ export function SystemUnusedSettings(): JSX.Element | null {
               label={t("system.unusedSettings.delete")}
               labelForReader={t("system.unusedSettings.deleteFor", { key: setting.key })}
               isDisabled={isBusy}
+              question={t("system.unusedSettings.question", { key: setting.key })}
               consequence={t("system.unusedSettings.consequence", { key: setting.key })}
               confirmLabel={t("system.unusedSettings.confirm")}
               onConfirm={() => {

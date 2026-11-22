@@ -100,6 +100,7 @@ function ReportEntry(props: {
         {deleting.problem === undefined ? null : <p role="alert">{deleting.problem}</p>}
         <ConfirmButton
           label={t("system.problemReports.delete")}
+          question={t("system.problemReports.deleteQuestion")}
           consequence={t("system.problemReports.deleteConsequence")}
           confirmLabel={t("system.problemReports.deleteConfirm")}
           isDisabled={deleting.isBusy}

@@ -45,11 +45,11 @@ async function aFrame(): Promise<void> {
 }
 
 describe("a dialog asking before a dangerous action (D421)", () => {
-  it("asks with Keep it first and focused, its action marked, no arrival written by hand", async () => {
+  it("asks with Cancel first and focused, its action marked, no arrival written by hand (D538 §4)", async () => {
     const mounted = await mount(
       withServices(
         <ConfirmDialog
-          heading="Retire this folder?"
+          question="Retire this folder?"
           consequence="It is never scanned again."
           confirmLabel="Retire the folder"
           onConfirm={() => undefined}
@@ -57,10 +57,10 @@ describe("a dialog asking before a dangerous action (D421)", () => {
         />,
       ),
     );
-    expect(choicesShown()).toEqual(["Keep it", "Retire the folder"]);
-    await expect.poll(() => document.activeElement?.textContent).toBe("Keep it");
+    expect(choicesShown()).toEqual(["Cancel", "Retire the folder"]);
+    await expect.poll(() => document.activeElement?.textContent).toBe("Cancel");
     await aFrame();
-    expect(document.activeElement?.textContent).toBe("Keep it");
+    expect(document.activeElement?.textContent).toBe("Cancel");
     expect(document.querySelector("dialog [data-focus-start]")).toBeNull();
     mounted.unmount();
   });

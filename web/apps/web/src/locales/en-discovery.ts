@@ -134,6 +134,7 @@ export const enDiscovery = {
       heading: "Your households",
       forget: "Forget",
       forgetNamed: "Forget {{name}}",
+      forgetQuestion: "Forget {{name}}?",
       forgetConsequence:
         "This browser will forget {{name}}. You can sign in to it again by its name.",
       forgetConfirm: "Forget it",

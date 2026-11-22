@@ -266,7 +266,7 @@ describe("the player's For testers", () => {
     // Its tools too: the debug link's, kept beside the notes (play.tsx's UnderThePlayer).
     expect(dialog.querySelector(".for-testers")?.childElementCount).toBeGreaterThan(1);
     const close = [...dialog.querySelectorAll("button")].find(
-      (each) => each.getAttribute("aria-label") === "Close" || each.textContent === "Close",
+      (each) => each.textContent === "Done",
     );
     await fire(close ?? null, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.querySelector("dialog[open]")).toBeNull();

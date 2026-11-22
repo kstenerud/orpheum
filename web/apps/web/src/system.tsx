@@ -482,6 +482,7 @@ function NodeFacts(props: {
       <NodeUnconfinedLeave node={node} onChanged={props.onChanged} />
       <ConfirmButton
         label={t("system.retireNode")}
+        question={t("system.retireNodeQuestion")}
         consequence={t("system.retireNodeConsequence")}
         confirmLabel={t("system.retireNodeConfirm")}
         onConfirm={props.onRetire}

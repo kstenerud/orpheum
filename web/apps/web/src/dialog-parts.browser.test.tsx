@@ -331,12 +331,12 @@ describe("a dialog by the keyboard and by a remote", () => {
 
 describe("a confirm (D538 §4)", () => {
   for (const width of widths) {
-    it(`starts on its least harmful choice, read out as an alert with what it says, at ${String(width)}px`, async () => {
+    it(`starts on Cancel, read out as an alert with what it says, at ${String(width)}px`, async () => {
       await page.viewport(width, 720);
       await mount(
         withServices(
           <ConfirmDialog
-            heading="Remove the folder?"
+            question="Remove the folder?"
             consequence="It is never scanned again."
             confirmLabel="Remove"
             option="Also forget what was watched"
@@ -349,8 +349,8 @@ describe("a confirm (D538 §4)", () => {
       expect(dialog?.getAttribute("role")).toBe("alertdialog");
       const describedBy = dialog?.getAttribute("aria-describedby") ?? "";
       expect(document.getElementById(describedBy)?.textContent).toContain("never scanned again");
-      await expect.poll(() => document.activeElement?.textContent).toBe("Keep it");
-      expect(dialog?.querySelector("footer")?.textContent).toBe("Keep itRemove");
+      await expect.poll(() => document.activeElement?.textContent).toBe("Cancel");
+      expect(dialog?.querySelector("footer")?.textContent).toBe("CancelRemove");
       if (width >= 36 * 16) {
         expect(dialog?.getBoundingClientRect().width).toBeLessThanOrEqual(24 * 16);
       }

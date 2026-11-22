@@ -19,13 +19,12 @@ import logo from "./assets/orpheum-logo.svg";
 import { useBackToBannerPlace } from "./banner-back.ts";
 import { DropDown } from "./drop-down.tsx";
 import { ProblemReportDialog } from "./problem-report.tsx";
-import { dangerousMark } from "./focus-navigation.ts";
+import { ConfirmDialog } from "./confirm-button.tsx";
 import { FilmsIcon, LibrariesIcon, MenuIcon, SeriesIcon } from "./icons.tsx";
 import { ListNote, ListOption } from "./list-box.tsx";
 import { laurelMark } from "./laurel.ts";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
 import {
   LibrariesReachedContext,
   sortedLibraries,
@@ -699,28 +698,24 @@ function MainMenu(props: {
 
 /**
  * The question the menu's Sign out asks first (the owner, 2026-10-30: "Selecting 'sign out' should
- * open a confirmation"): the shared modal dialog, in the menu's place, with Cancel, first and focused,
- * and Sign out, marked a dangerous action (D421), a remote's arrows reaching both; only Sign out
- * signs out, and Cancel, Escape, Back or a press outside it leaves the person signed in.
+ * open a confirmation"): the confirm (ui.md rule 8), plain, for signing out loses nothing, in the
+ * menu's place, Cancel first and focused, then Sign out, a remote's arrows reaching both; only Sign
+ * out signs out, and Cancel, Escape, Back or a press outside it leaves the person signed in.
  */
 function SignOutAsked(props: {
   readonly onSignOut: () => void;
   readonly onCancel: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const question = t("nav.signOutAsked");
   return (
-    <ModalDialog label={question} onClose={props.onCancel}>
-      <p>{question}</p>
-      <div className="app-shell__sign-out-buttons">
-        <button type="button" onClick={props.onCancel}>
-          {t("nav.signOutCancel")}
-        </button>
-        <button type="button" {...dangerousMark} onClick={props.onSignOut}>
-          {t("nav.signOut")}
-        </button>
-      </div>
-    </ModalDialog>
+    <ConfirmDialog
+      question={t("nav.signOutAsked")}
+      consequence={t("nav.signOutConsequence")}
+      confirmLabel={t("nav.signOut")}
+      isHarmless
+      onConfirm={props.onSignOut}
+      onClose={props.onCancel}
+    />
   );
 }
 

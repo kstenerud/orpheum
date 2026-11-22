@@ -170,7 +170,7 @@ it("moves the session's panel, its state kept, into the dialog the sign opens ov
   expect(document.querySelector(".page .counting")).toBeNull();
   expect(opens).toEqual([true]);
   await act(async () => {
-    buttonNamed(dialog, "Close")?.click();
+    buttonNamed(dialog, "Done")?.click();
     await Promise.resolve();
   });
   await settleUntil(() => document.querySelector(".page .counting") !== null);

@@ -75,7 +75,7 @@ function useReplacesTheOneUnder(ref: RefObject<HTMLDialogElement | null>): void 
 }
 
 /**
- * Where a confirm's focus arrives (D538 §4): its least harmful choice at its foot, Keep it before the
+ * Where a confirm's focus arrives (D538 §4): its least harmful choice at its foot, Cancel before the
  * dangerous action, never a box to tick in its body.
  */
 function confirmArrivalIn(root: HTMLElement): HTMLElement | undefined {
@@ -172,14 +172,14 @@ function DialogParts(props: {
 }
 
 /**
- * The button at the foot of a dialog that only tells or shows, with no choice of its own to close it
- * (D538 §2: no cross): Close, which closes it.
+ * The button at the foot of a dialog that only tells or shows, with nothing to do (D538 §2: no
+ * cross): "Done", which closes it (ui.md rule 6).
  */
 export function DialogClose(props: { readonly onClose: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
     <button type="button" onClick={props.onClose}>
-      {t("dialog.close")}
+      {t("dialog.done")}
     </button>
   );
 }

@@ -117,7 +117,7 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   const container = mounted.container;
   // Removing it reads as removal, first under its "…" (the first beta install, 2026-11-19, #18).
   // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's action marked dangerous, so
-  // focus arrives on Keep it (D421; dangerous-choices.browser.test.tsx).
+  // focus arrives on Cancel (D421, D538 §4; dangerous-choices.browser.test.tsx).
   const repairs = (): HTMLElement | undefined =>
     buttonNamed(container, "More for local: /media/films");
   await click(repairs());
@@ -130,9 +130,9 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   );
   // The safe choice first in the row, too (D421).
   expect([...container.querySelectorAll("dialog footer button")].map((b) => b.textContent)).toEqual(
-    ["Keep it", "Remove the folder"],
+    ["Cancel", "Remove the folder"],
   );
-  await click(buttonWithText(container, "Keep it"));
+  await click(buttonWithText(container, "Cancel"));
   expect(container.querySelector("dialog")).toBeNull();
   await click(repairs());
   await click(buttonWithText(container, "Remove this folder from the library…"));

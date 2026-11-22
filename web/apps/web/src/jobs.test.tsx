@@ -9,7 +9,16 @@ import { camelKey } from "./catalogue-key.ts";
 import { i18n } from "./i18n.ts";
 import { Jobs, targetId, type Job } from "./jobs.tsx";
 import { parseRoute, routeHref } from "./router.ts";
-import { choose, click, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  choose,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /**
@@ -94,6 +103,8 @@ describe("the job view", () => {
     const cancels = mounted.container.querySelectorAll("button");
     expect(cancels).toHaveLength(1); // the failed job has ended: nothing to cancel
     await click(cancels[0]);
+    // It asks first (ui.md rule 8; confirmed-actions.test.tsx).
+    await click(buttonWithText(document.body, "Stop the job"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "GET /jobs",
       "POST /jobs/5/cancel",
@@ -221,6 +232,7 @@ describe("the job view", () => {
     });
     mounted = await mount(withServices(<Jobs />, services));
     await click(mounted.container.querySelector("button"));
+    await click(buttonWithText(document.body, "Stop the job"));
     expect(mounted.container.textContent).toContain("That job has already ended.");
   });
 });
@@ -248,7 +260,7 @@ describe("each kind of job", () => {
     );
     expect(mounted.container.querySelector("strong")?.textContent).toBe("Backing up");
     expect(mounted.container.querySelector("button")?.getAttribute("aria-label")).toBe(
-      "Cancel Backing up",
+      "Stop Backing up",
     );
   });
 

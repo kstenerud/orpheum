@@ -100,6 +100,8 @@ function Takes(props: { readonly appliedBy: NetworkState["appliedBy"] }): JSX.El
       <ConfirmButton
         label={t("system.network.restart")}
         isDisabled={isBusy || isRestarting}
+        question={t("system.network.restartQuestion")}
+        isHarmless
         consequence={t("system.network.restartConsequence")}
         confirmLabel={t("system.network.restartConfirm")}
         onConfirm={() => {

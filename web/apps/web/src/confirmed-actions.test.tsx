@@ -3,8 +3,12 @@
 
 import "./i18n.ts";
 
-import { afterEach, expect, it } from "vitest";
+import type { components } from "@orpheum/sdk";
+import { afterEach, expect, it, vi } from "vitest";
 
+import { JobList, type Job } from "./jobs.tsx";
+import { LibraryPage } from "./library-manage.tsx";
+import { SettingsView } from "./server-settings.tsx";
 import { Users } from "./users.tsx";
 import { UserPage } from "./user.tsx";
 import { Settings } from "./settings.tsx";
@@ -21,8 +25,10 @@ import { withServices } from "./test-services.tsx";
 
 /*
  * What cannot be undone is red and asked again (D278 §4, the owner, 2026-10-12: "red button +
- * confirm action is a general pattern that will occur often"): the first press sends nothing, the
- * second does.
+ * confirm action is a general pattern that will occur often"), in the one confirm (ui.md rule 8,
+ * D538 §4): the first press sends nothing and opens it, focus on Cancel (the owner, 2026-11-22: "the
+ * confirmation defaults to not doing it"); Cancel sends nothing; only its action does.
+ * dangerous-actions.test.ts lists every action that asks.
  */
 
 let mounted: Mounted | undefined;
@@ -87,20 +93,59 @@ const libraries = {
   ],
 };
 
-/** Presses label, expecting nothing sent, then confirmLabel, expecting methodAndPath sent. */
+/** The confirm open now, if one is. */
+function confirmShown(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('dialog[role="alertdialog"]');
+}
+
+/**
+ * Expects the confirm open, its foot Cancel then confirmLabel, focus on Cancel, the action marked
+ * dangerous, and returns the action's button.
+ */
+async function expectAsked(confirmLabel: string): Promise<HTMLElement | undefined> {
+  const asked = confirmShown();
+  expect(asked).not.toBeNull();
+  expect(
+    [...(asked?.querySelectorAll(".modal-dialog__foot button") ?? [])].map((b) => b.textContent),
+  ).toEqual(["Cancel", confirmLabel]);
+  await vi.waitFor(() => {
+    expect(document.activeElement?.textContent).toBe("Cancel");
+  });
+  const action = buttonWithText(asked ?? document.body, confirmLabel);
+  expect(action?.hasAttribute("data-dangerous-action")).toBe(true);
+  return action;
+}
+
+/**
+ * Presses opener, expecting nothing sent and the confirm open on Cancel; presses Cancel, expecting
+ * nothing sent and the confirm gone; then presses opener again and the confirm's action, expecting
+ * methodAndPath sent. The opener is outlined red unless the action is harmless.
+ */
 async function pressAndConfirm(
   heard: Heard[],
-  press: { readonly label: string; readonly confirmLabel: string; readonly methodAndPath: string },
+  press: {
+    readonly label: string;
+    readonly confirmLabel: string;
+    readonly methodAndPath: string;
+    readonly isHarmless?: boolean;
+  },
 ): Promise<void> {
   if (mounted === undefined) {
     throw new Error("nothing mounted");
   }
-  const button = buttonWithText(mounted.container, press.label);
-  expect(button?.className).toBe("irreversible-outline");
-  await click(button);
-  expect(heard.map((each) => each.methodAndPath)).not.toContain(press.methodAndPath);
-  await click(buttonWithText(mounted.container, press.confirmLabel));
-  expect(heard.map((each) => each.methodAndPath)).toContain(press.methodAndPath);
+  const container = mounted.container;
+  const opener = (): HTMLElement | undefined => buttonWithText(container, press.label);
+  expect(opener()?.className).toBe(press.isHarmless === true ? "" : "irreversible-outline");
+  await click(opener());
+  const sent = (): string[] => heard.map((each) => each.methodAndPath);
+  expect(sent()).not.toContain(press.methodAndPath);
+  await expectAsked(press.confirmLabel);
+  await click(buttonWithText(confirmShown() ?? container, "Cancel"));
+  expect(confirmShown()).toBeNull();
+  expect(sent()).not.toContain(press.methodAndPath);
+  await click(opener());
+  await click(buttonWithText(confirmShown() ?? container, press.confirmLabel));
+  expect(sent()).toContain(press.methodAndPath);
 }
 
 it("deletes a role from its dialog, and withdraws an invitation from its dialog, only when asked again", async () => {
@@ -170,6 +215,7 @@ it("makes a person a new link only when asked again, their old one stopping", as
     label: "New reset password link",
     confirmLabel: "Make a reset link",
     methodAndPath: "POST /users/5/registration-invitation",
+    isHarmless: true,
   });
 });
 
@@ -196,20 +242,19 @@ it("removes a stored secret only when asked again", async () => {
       ),
     ),
   );
-  // The bin asks first; only its question's red button removes the key.
-  await click(mounted.container.querySelector('button[aria-label="Remove tmdbApiKey"]'));
+  // The bin asks first, in the confirm, on Cancel; only its red action removes the key.
+  const bin = mounted.container.querySelector<HTMLElement>(
+    'button[aria-label="Remove tmdbApiKey"]',
+  );
+  await click(bin);
   expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdbApiKey");
-  const confirm = buttonWithText(mounted.container, "Remove it");
+  expect(confirmShown()?.getAttribute("aria-label")).toBe("Remove tmdbApiKey?");
+  const confirm = await expectAsked("Remove it");
   expect(confirm?.className).toBe("irreversible");
-  // Keep it first and focused, the bin that asked disabled; Remove marked dangerous (D421).
-  expect(
-    [
-      ...(mounted.container.querySelector(".settings__question")?.querySelectorAll("button") ?? []),
-    ].map((button) => button.textContent),
-  ).toEqual(["Keep it", "Remove it"]);
-  expect(document.activeElement?.textContent).toBe("Keep it");
-  expect(confirm?.hasAttribute("data-dangerous-action")).toBe(true);
-  await click(confirm);
+  await click(buttonWithText(confirmShown() ?? document.body, "Cancel"));
+  expect(confirmShown()).toBeNull();
+  await click(bin);
+  await click(buttonWithText(confirmShown() ?? document.body, "Remove it"));
   expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /secrets/tmdbApiKey");
 });
 
@@ -269,4 +314,126 @@ it("shows no own link for a person who has none", async () => {
   expect(mounted.container.textContent).toContain("cousin");
   expect(mounted.container.textContent).not.toContain("leads them back");
   expect(buttonWithText(mounted.container, "End that link…")).toBeUndefined();
+});
+
+it("stops a running job only when asked again, its work lost (ui.md rule 8)", async () => {
+  const running: Job = {
+    id: 8,
+    kind: "backup",
+    state: "running",
+    reason: "an admin asked for a backup now",
+    attemptCount: 1,
+    createdAt: 1,
+  };
+  const stopped: Job[] = [];
+  mounted = await mount(
+    withServices(
+      <JobList
+        jobs={[running]}
+        onCancel={(job) => {
+          stopped.push(job);
+        }}
+      />,
+    ),
+  );
+  const stop = mounted.container.querySelector<HTMLElement>('button[aria-label="Stop Backing up"]');
+  expect(stop?.className).toBe("irreversible-outline");
+  await click(stop);
+  expect(stopped).toEqual([]);
+  expect(confirmShown()?.getAttribute("aria-label")).toBe("Stop Backing up?");
+  await expectAsked("Stop the job");
+  await click(buttonWithText(confirmShown() ?? document.body, "Cancel"));
+  expect(stopped).toEqual([]);
+  await click(stop);
+  await click(buttonWithText(confirmShown() ?? document.body, "Stop the job"));
+  expect(stopped).toEqual([running]);
+});
+
+it("removes what a scan did not find, and a gone disk's files, only when asked again (D208)", async () => {
+  const heard: Heard[] = [];
+  const withheld = {
+    id: 3,
+    name: "Films",
+    kind: "film",
+    metadataSource: "nfo",
+    changeDetection: "manual",
+    isWritable: false,
+    createdAt: 1,
+    roots: [
+      {
+        nodeName: "local",
+        rootPath: "/media/films",
+        lastScanOutcome: "withheld",
+        withheldReason: "The scan would remove 7 files.",
+        missingMountPaths: ["/media/films/disk1"],
+      },
+    ],
+  } as unknown as components["schemas"]["LibraryBody"];
+  mounted = await mount(
+    withServices(
+      <LibraryPage libraryId={3} />,
+      servedBy(
+        {
+          "GET /libraries": [200, { libraries: [withheld] }],
+          "GET /nodes": [200, { nodes: [] }],
+          "POST /libraries/3/roots/removals": [202, null],
+          "POST /libraries/3/roots/mount-gone": [202, null],
+        },
+        heard,
+      ),
+    ),
+  );
+  await pressAndConfirm(heard, {
+    label: "Remove what the last scan did not find",
+    confirmLabel: "Remove them",
+    methodAndPath: "POST /libraries/3/roots/removals",
+  });
+  await pressAndConfirm(heard, {
+    label: "What was mounted here is gone for good",
+    confirmLabel: "Remove its files",
+    methodAndPath: "POST /libraries/3/roots/mount-gone",
+  });
+});
+
+it("returns a setting to its starting value only when asked again, its value lost (ui.md rule 8)", async () => {
+  const reset: string[] = [];
+  mounted = await mount(
+    withServices(
+      <SettingsView
+        isAdvanced={false}
+        search=""
+        problems={new Map()}
+        resetting={new Set()}
+        onSave={() => undefined}
+        onReset={(key) => {
+          reset.push(key);
+        }}
+        settings={[
+          {
+            key: "tmdbRefreshAfterDays",
+            kind: "integer",
+            description: "days",
+            value: 30,
+            startingValue: 180,
+            isModified: true,
+            isImportant: true,
+            section: "together",
+            setAt: 1,
+          },
+        ]}
+      />,
+    ),
+  );
+  const bin = mounted.container.querySelector<HTMLElement>(
+    'button[aria-label="Return tmdbRefreshAfterDays to its starting value, 180"]',
+  );
+  await click(bin);
+  expect(reset).toEqual([]);
+  expect(confirmShown()?.getAttribute("aria-label")).toBe("Return tmdbRefreshAfterDays to 180?");
+  await expectAsked("Return it");
+  await click(buttonWithText(confirmShown() ?? document.body, "Cancel"));
+  expect(reset).toEqual([]);
+  await click(bin);
+  await click(buttonWithText(confirmShown() ?? document.body, "Return it"));
+  expect(reset).toEqual(["tmdbRefreshAfterDays"]);
 });

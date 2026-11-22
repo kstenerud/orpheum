@@ -9,7 +9,7 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
-import { ConfirmQuestion } from "./confirm-button.tsx";
+import { ConfirmDialog } from "./confirm-button.tsx";
 import { ResetIcon } from "./icons.tsx";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
@@ -89,23 +89,23 @@ function useSecretField(
 }
 
 /**
- * The bin's question before a secret is removed, which cannot be undone (D278 §4), drawn below the
- * row while the bin that asked stays drawn, disabled.
+ * The bin's question before a secret is removed, which cannot be undone: the confirm (ui.md rule 8),
+ * its focus on Cancel, given back to the bin as it closes.
  */
 function RemoveQuestion(props: {
+  readonly name: string;
   readonly onRemove: () => void;
   readonly onKeep: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <p className="settings__question">
-      <ConfirmQuestion
-        consequence={t("settings.removeConsequence")}
-        confirmLabel={t("settings.removeConfirm")}
-        onKeep={props.onKeep}
-        onConfirm={props.onRemove}
-      />
-    </p>
+    <ConfirmDialog
+      question={t("settings.removeQuestion", { key: props.name })}
+      consequence={t("settings.removeConsequence")}
+      confirmLabel={t("settings.removeConfirm")}
+      onConfirm={props.onRemove}
+      onClose={props.onKeep}
+    />
   );
 }
 
@@ -114,7 +114,6 @@ function RemoveQuestion(props: {
  */
 function SecretControls(props: {
   readonly secret: Secret;
-  readonly isAsking: boolean;
   readonly onAsk: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -126,7 +125,7 @@ function SecretControls(props: {
       <button
         type="button"
         className="settings__control"
-        disabled={!isSet || props.isAsking}
+        disabled={!isSet}
         aria-label={remove}
         data-tip={isSet ? t("settings.tipRemove") : t("settings.tipNotSet")}
         onClick={props.onAsk}
@@ -138,22 +137,18 @@ function SecretControls(props: {
 }
 
 /**
- * What a secret's row says below it: the bin's question, why it must be entered again, and how its
- * last change went: "Saved", or why it was refused.
+ * What a secret's row says below it: why it must be entered again, and how its last change went:
+ * "Saved", or why it was refused.
  */
 function SecretNotes(props: {
-  readonly isAsking: boolean;
   readonly needsReentry: boolean;
   /** Why the server refused the secret's last change; "" when it did not. */
   readonly problem: string;
   readonly isSaved: boolean;
-  readonly onRemove: () => void;
-  readonly onKeep: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
     <>
-      {props.isAsking ? <RemoveQuestion onRemove={props.onRemove} onKeep={props.onKeep} /> : null}
       {props.needsReentry ? (
         <p className="settings__problem" role="alert">
           {t("settings.secretReentry")}
@@ -234,25 +229,27 @@ const SecretRow = memo(function SecretRow(props: {
         />
         <SecretControls
           secret={secret}
-          isAsking={isAsking}
           onAsk={() => {
             setIsAsking(true);
           }}
         />
       </span>
       <SecretNotes
-        isAsking={isAsking}
         needsReentry={secret.needsReentry}
         problem={props.problem}
         isSaved={props.isSaved}
-        onRemove={() => {
-          setIsAsking(false);
-          props.onRemove(secret.name);
-        }}
-        onKeep={() => {
-          setIsAsking(false);
-        }}
       />
+      {isAsking ? (
+        <RemoveQuestion
+          name={secret.name}
+          onRemove={() => {
+            props.onRemove(secret.name);
+          }}
+          onKeep={() => {
+            setIsAsking(false);
+          }}
+        />
+      ) : null}
     </form>
   );
 });

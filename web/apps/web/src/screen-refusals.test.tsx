@@ -127,6 +127,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     await click(buttonWithText(mounted.container, "Scan now"));
     expectSays(notFound);
     await click(buttonWithText(mounted.container, "Remove what the last scan did not find"));
+    await click(buttonWithText(mounted.container, "Remove them"));
     expectSays(conflict);
   });
 
@@ -164,6 +165,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     await click(
       mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
     );
+    await click(buttonWithText(mounted.container, "Return it"));
     expectSays(notFound);
   });
 });
@@ -253,6 +255,7 @@ describe("a request that never reaches the server says so, rather than nothing",
     await click(
       mounted.container.querySelector('button[aria-label^="Return shouldScanOnNodeHello"]'),
     );
+    await click(buttonWithText(mounted.container, "Return it"));
     expectSays(cannotReach);
   });
 });

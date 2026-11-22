@@ -231,7 +231,7 @@ describe("the loader at its own origin (D308)", () => {
     expect(forget?.className).toBe("irreversible-outline");
     await click(forget);
     expect(page.textContent).toContain("This browser will forget nas.");
-    await click(buttonWithText(page, "Keep it"));
+    await click(buttonWithText(page, "Cancel"));
     expect(households(storage)).toHaveLength(1);
     await click(page.querySelector('button[aria-label="Forget nas"]'));
     await click(buttonWithText(page, "Forget it"));

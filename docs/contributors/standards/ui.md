@@ -131,10 +131,13 @@ on Cancel too: every confirm defaults to not doing it. The button that backs
 out is always "Cancel". Where an action can be undone, do it and offer Undo instead. There is no
 other way to confirm.
 
-Today's screens still confirm with the inline `ConfirmButton` (D278 §4, the web README's first
-invariant). Batch 2 moves them to the confirm Dialog, and the README's invariant changes with it.
+`ConfirmButton` opens the confirm, `ConfirmDialog` (`src/confirm-button.tsx`, the web README's first
+invariant); a control that is not a button of its own, as a bin or a "…" entry, opens
+`ConfirmDialog` itself.
 
-*Enforced by:* `src/confirmed-actions.test.tsx` until batch 2 moves the confirms; review.
+*Enforced by:* `src/dangerous-actions.test.ts` (every dangerous action listed and drawn through the
+confirm, the irreversible red nowhere else), `src/confirmed-actions.test.tsx`,
+`src/confirm-button.browser.test.tsx`; review.
 
 ### 9. Layout follows its container
 

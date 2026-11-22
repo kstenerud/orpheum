@@ -12,6 +12,7 @@ import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { camelKey } from "./catalogue-key.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { dateText, dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -270,7 +271,10 @@ function JobFilters(props: {
   );
 }
 
-/** The jobs, each with its kind, target, state, progress, reason and last failure. */
+/**
+ * The jobs, each with its kind, target, state, progress, reason and last failure, and for one not yet
+ * ended a Stop, which asks first in the confirm (ui.md rule 8): a running job's work is lost.
+ */
 export function JobList(props: {
   readonly jobs: readonly Job[];
   readonly onCancel: (job: Job) => void;
@@ -307,15 +311,16 @@ export function JobList(props: {
               </span>
             )}
             {isCancellable(job) ? (
-              <button
-                type="button"
-                aria-label={t("jobs.cancelLabel", { job: jobText })}
-                onClick={() => {
+              <ConfirmButton
+                label={t("jobs.cancel")}
+                labelForReader={t("jobs.cancelLabel", { job: jobText })}
+                question={t("jobs.cancelQuestion", { job: jobText })}
+                consequence={t("jobs.cancelConsequence")}
+                confirmLabel={t("jobs.cancelConfirm")}
+                onConfirm={() => {
                   props.onCancel(job);
                 }}
-              >
-                {t("jobs.cancel")}
-              </button>
+              />
             ) : null}
           </li>
         );

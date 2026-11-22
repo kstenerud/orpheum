@@ -280,6 +280,7 @@ function StandingView(props: {
       )}
       <ConfirmButton
         label={t("system.discovery.leave")}
+        question={t("system.discovery.leaveQuestion")}
         consequence={t("system.discovery.leaveConsequence")}
         confirmLabel={t("system.discovery.leaveConfirm")}
         onConfirm={props.onLeave}

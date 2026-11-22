@@ -39,6 +39,7 @@ export const enDevices = {
     rename: "Rename",
     remove: "Remove",
     removeLabel: "Remove {{name}}; it is signed out",
+    removeQuestion: "Remove {{name}}?",
     removeConsequence:
       "{{name}} is signed out, and signs in again only with a password or a code it shows.",
     removeConfirm: "Remove it",
@@ -46,6 +47,7 @@ export const enDevices = {
     byCodeNotice:
       "A device activated by a code watches and hosts as you. If you don't know one of those below, remove it.",
     signOutElsewhere: "Sign out everywhere else",
+    signOutElsewhereQuestion: "Sign out everywhere else?",
     signOutElsewhereConsequence: "Every other device must sign in again.",
     signOutElsewhereConfirm: "Sign them out",
   },

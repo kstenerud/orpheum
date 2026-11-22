@@ -35,9 +35,11 @@ export function rescanAction(
 }
 
 /**
- * The question every Rescan asks first (D535 §6): that it is expensive, a library's that it can take
- * hours, with Yes, No and an unticked "Discard cached data", which has the rescan throw out
- * everything made or fetched for its scope, whatever differs. No, Escape or Back send nothing.
+ * The question every Rescan asks first (D535 §6), the confirm (ui.md rule 8): that it is expensive, a
+ * library's that it can take hours, with an unticked "Discard cached data", which has the rescan
+ * throw out everything made or fetched for its scope, whatever differs, then Cancel, focused, and
+ * "Start the rescan" (D535 §6's Yes and No, named as every confirm's are). Cancel, Escape or Back send
+ * nothing.
  */
 export function RescanQuestion(props: {
   readonly isLong: boolean;
@@ -47,10 +49,10 @@ export function RescanQuestion(props: {
   const { t } = useTranslation();
   return (
     <ConfirmDialog
-      heading={t("libraries.rescan")}
+      question={t("libraries.rescanQuestion")}
       consequence={props.isLong ? t("libraries.rescanAskLibrary") : t("libraries.rescanAskItem")}
-      confirmLabel={t("libraries.rescanYes")}
-      keepLabel={t("libraries.rescanNo")}
+      confirmLabel={t("libraries.rescanConfirm")}
+      isHarmless
       option={t("libraries.rescanDiscard")}
       onConfirm={props.onRescan}
       onClose={props.onClose}

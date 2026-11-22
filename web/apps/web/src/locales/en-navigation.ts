@@ -31,7 +31,8 @@ export const enNavigation = {
   },
   /** A dialog's own words (modal-dialog.tsx). */
   dialog: {
-    close: "Close",
+    cancel: "Cancel",
+    done: "Done",
   },
   /** A banner's own words (banner.tsx). */
   banner: {

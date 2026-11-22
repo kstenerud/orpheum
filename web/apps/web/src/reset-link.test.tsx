@@ -95,7 +95,7 @@ it("says until when an outstanding reset link is live, with Cancel and Renew, an
   expect(buttons).not.toContain("New reset password link");
   expect(container.querySelector(".people__issued")).toBeNull();
   await click(buttonWithText(container, "Cancel"));
-  await click(buttonWithText(container, "Cancel the link"));
+  await click(buttonWithText(container, "End the link"));
   expect(heard.map((each) => each.methodAndPath)).toContain(
     "DELETE /users/5/registration-invitation",
   );

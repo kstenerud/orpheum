@@ -354,6 +354,7 @@ function Buttons(): JSX.Element {
       </p>
       <ConfirmButton
         label={t("gallery.confirm")}
+        question={t("gallery.confirmQuestion")}
         consequence={t("gallery.confirmConsequence")}
         confirmLabel={t("gallery.confirmYes")}
         onConfirm={() => undefined}

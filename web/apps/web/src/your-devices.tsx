@@ -124,6 +124,7 @@ function SignOutElsewhere(props: { readonly onConfirm: () => void }): JSX.Elemen
   return (
     <ConfirmButton
       label={t("devices.signOutElsewhere")}
+      question={t("devices.signOutElsewhereQuestion")}
       consequence={t("devices.signOutElsewhereConsequence")}
       confirmLabel={t("devices.signOutElsewhereConfirm")}
       onConfirm={props.onConfirm}
@@ -172,6 +173,7 @@ export function DeviceList(props: {
             <ConfirmButton
               label={t("devices.remove")}
               labelForReader={t("devices.removeLabel", { name: device.name })}
+              question={t("devices.removeQuestion", { name: device.name })}
               consequence={t("devices.removeConsequence", { name: device.name })}
               confirmLabel={t("devices.removeConfirm")}
               onConfirm={() => {

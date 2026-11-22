@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import type { components } from "@orpheum/sdk";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { PosterGrid, type Entry } from "./browse.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
@@ -108,6 +108,7 @@ it("colours what cannot be undone red: outlined to ask, filled to confirm, its w
     true,
     <ConfirmButton
       label="Remove Dan…"
+      question="Remove Dan?"
       consequence="This cannot be undone."
       confirmLabel="Remove them"
       onConfirm={() => undefined}
@@ -125,20 +126,25 @@ it("colours what cannot be undone red: outlined to ask, filled to confirm, its w
   ).toBe("irreversible");
 });
 
-it("asks again with Keep it first and focused, so a press too many keeps things as they are (D421)", async () => {
+it("asks again with Cancel first and focused, so a press too many keeps things as they are (D421, D538 §4)", async () => {
   mounted = await mountAs(
     true,
     <ConfirmButton
       label="Remove Dan…"
+      question="Remove Dan?"
       consequence="This cannot be undone."
       confirmLabel="Remove them"
       onConfirm={() => undefined}
     />,
   );
   await click(mounted.container.querySelector("button"));
-  const choices = [...mounted.container.querySelectorAll("button")].map((b) => b.textContent);
-  expect(choices).toEqual(["Keep it", "Remove them"]);
-  expect(document.activeElement?.textContent).toBe("Keep it");
+  const choices = [...mounted.container.querySelectorAll("dialog button")].map(
+    (b) => b.textContent,
+  );
+  expect(choices).toEqual(["Cancel", "Remove them"]);
+  await vi.waitFor(() => {
+    expect(document.activeElement?.textContent).toBe("Cancel");
+  });
   expect(
     [...mounted.container.querySelectorAll("[data-dangerous-action]")].map((b) => b.textContent),
   ).toEqual(["Remove them"]);

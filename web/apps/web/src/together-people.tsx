@@ -268,6 +268,7 @@ function PersonDialog(
         <RelinkButton {...props} />
         <ConfirmButton
           label={t("watchTogether.eject")}
+          question={t("watchTogether.ejectQuestion", { name: member.name })}
           consequence={t("watchTogether.ejectConsequence", { name: member.name })}
           confirmLabel={t("watchTogether.ejectConfirm")}
           onConfirm={() => {
@@ -309,6 +310,7 @@ function LinkDialog(
         </button>
         <ConfirmButton
           label={t("watchTogether.withdraw")}
+          question={t("watchTogether.withdrawQuestion")}
           consequence={t("watchTogether.withdrawConsequence")}
           confirmLabel={t("watchTogether.withdrawConfirm")}
           onConfirm={() => {

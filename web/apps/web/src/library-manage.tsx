@@ -153,7 +153,7 @@ function RootRepairs(props: {
     label: t("libraries.retireRoot"),
     dialog: (close) => (
       <ConfirmDialog
-        heading={t("libraries.retireRootHeading")}
+        question={t("libraries.retireRootHeading")}
         consequence={t("libraries.retireRootConsequence")}
         confirmLabel={t("libraries.retireRootConfirm")}
         onConfirm={props.onRetire}
@@ -183,7 +183,8 @@ function RootRepairs(props: {
 
 /**
  * The answers a root waits for (D208): that its withheld removals are real, and for each mount point
- * inside it whose disk is missing, that the disk is gone for good.
+ * inside it whose disk is missing, that the disk is gone for good. Both remove what the library holds,
+ * so each asks first in the confirm (ui.md rule 8).
  */
 function RootAnswers(props: {
   readonly root: Root;
@@ -195,28 +196,29 @@ function RootAnswers(props: {
     <>
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
       {root.lastScanOutcome === "withheld" ? (
-        <button
-          type="button"
-          className="irreversible"
-          onClick={() => {
+        <ConfirmButton
+          label={t("libraries.approveRemovals")}
+          question={t("libraries.approveRemovalsQuestion")}
+          consequence={t("libraries.approveRemovalsConsequence")}
+          confirmLabel={t("libraries.approveRemovalsConfirm")}
+          onConfirm={() => {
             props.onAnswer(root, { kind: "approveRemovals" });
           }}
-        >
-          {t("libraries.approveRemovals")}
-        </button>
+        />
       ) : null}
       {(root.missingMountPaths ?? []).map((mountPath) => (
-        <p key={mountPath}>
+        <div key={mountPath}>
           {t("libraries.diskMissing")} <code>{mountPath}</code>{" "}
-          <button
-            type="button"
-            onClick={() => {
+          <ConfirmButton
+            label={t("libraries.diskGone")}
+            question={t("libraries.diskGoneQuestion")}
+            consequence={t("libraries.diskGoneConsequence", { path: mountPath })}
+            confirmLabel={t("libraries.diskGoneConfirm")}
+            onConfirm={() => {
               props.onAnswer(root, { kind: "diskGone", mountPath });
             }}
-          >
-            {t("libraries.diskGone")}
-          </button>
-        </p>
+          />
+        </div>
       ))}
     </>
   );
@@ -428,6 +430,7 @@ export function LibraryManagement(props: {
       <h2>{t("libraries.deleteHeading")}</h2>
       <ConfirmButton
         label={t("libraries.delete")}
+        question={t("libraries.deleteQuestion")}
         consequence={t("libraries.deleteConsequence")}
         confirmLabel={t("libraries.deleteConfirm")}
         onConfirm={props.onDelete}

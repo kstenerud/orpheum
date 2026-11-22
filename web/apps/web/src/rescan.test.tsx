@@ -72,7 +72,7 @@ it("rescans every library, or one of any kind, in full, and offers no other resc
   mounted = await mount(withServices(<Libraries />, services));
   expect(mounted.container.textContent).not.toContain("Full rescan");
   await click(buttonWithText(mounted.container, "Rescan everything"));
-  await click(buttonWithText(mounted.container, "Yes"));
+  await click(buttonWithText(mounted.container, "Start the rescan"));
   expect(mounted.container.textContent).toContain("Rescanning 1 libraries.");
   expect(mounted.container.textContent).toContain("Rescanning… scanning first.");
   // One library's own rescan is on its own page (D361 §2), a library of other videos' too.
@@ -82,10 +82,10 @@ it("rescans every library, or one of any kind, in full, and offers no other resc
   expect(buttonWithText(page, "Scan now")).toBeDefined();
   expect(page.textContent).not.toContain("Full rescan");
   await click(buttonWithText(page, "Rescan"));
-  await click(buttonWithText(page, "Yes"));
+  await click(buttonWithText(page, "Start the rescan"));
   expect(page.textContent).toContain("Rescanning: every file in it is read again");
   await click(buttonWithText(page, "Rescan"));
-  await click(buttonWithText(page, "Yes"));
+  await click(buttonWithText(page, "Start the rescan"));
   expect(page.textContent).toContain("A rescan of it is already running.");
   expect(rescansPosted(heard)).toEqual([
     "POST /libraries/rescan",
@@ -144,7 +144,7 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
     const opened = mounted.container;
     await click(buttonNamed(opened, "More actions"));
     await click(buttonWithText(opened, "Rescan"));
-    await click(buttonWithText(opened, "Yes"));
+    await click(buttonWithText(opened, "Start the rescan"));
     return opened;
   };
   // Started, or one already running, the page is read again, to say it is being rescanned, and no
@@ -203,7 +203,7 @@ it("offers an admin Rescan in an other video's menu, and none on an extra's page
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).not.toContain("Rescanning…");
-  await click(buttonWithText(page, "Yes"));
+  await click(buttonWithText(page, "Start the rescan"));
   // The page, read again, says in its facts that it is being rescanned (D535 §7).
   await settleUntil(() => page.textContent.includes("Rescanning…"));
   expect(rescansPosted(heard)).toContain("POST /items/14/rescan");
@@ -220,7 +220,7 @@ const discardBox = (container: HTMLElement): HTMLInputElement | undefined =>
     .find((label) => label.textContent.includes("Discard cached data (more expensive)"))
     ?.querySelector("input") ?? undefined;
 
-it("asks before a rescan, sends nothing on No, and discards what was made when ticked (D535 §6)", async () => {
+it("asks before a rescan, sends nothing on Cancel, and discards what was made when ticked (D535 §6)", async () => {
   const heard: Heard[] = [];
   const services = servedBy(
     {
@@ -236,30 +236,30 @@ it("asks before a rescan, sends nothing on No, and discards what was made when t
   const page = mounted.container;
   // Scan now starts at once: no question.
   await click(buttonWithText(page, "Scan now"));
-  expect(buttonWithText(page, "Yes")).toBeUndefined();
+  expect(buttonWithText(page, "Start the rescan")).toBeUndefined();
   expect(discardBox(page)).toBeUndefined();
-  // Rescan asks, sending nothing until Yes, and nothing at all on No.
+  // Rescan asks, sending nothing until Start the rescan, and nothing at all on Cancel.
   await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain(
-    "This is an expensive operation that can take hours. Do a rescan?",
+    "Do a rescan?This is an expensive operation that can take hours.",
   );
   expect(discardBox(page)?.checked).toBe(false);
   expect(rescansPosted(heard).filter((each) => each.includes("rescan"))).toEqual([]);
-  await click(buttonWithText(page, "No"));
-  expect(buttonWithText(page, "Yes")).toBeUndefined();
-  // Yes unticked sends a rescan that keeps what was made; ticked, one that discards it.
+  await click(buttonWithText(page, "Cancel"));
+  expect(buttonWithText(page, "Start the rescan")).toBeUndefined();
+  // Start the rescan unticked sends a rescan that keeps what was made; ticked, one that discards it.
   await click(buttonWithText(page, "Rescan"));
-  await click(buttonWithText(page, "Yes"));
+  await click(buttonWithText(page, "Start the rescan"));
   await click(buttonWithText(page, "Rescan"));
   await click(discardBox(page));
   expect(discardBox(page)?.checked).toBe(true);
-  await click(buttonWithText(page, "Yes"));
+  await click(buttonWithText(page, "Start the rescan"));
   mounted.unmount();
   mounted = await mount(withServices(<Libraries />, services));
   await click(buttonWithText(mounted.container, "Rescan everything"));
   expect(mounted.container.textContent).toContain("can take hours");
   await click(discardBox(mounted.container));
-  await click(buttonWithText(mounted.container, "Yes"));
+  await click(buttonWithText(mounted.container, "Start the rescan"));
   expect(rescansPosted(heard).filter((each) => each.includes("rescan"))).toEqual([
     "POST /libraries/3/rescan",
     "POST /libraries/3/rescan?discard=true",
@@ -290,9 +290,9 @@ it("asks before a video's rescan, without hours, and discards what was made when
   let page = mounted.container;
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
-  expect(page.textContent).toContain("This is an expensive operation. Do a rescan?");
+  expect(page.textContent).toContain("Do a rescan?This is an expensive operation.");
   expect(page.textContent).not.toContain("hours");
-  await click(buttonWithText(page, "No"));
+  await click(buttonWithText(page, "Cancel"));
   expect(rescansPosted(heard)).toEqual([]);
   mounted.unmount();
   mounted = await asAdmin();
@@ -300,8 +300,8 @@ it("asks before a video's rescan, without hours, and discards what was made when
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
   await click(discardBox(page));
-  await click(buttonWithText(page, "Yes"));
-  // Yes closes the question at once.
+  await click(buttonWithText(page, "Start the rescan"));
+  // Start the rescan closes the question at once.
   expect(page.querySelector("dialog")).toBeNull();
   expect(page.textContent).not.toContain("Do a rescan?");
   await settleUntil(() => rescansPosted(heard).length === 1);

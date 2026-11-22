@@ -74,6 +74,7 @@ export function DeleteRole(props: { readonly onDelete: () => void }): JSX.Elemen
   return (
     <ConfirmButton
       label={t("roles.delete")}
+      question={t("roles.deleteQuestion")}
       consequence={t("roles.deleteConsequence")}
       confirmLabel={t("roles.deleteConfirm")}
       onConfirm={props.onDelete}

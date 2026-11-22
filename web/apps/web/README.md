@@ -4,12 +4,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
 
 ## Invariants
 
-- **What cannot be undone is a `ConfirmButton`** (`src/confirm-button.tsx`, D278 §4): outlined in
-  the irreversible red, its first press says what will happen and sends nothing, a second, filled red,
-  acts, and "Keep it" puts things back. Deleting, removing, withdrawing, ending, signing out other
-  devices and a new link that stops the old one all go through it (the owner, 2026-10-12: "red button +
-  confirm action is a general pattern that will occur often"). `confirmed-actions.test.tsx`,
-  `your-devices.test.tsx`, `system-waiting.test.tsx`, `watch-together.test.tsx`.
+- **Every dangerous action asks first, in the one confirm** (`src/confirm-button.tsx`, ui.md rule 8,
+  D538 §4, D278 §4): `ConfirmButton`, outlined in the irreversible red, sends nothing and opens
+  `ConfirmDialog`, which says what will happen, its foot "Cancel", first and focused (the owner,
+  2026-11-22: "the confirmation defaults to not doing it"), then the action, filled red and marked a
+  dangerous action; only that acts. One disruptive but harmless (a restart, a new link, signing out,
+  a rescan) is plain, and starts on Cancel too. Deleting, removing, revoking, withdrawing, ending,
+  resetting, signing out, stopping a job and removing what a scan did not find all go through it,
+  and the irreversible red is drawn nowhere else. `dangerous-actions.test.ts` lists every one,
+  `confirmed-actions.test.tsx` presses them, `dialog-parts.browser.test.tsx` and
+  `confirm-button.browser.test.tsx` drive the confirm by every input; `your-devices.test.tsx`,
+  `system-waiting.test.tsx`, `watch-together.test.tsx`.
 - **Every setting saves at once, the admin's too** (the owner, 2026-11-04, Q5): no page has a Save
   for a setting; a choice saves as it is made, typing on Enter or on leaving its field, and
   `SaveNote` (`src/save-note.tsx`) says "Saved" beside it, or the refusal in its place. A creation

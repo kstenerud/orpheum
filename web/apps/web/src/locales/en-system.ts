@@ -86,6 +86,7 @@ export const enSystem = {
         "This machine is locked: part of the sandbox FFmpeg runs in could not be put in force, so it reads no films and runs no FFmpeg.",
       risk: "FFmpeg reads every film this machine serves. A film made to attack FFmpeg could, without the sandbox, read or change anything this machine's Orpheum user can. The safe fix is the kernel's: see Setting up a server: problems seen, and their fixes. If you cannot fix it and trust every file in your libraries, you can run it without the sandbox.",
       allow: "Run without confinement…",
+      question: "Run FFmpeg without its sandbox?",
       consequence:
         "This machine then runs FFmpeg without the parts of its sandbox listed above. Your name and the time are recorded. To stop it, stop the machine.",
       allowConfirm: "Accept the risk and run it",
@@ -94,6 +95,7 @@ export const enSystem = {
     needsUpdate:
       "The media machine needs updating: it runs another version of Orpheum than the server, and its work waits until it is updated.",
     retireNode: "This machine is gone for good…",
+    retireNodeQuestion: "Retire this machine?",
     retireNodeConsequence:
       "Its folders leave every library and its waiting work is cancelled; what was watched is kept. If it comes back, it joins as a new machine.",
     retireNodeConfirm: "Retire the machine",
@@ -143,6 +145,7 @@ export const enSystem = {
       copySummary: "Copy the summary",
       copied: "Copied.",
       delete: "Delete",
+      deleteQuestion: "Delete this report?",
       deleteConsequence: "The report and the logs it holds are deleted for good.",
       deleteConfirm: "Delete the report",
     },
@@ -196,6 +199,7 @@ export const enSystem = {
       typo: "{{key}} = {{value}}: no release has read it, so probably a typo",
       delete: "Delete",
       deleteFor: "Delete {{key}}",
+      question: "Delete {{key}}?",
       consequence: "{{key}} is deleted for good.",
       confirm: "Delete it",
     },
@@ -342,6 +346,7 @@ export const enSystem = {
           "{{network}}, named in the config. It goes stale when your provider moves the prefix; devices that reach this server directly at home teach it the new one.",
       },
       leave: "Leave the discovery",
+      leaveQuestion: "Leave the discovery?",
       leaveConsequence: "Clients outside the house will no longer find this server through it.",
       leaveConfirm: "Leave",
     },
@@ -364,6 +369,7 @@ export const enSystem = {
       pendingScript:
         "The saved settings take effect when the install script runs next, which restarts the server.",
       restart: "Restart the server",
+      restartQuestion: "Restart the server?",
       restartConsequence:
         "Playback stops for everyone for a moment, and this page reconnects once the server is up.",
       restartConfirm: "Restart",
@@ -412,6 +418,7 @@ export const enSystem = {
       "{{node}}: {{path}}, in {{library}}: its scan of {{since}} would remove {{count}} files, because {{reason}}.",
     waitingMore: "and {{count}} more",
     waitingRemove: "Remove these {{count}} files",
+    waitingRemoveQuestion: "Remove these {{count}} files?",
     waitingRemoveConsequence: "They leave the library; a scan finds them again if they come back.",
     waitingRemoveConfirm: "Remove them",
     unread: "Could not be read",

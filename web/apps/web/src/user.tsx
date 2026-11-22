@@ -212,6 +212,7 @@ function OwnLink(props: {
       <p>{t("person.ownLink", { date: dateText(ownLinkExpiresAt, i18n.language) })}</p>
       <ConfirmButton
         label={t("person.revokeOwnLink")}
+        question={t("person.revokeOwnLinkQuestion", { name: user.name })}
         consequence={t("person.revokeOwnLinkConsequence", { name: user.name })}
         confirmLabel={t("person.revokeOwnLinkConfirm")}
         onConfirm={props.onRevoke}
@@ -240,12 +241,15 @@ function ResetLink(props: {
       <div className="page-actions">
         <ConfirmButton
           label={t("person.cancelResetLink")}
+          question={t("person.cancelResetLinkQuestion", { name: user.name })}
           consequence={t("person.cancelResetLinkConsequence", { name: user.name })}
           confirmLabel={t("person.cancelResetLinkConfirm")}
           onConfirm={props.actions.cancelResetLink}
         />
         <ConfirmButton
           label={t("person.renewResetLink")}
+          question={t("person.renewResetLinkQuestion", { name: user.name })}
+          isHarmless
           consequence={t("person.renewResetLinkConsequence", { name: user.name })}
           confirmLabel={t("person.renewResetLinkConfirm")}
           onConfirm={() => {
@@ -272,6 +276,8 @@ function NewLinkButton(props: {
     return (
       <ConfirmButton
         label={t("people.newLink")}
+        question={t("people.newLinkQuestion", { name: user.name })}
+        isHarmless
         consequence={t("people.newLinkConsequence", { name: user.name })}
         confirmLabel={t("people.newLinkConfirm")}
         onConfirm={() => {
@@ -286,6 +292,8 @@ function NewLinkButton(props: {
   return (
     <ConfirmButton
       label={t("person.newResetLink")}
+      question={t("person.newResetLinkQuestion", { name: user.name })}
+      isHarmless
       consequence={t("person.newResetLinkConsequence", { name: user.name })}
       confirmLabel={t("person.newResetLinkConfirm")}
       onConfirm={() => {
@@ -326,6 +334,7 @@ function PersonHead(props: {
         {props.isRemovable ? (
           <ConfirmButton
             label={t("person.remove", { name: user.name })}
+            question={t("person.removeQuestion", { name: user.name })}
             consequence={t("person.removeConsequence", { name: user.name })}
             confirmLabel={t("person.removeConfirm")}
             onConfirm={props.actions.removeUser}

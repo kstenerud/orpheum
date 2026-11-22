@@ -120,12 +120,6 @@
   opacity: 0.35;
 }
 
-/* The bin's question, before a key or password is removed, takes the row's whole width. */
-.settings__question {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
 .settings__problem {
   grid-column: 1 / -1;
   margin: 0;

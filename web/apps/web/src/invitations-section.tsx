@@ -148,6 +148,7 @@ function WaitingInvitation(props: {
       <BusyGroup isBusy={props.isBusy}>
         <ConfirmButton
           label={t("people.withdraw")}
+          question={t("people.withdrawQuestion")}
           consequence={t("people.withdrawConsequence")}
           confirmLabel={t("people.withdrawConfirm")}
           onConfirm={props.onWithdraw}

@@ -6,7 +6,8 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Banners, type BannerNotice } from "./banner.tsx";
-import { ConfirmDialog } from "./confirm-button.tsx";
+import { ConfirmButton, ConfirmDialog } from "./confirm-button.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { ListBox, ListOption, ListSubmenu } from "./list-box.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PopoverButton } from "./popover.tsx";
@@ -82,14 +83,25 @@ function GalleryDialog(): JSX.Element {
             setDepth(0);
           }}
           footer={
-            <button
-              type="button"
-              onClick={() => {
-                setDepth(0);
-              }}
-            >
-              {t("gallery.dialogSave")}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setDepth(0);
+                }}
+              >
+                {t("dialog.cancel")}
+              </button>
+              <button
+                type="button"
+                {...arrivalMark}
+                onClick={() => {
+                  setDepth(0);
+                }}
+              >
+                {t("gallery.dialogSave")}
+              </button>
+            </>
           }
         >
           <p>{t("gallery.dialogBody")}</p>
@@ -106,7 +118,7 @@ function GalleryDialog(): JSX.Element {
           </p>
           {depth === 2 ? (
             <ConfirmDialog
-              heading={t("gallery.removeHeading")}
+              question={t("gallery.removeHeading")}
               consequence={t("gallery.removeConsequence")}
               confirmLabel={t("gallery.removeYes")}
               onConfirm={() => undefined}
@@ -131,33 +143,30 @@ function GalleryField(): JSX.Element {
   );
 }
 
-/** A confirm before what cannot be undone, its focus on Keep it (D538 §4). */
+/**
+ * The two confirms (ui.md rule 8): one before what cannot be undone, in the irreversible red, and one
+ * before what is disruptive but harmless, plain; each starts on Cancel (D538 §4).
+ */
 function GalleryConfirm(): JSX.Element {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
   return (
-    <>
-      <button
-        type="button"
-        className="irreversible-outline"
-        onClick={() => {
-          setIsOpen(true);
-        }}
-      >
-        {t("gallery.remove")}
-      </button>
-      {isOpen ? (
-        <ConfirmDialog
-          heading={t("gallery.removeHeading")}
-          consequence={t("gallery.removeConsequence")}
-          confirmLabel={t("gallery.removeYes")}
-          onConfirm={() => undefined}
-          onClose={() => {
-            setIsOpen(false);
-          }}
-        />
-      ) : null}
-    </>
+    <div>
+      <ConfirmButton
+        label={t("gallery.remove")}
+        question={t("gallery.removeHeading")}
+        consequence={t("gallery.removeConsequence")}
+        confirmLabel={t("gallery.removeYes")}
+        onConfirm={() => undefined}
+      />{" "}
+      <ConfirmButton
+        label={t("gallery.restart")}
+        question={t("gallery.restartQuestion")}
+        consequence={t("gallery.restartConsequence")}
+        confirmLabel={t("gallery.restartYes")}
+        isHarmless
+        onConfirm={() => undefined}
+      />
+    </div>
   );
 }
 

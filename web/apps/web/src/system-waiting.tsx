@@ -196,6 +196,7 @@ function WaitingRoot(props: {
       ) : null}
       <ConfirmButton
         label={t("system.waitingRemove", { count: root.fileCount })}
+        question={t("system.waitingRemoveQuestion", { count: root.fileCount })}
         consequence={t("system.waitingRemoveConsequence", { count: root.fileCount })}
         confirmLabel={t("system.waitingRemoveConfirm")}
         onConfirm={props.onRemove}
