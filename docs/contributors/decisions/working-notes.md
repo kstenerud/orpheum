@@ -30723,6 +30723,14 @@ D357 §1's limit of a rescan to a film or a series.
    selective (§5). Amends §5's "never everything of a video": everything, when asked for. The rule
    (the owner: "Basically everything except things directly caused by the user (watching, entering
    data, etc)"): what the app made or fetched goes; what a person did stays.
+   Subtitles fetched from a provider (D244), which a person picked, are the exception (the owner,
+   2026-11-22: "Putting a delete button beside each downloaded subtitle feels fiddly and will fill
+   up a small screen. Let's just make it so that for subtitles we only re-fetch if they click
+   rescan on a file, not on a library"): a discarding rescan of a video's page throws out the
+   subtitles fetched for its files, to be found again from the player, since a wrong pick (a video
+   misidentified when it was searched for) is only undone so; a library's or everything's keeps
+   them, each download counting against the provider's quota, and only converts each again from its
+   kept download. Repeat fingerprints and fetch failures, made by the app, go under every discard.
 
 **Built** (2026-11-22): 1–5. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
