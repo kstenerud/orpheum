@@ -4790,7 +4790,8 @@ A rescan stays selective meanwhile (D535 §5): revisited if a report shows someo
 
 **Built under D536** (2026-11-22): every thing above but the loudness measurement carries its
 recipe in its key, each recipe's first version leaving today's keys as they were; the loudness
-measurement has its recipe and its test, and its key gains the recipe with a migration, the owner's.
+measurement has its recipe and its test, and its key gains the recipe with a migration, which the
+owner ordered for this batch (2026-11-22: "add the migration for loudness"), in the offsets' step.
 
 ## A video's own sound offset, and a number input, next batch (the owner, 2026-11-22)
 
@@ -4831,5 +4832,9 @@ the admin "This file needs this offset" so the admin can fix it for all users."
 - **Each setting is a row, not a button** (the owner, 2026-11-22): "the "device" and "this file"
   things should be text with the new widget beside them, not buttons that pop up a dialog box".
   The label is text, and the number input sits beside it in the menu itself.
-- **Kept per file,** not per video: the lost sound is in that file. A video's other version, or a
+- **Kept per file,** not per video: the lost sound is in that file.
+- **The two are shown apart, not as a total** (the owner, 2026-11-22, amending the design above):
+  "Modifying the device offset would automatically change the per-file offsets, and every file
+  offset would look like it has an offset chosen if the device has an offset." "Device" shows the
+  device's offset and "This file" the file's (0 when none is set); the sound plays with both applied. A video's other version, or a
   file that replaces it, starts at 0.
