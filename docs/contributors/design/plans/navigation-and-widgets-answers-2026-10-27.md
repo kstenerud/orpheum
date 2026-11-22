@@ -4852,3 +4852,51 @@ the admin "This file needs this offset" so the admin can fix it for all users."
 `soundOffsetMs` or `isSoundOffsetEveryones`), both in a playback's start (`fileSoundOffset`), and a
 report's `soundOffset` suggestion, listed for the admin. The gear, the number input and the report's
 "Apply to everyone" are the web client's.
+
+## The UI revamp (the owner, 2026-11-22)
+
+A design agent reviewed the interface and proposed a revamp: a design system (interface rules 1–15,
+16 parts, tokens) and specs for the player's menus, the dialogs, the forms, the admin pages and the
+player. The handoff is kept outside the repo (`orpheum-ui-handoff.zip`, in the lead's cache); what
+the repo keeps is the standard, the principles and D538 written from it. The owner's order: "When
+sources disagree, a rule beats a spec, and a spec's words beat a mockup. The specs cover visual
+design and interaction only." The lead reviewed it against the code and the decisions first; the
+owner's answers to that review, each recorded in D538:
+
+- **Dialogs carry no ✕** (amends D408 §2): the header and footer stay on screen while the body
+  scrolls, so no dialog leaves the person without a way out.
+- **A press outside closes a dialog, every dialog,** and a dialog holds **at most one text field**
+  unless a strong exception is made (the owner: "This minimizes information loss on a stray tap").
+- **Every dangerous action asks first, and the question's own focus is on not doing it** (the owner:
+  "make sure this is the case"). With that true, a dialog's focus starts on its main action, even a
+  dangerous one (amends D421).
+- **A dialog opened from a dialog replaces it,** never stacks; going back brings the first one back.
+- **The scrub bar takes the usual focus ring and no longer fades** (amends D410 §3).
+- **Watch Together and Cast move to the end of the buttons row** (amends D422 §1, D423 §1).
+- **Everything about the sound is in the Sound menu** (the owner: "Put everything sound related into
+  the sound menu"): the tracks, levelling, dialogue boost, "This device" and "This file" with D537's
+  "Make it everyone's" and "Tell the admin", and the timing notes. The gear's advanced fold goes.
+- **The Stepper is the number input's next form** (the owner: "the stepper is an evolution of the
+  number input we just built"): −/+, a caption, an arrow at its limit marked disabled but kept in
+  the focus order. It goes on the menus' timings first; VQ378 is reworded to walk it.
+- **The Quality picker** is Automatic plus today's Data use choices in GB per hour (D488, D490,
+  D493); "Original file" stays a debug tool chosen per playback, shown only with debug tools on.
+- **The warning sign leads to the Needs attention page,** not a pop-up (D280 §4 kept).
+- **Remote access becomes Network** (amends D528 §1); `/remote-access` redirects.
+- **The data the pages need is added to the API** (the owner: "Can we get this data? If so, let's
+  add the functionality we need"): what needs attention beyond libraries (the menu marks), a
+  person's last watch and whether their link was used, a job queue's failures, the versions on
+  About. An addition only: no existing call changes what it does.
+- **The handoff's wrong facts are fixed:** "Use the default" calls the existing reset; a password
+  shows nothing of itself (D194 §3), an API key its last four characters; the match hint stays cut
+  short; menus size to their content within the screen (D408 §7); hours between update checks
+  1–168 in the client and the API (the owner: "I'm fine with the 168h cap"); an unmeasured file's
+  levelling shows no number; the info line's speed is the last measured; the bare player and the
+  timing notes keep their places.
+- **Batches** (the owner: "Put them in batches, structured such that you're unlikely to need my
+  input until after the last batch. Then just keep doing batches until you need my input"): one
+  check-pr and one owner walk at the end.
+  1. The standard, the principles, the tokens, the input-mode module and the parts.
+  2. The player's menus, every dialog and confirm, every form.
+  3. The API additions and the pages (pages-spec 1–3).
+  4. The player's overlay and banners (player-spec).

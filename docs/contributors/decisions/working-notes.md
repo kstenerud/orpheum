@@ -30981,3 +30981,39 @@ only where it starts a playback through `POST /playback`.
 - 5: `TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt` (internal/core/api)
 - 6: `TestMoveChoicesToCopysFile_MovesEveryonesSoundOffsetWhereTheFileHasNone` (internal/core/preferences)
 - 7: `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store)
+
+## D538 — The interface follows one standard and one set of parts, amending D408, D410, D421, D422, D423 and D528
+
+**Decided** (2026-11-22), by the project owner, of the lead's review of a design agent's proposed
+revamp, in the plan's "The UI revamp"
+([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+The owner: "I want a solid UI/UX design spec with clear rules and policies, and a set of UX and UI
+principles we live by from now on." The standard and
+the principles are written from it, in the standards and the principles.
+
+**Status:** decided.
+
+1. **One standard, one set of parts:** every screen is built of the parts the standard lists, each
+   built once; a screen that needs one not there adds it to the set, not to itself.
+2. **A dialog carries no ✕** (amends D408 §2): its header and footer stay on screen while its body
+   scrolls, and its footer always holds a way out.
+3. **A press outside closes every dialog and pop-up,** and a dialog holds at most one text field
+   unless a strong exception is recorded, so a stray press loses little. Where more is needed the
+   form is a page.
+4. **Every dangerous action asks first, and the question starts on not doing it;** with that true,
+   every other dialog starts on its main action (amends D421).
+5. **A dialog opened from a dialog replaces it;** going back brings the first back with focus on
+   what opened the second. Dialogs never stack.
+6. **The scrub bar takes the focus ring every control has and does not fade** (amends D410 §3).
+7. **Watch Together and Cast are the last buttons of the player's buttons row** (amends D422 §1,
+   D423 §1).
+8. **Everything about the sound is in the player's Sound menu,** D537's "This device" and "This
+   file" with "Make it everyone's" and "Tell the admin" included; the gear keeps no sound setting.
+9. **The Stepper is the number input's next form:** −/+, a caption, and an arrow at its limit
+   marked disabled but kept in the focus order; every control that sets a number takes it.
+10. **Quality is Automatic or a Data use choice** in GB per hour (D488, D490, D493); the original
+    file stays a debug tool chosen for one playback.
+11. **"Remote access" is "Network"** (amends D528 §1), at `/network`; `/remote-access` leads there.
+12. **The warning sign leads to the Needs attention page** (D280 §4 kept), which lists every
+    problem the server knows of, not only the libraries'; the API adds what the pages need to read
+    and changes no call already there.
