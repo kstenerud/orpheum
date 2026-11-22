@@ -30663,3 +30663,31 @@ playing sound is such a track is not played directly, for the new reason `audioT
 - 1: `TestParse_ASoundWhoseFirstPacketAloneLastsSecondsIsMarkedWithTheStretch` (internal/node/probe), `TestProbe_ASoundWhoseLongFirstPacketTheFirstPacketsCannotJudgeIsListedAlone` (internal/node/probe), `TestProbe_MarksASoundWhoseFirstPacketAloneLastsSeconds` (internal/node/probe, integration tier), `TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater` (internal/node/chunks), `TestMake_AMadeSoundOfAStretchedFirstPacketStartsWithThePicture` (internal/node/chunks, integration tier)
 - 2: `TestStoreFileOf_ATrackWhoseFirstPacketIsStretchedIsNeverCopied` (internal/core/chunks), `TestDecide_ASoundWhoseFirstPacketIsStretchedIsNotPlayedDirectly` (internal/core/decide); VQ377
 - 3: `TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence` (internal/node/chunks, integration tier), now of a gap partway through the sound
+
+## D535 — A file read by an older probe is read again on its own, and every video's page and every library offers a rescan
+
+**Decided** (2026-11-22), by the project owner, after D534's new probe field could not reach film
+20597 on staging: the film is an other video, and no rescan reaches one (the page offers its
+Rescan buttons to a film or a series alone; the server refuses any rescan of an other video or of
+its library), so nothing read its file again (agent-failures A89). The owner: "Every video info page
+should offer a 'rescan' option in its ... menu that rescans that file entirely", and, of the lead's
+proposal to read again on its own what an older probe read, "Auto rescan is good, but still offer a
+manual rescan in every info page under the ... menu as a fallback in case something breaks the
+auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
+D357 §1's limit of a rescan to a film or a series.
+
+**Status:** decided.
+
+1. **The probe has a version, raised with any change to what it says of a file**, and each file's
+   probe records the version that read it.
+2. **A file read by an older probe is read again on its own:** in the background, in every kind of
+   library, its differences throwing out only what they touch (D392), so a release whose probe
+   says more of a file reaches the files already read without anyone asking.
+3. **Every video's page offers Rescan in its … menu, to an admin:** a film's, a series', an
+   episode's and an other video's. It reads that page's files again entirely, a series' every
+   episode's, throwing out what their differences touch (D392); a film or a series is then matched
+   again unless a person chose its match (D357). It is the fallback for when reading again on its
+   own (§2) has not happened.
+4. **Every library offers its rescans, whatever it holds:** a library of other videos offers
+   Rescan and Full rescan as a library of films or of series does, its files read again (a full
+   rescan reading every one, D392); a library has no match to make again where it holds none.

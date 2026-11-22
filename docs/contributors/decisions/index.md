@@ -539,7 +539,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D531](working-notes.md#d531--a-failed-probe-hands-the-next-to-another-job-and-a-job-that-fails-every-probe-alone-fails-on-its-own) A failed probe hands the next to another job, and a job that fails every probe alone fails on its own
 - [D532](working-notes.md#d532--a-player-says-ahead-of-time-that-it-will-step-down-and-a-picture-quality-just-left-keeps-being-made-for-five-minutes) A player says ahead of time that it will step down, and a picture quality just left keeps being made for five minutes
 - [D533](working-notes.md#d533--the-sound-the-server-makes-fills-a-gap-in-the-films-own-with-silence-a-player-whose-copied-sound-is-given-up-mid-film-starts-again-at-the-made-one-and-a-page-that-failed-reports-no-stalls) The sound the server makes fills a gap in the film's own with silence, a player whose copied sound is given up mid-film starts again at the made one, and a page that failed reports no stalls
-- [D534](working-notes.md#d534--a-sound-whose-first-packet-alone-lasts-seconds-starts-with-the-picture-and-is-made-never-copied-or-played-directly) A sound whose first packet alone lasts seconds starts with the picture, and is made, never copied or played directly
+- [D534](working-notes.md#d534--a-sound-whose-first-packet-alone-lasts-seconds-starts-with-the-picture-and-is-made-never-copied-or-played-directly) A sound whose first packet alone lasts seconds starts with the picture, and is made, never copied or played directly — *revisited by D535*
+- [D535](working-notes.md#d535--a-file-read-by-an-older-probe-is-read-again-on-its-own-and-every-videos-page-and-every-library-offers-a-rescan) A file read by an older probe is read again on its own, and every video's page and every library offers a rescan
 
 ## Archived
 
