@@ -189,6 +189,22 @@ export function StepIcon(props: { readonly direction: "less" | "more" }): JSX.El
   );
 }
 
+/** A checkbox's tick (checkbox.tsx), drawn over its box while it is checked. */
+export function TickIcon(): JSX.Element {
+  return (
+    <Icon className="checkbox__tick">
+      <path
+        d="M5 12.5l4.5 4.5L19 7.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Icon>
+  );
+}
+
 // ---- The status tray and its cues ----
 
 /**

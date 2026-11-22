@@ -5,6 +5,7 @@ import "./gallery-words.ts";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Checkbox, RadioRows } from "./checkbox.tsx";
 import { Switch } from "./switch.tsx";
 
 /**
@@ -17,6 +18,7 @@ export function FormParts(): JSX.Element {
     <section aria-labelledby="gallery-forms">
       <h2 id="gallery-forms">{t("gallery.forms")}</h2>
       <GallerySwitches />
+      <GalleryChoices />
     </section>
   );
 }
@@ -34,6 +36,33 @@ function GallerySwitches(): JSX.Element {
         status={t("gallery.switchStatus")}
         isOn={isSecondOn}
         onSwitch={setIsSecondOn}
+      />
+    </div>
+  );
+}
+
+/** A checkbox and a radio group, as a form's Save confirms them. */
+function GalleryChoices(): JSX.Element {
+  const { t } = useTranslation();
+  const [isChecked, setIsChecked] = useState(true);
+  const [chosen, setChosen] = useState<"films" | "series">("films");
+  return (
+    <div className="ui-gallery__forms">
+      <Checkbox
+        label={t("gallery.checkbox")}
+        hint={t("gallery.checkboxHint")}
+        isChecked={isChecked}
+        onChange={setIsChecked}
+      />
+      <RadioRows
+        legend={t("gallery.radios")}
+        name="gallery-kind"
+        choices={[
+          { value: "films", label: t("gallery.radioFilms") },
+          { value: "series", label: t("gallery.radioSeries"), hint: t("gallery.radioSeriesHint") },
+        ]}
+        chosen={chosen}
+        onChoose={setChosen}
       />
     </div>
   );

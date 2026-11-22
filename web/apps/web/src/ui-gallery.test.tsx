@@ -64,6 +64,7 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "poster-row__arrow-icon",
     "stepper__sign",
     "stepper__sign",
+    "checkbox__tick",
     "cast-kind cast-kind--chromecast",
     "cast-kind cast-kind--find",
     "volume-row__film-icon",

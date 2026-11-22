@@ -3,7 +3,8 @@
 /**
  * The form's choices walked by a mouse, a finger, a keyboard and a remote's keys in a real browser,
  * at a phone's, a computer's and a television's width (D538, interface rules 7 and 14): a switch
- * (switch.tsx), toggled by every one of them, its focus ring on its whole row.
+ * (switch.tsx), toggled by every one of them, its focus ring on its whole row; a checkbox and a
+ * radio group's rows (checkbox.tsx), a press anywhere on a row choosing it.
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
@@ -15,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { startInput, type Input } from "./input-commands.ts";
+import { Checkbox, RadioRows } from "./checkbox.tsx";
 import { Switch } from "./switch.tsx";
 import { isSwitchOn, mount, switchNamed, type Mounted } from "./test-dom.tsx";
 import { focusedName, isRingShown, partWidths, tapOn } from "./test-parts.ts";
@@ -125,5 +127,114 @@ describe("a switch, by every way of pressing it", () => {
     const offAt = knob()?.left ?? 0;
     await userEvent.click(theSwitch());
     await expect.poll(() => (knob()?.left ?? 0) - offAt).toBeCloseTo(16, 0);
+  });
+});
+
+/** A checkbox and a radio group between two buttons, as a form has them. */
+function ChoicesColumn(): JSX.Element {
+  const [isChecked, setIsChecked] = useState(false);
+  const [chosen, setChosen] = useState<"films" | "series">("films");
+  return (
+    <main>
+      <button type="button">Above</button>
+      <Checkbox
+        label="Read subtitles"
+        hint="Beside each file"
+        isChecked={isChecked}
+        onChange={setIsChecked}
+      />
+      <RadioRows
+        legend="What it holds"
+        name="kind"
+        choices={[
+          { value: "films", label: "Films" },
+          { value: "series", label: "Series" },
+        ]}
+        chosen={chosen}
+        onChoose={setChosen}
+      />
+      <button type="button">Below</button>
+    </main>
+  );
+}
+
+/** The input labelled text. */
+function boxLabelled(text: string): HTMLInputElement {
+  const found = [...document.querySelectorAll("label")].find((each) => each.textContent === text);
+  const box = found?.querySelector("input");
+  if (box === null || box === undefined) {
+    throw new Error(`no ${text}`);
+  }
+  return box;
+}
+
+/** The row, the label, of the input labelled text. */
+function rowLabelled(text: string): HTMLLabelElement {
+  const row = boxLabelled(text).closest("label");
+  if (row === null) {
+    throw new Error(`no row ${text}`);
+  }
+  return row;
+}
+
+describe("a checkbox and a radio group's rows, by every way of pressing them", () => {
+  beforeEach(async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(<ChoicesColumn />);
+  });
+
+  it("toggles by a click on its label's far end and by a tap, its hint describing it", async () => {
+    await userEvent.click(rowLabelled("Read subtitles"), { position: { x: 80, y: 10 } });
+    expect(boxLabelled("Read subtitles").checked).toBe(true);
+    tapOn(rowLabelled("Read subtitles"));
+    expect(boxLabelled("Read subtitles").checked).toBe(false);
+    const hintId = boxLabelled("Read subtitles").getAttribute("aria-describedby") ?? "";
+    expect(document.getElementById(hintId)?.textContent).toBe("Beside each file");
+    tapOn(rowLabelled("Series"));
+    expect(boxLabelled("Series").checked).toBe(true);
+  });
+
+  it("is reached by Tab, Space toggling the box, and Tab passing the group at its choice", async () => {
+    document.querySelector<HTMLButtonElement>("button")?.focus();
+    await userEvent.keyboard("{Tab}");
+    expect(document.activeElement).toBe(boxLabelled("Read subtitles"));
+    expect(isRingShown()).toBe(true);
+    await userEvent.keyboard(" ");
+    expect(boxLabelled("Read subtitles").checked).toBe(true);
+    await userEvent.keyboard("{Tab}");
+    expect(document.activeElement).toBe(boxLabelled("Films"));
+    expect(isRingShown()).toBe(true);
+    await userEvent.keyboard("{Tab}");
+    expect(focusedName()).toBe("Below");
+  });
+
+  it("is a stop for a remote on each row: Down and Up move, and OK ticks or chooses", async () => {
+    document.querySelector<HTMLButtonElement>("button")?.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(boxLabelled("Read subtitles"));
+    expect(isRingShown()).toBe(true);
+    await userEvent.keyboard("{Enter}");
+    expect(boxLabelled("Read subtitles").checked).toBe(true);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(boxLabelled("Films"));
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(boxLabelled("Series"));
+    await userEvent.keyboard("{Enter}");
+    expect(boxLabelled("Series").checked).toBe(true);
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement).toBe(boxLabelled("Films"));
+    expect(boxLabelled("Series").checked).toBe(true);
+  });
+
+  it("lays out each row a fingertip tall, its box 20 pixels, at each width", async () => {
+    for (const width of partWidths) {
+      await page.viewport(width, 800);
+      for (const text of ["Read subtitles", "Films", "Series"]) {
+        const row = rowLabelled(text).getBoundingClientRect();
+        expect(row.height, `${text} at ${String(width)} px`).toBeGreaterThanOrEqual(44);
+        expect(boxLabelled(text).getBoundingClientRect().width).toBeCloseTo(20, 0);
+        expect(row.right).toBeLessThanOrEqual(width);
+      }
+    }
   });
 });

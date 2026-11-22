@@ -34,6 +34,7 @@ import {
   SortArrowIcon,
   SortIcon,
   StepIcon,
+  TickIcon,
   StillReadingIcon,
   TogetherIcon,
   UncertainMatchIcon,
@@ -322,6 +323,7 @@ function PlacesAndToolsIcons(): JSX.Element {
       </span>
       <span className="icon-button">
         <StepIcon direction="more" />
+        <TickIcon />
       </span>
       <GoogleCastIcon />
       <FindDevicesIcon />
