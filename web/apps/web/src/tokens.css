@@ -26,9 +26,10 @@
   /*
    * A text box's example text, a search box's alone (D538): dimmer than secondary text and slanted
    * (base.css), so it never reads as a value to delete (the owner, 2026-10-28, who took the muted
-   * grey for a pre-filled field), yet bright enough to read, 4.5:1 on a surface (WCAG 1.4.3).
+   * grey for a pre-filled field), yet bright enough to read, 4.5:1 on the surface a text box fills
+   * itself with (WCAG 1.4.3).
    */
-  --color-placeholder: #8e8e98;
+  --color-placeholder: #8a8a94;
   /*
    * The edge of a control whose edge is all that bounds it: a switch's track while off, a
    * checkbox's box, a radio's ring, a stepper's frame (D538). 3:1 on a surface (WCAG 1.4.11).

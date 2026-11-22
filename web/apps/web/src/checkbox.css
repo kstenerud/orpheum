@@ -64,11 +64,15 @@
   cursor: default;
 }
 
-/* The tick lies over the box, letting presses through to it, shown only while it is checked. */
+/* The tick is an icon's size beside others (the gallery's), and its words' colour there. */
 .checkbox__tick {
-  place-self: center;
   inline-size: calc(var(--space-4) - var(--space-1) / 2);
   block-size: calc(var(--space-4) - var(--space-1) / 2);
+}
+
+/* In a box it lies over the box, letting presses through to it, shown only while it is checked. */
+.checkbox__box + .checkbox__tick {
+  place-self: center;
   color: var(--color-on-accent);
   pointer-events: none;
   visibility: hidden;

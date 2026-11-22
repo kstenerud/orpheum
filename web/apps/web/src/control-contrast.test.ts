@@ -32,13 +32,20 @@ function contrast(one: string, other: string): number {
 }
 
 describe("the colours of a control's parts (D538)", () => {
-  it("draws a search box's example text readable on a surface and a raised one (WCAG 1.4.3)", () => {
+  it("draws a search box's example text readable on the surface a text box fills itself with (WCAG 1.4.3)", () => {
+    // A text box is drawn on its own surface wherever it lies, a raised panel's included (base.css),
+    // so that surface is the one its example text is read on.
+    const fills = declarationsOf(sourceHere("base.css")).filter(
+      (declaration) =>
+        declaration.selector.split(",")[0]?.trim().startsWith("input:not(") === true &&
+        declaration.text.startsWith("background:"),
+    );
+    expect(fills.map((declaration) => declaration.text)).toEqual([
+      "background: var(--color-surface)",
+    ]);
     expect(contrast(token("color-placeholder"), token("color-surface"))).toBeGreaterThanOrEqual(
       4.5,
     );
-    expect(
-      contrast(token("color-placeholder"), token("color-surface-raised")),
-    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("draws a control's own edge seen on a surface and a raised one (WCAG 1.4.11)", () => {
