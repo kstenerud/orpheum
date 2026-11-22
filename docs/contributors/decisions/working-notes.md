@@ -30720,4 +30720,6 @@ D357 §1's limit of a rescan to a film or a series.
    (each derived thing by its one way to be thrown out, D392 §3: made chunks of every stream,
    loudness, frame stills, text read from subtitles), and the provider's kept answers and images, so
    each is made or fetched again; never what a person chose, edited or watched. Unticked, it stays
-   selective (§5). Amends §5's "never everything of a video": everything, when asked for.
+   selective (§5). Amends §5's "never everything of a video": everything, when asked for. The rule
+   (the owner: "Basically everything except things directly caused by the user (watching, entering
+   data, etc)"): what the app made or fetched goes; what a person did stays.
