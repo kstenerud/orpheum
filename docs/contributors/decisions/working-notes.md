@@ -30881,13 +30881,13 @@ held `encodeRecipe`, raised by hand, with no test that demanded it, and a sound'
 all: D533 §1 changed how a sound is made, and a sound store of a file whose facts did not change
 would have been served as it was made before. Mechanical, not remembered (principles §17).
 
-**Status:** decided.
+**Status:** decided and built.
 
 1. **Each thing the node makes has a recipe, a version raised with any change to how it is made**:
    the copied picture's, an encoded quality's, a sound's (a track's mix as stereo AAC), a track's
    sound copied as it is, a loudness measurement's and a frame still's (`nodeproto`'s
    `PictureRecipe`, `QualityRecipe`, `SoundRecipe`, `SoundCopiedRecipe`, `LoudnessRecipe`,
-   `FrameStillRecipe`). Each is named in the key of what it made, so a raised recipe makes it again,
+   `FrameStillRecipe`). Each but the loudness measurement's (§3) is named in the key of what it made, so a raised recipe makes it again,
    once, where it is next wanted, and what an older recipe made is never served or continued as the
    new one's. The wire's shape counts every recipe, so a core and its nodes make at one recipe, a
    node at another refused as one with another probe is (D535 §1).
@@ -30927,3 +30927,4 @@ they are, and the picture's timeline the node reads beside the loudness (D247 §
 - 2: `TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments` (internal/node/chunks), `TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/artwork), `TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/readthrough)
 - 3: `TestLoudnessRecipe_IsOneUntilTheLoudnessKeyHoldsIt` (internal/core/readthrough)
 - 4: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork)
+- 5: `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork), `TestEvict_RemovesChunkStoresByTheirPlayersTierFirst` (internal/node/prepared)
