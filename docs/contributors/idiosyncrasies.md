@@ -3534,6 +3534,26 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   running ahead of video after seeking" (read 2026-10-11).
 
 
+### An encode of a sound with a gap in its timestamps closes the gap, and the sound runs early
+
+- **Symptom:** a film (file 18306, staging, 2026-11-22) whose first AAC packet lasts 31.9 s, every
+  other 23 ms: the sound made's chunk 0 held 0 to 0.046 s, its chunk 1 started at 31.948 s, and the
+  run was refused at its bounds. A run seeking into the gap put the sound after it that much early.
+- **Cause:** FFmpeg's filters and encoder pass the decoded samples on one after another; nothing
+  fills a gap in their timestamps unless asked. The AAC encoder counts samples, so its packets, and
+  the segment muxer's cuts, close the gap. The run's `asetpts=PTS-STARTPTS` after its trim closes a
+  gap at the trim's start the same way.
+- **What we do:** `aresample=async=1:first_pts=0` first in a sound made's filter, before its trim:
+  it fills gaps with silence and puts the first sample at zero, where the seek (or the unsought
+  film's start) is, from which the trim counts (D533 §1). `internal/node/chunks/arguments.go`
+  (`soundGapFill`). After the trim it would fill the trimmed time with silence instead. A gap past
+  where a run stops reading is not filled: the fill needs the sample after it.
+  `TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence`.
+- **Evidence:** measured 2026-11-22 on the staging node against the file: with the fill, chunks of
+  2.020, 1.997, 1.997 s and on, silence over the first 32 s; from a seek to 2 s into a 5 s gap,
+  the fill keeps 8 s of a run 4 to 12 s, without it 7 s, with the pinned FFmpeg 8.1.3.
+
+
 ### Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder
 
 - **Cause:** NVENC ignores `-force_key_frames` without `-forced-idr 1`. QSV's option is `-forced_idr 1`.

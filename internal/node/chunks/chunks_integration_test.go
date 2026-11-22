@@ -683,3 +683,62 @@ func TestMake_AnEncodeOfAFilmWithAGapAfterItsFirstPictureDecodesItAtItsShownTime
 		t.Errorf("the chunks hold %d pictures; want the film's %d before %d ms", len(times), want, grid[2])
 	}
 }
+
+// soundGapSeconds is when filmWhoseSoundStartsLate's sound starts, its first packet lasting until it.
+const soundGapSeconds = 5
+
+// filmWhoseSoundStartsLate is a twelve-second MP4 of H.264 and stereo AAC at 44.1 kHz whose first
+// sound packet lasts soundGapSeconds and every other one 23 ms, as file 18306's lasts 31.9 s
+// (staging, 2026-11-22; D533): its sound starts that late. The sound is silent for a second after
+// it, then a tone.
+func filmWhoseSoundStartsLate(t *testing.T) string {
+	t.Helper()
+	sound := filepath.Join(t.TempDir(), "a tone after a second.m4a")
+	testutil.GenerateMedia(t, sound,
+		"-f", "lavfi", "-i", "aevalsrc=if(gte(t\\,1)\\,sin(2*PI*1000*t)/2\\,0):s=44100:d=7",
+		"-c:a", "aac", "-ac", "2")
+	path := filepath.Join(t.TempDir(), "a film whose sound starts late (2020).mp4")
+	// Without an edit list the MP4 muxer starts the sound at the film's start, stretching its first
+	// packet, the encoder's priming, over the offset.
+	testutil.GenerateMedia(t, path,
+		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
+		"-itsoffset", strconv.Itoa(soundGapSeconds), "-i", "file:"+sound,
+		"-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "fast", "-bf", "0", "-g", "48",
+		"-keyint_min", "48", "-sc_threshold", "0", "-c:a", "copy", "-use_editlist", "0", "-t", "12")
+	return path
+}
+
+// The sound made of a film whose first sound packet lasts five seconds is cut at its chunks' bounds,
+// silent over the gap, its tone at its time in the film, made from the film's start and by a run
+// whose seek lands inside the gap: FFmpeg's encode counted only the packet's 23 ms of samples, so
+// the run's chunk 0 held them and what follows the gap, and was refused at its bounds, and a run
+// seeking into the gap put the sound after it early (D533 §1; idiosyncrasies.md).
+func TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmWhoseSoundStartsLate(t)
+	const frame = 1024.0 / 44100
+	if times := sourceTimes(t, runner, source, "a:0", false); len(times) < 3 ||
+		math.Abs(times[1]-times[0]-soundGapSeconds) > 0.1 || math.Abs(times[2]-times[1]-frame) > 0.001 {
+		t.Fatalf("the film's sound packets start at %v s; want the first lasting %d s, the next a frame",
+			times[:min(3, len(times))], soundGapSeconds)
+	}
+	grid := keyframeGrid(t, runner, source)
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-sound0/0123456789abcdef"
+	// The first run reads past the gap; the second, led in from 4 s, seeks to 2 s, inside it.
+	makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 128, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	made := toneOnset(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1)) -
+		float64(chunks.TimelineOffsetMs)/1000
+	if want := float64(soundGapSeconds + 1); math.Abs(made-want) > 0.025 {
+		t.Errorf("the sound made has its tone at %.3f s in the film; want the film's %.3f s", made, want)
+	}
+}

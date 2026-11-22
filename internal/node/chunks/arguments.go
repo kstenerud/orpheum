@@ -125,6 +125,14 @@ func isSeeking(command nodeproto.MakeChunks) bool {
 	return seekMs(command) > 0
 }
 
+// soundGapFill fills a gap in a film's sound with silence, so a sound made is cut on its grid
+// however the film's packets are timed (D533 §1): the encode counts samples, not timestamps, and a
+// first AAC packet lasting 31.9 s, every other 23 ms, gave its chunk 0 46 ms and started chunk 1 at
+// 31.9 s, refused at its bounds (file 18306, staging, 2026-11-22). It puts the decode's first sample
+// at zero, where the seek (or the film's start, unsought) is, so it comes before the trim, whose
+// start counts from there: after it, it would fill the trimmed time with silence.
+const soundGapFill = "aresample=async=1:first_pts=0"
+
 // soundTrimMs is how much a sound's decode drops before its run's start: what it was decoded early.
 func soundTrimMs(command nodeproto.MakeChunks) int64 {
 	return runStartMs(command) - seekMs(command)
@@ -342,7 +350,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
-			"-filter:a", "atrim=start="+seconds(soundTrimMs(command))+",asetpts=PTS-STARTPTS,"+
+			"-filter:a", soundGapFill+",atrim=start="+seconds(soundTrimMs(command))+",asetpts=PTS-STARTPTS,"+
 				encode.MixFilter(*sound, command.Stream.IsBoosted),
 			"-c:a", "aac", "-b:a", strconv.Itoa(command.Stream.SoundKbps)+"k", "-ac", "2")
 	case nodeproto.StreamSoundCopied:

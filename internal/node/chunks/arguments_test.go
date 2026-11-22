@@ -346,9 +346,9 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 		t.Errorf("the cuts are %s, want 10.010,20.020,23.774,33.742", cuts)
 	}
 	if mapped, mix := valueOf(arguments, "-map"), valueOf(arguments, "-filter:a"); mapped != "0:a:1" ||
-		mix != "atrim=start=2.000,asetpts=PTS-STARTPTS,"+encode.MixFilter(*sound.Stream.Sound, true) {
-		t.Errorf("the sound is %s filtered by %q; want the two seconds before its lead-in dropped, then "+
-			"track 1's boosted mix", mapped, mix)
+		mix != soundGapFill+",atrim=start=2.000,asetpts=PTS-STARTPTS,"+encode.MixFilter(*sound.Stream.Sound, true) {
+		t.Errorf("the sound is %s filtered by %q; want a gap in it filled with silence from the seek, the "+
+			"two seconds before its lead-in dropped, then track 1's boosted mix (D533 §1)", mapped, mix)
 	}
 	if rate := valueOf(arguments, "-b:a"); rate != "96k" {
 		t.Errorf("the sound is encoded at %s; want the run's 96k (chunkSoundKbps)", rate)
@@ -375,18 +375,19 @@ func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *t
 	sound.LeadInMs, sound.IsLedIn, sound.IsSoundInterleaved = 88_839, true, true
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "78.839" ||
-		!strings.HasPrefix(filter, "atrim=start=10.000,asetpts=PTS-STARTPTS,") {
+		!strings.HasPrefix(filter, soundGapFill+",atrim=start=10.000,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %s filtered by %q; want from 78.839, dropping ten seconds", start, filter)
 	}
 	sound.LeadInMs, sound.IsLedIn, sound.FirstChunk, sound.BoundsMs = 0, false, 0, []int64{0, 3_236, 6_400}
 	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "6.400" ||
-		!strings.HasPrefix(valueOf(arguments, "-filter:a"), "atrim=start=0.000,") {
+		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=0.000,") {
 		t.Errorf("the film's first chunks' sound reads %v; want it read from the start unsought", arguments)
 	}
 	sound.BoundsMs = []int64{8_000, 11_000}
 	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
-	if slices.Contains(arguments, "-ss") || !strings.HasPrefix(valueOf(arguments, "-filter:a"), "atrim=start=8.000,") {
+	if slices.Contains(arguments, "-ss") ||
+		!strings.HasPrefix(valueOf(arguments, "-filter:a"), soundGapFill+",atrim=start=8.000,") {
 		t.Errorf("a sound eight seconds in reads %v; want it read from the start unsought, dropping 8 s", arguments)
 	}
 	// A sound copied takes no interleaved path, said or not: it seeks to its run's start (D368).
@@ -412,7 +413,7 @@ func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 	sound.FirstChunk = 0
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if filter := valueOf(arguments, "-filter:a"); slices.Contains(arguments, "-ss") ||
-		!strings.HasPrefix(filter, "atrim=start=1.500,asetpts=PTS-STARTPTS,") {
+		!strings.HasPrefix(filter, soundGapFill+",atrim=start=1.500,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %q filtered by %q; want from the start unsought, dropping 1.500 s",
 			valueOf(arguments, "-ss"), filter)
 	}

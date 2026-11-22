@@ -91,6 +91,13 @@
 //     super-block a seek lands in (idiosyncrasies.md). Enforced by
 //     TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart and, with the pinned
 //     FFmpeg, TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun.
+//   - A sound made fills a gap in the film's own with silence, from where its decode starts, before
+//     it is trimmed to its run, so its chunks are cut on their grid however the film's packets are
+//     timed: the encoder counts samples, and a first packet lasting 31.9 s, read without the fill,
+//     started chunk 1 at 31.9 s (D533 §1). Enforced by
+//     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds and, with the pinned FFmpeg, from the
+//     film's start and from a seek inside the gap, by
+//     TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence (integration tier).
 //   - No run seeks to the film's start; one reading from it reads unsought: FFmpeg moves a seek into a
 //     film with B-frames 3/23 s earlier, before the start, and an AVI seeking there loses its first
 //     keyframe and the sound interleaved ahead of its picture, which put a sound half a second early
