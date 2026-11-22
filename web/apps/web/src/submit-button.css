@@ -18,7 +18,7 @@
   border: 2px solid currentColor;
   border-inline-end-color: transparent;
   border-radius: var(--radius-pill);
-  animation: submit-button-turn 1s linear infinite;
+  animation: submit-button-turn var(--duration-spin) linear infinite;
 }
 
 @keyframes submit-button-turn {

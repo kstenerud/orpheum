@@ -156,12 +156,14 @@
 
   /*
    * Motion (interface rule 11, D538): how long a change takes, quick for hover and focus, normal for
-   * a pop-up opening, slow for a sheet rising; and how it moves, the standard easing for what comes
-   * in and the exit's for what goes. Reduced motion zeroes every duration (below).
+   * a pop-up opening, slow for a sheet rising, spin for one turn of a spinner, which turns while
+   * something works; and how it moves, the standard easing for what comes in and the exit's for what
+   * goes. Reduced motion zeroes every duration (below), a spinner's too: it stands still.
    */
   --duration-quick: 120ms;
   --duration-normal: 200ms;
   --duration-slow: 320ms;
+  --duration-spin: 1s;
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --easing-exit: cubic-bezier(0.3, 0, 1, 1);
 
@@ -233,6 +235,7 @@
     --duration-quick: 0ms;
     --duration-normal: 0ms;
     --duration-slow: 0ms;
+    --duration-spin: 0ms;
   }
 
   *,

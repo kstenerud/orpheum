@@ -27,6 +27,17 @@ function rawDurations(sheets: readonly (readonly [string, string])[]): string[] 
   );
 }
 
+/** Each spinner's turn (an animation of keyframes named `…-turn`) timed other than by --duration-spin. */
+function rawTurns(sheets: readonly (readonly [string, string])[]): string[] {
+  return sheets.flatMap(([name, text]) =>
+    declarationsOf(text)
+      .map((declaration) => declaration.text.trim())
+      .filter((text) => /^animation\s*:.*-turn\b/u.test(text))
+      .filter((text) => !text.includes("var(--duration-spin)"))
+      .map((text) => `${name}: ${text}`),
+  );
+}
+
 describe("what lies over what is a layer token (interface rule 11, D538)", () => {
   it("gives every z-index outside tokens.css as a layer token, never a number", () => {
     const sheets = sourcesHere(".css").filter(([name]) => name !== "tokens.css");
@@ -60,6 +71,23 @@ describe("motion is timed by the duration tokens (interface rule 11, D538)", () 
     ).toEqual(["a.css: transition: opacity 150ms ease-out"]);
   });
 
+  it("turns every spinner by --duration-spin", () => {
+    const sheets = sourcesHere(".css").filter(([name]) => name !== "tokens.css");
+    expect(sheets.map(([name]) => name)).toContain("submit-button.css");
+    expect(rawTurns(sheets)).toEqual([]);
+  });
+
+  it("finds a spinner turned by a number, so the check above can fail", () => {
+    expect(
+      rawTurns([
+        [
+          "a.css",
+          ".a { animation: a-turn 1s linear infinite; } .b { animation: b-turn var(--duration-spin) linear infinite; } .c { animation: c-fade 2s; }",
+        ],
+      ]),
+    ).toEqual(["a.css: animation: a-turn 1s linear infinite"]);
+  });
+
   it("zeroes every duration where less motion is asked for", () => {
     const reduced = declarationsOf(sourceHere("tokens.css")).filter(
       (declaration) =>
@@ -70,6 +98,7 @@ describe("motion is timed by the duration tokens (interface rule 11, D538)", () 
       "--duration-quick: 0ms",
       "--duration-normal: 0ms",
       "--duration-slow: 0ms",
+      "--duration-spin: 0ms",
     ]);
   });
 });

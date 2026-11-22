@@ -30,7 +30,7 @@
   height: 3.5rem;
   border-radius: 50%;
   background: var(--color-video-card);
-  animation: film-waits-turn 1s linear infinite;
+  animation: film-waits-turn var(--duration-spin) linear infinite;
 }
 
 .film-waits__spinner::before {
