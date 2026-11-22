@@ -4787,3 +4787,27 @@ raised, as `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` does for the wir
 for the probe. Mechanical, not remembered (principles §17).
 
 A rescan stays selective meanwhile (D535 §5): revisited if a report shows someone stuck on bad data.
+
+## A video's own sound offset, and a number input, a later batch (the owner, 2026-11-22)
+
+Found by VQ377: film 20597's file lost about 1.2 s of sound before its picture starts, which no
+timestamp says (D534 places it as well as the file can tell); the owner had it in sync only with the
+device's "Sound on this device: 1200 ms earlier", which shifts every video on that device. The
+owner: "yes. We'll implement this in a later batch."
+
+The owner's design, in their words: "I think it's getting time to have a new number input widget for
+this kind of thing, where we have a field to enter a number, with an up and down arrow to step
+up/down. Then we could have in the gear icon in the play menu a "Device" setting and a "This file"
+setting under an advanced fold, which displays to the user the combined device and file offset
+rather than having them puzzle it out. The per-file setting should default to whatever the admin put
+it, but also allow users to set their own. Then they can solve the problem for themselves and tell
+the admin "This file needs this offset" so the admin can fix it for all users."
+
+- **A number input widget:** a field for a number with up and down arrows that step it; the gallery
+  shows it (one way to do each job: the existing offset buttons move onto it).
+- **The player's gear:** "Device" (today's sound on this device) and, under an advanced fold, "This
+  file"; the sound's total offset, device plus file, is shown, so no one adds them up.
+- **This file's offset:** an admin's, kept with the video, for every person; a person may set their
+  own over it, which defaults to the admin's. A person's way to tell the admin "this file needs this
+  offset" is part of it (shape to propose when the batch is planned).
+- A rescan, discarding or not, keeps both: a person entered them (D535 §6).
