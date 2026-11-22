@@ -4765,3 +4765,25 @@ answers to the walkthrough's questions:
 - **W1's preflight in `orpheum-folders`** is not built: the folders step is a shell command in a
   versioned compose file, and a failed step stops `Up` with "didn't complete successfully", which
   sends the reader to a log as the core's does. The core says the cause plainly instead.
+
+## A made thing's recipe, next batch (the owner, 2026-11-22: "ok sounds good. That goes into the next batch")
+
+The owner: "Cache is one of those tricky things were a bad assumption makes it serve bad data
+forever." A store of made chunks is keyed by the probe facts it was made from (`chunks.StoreKey`,
+D392 §3), and D535 re-reads a file whose probe is older, so a change to what is *read* of a file
+reaches every store. A change to how a thing is *made* does not, unless someone remembers:
+
+- An encoded quality's key holds `encodeRecipe` (`internal/core/chunks/streams.go`), raised by hand,
+  with no test that demands it.
+- A sound's store has no recipe at all: D533 changed how a sound is made (silence filling a gap),
+  and a sound store of a file whose facts did not change would be served as it was made before.
+  D533's change matters only for a sound with gaps, which mostly failed to play before, so no one is
+  known to be stuck on such a store.
+
+**Proposed:** each made thing (a quality, a sound, the copied picture, a loudness measurement, the
+frame stills) carries a recipe version in its key, and a test records the FFmpeg arguments the node
+builds for a fixed set of commands and fails when they change without that thing's recipe being
+raised, as `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` does for the wire and D535 §1's test
+for the probe. Mechanical, not remembered (principles §17).
+
+A rescan stays selective meanwhile (D535 §5): revisited if a report shows someone stuck on bad data.
