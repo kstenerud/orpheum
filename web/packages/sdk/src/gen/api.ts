@@ -2927,6 +2927,48 @@ export interface components {
             /** @description An episode's frame */
             stillSha256?: string;
         };
+        AttentionItemBody: {
+            /** Format: int64 */
+            count?: number;
+            destination?: components["schemas"]["DestinationBody"];
+            detail?: string;
+            finding?: components["schemas"]["FindingBody"];
+            /** @description A problem, shown first and in the problem style; otherwise a notice */
+            isProblem: boolean;
+            /** @enum {string} */
+            kind: "folderOffline" | "diskOffline" | "folderWaiting" | "unread" | "rescanGaveUp" | "needsMatch" | "seriesReadWrongly" | "filmsWithoutSound" | "finding" | "workFailing" | "destinationDown" | "certificateMissing" | "unknownFailures" | "machineLocked" | "machineOutdated" | "machineSilent" | "keyRefused" | "keyMissing" | "secretNeedsReentry" | "updateAvailable" | "securityFix" | "updateCheckFailed" | "composePinned" | "composeNewer" | "stoodAside" | "copyRefused" | "addressesExpired" | "removed" | "deadEnds" | "protocolEnding";
+            /** Format: int64 */
+            libraryId?: number;
+            libraryName?: string;
+            mountPath?: string;
+            name?: string;
+            nodeName?: string;
+            rootPath?: string;
+            /** Format: int64 */
+            since?: number;
+            until?: string;
+            version?: string;
+            /** Format: int64 */
+            windowHours?: number;
+        };
+        AttentionPageBody: {
+            /** @description Whether any of its items is a problem, not only a notice */
+            isProblem: boolean;
+            /**
+             * Format: int64
+             * @description How many items it has in all; items lists the first 100
+             */
+            itemCount: number;
+            items: components["schemas"]["AttentionItemBody"][] | null;
+        };
+        AttentionPagesBody: {
+            librarySetup?: components["schemas"]["AttentionPageBody"];
+            network?: components["schemas"]["AttentionPageBody"];
+            settings?: components["schemas"]["AttentionPageBody"];
+            system?: components["schemas"]["AttentionPageBody"];
+            titlesToCheck?: components["schemas"]["AttentionPageBody"];
+            update?: components["schemas"]["AttentionPageBody"];
+        };
         AudioChoiceBody: {
             /**
              * Format: int64
@@ -4506,6 +4548,7 @@ export interface components {
             filmsWithoutSoundCount: number;
             /** Format: int64 */
             matchCount: number;
+            pages?: components["schemas"]["AttentionPagesBody"];
             rescansGivenUp?: components["schemas"]["RescanGivenUpBody"][] | null;
             /** Format: int64 */
             rootCount: number;

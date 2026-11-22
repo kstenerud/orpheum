@@ -249,6 +249,184 @@
         },
         "type": "object"
       },
+      "AttentionItemBody": {
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/DestinationBody"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/FindingBody"
+          },
+          "isProblem": {
+            "description": "A problem, shown first and in the problem style; otherwise a notice",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "folderOffline",
+              "diskOffline",
+              "folderWaiting",
+              "unread",
+              "rescanGaveUp",
+              "needsMatch",
+              "seriesReadWrongly",
+              "filmsWithoutSound",
+              "finding",
+              "workFailing",
+              "destinationDown",
+              "certificateMissing",
+              "unknownFailures",
+              "machineLocked",
+              "machineOutdated",
+              "machineSilent",
+              "keyRefused",
+              "keyMissing",
+              "secretNeedsReentry",
+              "updateAvailable",
+              "securityFix",
+              "updateCheckFailed",
+              "composePinned",
+              "composeNewer",
+              "stoodAside",
+              "copyRefused",
+              "addressesExpired",
+              "removed",
+              "deadEnds",
+              "protocolEnding"
+            ],
+            "type": "string",
+            "x-extensible-enum": [
+              "folderOffline",
+              "diskOffline",
+              "folderWaiting",
+              "unread",
+              "rescanGaveUp",
+              "needsMatch",
+              "seriesReadWrongly",
+              "filmsWithoutSound",
+              "finding",
+              "workFailing",
+              "destinationDown",
+              "certificateMissing",
+              "unknownFailures",
+              "machineLocked",
+              "machineOutdated",
+              "machineSilent",
+              "keyRefused",
+              "keyMissing",
+              "secretNeedsReentry",
+              "updateAvailable",
+              "securityFix",
+              "updateCheckFailed",
+              "composePinned",
+              "composeNewer",
+              "stoodAside",
+              "copyRefused",
+              "addressesExpired",
+              "removed",
+              "deadEnds",
+              "protocolEnding"
+            ]
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryName": {
+            "type": "string"
+          },
+          "mountPath": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "since": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "until": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "windowHours": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "isProblem"
+        ],
+        "type": "object"
+      },
+      "AttentionPageBody": {
+        "properties": {
+          "isProblem": {
+            "description": "Whether any of its items is a problem, not only a notice",
+            "type": "boolean"
+          },
+          "itemCount": {
+            "description": "How many items it has in all; items lists the first 100",
+            "format": "int64",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionItemBody"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "isProblem",
+          "items",
+          "itemCount"
+        ],
+        "type": "object"
+      },
+      "AttentionPagesBody": {
+        "properties": {
+          "librarySetup": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          },
+          "network": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          },
+          "system": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          },
+          "titlesToCheck": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          },
+          "update": {
+            "$ref": "#/components/schemas/AttentionPageBody"
+          }
+        },
+        "type": "object"
+      },
       "AudioChoiceBody": {
         "additionalProperties": false,
         "properties": {
@@ -4701,6 +4879,9 @@
           "matchCount": {
             "format": "int64",
             "type": "integer"
+          },
+          "pages": {
+            "$ref": "#/components/schemas/AttentionPagesBody"
           },
           "rescansGivenUp": {
             "items": {

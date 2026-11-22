@@ -64,6 +64,11 @@ type NeedsAttentionBody struct {
 	// start, refused because this one serves (D437 §4); empty and 0 while none has.
 	CopyRefusedFrom string `json:"copyRefusedFrom"`
 	CopyRefusedAt   int64  `json:"copyRefusedAt"`
+	// Pages is everything that needs an admin by the page it is fixed on, each item with where it
+	// links (D538 §12): beside the counts above, not in their place, so the tray and every client
+	// reading them answers as it did. It reads what the System, Update and Network pages read, so
+	// it is absent when any of that cannot be read, the counts still answering.
+	Pages *AttentionPagesBody `json:"pages,omitempty"`
 }
 
 // SeriesReadWronglyBody is a series some of whose episodes' file names were likely read wrongly.
@@ -169,6 +174,8 @@ func (server *Server) needsAttention(ctx context.Context, dependencies *Dependen
 		}
 		output.Body.UnknownFailureAlertCount = len(alerts)
 	}
+	output.Body.Pages = server.attentionPages(ctx, dependencies, &output.Body,
+		attentionPlaces{offline: offline, waiting: waiting, unread: unread})
 	return output, nil
 }
 

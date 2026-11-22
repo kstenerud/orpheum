@@ -137,6 +137,21 @@
 //     TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline.
 //   - An admin is told how many folders and disks are offline, wait for them or could not be read,
 //     which the status tray's warning sign shows (D280). TestNeedsAttention_CountsTheFoldersAndDisksOffline.
+//     Beside the counts, never in their place, the same read lists everything that needs an admin
+//     by the page it is fixed on, each item with where it links, problems first (D538 §12); a part
+//     of it that cannot be read leaves the pages out and the counts answering.
+//     TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
+//     TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks,
+//     TestNeedsAttention_PagesCountTitlesToCheckAsNotices,
+//     TestAttentionPage_ListsItsProblemsFirstAndAHundredAtMost,
+//     TestAttentionPages_NetworkListsWhatTheDiscoverySaysNeedsTheAdmin,
+//     TestAttentionPages_UpdateNoticesAPinnedTag.
+//   - The Jobs view counts the jobs failed within the job health window, and says the window
+//     (D538 §12, D233 §8). TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow.
+//   - The people list says when each person last watched, as their own page does (D538 §12,
+//     D306 §8). TestPeople_TheListSaysWhenEachLastWatched.
+//   - A library checks for changes every 1 to 168 hours, a week at most; more is refused (D538 §12).
+//     TestLibraries_TheHoursBetweenChecksAreAWeekAtMost.
 //   - An admin alone reads which kinds of work raise the alert of failures of unknown cause, and
 //     every such failure by kind with all it said, for the page and the export (D509, D511).
 //     TestUnknownFailures_AnAdminReadsTheAlertAndEveryFailureInFullAndNoOneElseDoes.
