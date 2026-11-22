@@ -30993,7 +30993,7 @@ the principles are written from it, in the standards ([ui.md](../standards/ui.md
 principles (the "Interface" heading of [the principles](../principles/README.md#interface), §31
 to §41).
 
-**Status:** decided. §12's API side is built, the pages not yet: GET /needs-attention lists, beside
+**Status:** decided. §1–§11 are not built in full (the UI revamp's batches build them); §12's API side is built, the pages not yet: GET /needs-attention lists, beside
 its counts, everything that needs an admin by page with where each item links
 (TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
 TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks); GET /jobs counts the jobs failed
@@ -31002,6 +31002,12 @@ says when each person last watched (TestPeople_TheListSaysWhenEachLastWatched), 
 saying whether their link was used; a library's hours between checks are 1 to 168
 (TestLibraries_TheHoursBetweenChecksAreAWeekAtMost). About's versions needed nothing new: the app's
 is its page's orpheum-build, the server's an admin's GET /system.
+
+**Proven by:**
+- 12: TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,
+  TestNeedsAttention_PagesPutSystemsWorkFailingBeforeItsChecks,
+  TestJobs_TheViewCountsTheJobsFailedWithinTheHealthWindow, TestPeople_TheListSaysWhenEachLastWatched,
+  TestLibraries_TheHoursBetweenChecksAreAWeekAtMost
 
 1. **One standard, one set of parts:** every screen is built of the parts the standard lists, each
    built once; a screen that needs one not there adds it to the set, not to itself.
