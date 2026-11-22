@@ -99,7 +99,10 @@ describe("subtitles", () => {
       expect(choices.map((choice) => choice.textContent)).toEqual(["Off", "English", "French"]);
       expect(choices[2]?.getAttribute("aria-current")).toBe("true");
       expect(document.activeElement).toBe(choices[2]);
-      expect(mounted.container.textContent).toContain("Subtitle offset: -1.5 s");
+      expect(mounted.container.querySelector<HTMLInputElement>(".stepper__field")?.value).toBe(
+        "−1.5",
+      );
+      expect(mounted.container.textContent).toContain("Subtitles show 1.5 s earlier");
       await click(choices[1]);
       expect(heard.map((request) => request.body)).toEqual([{ subtitleChoice: { streamId: 5 } }]);
       expect(mounted.container.querySelector(".route-chooser__button")?.textContent).toBe(

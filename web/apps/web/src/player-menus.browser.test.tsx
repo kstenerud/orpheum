@@ -6,7 +6,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { createRef } from "react";
+import { createRef, useState, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -81,8 +81,8 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(slider).width).toBeLessThanOrEqual(boxOf(mute).width + roundingPx);
   });
 
-  // D407 §8: Earlier and Later beside what they move, not each a whole place as a choice is.
-  it("sets ⁝'s subtitle offset in one row, its text in line with the choices' text", async () => {
+  // D407 §8: the timing's parts beside what they move, its label in line with the choices' text.
+  it("sets ⁝'s subtitle timing in one row, its label in line with the choices' text", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(
       withServices(
@@ -95,18 +95,54 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     );
     await userEvent.click(page.getByRole("button", { name: "Settings" }));
     const startOver = drawnIn("dialog .list-box__option");
-    const offset = drawnIn("dialog output");
-    const [earlier, later] = [offset.previousElementSibling, offset.nextElementSibling];
+    const label = [...document.querySelectorAll("dialog .stepper__label")].find(
+      (each) => each.textContent === "Subtitle timing",
+    );
+    const earlier = page.getByRole("button", { name: "Subtitles earlier" }).element();
+    const later = page.getByRole("button", { name: "Subtitles later" }).element();
+    const field = page.getByRole("textbox", { name: /^Subtitle timing, in seconds/u }).element();
     expect(startOver.textContent).toBe("Start over");
     const choiceTextLeft = boxOf(startOver).left + sidesOf(startOver, "padding") / 2;
-    expect(boxOf(earlier).left).toBeCloseTo(choiceTextLeft, 0);
+    expect(boxOf(label).left).toBeCloseTo(choiceTextLeft, 0);
     const middle = (box: DOMRect): number => box.top + box.height / 2;
-    for (const part of [offset, later]) {
+    for (const part of [field, later]) {
       expect(middle(boxOf(part))).toBeCloseTo(middle(boxOf(earlier)), 0);
     }
-    // A step of the space scale between them, --space-2.
-    expect(boxOf(offset).left - boxOf(earlier).right).toBeCloseTo(8, 0);
-    expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
+    // In seconds, as the spec's Timing row shows it.
+    expect((field as HTMLInputElement).value).toBe("0.0");
+  });
+
+  // The plan's "A video's own sound offset": ⁝'s Later was out of a remote's reach, three buttons
+  // with no row; a stepper's row takes Left and Right along it (D538 §9).
+  it("reaches ⁝'s subtitle timing's Later by a remote's Right, and steps it by OK, at 360, 1280 and 1920 wide", async () => {
+    const input = startInput({ goBack: () => false, isNavigating: () => true });
+    try {
+      for (const width of [360, 1280, 1920]) {
+        await page.viewport(width, 800);
+        mounted = await mount(withServices(<LiveSubtitleOffset />));
+        await userEvent.click(page.getByRole("button", { name: "Settings" }));
+        const field = page
+          .getByRole("textbox", { name: /^Subtitle timing, in seconds/u })
+          .element() as HTMLInputElement;
+        field.focus();
+        field.setSelectionRange(field.value.length, field.value.length);
+        await userEvent.keyboard("{ArrowRight}");
+        expect(document.activeElement?.getAttribute("aria-label")).toBe("Subtitles later");
+        expect(document.activeElement?.matches(":focus-visible")).toBe(true);
+        await userEvent.keyboard("{Enter}");
+        await expect.poll(() => field.value).toBe("+0.1");
+        await expect
+          .poll(() => document.querySelector("dialog .stepper__caption")?.textContent)
+          .toBe("Subtitles show 0.1 s later");
+        // The menu stays open for the next press, focus where it was.
+        expect(document.querySelector("dialog[open]")).not.toBeNull();
+        expect(document.activeElement?.getAttribute("aria-label")).toBe("Subtitles later");
+        mounted.unmount();
+        mounted = undefined;
+      }
+    } finally {
+      input.stop();
+    }
   });
 
   // The owner, 2026-11-22: "Sound on this device" is a text label with the stepper right beside
@@ -349,6 +385,28 @@ const subtitledTracks: PlayerTracks = {
   measuring: undefined,
   boost: undefined,
 };
+
+/** ⁝ over subtitled tracks whose offset moves as the person steps it, as the player's does. */
+function LiveSubtitleOffset(): JSX.Element {
+  const [offsetMs, setOffsetMs] = useState(0);
+  const tracks: PlayerTracks = {
+    ...subtitledTracks,
+    subtitles: {
+      ...subtitledTracks.subtitles,
+      offsetMs,
+      shiftOffset: (stepMs) => {
+        setOffsetMs((now) => now + stepMs);
+      },
+    },
+  };
+  return (
+    <PlayerTracksContext value={tracks}>
+      <PlayerMenusContext value={ways}>
+        <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+      </PlayerMenusContext>
+    </PlayerTracksContext>
+  );
+}
 
 /** The page's ways for ⁝: a file, no sound timing kept. */
 const ways: PlayerMenusWays = { fileId: 3, soundOffsetMs: 0, onSubtitleFetched: () => undefined };

@@ -30,30 +30,63 @@ export interface StepperProps {
   readonly stepUpLabel: string;
   /** Hears a new value, already within min and max: a step of − or +, or a number typed. */
   readonly onChange: (value: number) => void;
+  /**
+   * How the field shows the value where not as the whole number it is: in a unit scale times its
+   * own, to fractionDigits places, as a timing kept in ms is shown in seconds to a tenth.
+   */
+  readonly shownIn?: ShownIn | undefined;
+  /** Whether a value above zero shows a leading "+", as a subtitle timing's does. */
+  readonly isPlusShown?: boolean | undefined;
 }
+
+/** A field's unit, scale times the value's, shown to fractionDigits places: 1000 and 1 for ms as s. */
+export interface ShownIn {
+  readonly scale: number;
+  readonly fractionDigits: number;
+}
+
+/** A value shown as the whole number it is. */
+const asItIs: ShownIn = { scale: 1, fractionDigits: 0 };
 
 /** A whole number, signed or not, with the typographic minus a phone's keyboard may give. */
 const wholeNumber = /^[+\-−]?\d+$/u;
+
+/** A number with a fraction too, its point a full stop or a comma, as a keyboard of either gives. */
+const decimalNumber = /^[+\-−]?(?:\d+(?:[.,]\d*)?|[.,]\d+)$/u;
 
 /** The minus sign a stepper shows a value below zero with (U+2212), not the hyphen. */
 const minusSign = "−";
 
 /**
- * The number text says, held within min and max; undefined where it is no whole number, which the
- * field refuses, showing its value again.
+ * The number text says, in the value's own unit, held within min and max; undefined where it is no
+ * number the field takes, which it refuses, showing its value again: a whole number, or, where the
+ * field shows a fraction (shownIn), one with a fraction, rounded to the value's unit.
  */
-export function numberTyped(text: string, min: number, max: number): number | undefined {
+export function numberTyped(
+  text: string,
+  min: number,
+  max: number,
+  shownIn: ShownIn = asItIs,
+): number | undefined {
   const trimmed = text.trim();
-  if (!wholeNumber.test(trimmed)) {
+  const form = shownIn.fractionDigits > 0 ? decimalNumber : wholeNumber;
+  if (!form.test(trimmed)) {
     return undefined;
   }
-  const typed = Number(trimmed.replace(minusSign, "-"));
-  return Math.min(Math.max(typed, min), max);
+  const typed = Number(trimmed.replace(minusSign, "-").replace(",", "."));
+  return Math.min(Math.max(Math.round(typed * shownIn.scale), min), max);
 }
 
-/** A value as the field shows it: below zero with the minus sign, not a hyphen. */
-export function numberShown(value: number): string {
-  return value < 0 ? `${minusSign}${String(-value)}` : String(value);
+/**
+ * A value as the field shows it: in its shown unit (shownIn), below zero with the minus sign, not a
+ * hyphen, and above zero with a leading "+" where isPlusShown.
+ */
+export function numberShown(value: number, shownIn: ShownIn = asItIs, isPlusShown = false): string {
+  const digits = (Math.abs(value) / shownIn.scale).toFixed(shownIn.fractionDigits);
+  if (value < 0) {
+    return `${minusSign}${digits}`;
+  }
+  return isPlusShown && value > 0 ? `+${digits}` : digits;
 }
 
 /**
@@ -111,6 +144,8 @@ export function Stepper(props: StepperProps): JSX.Element {
             value={value}
             min={min}
             max={max}
+            shownIn={props.shownIn ?? asItIs}
+            isPlusShown={props.isPlusShown === true}
             onApply={moveTo}
           />
           <span id={unitId} className="stepper__unit">
@@ -165,8 +200,8 @@ function Sign(props: {
 }
 
 /**
- * A stepper's field: what is typed shows until Enter or leaving the field applies it, a whole number
- * held within min and max, and anything else is refused, the field showing value again.
+ * A stepper's field: what is typed shows until Enter or leaving the field applies it, a number held
+ * within min and max, and anything else is refused, the field showing value again.
  */
 function NumberField(props: {
   readonly label: string;
@@ -174,9 +209,11 @@ function NumberField(props: {
   readonly value: number;
   readonly min: number;
   readonly max: number;
+  readonly shownIn: ShownIn;
+  readonly isPlusShown: boolean;
   readonly onApply: (typed: number) => void;
 }): JSX.Element {
-  const { min, max } = props;
+  const { min, max, shownIn, isPlusShown } = props;
   // What is being typed, until it is applied; undefined shows the value.
   const [typing, setTyping] = useState<string | undefined>(undefined);
   const applyTyping = (): void => {
@@ -184,7 +221,7 @@ function NumberField(props: {
       return;
     }
     setTyping(undefined);
-    const typed = numberTyped(typing, min, max);
+    const typed = numberTyped(typing, min, max, shownIn);
     if (typed !== undefined) {
       props.onApply(typed);
     }
@@ -193,14 +230,15 @@ function NumberField(props: {
     <input
       type="text"
       className="stepper__field"
-      // A phone's number pad has no minus on some phones, so a field that can go below zero takes the
-      // whole keyboard.
-      inputMode={min < 0 ? "text" : "numeric"}
+      inputMode={inputModeOf(min, shownIn)}
       enterKeyHint="done"
-      size={widestOf(min, max)}
+      size={Math.max(
+        numberShown(min, shownIn, isPlusShown).length,
+        numberShown(max, shownIn, isPlusShown).length,
+      )}
       aria-label={props.label}
       aria-describedby={props.unitId}
-      value={typing ?? numberShown(props.value)}
+      value={typing ?? numberShown(props.value, shownIn, isPlusShown)}
       onChange={(event) => {
         setTyping(event.target.value);
       }}
@@ -214,7 +252,13 @@ function NumberField(props: {
   );
 }
 
-/** How many characters the widest value from min to max is, so the field never changes width. */
-function widestOf(min: number, max: number): number {
-  return Math.max(String(min).length, String(max).length);
+/**
+ * The keyboard a phone gives the field: its whole keyboard where the value can go below zero, as
+ * some phones' number pad has no minus; else a decimal pad for a fraction, or a number pad.
+ */
+function inputModeOf(min: number, shownIn: ShownIn): "text" | "decimal" | "numeric" {
+  if (min < 0) {
+    return "text";
+  }
+  return shownIn.fractionDigits > 0 ? "decimal" : "numeric";
 }

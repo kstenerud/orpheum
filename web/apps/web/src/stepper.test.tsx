@@ -4,7 +4,7 @@
 import { useState, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Stepper, numberTyped } from "./stepper.tsx";
+import { Stepper, numberShown, numberTyped } from "./stepper.tsx";
 import { buttonNamed, click, enter, fire, mount, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -107,6 +107,22 @@ describe("a stepper, the number input's next form (the owner, 2026-11-22; D538 �
     expect(numberTyped(" 30 ", -100, 100)).toBe(30);
     expect(numberTyped("+30", -100, 100)).toBe(30);
     expect(numberTyped("3 0", -100, 100)).toBeUndefined();
+  });
+
+  // The subtitles' timing is kept in ms and shown in seconds to a tenth, "+0.5" above zero (the
+  // menu spec's Timing row, D538 §9).
+  it("shows a value in a unit of its own, a leading + above zero, and takes a fraction typed in it", () => {
+    const seconds = { scale: 1000, fractionDigits: 1 };
+    expect(numberShown(500, seconds, true)).toBe("+0.5");
+    expect(numberShown(-1200, seconds, true)).toBe("−1.2");
+    expect(numberShown(0, seconds, true)).toBe("0.0");
+    expect(numberShown(40, undefined, true)).toBe("+40");
+    expect(numberTyped("1.25", -600000, 600000, seconds)).toBe(1250);
+    expect(numberTyped("−0,3", -600000, 600000, seconds)).toBe(-300);
+    expect(numberTyped(".5", -600000, 600000, seconds)).toBe(500);
+    expect(numberTyped("1.5.2", -600000, 600000, seconds)).toBeUndefined();
+    // A field showing whole numbers still refuses a fraction.
+    expect(numberTyped("1.5", -100, 100)).toBeUndefined();
   });
 
   it("is a field named for what it holds, described by its unit, as wide as its widest value, with arrows named for what they do", async () => {

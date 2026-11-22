@@ -10,8 +10,8 @@ import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
-import { Cluster } from "./layout.tsx";
-import { signedTenthsText } from "./number-text.ts";
+import { Stepper } from "./stepper.tsx";
+import { signedTenthsText, tenthsText } from "./number-text.ts";
 import { useSubtitlesShownToARemote } from "./picture-panel.ts";
 import { useIsGuest } from "./guest-page.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
@@ -313,46 +313,47 @@ function TrackMenu(props: { readonly choice: SubtitleChoice }): JSX.Element {
   );
 }
 
+/** The furthest the subtitles move either way, in ms, as the server keeps a file's offset. */
+export const longestSubtitleOffsetMs = 600_000;
+
+/** The subtitles' timing shown in seconds to a tenth, as it is stepped. */
+const inSeconds = { scale: 1000, fractionDigits: 1 } as const;
+
 /**
- * Moves the subtitles earlier or later by a tenth of a second, and shows where they are: in a row
- * under the film, or, isInAList, as an entry of ⁝'s list (player-menus.tsx), in a row that wraps to
- * the pop-up's width.
+ * The subtitles' timing, a stepper (stepper.tsx; D538 §9), under the film and in ⁝ alike: − earlier
+ * and + later by a tenth of a second, or typed in seconds, "+0.5" above zero, its caption saying
+ * which way they show. A row of the stepper, not three buttons, so a remote's Left and Right move
+ * along it and reach Later (the plan's "A video's own sound offset": in ⁝ a remote could not).
  */
 export function OffsetControl(props: {
   readonly offsetMs: number;
   readonly onMove: (stepMs: number) => void;
-  readonly isInAList?: boolean;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const parts = (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          props.onMove(-offsetStepMs);
-        }}
-      >
-        {t("play.subtitles.earlier")}
-      </button>
-      <output>
-        {t("play.subtitles.offset", {
-          seconds: formatOffsetSeconds(props.offsetMs, i18n.language),
-        })}
-      </output>
-      <button
-        type="button"
-        onClick={() => {
-          props.onMove(offsetStepMs);
-        }}
-      >
-        {t("play.subtitles.later")}
-      </button>
-    </>
-  );
-  return props.isInAList === true ? (
-    <Cluster space="2">{parts}</Cluster>
-  ) : (
-    <span className="subtitles__offset">{parts}</span>
+  const { offsetMs, onMove } = props;
+  const seconds = tenthsText(Math.abs(offsetMs) / 1000, i18n.language);
+  return (
+    <Stepper
+      label={t("play.subtitles.timing")}
+      fieldLabel={t("play.subtitles.timingField")}
+      valueText={
+        offsetMs > 0
+          ? t("play.subtitles.showLater", { seconds })
+          : t("play.subtitles.showEarlier", { seconds })
+      }
+      value={offsetMs}
+      min={-longestSubtitleOffsetMs}
+      max={longestSubtitleOffsetMs}
+      step={offsetStepMs}
+      unit={t("play.subtitles.unit")}
+      stepDownLabel={t("play.subtitles.earlier")}
+      stepUpLabel={t("play.subtitles.later")}
+      shownIn={inSeconds}
+      isPlusShown
+      onChange={(next) => {
+        onMove(next - offsetMs);
+      }}
+    />
   );
 }
 

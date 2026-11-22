@@ -1086,7 +1086,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   children alone, shrinks below its content where it is a flex item (`min-width: 0`), so a screen
   never needs the overflow fix, and answers to its container, never the viewport.
   `src/layout.browser.test.tsx`; each, and a pop-up holding a list, at `/ui-gallery`,
-  `src/ui-gallery.test.tsx`. ⁝'s steppers lay out their parts with `Cluster`; the screens'
+  `src/ui-gallery.test.tsx`. The screens'
   hand-written gapped rows and columns move to the primitives as they are touched.
 - **A page, a section and the buttons that end them are the layout parts** (D538 §1;
   [standards/ui.md](../../../docs/contributors/standards/ui.md), rules 9 and 13): `Page`
@@ -1122,14 +1122,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   A remote moves through its field as through every one-line field, Up and Down leaving the row
   and never stepping it, Left and Right moving the caret and, past its ends, to − and +, which OK
   presses; in a pop-up the control moves along by Left and Right before they close it
-  (`rowAttribute`, `popover.tsx`), ⁝'s "Sound on this device" among them. At a bound the sign that
+  (`rowAttribute`, `popover.tsx`), ⁝'s "Sound on this device" and "Subtitle timing" among them. At a bound the sign that
   can go no further is `aria-disabled`, a press doing nothing, and stays in the focus order
   (`IconButton`'s `isUnavailable`), so a television never loses its focus. What is typed applies
-  on Enter or on leaving the field, held at its bounds; what is no whole number is refused; below
-  zero it shows the minus sign. Its caption is an `output` describing the group, said at each
+  on Enter or on leaving the field, held at its bounds; what is no number is refused, a whole one,
+  or where it shows its value in a unit of its own (`shownIn`) one with a fraction, as the
+  subtitles' timing is kept in ms and shown and typed in seconds to a tenth; below zero it shows
+  the minus sign, and above zero a + where asked (`isPlusShown`). Its caption is an `output` describing the group, said at each
   change and shown under the control while the value is not 0. `src/stepper.test.tsx`,
-  `src/stepper.browser.test.tsx`, "reaches ⁝'s sound timing by a remote" in
-  `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" in
+  `src/stepper.browser.test.tsx`, "reaches ⁝'s sound timing by a remote" and "reaches ⁝'s
+  subtitle timing's Later by a remote's Right" in `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" in
   `src/ui-gallery.test.tsx`.
 - **A form is made of the parts, never of what they replace** (D538, interface rules 1 and 14): no
   native `<select>`, no `type="number"`, no `placeholder=` but a search box's, no `<p role="alert">`

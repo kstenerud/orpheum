@@ -196,7 +196,7 @@ describe("the overlay's menus (D407 §8)", () => {
     await opened(on, "Settings");
     const shown = places(on).join(" | ");
     expect(shown).toContain("Start over");
-    expect(shown).toContain("Subtitle offset");
+    expect(shown).toContain("Subtitle timing");
     expect(shown).toContain("Level");
   });
 
