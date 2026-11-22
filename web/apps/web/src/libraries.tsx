@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
 import { RootWarning } from "./root-warning.tsx";
+import { discardQuery, RescanQuestion } from "./rescan-action.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
@@ -136,6 +137,7 @@ export function RescanEverything(props: { readonly onStarted: () => void }): JSX
   const { t } = useTranslation();
   const { api } = useServices();
   const [note, setNote] = useState("");
+  const [isAsking, setAsking] = useState(false);
   const rescanning = useRequest((cause) => problemText(t, cause));
   return (
     <>
@@ -144,18 +146,32 @@ export function RescanEverything(props: { readonly onStarted: () => void }): JSX
         title={t("libraries.rescanHelp")}
         disabled={rescanning.isBusy}
         onClick={() => {
-          setNote("");
-          rescanning.runRequest(async (idempotencyKey) => {
-            const answer = dataOrThrow(
-              await api.POST("/libraries/rescan", idempotent(idempotencyKey)),
-            );
-            setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
-            props.onStarted();
-          });
+          setAsking(true);
         }}
       >
         {t("libraries.rescanEverything")}
       </button>
+      {isAsking ? (
+        <RescanQuestion
+          isLong
+          onClose={() => {
+            setAsking(false);
+          }}
+          onRescan={(isDiscarding) => {
+            setNote("");
+            rescanning.runRequest(async (idempotencyKey) => {
+              const answer = dataOrThrow(
+                await api.POST("/libraries/rescan", {
+                  params: { query: discardQuery(isDiscarding) },
+                  ...idempotent(idempotencyKey),
+                }),
+              );
+              setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
+              props.onStarted();
+            });
+          }}
+        />
+      ) : null}
       {note === "" ? null : <output>{note}</output>}
       {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
     </>

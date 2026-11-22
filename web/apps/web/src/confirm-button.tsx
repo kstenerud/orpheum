@@ -108,25 +108,45 @@ export function ConfirmDialog(props: {
   readonly consequence: string;
   /** What the confirming button says. */
   readonly confirmLabel: string;
-  readonly onConfirm: () => void;
+  /** What the button that keeps things as they are says: "Keep it" unless given. */
+  readonly keepLabel?: string;
+  /** A choice to tick with the action, unticked as the dialog opens: the box's words. */
+  readonly option?: string;
+  /** Whether confirming closes the dialog, as it does unless false: false leaves it to the caller. */
+  readonly closesOnConfirm?: boolean;
+  /** The action, told whether the option was ticked. */
+  readonly onConfirm: (isOptionTicked: boolean) => void;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const [isOptionTicked, setOptionTicked] = useState(false);
   return (
     <ModalDialog label={props.heading} onClose={props.onClose}>
       <h2>{props.heading}</h2>
       <p className="irreversible-words">{props.consequence}</p>
+      {props.option === undefined ? null : (
+        <p>
+          <label>
+            <input
+              type="checkbox"
+              checked={isOptionTicked}
+              onChange={(event) => setOptionTicked(event.target.checked)}
+            />{" "}
+            {props.option}
+          </label>
+        </p>
+      )}
       <p>
         <button type="button" onClick={props.onClose}>
-          {t("common.keepIt")}
+          {props.keepLabel ?? t("common.keepIt")}
         </button>{" "}
         <button
           type="button"
           className="irreversible"
           {...dangerousMark}
           onClick={() => {
-            props.onClose();
-            props.onConfirm();
+            if (props.closesOnConfirm !== false) props.onClose();
+            props.onConfirm(isOptionTicked);
           }}
         >
           {props.confirmLabel}

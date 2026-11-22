@@ -24,6 +24,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, isRefusedAt, problemText, throwIfRefused } from "./problem.ts";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { RepointDialog, type Place } from "./repoint-root.tsx";
+import { discardQuery, RescanQuestion } from "./rescan-action.tsx";
 import { RootWarning } from "./root-warning.tsx";
 import { SaveNote, useSaveState, type SaveState } from "./save-note.tsx";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
@@ -376,8 +377,9 @@ export function LibraryManagement(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
-  /** Its rescan, every file read again (D392, D535 §5), offered for a library of any kind. */
-  readonly onRescan?: () => void;
+  /** Its rescan, every file read again (D392, D535 §5), offered for a library of any kind,
+   * once its question is answered Yes, told whether to discard what was made (D535 §6). */
+  readonly onRescan?: (isDiscarding: boolean) => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
@@ -442,10 +444,11 @@ export function LibraryManagement(props: {
 function LibraryButtons(props: {
   readonly library: Library;
   readonly onScan: () => void;
-  readonly onRescan?: () => void;
+  readonly onRescan?: (isDiscarding: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { library } = props;
+  const { library, onRescan } = props;
+  const [isAskingToRescan, setAskingToRescan] = useState(false);
   return (
     <p>
       <button type="button" {...arrivalMark} onClick={props.onScan}>
@@ -453,12 +456,27 @@ function LibraryButtons(props: {
           ? t("libraries.scanAgainAfter")
           : t("libraries.scan")}
       </button>
-      {props.onRescan === undefined ? null : (
+      {onRescan === undefined ? null : (
         <>
           {" "}
-          <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
+          <button
+            type="button"
+            title={t("libraries.rescanHelp")}
+            onClick={() => {
+              setAskingToRescan(true);
+            }}
+          >
             {t("libraries.rescan")}
           </button>
+          {isAskingToRescan ? (
+            <RescanQuestion
+              isLong
+              onRescan={onRescan}
+              onClose={() => {
+                setAskingToRescan(false);
+              }}
+            />
+          ) : null}
         </>
       )}{" "}
       <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>
@@ -471,7 +489,7 @@ interface LibraryActions {
   readonly note: string;
   readonly isActing: boolean;
   readonly scan: () => void;
-  readonly rescan: () => void;
+  readonly rescan: (isDiscarding: boolean) => void;
   readonly answerAboutRoot: (root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: () => void;
   readonly repoint: (root: Root, to: Place) => void;
@@ -522,11 +540,11 @@ function useScanActions(
         setNote(t("libraries.scanning", { count: askedRootCount }));
       });
     },
-    rescan: () => {
+    rescan: (isDiscarding) => {
       act(async (idempotencyKey) => {
         const answer = dataOrThrow(
           await api.POST("/libraries/{id}/rescan", {
-            params: { path: { id: libraryId } },
+            params: { path: { id: libraryId }, query: discardQuery(isDiscarding) },
             ...idempotent(idempotencyKey),
           }),
         );
