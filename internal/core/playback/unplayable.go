@@ -11,9 +11,9 @@ import (
 
 // The films whose own picture a device's player gave up as one it cannot play (D266) are kept by
 // the core, so that its later playbacks of the film are not offered it: Firefox on a Mac gave up
-// Flow's own picture anew at every playback, 1.5 to 5 s each (the owner's test, 2026-10-12). They
-// are kept in the store by device (own_picture_given_up), so a restart of the core keeps them too
-// (D493), until the device or the file goes, or a rescan discards what the app made of the file
+// that film's own picture anew at every playback, 1.5 to 5 s each (the owner's test, 2026-10-12).
+// They are kept in the store by device (own_picture_given_up), so a restart of the core keeps them
+// too (D493), until the device or the file goes, or a rescan discards what the app made of the file
 // (D535 §10). A session with no device, a Watch Together guest's, has no row to keep them by: its
 // start's own word counts for that start alone.
 

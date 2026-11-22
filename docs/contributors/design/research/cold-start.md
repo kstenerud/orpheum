@@ -329,13 +329,13 @@ command mirrors the prepare's: video copied, first audio track to AAC stereo 192
 
 | Film | What | First segment listed | First segment |
 | --- | --- | --- | --- |
-| Flow (2024), 1080p HEVC 10-bit MKV, ~2 Mbit/s | remux | 278–299 ms | 10.43 s, 1.84 MB |
-| Flow | remux, `-probesize 1M -analyzeduration 1M` | 298 ms | same |
-| Flow | remux, `-hls_init_time 1` | 277 ms | still 10.43 s (keyframes every 10.4 s) |
-| Flow | 480p x264 veryfast 1 Mbit/s, keyframe every 2 s, `-hls_init_time 1` | 413–499 ms | 2.00 s, 0.30 MB |
+| The owner's film, 1080p HEVC 10-bit MKV, ~2 Mbit/s | remux | 278–299 ms | 10.43 s, 1.84 MB |
+| The same film | remux, `-probesize 1M -analyzeduration 1M` | 298 ms | same |
+| The same film | remux, `-hls_init_time 1` | 277 ms | still 10.43 s (keyframes every 10.4 s) |
+| The same film | 480p x264 veryfast 1 Mbit/s, keyframe every 2 s, `-hls_init_time 1` | 413–499 ms | 2.00 s, 0.30 MB |
 | Film A, 1080p x264 MP4 | remux | 150–191 ms | 9.97 s, 0.45 MB |
 | Film B, 1080p HEVC MP4 | remux | 149–236 ms | 10.26 s, 0.75 MB |
-| Flow (1.27 GB) | `ffprobe` packet scan of the whole file for keyframes (Kyoo's method) | 15.8 s | 649 keyframes |
+| The same film (1.27 GB) | `ffprobe` packet scan of the whole file for keyframes (Kyoo's method) | 15.8 s | 649 keyframes |
 
 Readings *(inferred)*: FFmpeg start-up is sub-second and probing options do not matter here; all
 three samples have ~10 s GOPs, so **a remux's first segment is ~10 s of the original, whatever

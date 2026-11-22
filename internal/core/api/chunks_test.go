@@ -332,7 +332,7 @@ func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
 
 // A player that gave up the film's own picture as one its device cannot play is not offered it at
 // its next playback of the film; another player, here another session, still is (D266): Firefox on
-// a Mac gave Flow's up anew at every playback (the owner's test, 2026-10-12).
+// a Mac gave that film's up anew at every playback (the owner's test, 2026-10-12).
 func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

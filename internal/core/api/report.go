@@ -214,7 +214,8 @@ type StartupSoundBody struct {
 
 // StallBody is one stall: a wait for data, while the player played, where it was; and the video's
 // readyState and whether it was paused then, which say whether it lacked data or could not play
-// what it had (D266: Flow's video sat paused at readyState 1, which only a guess found).
+// what it had (D266: the owner's film's video sat paused at readyState 1, which only a guess
+// found).
 type StallBody struct {
 	PositionMs int64 `json:"positionMs"           minimum:"0"`
 	ReadyState int64 `json:"readyState,omitempty" minimum:"0" maximum:"4" required:"false"`
@@ -486,9 +487,9 @@ func msOrNone(ms *int64) any {
 	return *ms
 }
 
-// logUnplayables says each quality a player gave up as one its device cannot play, and where: Flow
-// froze in Firefox on macOS at any start but its beginning, and only the owner's test said why
-// (D266).
+// logUnplayables says each quality a player gave up as one its device cannot play, and where: the
+// owner's film froze in Firefox on macOS at any start but its beginning, and only the owner's test
+// said why (D266).
 func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unplayables []UnplayableBody) {
 	for _, unplayable := range unplayables {
 		server.logger.InfoContext(ctx, "a player found a quality its device cannot play",

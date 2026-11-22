@@ -78,7 +78,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A worker's `client.navigate(client.url)` loaded nothing and left the page under the worker; its next reload spent the hand-off again (401). | [A service worker's `Client.url` is the page's creation URL, so navigating a client to it can move only the fragment](#a-service-workers-clienturl-is-the-pages-creation-url-so-navigating-a-client-to-it-can-move-only-the-fragment) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | Signing out on a Fire TV in Silk, and in Chrome on the desktop, stayed on "Signed out. Taking you to sign in…" for good. | [A step through the history cancels a link's navigation that has begun](#a-step-through-the-history-cancels-a-links-navigation-that-has-begun) |
-| *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
+| The owner's film (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | A re-timed H.264 run's last chunk held the next chunk's start too; a re-timed encode missed every cut. | [`dts2pts` guesses an H.264 IDR's time until it has read about 16 pictures past it, and times a run's first keyframe late](#dts2pts-guesses-an-h264-idrs-time-until-it-has-read-about-16-pictures-past-it-and-times-a-runs-first-keyframe-late) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | A 2 s busy loop typed into Chrome's console froze the page, and the page's freeze report said nothing. | [Chrome reports no long task for code run from DevTools' console](#chrome-reports-no-long-task-for-code-run-from-devtools-console) |
@@ -182,7 +182,7 @@ User-Agent (D263; the User-Agent is logged only).
 | An 8.7 ms seam where two runs meet. | [The AAC encoder adds 1024 priming samples at each run's start](#the-aac-encoder-adds-1024-priming-samples-at-each-runs-start) |
 | The sound hiccuped every five minutes, where one run of chunks met the next. | [An input seek of an Opus track to a keyframe decodes it without its pre-roll](#an-input-seek-of-an-opus-track-to-a-keyframe-decodes-it-without-its-pre-roll) |
 | Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder | [Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder](#forced-keyframes-x264-needs--sc_threshold-0-and-hardware-encoders-need-forced-idr-spelt-differently-per-encoder) |
-| The first segment is as long as the source's first GOP (*Flow*: 10.43 s with `-hls_init_time 1`). | [`-hls_init_time` does nothing for copied video](#-hls_init_time-does-nothing-for-copied-video) |
+| The first segment is as long as the source's first GOP (the owner's film: 10.43 s with `-hls_init_time 1`). | [`-hls_init_time` does nothing for copied video](#-hls_init_time-does-nothing-for-copied-video) |
 | `[af#0:0] Task finished with error: Invalid argument` / `[out#0/chromaprint] Nothing was written into output file`. | [Chromaprint refuses a 5.1 input](#chromaprint-refuses-a-51-input) |
 | FFmpeg's AC-3/E-AC-3 decoder applies DRC by default (`drc_scale = 1`) | [FFmpeg's AC-3/E-AC-3 decoder applies DRC by default (`drc_scale = 1`)](#ffmpegs-ac-3e-ac-3-decoder-applies-drc-by-default-drc_scale--1) |
 | The planned head+tail sampling hash broke on every tag edit. | [`-c copy` remux rewrites every Matroska cluster, and mkvpropedit moves grown elements to the end](#-c-copy-remux-rewrites-every-matroska-cluster-and-mkvpropedit-moves-grown-elements-to-the-end) |
@@ -424,10 +424,10 @@ User-Agent (D263; the User-Agent is logged only).
 ### Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe
 
 - **Technology:** Firefox 154 and later on macOS (156 and 157 seen), MSE with HEVC, and x265's open-GOP keyframes.
-- **Symptom:** *Flow* (10-bit HEVC by x265) froze at any start but the film's beginning: the player spun,
-  paused at readyState 1, while its chunks kept arriving on a fast link. Safari played it everywhere, and so
-  did Firefox from 0:00. Nothing says so in advance: `isTypeSupported` says HEVC is playable, and it is,
-  from an IDR.
+- **Symptom:** the owner's film (10-bit HEVC by x265) froze at any start but the film's beginning:
+  the player spun, paused at readyState 1, while its chunks kept arriving on a fast link. Safari
+  played it everywhere, and so did Firefox from 0:00. Nothing says so in advance: `isTypeSupported`
+  says HEVC is playable, and it is, from an IDR.
 - **Cause:** x265's keyframes after the first are CRA, not IDR, so every chunk but the first starts on a CRA.
   Since Firefox 154, on macOS only, Firefox's MP4 demuxer demotes a CRA to a non-keyframe (a workaround for
   a VideoToolbox decode failure, Mozilla bug 2049615). File playback falls back to an earlier IDR. An MSE
@@ -461,8 +461,8 @@ User-Agent (D263; the User-Agent is logged only).
   of, or after 6 s standing still while two chunks arrive. The core logs the quality, with the video as it
   was. The 6 s count only while what the video plays is loaded where it
   stands, a seek's sound coming late being no sign; the held-nothing count needs nothing loaded, since this
-  picture is never loaded anywhere. Requiring it loaded for both left a Mac in a group waiting on Flow for
-  good (the owner's test, 2026-10-12).
+  picture is never loaded anywhere. Requiring it loaded for both left a Mac in a group waiting on
+  the owner's film for good (the owner's test, 2026-10-12).
   `web/packages/player/src/abr-choice.ts` (`isUnplayable`, `chunksNotHeld`); `web/packages/player/src/abr.ts`
   (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayables`).
 - **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
@@ -481,8 +481,8 @@ User-Agent (D263; the User-Agent is logged only).
   HEVC". Part of that freeze was our own gap bug. A stall report taken *after* a
   rebuild showed the sound missing instead: that was the new pipeline refilling, not the cause.
 - **Firefox on Linux plays the same chunks:** headless Firefox 155 on Linux, through Playwright against
-  staging on 2026-10-07/08, played Flow's own picture from mid-film chunks, picture and sound buffered alike:
-  the demotion is under `MOZ_APPLEMEDIA`, macOS only.
+  staging on 2026-10-07/08, played the owner's film's own picture from mid-film chunks, picture and
+  sound buffered alike: the demotion is under `MOZ_APPLEMEDIA`, macOS only.
 
 ### Firefox on the desktop fires no `online` event when the network returns
 
@@ -2187,8 +2187,8 @@ peer connection is not frozen on the desktop, which is why a desktop browser doe
 - **What we do:** D266 counts a video as waiting to play when it is not paused **or** is paused short
   of HAVE_FUTURE_DATA (`isWaitingToPlay`, `web/packages/player/src/abr-choice.ts`); stall reports carry
   `readyState` and `isPaused` (`internal/core/api/report.go`).
-- **Evidence:** [owner] 2026-10-08: Flow resumed part-way in Firefox on macOS sat paused at readyState 1,
-  and the first form of D266, which ignored paused videos, never fired.
+- **Evidence:** [owner] 2026-10-08: the owner's film resumed part-way in Firefox on macOS sat paused
+  at readyState 1, and the first form of D266, which ignored paused videos, never fired.
   **[web]** [HTML spec, media elements](https://html.spec.whatwg.org/multipage/media.html): only on reaching
   HAVE_ENOUGH_DATA, and if "eligible for autoplay", "the user agent may ... Set the paused attribute to
   false"; whereas `play()`'s internal play steps "Change the value of paused to false" at once, whatever the
@@ -2653,7 +2653,8 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 - **Technology:** hls.js 1.7.3, `audio-stream-controller.ts`, a picture and a sound in separate playlists.
 - **Symptom:** a jump on a quality made on request waited 12.5 s: the picture's first chunk came at 7.4 s,
-  and the sound's run was only queued then, taking 5 s more (the owner's test, 2026-10-12, Flow on a Mac).
+  and the sound's run was only queued then, taking 5 s more (the owner's test, 2026-10-12, a 10-bit
+  HEVC film on a Mac).
 - **Cause:** the sound's loader loads at most one fragment past the main one loading
   (`audio-stream-controller.ts:429-461`, "Request audio segments up to one fragment ahead of main
   stream-controller"): a sound fragment that starts past the end of `mainFragLoading` waits. After a jump the
@@ -2694,7 +2695,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   action [source].
 - **What we do:** D266. The bitrate controller counts these for picture chunks while the video stands still.
   Two of them give the quality up at once (`notHeld` in `web/packages/player/src/abr.ts`).
-- **Evidence:** [owner] 2026-10-08, Flow in Firefox on macOS; `/yoloai/cache/hls.js`
+- **Evidence:** [owner] 2026-10-08, the owner's film in Firefox on macOS; `/yoloai/cache/hls.js`
   `src/controller/error-controller.ts` and `buffer-controller.ts` at v1.7.3.
   **[web]** `bufferAppendNoProgress` is new in 1.7.0: [PR
   #7941](https://github.com/video-dev/hls.js/pull/7941), "Mark fragments as gaps after repeated appends
@@ -2703,8 +2704,8 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   2026-08-19. **Contradicts:** in part. The stream controller does act: it marks a fragment as a gap once the
   *same* fragment has been appended `appendErrorMaxRetry` (default 3) times without growth
   (`stream-controller.ts`, `BUFFER_APPEND_NO_PROGRESS` case). The count is per fragment, so a run of different
-  chunks each held nothing of, as with Flow, never reaches it; the do-nothing answer in `error-controller.ts`
-  is only the error controller's part. Related:
+  chunks each held nothing of, as with the owner's film, never reaches it; the do-nothing answer in
+  `error-controller.ts` is only the error controller's part. Related:
   [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035), "locally determined gaps do not survive
   recoverMediaError()": open (checked 2026-10-08), which matters because D266 rebuilds with
   `recoverMediaError`.
@@ -3134,9 +3135,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 ### An input seek at a keyframe of a Matroska film lands on the keyframe before it
 
 - **Symptom:** a copied picture's run asked to start at a keyframe began one keyframe early, and
-  every chunk of the run held the chunk before it, retimed to its own place: *Flow* jumped back and
-  repeated, and its store had chunks that overlapped (picture chunk 38 held 10.43 s where its chunk
-  is 9.30 s; staging, 2026-10-08). Only a stream copy shows it: a decode trims to the seek exactly.
+  every chunk of the run held the chunk before it, retimed to its own place: the owner's film jumped
+  back and repeated, and its store had chunks that overlapped (picture chunk 38 held 10.43 s where
+  its chunk is 9.30 s; staging, 2026-10-08). Only a stream copy shows it: a decode trims to the seek
+  exactly.
 - **Cause:** `fftools/ffmpeg_demux.c` moves an input `-ss` 3/23 s (130 ms) earlier for a format
   without `AVFMT_SEEK_TO_PTS`, Matroska, AVI and MPEG-TS among them (MP4 has it), when any stream
   has B-frame delay, and the demuxer then lands on the keyframe at or before that. A seek exactly at
@@ -3150,10 +3152,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   every frame a keyframe cannot use (below). The node also refuses a raw file whose listed span is not its chunk's
   (`internal/node/chunks/listed.go`), which a whole run begun early passes when chunks are as long as
   the stretches between keyframes.
-- **Evidence:** **[measured]** on *Flow* with the pinned FFmpeg 8.1.2: `-ss 388.930`, a keyframe,
-  wrote 378.503–388.930 as the run's first file; `-ss 391.078`, midway, wrote the grid's chunks.
-  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` compares a Matroska copy's packets with
-  the film's, and fails without the seek. **[source]**
+- **Evidence:** **[measured]** on the owner's film with the pinned FFmpeg 8.1.2: `-ss 388.930`, a
+  keyframe, wrote 378.503–388.930 as the run's first file; `-ss 391.078`, midway, wrote the grid's
+  chunks. `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` compares a Matroska copy's
+  packets with the film's, and fails without the seek. **[source]**
   [ffmpeg_demux.c](https://github.com/FFmpeg/FFmpeg/blob/release/8.0/fftools/ffmpeg_demux.c)
   (`dts_heuristic`, `seek_timestamp -= 3*AV_TIME_BASE / 23`). **[web]**
   [Kyoo PR #320](https://github.com/zoriya/Kyoo/pull/320): "`-ss` seeks to the keyframe prior the
@@ -3310,8 +3312,8 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
-- **Symptom:** a chunk held 23 frames of its 10 s, and the stream had a gap after it (*Flow*'s
-  picture chunk 37, staging, 2026-10-08).
+- **Symptom:** a chunk held 23 frames of its 10 s, and the stream had a gap after it (the owner's
+  film's picture chunk 37, staging, 2026-10-08).
 - **Cause:** on SIGINT, FFmpeg's graceful quit, the muxer writes its trailer, closing the file it
   was in the middle of, and adds it to `-segment_list` like any other: the list does not say a file
   was cut short. The node's watchdog stops a stalled run with SIGINT first.
@@ -3574,8 +3576,8 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### `-hls_init_time` does nothing for copied video
 
-- **Symptom:** the first segment is as long as the source's first GOP (*Flow*: 10.43 s with
-  `-hls_init_time 1`).
+- **Symptom:** the first segment is as long as the source's first GOP (the owner's film: 10.43 s
+  with `-hls_init_time 1`).
 - **What we do:** ladder from the start (D257, D260) and the keyframe grid from the file's index (D259).
 - **Evidence:** `research/cold-start.md` §4.4-§5 [measured 2026-10-07]. **Unsure:** arguably expected.
   **[web]** [FFmpeg formats docs](https://ffmpeg.org/ffmpeg-formats.html): "Segment will be cut on the next

@@ -535,15 +535,15 @@ export const heldAheadAtLeastS = 4;
 /**
  * Whether the quality a video stands still at is one this device cannot play (D266): asked to
  * play, its position stood still for standsStillAtMostMs while chunksWhileStill chunks arrived, so
- * the link carries it and the decoder does not. Firefox on macOS took Flow's own picture, 10-bit
- * HEVC whose every keyframe after the first is a CRA, and froze at any start but the film's
- * beginning while its chunks kept arriving (the owner's test, 2026-10-07). Sooner, when the
- * browser holds nothing of chunksNotHeld chunks it took: Firefox on macOS took each of Flow's HEVC
- * chunks after a CRA and held none of it, hls.js reporting "append did not increase buffered
- * coverage" and doing nothing about it (the owner's test, 2026-10-08). And with no chunk arriving,
- * when it holds heldAheadAtLeastS ahead and still stands still: an older Android phone's Chrome took a
- * film's own 10-bit AV1 and HEVC pictures, filled its buffer and stood at 0 "playing", its decoder
- * unable to keep up (the owner's friend, 2026-10-12).
+ * the link carries it and the decoder does not. Firefox on macOS took the owner's film's own
+ * picture, 10-bit HEVC whose every keyframe after the first is a CRA, and froze at any start but
+ * the film's beginning while its chunks kept arriving (the owner's test, 2026-10-07). Sooner, when
+ * the browser holds nothing of chunksNotHeld chunks it took: Firefox on macOS took each of that
+ * film's HEVC chunks after a CRA and held none of it, hls.js reporting "append did not increase
+ * buffered coverage" and doing nothing about it (the owner's test, 2026-10-08). And with no chunk
+ * arriving, when it holds heldAheadAtLeastS ahead and still stands still: an older Android phone's
+ * Chrome took a film's own 10-bit AV1 and HEVC pictures, filled its buffer and stood at 0
+ * "playing", its decoder unable to keep up (the owner's friend, 2026-10-12).
  */
 export function isUnplayable(still: StandingStill): boolean {
   return (

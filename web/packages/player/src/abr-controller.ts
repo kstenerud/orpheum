@@ -182,8 +182,8 @@ class OrpheumAbrController extends AbrController {
       },
       loadAgain: (positionS) => {
         // A new MediaSource, so the browser's decoding is built anew: dropping the buffer alone
-        // left Firefox on macOS stuck after Flow's HEVC, every lower quality frozen too, for two
-        // minutes (the owner's test, 2026-10-08).
+        // left Firefox on macOS stuck after that film's HEVC, every lower quality frozen too, for
+        // two minutes (the owner's test, 2026-10-08).
         loadAgainFrom(hls, positionS);
       },
     });

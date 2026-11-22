@@ -18947,13 +18947,13 @@ switch down (§8).
 
 ## D266 — A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up
 
-**Decided** (2026-10-07), by the project owner: *"yes"*, on Flow freezing in Firefox on macOS at
-any start but the film's beginning. **Refines**
+**Decided** (2026-10-07), by the project owner: *"yes"*, on the owner's film freezing in Firefox on
+macOS at any start but the film's beginning. **Refines**
 [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs).
 
-Flow's own picture is 10-bit HEVC by x265, whose keyframes are CRA after the first, an IDR; every
-chunk of its picture but the first starts on a CRA. Firefox on macOS decodes HEVC through the
-system and froze at the first frame of any such chunk, spinning while its chunks kept arriving;
+The owner's film's own picture is 10-bit HEVC by x265, whose keyframes are CRA after the first, an
+IDR; every chunk of its picture but the first starts on a CRA. Firefox on macOS decodes HEVC through
+the system and froze at the first frame of any such chunk, spinning while its chunks kept arriving;
 Safari played it, and so did Firefox from the start (the owner's test). No browser says so before
 it tries: it says it plays HEVC, and does, from an IDR. Branching on the browser's name is not
 done (the User-Agent is logged only).
@@ -18962,27 +18962,27 @@ done (the User-Agent is logged only).
    6 s while at least two chunks of picture arrived: the link carries them, and the decoder does
    not play them. A slow link brings fewer, and a chunk being made none. **Waiting to play** is
    playing, or paused short of the data to play on (readyState below HAVE_FUTURE_DATA): an
-   autoplaying video stays paused until it can play, so Flow's, resumed part-way, sat paused at
-   readyState 1 and the first form of this rule, which counted only a video not paused, never
-   fired (the owner's retest, 2026-10-08). A video a person paused, its data there, is not
+   autoplaying video stays paused until it can play, so the owner's film, resumed part-way, sat
+   paused at readyState 1 and the first form of this rule, which counted only a video not paused,
+   never fired (the owner's retest, 2026-10-08). A video a person paused, its data there, is not
    waiting. Each stall report carries the video's readyState, whether it was paused, what its
    picture's and sound's buffers held, and the player's last error. **Sooner:** two chunks of the
    picture the browser took and held nothing of (hls.js's `bufferAppendNoProgress`, which hls.js
-   reports and ignores) give the quality up at once. That was Firefox on macOS with Flow: captured
-   when the quality was given up, the picture's buffer was empty, the sound's held, and every
-   chunk's append added nothing (the owner's test, 2026-10-08). The report of a quality given up
-   carries the video as it was, before the rebuild empties it.
+   reports and ignores) give the quality up at once. That was Firefox on macOS with the owner's
+   film: captured when the quality was given up, the picture's buffer was empty, the sound's held,
+   and every chunk's append added nothing (the owner's test, 2026-10-08). The report of a quality
+   given up carries the video as it was, before the rebuild empties it.
 2. **It is given up for the rest of the playback**, with every quality above it, and the video's
    decoding is built anew, a new MediaSource (hls.js's `recoverMediaError`), loading again from
    where it stood at the highest quality below it; neither the step-up nor hls.js's own forcing
-   chooses it again. Dropping the buffer alone left Firefox on macOS stuck after Flow's HEVC, every
-   lower quality frozen too, for about two minutes (the owner's retest, 2026-10-08).
+   chooses it again. Dropping the buffer alone left Firefox on macOS stuck after that film's HEVC,
+   every lower quality frozen too, for about two minutes (the owner's retest, 2026-10-08).
 3. **The play report tells the core**, which logs the quality and where it stood.
 4. **The film's own picture, given up, is offered to none of the device's later playbacks of the
    film, for the server's life** (amended 2026-10-12): the report says whether the quality was the
    film's own picture, and the core remembers it by player (a device, or a session with none) and
-   film. Firefox on a Mac gave Flow's up anew at every playback, 1.5 to 5 s each; the owner, asked
-   whether a device should remember it for the film until the server restarts: *"yes, do fix 2
+   film. Firefox on a Mac gave that film's up anew at every playback, 1.5 to 5 s each; the owner,
+   asked whether a device should remember it for the film until the server restarts: *"yes, do fix 2
    also."*
 
 **Status:** Decided 2026-10-07; §4 decided 2026-10-12.
