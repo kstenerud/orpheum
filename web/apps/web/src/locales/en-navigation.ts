@@ -33,6 +33,15 @@ export const enNavigation = {
   dialog: {
     close: "Close",
   },
+  /** A banner's own words (banner.tsx). */
+  banner: {
+    dismiss: "Dismiss",
+    remindTomorrow: "Remind me tomorrow",
+  },
+  /** A status note's own words (status-note.tsx). */
+  statusNote: {
+    tryAgain: "Try again",
+  },
   /** A poster row's arrows, for a mouse (poster-row.tsx). */
   posterRow: {
     scrollBack: "Scroll left",

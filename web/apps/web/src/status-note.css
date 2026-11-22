@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A page's status (status-note.tsx, D538). Its block is status-line: status-note is a title's cues'
+   (status-cues.css). */
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  container-type: inline-size;
+}
+
+.status-line__icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1lh;
+  block-size: 1lh;
+}
+
+/* Empty: why at a heading's size, its detail muted, its next step under them. */
+.status-line--empty {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.status-line__sentence {
+  margin: 0;
+  font-size: var(--font-size-h2);
+}
+
+.status-line__detail {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+/* A problem: its words in the warning yellow, Try again beside them, on its own line in a narrow page. */
+.status-line--problem .status-line__words {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  color: var(--color-warning);
+}
+
+@container (width < 36rem) {
+  .status-line__again {
+    flex-basis: 100%;
+  }
+}
+
+.status-line--loading {
+  color: var(--color-muted);
+}
+
+/* Success: the tick in the accent, the words in the text's colour. */
+.status-line--success .status-line__icon {
+  color: var(--color-accent);
+}

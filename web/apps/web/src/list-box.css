@@ -80,6 +80,16 @@
   list-style: none;
 }
 
+/* A picker screen's Back (PickerScreen, D538): kept at the top of its list as its entries scroll
+   under it, a line under it: at the list's own edge, above its padding, so nothing shows over it. */
+.list-box__submenu-head {
+  position: sticky;
+  inset-block-start: calc(-1 * var(--space-2));
+  z-index: var(--layer-sticky);
+  border-block-end: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+}
+
 /* A submenu's entry and its back row: the mark that it opens or returns at the row's end or start. */
 .list-box__submenu-entry,
 .list-box__submenu-back {

@@ -1,0 +1,64 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A page's banners (banner.tsx, D538): at the top of its main area, in the page's width, at most two. */
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-4);
+}
+
+/* A banner: its icon in a fingertip's box, its words, its way to be put away, on the raised ground. */
+.banner {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  container-type: inline-size;
+}
+
+.banner__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--size-control);
+  block-size: var(--size-control);
+}
+
+.banner--information .banner__icon {
+  color: var(--color-status);
+}
+
+/* Its words and its link on one line, the link under them in a narrow banner. */
+.banner__words {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+@container (width < 36rem) {
+  .banner__words {
+    flex-direction: column;
+  }
+}
+
+.banner__link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--size-control);
+}
+
+/* Remind me tomorrow: a quiet button, its words alone, a fingertip tall. */
+.banner__later {
+  flex: none;
+  min-block-size: var(--size-control);
+  border-color: transparent;
+  background: none;
+}

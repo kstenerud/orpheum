@@ -45,6 +45,7 @@ import {
 import { FilmWaitsLook, linkWaitBarAfterMs, linkWaitShare } from "./film-waits.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
+import { OverlayParts } from "./ui-gallery-overlays.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
 import { OverlayRows } from "./player-overlay.tsx";
@@ -142,6 +143,7 @@ export function UiGallery(): JSX.Element {
       <FormParts />
       <PopUpsAndLayouts />
       <GalleryLayoutParts />
+      <OverlayParts />
       <PlayerWidgets />
     </article>
   );

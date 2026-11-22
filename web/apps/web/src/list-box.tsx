@@ -99,6 +99,12 @@ function useIsUnderASubmenu(): boolean {
   return use(SubmenuShownContext).openId !== undefined;
 }
 
+/**
+ * Whether entries are a picker screen's (PickerScreen), a submenu's open list: a menu has at most
+ * one level of them (D538), so a submenu inside one is refused.
+ */
+const IsOnAPickerScreenContext = createContext(false);
+
 /** The entries (children) of a list or of an open submenu, one of whose submenus may hold their place. */
 function SubmenuScope(props: { readonly children: ReactNode }): JSX.Element {
   const [openId, setOpenId] = useState<string | undefined>(undefined);
@@ -255,7 +261,8 @@ const keepsOpen = { [keepsOpenAttribute]: "" } as const;
  * browser's (OpenSubmenu), focus back on the entry. Its list opens on its current choice, else on
  * its back row, as a chooser's does (D408 §3). Opening and returning keep the pop-up open, laid at
  * its button again (popover.tsx's tellPopoverContentChanged); a choice in it closes the pop-up, as
- * any choice does. Its entries are the list's own kinds, a submenu among them.
+ * any choice does. Its entries are the list's own kinds, but a submenu: a menu has at most one level
+ * of them (D538), and one inside a submenu throws.
  */
 export function ListSubmenu(props: {
   /** What it sets, in the person's words: "Data use". */
@@ -266,6 +273,9 @@ export function ListSubmenu(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const id = useId();
+  if (use(IsOnAPickerScreenContext)) {
+    throw new Error(`a submenu inside a submenu (${props.name}): a menu has one level (D538)`);
+  }
   const { openId, setOpenId } = use(SubmenuShownContext);
   const isOpen = openId === id;
   const entryRef = useRef<HTMLDivElement>(null);
@@ -303,27 +313,29 @@ export function ListSubmenu(props: {
         </span>
       </ButtonByRole>
       {isOpen ? (
-        <OpenSubmenu
+        <PickerScreen
           name={props.name}
           onBack={() => {
             setOpenId(undefined);
           }}
         >
           {props.children}
-        </OpenSubmenu>
+        </PickerScreen>
       ) : null}
     </li>
   );
 }
 
 /**
- * A submenu's list in its list's place (ListSubmenu): its back row, then its entries, focused on its
- * current choice as it opens, else on the back row. Left, but in a text field, where it is the
+ * A picker screen (D538), a submenu's list in its menu's place (ListSubmenu): its Back, "‹ Data use",
+ * kept at its top while its entries scroll under it, then its entries, focused on its current choice
+ * as it opens, else on Back. Left, but in a text field, where it is the
  * caret's, and Back return from it, a remote's Back and the browser's alike: an entry held in the
  * history while it is open, as a dialog's is (modal-layer.tsx), takes the browser's Back, which Silk
  * on a Fire TV sends for its remote's.
  */
-function OpenSubmenu(props: {
+export function PickerScreen(props: {
+  /** What it picks, in the person's words, which its Back names: "Data use". */
   readonly name: string;
   readonly onBack: () => void;
   readonly children: ReactNode;
@@ -355,22 +367,24 @@ function OpenSubmenu(props: {
   );
   return (
     <ul ref={ref} className="list-box__submenu" aria-label={props.name}>
-      <SubmenuScope>
-        <li className="list-box__entry">
-          <ButtonByRole
-            className="list-box__option list-box__submenu-back"
-            aria-label={t("listBox.submenu.back", { name: props.name })}
-            {...keepsOpen}
-            onClick={props.onBack}
-          >
-            <span className="list-box__submenu-mark" aria-hidden="true">
-              ‹
-            </span>
-            <span>{props.name}</span>
-          </ButtonByRole>
-        </li>
-        {props.children}
-      </SubmenuScope>
+      <IsOnAPickerScreenContext value={true}>
+        <SubmenuScope>
+          <li className="list-box__entry list-box__submenu-head">
+            <ButtonByRole
+              className="list-box__option list-box__submenu-back"
+              aria-label={t("listBox.submenu.back", { name: props.name })}
+              {...keepsOpen}
+              onClick={props.onBack}
+            >
+              <span className="list-box__submenu-mark" aria-hidden="true">
+                ‹
+              </span>
+              <span>{props.name}</span>
+            </ButtonByRole>
+          </li>
+          {props.children}
+        </SubmenuScope>
+      </IsOnAPickerScreenContext>
     </ul>
   );
 }
