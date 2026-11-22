@@ -89,6 +89,9 @@ type Service struct {
 	exchanges *nodes.Exchanges
 	holdings  *holdings
 	beside    *besideTheMedia
+	// frameStillRecipe is the version of how the node takes a frame still, nodeproto.FrameStillRecipe,
+	// which names each still taken (frameStillRef, D536).
+	frameStillRecipe int
 }
 
 // NewService returns the service.
@@ -96,6 +99,7 @@ func NewService(parts Parts) *Service {
 	service := &Service{
 		parts: parts, exchanges: parts.Exchanges,
 		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
+		frameStillRecipe: nodeproto.FrameStillRecipe,
 	}
 	if parts.Exchanges != nil {
 		parts.Exchanges.Record(nodeproto.CommandEncodeArtwork, service.recordArtwork)

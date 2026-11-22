@@ -174,6 +174,9 @@ var wireShapeByVersion = map[int]string{
 	// shape, so a node probing at another version is refused (D535 §1, §2): a core of 69 would read a
 	// node of 68's probes as older and ask them read again for ever.
 	69: "d2fb9767f5dc5fb88b22c2a4d06da84d8475102d8f0b813c840c1b7ad692207d",
+	// 70 counts the recipe of each thing the node makes in the shape, so a node making at another
+	// recipe is refused (D536): a core of 70 would key what a node of 69 made as its own recipe's.
+	70: "3b74f65e5aa02d31c56e80ed8ff20ca91b78ae4d726fc2dca7f745d1b55fae34",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -203,6 +206,12 @@ func wireShape() string {
 	// The probe's version counts as the wire's: a node probing at another version than its core is
 	// refused at hello, so the core never asks it to read again what it would read the same (D535 §2).
 	fields = append(fields, fmt.Sprintf("ProbeVersion %d", ProbeVersion))
+	// So does each recipe of what the node makes: a node making at another recipe than its core is
+	// refused at hello, so what it made is never kept under the other recipe's key (D536).
+	fields = append(fields, fmt.Sprintf("PictureRecipe %d", PictureRecipe),
+		fmt.Sprintf("QualityRecipe %d", QualityRecipe), fmt.Sprintf("SoundRecipe %d", SoundRecipe),
+		fmt.Sprintf("SoundCopiedRecipe %d", SoundCopiedRecipe), fmt.Sprintf("LoudnessRecipe %d", LoudnessRecipe),
+		fmt.Sprintf("FrameStillRecipe %d", FrameStillRecipe))
 	slices.Sort(fields)
 	sum := sha256.Sum256([]byte(strings.Join(fields, "\n")))
 	return hex.EncodeToString(sum[:])

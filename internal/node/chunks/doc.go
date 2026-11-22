@@ -151,6 +151,10 @@
 //     TestMake_RefusesARunNotOfARunsShape.
 //   - What is not a raw file of the muxer's is refused, never read past its end. Enforced by
 //     TestFragments_RefuseWhatIsNotARawFile.
+//   - The FFmpeg arguments of each stream's kind, for a fixed set of commands and a quality's on every
+//     encoder, are recorded beside its recipe's version (nodeproto's recipes), so a change to them
+//     fails until that recipe is raised (D536 §2). Enforced by
+//     TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments.
 //
 // # Read before changing
 //

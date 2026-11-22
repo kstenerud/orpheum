@@ -541,6 +541,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D533](working-notes.md#d533--the-sound-the-server-makes-fills-a-gap-in-the-films-own-with-silence-a-player-whose-copied-sound-is-given-up-mid-film-starts-again-at-the-made-one-and-a-page-that-failed-reports-no-stalls) The sound the server makes fills a gap in the film's own with silence, a player whose copied sound is given up mid-film starts again at the made one, and a page that failed reports no stalls
 - [D534](working-notes.md#d534--a-sound-whose-first-packet-alone-lasts-seconds-starts-with-the-picture-and-is-made-never-copied-or-played-directly) A sound whose first packet alone lasts seconds starts with the picture, and is made, never copied or played directly — *revisited by D535*
 - [D535](working-notes.md#d535--a-file-read-by-an-older-probe-is-read-again-on-its-own-and-every-videos-page-and-every-library-offers-a-rescan) A file read by an older probe is read again on its own, and every video's page and every library offers a rescan
+- [D536](working-notes.md#d536--each-thing-the-node-makes-carries-the-version-of-its-recipe-in-its-key-raised-with-any-change-to-its-ffmpeg-arguments) Each thing the node makes carries the version of its recipe in its key, raised with any change to its FFmpeg arguments
 
 ## Archived
 

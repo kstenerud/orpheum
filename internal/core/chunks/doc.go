@@ -101,7 +101,11 @@
 //     changed when its file was read again: a picture newly marked for re-timing is made into new
 //     stores, its sounds' kept, and a run of a store made before ends for good (D392 §3). A quality's
 //     key hashes its encode's recipe with the facts (encodeRecipe), so a store made by an earlier
-//     recipe, whose init another run would rewrite at another timescale, is made again. Enforced by
+//     recipe, whose init another run would rewrite at another timescale, is made again. Every stream's
+//     key holds its recipe besides (nodeproto's recipes), its first version adding nothing,
+//     so the stores made before recipes were counted are kept and one an older recipe made is never
+//     served or continued as a raised one's (D536 §1, §4). Enforced by
+//     TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore,
 //     TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers,
 //     TestGridID_IsTheHashOfItsStartsAndLengthAndNamesTheStore,
 //     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber,

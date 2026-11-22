@@ -64,7 +64,10 @@ func (service *Service) planFrameStills(ctx context.Context, libraryID int64, fo
 func (service *Service) queueFrameStills(
 	ctx context.Context, libraryID int64, found Found, named []ItemImages,
 ) (int, error) {
-	candidates, err := service.parts.Database.Read().ListFrameStillCandidates(ctx, &libraryID)
+	candidates, err := service.parts.Database.Read().ListFrameStillCandidates(ctx,
+		sqlcgen.ListFrameStillCandidatesParams{
+			LibraryID: &libraryID, RecipeKey: library.RecipeKey(service.frameStillRecipe),
+		})
 	if err != nil {
 		return 0, fmt.Errorf("list library %d's videos with no picture: %w", libraryID, err)
 	}
@@ -146,10 +149,10 @@ func (service *Service) queueFrameStill(
 			return false, fmt.Errorf("ask again for item %d's frame still: %w", candidate.WorkID, err)
 		}
 	}
-	ref := localRef(LocalImage{
+	ref := frameStillRef(LocalImage{
 		FileID: candidate.FileID, SizeBytes: ptr.ValueOrZero(candidate.SizeBytes),
 		ModifiedAtMs: ptr.ValueOrZero(candidate.ModifiedAt),
-	})
+	}, service.frameStillRecipe)
 	args, err := json.Marshal(artworkJobArgs{
 		ArtworkSource: SourceFrame, Refs: []Ref{{Kind: library.ArtStill, SourceRef: ref}},
 	})
@@ -164,6 +167,13 @@ func (service *Service) queueFrameStill(
 		return false, fmt.Errorf("queue item %d's frame still: %w", candidate.WorkID, err)
 	}
 	return added, nil
+}
+
+// frameStillRef names a frame still of a video in the artwork table and its job: the video's file as
+// it is (localRef), then the recipe it is taken by (library.RecipeKey), nothing at the first, so a
+// still an earlier recipe took names another and is taken again (D536).
+func frameStillRef(video LocalImage, recipe int) string {
+	return localRef(video) + library.RecipeKey(recipe)
 }
 
 // frameToTake is the still a job takes of an item's video, and its node: the video's picture stream,

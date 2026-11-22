@@ -30867,3 +30867,63 @@ are forgotten by every rescan already (§8).
 - 8: `TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFiles` (internal/core/api), `TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded`, `TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn`, `TestScan_ForgetsNoAttemptGivenUpOn`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestForgetTextFailures_ForgetsEveryFailureOfTheFilesAndKeepsWhatWasMade` (internal/core/subtitles), `TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain` (internal/core/unexpected), `TestEnqueue_ARepeatRequestWakesAJobWaitingOnItsBackoffButNotASnoozedOne` (internal/platform/jobqueue)
 - 9: `TestHello_AnotherFFmpegForgetsTheFailuresOfTheNodesFilesAlone`, `TestHello_TheSameFFmpegNoneOrAFirstForgetsNothing` (internal/core/nodes), `TestBuild_ANodesNewFFmpegForgetsWhatFFmpegFailedAtOfItsFiles`, `TestAskForTheFFmpegSweeps_AsksForTheReadThroughsAndTheRepeats` (internal/core/assembly)
 - 10: `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store), `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestRescan_ADiscardingRescanOfOtherVideosThrowsOutWhatWasFetchedOfEach` (internal/core/identify), `TestForgetMeasurements_ThrowsOutTheSegmentsItsRepeatsWereKeptAs` (internal/core/repeats)
+
+## D536 — Each thing the node makes carries the version of its recipe in its key, raised with any change to its FFmpeg arguments
+
+**Decided** (2026-11-22), by the project owner ("ok sounds good. That goes into the next batch"),
+of the lead's proposal in the plan's "A made thing's recipe, next batch"
+([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+The owner: "Cache is one of those tricky things were a bad assumption makes it serve bad data
+forever." A store of made chunks is keyed by the probe facts it is made from (D392 §3), and D535
+reads again a file an older probe read, so a change to what is *read* of a file reaches every store;
+a change to how a thing is *made* reached none unless someone remembered. An encoded quality's key
+held `encodeRecipe`, raised by hand, with no test that demanded it, and a sound's held no recipe at
+all: D533 §1 changed how a sound is made, and a sound store of a file whose facts did not change
+would have been served as it was made before. Mechanical, not remembered (principles §17).
+
+**Status:** decided.
+
+1. **Each thing the node makes has a recipe, a version raised with any change to how it is made**:
+   the copied picture's, an encoded quality's, a sound's (a track's mix as stereo AAC), a track's
+   sound copied as it is, a loudness measurement's and a frame still's (`nodeproto`'s
+   `PictureRecipe`, `QualityRecipe`, `SoundRecipe`, `SoundCopiedRecipe`, `LoudnessRecipe`,
+   `FrameStillRecipe`). Each is named in the key of what it made, so a raised recipe makes it again,
+   once, where it is next wanted, and what an older recipe made is never served or continued as the
+   new one's. The wire's shape counts every recipe, so a core and its nodes make at one recipe, a
+   node at another refused as one with another probe is (D535 §1).
+2. **A test records the FFmpeg arguments the node builds for a fixed set of commands**, a hash per
+   thing paired with its recipe's version, as the probe's and the wire's tests do (D535 §1): a change
+   to them fails until that thing's recipe is raised and the new hash recorded beside it, the
+   failure saying which recipe to raise. A quality's arguments are recorded on each encoder (x264,
+   Quick Sync, NVENC, VA-API). What the node does with FFmpeg's output (an init's rewriting, a
+   chunk's bounds) is not in the arguments, and a change to it is the review's to raise the recipe
+   for.
+3. **A loudness measurement has its recipe and its test, but no key holds it yet:** the loudness
+   table is keyed by a file's bytes, its stream and the mix measured, the mix held by the schema to
+   `multichannel` or `stereo`, so a raised `LoudnessRecipe` would keep every measurement an earlier
+   recipe made. A test holds it at 1 until the key holds it, which is a migration and so the
+   owner's.
+4. **A recipe's first version adds nothing to a key** (the lead's choice, easy to change: a first
+   version that did would make every store again at the deploy): every key is as it was before
+   recipes were counted, so the deploy that brought them made nothing again. A quality's key keeps
+   `encodeRecipe` ("sourceTimeBase") as it is, its first recipe; a raised recipe of a chunk stream
+   hashes `;recipe=<n>` with the facts into a key of the same length on the same grid, and a frame
+   still's ref (`file:<id>:<size>:<mtime>`) gains `;recipe=<n>`.
+5. **What an older recipe made is not thrown out at the raise:** nothing new forgets it.
+   A frame still taken again under a new recipe retires the old one, as any new still of its source
+   does. A chunk store an older recipe made is no longer wanted by any player, so the node's shelf
+   gives it no tier and evicts it before any other (D309 §8), but only when the prepared budget or the
+   disk needs the room; its record in cache.db stays until its file's facts change or a discarding
+   rescan throws it out (D535 §6, §10).
+
+**Built** (2026-11-22): §1–5. The wire's protocol is 70. `chunks.StoreKey` names each stream's
+store by its recipe (`storeKeyAt`, `library.RecipeKey`); artwork names a frame still by
+`frameStillRef`, and its candidates are the videos whose still is not of their present bytes at the
+present recipe. Not covered: the trickplay thumbnails, not built yet, which get their recipe when
+they are, and the picture's timeline the node reads beside the loudness (D247 §10), which has none.
+
+**Proven by:**
+- 1: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto)
+- 2: `TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments` (internal/node/chunks), `TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/artwork), `TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments` (internal/node/readthrough)
+- 3: `TestLoudnessRecipe_IsOneUntilTheLoudnessKeyHoldsIt` (internal/core/readthrough)
+- 4: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork)

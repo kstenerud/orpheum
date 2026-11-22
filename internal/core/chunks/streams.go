@@ -124,8 +124,7 @@ func (grid Grid) ID() string {
 		starts = append(starts, strconv.FormatInt(start, 10))
 	}
 	written := "durationMs=" + strconv.FormatInt(grid.FilmDurationMs, 10) + ";startsMs=" + strings.Join(starts, ",")
-	hash := sha256.Sum256([]byte(written))
-	return hex.EncodeToString(hash[:])[:gridIDHexLength]
+	return hashed(written)
 }
 
 // StoreDir is the directory, under the node's prepared directory, of the store of one stream of a
@@ -139,16 +138,43 @@ func StoreDir(fileID int64, stream Stream, storeKey string) string {
 // probe the stream is made from (library.PictureChunksFactsKey, library.SoundChunksFactsKey), so a
 // film whose grid changes, or whose facts a stream is made from change when its file is read again,
 // has that stream's chunks made into a new store, and the old store's are never served again
-// (D392 §3). A quality's key holds its encode's recipe with the facts (encodeRecipe).
+// (D392 §3). It holds the stream's recipe too (nodeproto's recipes, D536), so a store an earlier recipe made is
+// never served or continued as this one's; a quality's, its encode's (encodeRecipe) besides.
 func StoreKey(gridID string, probe nodeproto.Probe, stream Stream) string {
+	recipe := nodeproto.PictureRecipe
+	switch stream.Kind {
+	case nodeproto.StreamQuality:
+		recipe = nodeproto.QualityRecipe
+	case nodeproto.StreamSound:
+		recipe = nodeproto.SoundRecipe
+	case nodeproto.StreamSoundCopied:
+		recipe = nodeproto.SoundCopiedRecipe
+	case nodeproto.StreamPicture:
+	}
+	return storeKeyAt(gridID, probe, stream, recipe)
+}
+
+// storeKeyAt is StoreKey with the stream's recipe at version recipe. Its first version adds nothing
+// to the key, so the stores made before recipes were counted are kept (D536); a later one is hashed
+// with the facts into a key of the same length.
+func storeKeyAt(gridID string, probe nodeproto.Probe, stream Stream, recipe int) string {
+	facts := library.PictureChunksFactsKey(probe)
 	switch {
 	case stream.Kind.IsSound():
-		return gridID + library.SoundChunksFactsKey(probe, stream.AudioTrackIndex)
+		facts = library.SoundChunksFactsKey(probe, stream.AudioTrackIndex)
 	case stream.Kind == nodeproto.StreamQuality:
-		hash := sha256.Sum256([]byte(library.PictureChunksFactsKey(probe) + ";encode=" + encodeRecipe))
-		return gridID + hex.EncodeToString(hash[:])[:gridIDHexLength]
+		return gridID + hashed(facts+";encode="+encodeRecipe+library.RecipeKey(recipe))
 	}
-	return gridID + library.PictureChunksFactsKey(probe)
+	if recipeKey := library.RecipeKey(recipe); recipeKey != "" {
+		return gridID + hashed(facts+recipeKey)
+	}
+	return gridID + facts
+}
+
+// hashed is the first gridIDHexLength hex characters of the SHA-256 of written: a key's part.
+func hashed(written string) string {
+	hash := sha256.Sum256([]byte(written))
+	return hex.EncodeToString(hash[:])[:gridIDHexLength]
 }
 
 // encodeRecipe names how the node encodes a quality where a change to it changes what a store's runs
@@ -156,7 +182,8 @@ func StoreKey(gridID string, probe nodeproto.Probe, stream Stream) string {
 // init, and an init at another timescale would mistime the chunks made before it (D392 §3).
 // "sourceTimeBase": each encode keeps its source's time base, its MP4 track counting in the copied
 // picture's timescale, not 1/its frame rate (internal/node/chunks, encodeTimeBase); every quality's
-// store made before it is made again, once, at its next play.
+// store made before it is made again, once, at its next play. It is nodeproto.QualityRecipe's first
+// version, and stays as it is: a change to how a quality is encoded raises that (D536).
 const encodeRecipe = "sourceTimeBase"
 
 // storeKey is the key of a stream's store of the film as it is cut (StoreKey).

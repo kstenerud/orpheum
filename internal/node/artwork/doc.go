@@ -30,6 +30,9 @@
 //     that is not black is ErrNoFrame, not a failure (D362 §1, §5).
 //     TestStill_FFmpegReadsOnlyTheFilmFromItsPlaceAndSkipsTheBlack, TestStill_NothingWrittenIsAVideoWithNoFrame,
 //     TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP (integration tier).
+//   - A frame still's FFmpeg arguments, for a fixed set of commands, are recorded beside
+//     nodeproto.FrameStillRecipe, so a change to them fails until it is raised (D536 §2).
+//     TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments.
 //
 // # Read before changing
 //

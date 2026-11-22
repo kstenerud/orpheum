@@ -51,6 +51,10 @@
 //     that takes longer. Enforced by TestRead_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled
 //     and TestRead_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakesOnlyWhenItsSoundIsMeasured.
 //
+//   - The loudness measurement's FFmpeg arguments, for a fixed set of tracks, are recorded beside
+//     nodeproto.LoudnessRecipe, so a change to them fails until it is raised (D536 §2). Enforced by
+//     TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments.
+//
 // # Read before changing
 //
 //   - D226: what is measured and why the stereo mix is measured too.

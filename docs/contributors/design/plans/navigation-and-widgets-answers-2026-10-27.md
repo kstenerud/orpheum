@@ -4788,6 +4788,10 @@ for the probe. Mechanical, not remembered (principles §17).
 
 A rescan stays selective meanwhile (D535 §5): revisited if a report shows someone stuck on bad data.
 
+**Built under D536** (2026-11-22): every thing above but the loudness measurement carries its
+recipe in its key, each recipe's first version leaving today's keys as they were; the loudness
+measurement has its recipe and its test, and its key gains the recipe with a migration, the owner's.
+
 ## A video's own sound offset, and a number input, next batch (the owner, 2026-11-22)
 
 **Scheduled (the owner, 2026-11-22):** "put it in the next batch, along with the new widget that

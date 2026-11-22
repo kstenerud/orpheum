@@ -164,6 +164,11 @@
 //     TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone,
 //     TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo.
 //
+//   - A frame still is named by its video's bytes and its recipe (frameStillRef,
+//     nodeproto.FrameStillRecipe), the first recipe adding nothing to the ref, so a still an earlier
+//     recipe took holds nothing at a raised one: the video's still is taken again, retiring the old
+//     (D536 §1, §5). TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain.
+//
 //   - A file's frame stills are retired once the facts of its probe they were taken by changed, in the
 //     ingest's write that keeps the new probe (RetireFrameStills; library.DerivedDroppers), a
 //     person's choice and its item's other images kept; the next pass takes one again where it is

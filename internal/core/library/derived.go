@@ -408,6 +408,16 @@ func factsKey(name string, probe nodeproto.Probe, track int) string {
 // factsKeyHexLength is how many hex characters of the hash of a thing's facts name them.
 const factsKeyHexLength = 16
 
+// RecipeKey is what a made thing's recipe, at version, adds to its key (nodeproto.PictureRecipe and
+// the others, D536): nothing at the first, so the keys of what was made before recipes were counted
+// stay as they were, and ";recipe=<version>" after, so a raise names what it makes anew.
+func RecipeKey(version int) string {
+	if version <= 1 {
+		return ""
+	}
+	return ";recipe=" + strconv.Itoa(version)
+}
+
 // PictureChunksFactsKey names the facts of a probe its main picture's chunks are made from, copied or
 // encoded: its container's and its picture's (D392 §3).
 func PictureChunksFactsKey(probe nodeproto.Probe) string {

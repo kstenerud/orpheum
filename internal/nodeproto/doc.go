@@ -24,6 +24,15 @@
 //     fields fails until it is raised and its shape recorded:
 //     TestProbeVersion_IsRaisedWithAnyChangeToTheProbe; the wire's shape counts the version, so a
 //     raise raises ProtocolVersion too. A change to how a fact is read is the review's.
+//   - Each thing the node makes has a recipe (recipe.go), raised with any change to the FFmpeg
+//     arguments it is made by, and named in the key of what it made, so what an older recipe made is
+//     never served as the new one's (D536 §1, §2). Each recipe's first version adds nothing to a key
+//     (D536 §4). Its arguments for a fixed set of commands are recorded beside its version, a change
+//     failing until it is raised: TestChunkRecipes_AreRaisedWithAnyChangeToTheirArguments
+//     (internal/node/chunks), TestFrameStillRecipe_IsRaisedWithAnyChangeToItsArguments
+//     (internal/node/artwork), TestLoudnessRecipe_IsRaisedWithAnyChangeToItsArguments
+//     (internal/node/readthrough); the wire's shape counts every recipe, so a raise raises
+//     ProtocolVersion too. A change to what the node does with FFmpeg's output is the review's.
 //   - A command and a result name their job, and the attempt at it (its token), in the envelope
 //     alone, and the node answers every job on one path (D234 §2, D238 §2).
 //     TestEnvelope_AJobIsNamedByTheEnvelopeAloneNeverByWhatItCarries.

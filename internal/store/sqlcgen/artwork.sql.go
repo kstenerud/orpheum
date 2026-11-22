@@ -295,7 +295,7 @@ SELECT work.id AS work_id, work.kind AS work_kind,
   CAST(COALESCE((
     SELECT stale.id FROM artwork stale
     WHERE stale.item_id = work.id AND stale.source = 'frame' AND stale.removed_at IS NULL
-      AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at)
+      AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at) || CAST(?1 AS TEXT)
       AND stale.source_sha256 IS NULL AND stale.is_missing_at_source = 0 AND stale.refused_at < own.last_seen_at
     LIMIT 1
   ), 0) AS INTEGER) AS stale_refusal_id
@@ -312,7 +312,7 @@ JOIN place AS own ON own.id = (
   ORDER BY live.path LIMIT 1
 )
 CROSS JOIN file ON file.id = own.file_id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
+WHERE item.filing_library_id = ?2 AND item.removed_at IS NULL
   AND work.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
     SELECT 1 FROM artwork shown
@@ -325,7 +325,7 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM artwork held
     WHERE held.item_id = work.id AND held.source = 'frame' AND held.removed_at IS NULL
-      AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at)
+      AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at) || CAST(?1 AS TEXT)
       AND (held.source_sha256 IS NOT NULL OR held.is_missing_at_source = 1 OR held.refused_at >= own.last_seen_at)
   )
   AND (
@@ -354,6 +354,11 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
 ORDER BY work.id
 `
 
+type ListFrameStillCandidatesParams struct {
+	RecipeKey string
+	LibraryID *int64
+}
+
 type ListFrameStillCandidatesRow struct {
 	WorkID         int64
 	WorkKind       string
@@ -372,10 +377,11 @@ type ListFrameStillCandidatesRow struct {
 // is stored; never while it awaits its match, is ambiguous or its fetch failed. An other video is
 // never matched. A frame still of the file's present bytes holds it: made, refused for having no
 // frame, or refused since a scan last saw the file; one refused before is owed again, its row named
-// for the caller to retire, as an image beside the media is (G9). The images its sources name are
-// the caller's to weigh.
-func (q *Queries) ListFrameStillCandidates(ctx context.Context, libraryID *int64) ([]ListFrameStillCandidatesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFrameStillCandidates, libraryID)
+// for the caller to retire, as an image beside the media is (G9). A still is of the present bytes at
+// the present recipe, recipe_key (library.RecipeKey, D536): one an older recipe took holds nothing,
+// and the still taken again retires it. The images its sources name are the caller's to weigh.
+func (q *Queries) ListFrameStillCandidates(ctx context.Context, arg ListFrameStillCandidatesParams) ([]ListFrameStillCandidatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFrameStillCandidates, arg.RecipeKey, arg.LibraryID)
 	if err != nil {
 		return nil, err
 	}
