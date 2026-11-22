@@ -30701,4 +30701,7 @@ D357 §1's limit of a rescan to a film or a series.
    person chose, edited or watched is left alone. The light rescan, a match again without reading
    the files (D357), is gone, and with it the name Full rescan. A video's page offers Rescan in its
    … menu alone; the "Identified incorrectly" dialog no longer offers one. Amends D357 and D392 §1's
-   two kinds of rescan (§4 above then offers Scan now and Rescan).
+   two kinds of rescan (§4 above then offers Scan now and Rescan). A library's scan button is named
+   "Scan now", so it says the scan otherwise runs on its own (the owner: "'Scan' at the library level
+   should be called 'Scan now' so that it's clear that this would otherwise be an automatic
+   operation").
