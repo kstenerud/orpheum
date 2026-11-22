@@ -30708,3 +30708,16 @@ D357 §1's limit of a rescan to a film or a series.
    A rescan throws out only what the differences touch, as D392 §3 does, never everything of a
    video (the owner, 2026-11-22: "we'll keep it selective for now, and revisit if we ever get
    reports of users being stuck on bad data").
+6. **Scan now starts at once; Rescan asks first, and may discard what was made** (the owner,
+   2026-11-22: "At the library level, pressing 'Scan now' just starts the scan going, no
+   confirmation. 'Rescan' brings up a requestor 'This is an expensive operation that can take
+   hours. Do a rescan?'. Have yes and no and also a checkbox 'Discard cached data (more
+   expensive)'. At the file level we can offer a similar thing, although we don't say it will take
+   hours."). A library's Rescan, and Rescan everything, ask "This is an expensive operation that
+   can take hours. Do a rescan?"; a video page's Rescan asks "This is an expensive operation. Do a
+   rescan?"; each with Yes, No and the box "Discard cached data (more expensive)", unticked. Ticked,
+   the rescan throws out everything made or kept for its scope's files whatever the differences
+   (each derived thing by its one way to be thrown out, D392 §3: made chunks of every stream,
+   loudness, frame stills, text read from subtitles), and the provider's kept answers and images, so
+   each is made or fetched again; never what a person chose, edited or watched. Unticked, it stays
+   selective (§5). Amends §5's "never everything of a video": everything, when asked for.
