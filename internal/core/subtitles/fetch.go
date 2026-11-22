@@ -295,14 +295,17 @@ func (service *Service) convertWhileWaiting(ctx context.Context, id int64, key s
 	}
 }
 
-// discardFetched forgets a fetched subtitle its node did not convert, and the converter's word on
-// it: only a subtitle its node converted is kept (D224 §6). Its job, if it runs later, finds it gone.
+// discardFetched forgets a fetched subtitle and whatever was kept of its text: one its node did not
+// convert, with the converter's word on it, as only a subtitle its node converted is kept (D224 §6),
+// and one a video page's discarding rescan throws out (DiscardFetched). Its job, if it runs later,
+// finds it gone.
 func (service *Service) discardFetched(ctx context.Context, id int64, key sqlcgen.GetSubtitleTextParams) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if err := queries.DeleteFetchedSubtitle(ctx, id); err != nil {
 			return err
 		}
-		return queries.ForgetSubtitleTextFailure(ctx, sqlcgen.ForgetSubtitleTextFailureParams(key))
+		_, err := queries.DeleteSubtitleText(ctx, sqlcgen.DeleteSubtitleTextParams(key))
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("discard fetched subtitle %d: %w", id, err)

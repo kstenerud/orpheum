@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const deleteRepeatMeasurements = `-- name: DeleteRepeatMeasurements :execrows
+DELETE FROM repeat_measurement WHERE payload_hash = ?1
+`
+
+// What was measured of a video's bytes, at every version: a discarding rescan throws it out, to be
+// measured again (D535 section 6).
+func (q *Queries) DeleteRepeatMeasurements(ctx context.Context, payloadHash []byte) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteRepeatMeasurements, payloadHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const listSeasonVideos = `-- name: ListSeasonVideos :many
 
 SELECT DISTINCT CAST(position.grp_id AS INTEGER) AS group_id, own.node_id, version.work_id, f.id AS file_id, f.payload_hash,

@@ -8,6 +8,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 )
 
@@ -25,6 +26,8 @@ func (services *Services) openPlayback(parts Parts) {
 		Database: database, Queue: queue, Nodes: services.nodes, Exchanges: services.Exchanges,
 		Subtitler: services.subtitler, Clock: parts.Clock, MaxSilence: nodeWorkMaxSilence,
 	})
+	// A discarding rescan throws out what is kept of the subtitles fetched for its files (D535 §6).
+	services.matcher.SetFetchedDiscarder(services.subtitles)
 	services.chunks = chunks.NewService(chunks.Parts{
 		Database: database, Cache: parts.Cache, Settings: parts.Settings, Queue: queue, Nodes: services.nodes,
 		Exchanges: services.Exchanges, Loudness: levels, ReadThrough: services.ReadThrough, Logger: parts.Logger,
@@ -52,11 +55,12 @@ func (services *Services) openPlayback(parts Parts) {
 
 // derivedDroppers are how each thing derived from a file's probe is thrown out once the facts it was
 // made from change (library.DerivedDroppers): the read-through's measurements and timelines, the
-// subtitles' texts, the frame stills and the chunk stores.
+// subtitles' texts, the frame stills, the chunk stores and what repeats were found from.
 func derivedDroppers(services *Services) library.DerivedDroppers {
 	return library.DerivedDroppers{
 		Loudness: readthrough.ForgetLoudness, Timeline: readthrough.ForgetTimeline,
 		SubtitleText: subtitles.ForgetText, FrameStills: services.artwork.RetireFrameStills,
+		Repeats:       repeats.ForgetMeasurements,
 		PictureChunks: services.chunks.ForgetPictureStores, SoundChunks: services.chunks.ForgetSoundStores,
 	}
 }

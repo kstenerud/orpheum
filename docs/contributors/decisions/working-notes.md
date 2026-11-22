@@ -30754,9 +30754,13 @@ difference uses: picture and sound chunks, loudness, the picture timeline, subti
 stills. Its films and series lose their kept search answers and fitted runtimes and every image a
 person did not choose (an episode's too), and the record of one matched again to the same work, or
 left alone as a person or its NFO set it, is fetched again. The new columns raise cache.db's version
-to 55, so the first start after it rebuilds cache.db. Not yet thrown out, left for the owner: repeat
-fingerprints (`repeat_measurement`) and fetch failures; fetched subtitles are kept, as each costs
-the provider's quota.
+to 55, so the first start after it rebuilds cache.db. Repeat fingerprints (`repeat_measurement`)
+go as each sound's derived thing (they are heard on the main sound, so a sound's changed index or
+codec throws them out too), and fetch failures go for the films, series and episodes discarded. A
+video page's discard throws out the subtitles fetched for its files and their text, by the delete a
+subtitle its node did not convert goes by (`discardFetched`, which now throws out its text, not only
+the converter's failure); a library's or everything's keeps each download, throws out its text and
+queues its conversion again in the background, with no download.
 
 **Proven by:**
 - 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
@@ -30764,4 +30768,4 @@ the provider's quota.
 - 3: `TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused`, `TestRescan_OneItemRescansItsFilesAndRematchesIt` (internal/core/identify); `rescan.test.tsx`: a series' and an other video's menu, none on an extra's
 - 4: `TestRescan_EveryLibraryWhateverItHolds`, `TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched` (internal/core/identify); `rescan.test.tsx`: a library of other videos' Rescan
 - 5: `TestRescan_IsForAnAdminOnly` (internal/core/api), `TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot` (internal/core/library), `TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain` (internal/core/identify); `rescan.test.tsx`, `title.test.tsx`: no Full rescan anywhere, no rescan in "Identified incorrectly"
-- 6: `TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile`, `TestRescan_ADiscardingRescanAsksItsScanToDiscard` (internal/core/library), `TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestDiscardImages_RetiresEveryImageButAPersonsChoice` (internal/core/artwork), `TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI` (internal/core/api); `web/apps/web/src/rescan.test.tsx`: Scan now asks nothing, a rescan sends nothing until Yes nor on No, the box sends discard, a video's question says no hours
+- 6: `TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile`, `TestRescan_ADiscardingRescanAsksItsScanToDiscard` (internal/core/library), `TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing`, `TestRescan_AVideoPagesDiscardingRescanThrowsOutItsFetchedSubtitles` (internal/core/identify), `TestDiscardFetched_AVideoPagesThrowsOutTheSubtitlesAndTheirText`, `TestDiscardFetched_ALibrarysKeepsTheSubtitlesAndConvertsThemAgain` (internal/core/subtitles), `TestForgetMeasurements_ThrowsOutEveryVersionOfOneVideosMeasurement` (internal/core/repeats), `TestDiscardImages_RetiresEveryImageButAPersonsChoice` (internal/core/artwork), `TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI` (internal/core/api); `web/apps/web/src/rescan.test.tsx`: Scan now asks nothing, a rescan sends nothing until Yes nor on No, the box sends discard, a video's question says no hours

@@ -130,6 +130,43 @@ func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSu
 	return id, err
 }
 
+const listFetchedSubtitlesOfFiles = `-- name: ListFetchedSubtitlesOfFiles :many
+SELECT id, body_gzip
+FROM fetched_subtitle
+WHERE video_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+ORDER BY id
+`
+
+type ListFetchedSubtitlesOfFilesRow struct {
+	ID       int64
+	BodyGzip []byte
+}
+
+// The subtitles fetched for the files named, a JSON array of ids, with their bodies, which name
+// where their text is kept: what a discarding rescan throws out of them (D535 section 6).
+func (q *Queries) ListFetchedSubtitlesOfFiles(ctx context.Context, fileIdsJson string) ([]ListFetchedSubtitlesOfFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFetchedSubtitlesOfFiles, fileIdsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFetchedSubtitlesOfFilesRow{}
+	for rows.Next() {
+		var i ListFetchedSubtitlesOfFilesRow
+		if err := rows.Scan(&i.ID, &i.BodyGzip); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFetchedSubtitlesOfVideo = `-- name: ListFetchedSubtitlesOfVideo :many
 SELECT id, language, release_name, body_gzip
 FROM fetched_subtitle

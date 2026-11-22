@@ -36,3 +36,8 @@ VALUES (sqlc.arg(payload_hash), sqlc.arg(version), sqlc.arg(outcome), sqlc.narg(
 ON CONFLICT (payload_hash, version) DO UPDATE SET
   outcome = excluded.outcome, failure = excluded.failure, measured_at = excluded.measured_at
 WHERE (repeat_measurement.outcome, repeat_measurement.failure) IS NOT (excluded.outcome, excluded.failure);
+
+-- name: DeleteRepeatMeasurements :execrows
+-- What was measured of a video's bytes, at every version: a discarding rescan throws it out, to be
+-- measured again (D535 section 6).
+DELETE FROM repeat_measurement WHERE payload_hash = sqlc.arg(payload_hash);

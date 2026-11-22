@@ -44,6 +44,7 @@ const (
 	derivedTimeline      = "the picture's timeline"
 	derivedSubtitleText  = "a subtitle track's text"
 	derivedFrameStills   = "the frame stills"
+	derivedRepeats       = "what its repeats were found from"
 )
 
 // The facts of a stream most derived things are made from, by their names in the probe.
@@ -103,6 +104,12 @@ func derivedFromProbe() []derivedThing {
 			streamFacts: []string{factStreamIndex, "video.width", "video.height"},
 			inWrite:     func(droppers DerivedDroppers) DropInWrite { return droppers.FrameStills },
 		},
+		{
+			// Heard on the main sound (repeats.Detector), chosen among the sounds by these facts;
+			// thrown out with any sound's, and by every discard (D535 §6).
+			name: derivedRepeats, of: ofEachSound, streamFacts: []string{factStreamIndex, factCodec},
+			inWrite: func(droppers DerivedDroppers) DropInWrite { return droppers.Repeats },
+		},
 	}
 }
 
@@ -130,6 +137,7 @@ type DerivedDroppers struct {
 	Timeline      DropInWrite    // readthrough.ForgetTimeline
 	SubtitleText  DropInWrite    // subtitles.ForgetText
 	FrameStills   DropInWrite    // artwork.Service.RetireFrameStills
+	Repeats       DropInWrite    // repeats.ForgetMeasurements
 	PictureChunks DropAfterWrite // chunks.Service.ForgetPictureStores
 	SoundChunks   DropAfterWrite // chunks.Service.ForgetSoundStores
 }

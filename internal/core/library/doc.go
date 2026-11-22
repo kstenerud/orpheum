@@ -72,7 +72,8 @@
 //     audio track's loudness, from the track's streamIndex, codec, codecProfile and audio facts; the
 //     picture's timeline, from its streamIndex and codec; each own subtitle track's text, from its
 //     streamIndex and codec; the frame stills, from the container's durationMs and the picture's
-//     streamIndex, width and height.
+//     streamIndex, width and height; what its repeats were found from, heard on its main sound, from
+//     each audio track's streamIndex and codec.
 //
 //     A probe read again is compared with the one kept fact by fact (a fact at its zero value is
 //     none), and each derived thing whose facts differ is thrown out by the package that keeps it,

@@ -37,6 +37,9 @@ type Matcher struct {
 	// imageRetrier asks for an item's missing images again: the artwork service, set by the
 	// server's wiring.
 	imageRetrier ImageRetrier
+	// fetchedDiscarder throws out what is kept of fetched subtitles, for a discarding rescan: the
+	// subtitles service, set by the wiring (SetFetchedDiscarder).
+	fetchedDiscarder FetchedDiscarder
 	// rescans counts the rescans kept in cache.db, so a fetch reads its item's rematch only while
 	// one runs (D357).
 	rescans rescanCount

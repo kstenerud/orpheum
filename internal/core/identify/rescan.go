@@ -377,7 +377,7 @@ func (rescans *Rescans) list(ctx context.Context, rescan cachegen.ListRescansRow
 		"libraryId", rescan.LibraryID, "itemId", ptr.ValueOrZero(rescan.ItemID), "itemCount", listed,
 		"isFull", rescan.IsFull != 0)
 	if rescan.IsDiscarding != 0 {
-		if err := rescans.matcher.discardMade(ctx, itemIDs); err != nil {
+		if err := rescans.matcher.discardMade(ctx, itemIDs, rescan.ItemID != nil); err != nil {
 			return err
 		}
 	}

@@ -53,3 +53,11 @@ WHERE fetched_subtitle.video_file = sqlc.arg(from_file)
 -- name: DeleteFetchedSubtitlesOfFile :exec
 -- What was fetched for a copy that its file had fetched too.
 DELETE FROM fetched_subtitle WHERE video_file = sqlc.arg(file_id);
+
+-- name: ListFetchedSubtitlesOfFiles :many
+-- The subtitles fetched for the files named, a JSON array of ids, with their bodies, which name
+-- where their text is kept: what a discarding rescan throws out of them (D535 section 6).
+SELECT id, body_gzip
+FROM fetched_subtitle
+WHERE video_file IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)))
+ORDER BY id;

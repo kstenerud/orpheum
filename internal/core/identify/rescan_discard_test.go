@@ -3,6 +3,7 @@
 package identify_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"testing"
@@ -15,12 +16,29 @@ import (
 )
 
 // chosenAndWatched is a library whose "Metropolis (1927).mkv" a person matched to 950 and alice
-// watched ten minutes of, with a search's answers kept for it, rescanned as rescan says.
+// watched ten minutes of, with a search's answers and a failure to be fetched kept for it, rescanned
+// as rescan says.
 type chosenAndWatched struct {
-	rescan        *rescanning
-	images        *imagesAskedAgain
-	chosen, alice int64
-	callsBefore   int
+	rescan              *rescanning
+	images              *imagesAskedAgain
+	subtitles           *subtitlesDiscarded
+	chosen, file, alice int64
+	callsBefore         int
+}
+
+// subtitlesDiscarded records what a discarding rescan asked to throw out of fetched subtitles.
+type subtitlesDiscarded struct{ asked []subtitlesDiscard }
+
+type subtitlesDiscard struct {
+	fileIDs                []int64
+	isThrowingOutDownloads bool
+}
+
+func (discarded *subtitlesDiscarded) DiscardFetched(
+	_ context.Context, fileIDs []int64, isThrowingOutDownloads bool,
+) error {
+	discarded.asked = append(discarded.asked, subtitlesDiscard{fileIDs, isThrowingOutDownloads})
+	return nil
 }
 
 func newChosenAndWatched(t *testing.T) chosenAndWatched {
@@ -45,12 +63,41 @@ func newChosenAndWatched(t *testing.T) chosenAndWatched {
 	if err != nil {
 		t.Fatal(err)
 	}
+	storetest.ExecRaw(t, lib.database.Path(), `INSERT INTO fetch_failure (item_id, failure, failed_at)
+		VALUES (`+strconv.FormatInt(file.WorkID, 10)+`, 'the provider said no', 1)`)
+	subtitles := &subtitlesDiscarded{}
+	rescan.matcher.SetFetchedDiscarder(subtitles)
 	alice := storetest.InsertUser(t, lib.database, "alice", "user")
 	storetest.ExecRaw(t, lib.database.Path(),
 		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
 		 VALUES (`+strconv.FormatInt(alice, 10)+`, `+strconv.FormatInt(file.ID, 10)+`, 600000, 1, 1, 1)`)
 	return chosenAndWatched{
-		rescan: rescan, images: images, chosen: file.WorkID, alice: alice, callsBefore: len(lib.provider.Calls),
+		rescan: rescan, images: images, subtitles: subtitles, chosen: file.WorkID, file: file.ID, alice: alice,
+		callsBefore: len(lib.provider.Calls),
+	}
+}
+
+// isFetchFailureKept says whether the chosen film's failure to be fetched is kept still.
+func (world chosenAndWatched) isFetchFailureKept(t *testing.T) bool {
+	t.Helper()
+	kept := storetest.QueryRaw(t, world.rescan.lib.database.Path(),
+		`SELECT count(*) FROM fetch_failure WHERE item_id = `+strconv.FormatInt(world.chosen, 10))
+	return slices.Equal(kept, []string{"1"})
+}
+
+// wantSubtitlesDiscarded fails unless the rescan asked once to throw out what is kept of the
+// subtitles fetched for the chosen film's file, the downloads too as isThrowingOutDownloads says.
+func (world chosenAndWatched) wantSubtitlesDiscarded(t *testing.T, isThrowingOutDownloads bool) {
+	t.Helper()
+	var ofChosen []subtitlesDiscard
+	for _, asked := range world.subtitles.asked {
+		if slices.Contains(asked.fileIDs, world.file) {
+			ofChosen = append(ofChosen, asked)
+		}
+	}
+	if len(ofChosen) != 1 || ofChosen[0].isThrowingOutDownloads != isThrowingOutDownloads {
+		t.Errorf("the rescan asked to discard fetched subtitles %+v; want the chosen film's file %d once, "+
+			"downloads thrown out %v", world.subtitles.asked, world.file, isThrowingOutDownloads)
 	}
 }
 
@@ -93,6 +140,10 @@ func TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing(t 
 			isStarted, err, world.rescan.scans.discarding)
 	}
 	world.rescan.run()
+	if world.isFetchFailureKept(t) {
+		t.Error("the chosen film's failure to be fetched is kept; want it thrown out")
+	}
+	world.wantSubtitlesDiscarded(t, false)
 	if kept := world.candidates(t); len(kept) != 0 {
 		t.Errorf("the chosen film's kept search answers are %+v; want them thrown out", kept)
 	}
@@ -106,6 +157,23 @@ func TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing(t 
 	world.wantAPersonsDoingKept(t)
 }
 
+// D535 §6: a video page's discarding rescan throws out the subtitles fetched for its files, to be
+// found again from the player, where a library's keeps them, and its failures to be fetched too.
+func TestRescan_AVideoPagesDiscardingRescanThrowsOutItsFetchedSubtitles(t *testing.T) {
+	t.Parallel()
+	world := newChosenAndWatched(t)
+	isStarted, err := world.rescan.rescans.RescanItem(t.Context(), world.chosen, true)
+	if err != nil || !isStarted {
+		t.Fatalf("a video page's discarding rescan = %v, %v; want it started", isStarted, err)
+	}
+	world.rescan.run()
+	world.wantSubtitlesDiscarded(t, true)
+	if world.isFetchFailureKept(t) {
+		t.Error("the chosen film's failure to be fetched is kept; want it thrown out")
+	}
+	world.wantAPersonsDoingKept(t)
+}
+
 // D535 §6: a rescan that keeps what was made throws none of it out.
 func TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing(t *testing.T) {
 	t.Parallel()
@@ -115,9 +183,11 @@ func TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	world.rescan.run()
-	if len(world.rescan.scans.discarding) != 0 || len(world.images.discarded) != 0 || len(world.candidates(t)) != 1 {
-		t.Errorf("a rescan keeping what was made discarded scans %v, images %v, and kept answers %+v; want "+
-			"nothing thrown out", world.rescan.scans.discarding, world.images.discarded, world.candidates(t))
+	if len(world.rescan.scans.discarding) != 0 || len(world.images.discarded) != 0 || len(world.candidates(t)) != 1 ||
+		len(world.subtitles.asked) != 0 || !world.isFetchFailureKept(t) {
+		t.Errorf("a rescan keeping what was made discarded scans %v, images %v, fetched subtitles %+v, its "+
+			"failure kept %v, and kept answers %+v; want nothing thrown out", world.rescan.scans.discarding,
+			world.images.discarded, world.subtitles.asked, world.isFetchFailureKept(t), world.candidates(t))
 	}
 	world.wantAPersonsDoingKept(t)
 }
