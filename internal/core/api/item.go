@@ -128,6 +128,7 @@ type ItemBody struct {
 	RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                                               //nolint:lll // one struct tag
 	Unavailable         *UnavailableBody  `doc:"Why none of its files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                       //nolint:lll // one struct tag
 	IsWatched           bool              `doc:"Whether the person watched it, by playing it to its finish or by hand (D370)" json:"isWatched,omitempty"`                                                       //nolint:lll // one struct tag
+	IsRescanning        bool              `doc:"Whether a rescan of it, its series', its library's or every library's is in progress (D535 §7)" json:"isRescanning,omitempty"`                                  //nolint:lll // one struct tag
 	Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
 	Genres              []GenreBody       `doc:"Its genres in its source's order; an episode's are its series'; absent when it has none" json:"genres,omitempty"`                                               //nolint:lll // one struct tag
 	Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one" json:"credits,omitempty"`                        //nolint:lll // one struct tag
@@ -158,6 +159,7 @@ type SeriesBody struct {
 	Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                              //nolint:lll // one struct tag
 	NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"`                                         //nolint:lll // one struct tag
 	IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`                                           //nolint:lll // one struct tag
+	IsRescanning        bool              `doc:"Whether a rescan of it, its library's or every library's is in progress (D535 §7)" json:"isRescanning,omitempty"`                                                                //nolint:lll // one struct tag
 	Genres              []GenreBody       `doc:"Its genres in its source's order; absent when it has none" json:"genres,omitempty"`                                                                                              //nolint:lll // one struct tag
 	Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; absent when it credits no one" json:"credits,omitempty"`                                                                       //nolint:lll // one struct tag
 	Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
@@ -195,28 +197,7 @@ func (server *Server) titleBody(
 	body.RuntimeMs = ptr.ValueOrZero(detail.RuntimeMs)
 	body.FetchFailure = fetchFailureBody(detail.FetchFailure, detail.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(detail.RefreshRequestedAt)
-	body.Versions = make([]VersionBody, 0, len(detail.Versions))
-	for _, version := range detail.Versions {
-		versionBody := VersionBody{ID: version.ID, Files: []FileDetailBody{}}
-		for _, file := range version.Files {
-			fileBody := FileDetailBody{
-				ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}, ResumePositionMs: file.ResumeAtMs,
-			}
-			// Paths are shown where the admin administers, never from away (the Plex-chain review's T2).
-			if administersHere(ctx, principal) {
-				fileBody.Path, fileBody.OtherPaths = file.Path, file.Paths[1:]
-			}
-			for _, stream := range file.Streams {
-				fileBody.Streams = append(fileBody.Streams, StreamBody{
-					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Language,
-					ContainerTitle: stream.ContainerTitle,
-					ChannelCount:   stream.ChannelCount,
-				})
-			}
-			versionBody.Files = append(versionBody.Files, fileBody)
-		}
-		body.Versions = append(body.Versions, versionBody)
-	}
+	body.Versions = versionBodies(detail.Versions, administersHere(ctx, principal))
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{
@@ -233,6 +214,13 @@ func (server *Server) titleBody(
 	body.FilmOfExtra = filmOfExtraBody(whereabouts.FilmOfExtra)
 	body.Unavailable = unavailableBody(detail.Unreadable, server.nodeNamer(ctx, dependencies))
 	body.IsWatched = detail.IsWatched
+	var seriesID *int64
+	if body.Episode != nil {
+		seriesID = &body.Episode.SeriesID
+	}
+	if body.IsRescanning, err = dependencies.Rescans.IsRescanning(ctx, detail.ID, seriesID); err != nil {
+		return nil, server.libraryError(ctx, "read whether a title is being rescanned", err)
+	}
 	if body.UpNext, body.Previous, err = server.titleNeighbours(ctx, dependencies, principal, detail); err != nil {
 		return nil, err
 	}
@@ -243,6 +231,33 @@ func (server *Server) titleBody(
 		}
 	}
 	return body, nil
+}
+
+// versionBodies are a title's versions and their files, each file's paths shown only where the
+// admin administers, never from away (the Plex-chain review's T2).
+func versionBodies(versions []library.Version, showsPaths bool) []VersionBody {
+	bodies := make([]VersionBody, 0, len(versions))
+	for _, version := range versions {
+		versionBody := VersionBody{ID: version.ID, Files: []FileDetailBody{}}
+		for _, file := range version.Files {
+			fileBody := FileDetailBody{
+				ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}, ResumePositionMs: file.ResumeAtMs,
+			}
+			if showsPaths {
+				fileBody.Path, fileBody.OtherPaths = file.Path, file.Paths[1:]
+			}
+			for _, stream := range file.Streams {
+				fileBody.Streams = append(fileBody.Streams, StreamBody{
+					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Language,
+					ContainerTitle: stream.ContainerTitle,
+					ChannelCount:   stream.ChannelCount,
+				})
+			}
+			versionBody.Files = append(versionBody.Files, fileBody)
+		}
+		bodies = append(bodies, versionBody)
+	}
+	return bodies
 }
 
 // titleNeighbours are what plays after an episode and before it, as its page's Play plays it: from
@@ -326,6 +341,9 @@ func (server *Server) seriesBody(
 	}
 	body.NotInOrderingCount = series.NotInOrderingCount
 	body.IsWatched = series.IsWatched
+	if body.IsRescanning, err = dependencies.Rescans.IsRescanning(ctx, series.ID, nil); err != nil {
+		return nil, server.libraryError(ctx, "read whether a series is being rescanned", err)
+	}
 	whereabouts, err := server.whereabouts(ctx, dependencies, principal.Reach, series.ID, itemKindSeries)
 	if err != nil {
 		return nil, err

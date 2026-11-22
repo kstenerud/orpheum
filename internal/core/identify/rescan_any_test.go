@@ -105,3 +105,55 @@ func (rescan *rescanning) ended(libraryID int64) {
 		t.Errorf("library %d's rescan is still in progress, %+v, after its scan; want it ended", libraryID, running)
 	}
 }
+
+// D535 §7: a video's page says it is being rescanned from the press until the rescan ends: its own,
+// its library's, or, for an episode, its series', given the series.
+func TestIsRescanning_FromThePressUntilTheRescanEnds(t *testing.T) {
+	t.Parallel()
+	films := newTestLibrary(t, "movie", "nfo")
+	const filmFile = "Metropolis (1927)/Metropolis (1927).mkv"
+	films.scan(videoRecord(filmFile))
+	film := films.titlesByPath()[filmFile].WorkID
+	rescan := films.rescanning()
+	isRescanning := func(itemID int64, seriesID *int64) bool {
+		t.Helper()
+		is, err := rescan.rescans.IsRescanning(t.Context(), itemID, seriesID)
+		if err != nil {
+			t.Fatalf("IsRescanning(%d): %v", itemID, err)
+		}
+		return is
+	}
+	if isRescanning(film, nil) {
+		t.Errorf("the film is said rescanned before any rescan; want not")
+	}
+	if isStarted, err := rescan.rescans.RescanItem(t.Context(), film, false); err != nil || !isStarted {
+		t.Fatalf("RescanItem = %v, %v; want it started", isStarted, err)
+	}
+	if !isRescanning(film, nil) {
+		t.Errorf("the film is not said rescanned after its own rescan's press; want it")
+	}
+	rescan.run()
+	rescan.ended(films.libraryID)
+	if isRescanning(film, nil) {
+		t.Errorf("the film is said rescanned after its rescan ended; want not")
+	}
+	rescan.library()
+	if !isRescanning(film, nil) {
+		t.Errorf("the film is not said rescanned while its library's rescan runs; want it")
+	}
+
+	seriesLib := orbitoramaLibrary(t)
+	seriesLib.scanAll(orbitoramaFiles...)
+	episode := seriesLib.titlesByPath()[orbitoramaFiles[0]].WorkID
+	seriesID := seriesLib.seriesIDOf(episode)
+	seriesRescan := seriesLib.rescanning()
+	if isStarted, err := seriesRescan.rescans.RescanItem(t.Context(), seriesID, false); err != nil || !isStarted {
+		t.Fatalf("RescanItem of the series = %v, %v; want it started", isStarted, err)
+	}
+	if is, err := seriesRescan.rescans.IsRescanning(t.Context(), episode, &seriesID); err != nil || !is {
+		t.Errorf("an episode given its series is said rescanned %v, %v, while the series' runs; want it", is, err)
+	}
+	if is, err := seriesRescan.rescans.IsRescanning(t.Context(), episode, nil); err != nil || is {
+		t.Errorf("an episode not given its series is said rescanned %v, %v; want only its own rescan seen", is, err)
+	}
+}

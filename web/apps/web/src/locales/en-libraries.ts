@@ -63,8 +63,6 @@ export const enLibraries = {
     rescanRunning: "A rescan of it is already running.",
     rescanEverythingStarted: "Rescanning {{count}} libraries.",
     rescanScanning: "Rescanning… scanning first.",
-    rescanThisStarted: "Rescanning: its files are read again, then it is matched again from them.",
-    rescanThisRunning: "A rescan of it, or of its library, is already running.",
     rescanAskLibrary: "This is an expensive operation that can take hours. Do a rescan?",
     rescanAskItem: "This is an expensive operation. Do a rescan?",
     rescanDiscard: "Discard cached data (more expensive)",

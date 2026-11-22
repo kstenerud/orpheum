@@ -23,12 +23,14 @@ import { useServices } from "./services.tsx";
  */
 export function rescanAction(
   t: ReturnType<typeof useTranslation>["t"],
-  itemId: number,
+  asked: { readonly itemId: number; readonly onStarted: () => void },
 ): MoreAction {
   return {
     key: "rescan",
     label: t("libraries.rescan"),
-    dialog: (close) => <ItemRescanQuestion itemId={itemId} onClose={close} />,
+    dialog: (close) => (
+      <ItemRescanQuestion itemId={asked.itemId} onStarted={asked.onStarted} onClose={close} />
+    ),
   };
 }
 
@@ -65,12 +67,14 @@ export function discardQuery(isDiscarding: boolean): RescanQuery {
 }
 
 /**
- * The question a video page's Rescan opens, alone: Yes closes it at once, and the rescan's start, or
- * its failure to start, is told in the shell's notice (notice.ts), outside any dialog (the owner,
- * 2026-11-22: "It should have dismissed the box when I rescanned").
+ * The question a video page's Rescan opens, alone: Yes closes it at once (the owner, 2026-11-22: "It
+ * should have dismissed the box when I rescanned"), and the page, read again, says "Rescanning…" in
+ * its facts while the rescan runs (D535 §7): a notice seconds after the press could land on another
+ * page. Only a failure to start is told in the shell's notice (notice.ts).
  */
 function ItemRescanQuestion(props: {
   readonly itemId: number;
+  readonly onStarted: () => void;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -80,29 +84,34 @@ function ItemRescanQuestion(props: {
       isLong={false}
       onClose={props.onClose}
       onRescan={(isDiscarding) => {
-        void rescanItem(api, t, { itemId: props.itemId, isDiscarding });
+        void rescanItem(api, t, { itemId: props.itemId, isDiscarding, onStarted: props.onStarted });
       }}
     />
   );
 }
 
-/** Asks the item's rescan, then says in the notice whether it started, or why it could not. */
+/**
+ * Asks the item's rescan, then has the page read again, which then says it is being rescanned, the
+ * rescan started now or one already running; says in the notice why it could not start.
+ */
 async function rescanItem(
   api: Api,
   t: ReturnType<typeof useTranslation>["t"],
-  asked: { readonly itemId: number; readonly isDiscarding: boolean },
+  asked: {
+    readonly itemId: number;
+    readonly isDiscarding: boolean;
+    readonly onStarted: () => void;
+  },
 ): Promise<void> {
   const { itemId, isDiscarding } = asked;
   try {
-    const answer = dataOrThrow(
+    dataOrThrow(
       await api.POST("/items/{id}/rescan", {
         params: { path: { id: itemId }, query: discardQuery(isDiscarding) },
         ...idempotent(newIdempotencyKey()),
       }),
     );
-    showNotice(
-      answer.isStarted ? t("libraries.rescanThisStarted") : t("libraries.rescanThisRunning"),
-    );
+    asked.onStarted();
   } catch (cause: unknown) {
     showNotice(identifyProblemText(t, cause));
   }

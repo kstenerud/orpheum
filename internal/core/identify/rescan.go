@@ -181,6 +181,38 @@ func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, isDiscardi
 	return true, nil
 }
 
+// IsRescanning says whether a rescan covers a film, series, episode or other video: its own, its
+// library's or every library's, or, given an episode's series, the series'. It does from the press
+// until the rescan ends, matched again; its page says so while it lasts, in place of a notice that
+// came seconds after the press (the owner, 2026-11-22). An extra is never rescanned.
+func (rescans *Rescans) IsRescanning(ctx context.Context, itemID int64, seriesID *int64) (bool, error) {
+	if isRunning, err := rescans.matcher.isRescanRunning(ctx); err != nil || !isRunning {
+		return false, err
+	}
+	item, err := rescans.matcher.readRescanned(ctx, itemID)
+	if errors.Is(err, ErrNotRescannable) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	libraryID := ptr.ValueOrZero(item.libraryID())
+	for _, covered := range []*int64{&itemID, seriesID} {
+		if covered == nil {
+			continue
+		}
+		running, err := rescans.matcher.cache.Read().CountRescansOfLibraryOrItem(ctx,
+			cachegen.CountRescansOfLibraryOrItemParams{LibraryID: libraryID, ItemID: covered})
+		if err != nil {
+			return false, fmt.Errorf("read item %d's rescans: %w", *covered, err)
+		}
+		if running > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // readRescanned reads the film, series, episode or other video a rescan names: never an extra.
 func (matcher *Matcher) readRescanned(ctx context.Context, itemID int64) (target, error) {
 	item, err := matcher.readTarget(ctx, itemID)

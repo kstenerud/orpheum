@@ -214,7 +214,7 @@ function TitleMoreActions(props: {
     if (title.isGuessed === true) {
       actions.push(identifiedCorrectlyAction(t, { itemId: title.id, onConfirmed: onCorrected }));
     }
-    actions.push(rescanAction(t, title.id));
+    actions.push(rescanAction(t, { itemId: title.id, onStarted: onCorrected }));
   }
   const versions = title.versions ?? [];
   if (title.unavailable === undefined && versions.length > 1) {
@@ -363,6 +363,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
       {title.kind === "film" ? <GenreLinks genres={title.genres} list="films" /> : null}
       {sound === undefined ? null : <span>{sound}</span>}
       {title.identificationState === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
+      {title.isRescanning === true ? <span>{t("title.rescanning")}</span> : null}
     </>
   );
 }

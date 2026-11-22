@@ -365,6 +365,7 @@ const enOwn = {
     fileDetails: "File details",
     extras: "Extras",
     unidentified: "Not identified yet",
+    rescanning: "Rescanning…",
     identifiedIncorrectly: "Identified incorrectly",
     identifiedCorrectly: "Identified correctly",
     identifiedCorrectlyExplain:

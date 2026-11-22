@@ -56,13 +56,18 @@ function seasonName(t: TFunction, series: SeriesDetail, season: Season): string 
   return groupName(t, series.ordering, { number: season.seasonNumber, name: season.name });
 }
 
-/** A series' facts, one line (R8): its year and its genres, each where it has them. */
+/**
+ * A series' facts, one line (R8): its year and its genres, each where it has them, and "Rescanning…"
+ * while a rescan of it runs (D535 §7).
+ */
 function SeriesFacts(props: { readonly series: SeriesDetail }): JSX.Element {
+  const { t } = useTranslation();
   const { series } = props;
   return (
     <>
       {series.year === undefined ? null : <span>{series.year}</span>}
       <GenreLinks genres={series.genres} list="series" />
+      {series.isRescanning === true ? <span>{t("title.rescanning")}</span> : null}
     </>
   );
 }
@@ -193,7 +198,7 @@ function SeriesMoreActions(props: {
     if (series.isGuessed === true) {
       actions.push(identifiedCorrectlyAction(t, { itemId: series.id, onConfirmed: onCorrected }));
     }
-    actions.push(rescanAction(t, series.id));
+    actions.push(rescanAction(t, { itemId: series.id, onStarted: onCorrected }));
   }
   return <MoreActions actions={actions} />;
 }

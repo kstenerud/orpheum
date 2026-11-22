@@ -3964,6 +3964,8 @@ export interface components {
             identificationState: string;
             /** @description Whether its match is a guess no person confirmed (D301) */
             isGuessed?: boolean;
+            /** @description Whether a rescan of it, its series', its library's or every library's is in progress (D535 §7) */
+            isRescanning?: boolean;
             /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
             isWatched?: boolean;
             /**
@@ -5525,6 +5527,8 @@ export interface components {
             identificationState?: string;
             /** @description Whether its match is a guess no person confirmed (D301) */
             isGuessed?: boolean;
+            /** @description Whether a rescan of it, its library's or every library's is in progress (D535 §7) */
+            isRescanning?: boolean;
             /** @description Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370) */
             isWatched?: boolean;
             /**

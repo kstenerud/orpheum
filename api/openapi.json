@@ -3276,6 +3276,10 @@
             "description": "Whether its match is a guess no person confirmed (D301)",
             "type": "boolean"
           },
+          "isRescanning": {
+            "description": "Whether a rescan of it, its series', its library's or every library's is in progress (D535 §7)",
+            "type": "boolean"
+          },
           "isWatched": {
             "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
             "type": "boolean"
@@ -7737,6 +7741,10 @@
           },
           "isGuessed": {
             "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
+          "isRescanning": {
+            "description": "Whether a rescan of it, its library's or every library's is in progress (D535 §7)",
             "type": "boolean"
           },
           "isWatched": {

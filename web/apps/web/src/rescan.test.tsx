@@ -101,6 +101,7 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
       "POST /items/12/rescan": [
         [202, { isStarted: true }],
         [202, { isStarted: false }],
+        [500, { title: "Internal Server Error", status: 500 }],
       ],
     },
     heard,
@@ -112,7 +113,10 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
     art: {},
     seasons: [],
   };
-  const corrected = (): void => undefined;
+  let readAgain = 0;
+  const corrected = (): void => {
+    readAgain += 1;
+  };
   mounted = await mount(
     withServices(<SeriesView series={series} onMatchCorrected={corrected} />, services),
   );
@@ -143,14 +147,21 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
     await click(buttonWithText(opened, "Yes"));
     return opened;
   };
+  // Started, or one already running, the page is read again, to say it is being rescanned, and no
+  // notice comes after the press (D535 §7); one that could not start is told in the notice.
+  await rescanFromTheMenu();
+  await settleUntil(() => readAgain === 1);
+  await rescanFromTheMenu();
+  await settleUntil(() => readAgain === 2);
+  expect(currentNotice()).toBeUndefined();
   await rescanFromTheMenu();
   await settleUntil(() => currentNotice() !== undefined);
-  expect(currentNotice()?.text).toContain(
-    "its files are read again, then it is matched again from them.",
-  );
-  await rescanFromTheMenu();
-  await settleUntil(() => currentNotice()?.text.includes("already running") === true);
-  expect(rescansPosted(heard)).toEqual(["POST /items/12/rescan", "POST /items/12/rescan"]);
+  expect(readAgain).toBe(2);
+  expect(rescansPosted(heard)).toEqual([
+    "POST /items/12/rescan",
+    "POST /items/12/rescan",
+    "POST /items/12/rescan",
+  ]);
 });
 
 it("offers an admin Rescan in an other video's menu, and none on an extra's page (D535 §3)", async () => {
@@ -166,7 +177,10 @@ it("offers an admin Rescan in an other video's menu, and none on an extra's page
   const heard: Heard[] = [];
   const services = servedBy(
     {
-      "GET /items/14": [200, video],
+      "GET /items/14": [
+        [200, video],
+        [200, { ...video, isRescanning: true }],
+      ],
       "GET /items/15": [200, { ...video, id: 15, kind: "extra" }],
       "POST /items/14/rescan": [202, { isStarted: true }],
       "POST /playback": [
@@ -188,8 +202,10 @@ it("offers an admin Rescan in an other video's menu, and none on an extra's page
   await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
+  expect(page.textContent).not.toContain("Rescanning…");
   await click(buttonWithText(page, "Yes"));
-  await settleUntil(() => currentNotice()?.text.includes("its files are read again") === true);
+  // The page, read again, says in its facts that it is being rescanned (D535 §7).
+  await settleUntil(() => page.textContent.includes("Rescanning…"));
   expect(rescansPosted(heard)).toContain("POST /items/14/rescan");
   mounted.unmount();
   mounted = await mount(withServices(asAdmin(15), services));
@@ -285,9 +301,9 @@ it("asks before a video's rescan, without hours, and discards what was made when
   await click(buttonWithText(page, "Rescan"));
   await click(discardBox(page));
   await click(buttonWithText(page, "Yes"));
-  // Yes closes the question at once, and the notice, outside it, says the rescan started.
+  // Yes closes the question at once.
   expect(page.querySelector("dialog")).toBeNull();
   expect(page.textContent).not.toContain("Do a rescan?");
-  await settleUntil(() => currentNotice()?.text.includes("its files are read again") === true);
+  await settleUntil(() => rescansPosted(heard).length === 1);
   expect(rescansPosted(heard)).toEqual(["POST /items/12/rescan?discard=true"]);
 });
