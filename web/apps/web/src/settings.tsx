@@ -185,6 +185,31 @@ function SecretField(props: {
   );
 }
 
+/** A secret's field and its controls, side by side in the row. */
+function SecretInput(props: {
+  readonly id: string;
+  readonly secret: Secret;
+  readonly text: string;
+  readonly onText: (text: string) => void;
+  readonly onCommit: () => void;
+  readonly onAsk: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <span className="settings__field">
+      <SecretField
+        id={props.id}
+        name={props.secret.name}
+        placeholder={secretState(t, props.secret)}
+        text={props.text}
+        onText={props.onText}
+        onCommit={props.onCommit}
+      />
+      <SecretControls secret={props.secret} onAsk={props.onAsk} />
+    </span>
+  );
+}
+
 /**
  * One secret's row, in one column as a setting's: its name, its key under it, a field to type a new
  * one in, which says whether one is set, what it is for, and a bin that removes it once asked again.
@@ -218,22 +243,16 @@ const SecretRow = memo(function SecretRow(props: {
         label={settingLabel(t, "secretLabels", secret.name)}
         settingKey={secret.name}
       />
-      <span className="settings__field">
-        <SecretField
-          id={fieldId}
-          name={secret.name}
-          placeholder={secretState(t, secret)}
-          text={text}
-          onText={setText}
-          onCommit={commit}
-        />
-        <SecretControls
-          secret={secret}
-          onAsk={() => {
-            setIsAsking(true);
-          }}
-        />
-      </span>
+      <SecretInput
+        id={fieldId}
+        secret={secret}
+        text={text}
+        onText={setText}
+        onCommit={commit}
+        onAsk={() => {
+          setIsAsking(true);
+        }}
+      />
       <SecretNotes
         needsReentry={secret.needsReentry}
         problem={props.problem}

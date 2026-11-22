@@ -61,6 +61,21 @@ export function OverlayParts(): JSX.Element {
   );
 }
 
+/** The gallery dialog's foot: Cancel, then its main action, where it starts (D538 §4). */
+function GalleryDialogFoot(props: { readonly onLeave: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <button type="button" onClick={props.onLeave}>
+        {t("dialog.cancel")}
+      </button>
+      <button type="button" {...arrivalMark} onClick={props.onLeave}>
+        {t("gallery.dialogSave")}
+      </button>
+    </>
+  );
+}
+
 /** A dialog of parts that opens another in its place (D538 §5). */
 function GalleryDialog(): JSX.Element {
   const { t } = useTranslation();
@@ -83,25 +98,11 @@ function GalleryDialog(): JSX.Element {
             setDepth(0);
           }}
           footer={
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setDepth(0);
-                }}
-              >
-                {t("dialog.cancel")}
-              </button>
-              <button
-                type="button"
-                {...arrivalMark}
-                onClick={() => {
-                  setDepth(0);
-                }}
-              >
-                {t("gallery.dialogSave")}
-              </button>
-            </>
+            <GalleryDialogFoot
+              onLeave={() => {
+                setDepth(0);
+              }}
+            />
           }
         >
           <p>{t("gallery.dialogBody")}</p>

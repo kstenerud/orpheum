@@ -60,6 +60,15 @@ const dangerousActions: readonly (readonly [file: string, confirmKey: string])[]
 /** The gallery's confirms, which only show the part. */
 const galleryFiles = new Set(["./ui-gallery.tsx", "./ui-gallery-overlays.tsx"]);
 
+/** Two confirms in order: by file, then by their action's words. */
+function byFileThenLabel(
+  [file, label]: readonly [string, string],
+  [otherFile, otherLabel]: readonly [string, string],
+): number {
+  const byFile = file.localeCompare(otherFile);
+  return byFile === 0 ? label.localeCompare(otherLabel) : byFile;
+}
+
 /** Each confirm the sources hold, as [file, its action's words' key]. */
 function confirmsInSources(): (readonly [string, string])[] {
   const found: (readonly [string, string])[] = [];
@@ -71,14 +80,12 @@ function confirmsInSources(): (readonly [string, string])[] {
       found.push([file, match[1] ?? ""]);
     }
   }
-  return found.sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y));
+  return found.sort(byFileThenLabel);
 }
 
 describe("every dangerous action asks first, in the one confirm (ui.md rule 8, D538 §4)", () => {
   it("draws each dangerous action listed, and no other, through the confirm", () => {
-    expect(confirmsInSources()).toEqual(
-      [...dangerousActions].sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y)),
-    );
+    expect(confirmsInSources()).toEqual([...dangerousActions].sort(byFileThenLabel));
   });
 
   it("draws the irreversible red only in the confirm, so a red action is always one that asks", () => {
