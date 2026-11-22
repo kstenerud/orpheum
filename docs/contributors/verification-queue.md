@@ -3698,8 +3698,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   3. Open the menu that says who is signed in, choose Report a problem, and send one saying
      "VQ376". Report that you sent it, so I can read which chunks stepped down and whether their
      quality was made ahead.
-- [ ] **VQ377** — Film 20597 plays past its first 32 s with sound in a Mac's Firefox, its copied
-  sound given up for the sound the server makes (D533 §2; staging, 2026-11-22). Only that file's
+- [x] **VQ377** — Film 20597 plays past its first 32 s with sound in a Mac's Firefox, its copied
+  sound given up for the sound the server makes (D533 §2; staging, 2026-11-22). Passed (the owner,
+  2026-11-22, after the page's Rescan read the file again): it plays, and the 30 s lag is gone; the
+  sound is still 1.2 s late, the same across the whole file (in sync with the device's sound set
+  1200 ms earlier). The file holds 11.5 s less sound than picture once its first packet's stretch is
+  taken out, so it lost about 1.2 s of sound before the picture's start, which no timestamp says;
+  D534's sound starting with the picture is right as far as the file can tell. Only that file's
   first sound packet, 31.9 s long, makes its node refuse the copy, which no test's film has. Since
   D534 that packet is taken as a wrong time: the sound is made, never copied, and starts with the
   picture. On staging, with D533 §1 and D534 built and film 20597 re-probed by a full rescan (I run
