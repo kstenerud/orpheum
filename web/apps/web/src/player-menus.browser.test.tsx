@@ -6,7 +6,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { createRef, useState, type JSX } from "react";
+import { createRef, useMemo, useRef, useState, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -339,20 +339,6 @@ function manyTracks(chosen: {
   };
 }
 
-/** Draws ⁝ for a film with subtitles, as the player's overlay has it, and opens it. */
-async function openMore(): Promise<void> {
-  mounted = await mount(
-    withServices(
-      <PlayerTracksContext value={subtitledTracks}>
-        <PlayerMenusContext value={ways}>
-          <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
-        </PlayerMenusContext>
-      </PlayerTracksContext>,
-    ),
-  );
-  await userEvent.click(page.getByRole("button", { name: "Settings" }));
-}
-
 /** Draws the Sound menu over the subtitled film's tracks, and opens it (D538 §8). */
 async function openSound(menusWays: PlayerMenusWays = ways): Promise<void> {
   mounted = await mount(
@@ -407,20 +393,24 @@ const subtitledTracks: PlayerTracks = {
 /** ⁝ over subtitled tracks whose offset moves as the person steps it, as the player's does. */
 function LiveSubtitleOffset(): JSX.Element {
   const [offsetMs, setOffsetMs] = useState(0);
-  const tracks: PlayerTracks = {
-    ...subtitledTracks,
-    subtitles: {
-      ...subtitledTracks.subtitles,
-      offsetMs,
-      shiftOffset: (stepMs) => {
-        setOffsetMs((now) => now + stepMs);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const tracks: PlayerTracks = useMemo(
+    () => ({
+      ...subtitledTracks,
+      subtitles: {
+        ...subtitledTracks.subtitles,
+        offsetMs,
+        shiftOffset: (stepMs) => {
+          setOffsetMs((now) => now + stepMs);
+        },
       },
-    },
-  };
+    }),
+    [offsetMs],
+  );
   return (
     <PlayerTracksContext value={tracks}>
       <PlayerMenusContext value={ways}>
-        <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+        <PlayerMenus videoRef={videoRef} shown={["more"]} onOpenChange={() => undefined} />
       </PlayerMenusContext>
     </PlayerTracksContext>
   );

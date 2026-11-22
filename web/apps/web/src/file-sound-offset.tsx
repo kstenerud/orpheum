@@ -96,6 +96,16 @@ export function FileSoundOffsetEntries(props: {
   return isGuest ? null : <FileTiming {...props} />;
 }
 
+/** This tab's last failure to keep a file's own offset, where it is this file's. */
+function useFailureOf(fileId: number): ReturnType<typeof failureInThisTab.get> | undefined {
+  const failure = useSyncExternalStore(
+    failureInThisTab.hear,
+    failureInThisTab.get,
+    failureInThisTab.get,
+  );
+  return failure?.fileId === fileId ? failure : undefined;
+}
+
 function FileTiming(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly file: FileOffsetOf;
@@ -107,11 +117,7 @@ function FileTiming(props: {
   const isAdmin = use(IsAdminContext);
   const now = useFileSoundOffset(props.file);
   const deviceMs = useDeviceSoundOffsetMs(props.deviceInitialMs);
-  const failure = useSyncExternalStore(
-    failureInThisTab.hear,
-    failureInThisTab.get,
-    failureInThisTab.get,
-  );
+  const shownFailure = useFailureOf(props.file.fileId);
   const [isEarlierRefused, setIsEarlierRefused] = useState(false);
   const writes = useOwnKept(api);
   const { fileId } = props.file;
@@ -123,7 +129,6 @@ function FileTiming(props: {
   };
   const own = now.ownMs;
   const isOwnApart = own !== undefined && own !== now.everyonesMs;
-  const shownFailure = failure?.fileId === fileId ? failure : undefined;
   return (
     <>
       <ListEntry isKeptOpen isInsetAsChoices>
