@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided; §8 not built.
+**Status:** decided; §8–§10 not built.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30752,9 +30752,28 @@ D357 §1's limit of a rescan to a film or a series.
    recorded against them; and the back-off of the jobs it queues again, so each is tried at once.
    What succeeded stays (selective, §5) unless the rescan discards (§6). Already forgotten by every
    rescan: a provider's "not found" (searched again), a refused or missing image (asked again), a
-   file the node could not read (read again), a library's rescan given up.
+   file the node could not read (read again), a library's rescan given up. Not a device's give-up of
+   a file's own picture, a playback's outcome (amended by §10 for a discarding rescan).
+9. **A node's new FFmpeg forgets what its FFmpeg failed at** (the owner, 2026-11-22, asked what
+   happens when a new FFmpeg would not fail on the same file: "yes, fold that in"). The core keeps
+   the FFmpeg build (its SHA-256) each node last said it runs; when a node connects with another,
+   the failures FFmpeg made of that node's files are forgotten, as §8 forgets them, and the
+   background passes try each again on their own: loudness, the picture timeline, repeat
+   measurements and subtitle text. What succeeded stays; a file's details are not read again for
+   it (the probe's version does that, §1), and what is not FFmpeg's (a provider's fetch failure, a
+   whole-file hash) is untouched.
+10. **A discarding rescan throws out everything the app derived, whatever it is** (the owner,
+    2026-11-22: "Any data derived by the app is suspect, and there will always be edge cases where
+    something is marked wrongly, or is not updated when circumstances change (a bugfix, a new
+    dependency, etc). Caching is HARD, and always will be, and always fails silently. So we must
+    discard all app-derived data on a full rescan as an escape hatch"). §6's rule becomes the
+    whole of it: within the rescan's scope, every record the app made, measured, fetched, guessed
+    or gave up on goes, failures and successes alike, whether or not §6 named it; only what a
+    person did stays (chose, edited, entered, watched, and what they put on disk). Every table is
+    classified as one or the other, mechanically, so a new one cannot be missed. Amends §6, and §8's
+    keeping of a device's give-up for a discarding rescan.
 
-**Built** (2026-11-22): §1–6 as follows, §7 below; §8 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+**Built** (2026-11-22): §1–6 as follows, §7 below; §8–10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
 rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
 "files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
