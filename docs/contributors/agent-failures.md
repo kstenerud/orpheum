@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A89 — Told the owner to full-rescan an other video, which no rescan reaches (2026-11-22)
+
+- **What happened:** for VQ377, the lead told the owner to open film 20597's page, choose
+  "Identified incorrectly", then "Full rescan", so that D534's new probe field would reach a file
+  probed before it. Film 20597 is an other video, and the dialog offers its Rescan buttons only to
+  a film or a series (`isWork`); the server refuses any rescan of an other video or of its library
+  (`ErrNotRescannable`). The lead had found the buttons in the dialog's code and stopped there,
+  without reading the condition on the line that renders them, though the item's kind was in its
+  own notes. The handoff and the morning note also told the owner a full rescan of prod's libraries
+  would mark every such file, which is false for other videos.
+- **Caught by:** the owner: "there was no 'Full rescan' available in that menu, only 'Report this'".
+- **Gate:** none for the instruction. A step naming a control is now checked against the conditions
+  that render it, for the item the step names. The gap it exposed, that nothing re-reads a file
+  probed before the probe changed, is proposed to the owner as a fix of its own.
+
 ### A88 — Called a device walk's step a fail when the owner had not been asked plainly to act (2026-11-21)
 
 - **What happened:** walking VQ374 with the owner, the lead's step said to "keep DevTools open on
