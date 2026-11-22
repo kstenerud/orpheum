@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A90 — Told the owner the background re-read had reached a file the owner had rescanned (2026-11-22)
+
+- **What happened:** after deploying D535 §1–5 to staging, the lead watched file 18306's probe in
+  the database and, when it showed the new version and D534's mark, told the owner the background
+  re-read had reached film 20597's file "without anyone pressing Rescan". The owner had pressed the
+  page's new Rescan minutes before. The lead read the outcome and inferred the cause, though the
+  core logs which scan read a file again (the sweep's `olderProbesReadAgain` or a rescan's request)
+  and the sweep had read only about 750 of 6140 files by then.
+- **Caught by:** the owner: "I'm the one who pressed rescan."
+- **Gate:** none. A claim about why something happened on a server is checked against the log line
+  that names its cause before it is told to the owner.
+
 ### A89 — Told the owner to full-rescan an other video, which no rescan reaches (2026-11-22)
 
 - **What happened:** for VQ377, the lead told the owner to open film 20597's page, choose
