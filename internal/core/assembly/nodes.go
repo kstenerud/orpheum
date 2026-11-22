@@ -180,12 +180,20 @@ func openScans(services *Services, parts Parts) *library.Scans {
 		Settings: parts.Settings, Clock: parts.Clock, Logger: parts.Logger,
 	})
 	services.nodes.SetScans(scans)
-	// A rescan waits for its library's scan to be over; it is told the moment one ends, as are the
-	// files an older probe read, which wait for every scan to end (D535 §2).
-	scans.OnEnded(func() { services.Queue.RequestSweeps(sweepRescans, sweepOlderProbes) })
+	askForSweepsWhenAScanEnds(scans, services.Queue)
 	services.Exchanges.SetDiskStalls(scans)
 	holdSlowReadsForQuickPasses(services.Exchanges, scans)
 	return scans
+}
+
+// scanEnds tells of each scan's end: the scans.
+type scanEnds interface{ OnEnded(tell func()) }
+
+// askForSweepsWhenAScanEnds has the work that waits for a scan to be over asked for the moment one
+// ends: a rescan waits for its library's scan, and the files an older probe read for every scan
+// (D535 §2).
+func askForSweepsWhenAScanEnds(scans scanEnds, sweeps sweepRequester) {
+	scans.OnEnded(func() { sweeps.RequestSweeps(sweepRescans, sweepOlderProbes) })
 }
 
 // holdSlowReadsForQuickPasses has a background read of whole films wait while a scan is on its quick

@@ -160,3 +160,24 @@ func TestLostArtworkHooks_ALostImageOwesItsLibraryAPassAndALookAsksForTheSweep(t
 		t.Errorf("a look finding an image gone asked for %v, want the %q sweep", sweeps.names, sweepLostArtwork)
 	}
 }
+
+// endingScans keeps what is told of a scan's end, so a test can end one.
+type endingScans struct{ tell func() }
+
+func (scans *endingScans) OnEnded(tell func()) { scans.tell = tell }
+
+// D535 §2: a scan's end asks for the rescans waiting on it and for the files an older probe read,
+// which are read again only while no scan runs.
+func TestAskForSweepsWhenAScanEnds_AScansEndAsksForTheRescansAndTheFilesAnOlderProbeRead(t *testing.T) {
+	t.Parallel()
+	scans := &endingScans{}
+	sweeps := &requestedSweeps{}
+	askForSweepsWhenAScanEnds(scans, sweeps)
+	if len(sweeps.names) != 0 {
+		t.Fatalf("asked for %v before any scan ended; want nothing", sweeps.names)
+	}
+	scans.tell()
+	if !slices.Contains(sweeps.names, sweepRescans) || !slices.Contains(sweeps.names, sweepOlderProbes) {
+		t.Errorf("a scan's end asked for %v; want %q and %q", sweeps.names, sweepRescans, sweepOlderProbes)
+	}
+}
