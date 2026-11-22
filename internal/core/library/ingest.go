@@ -104,6 +104,9 @@ type scanState struct {
 	// and the derived things thrown out (D392 §5).
 	isReadingAgain bool
 	corrections    correctionTotals
+	// discarding are the stored files, by id, read again to have everything made of them thrown out,
+	// whatever differs (D535 §6).
+	discarding map[int64]bool
 }
 
 // correctionTotals are a scan's probes read again and compared with those kept, those that differed,
@@ -330,7 +333,7 @@ func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBe
 	batch.ingester.scans[batch.key] = &scanState{
 		root: begin.RootPath, libraryIDs: libraryIDs, startedAt: batch.nowMs,
 		facts:  rootFacts{FilesystemDevice: begin.FilesystemDevice, IsMountPoint: begin.IsMountPoint},
-		mounts: map[string]uint64{},
+		mounts: map[string]uint64{}, discarding: map[int64]bool{},
 	}
 	return nil
 }

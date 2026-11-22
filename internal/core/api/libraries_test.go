@@ -41,6 +41,8 @@ type fakeNodes struct {
 	scanned []string
 	// readAgain are what the scans asked for read again, as root:path.
 	readAgain []string
+	// discarded are what of them scans asked to throw out everything made of (D535 §6).
+	discarded []string
 	// scanning are the scans in progress.
 	scanning map[library.ScanRoot]library.ScanProgress
 	// confinement is what the connected node said about its FFmpeg's confinement.
@@ -348,6 +350,17 @@ func (nodes *fakeNodes) RequestReadingAgain(
 		nodes.readAgain = append(nodes.readAgain, root+":"+path)
 	}
 	return nodes.RequestUnder(ctx, nodeID, root, scope, priority)
+}
+
+// RequestDiscarding keeps what it reads again as RequestReadingAgain does, and the same paths as
+// discarded, as root:path.
+func (nodes *fakeNodes) RequestDiscarding(
+	ctx context.Context, nodeID int64, root, scope string, readAgain library.ReadAgain, priority int64,
+) error {
+	for _, path := range readAgain {
+		nodes.discarded = append(nodes.discarded, root+":"+path)
+	}
+	return nodes.RequestReadingAgain(ctx, nodeID, root, scope, readAgain, priority)
 }
 
 // commandWait bounds a test's wait for the node's next command: long past any honest wait on a

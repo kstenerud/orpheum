@@ -143,6 +143,20 @@ func (scans *Scans) RequestReadingAgain(
 	})
 }
 
+// RequestDiscarding is RequestReadingAgain's ask for a scan that also throws out everything made of
+// what it reads again, whatever differs from what was kept: a rescan's that discards what was made
+// (D535 §6). A scan it joins or that follows it discards what each ask that discards names.
+func (scans *Scans) RequestDiscarding(
+	ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	cleaned := readAgain.cleaned()
+	return scans.request(ctx, scanAsk{
+		nodeID: nodeID, root: root, scope: cleanScope(scope), priority: priority, readAgain: cleaned, discard: cleaned,
+	})
+}
+
 // scanAsk is a scan asked for: of what under which node's root, at what priority, whether by the
 // node's hello, and what it reads again changed on disk or not.
 type scanAsk struct {
@@ -152,6 +166,25 @@ type scanAsk struct {
 	priority     int64
 	isNodesHello bool
 	readAgain    ReadAgain
+	// discard is what of readAgain has everything made of it thrown out, whatever differs (D535 §6).
+	discard ReadAgain
+}
+
+// askAgain is the ask for a scan of a row's root starting again, or the one that follows it, of
+// scope, reading again and discarding what the row says it does.
+func askAgain(row cachegen.Scan, scope string, readAgainJSON, discardJSON *string) (scanAsk, error) {
+	readAgain, err := decodeReadAgain(readAgainJSON)
+	if err != nil {
+		return scanAsk{}, err
+	}
+	discard, err := decodeReadAgain(discardJSON)
+	if err != nil {
+		return scanAsk{}, err
+	}
+	return scanAsk{
+		nodeID: row.NodeID, root: row.RootPath, scope: scope, priority: row.Priority, readAgain: readAgain,
+		discard: discard,
+	}, nil
 }
 
 // request is RequestUnder, the mutex held. The folder asked for is scanned within the outermost live
@@ -166,9 +199,14 @@ func (scans *Scans) request(ctx context.Context, ask scanAsk) error {
 		scans.logger.DebugContext(ctx, "a folder inside another library folder is scanned within it",
 			"nodeId", ask.nodeID, "folder", ask.root, "askedScopePath", ask.scope, "rootPath", root, "scopePath", scope)
 		ask.readAgain = ask.readAgain.rebasedOn(ask.root, folders)
+		ask.discard = ask.discard.rebasedOn(ask.root, folders)
 		ask.root, ask.scope = root, scope
 	}
 	readAgain, err := ask.readAgain.encoded()
+	if err != nil {
+		return err
+	}
+	discard, err := ask.discard.encoded()
 	if err != nil {
 		return err
 	}
@@ -177,7 +215,7 @@ func (scans *Scans) request(ctx context.Context, ask scanAsk) error {
 	err = scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, insertErr := store.OrNotFound(queries.InsertScan(ctx, cachegen.InsertScanParams{
 			NodeID: ask.nodeID, RootPath: ask.root, Priority: ask.priority, StartedAt: scans.clock.Now().UnixMilli(),
-			ScopePath: ask.scope, ReadAgainJSON: readAgain,
+			ScopePath: ask.scope, ReadAgainJSON: readAgain, DiscardJSON: discard,
 		}))
 		if !errors.Is(insertErr, store.ErrNotFound) {
 			scanID = id
@@ -219,32 +257,49 @@ func joinOrAgain(
 		isWithNode := inProgress.ListingSentAt != nil
 		covering := widerScope(inProgress.ScopePath, ask.scope)
 		if !isWithNode || (ask.isNodesHello && covering == cleanScope(inProgress.ScopePath)) {
-			readAgain, err := joinedReadAgain(inProgress.ReadAgainJSON, ask.readAgain)
+			readAgain, discard, err := joinedAsks(inProgress, ask)
 			if err != nil {
 				return nil, err
 			}
 			joined := inProgress
 			joined.ScopePath, joined.Priority = covering, max(inProgress.Priority, ask.priority)
-			joined.ReadAgainJSON = readAgain
+			joined.ReadAgainJSON, joined.DiscardJSON = readAgain, discard
 			err = queries.JoinScan(ctx, cachegen.JoinScanParams{
-				ScopePath: joined.ScopePath, Priority: joined.Priority, ReadAgainJSON: readAgain, ID: inProgress.ID,
+				ScopePath: joined.ScopePath, Priority: joined.Priority, ReadAgainJSON: readAgain, DiscardJSON: discard,
+				ID: inProgress.ID,
 			})
 			return &joined, err
 		}
 	}
-	again, alreadyAgain := ask.scope, (*string)(nil)
+	again, alreadyAgain, alreadyDiscarded := ask.scope, (*string)(nil), (*string)(nil)
 	if inProgress.IsAnotherScanQueued != 0 {
 		again, alreadyAgain = widerScope(ptr.ValueOrZero(inProgress.AgainScopePath), ask.scope),
 			inProgress.AgainReadAgainJSON
+		alreadyDiscarded = inProgress.AgainDiscardJSON
 	}
 	readAgain, err := joinedReadAgain(alreadyAgain, ask.readAgain)
 	if err != nil {
 		return nil, err
 	}
+	discard, err := joinedReadAgain(alreadyDiscarded, ask.discard)
+	if err != nil {
+		return nil, err
+	}
 	_, err = queries.SetScanAgain(ctx, cachegen.SetScanAgainParams{
 		NodeID: ask.nodeID, RootPath: ask.root, AgainScopePath: &again, AgainReadAgainJSON: readAgain,
+		AgainDiscardJSON: discard,
 	})
 	return nil, err
+}
+
+// joinedAsks are what a scan in progress and an ask joining it read again, and discard, together, as
+// the row keeps them (D535 §6).
+func joinedAsks(inProgress cachegen.Scan, ask scanAsk) (readAgain, discard *string, err error) {
+	if readAgain, err = joinedReadAgain(inProgress.ReadAgainJSON, ask.readAgain); err != nil {
+		return nil, nil, err
+	}
+	discard, err = joinedReadAgain(inProgress.DiscardJSON, ask.discard)
+	return readAgain, discard, err
 }
 
 // joinedReadAgain is what a scan whose row says stored reads again and what an ask reads again,
@@ -381,14 +436,11 @@ func (scans *Scans) Resume(ctx context.Context) error {
 		if err := scans.end(ctx, row); err != nil {
 			return err
 		}
-		readAgain, err := decodeReadAgain(row.ReadAgainJSON)
+		ask, err := askAgain(row, row.ScopePath, row.ReadAgainJSON, row.DiscardJSON)
 		if err != nil {
 			return err
 		}
-		err = scans.request(ctx, scanAsk{
-			nodeID: row.NodeID, root: row.RootPath, scope: row.ScopePath, priority: row.Priority, readAgain: readAgain,
-		})
-		if err != nil {
+		if err := scans.request(ctx, ask); err != nil {
 			return err
 		}
 	}

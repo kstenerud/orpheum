@@ -233,6 +233,8 @@ func (retrier *fakeImageRetrier) MarkImagesOwedAgain(_ context.Context, itemIDs 
 	return nil
 }
 
+func (*fakeImageRetrier) DiscardImages(context.Context, ...int64) error { return nil }
+
 func TestRefresh_ARefreshThatLooksAgainAsksForTheItemsImagesAgain(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)

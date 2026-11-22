@@ -766,6 +766,27 @@ func (q *Queries) RetireFrameStillsOfFile(ctx context.Context, arg RetireFrameSt
 	return result.RowsAffected()
 }
 
+const retireMadeArtwork = `-- name: RetireMadeArtwork :execrows
+UPDATE artwork SET removed_at = ?1
+WHERE item_id = ?2 AND is_chosen = 0 AND removed_at IS NULL
+`
+
+type RetireMadeArtworkParams struct {
+	RemovedAt *int64
+	ItemID    int64
+}
+
+// An item's images, every source's, retired as never stored, so the pass that names each, or the
+// frame-still planning, fetches or makes it again: a rescan's that discards what was made (D535
+// section 6). A person's choice stays.
+func (q *Queries) RetireMadeArtwork(ctx context.Context, arg RetireMadeArtworkParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, retireMadeArtwork, arg.RemovedAt, arg.ItemID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
 UPDATE artwork SET removed_at = ?1
 WHERE item_id = ?2 AND kind = ?3 AND grp_id IS ?4

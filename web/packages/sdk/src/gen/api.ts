@@ -8634,7 +8634,10 @@ export interface operations {
     };
     rescanItem: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Throw out everything made or fetched for its files, whatever differs; never what a person did */
+                discard?: boolean;
+            };
             header?: never;
             path: {
                 id: number;
@@ -9055,7 +9058,10 @@ export interface operations {
     };
     rescanLibrary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Throw out everything made or fetched for its files, whatever differs; never what a person did */
+                discard?: boolean;
+            };
             header?: never;
             path: {
                 id: number;
@@ -9255,7 +9261,10 @@ export interface operations {
     };
     rescanLibraries: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Throw out everything made or fetched for its files, whatever differs; never what a person did */
+                discard?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;

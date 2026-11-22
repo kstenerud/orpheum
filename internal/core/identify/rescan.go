@@ -33,11 +33,12 @@ var (
 // whether that scan is over: the library admin (library.Admin).
 type RescanScans interface {
 	// ScanReadingAgain asks for a scan of every root of a library that reads every file again,
-	// changed on disk or not (D392 §2).
-	ScanReadingAgain(ctx context.Context, libraryID int64) (int, error)
+	// changed on disk or not (D392 §2); isDiscarding, throwing out everything made of each, whatever
+	// differs (D535 §6).
+	ScanReadingAgain(ctx context.Context, libraryID int64, isDiscarding bool) (int, error)
 	// ScanWork asks for a scan of the folders that hold an item's files in a library, reading them
-	// again, changed on disk or not.
-	ScanWork(ctx context.Context, libraryID, itemID int64) (int, error)
+	// again, changed on disk or not, and, isDiscarding, throwing out everything made of them.
+	ScanWork(ctx context.Context, libraryID, itemID int64, isDiscarding bool) (int, error)
 	// IsScanning is whether a scan of any root of a library is in progress.
 	IsScanning(ctx context.Context, libraryID int64) (bool, error)
 }
@@ -104,15 +105,16 @@ func NewRescans(matcher *Matcher, queue Queue, scans RescanScans) *Rescans {
 func (rescans *Rescans) OnRequested(ask func()) { rescans.onRequested = ask }
 
 // RescanEverything rescans every live library, whatever it holds (D357 §1, D535 §4), and says how
-// many rescans it started: a library already being rescanned starts none.
-func (rescans *Rescans) RescanEverything(ctx context.Context) (int, error) {
+// many rescans it started: a library already being rescanned starts none. With isDiscarding, each
+// throws out what was made, as RescanLibrary says.
+func (rescans *Rescans) RescanEverything(ctx context.Context, isDiscarding bool) (int, error) {
 	libraryIDs, err := rescans.matcher.database.Read().ListLiveLibraryIDs(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list the libraries: %w", err)
 	}
 	started := 0
 	for _, libraryID := range libraryIDs {
-		isStarted, err := rescans.RescanLibrary(ctx, libraryID)
+		isStarted, err := rescans.RescanLibrary(ctx, libraryID, isDiscarding)
 		if err != nil {
 			return started, err
 		}
@@ -125,8 +127,11 @@ func (rescans *Rescans) RescanEverything(ctx context.Context) (int, error) {
 
 // RescanLibrary rescans a library, and says whether it started one: a second press while one runs
 // adds nothing (D357 §5, D392 §6). It reads every file again (D535 §5); a library of other videos has
-// nothing in it matched, other videos never are (D535 §4).
-func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (bool, error) {
+// nothing in it matched, other videos never are (D535 §4). With isDiscarding, it throws out everything
+// the app made or fetched for its files, whatever differs: what was made of each file, its films' and
+// series' kept search results and images, and their records fetched again; never what a person
+// chose, edited or watched (D535 §6).
+func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, isDiscarding bool) (bool, error) {
 	_, err := store.OrNotFound(rescans.matcher.database.Read().GetLibraryForIdentify(ctx, libraryID))
 	if errors.Is(err, store.ErrNotFound) {
 		return false, fmt.Errorf("library %d: %w", libraryID, library.ErrNoLibrary)
@@ -134,11 +139,11 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (boo
 	if err != nil {
 		return false, fmt.Errorf("read library %d: %w", libraryID, err)
 	}
-	isStarted, err := rescans.start(ctx, libraryID, nil)
+	isStarted, err := rescans.start(ctx, libraryID, nil, isDiscarding)
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if _, err := rescans.scans.ScanReadingAgain(ctx, libraryID); err != nil {
+	if _, err := rescans.scans.ScanReadingAgain(ctx, libraryID, isDiscarding); err != nil {
 		return true, fmt.Errorf("scan library %d to rescan it: %w", libraryID, err)
 	}
 	rescans.askForTheSweep()
@@ -148,8 +153,9 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (boo
 // RescanItem rescans one film, series, episode or other video, and says whether it started one: none
 // while its own rescan or its library's runs (D357 §5, D392 §6). It reads its files again, a series'
 // every episode's (D535 §5); an episode or an other video is not matched: an episode is matched
-// through its series, and an other video never (D535 §3).
-func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64) (bool, error) {
+// through its series, and an other video never (D535 §3). With isDiscarding, it throws out what was
+// made of its files and for it, as RescanLibrary says (D535 §6).
+func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, isDiscarding bool) (bool, error) {
 	item, err := rescans.matcher.readRescanned(ctx, itemID)
 	if err != nil {
 		return false, err
@@ -164,11 +170,11 @@ func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64) (bool, err
 		running > 0 {
 		return false, rematchErr
 	}
-	isStarted, err := rescans.start(ctx, libraryID, &itemID)
+	isStarted, err := rescans.start(ctx, libraryID, &itemID, isDiscarding)
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID); err != nil {
+	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID, isDiscarding); err != nil {
 		return true, fmt.Errorf("scan item %d's folders to rescan it: %w", itemID, err)
 	}
 	rescans.askForTheSweep()
@@ -191,19 +197,25 @@ func (matcher *Matcher) readRescanned(ctx context.Context, itemID int64) (target
 }
 
 // start records a rescan of a scope, a library or one film or series in it, unless one of that
-// scope runs, and says whether it did.
-func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int64) (bool, error) {
+// scope runs, and says whether it did; isDiscarding, one that discards what was made (D535 §6).
+func (rescans *Rescans) start(
+	ctx context.Context, libraryID int64, itemID *int64, isDiscarding bool,
+) (bool, error) {
 	count := &rescans.matcher.rescans
 	count.mutex.Lock()
 	defer count.mutex.Unlock()
 	if err := rescans.matcher.countRescansLocked(ctx); err != nil {
 		return false, err
 	}
+	discarding := int64(0)
+	if isDiscarding {
+		discarding = 1
+	}
 	isStarted := false
 	err := rescans.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		_, insertErr := store.OrNotFound(queries.InsertRescan(ctx, cachegen.InsertRescanParams{
 			LibraryID: libraryID, ItemID: itemID, RequestedAt: rescans.matcher.clock.Now().UnixMilli(),
-			IsFull: 1,
+			IsFull: 1, IsDiscarding: discarding,
 		}))
 		if errors.Is(insertErr, store.ErrNotFound) {
 			return nil // one of the scope runs
@@ -220,7 +232,7 @@ func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int6
 	if isStarted {
 		count.running++
 		rescans.matcher.logger.InfoContext(ctx, "a rescan was asked for", "libraryId", libraryID,
-			"itemId", ptr.ValueOrZero(itemID))
+			"itemId", ptr.ValueOrZero(itemID), "isDiscarding", isDiscarding)
 	}
 	return isStarted, nil
 }
@@ -364,6 +376,11 @@ func (rescans *Rescans) list(ctx context.Context, rescan cachegen.ListRescansRow
 	rescans.matcher.logger.InfoContext(ctx, "a rescan's scan is over; its films and series are matched again",
 		"libraryId", rescan.LibraryID, "itemId", ptr.ValueOrZero(rescan.ItemID), "itemCount", listed,
 		"isFull", rescan.IsFull != 0)
+	if rescan.IsDiscarding != 0 {
+		if err := rescans.matcher.discardMade(ctx, itemIDs); err != nil {
+			return err
+		}
+	}
 	if rescan.IsFull != 0 {
 		if err := rescans.askForMissingImages(ctx, itemIDs, said); err != nil {
 			return err
@@ -521,6 +538,9 @@ func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cac
 		if err := matcher.settle(ctx, itemID, 0); err != nil {
 			return err
 		}
+	}
+	if err := matcher.fetchDiscarded(ctx, itemID, row, result); err != nil {
+		return err
 	}
 	matcher.logRematch(ctx, itemID, result)
 	return matcher.endRematch(ctx, itemID, row.RescanID, result.outcome)

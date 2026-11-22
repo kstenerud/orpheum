@@ -320,9 +320,11 @@ func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneRespons
 // ImageRetrier makes items' missing and refused images owed again, for their re-derivation to
 // find (D213 §1, §2): the artwork service, which writes the artwork table and which the server's
 // wiring hands in through SetImageRetrier, so this package never imports it. A refresh asks it
-// when its job's arguments or the person's stored request (refresh_request) say to.
+// when its job's arguments or the person's stored request (refresh_request) say to; a rescan that
+// discards what was made has it throw out every image a person did not choose (D535 §6).
 type ImageRetrier interface {
 	MarkImagesOwedAgain(ctx context.Context, itemIDs ...int64) error
+	DiscardImages(ctx context.Context, itemIDs ...int64) error
 }
 
 // SetImageRetrier sets what a refresh that asks for images again calls. Until it is set, a

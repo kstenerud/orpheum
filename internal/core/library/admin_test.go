@@ -30,6 +30,8 @@ type fakeNodes struct {
 	scopes []string
 	// readAgain are what scans asked for read again, as root:path, each path its own.
 	readAgain []string
+	// discarded are what of them scans asked to throw out everything made of (D535 §6).
+	discarded []string
 	// scanning are the scans in progress.
 	scanning map[ScanRoot]ScanProgress
 	// removed are the nodes an admin retired.
@@ -120,6 +122,17 @@ func (nodes *fakeNodes) RequestReadingAgain(
 		}
 	}
 	return nodes.RequestUnder(ctx, nodeID, root, scope, priority)
+}
+
+// RequestDiscarding keeps what it reads again as RequestReadingAgain does, and the same paths as
+// discarded.
+func (nodes *fakeNodes) RequestDiscarding(
+	ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+) error {
+	for _, path := range readAgain {
+		nodes.discarded = append(nodes.discarded, root+":"+path)
+	}
+	return nodes.RequestReadingAgain(ctx, nodeID, root, scope, readAgain, priority)
 }
 
 func showsRequest(node string, roots ...string) CreateRequest {

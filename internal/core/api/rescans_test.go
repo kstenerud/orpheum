@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -64,4 +66,45 @@ func TestRescan_IsForAnAdminOnly(t *testing.T) {
 		api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/rescan", admin, nil), http.StatusNotFound,
 		api.CodeNotFound)
+}
+
+// D535 §6: a rescan's choice to throw out what was made is the query's discard, named in the OpenAPI
+// of every rescan; it is an admin's, and an admin's has its scan discard everything it reads again.
+func TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	for _, path := range []string{"/libraries/rescan", "/libraries/{id}/rescan", "/items/{id}/rescan"} {
+		operation := harness.server.OpenAPI().Paths[path].Post
+		if operation == nil || !slices.ContainsFunc(operation.Parameters, func(parameter *huma.Param) bool {
+			return parameter.Name == "discard" && parameter.In == "query"
+		}) {
+			t.Errorf("POST %s names no discard query in the OpenAPI", path)
+		}
+	}
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	user := harness.signIn(t, "partner", "partner-password")
+	harness.nodes.readAgain = nil
+	for _, path := range []string{"/libraries/rescan", "/libraries/1/rescan", "/items/1/rescan"} {
+		wantError(t, harness.do(t, http.MethodPost, path+"?discard=true", user, nil), http.StatusForbidden,
+			api.CodeForbidden)
+	}
+	if len(harness.nodes.discarded) != 0 || len(harness.nodes.readAgain) != 0 {
+		t.Fatalf("a user's discarding rescans discarded %v; want nothing", harness.nodes.discarded)
+	}
+	started := harness.do(t, http.MethodPost, "/libraries/1/rescan?discard=true", admin, nil)
+	if started.status != http.StatusAccepted || !strings.Contains(started.body, `"isStarted":true`) {
+		t.Fatalf("an admin's POST /libraries/1/rescan?discard=true = %d %s", started.status, started.body)
+	}
+	if !slices.Equal(harness.nodes.discarded, []string{"/media/shows:."}) {
+		t.Errorf("discarded: %v; want every file of the library's root", harness.nodes.discarded)
+	}
 }

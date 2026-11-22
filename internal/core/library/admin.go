@@ -59,6 +59,9 @@ type ScanRequests interface {
 	RequestReadingAgain(
 		ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
 	) error
+	RequestDiscarding(
+		ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+	) error
 	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
 }
 
@@ -316,7 +319,7 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	}
 	asked := 0
 	for _, root := range roots {
-		isAsked, err := admin.rescan(ctx, root, nil)
+		isAsked, err := admin.rescan(ctx, root, nil, false)
 		if err != nil {
 			return asked, err
 		}
@@ -329,15 +332,16 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 
 // ScanReadingAgain asks, as Scan does, for a scan of every root of a library that reads every file
 // again, changed on disk or not, and compares each probe with the one kept: a full rescan's (D392
-// §2). It says how many roots it asked.
-func (admin *Admin) ScanReadingAgain(ctx context.Context, libraryID int64) (int, error) {
+// §2); isDiscarding, one that also throws out everything made of every file, whatever differs, a
+// rescan's that discards what was made (D535 §6). It says how many roots it asked.
+func (admin *Admin) ScanReadingAgain(ctx context.Context, libraryID int64, isDiscarding bool) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return 0, err
 	}
 	asked := 0
 	for _, root := range roots {
-		isAsked, err := admin.rescan(ctx, root, readEverythingAgain())
+		isAsked, err := admin.rescan(ctx, root, readEverythingAgain(), isDiscarding)
 		if err != nil {
 			return asked, err
 		}
@@ -401,7 +405,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeNa
 	if err != nil {
 		return false, fmt.Errorf("approve %s's removals: %w", path, err)
 	}
-	return admin.rescan(ctx, root, nil)
+	return admin.rescan(ctx, root, nil, false)
 }
 
 // ForgetMount is the admin saying a disk missing from a mount point inside a root is gone for
@@ -443,7 +447,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 	if err != nil {
 		return false, fmt.Errorf("forget %s: %w", mountPath, err)
 	}
-	return admin.rescan(ctx, root, nil)
+	return admin.rescan(ctx, root, nil, false)
 }
 
 // libraryRoots are a live library's roots with their states.
@@ -508,19 +512,24 @@ func (admin *Admin) libraryNodeIDByName(ctx context.Context, libraryID int64, no
 	return 0, fmt.Errorf("node %s: %w", nodeName, ErrNoSuchRoot)
 }
 
-// rescan asks for a root's scan, if its node is connected, and reports whether it did.
+// rescan asks for a root's scan, if its node is connected, and reports whether it did: one reading
+// again what readAgain names, and, isDiscarding, throwing out everything made of it (D535 §6).
 func (admin *Admin) rescan(
-	ctx context.Context, root sqlcgen.ListLibraryRootStatesRow, readAgain ReadAgain,
+	ctx context.Context, root sqlcgen.ListLibraryRootStatesRow, readAgain ReadAgain, isDiscarding bool,
 ) (bool, error) {
 	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 	if !connected || nodeID != root.NodeID {
 		return false, nil
 	}
 	var err error
-	if len(readAgain) > 0 {
+	switch {
+	case len(readAgain) > 0 && isDiscarding:
+		err = admin.scans.RequestDiscarding(ctx, nodeID, root.RootPath, wholeRoot, readAgain,
+			jobs.PriorityPersonsRequest)
+	case len(readAgain) > 0:
 		err = admin.scans.RequestReadingAgain(ctx, nodeID, root.RootPath, wholeRoot, readAgain,
 			jobs.PriorityPersonsRequest)
-	} else {
+	default:
 		err = admin.scans.Request(ctx, nodeID, root.RootPath, jobs.PriorityPersonsRequest)
 	}
 	if err != nil {

@@ -14364,6 +14364,16 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+            "explode": false,
+            "in": "query",
+            "name": "discard",
+            "schema": {
+              "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -14833,6 +14843,18 @@
     "/libraries/rescan": {
       "post": {
         "operationId": "rescanLibraries",
+        "parameters": [
+          {
+            "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+            "explode": false,
+            "in": "query",
+            "name": "discard",
+            "schema": {
+              "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "202": {
             "content": {
@@ -15090,6 +15112,16 @@
             "schema": {
               "format": "int64",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+            "explode": false,
+            "in": "query",
+            "name": "discard",
+            "schema": {
+              "description": "Throw out everything made or fetched for its files, whatever differs; never what a person did",
+              "type": "boolean"
             }
           }
         ],

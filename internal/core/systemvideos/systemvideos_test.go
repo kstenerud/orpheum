@@ -118,6 +118,12 @@ func (nodes *fakeNodes) RequestReadingAgain(
 	return nil
 }
 
+func (nodes *fakeNodes) RequestDiscarding(
+	context.Context, int64, string, string, library.ReadAgain, int64,
+) error {
+	return nil
+}
+
 // fakeWork is the job queue, keeping nothing a retire asks it to cancel.
 type fakeWork struct{}
 

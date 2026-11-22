@@ -361,3 +361,25 @@ func seasonsOf(refs []Ref) []string {
 	}
 	return named
 }
+
+// A rescan that discards what was made retires every image of an item, a provider's, a frame still,
+// one beside the media, as never stored, so each is fetched or made again; the one a person chose
+// stays (D535 §6, D357 §3).
+func TestDiscardImages_RetiresEveryImageButAPersonsChoice(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	bench.insert(t,
+		sqlcgen.InsertArtworkParams{
+			Kind: library.ArtPoster, Source: "tmdb", SourceRef: new("/p.jpg"), SourceSha256: []byte{1},
+		},
+		sqlcgen.InsertArtworkParams{Kind: library.ArtBackdrop, Source: "frame", SourceSha256: []byte{2}},
+		sqlcgen.InsertArtworkParams{Kind: library.ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
+	)
+	storetest.ExecRaw(t, bench.database.Path(), "UPDATE artwork SET is_chosen = 1 WHERE source = 'user'")
+	if err := bench.service.DiscardImages(t.Context(), bench.itemID); err != nil {
+		t.Fatal(err)
+	}
+	if live, want := bench.liveImages(t), []string{"backdrop user"}; !slices.Equal(live, want) {
+		t.Errorf("after the discard: %v live, want %v: every image thrown out but the person's choice", live, want)
+	}
+}

@@ -79,6 +79,7 @@ type Rescan struct {
 	UnsettledCount int64
 	FailedCount    int64
 	IsFull         int64
+	IsDiscarding   int64
 }
 
 type RescanGivenUp struct {
@@ -116,6 +117,8 @@ type Scan struct {
 	ListingSentAt       *int64
 	ReadAgainJSON       *string
 	AgainReadAgainJSON  *string
+	DiscardJSON         *string
+	AgainDiscardJSON    *string
 }
 
 type ScanBatch struct {

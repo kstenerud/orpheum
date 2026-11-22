@@ -6,7 +6,7 @@
 -- A job's kind is checked in Go where a job is written (internal/core/jobs' Enqueue, against
 -- jobs.Kinds()), not by a CHECK here, since version 54: a new kind changes nothing here, so it
 -- discards no cache (the code audit of 2026-11-21, finding 2).
--- cache schema version 54
+-- cache schema version 55
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,6 +106,11 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   read_again_json TEXT,
   -- What the one that follows it reads again, every request made while this one ran together.
   again_read_again_json TEXT,
+  -- JSON, as read_again_json: of what it reads again, what has everything made of it thrown out whatever
+  -- differs, a rescan's that discards what was made (D535 section 6); empty, or NULL, for none.
+  discard_json TEXT,
+  -- What the one that follows it discards so, every request made while this one ran together.
+  again_discard_json TEXT,
   UNIQUE (node_id, root_path)
 ) STRICT;
 
@@ -148,7 +153,11 @@ CREATE TABLE rescan (
   failed_count    INTEGER NOT NULL DEFAULT 0,
   -- Whether it is a full rescan: every file in its scope read again, changed on disk or not, and what
   -- a difference touches thrown out (D392).
-  is_full     INTEGER NOT NULL DEFAULT 0 CHECK (is_full IN (0, 1))
+  is_full     INTEGER NOT NULL DEFAULT 0 CHECK (is_full IN (0, 1)),
+  -- Whether it discards what was made (D535 section 6): everything the app made or fetched for its
+  -- scope's files thrown out, whatever differs, the provider's kept answers and images among it, and
+  -- only what a person did kept.
+  is_discarding INTEGER NOT NULL DEFAULT 0 CHECK (is_discarding IN (0, 1))
 ) STRICT;
 -- One rescan of a scope at a time: a second press while one runs adds nothing (D357 section 5).
 CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));

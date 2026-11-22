@@ -412,6 +412,10 @@ func SoundChunksFactsKey(probe nodeproto.Probe, track int) string {
 	return factsKey(derivedSoundChunks, probe, track)
 }
 
+// discardedFact is the change a rescan that discards what was made notes of each file it read again,
+// as the log says it: everything made of it thrown out, whatever differed (D535 §6).
+const discardedFact = "discarded on request"
+
 // probeCorrection is what a probe read again changed of a file: the facts it gives otherwise, and the
 // derived things they touched, each thrown out.
 type probeCorrection struct {
@@ -431,9 +435,11 @@ type pendingDrop struct {
 
 // correctProbe compares a file's probe read again with the one kept, and throws out, in the write,
 // each derived thing whose facts differ, saying what it threw out and what it leaves to throw out
-// after the write. Probes alike change nothing.
+// after the write. Probes alike change nothing, unless isDiscarding: a rescan's that discards what was
+// made treats every derived thing of every part as touched, whatever differs, and throws each out by
+// its one way (D535 §6).
 func (batch *ingestBatch) correctProbe(
-	ctx context.Context, file DerivedOf, keptJSON string, again nodeproto.Probe,
+	ctx context.Context, file DerivedOf, keptJSON string, again nodeproto.Probe, isDiscarding bool,
 ) (probeCorrection, error) {
 	correction := probeCorrection{fileID: file.FileID}
 	kept, err := DecodeProbe(keptJSON)
@@ -449,6 +455,9 @@ func (batch *ingestBatch) correctProbe(
 		return correction, err
 	}
 	correction.changes = changedFacts(keptFacts, againFacts)
+	if isDiscarding {
+		correction.changes = append(correction.changes, factChange{Fact: discardedFact, After: "true"})
+	}
 	if len(correction.changes) == 0 {
 		return correction, nil
 	}
@@ -458,7 +467,7 @@ func (batch *ingestBatch) correctProbe(
 			return correction, err
 		}
 		for _, part := range parts {
-			if !thing.isTouched(part) {
+			if !isDiscarding && !thing.isTouched(part) {
 				continue
 			}
 			if err := batch.drop(ctx, &correction, thing, part.of); err != nil {

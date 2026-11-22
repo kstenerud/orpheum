@@ -21,8 +21,9 @@ const scanWorkFilesAtMost = 10_000
 // film, a series (its every episode's), an episode or an other video in a library: under each of its
 // roots that holds any, the one folder holding all of them there, whose scan removes nothing outside
 // it (D272 §9) and reads those files again, changed on disk or not, as a rescan of the one item reads
-// its files (D392 §2, D535 §3, §5). A root whose node is away is not asked. It says how many it asked.
-func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64) (int, error) {
+// its files (D392 §2, D535 §3, §5); isDiscarding, throwing out everything made of them, whatever
+// differs (D535 §6). A root whose node is away is not asked. It says how many it asked.
+func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64, isDiscarding bool) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return 0, err
@@ -44,8 +45,11 @@ func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64) (int,
 		if !holdsAny || !connected || nodeID != root.NodeID {
 			continue
 		}
-		err := admin.scans.RequestReadingAgain(ctx, nodeID, root.RootPath, scope, readAgain,
-			jobs.PriorityPersonsRequest)
+		request := admin.scans.RequestReadingAgain
+		if isDiscarding {
+			request = admin.scans.RequestDiscarding
+		}
+		err := request(ctx, nodeID, root.RootPath, scope, readAgain, jobs.PriorityPersonsRequest)
 		if err != nil {
 			return asked, err
 		}

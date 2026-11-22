@@ -27,7 +27,7 @@ func TestRescan_EveryLibraryWhateverItHolds(t *testing.T) {
 		}))
 	}
 	rescan := lib.rescanning()
-	started, err := rescan.rescans.RescanEverything(t.Context())
+	started, err := rescan.rescans.RescanEverything(t.Context(), false)
 	if err != nil || started != len(want) || !slices.Equal(rescan.scans.libraries, want) {
 		t.Errorf("RescanEverything = %d, %v, scanning %v; want %d started, scanning %v", started, err,
 			rescan.scans.libraries, len(want), want)
@@ -41,7 +41,7 @@ func TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched(t *testing.T) {
 	lib := newTestLibrary(t, "other", "nfo")
 	lib.scan(videoRecord("a.mp4"))
 	rescan := lib.rescanning()
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID)
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, false)
 	if err != nil || !isStarted || !slices.Equal(rescan.scans.libraries, []int64{lib.libraryID}) {
 		t.Fatalf("RescanLibrary = %v, %v, reading again %v; want the library's files read again", isStarted, err,
 			rescan.scans.libraries)
@@ -70,7 +70,7 @@ func TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused(t *testin
 		itemID int64
 	}{{seriesLib, episode}, {others, other}} {
 		rescan := rescanned.lib.rescanning()
-		isStarted, err := rescan.rescans.RescanItem(t.Context(), rescanned.itemID)
+		isStarted, err := rescan.rescans.RescanItem(t.Context(), rescanned.itemID, false)
 		if err != nil || !isStarted || !slices.Equal(rescan.scans.works, []int64{rescanned.itemID}) {
 			t.Fatalf("RescanItem(%d) = %v, %v, reading again %v; want its own files read again", rescanned.itemID,
 				isStarted, err, rescan.scans.works)
@@ -87,7 +87,7 @@ func TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused(t *testin
 	const making = "Metropolis (1927)/Featurettes/Making Metropolis.mkv"
 	films.scan(videoRecord("Metropolis (1927)/Metropolis (1927).mkv"), videoRecord(making))
 	extra := films.titlesByPath()[making].WorkID
-	_, err := films.rescanning().rescans.RescanItem(t.Context(), extra)
+	_, err := films.rescanning().rescans.RescanItem(t.Context(), extra, false)
 	if !errors.Is(err, identify.ErrNotRescannable) {
 		t.Errorf("RescanItem of an extra = %v; want it refused, %v", err, identify.ErrNotRescannable)
 	}

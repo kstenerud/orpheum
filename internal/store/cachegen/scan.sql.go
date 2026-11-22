@@ -47,7 +47,7 @@ func (q *Queries) DeleteScan(ctx context.Context, id int64) error {
 const getScan = `-- name: GetScan :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
        is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
-       again_read_again_json
+       again_read_again_json, discard_json, again_discard_json
 FROM scan WHERE id = ?1
 `
 
@@ -70,6 +70,8 @@ func (q *Queries) GetScan(ctx context.Context, id int64) (Scan, error) {
 		&i.ListingSentAt,
 		&i.ReadAgainJSON,
 		&i.AgainReadAgainJSON,
+		&i.DiscardJSON,
+		&i.AgainDiscardJSON,
 	)
 	return i, err
 }
@@ -94,7 +96,7 @@ func (q *Queries) GetScanBatch(ctx context.Context, id int64) (ScanBatch, error)
 const getScanOfRoot = `-- name: GetScanOfRoot :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
        is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
-       again_read_again_json
+       again_read_again_json, discard_json, again_discard_json
 FROM scan WHERE node_id = ?1 AND root_path = ?2
 `
 
@@ -122,6 +124,8 @@ func (q *Queries) GetScanOfRoot(ctx context.Context, arg GetScanOfRootParams) (S
 		&i.ListingSentAt,
 		&i.ReadAgainJSON,
 		&i.AgainReadAgainJSON,
+		&i.DiscardJSON,
+		&i.AgainDiscardJSON,
 	)
 	return i, err
 }
@@ -148,9 +152,9 @@ func (q *Queries) GetUndoneScanBatchHolding(ctx context.Context, arg GetUndoneSc
 
 const insertScan = `-- name: InsertScan :one
 
-INSERT INTO scan (node_id, root_path, priority, started_at, scope_path, read_again_json)
+INSERT INTO scan (node_id, root_path, priority, started_at, scope_path, read_again_json, discard_json)
 VALUES (?1, ?2, ?3, ?4, ?5,
-        ?6)
+        ?6, ?7)
 ON CONFLICT (node_id, root_path) DO NOTHING
 RETURNING id
 `
@@ -162,6 +166,7 @@ type InsertScanParams struct {
 	StartedAt     int64
 	ScopePath     string
 	ReadAgainJSON *string
+	DiscardJSON   *string
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -175,6 +180,7 @@ func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) (int64, 
 		arg.StartedAt,
 		arg.ScopePath,
 		arg.ReadAgainJSON,
+		arg.DiscardJSON,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -202,14 +208,15 @@ func (q *Queries) InsertScanBatch(ctx context.Context, arg InsertScanBatchParams
 
 const joinScan = `-- name: JoinScan :exec
 UPDATE scan SET scope_path = ?1, priority = ?2,
-                read_again_json = ?3
-WHERE id = ?4
+                read_again_json = ?3, discard_json = ?4
+WHERE id = ?5
 `
 
 type JoinScanParams struct {
 	ScopePath     string
 	Priority      int64
 	ReadAgainJSON *string
+	DiscardJSON   *string
 	ID            int64
 }
 
@@ -220,6 +227,7 @@ func (q *Queries) JoinScan(ctx context.Context, arg JoinScanParams) error {
 		arg.ScopePath,
 		arg.Priority,
 		arg.ReadAgainJSON,
+		arg.DiscardJSON,
 		arg.ID,
 	)
 	return err
@@ -228,7 +236,7 @@ func (q *Queries) JoinScan(ctx context.Context, arg JoinScanParams) error {
 const listScans = `-- name: ListScans :many
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
        is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
-       again_read_again_json
+       again_read_again_json, discard_json, again_discard_json
 FROM scan ORDER BY id
 `
 
@@ -258,6 +266,8 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 			&i.ListingSentAt,
 			&i.ReadAgainJSON,
 			&i.AgainReadAgainJSON,
+			&i.DiscardJSON,
+			&i.AgainDiscardJSON,
 		); err != nil {
 			return nil, err
 		}
@@ -277,7 +287,7 @@ UPDATE scan SET listing_sent_at = ?1
 WHERE id = ?2 AND listed_at IS NULL
 RETURNING id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
           is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
-       again_read_again_json
+       again_read_again_json, discard_json, again_discard_json
 `
 
 type SendScanListingParams struct {
@@ -306,19 +316,23 @@ func (q *Queries) SendScanListing(ctx context.Context, arg SendScanListingParams
 		&i.ListingSentAt,
 		&i.ReadAgainJSON,
 		&i.AgainReadAgainJSON,
+		&i.DiscardJSON,
+		&i.AgainDiscardJSON,
 	)
 	return i, err
 }
 
 const setScanAgain = `-- name: SetScanAgain :execrows
 UPDATE scan SET is_another_scan_queued = 1, again_scope_path = ?1,
-                again_read_again_json = ?2
-WHERE node_id = ?3 AND root_path = ?4
+                again_read_again_json = ?2,
+                again_discard_json = ?3
+WHERE node_id = ?4 AND root_path = ?5
 `
 
 type SetScanAgainParams struct {
 	AgainScopePath     *string
 	AgainReadAgainJSON *string
+	AgainDiscardJSON   *string
 	NodeID             int64
 	RootPath           string
 }
@@ -329,6 +343,7 @@ func (q *Queries) SetScanAgain(ctx context.Context, arg SetScanAgainParams) (int
 	result, err := q.db.ExecContext(ctx, setScanAgain,
 		arg.AgainScopePath,
 		arg.AgainReadAgainJSON,
+		arg.AgainDiscardJSON,
 		arg.NodeID,
 		arg.RootPath,
 	)

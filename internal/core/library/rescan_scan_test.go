@@ -37,7 +37,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	}
 	nodes := &fakeNodes{id: bench.nodeID, roots: []string{root}}
 	admin := NewAdmin(bench.database, bench.clock, nodes, bench.scans, retirementOf(&fakeWork{}))
-	if asked, err := admin.ScanWork(ctx, films.ID, titleID); err != nil || asked != 1 {
+	if asked, err := admin.ScanWork(ctx, films.ID, titleID, false); err != nil || asked != 1 {
 		t.Fatalf("ScanWork = %d, %v; want the one folder asked for", asked, err)
 	}
 	folder := []nodeproto.ScanRecord{
@@ -52,7 +52,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	}
 	bench.examineAs(observedRecord("Arkon (1979)/Arkon.mkv", "arkon"),
 		observedRecord("Arkon (1979)/Extended.mkv", "extended"))
-	if asked, err := admin.ScanReadingAgain(ctx, films.ID); err != nil || asked != 1 {
+	if asked, err := admin.ScanReadingAgain(ctx, films.ID, false); err != nil || asked != 1 {
 		t.Fatalf("ScanReadingAgain = %d, %v; want the root asked for", asked, err)
 	}
 	bench.list(append(folder, listedDirectory("Metropolis (1927)"),
@@ -60,6 +60,39 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.ListedCount != 4 || scan.ToExamineCount != 4 {
 		t.Errorf("a full rescan of the library is %+v (%v); want its four files listed and every one read", scan,
 			isScanning)
+	}
+}
+
+// A rescan that discards what was made, of a film or of its library, asks its scan to throw out
+// everything made of what it reads again (D535 §6).
+func TestRescan_ADiscardingRescanAsksItsScanToDiscard(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("a/a.mp4", "a")}, true)
+	ctx := t.Context()
+	films, err := bench.database.Read().GetLiveLibraryByName(ctx, "Films")
+	if err != nil {
+		t.Fatal(err)
+	}
+	titleID := librarytest.Title(t, bench.database, librarytest.TitleSpec{Library: films.ID})
+	versionID := librarytest.Version(t, bench.database, librarytest.VersionSpec{TitleID: titleID})
+	file := bench.liveFilesByPath()[root+"/a/a.mp4"]
+	err = bench.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return PutInVersion(ctx, queries, file.ID, LibraryKindMovie, versionID)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes := &fakeNodes{id: bench.nodeID, roots: []string{root}}
+	admin := NewAdmin(bench.database, bench.clock, nodes, nodes, retirementOf(&fakeWork{}))
+	if asked, err := admin.ScanWork(ctx, films.ID, titleID, true); err != nil || asked != 1 {
+		t.Fatalf("ScanWork = %d, %v; want the one folder asked for", asked, err)
+	}
+	if asked, err := admin.ScanReadingAgain(ctx, films.ID, true); err != nil || asked != 1 {
+		t.Fatalf("ScanReadingAgain = %d, %v; want the root asked for", asked, err)
+	}
+	if want := []string{root + ":a/a.mp4", root + ":."}; !slices.Equal(nodes.discarded, want) {
+		t.Errorf("the discarding rescans asked to discard %v; want %v", nodes.discarded, want)
 	}
 }
 

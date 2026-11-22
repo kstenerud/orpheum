@@ -100,18 +100,20 @@ func (q *Queries) DeleteRescanGivenUp(ctx context.Context, libraryID int64) erro
 }
 
 const getRematch = `-- name: GetRematch :one
-SELECT rematch.item_id, rematch.rescan_id, rematch.name, rematch.year, rematch.ids_json, rescan.is_full
+SELECT rematch.item_id, rematch.rescan_id, rematch.name, rematch.year, rematch.ids_json, rescan.is_full,
+       rescan.is_discarding
 FROM rematch JOIN rescan ON rescan.id = rematch.rescan_id
 WHERE rematch.item_id = ?1
 `
 
 type GetRematchRow struct {
-	ItemID   int64
-	RescanID int64
-	Name     string
-	Year     int64
-	IdsJSON  string
-	IsFull   int64
+	ItemID       int64
+	RescanID     int64
+	Name         string
+	Year         int64
+	IdsJSON      string
+	IsFull       int64
+	IsDiscarding int64
 }
 
 // A film or series a rescan waits to match again, and whether that rescan is a full one (D392).
@@ -125,13 +127,14 @@ func (q *Queries) GetRematch(ctx context.Context, itemID int64) (GetRematchRow, 
 		&i.Year,
 		&i.IdsJSON,
 		&i.IsFull,
+		&i.IsDiscarding,
 	)
 	return i, err
 }
 
 const getRescan = `-- name: GetRescan :one
 SELECT id, library_id, item_id, requested_at, listed_at, item_count, changed_count, unchanged_count,
-       left_alone_count, unsettled_count, failed_count, is_full
+       left_alone_count, unsettled_count, failed_count, is_full, is_discarding
 FROM rescan WHERE id = ?1
 `
 
@@ -151,6 +154,7 @@ func (q *Queries) GetRescan(ctx context.Context, id int64) (Rescan, error) {
 		&i.UnsettledCount,
 		&i.FailedCount,
 		&i.IsFull,
+		&i.IsDiscarding,
 	)
 	return i, err
 }
@@ -186,17 +190,19 @@ func (q *Queries) InsertRematch(ctx context.Context, arg InsertRematchParams) (i
 
 const insertRescan = `-- name: InsertRescan :one
 
-INSERT INTO rescan (library_id, item_id, requested_at, is_full)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO rescan (library_id, item_id, requested_at, is_full, is_discarding)
+VALUES (?1, ?2, ?3, ?4,
+        ?5)
 ON CONFLICT (library_id, coalesce(item_id, 0)) DO NOTHING
 RETURNING id
 `
 
 type InsertRescanParams struct {
-	LibraryID   int64
-	ItemID      *int64
-	RequestedAt int64
-	IsFull      int64
+	LibraryID    int64
+	ItemID       *int64
+	RequestedAt  int64
+	IsFull       int64
+	IsDiscarding int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -209,6 +215,7 @@ func (q *Queries) InsertRescan(ctx context.Context, arg InsertRescanParams) (int
 		arg.ItemID,
 		arg.RequestedAt,
 		arg.IsFull,
+		arg.IsDiscarding,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -253,7 +260,7 @@ func (q *Queries) ListRematches(ctx context.Context) ([]ListRematchesRow, error)
 const listRescans = `-- name: ListRescans :many
 SELECT rescan.id, rescan.library_id, rescan.item_id, rescan.requested_at, rescan.listed_at, rescan.item_count,
        rescan.changed_count, rescan.unchanged_count, rescan.left_alone_count, rescan.unsettled_count,
-       rescan.failed_count, rescan.is_full,
+       rescan.failed_count, rescan.is_full, rescan.is_discarding,
        CAST((SELECT count(*) FROM rematch WHERE rematch.rescan_id = rescan.id) AS INTEGER) AS waiting_count
 FROM rescan ORDER BY rescan.id
 `
@@ -271,6 +278,7 @@ type ListRescansRow struct {
 	UnsettledCount int64
 	FailedCount    int64
 	IsFull         int64
+	IsDiscarding   int64
 	WaitingCount   int64
 }
 
@@ -297,6 +305,7 @@ func (q *Queries) ListRescans(ctx context.Context) ([]ListRescansRow, error) {
 			&i.UnsettledCount,
 			&i.FailedCount,
 			&i.IsFull,
+			&i.IsDiscarding,
 			&i.WaitingCount,
 		); err != nil {
 			return nil, err

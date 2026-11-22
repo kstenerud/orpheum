@@ -461,6 +461,27 @@ func (service *Service) MarkImagesOwedAgain(ctx context.Context, itemIDs ...int6
 	return nil
 }
 
+// DiscardImages retires every image of items a person did not choose, every source's, as never
+// stored, so the pass that names each, or the frame-still planning, fetches or makes it again: a
+// rescan's that discards what was made (D535 §6), which identify asks for through the server's
+// wiring. A person's choice stays (D357 §3).
+func (service *Service) DiscardImages(ctx context.Context, itemIDs ...int64) error {
+	now := service.parts.Clock.Now().UnixMilli()
+	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		for _, itemID := range itemIDs {
+			_, err := queries.RetireMadeArtwork(ctx, sqlcgen.RetireMadeArtworkParams{RemovedAt: &now, ItemID: itemID})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("discard the images of %v: %w", itemIDs, err)
+	}
+	return nil
+}
+
 // localRef is how an image beside the media is named in the artwork table and a
 // make_artwork_sizes job: its file, and its size and modification time, so a changed file is owed
 // again.

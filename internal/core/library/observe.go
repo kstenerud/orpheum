@@ -255,8 +255,9 @@ func (batch *ingestBatch) keepProbe(ctx context.Context, scan *scanState, id int
 	kept, err := store.OrNotFound(batch.queries.GetFileProbeJSON(ctx, id))
 	switch {
 	case err == nil:
+		isDiscarding := scan != nil && scan.discarding[id]
 		correction, correctErr := batch.correctProbe(ctx, DerivedOf{FileID: id, PayloadHash: seenFile.hash}, kept,
-			seenFile.observed.Probe)
+			seenFile.observed.Probe, isDiscarding)
 		if correctErr != nil {
 			return correctErr
 		}

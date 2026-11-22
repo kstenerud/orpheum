@@ -81,6 +81,13 @@ ORDER BY grp.number, artwork.is_chosen DESC,
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND source_sha256 IS NULL AND is_chosen = 0 AND removed_at IS NULL;
 
+-- name: RetireMadeArtwork :execrows
+-- An item's images, every source's, retired as never stored, so the pass that names each, or the
+-- frame-still planning, fetches or makes it again: a rescan's that discards what was made (D535
+-- section 6). A person's choice stays.
+UPDATE artwork SET removed_at = sqlc.arg(removed_at)
+WHERE item_id = sqlc.arg(item_id) AND is_chosen = 0 AND removed_at IS NULL;
+
 -- name: ListArtworkSourceSha256s :many
 -- Every stored image, whether a live item shows it, whether one a library lists does, and when it last
 -- stopped being shown: what the artwork ceiling reads to find removed items' images, D212 section 6,

@@ -50,6 +50,8 @@ type ListingScan struct {
 	NodeID      int64
 	Root, Scope string
 	ReadAgain   ReadAgain
+	// Discard is what of ReadAgain has everything made of it thrown out, whatever differs (D535 §6).
+	Discard ReadAgain
 }
 
 // TakeListingReadingAgain is TakeListing for a scan that reads again what its ReadAgain names, a
@@ -62,7 +64,7 @@ func (ingester *Ingester) TakeListingReadingAgain(
 	err := ingester.write(ctx, scanKey{nodeID: scan.NodeID, root: scan.Root}, func(batch *ingestBatch) error {
 		listing := &listingComparison{
 			batch: batch, rules: rules, taken: &taken, scope: cleanScope(scan.Scope), listedPaths: map[string]bool{},
-			readAgain: scan.ReadAgain.cleaned(),
+			readAgain: scan.ReadAgain.cleaned(), discard: scan.Discard.cleaned(),
 		}
 		for index, record := range records {
 			if err := listing.take(ctx, cleanRecord(record)); err != nil {
@@ -101,6 +103,8 @@ type listingComparison struct {
 	newVideos []listedVideo
 	// readAgain is what the listing has read again though stored as listed (D392 §2).
 	readAgain ReadAgain
+	// discard is what of it has everything made of it thrown out, whatever differs (D535 §6).
+	discard ReadAgain
 }
 
 // listedVideo is a video a listing found at a path nothing is stored at.
@@ -218,11 +222,24 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 		listing.newVideos = append(listing.newVideos, listedVideo{listed: listed, located: located, scan: scan})
 	}
 	examine := nodeproto.ExamineFile{Path: listed.Path, Kind: kind}
-	if isStored && kind == nodeproto.ExamineVideo && listing.readAgain.covers(relative) {
-		examine.ChecksChunksOf = stored.ID // its stores of chunks checked too (D392 §4)
+	if isStored && kind == nodeproto.ExamineVideo {
+		examine.ChecksChunksOf = listing.readStoredAgain(scan, stored.ID, relative)
 	}
 	listing.taken.ToExamine = append(listing.taken.ToExamine, examine)
 	return nil
+}
+
+// readStoredAgain is the stored video whose stores of chunks its read checks too, when the listing
+// reads it again (D392 §4), else 0; one it reads again to discard what was made of it the scan notes
+// (D535 §6).
+func (listing *listingComparison) readStoredAgain(scan *scanState, fileID int64, relative string) int64 {
+	if !listing.readAgain.covers(relative) {
+		return 0
+	}
+	if listing.discard.covers(relative) {
+		scan.discarding[fileID] = true
+	}
+	return fileID
 }
 
 // readsAgain is whether a file stored as listed, of kind at relative, is read again all the same: a

@@ -34,19 +34,28 @@ type RescansStartedOutput struct {
 // disk or not, and what the differences touch thrown out, before its match; the light rescan of D357
 // and its full flag are gone.
 
+// DiscardInput is a rescan's choice to throw out everything the app made or fetched for its scope,
+// whatever differs, rather than what the differences touch alone (D535 §6). Only an admin rescans.
+type DiscardInput struct {
+	IsDiscarding bool `doc:"Throw out everything made or fetched for its files, whatever differs; never what a person did" query:"discard"` //nolint:lll // one struct tag
+}
+
 // RescanEverythingInput asks for a rescan of every library (D535 §4).
 type RescanEverythingInput struct {
 	AuthorizationHeader
+	DiscardInput
 }
 
 // LibraryRescanInput asks for a rescan of a library.
 type LibraryRescanInput struct {
 	LibraryInput
+	DiscardInput
 }
 
 // ItemRescanInput asks for a rescan of a film, a series, an episode or an other video (D535 §3).
 type ItemRescanInput struct {
 	ItemInput
+	DiscardInput
 }
 
 // LibraryRescanBody is how far a library's rescans are (D357 §5): scanning, then matching its films
@@ -92,7 +101,7 @@ func (server *Server) rescanLibraries(ctx context.Context, input *RescanEverythi
 	if err != nil {
 		return nil, err
 	}
-	started, err := dependencies.Rescans.RescanEverything(ctx)
+	started, err := dependencies.Rescans.RescanEverything(ctx, input.IsDiscarding)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan every library", err)
 	}
@@ -108,7 +117,7 @@ func (server *Server) rescanLibrary(ctx context.Context, input *LibraryRescanInp
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID)
+	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID, input.IsDiscarding)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan a library", err)
 	}
@@ -122,7 +131,7 @@ func (server *Server) rescanItem(ctx context.Context, input *ItemRescanInput) (*
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID)
+	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID, input.IsDiscarding)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan an item", err)
 	}
