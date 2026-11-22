@@ -11,22 +11,25 @@ import (
 
 const addProblemReport = `-- name: AddProblemReport :one
 
-INSERT INTO problem_report (user_id, made_at, version, words, gathered_json)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO problem_report (user_id, made_at, version, words, gathered_json, sound_file_id, sound_offset_ms)
+VALUES (?1, ?2, ?3, ?4, ?5,
+  ?6, ?7)
 RETURNING id
 `
 
 type AddProblemReportParams struct {
-	UserID       *int64
-	MadeAt       int64
-	Version      string
-	Words        string
-	GatheredJSON string
+	UserID        *int64
+	MadeAt        int64
+	Version       string
+	Words         string
+	GatheredJSON  string
+	SoundFileID   *int64
+	SoundOffsetMs *int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The problem reports, each kept as gathered for the household's admin alone (D524 sections 2 to 4).
-// A report someone made, as gathered.
+// A report someone made, as gathered, with the file and sound offset it suggests, if any (D537).
 func (q *Queries) AddProblemReport(ctx context.Context, arg AddProblemReportParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, addProblemReport,
 		arg.UserID,
@@ -34,6 +37,8 @@ func (q *Queries) AddProblemReport(ctx context.Context, arg AddProblemReportPara
 		arg.Version,
 		arg.Words,
 		arg.GatheredJSON,
+		arg.SoundFileID,
+		arg.SoundOffsetMs,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -177,7 +182,7 @@ func (q *Queries) ListProblemReportKnownNames(ctx context.Context) ([]ListProble
 
 const listProblemReports = `-- name: ListProblemReports :many
 SELECT problem_report.id, problem_report.user_id, user.name AS user_name, problem_report.made_at,
-  problem_report.version, problem_report.words
+  problem_report.version, problem_report.words, problem_report.sound_file_id, problem_report.sound_offset_ms
 FROM problem_report
 LEFT JOIN user ON user.id = problem_report.user_id
 WHERE problem_report.made_at >= ?1
@@ -185,17 +190,20 @@ ORDER BY problem_report.made_at DESC, problem_report.id DESC
 `
 
 type ListProblemReportsRow struct {
-	ID       int64
-	UserID   *int64
-	UserName *string
-	MadeAt   int64
-	Version  string
-	Words    string
+	ID            int64
+	UserID        *int64
+	UserName      *string
+	MadeAt        int64
+	Version       string
+	Words         string
+	SoundFileID   *int64
+	SoundOffsetMs *int64
 }
 
 // Every report made since a time (60 days ago: one older is deleted by the next sweep), the newest
 // first, without what was gathered: the System page's list. Who made it is named by their account's
-// name, NULL once the account is deleted.
+// name, NULL once the account is deleted. A report suggesting a file's sound offset says the file
+// and the offset (D537), the file NULL once it is deleted.
 func (q *Queries) ListProblemReports(ctx context.Context, since int64) ([]ListProblemReportsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listProblemReports, since)
 	if err != nil {
@@ -212,6 +220,8 @@ func (q *Queries) ListProblemReports(ctx context.Context, since int64) ([]ListPr
 			&i.MadeAt,
 			&i.Version,
 			&i.Words,
+			&i.SoundFileID,
+			&i.SoundOffsetMs,
 		); err != nil {
 			return nil, err
 		}

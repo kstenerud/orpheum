@@ -139,11 +139,12 @@ type decision struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`
-	ResumePositionMs int64             `json:"resumePositionMs"`
-	MediaToken       string            `json:"mediaToken"`
-	Levelling        api.LevellingBody `json:"levelling"`
-	TitleName        string            `json:"titleName"`
-	OnLadder         *api.LadderBody   `json:"onLadder"`
+	ResumePositionMs int64                   `json:"resumePositionMs"`
+	MediaToken       string                  `json:"mediaToken"`
+	Levelling        api.LevellingBody       `json:"levelling"`
+	FileSoundOffset  api.FileSoundOffsetBody `json:"fileSoundOffset"`
+	TitleName        string                  `json:"titleName"`
+	OnLadder         *api.LadderBody         `json:"onLadder"`
 	// IsOriginalWaitingForTheLink is the original chosen on a link remembered short of it.
 	IsOriginalWaitingForTheLink bool              `json:"isOriginalWaitingForTheLink"`
 	Tracks                      api.TracksBody    `json:"tracks"`

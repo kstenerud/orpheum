@@ -2,17 +2,19 @@
 -- The problem reports, each kept as gathered for the household's admin alone (D524 sections 2 to 4).
 
 -- name: AddProblemReport :one
--- A report someone made, as gathered.
-INSERT INTO problem_report (user_id, made_at, version, words, gathered_json)
-VALUES (sqlc.arg(user_id), sqlc.arg(made_at), sqlc.arg(version), sqlc.arg(words), sqlc.arg(gathered_json))
+-- A report someone made, as gathered, with the file and sound offset it suggests, if any (D537).
+INSERT INTO problem_report (user_id, made_at, version, words, gathered_json, sound_file_id, sound_offset_ms)
+VALUES (sqlc.arg(user_id), sqlc.arg(made_at), sqlc.arg(version), sqlc.arg(words), sqlc.arg(gathered_json),
+  sqlc.narg(sound_file_id), sqlc.narg(sound_offset_ms))
 RETURNING id;
 
 -- name: ListProblemReports :many
 -- Every report made since a time (60 days ago: one older is deleted by the next sweep), the newest
 -- first, without what was gathered: the System page's list. Who made it is named by their account's
--- name, NULL once the account is deleted.
+-- name, NULL once the account is deleted. A report suggesting a file's sound offset says the file
+-- and the offset (D537), the file NULL once it is deleted.
 SELECT problem_report.id, problem_report.user_id, user.name AS user_name, problem_report.made_at,
-  problem_report.version, problem_report.words
+  problem_report.version, problem_report.words, problem_report.sound_file_id, problem_report.sound_offset_ms
 FROM problem_report
 LEFT JOIN user ON user.id = problem_report.user_id
 WHERE problem_report.made_at >= sqlc.arg(since)

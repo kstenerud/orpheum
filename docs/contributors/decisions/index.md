@@ -542,6 +542,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D534](working-notes.md#d534--a-sound-whose-first-packet-alone-lasts-seconds-starts-with-the-picture-and-is-made-never-copied-or-played-directly) A sound whose first packet alone lasts seconds starts with the picture, and is made, never copied or played directly — *revisited by D535*
 - [D535](working-notes.md#d535--a-file-read-by-an-older-probe-is-read-again-on-its-own-and-every-videos-page-and-every-library-offers-a-rescan) A file read by an older probe is read again on its own, and every video's page and every library offers a rescan
 - [D536](working-notes.md#d536--each-thing-the-node-makes-carries-the-version-of-its-recipe-in-its-key-raised-with-any-change-to-its-ffmpeg-arguments) Each thing the node makes carries the version of its recipe in its key, raised with any change to its FFmpeg arguments
+- [D537](working-notes.md#d537--a-file-has-a-sound-offset-for-every-person-an-admins-which-a-persons-own-overrides-for-them) A file has a sound offset for every person, an admin's, which a person's own overrides for them
 
 ## Archived
 

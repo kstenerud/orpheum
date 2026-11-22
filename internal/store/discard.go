@@ -71,11 +71,15 @@ func PersistentTablesInADiscard() map[string]TableInADiscard {
 func tablesAPersonDid() map[string]TableInADiscard {
 	return map[string]TableInADiscard{
 		"field_override": {KeptAsAPersonsDoing, "", "a person's edit of a field (D183)", provenByTheRescansStart},
-		"item_hidden":    {KeptAsAPersonsDoing, "", "a person hid the item", provenByTheRescansStart},
-		"play_event":     {KeptAsAPersonsDoing, "", "a person's playing (D165)", provenByTheRescansStart},
-		"play_position":  {KeptAsAPersonsDoing, "", "where a person stopped (D81, D157)", provenByTheRescansStart},
-		"play_span":      {KeptAsAPersonsDoing, "", "what a person played (D165)", provenByTheRescansStart},
-		"preference":     {KeptAsAPersonsDoing, "", "a person's choices", provenByTheRescansStart},
+		"file_sound_offset": {
+			KeptAsAPersonsDoing, "", "an admin entered a file's sound offset for every person (D537)",
+			provenByTheRescansStart,
+		},
+		"item_hidden":   {KeptAsAPersonsDoing, "", "a person hid the item", provenByTheRescansStart},
+		"play_event":    {KeptAsAPersonsDoing, "", "a person's playing (D165)", provenByTheRescansStart},
+		"play_position": {KeptAsAPersonsDoing, "", "where a person stopped (D81, D157)", provenByTheRescansStart},
+		"play_span":     {KeptAsAPersonsDoing, "", "what a person played (D165)", provenByTheRescansStart},
+		"preference":    {KeptAsAPersonsDoing, "", "a person's choices", provenByTheRescansStart},
 		"purged_watching": {
 			KeptAsAPersonsDoing, "", "a person's watching kept past a purge (D306 §8)",
 			provenByTheRescansStart,
@@ -214,10 +218,13 @@ func tablesOutsideADiscard() map[string]TableInADiscard {
 		"root_state":            {OutsideADiscard, "", "a root's state, and an admin's approval of its removals", ""},
 		"unavailable_place":     {OutsideADiscard, "", "a place that cannot be read now (D328), listed again", ""},
 		"link_memory":           {OutsideADiscard, "", "a player's network (D257 §1), of no file", ""},
-		"problem_report":        {OutsideADiscard, "", "a person's report (D524), of no item", ""},
-		"refresh_request":       {OutsideADiscard, "", "a refresh asked for and pending", ""},
-		"schema_meta":           {OutsideADiscard, "", "the schema's own", ""},
-		"schema_step":           {OutsideADiscard, "", "the migration runner's record", ""},
+		"problem_report": {
+			OutsideADiscard, "", "a person's report (D524), of no item; a file's sound offset it suggests stays (D537)",
+			"",
+		},
+		"refresh_request": {OutsideADiscard, "", "a refresh asked for and pending", ""},
+		"schema_meta":     {OutsideADiscard, "", "the schema's own", ""},
+		"schema_step":     {OutsideADiscard, "", "the migration runner's record", ""},
 	}
 }
 

@@ -72,6 +72,11 @@ type SetFilePreferencesInput struct {
 		SubtitleChoice *SubtitleChoiceBody `json:"subtitleChoice,omitempty" required:"false"`
 		// AudioChoice, when given, is kept as a subtitle choice is (D230 §5).
 		AudioChoice *AudioChoiceBody `json:"audioChoice,omitempty" required:"false"`
+		// SoundOffsetMs, when given, is the person's own sound offset for the file, which overrides
+		// every person's for them (D537); IsSoundOffsetEveryones forgets it, so every person's holds
+		// for them again. One or the other.
+		SoundOffsetMs          *int64 `doc:"The person's own sound offset for the file, in ms: later when positive, earlier when negative; it overrides every person's for them" json:"soundOffsetMs,omitempty" maximum:"2000" minimum:"-2000" required:"false"` //nolint:lll // one struct tag
+		IsSoundOffsetEveryones bool   `doc:"Forget the person's own sound offset for the file, which then plays with every person's" json:"isSoundOffsetEveryones,omitempty" required:"false"`                                                                   //nolint:lll // one struct tag
 	}
 }
 
@@ -79,7 +84,7 @@ func (server *Server) registerPreferences() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setFilePreferences", Method: http.MethodPut, Path: "/files/{id}/preferences",
 		Summary: "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, " +
-			"whose languages its work's unwatched files follow",
+			"whose languages its work's unwatched files follow, and their own sound offset for it",
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.setFilePreferences)
@@ -97,6 +102,13 @@ func (server *Server) registerPreferences() {
 		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
 		Extensions: callableBy(capabilityAdmin),
 	}, server.setSeriesFilesOrdering)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "setFileSoundOffset", Method: http.MethodPut, Path: "/files/{id}/sound-offset",
+		Summary: "Set, for every person, how far a file's sound is moved from its picture, which a person's " +
+			"own for the file overrides (D537)",
+		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityAdmin),
+	}, server.setFileSoundOffset)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
@@ -236,10 +248,32 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 	if err != nil {
 		return nil, err
 	}
-	if offset := input.Body.SubtitleOffsetMs; offset != nil {
+	body := &input.Body
+	if body.SoundOffsetMs != nil && body.IsSoundOffsetEveryones {
+		return nil, invalidRequestAt(http.StatusBadRequest, "body.isSoundOffsetEveryones",
+			"a sound offset is the person's own or every person's, not both")
+	}
+	if offset := body.SubtitleOffsetMs; offset != nil {
 		err = dependencies.Playback.SetSubtitleOffset(ctx, principal.UserID, input.FileID, *offset)
 	}
-	if choice := input.Body.SubtitleChoice; err == nil && choice != nil {
+	if err == nil && (body.SoundOffsetMs != nil || body.IsSoundOffsetEveryones) {
+		err = dependencies.Playback.SetSoundOffset(ctx, principal.UserID, input.FileID, body.SoundOffsetMs)
+	}
+	if err != nil {
+		return nil, server.playbackError(ctx, "keep a file's preferences", err)
+	}
+	return server.chooseFileTracks(ctx, dependencies, principal.UserID, input.FileID,
+		body.SubtitleChoice, body.AudioChoice)
+}
+
+// chooseFileTracks keeps the subtitle and audio tracks a person chose in a file, each when given; a
+// choice that names no one track, or one the file does not have, is a 400.
+func (server *Server) chooseFileTracks(
+	ctx context.Context, dependencies *Dependencies, userID, fileID int64,
+	subtitle *SubtitleChoiceBody, audio *AudioChoiceBody,
+) (*struct{}, error) {
+	var err error
+	if choice := subtitle; choice != nil {
 		named := 0
 		for _, isNamed := range []bool{choice.IsOff, choice.StreamID != 0, choice.FetchedSubtitleID != 0} {
 			if isNamed {
@@ -250,7 +284,7 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 			return nil, invalidRequestAt(http.StatusBadRequest, "body.subtitleChoice",
 				"a subtitle choice is one track, a stream or a fetched one, or off")
 		}
-		err = dependencies.Playback.ChooseSubtitle(ctx, principal.UserID, input.FileID, preferences.Used{
+		err = dependencies.Playback.ChooseSubtitle(ctx, userID, fileID, preferences.Used{
 			TrackRef: preferences.TrackRef{StreamID: choice.StreamID, FetchedSubtitleID: choice.FetchedSubtitleID},
 			IsOff:    choice.IsOff,
 		})
@@ -258,9 +292,8 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 			return nil, invalidRequestAt(http.StatusBadRequest, "body.subtitleChoice", "this file has no such track")
 		}
 	}
-	if choice := input.Body.AudioChoice; err == nil && choice != nil {
-		err = dependencies.Playback.ChooseAudio(ctx, principal.UserID, input.FileID,
-			preferences.TrackRef{StreamID: choice.StreamID})
+	if choice := audio; err == nil && choice != nil {
+		err = dependencies.Playback.ChooseAudio(ctx, userID, fileID, preferences.TrackRef{StreamID: choice.StreamID})
 		if errors.Is(err, preferences.ErrNoTrack) {
 			return nil, invalidRequestAt(http.StatusBadRequest, "body.audioChoice", "this file has no such track")
 		}
@@ -341,5 +374,43 @@ func (server *Server) setSeriesFilesOrdering(
 	if _, err := dependencies.Refresher.SetFilesOrdering(ctx, input.SeriesID, ordering); err != nil {
 		return nil, server.libraryError(ctx, "keep the order a series' files are numbered in", err)
 	}
+	return &struct{}{}, nil
+}
+
+// FileSoundOffsetBody is a file's sound offset for the person playing it (D537), in milliseconds,
+// later when positive and earlier when negative, as the device's is: the player moves the sound by
+// the device's and SoundOffsetMs added.
+type FileSoundOffsetBody struct {
+	SoundOffsetMs int64  `doc:"The offset the file plays with for the person: their own, or else every person's" json:"soundOffsetMs" maximum:"2000" minimum:"-2000"` //nolint:lll // one struct tag
+	EveryonesMs   int64  `doc:"Every person's, an admin's; 0 for in step" json:"everyonesMs" maximum:"2000" minimum:"-2000"`                                          //nolint:lll // one struct tag
+	OwnMs         *int64 `doc:"The person's own, which overrides every person's for them; absent for none" json:"ownMs,omitempty" maximum:"2000" minimum:"-2000"`     //nolint:lll // one struct tag
+}
+
+// SetFileSoundOffsetInput sets a file's sound offset for every person, an admin's (D537): from the
+// player's gear ("Make it everyone's") or from a problem report that suggests it ("Apply to
+// everyone").
+type SetFileSoundOffsetInput struct {
+	AuthorizationHeader
+	FileID int64 `minimum:"1" path:"id"`
+	Body   struct {
+		SoundOffsetMs int64 `doc:"How far the file's sound is moved from its picture for every person, in ms: later when positive, earlier when negative; 0 for in step" json:"soundOffsetMs" maximum:"2000" minimum:"-2000"` //nolint:lll // one struct tag
+	}
+}
+
+func (server *Server) setFileSoundOffset(ctx context.Context, input *SetFileSoundOffsetInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if err := dependencies.Browser.ReachFile(ctx, principal.Reach, input.FileID); err != nil {
+		return nil, server.playbackError(ctx, "reach a file", err)
+	}
+	offsetMs := input.Body.SoundOffsetMs
+	if err := dependencies.Playback.SetEveryonesSoundOffset(ctx, input.FileID, offsetMs); err != nil {
+		return nil, server.playbackError(ctx, "keep a file's sound offset for every person", err)
+	}
+	server.logger.InfoContext(ctx, "a file's sound offset was set for every person",
+		slogx.EventKey, "fileSoundOffsetSet",
+		"userId", principal.UserID, "fileId", input.FileID, "soundOffsetMs", offsetMs)
 	return &struct{}{}, nil
 }

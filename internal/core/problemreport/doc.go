@@ -76,6 +76,9 @@
 //   - The shareable download hides every name the database holds that says whose the report is,
 //     in the person's words too. Enforced by
 //     TestDownload_TheShareableFormHidesTheNamesTheDatabaseHolds.
+//   - A report may suggest a file's sound offset, a file the person reaches, and the admin's list
+//     says the file and the offset, to apply as every person's (D537). Enforced by
+//     TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt (internal/core/api).
 //   - One person makes at most PerPersonPerHour reports in an hour. Enforced by
 //     TestMake_RefusesAPersonPastTheirReportsInAnHour.
 //   - A report is kept KeptFor (60 days), then neither listed nor downloaded and deleted by the

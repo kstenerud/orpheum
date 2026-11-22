@@ -57,5 +57,12 @@ WHERE preference.scope = 'file' AND preference.scope_id = sqlc.arg(from_file)
     WHERE kept.user_id = preference.user_id AND kept.scope = 'file' AND kept.scope_id = sqlc.arg(to_file)
       AND kept.axis = preference.axis);
 
+-- name: DeletePreference :exec
+-- A person's choice at one place forgotten: their own sound offset for a file, which then plays
+-- with every person's (D537).
+DELETE FROM preference
+WHERE user_id = sqlc.arg(user_id) AND scope = sqlc.arg(scope) AND scope_id = sqlc.arg(scope_id)
+  AND axis = sqlc.arg(axis);
+
 -- name: DeleteFilePreferencesOfFile :exec
 DELETE FROM preference WHERE scope = 'file' AND scope_id = sqlc.arg(file_id);

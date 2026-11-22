@@ -28,6 +28,16 @@ type MakeProblemReportBody struct {
 	Page     string                     `doc:"The page's path when the report was made" json:"page" maxLength:"200"`                                    //nolint:lll // one struct tag
 	Device   []ProblemReportFactBody    `doc:"What the device says of itself, in its order: its browser, screen, network" json:"device" maxItems:"30"`  //nolint:lll // one struct tag
 	Playback *ProblemReportPlaybackBody `doc:"The player's state, when the report was made from the player" json:"playback,omitempty" required:"false"` //nolint:lll // one struct tag
+	// SoundOffset is the person's word that a file needs a sound offset, the one they set for
+	// themselves ("Tell the admin", D537), which the admin may make every person's.
+	SoundOffset *ProblemReportSoundOffsetBody `doc:"The file the person says needs a sound offset, and the one they suggest" json:"soundOffset,omitempty" required:"false"` //nolint:lll // one struct tag
+}
+
+// ProblemReportSoundOffsetBody is a report's suggestion of a file's sound offset (D537), in
+// milliseconds, later when positive and earlier when negative, as a device's is.
+type ProblemReportSoundOffsetBody struct {
+	FileID        int64 `json:"fileId" minimum:"1"`
+	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
 }
 
 // ProblemReportFactBody is one of the device's facts: "Screen", "1920×1080".
@@ -71,6 +81,9 @@ type ProblemReportSummaryBody struct {
 	MadeAt   int64  `doc:"When it was made, in Unix milliseconds" json:"madeAt"`
 	Version  string `doc:"The version that made it" json:"version"`
 	Words    string `doc:"Their own words" json:"words"`
+	// SoundOffset is the file's sound offset the report suggests, which the admin makes every
+	// person's with PUT /files/{fileId}/sound-offset (D537); absent for none, or once the file is gone.
+	SoundOffset *ProblemReportSoundOffsetBody `doc:"The file's sound offset the report suggests; absent for none" json:"soundOffset,omitempty"` //nolint:lll // one struct tag
 }
 
 // ProblemReportInput names one kept report.
@@ -144,6 +157,14 @@ func (server *Server) makeProblemReport(
 		Device:   make([]problemreport.Fact, 0, len(input.Body.Device)+1),
 		Playback: problemReportPlayback(input.Body.Playback),
 	}
+	if suggested := input.Body.SoundOffset; suggested != nil {
+		if reachErr := dependencies.Browser.ReachFile(ctx, principal.Reach, suggested.FileID); reachErr != nil {
+			return nil, server.playbackError(ctx, "reach a file", reachErr)
+		}
+		request.SoundOffset = &problemreport.SoundOffset{
+			FileID: suggested.FileID, OffsetMs: suggested.SoundOffsetMs,
+		}
+	}
 	for _, fact := range input.Body.Device {
 		request.Device = append(request.Device, problemreport.Fact{Name: fact.Name, Value: fact.Value})
 	}
@@ -213,10 +234,16 @@ func (server *Server) problemReportsListed(
 		return nil, server.logInternalError(ctx, "list the problem reports", err)
 	}
 	for _, summary := range summaries {
-		output.Body.Reports = append(output.Body.Reports, ProblemReportSummaryBody{
+		body := ProblemReportSummaryBody{
 			ID: summary.ID, UserName: summary.UserName, MadeAt: summary.MadeAt.UnixMilli(), Version: summary.Version,
 			Words: summary.Words,
-		})
+		}
+		if suggested := summary.SoundOffset; suggested != nil {
+			body.SoundOffset = &ProblemReportSoundOffsetBody{
+				FileID: suggested.FileID, SoundOffsetMs: suggested.OffsetMs,
+			}
+		}
+		output.Body.Reports = append(output.Body.Reports, body)
 	}
 	return output, nil
 }

@@ -2252,6 +2252,36 @@
         ],
         "type": "object"
       },
+      "FileSoundOffsetBody": {
+        "properties": {
+          "everyonesMs": {
+            "description": "Every person's, an admin's; 0 for in step",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          },
+          "ownMs": {
+            "description": "The person's own, which overrides every person's for them; absent for none",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          },
+          "soundOffsetMs": {
+            "description": "The offset the file plays with for the person: their own, or else every person's",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "soundOffsetMs",
+          "everyonesMs"
+        ],
+        "type": "object"
+      },
       "FileWaitsOutputBody": {
         "properties": {
           "levellings": {
@@ -4416,6 +4446,10 @@
             "$ref": "#/components/schemas/ProblemReportPlaybackBody",
             "description": "The player's state, when the report was made from the player"
           },
+          "soundOffset": {
+            "$ref": "#/components/schemas/ProblemReportSoundOffsetBody",
+            "description": "The file the person says needs a sound offset, and the one they suggest"
+          },
           "words": {
             "description": "What went wrong, in the person's own words",
             "maxLength": 2000,
@@ -6135,6 +6169,27 @@
         ],
         "type": "object"
       },
+      "ProblemReportSoundOffsetBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "soundOffsetMs": {
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fileId",
+          "soundOffsetMs"
+        ],
+        "type": "object"
+      },
       "ProblemReportSummaryBody": {
         "properties": {
           "id": {
@@ -6145,6 +6200,10 @@
             "description": "When it was made, in Unix milliseconds",
             "format": "int64",
             "type": "integer"
+          },
+          "soundOffset": {
+            "$ref": "#/components/schemas/ProblemReportSoundOffsetBody",
+            "description": "The file's sound offset the report suggests; absent for none"
           },
           "userName": {
             "description": "Who made it; absent once their account is deleted",
@@ -8059,6 +8118,17 @@
           "audioChoice": {
             "$ref": "#/components/schemas/AudioChoiceBody"
           },
+          "isSoundOffsetEveryones": {
+            "description": "Forget the person's own sound offset for the file, which then plays with every person's",
+            "type": "boolean"
+          },
+          "soundOffsetMs": {
+            "description": "The person's own sound offset for the file, in ms: later when positive, earlier when negative; it overrides every person's for them",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          },
           "subtitleChoice": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -8069,6 +8139,22 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "SetFileSoundOffsetInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "soundOffsetMs": {
+            "description": "How far the file's sound is moved from its picture for every person, in ms: later when positive, earlier when negative; 0 for in step",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": -2000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "soundOffsetMs"
+        ],
         "type": "object"
       },
       "SetItemPreferencesInputBody": {
@@ -8749,6 +8835,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "fileSoundOffset": {
+            "$ref": "#/components/schemas/FileSoundOffsetBody"
+          },
           "isOriginalWaitingForTheLink": {
             "description": "Whether the original file, chosen, starts on the ladder because the link remembered is short of its rate, to move to it once the link carries it",
             "type": "boolean"
@@ -8848,6 +8937,7 @@
           "resumePositionMs",
           "mediaToken",
           "soundOffsetMs",
+          "fileSoundOffset",
           "levelling",
           "fileBitRateKbps",
           "tracks",
@@ -12251,7 +12341,7 @@
             "session": []
           }
         ],
-        "summary": "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow",
+        "summary": "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow, and their own sound offset for it",
         "tags": [
           "Playback"
         ],
@@ -12302,6 +12392,58 @@
         "summary": "Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5)",
         "tags": [
           "Libraries"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/files/{id}/sound-offset": {
+      "put": {
+        "operationId": "setFileSoundOffset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFileSoundOffsetInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set, for every person, how far a file's sound is moved from its picture, which a person's own for the file overrides (D537)",
+        "tags": [
+          "Playback"
         ],
         "x-orpheum-capability": "admin"
       }

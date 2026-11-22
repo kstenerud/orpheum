@@ -909,10 +909,14 @@ CREATE TABLE problem_report (                               -- class A (migratio
   made_at       INTEGER NOT NULL,                           -- deleted 60 days on (§4)
   version       TEXT NOT NULL,                              -- the core's version it was made on
   words         TEXT NOT NULL,                              -- what the person said, whole
-  gathered_json TEXT NOT NULL CHECK (json_valid(gathered_json))  -- the device's facts, the playback,
-) STRICT;                                                   -- each component's recent log: none made safe
+  gathered_json TEXT NOT NULL CHECK (json_valid(gathered_json)),  -- the device's facts, the playback,
+                                                            -- each component's recent log: none made safe
+  sound_file_id   INTEGER REFERENCES file(id) ON DELETE SET NULL,  -- a file whose sound the person
+  sound_offset_ms INTEGER CHECK (sound_offset_ms BETWEEN -2000 AND 2000)  -- set, and by how much
+) STRICT;                                                   -- (migration 0099, D537)
 CREATE INDEX problem_report_made_at ON problem_report(made_at);
 CREATE INDEX problem_report_user_made ON problem_report(user_id, made_at);
+CREATE INDEX problem_report_sound_file ON problem_report(sound_file_id);
 
 CREATE TABLE "grant" (                                     -- class A (D154)
   secret_sha256        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
@@ -1165,7 +1169,8 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL CHECK (scope IN ('user','library','item','device','file')),  -- 'item' since step 0076 (D428)
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; an item's is its film's or its series'
-  axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'subtitle_used',
+  axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'sound_offset_ms'
+                                           -- (the person's own, D537), 'subtitle_used',
                                            -- 'audio_used'; an item's 'subtitle_language',
                                            -- 'audio_language', a series' 'episode_ordering'
                                            -- (the ordering's name as a JSON string); a person's
@@ -1174,6 +1179,12 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
+
+CREATE TABLE file_sound_offset (                           -- class A (migration 0099, D537)
+  file_id   INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE CASCADE,
+  offset_ms INTEGER NOT NULL CHECK (offset_ms BETWEEN -2000 AND 2000 AND offset_ms <> 0),
+  set_at    INTEGER NOT NULL                               -- every person's, an admin's: later when
+) STRICT;                                                  -- positive; a person's own overrides it
 
 -- subtitle_quota was here; migration 0017 drops it: the count of downloads left is the
 -- provider's own (D224 §4).
@@ -1557,6 +1568,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `purged_watching` | persistent.db | `internal/core/playback` | what deleted files left of each person's watching on their versions, folded as library's purge deletes the files (D306 §8) |
 | `position` | persistent.db | `internal/core/identify` | |
 | `preference` | persistent.db | `internal/core/preferences` | |
+| `file_sound_offset` | persistent.db | `internal/core/preferences` | a file's sound offset for every person, an admin's (D537) |
 | `item_hidden` | persistent.db | `internal/core/playback` | |
 | `provider_response` | persistent.db | `internal/core/identify` | |
 | `refresh_request` | persistent.db | `internal/core/identify` | |
@@ -1606,6 +1618,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `endedCredentialsKeptDays` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
+| Files' sound offsets | `file_sound_offset` | one row a file an admin moved the sound of; deleted with the file (D537) |
 | Pictures given up | `own_picture_given_up` | one row a device a film whose own picture it could not play; deleted with the device or the file (D493) |
 | Failures of unknown cause | `unknown_failure` | one row a kind of work a subject it failed on; deleted when the work succeeds (D511) |
 | Problem reports | `problem_report` | at most ten a person an hour, each deleted 60 days after it was made, or when the admin deletes it (D524 §4) |

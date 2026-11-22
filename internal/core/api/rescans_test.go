@@ -204,6 +204,8 @@ func TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid(t
 	personsDoing := []aRowOf{
 		{"field_override", rowBySQL(`INSERT INTO field_override (item_id, field, override_value, origin, set_at)
 			VALUES (40, 'title', '"A"', 'typed', 1)`), false},
+		{"file_sound_offset", rowBySQL(`INSERT INTO file_sound_offset (file_id, offset_ms, set_at)
+			VALUES (FILE, -1200, 1)`), false},
 		{"item_hidden", rowBySQL(`INSERT INTO item_hidden (user_id, item_id, hidden_at)
 			VALUES (` + user + `, 40, 1)`), false},
 		{"play_event", rowBySQL(`INSERT INTO play_event (user_id, file_id, kind, position_ms, happened_at)

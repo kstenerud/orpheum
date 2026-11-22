@@ -30928,3 +30928,52 @@ they are, and the picture's timeline the node reads beside the loudness (D247 §
 - 3: `TestLoudnessRecipe_IsOneUntilTheLoudnessKeyHoldsIt` (internal/core/readthrough)
 - 4: `TestStoreKey_EachStreamsStoreIsNamedByItsRecipeItsFirstVersionAsBefore` (internal/core/chunks), `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork)
 - 5: `TestTake_AFrameStillTakenByAnEarlierRecipeIsTakenAgain` (internal/core/artwork), `TestEvict_RemovesChunkStoresByTheirPlayersTierFirst` (internal/node/prepared)
+
+## D537 — A file has a sound offset for every person, an admin's, which a person's own overrides for them
+
+**Decided** (2026-11-22), by the project owner, of the lead's recommendations in the plan's "A
+video's own sound offset, and a number input, next batch"
+([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+Found by VQ377: a file of film 20597 lost about 1.2 s of sound before its picture starts, which no
+timestamp says (D534), and the only remedy was the device's sound offset, which moves every video
+on that device. The owner: "The per-file setting should default to whatever the admin put it, but
+also allow users to set their own. Then they can solve the problem for themselves and tell the
+admin "This file needs this offset" so the admin can fix it for all users."
+
+**Status:** decided.
+
+1. **A file's sound offset moves its sound from its picture,** in milliseconds, later when positive
+   and earlier when negative, as the device's does (`device.sound_offset_ms`), and at most as far,
+   2000 either way. The player applies the device's and the file's both; it shows them as two
+   values, "Device" and "This file", not a total (the owner, 2026-11-22).
+2. **Every person's is an admin's,** kept in `file_sound_offset`, one row a file; a file with none
+   plays in step, and setting 0 deletes the row. `PUT /files/{id}/sound-offset` sets it, the admin's
+   alone ("Make it everyone's" in the player's gear, "Apply to everyone" on a report).
+3. **A person's own overrides every person's for them alone,** kept as a preference at the file's
+   scope (`sound_offset_ms`); 0 is a choice of its own, the file in step for them. `PUT
+   /files/{id}/preferences` sets it with `soundOffsetMs` and forgets it with
+   `isSoundOffsetEveryones`, after which every person's holds for them again; one or the other.
+   Any person signed in who reaches the file sets their own.
+4. **A playback's start says both** (`fileSoundOffset` in `POST /playback`'s answer): `everyonesMs`,
+   `ownMs` (absent for none) and `soundOffsetMs`, the one the file plays with for the person, their
+   own or else every person's. The device's stays `soundOffsetMs` at the answer's top.
+5. **A problem report may suggest one** ("Tell the admin"): `soundOffset` with the file, which the
+   person must reach, and the offset. The admin's list of reports says it beside the report, to
+   apply with §2; a report whose file is deleted keeps no suggestion.
+6. **Kept per file, not per video:** the lost sound is in the file. A video's other version, or a
+   file that replaces it, starts at 0; a file confirmed as a copy of another gives it every person's
+   where it has none, as a person's choices do (D363 §2), the bytes being the same.
+7. **A rescan, discarding or not, keeps both:** a person entered them (D535 §6, §10). Both go with
+   the file when it is purged, and a person's own with the person.
+
+**Built** (2026-11-22): §1–7, the server's side. Migration step 0099 adds `file_sound_offset` and
+the report's `sound_file_id` and `sound_offset_ms`. The player's gear, the number input and the
+admin's report view are the web client's, built apart. Not settled: whether the device's and the
+file's added may pass 2000 (each is bounded, their sum is not), and a cast receiver gets the file's
+only where it starts a playback through `POST /playback`.
+
+**Proven by:**
+- 1, 2, 3, 4: `TestFileSoundOffset_EveryonesIsAnAdminsAndAPersonsOwnOverridesItUntilForgotten` (internal/core/api), `TestSoundOffset_APersonsOwnOverridesEveryonesForThemUntilForgotten` (internal/core/preferences)
+- 5: `TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt` (internal/core/api)
+- 6: `TestMoveChoicesToCopysFile_MovesEveryonesSoundOffsetWhereTheFileHasNone` (internal/core/preferences)
+- 7: `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store)

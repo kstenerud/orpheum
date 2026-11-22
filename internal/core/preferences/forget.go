@@ -31,13 +31,22 @@ func ForgetPreferencesOfPurgedFiles(ctx context.Context, queries *sqlcgen.Querie
 
 // MoveChoicesToCopysFile moves what each person chose in a file confirmed to be a copy of another onto
 // that file, where they chose nothing of it there, in the copy's confirmation (library.CopyFold, D363
-// §2); what they chose of it in both, the file's stays.
+// §2); what they chose of it in both, the file's stays. Every person's sound offset moves the same
+// way (D537): the bytes are the same, and so is their sound's shift.
 func MoveChoicesToCopysFile(ctx context.Context, queries *sqlcgen.Queries, fromFileID, toFileID int64) error {
 	err := queries.MoveFilePreferencesToFile(ctx, sqlcgen.MoveFilePreferencesToFileParams{
 		ToFile: toFileID, FromFile: fromFileID,
 	})
 	if err == nil {
 		err = queries.DeleteFilePreferencesOfFile(ctx, fromFileID)
+	}
+	if err == nil {
+		err = queries.MoveFileSoundOffsetToFile(ctx, sqlcgen.MoveFileSoundOffsetToFileParams{
+			ToFile: toFileID, FromFile: fromFileID,
+		})
+	}
+	if err == nil {
+		err = queries.DeleteFileSoundOffset(ctx, fromFileID)
 	}
 	if err != nil {
 		return fmt.Errorf("move the choices made in file %d to file %d: %w", fromFileID, toFileID, err)

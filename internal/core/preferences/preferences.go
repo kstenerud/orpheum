@@ -88,11 +88,13 @@ type Language struct {
 
 // Preferences are the choices a person's playback of one file starts with (cut-a §5): what was
 // last used in the file when it was started, or else the person's last choice in its work, each
-// worked out against the file's tracks as they are now (D230); the file's subtitle offset; and
+// worked out against the file's tracks as they are now (D230); the file's subtitle and sound offsets; and
 // the person's own switches, which hold in every file (D223 §10).
 type Preferences struct {
 	// SubtitleOffsetMs shows the subtitles this many milliseconds later, or earlier when negative.
 	SubtitleOffsetMs int64
+	// SoundOffset is the file's sound offset for the person: every person's and their own (D537).
+	SoundOffset FileSoundOffset
 	// Subtitle is the subtitle track to start with; nil plays without subtitles.
 	Subtitle *TrackRef
 	// Audio is the audio track to start with; nil plays the file's main one.
@@ -158,10 +160,15 @@ func (service *Service) ForFile(
 		return Preferences{}, fmt.Errorf("read the preferences for file %d: %w", fileID, err)
 	}
 	var subtitleUsed, audioUsed *Used
+	var ownSoundOffset *int64
 	for _, preference := range own {
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
 			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.ValueJSON, 10, 64)
+		case axisSoundOffsetMs:
+			var offsetMs int64
+			offsetMs, err = strconv.ParseInt(preference.ValueJSON, 10, 64)
+			ownSoundOffset = &offsetMs
 		case axisSubtitleUsed:
 			subtitleUsed, err = decode[Used](preference.ValueJSON)
 		case axisAudioUsed:
@@ -170,6 +177,9 @@ func (service *Service) ForFile(
 		if err != nil {
 			return Preferences{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
+	}
+	if prefs.SoundOffset, err = fileSoundOffset(ctx, queries, fileID, ownSoundOffset); err != nil {
+		return Preferences{}, err
 	}
 	subtitleLanguage, audioLanguage, err := service.workLanguages(ctx, queries, userID, fileID)
 	if err != nil {

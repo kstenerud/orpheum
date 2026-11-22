@@ -74,6 +74,40 @@ func (service *Service) keepSubtitleOffset(
 	return service.preferences.KeepSubtitleOffset(ctx, queries, userID, fileID, offsetMs)
 }
 
+// SetSoundOffset keeps a person's own sound offset for a file they may play, which overrides every
+// person's for them, or with nil forgets it, so every person's holds for them again (D537). A file a
+// rescan removed meanwhile gets none.
+func (service *Service) SetSoundOffset(ctx context.Context, userID, fileID int64, offsetMs *int64) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
+			return err
+		}
+		if offsetMs == nil {
+			return service.preferences.ForgetSoundOffset(ctx, queries, userID, fileID)
+		}
+		return service.preferences.KeepSoundOffset(ctx, queries, userID, fileID, *offsetMs)
+	})
+	if err != nil {
+		return fmt.Errorf("keep a person's sound offset for file %d: %w", fileID, err)
+	}
+	return nil
+}
+
+// SetEveryonesSoundOffset keeps a file's sound offset for every person, an admin's (D537); 0 puts it
+// back in step. A file a rescan removed meanwhile gets none.
+func (service *Service) SetEveryonesSoundOffset(ctx context.Context, fileID, offsetMs int64) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
+			return err
+		}
+		return service.preferences.KeepEveryonesSoundOffset(ctx, queries, fileID, offsetMs)
+	})
+	if err != nil {
+		return fmt.Errorf("keep every person's sound offset for file %d: %w", fileID, err)
+	}
+	return nil
+}
+
 // AudioTrack is one of a video's own audio tracks, as a person chooses among them.
 type AudioTrack struct {
 	// StreamID is the track's stream row.

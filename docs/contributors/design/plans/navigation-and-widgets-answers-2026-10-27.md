@@ -4844,3 +4844,9 @@ the admin "This file needs this offset" so the admin can fix it for all users."
   by its arrows, sets the sound's timing", VQ378) and on "Sound on this device"; the rest, starting
   with the subtitles' Earlier and Later (subtitles.tsx), whose Later a remote cannot reach in ⁝,
   wait for the owner's walk of it on staging.
+
+**Server side built under D537** (2026-11-22): every person's offset (`PUT
+/files/{id}/sound-offset`, an admin's), a person's own (`PUT /files/{id}/preferences`,
+`soundOffsetMs` or `isSoundOffsetEveryones`), both in a playback's start (`fileSoundOffset`), and a
+report's `soundOffset` suggestion, listed for the admin. The gear, the number input and the report's
+"Apply to everyone" are the web client's.

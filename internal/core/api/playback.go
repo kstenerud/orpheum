@@ -124,6 +124,8 @@ type StartPlaybackOutputBody struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
 	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
+	// FileSoundOffset is the file's own sound offset, which the player adds to the device's (D537).
+	FileSoundOffset FileSoundOffsetBody `json:"fileSoundOffset"`
 	// Levelling brings the starting track's sound, played as it is, to the level; each sound in
 	// Tracks says its own, which a player levels the sound it hears by (D226).
 	Levelling LevellingBody `json:"levelling"`
@@ -525,6 +527,10 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	output.Body.SoundOffsetMs = started.SoundOffsetMs
+	fileOffset := started.Preferences.SoundOffset
+	output.Body.FileSoundOffset = FileSoundOffsetBody{
+		SoundOffsetMs: fileOffset.Ms(), EveryonesMs: fileOffset.EveryonesMs, OwnMs: fileOffset.OwnMs,
+	}
 	output.Body.Levelling = levellingBody(started.Levelling)
 	output.Body.Tracks = tracksBody(started.Tracks)
 	return output

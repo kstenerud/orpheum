@@ -18,6 +18,31 @@ func (q *Queries) DeleteFilePreferencesOfFile(ctx context.Context, fileID int64)
 	return err
 }
 
+const deletePreference = `-- name: DeletePreference :exec
+DELETE FROM preference
+WHERE user_id = ?1 AND scope = ?2 AND scope_id = ?3
+  AND axis = ?4
+`
+
+type DeletePreferenceParams struct {
+	UserID  int64
+	Scope   string
+	ScopeID int64
+	Axis    string
+}
+
+// A person's choice at one place forgotten: their own sound offset for a file, which then plays
+// with every person's (D537).
+func (q *Queries) DeletePreference(ctx context.Context, arg DeletePreferenceParams) error {
+	_, err := q.db.ExecContext(ctx, deletePreference,
+		arg.UserID,
+		arg.Scope,
+		arg.ScopeID,
+		arg.Axis,
+	)
+	return err
+}
+
 const deletePreferencesOfPurgedFiles = `-- name: DeletePreferencesOfPurgedFiles :exec
 DELETE FROM preference
 WHERE scope = 'file' AND scope_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))

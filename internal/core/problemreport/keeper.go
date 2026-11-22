@@ -88,6 +88,15 @@ type Request struct {
 	Device []Fact
 	// Playback is the playback the report was made from, if any.
 	Playback *PlaybackRequest
+	// SoundOffset is the file the person says needs a sound offset and the one they set for
+	// themselves, which the admin may make every person's (D537); nil for none.
+	SoundOffset *SoundOffset
+}
+
+// SoundOffset is a report's suggestion that a file needs a sound offset (D537): the file, and the
+// offset in milliseconds, later when positive, as a device's is.
+type SoundOffset struct {
+	FileID, OffsetMs int64
 }
 
 // PlaybackRequest is the player's state as the device sends it; the keeper adds the file's shape.
@@ -105,6 +114,9 @@ type Summary struct {
 	MadeAt   time.Time
 	Version  string
 	Words    string
+	// SoundOffset is the sound offset the report suggests for a file (D537); nil for none, or once
+	// the file is deleted.
+	SoundOffset *SoundOffset
 }
 
 // Make gathers a report, the core's recent log and each node's, and keeps it; it says the report's
@@ -135,10 +147,14 @@ func (keeper *Keeper) Make(ctx context.Context, request Request) (int64, error) 
 	var reportID int64
 	err = keeper.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var added error
-		reportID, added = queries.AddProblemReport(ctx, sqlcgen.AddProblemReportParams{
+		params := sqlcgen.AddProblemReportParams{
 			UserID: &request.UserID, MadeAt: now.UnixMilli(), Version: keeper.parts.Version, Words: request.Words,
 			GatheredJSON: string(encoded),
-		})
+		}
+		if suggested := request.SoundOffset; suggested != nil {
+			params.SoundFileID, params.SoundOffsetMs = &suggested.FileID, &suggested.OffsetMs
+		}
+		reportID, added = queries.AddProblemReport(ctx, params)
 		return added
 	})
 	if err != nil {
@@ -238,6 +254,9 @@ func (keeper *Keeper) List(ctx context.Context) ([]Summary, error) {
 		summary := Summary{ID: row.ID, MadeAt: time.UnixMilli(row.MadeAt).UTC(), Version: row.Version, Words: row.Words}
 		if row.UserName != nil {
 			summary.UserName = *row.UserName
+		}
+		if row.SoundFileID != nil && row.SoundOffsetMs != nil {
+			summary.SoundOffset = &SoundOffset{FileID: *row.SoundFileID, OffsetMs: *row.SoundOffsetMs}
 		}
 		summaries = append(summaries, summary)
 	}

@@ -2,14 +2,15 @@
 
 // Package preferences keeps a person's choices, the one place they live (the architecture map's F2
 // and F6): the subtitle and audio language last chosen in each work, what was last used in each
-// started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
+// started file, a file's subtitle offset, a file's sound offset, every person's and a person's own
+// (D537), and the switches that hold in every file, the dialogue
 // boost, levelling and autoplay (plans/up-next.md), and whether the person's pages show the tools
 // marked as debug tools; and the ordering a person watches each series
 // in (D159 §1), which internal/core/library resolves (ViewingOrdering). A choice is worked out
 // against a file's tracks when it plays, never copied between files (D230). Playback lists a
 // file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
-// through it. A device's sound is a fact about the device, kept on its row by internal/core/auth,
-// and no setting is a person's.
+// through it. A device's sound offset is a fact about the device, kept on its row by
+// internal/core/auth; a file's adds to it, so both apply to the sound (D537).
 //
 // # Invariants
 //
@@ -20,8 +21,15 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
-//   - It is the only package that writes the preference table. Enforced by
+//   - It is the only package that writes the preference and file_sound_offset tables. Enforced by
 //     TestArch_EachTableHasOneWritingPackage.
+//   - A file's sound offset is every person's, an admin's, until a person sets their own, which
+//     holds for them alone until they forget it; 0 for every person's leaves no row. A copy's fold
+//     gives the file kept every person's where it has none (D537). Enforced by
+//     TestSoundOffset_APersonsOwnOverridesEveryonesForThemUntilForgotten,
+//     TestMoveChoicesToCopysFile_MovesEveryonesSoundOffsetWhereTheFileHasNone and
+//     TestFileSoundOffset_EveryonesIsAnAdminsAndAPersonsOwnOverridesItUntilForgotten
+//     (internal/core/api).
 //   - The last subtitle and audio language a person chose in a series, or among a film's copies,
 //     is what its unwatched files start with, an episode added later and a file whose tracks changed
 //     included; a started file plays again with what was last used in it, which a choice made
@@ -63,10 +71,12 @@
 //   - D219 §1: a choice is kept per person and per file (its §2 to §4 are replaced by D230).
 //   - D83, D222, D226 §5: the boost and levelling are a person's.
 //   - plans/up-next.md: autoplay, the next episode played by itself after a countdown.
+//   - D537: a file's sound offset, every person's and a person's own.
 //
 // # Where to change
 //
 //   - preferences.go: what is kept and how a file's starting tracks are worked out from it.
 //     keep.go: the writes: a choice, what a started file used, an offset and the switches.
 //     libraries.go: the libraries left out of Films and Series, and out of Home.
+//     sound_offset.go: a file's sound offset, every person's and a person's own (D537).
 package preferences

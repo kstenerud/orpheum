@@ -339,7 +339,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow */
+        /** Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow, and their own sound offset for it */
         put: operations["setFilePreferences"];
         post?: never;
         delete?: never;
@@ -359,6 +359,23 @@ export interface paths {
         put?: never;
         /** Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5) */
         post: operations["retireFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/{id}/sound-offset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set, for every person, how far a file's sound is moved from its picture, which a person's own for the file overrides (D537) */
+        put: operations["setFileSoundOffset"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3652,6 +3669,23 @@ export interface components {
             channelCount: number;
             codec: string;
         };
+        FileSoundOffsetBody: {
+            /**
+             * Format: int64
+             * @description Every person's, an admin's; 0 for in step
+             */
+            everyonesMs: number;
+            /**
+             * Format: int64
+             * @description The person's own, which overrides every person's for them; absent for none
+             */
+            ownMs?: number;
+            /**
+             * Format: int64
+             * @description The offset the file plays with for the person: their own, or else every person's
+             */
+            soundOffsetMs: number;
+        };
         FilesOutputBody: {
             files: components["schemas"]["FileBody"][] | null;
             /** @description The next page's cursor; absent on the last */
@@ -4386,6 +4420,8 @@ export interface components {
             page: string;
             /** @description The player's state, when the report was made from the player */
             playback?: components["schemas"]["ProblemReportPlaybackBody"];
+            /** @description The file the person says needs a sound offset, and the one they suggest */
+            soundOffset?: components["schemas"]["ProblemReportSoundOffsetBody"];
             /** @description What went wrong, in the person's own words */
             words: string;
         };
@@ -4984,6 +5020,12 @@ export interface components {
             /** @description What it was doing: playing, stalled, paused */
             state?: string;
         };
+        ProblemReportSoundOffsetBody: {
+            /** Format: int64 */
+            fileId: number;
+            /** Format: int64 */
+            soundOffsetMs: number;
+        };
         ProblemReportsOutputBody: {
             /** @description Newest first, for the 60 days each is kept */
             reports: components["schemas"]["ProblemReportSummaryBody"][] | null;
@@ -4996,6 +5038,8 @@ export interface components {
              * @description When it was made, in Unix milliseconds
              */
             madeAt: number;
+            /** @description The file's sound offset the report suggests; absent for none */
+            soundOffset?: components["schemas"]["ProblemReportSoundOffsetBody"];
             /** @description Who made it; absent once their account is deleted */
             userName?: string;
             /** @description The version that made it */
@@ -5650,9 +5694,23 @@ export interface components {
         };
         SetFilePreferencesInputBody: {
             audioChoice?: components["schemas"]["AudioChoiceBody"];
+            /** @description Forget the person's own sound offset for the file, which then plays with every person's */
+            isSoundOffsetEveryones?: boolean;
+            /**
+             * Format: int64
+             * @description The person's own sound offset for the file, in ms: later when positive, earlier when negative; it overrides every person's for them
+             */
+            soundOffsetMs?: number;
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
+        };
+        SetFileSoundOffsetInputBody: {
+            /**
+             * Format: int64
+             * @description How far the file's sound is moved from its picture for every person, in ms: later when positive, earlier when negative; 0 for in step
+             */
+            soundOffsetMs: number;
         };
         SetItemPreferencesInputBody: {
             episodeOrdering?: string;
@@ -5886,6 +5944,7 @@ export interface components {
             delivery: "direct" | "hls";
             /** Format: int64 */
             fileBitRateKbps: number;
+            fileSoundOffset: components["schemas"]["FileSoundOffsetBody"];
             /** @description Whether the original file, chosen, starts on the ladder because the link remembered is short of its rate, to move to it once the link carries it */
             isOriginalWaitingForTheLink?: boolean;
             levelling: components["schemas"]["LevellingBody"];
@@ -7471,6 +7530,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RetiredOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setFileSoundOffset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetFileSoundOffsetInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

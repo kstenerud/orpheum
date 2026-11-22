@@ -36,6 +36,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     resumePositionMs: 0,
     mediaToken: "t",
     soundOffsetMs: 0,
+    fileSoundOffset: { soundOffsetMs: 0, everyonesMs: 0 },
     levelling: unlevelled.levelling,
     fileBitRateKbps: 2400,
     tracks: {
