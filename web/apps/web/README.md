@@ -1126,6 +1126,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/stepper.browser.test.tsx`, "reaches ⁝'s sound timing by a remote" in
   `src/player-menus.browser.test.tsx`, and the gallery's "shows a stepper among the buttons" in
   `src/ui-gallery.test.tsx`.
+- **A form is made of the parts, never of what they replace** (D538, interface rules 1 and 14): no
+  native `<select>`, no `type="number"`, no `placeholder=` but a search box's, no `<p role="alert">`
+  and no submit `disabled` by what its form holds. The sites there were when the rule came are
+  listed by file in `src/form-rules.test.ts`, each to be moved onto its part and taken off the list;
+  a new one fails.
 - **A setting that applies at once is a switch** (D538, interface rule 7): `Switch`
   (`src/switch.tsx`), one `<button role="switch">` whose `aria-checked` is its state, its label
   leading and its track at its end, the knob changing side as well as colour; a click, a tap, Space,
