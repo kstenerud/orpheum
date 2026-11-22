@@ -122,28 +122,7 @@ export function Choose(props: ChooseProps): JSX.Element {
       isLarge
       onClose={props.onClose}
       onBack={onBack}
-      footer={
-        <form className="file-browser__foot" onSubmit={submitWith(choose)}>
-          {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
-          <ActionRow
-            main={
-              <SubmitButton
-                label={
-                  at === undefined
-                    ? t("fileBrowser.useThis")
-                    : t("fileBrowser.use", { folder: folderName(at.path) })
-                }
-                isBusy={false}
-              />
-            }
-            secondary={
-              <button type="button" onClick={props.onClose}>
-                {t("dialog.cancel")}
-              </button>
-            }
-          />
-        </form>
-      }
+      footer={<ChooseFoot at={at} problem={problem} onChoose={choose} onClose={props.onClose} />}
     >
       {at === undefined ? (
         <ChoosePlaces
@@ -164,6 +143,39 @@ export function Choose(props: ChooseProps): JSX.Element {
         />
       )}
     </ModalDialog>
+  );
+}
+
+/** Choose's foot: what went wrong in choosing, Use the folder it is in, and Cancel. */
+function ChooseFoot(props: {
+  readonly at: ChooseAt | undefined;
+  readonly problem: string | undefined;
+  readonly onChoose: () => void;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { at, problem } = props;
+  return (
+    <form className="file-browser__foot" onSubmit={submitWith(props.onChoose)}>
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
+      <ActionRow
+        main={
+          <SubmitButton
+            label={
+              at === undefined
+                ? t("fileBrowser.useThis")
+                : t("fileBrowser.use", { folder: folderName(at.path) })
+            }
+            isBusy={false}
+          />
+        }
+        secondary={
+          <button type="button" onClick={props.onClose}>
+            {t("dialog.cancel")}
+          </button>
+        }
+      />
+    </form>
   );
 }
 
@@ -251,7 +263,7 @@ function ChooseFolder(props: ChooseMoves & { readonly at: ChooseAt }): JSX.Eleme
   return (
     <ChooseBrowser
       crumbs={crumbs}
-      shown={shownOf(listing, at, props.onGo, reload, t)}
+      shown={shownOf(listing, at, { onGo: props.onGo, reload, t })}
       moves={props}
       at={at}
     />
@@ -294,19 +306,25 @@ function crumbsOf(at: ChooseAt, onGo: (at: ChooseAt | undefined) => void, t: TFu
   ];
 }
 
+/** What a folder's listing in Choose needs: how to go to another, how to ask again, the words. */
+interface ListingUse {
+  readonly onGo: (at: ChooseAt | undefined) => void;
+  readonly reload: () => void;
+  readonly t: TFunction;
+}
+
 /** What a folder in Choose shows: its folders, each with its count where counted, or its state. */
 function shownOf(
   listing: Resource<FolderListing>,
   at: ChooseAt,
-  onGo: (at: ChooseAt | undefined) => void,
-  reload: () => void,
-  t: TFunction,
+  use: ListingUse,
 ): FileBrowserShown {
+  const { onGo, reload, t } = use;
   const folder = folderName(at.path);
   if (listing.state === "loading") {
     return { kind: "loading" };
   }
-  if (listing.state === "failed") {
+  if (listing.state === "failed" || listing.value.state === "failed") {
     return {
       kind: "told",
       told: { kind: "problem", text: t("fileBrowser.cantRead", { folder }), onTryAgain: reload },
@@ -339,12 +357,13 @@ function shownOf(
       },
     };
   }
-  if (value.state === "failed") {
-    return {
-      kind: "told",
-      told: { kind: "problem", text: t("fileBrowser.cantRead", { folder }), onTryAgain: reload },
-    };
-  }
+  return listedOf(value, at, use);
+}
+
+/** A readable folder in Choose: its folders, each with its count where counted, or that it has none. */
+function listedOf(value: FolderListing, at: ChooseAt, use: ListingUse): FileBrowserShown {
+  const { onGo, t } = use;
+  const folder = folderName(at.path);
   const rows = inNaturalOrder(value.folders, (name) => name).map((name): FileRow => {
     const count = value.videoCounts[name];
     return {

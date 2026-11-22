@@ -2,7 +2,8 @@
 
 import "./gallery-words.ts";
 
-import { type JSX } from "react";
+import type { JSX } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { FileBrowser, type FileBrowserShown, type FileRow } from "./file-browser.tsx";
@@ -23,7 +24,29 @@ export function GalleryFileBrowser(): JSX.Element {
     { key: "places", name: t("fileBrowser.places"), onOpen: () => undefined },
     { key: "here", name: "nas: /tank/media", onOpen: () => undefined },
   ];
-  const states: readonly { readonly key: string; readonly shown: FileBrowserShown }[] = [
+  return (
+    <section aria-labelledby="gallery-file-browser">
+      <h2 id="gallery-file-browser">{t("gallery.fileBrowser")}</h2>
+      {statesOf(t).map((state) => (
+        <div key={state.key} className="ui-gallery__notes">
+          <h3>{t(state.key)}</h3>
+          <FileBrowser
+            use="choose"
+            crumbs={state.key === "gallery.fileBrowserOffline" ? crumbs.slice(0, 1) : crumbs}
+            listLabel="media"
+            shown={state.shown}
+          />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** Each state the gallery shows, by its heading's key. */
+function statesOf(
+  t: TFunction,
+): readonly { readonly key: string; readonly shown: FileBrowserShown }[] {
+  return [
     { key: "gallery.fileBrowserLoading", shown: { kind: "loading" } },
     {
       key: "gallery.fileBrowserEmpty",
@@ -76,20 +99,4 @@ export function GalleryFileBrowser(): JSX.Element {
       },
     },
   ];
-  return (
-    <section aria-labelledby="gallery-file-browser">
-      <h2 id="gallery-file-browser">{t("gallery.fileBrowser")}</h2>
-      {states.map((state) => (
-        <div key={state.key} className="ui-gallery__notes">
-          <h3>{t(state.key)}</h3>
-          <FileBrowser
-            use="choose"
-            crumbs={state.key === "gallery.fileBrowserOffline" ? crumbs.slice(0, 1) : crumbs}
-            listLabel="media"
-            shown={state.shown}
-          />
-        </div>
-      ))}
-    </section>
-  );
 }

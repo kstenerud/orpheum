@@ -101,6 +101,35 @@ export function hasARoot(draft: NewLibrary): boolean {
  * folders: ticking one on another machine starts its folders there. A machine not connected is said,
  * its folders not offered.
  */
+/**
+ * A library's folders once one on nodeName is ticked or unticked: on its machine, among the others
+ * chosen there; on another machine, the library's folders start there, that one alone.
+ */
+function foldersTicked(
+  draft: NewLibrary,
+  nodeName: string,
+  ticked: { readonly folder: string; readonly isTicked: boolean },
+): string[] {
+  if (nodeName === draft.nodeName) {
+    return withRootChosen(draft.rootPaths ?? [], ticked.folder, ticked.isTicked);
+  }
+  return ticked.isTicked ? [ticked.folder] : [];
+}
+
+/** That each machine named is away, its folders not offered until it answers. */
+function AwayNodes(props: { readonly names: readonly string[] }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      {props.names.map((name) => (
+        <p key={name} className="create-library__away">
+          {t("libraries.nodeAway", { name })}
+        </p>
+      ))}
+    </>
+  );
+}
+
 function WhereItIs(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
@@ -116,18 +145,12 @@ function WhereItIs(props: {
   }
   const roots = draft.rootPaths ?? [];
   const tick = (nodeName: string, folder: string, isTicked: boolean): void => {
-    setFolders(
-      nodeName,
-      nodeName === draft.nodeName
-        ? withRootChosen(roots, folder, isTicked)
-        : isTicked
-          ? [folder]
-          : [],
-    );
+    setFolders(nodeName, foldersTicked(draft, nodeName, { folder, isTicked }));
   };
   const places = connected.flatMap((node) =>
     (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path })),
   );
+  const away = nodes.filter((node) => !node.isConnected).map((node) => node.name);
   return (
     <>
       <fieldset>
@@ -148,13 +171,7 @@ function WhereItIs(props: {
             }}
           />
         ))}
-        {nodes
-          .filter((node) => !node.isConnected)
-          .map((node) => (
-            <p key={node.name} className="create-library__away">
-              {t("libraries.nodeAway", { name: node.name })}
-            </p>
-          ))}
+        <AwayNodes names={away} />
       </fieldset>
       {places.length === 0 ? null : (
         <p>
@@ -162,7 +179,7 @@ function WhereItIs(props: {
             opener={t("libraries.browseInside")}
             heading={t("libraries.browseInsideHeading")}
             places={places}
-            away={nodes.filter((node) => !node.isConnected).map((node) => node.name)}
+            away={away}
             onChoose={(place) => {
               tick(place.nodeName, place.path, true);
             }}

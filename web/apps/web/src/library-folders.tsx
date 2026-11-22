@@ -15,12 +15,14 @@ import {
   type FileRow,
 } from "./file-browser.tsx";
 import { useCommands } from "./input-layer.tsx";
+import type { MoreAction } from "./more-actions.tsx";
 import { Still } from "./poster.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { itemRoute, type Route } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { orderQuery, type SortChoice } from "./sort-choices.ts";
 import type { Upward } from "./upward.ts";
+import type { Resource } from "./resource.ts";
 import { useResource } from "./use-resource.ts";
 
 type FolderVideo = components["schemas"]["FolderVideoBody"];
@@ -57,80 +59,97 @@ function lengthOf(video: FolderVideo, t: TFunction): string | undefined {
     : t("title.runtime", { minutes: Math.round(video.durationMs / 60_000) });
 }
 
+/** What a library's rows need: the library, how to go somewhere, a folder's route, the words. */
+interface FolderAt {
+  readonly libraryId: number;
+  readonly go: (route: Route) => void;
+  readonly folderRoute: (folder: string | undefined) => Route;
+  readonly t: TFunction;
+}
+
 /**
  * The rows of a library's folder (D539 §3): its folders first, then its videos, each in natural
  * order. A folder opens into its own; a video plays, resuming where it was left, its More offering
  * Play from the start, its title page where it is matched, and Show in Files.
  */
-function rowsOf(
-  folder: LibraryFolder,
-  libraryId: number,
-  go: (route: Route) => void,
-  folderRoute: (folder: string | undefined) => Route,
-  t: TFunction,
-): FileRow[] {
+function rowsOf(folder: LibraryFolder, at: FolderAt): FileRow[] {
   const folders = inNaturalOrder(folder.subfolders, (subfolder) => subfolder.name).map(
     (subfolder): FileRow => ({
       key: `folder:${subfolder.path}`,
       kind: "folder",
       name: subfolder.name,
-      details: t("fileBrowser.videos", { count: subfolder.videoCount }),
+      details: at.t("fileBrowser.videos", { count: subfolder.videoCount }),
       onOpen: () => {
-        go(folderRoute(subfolder.path));
+        at.go(at.folderRoute(subfolder.path));
       },
     }),
   );
-  const videos = inNaturalOrder(folder.videos, (video) => video.name).map((video): FileRow => {
-    const { title } = video;
-    const play = (atMs: number | undefined): void => {
-      go({
-        screen: "play",
-        fileId: video.fileId,
-        ...(title === undefined ? {} : { itemId: title.id }),
-        ...(atMs === undefined ? {} : { atMs }),
-      });
-    };
-    const percent = percentWatched(video);
-    return {
-      key: `video:${String(video.fileId)}`,
-      kind: "video",
-      name: video.name,
-      under: underOf(video, t),
-      details: lengthOf(video, t),
-      ...(percent === undefined ? {} : { percent }),
-      onOpen: () => {
-        play(video.resumePositionMs);
-      },
-      more: [
-        {
-          key: "start",
-          label: t("fileBrowser.playFromStart"),
-          onChoose: () => {
-            play(0);
-          },
-        },
-        ...(title === undefined
-          ? []
-          : [
-              {
-                key: "title",
-                label: t("fileBrowser.titlePage"),
-                onChoose: () => {
-                  go(itemRoute(title.kind, title.id));
-                },
-              },
-            ]),
-        {
-          key: "files",
-          label: t("fileBrowser.showInFiles"),
-          onChoose: () => {
-            go({ screen: "files", libraryId });
-          },
-        },
-      ],
-    };
-  });
+  const videos = inNaturalOrder(folder.videos, (video) => video.name).map((video) =>
+    videoRow(video, at),
+  );
   return [...folders, ...videos];
+}
+
+/** A video's row: OK plays it, resuming; its More is moreOf's. */
+function videoRow(video: FolderVideo, at: FolderAt): FileRow {
+  const { title } = video;
+  const play = (atMs: number | undefined): void => {
+    at.go({
+      screen: "play",
+      fileId: video.fileId,
+      ...(title === undefined ? {} : { itemId: title.id }),
+      ...(atMs === undefined ? {} : { atMs }),
+    });
+  };
+  const percent = percentWatched(video);
+  return {
+    key: `video:${String(video.fileId)}`,
+    kind: "video",
+    name: video.name,
+    under: underOf(video, at.t),
+    details: lengthOf(video, at.t),
+    ...(percent === undefined ? {} : { percent }),
+    onOpen: () => {
+      play(video.resumePositionMs);
+    },
+    more: moreOf(video, play, at),
+  };
+}
+
+/** A video's More: Play from the start, its title page where it is matched, Show in Files. */
+function moreOf(
+  video: FolderVideo,
+  play: (atMs: number | undefined) => void,
+  at: FolderAt,
+): MoreAction[] {
+  const { title } = video;
+  return [
+    {
+      key: "start",
+      label: at.t("fileBrowser.playFromStart"),
+      onChoose: () => {
+        play(0);
+      },
+    },
+    ...(title === undefined
+      ? []
+      : [
+          {
+            key: "title",
+            label: at.t("fileBrowser.titlePage"),
+            onChoose: () => {
+              at.go(itemRoute(title.kind, title.id));
+            },
+          },
+        ]),
+    {
+      key: "files",
+      label: at.t("fileBrowser.showInFiles"),
+      onChoose: () => {
+        at.go({ screen: "files", libraryId: at.libraryId });
+      },
+    },
+  ];
 }
 
 /** The path bar's crumbs from where the folder sits: the library, each folder above, the folder. */
@@ -161,15 +180,53 @@ export function LibraryFolders(props: {
   readonly folderRoute: (folder: string | undefined) => Route;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api, navigation } = useServices();
-  const { libraryId, folder, choice, upward } = props;
+  const { navigation } = useServices();
+  const { upward } = props;
   const ref = useRef<HTMLDivElement>(null);
+  const [result, reload] = useFolder(props.libraryId, props.folder, props.choice);
+  const parent = upward.crumbs.at(-1);
+  const up =
+    parent === undefined
+      ? undefined
+      : (): void => {
+          navigation.up(parent.to, parent.isIt);
+        };
+  useCommands(ref, (detail, event) => {
+    if (detail.command === "back" && up !== undefined) {
+      event.preventDefault();
+      up();
+    }
+  });
+  const go = (route: Route): void => {
+    navigation.go(route);
+  };
+  const at: FolderAt = { libraryId: props.libraryId, go, folderRoute: props.folderRoute, t };
+  const videos = result.state === "loaded" ? result.value.videos : [];
+  return (
+    <div ref={ref} className="library-folders">
+      <FileBrowser
+        use="browse"
+        crumbs={crumbsOf(upward, go)}
+        listLabel={upward.here}
+        shown={shownOf(result, at, { here: upward.here, reload, up })}
+        side={(row) => <SidePanel row={row} videos={videos} />}
+      />
+    </div>
+  );
+}
+
+/** A library's folder, sorted as chosen, the whole of it in one answer (D475). */
+function useFolder(
+  libraryId: number,
+  folder: string | undefined,
+  choice: SortChoice,
+): [Resource<LibraryFolder>, () => void] {
+  const { api } = useServices();
   // An other library's folder has no release date to sort by; its sorts never offer one.
   const sort = choice.sort === "released" ? "recorded" : choice.sort;
-  const [result, reload] = useResource(
+  return useResource(
     `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}/${choice.order}`,
     async (): Promise<LibraryFolder> => {
-      // No limit: the whole folder in one answer (D475).
       const page = dataOrThrow(
         await api.GET("/libraries/{id}/folders", {
           params: {
@@ -182,61 +239,42 @@ export function LibraryFolders(props: {
     },
     { poller: useBackgroundChangesPoller() },
   );
-  const parent = upward.crumbs.at(-1);
-  useCommands(ref, (detail, event) => {
-    if (detail.command === "back" && parent !== undefined) {
-      event.preventDefault();
-      navigation.up(parent.to, parent.isIt);
-    }
-  });
-  const go = (route: Route): void => {
-    navigation.go(route);
+}
+
+/** What Browse shows of a folder's answer: loading, a problem to try again, or its rows. */
+function shownOf(
+  result: Resource<LibraryFolder>,
+  at: FolderAt,
+  folder: {
+    readonly here: string;
+    readonly reload: () => void;
+    readonly up?: (() => void) | undefined;
+  },
+): FileBrowserShown {
+  if (result.state === "loading") {
+    return { kind: "loading" };
+  }
+  if (result.state === "failed") {
+    return {
+      kind: "told",
+      told: {
+        kind: "problem",
+        text: at.t("fileBrowser.cantRead", { folder: folder.here }),
+        onTryAgain: folder.reload,
+      },
+    };
+  }
+  return {
+    kind: "listed",
+    groups: [{ key: "here", rows: rowsOf(result.value, at) }],
+    empty: {
+      kind: "empty",
+      text: at.t("fileBrowser.noVideos", { folder: folder.here }),
+      ...(folder.up === undefined
+        ? {}
+        : { next: { label: at.t("fileBrowser.up"), onPress: folder.up } }),
+    },
   };
-  const here = upward.here;
-  const videos = result.state === "loaded" ? result.value.videos : [];
-  const shown: FileBrowserShown =
-    result.state === "loading"
-      ? { kind: "loading" }
-      : result.state === "failed"
-        ? {
-            kind: "told",
-            told: {
-              kind: "problem",
-              text: t("fileBrowser.cantRead", { folder: here }),
-              onTryAgain: reload,
-            },
-          }
-        : {
-            kind: "listed",
-            groups: [
-              { key: "here", rows: rowsOf(result.value, libraryId, go, props.folderRoute, t) },
-            ],
-            empty: {
-              kind: "empty",
-              text: t("fileBrowser.noVideos", { folder: here }),
-              ...(parent === undefined
-                ? {}
-                : {
-                    next: {
-                      label: t("fileBrowser.up"),
-                      onPress: () => {
-                        navigation.up(parent.to, parent.isIt);
-                      },
-                    },
-                  }),
-            },
-          };
-  return (
-    <div ref={ref} className="library-folders">
-      <FileBrowser
-        use="browse"
-        crumbs={crumbsOf(upward, go)}
-        listLabel={here}
-        shown={shown}
-        side={(row) => <SidePanel row={row} videos={videos} />}
-      />
-    </div>
-  );
 }
 
 /**
@@ -275,8 +313,8 @@ function SideStill(props: { readonly itemId: number }): JSX.Element | null {
   return (
     <Still
       className="file-browser__side-still"
-      sourceSha256={art?.stillSha256 ?? art?.noPosterStillSha256}
-      isNoPosterMarked={art?.stillSha256 === undefined}
+      sourceSha256={art.stillSha256 ?? art.noPosterStillSha256}
+      isNoPosterMarked={art.stillSha256 === undefined}
     />
   );
 }

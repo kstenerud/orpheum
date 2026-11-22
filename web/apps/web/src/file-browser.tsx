@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type JSX,
+  type MouseEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -222,45 +223,54 @@ function useArrival(
   arrivalKey: string | undefined,
 ): void {
   const arrivalRef = useRef(arrivalKey);
-  arrivalRef.current = arrivalKey;
+  useLayoutEffect(() => {
+    arrivalRef.current = arrivalKey;
+  });
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (root === null) {
-      return;
+    if (root !== null && isFocusOurs(root)) {
+      arrivalIn(root, arrivalRef.current)?.focus();
     }
-    const focused = document.activeElement;
-    const around = root.closest("dialog") ?? root;
-    const isOurs =
-      focused === null ||
-      focused === document.body ||
-      around.contains(focused) ||
-      !focused.isConnected;
-    if (!isOurs) {
-      return;
-    }
-    const rows = [...root.querySelectorAll<HTMLElement>(".file-browser__row")];
-    const arrival =
-      rows.find((row) => row.dataset["rowKey"] === arrivalRef.current) ??
-      rows[0] ??
-      root.querySelector<HTMLElement>(".file-browser__shown button") ??
-      around.querySelector<HTMLElement>("button[type='submit']") ??
-      root.querySelector<HTMLElement>(".file-browser__bar button");
-    arrival?.focus();
   }, [rootRef, shownKey]);
+}
+
+/** Whether focus is inside the browser, in the dialog around it, or nowhere. */
+function isFocusOurs(root: HTMLElement): boolean {
+  const focused = document.activeElement;
+  const around = root.closest("dialog") ?? root;
+  return (
+    focused === null ||
+    focused === document.body ||
+    around.contains(focused) ||
+    !focused.isConnected
+  );
+}
+
+/** Where focus arrives in the browser at root: see useArrival. */
+function arrivalIn(root: HTMLElement, arrivalKey: string | undefined): HTMLElement | null {
+  const around = root.closest("dialog") ?? root;
+  const rows = [...root.querySelectorAll<HTMLElement>(".file-browser__row")];
+  return (
+    rows.find((row) => row.dataset["rowKey"] === arrivalKey) ??
+    rows[0] ??
+    root.querySelector<HTMLElement>(".file-browser__shown button") ??
+    around.querySelector<HTMLElement>("button[type='submit']") ??
+    root.querySelector<HTMLElement>(".file-browser__bar button")
+  );
 }
 
 /** A row focus rested on for sidePanelRestMs, told to onRested; a move before then starts again. */
 function useRest(onRested: (row: FileRow | undefined) => void): (row: FileRow) => void {
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(
     () => () => {
-      clearTimeout(timer.current);
+      clearTimeout(timerRef.current);
     },
     [],
   );
   return (row) => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
       onRested(row);
     }, sidePanelRestMs);
   };
@@ -369,6 +379,43 @@ function RowIcon(props: { readonly kind: FileRow["kind"] }): JSX.Element {
   return props.kind === "folder" ? <FolderIcon /> : <VideoFileIcon />;
 }
 
+/** Opens the ⋯ of a row a right click or a long press was on, where it has one. */
+function openMoreOf(event: MouseEvent<HTMLButtonElement>): void {
+  const more =
+    event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(".more-actions__button");
+  if (more !== null && more !== undefined) {
+    event.preventDefault();
+    more.click();
+  }
+}
+
+/** What a row says after its name: its details, how much of it is watched, or that it all is. */
+function RowDetails(props: { readonly row: FileRow; readonly id: string }): JSX.Element {
+  const { t } = useTranslation();
+  const { row } = props;
+  return (
+    <span id={props.id} className="file-browser__details">
+      {row.details === undefined ? null : <span>{row.details}</span>}
+      {row.percent === undefined || row.isWatched === true ? null : (
+        <span className="file-browser__progress">
+          <progress value={row.percent} max={100} aria-hidden="true" />
+          <span className="file-browser__said">
+            {t("fileBrowser.percentWatched", { percent: row.percent })}
+          </span>
+        </span>
+      )}
+      {row.isWatched === true ? (
+        <span className="file-browser__watched">
+          <WatchedIcon />
+          <span className="file-browser__said">
+            {row.kind === "folder" ? t("fileBrowser.allWatched") : t("fileBrowser.watched")}
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /**
  * One row (D539 §1): one press, its whole name its name for a screen reader, what it says under and
  * after its name read after it; a video's ⋯ beside it, which a right click or a long press opens too.
@@ -394,16 +441,7 @@ function Row(props: {
         onFocus={() => {
           props.onRest(row);
         }}
-        onContextMenu={(event) => {
-          const more =
-            event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
-              ".more-actions__button",
-            );
-          if (more !== null && more !== undefined) {
-            event.preventDefault();
-            more.click();
-          }
-        }}
+        onContextMenu={openMoreOf}
       >
         <RowIcon kind={row.kind} />
         <span className="file-browser__text">
@@ -414,25 +452,7 @@ function Row(props: {
             </span>
           )}
         </span>
-        <span id={aboutId} className="file-browser__details">
-          {row.details === undefined ? null : <span>{row.details}</span>}
-          {row.percent === undefined || row.isWatched === true ? null : (
-            <span className="file-browser__progress">
-              <progress value={row.percent} max={100} aria-hidden="true" />
-              <span className="file-browser__said">
-                {t("fileBrowser.percentWatched", { percent: row.percent })}
-              </span>
-            </span>
-          )}
-          {row.isWatched === true ? (
-            <span className="file-browser__watched">
-              <WatchedIcon />
-              <span className="file-browser__said">
-                {row.kind === "folder" ? t("fileBrowser.allWatched") : t("fileBrowser.watched")}
-              </span>
-            </span>
-          ) : null}
-        </span>
+        <RowDetails row={row} id={aboutId} />
       </button>
       {hasMore ? (
         <MoreActions
