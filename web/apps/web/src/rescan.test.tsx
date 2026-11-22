@@ -7,6 +7,7 @@ import { afterEach, expect, it } from "vitest";
 
 import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
+import { currentNotice } from "./notice.ts";
 import { SeriesView, type SeriesDetail } from "./series.tsx";
 import { Title, type TitleDetail } from "./title.tsx";
 import {
@@ -128,7 +129,7 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
       ),
     );
   mounted = await asAdmin();
-  let page = mounted.container;
+  const page = mounted.container;
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Identified incorrectly"));
   expect(buttonWithText(page, "Rescan")).toBeUndefined();
@@ -142,12 +143,13 @@ it("rescans a series from its page's menu, for an admin alone, and not from its 
     await click(buttonWithText(opened, "Yes"));
     return opened;
   };
-  page = await rescanFromTheMenu();
-  expect(page.textContent).toContain(
+  await rescanFromTheMenu();
+  await settleUntil(() => currentNotice() !== undefined);
+  expect(currentNotice()?.text).toContain(
     "its files are read again, then it is matched again from them.",
   );
-  page = await rescanFromTheMenu();
-  expect(page.textContent).toContain("A rescan of it, or of its library, is already running.");
+  await rescanFromTheMenu();
+  await settleUntil(() => currentNotice()?.text.includes("already running") === true);
   expect(rescansPosted(heard)).toEqual(["POST /items/12/rescan", "POST /items/12/rescan"]);
 });
 
@@ -187,7 +189,7 @@ it("offers an admin Rescan in an other video's menu, and none on an extra's page
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
   await click(buttonWithText(page, "Yes"));
-  await settleUntil(() => page.textContent.includes("its files are read again"));
+  await settleUntil(() => currentNotice()?.text.includes("its files are read again") === true);
   expect(rescansPosted(heard)).toContain("POST /items/14/rescan");
   mounted.unmount();
   mounted = await mount(withServices(asAdmin(15), services));
@@ -283,6 +285,9 @@ it("asks before a video's rescan, without hours, and discards what was made when
   await click(buttonWithText(page, "Rescan"));
   await click(discardBox(page));
   await click(buttonWithText(page, "Yes"));
-  expect(page.textContent).toContain("its files are read again");
+  // Yes closes the question at once, and the notice, outside it, says the rescan started.
+  expect(page.querySelector("dialog")).toBeNull();
+  expect(page.textContent).not.toContain("Do a rescan?");
+  await settleUntil(() => currentNotice()?.text.includes("its files are read again") === true);
   expect(rescansPosted(heard)).toEqual(["POST /items/12/rescan?discard=true"]);
 });

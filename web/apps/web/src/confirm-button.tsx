@@ -112,14 +112,12 @@ export function ConfirmDialog(props: {
   readonly keepLabel?: string;
   /** A choice to tick with the action, unticked as the dialog opens: the box's words. */
   readonly option?: string;
-  /** Whether confirming closes the dialog, as it does unless false: false leaves it to the caller. */
-  readonly closesOnConfirm?: boolean;
   /** The action, told whether the option was ticked. */
   readonly onConfirm: (isOptionTicked: boolean) => void;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [isOptionTicked, setOptionTicked] = useState(false);
+  const [isOptionTicked, setIsOptionTicked] = useState(false);
   return (
     <ModalDialog label={props.heading} onClose={props.onClose}>
       <h2>{props.heading}</h2>
@@ -130,7 +128,9 @@ export function ConfirmDialog(props: {
             <input
               type="checkbox"
               checked={isOptionTicked}
-              onChange={(event) => setOptionTicked(event.target.checked)}
+              onChange={(event) => {
+                setIsOptionTicked(event.target.checked);
+              }}
             />{" "}
             {props.option}
           </label>
@@ -145,7 +145,7 @@ export function ConfirmDialog(props: {
           className="irreversible"
           {...dangerousMark}
           onClick={() => {
-            if (props.closesOnConfirm !== false) props.onClose();
+            props.onClose();
             props.onConfirm(isOptionTicked);
           }}
         >

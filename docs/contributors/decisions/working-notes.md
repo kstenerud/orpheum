@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided; 1–5 in place, 6 to build.
+**Status:** decided and built.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30736,7 +30736,7 @@ D357 §1's limit of a rescan to a film or a series.
    that we'll encounter going forward"): a library's rescan corrects what a change to the code
    touches across many files; a page's is for the one the code still gets wrong.
 
-**Built** (2026-11-22): 1–5. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+**Built** (2026-11-22): all six. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
 rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
 "files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
@@ -30746,6 +30746,17 @@ Every rescan is the full one: the API's `full` flag and identify's kind of resca
 library of any kind and a film, series, episode or other video are rescanned, an extra refused.
 The web offers Rescan in a video page's "…" (`rescan-action.tsx`), and "Scan now" and "Rescan" on
 every library's page; "Identified incorrectly" offers Enter manually and Report this alone.
+§6: every Rescan asks first in the one `ConfirmDialog`, given its Yes and No and the box; ticked, it
+sends `?discard=true`, an admin's alone, on each of the three rescans. The flag rides the rescan and
+its scan, per path beside what is read again, so a joined or following scan keeps it; each file read
+again under it has every derived thing treated as touched and thrown out by the drop path a
+difference uses: picture and sound chunks, loudness, the picture timeline, subtitle text and frame
+stills. Its films and series lose their kept search answers and fitted runtimes and every image a
+person did not choose (an episode's too), and the record of one matched again to the same work, or
+left alone as a person or its NFO set it, is fetched again. The new columns raise cache.db's version
+to 55, so the first start after it rebuilds cache.db. Not yet thrown out, left for the owner: repeat
+fingerprints (`repeat_measurement`) and fetch failures; fetched subtitles are kept, as each costs
+the provider's quota.
 
 **Proven by:**
 - 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
@@ -30753,3 +30764,4 @@ every library's page; "Identified incorrectly" offers Enter manually and Report 
 - 3: `TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused`, `TestRescan_OneItemRescansItsFilesAndRematchesIt` (internal/core/identify); `rescan.test.tsx`: a series' and an other video's menu, none on an extra's
 - 4: `TestRescan_EveryLibraryWhateverItHolds`, `TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched` (internal/core/identify); `rescan.test.tsx`: a library of other videos' Rescan
 - 5: `TestRescan_IsForAnAdminOnly` (internal/core/api), `TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot` (internal/core/library), `TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain` (internal/core/identify); `rescan.test.tsx`, `title.test.tsx`: no Full rescan anywhere, no rescan in "Identified incorrectly"
+- 6: `TestScans_ADiscardingRescanThrowsOutEverythingMadeOfAnUnchangedFile`, `TestRescan_ADiscardingRescanAsksItsScanToDiscard` (internal/core/library), `TestRescan_ADiscardingRescanThrowsOutWhatWasFetchedButKeepsAPersonsDoing`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestDiscardImages_RetiresEveryImageButAPersonsChoice` (internal/core/artwork), `TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI` (internal/core/api); `web/apps/web/src/rescan.test.tsx`: Scan now asks nothing, a rescan sends nothing until Yes nor on No, the box sends discard, a video's question says no hours

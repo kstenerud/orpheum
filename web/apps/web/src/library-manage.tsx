@@ -448,39 +448,41 @@ function LibraryButtons(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { library, onRescan } = props;
-  const [isAskingToRescan, setAskingToRescan] = useState(false);
+  const [isAskingToRescan, setIsAskingToRescan] = useState(false);
   return (
-    <p>
-      <button type="button" {...arrivalMark} onClick={props.onScan}>
-        {(library.roots ?? []).some((root) => root.scan !== undefined)
-          ? t("libraries.scanAgainAfter")
-          : t("libraries.scan")}
-      </button>
-      {onRescan === undefined ? null : (
-        <>
-          {" "}
-          <button
-            type="button"
-            title={t("libraries.rescanHelp")}
-            onClick={() => {
-              setAskingToRescan(true);
-            }}
-          >
-            {t("libraries.rescan")}
-          </button>
-          {isAskingToRescan ? (
-            <RescanQuestion
-              isLong
-              onRescan={onRescan}
-              onClose={() => {
-                setAskingToRescan(false);
+    <>
+      <p>
+        <button type="button" {...arrivalMark} onClick={props.onScan}>
+          {(library.roots ?? []).some((root) => root.scan !== undefined)
+            ? t("libraries.scanAgainAfter")
+            : t("libraries.scan")}
+        </button>
+        {onRescan === undefined ? null : (
+          <>
+            {" "}
+            <button
+              type="button"
+              title={t("libraries.rescanHelp")}
+              onClick={() => {
+                setIsAskingToRescan(true);
               }}
-            />
-          ) : null}
-        </>
-      )}{" "}
-      <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>
-    </p>
+            >
+              {t("libraries.rescan")}
+            </button>
+          </>
+        )}{" "}
+        <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>
+      </p>
+      {onRescan === undefined || !isAskingToRescan ? null : (
+        <RescanQuestion
+          isLong
+          onRescan={onRescan}
+          onClose={() => {
+            setIsAskingToRescan(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 

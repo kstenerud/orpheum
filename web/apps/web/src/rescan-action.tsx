@@ -2,17 +2,17 @@
 
 import "./libraries-words.ts";
 
-import { useState, type JSX } from "react";
+import type { Api, paths } from "@orpheum/sdk";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { identifyProblemText } from "./candidate-chooser.tsx";
 import { ConfirmDialog } from "./confirm-button.tsx";
-import { idempotent } from "./idempotent.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import type { MoreAction } from "./more-actions.tsx";
+import { showNotice } from "./notice.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { useRequest } from "./use-request.ts";
 
 /**
  * An admin's "Rescan" in a video page's "…" menu, a film's, a series', an episode's or an other
@@ -28,7 +28,7 @@ export function rescanAction(
   return {
     key: "rescan",
     label: t("libraries.rescan"),
-    dialog: (close) => <RescanDialog itemId={itemId} onClose={close} />,
+    dialog: (close) => <ItemRescanQuestion itemId={itemId} onClose={close} />,
   };
 }
 
@@ -41,8 +41,6 @@ export function RescanQuestion(props: {
   readonly isLong: boolean;
   readonly onRescan: (isDiscarding: boolean) => void;
   readonly onClose: () => void;
-  /** Whether Yes closes the question, as it does unless false. */
-  readonly closesOnConfirm?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -52,60 +50,60 @@ export function RescanQuestion(props: {
       confirmLabel={t("libraries.rescanYes")}
       keepLabel={t("libraries.rescanNo")}
       option={t("libraries.rescanDiscard")}
-      closesOnConfirm={props.closesOnConfirm ?? true}
       onConfirm={props.onRescan}
       onClose={props.onClose}
     />
   );
 }
 
+/** A rescan's query, the same on each of the three rescans (D535 §6). */
+type RescanQuery = NonNullable<paths["/items/{id}/rescan"]["post"]["parameters"]["query"]>;
+
 /** A rescan request's query: discard, when the question's box was ticked (D535 §6). */
-export function discardQuery(isDiscarding: boolean): { readonly discard?: true } {
+export function discardQuery(isDiscarding: boolean): RescanQuery {
   return isDiscarding ? { discard: true } : {};
 }
 
-/** The dialog "Rescan" opens: the question, then whether the rescan started. */
-function RescanDialog(props: {
+/**
+ * The question a video page's Rescan opens, alone: Yes closes it at once, and the rescan's start, or
+ * its failure to start, is told in the shell's notice (notice.ts), outside any dialog (the owner,
+ * 2026-11-22: "It should have dismissed the box when I rescanned").
+ */
+function ItemRescanQuestion(props: {
   readonly itemId: number;
   readonly onClose: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [isAsked, setAsked] = useState(false);
-  const [note, setNote] = useState("");
-  const rescanning = useRequest((cause) => identifyProblemText(t, cause));
-  const heading = t("libraries.rescan");
-  if (!isAsked) {
-    return (
-      <RescanQuestion
-        isLong={false}
-        closesOnConfirm={false}
-        onClose={props.onClose}
-        onRescan={(isDiscarding) => {
-          setAsked(true);
-          rescanning.runRequest(async (idempotencyKey) => {
-            const answer = dataOrThrow(
-              await api.POST("/items/{id}/rescan", {
-                params: { path: { id: props.itemId }, query: discardQuery(isDiscarding) },
-                ...idempotent(idempotencyKey),
-              }),
-            );
-            setNote(
-              answer.isStarted
-                ? t("libraries.rescanThisStarted")
-                : t("libraries.rescanThisRunning"),
-            );
-          });
-        }}
-      />
-    );
-  }
   return (
-    <ModalDialog label={heading} onClose={props.onClose}>
-      <h2>{heading}</h2>
-      <p>{t("libraries.rescanThisHelp")}</p>
-      {note === "" ? null : <output>{note}</output>}
-      {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
-    </ModalDialog>
+    <RescanQuestion
+      isLong={false}
+      onClose={props.onClose}
+      onRescan={(isDiscarding) => {
+        void rescanItem(api, t, { itemId: props.itemId, isDiscarding });
+      }}
+    />
   );
+}
+
+/** Asks the item's rescan, then says in the notice whether it started, or why it could not. */
+async function rescanItem(
+  api: Api,
+  t: ReturnType<typeof useTranslation>["t"],
+  asked: { readonly itemId: number; readonly isDiscarding: boolean },
+): Promise<void> {
+  const { itemId, isDiscarding } = asked;
+  try {
+    const answer = dataOrThrow(
+      await api.POST("/items/{id}/rescan", {
+        params: { path: { id: itemId }, query: discardQuery(isDiscarding) },
+        ...idempotent(newIdempotencyKey()),
+      }),
+    );
+    showNotice(
+      answer.isStarted ? t("libraries.rescanThisStarted") : t("libraries.rescanThisRunning"),
+    );
+  } catch (cause: unknown) {
+    showNotice(identifyProblemText(t, cause));
+  }
 }

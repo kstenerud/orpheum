@@ -6,7 +6,7 @@ import "./libraries.css";
 
 import type { Api, components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
@@ -131,31 +131,41 @@ export function LibraryRow(props: { readonly library: Library }): JSX.Element {
 /**
  * "Rescan everything": every library, whatever it holds, read again entirely, every file changed on
  * disk or not (D392), then each film and series in it matched again from its files, in the
- * background (D357 §1, D535 §4, §5). It says how many started.
+ * background (D357 §1, D535 §4, §5). It says how many started. It draws the page's paragraph of
+ * actions, the others first, and its question after the paragraph, which cannot hold a dialog.
  */
-export function RescanEverything(props: { readonly onStarted: () => void }): JSX.Element {
+export function RescanEverything(props: {
+  readonly onStarted: () => void;
+  /** The page's other actions, before it in the paragraph. */
+  readonly children: ReactNode;
+}): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [note, setNote] = useState("");
-  const [isAsking, setAsking] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
   const rescanning = useRequest((cause) => problemText(t, cause));
   return (
     <>
-      <button
-        type="button"
-        title={t("libraries.rescanHelp")}
-        disabled={rescanning.isBusy}
-        onClick={() => {
-          setAsking(true);
-        }}
-      >
-        {t("libraries.rescanEverything")}
-      </button>
+      <p className="libraries__actions">
+        {props.children}{" "}
+        <button
+          type="button"
+          title={t("libraries.rescanHelp")}
+          disabled={rescanning.isBusy}
+          onClick={() => {
+            setIsAsking(true);
+          }}
+        >
+          {t("libraries.rescanEverything")}
+        </button>
+        {note === "" ? null : <output>{note}</output>}
+        {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
+      </p>
       {isAsking ? (
         <RescanQuestion
           isLong
           onClose={() => {
-            setAsking(false);
+            setIsAsking(false);
           }}
           onRescan={(isDiscarding) => {
             setNote("");
@@ -172,8 +182,6 @@ export function RescanEverything(props: { readonly onStarted: () => void }): JSX
           }}
         />
       ) : null}
-      {note === "" ? null : <output>{note}</output>}
-      {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
     </>
   );
 }
@@ -195,12 +203,11 @@ export function Libraries(): JSX.Element {
   return (
     <section className="libraries" aria-labelledby="libraries-heading">
       <h1 id="libraries-heading">{t("libraries.heading")}</h1>
-      <p className="libraries__actions">
+      <RescanEverything onStarted={reload}>
         <Link to={{ screen: "new-library" }} className="libraries__create">
           {t("libraries.createHeading")}
-        </Link>{" "}
-        <RescanEverything onStarted={reload} />
-      </p>
+        </Link>
+      </RescanEverything>
       <Loaded
         resource={libraries}
         render={(value) =>
