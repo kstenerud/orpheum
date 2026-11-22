@@ -3,7 +3,7 @@
 /* A modal dialog in the middle of the screen, the page darkened behind it (the owner, 2026-10-11). */
 .modal-dialog {
   width: min(26rem, 92vw);
-  max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
   padding: var(--space-4);
   border: 1px solid var(--color-border);
@@ -12,6 +12,7 @@
   background: var(--color-surface-raised);
   color: var(--color-text);
   box-shadow: var(--shadow-card-hover);
+  visibility: visible;
 }
 
 /* A dialog that scrolls stops at its own ends rather than handing the rest to the page. */
@@ -24,6 +25,11 @@
   width: min(40rem, 92vw);
 }
 
+/* A confirm, a short question before what cannot be undone, as narrow at any width (D538 §4). */
+.modal-dialog--confirm {
+  width: min(24rem, 92vw);
+}
+
 /* A notice whose top edge is the warning yellow, as an iPhone without headphones talks (the owner,
    2026-10-11). */
 .modal-dialog--warning {
@@ -34,18 +40,87 @@
   background: var(--color-backdrop);
 }
 
-/* Every dialog's Close, the standard one (modal-dialog.tsx): a cross at its top-right, room kept for
-   it beside the dialog's first line (the owner, 2026-10-30). A modal dialog is fixed to the screen,
-   so the cross is placed against it. */
-.modal-dialog {
-  padding-inline-end: calc(var(--size-control) + var(--space-2));
+/* A dialog another has replaced (D538 §5): still open under it, so what the new one holds can be
+   drawn inside it, but not shown, nor its darkening, so the screen shows one dialog at a time. */
+.modal-dialog[data-replaced] {
+  visibility: hidden;
 }
 
-.modal-dialog > .modal-dialog__close {
+.modal-dialog[data-replaced]::backdrop {
+  background: transparent;
+}
+
+/* A dialog of parts: its heading at its top and its buttons at its foot stay in view while its body
+   scrolls between them (D538 §2). */
+.modal-dialog--parts[open] {
   display: flex;
-  position: absolute;
-  inset-block-start: var(--space-1);
-  inset-inline-end: var(--space-1);
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.modal-dialog__head {
+  flex: none;
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+.modal-dialog__head > h2 {
+  margin: 0;
+}
+
+.modal-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4);
+}
+
+.modal-dialog__foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
+/* On a phone, a sheet from the screen's bottom, the width of the screen, rising as it opens; its
+   foot clear of the browser's own bar (the safe area) and its buttons the width of the sheet, one
+   under another (D538 §2). */
+@keyframes modal-dialog-rise {
+  from {
+    translate: 0 100%;
+  }
+}
+
+@media (width < 36rem) {
+  .modal-dialog,
+  .modal-dialog--wide,
+  .modal-dialog--confirm {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    border-inline: none;
+    border-block-end: none;
+    border-radius: 0;
+    padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+    animation: modal-dialog-rise var(--duration-slow) var(--easing-standard);
+  }
+
+  .modal-dialog--parts[open] {
+    padding-block-end: 0;
+  }
+
+  .modal-dialog__foot {
+    flex-direction: column;
+    padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+  }
+
+  .modal-dialog__foot > * {
+    width: 100%;
+  }
 }
 
 /* Focus resting on the dialog itself, every choice it offers dangerous (D421 §2), shows no ring:

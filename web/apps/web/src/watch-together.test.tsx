@@ -438,9 +438,11 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
       .querySelector(".watch-together__dialog")
       ?.closest<HTMLElement>('dialog[aria-label="Gran"]');
     expect(dialog?.textContent).toContain("Gran's voice");
-    await click(
-      (dialog ?? mounted.container).querySelector<HTMLButtonElement>(".modal-dialog__close button"),
-    );
+    // Closed as Escape closes it, the dialog having no cross (D538 §2).
+    await act(async () => {
+      dialog?.dispatchEvent(new Event("cancel", { cancelable: true }));
+      await Promise.resolve();
+    });
     expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
     setFilmVolume(1);
     mounted.unmount();

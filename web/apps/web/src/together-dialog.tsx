@@ -6,7 +6,7 @@ import { useEffect, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { LeaveButton } from "./together-leave.tsx";
@@ -48,7 +48,11 @@ export function TogetherDialog(props: {
   const elsewhere = useHostedElsewhereHere();
   const isElsewhere = elsewhere !== undefined;
   return (
-    <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
+    <ModalDialog
+      label={t("watchTogether.heading")}
+      onClose={props.onClose}
+      footer={<DialogClose onClose={props.onClose} />}
+    >
       <section className="watch-together" aria-labelledby="watch-together-heading">
         <h2 id="watch-together-heading">{t("watchTogether.heading")}</h2>
         {isGuest && !hasPanel ? (

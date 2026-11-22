@@ -192,7 +192,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     expect(heard.map((each) => each.methodAndPath)).not.toContain("GET /me/preferences");
   });
 
-  it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {
+  it("closes on a remote's Back, and as Escape closes it, the dialog having no cross (D538 §2)", async () => {
     const page = await configured(library(1, "Films", "film"));
     const box = page.querySelector<HTMLInputElement>('dialog input[type="checkbox"]');
     box?.focus();
@@ -206,7 +206,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     expect(page.querySelector("dialog")).toBeNull();
     await click(page.querySelector<HTMLButtonElement>('button[aria-label="Configure"]'));
     await settleUntil(() => page.querySelector("dialog") !== null);
-    await click(page.querySelector<HTMLButtonElement>("dialog .modal-dialog__close button"));
+    await fire(page.querySelector("dialog"), new Event("cancel", { cancelable: true }));
     expect(page.querySelector("dialog")).toBeNull();
   });
 });

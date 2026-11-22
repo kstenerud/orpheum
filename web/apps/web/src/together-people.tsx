@@ -75,18 +75,10 @@ function playbackRightsText(t: (key: string) => string, rights: Rights): string 
 export function ActionDialog(props: {
   readonly heading: string;
   readonly onClose: () => void;
-  /** Whether it opens with its first field focused (ModalDialog). */
-  readonly shouldFocusFirstField?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <ModalDialog
-      label={props.heading}
-      onClose={props.onClose}
-      // A press outside closes it: what it holds is a few words and two ticks, nothing worth a guard
-      // against a stray press (the owner, 2026-10-29: "losing it isn't a big deal").
-      shouldFocusFirstField={props.shouldFocusFirstField === true}
-    >
+    <ModalDialog label={props.heading} onClose={props.onClose}>
       <div className="watch-together__dialog">
         <div className="watch-together__dialog-head">
           <h2>{props.heading}</h2>

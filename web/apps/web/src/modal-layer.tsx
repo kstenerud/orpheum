@@ -21,13 +21,17 @@ function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
 
 /**
  * Opens dialog as the browser's own modal, unless it is open: its first field focused if asked and
- * drawn; else its arrival from its marks (D421, focus-navigation.ts choiceArrivalIn), its first
+ * drawn (a dialog always asks, D538 §4); else its arrival from its marks (D421, focus-navigation.ts choiceArrivalIn), its first
  * choice not marked a dangerous action, or, where every choice is, the dialog itself, never its
  * Close; and that arrival again as more is drawn (arriveWhenDrawn), as a list still read when it
  * opened (Cast to). The browser's own opening focuses the first control, which may be a dangerous
  * one or the Close. Returns the stopping of the watch for its arrival.
  */
-function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): () => void {
+function openModal(
+  dialog: HTMLDialogElement,
+  shouldFocusFirstField: boolean,
+  arrivalOf: (root: HTMLElement) => HTMLElement | undefined,
+): () => void {
   if (dialog.open) {
     return () => undefined;
   }
@@ -39,13 +43,13 @@ function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): (
     field.focus();
     return () => undefined;
   }
-  (choiceArrivalIn(dialog) ?? dialog).focus();
+  (arrivalOf(dialog) ?? dialog).focus();
   return arriveWhenDrawn(
     () => dialog,
     (element) => {
       element.focus();
     },
-    choiceArrivalIn,
+    arrivalOf,
   );
 }
 
@@ -133,10 +137,13 @@ const firstFieldSelector =
 /** What the modal layer under a dialog or a pop-up is told, read as it closes. */
 export interface ModalLayerTold {
   readonly onClose: () => void;
-  /** Whether a press outside it leaves it open (ModalDialog's shouldStayOpenOnOutsidePress). */
-  readonly shouldStayOpenOnOutsidePress?: boolean | undefined;
   /** Whether it opens with its first field to type in focused, not its first control. */
   readonly shouldFocusFirstField?: boolean | undefined;
+  /**
+   * Where focus arrives where no field is first, choiceArrivalIn's unless given: a confirm's, its
+   * least harmful choice at its foot (ModalDialog's isConfirm).
+   */
+  readonly arrivalOf?: ((root: HTMLElement) => HTMLElement | undefined) | undefined;
 }
 
 /**
@@ -145,7 +152,7 @@ export interface ModalLayerTold {
  * press and does not scroll (modal-layer.css), focus held inside it; closed, told to onClose, by
  * Escape, which goes no further, so a pop-up it opened from stays open; by a remote's or a
  * controller's Back (input-layer.tsx); by the browser's own Back, which takes an entry held in the
- * history while it is open (D367 §10); and by a press outside it, unless told to stay; focus given
+ * history while it is open (D367 §10); and by a press outside it, every one (D538 §3); focus given
  * back to what had it before once it closes, or, where that went with a drop-down whose place opened
  * it, to the drop-down's button. toldRef holds the latest of what it is told: a page passes a new
  * onClose at each render, and opening it again at each would reset its focus. It keeps every width
@@ -164,7 +171,11 @@ export function useModalLayer(
     }
     const returns = focusReturnsFrom(document.activeElement);
     focusReturns.set(dialog, returns);
-    const stopArriving = openModal(dialog, toldRef.current.shouldFocusFirstField === true);
+    const stopArriving = openModal(
+      dialog,
+      toldRef.current.shouldFocusFirstField === true,
+      toldRef.current.arrivalOf ?? choiceArrivalIn,
+    );
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
       toldRef.current.onClose();
@@ -176,11 +187,7 @@ export function useModalLayer(
     };
     // A press on the backdrop reaches the dialog itself, outside its box.
     const pressOutside = (event: MouseEvent): void => {
-      if (
-        toldRef.current.shouldStayOpenOnOutsidePress !== true &&
-        event.target === dialog &&
-        isOutside(dialog, event)
-      ) {
+      if (event.target === dialog && isOutside(dialog, event)) {
         toldRef.current.onClose();
       }
     };

@@ -278,11 +278,7 @@ function SessionDialogs(props: {
     return null;
   }
   return (
-    <ActionDialog
-      heading={t("watchTogether.makeLinkHeading")}
-      onClose={props.onClose}
-      shouldFocusFirstField
-    >
+    <ActionDialog heading={t("watchTogether.makeLinkHeading")} onClose={props.onClose}>
       <MakeLink
         nextRights={props.details.nextRights}
         onMake={(hostNote, rights) => {

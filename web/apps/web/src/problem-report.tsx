@@ -75,12 +75,7 @@ export function ProblemReportDialog(props: {
   const { t } = useTranslation();
   const [isSent, setIsSent] = useState(false);
   return (
-    <ModalDialog
-      label={t("problemReport.heading")}
-      onClose={props.onClose}
-      shouldFocusFirstField={!isSent}
-      shouldStayOpenOnOutsidePress={!isSent}
-    >
+    <ModalDialog label={t("problemReport.heading")} onClose={props.onClose}>
       {isSent ? (
         <>
           <output>{t("problemReport.sent")}</output>

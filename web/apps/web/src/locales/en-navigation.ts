@@ -29,8 +29,8 @@ export const enNavigation = {
     manage: "Manage this library",
     close: "Close",
   },
-  /** A chooser's or the menu's open list (drop-down.tsx). */
-  dropDown: {
+  /** A dialog's own words (modal-dialog.tsx). */
+  dialog: {
     close: "Close",
   },
   /** A poster row's arrows, for a mouse (poster-row.tsx). */

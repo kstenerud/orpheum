@@ -95,12 +95,12 @@ export function ConfirmQuestion(props: {
 }
 
 /**
- * A dialog asking before what cannot be undone, for an action under a "…" (more-actions.tsx): its
- * heading, what will happen, in the irreversible red, "Keep it", the least harmful choice, first and
- * so focused as it opens, and the action, filled red and marked a dangerous action (D421;
- * ui-audit-2026-11-04.md §3, A library), so a remote's OK pressed once too often keeps things as they
- * are. Keep it, Escape or Back close it, sending
- * nothing.
+ * A dialog asking before what cannot be undone, for an action under a "…" (more-actions.tsx): the
+ * Dialog's confirm (modal-dialog.tsx, D538 §4), its heading, what will happen, in the irreversible
+ * red, and at its foot "Keep it", the least harmful choice, first and focused as it opens, then the
+ * action, filled red and marked a dangerous action (D421; ui-audit-2026-11-04.md §3, A library), so
+ * a remote's OK pressed once too often keeps things as they are. Keep it, Escape, Back or a press
+ * outside close it, sending nothing.
  */
 export function ConfirmDialog(props: {
   readonly heading: string;
@@ -119,8 +119,30 @@ export function ConfirmDialog(props: {
   const { t } = useTranslation();
   const [isOptionTicked, setIsOptionTicked] = useState(false);
   return (
-    <ModalDialog label={props.heading} onClose={props.onClose}>
-      <h2>{props.heading}</h2>
+    <ModalDialog
+      label={props.heading}
+      heading={props.heading}
+      isConfirm
+      onClose={props.onClose}
+      footer={
+        <>
+          <button type="button" onClick={props.onClose}>
+            {props.keepLabel ?? t("common.keepIt")}
+          </button>
+          <button
+            type="button"
+            className="irreversible"
+            {...dangerousMark}
+            onClick={() => {
+              props.onClose();
+              props.onConfirm(isOptionTicked);
+            }}
+          >
+            {props.confirmLabel}
+          </button>
+        </>
+      }
+    >
       <p className="irreversible-words">{props.consequence}</p>
       {props.option === undefined ? null : (
         <p>
@@ -136,22 +158,6 @@ export function ConfirmDialog(props: {
           </label>
         </p>
       )}
-      <p>
-        <button type="button" onClick={props.onClose}>
-          {props.keepLabel ?? t("common.keepIt")}
-        </button>{" "}
-        <button
-          type="button"
-          className="irreversible"
-          {...dangerousMark}
-          onClick={() => {
-            props.onClose();
-            props.onConfirm(isOptionTicked);
-          }}
-        >
-          {props.confirmLabel}
-        </button>
-      </p>
     </ModalDialog>
   );
 }

@@ -388,7 +388,7 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(dialog?.textContent).toContain("42:10–42:28");
     expect(showModal).toHaveBeenCalled();
     act(() => {
-      dialog?.querySelector<HTMLButtonElement>('button[aria-label="Close"]')?.click();
+      dialog?.querySelector<HTMLButtonElement>("footer button")?.click();
     });
     skipped(video, 2_530_000, 2_550_900);
     expect(stage.querySelector("dialog")).toBeNull();

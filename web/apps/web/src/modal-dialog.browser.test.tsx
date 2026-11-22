@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 /** A page with a button beside a dialog of two choices, which a controller's Back closes. */
-function PageWithADialog(props: { readonly shouldStayOpenOnOutsidePress?: boolean }): JSX.Element {
+function PageWithADialog(): JSX.Element {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <main>
@@ -52,7 +52,6 @@ function PageWithADialog(props: { readonly shouldStayOpenOnOutsidePress?: boolea
           onClose={() => {
             setIsOpen(false);
           }}
-          shouldStayOpenOnOutsidePress={props.shouldStayOpenOnOutsidePress === true}
         >
           <button type="button">first</button>
           <button type="button">second</button>
@@ -81,9 +80,8 @@ describe("a modal dialog, laid out by a real browser", () => {
     expect(getComputedStyle(page).overflow).not.toBe("hidden");
   });
 
-  // The owner, 2026-10-30: "a single click outside of any modal view dismisses"; a question whose
-  // closing would answer it stays.
-  it("closes on a press outside it, unless told to stay open", async () => {
+  // The owner, 2026-10-30: "a single click outside of any modal view dismisses"; every one (D538 §3).
+  it("closes on a press outside it", async () => {
     // A press on the backdrop reaches the dialog itself at a point outside its box: told, not moved
     // to by the pointer, which would stay hovering whatever the next file draws there.
     const pressOutside = (): void => {
@@ -96,16 +94,10 @@ describe("a modal dialog, laid out by a real browser", () => {
     pressOutside();
     await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(0);
     closing.unmount();
-    const staying = await mount(withServices(<PageWithADialog shouldStayOpenOnOutsidePress />));
-    await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(1);
-    pressOutside();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
-    staying.unmount();
   });
 
-  // The owner, 2026-10-30: every dialog has the same Close, a cross at its top-right.
-  it("puts its Close at its top-right corner, its first line kept clear of it", async () => {
+  // D538 §2: no dialog has a cross; Escape, Back, a press outside and its own buttons close it.
+  it("draws no cross of its own, only what it holds", async () => {
     await page.viewport(960, 600);
     const mounted = await mount(
       withServices(
@@ -114,15 +106,7 @@ describe("a modal dialog, laid out by a real browser", () => {
         </ModalDialog>,
       ),
     );
-    const dialog = mounted.container.querySelector("dialog")?.getBoundingClientRect();
-    const close = mounted.container.querySelector(".modal-dialog__close")?.getBoundingClientRect();
-    const line = mounted.container.querySelector("dialog p")?.getBoundingClientRect();
-    if (dialog === undefined || close === undefined || line === undefined) {
-      throw new Error("the dialog, its Close or its line is not drawn");
-    }
-    expect(dialog.right - close.right).toBeLessThanOrEqual(12);
-    expect(close.top - dialog.top).toBeLessThanOrEqual(12);
-    expect(line.right).toBeLessThanOrEqual(close.left);
+    expect(mounted.container.querySelectorAll("dialog button")).toHaveLength(0);
     mounted.unmount();
   });
 
@@ -226,7 +210,7 @@ function PageWithAnOpener(): JSX.Element {
 
 // R5 of ui-audit-2026-11-04.md: a dialog closed any way gives focus back to the button that opened it.
 describe("a modal dialog closed", () => {
-  it("gives focus back to its opener, closed by Back, by its Close and by a press outside", async () => {
+  it("gives focus back to its opener, closed by Back, by Escape and by a press outside", async () => {
     await page.viewport(960, 480);
     const mounted = await mount(withServices(<PageWithAnOpener />));
     const opener = page.getByRole("button", { name: "opener" }).element();
@@ -250,8 +234,7 @@ describe("a modal dialog closed", () => {
     await userEvent.keyboard("{Backspace}");
     await closed();
     await opened();
-    document.querySelector<HTMLElement>(".modal-dialog__close button")?.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{Escape}");
     await closed();
     await opened();
     document
@@ -347,7 +330,7 @@ describe("where a dialog's focus arrives as it opens (D421)", () => {
     mounted.unmount();
   });
 
-  it("arrives on its first choice where none is marked, as before, and on no Close where it offers nothing else", async () => {
+  it("arrives on its first choice where none is marked, as before, and on itself where it offers nothing", async () => {
     const marked = await mount(withServices(<DialogOf choices={["One", "Two"]} />));
     await expect.poll(() => document.activeElement?.textContent).toBe("One");
     marked.unmount();
@@ -355,7 +338,6 @@ describe("where a dialog's focus arrives as it opens (D421)", () => {
     const dialog = document.querySelector("dialog[open]");
     await expect.poll(() => document.activeElement).toBe(dialog);
     await new Promise((resolve) => requestAnimationFrame(resolve));
-    expect(document.activeElement?.closest("[data-dialog-close]")).toBeNull();
     bare.unmount();
   });
 });

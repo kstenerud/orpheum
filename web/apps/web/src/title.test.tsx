@@ -539,11 +539,8 @@ describe("a film whose match is a guess (D301)", () => {
     const offered = [...(page.querySelector("dialog")?.querySelectorAll("button") ?? [])].map(
       (button) => button.textContent,
     );
-    // Its Close is the cross every dialog has (the owner, 2026-10-30).
-    expect(offered).toEqual(["Enter manually", "Report this", ""]);
-    expect(
-      page.querySelector("dialog .modal-dialog__close button")?.getAttribute("aria-label"),
-    ).toBe("Close");
+    // No cross (D538 §2): Escape, Back or a press outside close it.
+    expect(offered).toEqual(["Enter manually", "Report this"]);
     await click(buttonWithText(page, "Enter manually"));
     await settleUntil(() => page.textContent.includes("1919"));
     const picks = [...page.querySelectorAll("li button")];

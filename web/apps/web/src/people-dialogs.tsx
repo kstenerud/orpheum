@@ -76,7 +76,7 @@ export function InviteDialog(props: {
   const [role, setRole] = useState("user");
   const [adminNote, setAdminNote] = useState("");
   return (
-    <ModalDialog label={t("people.invite")} shouldFocusFirstField onClose={props.onClose}>
+    <ModalDialog label={t("people.invite")} onClose={props.onClose}>
       <BusyGroup isBusy={isBusy}>
         <FormRow
           onSubmit={() => {
@@ -198,7 +198,7 @@ export function CreateAccountDialog(props: {
     setAccount({ ...account, ...change });
   };
   return (
-    <ModalDialog label={t("people.setUp")} shouldFocusFirstField onClose={props.onClose}>
+    <ModalDialog label={t("people.setUp")} onClose={props.onClose}>
       <BusyGroup isBusy={isBusy}>
         <FormRow
           onSubmit={() => {

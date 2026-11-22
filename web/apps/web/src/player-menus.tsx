@@ -24,7 +24,7 @@ import { DataCapChoices, useIsWithinCap } from "./data-cap-choices.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { OriginalMovedTo, OriginalWaits, PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
 import { muteClass, type PlayerSound } from "./player-controls.tsx";
@@ -553,7 +553,11 @@ function FindSubtitlesDialog(props: {
 function ForTestersDialog(props: { readonly onClose: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <ModalDialog label={t("play.forTesters.heading")} onClose={props.onClose}>
+    <ModalDialog
+      label={t("play.forTesters.heading")}
+      onClose={props.onClose}
+      footer={<DialogClose onClose={props.onClose} />}
+    >
       <ForTestersShown />
     </ModalDialog>
   );

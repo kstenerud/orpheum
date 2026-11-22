@@ -97,12 +97,6 @@ export const dangerousMark: { readonly [dangerousActionAttribute]: "" } = {
 };
 
 /**
- * The attribute marking a dialog's standard Close (modal-dialog.tsx): a way out, never where focus
- * arrives as the dialog opens (D421 §2).
- */
-export const dialogCloseAttribute = "data-dialog-close";
-
-/**
  * Where focus goes as the dialog root opens (D421): its marked arrival, where it has one; else its
  * first control not marked a dangerous action, nor its standard Close; else, every choice it offers
  * being dangerous, none (undefined), and focus rests on the dialog itself.
@@ -110,12 +104,7 @@ export const dialogCloseAttribute = "data-dialog-close";
 export function choiceArrivalIn(root: HTMLElement): HTMLElement | undefined {
   return (
     arrivalIn(root) ??
-    firstFocusTargetIn(
-      root,
-      (target) =>
-        target.closest(`[${dangerousActionAttribute}]`) === null &&
-        target.closest(`[${dialogCloseAttribute}]`) === null,
-    )
+    firstFocusTargetIn(root, (target) => target.closest(`[${dangerousActionAttribute}]`) === null)
   );
 }
 

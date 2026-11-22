@@ -11,7 +11,7 @@ import { CastTargets } from "./cast-to.tsx";
 import { endCastRetrying, type CastFilm } from "./cast.ts";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { isPausedHere, isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
 import { problemText } from "./problem.ts";
 import { useRoute, useServices } from "./services.tsx";
@@ -38,7 +38,11 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   const taken = sending?.isAccepted === true ? sending : undefined;
   useClosesOnceTaken(taken?.castId, props.onClose);
   return (
-    <ModalDialog label={t("cast.page")} onClose={props.onClose}>
+    <ModalDialog
+      label={t("cast.page")}
+      onClose={props.onClose}
+      footer={<DialogClose onClose={props.onClose} />}
+    >
       {!isSendingKnown ? <p>{t("common.loading")}</p> : null}
       {isSendingKnown && taken === undefined ? (
         <CastTargets film={film} onAirPlayPressed={props.onClose} />

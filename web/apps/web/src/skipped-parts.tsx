@@ -7,7 +7,7 @@ import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { clockText } from "./date-time-text.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { WarningSign } from "./warning-sign.tsx";
 
 /**
@@ -110,13 +110,15 @@ export function SkippedPopUp(props: {
     shown.isWhereItStops === true
       ? t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs, i18n.language) })
       : t("skipped.told", { stretches: stretchText(shown, i18n.language) });
+  const close = (): void => {
+    setClosed((was) => [...was, popUpOf(shown)]);
+  };
   return (
     <ModalDialog
       label={summary}
       role="alertdialog"
-      onClose={() => {
-        setClosed((was) => [...was, popUpOf(shown)]);
-      }}
+      onClose={close}
+      footer={<DialogClose onClose={close} />}
     >
       <h2>{summary}</h2>
       <p>{told}</p>

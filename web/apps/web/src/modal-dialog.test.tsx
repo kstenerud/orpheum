@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { act, useState, type JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ModalDialog } from "./modal-dialog.tsx";
+import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
 import { fire, mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -34,13 +34,12 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     showModal.mockRestore();
   });
 
-  // The owner, 2026-10-30: "This should be a standard widget so they all behave the same"; every
-  // dialog has it, a pop-up none (D408 §2, popover.test.tsx).
-  it("has the standard Close, a cross after what it holds", async () => {
+  // D538 §2: no dialog has a cross; one that only tells or shows has Close at its foot.
+  it("has no cross, and one that only shows closes by the Close at its foot", async () => {
     const onClose = vi.fn();
     const mounted = await mount(
       withServices(
-        <ModalDialog label="Gran" onClose={onClose}>
+        <ModalDialog label="Gran" onClose={onClose} footer={<DialogClose onClose={onClose} />}>
           <button type="button">inside</button>
         </ModalDialog>,
       ),
@@ -51,6 +50,7 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     expect(
       buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent),
     ).toEqual(["inside", "Close"]);
+    expect(buttons[1]?.closest("footer")).not.toBeNull();
     await fire(buttons[1], new MouseEvent("click", { bubbles: true }));
     expect(onClose).toHaveBeenCalledOnce();
     mounted.unmount();

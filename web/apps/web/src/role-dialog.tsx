@@ -56,7 +56,6 @@ export function RoleDialog(props: {
   return (
     <ModalDialog
       label={isNew ? t("roles.newTitle") : t("roles.dialogLabel")}
-      shouldFocusFirstField={isNew}
       onClose={props.onClose}
     >
       <BusyGroup isBusy={isBusy}>
