@@ -4,12 +4,14 @@ import "./system-problem-reports.css";
 import "./system-words.ts";
 
 import type { components } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
 import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
 import { CopyButton } from "./copy-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
+import { setEveryonesSoundOffset } from "./file-sound-offset.tsx";
 import { i18n } from "./i18n.ts";
 import { Loaded } from "./loaded.tsx";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
@@ -20,6 +22,7 @@ import { useResource } from "./use-resource.ts";
 import { StatusNote } from "./status-note.tsx";
 
 type Summary = components["schemas"]["ProblemReportSummaryBody"];
+type SuggestedOffset = components["schemas"]["ProblemReportSoundOffsetBody"];
 
 /** A form a report downloads in: shareable hides every name, full holds them (D524 §4). */
 type Form = "shareable" | "full";
@@ -97,6 +100,9 @@ function ReportEntry(props: {
       <details>
         <summary>{made}</summary>
         <blockquote className="system-problem-reports__words">{report.words}</blockquote>
+        {report.soundOffset === undefined ? null : (
+          <SuggestedSoundOffset suggested={report.soundOffset} />
+        )}
         <ReportDownload reportId={report.id} />
         {deleting.problem === undefined ? null : (
           <StatusNote told={{ kind: "problem", text: deleting.problem }} />
@@ -121,6 +127,59 @@ function ReportEntry(props: {
       </details>
     </li>
   );
+}
+
+/**
+ * The file's sound offset a report suggests, from the Sound menu's Tell the admin (D537 §5): what it
+ * suggests, and Apply to everyone, which makes it the file's offset for every person (D537 §2)
+ * through the one call the Sound menu's Make it everyone's makes (setEveryonesSoundOffset). It
+ * replaces the file's offset for everyone, with nothing to undo it by, so it asks first, a plain
+ * confirm as for what is disruptive but harmless, its focus on Cancel (ui.md rule 8); once applied
+ * it says so in its place.
+ */
+function SuggestedSoundOffset(props: { readonly suggested: SuggestedOffset }): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { fileId, soundOffsetMs } = props.suggested;
+  const [isApplied, setIsApplied] = useState(false);
+  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  return (
+    <div className="system-problem-reports__sound-offset">
+      <p>{suggestedOffsetText(t, props.suggested)}</p>
+      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {isApplied ? (
+        <output>{t("system.problemReports.soundOffset.applied")}</output>
+      ) : (
+        <ConfirmButton
+          label={t("system.problemReports.soundOffset.apply")}
+          question={t("system.problemReports.soundOffset.applyQuestion")}
+          consequence={t("system.problemReports.soundOffset.applyConsequence", {
+            id: fileId,
+          })}
+          confirmLabel={t("system.problemReports.soundOffset.applyConfirm")}
+          isHarmless
+          isDisabled={isBusy}
+          onConfirm={() => {
+            runRequest(async () => {
+              await setEveryonesSoundOffset(api, fileId, soundOffsetMs);
+              setIsApplied(true);
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** What a report's suggested offset says: the file, and how far its sound moves, or in step. */
+function suggestedOffsetText(t: TFunction, suggested: SuggestedOffset): string {
+  const { fileId: id, soundOffsetMs: ms } = suggested;
+  if (ms === 0) {
+    return t("system.problemReports.soundOffset.inStep", { id });
+  }
+  return ms > 0
+    ? t("system.problemReports.soundOffset.later", { id, ms })
+    : t("system.problemReports.soundOffset.earlier", { id, ms: -ms });
 }
 
 /**

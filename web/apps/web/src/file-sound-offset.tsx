@@ -57,16 +57,28 @@ async function keepOwnFileOffset(api: Api, fileId: number, soundOffsetMs: number
 }
 
 /**
- * Makes ms the file's offset for every person, an admin's (D537 §3), then forgets the admin's own,
- * which now says the same, so a later change for everyone reaches them too.
+ * Sets a file's sound offset for every person, an admin's (D537 §2): the one way to, for the Sound
+ * menu's Make it everyone's and a report's Apply to everyone alike (system-problem-reports.tsx).
  */
-async function makeEveryones(api: Api, fileId: number, soundOffsetMs: number): Promise<void> {
+export async function setEveryonesSoundOffset(
+  api: Api,
+  fileId: number,
+  soundOffsetMs: number,
+): Promise<void> {
   throwIfRefused(
     await api.PUT("/files/{id}/sound-offset", {
       params: { path: { id: fileId } },
       body: { soundOffsetMs },
     }),
   );
+}
+
+/**
+ * Makes ms the file's offset for every person, an admin's (D537 §3), then forgets the admin's own,
+ * which now says the same, so a later change for everyone reaches them too.
+ */
+async function makeEveryones(api: Api, fileId: number, soundOffsetMs: number): Promise<void> {
+  await setEveryonesSoundOffset(api, fileId, soundOffsetMs);
   throwIfRefused(
     await api.PUT("/files/{id}/preferences", {
       params: { path: { id: fileId } },

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /* The System page's problem reports (system-problem-reports.tsx): each report's words set apart, its
-   two downloads side by side, and the summary's field at the section's width. */
+   suggested sound offset with its Apply, its two downloads side by side, and the summary's field
+   at the section's width. */
 .system-problem-reports__words {
   margin: var(--space-2) 0;
   padding-inline-start: var(--space-3);
@@ -9,6 +10,7 @@
   white-space: pre-wrap;
 }
 
+.system-problem-reports__sound-offset,
 .system-problem-reports__download,
 .system-problem-reports__downloaded {
   display: flex;

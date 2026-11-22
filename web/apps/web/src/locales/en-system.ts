@@ -148,6 +148,17 @@ export const enSystem = {
       deleteQuestion: "Delete this report?",
       deleteConsequence: "The report and the logs it holds are deleted for good.",
       deleteConfirm: "Delete the report",
+      soundOffset: {
+        later: "Suggests file {{id}}'s sound plays {{ms}} ms later, for everyone.",
+        earlier: "Suggests file {{id}}'s sound plays {{ms}} ms earlier, for everyone.",
+        inStep: "Suggests file {{id}}'s sound plays in step with its picture, for everyone.",
+        apply: "Apply to everyone",
+        applyQuestion: "Apply this sound timing to everyone?",
+        applyConsequence:
+          "It replaces file {{id}}'s sound timing for everyone. Anyone who set their own keeps theirs.",
+        applyConfirm: "Apply it",
+        applied: "Applied: everyone hears the file this way, unless they set their own.",
+      },
     },
     backups: {
       heading: "Backups",

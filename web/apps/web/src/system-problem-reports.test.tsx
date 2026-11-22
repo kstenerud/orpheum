@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { SystemProblemReports } from "./system-problem-reports.tsx";
 import {
+  bodyField,
   buttonWithText,
   click,
   mount,
@@ -105,5 +106,30 @@ describe("the System page's problem reports (D524 §2, §4)", () => {
     await click(buttonWithText(container, "Delete the report"));
     expect(heard.filter((each) => each.methodAndPath.startsWith("DELETE"))).toHaveLength(1);
     expect(container.textContent).toContain("No one has reported a problem.");
+  });
+
+  it("applies a report's suggested sound offset to everyone at the confirmed press, by the file's everyone's call (D537 §2, §5)", async () => {
+    const heard: Heard[] = [];
+    const suggesting = { ...report, soundOffset: { fileId: 31, soundOffsetMs: -120 } };
+    const container = await section(
+      {
+        "GET /problem-reports": [200, { reports: [suggesting, { ...report, id: 5 }] }],
+        "PUT /files/31/sound-offset": [204, undefined],
+      },
+      heard,
+    );
+    const said = container.querySelectorAll(".system-problem-reports__sound-offset");
+    expect(said).toHaveLength(1);
+    expect(said[0]?.textContent).toContain(
+      "Suggests file 31's sound plays 120 ms earlier, for everyone.",
+    );
+    const puts = (): Heard[] => heard.filter((each) => each.methodAndPath.startsWith("PUT"));
+    await click(buttonWithText(container, "Apply to everyone"));
+    expect(puts()).toEqual([]);
+    expect(container.textContent).toContain("Apply this sound timing to everyone?");
+    await click(buttonWithText(container, "Apply it"));
+    expect(puts().map((each) => each.methodAndPath)).toEqual(["PUT /files/31/sound-offset"]);
+    expect(bodyField(puts()[0]!, "soundOffsetMs")).toBe(-120);
+    expect(container.textContent).toContain("Applied: everyone hears the file this way");
   });
 });
