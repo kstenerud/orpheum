@@ -103,11 +103,10 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     try {
       mounted = await onItsLadder(true);
       expect(mounted.container.textContent).toContain("Play the original file");
-      // ⁝'s too, told the file's rate by the page.
-      await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
-      const inTheMenu = [...menuOpen(mounted).querySelectorAll('button, [role="button"]')].map(
-        (each) => each.textContent,
-      );
+      // ⁝'s Quality too, told the file's rate by the page.
+      const inTheMenu = [
+        ...(await qualityOpen(mounted)).querySelectorAll('button, [role="button"]'),
+      ].map((each) => each.textContent);
       expect(inTheMenu).toContain("Play the original file");
     } finally {
       window.localStorage.removeItem(dataCapsKey);
@@ -145,10 +144,9 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
   it("is the quality entry of the player's ⁝ (D418 §4)", async () => {
     const asked: string[] = [];
     mounted = await onItsLadder(true, asked);
-    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
-    const original = [...menuOpen(mounted).querySelectorAll('button, [role="button"]')].find(
-      (each) => each.textContent === "Play the original file",
-    );
+    const original = [
+      ...(await qualityOpen(mounted)).querySelectorAll('button, [role="button"]'),
+    ].find((each) => each.textContent === "Play the original file");
     await fire(original ?? null, new MouseEvent("click", { bubbles: true }));
     expect(asked).toEqual(["originalChosen"]);
   });
@@ -163,8 +161,7 @@ describe("the original chosen, waiting on the ladder for a link short of it", ()
     mounted = await onItsLadder(true, [], { isOriginalWaiting: true });
     expect(mounted.container.textContent).toContain(waits);
     expect(mounted.container.textContent).not.toContain("Play the original file");
-    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
-    const inTheMenu = menuOpen(mounted);
+    const inTheMenu = await qualityOpen(mounted);
     expect(inTheMenu.querySelector(".list-box__note .play__original-waits")?.textContent).toBe(
       waits,
     );
@@ -231,6 +228,16 @@ describe("the player's How it plays (D444)", () => {
 /** The player's ⁝ (player-menus.tsx). */
 function moreButton(on: Mounted): Element | null {
   return on.container.querySelector('[aria-haspopup][aria-label="Settings"]');
+}
+
+/** ⁝ opened over the film, and its Quality, where the original is chosen (D538 §10). */
+async function qualityOpen(on: Mounted): Promise<Element> {
+  await fire(moreButton(on), new MouseEvent("click", { bubbles: true }));
+  const quality = [...menuOpen(on).querySelectorAll('[role="button"], button')].find((each) =>
+    each.textContent.startsWith("Quality"),
+  );
+  await fire(quality, new MouseEvent("click", { bubbles: true }));
+  return menuOpen(on);
 }
 
 /** The menu or dialog open over the film. */

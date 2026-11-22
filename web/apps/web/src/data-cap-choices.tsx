@@ -72,12 +72,18 @@ export function QualityChoices(props: {
   readonly caps?: DataCaps | undefined;
   /** What follows the rungs: the original's entry, where the page offers it. */
   readonly children?: ReactNode;
+  /**
+   * Whether children show, so Quality is offered before the film's rungs are known, or where they
+   * never come: the original stays a way out of a ladder that will not load.
+   */
+  readonly isChildShown?: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const caps = props.caps ?? deviceDataCaps();
-  const rungs = useOfferedRungs(props.videoRef);
+  const told = useOfferedRungs(props.videoRef);
   const { kind, capKbps } = useCapNow(caps);
-  if (rungs === undefined || rungs.length === 0) {
+  const rungs = told ?? [];
+  if (rungs.length === 0 && props.isChildShown !== true) {
     return null;
   }
   const playing = rungUnderCap(rungs, capKbps);

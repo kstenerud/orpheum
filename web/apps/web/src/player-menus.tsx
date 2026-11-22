@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
 import { QualityChoices, useIsWithinCap } from "./data-cap-choices.tsx";
-import { DebugTool } from "./debug-tools.tsx";
+import { DebugTool, useShowsDebugTools } from "./debug-tools.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
 import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
@@ -511,9 +511,10 @@ function QualityOfThePage(props: {
 }): JSX.Element {
   const { ways } = props;
   const isOffered = useIsWithinCap(ways.fileBitRateKbps ?? 0);
+  const isOriginalShown = useShowsDebugTools() && ways.onOriginalChosen !== undefined && isOffered;
   return (
     <>
-      <QualityChoices videoRef={props.videoRef}>
+      <QualityChoices videoRef={props.videoRef} isChildShown={isOriginalShown}>
         <OriginalOfTheQuality
           onChosen={isOffered ? ways.onOriginalChosen : undefined}
           waitsAtHeight={ways.originalWaitsAtHeight}
