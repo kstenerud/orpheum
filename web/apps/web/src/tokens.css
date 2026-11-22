@@ -169,11 +169,13 @@
    * its own (layer-tokens.test.ts). Page content, then the bars that stay in view, the player's
    * overlay and what lies over a film in its order (a note, an offer, a receiver's prompt, the
    * connection's alert), then pop-ups, dialogs and brief notes over everything. Beneath is a
-   * section's own backdrop, drawn under the rest of that section. A pop-up and a dialog are the
+   * section's own backdrop, drawn under the rest of that section; raised is a focused control lying
+   * over its neighbours within one part, so their edges never cover its ring. A pop-up and a dialog are the
    * browser's own top layer as well, over every number.
    */
   --layer-beneath: -1;
   --layer-base: 0;
+  --layer-raised: 1;
   --layer-sticky: 100;
   --layer-overlay: 200;
   --layer-video-note: 210;
