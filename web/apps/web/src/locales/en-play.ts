@@ -111,13 +111,13 @@ export const enPlay = {
     playOriginal: "Play the original file",
     originalWaitsForTheLink: "Plays {{height}}p until the link carries the original file",
     originalMovedTo: "Plays the original file, which the link now carries",
-    dataCap: {
+    quality: {
       heading: {
-        wifi: "Data use on Wi-Fi",
-        mobile: "Data use on mobile data",
-        unknown: "Data use",
+        wifi: "Quality on Wi-Fi",
+        mobile: "Quality on mobile data",
+        unknown: "Quality",
       },
-      noLimit: "No limit",
+      automatic: "Automatic",
       perHour: "{{gb}} GB per hour",
     },
     soundOffset: {

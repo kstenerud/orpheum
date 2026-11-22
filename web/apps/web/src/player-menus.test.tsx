@@ -4,11 +4,11 @@
 import "./i18n.ts";
 
 import { tellOfferedRungs } from "@orpheum/player";
-import { act, createRef, type RefObject } from "react";
+import { act, createRef, type JSX, type RefObject } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
-import { DataCapChoices } from "./data-cap-choices.tsx";
+import { QualityChoices } from "./data-cap-choices.tsx";
 import { DataCaps, dataCapsKey, deviceDataCaps } from "./data-cap.ts";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { commandEventName } from "./input-commands.ts";
@@ -461,7 +461,7 @@ describe("⁝'s data use (D488)", () => {
     window.localStorage.removeItem(dataCapsKey);
   });
 
-  it("lists No limit, then one choice per rung the film is offered, highest first, in GB per hour", async () => {
+  it("lists Automatic, then one choice per rung the film is offered, highest first, in GB per hour, then the original (D538 §10)", async () => {
     mounted = await mount(
       withServices(
         <DebugToolsContext value={{ isShown: true, onChanged: () => undefined }}>
@@ -478,30 +478,88 @@ describe("⁝'s data use (D488)", () => {
       ),
     );
     await opened(mounted, "Settings");
-    expect(places(mounted)).toContain("Play the original file");
-    await choosing(mounted, "Data use: No limit›");
+    // The original is Quality's, chosen in its list, not ⁝'s own (D538 §10).
+    expect(places(mounted)).not.toContain("Play the original file");
+    await choosing(mounted, "Quality: Automatic›");
     const perHour = ["2.7", "1.4", "0.9", "0.6", "0.4", "0.2"].map((gb) => `${gb} GB per hour`);
-    expect(places(mounted)).toEqual(expect.arrayContaining(["‹Data use", "No limit", ...perHour]));
+    expect(places(mounted)).toEqual(expect.arrayContaining(["‹Quality", "Automatic", ...perHour]));
     const listed = places(mounted);
-    expect(listed.slice(listed.indexOf("‹Data use"), listed.indexOf("‹Data use") + 8)).toEqual([
-      "‹Data use",
-      "No limit",
+    expect(listed.slice(listed.indexOf("‹Quality"), listed.indexOf("‹Quality") + 9)).toEqual([
+      "‹Quality",
+      "Automatic",
       ...perHour,
+      "Play the original file",
     ]);
-    expect(currentPlaces(mounted)).toContain("No limit");
+    expect(currentPlaces(mounted)).toContain("Automatic");
     await choosing(mounted, "0.6 GB per hour");
     expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 1296 });
     await opened(mounted, "Settings");
+    await choosing(mounted, "Quality: 0.6 GB per hour›");
+    expect(currentPlaces(mounted)).toEqual(["0.6 GB per hour"]);
     // A capped device plays a rung, never the film's own file (the owner, 2026-11-14).
     expect(places(mounted)).not.toContain("Play the original file");
-    await choosing(mounted, "Data use: 0.6 GB per hour›");
-    expect(currentPlaces(mounted)).toEqual(["0.6 GB per hour"]);
+  });
+
+  it("offers the original in Quality only while the person shows debug tools, and plays it for this playback (D538 §10)", async () => {
+    const chosen: string[] = [];
+    const menus = (isShown: boolean): JSX.Element => (
+      <DebugToolsContext value={{ isShown, onChanged: () => undefined }}>
+        <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+          <PlayerMenusContext value={{ ...ways, onOriginalChosen: () => chosen.push("original") }}>
+            <PlayerMenus
+              videoRef={videoOnTheDefaultLadder()}
+              shown={everyMenu}
+              onOpenChange={() => undefined}
+            />
+          </PlayerMenusContext>
+        </PlayerTracksContext>
+      </DebugToolsContext>
+    );
+    mounted = await mount(withServices(menus(false)));
+    await opened(mounted, "Settings");
+    await choosing(mounted, "Quality: Automatic›");
+    expect(places(mounted)).not.toContain("Play the original file");
+    mounted.unmount();
+    mounted = await mount(withServices(menus(true)));
+    await opened(mounted, "Settings");
+    await choosing(mounted, "Quality: Automatic›");
+    await choosing(mounted, "Play the original file");
+    expect(chosen).toEqual(["original"]);
+    expect(mounted.container.querySelector("dialog")).toBeNull();
+    // Chosen for one playback: no cap is kept by it.
+    expect(window.localStorage.getItem(dataCapsKey)).toBeNull();
+  });
+
+  it("orders ⁝ as the spec does: Start over, Quality, the subtitles' timing, then Report a problem and How it plays last", async () => {
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+          <PlayerMenusContext
+            value={{ ...ways, playback: { delivery: "converted", qualityKbps: 4200 } }}
+          >
+            <PlayerMenus
+              videoRef={videoOnTheDefaultLadder()}
+              shown={everyMenu}
+              onOpenChange={() => undefined}
+            />
+          </PlayerMenusContext>
+        </PlayerTracksContext>,
+      ),
+    );
+    await opened(mounted, "Settings");
+    const shown = places(mounted);
+    const at = (start: string): number => shown.findIndex((place) => place.startsWith(start));
+    expect(at("Start over")).toBe(0);
+    expect(at("Quality")).toBe(1);
+    expect(shown[2]).toContain("Subtitle timing");
+    expect(at("Report a problem")).toBeGreaterThan(2);
+    expect(shown.at(-1)).toBe("Plays it converted · Quality 4.2 Mb/s");
   });
 
   it("offers nothing while the film plays no ladder, its own file", async () => {
     await drawn(tracksNoting({ subtitles: [], audio: [] }));
     await opened(mounted!, "Settings");
-    expect(places(mounted!).filter((place) => place.startsWith("Data use"))).toEqual([]);
+    expect(places(mounted!).filter((place) => place.startsWith("Quality"))).toEqual([]);
   });
 
   it("names the network its cap is for where the browser says which, and follows the device's move", async () => {
@@ -511,7 +569,7 @@ describe("⁝'s data use (D488)", () => {
     caps.choose(496);
     mounted = await mount(
       <ListBox isFromItsTop>
-        <DataCapChoices videoRef={videoOnTheDefaultLadder()} caps={caps} />
+        <QualityChoices videoRef={videoOnTheDefaultLadder()} caps={caps} />
       </ListBox>,
     );
     const entry = (): string | null | undefined =>
@@ -522,18 +580,18 @@ describe("⁝'s data use (D488)", () => {
       [...(mounted?.container.querySelectorAll('[aria-current="true"]') ?? [])].map(
         (place) => place.textContent,
       );
-    expect(entry()).toBe("Data use on mobile data: 0.2 GB per hour›");
+    expect(entry()).toBe("Quality on mobile data: 0.2 GB per hour›");
     await fire(
       mounted.container.querySelector(".list-box__submenu-entry"),
       new MouseEvent("click", { bubbles: true }),
     );
-    expect(heading()).toBe("‹Data use on mobile data");
+    expect(heading()).toBe("‹Quality on mobile data");
     expect(current()).toEqual(["0.2 GB per hour"]);
     act(() => {
       connection.moveTo("wifi");
     });
-    expect(heading()).toBe("‹Data use on Wi-Fi");
-    expect(current()).toEqual(["No limit"]);
+    expect(heading()).toBe("‹Quality on Wi-Fi");
+    expect(current()).toEqual(["Automatic"]);
   });
 
   it("lists the film's own picture as one more rung, and offers its original under a cap at or above the file's rate (D491)", async () => {
@@ -555,22 +613,21 @@ describe("⁝'s data use (D488)", () => {
       ),
     );
     await opened(mounted, "Settings");
-    await choosing(mounted, "Data use: No limit›");
+    await choosing(mounted, "Quality: Automatic›");
     const listed = places(mounted);
     // The own picture's 8000 kb/s, its sound's with it, is 3.6 GB an hour.
-    expect(listed.slice(listed.indexOf("No limit"), listed.indexOf("No limit") + 3)).toEqual([
-      "No limit",
+    expect(listed.slice(listed.indexOf("Automatic"), listed.indexOf("Automatic") + 3)).toEqual([
+      "Automatic",
       "3.6 GB per hour",
       "2.7 GB per hour",
     ]);
     await choosing(mounted, "3.6 GB per hour");
     expect(JSON.parse(window.localStorage.getItem(dataCapsKey) ?? "")).toEqual({ unknown: 8000 });
     await opened(mounted, "Settings");
+    await choosing(mounted, "Quality: 3.6 GB per hour›");
+    expect(currentPlaces(mounted)).toEqual(["3.6 GB per hour"]);
     // The file's own 9096 kb/s, every track of it, is over the cap.
     expect(places(mounted)).not.toContain("Play the original file");
-    await choosing(mounted, "Data use: 3.6 GB per hour›");
-    expect(currentPlaces(mounted)).toEqual(["3.6 GB per hour"]);
-    await choosing(mounted, "‹Data use");
     act(() => {
       deviceDataCaps().choose(9096);
     });
@@ -607,23 +664,23 @@ describe("⁝'s submenus (D490)", () => {
     window.localStorage.removeItem(dataCapsKey);
   });
 
-  it("names Data use and its value on one entry, its list taking ⁝'s place at a click, the back row first, on its choice", async () => {
+  it("names Quality and its value on one entry, its list taking ⁝'s place at a click, the back row first, on its choice", async () => {
     const on = await drawnOnTheLadder();
     await opened(on, "Settings");
-    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Data use: No limit›"]));
-    expect(places(on)).not.toContain("No limit");
-    await choosing(on, "Data use: No limit›");
-    expect(places(on)[0]).toBe("‹Data use");
+    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Quality: Automatic›"]));
+    expect(places(on)).not.toContain("Automatic");
+    await choosing(on, "Quality: Automatic›");
+    expect(places(on)[0]).toBe("‹Quality");
     expect(places(on)).not.toContain("Start over");
-    expect(focusedText()).toBe("No limit");
+    expect(focusedText()).toBe("Automatic");
     expect(on.container.querySelector(".list-box__submenu-back")?.getAttribute("aria-label")).toBe(
-      "Back to Data use",
+      "Back to Quality",
     );
-    await choosing(on, "‹Data use");
+    await choosing(on, "‹Quality");
     expect(on.container.querySelector("dialog")).not.toBeNull();
-    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Data use: No limit›"]));
-    expect(places(on)).not.toContain("‹Data use");
-    expect(focusedText()).toBe("Data use: No limit›");
+    expect(places(on)).toEqual(expect.arrayContaining(["Start over", "Quality: Automatic›"]));
+    expect(places(on)).not.toContain("‹Quality");
+    expect(focusedText()).toBe("Quality: Automatic›");
   });
 
   it("takes a TV's keys: OK or Right on the entry opens it, Left or Back in it returns to the entry, ⁝ open", async () => {
@@ -634,13 +691,13 @@ describe("⁝'s submenus (D490)", () => {
       entry?.focus();
     });
     await fire(entry, new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(places(on)[0]).toBe("‹Data use");
-    expect(focusedText()).toBe("No limit");
+    expect(places(on)[0]).toBe("‹Quality");
+    expect(focusedText()).toBe("Automatic");
     expect(offered(document.activeElement, "left")).toBe(true);
     expect(places(on)).toContain("Start over");
     expect(document.activeElement).toBe(entry);
     expect(offered(entry, "right")).toBe(true);
-    expect(focusedText()).toBe("No limit");
+    expect(focusedText()).toBe("Automatic");
     expect(offered(document.activeElement, "back")).toBe(true);
     expect(on.container.querySelector("dialog")).not.toBeNull();
     expect(places(on)).toContain("Start over");
@@ -660,14 +717,14 @@ describe("⁝'s submenus (D490)", () => {
     };
     const on = await drawnOnTheLadder({ ...services, navigation });
     await opened(on, "Settings");
-    await choosing(on, "Data use: No limit›");
+    await choosing(on, "Quality: Automatic›");
     expect(holds).toHaveLength(2);
     act(() => {
       holds[1]?.();
     });
     expect(on.container.querySelector("dialog")).not.toBeNull();
     expect(places(on)).toContain("Start over");
-    expect(focusedText()).toBe("Data use: No limit›");
+    expect(focusedText()).toBe("Quality: Automatic›");
   });
 });
 

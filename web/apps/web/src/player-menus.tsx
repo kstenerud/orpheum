@@ -19,11 +19,12 @@ import { useTranslation } from "react-i18next";
 
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
-import { DataCapChoices, useIsWithinCap } from "./data-cap-choices.tsx";
+import { QualityChoices, useIsWithinCap } from "./data-cap-choices.tsx";
+import { DebugTool } from "./debug-tools.tsx";
 import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
 import { DialogClose, ModalDialog } from "./modal-dialog.tsx";
-import { OriginalMovedTo, OriginalWaits, PlayOriginal } from "./play-original.tsx";
+import { OriginalMovedTo, OriginalWaits } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
 import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
@@ -425,12 +426,13 @@ export function SubtitlesMenuOf(props: {
 }
 
 /**
- * ⁝ (D407 §8, Q8): Start over, the subtitles' timing, the device's data use where the film plays on
- * its ladder (D488), the original (its quality entry, D418 §4) and the bare player where they are
- * offered, How it plays (D444), and For testers where the player gives it (item 9 of
- * ui-audit-2026-11-04.md). It keeps no sound setting: those are the Sound menu's (D538 §8). Its
- * stepper's presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
- * does.
+ * ⁝ (D407 §8, Q8), in the spec's order (menu-redesign-spec.md's Settings menu): Start over, then
+ * Quality, a submenu of Automatic and the device's data use where the film plays on its ladder,
+ * the original file among them for one playback where debug tools are on (D538 §10); then the
+ * subtitles' timing, the bare player where it is offered, Report a problem, For testers where the
+ * player gives it (item 9 of ui-audit-2026-11-04.md), and last How it plays, the line that informs
+ * (D444). It keeps no sound setting: those are the Sound menu's (D538 §8). Its stepper's presses
+ * keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice does.
  */
 function MoreMenu(props: {
   readonly tracks: PlayerTracks;
@@ -443,6 +445,7 @@ function MoreMenu(props: {
   const { t } = useTranslation();
   const { tracks, ways, videoRef } = props;
   const { subtitles } = tracks;
+  const onBare = ways?.onBare;
   return (
     <MoreMenuOf onOpenChange={props.onOpenChange}>
       <ListOption
@@ -452,20 +455,22 @@ function MoreMenu(props: {
       >
         {t("play.startOver")}
       </ListOption>
+      {ways === undefined ? null : <QualityOfThePage ways={ways} videoRef={videoRef} />}
       {subtitles.tracks.length === 0 ? null : (
         <KeptOpen>
           <OffsetControl offsetMs={subtitles.offsetMs} onMove={subtitles.shiftOffset} />
         </KeptOpen>
       )}
-      {ways === undefined ? null : <DataCapChoices videoRef={videoRef} />}
-      <MoreOfThePage ways={ways} />
-      <HowItPlays playback={ways?.playback} />
+      {onBare === undefined ? null : (
+        <ListOption onChoose={onBare}>{t("play.bare.open")}</ListOption>
+      )}
       {props.onReport === undefined ? null : (
         <ListOption onChoose={props.onReport}>{t("problemReport.open")}</ListOption>
       )}
       {props.onTesters === undefined ? null : (
         <ListOption onChoose={props.onTesters}>{t("play.forTesters.open")}</ListOption>
       )}
+      <HowItPlays playback={ways?.playback} />
     </MoreMenuOf>
   );
 }
@@ -494,57 +499,62 @@ export function MoreMenuOf(props: {
 }
 
 /**
- * ⋯'s way to the original file: the press that plays it, or, while the original chosen waits on the
- * ladder for the link, word that it plays its rung until then (OriginalWaits), and once it moved up,
- * word that it plays the original (OriginalMovedTo, D501 §3); nothing where it is not offered.
+ * ⁝'s Quality where the page plays a film of its own (QualityChoices), the original's entry last in
+ * its list (OriginalOfTheQuality), which a device under a data cap is offered only where the cap is
+ * at or above the file's rate (D491); and, once the film moved up to the original chosen, off its
+ * ladder and so with no Quality, word that it plays the original (OriginalMovedTo, D501 §3), a debug
+ * tool as the entry is.
  */
-function OriginalOfTheMenu(props: {
-  readonly onChosen: (() => void) | undefined;
-  readonly waitsAtHeight: number | undefined;
-  readonly isOnTheOriginal: boolean;
-}): JSX.Element | null {
-  if (props.isOnTheOriginal) {
-    return (
-      <ListNote>
-        <OriginalMovedTo />
-      </ListNote>
-    );
-  }
-  if (props.onChosen === undefined) {
-    return null;
-  }
-  return props.waitsAtHeight !== undefined ? (
-    <ListNote>
-      <OriginalWaits height={props.waitsAtHeight} />
-    </ListNote>
-  ) : (
-    <ListEntry>
-      <PlayOriginal onChosen={props.onChosen} />
-    </ListEntry>
+function QualityOfThePage(props: {
+  readonly ways: PlayerMenusWays;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}): JSX.Element {
+  const { ways } = props;
+  const isOffered = useIsWithinCap(ways.fileBitRateKbps ?? 0);
+  return (
+    <>
+      <QualityChoices videoRef={props.videoRef}>
+        <OriginalOfTheQuality
+          onChosen={isOffered ? ways.onOriginalChosen : undefined}
+          waitsAtHeight={ways.originalWaitsAtHeight}
+        />
+      </QualityChoices>
+      {ways.isOnTheOriginal === true ? (
+        <DebugTool>
+          <ListNote>
+            <OriginalMovedTo />
+          </ListNote>
+        </DebugTool>
+      ) : null}
+    </>
   );
 }
 
 /**
- * ⁝'s places the page offers where it may: the original (a debug tool), which a device under a data
- * cap is offered only where the cap is at or above the file's rate (D491), or word that the original
- * chosen waits for the link (OriginalWaits), and the bare player.
+ * The Quality list's last entry, the original file, a debug tool chosen for this playback alone
+ * (D538 §10; the owner, 2026-10-29: "It's useful as a debug tool though"): Play the original file,
+ * which loads the file's own source in place of the ladder, or, while the original chosen waits on
+ * the ladder for the link, word that it plays its rung until then (OriginalWaits, D501 §3). Nothing
+ * where it is not offered, nor while the person's Show debug tools is off.
  */
-function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): JSX.Element {
+function OriginalOfTheQuality(props: {
+  readonly onChosen: (() => void) | undefined;
+  readonly waitsAtHeight: number | undefined;
+}): JSX.Element | null {
   const { t } = useTranslation();
-  const isOffered = useIsWithinCap(props.ways?.fileBitRateKbps ?? 0);
-  const onOriginalChosen = isOffered ? props.ways?.onOriginalChosen : undefined;
-  const onBare = props.ways?.onBare;
+  if (props.onChosen === undefined) {
+    return null;
+  }
   return (
-    <>
-      <OriginalOfTheMenu
-        onChosen={onOriginalChosen}
-        waitsAtHeight={props.ways?.originalWaitsAtHeight}
-        isOnTheOriginal={props.ways?.isOnTheOriginal === true}
-      />
-      {onBare === undefined ? null : (
-        <ListOption onChoose={onBare}>{t("play.bare.open")}</ListOption>
+    <DebugTool>
+      {props.waitsAtHeight === undefined ? (
+        <ListOption onChoose={props.onChosen}>{t("play.playOriginal")}</ListOption>
+      ) : (
+        <ListNote>
+          <OriginalWaits height={props.waitsAtHeight} />
+        </ListNote>
       )}
-    </>
+    </DebugTool>
   );
 }
 

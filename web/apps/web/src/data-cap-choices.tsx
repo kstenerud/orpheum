@@ -3,7 +3,14 @@
 import "./play-words.ts";
 
 import { offeredRungsOf, playerOfferedRungsEvent } from "@orpheum/player";
-import { useEffect, useEffectEvent, useSyncExternalStore, type JSX, type RefObject } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -51,15 +58,20 @@ function useCapNow(caps: DataCaps): {
 }
 
 /**
- * ⁝'s data use (D488), a submenu (D490): its entry names the cap, for the network the device is on
- * where its browser says which, and what it plays, "Data use: 0.6 GB per hour ›"; its list No limit
- * and one choice per rung the core offers the film, highest first, each its video's and sound's GB
- * per hour, the film's own picture among them (D491), the one the cap plays marked. Nothing while the film plays its own file, which offers no
- * rungs: a cap is chosen on a film on its ladder.
+ * ⁝'s Quality (D538 §10), a submenu (D490) of the device's data use (D488): its entry names the cap,
+ * for the network the device is on where its browser says which, and what it plays, "Quality on
+ * Wi-Fi: 0.6 GB per hour ›"; its list Automatic, no cap, then one choice per rung the core offers
+ * the film, highest first, each its video's and sound's GB per hour, the film's own picture among
+ * them (D491), the one the cap plays marked, then what follows them (children): the original file,
+ * a debug tool chosen for one playback. A cap chosen is kept for the network and the films after,
+ * as Data use's always was. Nothing while the film plays its own file, which offers no rungs: a cap
+ * is chosen on a film on its ladder.
  */
-export function DataCapChoices(props: {
+export function QualityChoices(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly caps?: DataCaps | undefined;
+  /** What follows the rungs: the original's entry, where the page offers it. */
+  readonly children?: ReactNode;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const caps = props.caps ?? deviceDataCaps();
@@ -70,11 +82,11 @@ export function DataCapChoices(props: {
   }
   const playing = rungUnderCap(rungs, capKbps);
   const perHourOf = (rung: number): string =>
-    t("play.dataCap.perHour", { gb: gbPerHourOf(rung).toFixed(1) });
+    t("play.quality.perHour", { gb: gbPerHourOf(rung).toFixed(1) });
   return (
     <ListSubmenu
-      name={t(`play.dataCap.heading.${kind}`)}
-      value={playing === undefined ? t("play.dataCap.noLimit") : perHourOf(playing)}
+      name={t(`play.quality.heading.${kind}`)}
+      value={playing === undefined ? t("play.quality.automatic") : perHourOf(playing)}
     >
       <ListOption
         isCurrent={playing === undefined}
@@ -82,7 +94,7 @@ export function DataCapChoices(props: {
           caps.choose(undefined);
         }}
       >
-        {t("play.dataCap.noLimit")}
+        {t("play.quality.automatic")}
       </ListOption>
       {[...rungs].reverse().map((rung) => (
         <ListOption
@@ -95,6 +107,7 @@ export function DataCapChoices(props: {
           {perHourOf(rung)}
         </ListOption>
       ))}
+      {props.children}
     </ListSubmenu>
   );
 }
