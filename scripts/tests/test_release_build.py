@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for deploy/release/build.sh (D272 §4, §7): it builds only a version tag of its own
 # ABOUTME: checkout, from a clone with its own .git, and installs it with the household's install script.
+import gzip
 import os
 import shutil
 import subprocess
@@ -21,6 +22,9 @@ if [ "$1" = run ]; then
         case $arg in *:/var/lib/orpheum) dir=${arg%%:/var/lib/orpheum} ;; esac
     done
     [ -f "$dir/values.toml" ] || printf '[media]\\nroots = []\\n[lan]\\naddress = ""\\n' > "$dir/values.toml"
+fi
+if [ "$1" = save ] && [ "$2" = --output ]; then
+    printf 'an image\\n' > "$3"
 fi
 """
 
@@ -130,6 +134,22 @@ class Build(unittest.TestCase):
         image, context = self.built_image_and_context()
         self.assertRegex(image, r"^orpheum:v0\.0\.0-\d{14}-[0-9a-f]{12}-dirty$")
         self.assertEqual(context, str(self.checkout))
+
+    def test_save_builds_the_checkouts_commit_as_checkout_does_into_an_archive_and_installs_nothing(self):
+        short = self.commit("later")
+        archive = self.root / "orpheum.tar.gz"
+        # Untagged, yet nothing is asked: nothing is deployed until the archive is loaded elsewhere.
+        done = subprocess.run([str(self.checkout / "deploy" / "release" / "build.sh"), "--save", str(archive)],
+                              env=self.env, input="", capture_output=True, text=True, check=False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        image, context = self.built_image_and_context()
+        self.assertRegex(image, rf"^orpheum:v0\.0\.0-\d{{14}}-{short}$")
+        self.assertNotEqual(context, str(self.checkout))  # a clone of the commit, as --checkout builds
+        self.assertIn(["save", "--output", str(self.root / "orpheum.tar"), image], self.docker_calls())
+        self.assertEqual(gzip.decompress(archive.read_bytes()), b"an image\n")
+        self.assertNotIn("run", [call[0] for call in self.docker_calls()])
+        self.assertNotIn(["compose", "up", "-d", "--remove-orphans"], self.docker_calls())
+        self.assertFalse(self.deployment.exists())
 
     def test_a_first_install_naming_no_media_is_refused_before_anything_is_built(self):
         for arguments in (["v0.1.0", str(self.deployment)], ["--checkout", str(self.deployment), "--force"]):

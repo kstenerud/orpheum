@@ -6,6 +6,7 @@
 #   deploy/release/build.sh <tag> <deployment directory> [--media <folder>...]
 #   deploy/release/build.sh --checkout <deployment directory> [--force] [--media <folder>...]
 #   deploy/release/build.sh --load <image archive> <deployment directory> [--media <folder>...]
+#   deploy/release/build.sh --save <image archive>
 #
 # With --checkout (`make deploy`) it builds whatever this checkout is on: the commit, cloned, when the
 # tree is clean, or the working files as they are when it is not. A commit with no version tag, or a
@@ -17,6 +18,12 @@
 # With --load it builds nothing: it loads an image `docker save` wrote, gzipped or not, and writes
 # the deployment from it, so a machine with Docker alone runs the image staging runs, until there is a
 # tag (the weekend fallback, deploy/release/README.md §3a).
+#
+# With --save it installs nothing: it builds the checkout's commit as --checkout does, named the same,
+# from a clone when the tree is clean, and writes the image as `docker save` does into the archive,
+# gzipped when its name ends in .gz, for --load on another machine (orpheum-ops' prod-deploy SHA=
+# builds on the owner's machine, not on the production NAS). It asks nothing: nothing is deployed
+# until --load.
 #
 # It clones the tag into a temporary directory, with its own .git so the binary records its version
 # and commit (D225), builds the image orpheum:<tag> from it, and runs the image's write-deployment
@@ -33,6 +40,7 @@ usage() {
 	echo "usage: deploy/release/build.sh <tag> <deployment directory> [--media <folder>...]" >&2
 	echo "       deploy/release/build.sh --checkout <deployment directory> [--force] [--media <folder>...]" >&2
 	echo "       deploy/release/build.sh --load <image archive> <deployment directory> [--media <folder>...]" >&2
+	echo "       deploy/release/build.sh --save <image archive>" >&2
 	exit 2
 }
 
@@ -85,16 +93,9 @@ buildImage() {
 	DOCKER_BUILDKIT=1 docker build --file "$1/deploy/Containerfile" --target runtime --tag "$image" "$1"
 }
 
-if [ "$1" = --checkout ]; then
-	mkdir -p "$2/run"
-	dir=$(cd "$2" && pwd)
-	shift 2
-	force=false
-	if [ "${1:-}" = --force ]; then
-		force=true
-		shift
-	fi
-	mediaFirst "$@"
+# checkoutImage names the image of the commit this checkout is on: $commit, $short, its version $tag
+# (none when untagged), $isDirty, $version and $image, by the tag or a pseudo-version.
+checkoutImage() {
 	commit=$(git -C "$checkout" rev-parse HEAD)
 	short=$(printf '%s' "$commit" | cut -c1-12)
 	tag=$(git -C "$checkout" tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
@@ -108,6 +109,53 @@ if [ "$1" = --checkout ]; then
 		version="v0.0.0-$(TZ=UTC git -C "$checkout" log -1 --format=%cd --date=format-local:%Y%m%d%H%M%S)-$short"
 	fi
 	image="orpheum:$version"
+}
+
+# buildCheckout builds $image from the checkout: from a clone of the commit when the tree is clean,
+# from the working files as they are when it is not.
+buildCheckout() {
+	if $isDirty; then
+		buildImage "$checkout"
+	else
+		source=$(mktemp -d)
+		trap 'rm -rf "$source"' EXIT
+		echo "build: cloning $short" >&2
+		git clone --quiet --no-checkout "file://$checkout" "$source/orpheum" 2>/dev/null
+		git -C "$source/orpheum" checkout --quiet "$commit"
+		buildImage "$source/orpheum"
+	fi
+}
+
+if [ "$1" = --save ]; then
+	[ "$#" -eq 2 ] || usage
+	archive=$2
+	checkoutImage
+	if $isDirty; then
+		echo "build: warning: the tree has uncommitted changes, which are built as they are, as $version" >&2
+	fi
+	buildCheckout
+	case $archive in
+	*.gz)
+		docker save --output "${archive%.gz}" "$image"
+		gzip -f "${archive%.gz}"
+		;;
+	*) docker save --output "$archive" "$image" ;;
+	esac
+	echo "build: saved $image to $archive" >&2
+	exit 0
+fi
+
+if [ "$1" = --checkout ]; then
+	mkdir -p "$2/run"
+	dir=$(cd "$2" && pwd)
+	shift 2
+	force=false
+	if [ "${1:-}" = --force ]; then
+		force=true
+		shift
+	fi
+	mediaFirst "$@"
+	checkoutImage
 	warned=false
 	if [ -z "$tag" ]; then
 		echo "build: warning: $short carries no version tag; it deploys as $version" >&2
@@ -130,16 +178,7 @@ if [ "$1" = --checkout ]; then
 			;;
 		esac
 	fi
-	if $isDirty; then
-		buildImage "$checkout"
-	else
-		source=$(mktemp -d)
-		trap 'rm -rf "$source"' EXIT
-		echo "build: cloning $short" >&2
-		git clone --quiet --no-checkout "file://$checkout" "$source/orpheum" 2>/dev/null
-		git -C "$source/orpheum" checkout --quiet "$commit"
-		buildImage "$source/orpheum"
-	fi
+	buildCheckout
 	install "$@"
 	exit 0
 fi
