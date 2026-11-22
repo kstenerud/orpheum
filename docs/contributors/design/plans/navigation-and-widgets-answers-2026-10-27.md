@@ -4815,3 +4815,14 @@ the admin "This file needs this offset" so the admin can fix it for all users."
   own over it, which defaults to the admin's. A person's way to tell the admin "this file needs this
   offset" is part of it (shape to propose when the batch is planned).
 - A rescan, discarding or not, keeps both: a person entered them (D535 §6).
+
+**The owner's answers on its shape (2026-11-22, each the lead's recommendation):**
+
+- **Where an admin sets it:** in the player's gear, under the advanced fold. An admin sees "This
+  file" (their own, as anyone does) and a "Make it everyone's" button that sets it for every person.
+  No new page: the admin fixes it while watching, where the sound is heard.
+- **How a person tells the admin:** a "Tell the admin" button beside "This file" sends the existing
+  problem report with the file and the offset filled in; the admin's view of that report gets an
+  "Apply to everyone" button. One way to do the job (rule 11): no second channel.
+- **Kept per file,** not per video: the lost sound is in that file. A video's other version, or a
+  file that replaces it, starts at 0.
