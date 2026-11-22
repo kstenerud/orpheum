@@ -45,7 +45,8 @@ func TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFil
 		}
 	}
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO subtitle_text (source_hash, stream_index, failure,
-		made_at) VALUES ((SELECT payload_hash FROM file WHERE id = `+file+`), 2, 'ffmpeg exited 1', 1)`)
+		made_at) VALUES ((SELECT payload_hash FROM file WHERE id = `+file+`), 2, 'ffmpeg exited 1', 1)`,
+		`INSERT INTO whole_file_hash (file_id, failure, hashed_at) VALUES (`+file+`, 'the read stopped', 1)`)
 	if started := harness.do(t, http.MethodPost, "/libraries/1/rescan", admin, nil); started.status !=
 		http.StatusAccepted {
 		t.Fatalf("POST /libraries/1/rescan = %d %s", started.status, started.body)
@@ -57,6 +58,10 @@ func TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFil
 	if kept := storetest.QueryRaw(t, harness.databasePath,
 		`SELECT count(*) FROM subtitle_text WHERE failure IS NOT NULL`); !slices.Equal(kept, []string{"0"}) {
 		t.Errorf("after the rescan, %v subtitle texts that could not be made are kept; want none", kept)
+	}
+	if kept := storetest.QueryRaw(t, harness.databasePath,
+		`SELECT count(*) FROM whole_file_hash WHERE failure IS NOT NULL`); !slices.Equal(kept, []string{"0"}) {
+		t.Errorf("after the rescan, %v whole reads that failed are kept; want none", kept)
 	}
 }
 

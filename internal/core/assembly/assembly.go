@@ -224,9 +224,13 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	dependencies.Browser = library.NewBrowser(parts.Database, parts.Settings)
 	dependencies.Browser.SetNodeConnections(services.nodes)
 	services.openPlayback(parts)
-	// Every rescan forgets, besides what identify forgets itself, the subtitle texts of its files that
-	// could not be made and the failures of unknown cause in its scope (D535 §8).
+	// Every rescan forgets, besides the failures to fetch that identify forgets itself, its files' failed
+	// measurements, timelines and whole reads, their subtitle texts that could not be made and the
+	// failures of unknown cause in its scope (D535 §8).
 	services.rescans.SetGivenUpForgetters(identify.GivenUpForgetters{
+		OfFiles: []identify.FileFailuresForgetter{
+			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles,
+		},
 		SubtitleText: services.subtitles.ForgetTextFailures, UnknownFailures: services.UnknownFailures.Forget,
 	})
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =

@@ -25,9 +25,17 @@ import (
 // by the package that keeps it: set by the server's wiring (SetGivenUpForgetters). One left nil
 // forgets nothing.
 type GivenUpForgetters struct {
+	// OfFiles each forget, in the rescan's write, one package's attempts given up on of the files named,
+	// a JSON array of ids, and say how many: readthrough.ForgetFailuresOfFiles,
+	// repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles. One package writes each table.
+	OfFiles         []FileFailuresForgetter
 	SubtitleText    func(ctx context.Context, fileIDs []int64) error            // subtitles.Service.ForgetTextFailures
 	UnknownFailures func(ctx context.Context, subjects []string) (int64, error) // unexpected.Recorder.Forget
 }
+
+// FileFailuresForgetter forgets, in a rescan's write, one kind of attempt given up on of the files
+// named, a JSON array of ids, and says how many it forgot.
+type FileFailuresForgetter func(ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string) (int64, error)
 
 // SetGivenUpForgetters sets how a rescan forgets what another package keeps of what was given up on.
 func (rescans *Rescans) SetGivenUpForgetters(forgetters GivenUpForgetters) {
@@ -83,18 +91,14 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 	}
 	var forgotten int64
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		forgotten = 0
-		for _, forget := range []func() (int64, error){
-			func() (int64, error) { return queries.ForgetFetchFailuresOfItems(ctx, string(itemsJSON)) },
-			func() (int64, error) { return queries.ForgetLoudnessFailuresOfFiles(ctx, string(filesJSON)) },
-			func() (int64, error) { return queries.ForgetTimelineFailuresOfFiles(ctx, string(filesJSON)) },
-			func() (int64, error) { return queries.ForgetTimelineReadFailuresOfFiles(ctx, string(filesJSON)) },
-			func() (int64, error) { return queries.ForgetFailedRepeatMeasurementsOfFiles(ctx, string(filesJSON)) },
-			func() (int64, error) { return queries.ForgetWholeFileHashFailuresOfFiles(ctx, string(filesJSON)) },
-		} {
-			count, forgetErr := forget()
-			if forgetErr != nil {
-				return forgetErr
+		var forgetErr error
+		if forgotten, forgetErr = queries.ForgetFetchFailuresOfItems(ctx, string(itemsJSON)); forgetErr != nil {
+			return fmt.Errorf("forget the failures to fetch: %w", forgetErr)
+		}
+		for _, forget := range rescans.givenUp.OfFiles {
+			count, ofFilesErr := forget(ctx, queries, string(filesJSON))
+			if ofFilesErr != nil {
+				return ofFilesErr
 			}
 			forgotten += count
 		}

@@ -113,6 +113,17 @@ func hashRequest(fileID int64) jobs.Request {
 	}
 }
 
+// ForgetHashFailuresOfFiles forgets, in a rescan's write (identify.GivenUpForgetters, D535 §8), the
+// whole reads that failed of the files named, a JSON array of ids: the copies' sweep reads each whole
+// again. A hash made stays. It says how many it forgot.
+func ForgetHashFailuresOfFiles(ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string) (int64, error) {
+	forgotten, err := queries.ForgetWholeFileHashFailuresOfFiles(ctx, fileIDsJSON)
+	if err != nil {
+		return 0, fmt.Errorf("forget the whole reads that failed: %w", err)
+	}
+	return forgotten, nil
+}
+
 // isHashCurrent is whether a file's whole-file hash, or its failure, was made at the size and modified
 // time the file has now.
 func isHashCurrent(sha256 []byte, failure *string, hashedSize, hashedModified, size, modified *int64) bool {

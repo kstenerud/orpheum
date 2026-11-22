@@ -30806,7 +30806,8 @@ library's live items and the files at its live places; one item's, its files' wo
 `fetch_failure` of its films, series and episodes; the failed `loudness` rows, `video_timeline`
 rows that could not be read (its `read_failure` alone is cleared, so the keyframes and the grid a
 playback is cut on stay), `repeat_measurement` rows that failed (one that found none is an answer
-and stays) and failed `whole_file_hash` rows of its files. The subtitles forget the failed
+and stays) and failed `whole_file_hash` rows of its files, each by the package that writes the table
+(`readthrough`, `repeats`, `library`) in the rescan's one write (`identify.GivenUpForgetters`). The subtitles forget the failed
 `subtitle_text` of the files' own tracks and of each subtitle fetched for them
 (`ForgetTextFailures`), and the recorder of unknown failures forgets every kind's kept for the
 items, the files, the subtitles fetched for them and the seasons of its episodes, and holds none of

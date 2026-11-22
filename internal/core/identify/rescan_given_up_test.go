@@ -9,6 +9,9 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/repeats"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -20,6 +23,9 @@ type givenUpForgotten struct {
 
 func (forgotten *givenUpForgotten) forgetters() identify.GivenUpForgetters {
 	return identify.GivenUpForgetters{
+		OfFiles: []identify.FileFailuresForgetter{
+			readthrough.ForgetFailuresOfFiles, repeats.ForgetFailuresOfFiles, library.ForgetHashFailuresOfFiles,
+		},
 		SubtitleText: func(_ context.Context, fileIDs []int64) error {
 			for _, id := range fileIDs {
 				forgotten.subtitleFiles = append(forgotten.subtitleFiles, strconv.FormatInt(id, 10))
