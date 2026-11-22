@@ -122,6 +122,12 @@
   --size-control: 2.75rem;
   --size-poster-min: 6.75rem;
   --size-reading: 42rem;
+  /*
+   * A page's widest, its gutter included (Page, page.tsx; D538 §1): wider than this, a page's lines
+   * stop and it sits in the window's middle. A part takes its narrow form under 36rem of its own
+   * container, written in each @container query as a length, since a query reads no custom property.
+   */
+  --size-page: 72rem;
 
   /*
    * The room at each edge of the screen that no pop-up covers (the owner, 2026-11-03: "a (very

@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A named block of a page (section.tsx): it asks its own width, never the window's (D538 §1). */
+.section {
+  container-type: inline-size;
+  margin-block-end: var(--space-6);
+}
+
+/* The heading and its actions on one line, wrapping where they do not fit. */
+.section__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin-block-end: var(--space-3);
+}
+
+/* No margin of its own, so the line centres it beside its actions. */
+.section__heading {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin-block: 0;
+}
+
+.section__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* A "See all" link is a fingertip's target, as a button is. */
+.section__actions > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-control);
+  font-weight: var(--font-weight-strong);
+}
+
+/* Narrow: the actions on a line of their own under the heading. */
+@container (max-width: 36rem) {
+  .section__actions {
+    flex-basis: 100%;
+  }
+}

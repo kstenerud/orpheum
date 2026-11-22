@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A routed screen's frame (page.tsx): no wider than --size-page, the app's gutter (app-shell.css's
+   --space-page each side) included, in the middle of a wider window. It asks its own width, never
+   the window's (D538 §1). */
+.page {
+  container-type: inline-size;
+  max-width: calc(var(--size-page) - 2 * var(--space-page));
+  margin-inline: auto;
+}
+
+/* The heading and its actions, then the page's job on a line of its own. */
+.page__header {
+  margin-block-end: var(--space-4);
+}
+
+/* The heading and the page's actions on one line, wrapping where they do not fit. */
+.page__heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* No margin of its own, so the line centres it beside its actions. */
+.page__heading {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin-block: 0;
+}
+
+.page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The page's job, a line of its own under the heading and its actions. */
+.page__job {
+  margin-block: var(--space-2) 0;
+  color: var(--color-muted);
+}
+
+/* Narrow: the actions on a line of their own under the heading. */
+@container (max-width: 36rem) {
+  .page__actions {
+    flex-basis: 100%;
+  }
+}

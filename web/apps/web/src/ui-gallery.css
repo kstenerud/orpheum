@@ -98,3 +98,36 @@
   padding-inline: var(--space-2);
   color: var(--color-muted);
 }
+
+/* A page's parts drawn in a frame of their own, so a Page's width limit shows inside the gallery. */
+.ui-gallery__frame {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+/* The pills and offer cards on a film's ground, side by side where there is room; where each sits
+   over a real film is the player's (D538 §1). */
+.ui-gallery__over-film {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  max-width: none;
+  aspect-ratio: auto;
+  padding: var(--space-4);
+}
+
+.ui-gallery__pills,
+.ui-gallery__offers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-gallery__still {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

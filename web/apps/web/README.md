@@ -1083,6 +1083,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/layout.browser.test.tsx`; each, and a pop-up holding a list, at `/ui-gallery`,
   `src/ui-gallery.test.tsx`. ⁝'s steppers lay out their parts with `Cluster`; the screens'
   hand-written gapped rows and columns move to the primitives as they are touched.
+- **A page, a section and the buttons that end them are the layout parts** (D538 §1;
+  [standards/ui.md](../../../docs/contributors/standards/ui.md), rules 9 and 13): `Page`
+  (`src/page.tsx`), its trail, `h1`, actions, one-line job, status, then Needs you first and absent
+  when not given, its content no wider than `--size-page`; `Section` (`src/section.tsx`), an `h2`
+  and its actions; `ActionRow` (`src/action-row.tsx`), the way back and then the main action,
+  stacked full width under 36rem of its container. Over a film, a `Pill` (`src/pill.tsx`), a note
+  that takes no press or focus, an `<output>` unless silent, and an `ActionPill` a fingertip tall;
+  and an `OfferCard` (`src/offer-card.tsx`), an offer taken by one press or by its buttons, its
+  words an `<output>`, its countdown in no live region. Each at 360, 1280 and 1920px, by mouse,
+  touch, Tab and the remote: `src/layout-parts.browser.test.tsx`; each at `/ui-gallery`, drawn by
+  the part itself: `src/ui-gallery.test.tsx`. No page uses them yet; the revamp's batch 3 moves
+  the pages, and batch 4 the player's notes.
 - **A list of rows with columns is a `GridList`** (`src/grid-list.tsx`; the owner, 2026-11-05).
   This covers the cast, needs a match, accounts, invitations and roles. Its columns line up in every
   row (CSS subgrid). Each column declares its text: `wrap`, `truncate` (one line, cut) or `fit` (one
@@ -1133,7 +1145,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
 [D193](../../../docs/contributors/decisions/working-notes.md) §6, [D222](../../../docs/contributors/decisions/working-notes.md),
 [D246](../../../docs/contributors/decisions/working-notes.md), [D336](../../../docs/contributors/decisions/working-notes.md);
 [web-client.md](../../../docs/contributors/design/plans/web-client.md);
-[standards/typescript.md](../../../docs/contributors/standards/typescript.md).
+[standards/typescript.md](../../../docs/contributors/standards/typescript.md);
+for anything a person sees, [standards/ui.md](../../../docs/contributors/standards/ui.md) and the
+[interface principles](../../../docs/contributors/principles/README.md#interface) (D538).
 
 ## Where to change
 
@@ -1150,7 +1164,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `player-overlay.tsx` over the film in full screen and `page-controls.tsx` under it otherwise, with
   `player-menus.tsx` (the overlay's 🔈 and its subtitle, audio and more menus),
   `convenience-area.tsx` (the offers and when the film ends), `play-up.tsx` (Up and the trail),
-  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`; every other icon is in `icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `number-input.tsx` (the one number input: a field and its down and up arrows), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `copy-button.tsx` (the one Copy: its button, and its note saying the text was copied or the copy refused), `layout.tsx` (the layout primitives, `Stack` and `Cluster`, their gaps from the space scale), `grid-list.tsx` (a list whose rows share lined-up columns, each one pressable), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`; every other icon is in `icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `number-input.tsx` (the one number input: a field and its down and up arrows), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `copy-button.tsx` (the one Copy: its button, and its note saying the text was copied or the copy refused), `layout.tsx` (the layout primitives, `Stack` and `Cluster`, their gaps from the space scale), `page.tsx`, `section.tsx` and `action-row.tsx` (the layout parts: a page, its sections, the buttons that end them, D538 §1), `pill.tsx` and `offer-card.tsx` (a note and an offer over a film), `grid-list.tsx` (a list whose rows share lined-up columns, each one pressable), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

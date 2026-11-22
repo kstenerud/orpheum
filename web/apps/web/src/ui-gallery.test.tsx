@@ -163,3 +163,27 @@ it("draws a film waiting for data with the player's own spinner and its bar, the
   );
   expect(markup).not.toMatch(/ui-gallery__(ring|hourglass|link)/u);
 });
+
+it("shows a page's layout parts, drawn by the parts themselves: Page, Section, ActionRow, Pill and OfferCard (D538 §1)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const parts = markup.slice(
+    markup.indexOf('id="gallery-layout-parts"'),
+    markup.indexOf('id="gallery-player"'),
+  );
+  for (const part of [
+    'class="page"',
+    'class="page__job"',
+    'class="section"',
+    'class="action-row"',
+    'class="pill pill--said"',
+    'class="pill pill--volume"',
+    'class="pill pill--silent"',
+    'class="pill pill--action"',
+    'class="offer-card"',
+    'class="offer-card__content offer-card__take"',
+  ]) {
+    expect(parts).toContain(part);
+  }
+  expect(parts).toContain("Needs you");
+  expect(parts).toContain("Still watching?");
+});

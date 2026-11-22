@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The buttons ending a form, a dialog or a card (action-row.tsx): it asks its own width (D538 §1). */
+.action-row {
+  container-type: inline-size;
+  margin-block-start: var(--space-4);
+}
+
+/* In source order, the way back then the main action, which is also the focus order. */
+.action-row__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* Narrow: a column of full-width buttons in source order, the main one at the bottom, nearest the
+   thumb, drawn in the order focus meets them. */
+@container (max-width: 36rem) {
+  .action-row__buttons {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .action-row__buttons > * {
+    width: 100%;
+  }
+}

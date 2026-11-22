@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-/** The words of where a page is and the way up (D367), and of a library's own choices (D349 §8, D366 §5). */
+/**
+ * The words of a page's frame (page.tsx), of where a page is and the way up (D367), and of a
+ * library's own choices (D349 §8, D366 §5).
+ */
 export const enNavigation = {
+  page: {
+    needsYou: "Needs you",
+  },
   trail: {
     label: "Where you are",
     up: "‹ {{name}}",

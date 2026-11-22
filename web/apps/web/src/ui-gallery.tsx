@@ -70,6 +70,7 @@ import {
 import { RouteChooser } from "./route-chooser.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
 import { Timeline } from "./timeline.tsx";
+import { GalleryLayoutParts } from "./ui-gallery-layout.tsx";
 import { SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
 import type { Upward } from "./upward.ts";
 
@@ -137,6 +138,7 @@ export function UiGallery(): JSX.Element {
       </section>
       <IconsAndButtons />
       <PopUpsAndLayouts />
+      <GalleryLayoutParts />
       <PlayerWidgets />
     </article>
   );

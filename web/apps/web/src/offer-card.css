@@ -1,0 +1,92 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* An offer over a film (offer-card.tsx): a card on the film's card ground, at most 26rem wide, or
+   the film's width less 3rem where that is less; the still, the words and the buttons, then its ✕. */
+.offer-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(26rem, calc(100% - 3rem));
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+}
+
+.offer-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The still and the words; where the card is pressed, one button of them, a fingertip tall. */
+.offer-card__content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.offer-card__take {
+  min-height: var(--size-control);
+  margin: calc(var(--space-2) * -1);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--duration-quick);
+}
+
+@media (hover: hover) {
+  .offer-card__take:hover {
+    background: var(--color-video-control);
+  }
+}
+
+.offer-card__still {
+  display: block;
+  flex: none;
+  width: 8rem;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-video-control);
+}
+
+.offer-card__still > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.offer-card__words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.offer-card__offer {
+  font-weight: var(--font-weight-strong);
+}
+
+.offer-card__detail {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-card__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
