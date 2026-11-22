@@ -80,10 +80,11 @@ async function mountBrowse(
     query: string;
   }>,
   answers: Record<string, Answer | readonly Answer[]>,
-  heard: Heard[] = [],
-  /** Given the services the page is mounted with, to read where it went. */
-  servedWith: ReturnType<typeof servedBy>[] = [],
+  /** What the server heard, or that and a list given the services the page is mounted with. */
+  seen:
+    Heard[] | { readonly heard: Heard[]; readonly servedWith: ReturnType<typeof servedBy>[] } = [],
 ): Promise<Mounted> {
+  const { heard, servedWith } = Array.isArray(seen) ? { heard: seen, servedWith: [] } : seen;
   const services = servedBy(answers, heard);
   servedWith.push(services);
   return await mount(
@@ -575,8 +576,7 @@ describe("the Libraries page (D349)", () => {
           },
         ],
       },
-      heard,
-      servedWith,
+      { heard, servedWith },
     );
     await settleUntil(() => mounted?.container.querySelector(".file-browser__row") !== null);
     // In rows (D539 §1), the folders first: each folder with its count, each video its file.

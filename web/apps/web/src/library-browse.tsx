@@ -411,20 +411,18 @@ function LibraryBrowseBody(props: {
   const { state, resolved } = props;
   if (resolved.view === "folders" && state.query === "" && resolved.libraryId !== undefined) {
     return (
-      <>
-        <LibraryFolders
-          key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}`}
-          libraryId={resolved.libraryId}
-          folder={state.folder}
-          choice={resolved}
-          upward={folderUpward(
-            { id: resolved.libraryId, name: resolved.currentLabel },
-            state.folder,
-            (folder) => routeFor(state, { folder }),
-          )}
-          folderRoute={(folder) => routeFor(state, { folder })}
-        />
-      </>
+      <LibraryFolders
+        key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}`}
+        libraryId={resolved.libraryId}
+        folder={state.folder}
+        choice={resolved}
+        upward={folderUpward(
+          { id: resolved.libraryId, name: resolved.currentLabel },
+          state.folder,
+          (folder) => routeFor(state, { folder }),
+        )}
+        folderRoute={(folder) => routeFor(state, { folder })}
+      />
     );
   }
   const listKey = `library/${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}/${filtersKey(state.filters ?? {})}`;

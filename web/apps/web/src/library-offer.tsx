@@ -52,11 +52,11 @@ export function LibraryOffer(props: { readonly onMade: () => void }): JSX.Elemen
     for (const node of nodes.filter((each) => each.isConnected)) {
       for (const root of node.rootPaths ?? []) {
         const listing = await listFolders(api, { nodeName: node.name, path: root });
-        if (listing.state === "readable" && (listing.folders ?? []).length > 0) {
+        if (listing.state === "readable" && listing.folders.length > 0) {
           found.push({
             nodeName: node.name,
             root,
-            rows: offerRows(node.name, root, listing.folders ?? []),
+            rows: offerRows(node.name, root, listing.folders),
           });
         }
       }

@@ -20,7 +20,6 @@ import { useServices } from "./services.tsx";
 import { StatusNote } from "./status-note.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
-import { StatusNote } from "./status-note.tsx";
 
 type Summary = components["schemas"]["ProblemReportSummaryBody"];
 type SuggestedOffset = components["schemas"]["ProblemReportSoundOffsetBody"];
