@@ -504,7 +504,11 @@ export function Popover(props: PopoverProps): JSX.Element {
     }
   });
   return (
-    <dialog ref={ref} className="popover" aria-label={props.label}>
+    <dialog
+      ref={ref}
+      className={props.oneControl === undefined ? "popover" : "popover popover--one-control"}
+      aria-label={props.label}
+    >
       <div ref={contentRef} className="popover__content">
         {props.children}
       </div>

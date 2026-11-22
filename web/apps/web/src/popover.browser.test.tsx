@@ -2,7 +2,7 @@
 
 /**
  * A pop-up's size and place as a real browser lays them out (popover.tsx, popover.css): as wide as
- * its widest entry, never wider than half the screen nor capped under 16rem, a longer entry wrapping
+ * its widest entry, between 16rem and 24rem (D538) inside the screen, a longer entry wrapping
  * (the owner, 2026-11-03: the banner's menu "is too narrow, and causes word wrap"); clear of a
  * little room at every edge of the screen ("a (very small) margin at the edge of the screen that
  * popups aren't allowed to cover"); and 🔈's grown out of its button, its speaker where the button
@@ -31,8 +31,11 @@ import { withServices } from "./test-services.tsx";
  */
 const screenEdgeRoomPx = 8;
 
-/** A pop-up's narrowest cap, 16rem, where half the screen is less. */
-const leastCapPx = 256;
+/** A menu's least width and its widest, 16rem and 24rem (D538, D408 §7). */
+const narrowestPx = 256;
+const widestPx = 384;
+/** A pop-up's border, either side of what it holds (popover.css). */
+const borderPx = 1;
 
 /** How far layout's rounding may put a box. */
 const roundingPx = 1;
@@ -116,7 +119,8 @@ describe("a pop-up's width, laid out by a real browser", () => {
   // The owner, 2026-11-03: "The top-right menu is too narrow, and causes word wrap on the
   // selectable items." Sized to fit the room left of its place at the screen's right edge, it
   // shrank below its entries.
-  it("opens the banner's menu at the screen's top right as wide as its widest choice, none wrapping", async () => {
+  // At least 16rem wide (D538), each choice the menu's width.
+  it("opens the banner's menu at the screen's top right at least as wide as its widest choice, none wrapping", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(
       withServices(
@@ -137,9 +141,13 @@ describe("a pop-up's width, laid out by a real browser", () => {
     const entries = [...popUp().querySelectorAll<HTMLElement>(".list-box__option")];
     expect(entries.length).toBeGreaterThan(2);
     const widest = Math.max(...entries.map((entry) => unwrappedSizeOf(entry).width));
+    const inside = popUp().clientWidth;
+    expect(inside).toBeGreaterThanOrEqual(
+      Math.max(widest, narrowestPx - 2 * borderPx) - roundingPx,
+    );
     for (const entry of entries) {
       const laid = boxOf(entry);
-      expect(laid.width, entry.textContent).toBeCloseTo(widest, 0);
+      expect(laid.width, entry.textContent).toBeCloseTo(inside, 0);
       expect(laid.height, entry.textContent).toBeCloseTo(unwrappedSizeOf(entry).height, 0);
     }
     expectClearOfTheEdges(boxOf(popUp()), window.innerWidth, window.innerHeight);
@@ -168,36 +176,50 @@ describe("a pop-up's width, laid out by a real browser", () => {
     await userEvent.click(page.getByRole("button", { name: "Menu" }));
     const choices = [...popUp().querySelectorAll<HTMLElement>(".list-box__option")];
     const widest = Math.max(...choices.map((choice) => unwrappedSizeOf(choice).width));
+    // Its choices set its width, or its least, 16rem (D538), whichever is wider.
+    const inside = Math.max(widest, narrowestPx - 2 * borderPx);
     for (const choice of choices) {
-      expect(boxOf(choice).width, choice.textContent).toBeCloseTo(widest, 0);
+      expect(boxOf(choice).width, choice.textContent).toBeCloseTo(inside, 0);
     }
     const who = popUp().querySelector<HTMLElement>(".app-shell__who");
-    const oneLine = boxOf(choices[0]).height;
-    expect(boxOf(who).width).toBeCloseTo(widest, 0);
+    if (who === null) {
+      throw new Error("no line says who is signed in");
+    }
+    const oneLine = unwrappedSizeOf(who).height;
+    expect(boxOf(who).width).toBeCloseTo(inside, 0);
     expect(boxOf(who).height).toBeGreaterThan(oneLine * 1.5);
   });
 
-  // The owner, 2026-11-03: it "definitely shouldn't occupy more than half the screen, but it also
-  // shouldn't widen unnecessarily for an extremely long item (that could word-wrap to look nicer)".
-  it("caps a menu with a very long entry at half the screen, the entry wrapping", async () => {
+  // The owner, 2026-11-03: it "shouldn't widen unnecessarily for an extremely long item (that could
+  // word-wrap to look nicer)"; at most 24rem (D538).
+  it("caps a menu with a very long entry at 24rem, the entry wrapping", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(menuAt({ left: "40%", top: "30%" }, ["Home", longEntry]));
     await userEvent.click(page.getByRole("button", { name: "Menu" }));
-    expect(Math.abs(boxOf(popUp()).width - 640)).toBeLessThanOrEqual(roundingPx);
+    expect(Math.abs(boxOf(popUp()).width - widestPx)).toBeLessThanOrEqual(roundingPx);
     const [short, long] = [...popUp().querySelectorAll(".list-box__option")];
     expect(boxOf(long).height).toBeGreaterThan(boxOf(short).height * 1.5);
   });
 
-  // Half a phone's screen is too narrow for a word: the cap is never under 16rem, and the room at
-  // the screen's edges still wins.
-  it("caps it at 16rem on a phone's screen, inside the room at its edges", async () => {
-    await page.viewport(400, 740);
+  // On a phone's screen narrower than 24rem and its edges' room, the room wins.
+  it("caps it at the room a phone's screen has, inside the room at its edges", async () => {
+    await page.viewport(360, 740);
     mounted = await mount(menuAt({ right: "0px", top: "0px" }, ["Home", longEntry]));
     await userEvent.click(page.getByRole("button", { name: "Menu" }));
     const box = boxOf(popUp());
-    expect(Math.abs(box.width - leastCapPx)).toBeLessThanOrEqual(roundingPx);
-    expectClearOfTheEdges(box, 400, 740);
+    expect(Math.abs(box.width - (360 - 2 * screenEdgeRoomPx))).toBeLessThanOrEqual(roundingPx);
+    expectClearOfTheEdges(box, 360, 740);
   });
+
+  // D538 (D408 §7): a menu of short entries is never narrower than 16rem, at every width.
+  for (const width of [360, 1280, 1920]) {
+    it(`keeps a menu of short entries 16rem wide at ${String(width)}px`, async () => {
+      await page.viewport(width, 740);
+      mounted = await mount(menuAt({ left: "0px", top: "0px" }, ["Home", "Films"]));
+      await userEvent.click(page.getByRole("button", { name: "Menu" }));
+      expect(Math.abs(boxOf(popUp()).width - narrowestPx)).toBeLessThanOrEqual(roundingPx);
+    });
+  }
 });
 
 /** The screen's corners, a button pressed against each. */

@@ -147,11 +147,11 @@
   --screen-edge-room-bottom: calc(var(--screen-edge-room) + env(safe-area-inset-bottom, 0px));
   --screen-edge-room-left: calc(var(--screen-edge-room) + env(safe-area-inset-left, 0px));
   /*
-   * A pop-up's widest (the owner, 2026-11-03: "definitely shouldn't occupy more than half the
-   * screen"), never under 16rem, where half a phone's screen is too narrow for a word; the room
-   * above wins over both.
+   * A menu's or a pop-up's width (D408 §7, D538): sized to what it holds between these, its longest
+   * entry wrapping past the widest; the room above wins over both, on a screen too narrow for them.
    */
-  --popover-widest: max(50vw, 16rem);
+  --popover-narrowest: 16rem;
+  --popover-widest: 24rem;
 
   /*
    * Motion (interface rule 11, D538): how long a change takes, quick for hover and focus, normal for

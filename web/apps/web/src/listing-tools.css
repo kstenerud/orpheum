@@ -33,8 +33,8 @@
   text-overflow: ellipsis;
 }
 
-/* What it opens, one control a line, the field first: as wide as a pop-up may be (--popover-widest,
-   the owner's half the screen, 16rem on a phone) less the pop-up's border, and never wider than the
+/* What it opens, one control a line, the field first: as wide as a pop-up may be (--popover-widest)
+   less the pop-up's border, and never wider than the
    screen less the room at its edges; no wider than a column on a wider screen. */
 .list-criteria {
   display: flex;
