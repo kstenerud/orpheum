@@ -71,6 +71,7 @@ import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
 import { Stepper } from "./stepper.tsx";
 import { Timeline } from "./timeline.tsx";
 import { GalleryLayoutParts } from "./ui-gallery-layout.tsx";
+import { FormParts } from "./ui-gallery-forms.tsx";
 import { SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
 import type { Upward } from "./upward.ts";
 
@@ -137,6 +138,7 @@ export function UiGallery(): JSX.Element {
         ))}
       </section>
       <IconsAndButtons />
+      <FormParts />
       <PopUpsAndLayouts />
       <GalleryLayoutParts />
       <PlayerWidgets />

@@ -138,6 +138,18 @@ it("shows a stepper among the buttons, its field, its unit and its − and + (th
   );
 });
 
+it("shows the form parts, each switch a button of role switch saying its state (D538, interface rule 7)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const forms = markup.slice(
+    markup.indexOf('id="gallery-forms"'),
+    markup.indexOf('id="gallery-pop-ups"'),
+  );
+  expect(forms).toMatch(
+    /<button type="button" role="switch" class="switch" aria-checked="false"[^>]*>.*A switch</u,
+  );
+  expect(forms).toContain('<span class="switch__status"> (+4.1 dB)</span>');
+});
+
 it("shows the parts the widgets are built from, a pop-up at its button and the layout primitives (D408; plans/toolkit.md step 7)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const parts = markup.slice(

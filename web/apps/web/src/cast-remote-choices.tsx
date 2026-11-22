@@ -31,6 +31,7 @@ import {
 import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 import { SoundOffsetInput } from "./sound-delay.tsx";
+import { Switch } from "./switch.tsx";
 import { SessionTalk } from "./together-voice.tsx";
 import type { Previous } from "./around-file.ts";
 
@@ -244,7 +245,7 @@ function RemoteSoundOffset(props: {
 }
 
 /**
- * One of the receiver's switches on the remote: as the receiver said it stands, and as pressed here
+ * One of the receiver's switches on the remote (switch.tsx): as the receiver said it stands, and as pressed here
  * until the receiver says again (its key changes with what it says).
  */
 function RemoteSwitch(props: {
@@ -254,18 +255,14 @@ function RemoteSwitch(props: {
 }): JSX.Element {
   const [isOn, setIsOn] = useState(props.isOn);
   return (
-    <label className="sound__switch">
-      <input
-        type="checkbox"
-        checked={isOn}
-        onChange={(event) => {
-          const isNowOn = event.currentTarget.checked;
-          setIsOn(isNowOn);
-          props.onSwitched(isNowOn);
-        }}
-      />
-      {props.label}
-    </label>
+    <Switch
+      label={props.label}
+      isOn={isOn}
+      onSwitch={(isNowOn) => {
+        setIsOn(isNowOn);
+        props.onSwitched(isNowOn);
+      }}
+    />
   );
 }
 

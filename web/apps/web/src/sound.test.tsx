@@ -17,6 +17,8 @@ import {
   servedBy,
   type Heard,
   type Mounted,
+  isSwitchOn,
+  switchNamed,
 } from "./test-dom.tsx";
 import { directDecision, television, unmeasuredSound } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
@@ -54,11 +56,9 @@ afterEach(() => {
   mounted = undefined;
 });
 
-/** The dialogue boost's box, by its label; undefined where it is not offered. */
-function boostBox(): HTMLInputElement | null | undefined {
-  return [...(mounted?.container.querySelectorAll("label") ?? [])]
-    .find((label) => label.textContent === "Dialogue boost")
-    ?.querySelector("input");
+/** The dialogue boost's switch, by its name; undefined where it is not offered. */
+function boostBox(): HTMLElement | undefined {
+  return mounted === undefined ? undefined : switchNamed(mounted.container, "Dialogue boost");
 }
 
 describe("how a device makes sound, asked of no one (D336 §4)", () => {
@@ -127,7 +127,7 @@ describe("the dialogue boost over the original (D336 §3)", () => {
       Object.defineProperty(video, "paused", { value: true, configurable: true });
     }
     // The original's own sound plays, which the device mixes down: the boost is not acting.
-    expect(boostBox()?.checked).toBe(false);
+    expect(isSwitchOn(boostBox())).toBe(false);
     await click(boostBox());
     expect(heard).toContainEqual({
       methodAndPath: "PUT /me/preferences",
@@ -240,10 +240,10 @@ describe("the dialogue boost's switch", () => {
         services,
       ),
     );
-    const box = mounted.container.querySelector("input");
-    expect(box?.checked).toBe(true);
+    const box = mounted.container.querySelector('[role="switch"]');
+    expect(isSwitchOn(box)).toBe(true);
     await click(box);
-    expect(box?.checked).toBe(false);
+    expect(isSwitchOn(box)).toBe(false);
     expect(switched).toEqual([false]);
     expect(heard).toEqual([
       { methodAndPath: "PUT /me/preferences", body: { isDialogueBoostOn: false } },
@@ -307,10 +307,8 @@ describe("the dialogue boost on a film's ladder", () => {
         services,
       ),
     );
-    const box = [...mounted.container.querySelectorAll("label")]
-      .find((label) => label.textContent === "Dialogue boost")
-      ?.querySelector("input");
-    expect(box?.checked).toBe(false);
+    const box = switchNamed(mounted.container, "Dialogue boost");
+    expect(isSwitchOn(box)).toBe(false);
     expect(mounted.container.textContent).toContain(
       "Sound: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1)",
     );

@@ -131,3 +131,11 @@
   width: 100%;
   height: 100%;
 }
+
+/* The form parts (ui-gallery-forms.tsx): a column as wide as a settings page's, its parts a gap
+   apart. */
+.ui-gallery__forms {
+  display: grid;
+  gap: var(--space-2);
+  max-inline-size: var(--size-reading);
+}

@@ -400,6 +400,20 @@ export function buttonNamed(container: HTMLElement, name: string): HTMLElement |
   );
 }
 
+/** The switch (switch.tsx) named name in container, as a screen reader names it. */
+export function switchNamed(container: HTMLElement, name: string): HTMLElement | undefined {
+  return [...container.querySelectorAll<HTMLElement>('[role="switch"]')].find(
+    (each) => each.textContent === name,
+  );
+}
+
+/** Whether a switch (switch.tsx) is on; undefined for no switch. */
+export function isSwitchOn(element: Element | null | undefined): boolean | undefined {
+  return element === null || element === undefined
+    ? undefined
+    : element.getAttribute("aria-checked") === "true";
+}
+
 /** The button whose text is text, in container (anyButton). */
 export function buttonWithText(container: HTMLElement, text: string): HTMLElement | undefined {
   return [...container.querySelectorAll<HTMLElement>(anyButton)].find(

@@ -15,7 +15,15 @@ import {
   soundLevelOf,
   type SoundLevel,
 } from "./levelling.tsx";
-import { click, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  click,
+  isSwitchOn,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -143,11 +151,11 @@ describe("levelling a film's loudness (D226)", () => {
         services,
       ),
     );
-    const box = mounted.container.querySelector("input");
-    expect(box?.checked).toBe(true);
+    const box = mounted.container.querySelector('[role="switch"]');
+    expect(isSwitchOn(box)).toBe(true);
     expect(mounted.container.textContent).toContain("Raised 12.7 dB, to the level of other films.");
     await click(box);
-    expect(box?.checked).toBe(false);
+    expect(isSwitchOn(box)).toBe(false);
     expect(mounted.container.textContent).toContain("Playing as it was mixed.");
     expect(heard).toEqual([
       { methodAndPath: "PUT /me/preferences", body: { isLevellingOn: false } },

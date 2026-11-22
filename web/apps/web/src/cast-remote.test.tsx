@@ -24,6 +24,8 @@ import {
   settleUntil,
   type Heard,
   type Mounted,
+  isSwitchOn,
+  switchNamed,
 } from "./test-dom.tsx";
 import { useServices } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
@@ -297,10 +299,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets } = await casting({});
     const page = mounted!.container;
     const server = sockets.session;
-    const labelled = (text: string): HTMLInputElement | null | undefined =>
-      [...page.querySelectorAll("label")]
-        .find((label) => label.textContent === text)
-        ?.querySelector("input");
+    const labelled = (text: string): HTMLElement | undefined => switchNamed(page, text);
     const sound = {
       isBoostOn: false,
       isLevellingOn: true,
@@ -312,8 +311,8 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     };
     await receiverSays(server, { delivery: "converted", sound });
     await openedMenu(page, "Settings");
-    expect(labelled("Dialogue boost")?.checked).toBe(false);
-    expect(labelled("Level loudness")?.checked).toBe(true);
+    expect(isSwitchOn(labelled("Dialogue boost"))).toBe(false);
+    expect(isSwitchOn(labelled("Level loudness"))).toBe(true);
     await click(labelled("Dialogue boost"));
     await click(labelled("Level loudness"));
     await openedMenu(page, "Settings"); // closes ⁝ again
@@ -337,7 +336,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     });
     await openedMenu(page, "Settings");
     expect(labelled("Dialogue boost")).toBeUndefined();
-    expect(labelled("Level loudness")?.checked).toBe(false);
+    expect(isSwitchOn(labelled("Level loudness"))).toBe(false);
   });
 
   it("shows the receiver's sound timing in ⁝, and moves it a step from there for a TV that plays its sound late (the owner, 2026-11-06)", async () => {

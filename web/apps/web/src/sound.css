@@ -1,8 +1,0 @@
-/* SPDX-License-Identifier: MPL-2.0 */
-
-/* A switch for one of the person's own choices: the box beside its label. */
-.sound__switch {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-}

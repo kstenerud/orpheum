@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./sound.css";
 import "./play-words.ts";
 
 import type { Api, components } from "@orpheum/sdk";
@@ -11,6 +10,7 @@ import { useIsGuest } from "./guest-page.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useSoundPart } from "./sound-panel.ts";
+import { Switch } from "./switch.tsx";
 
 /**
  * A choice of the person's own, which holds in every file they play: its name in PUT /me/preferences,
@@ -93,7 +93,10 @@ export function useOwnChoice(
   return { isOn, switchTo, problem };
 }
 
-/** The switch of one of the person's own choices, whoever holds the choice, and what failed. */
+/**
+ * The switch of one of the person's own choices (switch.tsx: it applies at once), whoever holds the
+ * choice, and what failed.
+ */
 export function OwnChoiceBox(props: {
   readonly label: string;
   readonly state: OwnChoiceState;
@@ -101,16 +104,7 @@ export function OwnChoiceBox(props: {
   const { isOn, switchTo, problem } = props.state;
   return (
     <>
-      <label className="sound__switch">
-        <input
-          type="checkbox"
-          checked={isOn}
-          onChange={(event) => {
-            switchTo(event.currentTarget.checked);
-          }}
-        />
-        {props.label}
-      </label>
+      <Switch label={props.label} isOn={isOn} onSwitch={switchTo} />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </>
   );

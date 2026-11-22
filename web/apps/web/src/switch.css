@@ -1,0 +1,68 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A switch (switch.tsx): one row as wide as its container, its label leading, its track at its
+   end; the focus ring on the whole row. */
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  inline-size: 100%;
+  padding: 0 var(--space-3);
+  border-color: transparent;
+  background: transparent;
+  font-weight: inherit;
+  text-align: start;
+}
+
+@media (hover: hover) {
+  .switch:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+  }
+}
+
+.switch__status {
+  color: var(--color-muted);
+}
+
+/* The track: 40 by 24 pixels, its knob 18, moving 16. Off, an edge and a light knob at the start;
+   on, the accent and a dark knob at the end. */
+.switch__track {
+  display: flex;
+  flex: none;
+  align-items: center;
+  inline-size: calc(var(--space-6) + var(--space-2));
+  block-size: var(--space-5);
+  padding-inline: calc(var(--space-1) / 2);
+  border: 1px solid var(--color-control-edge);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+.switch__knob {
+  inline-size: calc(var(--space-4) + var(--space-1) / 2);
+  block-size: calc(var(--space-4) + var(--space-1) / 2);
+  border-radius: var(--radius-pill);
+  background: var(--color-text);
+  transition: transform var(--duration-quick) ease-out;
+}
+
+.switch[aria-checked="true"] .switch__track {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.switch[aria-checked="true"] .switch__knob {
+  background: var(--color-on-accent);
+  transform: translateX(var(--space-4));
+}
+
+.switch[aria-checked="true"]:dir(rtl) .switch__knob {
+  transform: translateX(calc(-1 * var(--space-4)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__knob {
+    transition: none;
+  }
+}
