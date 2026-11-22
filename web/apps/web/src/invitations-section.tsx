@@ -20,6 +20,7 @@ import { roleLabel } from "./roles.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * The invitations still waiting (D399, revising D218 and D267 §5): a row each, with the admin's note
@@ -107,7 +108,7 @@ export function InvitationDialog(props: {
           });
         }}
       />
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </ModalDialog>
   );
 }

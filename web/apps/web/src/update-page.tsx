@@ -15,6 +15,7 @@ import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { composeUpdateCommand, useReadUpdateAgain, useUpdate, type Update } from "./update.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * The folder the script's step names to show `--dir` written out, for a server that does not know its
@@ -113,7 +114,7 @@ function CheckNow(props: {
           </output>
         ) : null}
       </p>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }
@@ -181,12 +182,16 @@ function CheckProblem(props: { readonly update: Update }): JSX.Element | null {
     return null;
   }
   return (
-    <p role="alert">
-      {t("update.checkFailed", { problem: update.problem.replace(/\.$/u, "") })}{" "}
-      {update.checkedAt > 0
-        ? t("update.lastSucceeded", { at: dateTimeText(update.checkedAt, i18n.language) })
-        : t("update.noneSucceeded")}
-    </p>
+    <StatusNote
+      told={{
+        kind: "problem",
+        text: `${t("update.checkFailed", { problem: update.problem.replace(/\.$/u, "") })} ${
+          update.checkedAt > 0
+            ? t("update.lastSucceeded", { at: dateTimeText(update.checkedAt, i18n.language) })
+            : t("update.noneSucceeded")
+        }`,
+      }}
+    />
   );
 }
 

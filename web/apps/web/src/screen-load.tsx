@@ -28,6 +28,7 @@ import { copyToClipboard } from "./clipboard.ts";
 import { loaderOf } from "./loader-interface.ts";
 import { reloadsForNewerClient } from "./newer-client.ts";
 import { CopyWhatHappened } from "./what-happened.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * How long a screen's code is waited for before it is asked again, once its first load failed: long
@@ -453,7 +454,7 @@ export function ScreenNotLoadedPage(props: {
   const isWorkerMissing = props.worker.isUnderLoader && !props.worker.isControlled;
   return (
     <div className="screen-not-loaded">
-      <p role="alert">{t("screenNotLoaded.said")}</p>
+      <StatusNote told={{ kind: "problem", text: t("screenNotLoaded.said") }} />
       {isWorkerMissing ? <p>{t("screenNotLoaded.noWorker")}</p> : null}
       <button type="button" onClick={props.reload}>
         {t("screenNotLoaded.reload")}

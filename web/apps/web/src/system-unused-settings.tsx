@@ -13,6 +13,7 @@ import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Unused = components["schemas"]["UnusedBody"];
 
@@ -47,7 +48,7 @@ export function SystemUnusedSettings(): JSX.Element | null {
     <section aria-labelledby="system-unused-settings">
       <h2 id="system-unused-settings">{t("system.unusedSettings.heading")}</h2>
       <p>{t("system.unusedSettings.what")}</p>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <ul>
         {listed.map((setting) => (
           <li key={setting.key}>

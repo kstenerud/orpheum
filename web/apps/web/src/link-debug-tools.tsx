@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { DebugTool } from "./debug-tools.tsx";
 import { dropChoicesS, linkCapChoicesKbps, type LinkDebug } from "./link-debug.ts";
 import { useServices } from "./services.tsx";
+import { ValueChooser } from "./route-chooser.tsx";
 
 /** A cap as the page says it: megabits a second, as few digits as it needs ("0.5", "1"). */
 function capRateText(kbps: number): string {
@@ -44,23 +45,20 @@ function LinkDebugControls(): JSX.Element | null {
   }
   return (
     <div className="play__link-debug">
-      <label>
-        {t("debugTools.linkCap")}{" "}
-        <select
-          value={capKbps ?? ""}
-          onChange={(event) => {
-            const chosen = Number(event.currentTarget.value);
-            linkDebug.setCap(chosen > 0 ? chosen : undefined);
-          }}
-        >
-          <option value="">{t("debugTools.linkCapOff")}</option>
-          {linkCapChoicesKbps.map((kbps) => (
-            <option key={kbps} value={kbps}>
-              {t("debugTools.linkCapRate", { rate: capRateText(kbps) })}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ValueChooser
+        fieldLabel={t("debugTools.linkCap")}
+        choices={[
+          { value: 0, label: t("debugTools.linkCapOff") },
+          ...linkCapChoicesKbps.map((kbps) => ({
+            value: kbps,
+            label: t("debugTools.linkCapRate", { rate: capRateText(kbps) }),
+          })),
+        ]}
+        current={capKbps ?? 0}
+        onChoose={(chosen) => {
+          linkDebug.setCap(chosen > 0 ? chosen : undefined);
+        }}
+      />
       {dropChoicesS.map((seconds) => (
         <button
           key={seconds}

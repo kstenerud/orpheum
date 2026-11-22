@@ -14,9 +14,14 @@ import { PopoverButton } from "./popover.tsx";
  * not have, and nothing is in a `title`. The pop-up closes at Escape, Back, a press outside or the
  * button again, focus going back to the button. The help is a plain paragraph, nothing to press:
  * focus is on the pop-up holding it, which a screen reader reads and a keyboard scrolls; nothing a person needs to use the
- * control is here: that is visible text. label says what it is about ("About subtitle delay").
+ * control is here: that is visible text. label says what it is about ("About subtitle delay"); help
+ * is its paragraph, or its paragraphs, the short words first and more after them.
  */
-export function HelpButton(props: { readonly label: string; readonly help: string }): JSX.Element {
+export function HelpButton(props: {
+  readonly label: string;
+  readonly help: string | readonly string[];
+}): JSX.Element {
+  const paragraphs = typeof props.help === "string" ? [props.help] : props.help;
   return (
     <PopoverButton
       label={props.label}
@@ -25,7 +30,11 @@ export function HelpButton(props: { readonly label: string; readonly help: strin
       openerNaming={{ "aria-label": props.label }}
       isFromItsTop={false}
     >
-      <p className="help-button__note">{props.help}</p>
+      <div className="help-button__note">
+        {paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
     </PopoverButton>
   );
 }

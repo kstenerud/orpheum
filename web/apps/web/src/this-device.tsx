@@ -16,6 +16,7 @@ import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { DeviceName } from "./your-devices.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Which face button of a game controller is OK in this browser (controller-choice.ts): automatic, by
@@ -117,7 +118,9 @@ export function ThisDevice(): JSX.Element {
                 />
                 {savedName === undefined ? null : <output>{t("thisDevice.nameSaved")}</output>}
               </div>
-              {problem === undefined ? null : <p role="alert">{problem}</p>}
+              {problem === undefined ? null : (
+                <StatusNote told={{ kind: "problem", text: problem }} />
+              )}
             </>
           );
         }}

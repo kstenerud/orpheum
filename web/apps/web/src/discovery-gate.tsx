@@ -60,6 +60,7 @@ import {
   type Start,
 } from "./discovery-start.ts";
 import { i18n } from "./i18n.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** What the gate needs: the discovery, the remembered core's session, and who takes over. */
 export interface GateParts {
@@ -737,11 +738,15 @@ function ServerChanged(props: {
   const { t } = useTranslation();
   return (
     <CredentialsForm heading={t("discovery.changed.heading")} onSubmit={props.onContinue}>
-      <p role="alert">
-        {props.claimedAt > 0
-          ? t("discovery.changed.since", { at: dateTimeText(props.claimedAt, i18n.language) })
-          : t("discovery.changed.text")}
-      </p>
+      <StatusNote
+        told={{
+          kind: "problem",
+          text:
+            props.claimedAt > 0
+              ? t("discovery.changed.since", { at: dateTimeText(props.claimedAt, i18n.language) })
+              : t("discovery.changed.text"),
+        }}
+      />
       <p>{t("discovery.changed.ifNot")}</p>
       <button type="submit" disabled={props.isSending}>
         {t("discovery.changed.continue")}

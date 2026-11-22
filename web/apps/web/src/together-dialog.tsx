@@ -17,6 +17,7 @@ import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
 import { useTogether } from "./use-together.ts";
 import { WatchTogetherControls } from "./watch-together.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Watch Together's dialog, which the tray's Watch Together opens over whatever page is shown and which
@@ -168,7 +169,7 @@ function OnElsewhere(props: { readonly elsewhere: HostedElsewhere }): JSX.Elemen
       >
         {t("watchTogether.moveHere")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }

@@ -8,13 +8,27 @@ import { useTranslation } from "react-i18next";
 import { blankLibrary, libraryToCreate, libraryWords } from "./library-draft.ts";
 import { listFolders } from "./folder-picker.tsx";
 import { idempotent } from "./idempotent.ts";
-import { holdsTwoKinds, kindOfChoice, offerRows, type OfferRow } from "./library-offer-kinds.ts";
+import { holdsTwoKinds, offerRows, type OfferKind, type OfferRow } from "./library-offer-kinds.ts";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { Loaded } from "./loaded.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
+import { ValueChooser } from "./route-chooser.tsx";
+import type { TFunction } from "i18next";
+
+/** The kinds a folder may be offered as, each by its name, for its pop-up chooser. */
+function offerKinds(
+  t: TFunction,
+): readonly { readonly value: OfferKind; readonly label: string }[] {
+  return [
+    { value: "film", label: t("libraries.kindMovies") },
+    { value: "series", label: t("libraries.kindShows") },
+    { value: "other", label: t("libraries.kindOther") },
+  ];
+}
 
 /** The folders of one media folder, as offered. */
 interface Offer {
@@ -206,23 +220,27 @@ function OfferRowView(props: {
         />
         {row.name}
       </label>{" "}
-      <select
-        aria-label={t("libraries.offerKindOf", { name: row.name })}
-        value={row.kind}
-        disabled={props.isMade}
-        onChange={(event) => {
-          props.onChange(row.path, { kind: kindOfChoice(event.target.value) });
-        }}
-      >
-        <option value="film">{t("libraries.kindMovies")}</option>
-        <option value="series">{t("libraries.kindShows")}</option>
-        <option value="other">{t("libraries.kindOther")}</option>
-      </select>
+      {props.isMade ? (
+        <span>{offerKinds(t).find((kind) => kind.value === row.kind)?.label}</span>
+      ) : (
+        <ValueChooser
+          fieldLabel={t("libraries.offerKindOf", { name: row.name })}
+          isFieldLabelShown={false}
+          choices={offerKinds(t)}
+          current={row.kind}
+          onChoose={(kind) => {
+            props.onChange(row.path, { kind });
+          }}
+        />
+      )}
       {props.isMade ? <output> {t("libraries.offerMade")}</output> : null}
       {props.problem === undefined ? null : (
-        <p role="alert">
-          {t("libraries.offerRefused", { name: row.name, problem: props.problem })}
-        </p>
+        <StatusNote
+          told={{
+            kind: "problem",
+            text: t("libraries.offerRefused", { name: row.name, problem: props.problem }),
+          }}
+        />
       )}
     </li>
   );

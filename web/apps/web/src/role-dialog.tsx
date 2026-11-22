@@ -28,6 +28,7 @@ import { useServices } from "./services.tsx";
 import { useRequest, type RequestState } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
 import { WarningSign } from "./warning-sign.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * The one dialog for a role (D403, revising D399): with no roleId it makes a role, its name,
@@ -78,7 +79,7 @@ export function RoleDialog(props: {
           )}
         />
       </BusyGroup>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </ModalDialog>
   );
 }

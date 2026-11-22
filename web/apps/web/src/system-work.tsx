@@ -12,6 +12,7 @@ import { i18n } from "./i18n.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type QueueKind = components["schemas"]["QueueKindBody"];
 type NodeWork = components["schemas"]["NodeWorkBody"];
@@ -141,7 +142,7 @@ function DeviceReaders(props: {
         isBusy={isBusy}
         onSet={setLimit}
       />
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }

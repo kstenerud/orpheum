@@ -22,6 +22,7 @@ import {
   type Asked,
   type Connecting,
 } from "./system-discovery-connecting.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 
@@ -131,7 +132,9 @@ export function ConnectSection(props: {
               onCancel={linking.cancel}
             />
           )}
-          {linking.problem === undefined ? null : <p role="alert">{linking.problem}</p>}
+          {linking.problem === undefined ? null : (
+            <StatusNote told={{ kind: "problem", text: linking.problem }} />
+          )}
           <p>{t("system.discovery.connectHint")}</p>
         </>
       ) : null}

@@ -13,6 +13,7 @@ import { NodeConfinementView } from "./node-confinement.tsx";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type SystemNode = components["schemas"]["SystemNodeBody"];
 
@@ -59,7 +60,9 @@ export function NodeUnconfinedLeave(props: {
     <LockedNode
       node={node}
       isBusy={isBusy}
-      alert={problem === undefined ? null : <p role="alert">{problem}</p>}
+      alert={
+        problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />
+      }
       onAllow={allow}
     />
   );

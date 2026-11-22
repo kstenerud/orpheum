@@ -15,6 +15,7 @@ import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven, wholeListOf } from "./page-sections.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 type Report = components["schemas"]["FilingReportBody"];
 type ReportEntry = components["schemas"]["FilingReportEntryBody"];
@@ -51,7 +52,7 @@ export function FilingReportButton(props: { readonly itemId: number }): JSX.Elem
       <button type="button" disabled={isBusy} onClick={writeReport}>
         {t("filingReport.write")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {report === undefined ? null : <ReportText report={report} />}
     </div>
   );
@@ -107,7 +108,9 @@ export function SystemFilingReports(): JSX.Element {
       <h2 id="system-filing-reports">{t("filingReport.heading")}</h2>
       <p>{t("filingReport.what")}</p>
       {reports.state === "loaded" ? <ReportList reports={reports.value} /> : null}
-      {reports.state === "failed" ? <p role="alert">{problemText(t, reports.cause)}</p> : null}
+      {reports.state === "failed" ? (
+        <StatusNote told={{ kind: "problem", text: problemText(t, reports.cause) }} />
+      ) : null}
     </section>
   );
 }
@@ -150,7 +153,7 @@ function ReportEntryView(props: { readonly entry: ReportEntry }): JSX.Element {
         <summary>
           {props.entry.name} · {dateTimeText(props.entry.writtenAt, i18n.language)}
         </summary>
-        {problem === undefined ? null : <p role="alert">{problem}</p>}
+        {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
         {report === undefined ? null : <ReportText report={report} />}
       </details>
     </li>

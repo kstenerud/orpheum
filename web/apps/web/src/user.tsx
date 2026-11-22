@@ -104,7 +104,7 @@ export function UserPage(props: { readonly userId: number }): JSX.Element {
             )}
           />
           {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
-          {problem === undefined ? null : <p role="alert">{problem}</p>}
+          {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
           <h2>{t("person.devices")}</h2>
           <Loaded
             resource={devices}

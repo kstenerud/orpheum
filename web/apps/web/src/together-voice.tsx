@@ -39,6 +39,7 @@ import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs, useReloadsForProtocolVersion } from "./use-together.ts";
 import { VolumeRange } from "./volume-range.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /** The relay's ICE servers for a membership (D243 §8), as the browser's RTCPeerConnection takes them. */
 async function iceServersFor(
@@ -507,7 +508,9 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
         </button>
       ) : null}
       {snapshot.failure === undefined ? null : (
-        <p role="alert">{t(`together.voice.failure.${snapshot.failure}`)}</p>
+        <StatusNote
+          told={{ kind: "problem", text: t(`together.voice.failure.${snapshot.failure}`) }}
+        />
       )}
       {snapshot.browserReason === undefined ? null : (
         <p className="together-voice__reason">

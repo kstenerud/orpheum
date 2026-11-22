@@ -44,6 +44,8 @@ import { useRequest } from "./use-request.ts";
 import { heldAnswer, useResource, type Resource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 import { watchingOf } from "./watching.ts";
+import { StatusNote } from "./status-note.tsx";
+import { Loaded } from "./loaded.tsx";
 
 /** The film a cast moves, and what is told as AirPlay or its controls are pressed in the menu, to close it. */
 interface CastTargetsProps {
@@ -123,7 +125,7 @@ function CastTargetsOffered(props: CastTargetsProps): JSX.Element {
           />
         )}
         <AirPlayEntry onPressed={props.onAirPlayPressed} />
-        {problem === undefined ? null : <p role="alert">{problem}</p>}
+        {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>
     </section>
@@ -433,7 +435,7 @@ function AskingWithCancel(props: {
       <button type="button" disabled={isBusy} onClick={cancel}>
         {t("cast.cancelRequest")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </div>
   );
 }
@@ -497,23 +499,18 @@ function Targets(props: {
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { devices } = props;
   const castingHereId = useLive().receiving?.fromDeviceId;
-  if (devices.state === "loading") {
-    return <p>{t("common.loading")}</p>;
-  }
-  if (devices.state === "failed") {
-    return <p role="alert">{problemText(t, devices.cause)}</p>;
-  }
-  const targets = devices.value.filter((device) => device.id !== castingHereId);
-  return targets.length === 0 ? (
-    <p>{t("cast.none")}</p>
-  ) : (
-    <TargetList
-      devices={targets}
-      states={props.states}
-      isStale={props.isStale}
-      onCast={props.onCast}
+  return (
+    <Loaded
+      resource={props.devices}
+      render={(devices) => {
+        const targets = devices.filter((device) => device.id !== castingHereId);
+        return targets.length === 0 ? (
+          <p>{t("cast.none")}</p>
+        ) : (
+          <TargetList {...props} devices={targets} />
+        );
+      }}
     />
   );
 }

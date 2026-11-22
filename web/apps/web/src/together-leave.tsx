@@ -9,6 +9,7 @@ import { ApiProblem, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** A guest's Leave: the membership ends, and with it every device of it. */
 export function LeaveButton(props: {
@@ -47,7 +48,7 @@ export function LeaveButton(props: {
       >
         {t("together.leave")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }

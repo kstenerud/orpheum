@@ -20,6 +20,8 @@ import { useLabSending } from "./lab-send.ts";
 import { toneUrl } from "./lab-tone.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
+import { StatusNote } from "./status-note.tsx";
+import { ValueChooser } from "./route-chooser.tsx";
 
 /** The window the player opens in, one at a time. */
 const playerWindowName = "orpheum-lab-player";
@@ -165,7 +167,9 @@ function ScreensPart(props: {
       ) : (
         <ExtendRecipe />
       )}
-      {typeof props.screens === "string" ? <p role="alert">{props.screens}</p> : null}
+      {typeof props.screens === "string" ? (
+        <StatusNote told={{ kind: "problem", text: props.screens }} />
+      ) : null}
       <div className="lab__actions">
         {found.map((screen) => (
           <button
@@ -206,21 +210,12 @@ function ToneChoice(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <label className="lab__big">
-      {t(`lab.extend.tone.${props.tone}`)}
-      <select
-        value={props.chosen}
-        onChange={(event) => {
-          props.onChoose(event.target.value);
-        }}
-      >
-        {props.outputs.map((output) => (
-          <option key={output.id} value={output.id}>
-            {output.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ValueChooser
+      fieldLabel={t(`lab.extend.tone.${props.tone}`)}
+      choices={props.outputs.map((output) => ({ value: output.id, label: output.label }))}
+      current={props.chosen}
+      onChoose={props.onChoose}
+    />
   );
 }
 
@@ -339,7 +334,9 @@ function OutputsPart(props: {
           }}
         />
       </div>
-      {typeof outputs === "string" ? <p role="alert">{outputs}</p> : null}
+      {typeof outputs === "string" ? (
+        <StatusNote told={{ kind: "problem", text: outputs }} />
+      ) : null}
       <ToneOutcomes outcomes={outcomes} />
     </>
   );

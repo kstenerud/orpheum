@@ -12,6 +12,7 @@ import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * A cast's receiver's own end of it, Stop casting here (D446 §1, §3): it heads the ready page and the
@@ -43,7 +44,7 @@ export function StopCastingHere(): JSX.Element | null {
       >
         {t("cast.stopHere")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { Users } from "./users.tsx";
 import { UserPage } from "./user.tsx";
 import {
   buttonWithText,
-  choose,
+  chooseIn,
   click,
   enter,
   fire,
@@ -120,7 +120,7 @@ it("warns when the role chosen for someone new, or ticked for nobody, reaches no
   await click(buttonWithText(mounted.container, "Invite Someone"));
   const invitation = buttonWithText(mounted.container, "Make their link")?.closest("form");
   expect(invitation?.textContent).toContain(noLibraryChosen);
-  await choose(invitation?.querySelector("select"), "family");
+  await chooseIn(invitation ?? document.body, "Role", "family");
   expect(invitation?.textContent).not.toContain(noLibraryChosen);
 });
 

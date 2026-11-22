@@ -12,6 +12,7 @@ import { i18n } from "./i18n.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 export type AddressAtHome = components["schemas"]["AddressAtHomeBody"];
 
@@ -113,7 +114,7 @@ function AddressForm(props: { readonly onChanged?: (() => void) | undefined }): 
       <button type="submit" disabled={isBusy || address.trim() === ""}>
         {t("system.addressAtHome.save")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </form>
   );
 }

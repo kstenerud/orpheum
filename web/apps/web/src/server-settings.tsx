@@ -10,14 +10,14 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { ConfirmDialog } from "./confirm-button.tsx";
-import { AboutIcon, ResetIcon } from "./icons.tsx";
+import { ResetIcon } from "./icons.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 import { shownSaveTold, StatusNote } from "./status-note.tsx";
+import { HelpButton } from "./help-button.tsx";
 
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
@@ -101,48 +101,21 @@ export function settingDescription(t: TFunction, setting: Setting): string {
 }
 
 /**
- * The ⓘ button, and what it opens: a modal over the page, scrolling inside where it is long, which a
- * press outside it or Escape closes (the owner, 2026-10-21). It says the name, what it is for in
- * short, and, after a blank line, more, for a setting or key the short words cannot explain.
+ * What a setting or key is for, behind its ⓘ (help-button.tsx, D538 interface rule 3): the short
+ * words, and, as a second paragraph, more, for one the short words cannot explain.
  */
-export function AboutButton(props: {
+export function SettingHelp(props: {
   readonly name: string;
   readonly description: string;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const about = t("settings.about", { key: props.name });
   const detailsKey = `settings.details.${camelKey(props.name)}`;
   const details = i18n.exists(detailsKey) ? t(detailsKey) : "";
   return (
-    <>
-      <button
-        type="button"
-        className="settings__control"
-        aria-label={about}
-        data-tip={t("settings.tipAbout")}
-        onClick={() => {
-          setIsOpen(true);
-        }}
-      >
-        <AboutIcon />
-      </button>
-      {isOpen ? (
-        <ModalDialog
-          label={about}
-          isWide
-          onClose={() => {
-            setIsOpen(false);
-          }}
-        >
-          <h2 className="settings__about-name">
-            <code>{props.name}</code>
-          </h2>
-          <p>{props.description}</p>
-          {details === "" ? null : <p>{details}</p>}
-        </ModalDialog>
-      ) : null}
-    </>
+    <HelpButton
+      label={t("settings.about", { key: props.name })}
+      help={details === "" ? [props.description] : [props.description, details]}
+    />
   );
 }
 
@@ -320,7 +293,7 @@ function RowControls(props: {
     : t("settings.isStart", { key: setting.key });
   return (
     <span className="settings__controls">
-      <AboutButton
+      <SettingHelp
         name={setting.key}
         description={setting.question ?? settingDescription(t, setting)}
       />

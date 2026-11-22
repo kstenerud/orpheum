@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { problemText } from "./problem.ts";
 import type { Resource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Shows what a resource holds, or that it is loading, or why it failed: in problemText's words,
@@ -25,9 +26,12 @@ export function Loaded<T>(props: {
     const describe = props.describeProblem ?? ((cause: unknown) => problemText(t, cause));
     const why = describe(resource.cause);
     return (
-      <p role="alert">
-        {resource.willAskAgain === true ? `${why} ${t("problem.askingAgain")}` : why}
-      </p>
+      <StatusNote
+        told={{
+          kind: "problem",
+          text: resource.willAskAgain === true ? `${why} ${t("problem.askingAgain")}` : why,
+        }}
+      />
     );
   }
   return props.render(resource.value);

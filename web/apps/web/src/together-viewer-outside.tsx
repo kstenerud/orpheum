@@ -12,6 +12,7 @@ import { NoLink } from "./together-join.tsx";
 import type { SessionsAsked } from "./together-session-end.ts";
 import { forgetMembership, readMembership } from "./together-storage.ts";
 import { ViewerPage } from "./together-viewer-tap.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 // A Watch Together viewer's page when it is in no session: no link and no session to be in, a link
 // pasted into the tab, and the session over.
@@ -34,7 +35,7 @@ export function NoSessionHere(props: {
   }
   return (
     <>
-      <p role="alert">{problemText(t, asked.failure)}</p>
+      <StatusNote told={{ kind: "problem", text: problemText(t, asked.failure) }} />
       <button type="button" onClick={asked.askAgain}>
         {t("together.askAgain")}
       </button>

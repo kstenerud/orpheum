@@ -11,7 +11,7 @@ import { Jobs, targetId, type Job } from "./jobs.tsx";
 import { parseRoute, routeHref } from "./router.ts";
 import {
   buttonWithText,
-  choose,
+  chooseIn,
   click,
   mount,
   refusal,
@@ -211,17 +211,13 @@ describe("the job view", () => {
     ).toEqual(["1", "2"]);
     expect(named(days[0])).toEqual(["Looking up #9"]);
     expect(named(days[1])).toEqual(["Looking up #9", "Listing a folder #2"]);
-    const select = (label: string): Element | null | undefined =>
-      [...page.querySelectorAll("label")]
-        .find((each) => each.textContent.startsWith(label))
-        ?.querySelector("select");
-    await choose(select("State"), "failed");
+    await chooseIn(page, "State", "Failed");
     expect(named(page)).toEqual(["Looking up #9"]);
     expect(page.querySelector("h2 + ul.jobs")).toBeNull();
-    await choose(select("State"), "");
-    await choose(select("Kind"), "scan");
+    await chooseIn(page, "State", "Every one");
+    await chooseIn(page, "Kind", "Listing a folder");
     expect(named(page)).toEqual(["Listing a folder #2"]);
-    await choose(select("State"), "running");
+    await chooseIn(page, "State", "Running");
     expect(page.textContent).toContain("No job is of that state and kind.");
   });
 

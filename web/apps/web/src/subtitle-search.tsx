@@ -14,6 +14,7 @@ import { RequestWait } from "./request-wait.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useRequest } from "./use-request.ts";
 import { languageName } from "./language-name.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** A subtitle OpenSubtitles can give, unverified, as the server lists it (D224). */
 export type SubtitleCandidate = components["schemas"]["SubtitleCandidateBody"];
@@ -165,7 +166,7 @@ export function FindSubtitles(props: {
         {t("play.findSubtitles.search")}
       </button>
       <RequestWait requestState={requestState} provider="OpenSubtitles" />
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {offer === undefined ? null : (
         <CandidateList offer={offer} language={language} isBusy={isBusy} onChoose={choose} />
       )}

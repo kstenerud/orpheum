@@ -14,6 +14,7 @@ import { idempotent } from "./idempotent.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Report = components["schemas"]["ReachabilityOutputBody"];
 type Result = components["schemas"]["ReachabilityResult"];
@@ -42,7 +43,7 @@ export function SystemReachability(): JSX.Element {
         </button>
       </div>
       <p>{t("system.reachability.what")}</p>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {report === undefined ? null : <ReachabilityReport report={report} />}
     </section>
   );

@@ -15,6 +15,7 @@ import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** One playback heard from lately. */
 type Playing = components["schemas"]["NowPlayingBody"];
@@ -52,7 +53,7 @@ export function NowPlaying(): JSX.Element {
   return (
     <section aria-labelledby="now-playing">
       <h2 id="now-playing">{t("nowPlaying.heading")}</h2>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <BusyGroup isBusy={isBusy}>
         <Loaded
           resource={playing}

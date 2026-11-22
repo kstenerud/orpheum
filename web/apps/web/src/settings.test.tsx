@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  AboutButton,
+  SettingHelp,
   isFound,
   parseSettingText,
   SettingsFilters,
@@ -17,7 +17,16 @@ import {
   startText,
 } from "./server-settings.tsx";
 import { SecretsView, Settings } from "./settings.tsx";
-import { click, enter, mount, servedBy, settleAnswers, submit, type Mounted } from "./test-dom.tsx";
+import {
+  buttonNamed,
+  click,
+  enter,
+  mount,
+  servedBy,
+  settleAnswers,
+  submit,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -60,7 +69,7 @@ async function paragraphsFor(key: string): Promise<readonly (string | null)[]> {
       />,
     ),
   );
-  await click(mounted.container.querySelector(`button[aria-label="What ${key} is for"]`));
+  await click(buttonNamed(mounted.container, `What ${key} is for`));
   return [...mounted.container.querySelectorAll("dialog p")].map((p) => p.textContent);
 }
 
@@ -177,7 +186,6 @@ describe("settings", () => {
     // The bin's tooltip names the starting value in words, or says the setting is already there.
     expect(markup).toContain('data-tip="Return to default value (180)"');
     expect(markup).toContain('data-tip="Return to default value (unanswered)"');
-    expect(markup).toContain('data-tip="What it is for"');
     expect(parseSettingText("integer", "30")).toBe(30);
     expect(parseSettingText("bool", "false")).toBe(false);
     expect(settingText(null)).toBe("");
@@ -185,11 +193,9 @@ describe("settings", () => {
 
   it("opens what a setting is for as a dialog: the short words, then more only where there is more", async () => {
     mounted = await mount(
-      withServices(<AboutButton name="dnsProviderToken" description="Short." />),
+      withServices(<SettingHelp name="dnsProviderToken" description="Short." />),
     );
-    await click(
-      mounted.container.querySelector('button[aria-label="What dnsProviderToken is for"]'),
-    );
+    await click(buttonNamed(mounted.container, "What dnsProviderToken is for"));
     const said = [...mounted.container.querySelectorAll("dialog p")].map(
       (paragraph) => paragraph.textContent,
     );
@@ -198,9 +204,9 @@ describe("settings", () => {
     expect(said).toHaveLength(2);
     mounted.unmount();
     mounted = await mount(
-      withServices(<AboutButton name="opensubtitlesUsername" description="Short." />),
+      withServices(<SettingHelp name="opensubtitlesUsername" description="Short." />),
     );
-    await click(mounted.container.querySelector("button"));
+    await click(buttonNamed(mounted.container, "What opensubtitlesUsername is for"));
     expect(mounted.container.querySelectorAll("dialog p")).toHaveLength(1);
   });
 
@@ -231,7 +237,7 @@ describe("settings", () => {
           />,
         ),
       );
-      await click(mounted.container.querySelector(`button[aria-label="What ${key} is for"]`));
+      await click(buttonNamed(mounted.container, `What ${key} is for`));
       return mounted.container.querySelector("dialog p")?.textContent;
     };
     expect(await shown("tmdbRefreshAfterDays")).toBe(

@@ -13,6 +13,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
+import { StatusNote } from "./status-note.tsx";
 
 export type { Place } from "./folder-picker.tsx";
 
@@ -145,7 +146,9 @@ function RepointForm(props: {
           }
         }}
       />
-      {report?.failure === undefined ? null : <p role="alert">{report.failure}</p>}
+      {report?.failure === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: report.failure }} />
+      )}
       {report?.report === undefined ? null : <RepointReportView report={report.report} />}
     </>
   );

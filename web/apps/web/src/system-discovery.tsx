@@ -29,6 +29,7 @@ import {
 } from "./system-discovery-connecting.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 type PortMapping = components["schemas"]["PortMappingBody"];
@@ -72,7 +73,9 @@ export function SystemDiscovery(): JSX.Element {
     <section aria-labelledby="system-discovery">
       <h1 id="system-discovery">{t("system.discovery.heading")}</h1>
       <p>{t("system.discovery.what")}</p>
-      {connecting.problem === undefined ? null : <p role="alert">{connecting.problem}</p>}
+      {connecting.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: connecting.problem }} />
+      )}
       <Loaded
         resource={standing}
         render={(value) => (
@@ -468,7 +471,7 @@ function KeyForm(props: { readonly claiming: Claiming }): JSX.Element {
       <button type="submit" disabled={isBusy || key.trim() === "" || password === ""}>
         {t("system.discovery.claimByKey")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <p>{t("system.discovery.keyHint")}</p>
     </form>
   );

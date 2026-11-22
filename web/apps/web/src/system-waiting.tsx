@@ -15,6 +15,7 @@ import { idempotent } from "./idempotent.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Waiting = components["schemas"]["WaitingBody"];
 type Unread = components["schemas"]["UnreadBody"];
@@ -72,7 +73,9 @@ function WaitingRemovals(props: {
     <section aria-labelledby="system-waiting">
       <h2 id="system-waiting">{t("system.waiting")}</h2>
       <p>{t("system.waitingExplain")}</p>
-      {removing.problem === undefined ? null : <p role="alert">{removing.problem}</p>}
+      {removing.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: removing.problem }} />
+      )}
       <BusyGroup isBusy={removing.isBusy}>
         <ul>
           {props.waiting.map((root) => (

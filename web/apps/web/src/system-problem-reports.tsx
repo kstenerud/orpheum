@@ -17,6 +17,7 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Summary = components["schemas"]["ProblemReportSummaryBody"];
 
@@ -97,7 +98,9 @@ function ReportEntry(props: {
         <summary>{made}</summary>
         <blockquote className="system-problem-reports__words">{report.words}</blockquote>
         <ReportDownload reportId={report.id} />
-        {deleting.problem === undefined ? null : <p role="alert">{deleting.problem}</p>}
+        {deleting.problem === undefined ? null : (
+          <StatusNote told={{ kind: "problem", text: deleting.problem }} />
+        )}
         <ConfirmButton
           label={t("system.problemReports.delete")}
           question={t("system.problemReports.deleteQuestion")}
@@ -161,7 +164,7 @@ function ReportDownload(props: { readonly reportId: number }): JSX.Element {
         />{" "}
         {t("system.problemReports.includeOther")}
       </label>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       {downloaded === undefined ? null : (
         <DownloadedReport reportId={props.reportId} downloaded={downloaded} />
       )}

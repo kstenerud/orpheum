@@ -7,7 +7,7 @@ import { afterEach, expect, it } from "vitest";
 
 import type { Library } from "./libraries.tsx";
 import { ChangeDetectionChoice, type ChangeDetection } from "./library-manage.tsx";
-import { choose, enter, fire, mount, settleAnswers, submit, type Mounted } from "./test-dom.tsx";
+import { chooseIn, enter, fire, mount, settleAnswers, submit, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -40,11 +40,12 @@ it("saves how a library notices changes as it is chosen, an interval once it has
   );
   const { container } = mounted;
   expect(container.querySelector("button")).toBeNull();
+  expect(container.querySelector("select")).toBeNull();
   expect(container.querySelector("input[type=number]")).toBeNull();
   expect(container.textContent).not.toContain("Saved");
 
   // An interval waits for its hours, sent on leaving their field.
-  await choose(container.querySelector("select"), "interval");
+  await chooseIn(container, "How changes are noticed", "Check every so many hours");
   expect(saved).toEqual([]);
   const hours = container.querySelector("input[type=number]");
   await enter(hours, "6");
@@ -54,7 +55,7 @@ it("saves how a library notices changes as it is chosen, an interval once it has
   expect(container.querySelector("output.status-line--success")?.textContent).toBe("Saved");
   // Enter on the same hours sends nothing again.
   await submit(container.querySelector("form"));
-  await choose(container.querySelector("select"), "watch");
+  await chooseIn(container, "How changes are noticed", "Watch the folders");
   expect(container.querySelector("input[type=number]")).toBeNull();
   expect(saved).toEqual([
     { changeDetection: "interval", checkEveryHours: 6 },
@@ -71,7 +72,7 @@ it("says in place why a way of noticing changes was refused", async () => {
       }}
     />,
   );
-  await choose(mounted.container.querySelector("select"), "watch");
+  await chooseIn(mounted.container, "How changes are noticed", "Watch the folders");
   await settleAnswers();
   expect(mounted.container.querySelector('[role="alert"]')?.textContent).not.toBe("");
   expect(mounted.container.textContent).not.toContain("Saved");

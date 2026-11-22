@@ -13,6 +13,7 @@ import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type NetworkState = components["schemas"]["NetworkStateBody"];
 type Network = components["schemas"]["NetworkBody"];
@@ -112,7 +113,7 @@ function Takes(props: { readonly appliedBy: NetworkState["appliedBy"] }): JSX.El
         }}
       />
       {isRestarting ? <output>{t("system.network.restarting")}</output> : null}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }
@@ -174,7 +175,7 @@ function NetworkForm(props: {
         </button>{" "}
         {isSaved ? <output>{t("system.network.saved")}</output> : null}
       </p>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </form>
   );
 }

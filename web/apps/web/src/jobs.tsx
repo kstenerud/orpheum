@@ -19,6 +19,8 @@ import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
+import { ValueChooser } from "./route-chooser.tsx";
 
 /** One job, as the job view shows it (cut-a §5.3). */
 export type Job = components["schemas"]["JobBody"];
@@ -114,7 +116,7 @@ export function Jobs(): JSX.Element {
   return (
     <section aria-labelledby="jobs-heading">
       <h1 id="jobs-heading">{t("jobs.heading")}</h1>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <BusyGroup isBusy={isBusy}>
         <Loaded resource={jobs} render={(value) => <JobsView jobs={value} onCancel={cancel} />} />
       </BusyGroup>
@@ -233,40 +235,28 @@ function JobFilters(props: {
   ];
   return (
     <div className="page-actions jobs__filters">
-      <label>
-        {t("jobs.filterState")}{" "}
-        <select
-          value={filter.state}
-          onChange={(event) => {
-            const state = jobStates.find((each) => each === event.target.value) ?? "";
-            props.onChange({ ...filter, state });
-          }}
-        >
-          <option value="">{t("jobs.every")}</option>
-          {jobStates.map((state) => (
-            <option key={state} value={state}>
-              {t(`jobs.state.${state}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t("jobs.filterKind")}{" "}
-        <select
-          value={filter.kind}
-          onChange={(event) => {
-            const kind = kinds.find((each) => each === event.target.value) ?? "";
-            props.onChange({ ...filter, kind });
-          }}
-        >
-          <option value="">{t("jobs.every")}</option>
-          {kinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {t(`jobs.kind.${camelKey(kind)}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ValueChooser
+        fieldLabel={t("jobs.filterState")}
+        choices={[
+          { value: "", label: t("jobs.every") },
+          ...jobStates.map((state) => ({ value: state, label: t(`jobs.state.${state}`) })),
+        ]}
+        current={filter.state}
+        onChoose={(state) => {
+          props.onChange({ ...filter, state });
+        }}
+      />
+      <ValueChooser
+        fieldLabel={t("jobs.filterKind")}
+        choices={[
+          { value: "", label: t("jobs.every") },
+          ...kinds.map((kind) => ({ value: kind, label: t(`jobs.kind.${camelKey(kind)}`) })),
+        ]}
+        current={filter.kind}
+        onChoose={(kind) => {
+          props.onChange({ ...filter, kind });
+        }}
+      />
     </div>
   );
 }

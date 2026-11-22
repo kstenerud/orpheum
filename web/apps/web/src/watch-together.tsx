@@ -32,6 +32,7 @@ import { handAnswer, useResource } from "./use-resource.ts";
 import { detailsOf, hostedDetailsKey } from "./hosted-details.ts";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherPlays } from "./together-plays.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * What the host does with their session, in Watch Together's dialog (together-dialog.tsx, D384 §2):
@@ -130,7 +131,7 @@ function StartSession(props: {
       >
         {t("watchTogether.start")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </>
   );
 }
@@ -344,7 +345,7 @@ function SessionView(props: {
       <p>{t("watchTogether.onExplain")}</p>
       <TogetherPlays session={session} details={props.details} onChanged={props.onChanged} />
       {props.panelPlace ?? <HostSound />}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <BusyGroup isBusy={isBusy}>
         <div className="watch-together__people-head">
           <h2>{t("watchTogether.people")}</h2>

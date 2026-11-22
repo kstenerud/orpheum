@@ -56,6 +56,7 @@ import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx
 import { monotonicMs } from "./use-together.ts";
 import { isStartThePages, playsOwnFile, type PlaybackDecision } from "./watching.ts";
 import type { SoundLevel } from "./levelling.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * What a page knows of the film playing, given to what it composes around the video: the video, the
@@ -241,7 +242,7 @@ export function FilmPlayer(props: {
  */
 function NotConverted(): JSX.Element {
   const { t } = useTranslation();
-  return <p role="alert">{t("play.cannotConvert")}</p>;
+  return <StatusNote told={{ kind: "problem", text: t("play.cannotConvert") }} />;
 }
 
 /** The sound a decision starts with: its starting track, its boosted mix when the boost is on. */
@@ -516,7 +517,7 @@ function DirectFilm(props: {
         }}
       />
       {failure === undefined || props.composition.isFailureHidden === true ? null : (
-        <p role="alert">{t("play.directFailed", { reason: failure })}</p>
+        <StatusNote told={{ kind: "problem", text: t("play.directFailed", { reason: failure }) }} />
       )}
     </>
   );
@@ -619,7 +620,7 @@ function ChunkedFilm(props: {
       />
       {/* Its qualities are cut as it plays, no copy prepared (the owner's test, 2026-10-18). */}
       {failure === undefined || props.composition.isFailureHidden === true ? null : (
-        <p role="alert">{t("play.ladderFailed", { reason: failure })}</p>
+        <StatusNote told={{ kind: "problem", text: t("play.ladderFailed", { reason: failure }) }} />
       )}
     </>
   );

@@ -15,6 +15,7 @@ import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * How many of a person's devices their account shows before "All devices (N)": the five most
@@ -83,7 +84,7 @@ export function YourDevices(props: {
             }}
           />
         ) : null}
-        {problem === undefined ? null : <p role="alert">{problem}</p>}
+        {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       </div>
     </BusyGroup>
   );

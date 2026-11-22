@@ -530,7 +530,6 @@ const enOwn = {
     on: "on",
     off: "off",
     nothing: "nothing",
-    tipAbout: "What it is for",
     tipReset: "Return to default value ({{start}})",
     tipAtDefault: "Already at default",
     tipResetting: "Returning to default",

@@ -160,6 +160,30 @@ export function ActionChooser(
   );
 }
 
+/**
+ * A form's choice of one value among several, a native select's place (D538: a select does not work
+ * reliably on a television's browser): ActionChooser over values, each by its label, the one equal
+ * to current marked, and onChoose told the value chosen.
+ */
+export function ValueChooser<Value extends string | number>(
+  props: Omit<ChooserTold, "current"> & {
+    readonly choices: readonly { readonly value: Value; readonly label: string }[];
+    readonly current: Value;
+    readonly onChoose: (value: Value) => void;
+  },
+): JSX.Element {
+  const { choices, current, onChoose, ...told } = props;
+  const options = choices.map((choice): ActionChoice => ({
+    key: String(choice.value),
+    label: choice.label,
+    isCurrent: choice.value === current,
+    onChoose: () => {
+      onChoose(choice.value);
+    },
+  }));
+  return <ActionChooser {...told} current={currentLabelOf(options)} options={options} />;
+}
+
 /** A chooser's button's classes: an icon's, over a film or not, or the current choice's. */
 function openerClassOf(isIcon: boolean, isOverVideo: boolean): string {
   if (!isIcon) {

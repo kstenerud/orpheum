@@ -47,6 +47,7 @@ import {
   SystemSectionsContext,
   type SystemSections,
 } from "./page-sections.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** Everything the server knows about itself and each machine, as the System page shows it (D225). */
 export type SystemReport = components["schemas"]["SystemOutputBody"];
@@ -96,7 +97,9 @@ export function System(): JSX.Element {
   };
   return (
     <SystemSectionsContext value={read}>
-      {retiring.problem === undefined ? null : <p role="alert">{retiring.problem}</p>}
+      {retiring.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: retiring.problem }} />
+      )}
       <BusyGroup isBusy={retiring.isBusy}>
         <Loaded
           resource={report}

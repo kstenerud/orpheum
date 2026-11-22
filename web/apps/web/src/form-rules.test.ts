@@ -30,16 +30,11 @@ type Banned = keyof typeof banned;
  */
 const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
   nativeSelect: {
+    // Batch 3, D539: the machine chooser, and the place a folder is chosen in.
     "create-library.tsx": 1,
-    "jobs.tsx": 2,
-    "lab-airplay.tsx": 1,
-    "lab-cast.tsx": 1,
-    "lab-extend.tsx": 1,
-    "library-manage.tsx": 1,
-    "library-offer.tsx": 1,
-    "link-debug-tools.tsx": 1,
-    "people-dialogs.tsx": 1,
     "repoint-root.tsx": 1,
+    // A person's role: chosen in the pop-up chooser, its Saved note did not survive the page read
+    // again after it (user.tsx's saved); left a select until that is understood.
     "user.tsx": 1,
   },
   numberField: {
@@ -59,56 +54,16 @@ const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
     "together-people.tsx": 1,
   },
   alertParagraph: {
+    // The player's menus, which another part of the revamp is moving onto the parts.
     "audio-tracks.tsx": 1,
-    "candidate-chooser.tsx": 1,
-    "cast-dialog.tsx": 1,
-    "cast-to.tsx": 3,
-    "create-library.tsx": 1,
-    "device-activation.tsx": 1,
-    "discovery-gate.tsx": 1,
-    "film-player.tsx": 3,
-    "filing-report.tsx": 3,
+    // Batch 3, D539: the file browser replaces the folder picker.
     "folder-picker.tsx": 1,
-    "invitations-section.tsx": 1,
-    "jobs.tsx": 1,
-    "lab-extend.tsx": 2,
-    "library-offer.tsx": 1,
-    "loaded.tsx": 1,
-    "loader-client-failed.tsx": 1,
-    "node-unconfined.tsx": 1,
-    "now-playing.tsx": 1,
-    "people-dialogs.tsx": 2,
+    // The player's notes under the video: play.tsx is at its 800-line cap and the player's other
+    // agent is in it; the owner decides where its parts go.
     "play.tsx": 2,
-    "problem-report.tsx": 1,
-    "repoint-root.tsx": 1,
-    "role-dialog.tsx": 1,
-    "screen-load.tsx": 1,
+    // The player's menus, as above.
     "sound.tsx": 1,
-    "stop-casting-here.tsx": 1,
-    "subtitle-search.tsx": 1,
     "subtitles.tsx": 1,
-    "system-address-at-home.tsx": 1,
-    "system-backups.tsx": 1,
-    "system-discovery-connect.tsx": 1,
-    "system-discovery.tsx": 2,
-    "system-network.tsx": 2,
-    "system-problem-reports.tsx": 2,
-    "system-reachability.tsx": 1,
-    "system-unused-settings.tsx": 1,
-    "system-videos.tsx": 1,
-    "system-waiting.tsx": 1,
-    "system-work.tsx": 1,
-    "system.tsx": 1,
-    "this-device.tsx": 1,
-    "together-dialog.tsx": 1,
-    "together-guest-cast.tsx": 1,
-    "together-leave.tsx": 1,
-    "together-viewer-outside.tsx": 1,
-    "together-voice.tsx": 1,
-    "update-page.tsx": 2,
-    "user.tsx": 1,
-    "watch-together.tsx": 2,
-    "your-devices.tsx": 1,
   },
   disabledSubmit: {
     "create-library.tsx": 1,

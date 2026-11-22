@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 
 import { copyToClipboard } from "./clipboard.ts";
 import { CopyWhatHappened, stepsText } from "./what-happened.tsx";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * What happened, for its person to copy and send (K16): the server, the file that did not load,
@@ -52,7 +53,7 @@ export function ClientFailedPage(props: {
   const { t } = useTranslation();
   return (
     <main>
-      <p role="alert">{t("loader.clientFailed")}</p>
+      <StatusNote told={{ kind: "problem", text: t("loader.clientFailed") }} />
       {props.isControlled ? <p>{t("loader.clientFailedBypass")}</p> : null}
       <CopyWhatHappened text={props.text} copy={copyToClipboard} />
     </main>

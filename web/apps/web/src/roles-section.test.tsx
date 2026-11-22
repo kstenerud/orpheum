@@ -12,6 +12,7 @@ import { UserPage } from "./user.tsx";
 import {
   buttonWithText,
   choose,
+  chooseIn,
   click,
   enter,
   fire,
@@ -342,7 +343,7 @@ it("invites someone into a role with a note of who it is for, and opens the invi
   await click(buttonWithText(mounted.container, "Invite Someone"));
   const invitation = buttonWithText(mounted.container, "Make their link")?.closest("form");
   await enter(invitation?.querySelector("input"), "my cousin");
-  await choose(invitation?.querySelector("select"), "friends");
+  await chooseIn(invitation ?? document.body, "Role", "friends");
   await submit(invitation);
   expect(changesTo(heard, "POST /invitations")).toEqual([
     { role: "friends", adminNote: "my cousin" },

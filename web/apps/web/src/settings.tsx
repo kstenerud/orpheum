@@ -14,9 +14,9 @@ import { ResetIcon } from "./icons.tsx";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import {
-  AboutButton,
   isFound,
   RowName,
+  SettingHelp,
   ServerSettings,
   settingLabel,
   SettingsFilters,
@@ -122,7 +122,7 @@ function SecretControls(props: {
   const remove = t("settings.removeSecret", { key: name });
   return (
     <span className="settings__controls">
-      <AboutButton name={name} description={secretDescription(t, props.secret)} />
+      <SettingHelp name={name} description={secretDescription(t, props.secret)} />
       <button
         type="button"
         className="settings__control"
@@ -167,9 +167,7 @@ function SecretNotes(props: {
         {secretState(t, props.secret)}
       </span>
       {props.secret.needsReentry ? (
-        <p className="settings__problem" role="alert">
-          {t("settings.secretReentry")}
-        </p>
+        <StatusNote told={{ kind: "problem", text: t("settings.secretReentry") }} />
       ) : null}
       <StatusNote told={shownSaveTold(t, props.problem, props.isSaved)} />
     </>

@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { LinkCapBadge, LinkDebugTools } from "./link-debug-tools.tsx";
 import { LinkDebug } from "./link-debug.ts";
-import { buttonWithText, choose, click, mount, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, chooseIn, click, mount, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -50,14 +50,14 @@ describe("the debug link's tools (D380)", () => {
     const dropFor = vi.spyOn(linkDebug, "dropFor");
     const page = (await shown(linkDebug, true)).container;
     expect(page.textContent).not.toContain("Throttled");
-    await choose(page.querySelector(".play__link-debug select"), "1000");
+    await chooseIn(page, "Cap this tab's download rate", "1 Mb/s");
     expect(linkDebug.capKbps()).toBe(1000);
     // The page says so the whole time a cap is on (D380 §4).
     expect(page.textContent).toContain("Throttled to 1 Mb/s");
     await click(buttonWithText(page, "Drop the connection for 30 s"));
     expect(dropFor).toHaveBeenCalledWith(30_000);
     expect(page.textContent).toContain("Connection dropped for testing: back in 30 s");
-    await choose(page.querySelector(".play__link-debug select"), "");
+    await chooseIn(page, "Cap this tab's download rate", "No cap");
     expect(linkDebug.capKbps()).toBeUndefined();
     expect(page.textContent).not.toContain("Throttled");
   });

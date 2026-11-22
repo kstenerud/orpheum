@@ -25,6 +25,7 @@ import { useServices, type Services } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
 import { titleOrThrow } from "./item-detail.ts";
 import { requestPlayback, type PlaybackDecision } from "./watching.ts";
+import { ValueChooser } from "./route-chooser.tsx";
 
 /** Where the custom receiver's app id is kept, so a TV visit types it once. */
 const appIdKey = "orpheum.lab.castAppId";
@@ -143,22 +144,15 @@ function FilmPart(props: {
     <>
       <h2>{t("lab.cast.film")}</h2>
       <div className="lab__actions">
-        <label className="lab__big">
-          {t("lab.cast.pickFilm")}
-          <select
-            value={filmId}
-            onChange={(event) => {
-              setFilmId(event.target.value);
-            }}
-          >
-            <option value="">{t("lab.cast.noFilm")}</option>
-            {props.films.map((film) => (
-              <option key={film.id} value={String(film.id)}>
-                {film.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ValueChooser
+          fieldLabel={t("lab.cast.pickFilm")}
+          choices={[
+            { value: "", label: t("lab.cast.noFilm") },
+            ...props.films.map((film) => ({ value: String(film.id), label: film.name })),
+          ]}
+          current={filmId}
+          onChoose={setFilmId}
+        />
         <button
           type="button"
           className="lab__button"

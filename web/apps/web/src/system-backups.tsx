@@ -20,6 +20,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { SystemSectionsContext, useSectionGiven } from "./page-sections.ts";
+import { StatusNote } from "./status-note.tsx";
 
 type Backups = components["schemas"]["BackupsOutputBody"];
 
@@ -111,7 +112,7 @@ function AskForBackup(props: {
         {t("system.backups.includeKey")}
       </label>
       {shouldIncludeKey ? <p>{t("system.backups.includeKeyWarning")}</p> : null}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <button type="button" disabled={isBusy} onClick={makeBackup}>
         {t("system.backups.create")}
       </button>

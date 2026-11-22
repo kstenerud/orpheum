@@ -17,6 +17,7 @@ import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./pr
 import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Where an activation stands on this device: being entered, being checked, done, or, cast to instead
@@ -134,9 +135,7 @@ export function ActivateDevice(props: ActivateDeviceProps): JSX.Element {
         <NotChecking step={step} isBusy={isBusy} onEnter={enter} marks={marks} />
       )}
       {problem === undefined ? null : (
-        <p role="alert" id={marks.problemId}>
-          {problem}
-        </p>
+        <StatusNote told={{ kind: "problem", text: problem, id: marks.problemId }} />
       )}
     </div>
   );

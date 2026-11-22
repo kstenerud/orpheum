@@ -20,6 +20,7 @@ import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** A node, and the roots it configured when it is connected. */
 export type LibraryNode = components["schemas"]["NodeBody"];
@@ -452,9 +453,7 @@ export function CreateLibraryForm(props: {
         />
       </FormGroup>
       {props.problem === "" ? null : (
-        <p role="alert" id={marks.problemId}>
-          {props.problem}
-        </p>
+        <StatusNote told={{ kind: "problem", text: props.problem, id: marks.problemId }} />
       )}
       <button type="submit" disabled={!hasARoot(draft) || props.isCreating === true}>
         {t("libraries.create")}

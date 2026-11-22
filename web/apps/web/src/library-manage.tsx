@@ -33,6 +33,7 @@ import { adminLibrariesCrumb } from "./upward.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { StatusNote, useSaveState, type SaveTold } from "./status-note.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 
 type Root = components["schemas"]["RootBody"];
 
@@ -269,6 +270,13 @@ const changeDetections = ["watch", "interval", "manual"] as const;
 /** How a library notices changes, as the API takes it (D184). */
 export type ChangeDetection = Pick<Library, "changeDetection" | "checkEveryHours">;
 
+/** Each way of noticing changes by the catalogue key of its name. */
+const changeDetectionKeys = {
+  watch: "libraries.changesWatch",
+  interval: "libraries.changesInterval",
+  manual: "libraries.changesManual",
+} as const satisfies Record<Library["changeDetection"], string>;
+
 /**
  * How a library notices changes, chosen again after it was made (the owner, 2026-10-09): watching,
  * checking every so many hours, or when asked; saved at once (the owner, 2026-11-04, Q5), a choice
@@ -289,6 +297,15 @@ export function ChangeDetectionChoice(props: {
     chosen === "interval" && hours !== undefined
       ? { changeDetection: chosen, checkEveryHours: hours }
       : { changeDetection: chosen };
+  const choices = changeDetections.map((each): ActionChoice => ({
+    key: each,
+    label: t(changeDetectionKeys[each]),
+    isCurrent: each === detection,
+    onChoose: () => {
+      setDetection(each);
+      send(withHours(each));
+    },
+  }));
   return (
     <form
       onSubmit={(event) => {
@@ -296,23 +313,11 @@ export function ChangeDetectionChoice(props: {
         send(withHours(detection));
       }}
     >
-      <label>
-        {t("libraries.changeDetection")}{" "}
-        <select
-          value={detection}
-          onChange={(event) => {
-            const chosen = changeDetections.find((each) => each === event.target.value);
-            if (chosen !== undefined) {
-              setDetection(chosen);
-              send(withHours(chosen));
-            }
-          }}
-        >
-          <option value="watch">{t("libraries.changesWatch")}</option>
-          <option value="interval">{t("libraries.changesInterval")}</option>
-          <option value="manual">{t("libraries.changesManual")}</option>
-        </select>
-      </label>{" "}
+      <ActionChooser
+        fieldLabel={t("libraries.changeDetection")}
+        current={currentLabelOf(choices)}
+        options={choices}
+      />{" "}
       {isInterval ? (
         <label>
           {t("libraries.checkEvery")}{" "}

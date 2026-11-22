@@ -16,6 +16,7 @@ import { isPausedHere, isTheGroupsFilmShown, positionPlayedHere } from "./playin
 import { problemText } from "./problem.ts";
 import { useRoute, useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * Cast's dialog, which the tray's Cast opens over whatever page is shown and which never moves it
@@ -123,7 +124,7 @@ function CastOn(props: {
           {t("cast.stop")}
         </button>
       </div>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
     </section>
   );
 }

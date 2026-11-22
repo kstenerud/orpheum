@@ -15,6 +15,7 @@ import { problemText, throwIfRefused } from "./problem.ts";
 import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** One of the device's facts, as a report carries it: "Screen", "1920×1080". */
 type Fact = components["schemas"]["ProblemReportFactBody"];
@@ -155,7 +156,7 @@ function ReportForm(props: {
           }}
         />
       </label>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <div className="problem-report__buttons">
         <button type="button" onClick={props.onCancel}>
           {t("problemReport.cancel")}

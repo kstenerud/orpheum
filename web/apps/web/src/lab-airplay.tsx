@@ -19,6 +19,7 @@ import { LabFrame } from "./lab-frame.tsx";
 import { useLog } from "./lab-log.ts";
 import { useServices } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
+import { ValueChooser } from "./route-chooser.tsx";
 
 /** Where Stop stands: not pressed, waiting for the revocation's answer, answered, or failed. */
 export type StopState =
@@ -108,22 +109,15 @@ function FilmPart(props: { readonly onPlay: (filmId: number) => void }): JSX.Ele
   const [filmId, setFilmId] = useState("");
   return (
     <div className="lab__actions">
-      <label className="lab__big">
-        {t("lab.airplay.pickFilm")}
-        <select
-          value={filmId}
-          onChange={(event) => {
-            setFilmId(event.target.value);
-          }}
-        >
-          <option value="">{t("lab.airplay.noFilm")}</option>
-          {films.map((film) => (
-            <option key={film.id} value={String(film.id)}>
-              {film.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ValueChooser
+        fieldLabel={t("lab.airplay.pickFilm")}
+        choices={[
+          { value: "", label: t("lab.airplay.noFilm") },
+          ...films.map((film) => ({ value: String(film.id), label: film.name })),
+        ]}
+        current={filmId}
+        onChoose={setFilmId}
+      />
       <button
         type="button"
         className="lab__button"

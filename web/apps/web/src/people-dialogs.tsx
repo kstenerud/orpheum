@@ -17,11 +17,40 @@ import { roleLabel, type Role } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 
 /** The roles a person may be given, for a form's chooser: their names, and the roles themselves. */
 export interface RoleChoices {
   readonly roleNames: readonly string[];
   readonly roles: readonly Role[] | undefined;
+}
+
+/**
+ * The pop-up chooser of a person's role (route-chooser.tsx; a native select does not work reliably
+ * on a television's browser, D538), each role by its name.
+ */
+export function RoleChooser(props: {
+  readonly roleNames: readonly string[];
+  readonly role: string;
+  readonly onChoose: (role: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const options = props.roleNames.map((roleName): ActionChoice => ({
+    key: roleName,
+    label: roleLabel(t, roleName),
+    isCurrent: roleName === props.role,
+    onChoose: () => {
+      props.onChoose(roleName);
+    },
+  }));
+  return (
+    <ActionChooser
+      fieldLabel={t("people.role")}
+      current={currentLabelOf(options)}
+      options={options}
+    />
+  );
 }
 
 /** A role chooser over the roles there are, saying when the one chosen reaches no library. */
@@ -30,24 +59,13 @@ function RoleSelect(props: {
   readonly role: string;
   readonly onChange: (role: string) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   return (
     <>
-      <label>
-        {t("people.role")}{" "}
-        <select
-          value={props.role}
-          onChange={(event) => {
-            props.onChange(event.target.value);
-          }}
-        >
-          {props.choices.roleNames.map((roleName) => (
-            <option key={roleName} value={roleName}>
-              {roleLabel(t, roleName)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <RoleChooser
+        roleNames={props.choices.roleNames}
+        role={props.role}
+        onChoose={props.onChange}
+      />
       <NoLibraryNote roles={props.choices.roles} roleName={props.role} />
     </>
   );
@@ -106,9 +124,7 @@ export function InviteDialog(props: {
         </FormRow>
       </BusyGroup>
       {problem === undefined ? null : (
-        <p role="alert" id={marks.problemId}>
-          {problem}
-        </p>
+        <StatusNote told={{ kind: "problem", text: problem, id: marks.problemId }} />
       )}
     </ModalDialog>
   );
@@ -216,9 +232,7 @@ export function CreateAccountDialog(props: {
         </FormRow>
       </BusyGroup>
       {problem === undefined ? null : (
-        <p role="alert" id={marks.problemId}>
-          {problem}
-        </p>
+        <StatusNote told={{ kind: "problem", text: problem, id: marks.problemId }} />
       )}
     </ModalDialog>
   );

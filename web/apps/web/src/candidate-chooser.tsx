@@ -13,6 +13,7 @@ import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { RequestWait } from "./request-wait.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /** One of an ambiguous item's possible matches. */
 export type Candidate = components["schemas"]["CandidateBody"];
@@ -239,7 +240,9 @@ export function CandidateChooser(props: {
         <PastedLink onPaste={paste} />
       </BusyGroup>
       <RequestWait requestState={requestState} provider="TMDB" />
-      {requestState.problem === undefined ? null : <p role="alert">{requestState.problem}</p>}
+      {requestState.problem === undefined ? null : (
+        <StatusNote told={{ kind: "problem", text: requestState.problem }} />
+      )}
     </section>
   );
 }

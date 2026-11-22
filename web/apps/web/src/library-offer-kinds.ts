@@ -11,14 +11,6 @@ import type { Route, WelcomeStep } from "./router.ts";
 /** The kind of a library an offered folder becomes. */
 export type OfferKind = "film" | "series" | "other";
 
-/** The kind a pop-up's chosen value names; "other" for anything else. */
-export function kindOfChoice(value: string): OfferKind {
-  if (value === "film" || value === "series") {
-    return value;
-  }
-  return "other";
-}
-
 /** Folder names, in lower case, that hold films. */
 const filmFolders: ReadonlySet<string> = new Set(["movies", "films", "film"]);
 

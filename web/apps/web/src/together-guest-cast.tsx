@@ -25,6 +25,7 @@ import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * A Watch Together guest by link, signed in to nothing, casting to a Chromecast (D518): Chromecast
@@ -227,7 +228,9 @@ function GuestsCastChoices(props: {
           />
         ) : null}
         {props.isAirPlayOffered ? <AirPlayEntry onPressed={close} /> : null}
-        {cast.problem === undefined ? null : <p role="alert">{cast.problem}</p>}
+        {cast.problem === undefined ? null : (
+          <StatusNote told={{ kind: "problem", text: cast.problem }} />
+        )}
       </section>
     </ModalDialog>
   );

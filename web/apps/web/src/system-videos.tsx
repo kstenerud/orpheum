@@ -11,6 +11,7 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { StatusNote } from "./status-note.tsx";
 
 /**
  * The server's own videos, a debug tool on the System page (D435 §7): the node whose system folder
@@ -40,7 +41,7 @@ export function SystemVideos(): JSX.Element {
             : t("system.videos.where", { node: view.nodeName, folder: view.folder })}
         </p>
       )}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {problem === undefined ? null : <StatusNote told={{ kind: "problem", text: problem }} />}
       <ul>
         {(view?.videos ?? []).map((video) => (
           <li key={video.fileName}>
