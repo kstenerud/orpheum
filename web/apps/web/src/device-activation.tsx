@@ -11,7 +11,7 @@ import { activateDevice, answerActivation, castToActivation, type Activation } f
 import { startCast } from "./cast.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
-import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { useFormFields, type FormFields } from "./field.tsx";
 import { WarningIcon } from "./icons.tsx";
 import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import type { Scanned } from "./router.ts";
@@ -90,7 +90,7 @@ export function ActivateDevice(props: ActivateDeviceProps): JSX.Element {
   const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, activateWords(t)),
   );
-  const marks = useFieldMarks(failure, failedFields(failure, activateWords(t)));
+  const marks = useFormFields(failure, failedFields(failure, activateWords(t)));
   const enter = (code: string, deviceName: string): void => {
     runRequest(async (idempotencyKey) => {
       const activation = await activateDevice(
@@ -176,7 +176,7 @@ function EnterCode(props: {
   readonly isBusy: boolean;
   readonly onEnter: (code: string, deviceName: string) => void;
   /** The marks on the fields the failure shown is about. */
-  readonly marks: FieldMarks;
+  readonly marks: FormFields;
 }): JSX.Element {
   const { t } = useTranslation();
   const { navigation, codeAddress } = useServices();
@@ -312,7 +312,7 @@ function NotChecking(props: {
   readonly step: Exclude<Step, { readonly kind: "checking" }>;
   readonly isBusy: boolean;
   readonly onEnter: (code: string, deviceName: string) => void;
-  readonly marks: FieldMarks;
+  readonly marks: FormFields;
 }): JSX.Element {
   const { t } = useTranslation();
   const { step } = props;

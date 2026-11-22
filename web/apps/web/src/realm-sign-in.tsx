@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TFunction } from "i18next";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { installGuideOnGitHub } from "./agent-help.ts";
-import {
-  CredentialsField,
-  CredentialsForm,
-  CredentialsProblem,
-  PasswordField,
-} from "./credentials-form.tsx";
+import { Checkbox } from "./checkbox.tsx";
+import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { missingText, TextField, useFormFields, type FieldProblem } from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 
 /** What a person typed to sign in by realm, and whether this device keeps the realm (D297 §5). */
 /**
@@ -52,7 +52,8 @@ interface RealmSignInProps {
 /**
  * The sign-in at a paid discovery's page for a person with no link: realm, name and password
  * together, and "remember my household", ticked when a realm was kept (D297 §2,
- * §5). Any part wrong says so as one, as the discovery does.
+ * §5). Any part wrong says so as one, as the discovery does, naming no field (RealmProblem): only
+ * what is missing is said at its field.
  */
 export function RealmSignIn(props: RealmSignInProps): JSX.Element {
   const { t } = useTranslation();
@@ -60,55 +61,67 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [isRemembered, setIsRemembered] = useState(props.rememberedRealm !== undefined);
+  const fields = useFormFields(undefined, []);
   return (
     <CredentialsForm
       heading={t("discovery.realm.heading")}
       onSubmit={() => {
-        props.onSubmit({ realm, name, password, isRemembered });
+        if (fields.check(missingOf(t, { realm, name, password }))) {
+          props.onSubmit({ realm, name, password, isRemembered });
+        }
       }}
       after={props.after}
     >
-      <PlainField
+      <TextField
+        {...fields.fieldOf("realm")}
         label={t("discovery.realm.realm")}
+        hint={t("discovery.realm.realmHint")}
         name="realm"
         autoComplete="organization"
+        isVerbatim
         value={realm}
-        onChange={setRealm}
-        describedBy="realm-hint"
+        onChange={fields.editing("realm", setRealm)}
       />
-      <p id="realm-hint">{t("discovery.realm.realmHint")}</p>
-      <PlainField
+      <TextField
+        {...fields.fieldOf("name")}
         label={t("discovery.realm.name")}
         name="name"
         autoComplete="username"
+        isVerbatim
         value={name}
-        onChange={setName}
+        onChange={fields.editing("name", setName)}
       />
       <PasswordField
+        {...fields.fieldOf("password")}
         label={t("discovery.realm.password")}
         value={password}
-        onChange={setPassword}
+        onChange={fields.editing("password", setPassword)}
         autoComplete="current-password"
       />
-      <label className="credentials-form__check">
-        <input
-          type="checkbox"
-          checked={isRemembered}
-          onChange={(event) => {
-            setIsRemembered(event.target.checked);
-          }}
-        />
-        {t("discovery.realm.remember")}
-      </label>
+      <Checkbox
+        label={t("discovery.realm.remember")}
+        isChecked={isRemembered}
+        onChange={setIsRemembered}
+      />
       {props.problem === undefined ? null : (
         <CredentialsProblem isAlert>{t(`discovery.realm.${props.problem}`)}</CredentialsProblem>
       )}
-      <button type="submit" disabled={props.isSending}>
-        {props.isSending ? t("discovery.realm.signingIn") : t("discovery.realm.submit")}
-      </button>
+      <SubmitButton label={t("discovery.realm.submit")} isBusy={props.isSending} />
       <OtherWays onUseCode={props.onUseCode} accountOrigin={props.accountOrigin} />
     </CredentialsForm>
   );
+}
+
+/** What a sign-in sent now would lack: each field left empty, to be said at that field. */
+function missingOf(
+  t: TFunction,
+  typed: { readonly realm: string; readonly name: string; readonly password: string },
+): readonly FieldProblem[] {
+  return [
+    ["realm", missingText(t, t("discovery.realm.realm"), typed.realm)],
+    ["name", missingText(t, t("discovery.realm.name"), typed.name)],
+    ["password", missingText(t, t("discovery.realm.password"), typed.password)],
+  ];
 }
 
 /**
@@ -145,32 +158,5 @@ function OtherWays(props: {
         </p>
       )}
     </>
-  );
-}
-
-/** A required text field typed as it is, never capitalised or corrected: a realm, a name. */
-function PlainField(props: {
-  readonly label: string;
-  readonly name: string;
-  readonly autoComplete: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly describedBy?: string;
-}): JSX.Element {
-  return (
-    <CredentialsField label={props.label}>
-      <input
-        name={props.name}
-        autoComplete={props.autoComplete}
-        autoCapitalize="none"
-        spellCheck={false}
-        required
-        value={props.value}
-        aria-describedby={props.describedBy}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </CredentialsField>
   );
 }

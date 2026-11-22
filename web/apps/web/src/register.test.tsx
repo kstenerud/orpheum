@@ -7,7 +7,16 @@ import { expect, it } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
 import { Register } from "./register.tsx";
-import { enter, mount, refusal, servedBy, submit, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  enter,
+  fillRequired,
+  mount,
+  refusal,
+  servedBy,
+  submit,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 
 it("with no link in the address, says so and offers nothing to fill in", async () => {
@@ -40,6 +49,7 @@ it("registers with the link's secret, and leaves it in neither the address nor t
     navigation: createNavigation(place),
   };
   const mounted = await mount(withServices(<Register />, services));
+  await fillRequired(mounted.container);
   await submit(mounted.container.querySelector("form"));
   mounted.unmount();
   expect(heard.at(-1)).toMatchObject({
@@ -72,10 +82,9 @@ it("asks an invitation's person for their own name, and sends it with the passwo
   };
   const mounted = await mount(withServices(<Register />, services));
   expect(mounted.container.textContent).toContain("Make your account");
-  const [name, password, again] = [...mounted.container.querySelectorAll("input")];
+  const [name, password] = [...mounted.container.querySelectorAll("input")];
   await enter(name, "Gran");
   await enter(password, "secret");
-  await enter(again, "secret");
   await submit(mounted.container.querySelector("form"));
   mounted.unmount();
   expect(heard.at(-1)).toMatchObject({
@@ -122,11 +131,11 @@ it("still offers the form when the link could not be read for another reason", a
   };
   const mounted = await mount(withServices(<Register />, services));
   expect(mounted.container.querySelector("h1")?.textContent).toBe("Choose your password");
-  expect(mounted.container.querySelectorAll("input")).toHaveLength(2);
+  expect(mounted.container.querySelectorAll("input")).toHaveLength(1);
   mounted.unmount();
 });
 
-/** The registration page for an invitation whose name is taken, with its three fields. */
+/** The registration page for an invitation whose name is taken, with its two fields. */
 async function registeringATakenName(): Promise<
   readonly [Mounted, ...(HTMLInputElement | undefined)[]]
 > {
@@ -141,32 +150,40 @@ async function registeringATakenName(): Promise<
   return [mounted, ...mounted.container.querySelectorAll("input")];
 }
 
-it("marks the password typed again invalid while it does not match, until it is typed again", async () => {
-  const [mounted, name, password, again] = await registeringATakenName();
-  await enter(name, "Gran");
-  await enter(password, "secret");
-  await enter(again, "secrets");
-  await submit(mounted.container.querySelector("form"));
-  expect(again?.getAttribute("aria-invalid")).toBe("true");
-  expect(again?.getAttribute("aria-describedby")).toBe(
-    mounted.container.querySelector('[role="alert"]')?.id,
-  );
-  expect(name?.hasAttribute("aria-invalid")).toBe(false);
-  await enter(again, "secret");
-  expect(again?.hasAttribute("aria-invalid")).toBe(false);
-  mounted.unmount();
-});
-
 it("marks the name invalid while a name taken shows, described by the line", async () => {
-  const [mounted, name, password, again] = await registeringATakenName();
+  const [mounted, name, password] = await registeringATakenName();
   await enter(name, "Gran");
   await enter(password, "secret");
-  await enter(again, "secret");
   await submit(mounted.container.querySelector("form"));
   const line = mounted.container.querySelector('[role="alert"]');
   expect(line?.textContent).toContain("already has that name");
   expect(name?.getAttribute("aria-invalid")).toBe("true");
   expect(name?.getAttribute("aria-describedby")).toBe(line?.id);
-  expect(again?.hasAttribute("aria-invalid")).toBe(false);
+  expect(password?.hasAttribute("aria-invalid")).toBe(false);
+  mounted.unmount();
+});
+
+it("asks for the password once, a new one, and says at its field when it is missing (D538)", async () => {
+  const heard: Heard[] = [];
+  const services = {
+    ...servedBy(
+      { "POST /registration/link": [200, { isInvitation: false, name: "partner" }] },
+      heard,
+    ),
+    navigation: createNavigation(fakePlace("/register#a-link")),
+  };
+  const mounted = await mount(withServices(<Register />, services));
+  const passwords = mounted.container.querySelectorAll('input[type="password"]');
+  expect(passwords).toHaveLength(1);
+  expect(passwords[0]?.getAttribute("autocomplete")).toBe("new-password");
+  expect(mounted.container.textContent).not.toContain("same password");
+  await submit(mounted.container.querySelector("form"));
+  expect(heard.some((each) => each.methodAndPath === "POST /registration")).toBe(false);
+  expect(mounted.container.textContent).toContain("Enter password");
+  expect(passwords[0]?.getAttribute("aria-invalid")).toBe("true");
+  expect(document.activeElement).toBe(passwords[0]);
+  expect(mounted.container.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(
+    false,
+  );
   mounted.unmount();
 });

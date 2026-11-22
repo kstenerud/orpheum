@@ -5,21 +5,15 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { linkKind, register, secretFromHash, type LinkKind } from "./accounts.ts";
-import {
-  CredentialsForm,
-  CredentialsNotice,
-  CredentialsProblem,
-  PasswordField,
-} from "./credentials-form.tsx";
-import { useFieldMarks, type FieldMark } from "./field-marks.ts";
+import { CredentialsForm, CredentialsNotice, CredentialsProblem } from "./credentials-form.tsx";
+import { missingText, TextField, useFormFields, type FieldState } from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
 import { ApiProblem, failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource, type Resource } from "./use-resource.ts";
-
-/** Why a registration did not go through. */
-export type RegisterProblem = "mismatch" | "refused";
 
 /**
  * Registration from a one-time link: an invitation, from which the person chooses their own name
@@ -80,44 +74,42 @@ function RegisterForm(props: {
   const isInvitation = kind?.isInvitation === true;
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordAgain, setPasswordAgain] = useState("");
   const registration = useRegistration(secret);
-  const marks = useFieldMarks(registration.failure, registration.failure?.fields ?? []);
+  const fields = useFormFields(registration.failure, registration.failure?.fields ?? []);
   return (
     <CredentialsForm
       heading={headingText(t, kind)}
       onSubmit={() => {
-        registration.submit({ name: isInvitation ? name : undefined, password, passwordAgain });
+        const isFilled = fields.check([
+          ["body.name", isInvitation ? missingText(t, t("register.name"), name) : undefined],
+          ["body.password", missingText(t, t("register.password"), password)],
+        ]);
+        if (isFilled) {
+          registration.submit({ name: isInvitation ? name : undefined, password });
+        }
       }}
     >
       <p>{explainText(t, kind)}</p>
       {isInvitation ? (
         <NameField
+          {...fields.fieldOf("body.name")}
           value={name}
-          onChange={marks.editing("body.name", setName)}
-          mark={marks.markOf("body.name")}
+          onChange={fields.editing("body.name", setName)}
         />
       ) : null}
       <PasswordField
+        {...fields.fieldOf("body.password")}
         label={t("register.password")}
+        autoComplete="new-password"
         value={password}
-        onChange={marks.editing("body.password", setPassword)}
-        mark={marks.markOf("body.password")}
+        onChange={fields.editing("body.password", setPassword)}
       />
-      <PasswordField
-        label={t("register.again")}
-        value={passwordAgain}
-        onChange={marks.editing(passwordAgainField, setPasswordAgain)}
-        mark={marks.markOf(passwordAgainField)}
-      />
-      {registration.problem === undefined ? null : (
-        <CredentialsProblem isAlert id={marks.problemId}>
-          {t(`register.${registration.problem}`, { refusalText: registration.refusalText })}
+      {registration.refusalText === undefined ? null : (
+        <CredentialsProblem isAlert id={fields.problemId}>
+          {registration.refusalText}
         </CredentialsProblem>
       )}
-      <button type="submit" disabled={registration.isBusy}>
-        {t("register.submit")}
-      </button>
+      <SubmitButton label={t("register.submit")} isBusy={registration.isBusy} />
     </CredentialsForm>
   );
 }
@@ -151,34 +143,14 @@ function explainText(t: TFunction, kind: LinkKind | undefined): string {
 }
 
 /** The name an invitation's person chooses, which the others see and they sign in with. */
-function NameField(props: {
-  readonly value: string;
-  readonly onChange: (name: string) => void;
-  readonly mark: FieldMark;
-}): JSX.Element {
+function NameField(
+  props: FieldState & { readonly value: string; readonly onChange: (name: string) => void },
+): JSX.Element {
   const { t } = useTranslation();
   return (
-    <label>
-      {t("register.name")}{" "}
-      <input
-        {...props.mark}
-        required
-        maxLength={100}
-        autoComplete="username"
-        value={props.value}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </label>
+    <TextField {...props} label={t("register.name")} maxLength={100} autoComplete="username" />
   );
 }
-
-/**
- * The field the password is typed again in, which no request carries: a mismatch is about it, and
- * the server never names it.
- */
-const passwordAgainField = "passwordAgain";
 
 /**
  * How a refused registration is told: its fields, a bad link (authRequired), which is about no
@@ -197,38 +169,29 @@ function useRegistration(secret: string): {
   readonly submit: (entered: {
     readonly name: string | undefined;
     readonly password: string;
-    readonly passwordAgain: string;
   }) => void;
-  readonly problem: RegisterProblem | undefined;
-  readonly refusalText: string;
-  /** The last failure, each a new one, and the fields it is about (useFieldMarks). */
+  /** Why the server refused the last registration, in the person's words; undefined for none. */
+  readonly refusalText: string | undefined;
+  /** The last failure, each a new one, and the fields it is about (useFormFields). */
   readonly failure: { readonly fields: readonly string[] } | undefined;
   readonly isBusy: boolean;
 } {
   const { t } = useTranslation();
   const { api, session, navigation } = useServices();
-  const [problem, setProblem] = useState<RegisterProblem | undefined>(undefined);
   const [failure, setFailure] = useState<{ readonly fields: readonly string[] } | undefined>(
     undefined,
   );
-  const [refusalText, setRefusalText] = useState("");
+  const [refusalText, setRefusalText] = useState<string | undefined>(undefined);
   // The refusal is told by the form's own words; the request only makes the button wait.
   const registering = useRequest(() => "");
   const submit = ({
     name,
     password,
-    passwordAgain,
   }: {
     readonly name: string | undefined;
     readonly password: string;
-    readonly passwordAgain: string;
   }): void => {
-    if (password !== passwordAgain) {
-      setProblem("mismatch");
-      setFailure({ fields: [passwordAgainField] });
-      return;
-    }
-    setProblem(undefined);
+    setRefusalText(undefined);
     setFailure(undefined);
     registering.runRequest(async (idempotencyKey) => {
       try {
@@ -245,10 +208,9 @@ function useRegistration(secret: string): {
         navigation.replace({ screen: "home" });
       } catch (cause: unknown) {
         setRefusalText(fieldProblemText(t, cause, registerWords(t)));
-        setProblem("refused");
         setFailure({ fields: failedFields(cause, registerWords(t)) });
       }
     });
   };
-  return { submit, problem, refusalText, failure, isBusy: registering.isBusy };
+  return { submit, refusalText, failure, isBusy: registering.isBusy };
 }

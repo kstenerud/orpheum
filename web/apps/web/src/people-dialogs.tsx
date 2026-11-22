@@ -11,7 +11,7 @@ import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { personWords } from "./person-words.ts";
-import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { useFormFields, type FormFields } from "./field.tsx";
 import { failedFields, fieldProblemText } from "./problem.ts";
 import { roleLabel, type Role } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
@@ -72,7 +72,7 @@ export function InviteDialog(props: {
   const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
-  const marks = useFieldMarks(failure, failedFields(failure, personWords(t)));
+  const marks = useFormFields(failure, failedFields(failure, personWords(t)));
   const [role, setRole] = useState("user");
   const [adminNote, setAdminNote] = useState("");
   return (
@@ -120,7 +120,7 @@ function AccountFields(props: {
   readonly account: NewAccount;
   readonly set: (change: Partial<NewAccount>) => void;
   /** The marks on the fields the failure shown is about. */
-  readonly marks: FieldMarks;
+  readonly marks: FormFields;
 }): JSX.Element {
   const { t } = useTranslation();
   const { account, set, marks } = props;
@@ -187,7 +187,7 @@ export function CreateAccountDialog(props: {
   const { isBusy, problem, failure, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
-  const marks = useFieldMarks(failure, failedFields(failure, personWords(t)));
+  const marks = useFormFields(failure, failedFields(failure, personWords(t)));
   const [account, setAccount] = useState<NewAccount>({
     name: "",
     password: "",

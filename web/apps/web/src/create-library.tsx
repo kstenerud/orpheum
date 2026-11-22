@@ -12,7 +12,7 @@ import { blankLibrary, libraryToCreate, libraryWords, type NewLibrary } from "./
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
-import { useFieldMarks, type FieldMark } from "./field-marks.ts";
+import { useFormFields, type FieldMark } from "./field.tsx";
 import { dataOrThrow, failedFields, fieldProblemText } from "./problem.ts";
 import { useReadLibrariesAgain } from "./libraries-reached.ts";
 import { useServices } from "./services.tsx";
@@ -426,7 +426,7 @@ export function CreateLibraryForm(props: {
   const { t } = useTranslation();
   const Heading = props.isNested === true ? "h2" : "h1";
   const draft = onAConnectedNode(props.draft, props.nodes);
-  const marks = useFieldMarks(props.failure, failedFields(props.failure, libraryWords(t)));
+  const marks = useFormFields(props.failure, failedFields(props.failure, libraryWords(t)));
   // An answer changed takes its field's mark away.
   const setAnswer: SetAnswer = (key, value) => {
     marks.editing(`body.${key}`, props.onDraftChange)({ ...draft, [key]: value });

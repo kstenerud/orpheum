@@ -17,10 +17,10 @@ import { DebugToolsSetting } from "./debug-tools.tsx";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { HomeAddress } from "./home-address.tsx";
-import { useFieldMarks } from "./field-marks.ts";
+import { useFormFields } from "./field.tsx";
 import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { useMe } from "./signed-in-me.ts";
-import { PasswordField } from "./credentials-form.tsx";
+import { PasswordField } from "./password-field.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -206,7 +206,7 @@ function ChangePassword(): JSX.Element {
     overrides: { forbidden: t("account.wrongPassword") },
     codeFields: { forbidden: ["body.currentPassword"] },
   };
-  const marks = useFieldMarks(failure, failedFields(failure, words));
+  const fields = useFormFields(failure, failedFields(failure, words));
   const submit = (): void => {
     setFailure(undefined);
     changePassword(api, currentPassword, newPassword).then(
@@ -225,20 +225,21 @@ function ChangePassword(): JSX.Element {
     <FormRow onSubmit={submit}>
       <h2>{t("account.changePassword")}</h2>
       <PasswordField
+        {...fields.fieldOf("body.currentPassword")}
         label={t("account.currentPassword")}
         value={currentPassword}
-        onChange={marks.editing("body.currentPassword", setCurrentPassword)}
+        onChange={fields.editing("body.currentPassword", setCurrentPassword)}
         autoComplete="current-password"
-        mark={marks.markOf("body.currentPassword")}
       />
       <PasswordField
+        {...fields.fieldOf("body.newPassword")}
         label={t("account.newPassword")}
         value={newPassword}
-        onChange={marks.editing("body.newPassword", setNewPassword)}
-        mark={marks.markOf("body.newPassword")}
+        onChange={fields.editing("body.newPassword", setNewPassword)}
+        autoComplete="new-password"
       />
       <button type="submit">{t("account.changePassword")}</button>
-      {outcome === undefined ? null : <output id={marks.problemId}>{outcome}</output>}
+      {outcome === undefined ? null : <output id={fields.problemId}>{outcome}</output>}
     </FormRow>
   );
 }

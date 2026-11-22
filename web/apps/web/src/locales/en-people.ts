@@ -13,8 +13,9 @@ export const enPeople = {
     explainLinked:
       "This server has no admin yet. The setup code is filled in from the link you opened: choose the first admin's name and password.",
     code: "Setup code",
-    addressAtHome:
-      "This server's address in the house (its IP address, which devices at home reach it at)",
+    addressAtHome: "Address at home",
+    addressAtHomeHint:
+      "The IP address devices at home use to reach this server, for example 192.168.1.20",
     submit: "Create the admin",
     back: "Back",
     wrongCode:

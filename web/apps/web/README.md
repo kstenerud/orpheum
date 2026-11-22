@@ -1153,11 +1153,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   controls and the cast remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
   `src/player-controls.test.tsx`, `src/cast-remote.test.tsx`.
 - **A failure about what was typed marks the fields it is about** (plans 11-22 batch, item 6):
-  `aria-invalid="true"` and described by the line that says why, from one hook, `useFieldMarks`
-  (`src/field-marks.ts`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its
+  `aria-invalid="true"` and described by the line that says why, from one hook, `useFormFields`
+  (`src/field.tsx`), fed the fields a refusal names by `failedFields` (`src/problem.ts`: its
   problems' locations, and the fields a form's `codeFields` give a code such as `authRequired`). A
   field's mark goes when it is edited or the form is sent again; a failure of the network or a
-  server busy marks nothing. `src/sign-in.test.tsx`, `src/register.test.tsx`,
+  server busy marks nothing. What is missing is said at its own field, by the same hook's `check`,
+  which moves focus to the first: a form's submit (`SubmitButton`, `src/submit-button.tsx`) is
+  never disabled, and while it works it says so with `aria-busy` and takes no second press (D538,
+  interface rule 14). `src/sign-in.test.tsx`, `src/register.test.tsx`,
   `src/device-activation.test.tsx`, `src/together-join.test.tsx`, `src/people-dialogs.test.tsx`,
   `src/library-pages.test.tsx`, `src/account.test.tsx`.
 

@@ -33,7 +33,7 @@ describe("the realm's pages, laid out by a real browser", () => {
         onSubmit={ignore}
       />,
     );
-    const check = mounted.container.querySelector(".credentials-form__check");
+    const check = mounted.container.querySelector(".checkbox__row");
     expect(check === null ? "" : getComputedStyle(check).display).toBe("flex");
     mounted.unmount();
   });

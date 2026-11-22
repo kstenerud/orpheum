@@ -115,15 +115,10 @@ const knownSites: Readonly<Record<Banned, Readonly<Record<string, number>>>> = {
     "device-activation.tsx": 1,
     "discovery-gate.tsx": 1,
     "problem-report.tsx": 1,
-    "realm-sign-in.tsx": 1,
-    "register.tsx": 1,
-    "set-up.tsx": 1,
-    "sign-in.tsx": 1,
     "system-address-at-home.tsx": 1,
     "system-discovery-connect.tsx": 1,
     "system-discovery.tsx": 2,
     "system-network.tsx": 1,
-    "together-join.tsx": 2,
   },
 };
 

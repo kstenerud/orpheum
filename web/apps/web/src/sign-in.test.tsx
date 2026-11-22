@@ -12,6 +12,7 @@ import {
   buttonWithText,
   click,
   enter,
+  fillRequired,
   mount,
   refusal,
   servedBy,
@@ -35,6 +36,7 @@ async function problemShownFor(answer: Answers[string]): Promise<string | undefi
   const mounted = await mount(
     withServices(<SignIn />, servedBy({ "GET /setup": setUpAlready, "POST /session": answer })),
   );
+  await fillRequired(mounted.container);
   await submit(mounted.container.querySelector("form"));
   const shown = mounted.container.querySelector('[role="alert"], output')?.textContent ?? undefined;
   mounted.unmount();
@@ -110,6 +112,7 @@ describe("sign-in", () => {
       ),
     );
     const [name, password] = mounted.container.querySelectorAll("input");
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     const line = mounted.container.querySelector('[role="alert"]');
     expect(name?.getAttribute("aria-invalid")).toBe("true");
@@ -133,12 +136,34 @@ describe("sign-in", () => {
         }),
       ),
     );
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(mounted.container.querySelector('[role="alert"]')?.id).not.toBe("");
     expect(mounted.container.querySelectorAll("[aria-invalid]")).toHaveLength(2);
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain("starting up");
     expect(mounted.container.querySelectorAll("[aria-invalid]")).toHaveLength(0);
+    mounted.unmount();
+  });
+
+  it("sends nothing with a field empty: says what is missing at the field, and moves focus to it (D538)", async () => {
+    const heard: Heard[] = [];
+    const mounted = await mount(
+      withServices(<SignIn />, servedBy({ "GET /setup": setUpAlready }, heard)),
+    );
+    const [name, password] = mounted.container.querySelectorAll("input");
+    await enter(name, "owner");
+    await submit(mounted.container.querySelector("form"));
+    expect(heard.some((each) => each.methodAndPath === "POST /session")).toBe(false);
+    const error = mounted.container.querySelector(".field__error");
+    expect(error?.textContent).toBe("Enter password");
+    expect(password?.getAttribute("aria-invalid")).toBe("true");
+    expect(password?.getAttribute("aria-describedby")).toContain(error?.id);
+    expect(name?.hasAttribute("aria-invalid")).toBe(false);
+    expect(document.activeElement).toBe(password);
+    await enter(password, "secret");
+    expect(mounted.container.querySelector(".field__error")).toBeNull();
     mounted.unmount();
   });
 
@@ -155,6 +180,7 @@ describe("sign-in", () => {
       ],
     });
     const mounted = await mount(withServices(<SignIn />, services));
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     mounted.unmount();
     expect(services.session.token()).toBe("new-token");
@@ -185,11 +211,13 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
       heard,
     );
     const mounted = await mount(withServices(<SignIn />, services));
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(mounted.container.textContent).toContain("Set up this server");
     await enter(mounted.container.querySelector('input[name="setupCode"]'), "gh3k-c5vq-hhvh");
     await enter(mounted.container.querySelector('input[name="name"]'), "owner");
     await enter(mounted.container.querySelector('input[type="password"]'), "a password");
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(heard.find((each) => each.methodAndPath === "POST /setup")?.body).toEqual({
       setupCode: "gh3k-c5vq-hhvh",
@@ -219,6 +247,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     await enter(mounted.container.querySelector('input[name="name"]'), "owner");
     await enter(mounted.container.querySelector('input[type="password"]'), "a password");
     await enter(address, "192.168.1.25");
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(heard.find((each) => each.methodAndPath === "POST /setup")?.body).toEqual({
       setupCode: "gh3k-c5vq-hhvh",
@@ -249,7 +278,9 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
       "POST /setup": refusal(403, "forbidden"),
     });
     const mounted = await mount(withServices(<SignIn />, services));
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     expect(mounted.container.textContent).toContain("That setup code is wrong");
     await click(buttonWithText(mounted.container, "Back"));
@@ -265,6 +296,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     const mounted = await mount(withServices(<SignIn />, services));
     expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
     expect(mounted.container.querySelector("output")?.textContent).toContain("SETUP-CODE.txt");
+    await fillRequired(mounted.container);
     await submit(mounted.container.querySelector("form"));
     const code = mounted.container.querySelector('input[name="setupCode"]');
     const line = mounted.container.querySelector('[role="alert"]');

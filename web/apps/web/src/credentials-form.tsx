@@ -5,7 +5,6 @@ import "./credentials-form.css";
 import type { JSX, ReactNode } from "react";
 
 import logo from "./assets/orpheum-logo.svg";
-import type { FieldMark } from "./field-marks.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { submitWith } from "./form-row.tsx";
 import { productName } from "./product-name.ts";
@@ -15,7 +14,9 @@ import { productName } from "./product-name.ts";
  * form, headed, in the middle of the page, so the three look the same and share one set of styles.
  * after, where given, comes below the form on the same page, as what happened to copy at a dead end:
  * put after the page instead, it fell below a page a screen tall, and the owner's ThinkPad, told to
- * copy what happened, showed no way to (2026-11-07).
+ * copy what happened, showed no way to (2026-11-07). Its fields are Fields (field.tsx) and its button a
+ * SubmitButton, so it sets novalidate: what is missing is said at its field, not in the browser's
+ * bubble (D538, interface rule 14).
  */
 export function CredentialsForm(props: {
   readonly heading: string;
@@ -28,6 +29,7 @@ export function CredentialsForm(props: {
       <img className="credentials-form__logo" src={logo} alt={productName} />
       <form
         className="credentials-form__form"
+        noValidate
         onSubmit={submitWith(props.onSubmit)}
         {...arrivalMark}
       >
@@ -36,19 +38,6 @@ export function CredentialsForm(props: {
       </form>
       {props.after}
     </main>
-  );
-}
-
-/** One labelled field of a credentials form: the label's text, then its input. */
-export function CredentialsField(props: {
-  readonly label: string;
-  readonly children: ReactNode;
-}): JSX.Element {
-  return (
-    <label className="credentials-form__field">
-      {props.label}
-      {props.children}
-    </label>
   );
 }
 
@@ -74,7 +63,7 @@ export function CredentialsNotice(props: {
 /**
  * What went wrong, where the person is looking: an alert for what they just did, or a quiet
  * notice for what happened before they arrived (a session the server ended). id, where given, is
- * the one the fields it is about are described by (useFieldMarks).
+ * the one the fields it is about are described by (field.tsx's useFormFields).
  */
 export function CredentialsProblem(props: {
   readonly isAlert: boolean;
@@ -89,30 +78,5 @@ export function CredentialsProblem(props: {
     <output className="credentials-form__problem" id={props.id}>
       {props.children}
     </output>
-  );
-}
-
-/** A password field: a new password by default, or the current one when autoComplete says so. */
-export function PasswordField(props: {
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly autoComplete?: "new-password" | "current-password";
-  /** Its mark while the failure shown is about it (useFieldMarks); none by default. */
-  readonly mark?: FieldMark;
-}): JSX.Element {
-  return (
-    <CredentialsField label={props.label}>
-      <input
-        {...props.mark}
-        type="password"
-        autoComplete={props.autoComplete ?? "new-password"}
-        required
-        value={props.value}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </CredentialsField>
   );
 }

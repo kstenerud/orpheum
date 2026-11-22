@@ -7,16 +7,19 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { completeSetup, signInThisDevice } from "./accounts.ts";
+import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
 import {
-  CredentialsField,
-  CredentialsForm,
-  CredentialsProblem,
-  PasswordField,
-} from "./credentials-form.tsx";
-import { useFieldMarks, type FieldMark } from "./field-marks.ts";
+  missingText,
+  TextField,
+  useFormFields,
+  type FieldProblem,
+  type FieldState,
+} from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
 import { failedFields, fieldProblemText, type FormWords } from "./problem.ts";
 import { setupCodeFromFragment } from "./set-up-link.ts";
 import { useServices } from "./services.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
 
 /**
@@ -42,13 +45,16 @@ export function SetUp(props: {
     props.offeredAddressAtHome !== undefined && props.offeredAddressAtHome !== "";
   const [addressAtHome, setAddressAtHome] = useState(props.offeredAddressAtHome ?? "");
   const { isBusy, problem, failure, runRequest } = useSetUpRequest();
-  const marks = useFieldMarks(failure, failedFields(failure, setUpWords(t)));
+  const fields = useFormFields(failure, failedFields(failure, setUpWords(t)));
   const field = (key: string, value: string, onChange: (value: string) => void): Field => ({
+    ...fields.fieldOf(`body.${key}`),
     value,
-    onChange: marks.editing(`body.${key}`, onChange),
-    mark: marks.markOf(`body.${key}`),
+    onChange: fields.editing(`body.${key}`, onChange),
   });
   const submit = (): void => {
+    if (!fields.check(missingOf(t, { setupCode, name, password }))) {
+      return;
+    }
     runRequest(async (idempotencyKey) => {
       await completeSetup(
         api,
@@ -74,18 +80,28 @@ export function SetUp(props: {
         <AddressAtHomeField {...field("addressAtHome", addressAtHome, setAddressAtHome)} />
       ) : null}
       {problem === undefined ? null : (
-        <CredentialsProblem isAlert id={marks.problemId}>
+        <CredentialsProblem isAlert id={fields.problemId}>
           {problem}
         </CredentialsProblem>
       )}
-      <button type="submit" disabled={isBusy}>
-        {t("setUp.submit")}
-      </button>
+      <SubmitButton label={t("setUp.submit")} isBusy={isBusy} />
       <button type="button" onClick={props.onBack}>
         {t("setUp.back")}
       </button>
     </CredentialsForm>
   );
+}
+
+/** What a setup sent now would lack: each field it needs left empty, to be said at that field. */
+function missingOf(
+  t: TFunction,
+  typed: { readonly setupCode: string; readonly name: string; readonly password: string },
+): readonly FieldProblem[] {
+  return [
+    ["body.setupCode", missingText(t, t("setUp.code"), typed.setupCode)],
+    ["body.name", missingText(t, t("signIn.name"), typed.name)],
+    ["body.password", missingText(t, t("signIn.password"), typed.password)],
+  ];
 }
 
 /** The code the address carried (D527 §1.2), read once; the address is rewritten without it at once. */
@@ -100,11 +116,10 @@ function useLinkedCode(): string | undefined {
   return linkedCode;
 }
 
-/** A field's value, its change handler, and its mark while a refusal of it shows. */
-interface Field {
+/** A field's value, its change handler, and where it stands: its id, its error and its mark. */
+interface Field extends FieldState {
   readonly value: string;
   readonly onChange: (value: string) => void;
-  readonly mark: FieldMark;
 }
 
 /** The setup code the server printed, and the first admin's name and password. */
@@ -116,40 +131,15 @@ function CodeAndAdmin(props: {
   const { t } = useTranslation();
   return (
     <>
-      <RequiredField
+      <TextField
         label={t("setUp.code")}
         name="setupCode"
         autoComplete="one-time-code"
         {...props.setupCode}
       />
-      <RequiredField label={t("signIn.name")} name="name" autoComplete="username" {...props.name} />
-      <PasswordField label={t("signIn.password")} {...props.password} />
+      <TextField label={t("signIn.name")} name="name" autoComplete="username" {...props.name} />
+      <PasswordField label={t("signIn.password")} autoComplete="new-password" {...props.password} />
     </>
-  );
-}
-
-/** One required text field of the form. */
-function RequiredField(props: {
-  readonly label: string;
-  readonly name: string;
-  readonly autoComplete: "one-time-code" | "username";
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly mark: FieldMark;
-}): JSX.Element {
-  return (
-    <CredentialsField label={props.label}>
-      <input
-        {...props.mark}
-        name={props.name}
-        autoComplete={props.autoComplete}
-        required
-        value={props.value}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </CredentialsField>
   );
 }
 
@@ -173,24 +163,20 @@ function useSetUpRequest(): ReturnType<typeof useRequest> {
   return useRequest((cause) => fieldProblemText(t, cause, setUpWords(t)));
 }
 
-/** The server's address in the house, its guess filled in to confirm or correct (D452 §4). */
-function AddressAtHomeField(props: {
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly mark: FieldMark;
-}): JSX.Element {
+/**
+ * The server's address in the house, its guess filled in to confirm or correct (D452 §4); left
+ * empty, it is learned from the first page opened at it.
+ */
+function AddressAtHomeField(props: Field): JSX.Element {
   const { t } = useTranslation();
   return (
-    <CredentialsField label={t("setUp.addressAtHome")}>
-      <input
-        {...props.mark}
-        name="addressAtHome"
-        inputMode="decimal"
-        value={props.value}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      />
-    </CredentialsField>
+    <TextField
+      {...props}
+      label={t("setUp.addressAtHome")}
+      hint={t("setUp.addressAtHomeHint")}
+      name="addressAtHome"
+      inputMode="decimal"
+      isOptional
+    />
   );
 }

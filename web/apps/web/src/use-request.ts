@@ -19,7 +19,7 @@ export interface RequestState {
   readonly problem: string | undefined;
   /**
    * What the last request failed with, as problem is told from it; undefined while one runs or it
-   * worked. A form marks the fields it is about (useFieldMarks).
+   * worked. A form marks the fields it is about (field.tsx's useFormFields).
    */
   readonly failure: unknown;
   /** Whether the running request has taken longer than slowAfterMs: a host slow, or our own pacing. */

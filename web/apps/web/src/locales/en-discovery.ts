@@ -96,7 +96,6 @@ export const enDiscovery = {
       password: "Password",
       remember: "Remember my household",
       submit: "Sign in",
-      signingIn: "Signing in…",
       wrong:
         "The household, username or password is wrong, or the server can't be reached right now.",
       unreached:

@@ -8,16 +8,13 @@ import { ApiProblem } from "@orpheum/sdk";
 
 import { setupNeeded, signInThisDevice } from "./accounts.ts";
 import { CodeSignIn } from "./code-sign-in.tsx";
-import {
-  CredentialsField,
-  CredentialsForm,
-  CredentialsProblem,
-  PasswordField,
-} from "./credentials-form.tsx";
-import { useFieldMarks } from "./field-marks.ts";
+import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import { missingText, TextField, useFormFields } from "./field.tsx";
+import { PasswordField } from "./password-field.tsx";
 import { failedFields, fieldProblemText, signedOutText, type FormWords } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { SetUp } from "./set-up.tsx";
+import { SubmitButton } from "./submit-button.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -65,37 +62,43 @@ export function SignInForm(props: {
   readonly onUseCode: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const marks = useFieldMarks(props.failure, failedFields(props.failure, signInWords(t)));
+  const fields = useFormFields(props.failure, failedFields(props.failure, signInWords(t)));
   return (
-    <CredentialsForm heading={t("signIn.heading")} onSubmit={props.onSubmit}>
+    <CredentialsForm
+      heading={t("signIn.heading")}
+      onSubmit={() => {
+        if (
+          fields.check([
+            ["body.name", missingText(t, t("signIn.name"), props.name)],
+            ["body.password", missingText(t, t("signIn.password"), props.password)],
+          ])
+        ) {
+          props.onSubmit();
+        }
+      }}
+    >
       <SessionEndedNotice reason={props.lastEndReason} />
-      <CredentialsField label={t("signIn.name")}>
-        <input
-          name="name"
-          autoComplete="username"
-          required
-          value={props.name}
-          {...marks.markOf("body.name")}
-          onChange={(event) => {
-            marks.editing("body.name", props.onNameChange)(event.target.value);
-          }}
-        />
-      </CredentialsField>
+      <TextField
+        {...fields.fieldOf("body.name")}
+        label={t("signIn.name")}
+        name="name"
+        autoComplete="username"
+        value={props.name}
+        onChange={fields.editing("body.name", props.onNameChange)}
+      />
       <PasswordField
+        {...fields.fieldOf("body.password")}
         label={t("signIn.password")}
         value={props.password}
-        onChange={marks.editing("body.password", props.onPasswordChange)}
+        onChange={fields.editing("body.password", props.onPasswordChange)}
         autoComplete="current-password"
-        mark={marks.markOf("body.password")}
       />
       {props.problem === undefined ? null : (
-        <CredentialsProblem isAlert id={marks.problemId}>
+        <CredentialsProblem isAlert id={fields.problemId}>
           {props.problem}
         </CredentialsProblem>
       )}
-      <button type="submit" disabled={props.isSending}>
-        {t("signIn.submit")}
-      </button>
+      <SubmitButton label={t("signIn.submit")} isBusy={props.isSending} />
       <button type="button" onClick={props.onUseCode}>
         {t("signIn.useCode")}
       </button>

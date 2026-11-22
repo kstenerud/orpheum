@@ -384,6 +384,22 @@ export async function enter(input: Element | null | undefined, text: string): Pr
 }
 
 /**
+ * Types text in each of within's required fields still empty, as a person does before sending a
+ * form: a form says what is missing at its field and sends nothing until it is filled (field.tsx's
+ * check), so a test about what the server answers fills it in first.
+ */
+export async function fillRequired(within: Element | null | undefined, text = "x"): Promise<void> {
+  if (within === null || within === undefined) {
+    throw new Error("nothing to fill in");
+  }
+  for (const input of within.querySelectorAll<HTMLInputElement>("input[required]")) {
+    if (input.value === "") {
+      await enter(input, text);
+    }
+  }
+}
+
+/**
  * A button, a `<button>` or a button by role (button-by-role.tsx), as a screen reader finds one and
  * the tests' finders do.
  */

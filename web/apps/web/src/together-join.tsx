@@ -3,13 +3,8 @@
 import { useEffect, useState, type Dispatch, type JSX, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  CredentialsField,
-  CredentialsForm,
-  CredentialsNotice,
-  CredentialsProblem,
-} from "./credentials-form.tsx";
-import { useFieldMarks, type FieldMarks } from "./field-marks.ts";
+import { CredentialsForm, CredentialsNotice, CredentialsProblem } from "./credentials-form.tsx";
+import { missingText, TextField, useFormFields, type FormFields } from "./field.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import {
   ApiProblem,
@@ -20,6 +15,7 @@ import {
 } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useMe } from "./signed-in-me.ts";
+import { SubmitButton } from "./submit-button.tsx";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
 
@@ -72,7 +68,7 @@ export function JoinForm(props: {
   const [name, setTypedName] = useJoinName();
   const linkState = useLinkState(props.secret, canFollow);
   const join = useJoin(props);
-  const marks = useFieldMarks(join.failure, failedFields(join.failure, joinWords(t)));
+  const fields = useFormFields(join.failure, failedFields(join.failure, joinWords(t)));
   if (!canFollow) {
     // Told before joining, so no one waits for a device that could never keep up (D250 §7).
     return (
@@ -101,21 +97,21 @@ export function JoinForm(props: {
     <CredentialsForm
       heading={t("together.joinHeading")}
       onSubmit={() => {
-        props.onSubmitted();
-        join.send(name);
+        if (fields.check([["body.name", missingText(t, t("together.name"), name)]])) {
+          props.onSubmitted();
+          join.send(name);
+        }
       }}
     >
       <p>{t("together.joinExplain")}</p>
-      <JoinNameField name={name} setTypedName={setTypedName} marks={marks} />
+      <JoinNameField name={name} setTypedName={setTypedName} fields={fields} />
       {problem === undefined ? null : (
-        <CredentialsProblem isAlert id={marks.problemId}>
+        <CredentialsProblem isAlert id={fields.problemId}>
           {problem}
         </CredentialsProblem>
       )}
       {other === undefined ? (
-        <button type="submit" disabled={isBusy}>
-          {t("together.join")}
-        </button>
+        <SubmitButton label={t("together.join")} isBusy={isBusy} />
       ) : (
         <LeaveOtherToJoin other={other} isBusy={isBusy} onStay={join.stay} />
       )}
@@ -202,9 +198,7 @@ function LeaveOtherToJoin(props: {
           ? t("together.leaveOwnToJoin")
           : t("together.leaveOtherToJoin", { host: other.hostName })}
       </CredentialsProblem>
-      <button type="submit" disabled={props.isBusy}>
-        {t("together.leaveAndJoin")}
-      </button>
+      <SubmitButton label={t("together.leaveAndJoin")} isBusy={props.isBusy} />
       <button type="button" disabled={props.isBusy} onClick={props.onStay}>
         {t("together.stayInOther")}
       </button>
@@ -216,29 +210,25 @@ function LeaveOtherToJoin(props: {
 function JoinNameField(props: {
   readonly name: string;
   readonly setTypedName: Dispatch<SetStateAction<string | undefined>>;
-  /** The marks on the fields the failure shown is about. */
-  readonly marks: FieldMarks;
+  /** Where the form's fields stand: the name's error, and its mark from the last refusal. */
+  readonly fields: FormFields;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { name, setTypedName, marks } = props;
+  const { name, setTypedName, fields } = props;
   return (
-    <CredentialsField label={t("together.name")}>
-      <input
-        required
-        maxLength={100}
-        autoComplete="nickname"
-        value={name}
-        {...marks.markOf("body.name")}
-        onFocus={() => {
-          // What it shows as its person starts on it is theirs: a name loaded later replaces nothing,
-          // where it went in before what they typed ("viewer-firefoxAnna", check-pr 2026-10-15).
-          setTypedName((typed) => typed ?? name);
-        }}
-        onChange={(event) => {
-          marks.editing("body.name", setTypedName)(event.target.value);
-        }}
-      />
-    </CredentialsField>
+    <TextField
+      {...fields.fieldOf("body.name")}
+      label={t("together.name")}
+      maxLength={100}
+      autoComplete="nickname"
+      value={name}
+      onFocus={() => {
+        // What it shows as its person starts on it is theirs: a name loaded later replaces nothing,
+        // where it went in before what they typed ("viewer-firefoxAnna", check-pr 2026-10-15).
+        setTypedName((typed) => typed ?? name);
+      }}
+      onChange={fields.editing("body.name", setTypedName)}
+    />
   );
 }
 
