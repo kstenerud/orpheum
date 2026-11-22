@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -549,5 +550,19 @@ func TestArguments_ASoundWhoseFirstPacketIsStretchedIsReadThatMuchLater(t *testi
 		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
 			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)
 		}
+	}
+}
+
+// A raw file of a sound made of a stretched first packet that does not hold its chunk says where in
+// the file the run read from, past the stretch, not the film's time it stands for (D534 §1).
+func TestCheckSpan_ASoundOfAStretchedFirstPacketSaysWhereInTheFileItRead(t *testing.T) {
+	t.Parallel()
+	sound := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	sound.FirstChunk, sound.BoundsMs, sound.SoundFirstPacketStretchMs = 0, []int64{0, 2_000, 4_000}, 31_902
+	err := checkSpan(sound, listed{name: "raw-0", number: 0, startMs: 1_500, endMs: 2_000}, false)
+	if !errors.Is(err, errNotHeld) || !strings.Contains(err.Error(), "the run read from 31902 ms") {
+		t.Errorf("a raw file off its chunk fails with %v; want one saying the run read from 31902 ms", err)
 	}
 }
