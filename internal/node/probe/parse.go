@@ -97,6 +97,7 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 		return nodeproto.Probe{}, fmt.Errorf("%w: %d container names", ErrTooLarge, len(names))
 	}
 	record := nodeproto.Probe{
+		Version: nodeproto.ProbeVersion,
 		Format: nodeproto.ProbeFormat{
 			FormatNames:    make([]string, 0, len(names)),
 			DurationMs:     parseSecondsAsMs(raw.Format.Duration),

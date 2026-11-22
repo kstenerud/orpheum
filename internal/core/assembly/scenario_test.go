@@ -480,10 +480,11 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		// No files to measure or to compare as copies, nothing due a rolling refresh, and backups, scans
-		// and credentials are not this scenario's work, nor the art directory, which it has none of.
+		// and credentials are not this scenario's work, nor the art directory, which it has none of, nor files an
+		// older probe read, which it has no library admin to ask of.
 		if !slices.Contains([]string{
 			sweepReadThroughs, sweepRollingRefresh, sweepScheduledBackup, sweepScheduledScans, sweepEndedCredentials,
-			sweepUnavailableRoots, sweepCopies, sweepLostArtwork,
+			sweepUnavailableRoots, sweepCopies, sweepLostArtwork, sweepOlderProbes,
 		}, sweep.Name) {
 			world.queue.AddSweep(sweep)
 		}

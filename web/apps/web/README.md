@@ -530,14 +530,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   chooses are played and shown but kept for no one. `guest-receiving.test.tsx` plays a cast through
   against a server refusing every route whose `x-orpheum-capability` a guest's session does not hold,
   and `app.test.tsx`'s "a page signed in for one cast".
-- **An admin rescans from the Libraries pages and from a film's or series' page** (D357): "Rescan
-  everything" on the list, and "Rescan" on the own page of a library of films or of series alone,
-  never a mixed or other one; the list and the library's page show how far its rescan is, scanning
-  first, then the films and series matched again; and "Rescan this" beside "Identified incorrectly",
-  for an admin alone. Each says whether it started, or one already runs. `libraries.test.tsx`,
-  `rescan.test.tsx`, `library-pages.test.tsx`. Beside each is its full rescan (D392): "Full rescan
-  of everything", and "Full rescan" on a library's page and in "Identified incorrectly", which ask
-  for the same rescan with every file read again first. `rescan.test.tsx`.
+- **An admin rescans from the Libraries pages and from every video's page** (D357, D535 §3–§5): a
+  rescan is of one kind, every file read again first (D392). "Rescan everything" on the list,
+  "Scan now" and "Rescan" on the own page of a library of any kind; the list and the library's page
+  show how far its rescan is, scanning first, then the films and series matched again; and "Rescan"
+  in the "…" of a film's, a series', an episode's or an other video's page (`rescan-action.tsx`),
+  never an extra's, nor in "Identified incorrectly", for an admin alone. Each says whether it
+  started, or one already runs. `libraries.test.tsx`, `rescan.test.tsx`, `library-pages.test.tsx`.
 - **The admin's libraries are a list, each with a page of its own, and creating one is a page too**
   (D361): `/libraries` lists each library at a glance with "Manage this library"; `/libraries/<id>`
   holds everything that changes it, deleting it (confirmed first) going back to the list;
@@ -855,7 +854,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
   takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
   no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a
-  title's and a series' "Identified incorrectly" (an admin's, one dialog offering Rescan, Enter
+  title's and a series' Rescan and "Identified incorrectly" (an admin's, one dialog offering Enter
   manually and Report this, `src/match-correction.tsx`) and a series' Order. The list closes as its
   place's dialog opens, never stacked under it, so one press outside the dialog is back on the page,
   and focus goes back to the "…" (`modal-dialog.tsx`'s chain of what each dialog gives focus back
@@ -1130,7 +1129,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
   (the Libraries page, D349, with `alphabet-rail.tsx`; a list's Sort and filter is
-  `listing-tools.tsx`, D417), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one; its form's fields and defaults are `library-draft.ts`'s), `welcome.tsx` (the first admin's first-time pages after being made, at /welcome and /welcome/discovery: libraries, then what a discovery gives, ending in a link home and one to Remote access, D528 §1; posters have no page, Orpheum ships its own TMDB key, D527 §1.3, §3), `library-offer.tsx` and `library-offer-kinds.ts` (the first of them offers a library for each folder of a media folder, its kind guessed from the folder's name), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Rescan, Enter manually and Report this, D301 §2, D357, D306 §3), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
+  `listing-tools.tsx`, D417), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one; its form's fields and defaults are `library-draft.ts`'s), `welcome.tsx` (the first admin's first-time pages after being made, at /welcome and /welcome/discovery: libraries, then what a discovery gives, ending in a link home and one to Remote access, D528 §1; posters have no page, Orpheum ships its own TMDB key, D527 §1.3, §3), `library-offer.tsx` and `library-offer-kinds.ts` (the first of them offers a library for each folder of a media folder, its kind guessed from the folder's name), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Enter manually and Report this, D301 §2, D306 §3), `rescan-action.tsx` (an admin's Rescan in a video page's "…", D535 §3, §5), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `remote-access.tsx` (the Remote access page, `system-discovery.tsx`'s section on a page of its own, which System links to, D528 §1), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `play-opened.ts`, how it opens its playback,
   `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,

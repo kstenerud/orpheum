@@ -170,6 +170,10 @@ var wireShapeByVersion = map[int]string{
 	// makeChunks, a sound read that much later in the file (D534 §1): a node of 67 would drop both and
 	// make the sound starting the stretch late.
 	68: "916e26ed5a5e162b1939d2922b751ea82313dbf4f15e527c292c17155f3047c8",
+	// 69 adds the version of the probe that read a file, Probe.Version, and counts ProbeVersion in the
+	// shape, so a node probing at another version is refused (D535 §1, §2): a core of 69 would read a
+	// node of 68's probes as older and ask them read again for ever.
+	69: "d2fb9767f5dc5fb88b22c2a4d06da84d8475102d8f0b813c840c1b7ad692207d",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -196,6 +200,9 @@ func wireShape() string {
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}
+	// The probe's version counts as the wire's: a node probing at another version than its core is
+	// refused at hello, so the core never asks it to read again what it would read the same (D535 §2).
+	fields = append(fields, fmt.Sprintf("ProbeVersion %d", ProbeVersion))
 	slices.Sort(fields)
 	sum := sha256.Sum256([]byte(strings.Join(fields, "\n")))
 	return hex.EncodeToString(sum[:])

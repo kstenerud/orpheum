@@ -56,24 +56,19 @@ export const enLibraries = {
     scanning: "Asked {{count}} roots to scan.",
     rescan: "Rescan",
     rescanHelp:
-      "Scans it, then matches each film and series in it again from its files. What a person chose or edited is left alone.",
+      "Reads every file again, changed on disk or not, throws out only what differs from what was kept, asks again for missing images, then matches each film and series again from its files. What a person chose, edited or watched is left alone.",
     rescanEverything: "Rescan everything",
-    rescanStarted: "Rescanning: it is scanned, then each film and series in it is matched again.",
+    rescanStarted:
+      "Rescanning: every file in it is read again, then each film and series in it is matched again.",
     rescanRunning: "A rescan of it is already running.",
-    rescanEverythingStarted: "Rescanning {{count}} libraries of films or series.",
+    rescanEverythingStarted: "Rescanning {{count}} libraries.",
     rescanScanning: "Rescanning… scanning first.",
     rescanThis: "Rescan",
-    rescanThisStarted: "Rescanning: its files are scanned, then it is matched again from them.",
+    rescanThisHelp:
+      "Reads its files again, changed on disk or not, throws out only what differs from what was kept, then matches a film or series again from them. What a person chose, edited or watched is left alone.",
+    rescanThisStarted: "Rescanning: its files are read again, then it is matched again from them.",
     rescanThisRunning: "A rescan of it, or of its library, is already running.",
     rescanMatching: "Rescanning… {{matched}} of {{count}} films and series matched again.",
-    fullRescan: "Full rescan",
-    fullRescanHelp:
-      "Reads every file again, changed on disk or not, throws out only what differs from what was kept, asks again for missing images, then rescans. What a person chose, edited or watched is left alone.",
-    fullRescanEverything: "Full rescan of everything",
-    fullRescanStarted:
-      "Full rescan: every file in it is read again, then each film and series in it is matched again.",
-    fullRescanThisStarted:
-      "Full rescan: its files are read again, then it is matched again from them.",
     files: "What the scanner saw",
     filing: "{{filing}}: {{count}}",
     root: "{{node}}: {{path}}",

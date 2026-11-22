@@ -879,7 +879,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (D357); with full, read its files again first and throw out what their differences touch (D392) */
+        /** Rescan a film, series, episode or other video: read its files again, a series' every episode's, throwing out what their differences touch (D392, D535 §3, §5), then match a film or series again from them, unless a person chose its match (D357); an extra is refused */
         post: operations["rescanItem"];
         delete?: never;
         options?: never;
@@ -1068,7 +1068,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392) */
+        /** Rescan a library: read every file again, changed or not, throwing out what its differences touch (D392, D535 §5), then match each film and series in it again from its files, leaving alone what a person set (D357); a library of other videos has nothing matched (D535 §4) */
         post: operations["rescanLibrary"];
         delete?: never;
         options?: never;
@@ -1170,7 +1170,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392) */
+        /** Rescan every library, whatever it holds (D535 §4, §5): read every file again, changed or not, throwing out what its differences touch (D392), then match each film and series again from its files, leaving alone what a person set (D357) */
         post: operations["rescanLibraries"];
         delete?: never;
         options?: never;
@@ -8634,10 +8634,7 @@ export interface operations {
     };
     rescanItem: {
         parameters: {
-            query?: {
-                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
-                full?: boolean;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;
@@ -9058,10 +9055,7 @@ export interface operations {
     };
     rescanLibrary: {
         parameters: {
-            query?: {
-                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
-                full?: boolean;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;
@@ -9261,10 +9255,7 @@ export interface operations {
     };
     rescanLibraries: {
         parameters: {
-            query?: {
-                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
-                full?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

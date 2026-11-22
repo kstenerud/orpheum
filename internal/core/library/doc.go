@@ -39,6 +39,12 @@
 //     stored, moved there, and keeps its row without a read (D304 §5).
 //     TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain.
 //
+//   - A file an older probe read (its probe's version below nodeproto.ProbeVersion) is read again on
+//     its own, as a full rescan reads it, by a background scan the sweep asks of its folder: only
+//     while no scan runs, at most olderProbesAtOnce files at a time, each once a start (D535 §2).
+//     TestReadAgainOlderProbes_AFileAnOlderProbeReadIsReadAgainOnItsOwn,
+//     TestReadAgainOlderProbes_AFileIsAskedOnceAStart.
+//
 //   - A scan that reads files again, a full rescan's (D392 §2), reads each it names (ReadAgain: a
 //     library's every file, a film's or series' own videos), changed on disk or not, and every NFO and
 //     subtitle file it lists; what it does not name, stored as listed, is seen and not read. What it

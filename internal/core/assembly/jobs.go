@@ -206,7 +206,8 @@ func (services *Services) newRunner(runnerSpec jobRunner) *jobs.Runner {
 // image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
 // §3); every library identified again from persistent.db, each item's season listings and images
 // owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
-// video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
+// video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10); and
+// each file an older probe read, read again (D535 §2).
 const (
 	sweepFirstMatches     = "first matches"
 	sweepMissing          = "what should have been fetched"
@@ -229,6 +230,7 @@ const (
 	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
 	sweepRemovedFiles     = "removed files past their keeping"
 	sweepLostArtwork      = "images the art directory lost"
+	sweepOlderProbes      = "files an older probe read"
 )
 
 // scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
@@ -327,7 +329,7 @@ const scheduledBackupCheckEvery = 5 * time.Minute
 func sweepsAfterAPass() []string {
 	return []string{
 		sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs, sweepRescans,
-		sweepCopies, sweepRepeats,
+		sweepCopies, sweepRepeats, sweepOlderProbes,
 	}
 }
 
@@ -360,6 +362,8 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
 		// An admin's rescans: each listed once its scan is over, its matches queued (D357).
 		{Name: sweepRescans, Derive: services.rescans.Advance, Every: derivedWorkEvery},
+		// A few files at a time, while no scan runs, each scan's end asking for the next (D535 §2).
+		{Name: sweepOlderProbes, Derive: services.API.Libraries.ReadAgainOlderProbes, Every: derivedWorkEvery},
 		// A little at a time, hourly and at start, never after each pass (D335 §3).
 		{Name: sweepMissing, Derive: services.refresher.QueueMissing, Every: derivedWorkEvery},
 		{

@@ -21,6 +21,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { rescanAction } from "./rescan-action.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -213,6 +214,7 @@ function TitleMoreActions(props: {
     if (title.isGuessed === true) {
       actions.push(identifiedCorrectlyAction(t, { itemId: title.id, onConfirmed: onCorrected }));
     }
+    actions.push(rescanAction(t, title.id));
   }
   const versions = title.versions ?? [];
   if (title.unavailable === undefined && versions.length > 1) {

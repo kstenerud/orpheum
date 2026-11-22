@@ -24,42 +24,29 @@ type RescanStartedOutput struct {
 // RescansStartedOutput says how many libraries' rescans started.
 type RescansStartedOutput struct {
 	Body struct {
-		// StartedCount is how many libraries of films or series started a rescan; one already
-		// being rescanned starts none.
+		// StartedCount is how many libraries started a rescan; one already being rescanned starts
+		// none.
 		StartedCount int `json:"startedCount"`
 	}
 }
 
-// RescanKindInput is whether a rescan is a full one (D392): every file in its scope read again,
-// changed on disk or not, and what the differences touch thrown out, before the rescan's match.
-type RescanKindInput struct {
-	IsFull bool `doc:"A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)" query:"full"` //nolint:lll // one struct tag
-}
+// A rescan is of one kind, D392's full one (D535 §5): every file in its scope read again, changed on
+// disk or not, and what the differences touch thrown out, before its match; the light rescan of D357
+// and its full flag are gone.
 
-// kind is the rescan the input asks for.
-func (input RescanKindInput) kind() identify.RescanKind {
-	if input.IsFull {
-		return identify.FullRescan
-	}
-	return identify.Rescan
-}
-
-// RescanEverythingInput asks for a rescan, or a full one, of every library of films or of series.
+// RescanEverythingInput asks for a rescan of every library (D535 §4).
 type RescanEverythingInput struct {
 	AuthorizationHeader
-	RescanKindInput
 }
 
-// LibraryRescanInput asks for a rescan, or a full one, of a library.
+// LibraryRescanInput asks for a rescan of a library.
 type LibraryRescanInput struct {
 	LibraryInput
-	RescanKindInput
 }
 
-// ItemRescanInput asks for a rescan, or a full one, of a film or a series.
+// ItemRescanInput asks for a rescan of a film, a series, an episode or an other video (D535 §3).
 type ItemRescanInput struct {
 	ItemInput
-	RescanKindInput
 }
 
 // LibraryRescanBody is how far a library's rescans are (D357 §5): scanning, then matching its films
@@ -74,25 +61,26 @@ func (server *Server) registerRescans() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "rescanLibraries", Method: http.MethodPost, Path: "/libraries/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
-		Summary: "Rescan every library of films or of series: scan it, then match each film and series " +
-			"in it again from its files, leaving alone what a person set (D357); with full, read " +
-			"every file again first and throw out what its differences touch (D392)",
+		Summary: "Rescan every library, whatever it holds (D535 §4, §5): read every file again, changed or " +
+			"not, throwing out what its differences touch (D392), then match each film and series again " +
+			"from its files, leaving alone what a person set (D357)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanLibraries)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "rescanLibrary", Method: http.MethodPost, Path: "/libraries/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
-		Summary: "Rescan a library of films or of series: scan it, then match each film and series in it " +
-			"again from its files, leaving alone what a person set (D357); with full, read every " +
-			"file again first and throw out what its differences touch (D392)",
+		Summary: "Rescan a library: read every file again, changed or not, throwing out what its " +
+			"differences touch (D392, D535 §5), then match each film and series in it again from its " +
+			"files, leaving alone what a person set (D357); a library of other videos has nothing matched " +
+			"(D535 §4)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "rescanItem", Method: http.MethodPost, Path: "/items/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagIdentification},
-		Summary: "Rescan a film or series: scan its files, then match it again from them, unless a person " +
-			"chose its match (D357); with full, read its files again first and throw out what their " +
-			"differences touch (D392)",
+		Summary: "Rescan a film, series, episode or other video: read its files again, a series' every " +
+			"episode's, throwing out what their differences touch (D392, D535 §3, §5), then match a film " +
+			"or series again from them, unless a person chose its match (D357); an extra is refused",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanItem)
 }
@@ -104,7 +92,7 @@ func (server *Server) rescanLibraries(ctx context.Context, input *RescanEverythi
 	if err != nil {
 		return nil, err
 	}
-	started, err := dependencies.Rescans.RescanEverything(ctx, input.kind())
+	started, err := dependencies.Rescans.RescanEverything(ctx)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan every library", err)
 	}
@@ -120,7 +108,7 @@ func (server *Server) rescanLibrary(ctx context.Context, input *LibraryRescanInp
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID, input.kind())
+	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan a library", err)
 	}
@@ -134,7 +122,7 @@ func (server *Server) rescanItem(ctx context.Context, input *ItemRescanInput) (*
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID, input.kind())
+	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID)
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan an item", err)
 	}
@@ -143,11 +131,11 @@ func (server *Server) rescanItem(ctx context.Context, input *ItemRescanInput) (*
 	return output, nil
 }
 
-// rescanError maps a rescan's refusals to API errors: a library or item it does not take, and the
+// rescanError maps a rescan's refusals to API errors: an item it does not take, an extra, and the
 // library's and identification's own.
 func (server *Server) rescanError(ctx context.Context, action string, err error) error {
 	switch {
-	case errors.Is(err, identify.ErrNotRescannable), errors.Is(err, identify.ErrNotAWork):
+	case errors.Is(err, identify.ErrNotRescannable):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
 	case errors.Is(err, identify.ErrNoItem):
 		return server.identifyError(ctx, action, err)

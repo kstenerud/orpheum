@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided.
+**Status:** decided; 1–5 in place, 6 to build.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30723,3 +30723,21 @@ D357 §1's limit of a rescan to a film or a series.
    selective (§5). Amends §5's "never everything of a video": everything, when asked for. The rule
    (the owner: "Basically everything except things directly caused by the user (watching, entering
    data, etc)"): what the app made or fetched goes; what a person did stays.
+
+**Built** (2026-11-22): 1–5. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+each file's probe and folded into the wire protocol (69), so a node with another probe is refused
+rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
+"files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
+no scan runs it takes up to 100 such files of one connected node, past those it asked for since
+the start, and asks a background scan reading them again of the innermost live root holding each.
+Every rescan is the full one: the API's `full` flag and identify's kind of rescan are gone; a
+library of any kind and a film, series, episode or other video are rescanned, an extra refused.
+The web offers Rescan in a video page's "…" (`rescan-action.tsx`), and "Scan now" and "Rescan" on
+every library's page; "Identified incorrectly" offers Enter manually and Report this alone.
+
+**Proven by:**
+- 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
+- 2: `TestReadAgainOlderProbes_AFileAnOlderProbeReadIsReadAgainOnItsOwn`, `TestReadAgainOlderProbes_AFileIsAskedOnceAStart` (internal/core/library), `TestSweeps_FilesAnOlderProbeReadAreSweptForAfterEveryPass` (internal/core/assembly)
+- 3: `TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused`, `TestRescan_OneItemRescansItsFilesAndRematchesIt` (internal/core/identify); `rescan.test.tsx`: a series' and an other video's menu, none on an extra's
+- 4: `TestRescan_EveryLibraryWhateverItHolds`, `TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched` (internal/core/identify); `rescan.test.tsx`: a library of other videos' Rescan
+- 5: `TestRescan_IsForAnAdminOnly` (internal/core/api), `TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot` (internal/core/library), `TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain` (internal/core/identify); `rescan.test.tsx`, `title.test.tsx`: no Full rescan anywhere, no rescan in "Identified incorrectly"

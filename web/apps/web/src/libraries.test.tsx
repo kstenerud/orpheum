@@ -166,7 +166,7 @@ describe("libraries", () => {
     expect(reading).toContain("It scans again when this one ends.");
   });
 
-  it("offers a rescan of a library of films or of series, never an other one, and shows how far it is (D357)", () => {
+  it("offers a rescan of a library of any kind, an other one too, and shows how far it is (D357, D535 §4)", () => {
     const card = (kind: Library["kind"], rescan?: Library["rescan"]): string =>
       renderToStaticMarkup(
         withServices(
@@ -191,7 +191,7 @@ describe("libraries", () => {
       );
     expect(card("film")).toContain(">Rescan</button>");
     expect(card("series")).toContain(">Rescan</button>");
-    expect(card("other")).not.toContain(">Rescan</button>");
+    expect(card("other")).toContain(">Rescan</button>");
     expect(card("film")).not.toContain("Rescanning");
     expect(card("film", { isScanning: true, itemCount: 0, matchedCount: 0 })).toContain(
       "Rescanning… scanning first.",

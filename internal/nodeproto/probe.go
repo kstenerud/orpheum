@@ -2,11 +2,23 @@
 
 package nodeproto
 
+// ProbeVersion is the version of what the node's probe says of a file: raised with any change to it,
+// a fact added, removed or read otherwise, so a file read by an older probe is read again on its own
+// (D535 §1, §2). A change to the probe's shape fails until it is raised and the shape recorded:
+// TestProbeVersion_IsRaisedWithAnyChangeToTheProbe. Raising it raises ProtocolVersion too, as the
+// wire's shape counts it, so a core and its nodes always probe at one version.
+//
+// 1 is the probe with a sound's first packet's stretch (D534 §1), the first version that counts.
+const ProbeVersion = 1
+
 // Probe is what the node observed inside one media file: the parsed, bounded record the core
 // stores verbatim as file.probe_json (schema.md) and re-derives from. It is built by the node from
 // ffprobe's output, never passed through; hostile bytes stop at the node (D126). Every string
 // is valid UTF-8 and bounded in length, and the lists are bounded in count.
 type Probe struct {
+	// Version is the ProbeVersion of the node that read it; zero for a probe kept before probes
+	// had a version, which is older than every version that counts (D535 §1).
+	Version  int            `json:"version,omitempty"`
 	Format   ProbeFormat    `json:"format"`
 	Streams  []ProbeStream  `json:"streams"`
 	Chapters []ProbeChapter `json:"chapters"`

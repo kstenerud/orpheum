@@ -11,19 +11,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// What a rescan asks of the scans (D357 §2): its scope's files scanned as a manual scan scans them,
-// and whether that scan is over.
+// What a rescan asks of the scans (D357 §2, D392 §2): its scope's files read again, changed on disk
+// or not, and whether that scan is over.
 
-// scanWorkFilesAtMost bounds the files ScanWork reads of a film or series to find the folders that
-// hold them.
+// scanWorkFilesAtMost bounds the files ScanWork reads of an item to find the folders that hold them.
 const scanWorkFilesAtMost = 10_000
 
 // ScanWork asks, at a person's priority, for a scan of the folders that hold the live files of a
-// film or a series in a library: under each of its roots that holds any, the one folder holding
-// all of them there, whose scan removes nothing outside it (D272 §9), as a rescan of the one item
-// scans its files (D357 §2); isReadingAgain, one that reads those files again, changed on disk or
-// not, a full rescan's (D392 §2). A root whose node is away is not asked. It says how many it asked.
-func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64, isReadingAgain bool) (int, error) {
+// film, a series (its every episode's), an episode or an other video in a library: under each of its
+// roots that holds any, the one folder holding all of them there, whose scan removes nothing outside
+// it (D272 §9) and reads those files again, changed on disk or not, as a rescan of the one item reads
+// its files (D392 §2, D535 §3, §5). A root whose node is away is not asked. It says how many it asked.
+func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return 0, err
@@ -34,12 +33,13 @@ func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64, isRea
 	if err != nil {
 		return 0, fmt.Errorf("list item %d's files: %w", itemID, err)
 	}
+	places := make([]filePlace, 0, len(files))
+	for _, file := range files {
+		places = append(places, filePlace{nodeID: file.NodeID, path: file.Path})
+	}
 	asked := 0
 	for _, root := range roots {
-		scope, readAgain, holdsAny := workUnder(root, files)
-		if !isReadingAgain {
-			readAgain = nil
-		}
+		scope, readAgain, holdsAny := filesUnder(root.NodeID, root.RootPath, places)
 		nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 		if !holdsAny || !connected || nodeID != root.NodeID {
 			continue
@@ -54,14 +54,19 @@ func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64, isRea
 	return asked, nil
 }
 
-// workUnder is the one folder under a root holding all of a film's or series' files there, its scope,
-// and those files, relative to the root; and whether the root holds any.
-func workUnder(
-	root sqlcgen.ListLibraryRootStatesRow, files []sqlcgen.ListFilesOfWorkRow,
-) (scope string, readAgain ReadAgain, holdsAny bool) {
+// filePlace is a file's place: its node, and its path there.
+type filePlace struct {
+	nodeID int64
+	path   string
+}
+
+// filesUnder is the one folder under a node's root holding all the files there of those given, its
+// scope, and those files, relative to the root; and whether the root holds any: a rescan's of a film's
+// or series' files (ScanWork), or those an older probe read (ReadAgainOlderProbes).
+func filesUnder(nodeID int64, rootPath string, files []filePlace) (scope string, readAgain ReadAgain, holdsAny bool) {
 	for _, file := range files {
-		relative, under := RelativeToRoot([]byte(file.Path), root.RootPath)
-		if file.NodeID != root.NodeID || !under {
+		relative, under := RelativeToRoot([]byte(file.path), rootPath)
+		if file.nodeID != nodeID || !under {
 			continue
 		}
 		readAgain = append(readAgain, PathText(relative))

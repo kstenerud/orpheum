@@ -781,6 +781,61 @@ func (q *Queries) ListFilesAtSeveralPlaces(ctx context.Context, arg ListFilesAtS
 	return items, nil
 }
 
+const listFilesProbedBefore = `-- name: ListFilesProbedBefore :many
+SELECT file.id, place.path
+FROM file_probe
+CROSS JOIN file ON file.id = file_probe.file_id
+CROSS JOIN file_place ON file_place.file_id = file.id
+CROSS JOIN place ON place.id = file_place.place_id AND place.filing = 'read' AND place.removed_at IS NULL
+WHERE file_probe.file_id > ?1 AND place.node_id = ?2
+  AND file.sidecar_kind IS NULL
+  AND coalesce(json_extract(file_probe.probe_json, '$.version'), 0) < CAST(?3 AS INTEGER)
+ORDER BY file_probe.file_id
+LIMIT ?4
+`
+
+type ListFilesProbedBeforeParams struct {
+	AfterID      int64
+	NodeID       int64
+	ProbeVersion int64
+	MaxRows      int64
+}
+
+type ListFilesProbedBeforeRow struct {
+	ID   int64
+	Path string
+}
+
+// A node's live videos read by a probe older than probe_version, one kept before probes had a
+// version among them, after the file after_id, by id: what is read again on its own (D535 section 2).
+func (q *Queries) ListFilesProbedBefore(ctx context.Context, arg ListFilesProbedBeforeParams) ([]ListFilesProbedBeforeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesProbedBefore,
+		arg.AfterID,
+		arg.NodeID,
+		arg.ProbeVersion,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFilesProbedBeforeRow{}
+	for rows.Next() {
+		var i ListFilesProbedBeforeRow
+		if err := rows.Scan(&i.ID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesToCompare = `-- name: ListFilesToCompare :many
 SELECT place.id, place.reported_path_raw, file.size_bytes, place.modified_at,
   CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'

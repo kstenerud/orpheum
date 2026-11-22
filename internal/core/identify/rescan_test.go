@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -30,26 +29,18 @@ import (
 type rescanScans struct {
 	libraries []int64
 	works     []int64
-	// readingAgain are the libraries and items whose scans read their files again.
-	librariesReadAgain, worksReadAgain []int64
-	scanning                           map[int64]bool
+	scanning  map[int64]bool
 }
 
-func (scans *rescanScans) Scan(_ context.Context, libraryID int64) (int, error) {
+// ScanReadingAgain records the library whose every file is read again.
+func (scans *rescanScans) ScanReadingAgain(_ context.Context, libraryID int64) (int, error) {
 	scans.libraries = append(scans.libraries, libraryID)
 	return 1, nil
 }
 
-func (scans *rescanScans) ScanReadingAgain(ctx context.Context, libraryID int64) (int, error) {
-	scans.librariesReadAgain = append(scans.librariesReadAgain, libraryID)
-	return scans.Scan(ctx, libraryID)
-}
-
-func (scans *rescanScans) ScanWork(_ context.Context, _, itemID int64, isReadingAgain bool) (int, error) {
+// ScanWork records the item whose files are read again.
+func (scans *rescanScans) ScanWork(_ context.Context, _, itemID int64) (int, error) {
 	scans.works = append(scans.works, itemID)
-	if isReadingAgain {
-		scans.worksReadAgain = append(scans.worksReadAgain, itemID)
-	}
 	return 1, nil
 }
 
@@ -117,7 +108,7 @@ func (rescan *rescanning) run() {
 func (rescan *rescanning) library() {
 	t := rescan.lib.t
 	t.Helper()
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), rescan.lib.libraryID, identify.Rescan)
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), rescan.lib.libraryID)
 	if err != nil || !isStarted {
 		t.Fatalf("RescanLibrary = %v, %v; want it started", isStarted, err)
 	}
@@ -295,12 +286,12 @@ func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
 	rescan := lib.rescanning()
 	rescan.scans.scanning[lib.libraryID] = true
 	rescan.library()
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.Rescan)
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID)
 	if err != nil || isStarted {
 		t.Errorf("a second press = %v, %v; want nothing started", isStarted, err)
 	}
 	titleID := lib.titlesByPath()[crowdFile].WorkID
-	isStarted, err = rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan)
+	isStarted, err = rescan.rescans.RescanItem(t.Context(), titleID)
 	if err != nil || isStarted {
 		t.Errorf("a press on its film = %v, %v; want nothing started", isStarted, err)
 	}
@@ -311,33 +302,6 @@ func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
 	rescan.scans.scanning[lib.libraryID] = false
 	rescan.run()
 	rescan.library()
-}
-
-// D357 §1: "Rescan everything" rescans each library of films or of series, and no other one, whose
-// videos are never matched.
-func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
-	t.Parallel()
-	lib := newTestLibrary(t, "movie", "tmdb")
-	var want []int64
-	want = append(want, lib.libraryID)
-	for index, kind := range []string{"series", "other"} {
-		source := "tmdb"
-		if kind == "other" {
-			source = "nfo"
-		}
-		libraryID := librarytest.LibraryOn(t, lib.database, lib.nodeID, librarytest.Library{
-			Name: kind, Kind: kind, MetadataSource: source, Root: "/media/" + kind + string(rune('a'+index)),
-		})
-		if kind == "series" {
-			want = append(want, libraryID)
-		}
-	}
-	rescan := lib.rescanning()
-	started, err := rescan.rescans.RescanEverything(t.Context(), identify.Rescan)
-	if err != nil || started != len(want) || !slices.Equal(rescan.scans.libraries, want) {
-		t.Errorf("RescanEverything = %d, %v, scanning %v; want %d started, scanning %v", started, err,
-			rescan.scans.libraries, len(want), want)
-	}
 }
 
 // D357 §1, §2: "Rescan this" scans the film's own files and matches it alone again.
@@ -352,7 +316,7 @@ func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	lib.matchFileTitle(otherFile)
 	titleID := lib.titlesByPath()[crowdFile].WorkID
 	rescan := lib.rescanning()
-	isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan)
+	isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID)
 	if err != nil || !isStarted {
 		t.Fatalf("RescanItem = %v, %v; want it started", isStarted, err)
 	}
@@ -367,12 +331,6 @@ func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	}
 	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1927)) {
 		t.Errorf("searched for the other film too: %v", lib.provider.Calls[calls:])
-	}
-	seriesLib := orbitoramaLibrary(t)
-	seriesLib.scanAll(orbitoramaFiles...)
-	episode := seriesLib.titlesByPath()[orbitoramaFiles[0]].WorkID
-	if _, err := seriesLib.rescanning().rescans.RescanItem(t.Context(), episode, identify.Rescan); err == nil {
-		t.Error("an episode was rescanned alone; want it refused, its series is what is rescanned")
 	}
 }
 
@@ -516,7 +474,7 @@ func TestRescan_ALibraryThatNeverStopsChangingGivesUpWithTheWriteThatChangesIt(t
 	}
 	// Needs attention lists the library, named, while no later rescan of it has finished.
 	wantGivenUp(t, rescan, lib.libraryID, "given up", 1)
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.Rescan)
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID)
 	if err != nil || !isStarted {
 		t.Errorf("RescanLibrary after giving up = %t, %v; want a new rescan", isStarted, err)
 	}
@@ -647,22 +605,20 @@ func fullRescanning(t *testing.T) (*rescanning, *imagesAskedAgain, *bytes.Buffer
 
 // D392 §1, §2, §4, §6: a full rescan of a library has its scan read every file again, changed on disk
 // or not, asks again for the images each film it matches again is missing, and matches it again as a
-// rescan does; a press of either kind while it runs adds nothing.
+// rescan does; a second press while it runs adds nothing.
 func TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages(t *testing.T) {
 	t.Parallel()
 	rescan, images, logged := fullRescanning(t)
 	lib := rescan.lib
 	titleID := lib.titlesByPath()[crowdFile].WorkID
 	rescan.scans.scanning[lib.libraryID] = true
-	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.FullRescan)
-	if err != nil || !isStarted || !slices.Equal(rescan.scans.librariesReadAgain, []int64{lib.libraryID}) {
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID)
+	if err != nil || !isStarted || !slices.Equal(rescan.scans.libraries, []int64{lib.libraryID}) {
 		t.Fatalf("a full rescan = %v, %v, reading again %v; want it started, its library read again", isStarted,
-			err, rescan.scans.librariesReadAgain)
+			err, rescan.scans.libraries)
 	}
-	for _, kind := range []identify.RescanKind{identify.FullRescan, identify.Rescan} {
-		if isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, kind); err != nil || isStarted {
-			t.Errorf("a second press while it runs = %v, %v; want nothing started", isStarted, err)
-		}
+	if isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID); err != nil || isStarted {
+		t.Errorf("a second press while it runs = %v, %v; want nothing started", isStarted, err)
 	}
 	rescan.scans.scanning[lib.libraryID] = false
 	rescan.run()
@@ -678,26 +634,21 @@ func TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages(t *tes
 	}
 }
 
-// D392 §1, §2, §4: a full rescan of one film has its scan read its files again and asks again for its
-// missing images; a rescan of it does neither.
+// D392 §1, §2, §4, D535 §5: a rescan of one film has its scan read its files again and asks again for
+// its missing images.
 func TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain(t *testing.T) {
 	t.Parallel()
 	rescan, images, _ := fullRescanning(t)
 	lib := rescan.lib
 	titleID := lib.titlesByPath()[crowdFile].WorkID
-	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.FullRescan); err != nil ||
-		!isStarted || !slices.Equal(rescan.scans.worksReadAgain, []int64{titleID}) {
-		t.Fatalf("a full rescan of the film = %v, %v, reading again %v; want its files read again", isStarted, err,
-			rescan.scans.worksReadAgain)
+	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID); err != nil ||
+		!isStarted || !slices.Equal(rescan.scans.works, []int64{titleID}) {
+		t.Fatalf("a rescan of the film = %v, %v, reading again %v; want its files read again", isStarted, err,
+			rescan.scans.works)
 	}
 	rescan.run()
-	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan); err != nil || !isStarted {
-		t.Fatalf("a rescan of the film = %v, %v; want it started", isStarted, err)
-	}
-	rescan.run()
-	if !slices.Equal(images.itemIDs, []int64{titleID}) || len(rescan.scans.worksReadAgain) != 1 {
-		t.Errorf("images asked for again of %v, works read again %v; want the full rescan's alone", images.itemIDs,
-			rescan.scans.worksReadAgain)
+	if !slices.Equal(images.itemIDs, []int64{titleID}) {
+		t.Errorf("images asked for again of %v; want the film's", images.itemIDs)
 	}
 }
 
@@ -788,7 +739,7 @@ func TestRescan_AFilmItsNameFindsNotIsMatchedAgainByItsFolder(t *testing.T) {
 	}
 	rescan := lib.rescanning()
 	titleID := lib.titlesByPath()[file].WorkID
-	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan); err != nil || !isStarted {
+	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID); err != nil || !isStarted {
 		t.Fatalf("RescanItem = %v, %v; want it started", isStarted, err)
 	}
 	rescan.run()

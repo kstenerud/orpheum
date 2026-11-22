@@ -349,14 +349,18 @@
 //     item with a failure of its own; a person's refresh is queued whenever asked (D213 §3).
 //     TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod.
 //
-//   - An admin's rescan, of every library of films or series, of one, or of one film or series,
-//     scans its scope's files as a manual scan scans them, and only once that scan is over matches
-//     each film and series in it again, as one never matched: from the name, year and ids its files
-//     and NFOs give, read as a pass reads them with its match set aside (files_say.go), never the
-//     name its old match stored (D357 §1, §2).
-//     TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther,
-//     TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_AFileUnchangedOnDiskIsNotProbedAgain
-//     (internal/core/library).
+//   - An admin's rescan, of every library, of one, whatever it holds, or of one film, series,
+//     episode or other video, is of one kind, D392's full one: it reads its scope's files again,
+//     changed on disk or not, and only once that scan is over matches each film and series in it
+//     again, as one never matched: from the name, year and ids its files and NFOs give, read as a
+//     pass reads them with its match set aside (files_say.go), never the name its old match stored
+//     (D357 §1, §2, D535 §3–§5). An episode, an other video and a library of other videos are read
+//     again and matched in nothing; an extra is refused.
+//     TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_EveryLibraryWhateverItHolds,
+//     TestRescan_OneItemRescansItsFilesAndRematchesIt,
+//     TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched,
+//     TestRescan_AnEpisodeOrOtherVideoIsScannedAloneAndAnExtraIsRefused,
+//     TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot (internal/core/library).
 //
 //   - A rescan leaves alone a match a person chose and every field a person edited, and matches
 //     again a guess no one confirmed (D357 §3). TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone,

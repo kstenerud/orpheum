@@ -59,6 +59,21 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 // Every kind runs one at a time: a handler gives its work to a node and answers at once, and the
 // core holds each node to its slots and devices (D234 §7, D240 §5), so a second person's run is
 // not held behind the first's.
+// D535 §2: the files an older probe read are swept for on their own, hourly and after every pass, as
+// after every scan's end (nodes.go), so a release whose probe says more reaches them unasked.
+func TestSweeps_FilesAnOlderProbeReadAreSweptForAfterEveryPass(t *testing.T) {
+	t.Parallel()
+	services := Services{}
+	isSwept := false
+	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
+		isSwept = isSwept || sweep.Name == sweepOlderProbes
+	}
+	if !isSwept || !slices.Contains(sweepsAfterAPass(), sweepOlderProbes) {
+		t.Errorf("swept: %v, after a pass: %v; want %q among both", isSwept, sweepsAfterAPass(),
+			sweepOlderProbes)
+	}
+}
+
 func TestRunners_EveryKindRunsOneAtATime(t *testing.T) {
 	t.Parallel()
 	for _, runner := range (&Services{}).runners(nil) {

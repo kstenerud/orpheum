@@ -17,6 +17,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { seriesOrThrow } from "./item-detail.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { rescanAction } from "./rescan-action.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes, StatusTray } from "./status-cues.tsx";
@@ -192,6 +193,7 @@ function SeriesMoreActions(props: {
     if (series.isGuessed === true) {
       actions.push(identifiedCorrectlyAction(t, { itemId: series.id, onConfirmed: onCorrected }));
     }
+    actions.push(rescanAction(t, series.id));
   }
   return <MoreActions actions={actions} />;
 }

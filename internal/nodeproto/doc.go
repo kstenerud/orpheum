@@ -19,6 +19,11 @@
 //     names, fails until the version is raised and its shape recorded:
 //     TestProtocolVersion_IsRaisedWithAnyChangeToTheWire. A change to what a value means is the
 //     review's.
+//   - Every probe says the ProbeVersion that read it, raised with any change to what the probe says
+//     of a file, so a file an older probe read is read again (D535 §1, §2). A change to the probe's
+//     fields fails until it is raised and its shape recorded:
+//     TestProbeVersion_IsRaisedWithAnyChangeToTheProbe; the wire's shape counts the version, so a
+//     raise raises ProtocolVersion too. A change to how a fact is read is the review's.
 //   - A command and a result name their job, and the attempt at it (its token), in the envelope
 //     alone, and the node answers every job on one path (D234 §2, D238 §2).
 //     TestEnvelope_AJobIsNamedByTheEnvelopeAloneNeverByWhatItCarries.

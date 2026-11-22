@@ -48,11 +48,6 @@ export function RescanProgress(props: {
   );
 }
 
-/** Whether a library is rescanned whole: one of films or of series, never other (D357 §1). */
-export function isRescannable(library: Pick<Library, "kind">): boolean {
-  return library.kind === "film" || library.kind === "series";
-}
-
 /** A library's files counted by filing, when the admin sees them. */
 export function FilingCounts(props: { readonly library: Library }): JSX.Element | null {
   const { t } = useTranslation();
@@ -133,28 +128,15 @@ export function LibraryRow(props: { readonly library: Library }): JSX.Element {
 }
 
 /**
- * "Rescan everything": every library of films or of series scanned, then each film and series in it
- * matched again from its files, in the background (D357 §1); beside it, its full rescan, every file
- * read again first (D392 §1). Each says how many started.
+ * "Rescan everything": every library, whatever it holds, read again entirely, every file changed on
+ * disk or not (D392), then each film and series in it matched again from its files, in the
+ * background (D357 §1, D535 §4, §5). It says how many started.
  */
 export function RescanEverything(props: { readonly onStarted: () => void }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [note, setNote] = useState("");
   const rescanning = useRequest((cause) => problemText(t, cause));
-  const rescan = (isFull: boolean): void => {
-    setNote("");
-    rescanning.runRequest(async (idempotencyKey) => {
-      const answer = dataOrThrow(
-        await api.POST("/libraries/rescan", {
-          ...(isFull ? { params: { query: { full: true } } } : {}),
-          ...idempotent(idempotencyKey),
-        }),
-      );
-      setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
-      props.onStarted();
-    });
-  };
   return (
     <>
       <button
@@ -162,20 +144,17 @@ export function RescanEverything(props: { readonly onStarted: () => void }): JSX
         title={t("libraries.rescanHelp")}
         disabled={rescanning.isBusy}
         onClick={() => {
-          rescan(false);
+          setNote("");
+          rescanning.runRequest(async (idempotencyKey) => {
+            const answer = dataOrThrow(
+              await api.POST("/libraries/rescan", idempotent(idempotencyKey)),
+            );
+            setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
+            props.onStarted();
+          });
         }}
       >
         {t("libraries.rescanEverything")}
-      </button>{" "}
-      <button
-        type="button"
-        title={t("libraries.fullRescanHelp")}
-        disabled={rescanning.isBusy}
-        onClick={() => {
-          rescan(true);
-        }}
-      >
-        {t("libraries.fullRescanEverything")}
       </button>
       {note === "" ? null : <output>{note}</output>}
       {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}

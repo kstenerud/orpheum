@@ -10,7 +10,7 @@ import { FilingReportButton } from "./filing-report.tsx";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import type { MoreAction } from "./more-actions.tsx";
-import { dataOrThrow, throwIfRefused } from "./problem.ts";
+import { throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
@@ -18,8 +18,9 @@ import { useRequest } from "./use-request.ts";
  * An admin's "Identified incorrectly" on a film's, an episode's or a series' page, one entry of its
  * "…" menu for what all stems from a file wrongly identified (the owner, 2026-10-29: "keep only
  * 'Identified incorrectly', which opens a modal ... offering Rescan, Enter manually, and Report
- * this"). isWork says the item is a film or a series, which alone a rescan and a chosen match apply
- * to (D357 §1, D301 §2); an episode's or another video's offers only its report (D306 §3). The page
+ * this"); its Rescan has since moved to the menu itself (D535 §5). isWork says the item is a film or
+ * a series, which alone a chosen match applies to (D301 §2); an episode's or another video's offers
+ * only its report (D306 §3). The page
  * gives it to an admin alone.
  */
 export function identifiedIncorrectlyAction(
@@ -91,7 +92,7 @@ function IdentifiedCorrectlyDialog(props: {
 }
 
 /**
- * The dialog "Identified incorrectly" opens: Rescan, Enter manually, which opens the works its search
+ * The dialog "Identified incorrectly" opens: Enter manually, which opens the works its search
  * found to choose one as its match, final as any person's choice (D301 §2), and Report this. A press
  * outside it closes it, as every dialog a menu opens does (the owner, 2026-10-29).
  */
@@ -108,7 +109,6 @@ function IdentifiedIncorrectlyDialog(props: {
     <ModalDialog label={heading} onClose={props.onClose}>
       <h2>{heading}</h2>
       <div className="more-actions__offers">
-        {props.isWork ? <RescanThis itemId={props.itemId} /> : null}
         {props.isWork ? (
           <button
             type="button"
@@ -132,57 +132,5 @@ function IdentifiedIncorrectlyDialog(props: {
         <FilingReportButton itemId={props.itemId} />
       </div>
     </ModalDialog>
-  );
-}
-
-/**
- * Rescan: the item's files scanned, then the item matched again from them, in the background (D357
- * §1, §5); and beside it its full rescan, its files read again first (D392 §1). Each says whether it
- * started, or one already runs.
- */
-function RescanThis(props: { readonly itemId: number }): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const [note, setNote] = useState("");
-  const rescanning = useRequest((cause) => identifyProblemText(t, cause));
-  const rescan = (isFull: boolean): void => {
-    setNote("");
-    rescanning.runRequest(async (idempotencyKey) => {
-      const answer = dataOrThrow(
-        await api.POST("/items/{id}/rescan", {
-          params: { path: { id: props.itemId }, ...(isFull ? { query: { full: true } } : {}) },
-          ...idempotent(idempotencyKey),
-        }),
-      );
-      const started = isFull
-        ? t("libraries.fullRescanThisStarted")
-        : t("libraries.rescanThisStarted");
-      setNote(answer.isStarted ? started : t("libraries.rescanThisRunning"));
-    });
-  };
-  return (
-    <div>
-      <button
-        type="button"
-        disabled={rescanning.isBusy}
-        onClick={() => {
-          rescan(false);
-        }}
-      >
-        {t("libraries.rescanThis")}
-      </button>{" "}
-      <button
-        type="button"
-        title={t("libraries.fullRescanHelp")}
-        disabled={rescanning.isBusy}
-        onClick={() => {
-          rescan(true);
-        }}
-      >
-        {t("libraries.fullRescan")}
-      </button>
-      {note === "" ? null : <output>{note}</output>}
-      {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
-    </div>
   );
 }

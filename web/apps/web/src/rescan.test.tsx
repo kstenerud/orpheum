@@ -8,12 +8,14 @@ import { afterEach, expect, it } from "vitest";
 import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
 import { SeriesView, type SeriesDetail } from "./series.tsx";
+import { Title, type TitleDetail } from "./title.tsx";
 import {
   buttonNamed,
   buttonWithText,
   click,
   mount,
   servedBy,
+  settleUntil,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -27,53 +29,68 @@ afterEach(() => {
   mounted = undefined;
 });
 
-const films = {
+const others = {
   id: 3,
-  name: "Films",
-  kind: "film",
-  metadataSource: "tmdb",
+  name: "Home videos",
+  kind: "other",
+  metadataSource: "none",
   changeDetection: "manual",
   isWritable: false,
   createdAt: 1,
   roots: [],
 } as const;
 
-const posts = (heard: readonly Heard[]): string[] =>
-  heard.filter((each) => each.methodAndPath.startsWith("POST")).map((each) => each.methodAndPath);
+/** The rescans posted, each with its query, so that none carries a kind (D535 §5). */
+const rescansPosted = (heard: readonly Heard[]): string[] =>
+  heard
+    .filter((each) => each.methodAndPath.startsWith("POST"))
+    .map((each) => each.methodAndPath + (each.query ?? ""));
 
-it("rescans every library, or one, from the Libraries page, and says what started (D357 §1, §5)", async () => {
+it("rescans every library, or one of any kind, in full, and offers no other rescan (D535 §4, §5)", async () => {
   const heard: Heard[] = [];
   const services = servedBy(
     {
       "GET /libraries": [
-        [200, { libraries: [films] }],
+        [200, { libraries: [others] }],
         [
           200,
           {
-            libraries: [{ ...films, rescan: { isScanning: true, itemCount: 0, matchedCount: 0 } }],
+            libraries: [{ ...others, rescan: { isScanning: true, itemCount: 0, matchedCount: 0 } }],
           },
         ],
       ],
       "GET /nodes": [200, { nodes: [] }],
       "POST /libraries/rescan": [202, { startedCount: 1 }],
-      "POST /libraries/3/rescan": [202, { isStarted: false }],
+      "POST /libraries/3/rescan": [
+        [202, { isStarted: true }],
+        [202, { isStarted: false }],
+      ],
     },
     heard,
   );
   mounted = await mount(withServices(<Libraries />, services));
+  expect(mounted.container.textContent).not.toContain("Full rescan");
   await click(buttonWithText(mounted.container, "Rescan everything"));
-  expect(mounted.container.textContent).toContain("Rescanning 1 libraries of films or series.");
+  expect(mounted.container.textContent).toContain("Rescanning 1 libraries.");
   expect(mounted.container.textContent).toContain("Rescanning… scanning first.");
-  // One library's own rescan is on its own page (D361 §2).
+  // One library's own rescan is on its own page (D361 §2), a library of other videos' too.
   mounted.unmount();
   mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const page = mounted.container;
+  expect(buttonWithText(page, "Scan now")).toBeDefined();
+  expect(page.textContent).not.toContain("Full rescan");
+  await click(buttonWithText(page, "Rescan"));
+  expect(page.textContent).toContain("Rescanning: every file in it is read again");
   await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain("A rescan of it is already running.");
-  expect(posts(heard)).toEqual(["POST /libraries/rescan", "POST /libraries/3/rescan"]);
+  expect(rescansPosted(heard)).toEqual([
+    "POST /libraries/rescan",
+    "POST /libraries/3/rescan",
+    "POST /libraries/3/rescan",
+  ]);
 });
 
-it("rescans one film or series from its page, for an admin alone (D357 §1)", async () => {
+it("rescans a series from its page's menu, for an admin alone, and not from its dialog (D535 §3, §5)", async () => {
   const heard: Heard[] = [];
   const services = servedBy(
     {
@@ -98,83 +115,75 @@ it("rescans one film or series from its page, for an admin alone (D357 §1)", as
   // Nothing rarely used for anyone else: no "…" at all.
   expect(buttonNamed(mounted.container, "More actions")).toBeUndefined();
   mounted.unmount();
-  mounted = await mount(
-    withServices(
-      <IsAdminContext value={true}>
-        <SeriesView series={series} onMatchCorrected={corrected} />
-      </IsAdminContext>,
-      services,
-    ),
-  );
-  const page = mounted.container;
+  const asAdmin = (): Promise<Mounted> =>
+    mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <SeriesView series={series} onMatchCorrected={corrected} />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+  mounted = await asAdmin();
+  let page = mounted.container;
   await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Identified incorrectly"));
+  expect(buttonWithText(page, "Rescan")).toBeUndefined();
+  mounted.unmount();
+  mounted = await asAdmin();
+  page = mounted.container;
+  await click(buttonNamed(page, "More actions"));
   await click(buttonWithText(page, "Rescan"));
-  expect(page.textContent).toContain("its files are scanned, then it is matched again from them.");
+  await click(buttonWithText(page, "Rescan"));
+  expect(page.textContent).toContain(
+    "its files are read again, then it is matched again from them.",
+  );
   await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain("A rescan of it, or of its library, is already running.");
-  expect(posts(heard)).toEqual(["POST /items/12/rescan", "POST /items/12/rescan"]);
+  expect(rescansPosted(heard)).toEqual(["POST /items/12/rescan", "POST /items/12/rescan"]);
 });
 
-/** The rescans posted, each with its query: "?full=true" for a full one. */
-const rescansPosted = (heard: readonly Heard[]): string[] =>
-  heard
-    .filter((each) => each.methodAndPath.startsWith("POST"))
-    .map((each) => each.methodAndPath + (each.query ?? ""));
-
-it("offers a full rescan beside each rescan, everything's, a library's and a film's, and says what started (D392 §1)", async () => {
+it("offers an admin Rescan in an other video's menu, and none on an extra's page (D535 §3)", async () => {
+  const video: TitleDetail = {
+    id: 14,
+    kind: "other",
+    name: "Birthday",
+    identificationState: "identified",
+    art: {},
+    extras: [],
+    versions: [{ id: 1, files: [{ id: 1, path: "/media/a.mp4", streams: [] }] }],
+  };
   const heard: Heard[] = [];
   const services = servedBy(
     {
-      "GET /libraries": [200, { libraries: [films] }],
-      "GET /nodes": [200, { nodes: [] }],
-      "POST /libraries/rescan": [202, { startedCount: 1 }],
-      "POST /libraries/3/rescan": [
-        [202, { isStarted: true }],
-        [202, { isStarted: false }],
+      "GET /items/14": [200, video],
+      "GET /items/15": [200, { ...video, id: 15, kind: "extra" }],
+      "POST /items/14/rescan": [202, { isStarted: true }],
+      "POST /playback": [
+        200,
+        { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
       ],
-      "POST /items/12/rescan": [202, { isStarted: true }],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     },
     heard,
   );
-  mounted = await mount(withServices(<Libraries />, services));
-  await click(buttonWithText(mounted.container, "Full rescan of everything"));
-  expect(mounted.container.textContent).toContain("Rescanning 1 libraries of films or series.");
-  mounted.unmount();
-  mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
-  await click(buttonWithText(mounted.container, "Full rescan"));
-  expect(mounted.container.textContent).toContain(
-    "Full rescan: every file in it is read again, then each film and series in it is matched again.",
+  const asAdmin = (id: number): React.JSX.Element => (
+    <IsAdminContext value={true}>
+      <Title id={id} />
+    </IsAdminContext>
   );
-  await click(buttonWithText(mounted.container, "Full rescan"));
-  expect(mounted.container.textContent).toContain("A rescan of it is already running.");
-  mounted.unmount();
-  const series: SeriesDetail = {
-    id: 12,
-    kind: "series",
-    name: "The Ledger Room",
-    art: {},
-    seasons: [],
-  };
-  mounted = await mount(
-    withServices(
-      <IsAdminContext value={true}>
-        <SeriesView series={series} onMatchCorrected={() => undefined} />
-      </IsAdminContext>,
-      services,
-    ),
-  );
+  mounted = await mount(withServices(asAdmin(14), services));
   const page = mounted.container;
+  await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
   await click(buttonNamed(page, "More actions"));
-  await click(buttonWithText(page, "Identified incorrectly"));
-  await click(buttonWithText(page, "Full rescan"));
-  expect(page.textContent).toContain(
-    "Full rescan: its files are read again, then it is matched again from them.",
-  );
-  expect(rescansPosted(heard)).toEqual([
-    "POST /libraries/rescan?full=true",
-    "POST /libraries/3/rescan?full=true",
-    "POST /libraries/3/rescan?full=true",
-    "POST /items/12/rescan?full=true",
-  ]);
+  await click(buttonWithText(page, "Rescan"));
+  await click(buttonWithText(page, "Rescan"));
+  await settleUntil(() => page.textContent.includes("its files are read again"));
+  expect(rescansPosted(heard)).toContain("POST /items/14/rescan");
+  mounted.unmount();
+  mounted = await mount(withServices(asAdmin(15), services));
+  const extra = mounted.container;
+  await settleUntil(() => extra.textContent.includes("Birthday"));
+  expect(buttonNamed(extra, "More actions")).toBeUndefined();
 });

@@ -105,10 +105,10 @@
 //   - A page's choice of its path to the core, with its reasons and its WebRTC pairs as the browser sees
 //     them, is logged in one bounded line from a signed-in page (D354 §5).
 //     TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs.
-//   - Only an admin rescans: every library of films or series, one, or one film or series; the
-//     Libraries page shows an admin each library's rescan as it runs (D357 §1, §5).
-//     TestRescan_IsForAnAdminOnly. Each rescan's request with full set is its full rescan, every file
-//     in its scope read again first (D392 §1, §6). TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain.
+//   - Only an admin rescans: every library, one of any kind, or one film, series, episode or other
+//     video; the Libraries page shows an admin each library's rescan as it runs (D357 §1, §5, D535
+//     §3, §4). A rescan is of one kind, every file in its scope read again first (D392, D535 §5).
+//     TestRescan_IsForAnAdminOnly.
 //   - Only an admin sees doctor's findings; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin reads and keeps the house's network settings, a wrong one refused naming its

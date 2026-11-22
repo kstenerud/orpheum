@@ -79,6 +79,9 @@ type Admin struct {
 	folderListingWait time.Duration
 	// logger is where it logs (UseLogger); nil logs nothing.
 	logger *slog.Logger
+	// olderProbes is how far the files an older probe read have been asked read again
+	// (ReadAgainOlderProbes).
+	olderProbes olderProbesRead
 }
 
 // NewAdmin returns the admin service; scans is how it asks for a scan, and retirement what a retire

@@ -13,7 +13,6 @@ import { arrivalMark } from "./focus-navigation.ts";
 import { idempotent } from "./idempotent.ts";
 import {
   FilingCounts,
-  isRescannable,
   LibrarySummary,
   listLibraries,
   RescanProgress,
@@ -377,8 +376,8 @@ export function LibraryManagement(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
-  /** Its rescan (D357), or its full rescan (D392), offered for a library of films or of series. */
-  readonly onRescan?: (isFull: boolean) => void;
+  /** Its rescan, every file read again (D392, D535 §5), offered for a library of any kind. */
+  readonly onRescan?: () => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
@@ -437,13 +436,13 @@ export function LibraryManagement(props: {
 
 /**
  * A library's scan, first on its page and where focus arrives (ui-audit-2026-11-04.md §3, A
- * library), for a library of films or of series its rescan (D357) and its full rescan beside it
- * (D392), then its files.
+ * library), its Rescan, every file read again, whatever the library holds (D392, D535 §4, §5),
+ * then its files.
  */
 function LibraryButtons(props: {
   readonly library: Library;
   readonly onScan: () => void;
-  readonly onRescan?: (isFull: boolean) => void;
+  readonly onRescan?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -454,29 +453,14 @@ function LibraryButtons(props: {
           ? t("libraries.scanAgainAfter")
           : t("libraries.scan")}
       </button>
-      {props.onRescan !== undefined && isRescannable(library) ? (
+      {props.onRescan === undefined ? null : (
         <>
           {" "}
-          <button
-            type="button"
-            title={t("libraries.rescanHelp")}
-            onClick={() => {
-              props.onRescan?.(false);
-            }}
-          >
+          <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
             {t("libraries.rescan")}
-          </button>{" "}
-          <button
-            type="button"
-            title={t("libraries.fullRescanHelp")}
-            onClick={() => {
-              props.onRescan?.(true);
-            }}
-          >
-            {t("libraries.fullRescan")}
           </button>
         </>
-      ) : null}{" "}
+      )}{" "}
       <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>
     </p>
   );
@@ -487,7 +471,7 @@ interface LibraryActions {
   readonly note: string;
   readonly isActing: boolean;
   readonly scan: () => void;
-  readonly rescan: (isFull: boolean) => void;
+  readonly rescan: () => void;
   readonly answerAboutRoot: (root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: () => void;
   readonly repoint: (root: Root, to: Place) => void;
@@ -521,7 +505,7 @@ function useLibraryNote(): {
   return { note, setNote, act, isActing: acting.isBusy };
 }
 
-/** The library's scan and its rescan (D357) or full rescan (D392), each saying what it asked for in the note. */
+/** The library's Scan now and its Rescan (D535 §5), each saying what it asked for in the note. */
 function useScanActions(
   libraryId: number,
   noted: Pick<ReturnType<typeof useLibraryNote>, "act" | "setNote"> & {
@@ -538,16 +522,15 @@ function useScanActions(
         setNote(t("libraries.scanning", { count: askedRootCount }));
       });
     },
-    rescan: (isFull) => {
+    rescan: () => {
       act(async (idempotencyKey) => {
         const answer = dataOrThrow(
           await api.POST("/libraries/{id}/rescan", {
-            params: { path: { id: libraryId }, ...(isFull ? { query: { full: true } } : {}) },
+            params: { path: { id: libraryId } },
             ...idempotent(idempotencyKey),
           }),
         );
-        const started = isFull ? t("libraries.fullRescanStarted") : t("libraries.rescanStarted");
-        setNote(answer.isStarted ? started : t("libraries.rescanRunning"));
+        setNote(answer.isStarted ? t("libraries.rescanStarted") : t("libraries.rescanRunning"));
         reload();
       });
     },

@@ -221,6 +221,20 @@ SELECT file_nfo.body AS nfo_body FROM file LEFT JOIN file_nfo ON file_nfo.file_i
 -- A file's kept probe, which one read again is compared with (D392 section 2).
 SELECT probe_json FROM file_probe WHERE file_id = sqlc.arg(file_id);
 
+-- name: ListFilesProbedBefore :many
+-- A node's live videos read by a probe older than probe_version, one kept before probes had a
+-- version among them, after the file after_id, by id: what is read again on its own (D535 section 2).
+SELECT file.id, place.path
+FROM file_probe
+CROSS JOIN file ON file.id = file_probe.file_id
+CROSS JOIN file_place ON file_place.file_id = file.id
+CROSS JOIN place ON place.id = file_place.place_id AND place.filing = 'read' AND place.removed_at IS NULL
+WHERE file_probe.file_id > sqlc.arg(after_id) AND place.node_id = sqlc.arg(node_id)
+  AND file.sidecar_kind IS NULL
+  AND coalesce(json_extract(file_probe.probe_json, '$.version'), 0) < CAST(sqlc.arg(probe_version) AS INTEGER)
+ORDER BY file_probe.file_id
+LIMIT sqlc.arg(max_rows);
+
 -- name: UpsertFileProbe :exec
 -- A file's probe, and its duration, written only when they changed (D303, DL9).
 INSERT INTO file_probe (file_id, probe_json, duration_ms)

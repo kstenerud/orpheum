@@ -14364,16 +14364,6 @@
               "format": "int64",
               "type": "integer"
             }
-          },
-          {
-            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-            "explode": false,
-            "in": "query",
-            "name": "full",
-            "schema": {
-              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
@@ -14403,7 +14393,7 @@
             "session": []
           }
         ],
-        "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (D357); with full, read its files again first and throw out what their differences touch (D392)",
+        "summary": "Rescan a film, series, episode or other video: read its files again, a series' every episode's, throwing out what their differences touch (D392, D535 §3, §5), then match a film or series again from them, unless a person chose its match (D357); an extra is refused",
         "tags": [
           "Identification"
         ],
@@ -14843,18 +14833,6 @@
     "/libraries/rescan": {
       "post": {
         "operationId": "rescanLibraries",
-        "parameters": [
-          {
-            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-            "explode": false,
-            "in": "query",
-            "name": "full",
-            "schema": {
-              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-              "type": "boolean"
-            }
-          }
-        ],
         "responses": {
           "202": {
             "content": {
@@ -14882,7 +14860,7 @@
             "session": []
           }
         ],
-        "summary": "Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392)",
+        "summary": "Rescan every library, whatever it holds (D535 §4, §5): read every file again, changed or not, throwing out what its differences touch (D392), then match each film and series again from its files, leaving alone what a person set (D357)",
         "tags": [
           "Libraries"
         ],
@@ -15113,16 +15091,6 @@
               "format": "int64",
               "type": "integer"
             }
-          },
-          {
-            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-            "explode": false,
-            "in": "query",
-            "name": "full",
-            "schema": {
-              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
@@ -15152,7 +15120,7 @@
             "session": []
           }
         ],
-        "summary": "Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392)",
+        "summary": "Rescan a library: read every file again, changed or not, throwing out what its differences touch (D392, D535 §5), then match each film and series in it again from its files, leaving alone what a person set (D357); a library of other videos has nothing matched (D535 §4)",
         "tags": [
           "Libraries"
         ],
