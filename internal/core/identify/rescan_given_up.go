@@ -19,7 +19,7 @@ import (
 // measurement, subtitle text and whole-file hash of its files; and the failures of unknown cause
 // recorded against them. What succeeded stays (D535 §5) unless the rescan discards (§6). A scan
 // forgets none of it. A device's player giving up a file's picture (own_picture_given_up) is how a
-// playback went, not an attempt to gather information, and stays.
+// playback went, not an attempt to gather information, and stays, unless the rescan discards (§10).
 
 // GivenUpForgetters are how a rescan forgets what was given up on that another package keeps, each
 // by the package that keeps it: set by the server's wiring (SetGivenUpForgetters). One left nil
@@ -105,8 +105,49 @@ func (matcher *Matcher) givenUpScope(
 	return items, files, nil
 }
 
-// forgetGivenUp forgets the attempts given up on in a rescan's scope, a library or one item in it.
-func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, itemID *int64) error {
+// A discarding rescan throws out, as it starts, in the same scope and write, what the app made that no
+// file's read again or match again throws out (D535 §10): its items' guesses (guessed_match), each
+// guessed again by its match again or, an episode, by the pass its rescan's end owes; and, each by the
+// package that keeps it, its files' whole-file hashes, made or failed, and every device's give-up of
+// their own pictures (MadeDiscarders). What else the app made goes by the read (library.DerivedDroppers)
+// or the match again (discardMade); store.TablesInADiscard says which, of every table.
+
+// MadeDiscarders are how a discarding rescan throws out, as it starts, what another package keeps that
+// the app made of its files, each by the package that keeps it: set by the server's wiring
+// (SetMadeDiscarders). One left nil throws out nothing.
+type MadeDiscarders struct {
+	// OfFiles each throw out, in the rescan's write, one package's rows of the files named, a JSON array
+	// of ids, and say how many: library.DiscardHashesOfFiles, playback.DiscardOwnPicturesGivenUpOfFiles.
+	OfFiles []FileFailuresForgetter
+}
+
+// SetMadeDiscarders sets how a discarding rescan throws out what another package keeps of its files.
+func (rescans *Rescans) SetMadeDiscarders(discarders MadeDiscarders) {
+	rescans.discarders = discarders
+}
+
+// discardInWrite throws out, in a discarding rescan's write, what it throws out as it starts of its
+// items and files (MadeDiscarders), and says how many rows.
+func (rescans *Rescans) discardInWrite(
+	ctx context.Context, queries *sqlcgen.Queries, itemsJSON, filesJSON []byte,
+) (int64, error) {
+	discarded, err := queries.DiscardGuessedMatchesOfItems(ctx, string(itemsJSON))
+	if err != nil {
+		return 0, fmt.Errorf("throw out the guesses: %w", err)
+	}
+	for _, discard := range rescans.discarders.OfFiles {
+		count, ofFilesErr := discard(ctx, queries, string(filesJSON))
+		if ofFilesErr != nil {
+			return 0, ofFilesErr
+		}
+		discarded += count
+	}
+	return discarded, nil
+}
+
+// forgetGivenUp forgets the attempts given up on in a rescan's scope, a library or one item in it,
+// and, isDiscarding, throws out what a discarding rescan throws out as it starts (discardInWrite).
+func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, itemID *int64, isDiscarding bool) error {
 	matcher := rescans.matcher
 	items, files, err := matcher.givenUpScope(ctx, libraryID, itemID)
 	if err != nil {
@@ -120,7 +161,7 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 	if err != nil {
 		return fmt.Errorf("name the rescan's files: %w", err)
 	}
-	var forgotten int64
+	var forgotten, discarded int64
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var forgetErr error
 		if forgotten, forgetErr = queries.ForgetFetchFailuresOfItems(ctx, string(itemsJSON)); forgetErr != nil {
@@ -138,7 +179,11 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 			}
 			forgotten += count
 		}
-		return nil
+		if !isDiscarding {
+			return nil
+		}
+		discarded, forgetErr = rescans.discardInWrite(ctx, queries, itemsJSON, filesJSON)
+		return forgetErr
 	})
 	if err != nil {
 		return fmt.Errorf("forget the failures in library %d's rescan: %w", libraryID, err)
@@ -151,7 +196,8 @@ func (rescans *Rescans) forgetGivenUp(ctx context.Context, libraryID int64, item
 		return err
 	}
 	matcher.logger.InfoContext(ctx, "a rescan forgot the attempts given up on in its scope", "libraryId", libraryID,
-		"itemCount", len(items), "fileCount", len(files), "failures", forgotten, "unknownFailures", unknown)
+		"itemCount", len(items), "fileCount", len(files), "failures", forgotten, "unknownFailures", unknown,
+		"discarded", discarded)
 	return nil
 }
 

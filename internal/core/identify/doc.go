@@ -411,6 +411,17 @@
 //     TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded,
 //     TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn, TestScan_ForgetsNoAttemptGivenUpOn.
 //
+//   - A discarding rescan throws out, besides, every row the app made in its scope, successes too, and
+//     keeps only what a person did (D535 §10): as it starts, in the same write, its items' guesses
+//     (guessed_match) and, each by the package that keeps it (MadeDiscarders), its files' whole-file
+//     hashes and every device's give-up of their own pictures; the rest as each file is read again
+//     (internal/core/library) or each film and series matched again (discardMade), a library of
+//     other videos' every video though it matches none. store.PersistentTablesInADiscard and
+//     store.CacheTablesInADiscard say which of every table, TestDiscard_EveryTableSaysWhatADiscardDoesWithIt
+//     failing on one that says nothing.
+//     TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid,
+//     TestRescan_ADiscardingRescanOfOtherVideosThrowsOutWhatWasFetchedOfEach.
+//
 //   - A film is dated by its source's release date, a series by its first air date (an NFO's
 //     premiered or aired, a provider's), the year alone where no day is known or the resolved year,
 //     a person's included, is another; one with no year has no date (D366 §1).

@@ -9,6 +9,21 @@ import (
 	"context"
 )
 
+const discardOwnPicturesGivenUpOfFiles = `-- name: DiscardOwnPicturesGivenUpOfFiles :execrows
+DELETE FROM own_picture_given_up
+WHERE file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// Every device's give-up of the own pictures of the files named, a JSON array of ids: a discarding
+// rescan throws each out, so each device tries the file's own picture again (D535 section 10).
+func (q *Queries) DiscardOwnPicturesGivenUpOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, discardOwnPicturesGivenUpOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getLiveDeviceOfUser = `-- name: GetLiveDeviceOfUser :one
 SELECT id, name, platform, sound_offset_ms, data_cap_wifi_kbps, data_cap_mobile_kbps, data_cap_unknown_kbps
 FROM device

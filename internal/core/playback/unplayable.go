@@ -13,8 +13,9 @@ import (
 // the core, so that its later playbacks of the film are not offered it: Firefox on a Mac gave up
 // Flow's own picture anew at every playback, 1.5 to 5 s each (the owner's test, 2026-10-12). They
 // are kept in the store by device (own_picture_given_up), so a restart of the core keeps them too
-// (D493), until the device or the file goes. A session with no device, a Watch Together guest's,
-// has no row to keep them by: its start's own word counts for that start alone.
+// (D493), until the device or the file goes, or a rescan discards what the app made of the file
+// (D535 §10). A session with no device, a Watch Together guest's, has no row to keep them by: its
+// start's own word counts for that start alone.
 
 // keepOwnPictureGivenUp keeps that deviceID's player gave fileID's own picture up; nothing for a
 // session with no device, deviceID 0.
@@ -31,6 +32,20 @@ func (service *Service) keepOwnPictureGivenUp(ctx context.Context, deviceID, fil
 		return fmt.Errorf("keep that device %d gave file %d's own picture up: %w", deviceID, fileID, err)
 	}
 	return nil
+}
+
+// DiscardOwnPicturesGivenUpOfFiles throws out, in a discarding rescan's write (identify.MadeDiscarders,
+// D535 §10), every device's give-up of the own pictures of the files named, a JSON array of ids: what
+// the app learned of a player is suspect too, so each device is offered the file's own picture again
+// and gives it up again if it still cannot play it. It says how many it threw out.
+func DiscardOwnPicturesGivenUpOfFiles(
+	ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string,
+) (int64, error) {
+	discarded, err := queries.DiscardOwnPicturesGivenUpOfFiles(ctx, fileIDsJSON)
+	if err != nil {
+		return 0, fmt.Errorf("throw out the own pictures given up: %w", err)
+	}
+	return discarded, nil
 }
 
 // isOwnPictureUnplayable is whether the asking device's player gave fileID's own picture up as

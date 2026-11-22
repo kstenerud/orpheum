@@ -158,3 +158,113 @@ func TestRescan_DiscardIsAnAdminsAndNamedInTheOpenAPI(t *testing.T) {
 		t.Errorf("discarded: %v; want every file of the library's root", harness.nodes.discarded)
 	}
 }
+
+// aRowOf is one row of a table seeded for a rescan, and whether every rescan forgets it, discarding
+// or not (D535 §8).
+type aRowOf struct {
+	table                    string
+	seed                     func(t *testing.T, harness testHarness, file string)
+	isForgottenByEveryRescan bool
+}
+
+// rowBySQL seeds a row of a table by an INSERT, the file's id written where it says FILE.
+func rowBySQL(insert string) func(t *testing.T, harness testHarness, file string) {
+	return func(t *testing.T, harness testHarness, file string) {
+		t.Helper()
+		storetest.ExecRaw(t, harness.databasePath, strings.ReplaceAll(insert, "FILE", file))
+	}
+}
+
+// D535 §10: an admin's rescan that discards what was made throws out, through the server's wiring,
+// every row the app made, measured, guessed or gave up on of its film and its file as it starts,
+// successes too, each by the package that keeps it; what a person did of them stays. One that keeps
+// what was made forgets only what was given up on (§8). Each table it seeds names this test in
+// store.PersistentTablesInADiscard.
+func TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid(t *testing.T) {
+	t.Parallel()
+	const user = `(SELECT min(id) FROM user)`
+	made := []aRowOf{
+		{"fetch_failure", rowBySQL(`INSERT INTO fetch_failure (item_id, failure, failed_at)
+			VALUES (40, 'no', 1)`), true},
+		{"unknown_failure", func(t *testing.T, harness testHarness, file string) {
+			t.Helper()
+			err := harness.unknownFailures.Record(t.Context(), unexpected.Failure{
+				Kind: "hash_whole_file", Subject: "file " + file, Error: "the read stopped",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, true},
+		{"whole_file_hash", rowBySQL(`INSERT INTO whole_file_hash (file_id, sha256, size_bytes, modified_at,
+			hashed_at) VALUES (FILE, X'aa', 10, 1, 1)`), false},
+		{"guessed_match", rowBySQL(`INSERT INTO guessed_match (item_id, guessed_at) VALUES (40, 1)`), false},
+		{"own_picture_given_up", rowBySQL(`INSERT INTO own_picture_given_up (device_id, file_id, given_up_at)
+			VALUES (900, FILE, 1)`), false},
+	}
+	personsDoing := []aRowOf{
+		{"field_override", rowBySQL(`INSERT INTO field_override (item_id, field, override_value, origin, set_at)
+			VALUES (40, 'title', '"A"', 'typed', 1)`), false},
+		{"item_hidden", rowBySQL(`INSERT INTO item_hidden (user_id, item_id, hidden_at)
+			VALUES (` + user + `, 40, 1)`), false},
+		{"play_event", rowBySQL(`INSERT INTO play_event (user_id, file_id, kind, position_ms, happened_at)
+			VALUES (` + user + `, FILE, 'started', 0, 1)`), false},
+		{"play_position", rowBySQL(`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at)
+			VALUES (` + user + `, FILE, 600000, 1, 1)`), false},
+		{"play_span", rowBySQL(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at,
+			ended_at) VALUES (` + user + `, FILE, 0, 600000, 1, 2)`), false},
+		{"preference", rowBySQL(`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+			VALUES (` + user + `, 'item', 40, 'subtitle_language', '"en"', 1)`), false},
+		{"purged_watching", rowBySQL(`INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms,
+			last_watched_at) VALUES (` + user + `, (SELECT id FROM version WHERE work_id = 40), 1, 600000, 1)`), false},
+		{"work_watched", rowBySQL(`INSERT INTO work_watched (user_id, work_id, watched_at)
+			VALUES (` + user + `, 40, 1)`), false},
+	}
+	for _, isDiscarding := range []bool{true, false} {
+		harness := newHarness(t)
+		admin := harness.createAdminAndSignIn(t)
+		harness.connectNode(t, "/media/shows")
+		created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows"))
+		if created.status != http.StatusCreated {
+			t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+		}
+		seedTitles(t, harness.databasePath, titleRows{
+			firstID: 40, count: 1, kind: "movie", state: "identified",
+			addedAt: 2,
+		})
+		seedListedFiles(t, harness, []listedFile{{
+			workID: 40, path: "/media/shows/a.mkv", sizeBytes: 10, versionCreatedAt: 2,
+		}})
+		file := strconv.FormatInt(nextID(t, harness.databasePath, "file")-1, 10)
+		storetest.ExecRaw(t, harness.databasePath, `INSERT INTO device (id, user_id, name, platform, added_at,
+			last_signed_in_at) VALUES (900, `+user+`, 'tv', 'web', 1, 1)`)
+		for _, row := range slices.Concat(made, personsDoing) {
+			row.seed(t, harness, file)
+		}
+		path := "/libraries/1/rescan"
+		if isDiscarding {
+			path += "?discard=true"
+		}
+		if started := harness.do(t, http.MethodPost, path, admin, nil); started.status != http.StatusAccepted {
+			t.Fatalf("POST %s = %d %s", path, started.status, started.body)
+		}
+		for _, row := range made {
+			want := "1"
+			if isDiscarding || row.isForgottenByEveryRescan {
+				want = "0"
+			}
+			expectRowsLeft(t, harness, path, row.table, "what the app made", want)
+		}
+		for _, row := range personsDoing {
+			expectRowsLeft(t, harness, path, row.table, "what a person did", "1")
+		}
+	}
+}
+
+// expectRowsLeft fails t unless table keeps want rows of what, after POST path.
+func expectRowsLeft(t *testing.T, harness testHarness, path, table, what, want string) {
+	t.Helper()
+	left := storetest.QueryRaw(t, harness.databasePath, `SELECT count(*) FROM `+table)
+	if !slices.Equal(left, []string{want}) {
+		t.Errorf("after POST %s, %s keeps %v rows of %s; want %s", path, table, left, what, want)
+	}
+}

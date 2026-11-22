@@ -156,6 +156,21 @@ func (q *Queries) DeleteWholeHashesOfPurgedFiles(ctx context.Context, fileIdsJso
 	return err
 }
 
+const discardWholeFileHashesOfFiles = `-- name: DiscardWholeFileHashesOfFiles :execrows
+DELETE FROM whole_file_hash
+WHERE file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// Every whole read of the files named, a JSON array of ids, made or failed: a discarding rescan throws
+// each out, so the copies' sweep reads each whole again (D535 section 10).
+func (q *Queries) DiscardWholeFileHashesOfFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, discardWholeFileHashesOfFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const forgetWholeFileHashFailuresOfFiles = `-- name: ForgetWholeFileHashFailuresOfFiles :execrows
 DELETE FROM whole_file_hash
 WHERE failure IS NOT NULL

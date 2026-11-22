@@ -18,6 +18,11 @@
 //   - The store knows tables, not who changes them; each table has one writing package, named in
 //     schema.md's "Who writes each table", and any other package asks it (architecture map F5).
 //     Enforced by TestArch_EachTableHasOneWritingPackage.
+//   - Every table of either database says what a rescan that discards what was made does with its
+//     rows (PersistentTablesInADiscard, CacheTablesInADiscard, D535 §10): kept as a person's doing,
+//     discarded as the rescan starts, by the read or by the match again, rewritten by the rescan, or
+//     outside its scope, with the reason, and a table kept or discarded names the test that shows it.
+//     Enforced by TestDiscard_EveryTableSaysWhatADiscardDoesWithIt.
 //   - The system library, which holds the server's own videos, is in no list of libraries or
 //     anything drawn from them, and its name is outside the libraries' name space; the server finds
 //     it by its kind alone (D435 §1–3). Enforced by TestArch_TheSystemLibraryIsInNoListing and

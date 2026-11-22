@@ -54,6 +54,37 @@ func TestRescan_ALibraryOfOtherVideosIsScannedAndNothingMatched(t *testing.T) {
 	}
 }
 
+// D535 §10: a library of other videos' discarding rescan throws out the images and the subtitles
+// fetched of each of its videos, though it matches none of them; one that keeps what was made, none.
+func TestRescan_ADiscardingRescanOfOtherVideosThrowsOutWhatWasFetchedOfEach(t *testing.T) {
+	t.Parallel()
+	for _, isDiscarding := range []bool{true, false} {
+		lib := newTestLibrary(t, "other", "nfo")
+		lib.scan(videoRecord("a.mp4"))
+		other := lib.titlesByPath()["a.mp4"]
+		rescan := lib.rescanning()
+		images := &imagesAskedAgain{}
+		rescan.matcher.SetImageRetrier(images)
+		subtitles := &subtitlesDiscarded{}
+		rescan.matcher.SetFetchedDiscarder(subtitles)
+		if isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, isDiscarding); err != nil ||
+			!isStarted {
+			t.Fatalf("RescanLibrary(discarding %v) = %v, %v; want it started", isDiscarding, isStarted, err)
+		}
+		rescan.run()
+		rescan.ended(lib.libraryID)
+		isImageDiscarded := slices.Contains(images.discarded, other.WorkID)
+		isSubtitleDiscarded := slices.ContainsFunc(subtitles.asked, func(asked subtitlesDiscard) bool {
+			return slices.Contains(asked.fileIDs, other.ID)
+		})
+		if isImageDiscarded != isDiscarding || isSubtitleDiscarded != isDiscarding {
+			t.Errorf("a rescan discarding %v threw out the other video's images %v (%v), its fetched subtitles "+
+				"%v (%+v); want both %v", isDiscarding, isImageDiscarded, images.discarded, isSubtitleDiscarded,
+				subtitles.asked, isDiscarding)
+		}
+	}
+}
+
 // D535 §3: an episode and an other video are rescanned alone, fully too: their files scanned and read
 // again, and nothing matched, an episode being matched through its series; an extra is refused,
 // rescanned with what it is an extra of.

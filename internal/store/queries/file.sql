@@ -642,3 +642,9 @@ ORDER BY own.id, place.id <> place.file_id, place.first_seen_at, place.id;
 DELETE FROM whole_file_hash
 WHERE failure IS NOT NULL
   AND file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DiscardWholeFileHashesOfFiles :execrows
+-- Every whole read of the files named, a JSON array of ids, made or failed: a discarding rescan throws
+-- each out, so the copies' sweep reads each whole again (D535 section 10).
+DELETE FROM whole_file_hash
+WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

@@ -14,3 +14,9 @@ DELETE FROM guessed_match WHERE item_id = sqlc.arg(item_id);
 -- name: IsGuessedMatch :one
 -- Whether an item's match is a guess no person has confirmed.
 SELECT EXISTS (SELECT 1 FROM guessed_match WHERE item_id = sqlc.arg(item_id)) AS is_guessed;
+
+-- name: DiscardGuessedMatchesOfItems :execrows
+-- The guesses of the items named, a JSON array of ids: a discarding rescan throws each out, and its
+-- match again and its pass guess again where the files still leave a guess (D535 section 10).
+DELETE FROM guessed_match
+WHERE item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)));

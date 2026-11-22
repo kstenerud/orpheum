@@ -63,6 +63,9 @@ type Rescans struct {
 	// givenUp forgets what another package keeps of the attempts given up on in a rescan's scope
 	// (SetGivenUpForgetters, D535 §8).
 	givenUp GivenUpForgetters
+	// discarders throw out what another package keeps of what the app made of a discarding rescan's
+	// files, as it starts (SetMadeDiscarders, D535 §10).
+	discarders MadeDiscarders
 	// waits is how many sweeps in a row found each rescan's library still changing, by rescan id;
 	// guarded by waitsMutex. A restart begins the count again.
 	waits      map[int64]int
@@ -147,7 +150,7 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, isDi
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if err := rescans.forgetGivenUp(ctx, libraryID, nil); err != nil {
+	if err := rescans.forgetGivenUp(ctx, libraryID, nil, isDiscarding); err != nil {
 		return true, err
 	}
 	if _, err := rescans.scans.ScanReadingAgain(ctx, libraryID, isDiscarding); err != nil {
@@ -182,7 +185,7 @@ func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, isDiscardi
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if err := rescans.forgetGivenUp(ctx, libraryID, &itemID); err != nil {
+	if err := rescans.forgetGivenUp(ctx, libraryID, &itemID, isDiscarding); err != nil {
 		return true, err
 	}
 	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID, isDiscarding); err != nil {
@@ -419,10 +422,8 @@ func (rescans *Rescans) list(ctx context.Context, rescan cachegen.ListRescansRow
 	rescans.matcher.logger.InfoContext(ctx, "a rescan's scan is over; its films and series are matched again",
 		"libraryId", rescan.LibraryID, "itemId", ptr.ValueOrZero(rescan.ItemID), "itemCount", listed,
 		"isFull", rescan.IsFull != 0)
-	if rescan.IsDiscarding != 0 {
-		if err := rescans.matcher.discardMade(ctx, itemIDs, rescan.ItemID != nil); err != nil {
-			return err
-		}
+	if err := rescans.discardFetched(ctx, rescan, itemIDs); err != nil {
+		return err
 	}
 	if rescan.IsFull != 0 {
 		if err := rescans.askForMissingImages(ctx, itemIDs, said); err != nil {

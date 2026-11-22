@@ -124,6 +124,17 @@ func ForgetHashFailuresOfFiles(ctx context.Context, queries *sqlcgen.Queries, fi
 	return forgotten, nil
 }
 
+// DiscardHashesOfFiles throws out, in a discarding rescan's write (identify.MadeDiscarders, D535 §10),
+// every whole read of the files named, a JSON array of ids, made or failed: the copies' sweep reads
+// each whole again. It says how many it threw out.
+func DiscardHashesOfFiles(ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string) (int64, error) {
+	discarded, err := queries.DiscardWholeFileHashesOfFiles(ctx, fileIDsJSON)
+	if err != nil {
+		return 0, fmt.Errorf("throw out the whole reads: %w", err)
+	}
+	return discarded, nil
+}
+
 // isHashCurrent is whether a file's whole-file hash, or its failure, was made at the size and modified
 // time the file has now.
 func isHashCurrent(sha256 []byte, failure *string, hashedSize, hashedModified, size, modified *int64) bool {

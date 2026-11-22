@@ -67,6 +67,12 @@ SELECT CAST(EXISTS (
   SELECT 1 FROM own_picture_given_up WHERE device_id = sqlc.arg(device_id) AND file_id = sqlc.arg(file_id)
 ) AS INTEGER) AS is_given_up;
 
+-- name: DiscardOwnPicturesGivenUpOfFiles :execrows
+-- Every device's give-up of the own pictures of the files named, a JSON array of ids: a discarding
+-- rescan throws each out, so each device tries the file's own picture again (D535 section 10).
+DELETE FROM own_picture_given_up
+WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
 -- name: RemoveDevice :exec
 -- A device revoked (D218 section 4): it leaves the list, and its sessions end.
 UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);

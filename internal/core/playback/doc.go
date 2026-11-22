@@ -205,9 +205,12 @@
 //
 //   - The films whose own picture a device gave up are kept in the store, by device, so a restart
 //     keeps them, and its next playback of one is not offered the picture; a deviceless session's
-//     give-up holds for the playback that reported it alone (D266, D493).
-//     TestChunks_AnOwnPictureGivenUpOutlivesTheCoreThatHeardIt and
-//     TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback (internal/core/api).
+//     give-up holds for the playback that reported it alone (D266, D493). A rescan that discards
+//     what was made throws out every device's give-up of its files, through
+//     DiscardOwnPicturesGivenUpOfFiles (D535 §10).
+//     TestChunks_AnOwnPictureGivenUpOutlivesTheCoreThatHeardIt,
+//     TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback and
+//     TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid (internal/core/api).
 //
 // # Read before changing
 //

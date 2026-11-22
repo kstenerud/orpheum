@@ -237,6 +237,11 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	}
 	services.rescans.SetGivenUpForgetters(givenUp)
 	services.nodes.SetFFmpegFailures(givenUp, askForTheFFmpegSweeps(services.Queue))
+	services.rescans.SetMadeDiscarders(identify.MadeDiscarders{
+		OfFiles: []identify.FileFailuresForgetter{
+			library.DiscardHashesOfFiles, playback.DiscardOwnPicturesGivenUpOfFiles,
+		},
+	})
 	dependencies.Playback, dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks =
 		services.playback, services.subtitles, services.artwork, services.chunks
 	if err := services.wireJobsInto(parts); err != nil {

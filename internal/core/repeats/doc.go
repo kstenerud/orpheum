@@ -21,6 +21,13 @@
 //     it replaces the fingerprint's rows through library.ReplaceDetectedSegments.
 //     TestArch_EachTableHasOneWritingPackage.
 //
+//   - What a video's measurement is thrown out by, a sound's facts changed in a probe read again or a
+//     discarding rescan (ForgetMeasurements, D392 §3, D535 §6), throws out its fingerprint segments
+//     with it, a person's and the chapters' kept, so nothing the app found of its repeats outlives
+//     what it was found from (D535 §10).
+//     TestForgetMeasurements_ThrowsOutEveryVersionOfOneVideosMeasurement,
+//     TestForgetMeasurements_ThrowsOutTheSegmentsItsRepeatsWereKeptAs.
+//
 //   - The sweep queues a find_repeats job for each season of an aired ordering, on a node, of two
 //     episodes or more, with a video whose bytes are not measured at the measurement version, aimed at
 //     the season (its group) and naming the node in its arguments, so the job is the season's and one

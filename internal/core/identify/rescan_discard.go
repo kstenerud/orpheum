@@ -124,3 +124,32 @@ func (matcher *Matcher) fetchDiscarded(
 	}
 	return nil
 }
+
+// discardFetched throws out, a rescan discarding what was made, what was fetched for its items
+// (discardMade, D535 §6, §10); a rescan that keeps it, nothing.
+func (rescans *Rescans) discardFetched(ctx context.Context, rescan cachegen.ListRescansRow, matched []int64) error {
+	if rescan.IsDiscarding == 0 {
+		return nil
+	}
+	discarded, err := rescans.discardedItems(ctx, rescan, matched)
+	if err != nil {
+		return err
+	}
+	return rescans.matcher.discardMade(ctx, discarded, rescan.ItemID != nil)
+}
+
+// discardedItems are the items a discarding rescan throws out what was fetched for (discardMade): those
+// it matches again, or, a library's that matches nothing, a library of other videos, every live item
+// it holds, so its videos' images and the subtitles fetched for them go too (D535 §10).
+func (rescans *Rescans) discardedItems(
+	ctx context.Context, rescan cachegen.ListRescansRow, matched []int64,
+) ([]int64, error) {
+	if rescan.ItemID != nil || len(matched) > 0 {
+		return matched, nil
+	}
+	items, err := rescans.matcher.database.Read().ListLiveItemIDsOfLibrary(ctx, &rescan.LibraryID)
+	if err != nil {
+		return nil, fmt.Errorf("list library %d's items to discard: %w", rescan.LibraryID, err)
+	}
+	return items, nil
+}

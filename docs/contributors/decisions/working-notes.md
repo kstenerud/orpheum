@@ -30676,7 +30676,7 @@ manual rescan in every info page under the ... menu as a fallback in case someth
 auto-rescan." And: "Also, every library should offer a rescan button at the library level." Amends D534's Built, which left a file probed before it to its next full rescan, and
 D357 §1's limit of a rescan to a film or a series.
 
-**Status:** decided; §10 not built.
+**Status:** decided and built.
 
 1. **The probe has a version, raised with any change to what it says of a file**, and each file's
    probe records the version that read it.
@@ -30773,7 +30773,7 @@ D357 §1's limit of a rescan to a film or a series.
     classified as one or the other, mechanically, so a new one cannot be missed. Amends §6, and §8's
     keeping of a device's give-up for a discarding rescan.
 
-**Built** (2026-11-22): §1–6 as follows, §7, §8 and §9 below; §10 to build. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
+**Built** (2026-11-22): §1–6 as follows, §7 to §10 below. The probe's version (`nodeproto.ProbeVersion`, 1) is recorded in
 each file's probe and folded into the wire protocol (69), so a node with another probe is refused
 rather than mixed in; a file whose probe says none, or a lower one, is an older probe's. The sweep
 "files an older probe read" runs at start, hourly, after every pass and at every scan's end; while
@@ -30836,6 +30836,26 @@ forgets nothing, as does a hello that says none, which keeps the build last said
 a whole-file hash, a provider's fetch failure and the failures of unknown cause (retried at a
 restart). The failures are kept by the bytes (payload hash), so a copy on another node shares them.
 
+§10: every table of persistent.db and cache.db says, in `internal/store/discard.go`, what a
+discarding rescan does with its rows: kept as a person's doing; discarded as the rescan starts, by
+the read again or by the match again; rewritten whole by the rescan's own read, pass or match; or
+outside its scope (an account, a configuration, a root's state, the work in progress), each with its
+reason, and a test fails on a table that says nothing. What the classification found §6 and §8 left:
+as the rescan starts, in §8's scope and write, it now throws out its items' guesses
+(`guessed_match`), its files' whole-file hashes, made as well as failed, and every device's give-up
+of their own pictures (`own_picture_given_up`, which §8 kept), each by the package that keeps it; a
+video's fingerprint segments now go with its repeats' measurement, on a discard and on a sound's
+facts changed alike, a person's and the chapters' kept; and a library of other videos, which matches
+nothing, throws out the images and fetched subtitles of each of its videos, which before only a
+matched film or series did. Calls on mixed tables: an item's match is matched again but a person's
+chosen or confirmed one kept (D357 §3); `artwork` keeps a person's chosen image; `media_segment`
+keeps a person's rows; `extra_relation`, `other_video` and `sequence` keep the rows a person
+asserted; `ordering` keeps a person's; a library's discard keeps the downloaded `fetched_subtitle`
+files, quota-limited, and makes their text again, as §6 said, where a video page's throws them out;
+`file_nfo` is a person's on disk and is read again. The not-found marks (`followed_source` 'none',
+`search_rules_version`) are rewritten by the match again, and `fetch_failure` and `unknown_failure`
+are forgotten by every rescan already (§8).
+
 **Proven by:**
 - 1: `TestProbeVersion_IsRaisedWithAnyChangeToTheProbe` (internal/nodeproto), `TestProtocolVersion_IsRaisedWithAnyChangeToTheWire` (internal/nodeproto), `TestParse_AProbeSaysTheVersionThatReadIt` (internal/node/probe)
 - 2: `TestReadAgainOlderProbes_AFileAnOlderProbeReadIsReadAgainOnItsOwn`, `TestReadAgainOlderProbes_AFileIsAskedOnceAStart` (internal/core/library), `TestSweeps_FilesAnOlderProbeReadAreSweptForAfterEveryPass` (internal/core/assembly)
@@ -30846,3 +30866,4 @@ restart). The failures are kept by the bytes (payload hash), so a copy on anothe
 - 7: `TestIsRescanning_FromThePressUntilTheRescanEnds` (internal/core/identify); `rescan.test.tsx`: the page read again says Rescanning…, no notice unless the rescan could not start
 - 8: `TestRescan_ForgetsTheUnknownFailuresAndSubtitleTextFailuresOfItsFilmsAndFiles` (internal/core/api), `TestRescan_ALibrarysRescanForgetsEveryAttemptGivenUpOnAndKeepsWhatSucceeded`, `TestRescan_AVideoPagesRescanForgetsOnlyItsOwnAttemptsGivenUpOn`, `TestScan_ForgetsNoAttemptGivenUpOn`, `TestRescan_ARescanThatKeepsWhatWasMadeThrowsOutNothing` (internal/core/identify), `TestForgetTextFailures_ForgetsEveryFailureOfTheFilesAndKeepsWhatWasMade` (internal/core/subtitles), `TestForget_TakesOffEveryKindsFailureOfTheSubjectsAndTheirWorkRunsAgain` (internal/core/unexpected), `TestEnqueue_ARepeatRequestWakesAJobWaitingOnItsBackoffButNotASnoozedOne` (internal/platform/jobqueue)
 - 9: `TestHello_AnotherFFmpegForgetsTheFailuresOfTheNodesFilesAlone`, `TestHello_TheSameFFmpegNoneOrAFirstForgetsNothing` (internal/core/nodes), `TestBuild_ANodesNewFFmpegForgetsWhatFFmpegFailedAtOfItsFiles`, `TestAskForTheFFmpegSweeps_AsksForTheReadThroughsAndTheRepeats` (internal/core/assembly)
+- 10: `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store), `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestRescan_ADiscardingRescanOfOtherVideosThrowsOutWhatWasFetchedOfEach` (internal/core/identify), `TestForgetMeasurements_ThrowsOutTheSegmentsItsRepeatsWereKeptAs` (internal/core/repeats)

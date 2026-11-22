@@ -87,6 +87,12 @@
 //     so one made before they changed is never served, whoever read the file again.
 //     TestFactsKey_ChangesWithTheFactsAStreamsChunksAreMadeFromAlone.
 //
+//   - A rescan that discards what was made throws out every whole read of its files, made or failed,
+//     as it starts (DiscardHashesOfFiles, through identify.MadeDiscarders), so the copies' sweep reads
+//     each whole again; a rescan that keeps what was made forgets only the failed ones
+//     (ForgetHashFailuresOfFiles, D535 §8, §10).
+//     TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid (internal/core/api).
+//
 //   - A new video is stored at its listing, unread, so it is filed from its path before it is read;
 //     its read fills that row in, or, finding a file stored before, moved or come back, retires it,
 //     what identification filed it in going with it (D304 §1, §5).

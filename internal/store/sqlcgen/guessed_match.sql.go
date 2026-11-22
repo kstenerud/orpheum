@@ -18,6 +18,21 @@ func (q *Queries) ClearGuessedMatch(ctx context.Context, itemID int64) error {
 	return err
 }
 
+const discardGuessedMatchesOfItems = `-- name: DiscardGuessedMatchesOfItems :execrows
+DELETE FROM guessed_match
+WHERE item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// The guesses of the items named, a JSON array of ids: a discarding rescan throws each out, and its
+// match again and its pass guess again where the files still leave a guess (D535 section 10).
+func (q *Queries) DiscardGuessedMatchesOfItems(ctx context.Context, itemIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, discardGuessedMatchesOfItems, itemIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const isGuessedMatch = `-- name: IsGuessedMatch :one
 SELECT EXISTS (SELECT 1 FROM guessed_match WHERE item_id = ?1) AS is_guessed
 `
