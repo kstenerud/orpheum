@@ -4905,3 +4905,11 @@ owner's answers to that review, each recorded in D538:
   since it is built of batch 1 and 2's parts (Dialog, PickerScreen, Menu, StatusNote, Field), needs
   API additions as the pages do, and replaces Create a library's Machine chooser, which the pages
   rebuild there.
+- **A whole number is a Stepper only where stepping it makes sense** (the owner, 2026-11-22: "whole
+  number fields should become steppers only if it makes sense to step the value up and down. If
+  the range is just too big and the step value too low, then no"): a wide range with a small step
+  stays a number field.
+- **Every settings field saves on change** (the owner, 2026-11-22: "All settings fields should save
+  on change"), not when the page closes or the field goes.
+- **A library's hours between checks has no starting value in the client** (D200): the owner asked
+  for it again at the end, with why it is so and what the hours are for.
