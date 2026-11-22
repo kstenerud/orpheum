@@ -5,13 +5,16 @@ package byteserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
+	pathpkg "path"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/videofile"
 )
 
 // serveFolders answers nodeproto.PathBytesFolders: the folders in a folder, one of the node's roots or
@@ -59,6 +62,7 @@ func (server *Server) listFolders(
 	switch {
 	case err == nil:
 		answer.State, answer.Folders = nodeproto.ProbeReadable, folders
+		answer.VideoCounts = server.countFolders(ctx, path, root, relative, folders)
 	case errors.Is(err, diskwatch.ErrStalled) || diskwatch.IsDiskFailure(err):
 		answer.State = nodeproto.ProbeNotAnswering
 	case errors.Is(err, fs.ErrNotExist):
@@ -71,8 +75,95 @@ func (server *Server) listFolders(
 	}
 	if server.logger != nil {
 		server.logger.DebugContext(ctx, "listed the folders in a folder", "path", path, "state", answer.State,
-			"folderCount", len(answer.Folders), "tookMs", server.clock.Now().Sub(startedAt).Milliseconds(),
+			"folderCount", len(answer.Folders), "countedCount", len(answer.VideoCounts),
+			"tookMs", server.clock.Now().Sub(startedAt).Milliseconds(),
 			"failure", answer.Failure)
 	}
 	return answer
+}
+
+// folderCountBudget is how long a listing's counts of its folders' videos may take, all of them
+// together: an admin choosing a folder waits on the listing, so a folder not counted within it is
+// left uncounted rather than holding the listing up (D539 §7).
+const folderCountBudget = 300 * time.Millisecond
+
+// countFolders counts the videos in each of folders, the folders in the folder at relative inside
+// root, in their order, within folderCountBudget by the server's countClock: each through the disk
+// gate, so a share that has gone away stops the counting, never the listing. A folder whose count
+// failed, or did not end within the budget, has none, nor has any folder after the budget ran out:
+// no count is ever a part of one. Nil when none was counted.
+func (server *Server) countFolders(
+	ctx context.Context, path string, root *confine.MediaRoot, relative string, folders []string,
+) map[string]int64 {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := server.countClock.NewTimer(folderCountBudget)
+	defer budget.Stop()
+	go func() {
+		select {
+		case <-budget.C():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	var counts map[string]int64
+	for _, folder := range folders {
+		folderRelative := pathpkg.Join(relative, folder)
+		count := func() (int64, error) { return server.countVideos(ctx, root, folderRelative) }
+		var videoCount int64
+		var err error
+		if server.disks == nil {
+			videoCount, err = count()
+		} else {
+			operation := diskwatch.Operation{
+				Root: root.Path(), Path: pathpkg.Join(path, folder), Window: server.openWindow,
+			}
+			videoCount, err = diskwatch.Run(ctx, server.disks, operation, count, func(int64) {})
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		if err == nil {
+			if counts == nil {
+				counts = make(map[string]int64, len(folders))
+			}
+			counts[folder] = videoCount
+		}
+	}
+	return counts
+}
+
+// countVideosIn counts the videos in the folder at relative inside root and in every folder below it,
+// as a scan of it would read them (videofile): a file a scan reads as a video, in no folder a scan
+// skips. A link is not followed, to a file or a folder, so a count may be short of a scan's, which
+// follows one that stays inside the roots, but never counts a video twice. It stops with ctx's error
+// once ctx ends.
+func countVideosIn(ctx context.Context, root *confine.MediaRoot, relative string) (int64, error) {
+	var count int64
+	var countBelow func(below string) error
+	countBelow = func(below string) error {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("count the videos in %s: %w", relative, err)
+		}
+		entries, err := root.ReadDir(pathpkg.Join(relative, below))
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			name := pathpkg.Join(below, entry.Name())
+			switch {
+			case entry.IsDir() && !videofile.IsSkippedFolder(name):
+				if err := countBelow(name); err != nil {
+					return err
+				}
+			case entry.Type().IsRegular() && videofile.IsVideo(entry.Name()):
+				count++
+			}
+		}
+		return nil
+	}
+	if err := countBelow("."); err != nil {
+		return 0, err
+	}
+	return count, nil
 }

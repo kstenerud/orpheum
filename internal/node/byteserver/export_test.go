@@ -3,11 +3,13 @@
 package byteserver
 
 import (
+	"context"
 	"io/fs"
 	"os"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // OpeningWith has the server open each file with open, as a test's disk does.
@@ -39,5 +41,14 @@ func (server *Server) ListingFoldersWith(
 	list func(root *confine.MediaRoot, relative string) ([]string, error),
 ) *Server {
 	server.subfolders = list
+	return server
+}
+
+// CountingVideosWith has the server count a folder's videos with count, as a test's disk does, timing
+// a listing's counts by countClock.
+func (server *Server) CountingVideosWith(
+	count func(ctx context.Context, root *confine.MediaRoot, relative string) (int64, error), countClock clock.Clock,
+) *Server {
+	server.countVideos, server.countClock = count, countClock
 	return server
 }

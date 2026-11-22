@@ -55,6 +55,11 @@ type Server struct {
 	// subfolders lists the folders in a folder inside a root, relative to it:
 	// (*confine.MediaRoot).Subfolders; a test's may block as a disk that does not answer does.
 	subfolders func(root *confine.MediaRoot, relative string) ([]string, error)
+	// countVideos counts the videos in a folder inside a root, relative to it, and below it:
+	// countVideosIn; a test's may block as a disk that does not answer does. countClock times a
+	// listing's counts against folderCountBudget.
+	countVideos func(ctx context.Context, root *confine.MediaRoot, relative string) (int64, error)
+	countClock  clock.Clock
 	// logger logs each folder listing, timed by clock; nil logs nothing (LoggingTo).
 	logger *slog.Logger
 	clock  clock.Clock
@@ -98,6 +103,7 @@ func New(roots []*confine.MediaRoot) *Server {
 	server.openFile = server.payloadHashes.OpenNamed
 	server.placeFacts = (*confine.MediaRoot).FactsOf
 	server.subfolders = (*confine.MediaRoot).Subfolders
+	server.countVideos, server.countClock = countVideosIn, clock.System{}
 	return server
 }
 

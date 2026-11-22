@@ -33,6 +33,10 @@ type FolderListing struct {
 	// Folders are the names of the folders in it, in byte order: no link, even to a folder, and no
 	// hidden folder, whose name starts with "." (the owner, 2026-10-27).
 	Folders []string `json:"folders,omitempty"`
+	// VideoCounts are how many videos each of the folders holds, by its name, in it and in every
+	// folder below it, as a scan of it would read them (D539 §7): counted within a budget for the
+	// whole listing, so a folder not counted in time is not here, never a part of its count.
+	VideoCounts map[string]int64 `json:"videoCounts,omitempty"`
 	// Failure says why it is not readable, for any state but readable.
 	Failure string `json:"failure,omitempty"`
 }

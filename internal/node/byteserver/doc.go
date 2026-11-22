@@ -50,6 +50,12 @@
 //     folder inside a root is served as one under the root, nothing climbing out of the folder, and
 //     its disk keyed by the root (D359 §4).
 //     TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt.
+//   - Each folder listed carries how many videos it holds, in it and below it, as a scan of it would
+//     read them by internal/platform/videofile, no link followed; the counts of a listing end at its
+//     budget, about 300 ms by the server's clock, and a folder not counted by then carries no count,
+//     never a part of one, the share left not stuck (D539 §7).
+//     TestServeFolders_CountsEachFoldersVideosAsAScanWouldReadThem,
+//     TestServeFolders_AFolderNotCountedWithinTheBudgetCarriesNoCount.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
 //   - The recent log is every line the node process kept, whatever level it writes, each field's

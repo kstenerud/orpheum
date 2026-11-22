@@ -177,6 +177,9 @@ var wireShapeByVersion = map[int]string{
 	// 70 counts the recipe of each thing the node makes in the shape, so a node making at another
 	// recipe is refused (D536): a core of 70 would key what a node of 69 made as its own recipe's.
 	70: "3b74f65e5aa02d31c56e80ed8ff20ca91b78ae4d726fc2dca7f745d1b55fae34",
+	// 71 adds a folder listing's counts of its folders' videos, FolderListing.VideoCounts (D539 §7): a
+	// core of 70 would refuse a node of 71's listing for a field it does not know.
+	71: "865577522c6815aca752daa26d6ad72bd865ea3d9ae9825fa65fd76ec55de6ce",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
