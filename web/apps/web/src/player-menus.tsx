@@ -426,7 +426,7 @@ export function SubtitlesMenuOf(props: {
 }
 
 /**
- * ⁝ (D407 §8, Q8), in the spec's order (menu-redesign-spec.md's Settings menu): Start over, then
+ * ⁝ (D407 §8, Q8), in the order of the revamp's menu spec (D538): Start over, then
  * Quality, a submenu of Automatic and the device's data use where the film plays on its ladder,
  * the original file among them for one playback where debug tools are on (D538 §10); then the
  * subtitles' timing, the bare player where it is offered, Report a problem, For testers where the

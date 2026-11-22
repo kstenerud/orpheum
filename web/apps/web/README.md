@@ -26,7 +26,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   adds where the film stood as it was chosen; it sends their words, the page and the device's facts
   (`src/problem-report.tsx`). The System page lists the reports, and each downloads shareable or
   full at a press of one or the other, neither the default, the other library's names only in the
-  full form and only when asked. `src/problem-report.test.tsx`, `src/player-menus.test.tsx`,
+  full form and only when asked. A report that suggests a file's sound offset (the Sound menu's
+  Tell the admin, D537 §5) says it, and its Apply to everyone, at a confirmed press, sets the file's
+  offset for every person through the one call the Sound menu's Make it everyone's makes
+  (`setEveryonesSoundOffset` in `src/file-sound-offset.tsx`, D537 §2).
+  `src/problem-report.test.tsx`, `src/player-menus.test.tsx`,
   `src/system-problem-reports.test.tsx`.
 - **Imports packages by name, never another app.** `app-not-to-other-app` and
   `not-into-another-package-by-path` (`web/.dependency-cruiser.cjs`).
@@ -120,7 +124,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   which renders it only while the signed-in person's own Show debug tools is on, off until they turn
   it on in Your account, kept on the server (`PUT /me/preferences`) and read with who they are
   (`GET /me`'s `showsDebugTools`), so it follows them to every device; a guest by link alone never
-  sees one. Marked so: Play the original file, Watch Together's leader view
+  sees one. Marked so: Play the original file, last in ⁝'s Quality and for one playback (D538 §10), Watch Together's leader view
   (`src/together-debug.tsx`) on the host's session page and a signed-in guest's, and the debug link
   on the player (D380, `src/link-debug-tools.tsx`): a cap on the tab's download rate, applied in the
   player's chunk fetch so every carrier is capped alike, and a drop of its connection for 10, 30 or
@@ -850,12 +854,23 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/modal-dialog.browser.test.tsx`, `src/player-menus.browser.test.tsx`,
   `src/popover.browser.test.tsx`; on devices, VQ97, VQ250, VQ251, VQ252.
 - **A list nests another only as a submenu** (`ListSubmenu` in `src/list-box.tsx`, D490): its
-  entry names it and its current value, "Data use: 0.6 GB per hour ›"; OK, Right, a tap or a click
+  entry names it and its current value, "Quality: 0.6 GB per hour ›"; OK, Right, a tap or a click
   puts its list in the list's place, a back row first, focused on its current choice; the back
   row, Left, Back or the browser's Back returns, the pop-up open, focus on the entry; the list's
   other lines are hidden, not unmounted, and the pop-up is laid at its button again
-  (`tellPopoverContentChanged`), inside the screen. ⋯'s data use is one. `src/player-menus.test.tsx`,
+  (`tellPopoverContentChanged`), inside the screen. ⁝'s Quality is one, and the Sound menu's track.
+  `src/player-menus.test.tsx`, `src/player-menus-input.browser.test.tsx`,
   `src/drop-down.test.tsx`, `src/drop-down.browser.test.tsx`; on devices, VQ338, VQ339.
+- **The player's ⁝ keeps no sound setting, in the menu spec's order** (D538 §8, §10, the
+  revamp's menu spec): Start over, Quality, the subtitles' timing,
+  the bare player, Report a problem, For testers, and How it plays last; every sound setting is in
+  the Sound menu (`src/sound-menu.tsx`). Quality is Automatic or one of the device's Data use
+  choices in GB per hour (`QualityChoices`, `src/data-cap-choices.tsx`; D488, D490, D493), each
+  doing what Data use did, and, last and for a person showing debug tools alone, Play the original
+  file, for one playback, keeping no cap. Both menus are worked alike by a mouse, a finger, the
+  keyboard and a remote at a phone's width upright and on its side, a computer's and a
+  television's, focus always on a row and its ring shown. `src/player-menus.test.tsx`,
+  `src/sound-menu.test.tsx`, `src/player-menus-input.browser.test.tsx`; on devices, VQ379.
 - **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
   takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
   no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a

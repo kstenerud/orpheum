@@ -30971,14 +30971,19 @@ admin "This file needs this offset" so the admin can fix it for all users."
    the file when it is purged, and a person's own with the person.
 
 **Built** (2026-11-22): §1–7, the server's side. Migration step 0099 adds `file_sound_offset` and
-the report's `sound_file_id` and `sound_offset_ms`. The player's gear, the number input and the
-admin's report view are the web client's, built apart. Not settled: whether the device's and the
-file's added may pass 2000 (each is bounded, their sum is not), and a cast receiver gets the file's
-only where it starts a playback through `POST /playback`.
+the report's `sound_file_id` and `sound_offset_ms`. The web client's (2026-11-22): the player's
+Sound menu shows "This device" and "This file" apart, its steppers the number input's next form
+(D538 §8, §9); "This file" keeps the person's own, and where it differs from every person's, offers
+an admin Make it everyone's and anyone else Tell the admin, a report suggesting it; the System
+page's report says what it suggests, and its Apply to everyone, at a confirmed press, sets it
+through the one call Make it everyone's makes (`setEveryonesSoundOffset`). On devices, VQ379. Not
+settled: whether the device's and the file's added may pass 2000 (each is bounded, their sum is
+not), and a cast receiver gets the file's only where it starts a playback through `POST /playback`.
 
 **Proven by:**
-- 1, 2, 3, 4: `TestFileSoundOffset_EveryonesIsAnAdminsAndAPersonsOwnOverridesItUntilForgotten` (internal/core/api), `TestSoundOffset_APersonsOwnOverridesEveryonesForThemUntilForgotten` (internal/core/preferences)
-- 5: `TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt` (internal/core/api)
+- 1, 2, 3, 4: `TestFileSoundOffset_EveryonesIsAnAdminsAndAPersonsOwnOverridesItUntilForgotten` (internal/core/api), `TestSoundOffset_APersonsOwnOverridesEveryonesForThemUntilForgotten` (internal/core/preferences); `web/apps/web/src/sound-menu.test.tsx`: This device and This file shown apart, a step of This file kept as the person's own, Make it everyone's setting every person's and forgetting their own
+- 2, 5 (the admin's report view): `web/apps/web/src/system-problem-reports.test.tsx`: a report's suggested offset applied to everyone at the confirmed press, by the file's everyone's call
+- 5: `TestProblemReports_AReportSuggestsAFilesSoundOffsetAndTheListSaysIt` (internal/core/api); `web/apps/web/src/sound-menu.test.tsx`: Tell the admin offered to anyone but an admin, a report suggesting their own
 - 6: `TestMoveChoicesToCopysFile_MovesEveryonesSoundOffsetWhereTheFileHasNone` (internal/core/preferences)
 - 7: `TestRescan_ADiscardingRescanThrowsOutWhatTheAppMadeAndKeepsWhatAPersonDid` (internal/core/api), `TestDiscard_EveryTableSaysWhatADiscardDoesWithIt` (internal/store)
 
@@ -31001,7 +31006,11 @@ within the job health window (TestJobs_TheViewCountsTheJobsFailedWithinTheHealth
 says when each person last watched (TestPeople_TheListSaysWhenEachLastWatched), hasPassword already
 saying whether their link was used; a library's hours between checks are 1 to 168
 (TestLibraries_TheHoursBetweenChecksAreAWeekAtMost). About's versions needed nothing new: the app's
-is its page's orpheum-build, the server's an admin's GET /system.
+is its page's orpheum-build, the server's an admin's GET /system. §8 and §10 are built in the
+player: every sound setting is in its Sound menu, ⁝ keeps none, and ⁝'s Quality is Automatic or a
+Data use choice, Play the original file last in it for a person showing debug tools
+(`web/apps/web/src/player-menus.test.tsx`, `web/apps/web/src/sound-menu.test.tsx`,
+`web/apps/web/src/player-menus-input.browser.test.tsx`; on devices, VQ379).
 
 **Proven by:**
 - 12: TestNeedsAttention_PagesListEachPlaceOfflineWithItsMachineAndPath,

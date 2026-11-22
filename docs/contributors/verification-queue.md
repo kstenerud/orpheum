@@ -3751,3 +3751,39 @@ An item is ticked only by the person who did it, and only with what they saw.
      typing -200 and pressing its Done, whether the number becomes −200.
   10. Open the menu that says who is signed in, choose Report a problem, and send one saying
       "VQ378". Report that you sent it.
+- [ ] **VQ379** — The player's Sound menu holds every sound setting and ⁝ none, ⁝'s Quality a
+  submenu of Automatic and the device's GB per hour, Play the original file last in it for a person
+  showing debug tools, and a report's suggested sound timing applied to everyone from the System
+  page (D537 §2, §5; D538 §8, §10). Only real devices say whether a TV remote's own navigation and a
+  finger work the menus' submenus and steppers cleanly, which no test's browser does. On staging,
+  with "feat(web): ⁝'s Quality picks Automatic or a data use, the original a debug tool in it" and
+  "feat(web): a report's suggested sound timing applies to everyone at a confirmed press", play a
+  film with two sound tracks on each device:
+  1. On the Fire TV in Silk, open the player's Sound button. Report whether it lists the sound
+     track, Level loudness, Dialogue boost, then "This device" and "This file", and whether focus
+     shows its white ring on the first row.
+  2. On the Fire TV, press Down through every row and back Up. Report whether focus stays on a row
+     the whole way, never vanishing, and whether Down and Up leave each timing row to the row below
+     or above.
+  3. On the Fire TV, on the sound track row, press OK, pick the other track, then open Sound again.
+     Report whether the other track plays and the row names it.
+  4. On the Fire TV, close Sound and open ⁝. Report whether its rows read Start over, Quality, the
+     subtitles' timing if the film has subtitles, Report a problem, then the line saying how it
+     plays, and whether no sound setting is there.
+  5. On the Fire TV, on Quality, press Right. Report whether its list replaces ⁝'s, its back row
+     first, focus on Automatic; then press Down twice and OK, and report whether ⁝ closes and the
+     picture's quality drops within half a minute.
+  6. On the Fire TV, open ⁝ and Quality again, press Left. Report whether ⁝'s own rows come back,
+     focus on Quality, and it now reads the GB per hour you chose. Choose Automatic again.
+  7. On your phone, tap Sound, then tap "This file"'s + three times. Report whether the number goes
+     to 150, Sound stays open, and "Make it everyone's" appears under it.
+  8. On the phone, tap ⁝ and then Quality. Report whether its list fits the screen upright and
+     turned on its side, and, with Show debug tools on in Your account, whether "Play the original
+     file" is the last row (and is absent with it off).
+  9. On the phone, signed in as dan, set "This file" to 150 and choose "Tell the admin", and send
+     the report. Then, as yourself on a computer, open System's problem reports, open dan's, and
+     report whether it says "Suggests file … plays 150 ms later, for everyone." with "Apply to
+     everyone", whose question starts on Cancel; choose "Apply it" and report whether it says
+     "Applied", and whether the film then plays 150 ms later for a person who set none.
+  10. Open the menu that says who is signed in, choose Report a problem, and send one saying
+      "VQ379". Report that you sent it.
