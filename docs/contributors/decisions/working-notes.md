@@ -30625,3 +30625,24 @@ unsteadiness. Amends D500 §2.
 - 1: `TestMake_AMadeSoundFillsAGapInTheFilmsSoundWithSilence` (internal/node/chunks)
 - 2: `TestStoreFileOf_ASoundWhoseCopyIsGivenUpIsRefusedAsOneThatCannotBeMade` (internal/core/chunks); the player's "asks the page once to start the playback again where the video stands, and does not end it" and "keeps the sound at a chunk of its own sound, copied, which the playback started again replaces (D533 §2)" (web/packages/player/src/skip-unmade.test.ts); the page's "asks the page to start again where the video stood, saying the own sound was given up, when its player is refused it (D533 §2)" (web/apps/web/src/play-state.test.ts) and "says why, and that no picture was given up" (web/apps/web/src/watching.test.ts); only a device shows film 20597 playing with its sound: VQ377
 - 3: "reports no stall of its player once the page shows the film could not play" (web/apps/web/src/play-failure.test.tsx)
+
+## D534 — A sound whose first packet alone lasts seconds starts with the picture, and is made, never copied or played directly
+
+**Decided** (2026-11-22), by the project owner ("yes your proposal sounds good … just fold it
+in"), after D533 made film 20597 play: its sound then came 30 s late (the owner, on the Mac). The
+file's first AAC packet lasts 31.9 s and every other one a frame, 23 ms; the samples themselves
+start with the picture, so the long first duration is a wrong time, not a gap. An MP4 can say a
+sound starts late by stretching its first sample, as FFmpeg's `-use_editlist 0` does, but a file
+says so with an edit list as a rule, so a stretched first packet is taken as a wrong time.
+
+**Status:** decided.
+
+1. **A sound whose first packet alone lasts seconds starts with the picture:** when a sound
+   track's first packet lasts more than a second and the packets after it a frame each, the probe
+   says so of the track, and the sound the server makes from it takes the time after that packet
+   as following straight on from it, so the sound starts with the picture rather than after the
+   stretch.
+2. **Such a sound is made, never copied or played directly:** the track is not offered copied,
+   and a file whose sound plays such a track is not played directly, since a player taking the
+   file's times as they are plays the sound late or stalls.
+3. **A gap later in a sound is still filled with silence** (D533 §1).
